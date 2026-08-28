@@ -1,0 +1,43 @@
+# إعداد Supabase المحلي — supabase start
+project_id = "municipal-pwa"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+# لا تسجيل ذاتي — الموظفون يُنشَؤون من بوابة HR فقط
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+# ── Custom Access Token Hook: حقن role في JWT ──
+# يُفعَّل بعد رفع 00003_roles_permissions.sql (الدالة app.custom_access_token_hook)
+# الصيغة تختلف بين إصدارات CLI — تحقق قبل التفعيل:
+# [auth.hook.custom_access_token]
+# uri = "pg-functions://postgres/app/custom_access_token_hook"
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+# ── CAPTCHA للدخول (طبقة حماية رابعة — تفعيلها توصية production) ──
+# 1) أنشئ site/secret key من hCaptcha أو Turnstile
+# 2) ألغِ التعليق وضع المفاتيح:
+# [auth.captcha]
+# enabled = true
+# provider = "hcaptcha"        # أو turnstile
+# secret = "env(SECRETS.CAPTCHA_SECRET)"

@@ -1,0 +1,6 @@
+/* ═══ الطباعة — كشوف الرواتب والتقارير ═══ */
+@media print {
+  .no-print { display: none !important; }
+  .portal-shell { background: white !important; }
+  body { background: white !important; }
+}

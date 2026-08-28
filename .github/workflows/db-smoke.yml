@@ -1,0 +1,30 @@
+name: DB Migrations Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - 'supabase/seed/**'
+  push:
+    branches: [main, develop]
+
+jobs:
+  migrations-on-empty-db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: بدء Supabase المحلي (Docker متوفر على الـ runner)
+        run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,storage-api,pooler
+      - name: قاعدة فارغة ← كل المهاجرات
+        run: supabase db reset
+      - name: اختبار الدخان (جداول + RLS + سياسات + triggers + buckets)
+        run: |
+          psql "postgresql://postgres:postgres@localhost:54322/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -f supabase/tests/smoke_schema.sql | tee /dev/stderr | grep -q "SMOKE OK"
+      - name: توليد الأنواع يتطابق مع الكود؟
+        run: supabase gen types typescript --local > /tmp/db.types.ts && test -s /tmp/db.types.ts

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+dev-dist/
+coverage/
+*.tsbuildinfo
+
+# Env — لا يُرفع ملف بيئة حقيقي أبداً (تصحيح عيب v3: كان .env.local ضمن الشجرة)
+.env
+.env.local
+.env.*.local
+
+# Testing
+playwright-report/
+test-results/
+coverage/
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.local
+
+# Supabase local runtime
+supabase/.temp/
+supabase/.branches/

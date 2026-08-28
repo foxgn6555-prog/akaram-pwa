@@ -1,0 +1,174 @@
+/**
+ * الشريط الجانبي — بأسلوب Kyvzon (أقسام منظمة · شعار · ألوان الأكرام)
+ * كل بوابة تعرض وحداتها فقط · زر طي · خروج · RTL
+ */
+import { useLocation, useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import clsx from 'clsx'
+import { useUiStore } from '@stores/ui.store'
+import { useLogout } from '@features/auth/hooks/useAuth'
+import { Icon } from '@components/ui/Icon/Icon'
+import { portalThemes, PORTAL_UNITS, type SidebarUnit } from '@config/portals.config'
+import type { PortalId } from '@lib/constants/portals.constants'
+import { SidebarItem } from './SidebarItem'
+
+export interface SidebarProps {
+  portal: PortalId
+  onNavigate?: () => void
+}
+
+export function Sidebar({ portal, onNavigate }: SidebarProps) {
+  const { t } = useTranslation('sidebar')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const collapsed = !useUiStore((s) => s.sidebarOpen)
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const logout = useLogout()
+  const theme = portalThemes[portal]
+  const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
+
+  const isActive = (path: string): boolean =>
+    path === `/${portal}`
+      ? location.pathname === path || location.pathname === `${path}/`
+      : location.pathname.startsWith(path)
+
+  const isChildActive = (unit: SidebarUnit): boolean =>
+    unit.exact === true
+      ? location.pathname === unit.path
+      : location.pathname.startsWith(unit.path)
+
+  const goTo = (path: string): void => {
+    navigate(path)
+    onNavigate?.()
+  }
+
+  const handleLogout = (): void => {
+    void logout.mutateAsync().then(() => window.location.assign('/login'))
+  }
+
+  return (
+    <aside
+      data-testid="app-sidebar"
+      className={clsx(
+        'relative flex h-screen flex-col border-e border-slate-200 bg-white transition-all duration-200',
+        'fixed inset-y-0 start-0 z-40 w-72 lg:sticky lg:top-0 lg:z-auto lg:h-screen',
+        collapsed ? 'lg:w-20' : 'lg:w-72',
+      )}
+    >
+      {/* زر الطي العائم */}
+      <button
+        onClick={toggleSidebar}
+        data-testid="sidebar-collapse"
+        title={collapsed ? 'توسيع' : 'طي'}
+        aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
+        className="absolute top-10 z-50 flex size-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-brand-700 -end-3"
+      >
+        <Icon name={collapsed ? 'chevron-left' : 'chevron-right'} size={13} />
+      </button>
+
+      {/* الشعار */}
+      <div className={clsx(
+        'flex h-16 shrink-0 items-center gap-3 border-b border-slate-100',
+        collapsed ? 'flex-col justify-center px-2' : 'px-4',
+      )}>
+        <img src="/icons/logo-128.png" alt="جزيرة الأكرام" className="size-10 shrink-0 rounded-xl" />
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-brand-700">جزيرة الأكرام</p>
+            <p className="truncate text-[11px] text-slate-500">{theme.label}</p>
+          </div>
+        )}
+      </div>
+
+      {/* الوحدات */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {!collapsed && (
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {t('sections.main')}
+          </p>
+        )}
+        <ul className="space-y-1">
+          {units.map((unit) => {
+            const children = unit.children ?? []
+            const parentActive = isActive(unit.path)
+            const firstChild = children[0]
+
+            return (
+              <li key={unit.path}>
+                <SidebarItem
+                  unit={unit}
+                  label={t(unit.labelKey)}
+                  active={parentActive}
+                  collapsed={collapsed}
+                  portalClass={theme.themeClass}
+                  onSelect={() => goTo(firstChild?.path ?? unit.path)}
+                />
+                {parentActive && !collapsed && children.length > 0 && (
+                  <ul className="mb-2 mt-1 space-y-0.5 ps-4" data-testid="unit-pages">
+                    {children.map((child) => (
+                      <li key={child.path}>
+                        <SidebarItem
+                          unit={child}
+                          label={t(child.labelKey)}
+                          active={isChildActive(child)}
+                          collapsed={false}
+                          portalClass={theme.themeClass}
+                          compact
+                          onSelect={() => goTo(child.path)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+
+      {/* الخروج */}
+      <div className="border-t border-slate-100 px-3 py-2">
+        <button
+          onClick={handleLogout}
+          data-testid="sidebar-logout"
+          title={collapsed ? 'تسجيل الخروج' : undefined}
+          className={clsx(
+            'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors',
+            collapsed && 'justify-center px-2',
+          )}
+        >
+          <Icon name="logout" size={18} />
+          {!collapsed && <span>تسجيل الخروج</span>}
+        </button>
+      </div>
+
+      {/* تذييل */}
+      <div className="border-t border-slate-100 px-4 py-3">
+        {!collapsed ? (
+          <p className="text-center text-[10px] text-slate-400">جزيرة الأكرام · نظام داخلي</p>
+        ) : (
+          <div className="flex justify-center">
+            <img src="/icons/logo-128.png" alt="" className="size-6 opacity-40" />
+          </div>
+        )}
+      </div>
+    </aside>
+  )
+}
+
+/** زر قائمة الموبايل */
+export function SidebarToggle() {
+  const open = useUiStore((s) => s.sidebarOpen)
+  const toggle = useUiStore((s) => s.toggleSidebar)
+  return (
+    <button onClick={toggle} aria-label={open ? 'إغلاق' : 'فتح'} data-testid="sidebar-mobile-toggle"
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden">
+      <Icon name={open ? 'x' : 'menu'} />
+    </button>
+  )
+}
+
+/** الخلفية المعتمة */
+export function SidebarBackdrop({ onClose }: { onClose: () => void }) {
+  return <div data-testid="sidebar-backdrop" className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={onClose} />
+}

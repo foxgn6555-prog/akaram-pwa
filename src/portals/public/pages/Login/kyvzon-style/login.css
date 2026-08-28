@@ -1,0 +1,70 @@
+/**
+ * ════════════════════════════════════════════════════════════════
+ *  أنماط صفحة تسجيل الدخول
+ *  (منفصلة عن JSX لسهولة القراءة والصيانة)
+ * ════════════════════════════════════════════════════════════════
+ */
+
+@keyframes login-aurora-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.1); }
+  66% { transform: translate(-30px, 20px) scale(0.95); }
+}
+
+@keyframes login-aurora-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-50px, 30px) scale(1.15); }
+}
+
+@keyframes login-aurora-3 {
+  0%, 100% { transform: translate(0, 0) scale(0.9); }
+  50% { transform: translate(30px, 40px) scale(1.05); }
+}
+
+@keyframes login-slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes login-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.login-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.login-glass-card {
+  animation: login-slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.login-input {
+  transition: all 0.25s ease;
+}
+
+.login-input:focus {
+  box-shadow: 0 0 0 4px rgba(0, 95, 141, 0.15);
+}
+
+.login-shimmer-btn {
+  background-image: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: login-shimmer 2.5s infinite;
+}
+
+.login-grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+  background-size: 56px 56px;
+}

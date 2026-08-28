@@ -1,0 +1,19 @@
+/* ═══ متغيرات ألوان كل بوابة — ألوان مشتقة من هوية جزيرة الأكرام ═══ */
+.portal-public   { --portal-color: #005f8d; --portal-bg: #f5f8fa; }
+.portal-employee { --portal-color: #0f7cb0; --portal-bg: #eff7fc; }
+.portal-hr       { --portal-color: #7c3aed; --portal-bg: #f8f5ff; }
+.portal-manager  { --portal-color: #d97706; --portal-bg: #fffbeb; }
+.portal-finance  { --portal-color: #059669; --portal-bg: #ecfdf5; }
+.portal-it       { --portal-color: #4f46e5; --portal-bg: #eef2ff; }
+.portal-admin    { --portal-color: #dc2626; --portal-bg: #fef2f2; }
+/* ── البوابات السبع الجديدة ── */
+.portal-field-ops        { --portal-color: #0d9488; --portal-bg: #f0fdfa; }
+.portal-admin-ops        { --portal-color: #475569; --portal-bg: #f8fafc; }
+.portal-maintenance      { --portal-color: #ca8a04; --portal-bg: #fefce8; }
+.portal-transfer-station { --portal-color: #0891b2; --portal-bg: #ecfeff; }
+.portal-executive        { --portal-color: #1e293b; --portal-bg: #f1f5f9; }
+.portal-deputy           { --portal-color: #9f1239; --portal-bg: #fff1f2; }
+.portal-ops-room         { --portal-color: #1d4ed8; --portal-bg: #eff6ff; }
+
+.portal-shell { background: var(--portal-bg); }
+.portal-accent { color: var(--portal-color); }

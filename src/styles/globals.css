@@ -1,0 +1,51 @@
+/* ═══ Tailwind CSS v4 — CSS-first ═══
+   ألوان العلامة مستخرجة من شعار جزيرة الأكرام: أزرق #005F8D · أصفر #FFCA00 */
+@import 'tailwindcss';
+@import './portals.css';
+@import './rtl.css';
+@import './print.css';
+
+@theme {
+  --font-sans: 'Cairo', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* الأزرق المؤسسي */
+  --color-brand-50:  #eff7fc;
+  --color-brand-100: #d9edf7;
+  --color-brand-200: #b3dbef;
+  --color-brand-300: #7fc0df;
+  --color-brand-400: #3f9dc9;
+  --color-brand-500: #0f7cb0;
+  --color-brand-600: #005f8d;
+  --color-brand-700: #00507a;
+  --color-brand-800: #064263;
+  --color-brand-900: #0a3550;
+
+  /* الأصفر الشمسي (للتوكيدات فقط — لا نص أصفر على أبيض) */
+  --color-sun-400: #ffd333;
+  --color-sun-500: #ffca00;
+  --color-sun-600: #e0ad00;
+
+  --color-surface: #f5f8fa;
+  --color-surface-dark: #0d2436;
+
+  /* حالات الطلبات */
+  --color-status-pending:   #f59e0b;
+  --color-status-approved:  #10b981;
+  --color-status-rejected:  #ef4444;
+  --color-status-completed: #3b82f6;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  @apply bg-surface text-slate-900 antialiased;
+  /* الإطار المقفول: التمرير حكر على منطقة المحتوى داخل التطبيق */
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}

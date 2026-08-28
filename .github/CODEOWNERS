@@ -1,0 +1,5 @@
+# أصحاب المراجعة الإلزامية
+*                        @team-leads
+/src/services/           @backend-lead
+/supabase/migrations/    @backend-lead @security-officer
+/.github/workflows/      @devops

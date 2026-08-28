@@ -1,0 +1,13 @@
+/* ═══ RTL — Tailwind v4 يدعم الخصائص المنطقية (ms-/me-/ps-/pe-) افتراضياً.
+   هذا الملف للفروقات الدقيقة فقط — لا تكرر ما تغطيه Logical Properties ═══ */
+
+[dir='rtl'] .num-ltr {
+  /* الأرقام داخل نص عربي — إبقاء الاتجاه بصرياً صحيحاً */
+  direction: ltr;
+  unicode-bidi: embed;
+  display: inline-block;
+}
+
+[dir='rtl'] table {
+  text-align: right;
+}
