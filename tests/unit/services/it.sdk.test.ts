@@ -81,6 +81,43 @@ describe('users.sdk', () => {
       users.create({ email: 'a@b.iq', password: 'Passw0rd1', full_name: 'أحمد', role: 'employee' }),
     ).rejects.toThrow('البريد الإلكتروني مستخدم مسبقاً')
   })
+
+  it('updateEmployeeProfile يستدعي set_employee_profile بكل المعاملات', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: null })
+    await users.updateEmployeeProfile({
+      user_id: 'uid-1', full_name: 'أحمد علي', phone: '0770',
+      job_title: 'موظف', department_id: 'd1', employee_number: 'EMP-1',
+    })
+    expect(rpcMock).toHaveBeenCalledWith('set_employee_profile', {
+      p_user_id: 'uid-1', p_full_name: 'أحمد علي', p_phone: '0770',
+      p_job_title: 'موظف', p_department_id: 'd1', p_employee_number: 'EMP-1',
+    })
+  })
+
+  it('عمليات الحساب ترسل action الصحيح لـ admin-users', async () => {
+    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null })
+    await users.setBanned('uid-1', true)
+    expect(invokeMock).toHaveBeenCalledWith('admin-users', {
+      body: { action: 'set_ban', user_id: 'uid-1', banned: true },
+    })
+
+    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null })
+    await users.resetPassword('uid-1', 'NewPass1')
+    expect(invokeMock).toHaveBeenCalledWith('admin-users', {
+      body: { action: 'reset_password', user_id: 'uid-1', password: 'NewPass1' },
+    })
+
+    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null })
+    await users.updateEmail('uid-1', 'new@x.iq')
+    expect(invokeMock).toHaveBeenCalledWith('admin-users', {
+      body: { action: 'update_email', user_id: 'uid-1', email: 'new@x.iq' },
+    })
+  })
+
+  it('خطأ SELF_FORBIDDEN يُترجم لرسالة عربية واضحة', async () => {
+    invokeMock.mockResolvedValueOnce({ data: null, error: { message: 'x', code: 'SELF_FORBIDDEN' } })
+    await expect(users.setBanned('uid-1', true)).rejects.toThrow('لا يمكنك تنفيذ هذه العملية على حسابك')
+  })
 })
 
 describe('system.sdk', () => {

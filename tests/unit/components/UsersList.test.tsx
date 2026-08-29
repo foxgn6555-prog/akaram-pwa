@@ -11,8 +11,11 @@ vi.mock('react-router', async (importOriginal) => {
 })
 
 const mockUsers = vi.fn()
+const mockBan = vi.fn()
 vi.mock('@features/user-management', () => ({
   useUsers: (q?: string) => mockUsers(q),
+  useSetUserBanned: () => ({ mutate: mockBan, isPending: false }),
+  ASSIGNABLE_ROLES: ['employee', 'hr_officer', 'super_admin'],
 }))
 
 import UsersList from '@portals/it/pages/UserManagement/UsersList'
@@ -22,11 +25,19 @@ const FIXTURE = [
     id: 'u1', email: 'employee@akram.iq', created_at: '2026-01-01T00:00:00Z',
     last_sign_in_at: '2026-08-01T00:00:00Z', roles: ['employee'],
     employee_name: 'أحمد علي', employee_number: 'EMP-001',
+    banned_until: null,
   },
   {
     id: 'u2', email: 'hr@akram.iq', created_at: '2026-01-02T00:00:00Z',
     last_sign_in_at: null, roles: ['hr_officer', 'employee'],
     employee_name: 'سارة كريم', employee_number: 'EMP-002',
+    banned_until: null,
+  },
+  {
+    id: 'u3', email: 'old@akram.iq', created_at: '2026-01-03T00:00:00Z',
+    last_sign_in_at: null, roles: [],
+    employee_name: 'حساب قديم', employee_number: null,
+    banned_until: '2099-01-01T00:00:00Z',
   },
 ]
 
@@ -56,7 +67,7 @@ describe('UsersList — وحدة إدارة المستخدمين', () => {
 
   it('يعرض «لم يدخل بعد» لمن لم يسجل دخولاً', () => {
     renderPage()
-    expect(screen.getByText('لم يدخل بعد')).toBeInTheDocument()
+    expect(screen.getAllByText('لم يدخل بعد').length).toBeGreaterThanOrEqual(1)
   })
 
   it('زر إنشاء مستخدم يوجّه لصفحة الإنشاء', async () => {
@@ -83,5 +94,26 @@ describe('UsersList — وحدة إدارة المستخدمين', () => {
     mockUsers.mockReturnValue({ data: undefined, isLoading: false, isError: true })
     renderPage()
     expect(screen.getByText('تعذر جلب المستخدمين')).toBeInTheDocument()
+  })
+
+  it('يعرض حالة الحساب: مفعّل/معطّل', () => {
+    renderPage()
+    expect(screen.getAllByText('مفعّل').length).toBe(2)
+    expect(screen.getByText('معطّل')).toBeInTheDocument()
+  })
+
+  it('زر التعطيل السريع يستدعي useSetUserBanned مع الحالة المعكوسة', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByTestId('ban-employee'))
+    expect(mockBan).toHaveBeenCalledWith({ userId: 'u1', banned: true })
+    await user.click(screen.getByTestId('ban-old'))
+    expect(mockBan).toHaveBeenCalledWith({ userId: 'u3', banned: false })
+  })
+
+  it('فلاتر الدور والحالة موجودة', () => {
+    renderPage()
+    expect(screen.getByTestId('filter-role')).toBeInTheDocument()
+    expect(screen.getByTestId('filter-status')).toBeInTheDocument()
   })
 })

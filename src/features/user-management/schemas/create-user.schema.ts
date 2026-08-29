@@ -16,6 +16,8 @@ export const createSuperAdminSchema = z.object({
   role: z.enum([
     'employee', 'hr_officer', 'department_manager',
     'finance_officer', 'it_admin', 'super_admin',
+    'field_ops', 'admin_ops', 'maintenance',
+    'transfer_station', 'executive_director', 'deputy_director', 'ops_room',
   ], { message: 'اختر دوراً للمستخدم' }),
   /** ربط سجل موظف — اختياري لكنه المعتاد في الشركة */
   employee_number: z
@@ -28,3 +30,26 @@ export const createSuperAdminSchema = z.object({
 })
 
 export type CreateUserFormInput = z.infer<typeof createSuperAdminSchema>
+
+/**
+ * Zod — عقد تعديل بيانات الموظف المرتبط بمستخدم
+ * (التحقق المزدوج: هنا + دالة set_employee_profile على الخادم)
+ */
+export const updateProfileSchema = z.object({
+  full_name: z.string().min(3, 'الاسم الكامل مطلوب (3 أحرف فأكثر)'),
+  phone: z
+    .string()
+    .regex(/^[0-9+\-\s]*$/, 'الهاتف: أرقام و + و - فقط')
+    .max(20, 'رقم الهاتف طويل جداً')
+    .optional()
+    .or(z.literal('')),
+  job_title: z.string().max(100, 'المسمى طويل جداً').optional().or(z.literal('')),
+  department_id: z.string().uuid('اختر القسم').optional().or(z.literal('')),
+  employee_number: z
+    .string()
+    .regex(/^[A-Za-z0-9-]*$/, 'الرقم الوظيفي: حروف إنجليزية وأرقام وشرطات فقط')
+    .optional()
+    .or(z.literal('')),
+})
+
+export type UpdateProfileFormInput = z.infer<typeof updateProfileSchema>

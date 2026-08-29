@@ -1,4 +1,4 @@
-export type { PlatformUser, CreateUserInput } from '@sdk/users.sdk'
+export type { PlatformUser, CreateUserInput, UpdateEmployeeProfileInput } from '@sdk/users.sdk'
 import type { Role } from '@lib/constants/roles.constants'
 
 /** أدوار قابلة للتعيين عبر الواجهة (super_admin يتطلب حذراً — يُعرض بتأكيد إضافي) */

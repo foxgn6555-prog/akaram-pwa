@@ -72,6 +72,10 @@ begin
     raise exception 'SMOKE FAIL — set_user_role مفقود';
   end if;
   if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'app' and p.proname = 'set_employee_profile') then
+    raise exception 'SMOKE FAIL — set_employee_profile مفقود (00036)';
+  end if;
+  if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                  where n.nspname = 'app' and p.proname = 'db_stats') then
     raise exception 'SMOKE FAIL — db_stats مفقود';
   end if;
@@ -97,7 +101,8 @@ begin
   -- 4-د) أغلفة RPC في public — من يمنع خطأ 404 من PostgREST (00021)
   for t in select unnest(array[
     'record_login_attempt', 'is_login_locked', 'login_lock_remaining_seconds',
-    'list_platform_users', 'set_user_role', 'db_stats', 'db_overview', 'db_table_details'
+    'list_platform_users', 'set_user_role', 'db_stats', 'db_overview', 'db_table_details',
+    'set_employee_profile'
   ]) loop
     if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = t) then

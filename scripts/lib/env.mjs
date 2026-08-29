@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export function loadEnvFile(): Record<string, string> {
+export function loadEnvFile() {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const env = {}
   try {

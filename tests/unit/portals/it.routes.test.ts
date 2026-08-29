@@ -1,5 +1,6 @@
 /** البوابة التقنية: الوحدتان + صفحاتهما عبر المولّد */
 import { describe, it, expect } from 'vitest'
+import type { ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { buildPortalRoutes } from '@router/unit-routes'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -33,10 +34,15 @@ describe('بنية البوابة التقنية v2', () => {
     ])
   })
 
-  it('الرئيسية هي فهرس البوابة (/it) — index مخصص لا Placeholder', () => {
+  it('⛔ الانحدار: الرئيسية /it عنصرها اللوحة الحية لا Placeholder (إصلاح «قيد التطوير»)', () => {
     expect(PORTAL_UNITS[PORTALS.IT][0]?.path).toBe('/it')
     expect(routes[0]?.index).toBe(true)
-    expect(routes[0]?.element).toBeTruthy()
+    // مسار '' (الرئيسية) يجب أن يُلتقط من customRoutes — لا يُستبدل بـ UnitPlaceholder
+    // Placeholder يستقبل props {portal, unitPath} أما اللوحة فلا تستقبل شيئاً
+    const indexEl = routes[0]?.element as ReactElement<{ children?: ReactElement }>
+    const inner = indexEl.props.children
+    expect(inner).toBeTruthy()
+    expect((inner as ReactElement<Record<string, unknown>>).props.unitPath).toBeUndefined()
   })
 
   it('مسار كل وحدة = صفحة الوحدة المركزية (Hub) لا أول صفحة فرعية', () => {

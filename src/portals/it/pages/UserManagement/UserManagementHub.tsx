@@ -23,6 +23,7 @@ export default function UserManagementHub() {
     u.roles.some((r) => ['hr_officer', 'department_manager', 'finance_officer', 'it_admin', 'super_admin'].includes(r)),
   ).length ?? 0
   const noRole = users?.filter((u) => u.roles.length === 0).length ?? 0
+  const banned = users?.filter((u) => !!u.banned_until).length ?? 0
   const recent = [...(users ?? [])]
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
     .slice(0, 5)
@@ -44,10 +45,11 @@ export default function UserManagementHub() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* تقرير: أرقام الوحدة */}
-          <div className="grid grid-cols-3 gap-3" data-testid="um-stats">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="um-stats">
             <MiniStat label="إجمالي الحسابات" value={fmtNum(total)} />
             <MiniStat label="أصحاب أدوار إدارية" value={fmtNum(admins)} accent />
             <MiniStat label="بلا أدوار" value={fmtNum(noRole)} danger={noRole > 0} />
+            <MiniStat label="حسابات معطّلة" value={fmtNum(banned)} danger={banned > 0} />
           </div>
 
           {/* تقرير: توزيع الأدوار */}

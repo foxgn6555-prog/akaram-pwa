@@ -12,6 +12,7 @@ const REQUIRED_RPC_FUNCTIONS = [
   // البوابة التقنية
   { name: 'list_platform_users', params: ['text'] },
   { name: 'set_user_role', params: ['uuid', 'text', 'boolean'] },
+  { name: 'set_employee_profile', params: ['uuid', 'text', 'text', 'text', 'uuid', 'text'] },
   { name: 'db_stats', params: [] },
   { name: 'db_overview', params: [] },
   { name: 'db_table_details', params: ['text'] },
@@ -27,8 +28,14 @@ const REQUIRED_RPC_FUNCTIONS = [
 ] as const
 
 describe('⚓ عقود دوال RPC (يجب أن تكون في public)', () => {
-  it('قائمة الدوال المطلوبة كاملة (13 دالة)', () => {
-    expect(REQUIRED_RPC_FUNCTIONS).toHaveLength(13)
+  it('قائمة الدوال المطلوبة كاملة (14 دالة)', () => {
+    expect(REQUIRED_RPC_FUNCTIONS).toHaveLength(14)
+  })
+
+  it('set_employee_profile تقبل 6 معاملات (بيانات الموظف المرتبط)', () => {
+    const fn = REQUIRED_RPC_FUNCTIONS.find((f) => f.name === 'set_employee_profile')
+    expect(fn?.params).toHaveLength(6)
+    expect(fn?.params[0]).toBe('uuid')
   })
 
   it('كل دالة لها اسم ومعاملات معرفة', () => {

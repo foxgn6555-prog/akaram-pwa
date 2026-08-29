@@ -25,7 +25,9 @@ export function buildPortalRoutes(
 
   const byRel = new Map<string, RouteObject>()
   for (const route of customRoutes) {
-    if (route.path) byRel.set(route.path, route)
+    // الرئيسية تأتي بمسار '' (فارغ) — typeof يميّزها عن undefined، وإلا فلا تدخل الخريطة
+    // وتستبدل صفحتها الحقيقية بـ UnitPlaceholder (ثغرة «قيد التطوير» على الرئيسية)
+    if (typeof route.path === 'string') byRel.set(route.path, route)
   }
 
   const children: RouteObject[] = []

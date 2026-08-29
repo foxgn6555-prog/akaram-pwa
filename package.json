@@ -29,6 +29,7 @@
     "hooks:install": "bash scripts/install-git-hooks.sh",
     "role:set": "node scripts/set-role.mjs",
     "user:create": "node scripts/create-user.mjs",
+    "user:reset-pass": "node scripts/reset-password.mjs",
     "functions:deploy": "bash scripts/deploy-functions.sh",
     "simulate": "bash scripts/simulate-devices.sh"
   },
