@@ -91,7 +91,6 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
           {units.map((unit) => {
             const children = unit.children ?? []
             const parentActive = isActive(unit.path)
-            const firstChild = children[0]
 
             return (
               <li key={unit.path}>
@@ -101,7 +100,8 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
                   active={parentActive}
                   collapsed={collapsed}
                   portalClass={theme.themeClass}
-                  onSelect={() => goTo(firstChild?.path ?? unit.path)}
+                  // النقر على الوحدة → صفحتها المركزية (Hub) — وأيقونات الـ Hub تنقل للصفحات الفرعية
+                  onSelect={() => goTo(unit.path)}
                 />
                 {parentActive && !collapsed && children.length > 0 && (
                   <ul className="mb-2 mt-1 space-y-0.5 ps-4" data-testid="unit-pages">

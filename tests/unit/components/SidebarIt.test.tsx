@@ -1,7 +1,8 @@
 /** البوابة التقنية: وحدتان فقط + الصفحات الفرعية تظهر عند نشاط الوحدة */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useLocation } from 'react-router'
 
 vi.mock('@features/auth/hooks/useAuth', () => ({
   useLogout: () => ({ mutateAsync: vi.fn(async () => {}) }),
@@ -60,5 +61,26 @@ describe('Sidebar IT — وحدتا البوابة التقنية', () => {
     const labels = active.map((b) => b.textContent)
     expect(labels).toContain('إدارة المستخدمين')  // الوحدة الأم
     expect(labels).toContain('إنشاء مستخدم')       // الصفحة الفرعية
+  })
+
+  it('النقر على الوحدة → صفحتها المركزية (Hub) لا أول صفحة فرعية', async () => {
+    const user = userEvent.setup()
+    let pathname = ''
+    function Probe() {
+      pathname = useLocation().pathname
+      return null
+    }
+    render(
+      <MemoryRouter initialEntries={['/it']}>
+        <Sidebar portal="it" />
+        <Probe />
+      </MemoryRouter>,
+    )
+    // وحدة المستخدمين → الـ Hub (وليس /list)
+    await user.click(screen.getByRole('button', { name: 'إدارة المستخدمين' }))
+    expect(pathname).toBe('/it/user-management')
+    // وحدة قاعدة البيانات → الـ Hub (وليس /tables)
+    await user.click(screen.getByRole('button', { name: 'قاعدة البيانات' }))
+    expect(pathname).toBe('/it/database')
   })
 })
