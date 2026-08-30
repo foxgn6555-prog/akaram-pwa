@@ -149,6 +149,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'database',
       exact: true,
     },
+    {
+      // الجولة 5 — مصمم التدفقات (FlowBridge): عرض بصري حي لتكاملات المنظومة
+      path: '/it/flowbridge',
+      labelKey: 'nav.flowbridge',
+      icon: 'flow',
+      exact: true,
+    },
   ],
 
   // بوابة الإدارة العليا

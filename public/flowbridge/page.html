@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowBridge — صفحة المصمم (للتضمين)</title>
+<meta name="color-scheme" content="dark">
+
+<!-- ================================================================
+     FlowBridge · EMBED VARIANT
+     Hosts ONLY the designer module — ready to be iframed or routed
+     inside YOUR platform. Uses the classic bundle (works anywhere).
+     Exposes: window.FlowBridge = { getGraph(), loadGraph(), engine }
+     ================================================================ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/engine.css">
+</head>
+<body style="overflow:hidden">
+  <div id="fb-root" style="height:100%"></div>
+
+  <script src="assets/flowbridge-bundle.js"></script>
+  <script>
+    (async function () {
+      var App = window.FlowBridgeApp;
+      if (!App) { console.error('[FlowBridge] bundle missing — run: node build.js'); return; }
+
+      /* Platform contract (query string or FlowBridgeConfig):
+         ?portal=POS,CRM → restrict visible portals
+         ?readonly=1     → hide editable toolbar actions
+         ?api=...&token=... → point to your backend                */
+      var q = new URLSearchParams(location.search);
+      var cfg = Object.assign({}, window.FlowBridgeConfig || {});
+      if (q.get('api')) { cfg.apiUrl = q.get('api'); cfg.apiToken = q.get('token') || ''; }
+      if (q.get('readonly') === '1') cfg.readonly = true;
+      if (q.get('autosave') === '0') cfg.autosave = false;
+      window.FlowBridgeConfig = cfg;
+      await App.store.init();
+      var designer = App.mountDesigner(document.getElementById('fb-root'));
+
+      window.FlowBridge = {
+        getGraph: function () { return App.store.getGraph(); },
+        loadGraph: function (g) { App.store.setGraph(g); },
+        engine: designer.engine
+      };
+      console.log('[FlowBridge] embed ready — window.FlowBridge.getGraph() / .engine.pulse(id)');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>host-demo — مثال ربط FlowBridge داخل مشروع حقيقي</title>
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/engine.css">
+<style>
+  /* هذا المثال يحاكي "منصتك الحقيقية": شريط علوي خاص بك + لوحة جانبية + منطقة المحرك */
+  body{ display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  .my-topbar{
+    height:54px; flex:none; display:flex; align-items:center; gap:14px; padding:0 18px;
+    background:#131722; border-bottom:1px solid var(--line);
+  }
+  .my-topbar .dot{ width:9px; height:9px; border-radius:50%; background:var(--success); box-shadow:0 0 10px var(--success); }
+  .my-layout{ flex:1; display:flex; min-height:0; }
+  .my-side{
+    width:240px; flex:none; padding:16px; display:flex; flex-direction:column; gap:10px;
+    background:#10131B; border-inline-end:1px solid var(--line);
+  }
+  .my-side h3{ margin:0 0 4px; font-size:13px; color:var(--text-2); }
+  .my-canvas{ flex:1; min-width:0; }
+  .my-note{ font-size:11px; color:var(--text-3); line-height:1.7; }
+</style>
+</head>
+<body>
+
+  <!-- ====== منصتك ====== -->
+  <header class="my-topbar">
+    <strong style="color:var(--text)">MyPlatform</strong>
+    <span style="font-size:11px;color:var(--text-3)">— مضيف FlowBridge</span>
+    <span style="margin-inline-start:auto" class="fb-badge ok">المحرك متصل</span>
+  </header>
+
+  <div class="my-layout">
+    <aside class="my-side">
+      <h3>الأحداث الحقيقية</h3>
+      <button class="fb-btn primary" id="btn-pulse">📡 بث حدث نجاح</button>
+      <button class="fb-btn" id="btn-pulse-fail">⚠️ بث حدث فشل</button>
+      <button class="fb-btn" id="btn-save">💾 حفظ على "منصتك"</button>
+      <div class="my-note">
+        هذا المثال يثبت أن FlowBridge يُربط داخل أي مشروع:<br>
+        ① كتالوج بوابات خاص بك مررته للمحرك<br>
+        ② زر «بث حدث» يطلق <code>engine.pulse()</code><br>
+        ③ الزر «حفظ» يعرض ما استلمه <code>onGraphChange</code>
+      </div>
+      <div class="fb-log ok" id="last-save" style="margin-top:auto">
+        <span class="fb-log-ico">✓</span>
+        <div class="fb-log-main"><div class="fb-log-msg">بانتظار أول حفظ</div><div class="fb-log-sub">onGraphChange</div></div>
+      </div>
+    </aside>
+    <div class="my-canvas" id="host-canvas"></div>
+  </div>
+
+  <!-- الحزمة الكلاسيكية — تعمل بلا ES Modules وفي أي بيئة -->
+  <script src="assets/flowbridge-bundle.js"></script>
+  <script>
+    /* ============ عقد الربط: بيانات منصة افتراضية ============ */
+    (function () {
+      var App = window.FlowBridgeApp;
+      if (!App) { document.body.insertAdjacentHTML('beforeend', '<div style="padding:30px;color:#F87171">run: node build.js أولاً</div>'); return; }
+
+      /* 1) كتالوج بوابات منصتك (أي بيانات تريدها — لا شيء مفترض) */
+      var myPortals = [
+        { id: 'p-store', label: 'المتجر',  labelAr: 'المتجر الإلكتروني',  icon: '🛒', color: '#6366F1', category: 'مبيعات',
+          events: ['order.created', 'order.paid'], fields: ['order.id', 'order.total'], endpoint: 'https://my/api/store' },
+        { id: 'p-bank',  label: 'البنك',   labelAr: 'بوابة الدفع',         icon: '💳', color: '#10B981', category: 'مالية',
+          events: ['txn.approved', 'txn.failed'], fields: ['txn.id', 'txn.amount'], endpoint: 'https://my/api/bank' },
+        { id: 'p-acc',   label: 'المحاسبة', labelAr: 'نظام المحاسبة',        icon: '🧮', color: '#F59E0B', category: 'مالية',
+          events: ['invoice.issued'], fields: ['invoice.no', 'invoice.total'], endpoint: 'https://my/api/acc' }
+      ];
+
+      /* 2) مخطط أولي (اختياري) — عقدتان جاهزتان للتجربة الفورية */
+      var myGraph = {
+        nodes: [
+          { id: 'n-1', portalId: 'p-store', x: 140,  y: 180, isEnabled: true, status: 'Online',  latencyMs: 42, name: '' },
+          { id: 'n-2', portalId: 'p-bank',  x: 640,  y: 180, isEnabled: true, status: 'Online',  latencyMs: 51, name: '' },
+          { id: 'n-3', portalId: 'p-acc',   x: 1140, y: 180, isEnabled: true, status: 'Online',  latencyMs: 63, name: '' }
+        ],
+        flows: [
+          { id: 'f-1', name: 'تحصيل المدفوعات', direction: 'forward', sourceId: 'n-1', targetId: 'n-2',
+            isActive: true, triggerEvent: 'order.paid', actionEvent: 'create.record', mappingRules: [], conditions: [], logic: 'AND', logs: [] },
+          { id: 'f-2', name: 'قيود محاسبية',     direction: 'forward', sourceId: 'n-2', targetId: 'n-3',
+            isActive: true, triggerEvent: 'txn.approved', actionEvent: 'create.record', mappingRules: [], conditions: [], logic: 'AND', logs: [] }
+        ]
+      };
+
+      /* 3) ربط المحرك بمشروعك */
+      var engine = App.initFlowEngine(document.getElementById('host-canvas'), {
+        portals: myPortals,
+        graph: myGraph,
+        autosave: false,                              // حفظ يدوي (ازر حفظ فقط)
+        onGraphChange: function (g) {                 // ← هنا تحفظ على منصتك
+          var box = document.getElementById('last-save');
+          box.classList.remove('err');
+          box.innerHTML = '<span class="fb-log-ico">✓</span><div class="fb-log-main">' +
+            '<div class="fb-log-msg">استلمت المستضيف: ' + g.nodes.length + ' عقدة · ' + g.flows.length + ' تدفق</div>' +
+            '<div class="fb-log-sub">' + new Date().toLocaleTimeString() + '</div></div>';
+        }
+      });
+
+      /* 4) أزرار "منصتك" → بث أحداث حقيقية للرسم */
+      document.getElementById('btn-pulse').addEventListener('click', function () {
+        var flow = engine.getGraph().flows[0];
+        if (flow) { engine.pulse(flow.id, 'success', { flow: 'دفع تلقائي' }); }
+      });
+      document.getElementById('btn-pulse-fail').addEventListener('click', function () {
+        var g = engine.getGraph();
+        if (g.flows.length) engine.pulse(g.flows[Math.floor(Math.random() * g.flows.length)].id, 'failed', { flow: 'فشل تحقق' });
+      });
+      document.getElementById('btn-save').addEventListener('click', function () {
+        engine.save();   // يمرر المخطط إلى onGraphChange (حافظ على منصتك)
+      });
+
+      /* 5) واجهة عامة للمشروع المضيف */
+      window.MyAppFlowBridge = {
+        engine: engine,
+        getGraph: engine.getGraph,
+        importGraph: engine.importGraph
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -26,6 +26,7 @@ const PAGE_CATALOG: Array<{ key: string; label: string; portal: string }> = [
   { key: 'it.permissions',     label: 'مصفوفة الصلاحيات',    portal: 'it' },
   { key: 'it.integrations.biometric', label: 'أجهزة البصمة', portal: 'it' },
   { key: 'it.integrations.gps',       label: 'تتبع الشاحنات', portal: 'it' },
+  { key: 'it.flowbridge',             label: 'مصمم التدفقات', portal: 'it' },
   // Employee
   { key: 'employee.dashboard', label: 'لوحة الموظف',         portal: 'employee' },
   { key: 'employee.requests',  label: 'طلباتي',              portal: 'employee' },

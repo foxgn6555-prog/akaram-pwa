@@ -20,8 +20,8 @@ const allPaths = new Set<string>()
 }
 
 describe('بنية البوابة التقنية v2', () => {
-  it('ثماني وحدات: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(8)
+  it('تسع وحدات: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + مصمم التدفقات', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(9)
     expect(PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)).toEqual([
       'nav.dashboard',
       'nav.user_management',
@@ -31,6 +31,7 @@ describe('بنية البوابة التقنية v2', () => {
       'nav.integrations',
       'nav.updates',
       'nav.archive',
+      'nav.flowbridge',
     ])
   })
 
@@ -70,9 +71,10 @@ describe('بنية البوابة التقنية v2', () => {
     expect(allPaths).toContain('user-management/:userId')
   })
 
-  it('سبع مسارات مخصصة: لوحة + ثلاث للمستخدمين + ثلاث لقاعدة البيانات', () => {
+  it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(16)
+    expect(itPaths).toHaveLength(17)
     expect(itPaths).toContain('database/tables/:tableName')
+    expect(itPaths).toContain('flowbridge')
   })
 })

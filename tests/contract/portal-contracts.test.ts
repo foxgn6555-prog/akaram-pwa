@@ -13,13 +13,13 @@ import { UNIT_LIBRARY } from '@features/portals/types'
 const allRoutes = customRoutes.map((r) => r.path).filter(Boolean) as string[]
 
 describe('⚓ عقد البوابة التقنية', () => {
-  it('الوحدات الثماني مسجلة بالترتيب الصحيح', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(8)
+  it('الوحدات التسع مسجلة بالترتيب الصحيح', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(9)
     const labels = PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)
     expect(labels).toEqual([
       'nav.dashboard', 'nav.user_management', 'nav.database',
       'nav.branches', 'nav.page_permissions', 'nav.integrations',
-      'nav.updates', 'nav.archive',
+      'nav.updates', 'nav.archive', 'nav.flowbridge',
     ])
   })
 

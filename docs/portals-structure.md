@@ -27,7 +27,7 @@ src/portals/<portal>/
 
 | المجلد | البوابة | الدور الحصري | الحالة |
 |--------|---------|--------------|--------|
-| `src/portals/it/` | التطوير المركزية (تقنية المعلومات سابقاً) | it_admin + super_admin | ✅ مكتملة (8 صفحات حية) |
+| `src/portals/it/` | التطوير المركزية (تقنية المعلومات سابقاً) | it_admin + super_admin | ✅ مكتملة (9 صفحات حية) |
 | `src/portals/hr/` | الموارد البشرية | hr_officer | صفحات Placeholder جاهزة للاستكمال |
 | `src/portals/employee/` | الموظف | employee | Placeholder جاهزة |
 | `src/portals/manager/` | مسؤول قسم | department_manager | صفحات جاهزة (Dashboard + فريق + اعتمادات) |

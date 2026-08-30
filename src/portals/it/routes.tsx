@@ -26,6 +26,9 @@ const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 
+// ── مصمم التدفقات (FlowBridge) — جولة 5 ──
+const FlowBridgePage = lazy(() => import('@portals/it/pages/FlowBridge/FlowBridgePage'))
+
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 )
@@ -63,4 +66,7 @@ export const customRoutes: RouteObject[] = [
 
   // ── وحدة الأرشيف ──
   { path: 'archive', element: s(<ArchivePage />) },
+
+  // ── وحدة مصمم التدفقات (FlowBridge) ──
+  { path: 'flowbridge', element: s(<FlowBridgePage />) },
 ]
