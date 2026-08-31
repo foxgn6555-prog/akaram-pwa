@@ -429,16 +429,6 @@ function initFlowEngine(container, opts = {}) {
       '</div>',
     '</div>',
     '<div class="fb-vignette"></div>',
-    '<div class="fb-empty-state">' +
-      '<div class="fb-empty-ring"></div>' +
-      '<div class="fb-empty-title">ابدأ بناء تدفقاتك</div>' +
-      '<div class="fb-steps">' +
-        '<div class="fb-step"><span class="n">1</span><div><b>أضف بواباتك</b><br>من صفحة «البوابات» — بالاسم واللون والقسم</div></div>' +
-        '<div class="fb-step"><span class="n">2</span><div><b>اسحبها إلى اللوحة</b><br>من قائمة «بوابات المنصة» على اليسار</div></div>' +
-        '<div class="fb-step"><span class="n">3</span><div><b>وصّل بينها</b><br>اسحب من مقبض Trigger إلى بوابة أخرى</div></div>' +
-      '</div>' +
-      '<button class="fb-btn primary" data-empty-add>🚪 إضافة بوابة جديدة</button>' +
-    '</div>',
     '<div class="fb-hud"><b data-hud-n>0</b> بوابات · <b data-hud-f>0</b> تدفقات · <span data-hud-z>100%</span></div>',
     '<div class="fb-minimap"><span class="lbl">MAP</span><canvas width="168" height="124"></canvas></div>'
   ].join('');
@@ -446,14 +436,11 @@ function initFlowEngine(container, opts = {}) {
   const refs = {
     canvas: $('.fb-canvas'), world: $('.fb-world'), svg: $('.fb-edge-svg'),
     edgeUi: $('.fb-edge-ui'), nodeLayer: $('.fb-node-layer'), bg: $('.fb-canvas-bg'),
-    empty: $('.fb-empty-state'), minimap: $('.fb-minimap canvas'),
+    minimap: $('.fb-minimap canvas'),
     zoomBadge: $('[data-tb="zoomreset"]'), saveBtn: $('[data-tb="save"]'),
     savePill: $('[data-save-pill]'), hudN: $('[data-hud-n]'), hudF: $('[data-hud-f]'), hudZ: $('[data-hud-z]')
   };
   const mmCtx = refs.minimap.getContext && refs.minimap.getContext('2d') || null;
-
-  $('[data-empty-add]').addEventListener('click', () =>
-    root.dispatchEvent(new CustomEvent('fb:empty-add', { bubbles: true })));
 
   /* =================================================================
      DATA SANITIZATION — load only valid graphs (integration safety)
@@ -633,7 +620,6 @@ function initFlowEngine(container, opts = {}) {
       elx.classList.toggle('disabled', !n.isEnabled);
     }
     for (const [id, elx] of nodeEls) if (!seen.has(id)) { elx.remove(); nodeEls.delete(id); }
-    refs.empty.classList.toggle('show', graph.nodes.length === 0);
     updateFlowCounts();
   }
   function afterAppend(n, elx) {
@@ -1899,7 +1885,6 @@ function mountDesigner(container) {
   $('[data-search]').addEventListener('input', (e) => renderCatalog(e.target.value));
   container.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => bus.emit('nav:go', b.dataset.nav)));
-  engineHost.addEventListener('fb:empty-add', () => bus.emit('nav:go', 'portals'));
 
   const offs = [
     bus.on(EVT.PORTALS_CHANGED, () => { renderCatalog(); engine.refresh(); syncStats(); }),

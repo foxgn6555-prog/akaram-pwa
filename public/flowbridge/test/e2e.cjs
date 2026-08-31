@@ -45,7 +45,7 @@ async function addPortal(name) {
     t('pill محفوظ at boot', document.querySelector('[data-save-pill]').classList.contains('saved'));
     t('undo disabled at boot', document.querySelector('[data-tb="undo"]').disabled);
     t('no demo run button', !document.querySelector('[data-tb="run"]'));
-    t('onboarding shows 3 steps', document.querySelectorAll('.fb-step').length === 3);
+    t('no onboarding empty-state overlay', !document.querySelector('.fb-empty-state'));
 
     /* ---- 2 · portals + nodes via real drag ---- */
     document.querySelector('.fb-nav a[data-view="portals"]').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));

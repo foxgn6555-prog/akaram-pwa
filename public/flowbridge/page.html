@@ -40,6 +40,29 @@
       if (q.get('readonly') === '1') cfg.readonly = true;
       if (q.get('autosave') === '0') cfg.autosave = false;
       window.FlowBridgeConfig = cfg;
+
+      /* ================================================================
+         Server-truth handshake — إصلاح التظليل:
+         الحزمة الكلاسيكية تخزّن كل حالة في localStorage (fb2:*)، وعند أي
+         إعادة تحميل يظلّل هذا الكاش الخادم — فلا تظهر مزامنة المنصة أبداً.
+         الحل: فحص الخادم مرة عند الإقلاع؛ إن كان متاحاً أُسقط الكاش المحلي
+         فيصبح الخادم مصدر الحقيقة، وإن تعذّر (offline) أُبقي الكاش للاستمرار.
+         ================================================================ */
+      var apiOk = false;
+      if (cfg.apiUrl) {
+        try {
+          var ping = await fetch(cfg.apiUrl + '/workflows/portals', {
+            headers: { Authorization: 'Bearer ' + (cfg.apiToken || '') },
+          });
+          apiOk = ping.ok;
+        } catch (_) { apiOk = false; }
+        if (apiOk) {
+          ['portals', 'graph', 'settings'].forEach(function (k) {
+            try { localStorage.removeItem('fb2:' + k); } catch (_) {}
+          });
+        }
+      }
+
       await App.store.init();
       var designer = App.mountDesigner(document.getElementById('fb-root'));
 
@@ -49,6 +72,38 @@
         engine: designer.engine
       };
       console.log('[FlowBridge] embed ready — window.FlowBridge.getGraph() / .engine.pulse(id)');
+
+      /* تقرير حالة للأب (src/portals/it/pages/FlowBridge): اتصال + أعداد حقيقية
+         ليظهر مؤشر واضح بدل كانفاس فارغ بلا تفسير */
+      try {
+        var g0 = App.store.getGraph() || { nodes: [], flows: [] };
+        window.parent.postMessage({
+          type: 'fb:state',
+          api: !!cfg.apiUrl,
+          apiOk: !cfg.apiUrl || apiOk,
+          portals: (App.store.getPortals() || []).length,
+          nodes: (g0.nodes || []).length,
+          flows: (g0.flows || []).length,
+        }, '*');
+      } catch (_) {}
+
+      /* ================================================================
+         Host bridge (postMessage) — used by src/portals/it/pages/FlowBridge:
+           { type: 'fb:auth', token }         → تحديث توكن الجلسة الحي (بلا إعادة تحميل)
+           { type: 'fb:pulse', flowId, status, payload } → بث نبضة حقيقية فورية
+         نرسل جاهزية للأب حتى يعرف متى يبدأ الإرسال (تفادي فقدان أول رسالة).
+         ================================================================ */
+      window.addEventListener('message', function (ev) {
+        var msg = ev.data;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'fb:auth') {
+          window.FlowBridgeConfig = Object.assign({}, window.FlowBridgeConfig, { apiToken: msg.token || '' });
+        } else if (msg.type === 'fb:pulse') {
+          var eng = (designer && designer.engine) || (window.FlowBridge && window.FlowBridge.engine);
+          if (eng && eng.pulse) eng.pulse(msg.flowId, msg.status || 'success', msg.payload);
+        }
+      });
+      try { window.parent.postMessage({ type: 'fb:ready' }, '*'); } catch (_) {}
     })();
   </script>
 </body>

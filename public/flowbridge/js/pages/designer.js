@@ -162,7 +162,6 @@ export function mountDesigner(container) {
   $('[data-search]').addEventListener('input', (e) => renderCatalog(e.target.value));
   container.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => bus.emit('nav:go', b.dataset.nav)));
-  engineHost.addEventListener('fb:empty-add', () => bus.emit('nav:go', 'portals'));
 
   const offs = [
     bus.on(EVT.PORTALS_CHANGED, () => { renderCatalog(); engine.refresh(); syncStats(); }),
