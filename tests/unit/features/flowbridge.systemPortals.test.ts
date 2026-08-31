@@ -51,8 +51,8 @@ describe('كتالوج بوابات المنظومة', () => {
     expect(ids).toContain('sys:ext-gps')
     expect(ids).toContain('sys:dynamic:warehouse')
     expect(ids).not.toContain('sys:dynamic:closed')
-    // 2 خارجي + 13 ثابت + 1 ديناميكي
-    expect(catalog).toHaveLength(16)
+    // 2 خارجي + 14 ثابت + 1 ديناميكي
+    expect(catalog).toHaveLength(17)
   })
 
   it('البوابة الديناميكية تحمل اسمها ولونها الحقيقيين', () => {

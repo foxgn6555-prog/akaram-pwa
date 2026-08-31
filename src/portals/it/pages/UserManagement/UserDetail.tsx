@@ -345,8 +345,8 @@ export default function UserDetail() {
 
       {/* تأكيد منح الإدارة العليا */}
       {confirmRole && (
-        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4">
+          <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
             <h3 className="mb-2 font-bold">منح دور الإدارة العليا؟</h3>
             <p className="mb-5 text-sm text-slate-500">
               هذا الدور يملك كل الصلاحيات. سيُسجَّل المنح باسمك في سجل التدقيق.
@@ -369,8 +369,8 @@ export default function UserDetail() {
 
       {/* تأكيد تعطيل/تفعيل الحساب */}
       {confirmBan !== null && (
-        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4">
+          <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
             <h3 className="mb-2 font-bold" data-testid="ban-dialog-title">
               {confirmBan ? 'تعطيل هذا الحساب؟' : 'تفعيل هذا الحساب؟'}
             </h3>

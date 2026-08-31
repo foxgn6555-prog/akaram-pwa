@@ -42,18 +42,20 @@ function getGreeting() {
 
 export function Header({ portal }: HeaderProps) {
   const { t } = useTranslation('common')
+  // تسميات صفحات البوابة محفوظة في namespace الخاص بالشريط الجانبي
+  const { t: tSidebar } = useTranslation('sidebar')
   const location = useLocation()
   const navigate = useNavigate()
   const { data: session } = useAuth()
   const logout = useLogout()
   const theme = portalThemes[portal]
   const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
-  const setSidebar = useUiStore((s) => s.setSidebar)
+  const setMobileNav = useUiStore((s) => s.setMobileNav)
 
   // ── البحث السريع ──
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const searchRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
 
   // ── نبض زمني: يحدّث التحية والتاريخ تلقائياً دون إعادة تحميل الصفحة ──
   const [, setTimeTick] = useState(0)
@@ -67,21 +69,28 @@ export function Header({ portal }: HeaderProps) {
   const GreetingIcon = greeting.Icon
   const today = format(new Date(), 'EEEE، d MMMM yyyy', { locale: ar })
 
-  // ── إغلاق البحث عند النقر خارجاً ──
+  // ── إغلاق البحث عند النقر خارجاً أو زر Escape ──
   useEffect(() => {
     const handler = (e: MouseEvent): void => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setShowSearch(false)
       }
     }
+    const esc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setShowSearch(false)
+    }
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', esc)
+    }
   }, [])
 
   // ── عناصر البحث: كل صفحات البوابة ──
   const allPages = units.flatMap((u) => [
-    { path: u.path, label: t(u.labelKey), icon: u.icon },
-    ...(u.children ?? []).map((c) => ({ path: c.path, label: t(c.labelKey), icon: c.icon })),
+    { path: u.path, label: tSidebar(u.labelKey), icon: u.icon },
+    ...(u.children ?? []).map((c) => ({ path: c.path, label: tSidebar(c.labelKey), icon: c.icon })),
   ])
   const searchResults = searchQuery.trim()
     ? allPages.filter((p) => p.label.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 6)
@@ -109,12 +118,16 @@ export function Header({ portal }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md sm:px-6">
-      {/* ── القائمة + العنوان ── */}
+    <header
+      ref={headerRef}
+      className="relative flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6"
+    >
+      {/* ── القائمة (الموبايل: تفتح الدرج) ── */}
       <button
-        onClick={() => setSidebar(true)}
-        className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden"
+        onClick={() => setMobileNav(true)}
+        className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden"
         aria-label="فتح القائمة"
+        data-testid="header-mobile-menu"
       >
         <Icon name="menu" size={20} />
       </button>
@@ -124,10 +137,22 @@ export function Header({ portal }: HeaderProps) {
         <p className="hidden text-[11px] text-slate-400 sm:block">{t('appName')}</p>
       </div>
 
-      {/* ── البحث السريع ── */}
-      <div className="relative hidden md:block" ref={searchRef}>
+      {/* ── البحث السريع: زر أيقونة (موبايل) ── */}
+      <button
+        onClick={() => setShowSearch((v) => !v)}
+        data-testid="header-search-toggle"
+        aria-label="بحث سريع"
+        aria-expanded={showSearch}
+        className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 md:hidden"
+      >
+        <Search size={20} />
+      </button>
+
+      {/* ── البحث السريع: زر حبّة (دسكتوب md+) ── */}
+      <div className="relative hidden md:block">
         <button
           onClick={() => setShowSearch((v) => !v)}
+          aria-expanded={showSearch}
           className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-400 hover:border-brand-300 hover:text-brand-600 transition-colors"
         >
           <Search size={16} />
@@ -168,6 +193,42 @@ export function Header({ portal }: HeaderProps) {
           </div>
         )}
       </div>
+
+      {/* ── لوحة البحث الكاملة (موبايل فقط) ── */}
+      {showSearch && (
+        <div
+          data-testid="mobile-search-panel"
+          className="absolute inset-x-0 top-16 z-50 border-b border-slate-200 bg-white p-3 shadow-lg md:hidden"
+        >
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث عن صفحة…"
+            className="h-11 w-full rounded-xl bg-slate-50 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-200"
+          />
+          <div className="mt-2 max-h-72 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              searchResults.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => { navigate(item.path); setShowSearch(false); setSearchQuery('') }}
+                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-slate-50 text-start transition-colors"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                    <Icon name={item.icon} size={16} />
+                  </span>
+                  <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                </button>
+              ))
+            ) : (
+              <p className="py-6 text-center text-xs text-slate-400">
+                {searchQuery ? 'لا توجد نتائج' : 'ابدأ الكتابة للبحث…'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── تحية حسب الوقت ── */}
       <div className={clsx('hidden lg:flex items-center gap-2 rounded-xl border px-3 py-1.5', greeting.bg, greeting.border)}>

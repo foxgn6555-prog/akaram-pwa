@@ -33,6 +33,7 @@ const PORTAL_HEX: Readonly<Record<string, string>> = {
   [PORTALS.EXECUTIVE]: '#1e293b',
   [PORTALS.DEPUTY]: '#9f1239',
   [PORTALS.OPS_ROOM]: '#1d4ed8',
+  [PORTALS.DISCLOSURES]: '#c2410c',
 }
 
 /** أيقونات البوابات — قريبة من روح أيقونات الشريط الجانبي لكل بوابة */
@@ -50,6 +51,7 @@ const PORTAL_EMOJI: Readonly<Record<string, string>> = {
   [PORTALS.EXECUTIVE]: '💼',
   [PORTALS.DEPUTY]: '🤝',
   [PORTALS.OPS_ROOM]: '🖥️',
+  [PORTALS.DISCLOSURES]: '📄',
 }
 
 /** أحداث/حقول حقيقية تعرفها كل بوابة (تظهر في بطاقة العقدة داخل المصمم) */

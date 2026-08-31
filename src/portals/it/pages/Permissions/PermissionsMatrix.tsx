@@ -190,8 +190,8 @@ export default function PermissionsMatrix() {
 
       {/* تأكيد القفل */}
       {confirmLock && (
-        <div role="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div role="dialog" className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4">
+          <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
             <h3 className="mb-2 font-bold">تأكيد قفل الصفحة</h3>
             <p className="mb-4 text-sm text-slate-500">
               سيُمنع هذا المستخدم من الصفحة حتى لو ممنوحة لدوره — يُسجَّل باسمك.

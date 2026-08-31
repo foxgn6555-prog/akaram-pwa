@@ -34,11 +34,14 @@ export function UnitHub({ title, description, pages, children, testId = 'unit-hu
         <p className="text-sm text-slate-500">{description}</p>
       </div>
 
-      {/* ① روابط صفحات الوحدة */}
+      {/* ① روابط صفحات الوحدة — كلاسات ثابتة حتى يولّدها Tailwind (لا أصناف ديناميكية) */}
       <div
         className={clsx(
-          'grid gap-3',
-          pages.length >= 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : `sm:grid-cols-${pages.length}`,
+          'grid grid-cols-2 gap-3',
+          pages.length >= 4 && 'sm:grid-cols-2 lg:grid-cols-4',
+          pages.length === 3 && 'sm:grid-cols-3',
+          pages.length === 2 && 'sm:grid-cols-2',
+          pages.length === 1 && 'grid-cols-1',
         )}
         data-testid={`${testId}-pages`}
       >

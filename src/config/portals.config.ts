@@ -40,6 +40,7 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
   [PORTALS.EXECUTIVE]:        { label: 'المدير التنفيذي', icon: 'shield', colorVar: '--portal-executive', themeClass: 'portal-executive' },
   [PORTALS.DEPUTY]:           { label: 'معاون المدير المفوض', icon: 'user', colorVar: '--portal-deputy', themeClass: 'portal-deputy' },
   [PORTALS.OPS_ROOM]:         { label: 'غرفة العمليات', icon: 'activity', colorVar: '--portal-ops-room', themeClass: 'portal-ops-room' },
+  [PORTALS.DISCLOSURES]:      { label: 'وحدة الكشوفات', icon: 'file-text', colorVar: '--portal-disclosures', themeClass: 'portal-disclosures' },
 }
 
 /** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
@@ -181,15 +182,34 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
   [PORTALS.TRANSFER_STATION]: [
     { path: '/transfer-station', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/transfer-station/weights', labelKey: 'nav.ts_weights', icon: 'scale',
+      children: [
+        { path: '/transfer-station/weights/log', labelKey: 'nav.ts_weights_log', icon: 'clipboard' },
+      ] },
+    { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
+    { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
   ],
   [PORTALS.EXECUTIVE]: [
     { path: '/executive', labelKey: 'nav.dashboard', icon: 'home', exact: true },
   ],
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+  ],
+
+  // ═══ وحدة الكشوفات ═══
+  [PORTALS.DISCLOSURES]: [
+    { path: '/disclosures', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    {
+      path: '/disclosures/statements', labelKey: 'nav.disc_statements', icon: 'file-text',
+      children: [
+        { path: '/disclosures/statements/new', labelKey: 'nav.disc_new', icon: 'clipboard' },
+      ],
+    },
+    { path: '/disclosures/archive', labelKey: 'nav.disc_archive', icon: 'archive-box' },
   ],
 }
 

@@ -14,6 +14,7 @@
 .portal-executive        { --portal-color: #1e293b; --portal-bg: #f1f5f9; }
 .portal-deputy           { --portal-color: #9f1239; --portal-bg: #fff1f2; }
 .portal-ops-room         { --portal-color: #1d4ed8; --portal-bg: #eff6ff; }
+.portal-disclosures      { --portal-color: #c2410c; --portal-bg: #fff7ed; }
 
 .portal-shell { background: var(--portal-bg); }
 .portal-accent { color: var(--portal-color); }

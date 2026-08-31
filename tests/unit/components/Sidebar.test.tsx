@@ -75,12 +75,41 @@ describe('أزرار الشريط الجانبي — طي/توسيع + تسجي�
     expect(mockLogout).toHaveBeenCalledTimes(1)
   })
 
-  it('في الوضع المطبوع يظهر أيقونة الخروج فقط (title بدل النص)', () => {
-    useUiStore.setState({ sidebarOpen: false })
+  it('في الوضع المطي يظهر أيقونة الخروج فقط (title بدل النص)', () => {
+    useUiStore.setState({ sidebarCollapsed: true })
     renderAt('/employee')
     const btn = screen.getByTestId('sidebar-logout')
     expect(btn).not.toHaveTextContent('تسجيل الخروج')
     expect(btn).toHaveAttribute('title', 'تسجيل الخروج')
-    useUiStore.setState({ sidebarOpen: true })
+    useUiStore.setState({ sidebarCollapsed: false })
+  })
+})
+
+describe('Sidebar — فصل وضعي الدسكتوب والموبايل', () => {
+  it('وضع الموبايل (variant=mobile) لا يعرض زر الطي ويبقى موسعاً', () => {
+    // حتى لو كان شريط الدسكتوب مطوياً، درج الموبايل لا يتأثر
+    useUiStore.setState({ sidebarCollapsed: true })
+    render(
+      <MemoryRouter initialEntries={['/employee']}>
+        <Sidebar portal="employee" variant="mobile" />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('app-sidebar-mobile')).toBeInTheDocument()
+    expect(screen.queryByTestId('sidebar-collapse')).not.toBeInTheDocument()
+    // النص ظاهر (موسع) رغم حالة الطي
+    expect(screen.getByTestId('sidebar-logout')).toHaveTextContent('تسجيل الخروج')
+    useUiStore.setState({ sidebarCollapsed: false })
+  })
+
+  it('النقر على رابط في الموبايل يستدعي onNavigate لإغلاق الدرج', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    render(
+      <MemoryRouter initialEntries={['/employee']}>
+        <Sidebar portal="employee" variant="mobile" onNavigate={onNavigate} />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('طلباتي'))
+    expect(onNavigate).toHaveBeenCalledTimes(1)
   })
 })

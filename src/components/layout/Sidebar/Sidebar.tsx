@@ -1,6 +1,10 @@
 /**
  * الشريط الجانبي — بأسلوب Kyvzon (أقسام منظمة · شعار · ألوان الأكرام)
  * كل بوابة تعرض وحداتها فقط · زر طي · خروج · RTL
+ *
+ * التجاوب:
+ *  · الدسكتوب (lg+): شريط ثابت بجانب المحتوى، قابل للطي لأيقونات (sidebarCollapsed)
+ *  · الموبايل (<lg): درج منزلق بملء الارتفاع، يفتح من زر الهيدر (mobileNavOpen)
  */
 import { useLocation, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -14,15 +18,25 @@ import { SidebarItem } from './SidebarItem'
 
 export interface SidebarProps {
   portal: PortalId
+  /** يُستدعى عند اختيار رابط في درج الموبايل (لإغلاقه بعد التنقل) */
   onNavigate?: () => void
+  /**
+   * وضع العرض:
+   *  - 'desktop' شريط ثابت قابل للطي (الافتراضي)
+   *  - 'mobile'  درج منزلق يظهر دائماً موسعاً
+   */
+  variant?: 'desktop' | 'mobile'
 }
 
-export function Sidebar({ portal, onNavigate }: SidebarProps) {
+export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProps) {
   const { t } = useTranslation('sidebar')
   const location = useLocation()
   const navigate = useNavigate()
-  const collapsed = !useUiStore((s) => s.sidebarOpen)
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const isMobile = variant === 'mobile'
+  // الطي خاص بالدسكتوب فقط؛ درج الموبايل يظهر دائماً موسعاً (يُقرأ دائماً بنفس الترتيب)
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
+  const collapsed = !isMobile && sidebarCollapsed
+  const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
   const logout = useLogout()
   const theme = portalThemes[portal]
   const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
@@ -48,23 +62,31 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
 
   return (
     <aside
-      data-testid="app-sidebar"
+      data-testid={isMobile ? 'app-sidebar-mobile' : 'app-sidebar'}
       className={clsx(
         'relative flex h-screen flex-col border-e border-slate-200 bg-white transition-all duration-200',
-        'fixed inset-y-0 start-0 z-40 w-72 lg:sticky lg:top-0 lg:z-auto lg:h-screen',
-        collapsed ? 'lg:w-20' : 'lg:w-72',
+        isMobile
+          ? // درج الموبايل: ثابت فوق المحتوى بعرض كامل معقول، ولا يتأثر بالطي
+            'fixed inset-y-0 start-0 z-40 w-72 max-w-[85vw] shadow-2xl'
+          : // الدسكتوب: شريط لاصق داخل تدفق الصفحة
+            'sticky top-0 z-auto w-72',
+        !isMobile && collapsed && 'w-20',
       )}
     >
-      {/* زر الطي العائم */}
-      <button
-        onClick={toggleSidebar}
-        data-testid="sidebar-collapse"
-        title={collapsed ? 'توسيع' : 'طي'}
-        aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
-        className="absolute top-10 z-50 flex size-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-brand-700 -end-3"
-      >
-        <Icon name={collapsed ? 'chevron-left' : 'chevron-right'} size={13} />
-      </button>
+      {/* زر الطي — للدسكتوب فقط (لا معنى للطي داخل درج الموبايل) */}
+      {!isMobile && (
+        <button
+          onClick={toggleCollapsed}
+          data-testid="sidebar-collapse"
+          title={collapsed ? 'توسيع' : 'طي'}
+          aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
+          aria-expanded={!collapsed}
+          className="absolute top-10 z-50 flex size-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-brand-700 -end-3"
+        >
+          {/* RTL: السهم يشير لاتجاه الطي */}
+          <Icon name={collapsed ? 'chevron-left' : 'chevron-right'} size={13} />
+        </button>
+      )}
 
       {/* الشعار */}
       <div className={clsx(
@@ -81,7 +103,7 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
       </div>
 
       {/* الوحدات */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="وحدات البوابة">
         {!collapsed && (
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             {t('sections.main')}
@@ -133,7 +155,7 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
           data-testid="sidebar-logout"
           title={collapsed ? 'تسجيل الخروج' : undefined}
           className={clsx(
-            'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors',
+            'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors',
             collapsed && 'justify-center px-2',
           )}
         >
@@ -156,19 +178,14 @@ export function Sidebar({ portal, onNavigate }: SidebarProps) {
   )
 }
 
-/** زر قائمة الموبايل */
-export function SidebarToggle() {
-  const open = useUiStore((s) => s.sidebarOpen)
-  const toggle = useUiStore((s) => s.toggleSidebar)
-  return (
-    <button onClick={toggle} aria-label={open ? 'إغلاق' : 'فتح'} data-testid="sidebar-mobile-toggle"
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden">
-      <Icon name={open ? 'x' : 'menu'} />
-    </button>
-  )
-}
-
-/** الخلفية المعتمة */
+/** الخلفية المعتمة لدرج الموبايل */
 export function SidebarBackdrop({ onClose }: { onClose: () => void }) {
-  return <div data-testid="sidebar-backdrop" className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={onClose} />
+  return (
+    <div
+      data-testid="sidebar-backdrop"
+      className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-[2px] lg:hidden"
+      onClick={onClose}
+      aria-hidden="true"
+    />
+  )
 }

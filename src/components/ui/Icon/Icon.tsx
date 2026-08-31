@@ -12,6 +12,7 @@ export type IconName =
   | 'chevron-left' | 'chevron-right' | 'lock' | 'wifi-off'
   | 'user-plus' | 'activity' | 'list' | 'alert-triangle' | 'refresh' | 'search'
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
+  | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
 
 const paths: Record<IconName, React.ReactNode> = {
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5" /></>,
@@ -51,6 +52,14 @@ const paths: Record<IconName, React.ReactNode> = {
   'map-pin': <><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.8" /></>,
   truck: <><path d="M2 6h12v10H2z" /><path d="M14 9h4l3 3.5V16h-7" /><circle cx="6" cy="18.5" r="1.8" /><circle cx="17.5" cy="18.5" r="1.8" /></>,
   flow: <><path d="M4 12h5m6 0h5" /><path d="M9 8l-3 4 3 4" /><path d="M15 8l3 4-3 4" /></>,
+  // ميزان (الأوزان): عمود + كفتان
+  scale: <><path d="M12 3.5V20" /><path d="M7 20h10" /><path d="M5 7h14" /><path d="M5 7 2.5 13a3 3 0 0 0 5 0L5 7z" /><path d="M19 7l-2.5 6a3 3 0 0 0 5 0L19 7z" /></>,
+  download: <><path d="M12 3v11" /><path d="m7.5 10 4.5 4.5L16.5 10" /><path d="M4.5 19h15" /></>,
+  send: <><path d="M21 4 3.5 10.8l6.5 2.2 2.2 6.5L21 4z" /><path d="m10 13 11-9" /></>,
+  'archive-box': <><rect x="3" y="4.5" width="18" height="4" rx="1" /><path d="M5.5 8.5V20h13V8.5" /><path d="M9.5 12h5" /></>,
+  trash: <><path d="M4.5 6.5h15" /><path d="M9 6.5V4.5h6v2" /><path d="M6.5 6.5 7.2 20h9.6l.7-13.5" /><path d="M10 10.5v6M14 10.5v6" /></>,
+  printer: <><path d="M7 8V3.5h10V8" /><rect x="4" y="8" width="16" height="8" rx="1.5" /><path d="M7 13h10v7.5H7z" /></>,
+  'file-spreadsheet': <><path d="M7 3h7l4 4v14H7z" /><path d="M14 3v4h4" /><path d="M9 12h8M9 15.5h8M9 19h8" /></>,
 }
 
 export interface IconProps extends SVGProps<SVGSVGElement> {

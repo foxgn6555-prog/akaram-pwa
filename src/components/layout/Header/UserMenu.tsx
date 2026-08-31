@@ -54,7 +54,7 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
       </button>
 
       {open && (
-        <div className="absolute end-0 top-12 w-60 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50">
+        <div className="absolute end-0 top-12 w-64 max-w-[calc(100vw-1.5rem)] max-h-[80vh] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-slate-100 z-50">
           {/* الرأس */}
           <div className="p-4 bg-gradient-to-br from-brand-50 to-brand-100/50 border-b border-slate-100">
             <div className="flex items-center gap-3">

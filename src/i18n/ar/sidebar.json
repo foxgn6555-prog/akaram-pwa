@@ -40,7 +40,14 @@
     "gps_tracking": "تتبع الشاحنات",
     "updates": "التحديثات والمراقبة",
     "archive": "الأرشيف",
-    "flowbridge": "مصمم التدفقات"
+    "flowbridge": "مصمم التدفقات",
+    "ts_weights": "الأوزان",
+    "ts_weights_log": "تسجيل الأوزان",
+    "ts_fines": "الغرامات",
+    "ts_archive": "أرشيف المحطة",
+    "disc_statements": "الكشوفات",
+    "disc_new": "إنشاء كشف",
+    "disc_archive": "أرشيف الكشوفات"
   },
   "sections": {
     "main": "القائمة الرئيسية",

@@ -22,7 +22,8 @@ export function SidebarItem({ unit, label, active, collapsed, portalClass, onSel
       title={collapsed ? label : undefined}
       className={clsx(
         'flex w-full items-center gap-3 rounded-xl transition-colors',
-        compact ? 'px-3 py-2 text-[13px]' : 'px-3 py-2.5 text-sm',
+        // هدف لمس مريح: ≥44px للرئيسي، ≥40px للفرعي
+        compact ? 'min-h-10 px-3 py-2 text-[13px]' : 'min-h-11 px-3 py-2.5 text-sm',
         active
           ? 'font-semibold text-white shadow-sm'
           : 'text-slate-600 hover:bg-slate-100',

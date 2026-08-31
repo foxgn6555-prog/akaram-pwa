@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useArchiveCounts, useArchivedTable, useRestore } from '@features/archive'
+import { useArchivedWeights, useRestoreWeight } from '@features/transfer-station'
+import { netOf } from '@features/transfer-station/lib/export'
+import { useArchivedDisclosures, useRestoreDisclosure } from '@features/disclosures'
+import { VIOLATION_LABELS, PENALTY_LABELS } from '@features/disclosures/types'
 import type { IconName } from '@components/ui/Icon/Icon'
 import { formatRelative } from '@lib/utils/date.utils'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -41,6 +45,14 @@ export default function ArchivePage() {
   const { data: records, isLoading: rLoading } = useArchivedTable(activeTable ?? undefined)
   const restore = useRestore()
 
+  // أرشيف سجلات أوزان المحطة التحويلية (قابل للاستعادة للمحطة)
+  const { data: stationWeights, isLoading: wLoading } = useArchivedWeights()
+  const restoreWeight = useRestoreWeight()
+
+  // أرشيف كشوفات وحدة الكشوفات (قابل للاستعادة)
+  const { data: discList, isLoading: dLoading } = useArchivedDisclosures()
+  const restoreDisclosure = useRestoreDisclosure()
+
   const totalArchived = (counts ?? []).reduce((sum, c) => sum + c.count, 0)
 
   // بحث محلي على السجلات المعروضة
@@ -65,6 +77,122 @@ export default function ArchivePage() {
         <p className="text-sm text-slate-500">
           لا حذف فعلي — كل سجل محذوف يُحفظ هنا مع سببه وزمانه ومُنفّذه، قابل للاستعادة بنقرة
         </p>
+      </div>
+
+      {/* ═══ سجلات أوزان المحطة التحويلية — أرشيف قابل للاستعادة ═══ */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="station-weights-archive">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-bold">
+            <Icon name="scale" size={15} className="text-brand-600" />
+            أرشيف المحطة التحويلية — سجلات الأوزان
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+              {stationWeights?.length ?? 0}
+            </span>
+          </h2>
+        </div>
+        {wLoading ? (
+          <LoadingSpinner label="جارٍ جلب سجلات المحطة…" />
+        ) : stationWeights && stationWeights.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-0 text-sm sm:min-w-[760px]" data-testid="station-weights-table">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/70 text-xs text-slate-500">
+                  <th className="px-4 py-2.5 text-start font-semibold">DB</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">السائق</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">التاريخ</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">الصافي</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">سبب الأرشفة</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">أُرشف</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">استعادة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stationWeights.map((w) => (
+                  <tr key={w.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-medium dir-ltr">{w.db_number}</td>
+                    <td className="px-4 py-2.5">{w.driver_name}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-500 dir-ltr">{w.log_date}</td>
+                    <td className="px-4 py-2.5 font-bold text-brand-700 dir-ltr">{netOf(w) ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-xs text-red-600/80">
+                      {w.archive_reason ?? <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-400">
+                      {w.archived_at ? formatRelative(w.archived_at) : '—'}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <button
+                        onClick={() => restoreWeight.mutate(w.id)}
+                        disabled={restoreWeight.isPending}
+                        data-testid={`restore-weight-${w.id}`}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <Icon name="refresh" size={13} />
+                        إعادة للمحطة
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState title="لا توجد سجلات أوزان مؤرشفة من المحطة" hint="عند حذف سجل من المحطة يظهر هنا ويمكن إعادته" />
+        )}
+      </div>
+
+      {/* ═══ أرشيف كشوفات وحدة الكشوفات ═══ */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="disclosures-archive">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <h2 className="flex items-center gap-2 text-sm font-bold">
+            <Icon name="file-text" size={15} className="text-brand-600" />
+            أرشيف وحدة الكشوفات — الكشوفات التأديبية
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+              {discList?.length ?? 0}
+            </span>
+          </h2>
+        </div>
+        {dLoading ? (
+          <LoadingSpinner label="جارٍ جلب الكشوفات…" />
+        ) : discList && discList.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-0 text-sm sm:min-w-[760px]" data-testid="disclosures-table">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/70 text-xs text-slate-500">
+                  <th className="px-4 py-2.5 text-start font-semibold">السائق</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">المخالفة</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">الإجراء</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">سبب الأرشفة</th>
+                  <th className="px-4 py-2.5 text-start font-semibold">استعادة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {discList.map((d) => (
+                  <tr key={d.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                    <td className="px-4 py-2.5 font-medium">{d.driver_name}</td>
+                    <td className="px-4 py-2.5">{VIOLATION_LABELS[d.violation_type]}</td>
+                    <td className="px-4 py-2.5">{d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '—'}</td>
+                    <td className="px-4 py-2.5 text-xs text-red-600/80">
+                      {d.archive_reason ?? <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <button
+                        onClick={() => restoreDisclosure.mutate(d.id)}
+                        disabled={restoreDisclosure.isPending}
+                        data-testid={`restore-disc-${d.id}`}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                      >
+                        <Icon name="refresh" size={13} />
+                        إعادة للوحدة
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState title="لا توجد كشوفات مؤرشفة" hint="كشوفات وحدة الكشوفات المحذوفة تظهر هنا" />
+        )}
       </div>
 
       {/* العدادات */}
@@ -115,7 +243,7 @@ export default function ArchivePage() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="بحث في السجلات…"
                 data-testid="archive-search"
-                className="h-8 w-44 rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-400"
+                className="h-8 w-32 min-w-0 rounded-lg border border-slate-200 px-2.5 text-xs outline-none focus:border-brand-400 sm:w-44"
               />
               <button onClick={() => { setActiveTable(null); setSearch('') }}
                       className="text-xs text-slate-400 hover:text-slate-600">
@@ -127,7 +255,8 @@ export default function ArchivePage() {
           {rLoading ? (
             <LoadingSpinner label="جارٍ جلب السجلات…" />
           ) : filteredRecords && filteredRecords.length > 0 ? (
-            <table className="w-full text-sm" data-testid="archive-table">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="w-full min-w-0 sm:min-w-[640px] text-sm" data-testid="archive-table">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70 text-xs text-slate-500">
                   <th className="px-4 py-2.5 text-start font-semibold">الاسم</th>
@@ -163,6 +292,7 @@ export default function ArchivePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : search.trim() ? (
             <EmptyState title="لا نتائج مطابقة للبحث" hint={`جرب مصطلحاً آخر — إجمالي السجلات: ${records?.length ?? 0}`} />
           ) : (

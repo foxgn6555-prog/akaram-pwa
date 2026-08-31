@@ -122,24 +122,24 @@ export default function LoginPage() {
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
           {/* الرأس — شعار جزيرة الأكرام */}
-          <div className="px-8 pt-10 pb-7 text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 mb-4">
+          <div className="px-5 pt-8 pb-6 text-center sm:px-8 sm:pt-10 sm:pb-7">
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-3 sm:w-24 sm:h-24 sm:mb-4">
               <img
                 src="/icons/logo.png"
                 alt="شعار جزيرة الأكرام"
                 width={96}
                 height={96}
-                className="w-24 h-24 object-contain drop-shadow-[0_8px_20px_rgba(0,95,141,0.6)]"
+                className="w-20 h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,95,141,0.6)] sm:w-24 sm:h-24"
               />
             </div>
-            <h1 className="text-2xl font-black text-white mb-1">جزيرة الأكرام</h1>
-            <p className="text-[#7fc0df]/80 text-sm font-medium">
+            <h1 className="text-xl font-black text-white mb-1 sm:text-2xl">جزيرة الأكرام</h1>
+            <p className="text-[#7fc0df]/80 text-xs font-medium sm:text-sm">
               النظام الإلكتروني لإدارة شركة البلدية
             </p>
           </div>
 
           {/* جسم النموذج */}
-          <div className="px-8 pb-9">
+          <div className="px-5 pb-7 sm:px-8 sm:pb-9">
             <p className="text-white/60 text-center text-sm mb-6">
               سجّل دخولك إلى بوابة الموظفين
             </p>

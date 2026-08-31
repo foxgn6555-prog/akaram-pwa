@@ -43,9 +43,45 @@ html, body {
   @apply bg-surface text-slate-900 antialiased;
   /* الإطار المقفول: التمرير حكر على منطقة المحتوى داخل التطبيق */
   overflow-x: hidden;
+  /* منع تذبذب الحجم عند ظهور/اختفاء شريط التمرير على الدسكتوب */
+  scrollbar-gutter: stable;
 }
 
 #root {
   height: 100vh;
   overflow: hidden;
+}
+
+/* ═══ تجاوب الموبايل ═══ */
+@layer base {
+  /* احترام شريط النظام العلوي (notch) في تطبيق الويب المثبّت (PWA) */
+  html {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* أهداف لمس لا تقل عن 44px للأزرار التفاعلية الصغيرة على الشاشات اللمسية */
+  @media (pointer: coarse) {
+    button,
+    [role='button'],
+    a[href],
+    summary,
+    label {
+      touch-action: manipulation;
+    }
+  }
+
+  /* منع أي صورة/وسيط من التسبب بفيض أفقي على الموبايل */
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  /* صندوق حدود منطقي لكل العناصر */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 }

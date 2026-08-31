@@ -56,8 +56,8 @@ export default function DatabaseOverview() {
 
       {/* جدول الجداول */}
       {stats && stats.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm" data-testid="db-tables">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-0 sm:min-w-[640px] text-sm" data-testid="db-tables">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/70 text-xs text-slate-500">
                 <th className="px-4 py-3 text-start font-semibold">الجدول</th>
