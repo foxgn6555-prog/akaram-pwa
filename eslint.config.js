@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'src/types/database.types.ts'] },
+  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'src/types/database.types.ts', 'public/flowbridge/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

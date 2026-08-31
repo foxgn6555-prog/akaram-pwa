@@ -24,6 +24,7 @@ export interface AppShellProps {
 export function AppShell({ portal }: AppShellProps) {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const setSidebar = useUiStore((s) => s.setSidebar)
+  const fullBleed = useUiStore((s) => s.contentFullBleed)
   const theme = portalThemes[portal]
 
   // الموبايل: الدرج مغلق افتراضياً
@@ -50,10 +51,22 @@ export function AppShell({ portal }: AppShellProps) {
       <div className="flex h-screen min-w-0 flex-1 flex-col">
         <OfflineBanner />
         <Header portal={portal} />
-        <main data-testid="app-main" className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="mx-auto w-full max-w-7xl">
-            <Outlet />
-          </div>
+        <main
+          data-testid="app-main"
+          className={clsx(
+            'flex-1',
+            fullBleed ? 'flex min-h-0 flex-col overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6',
+          )}
+        >
+          {fullBleed ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <Outlet />
+            </div>
+          ) : (
+            <div className="mx-auto w-full max-w-7xl">
+              <Outlet />
+            </div>
+          )}
         </main>
       </div>
 

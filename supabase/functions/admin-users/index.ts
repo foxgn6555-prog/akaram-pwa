@@ -230,9 +230,3 @@ function json(payload: unknown, status: number): Response {
   })
 }
 
-function json(payload: unknown, status: number): Response {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}

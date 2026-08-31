@@ -97,6 +97,23 @@ export const auth = {
     return auth.buildSessionUser(data.session.user.id, data.session.user.email ?? null)
   },
 
+  /** رمز الوصول الحالي (JWT) — لتمرير هوية المستخدم لتضمينات محمية (مثل FlowBridge) */
+  async getAccessToken(): Promise<string | null> {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token ?? null
+  },
+
+  /**
+   * مستمع تغيّر الجلسة (تسجيل دخول/تحديث توكن/خروج) — لتحديث تضمينات
+   * تحتاج رمزاً حياً (مثل iframe مصمم التدفقات). يعيد دالة الإلغاء.
+   */
+  onAuthStateChange(callback: (accessToken: string | null) => void): () => void {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session?.access_token ?? null)
+    })
+    return () => data.subscription.unsubscribe()
+  },
+
   /** يبني SessionUser من الحساب + أدواره في user_roles */
   async buildSessionUser(userId: string, email: string | null): Promise<SessionUser> {
     const rolesData = await sdkGuard(

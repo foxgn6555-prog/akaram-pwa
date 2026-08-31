@@ -14,9 +14,12 @@ interface UiState {
   sidebarOpen: boolean
   theme: 'light' | 'dark'
   toasts: Toast[]
+  /** صفحات تحتاج ملء الشاشة الكامل (بلا padding/max-width) — مثل تضمين FlowBridge */
+  contentFullBleed: boolean
   toggleSidebar: () => void
   setSidebar: (open: boolean) => void
   setTheme: (theme: 'light' | 'dark') => void
+  setContentFullBleed: (fullBleed: boolean) => void
   addToast: (toast: Omit<Toast, 'id'>) => void
   dismissToast: (id: string) => void
 }
@@ -25,10 +28,12 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarOpen: true,
   theme: 'light',
   toasts: [],
+  contentFullBleed: false,
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebar: (open) => set({ sidebarOpen: open }),
   setTheme: (theme) => set({ theme }),
+  setContentFullBleed: (fullBleed) => set({ contentFullBleed: fullBleed }),
 
   addToast: (toast) =>
     set((s) => ({
