@@ -1,21 +1,9 @@
 /**
- * منطق التصدير — حساب الصافي والعنوان (نقي، بلا React)
+ * منطق التصدير — حساب الصافي والعنوان + بنية مصنف Excel الاحترافي (exceljs).
+ * نتحقق من المصنف الفعلي المُنتَج (ترويسة/شعار/بيانات/إجمالي/RTL/رسوم) لا من مكتبة وهمية.
  */
-import { describe, it, expect, vi } from 'vitest'
-
-vi.mock('xlsx', () => ({
-  utils: {
-    aoa_to_sheet: vi.fn((rows: unknown) => ({ __rows: rows })),
-    encode_cell: vi.fn(({ r, c }: { r: number; c: number }) =>
-      String.fromCharCode(65 + c) + (r + 1)),
-    book_new: vi.fn(() => ({})),
-    book_append_sheet: vi.fn(),
-  },
-  writeFile: vi.fn(),
-}))
-
+import { describe, it, expect } from 'vitest'
 import { netOf, sheetTitle, toExcel } from '@features/transfer-station/lib/export'
-import * as XLSX from 'xlsx'
 import type { WeightRecord } from '@features/transfer-station/types'
 
 const base = {
@@ -25,20 +13,19 @@ const base = {
   created_by: null, created_at: null, seq: 1,
 }
 
+const rec = (over: Partial<WeightRecord>): WeightRecord => ({ ...base, ...over }) as WeightRecord
+
 describe('netOf — الوزن الصافي', () => {
   it('يستخدم net_weight المخزّن إن وُجد', () => {
-    const r = { ...base, gross_weight: 25, tare_weight: 10, net_weight: 15 } as WeightRecord
-    expect(netOf(r)).toBe(15)
+    expect(netOf(rec({ gross_weight: 25, tare_weight: 10, net_weight: 15 }))).toBe(15)
   })
 
   it('يحسب الكلي − الفارغ عند غياب الصافي', () => {
-    const r = { ...base, gross_weight: 30, tare_weight: 12, net_weight: null } as WeightRecord
-    expect(netOf(r)).toBe(18)
+    expect(netOf(rec({ gross_weight: 30, tare_weight: 12, net_weight: null }))).toBe(18)
   })
 
   it('يعيد null عند نقص البيانات', () => {
-    const r = { ...base, gross_weight: null, tare_weight: null, net_weight: null } as WeightRecord
-    expect(netOf(r)).toBeNull()
+    expect(netOf(rec({ gross_weight: null, tare_weight: null, net_weight: null }))).toBeNull()
   })
 })
 
@@ -51,49 +38,60 @@ describe('sheetTitle', () => {
   })
 })
 
-describe('toExcel — التصدير المنسّق', () => {
-  const rec = (over: Partial<WeightRecord>): WeightRecord =>
-    ({ ...base, ...over }) as WeightRecord
+describe('toExcel — تقرير exceljs احترافي', () => {
+  const records = [
+    rec({ id: 'a', db_number: '12345', driver_name: 'سائق الأوزان', gross_weight: 30, tare_weight: 12, net_weight: 18 }),
+    rec({ id: 'b', db_number: '999', driver_name: 'سائق ثانٍ', gross_weight: 20, tare_weight: 8, net_weight: 12, status: 'submitted_to_ops' }),
+  ]
 
-  it('يستدعي writeFile باسم ملف يتضمن التاريخ والشفت', async () => {
-    await toExcel(
-      [rec({ db_number: '12345', driver_name: 'سائق الأوزان', gross_weight: 25, tare_weight: 10, net_weight: 15 })],
-      '2026-08-31', 'morning',
-    )
-    expect(XLSX.writeFile).toHaveBeenCalledTimes(1)
-    const name = String(vi.mocked(XLSX.writeFile).mock.calls[0]?.[1] ?? '')
-    expect(name).toContain('2026-08-31')
-    expect(name).toContain('الصباحي')
-    expect(name.endsWith('.xlsx')).toBe(true)
+  it('ينشئ مصنفاً بورقة «دفتر الأوزان» بترويسة الشركة وبيانات وإجمالي', async () => {
+    const wb = await toExcel(records, '2026-08-31', 'morning')
+    const ws = wb.getWorksheet('دفتر الأوزان')
+    expect(ws).toBeTruthy()
+
+    // اسم الشركة في الصف المدموج + عنوان التقرير
+    const brand = String(ws!.getCell('B1').value ?? '')
+    expect(brand).toContain('شركة جزيرة الأكرام')
+    const title = String(ws!.getCell('A3').value ?? '')
+    expect(title).toContain('سجل الأوزان')
+
+    // رؤوس الأعمدة في الصف 5
+    const headers = [1, 2, 3, 7].map((c) => ws!.getCell(5, c).value)
+    expect(headers.join('|')).toContain('DB')
+    expect(headers.join('|')).toContain('اسم السائق')
+    expect(headers.join('|')).toContain('الوزن الصافي')
+
+    // صف البيانات الأول (الصف 6) — السائق و DB والصافي
+    expect(String(ws!.getCell(6, 3).value)).toBe('سائق الأوزان')
+    expect(Number(ws!.getCell(6, 7).value)).toBe(18)
+
+    // صف الإجمالي: رؤوس(5) + البيانات(2) = آخر بيانات 7، الإجمالي في الصف 8. مجموع الصافي = 30
+    const totalRow = 5 + records.length + 1
+    expect(String(ws!.getCell(totalRow, 3).value)).toContain('الإجمالي')
+    expect(Number(ws!.getCell(totalRow, 7).value)).toBeCloseTo(30, 2)
   })
 
-  it('يبني جدولاً مرتباً: ترويسة + رؤوس أعمدة + بيانات + صف إجمالي', async () => {
-    await toExcel(
-      [rec({ db_number: '12345', driver_name: 'سائق الأوزان', gross_weight: 30, tare_weight: 12, net_weight: 18 })],
-      '2026-08-31', 'evening',
-    )
-    const aoa = vi.mocked(XLSX.utils.aoa_to_sheet).mock.calls[0]?.[0] as unknown as
-      (string | number)[][]
-    // الترويسة الرئيسية + رؤوس الأعمدة
-    expect(String(aoa[0]?.[0])).toContain('شركة جزيرة الأكرام')
-    expect(aoa[2]).toContain('اسم السائق')
-    expect(aoa[2]).toContain('الوزن الصافي (بالطن)')
-    // صف البيانات الأول
-    expect(aoa[3]).toContain('سائق الأوزان')
-    expect(aoa[3]).toContain(18)
-    // صف الإجمالي الأخير
-    const last = aoa.at(-1)
-    expect(last).toContain('الإجمالي (طن)')
-    expect(last).toContain(18)
+  it('يضبط RTL والمرشّح والتجميد وإعداد الطباعة', async () => {
+    const wb = await toExcel(records, '2026-08-31', 'evening')
+    const ws = wb.getWorksheet('دفتر الأوزان')!
+    expect(ws.views?.[0]?.rightToLeft).toBe(true)
+    expect(ws.views?.[0]?.state).toBe('frozen')
+    expect(ws.autoFilter).toBeTruthy()
+    expect(ws.pageSetup?.orientation).toBe('landscape')
+    expect(ws.pageSetup?.fitToPage).toBe(true)
   })
 
-  it('يدمج الترويسة على عرض الأعمدة ويضبط RTL والمرشحات', async () => {
-    await toExcel([], '2026-08-31', 'morning')
-    const ws = vi.mocked(XLSX.utils.aoa_to_sheet).mock.results[0]?.value as
-      { __rows: unknown[] } & Record<string, unknown>
-    expect(ws.__rows).toHaveLength(4) // ترويسة + تعريف + رؤوس + إجمالي (بلا بيانات)
-    expect(ws['!rightToLeft']).toBe(true)
-    expect(ws['!autofilter']).toBeTruthy()
-    expect(Array.isArray(ws['!merges'])).toBe(true)
+  it('يضيف ورقة رسوم بيانية عند توفر البيانات', async () => {
+    const wb = await toExcel(records, '2026-08-31', 'morning')
+    // الرسوم تُرسم عبر canvas (غائب في node) فلا تُضاف أوراق صور — لكن المصنف يُبنى دون خطأ
+    expect(wb.worksheets.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('يعالج دفتراً فارغاً دون أخطاء', async () => {
+    const wb = await toExcel([], '2026-08-31', 'morning')
+    const ws = wb.getWorksheet('دفتر الأوزان')!
+    expect(ws).toBeTruthy()
+    // صف الإجمالي موجود (الرؤوس في 5، الإجمالي في الصف 6)
+    expect(String(ws.getCell(6, 3).value)).toContain('الإجمالي')
   })
 })

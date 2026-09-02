@@ -1,18 +1,18 @@
-/** جدول سجلات الوحدات الجديدة (سائق/موظف · نوع الآلية · وقت الخروج · الحالة · التاريخ) */
-import clsx from 'clsx'
+/** جدول سجلات الوحدات الخارجة (اسم السائق · نوع الآلية · وقت الخروج · الحالة · التاريخ) */
 import type { SaksatRecord } from '@features/transfer-station/types'
 import { formatTime, type StationUnitKind } from './station.utils'
 
-/** صف عام للجدول — يغطي السكسات/النسافات (SaksatRecord) والحضورية (is_present إضافي) */
-export type StationRow = SaksatRecord & { is_present?: boolean; employee_name?: string }
+/** صف الجدول — سكسات/نسافات خارجة */
+export type StationRow = SaksatRecord
 
 export function StationTable({
-  kind, records, personLabel, withVehicle = true, presence = false,
+  kind, records, personLabel, withVehicle = true,
 }: {
   kind: StationUnitKind
   records: StationRow[]
   personLabel?: string
   withVehicle?: boolean
+  /** مهمل بعد إلغاء وحدة الحضورية — يبقى لتفادي كسر استدعاءات قديمة */
   presence?: boolean
 }) {
   return (
@@ -32,10 +32,9 @@ export function StationTable({
             <thead>
               <tr className="bg-slate-50/70 text-xs text-slate-500">
                 <th className="px-3 py-2.5 font-semibold">ت</th>
-                <th className="px-3 py-2.5 font-semibold">{personLabel ?? 'الاسم'}</th>
+                <th className="px-3 py-2.5 font-semibold">{personLabel ?? 'اسم السائق'}</th>
                 {withVehicle && <th className="px-3 py-2.5 font-semibold">نوع الآلية</th>}
-                {presence && <th className="px-3 py-2.5 font-semibold">الحالة</th>}
-                {!presence && <th className="px-3 py-2.5 font-semibold">وقت الخروج</th>}
+                <th className="px-3 py-2.5 font-semibold">وقت الخروج</th>
                 <th className="px-3 py-2.5 font-semibold">التاريخ</th>
                 <th className="px-3 py-2.5 font-semibold">حالة الإرسال</th>
               </tr>
@@ -46,19 +45,7 @@ export function StationTable({
                   <td className="px-3 py-2.5 text-slate-400">{i + 1}</td>
                   <td className="px-3 py-2.5 font-medium">{r.driver_name}</td>
                   {withVehicle && <td className="px-3 py-2.5 text-slate-500">{r.vehicle_type ?? '—'}</td>}
-                  {presence && (
-                    <td className="px-3 py-2.5">
-                      <span className={clsx(
-                        'rounded-full px-2 py-0.5 text-[11px] font-bold',
-                        r.is_present ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700',
-                      )}>
-                        {r.is_present ? 'حاضر' : 'غير حاضر'}
-                      </span>
-                    </td>
-                  )}
-                  {!presence && (
-                    <td className="px-3 py-2.5 font-bold text-brand-700 dir-ltr">{formatTime(r.exit_time)}</td>
-                  )}
+                  <td className="px-3 py-2.5 font-bold text-brand-700 dir-ltr">{formatTime(r.exit_time)}</td>
                   <td className="px-3 py-2.5 text-slate-500 dir-ltr">{r.log_date}</td>
                   <td className="px-3 py-2.5">
                     {r.status === 'submitted_to_deputy' ? (

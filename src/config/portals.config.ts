@@ -67,13 +67,15 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/reports',    labelKey: 'nav.reports',    icon: 'bar-chart' },
   ],
 
-  // بوابة مدير القسم
+  // بوابة مسؤول القسم (قواطع/شفتات)
   [PORTALS.MANAGER]: [
-    { path: '/manager',            labelKey: 'nav.dashboard',  icon: 'home' },
-    { path: '/manager/team',       labelKey: 'nav.team',       icon: 'users' },
-    { path: '/manager/approvals',  labelKey: 'nav.approvals',  icon: 'check-square' },
-    { path: '/manager/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
-    { path: '/manager/reports',    labelKey: 'nav.reports',    icon: 'bar-chart' },
+    { path: '/manager',            labelKey: 'nav.dashboard',      icon: 'home' },
+    { path: '/manager/team',       labelKey: 'nav.team',           icon: 'users' },
+    { path: '/manager/request',    labelKey: 'nav.mgr_request',    icon: 'send' },
+    { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
+    { path: '/manager/breakdown',  labelKey: 'nav.mgr_breakdown',  icon: 'alert-triangle' },
+    { path: '/manager/photos',     labelKey: 'nav.mgr_photos',     icon: 'photo' },
+    { path: '/manager/archive',    labelKey: 'nav.mgr_archive',    icon: 'archive-box' },
   ],
 
   // بوابة المالية
@@ -186,7 +188,6 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/transfer-station/weights/log', labelKey: 'nav.ts_weights_log', icon: 'clipboard' },
       ] },
-    { path: '/transfer-station/attendance', labelKey: 'nav.ts_attendance', icon: 'calendar' },
     { path: '/transfer-station/saksat', labelKey: 'nav.ts_saksat', icon: 'send' },
     { path: '/transfer-station/trips', labelKey: 'nav.ts_trips', icon: 'truck' },
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
@@ -198,6 +199,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
+    { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
   ],
   [PORTALS.OPS_ROOM]: [

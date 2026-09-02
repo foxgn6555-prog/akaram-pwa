@@ -1,15 +1,19 @@
-/** مسارات بوابة مدير القسم — كل صفحة ملف مستقل داخل هذا المجلد */
+/** مسارات بوابة مسؤول القسم (قواطع/شفتات) — كل صفحة ملف مستقل داخل هذا المجلد */
 import type { RouteObject } from 'react-router'
 import ManagerDashboard from './pages/Dashboard/ManagerDashboard'
-import TeamOverview from './pages/Team/TeamOverview'
-import PendingApprovals from './pages/Approvals/PendingApprovals'
-import ManagerAttendance from './pages/Attendance/ManagerAttendance'
-import DepartmentReports from './pages/Reports/DepartmentReports'
+import TeamPage from './pages/Team/TeamPage'
+import NewRequestPage from './pages/Request/NewRequestPage'
+import AttendancePage from './pages/Attendance/AttendancePage'
+import BreakdownPage from './pages/Breakdown/BreakdownPage'
+import PhotosPage from './pages/Photos/PhotosPage'
+import ArchivePage from './pages/Archive/ArchivePage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
-  { path: 'team', element: <TeamOverview /> },
-  { path: 'approvals', element: <PendingApprovals /> },
-  { path: 'attendance', element: <ManagerAttendance /> },
-  { path: 'reports', element: <DepartmentReports /> },
+  { path: 'team', element: <TeamPage /> },
+  { path: 'request', element: <NewRequestPage /> },
+  { path: 'attendance', element: <AttendancePage /> },
+  { path: 'breakdown', element: <BreakdownPage /> },
+  { path: 'photos', element: <PhotosPage /> },
+  { path: 'archive', element: <ArchivePage /> },
 ]

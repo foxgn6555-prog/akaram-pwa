@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const DeputyDashboard = lazy(() => import('./pages/DeputyDashboard'))
 const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))
+const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -19,4 +20,5 @@ export const customRoutes: RouteObject[] = [
   { path: '', element: s(<DeputyDashboard />) },
   { path: 'statements', element: s(<IncomingStatements />) },
   { path: 'station-folders', element: s(<StationFoldersPage />) },
+  { path: 'sector-supplies', element: s(<SectorSupplies />) },
 ]

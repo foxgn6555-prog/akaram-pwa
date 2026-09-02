@@ -37,6 +37,7 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
   const collapsed = !isMobile && sidebarCollapsed
   const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
+  const setMobileNav = useUiStore((s) => s.setMobileNav)
   const logout = useLogout()
   const theme = portalThemes[portal]
   const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
@@ -69,22 +70,36 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
           ? // درج الموبايل: ثابت فوق المحتوى بعرض كامل معقول، ولا يتأثر بالطي
             'fixed inset-y-0 start-0 z-40 w-72 max-w-[85vw] shadow-2xl'
           : // الدسكتوب: شريط لاصق داخل تدفق الصفحة
-            'sticky top-0 z-auto w-72',
-        !isMobile && collapsed && 'w-20',
+            // z-20: يبقى الشريط (ومنه مقبض الانبثاق) فوق محتوى <main> وأقل من الدرج (z-40) والنوافذ (z-50)
+            // العرض حصري (w-72 أو w-20) — لا يجتمعان أبداً لأن ترتيب كلاسات Tailwind يُبطل أحدهما (سبّب عُطل زر الانبثاق)
+            clsx('sticky top-0 z-20', collapsed ? 'w-20' : 'w-72'),
       )}
     >
-      {/* زر الطي — للدسكتوب فقط (لا معنى للطي داخل درج الموبايل) */}
+      {/* مقبض الطي على الحافة — للدسكتوب فقط (أكبر وأوضح وأسهل نقراً) */}
       {!isMobile && (
         <button
           onClick={toggleCollapsed}
           data-testid="sidebar-collapse"
-          title={collapsed ? 'توسيع' : 'طي'}
+          title={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
           aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
           aria-expanded={!collapsed}
-          className="absolute top-10 z-50 flex size-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-brand-700 -end-3"
+          className="absolute top-14 z-50 flex size-8 items-center justify-center rounded-full border border-brand-200 bg-white text-brand-600 shadow-lg ring-2 ring-white transition-all hover:scale-110 hover:bg-brand-50 -end-4"
         >
           {/* RTL: السهم يشير لاتجاه الطي */}
-          <Icon name={collapsed ? 'chevron-left' : 'chevron-right'} size={13} />
+          <Icon name={collapsed ? 'chevron-left' : 'chevron-right'} size={16} />
+        </button>
+      )}
+
+      {/* زر إغلاق درج الموبايل (×) — ظاهر فقط في الدرج المنزلق */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileNav(false)}
+          data-testid="sidebar-mobile-close"
+          title="إغلاق القائمة"
+          aria-label="إغلاق القائمة"
+          className="absolute top-4 z-50 flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-red-600 -end-3"
+        >
+          <Icon name="x" size={18} />
         </button>
       )}
 

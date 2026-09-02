@@ -27,7 +27,24 @@ export const createSuperAdminSchema = z.object({
     .or(z.literal('')),
   department_id: z.string().uuid('اختر القسم').optional().or(z.literal('')),
   job_title: z.string().max(100, 'المسمى طويل جداً').optional().or(z.literal('')),
+  /** إسناد مسؤول القسم: الشفت (مطلوب فقط عندما الدور = department_manager) */
+  manager_shift: z.enum(['morning', 'evening', 'night']).optional(),
+  /** القواطع المسندة (1–3) — تُدقَّق على الخادم أيضاً */
+  manager_sectors: z.array(z.number().int().min(1).max(8)).optional(),
 })
+  // تحقق شرطي: مسؤول القسم يلزمه شفت + قاطع واحد على الأقل (بحد أقصى 3)
+  .superRefine((val, ctx) => {
+    if (val.role !== 'department_manager') return
+    if (!val.manager_shift) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_shift'], message: 'اختر شفت مسؤول القسم' })
+    }
+    const n = val.manager_sectors?.length ?? 0
+    if (n < 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'اختر قاطعاً واحداً على الأقل' })
+    } else if (n > 3) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'الحد الأقصى 3 قواطع' })
+    }
+  })
 
 export type CreateUserFormInput = z.infer<typeof createSuperAdminSchema>
 

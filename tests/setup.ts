@@ -21,6 +21,19 @@ beforeAll(() => {
       value: { ...globalThis.crypto, randomUUID: () => 'test-uuid-' + Math.random().toString(16).slice(2) },
     })
   }
+
+  // jsdom لا يدعم رسم canvas — نعيد null بهدوء بدل طباعة خطأ «Not implemented»
+  // (منشئ الرسوم في src/lib/export يلتقط null ويتخطى الصورة في الاختبارات).
+  try {
+    const proto = (globalThis as { HTMLCanvasElement?: { prototype: object } }).HTMLCanvasElement?.prototype
+    if (proto && !(proto as { getContext?: unknown }).getContext) {
+      ;(proto as { getContext: () => null }).getContext = () => null
+    } else if (proto) {
+      ;(proto as { getContext: () => null }).getContext = () => null
+    }
+  } catch {
+    /* تجاهل */
+  }
 })
 
 afterEach(() => {

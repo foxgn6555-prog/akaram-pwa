@@ -14,10 +14,8 @@ import type {
   Shift,
   SaksatRecord,
   TripRecord,
-  AttendanceRecord,
   CreateSaksatInput,
   CreateTripInput,
-  CreateAttendanceInput,
 } from '@features/transfer-station/types'
 
 const COLS =
@@ -57,14 +55,11 @@ function withNet(input: CreateWeightInput | UpdateWeightInput) {
   return { ...input, net_weight: net } as never
 }
 
-/* ═══ مساعدات السكسات · النسافات · الحضورية (00043) ═══ */
+/* ═══ مساعدات السكسات · النسافات (00043) ═══ */
 
 const STATION_COLS =
   'id, driver_name, vehicle_type, exit_time, log_date, status, submitted_at, ' +
   'archived_at, archive_reason, created_at'
-
-const ATTEND_COLS =
-  'id, employee_name, is_present, note, log_date, archived_at, archive_reason, created_at'
 
 function normalizeStation(r: Record<string, unknown>): SaksatRecord {
   return {
@@ -75,19 +70,6 @@ function normalizeStation(r: Record<string, unknown>): SaksatRecord {
     log_date: String(r.log_date ?? ''),
     status: (r.status as SaksatRecord['status']) ?? 'draft',
     submitted_at: (r.submitted_at as string | null) ?? null,
-    archived_at: (r.archived_at as string | null) ?? null,
-    archive_reason: (r.archive_reason as string | null) ?? null,
-    created_at: (r.created_at as string | null) ?? null,
-  }
-}
-
-function normalizeAttendance(r: Record<string, unknown>): AttendanceRecord {
-  return {
-    id: String(r.id ?? ''),
-    employee_name: String(r.employee_name ?? ''),
-    is_present: Boolean(r.is_present),
-    note: (r.note as string | null) ?? null,
-    log_date: String(r.log_date ?? ''),
     archived_at: (r.archived_at as string | null) ?? null,
     archive_reason: (r.archive_reason as string | null) ?? null,
     created_at: (r.created_at as string | null) ?? null,
@@ -224,7 +206,7 @@ export const transferStation = {
     return (res.data ?? {}) as WeightSummary
   },
 
-  /* ═══ السكسات الخارجة · النسافات الخارجة · الحضورية (00043) ═══ */
+  /* ═══ السكسات الخارجة · النسافات الخارجة (00043) ═══ */
 
   /** سجلات السكسات النشطة — مع فلترة اختيارية بالشهر (YYYY-MM) */
   async listSaksat(month?: string): Promise<SaksatRecord[]> {
@@ -260,33 +242,5 @@ export const transferStation = {
 
   async sendTripsFolder(month: string): Promise<number> {
     return sendFolder('ts_trips_send_folder', month)
-  },
-
-  /** سجلات الحضورية — نشطة، مع فلترة اختيارية بالتاريخ */
-  async listAttendance(date?: string): Promise<AttendanceRecord[]> {
-    const base = supabase
-      .from('ts_attendance_records')
-      .select(ATTEND_COLS)
-      .is('archived_at', null)
-      .order('log_date', { ascending: false })
-      .order('created_at', { ascending: false })
-    const q = date ? base.eq('log_date', date) : base
-    const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
-    return rows.map(normalizeAttendance)
-  },
-
-  async createAttendance(input: CreateAttendanceInput): Promise<AttendanceRecord> {
-    return sdkGuard(
-      supabase
-        .from('ts_attendance_records')
-        .insert({
-          employee_name: input.employee_name,
-          is_present: input.is_present,
-          log_date: input.log_date,
-        } as never)
-        .select(ATTEND_COLS)
-        .single()
-        .returns<Record<string, unknown>>(),
-    ).then((r) => normalizeAttendance(r as Record<string, unknown>))
   },
 }

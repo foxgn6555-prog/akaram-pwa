@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import clsx from 'clsx'
 import {
-  useCreateDisclosure, useDisclosureById, useUpdateDisclosure,
+  useCreateDisclosure, useDisclosureById, useUpdateDisclosure, useSubmitDisclosure,
 } from '@features/disclosures'
 import {
   VIOLATION_LABELS, PENALTY_LABELS, SHIFT_LABELS, CONTRACTOR_TYPES,
@@ -48,6 +48,7 @@ export default function NewDisclosure() {
   const isEdit = Boolean(id)
   const create = useCreateDisclosure()
   const update = useUpdateDisclosure()
+  const submit = useSubmitDisclosure()
   const existing = useDisclosureById(id)
   const [form, setForm] = useState<DisclosureFormInput>(blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -315,16 +316,16 @@ export default function NewDisclosure() {
           {!isEdit && (
           <button
             type="button"
-            disabled={create.isPending}
+            disabled={create.isPending || submit.isPending}
             onClick={() => {
               const v = validate()
               if (!v) return
               create.mutate(buildInput(v), {
                 onSuccess: (d) => {
-                  // يُرفع مباشرة بعد الحفظ
-                  import('@sdk/disclosures.sdk').then(({ disclosures }) =>
-                    disclosures.submit(d.id).finally(() => navigate('/disclosures/statements')),
-                  )
+                  // يُرفع مباشرة بعد الحفظ عبر خطاف البوابة (لا SDK مباشر)
+                  submit.mutate(d.id, {
+                    onSettled: () => navigate('/disclosures/statements'),
+                  })
                 },
               })
             }}

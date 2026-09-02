@@ -28,6 +28,18 @@ vi.mock('@features/departments', () => ({
   }),
 }))
 
+vi.mock('@features/sector', () => ({
+  useSectors: () => ({
+    data: [
+      { id: 1, code: 'S1', name: 'القاطع الأول', sort: 1 },
+      { id: 2, code: 'S2', name: 'القاطع الثاني', sort: 2 },
+      { id: 3, code: 'S3', name: 'القاطع الثالث', sort: 3 },
+      { id: 4, code: 'S4', name: 'القاطع الرابع', sort: 4 },
+    ],
+  }),
+  SHIFT_LABELS: { morning: 'الشفت الصباحي', evening: 'الشفت المسائي', night: 'الشفت الليلي' },
+}))
+
 import CreateUser from '@portals/it/pages/UserManagement/CreateUser'
 
 function renderPage() {

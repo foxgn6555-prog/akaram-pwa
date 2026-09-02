@@ -8,12 +8,15 @@ import type { ReactNode } from 'react'
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   BarChart: ({ children }: { children?: ReactNode }) => <div data-testid="bar-chart">{children}</div>,
+  PieChart: ({ children }: { children?: ReactNode }) => <div data-testid="pie-chart">{children}</div>,
+  Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Bar: () => null,
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
   CartesianGrid: () => null,
   Cell: () => null,
+  Legend: () => null,
 }))
 
 vi.mock('@features/disclosures', () => ({

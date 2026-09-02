@@ -4,19 +4,15 @@
  *  · toWord: مستند Word (.doc) بتصميم النموذج الورقي المرفق (شعار + حقول + تفاصيل + توقيع)
  * المكتبة الثقيلة (xlsx) تُحمَّل كسولة وقت الحاجة فقط.
  */
+import type ExcelJS from 'exceljs'
 import {
   VIOLATION_LABELS,
   PENALTY_LABELS,
   SHIFT_LABELS,
+  type ViolationType,
   type Disclosure,
 } from '../types'
-import type { WorkSheet } from 'xlsx'
-
-const BRAND_RGB = '005F8D'
-const SOFT_FILL = 'F1F5F9'
-
-const THIN = { style: 'thin' as const, color: { rgb: '94A3B8' } }
-const BORDER = { top: THIN, bottom: THIN, left: THIN, right: THIN }
+import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 
 function esc(s: string): string {
   return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -26,133 +22,103 @@ function refLabel(d: Disclosure): string {
   return d.ref_no || `م/كشف ${d.log_date}`
 }
 
-function colLetter(i: number): string {
-  let s = ''
-  let n = i + 1
-  while (n > 0) {
-    const m = (n - 1) % 26
-    s = String.fromCharCode(65 + m) + s
-    n = Math.floor((n - 1) / 26)
+/** مسار الشعار المطلق (يعمل في التطوير والإنتاج ونوافذ الطباعة/Word) */
+function logoUrl(): string {
+  const env = (typeof import.meta !== 'undefined' ? import.meta : {}) as {
+    env?: { BASE_URL?: string }
   }
-  return s
+  const base = env.env?.BASE_URL ?? '/'
+  return `${base}icons/logo.png`
+}
+
+/** ألوان أنواع المخالفات (مطابقة للوحة) */
+const VIOLATION_COLORS: Record<ViolationType, string> = {
+  delay: '#f59e0b',
+  absence: '#ef4444',
+  collection: '#8b5cf6',
+  evasion: '#0f7cb0',
+  early_withdrawal: '#f97316',
+  load_deficiency: '#14b8a6',
 }
 
 /** أعمدة سجل الكشوفات */
-const HEADERS = [
-  'م', 'الرقم', 'DB', 'اسم السائق', 'نوع الآلية', 'اسم المتعهد', 'القاطع',
-  'الشفت', 'التاريخ', 'نوع المخالفة', 'الإجراء التأديبي', 'التفاصيل', 'منظم الكشف',
-] as const
-const NCOLS = HEADERS.length
+const COLUMNS: ReportColumn[] = [
+  { header: 'م', key: '#', width: 5, align: 'center' },
+  { header: 'الرقم', key: 'ref', width: 15, align: 'center' },
+  { header: 'DB', key: 'db_number', width: 11, align: 'center' },
+  { header: 'اسم السائق', key: 'driver_name', width: 24, align: 'right' },
+  { header: 'نوع الآلية', key: 'vehicle_type', width: 16 },
+  { header: 'اسم المتعهد', key: 'contractor_name', width: 15 },
+  { header: 'القاطع', key: 'sector', width: 13 },
+  { header: 'الشفت', key: 'shift', width: 14 },
+  { header: 'التاريخ', key: 'log_date', width: 12, align: 'center' },
+  { header: 'نوع المخالفة', key: 'violation', width: 18 },
+  { header: 'الإجراء التأديبي', key: 'penalty', width: 16 },
+  { header: 'التفاصيل', key: 'details', width: 46, wrap: true },
+  { header: 'منظم الكشف', key: 'prepared_by', width: 18 },
+]
 
-/** تصدير Excel — ملف منسّق: عنوان، ترويسة، صفوف متناوبة، مرشحات، وطباعة جاهزة */
-export async function toExcel(list: Disclosure[]): Promise<void> {
-  const XLSX = await import('xlsx')
-
+/**
+ * تصدير Excel احترافي — شعار الشركة + ترويسة ملوّنة + صفوف متناوبة + حدود
+ * + مرشّحات + تجميد + RTL + إعداد طباعة A4، ومعه ورقة «رسوم بيانية» تضم:
+ *  · توزيع الكشوفات حسب نوع المخالفة (أعمدة)
+ *  · حالة الكشوفات (مسودة/مرفوعة) (دائري)
+ */
+export async function toExcel(list: Disclosure[]): Promise<ExcelJS.Workbook> {
   const today = new Date().toISOString().slice(0, 10)
-  const total = list.length
 
-  const aoa: (string | number)[][] = [
-    ['شركة جزيرة الأكرام — سجل الكشوفات التأديبية'],
-    [`تاريخ التصدير: ${today}   •   عدد الكشوفات: ${total}`],
-    [...HEADERS],
-    ...list.map((d, i) => [
-      i + 1,
-      refLabel(d),
-      d.db_number,
-      d.driver_name,
-      d.vehicle_type ?? '',
-      d.contractor_name ?? '',
-      d.sector ?? '',
-      SHIFT_LABELS[d.shift],
-      d.log_date,
-      VIOLATION_LABELS[d.violation_type],
-      d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '',
-      d.details,
-      d.prepared_by_name ?? '',
-    ]),
-  ]
+  const rows = list.map((d) => ({
+    ref: refLabel(d),
+    db_number: d.db_number,
+    driver_name: d.driver_name,
+    vehicle_type: d.vehicle_type ?? '',
+    contractor_name: d.contractor_name ?? '',
+    sector: d.sector ?? '',
+    shift: SHIFT_LABELS[d.shift],
+    log_date: d.log_date,
+    violation: VIOLATION_LABELS[d.violation_type],
+    penalty: d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '—',
+    details: d.details,
+    prepared_by: d.prepared_by_name ?? '',
+  }))
 
-  const ws: WorkSheet = XLSX.utils.aoa_to_sheet(aoa)
+  // تجميع حسب نوع المخالفة للرسم
+  const byViolation = (Object.keys(VIOLATION_LABELS) as ViolationType[]).map((k) => ({
+    label: VIOLATION_LABELS[k],
+    value: list.filter((d) => d.violation_type === k).length,
+    color: VIOLATION_COLORS[k],
+  }))
+  const drafts = list.filter((d) => d.status === 'draft').length
+  const submitted = list.filter((d) => d.status === 'submitted_to_deputy').length
 
-  const headerRow = 2
-  const firstData = 3
-  const lastRow = firstData + list.length - 1
-
-  paint(ws, 0, 0, XLSX.utils, {
-    font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' }, name: 'Segoe UI' },
-    fill: { patternType: 'solid', fgColor: { rgb: BRAND_RGB } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border: BORDER,
+  return buildExcelReport({
+    sheetName: 'الكشوفات',
+    company: 'شركة جزيرة الأكرام',
+    companySub: 'وحدة الكشوفات — سجل الكشوفات التأديبية',
+    title: 'سجل الكشوفات التأديبية',
+    meta: `تاريخ التصدير: ${today}   •   عدد الكشوفات: ${list.length}   •   وُلِّد آلياً من نظام بلدية جزيرة الأكرام`,
+    columns: COLUMNS,
+    rows,
+    fileName: `كشوفات-${today}.xlsx`,
+    orientation: 'landscape',
+    charts: [
+      {
+        title: 'توزيع الكشوفات حسب نوع المخالفة',
+        kind: 'bar',
+        data: byViolation,
+        valueLabel: 'عدد الكشوفات',
+      },
+      {
+        title: 'حالة الكشوفات (مسودة / مرفوعة للمعاون)',
+        kind: 'donut',
+        valueLabel: 'كشف',
+        data: [
+          { label: 'مسودة', value: drafts, color: '#f59e0b' },
+          { label: 'مرفوعة للمعاون', value: submitted, color: '#10b981' },
+        ],
+      },
+    ],
   })
-  paint(ws, 1, 0, XLSX.utils, {
-    font: { sz: 10, italic: true, color: { rgb: '475569' } },
-    alignment: { horizontal: 'right', vertical: 'center' },
-  })
-
-  // صف الترويسة
-  for (let c = 0; c < NCOLS; c++) {
-    paint(ws, headerRow, c, XLSX.utils, {
-      font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' }, name: 'Segoe UI' },
-      fill: { patternType: 'solid', fgColor: { rgb: BRAND_RGB } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: BORDER,
-    })
-  }
-
-  // صفوف البيانات — تناوب لوني + التفاصيل تلتف
-  list.forEach((_, i) => {
-    const r = firstData + i
-    for (let c = 0; c < NCOLS; c++) {
-      const style: Record<string, unknown> = {
-        font: { sz: 11, name: 'Segoe UI' },
-        alignment: {
-          horizontal: c === 11 ? 'right' : 'center',
-          vertical: c === 11 ? 'top' : 'center',
-          wrapText: true,
-        },
-        border: BORDER,
-      }
-      if (i % 2 === 1) style.fill = { patternType: 'solid', fgColor: { rgb: SOFT_FILL } }
-      paint(ws, r, c, XLSX.utils, style)
-    }
-  })
-
-  // عروض الأعمدة وارتفاعات الصفوف
-  ws['!cols'] = [
-    { wch: 5 }, { wch: 14 }, { wch: 10 }, { wch: 24 }, { wch: 16 }, { wch: 16 },
-    { wch: 14 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 16 }, { wch: 46 }, { wch: 18 },
-  ]
-  ws['!rows'] = [{ hpt: 30 }, { hpt: 16 }, { hpt: 26 }]
-
-  // دمج العنوان والسطر التعريفي + مرشحات + هوامش + RTL
-  if (NCOLS > 1) {
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: NCOLS - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: NCOLS - 1 } },
-    ]
-  }
-  ws['!autofilter'] = {
-    ref: `A${headerRow + 1}:${colLetter(NCOLS - 1)}${Math.max(lastRow, headerRow) + 1}`,
-  }
-  ws['!margins'] = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5 }
-  ws['!rightToLeft'] = true
-
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'الكشوفات')
-  XLSX.writeFile(wb, `كشوفات-${today}.xlsx`)
-}
-
-/** تطبيق تنسيق على خلية معيّنة دون فكّ ترتيب الصفوف */
-function paint(
-  ws: WorkSheet,
-  r: number,
-  c: number,
-  utils: { encode_cell: (cell: { r: number; c: number }) => string },
-  s: Record<string, unknown>,
-): void {
-  const key = utils.encode_cell({ r, c })
-  const cell = ws[key]
-  if (cell && typeof cell === 'object') ws[key] = { ...cell, s }
 }
 
 /** بناء HTML بنفس تخطيط النموذج الورقي المرفق — ترويسة مؤسسة + حقول + تفاصيل + توقيع */
@@ -165,7 +131,7 @@ export function disclosureHtml(d: Disclosure): string {
   <div class="doc">
     <div class="masthead">
       <div class="brand">
-        <img src="/icons/logo.png" alt="شعار جزيرة الأكرام" />
+        <img src="${logoUrl()}" alt="شعار جزيرة الأكرام" />
         <div>
           <div class="org">شركة جزيرة الأكرام</div>
           <div class="org-sub">شركة البلدية — نظام الكشوفات التأديبية</div>

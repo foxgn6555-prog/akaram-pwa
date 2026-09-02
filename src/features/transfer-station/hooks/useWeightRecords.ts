@@ -12,7 +12,6 @@ import type {
   CreateWeightInput,
   UpdateWeightInput,
   CreateSaksatInput,
-  CreateAttendanceInput,
   Shift,
 } from '../types'
 
@@ -122,7 +121,7 @@ export function useSendToOps() {
   })
 }
 
-/* ═══ السكسات الخارجة · النسافات الخارجة · الحضورية (00043) ═══ */
+/* ═══ السكسات الخارجة · النسافات الخارجة (00043) ═══ */
 
 export function useSaksatList(month?: string) {
   return useQuery({
@@ -199,28 +198,6 @@ export function useSendTripsFolder() {
     },
     onError: (error) =>
       addToast({ type: 'error', message: handleAppError(error, { scope: 'sendTripsFolder' }).message }),
-  })
-}
-
-export function useAttendanceList(date?: string) {
-  return useQuery({
-    queryKey: transferStationKeys.attendanceList(date),
-    queryFn: () => transferStation.listAttendance(date),
-    staleTime: API.STALE_TIME.DEFAULT,
-  })
-}
-
-export function useCreateAttendance() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (input: CreateAttendanceInput) => transferStation.createAttendance(input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
-      addToast({ type: 'success', message: 'تم تسجيل الحضور بنجاح' })
-    },
-    onError: (error) =>
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'createAttendance' }).message }),
   })
 }
 

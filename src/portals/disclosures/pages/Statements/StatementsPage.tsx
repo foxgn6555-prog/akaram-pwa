@@ -16,6 +16,8 @@ import {
 } from '@features/disclosures'
 import { VIOLATION_LABELS, PENALTY_LABELS, type Disclosure } from '@features/disclosures/types'
 import { toExcel, toWord, printDisclosure } from '@features/disclosures/lib/export'
+import { handleAppError } from '@lib/errors/error.handler'
+import { useUiStore } from '@stores/ui.store'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -34,12 +36,28 @@ export default function StatementsPage() {
   const list = useDisclosureList()
   const submit = useSubmitDisclosure()
   const archive = useArchiveDisclosure()
+  const addToast = useUiStore((s) => s.addToast)
 
   const [target, setTarget] = useState<Disclosure | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
+  const [exportingExcel, setExportingExcel] = useState(false)
 
   const data = list.data ?? []
+
+  /** تصدير كل الكشوفات المعروضة إلى Excel — مع حالة تحميل ومعالجة خطأ */
+  const handleExportExcel = async (): Promise<void> => {
+    if (data.length === 0 || exportingExcel) return
+    setExportingExcel(true)
+    try {
+      await toExcel(data)
+      addToast({ type: 'success', message: `تم تصدير ${data.length} كشفاً إلى ملف Excel` })
+    } catch (e) {
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'exportDisclosures' }).message })
+    } finally {
+      setExportingExcel(false)
+    }
+  }
 
   const confirmArchive = (): void => {
     if (!target) return
@@ -62,11 +80,16 @@ export default function StatementsPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => void toExcel(data)}
+            onClick={() => void handleExportExcel()}
+            disabled={exportingExcel || data.length === 0}
             data-testid="export-all-excel"
-            className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            title={data.length === 0 ? 'لا توجد كشوفات للتصدير' : 'تصدير كل الكشوفات إلى Excel'}
+            className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Icon name="file-spreadsheet" size={16} /> Excel
+            {exportingExcel
+              ? <LoadingSpinner label="" />
+              : <Icon name="file-spreadsheet" size={16} />}
+            {exportingExcel ? 'جارٍ التصدير…' : 'Excel'}
           </button>
           <button
             onClick={() => navigate('/disclosures/statements/new')}

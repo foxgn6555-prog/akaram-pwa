@@ -14,10 +14,12 @@ import type { Disclosure } from '@features/disclosures/types'
 
 const mockCreate = vi.fn().mockResolvedValue({ id: 'd1' })
 const mockUpdate = vi.fn().mockResolvedValue(undefined)
+const mockSubmit = vi.fn().mockResolvedValue(undefined)
 let byIdData: Disclosure | null = null
 vi.mock('@features/disclosures', () => ({
   useCreateDisclosure: () => ({ mutate: mockCreate, isPending: false }),
   useUpdateDisclosure: () => ({ mutate: mockUpdate, isPending: false }),
+  useSubmitDisclosure: () => ({ mutate: mockSubmit, isPending: false }),
   useDisclosureById: () => ({ data: byIdData, isLoading: false }),
 }))
 

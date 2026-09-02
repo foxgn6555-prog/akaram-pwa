@@ -1,28 +1,13 @@
 /**
  * أدوات تصدير دفتر الأوزان — المحطة التحويلية:
- *  · toExcel: ملف .xlsx منسّق — ترويسة مدموجة، رؤوس أعمدة، صفوف متناوبة،
- *    حدود، صف إجمالي، مرشحات، RTL، وطباعة A4 جاهزة (موحّد مع تصدير الكشوفات)
+ *  · toExcel: تقرير .xlsx احترافي (exceljs) — شعار الشركة + ترويسة ملوّنة،
+ *    رؤوس أعمدة، صفوف متناوبة، حدود، صف إجمالي، مرشّحات، تجميد، RTL،
+ *    طباعة A4 جاهزة، وورقة «رسوم بيانية» (مقارنة الكلي/الفارغ/الصافي + الحالات).
  *  · printPdf: نافذة طباعة منسّقة A4 (عربي RTL) → «حفظ كـ PDF» من المتصفح
- * المكتبة الثقيلة (xlsx) تُحمَّل كسولة وقت الحاجة فقط.
  */
-import type { WorkSheet } from 'xlsx'
+import type ExcelJS from 'exceljs'
 import { SHIFT_LABELS, type Shift, type WeightRecord } from '../types'
-
-const T = 'ت'
-const DB = 'DB'
-const DRIVER = 'اسم السائق'
-const TYPE = 'صنف الآلية'
-const GROSS = 'الوزن الكلي (بالطن)'
-const TARE = 'الوزن الفارغ (بالطن)'
-const NET = 'الوزن الصافي (بالطن)'
-const ENTRY = 'وقت الدخول'
-
-/* ── نظام التنسيق — موحّد مع تصدير وحدة الكشوفات ── */
-const BRAND_RGB = '005F8D'
-const SOFT_FILL = 'F1F5F9'
-const HEAD_FILL = 'E2E8F0'
-const BORDER_LINE = { style: 'thin', color: { rgb: 'CBD5E1' } }
-const BORDER = { top: BORDER_LINE, bottom: BORDER_LINE, left: BORDER_LINE, right: BORDER_LINE }
+import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 
 /** صافي دفتر = مجموع الصافي (أو الكلي−الفارغ عند غياب الصافي) */
 export function netOf(r: WeightRecord): number | null {
@@ -37,132 +22,97 @@ export function sheetTitle(date: string, shift: Shift): string {
   return `سجل الأوزان ${SHIFT_LABELS[shift]} - ${date}`
 }
 
-/** حرف العمود من رقمه (0 → A) — لمرجع المرشحات */
-function colLetter(i: number): string {
-  let s = ''
-  let n = i
-  while (n >= 0) {
-    s = String.fromCharCode(65 + (n % 26)) + s
-    n = Math.floor(n / 26) - 1
+function escapeHtml(s: string): string {
+  return (s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/** مسار الشعار المطلق (يعمل في التطوير والإنتاج وداخل نافذة الطباعة) */
+function logoUrl(): string {
+  const env = (typeof import.meta !== 'undefined' ? import.meta : {}) as {
+    env?: { BASE_URL?: string }
   }
-  return s
+  const base = env.env?.BASE_URL ?? '/'
+  return `${base}icons/logo.png`
 }
 
-/** تطبيق تنسيق على خلية معيّنة دون فكّ ترتيب الصفوف */
-function paint(
-  ws: WorkSheet,
-  r: number,
-  c: number,
-  utils: { encode_cell: (cell: { r: number; c: number }) => string },
-  s: Record<string, unknown>,
-): void {
-  const key = utils.encode_cell({ r, c })
-  const cell = ws[key]
-  if (cell && typeof cell === 'object') ws[key] = { ...cell, s }
-}
+const COLUMNS: ReportColumn[] = [
+  { header: 'ت', key: '#', width: 5, align: 'center' },
+  { header: 'DB', key: 'db_number', width: 14, align: 'center' },
+  { header: 'اسم السائق', key: 'driver_name', width: 26, align: 'right' },
+  { header: 'صنف الآلية', key: 'vehicle_type', width: 17 },
+  { header: 'الوزن الكلي (طن)', key: 'gross_weight', width: 16, align: 'center', numFmt: '0.00' },
+  { header: 'الوزن الفارغ (طن)', key: 'tare_weight', width: 16, align: 'center', numFmt: '0.00' },
+  { header: 'الوزن الصافي (طن)', key: 'net_weight', width: 17, align: 'center', numFmt: '0.00' },
+  { header: 'وقت الدخول', key: 'entry_time', width: 12, align: 'center' },
+]
 
-/** تصدير Excel منسّق — البيانات تُملأ في جدول مرتب تحت رؤوس أعمدة واضحة */
-export async function toExcel(records: WeightRecord[], date: string, shift: Shift): Promise<void> {
-  const XLSX = await import('xlsx')
-
-  const HEADERS = [T, DB, DRIVER, TYPE, GROSS, TARE, NET, ENTRY] as const
-  const NCOLS = HEADERS.length
+/** تصدير Excel احترافي — شعار + تنسيق كامل + صف إجمالي + ورقة رسوم بيانية. يعيد المصنف. */
+export async function toExcel(
+  records: WeightRecord[],
+  date: string,
+  shift: Shift,
+): Promise<ExcelJS.Workbook> {
   const today = new Date().toISOString().slice(0, 10)
 
-  const aoa: (string | number)[][] = [
-    ['شركة جزيرة الأكرام — سجل الأوزان الداخل إلى المحطة التحويلية'],
-    [`${sheetTitle(date, shift)}   •   تاريخ التصدير: ${today}   •   عدد السجلات: ${records.length}`],
-    [...HEADERS],
-    ...records.map((r, i) => [
-      i + 1,
-      r.db_number,
-      r.driver_name,
-      r.vehicle_type ?? '',
-      r.gross_weight ?? '',
-      r.tare_weight ?? '',
-      netOf(r) ?? '',
-      r.entry_time ?? '',
-    ]),
-  ]
+  const rows = records.map((r) => ({
+    db_number: r.db_number,
+    driver_name: r.driver_name,
+    vehicle_type: r.vehicle_type ?? '',
+    gross_weight: r.gross_weight ?? '',
+    tare_weight: r.tare_weight ?? '',
+    net_weight: netOf(r) ?? '',
+    entry_time: r.entry_time ?? '',
+  }))
 
-  // صف الإجمالي أسفل الجدول مباشرة
-  const totalNet = records.reduce((s, r) => s + (netOf(r) ?? 0), 0)
-  aoa.push(['', '', 'الإجمالي (طن)', '', '', '', +totalNet.toFixed(2), ''])
+  const sum = (sel: (r: WeightRecord) => number | null): number =>
+    +records.reduce((acc, r) => acc + (sel(r) ?? 0), 0).toFixed(2)
+  const totalGross = sum((r) => r.gross_weight)
+  const totalTare = sum((r) => r.tare_weight)
+  const totalNet = sum((r) => netOf(r))
+  const drafts = records.filter((r) => r.status === 'draft').length
+  const submitted = records.filter((r) => r.status === 'submitted_to_ops').length
 
-  const ws: WorkSheet = XLSX.utils.aoa_to_sheet(aoa)
-
-  const headerRow = 2
-  const firstData = 3
-  const lastData = firstData + records.length - 1
-  const totalRow = lastData + 1
-
-  // الترويسة الرئيسية المدموجة
-  paint(ws, 0, 0, XLSX.utils, {
-    font: { bold: true, sz: 16, color: { rgb: 'FFFFFF' }, name: 'Segoe UI' },
-    fill: { patternType: 'solid', fgColor: { rgb: BRAND_RGB } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border: BORDER,
+  return buildExcelReport({
+    sheetName: 'دفتر الأوزان',
+    company: 'شركة جزيرة الأكرام',
+    companySub: 'المحطة التحويلية — سجل الأوزان الداخل',
+    title: sheetTitle(date, shift),
+    meta: `تاريخ التصدير: ${today}   •   عدد السجلات: ${records.length}   •   إجمالي الصافي: ${totalNet.toFixed(2)} طن   •   وُلِّد آلياً من نظام بلدية جزيرة الأكرام`,
+    columns: COLUMNS,
+    rows,
+    fileName: `سجل-الأوزان-${SHIFT_LABELS[shift]}-${date}.xlsx`,
+    orientation: 'landscape',
+    totalRow: {
+      driver_name: 'الإجمالي (طن)',
+      gross_weight: totalGross,
+      tare_weight: totalTare,
+      net_weight: totalNet,
+    },
+    charts: [
+      {
+        title: 'ملخص الأوزان (كلي / فارغ / صافي) بالطن',
+        kind: 'bar',
+        valueLabel: 'طن',
+        data: [
+          { label: 'الوزن الكلي', value: totalGross, color: '#005F8D' },
+          { label: 'الوزن الفارغ', value: totalTare, color: '#94A3B8' },
+          { label: 'الوزن الصافي', value: totalNet, color: '#10B981' },
+        ],
+      },
+      {
+        title: 'حالة سجلات الدفتر',
+        kind: 'donut',
+        valueLabel: 'سجل',
+        data: [
+          { label: 'مسودة (بانتظار التدقيق)', value: drafts, color: '#f59e0b' },
+          { label: 'مُرسل لغرفة العمليات', value: submitted, color: '#10b981' },
+        ],
+      },
+    ],
   })
-  // السطر التعريفي (التاريخ/الشفت/العدد)
-  paint(ws, 1, 0, XLSX.utils, {
-    font: { sz: 10, italic: true, color: { rgb: '475569' } },
-    alignment: { horizontal: 'right', vertical: 'center' },
-  })
-  // رؤوس الأعمدة
-  for (let c = 0; c < NCOLS; c++) {
-    paint(ws, headerRow, c, XLSX.utils, {
-      font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' }, name: 'Segoe UI' },
-      fill: { patternType: 'solid', fgColor: { rgb: BRAND_RGB } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: BORDER,
-    })
-  }
-  // صفوف البيانات — تناوب لوني + أسماء السائقين يميناً
-  records.forEach((_, i) => {
-    const r = firstData + i
-    for (let c = 0; c < NCOLS; c++) {
-      const style: Record<string, unknown> = {
-        font: { sz: 11, name: 'Segoe UI' },
-        alignment: { horizontal: c === 2 ? 'right' : 'center', vertical: 'center' },
-        border: BORDER,
-      }
-      if (i % 2 === 1) style.fill = { patternType: 'solid', fgColor: { rgb: SOFT_FILL } }
-      paint(ws, r, c, XLSX.utils, style)
-    }
-  })
-  // صف الإجمالي
-  for (let c = 0; c < NCOLS; c++) {
-    paint(ws, totalRow, c, XLSX.utils, {
-      font: { bold: true, sz: 11, name: 'Segoe UI', color: { rgb: '0F172A' } },
-      fill: { patternType: 'solid', fgColor: { rgb: HEAD_FILL } },
-      alignment: { horizontal: c === 2 ? 'right' : 'center', vertical: 'center' },
-      border: BORDER,
-    })
-  }
-
-  // عروض الأعمدة وارتفاعات الصفوف
-  ws['!cols'] = [
-    { wch: 5 }, { wch: 14 }, { wch: 24 }, { wch: 16 },
-    { wch: 17 }, { wch: 17 }, { wch: 18 }, { wch: 12 },
-  ]
-  ws['!rows'] = [{ hpt: 30 }, { hpt: 18 }, { hpt: 26 }]
-
-  // دمج العنوان والسطر التعريفي + مرشحات + هوامش + RTL
-  if (NCOLS > 1) {
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: NCOLS - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: NCOLS - 1 } },
-    ]
-  }
-  ws['!autofilter'] = {
-    ref: `A${headerRow + 1}:${colLetter(NCOLS - 1)}${Math.max(lastData, headerRow) + 1}`,
-  }
-  ws['!margins'] = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5 }
-  ws['!rightToLeft'] = true
-
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'دفتر الأوزان')
-  XLSX.writeFile(wb, `سجل-الأوزان-${SHIFT_LABELS[shift]}-${date}.xlsx`)
 }
 
 /** فتح نافذة طباعة منسّقة A4 (عربي RTL) — المستخدم يختار «حفظ كـ PDF» */
@@ -223,7 +173,7 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
 </head>
 <body>
   <div class="masthead">
-    <img src="/icons/logo.png" alt="شعار جزيرة الأكرام" />
+    <img src="${logoUrl()}" alt="شعار جزيرة الأكرام" />
     <div class="org">
       <div class="name">شركة جزيرة الأكرام</div>
       <div class="sub">المحطة التحويلية — سجل الأوزان الداخل</div>
@@ -239,8 +189,8 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
   <table>
     <thead>
       <tr>
-        <th>${T}</th><th>DB</th><th>${DRIVER}</th><th>${TYPE}</th>
-        <th>${GROSS}</th><th>${TARE}</th><th>${NET}</th><th>${ENTRY}</th>
+        <th>ت</th><th>DB</th><th>اسم السائق</th><th>صنف الآلية</th>
+        <th>الوزن الكلي (طن)</th><th>الوزن الفارغ (طن)</th><th>الوزن الصافي (طن)</th><th>وقت الدخول</th>
       </tr>
     </thead>
     <tbody>${rowsHtml || '<tr><td colspan="8">لا توجد سجلات في هذا الدفتر</td></tr>'}</tbody>
@@ -263,11 +213,4 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
 </body>
 </html>`)
   win.document.close()
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

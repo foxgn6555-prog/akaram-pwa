@@ -12,6 +12,4 @@ export const transferStationKeys = {
   tripsList: (month?: string) =>
     [...transferStationKeys.all, 'trips', 'list', month ?? 'all'] as const,
   tripsSubmitted: () => [...transferStationKeys.all, 'trips', 'submitted'] as const,
-  attendanceList: (date?: string) =>
-    [...transferStationKeys.all, 'attendance', 'list', date ?? 'all'] as const,
 }

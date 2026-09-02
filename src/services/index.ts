@@ -14,3 +14,12 @@ export { portals } from './portals.sdk'
 export { integrations } from './integrations.sdk'
 export { archive } from './archive.sdk'
 export { metrics } from './metrics.sdk'
+export {
+  sector,
+  sectorTeam,
+  sectorSupplies,
+  sectorBreakdowns,
+  sectorPhotos,
+  sectorAttendance,
+  sectorSummary,
+} from './sector.sdk'

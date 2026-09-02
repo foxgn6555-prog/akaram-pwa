@@ -2,3 +2,5 @@
 export { Button } from './Button/Button'
 export type { ButtonProps } from './Button/Button.types'
 export { Toaster } from './Toast/Toast'
+export { CameraCapture } from './Camera/CameraCapture'
+export type { CameraCaptureProps } from './Camera/CameraCapture'

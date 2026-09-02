@@ -146,17 +146,46 @@ async function createUser(admin: AdminClient, callerId: string, body: Body): Pro
     return json({ error: 'ROLE_ASSIGN_FAILED', detail: roleError.message }, 500)
   }
 
-  // ربط سجل موظف (اختياري لكنه المعتاد)
-  if (employeeNumber) {
+  // ربط سجل موظف (اختياري لكنه المعتاد) — مسؤول القسم يُربط دائماً
+  // لأن اسمه في كتب الطلبات يُشتق من employees.full_name
+  let empNumber = employeeNumber
+  if (employeeNumber || role === 'department_manager') {
+    if (!empNumber) {
+      // توليد رقم وظيفي فريد إن لم يُزوَّد به
+      const prefix = `MGR-${userId.slice(0, 8)}`
+      empNumber = prefix
+    }
     const { error: empError } = await admin.from('employees').insert({
       user_id: userId,
-      employee_number: employeeNumber,
+      employee_number: empNumber,
       full_name: fullName,
       department_id: departmentId,
-      job_title: jobTitle,
+      job_title: jobTitle ?? (role === 'department_manager' ? 'مسؤول قسم' : null),
     })
     if (empError) {
       return json({ error: 'EMPLOYEE_LINK_FAILED', user_id: userId, detail: empError.message }, 207)
+    }
+  }
+
+  // إسناد مسؤول القسم: شفت + قواطع (1–3)
+  if (role === 'department_manager') {
+    const mShift = String(body.manager_shift ?? '')
+    const mSectors = Array.isArray(body.manager_sectors)
+      ? (body.manager_sectors as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
+      : []
+    if (!['morning', 'evening', 'night'].includes(mShift)) {
+      return json({ error: 'MANAGER_SHIFT_REQUIRED', user_id: userId }, 400)
+    }
+    if (mSectors.length < 1 || mSectors.length > 3) {
+      return json({ error: 'MANAGER_SECTORS_REQUIRED', user_id: userId }, 400)
+    }
+    const { error: profileError } = await admin.from('manager_profiles').insert({
+      user_id: userId,
+      shift: mShift,
+      sectors: [...new Set(mSectors)].sort((a, b) => a - b),
+    })
+    if (profileError) {
+      return json({ error: 'MANAGER_PROFILE_FAILED', user_id: userId, detail: profileError.message }, 207)
     }
   }
 

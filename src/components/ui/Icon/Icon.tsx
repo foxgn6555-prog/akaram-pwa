@@ -13,10 +13,14 @@ export type IconName =
   | 'user-plus' | 'activity' | 'list' | 'alert-triangle' | 'refresh' | 'search'
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
-  | 'edit'
+  | 'edit' | 'upload' | 'photo' | 'check' | 'camera'
 
 const paths: Record<IconName, React.ReactNode> = {
   edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,
+  camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3.2" /></>,
+  upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M4.5 19h15" /></>,
+  photo: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.6" /><path d="m4 17 5-4.5 3.5 3 2.5-2 5 4.5" /></>,
+  check: <><path d="m4.5 12.5 5 5 10-11" /></>,
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5" /></>,
   user: <><circle cx="12" cy="8" r="3.5" /><path d="M4.5 20.5c1.6-3.6 4.2-5.2 7.5-5.2s5.9 1.6 7.5 5.2" /></>,
   users: <><circle cx="9" cy="8" r="3.2" /><path d="M2.8 20c1.4-3.2 3.6-4.7 6.2-4.7s4.8 1.5 6.2 4.7" /><path d="M16 5.4a3.2 3.2 0 0 1 0 5.9" /><path d="M17.8 15.6c1.6.6 2.8 2 3.6 4.4" /></>,

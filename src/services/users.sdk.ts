@@ -36,6 +36,9 @@ export interface CreateUserInput {
   employee_number?: string
   department_id?: string
   job_title?: string
+  /** إسناد مسؤول القسم (فقط مع role = department_manager) */
+  manager_shift?: 'morning' | 'evening' | 'night'
+  manager_sectors?: number[]
 }
 
 /** تعديل بيانات الموظف المرتبط بمستخدم (ينشئ السجل إن لم يوجد) */

@@ -32,14 +32,23 @@ describe('StationDashboard', () => {
     expect(screen.getByText('42.25 طن')).toBeInTheDocument()   // أطنان اليوم
   })
 
-  it('يعرض روابط الوحدات السبع', () => {
+  it('يعرض روابط وحدات المحطة بلا وحدة الحضورية', () => {
     renderDash()
     expect(screen.getByTestId('dash-units')).toBeInTheDocument()
     expect(screen.getByText('الأوزان')).toBeInTheDocument()
-    expect(screen.getByText('الحضورية')).toBeInTheDocument()
     expect(screen.getByText('السكسات الخارجة')).toBeInTheDocument()
     expect(screen.getByText('النسافات الخارجة')).toBeInTheDocument()
     expect(screen.getByText('الغرامات')).toBeInTheDocument()
     expect(screen.getByText('الأرشيف')).toBeInTheDocument()
+    // أُلغيت وحدة الحضورية من هذه البوابة
+    expect(screen.queryByText('الحضورية')).not.toBeInTheDocument()
+  })
+
+  it('يعرض الرسوم البيانية الحديثة (حلقي + شريطي)', () => {
+    renderDash()
+    expect(screen.getByTestId('dash-status-chart')).toBeInTheDocument()
+    expect(screen.getByTestId('dash-bars-chart')).toBeInTheDocument()
+    expect(screen.getByText('توزّع حالة السجلات')).toBeInTheDocument()
+    expect(screen.getByText('حركة السجلات')).toBeInTheDocument()
   })
 })

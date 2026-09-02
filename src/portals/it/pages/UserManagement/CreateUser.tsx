@@ -10,6 +10,7 @@ import {
   type CreateUserFormInput,
 } from '@features/user-management'
 import { useDepartments } from '@features/departments'
+import { useSectors, SHIFT_LABELS } from '@features/sector'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -19,12 +20,17 @@ export default function CreateUser() {
   const navigate = useNavigate()
   const create = useCreateUser()
   const { data: departments } = useDepartments()
+  const { data: sectors } = useSectors()
   const [showPassword, setShowPassword] = useState(false)
+  const [mgrShift, setMgrShift] = useState<'morning' | 'evening' | 'night'>('morning')
+  const [mgrSectors, setMgrSectors] = useState<number[]>([])
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<CreateUserFormInput>({
     resolver: zodResolver(createSuperAdminSchema),
@@ -33,6 +39,17 @@ export default function CreateUser() {
 
   const selectedRole = watch('role')
   const isHighPrivilege = selectedRole === 'super_admin' || selectedRole === 'it_admin'
+  const isManager = selectedRole === 'department_manager'
+
+  const toggleSector = (id: number): void => {
+    setMgrSectors((prev) => {
+      const has = prev.includes(id)
+      const next = has ? prev.filter((s) => s !== id) : prev.length >= 3 ? prev : [...prev, id]
+      setValue('manager_sectors', next)
+      void trigger('manager_sectors')
+      return next
+    })
+  }
 
   const onSubmit = async (data: CreateUserFormInput): Promise<void> => {
     await create.mutateAsync({
@@ -43,6 +60,9 @@ export default function CreateUser() {
       employee_number: data.employee_number || undefined,
       department_id: data.department_id || undefined,
       job_title: data.job_title || undefined,
+      ...(data.role === 'department_manager'
+        ? { manager_shift: mgrShift, manager_sectors: mgrSectors }
+        : {}),
     })
     navigate('/it/user-management')
   }
@@ -112,6 +132,60 @@ export default function CreateUser() {
           <p role="note" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             ⚠️ أنت تمنح صلاحية مرتفعة — سيُسجَّل هذا الإجراء باسمك في سجل التدقيق.
           </p>
+        )}
+
+        {/* إسناد مسؤول القسم: الشفت + القواطع */}
+        {isManager && (
+          <fieldset data-testid="manager-assignment" className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+            <legend className="px-1 text-xs font-semibold text-brand-700">إسناد مسؤول القسم (مطلوب)</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="الشفت" htmlFor="cu-mshift" error={errors.manager_shift?.message}>
+                <select id="cu-mshift" data-testid="manager-shift"
+                  value={mgrShift}
+                  onChange={(e) => {
+                    const v = e.target.value as 'morning' | 'evening' | 'night'
+                    setMgrShift(v)
+                    setValue('manager_shift', v)
+                    void trigger('manager_shift')
+                  }}
+                  className={inputClass(!!errors.manager_shift)}>
+                  <option value="morning">{SHIFT_LABELS.morning}</option>
+                  <option value="evening">{SHIFT_LABELS.evening}</option>
+                  <option value="night">{SHIFT_LABELS.night}</option>
+                </select>
+              </Field>
+            </div>
+            <div className="mt-4">
+              <span className="mb-2 block text-sm font-medium">
+                القواطع المسندة <span className="text-xs font-normal text-slate-400">(من 1 إلى 3 — اخترت {mgrSectors.length})</span>
+              </span>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="manager-sectors">
+                {(sectors ?? []).map((s) => {
+                  const on = mgrSectors.includes(s.id)
+                  const disabled = !on && mgrSectors.length >= 3
+                  return (
+                    <label key={s.id}
+                      className={clsx(
+                        'flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors',
+                        on ? 'border-brand-500 bg-brand-600 font-bold text-white'
+                          : disabled ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300'
+                          : 'border-slate-300 bg-white text-slate-700 hover:border-brand-400',
+                      )}>
+                      <input type="checkbox" className="hidden" disabled={disabled}
+                        checked={on} onChange={() => toggleSector(s.id)} />
+                      {s.name}
+                    </label>
+                  )
+                })}
+              </div>
+              {errors.manager_sectors?.message && (
+                <p role="alert" className="mt-1.5 text-xs text-red-600">{errors.manager_sectors.message}</p>
+              )}
+              <p className="mt-2 text-[11px] text-slate-500">
+                سيرى هذا المسؤول بيانات قواطعه فقط، وتُعزل بياناته عن باقي المسؤولين على مستوى قاعدة البيانات.
+              </p>
+            </div>
+          </fieldset>
         )}
 
         {/* ربط الموظف */}

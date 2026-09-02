@@ -61,7 +61,7 @@ export const SHIFT_LABELS: Record<Shift, string> = {
   evening: 'المسائي',
 }
 
-/* ═══ السكسات الخارجة · النسافات الخارجة · الحضورية (00043) ═══ */
+/* ═══ السكسات الخارجة · النسافات الخارجة (00043) ═══ */
 
 /** حالة سجل الخروج: مسودة → مُرسل فولدره لمعاون المدير المفوض */
 export type StationRecordStatus = 'draft' | 'submitted_to_deputy'
@@ -93,21 +93,3 @@ export interface CreateSaksatInput {
 }
 
 export type CreateTripInput = CreateSaksatInput
-
-/** سجل الحضورية — اسم الموظف وحالته */
-export interface AttendanceRecord {
-  id: string
-  employee_name: string
-  is_present: boolean
-  note: string | null
-  log_date: string
-  archived_at: string | null
-  archive_reason: string | null
-  created_at: string | null
-}
-
-export interface CreateAttendanceInput {
-  employee_name: string
-  is_present: boolean
-  log_date: string
-}

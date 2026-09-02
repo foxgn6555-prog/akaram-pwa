@@ -45,13 +45,18 @@
     "ts_weights_log": "تسجيل الأوزان",
     "ts_fines": "الغرامات",
     "ts_archive": "أرشيف المحطة",
-    "ts_attendance": "الحضورية",
     "ts_saksat": "السكسات الخارجة",
     "ts_trips": "النسافات الخارجة",
     "disc_statements": "الكشوفات",
     "deputy_station_folders": "فولدرات المحطة",
+    "deputy_sector_supplies": "كتب مستلزمات القواطع",
     "disc_new": "إنشاء كشف",
-    "disc_archive": "أرشيف الكشوفات"
+    "disc_archive": "أرشيف الكشوفات",
+    "mgr_request": "إنشاء طلب",
+    "mgr_attendance": "حضورية العمال",
+    "mgr_breakdown": "عطل آلية",
+    "mgr_photos": "إرسال صور",
+    "mgr_archive": "الأرشيف"
   },
   "sections": {
     "main": "القائمة الرئيسية",

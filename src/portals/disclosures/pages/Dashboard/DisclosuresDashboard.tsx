@@ -4,6 +4,7 @@
 import { useNavigate } from 'react-router'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
+  PieChart, Pie, Legend,
 } from 'recharts'
 import { useDisclosureSummary } from '@features/disclosures'
 import { VIOLATION_LABELS, type ViolationType } from '@features/disclosures/types'
@@ -37,6 +38,13 @@ export default function DisclosuresDashboard() {
     key: k,
   }))
 
+  // رسم الحالة: مسودة / مرفوعة / مؤرشفة
+  const statusData = [
+    { name: 'مسودات', value: s?.drafts ?? 0, color: '#f59e0b' },
+    { name: 'مرفوعة للمعاون', value: s?.submitted ?? 0, color: '#10b981' },
+    { name: 'في الأرشيف المركزي', value: s?.archived ?? 0, color: '#ef4444' },
+  ].filter((d) => d.value > 0)
+
   const units = [
     { path: '/disclosures/statements', label: 'الكشوفات', hint: 'إنشاء وعرض الكشوفات', icon: 'file-text' as IconName },
     { path: '/disclosures/statements/new', label: 'إنشاء كشف', hint: 'كشف تأديبي جديد', icon: 'clipboard' as IconName },
@@ -66,26 +74,64 @@ export default function DisclosuresDashboard() {
         </div>
       )}
 
-      {/* رسم بياني لأنواع المخالفات */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-          <Icon name="bar-chart" size={16} className="text-brand-600" />
-          توزيع الكشوفات حسب نوع المخالفة
-        </h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 16, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v) => [`${v} كشف`, 'العدد']} />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                {chartData.map((c) => (
-                  <Cell key={c.key} fill={COLORS[c.key]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      {/* الرسوم البيانية: أنواع المخالفات (أعمدة) + حالة الكشوفات (حلقي) */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="disc-violation-chart">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
+            <Icon name="bar-chart" size={16} className="text-brand-600" />
+            توزيع الكشوفات حسب نوع المخالفة
+          </h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 16, right: 12, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={56} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip
+                  formatter={(v) => [`${v} كشف`, 'العدد']}
+                  cursor={{ fill: 'rgba(0,95,141,0.06)' }}
+                />
+                <Bar dataKey="count" radius={[7, 7, 0, 0]} maxBarSize={48}>
+                  {chartData.map((c) => (
+                    <Cell key={c.key} fill={COLORS[c.key]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="disc-status-chart">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
+            <Icon name="pie-chart" size={16} className="text-brand-600" />
+            حالة الكشوفات
+          </h2>
+          <div className="h-64">
+            {statusData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                لا توجد كشوفات بعد
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    labelLine={false}
+                  >
+                    {statusData.map((d) => <Cell key={d.name} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v} كشف`, 'العدد']} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
       </div>
 

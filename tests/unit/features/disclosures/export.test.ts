@@ -1,22 +1,10 @@
 /**
- * وظائف تصدير الكشوفات — Excel / Word / طباعة.
- * نتأكد أن الدوال تُنفّذ دون أخطاء (مكتبة xlsx تُحمَّل كسولة).
+ * وظائف تصدير الكشوفات — Excel (exceljs) / Word / طباعة.
+ * نتحقق من بنية المصنف الفعلي + بناء نموذج HTML + تنزيل Word + نافذة الطباعة.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
-// محاكاة تنزيل المتصفح وفتح النوافذ
-const mockWriteFile = vi.fn()
 const clickSpy = vi.fn()
-vi.mock('xlsx', () => ({
-  utils: {
-    aoa_to_sheet: vi.fn((rows) => ({ __rows: rows })),
-    encode_cell: vi.fn(({ r, c }: { r: number; c: number }) =>
-      String.fromCharCode(65 + c) + (r + 1)),
-    book_new: vi.fn(() => ({})),
-    book_append_sheet: vi.fn(),
-  },
-  writeFile: (...args: unknown[]) => mockWriteFile(...args),
-}))
 
 import { toExcel, toWord, printDisclosure, disclosureHtml } from '@features/disclosures/lib/export'
 import type { Disclosure } from '@features/disclosures/types'
@@ -31,14 +19,6 @@ const d = {
   created_by: null, created_at: null,
 } as unknown as Disclosure
 
-beforeEach(() => {
-  vi.clearAllMocks()
-})
-
-afterEach(() => {
-  vi.restoreAllMocks()
-})
-
 describe('disclosureHtml — بناء النموذج', () => {
   it('يضمّن البيانات الأساسية والحقول المطلوبة من النموذج', () => {
     const html = disclosureHtml(d)
@@ -49,6 +29,8 @@ describe('disclosureHtml — بناء النموذج', () => {
     expect(html).toContain('تفاصيل الكشف')
     expect(html).toContain('اسم منظم الكشف')
     expect(html).toContain('تأخير')
+    // الشعار
+    expect(html).toContain('icons/logo.png')
   })
 
   it('يهرب النصوص الخاصة HTML لتفادي الكسر', () => {
@@ -66,12 +48,39 @@ describe('disclosureHtml — بناء النموذج', () => {
   })
 })
 
-describe('toExcel', () => {
-  it('يستدعي xlsx.writeFile مع مصنف واسم ملف', async () => {
-    await toExcel([d])
-    expect(mockWriteFile).toHaveBeenCalledTimes(1)
-    const filename = mockWriteFile.mock.calls[0]?.[1]
-    expect(String(filename)).toContain('.xlsx')
+describe('toExcel — تقرير exceljs احترافي', () => {
+  it('يبني مصنف «الكشوفات» بترويسة الشركة ورؤوس الأعمدة والبيانات', async () => {
+    const wb = await toExcel([d])
+    const ws = wb.getWorksheet('الكشوفات')
+    expect(ws).toBeTruthy()
+
+    // اسم الشركة + العنوان
+    expect(String(ws!.getCell('B1').value ?? '')).toContain('شركة جزيرة الأكرام')
+    expect(String(ws!.getCell('A3').value ?? '')).toContain('سجل الكشوفات')
+
+    // رؤوس الأعمدة صف 5 — DB واسم السائق ونوع المخالفة
+    const headers = [3, 4, 10].map((c) => String(ws!.getCell(5, c).value))
+    expect(headers.join('|')).toContain('DB')
+    expect(headers.join('|')).toContain('اسم السائق')
+    expect(headers.join('|')).toContain('نوع المخالفة')
+
+    // صف البيانات الأول صف 6 — السائق و DB
+    expect(String(ws!.getCell(6, 4).value)).toBe('سائق مخالف')
+    expect(String(ws!.getCell(6, 3).value)).toBe('88120')
+  })
+
+  it('يضبط RTL والتجميد والمرشّح واتجاه الطباعة أفقي', async () => {
+    const wb = await toExcel([d])
+    const ws = wb.getWorksheet('الكشوفات')!
+    expect(ws.views?.[0]?.rightToLeft).toBe(true)
+    expect(ws.views?.[0]?.state).toBe('frozen')
+    expect(ws.autoFilter).toBeTruthy()
+    expect(ws.pageSetup?.orientation).toBe('landscape')
+  })
+
+  it('يعالج قائمة فارغة دون أخطاء', async () => {
+    const wb = await toExcel([])
+    expect(wb.getWorksheet('الكشوفات')).toBeTruthy()
   })
 })
 
@@ -79,7 +88,6 @@ describe('toWord', () => {
   it('ينشئ ملف .doc ويحفز التنزيل', () => {
     const createUrl = vi.fn(() => 'blob:test')
     const revoke = vi.fn()
-    // jsdom لا يوفّر createObjectURL — نثبّتها يدوياً
     const origCreate = (URL as unknown as { createObjectURL?: unknown }).createObjectURL
     const origRevoke = (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL
     Object.defineProperty(URL, 'createObjectURL', { value: createUrl, configurable: true, writable: true })
