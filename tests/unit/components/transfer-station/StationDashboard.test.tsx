@@ -32,9 +32,13 @@ describe('StationDashboard', () => {
     expect(screen.getByText('42.25 طن')).toBeInTheDocument()   // أطنان اليوم
   })
 
-  it('يعرض روابط الوحدات الأربع', () => {
+  it('يعرض روابط الوحدات السبع', () => {
     renderDash()
+    expect(screen.getByTestId('dash-units')).toBeInTheDocument()
     expect(screen.getByText('الأوزان')).toBeInTheDocument()
+    expect(screen.getByText('الحضورية')).toBeInTheDocument()
+    expect(screen.getByText('السكسات الخارجة')).toBeInTheDocument()
+    expect(screen.getByText('النسافات الخارجة')).toBeInTheDocument()
     expect(screen.getByText('الغرامات')).toBeInTheDocument()
     expect(screen.getByText('الأرشيف')).toBeInTheDocument()
   })

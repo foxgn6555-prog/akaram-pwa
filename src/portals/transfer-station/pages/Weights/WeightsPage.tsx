@@ -10,9 +10,10 @@ import clsx from 'clsx'
 import {
   useWeightList,
   useCreateWeight,
+  useUpdateWeight,
   useSendToOps,
 } from '@features/transfer-station'
-import type { Shift } from '@features/transfer-station/types'
+import type { Shift, WeightRecord } from '@features/transfer-station/types'
 import { weightRecordSchema, type WeightFormInput } from '@features/transfer-station/schemas/weight.schema'
 import { toExcel, printPdf, netOf, sheetTitle } from '@features/transfer-station/lib/export'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -43,7 +44,11 @@ export default function WeightsPage() {
 
   const list = useWeightList({ date: filterDate, shift: filterShift })
   const create = useCreateWeight()
+  const update = useUpdateWeight()
   const sendOps = useSendToOps()
+
+  /** معرّف السجل قيد التعديل — null يعني إدخال سجل جديد */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const records = list.data ?? []
 
@@ -61,6 +66,30 @@ export default function WeightsPage() {
     setErrors((er) => ({ ...er, [key]: '' }))
   }
 
+  /** تحميل سجل مسودة في النموذج للتعديل — المسودات فقط قابلة للتعديل */
+  const startEdit = (r: WeightRecord): void => {
+    setEditingId(r.id)
+    setForm({
+      db_number: r.db_number,
+      driver_name: r.driver_name,
+      vehicle_type: r.vehicle_type ?? '',
+      gross_weight: r.gross_weight ?? '',
+      tare_weight: r.tare_weight ?? '',
+      entry_time: r.entry_time ?? '',
+      log_date: r.log_date,
+      shift: r.shift,
+    })
+    setErrors({})
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  /** إلغاء التعديل والعودة لإدخال سجل جديد */
+  const cancelEdit = (): void => {
+    setEditingId(null)
+    setForm(emptyForm())
+    setErrors({})
+  }
+
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     const parsed = weightRecordSchema.safeParse(form)
@@ -74,24 +103,27 @@ export default function WeightsPage() {
       return
     }
     const v = parsed.data
-    create.mutate(
-      {
-        db_number: v.db_number.trim(),
-        driver_name: v.driver_name.trim(),
-        vehicle_type: v.vehicle_type?.trim() || null,
-        gross_weight: v.gross_weight === '' || v.gross_weight == null ? null : Number(v.gross_weight),
-        tare_weight: v.tare_weight === '' || v.tare_weight == null ? null : Number(v.tare_weight),
-        entry_time: v.entry_time || null,
-        log_date: v.log_date,
-        shift: v.shift,
+    const payload = {
+      db_number: v.db_number.trim(),
+      driver_name: v.driver_name.trim(),
+      vehicle_type: v.vehicle_type?.trim() || null,
+      gross_weight: v.gross_weight === '' || v.gross_weight == null ? null : Number(v.gross_weight),
+      tare_weight: v.tare_weight === '' || v.tare_weight == null ? null : Number(v.tare_weight),
+      entry_time: v.entry_time || null,
+      log_date: v.log_date,
+      shift: v.shift,
+    }
+    // وضع التعديل: تحديث السجل القائم
+    if (editingId) {
+      update.mutate({ id: editingId, input: payload }, { onSuccess: cancelEdit })
+      return
+    }
+    create.mutate(payload, {
+      onSuccess: () => {
+        // يبقى التاريخ/الشفت لتسهيل الإدخال المتتالي، ويُمسح باقي الحقول
+        setForm((f) => ({ ...emptyForm(), log_date: f.log_date, shift: f.shift }))
       },
-      {
-        onSuccess: () => {
-          // يبقى التاريخ/الشفت لتسهيل الإدخال المتتالي، ويُمسح باقي الحقول
-          setForm((f) => ({ ...emptyForm(), log_date: f.log_date, shift: f.shift }))
-        },
-      },
-    )
+    })
   }
 
   const handleExportExcel = async (): Promise<void> => {
@@ -174,8 +206,8 @@ export default function WeightsPage() {
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
       >
         <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-          <Icon name="scale" size={16} className="text-brand-600" />
-          إدخال سجل جديد
+          <Icon name={editingId ? 'edit' : 'scale'} size={16} className="text-brand-600" />
+          {editingId ? 'تعديل سجل قائم' : 'إدخال سجل جديد'}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <Field label="DB (رقم الآلية)" error={errors.db_number} required>
@@ -209,16 +241,29 @@ export default function WeightsPage() {
               {netPreview ?? '—'}
             </div>
           </Field>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <button
               type="submit"
-              disabled={create.isPending}
+              disabled={create.isPending || update.isPending}
               data-testid="weight-submit"
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
             >
-              {create.isPending ? <LoadingSpinner label="" /> : <Icon name="check-square" size={16} />}
-              حفظ السجل
+              {create.isPending || update.isPending
+                ? <LoadingSpinner label="" />
+                : <Icon name={editingId ? 'edit' : 'check-square'} size={16} />}
+              {editingId ? 'حفظ التعديلات' : 'حفظ السجل'}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                data-testid="cancel-edit"
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <Icon name="x" size={14} />
+                إلغاء
+              </button>
+            )}
           </div>
         </div>
       </form>
@@ -252,6 +297,7 @@ export default function WeightsPage() {
                   <th className="px-3 py-2.5 font-semibold">الصافي</th>
                   <th className="hidden px-3 py-2.5 font-semibold md:table-cell">وقت الدخول</th>
                   <th className="px-3 py-2.5 font-semibold">الحالة</th>
+                  <th className="px-3 py-2.5 font-semibold">إجراء</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,6 +320,20 @@ export default function WeightsPage() {
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
                           مسودة
                         </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {r.status === 'draft' ? (
+                        <button
+                          type="button"
+                          onClick={() => startEdit(r)}
+                          data-testid={`edit-${r.id}`}
+                          className="flex min-h-8 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <Icon name="edit" size={12} /> تعديل
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-300">—</span>
                       )}
                     </td>
                   </tr>

@@ -1,20 +1,24 @@
 /**
- * إنشاء كشف تأديبي — مطابق للنموذج الورقي المرفق:
+ * إنشاء / تعديل كشف تأديبي — مطابق للنموذج الورقي المرفق:
  *  DB · اسم السائق · نوع الآلية · اسم المتعهد (ذاتي/مؤجر) · القاطع
  *  الشفت (ذاتي صباحي/مسائي/ليلي) · نوع الكشف (6 مخالفات + الإجراء التأديبي)
  *  تفاصيل الكشف · منظم الكشف · التاريخ.
  * عند الاختيار وملء التفاصيل: تصدير Word/طباعة أو رفع لمعاون المدير المفوض.
+ * وضع التعديل: /disclosures/statements/:id/edit — للمسودات فقط (المرفوع مقفل).
  */
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
 import clsx from 'clsx'
-import { useCreateDisclosure } from '@features/disclosures'
+import {
+  useCreateDisclosure, useDisclosureById, useUpdateDisclosure,
+} from '@features/disclosures'
 import {
   VIOLATION_LABELS, PENALTY_LABELS, SHIFT_LABELS, CONTRACTOR_TYPES,
   type ViolationType, type PenaltyType, type Shift,
 } from '@features/disclosures/types'
 import { disclosureSchema, type DisclosureFormInput } from '@features/disclosures/schemas/disclosure.schema'
 import { Icon } from '@components/ui/Icon/Icon'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import type { Disclosure } from '@features/disclosures/types'
 
 function todayISO(): string {
@@ -40,10 +44,38 @@ const blank = (): DisclosureFormInput => ({
 
 export default function NewDisclosure() {
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEdit = Boolean(id)
   const create = useCreateDisclosure()
+  const update = useUpdateDisclosure()
+  const existing = useDisclosureById(id)
   const [form, setForm] = useState<DisclosureFormInput>(blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [created, setCreated] = useState<Disclosure | null>(null)
+
+  const record = existing.data ?? null
+  const pending = create.isPending || update.isPending
+  /** المسودات فقط قابلة للتعديل — المرفوع لمعاون المدير مقفل */
+  const locked = isEdit && record !== null && record.status !== 'draft'
+
+  /** تعبئة النموذج من السجل القائم عند فتح وضع التعديل */
+  useEffect(() => {
+    if (isEdit && record) {
+      setForm({
+        db_number: record.db_number,
+        driver_name: record.driver_name,
+        vehicle_type: record.vehicle_type ?? '',
+        contractor_name: (record.contractor_name ?? '') as DisclosureFormInput['contractor_name'],
+        sector: record.sector ?? '',
+        shift: record.shift,
+        log_date: record.log_date,
+        violation_type: record.violation_type,
+        penalty_type: (record.penalty_type ?? 'warning') as DisclosureFormInput['penalty_type'],
+        details: record.details,
+        prepared_by_name: record.prepared_by_name ?? '',
+      })
+    }
+  }, [isEdit, record])
 
   const set = (key: keyof DisclosureFormInput) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
@@ -82,6 +114,12 @@ export default function NewDisclosure() {
   const handleSave = (then?: (d: Disclosure) => void): void => {
     const v = validate()
     if (!v) return
+    if (isEdit && id) {
+      update.mutate({ id, input: buildInput(v) }, {
+        onSuccess: () => navigate('/disclosures/statements'),
+      })
+      return
+    }
     create.mutate(buildInput(v), {
       onSuccess: (d) => {
         setCreated(d)
@@ -104,11 +142,44 @@ export default function NewDisclosure() {
           <Icon name="chevron-right" size={18} />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-slate-800">إنشاء كشف تأديبي</h1>
-          <p className="text-sm text-slate-500">مطابق للنموذج الورقي — يُرفع لمعاون المدير المفوض</p>
+          <h1 className="text-lg font-bold text-slate-800">
+            {isEdit ? 'تعديل كشف تأديبي' : 'إنشاء كشف تأديبي'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {isEdit
+              ? 'تحديث بيانات كشف مسودة — المسودات فقط قابلة للتعديل'
+              : 'مطابق للنموذج الورقي — يُرفع لمعاون المدير المفوض'}
+          </p>
         </div>
       </div>
 
+      {/* حالات وضع التعديل: تحميل / غير موجود / مقفل */}
+      {isEdit && existing.isLoading && (
+        <div className="p-10"><LoadingSpinner label="جارٍ تحميل الكشف…" /></div>
+      )}
+      {isEdit && !existing.isLoading && !record && (
+        <div
+          data-testid="edit-not-found"
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center"
+        >
+          <p className="font-bold text-amber-800">⚠️ لم يتم العثور على الكشف</p>
+          <p className="mt-1 text-xs text-amber-700">ربما يكون مؤرشفاً أو تم رقعه من قاعدة البيانات.</p>
+        </div>
+      )}
+      {locked && record && (
+        <div
+          data-testid="edit-locked"
+          className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm"
+        >
+          <p className="font-bold text-slate-800">🔒 هذا الكشف مرفوع لمعاون المدير المفوض</p>
+          <p className="mt-1 text-xs text-slate-500">
+            لا يمكن تعديله بعد الرفع — يمكن حذفه/أرشفته ثم إعادة إنشائه إن لزم.
+          </p>
+        </div>
+      )}
+
+      {/* النموذج — يظهر في الإنشاء أو عند تعديل مسودة موجودة */}
+      {(!isEdit || (record && !locked)) && (
       <form
         onSubmit={(e) => { e.preventDefault(); handleSave() }}
         className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
@@ -218,16 +289,17 @@ export default function NewDisclosure() {
           />
         </Labeled>
 
-        {/* الأزرار */}
+        {/* الأزرار — في وضع التعديل: حفظ التعديلات فقط */}
         <div className="flex flex-wrap gap-2">
           <button
             type="submit"
-            disabled={create.isPending}
+            disabled={pending}
             data-testid="save-draft"
             className="flex h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
-            <Icon name="check-square" size={16} /> حفظ كمسودة
+            <Icon name="check-square" size={16} /> {isEdit ? 'حفظ التعديلات' : 'حفظ كمسودة'}
           </button>
+          {!isEdit && (
           <button
             type="button"
             disabled={create.isPending}
@@ -239,6 +311,8 @@ export default function NewDisclosure() {
           >
             <Icon name="download" size={16} /> حفظ وتصدير Word
           </button>
+          )}
+          {!isEdit && (
           <button
             type="button"
             disabled={create.isPending}
@@ -259,6 +333,7 @@ export default function NewDisclosure() {
           >
             <Icon name="send" size={16} /> حفظ ورفع للمعاون
           </button>
+          )}
         </div>
 
         {created && (
@@ -267,6 +342,7 @@ export default function NewDisclosure() {
           </p>
         )}
       </form>
+      )}
     </div>
   )
 }

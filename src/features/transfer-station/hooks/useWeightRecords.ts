@@ -8,7 +8,13 @@ import { transferStation } from '@sdk/transfer-station.sdk'
 import { API } from '@lib/constants/api.constants'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
-import type { CreateWeightInput, UpdateWeightInput, Shift } from '../types'
+import type {
+  CreateWeightInput,
+  UpdateWeightInput,
+  CreateSaksatInput,
+  CreateAttendanceInput,
+  Shift,
+} from '../types'
 
 export function useWeightList(filter?: { date?: string; shift?: Shift }) {
   return useQuery({
@@ -113,5 +119,124 @@ export function useSendToOps() {
     },
     onError: (error) =>
       addToast({ type: 'error', message: handleAppError(error, { scope: 'sendToOps' }).message }),
+  })
+}
+
+/* ═══ السكسات الخارجة · النسافات الخارجة · الحضورية (00043) ═══ */
+
+export function useSaksatList(month?: string) {
+  return useQuery({
+    queryKey: transferStationKeys.saksatList(month),
+    queryFn: () => transferStation.listSaksat(month),
+    staleTime: API.STALE_TIME.DEFAULT,
+  })
+}
+
+export function useCreateSaksat() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (input: CreateSaksatInput) => transferStation.createSaksat(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
+      addToast({ type: 'success', message: 'تم تسجيل الخروج بنجاح' })
+    },
+    onError: (error) =>
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'createSaksat' }).message }),
+  })
+}
+
+export function useSendSaksatFolder() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (month: string) => transferStation.sendSaksatFolder(month),
+    onSuccess: (count, month) => {
+      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
+      addToast({
+        type: 'success',
+        message: `أُرسل فولدر السكسات لشهر ${month} (${count} سجل) لمعاون المدير المفوض`,
+      })
+    },
+    onError: (error) =>
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'sendSaksatFolder' }).message }),
+  })
+}
+
+export function useTripsList(month?: string) {
+  return useQuery({
+    queryKey: transferStationKeys.tripsList(month),
+    queryFn: () => transferStation.listTrips(month),
+    staleTime: API.STALE_TIME.DEFAULT,
+  })
+}
+
+export function useCreateTrips() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (input: CreateSaksatInput) => transferStation.createTrips(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
+      addToast({ type: 'success', message: 'تم تسجيل النسافة بنجاح' })
+    },
+    onError: (error) =>
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'createTrips' }).message }),
+  })
+}
+
+export function useSendTripsFolder() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (month: string) => transferStation.sendTripsFolder(month),
+    onSuccess: (count, month) => {
+      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
+      addToast({
+        type: 'success',
+        message: `أُرسل فولدر النسافات لشهر ${month} (${count} سجل) لمعاون المدير المفوض`,
+      })
+    },
+    onError: (error) =>
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'sendTripsFolder' }).message }),
+  })
+}
+
+export function useAttendanceList(date?: string) {
+  return useQuery({
+    queryKey: transferStationKeys.attendanceList(date),
+    queryFn: () => transferStation.listAttendance(date),
+    staleTime: API.STALE_TIME.DEFAULT,
+  })
+}
+
+export function useCreateAttendance() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (input: CreateAttendanceInput) => transferStation.createAttendance(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
+      addToast({ type: 'success', message: 'تم تسجيل الحضور بنجاح' })
+    },
+    onError: (error) =>
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'createAttendance' }).message }),
+  })
+}
+
+/** الفولدرات الواردة لبوابة معاون المدير المفوض */
+export function useSaksatSubmitted() {
+  return useQuery({
+    queryKey: transferStationKeys.saksatSubmitted(),
+    queryFn: () => transferStation.listSaksatSubmitted(),
+    staleTime: API.STALE_TIME.DEFAULT,
+  })
+}
+
+export function useTripsSubmitted() {
+  return useQuery({
+    queryKey: transferStationKeys.tripsSubmitted(),
+    queryFn: () => transferStation.listTripsSubmitted(),
+    staleTime: API.STALE_TIME.DEFAULT,
   })
 }

@@ -45,7 +45,11 @@
     "ts_weights_log": "تسجيل الأوزان",
     "ts_fines": "الغرامات",
     "ts_archive": "أرشيف المحطة",
+    "ts_attendance": "الحضورية",
+    "ts_saksat": "السكسات الخارجة",
+    "ts_trips": "النسافات الخارجة",
     "disc_statements": "الكشوفات",
+    "deputy_station_folders": "فولدرات المحطة",
     "disc_new": "إنشاء كشف",
     "disc_archive": "أرشيف الكشوفات"
   },

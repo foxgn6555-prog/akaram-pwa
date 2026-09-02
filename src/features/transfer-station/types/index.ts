@@ -60,3 +60,54 @@ export const SHIFT_LABELS: Record<Shift, string> = {
   morning: 'الصباحي',
   evening: 'المسائي',
 }
+
+/* ═══ السكسات الخارجة · النسافات الخارجة · الحضورية (00043) ═══ */
+
+/** حالة سجل الخروج: مسودة → مُرسل فولدره لمعاون المدير المفوض */
+export type StationRecordStatus = 'draft' | 'submitted_to_deputy'
+
+/** سجل السكسات الخارجة — وقت الخروج يُسجَّل تلقائياً */
+export interface SaksatRecord {
+  id: string
+  driver_name: string
+  vehicle_type: string | null
+  /** ISO datetime — يُحدَّد تلقائياً لحظة الحفظ */
+  exit_time: string | null
+  log_date: string
+  status: StationRecordStatus
+  submitted_at: string | null
+  archived_at: string | null
+  archive_reason: string | null
+  created_at: string | null
+}
+
+/** سجل النسافات الخارجة — نفس بنية السكسات */
+export type TripRecord = SaksatRecord
+
+export interface CreateSaksatInput {
+  driver_name: string
+  vehicle_type?: string | null
+  /** ISO — يُولَّد تلقائياً عند غيابه */
+  exit_time?: string | null
+  log_date: string
+}
+
+export type CreateTripInput = CreateSaksatInput
+
+/** سجل الحضورية — اسم الموظف وحالته */
+export interface AttendanceRecord {
+  id: string
+  employee_name: string
+  is_present: boolean
+  note: string | null
+  log_date: string
+  archived_at: string | null
+  archive_reason: string | null
+  created_at: string | null
+}
+
+export interface CreateAttendanceInput {
+  employee_name: string
+  is_present: boolean
+  log_date: string
+}

@@ -5,6 +5,7 @@
  *  · submit (رفع لمعاون المدير المفوض) · summary
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
+import { SDKError } from '@lib/errors/SDKError'
 import type {
   Disclosure,
   CreateDisclosureInput,
@@ -66,6 +67,24 @@ export const disclosures = {
           .returns<Record<string, unknown>[]>(),
       )) ?? []
     return rows.map(normalize)
+  },
+
+  async byId(id: string): Promise<Disclosure | null> {
+    try {
+      const r = await sdkGuard(
+        supabase
+          .from('disclosures')
+          .select(COLS)
+          .eq('id', id)
+          .is('archived_at', null)
+          .maybeSingle()
+          .returns<Record<string, unknown>>(),
+      )
+      return normalize(r as Record<string, unknown>)
+    } catch (e) {
+      if (e instanceof SDKError && e.code === 'EMPTY_RESULT') return null
+      throw e
+    }
   },
 
   async create(input: CreateDisclosureInput): Promise<Disclosure> {

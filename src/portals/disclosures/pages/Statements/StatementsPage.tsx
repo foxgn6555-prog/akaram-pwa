@@ -125,6 +125,11 @@ export default function StatementsPage() {
                   disabled={d.status === 'submitted_to_deputy' || submit.isPending}
                   tone="text-emerald-700 hover:bg-emerald-50"
                   onClick={() => submit.mutate(d.id)} />
+                {d.status === 'draft' && (
+                  <ActionBtn icon="edit" label="تعديل" testId={`edit-${d.id}`}
+                    tone="text-indigo-700 hover:bg-indigo-50"
+                    onClick={() => navigate(`/disclosures/statements/${d.id}/edit`)} />
+                )}
                 <ActionBtn icon="download" label="Word" testId={`word-${d.id}`}
                   tone="text-brand-700 hover:bg-brand-50"
                   onClick={() => toWord(d)} />

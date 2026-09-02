@@ -186,6 +186,9 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/transfer-station/weights/log', labelKey: 'nav.ts_weights_log', icon: 'clipboard' },
       ] },
+    { path: '/transfer-station/attendance', labelKey: 'nav.ts_attendance', icon: 'calendar' },
+    { path: '/transfer-station/saksat', labelKey: 'nav.ts_saksat', icon: 'send' },
+    { path: '/transfer-station/trips', labelKey: 'nav.ts_trips', icon: 'truck' },
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
   ],
@@ -195,6 +198,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
+    { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },

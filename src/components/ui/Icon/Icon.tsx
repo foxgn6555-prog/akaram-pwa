@@ -13,8 +13,10 @@ export type IconName =
   | 'user-plus' | 'activity' | 'list' | 'alert-triangle' | 'refresh' | 'search'
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
+  | 'edit'
 
 const paths: Record<IconName, React.ReactNode> = {
+  edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5" /></>,
   user: <><circle cx="12" cy="8" r="3.5" /><path d="M4.5 20.5c1.6-3.6 4.2-5.2 7.5-5.2s5.9 1.6 7.5 5.2" /></>,
   users: <><circle cx="9" cy="8" r="3.2" /><path d="M2.8 20c1.4-3.2 3.6-4.7 6.2-4.7s4.8 1.5 6.2 4.7" /><path d="M16 5.4a3.2 3.2 0 0 1 0 5.9" /><path d="M17.8 15.6c1.6.6 2.8 2 3.6 4.4" /></>,

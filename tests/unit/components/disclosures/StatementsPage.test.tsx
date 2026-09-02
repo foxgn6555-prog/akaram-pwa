@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, Route, Routes } from 'react-router'
 
 const mockList = vi.fn()
 const mockArchive = vi.fn().mockResolvedValue(undefined)
@@ -82,5 +82,30 @@ describe('StatementsPage', () => {
     await user.click(screen.getByTestId('submit-d1'))
     await waitFor(() => expect(mockSubmit).toHaveBeenCalled())
     expect(mockSubmit.mock.calls[0]?.[0]).toBe('d1')
+  })
+
+  it('زر تعديل يظهر للمسودات وينقل لصفحة التعديل', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/disclosures/statements']}>
+        <Routes>
+          <Route path="/disclosures/statements" element={<StatementsPage />} />
+          <Route path="/disclosures/statements/:id/edit" element={<div data-testid="edit-page" />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('edit-d1')).toBeInTheDocument()
+    await user.click(screen.getByTestId('edit-d1'))
+    expect(screen.getByTestId('edit-page')).toBeInTheDocument()
+  })
+
+  it('زر تعديل مخفي للكشف المرفوع للمعاون', () => {
+    mockList.mockReturnValue([{ ...D, id: 'd2', status: 'submitted_to_deputy' }])
+    render(
+      <MemoryRouter>
+        <StatementsPage />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByTestId('edit-d2')).not.toBeInTheDocument()
   })
 })

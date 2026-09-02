@@ -31,6 +31,15 @@ export function useDisclosureSummary() {
   })
 }
 
+export function useDisclosureById(id: string | undefined) {
+  return useQuery({
+    queryKey: disclosuresKeys.detail(id ?? 'none'),
+    queryFn: () => disclosures.byId(id as string),
+    enabled: Boolean(id),
+    staleTime: API.STALE_TIME.DEFAULT,
+  })
+}
+
 export function useCreateDisclosure() {
   const qc = useQueryClient()
   const addToast = useUiStore((s) => s.addToast)
@@ -74,6 +83,22 @@ export function useRestoreDisclosure() {
     },
     onError: (e) =>
       addToast({ type: 'error', message: handleAppError(e, { scope: 'restoreDisclosure' }).message }),
+  })
+}
+
+/** تحديث كشف قائم (مسودة) — وحدة الكشوفات */
+export function useUpdateDisclosure() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<CreateDisclosureInput> }) =>
+      disclosures.update(id, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: disclosuresKeys.all })
+      addToast({ type: 'success', message: 'تم تحديث الكشف بنجاح' })
+    },
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'updateDisclosure' }).message }),
   })
 }
 

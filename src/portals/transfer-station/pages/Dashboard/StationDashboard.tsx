@@ -32,6 +32,9 @@ export default function StationDashboard() {
   const quick: Array<{ path: string; label: string; hint: string; icon: IconName }> = [
     { path: '/transfer-station/weights', label: 'الأوزان', hint: 'تسجيل ودفاتر الشفتات', icon: 'scale' },
     { path: '/transfer-station/weights/log', label: 'تسجيل الأوزان', hint: 'إدخال سجل جديد', icon: 'clipboard' },
+    { path: '/transfer-station/attendance', label: 'الحضورية', hint: 'حضور وانصراف الموظفين', icon: 'calendar' },
+    { path: '/transfer-station/saksat', label: 'السكسات الخارجة', hint: 'قيد الإعداد', icon: 'send' },
+    { path: '/transfer-station/trips', label: 'النسافات الخارجة', hint: 'قيد الإعداد', icon: 'truck' },
     { path: '/transfer-station/fines', label: 'الغرامات', hint: 'قيد الإنشاء', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', label: 'الأرشيف', hint: 'السجلات والأرشفة المركزية', icon: 'archive-box' },
   ]
