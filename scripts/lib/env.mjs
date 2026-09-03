@@ -24,6 +24,9 @@ export function loadEnvFile() {
 export const VALID_ROLES = [
   'employee', 'hr_officer', 'department_manager',
   'finance_officer', 'it_admin', 'super_admin',
+  'field_ops', 'admin_ops', 'maintenance', 'transfer_station',
+  'executive_director', 'deputy_director', 'ops_room',
+  'disclosures_officer', 'complaints_officer',
 ]
 
 export const ROLE_PORTALS = {
@@ -33,4 +36,13 @@ export const ROLE_PORTALS = {
   finance_officer: '/finance',
   it_admin: '/it',
   super_admin: 'كل البوابات',
+  field_ops: '/field-ops',
+  admin_ops: '/admin-ops',
+  maintenance: '/maintenance',
+  transfer_station: '/transfer-station',
+  executive_director: '/executive',
+  deputy_director: '/deputy',
+  ops_room: '/ops-room',
+  disclosures_officer: '/disclosures',
+  complaints_officer: '/complaints',
 }

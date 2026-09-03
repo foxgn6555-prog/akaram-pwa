@@ -1,0 +1,16 @@
+export const complaintsKeys = {
+  all: ['complaints'] as const,
+  inbox: (sector?: string) => [...complaintsKeys.all, 'inbox', sector ?? 'all'] as const,
+  inboxMedia: (messageId: string) => [...complaintsKeys.all, 'inbox-media', messageId] as const,
+  items: (scope: 'officer' | 'manager') => [...complaintsKeys.all, 'items', scope] as const,
+  managers: () => [...complaintsKeys.all, 'managers'] as const,
+  media: (itemId: string) => [...complaintsKeys.all, 'media', itemId] as const,
+  detail: (itemId: string) => [...complaintsKeys.all, 'detail', itemId] as const,
+  report: (reportId: string) => [...complaintsKeys.all, 'report', reportId] as const,
+  summary: () => [...complaintsKeys.all, 'summary'] as const,
+  templates: () => [...complaintsKeys.all, 'templates'] as const,
+  contacts: () => [...complaintsKeys.all, 'contacts'] as const,
+  settings: () => [...complaintsKeys.all, 'settings'] as const,
+  reports: () => [...complaintsKeys.all, 'reports'] as const,
+  deliveries: (complaintId?: string) => [...complaintsKeys.all, 'deliveries', complaintId ?? 'all'] as const,
+} as const

@@ -40,3 +40,4 @@ src/portals/<portal>/
 | `src/portals/executive/` | المدير التنفيذي | executive_director + super_admin | فارغة — هيكل جاهز (00035) |
 | `src/portals/deputy/` | معاون المدير المفوض | deputy_director + super_admin | فارغة — هيكل جاهز (00035) |
 | `src/portals/ops-room/` | غرفة العمليات | ops_room + super_admin | فارغة — هيكل جاهز (00035) |
+| `src/portals/complaints/` | الشكاوى | complaints_officer + super_admin | 8 وحدات Placeholder جاهزة للتطوير |

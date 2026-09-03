@@ -15,6 +15,7 @@ export const PORTALS = {
   DEPUTY: 'deputy',
   OPS_ROOM: 'ops-room',
   DISCLOSURES: 'disclosures',
+  COMPLAINTS: 'complaints',
 } as const
 
 export type PortalId = (typeof PORTALS)[keyof typeof PORTALS]
@@ -44,6 +45,7 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
   { id: PORTALS.DEPUTY,          path: '/deputy',          allowedRoles: ['deputy_director'], colorVar: '--portal-deputy' },
   { id: PORTALS.OPS_ROOM,        path: '/ops-room',        allowedRoles: ['ops_room'], colorVar: '--portal-ops-room' },
   { id: PORTALS.DISCLOSURES, path: '/disclosures', allowedRoles: ['disclosures_officer'], colorVar: '--portal-disclosures' },
+  { id: PORTALS.COMPLAINTS, path: '/complaints', allowedRoles: ['complaints_officer'], colorVar: '--portal-complaints' },
 ] as const
 
 /** كل البوابات التي يملك المستخدم صلاحية الدخول إليها بحسب أدواره */

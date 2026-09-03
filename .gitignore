@@ -6,11 +6,13 @@ dist/
 dev-dist/
 coverage/
 *.tsbuildinfo
+dev-server.log
 
 # Env — لا يُرفع ملف بيئة حقيقي أبداً (تصحيح عيب v3: كان .env.local ضمن الشجرة)
 .env
 .env.local
 .env.*.local
+.env.mailgun.local
 
 # Testing
 playwright-report/

@@ -25,6 +25,10 @@
 | 00017 | app_errors | سجل أخطاء التطبيق — وحدة قاعدة البيانات (البوابة التقنية) |
 | 00018 | it_admin_rpcs | list_platform_users · set_user_role (منع ذاته + تدقيق) · db_stats · db_overview |
 | 00021 | public_rpc_wrappers | أغلفة public لكل دوال RPC — **PostgREST لا يكشف إلا public** (إصلاح 404) |
+| 00046 | complaints_portal_role | دور `complaints_officer` + JWT hook + دعم إسناده عبر RPC |
+| 00047 | complaints_workflow | البريد الوارد + حزم ومواقع وصور الشكاوى + الإسناد + سجل الحالات + Storage وRLS |
+| 00048 | mailgun_email_provider | سجل الإرسال وأحداث accepted/delivered/failed من Mailgun مع RLS |
+| 00049 | complaints_reports_settings | القوالب والتواصل والإعدادات والتقرير اليومي وعناصره، تدقيق المواقع، حارس انتقالات التقرير، منع الحذف، والأرشفة بعد `delivered` |
 
 ## قواعد ثابتة
 1. **لا migration بدون RLS** — إن أنشأت جدولاً بلا سياسات فهو مغلق كلياً افتراضياً (آمن).
@@ -40,4 +44,15 @@ auth.users 1─* login_attempts / app_errors (تبليغ الأخطاء من ا�
 payrolls 1─* payslips
 auth.users 1─* user_roles      auth.users 1─1 employees(user_id)
 audit_logs ← triggers من: employees/departments/requests/payrolls/payslips/budget/it_assets/user_roles
+complaint_inbox_messages 1─* complaints 1─* complaint_items 1─* complaint_media
+complaint_reports 1─* complaint_report_items *─1 complaint_items
+complaint_reports 1─1 complaint_email_deliveries 1─* complaint_email_events
 ```
+
+## ضمانات دورة الشكاوى
+- كل علاقات البيانات في الواجهة تمر عبر `complaints.sdk.ts`.
+- مسؤول القسم يقرأ العناصر والصور المسندة إلى `auth.uid()` فقط.
+- صورة «بعد» يجب أن تكون أحدث من آخر بدء للمعالجة؛ الإرجاع يصفر دورة البدء السابقة.
+- التقرير اليومي يستخدم يوم بغداد ويضم كل مواقع القاطع وحالتها.
+- اعتماد التقرير، الإرسال، التسليم، والفشل انتقالات محكومة؛ لا يمكن القفز إلى الأرشيف من العميل.
+- الحذف الفيزيائي لبيانات الدورة ممنوع، والأرشفة لا تحدث إلا عند حدث Mailgun `delivered`.

@@ -7,6 +7,7 @@ import AttendancePage from './pages/Attendance/AttendancePage'
 import BreakdownPage from './pages/Breakdown/BreakdownPage'
 import PhotosPage from './pages/Photos/PhotosPage'
 import ArchivePage from './pages/Archive/ArchivePage'
+import AssignedComplaintsPage from './pages/Complaints/AssignedComplaintsPage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
@@ -14,6 +15,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'request', element: <NewRequestPage /> },
   { path: 'attendance', element: <AttendancePage /> },
   { path: 'breakdown', element: <BreakdownPage /> },
+  { path: 'complaints', element: <AssignedComplaintsPage /> },
   { path: 'photos', element: <PhotosPage /> },
   { path: 'archive', element: <ArchivePage /> },
 ]

@@ -12,7 +12,10 @@ declare
     'user_roles', 'departments', 'employees', 'requests', 'notifications',
     'documents', 'payrolls', 'payslips', 'attendance_records',
     'budget_allocations', 'it_tickets', 'it_assets', 'audit_logs', 'login_attempts',
-    'app_errors'
+    'app_errors', 'complaint_inbox_messages', 'complaints', 'complaint_items',
+    'complaint_media', 'complaint_status_history', 'complaint_sender_rules',
+    'complaint_email_deliveries', 'complaint_email_events', 'complaint_templates',
+    'complaint_reports', 'complaint_report_items', 'complaint_contacts', 'complaint_settings'
   ];
   missing text := '';
   policies_count integer;
@@ -102,7 +105,8 @@ begin
   for t in select unnest(array[
     'record_login_attempt', 'is_login_locked', 'login_lock_remaining_seconds',
     'list_platform_users', 'set_user_role', 'db_stats', 'db_overview', 'db_table_details',
-    'set_employee_profile'
+    'set_employee_profile', 'complaint_review_item', 'complaint_prepare_daily_report',
+    'complaint_approve_report', 'complaint_dashboard_summary'
   ]) loop
     if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = t) then
@@ -122,11 +126,31 @@ begin
     raise exception 'SMOKE FAIL — audit triggers غير مكتملة';
   end if;
 
-  -- 6) Buckets الثلاثة موجودة
+  -- 6) الدور الجديد قابل للتخزين (قيد CHECK النهائي يشمل complaints_officer)
+  begin
+    insert into auth.users (id, email)
+    values ('00000000-0000-0000-0000-000000000046', 'smoke-complaints@akram.iq');
+    insert into public.user_roles (user_id, role)
+    values ('00000000-0000-0000-0000-000000000046', 'complaints_officer');
+  exception when others then
+    raise exception 'SMOKE FAIL — دور complaints_officer غير قابل للإسناد: %', sqlerrm;
+  end;
+  delete from public.user_roles where user_id = '00000000-0000-0000-0000-000000000046';
+  delete from auth.users where id = '00000000-0000-0000-0000-000000000046';
+
+  -- 7) Buckets الأربعة موجودة
   if (select count(*) from storage.buckets
-      where id in ('employee-documents', 'payroll', 'avatars')) <> 3 then
+      where id in ('employee-documents', 'payroll', 'avatars', 'complaint-media')) <> 4 then
     raise exception 'SMOKE FAIL — buckets غير مكتملة';
   end if;
 
-  raise notice 'SMOKE OK — 15 جدولاً · RLS كامل · % سياسة · دوال البوابة التقنية + أمن الدخول · triggers مثبتة · 3 buckets', policies_count;
+  if (select count(*) from pg_trigger where tgname like 'trg_no_delete_complaint%') < 6 then
+    raise exception 'SMOKE FAIL — حواجز منع الحذف الفيزيائي غير مكتملة';
+  end if;
+  if not exists(select 1 from information_schema.columns where table_schema='public'
+    and table_name='complaint_email_deliveries' and column_name='report_id') then
+    raise exception 'SMOKE FAIL — ربط delivery بالتقرير مفقود';
+  end if;
+
+  raise notice 'SMOKE OK — RLS كامل · % سياسة · دوال البوابة التقنية + أمن الدخول · triggers مثبتة · 4 buckets', policies_count;
 end $$;

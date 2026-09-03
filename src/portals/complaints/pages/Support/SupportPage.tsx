@@ -1,0 +1,1 @@
+export default function SupportPage(){return <section dir="rtl" className="rounded-xl border border-dashed bg-white p-12 text-center"><h1 className="text-2xl font-bold">الدعم الفني</h1><p className="mt-3 text-slate-500">هذه الوحدة فارغة حالياً وجاهزة لربط تذاكر الدعم في جولة لاحقة.</p></section>}

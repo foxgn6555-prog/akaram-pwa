@@ -41,6 +41,7 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
   [PORTALS.DEPUTY]:           { label: 'معاون المدير المفوض', icon: 'user', colorVar: '--portal-deputy', themeClass: 'portal-deputy' },
   [PORTALS.OPS_ROOM]:         { label: 'غرفة العمليات', icon: 'activity', colorVar: '--portal-ops-room', themeClass: 'portal-ops-room' },
   [PORTALS.DISCLOSURES]:      { label: 'وحدة الكشوفات', icon: 'file-text', colorVar: '--portal-disclosures', themeClass: 'portal-disclosures' },
+  [PORTALS.COMPLAINTS]:       { label: 'بوابة الشكاوى', icon: 'clipboard', colorVar: '--portal-complaints', themeClass: 'portal-complaints' },
 }
 
 /** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
@@ -74,6 +75,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/request',    labelKey: 'nav.mgr_request',    icon: 'send' },
     { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
     { path: '/manager/breakdown',  labelKey: 'nav.mgr_breakdown',  icon: 'alert-triangle' },
+    { path: '/manager/complaints', labelKey: 'nav.mgr_complaints', icon: 'clipboard' },
     { path: '/manager/photos',     labelKey: 'nav.mgr_photos',     icon: 'photo' },
     { path: '/manager/archive',    labelKey: 'nav.mgr_archive',    icon: 'archive-box' },
   ],
@@ -207,6 +209,19 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
 
   // ═══ وحدة الكشوفات ═══
+  [PORTALS.COMPLAINTS]: [
+    { path: '/complaints', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/complaints/karrada-sector', labelKey: 'nav.complaints_karrada', icon: 'map-pin', exact: true },
+    { path: '/complaints/zaafaraniya-sector', labelKey: 'nav.complaints_zaafaraniya', icon: 'map-pin', exact: true },
+    { path: '/complaints/assignment', labelKey: 'nav.complaints_assignment', icon: 'send', exact: true },
+    { path: '/complaints/processing', labelKey: 'nav.complaints_processing', icon: 'check-square', exact: true },
+    { path: '/complaints/templates', labelKey: 'nav.complaints_templates', icon: 'file-text', exact: true },
+    { path: '/complaints/data', labelKey: 'nav.complaints_data', icon: 'database', exact: true },
+    { path: '/complaints/pages-contact-settings', labelKey: 'nav.complaints_pages_contact', icon: 'settings', exact: true },
+    { path: '/complaints/archive', labelKey: 'nav.complaints_archive', icon: 'archive-box', exact: true },
+    { path: '/complaints/technical-support', labelKey: 'nav.complaints_support', icon: 'life-buoy', exact: true },
+  ],
+
   [PORTALS.DISCLOSURES]: [
     { path: '/disclosures', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     {

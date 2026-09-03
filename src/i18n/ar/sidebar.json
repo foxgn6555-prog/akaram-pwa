@@ -56,7 +56,17 @@
     "mgr_attendance": "حضورية العمال",
     "mgr_breakdown": "عطل آلية",
     "mgr_photos": "إرسال صور",
-    "mgr_archive": "الأرشيف"
+    "mgr_archive": "الأرشيف",
+    "complaints_karrada": "قاطع الكرادة",
+    "complaints_zaafaraniya": "قاطع الزعفرانية",
+    "complaints_assignment": "فرز وإسناد الشكاوى",
+    "complaints_processing": "معالجة الشكاوى",
+    "complaints_templates": "القوالب",
+    "complaints_data": "بيانات الشكاوى",
+    "complaints_pages_contact": "إعدادات الصفحات والتواصل",
+    "complaints_archive": "أرشيف الشكاوى",
+    "complaints_support": "الدعم الفني",
+    "mgr_complaints": "الشكاوى المسندة"
   },
   "sections": {
     "main": "القائمة الرئيسية",

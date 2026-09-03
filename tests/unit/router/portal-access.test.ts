@@ -13,7 +13,13 @@ import type { SessionUser } from '@sdk/auth.sdk'
 import type { Role } from '@lib/constants/roles.constants'
 
 function sessionWith(...roles: Role[]): SessionUser {
-  return { id: 'u1', email: 'x@akram.iq', fullName: 'مستخدم', roles, primaryRole: roles[0] ?? 'employee' }
+  return {
+    id: 'u1',
+    email: 'x@akram.iq',
+    fullName: 'مستخدم',
+    roles,
+    primaryRole: roles[0] ?? 'employee',
+  }
 }
 
 const PORTALS = {
@@ -30,6 +36,8 @@ const PORTALS = {
   executive: '/executive',
   deputy: '/deputy',
   'ops-room': '/ops-room',
+  disclosures: '/disclosures',
+  complaints: '/complaints',
 } as const
 
 /** هل يسمح الحارس بالدخول لهذه البوابة بهذا الدور؟ */
@@ -88,7 +96,11 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
   })
 
   it('super_admin + it_admin معاً: الافتراضية تبقى «التطوير المركزية»', () => {
-    expect(resolvePortal(['it_admin', 'super_admin'])).toEqual({ type: 'single', portal: 'it', path: '/it' })
+    expect(resolvePortal(['it_admin', 'super_admin'])).toEqual({
+      type: 'single',
+      portal: 'it',
+      path: '/it',
+    })
   })
 
   it('البوابات السبع الجديدة: كل دور يفتح بوابته فقط', () => {
@@ -100,10 +112,14 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
       ['executive_director', 'executive'],
       ['deputy_director', 'deputy'],
       ['ops_room', 'ops-room'],
+      ['disclosures_officer', 'disclosures'],
+      ['complaints_officer', 'complaints'],
     ]
     for (const [role, portal] of pairs) {
       expect(resolvePortal([role]), `${role} → /${portal}`).toEqual({
-        type: 'single', portal, path: `/${portal}`,
+        type: 'single',
+        portal,
+        path: `/${portal}`,
       })
       expect(canEnter([role], portal), `${role} → ${portal}`).toBe(true)
       // بوابات أخرى مغلقة عنه
@@ -129,6 +145,7 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
     expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin'])
     expect(byPath.get('/it')).toEqual(['it_admin', 'super_admin'])
     expect(byPath.get('/admin')).toEqual(['super_admin'])
+    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin'])
   })
 
   it('بلا جلسة → تحويل إلى /login', () => {

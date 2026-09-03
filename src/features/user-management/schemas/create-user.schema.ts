@@ -18,6 +18,7 @@ export const createSuperAdminSchema = z.object({
     'finance_officer', 'it_admin', 'super_admin',
     'field_ops', 'admin_ops', 'maintenance',
     'transfer_station', 'executive_director', 'deputy_director', 'ops_room',
+    'disclosures_officer', 'complaints_officer',
   ], { message: 'اختر دوراً للمستخدم' }),
   /** ربط سجل موظف — اختياري لكنه المعتاد في الشركة */
   employee_number: z

@@ -32,7 +32,7 @@ function dynamicPortal(overrides: Partial<DynamicPortal> = {}): DynamicPortal {
 }
 
 describe('كتالوج بوابات المنظومة', () => {
-  it('المدخل الثابت = 13 بوابة حقيقية بمعرّفات sys: وبألوانها', () => {
+  it('المدخل الثابت يطابق كل البوابات الحقيقية بمعرّفات sys: وبألوانها', () => {
     expect(SYSTEM_PORTALS).toHaveLength(PORTAL_DEFINITIONS.length)
     expect(SYSTEM_PORTALS.map((p) => p.id)).toContain('sys:it')
     expect(SYSTEM_PORTALS.map((p) => p.id)).toContain('sys:field-ops')
@@ -51,8 +51,8 @@ describe('كتالوج بوابات المنظومة', () => {
     expect(ids).toContain('sys:ext-gps')
     expect(ids).toContain('sys:dynamic:warehouse')
     expect(ids).not.toContain('sys:dynamic:closed')
-    // 2 خارجي + 14 ثابت + 1 ديناميكي
-    expect(catalog).toHaveLength(17)
+    // بوابات ثابتة + نظاما التكامل الخارجيان + بوابة ديناميكية نشطة
+    expect(catalog).toHaveLength(PORTAL_DEFINITIONS.length + 3)
   })
 
   it('البوابة الديناميكية تحمل اسمها ولونها الحقيقيين', () => {

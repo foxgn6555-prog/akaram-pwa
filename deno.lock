@@ -1,0 +1,70 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.114.0",
+    "https://esm.sh/iceberg-js@^0.8.1?target=denonext": "https://esm.sh/iceberg-js@0.8.1?target=denonext"
+  },
+  "remote": {
+    "https://esm.sh/@supabase/auth-js@2.114.0/denonext/auth-js.mjs": "bb1529784b52f7729b9db99f9e81abfb37ca695a26fd54473f6e5004e69adcd9",
+    "https://esm.sh/@supabase/functions-js@2.114.0/denonext/functions-js.mjs": "51f35cf55e8450415ffdfa54d23cb6b8ce15df9849f1d532ab9d391e8c597570",
+    "https://esm.sh/@supabase/phoenix@0.4.5/denonext/phoenix.mjs": "40bd2a70829cd847848baac58e635bacd83fd62188f6624b44e2c295341004eb",
+    "https://esm.sh/@supabase/postgrest-js@2.114.0/denonext/postgrest-js.mjs": "9ce751d0c7733e595c6626864755260c03320bde2af507e7f1cff2295ec25909",
+    "https://esm.sh/@supabase/realtime-js@2.114.0/denonext/realtime-js.mjs": "05fead3be44fd5bb3592435fc6205191d1009bc16a5441eb15f10660435c388f",
+    "https://esm.sh/@supabase/storage-js@2.114.0/denonext/storage-js.mjs": "3c014224204460931ee73659633c5b6357cb317974835b26793f488d58faeea4",
+    "https://esm.sh/@supabase/supabase-js@2.114.0": "946ce759db4e6549badf08f6fb26bf763a1740a20d044931769535162c45e1a3",
+    "https://esm.sh/@supabase/supabase-js@2.114.0/denonext/dist/tracingRegistry.mjs": "568dc522e57c82725c15a2e041e362bfa45b1b782be024b8ca3ded60089f3759",
+    "https://esm.sh/@supabase/supabase-js@2.114.0/denonext/supabase-js.mjs": "1e5d746df3e3564f40644efbe6eca60d43cc125038b8f1ad0d906adf9ce6e780",
+    "https://esm.sh/iceberg-js@0.8.1/denonext/iceberg-js.mjs": "d839d81a2e3966500ca2cdd0c1cb458e9608bacfc91f7bb67a69b2e878dcdb4f",
+    "https://esm.sh/iceberg-js@0.8.1?target=denonext": "58c849d7fe2bf4eca4a84eb501e83c161a7d8c34ca1bec15a962b3bec3062633",
+    "https://esm.sh/tslib@2.8.1/denonext/tslib.mjs": "c38da5dd6da6281964435002ce204cd586634fe3bdfb24a0ee116f48cf3292e9"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@hookform/resolvers@^5.1.0",
+        "npm:@playwright/test@^1.53.0",
+        "npm:@sentry/react@^9.30.0",
+        "npm:@supabase/supabase-js@^2.49.0",
+        "npm:@tailwindcss/vite@^4.1.0",
+        "npm:@tanstack/react-query@^5.80.0",
+        "npm:@testing-library/jest-dom@^6.6.0",
+        "npm:@testing-library/react@^16.3.0",
+        "npm:@testing-library/user-event@^14.6.0",
+        "npm:@types/node@^22.15.0",
+        "npm:@types/react-dom@^19.1.0",
+        "npm:@types/react@^19.1.0",
+        "npm:@vitejs/plugin-react@^4.6.0",
+        "npm:clsx@^2.1.1",
+        "npm:date-fns@^4.1.0",
+        "npm:eslint-config-prettier@^10.1.0",
+        "npm:eslint-plugin-react-hooks@^5.2.0",
+        "npm:eslint-plugin-react-refresh@~0.4.20",
+        "npm:eslint@^9.30.0",
+        "npm:exceljs@^4.4.0",
+        "npm:i18next@^25.2.0",
+        "npm:jsdom@^26.1.0",
+        "npm:lucide-react@^1.35.0",
+        "npm:pdfjs-dist@^6.3.289",
+        "npm:prettier@^3.6.0",
+        "npm:react-dom@^19.1.0",
+        "npm:react-hook-form@^7.57.0",
+        "npm:react-i18next@^15.5.0",
+        "npm:react-router@^7.6.0",
+        "npm:react@^19.1.0",
+        "npm:recharts@^3.10.1",
+        "npm:tailwindcss@^4.1.0",
+        "npm:tesseract.js@7",
+        "npm:tsx@^4.20.0",
+        "npm:typescript-eslint@^8.35.0",
+        "npm:typescript@^5.8.0",
+        "npm:vite-plugin-pwa@1",
+        "npm:vite-tsconfig-paths@^5.1.0",
+        "npm:vite@7",
+        "npm:vitest@^3.2.0",
+        "npm:web-vitals@^6.2.1",
+        "npm:zod@4",
+        "npm:zustand@^5.0.5"
+      ]
+    }
+  }
+}

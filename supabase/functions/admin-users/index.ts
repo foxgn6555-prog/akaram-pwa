@@ -19,6 +19,7 @@ const VALID_ROLES = [
   'employee', 'hr_officer', 'department_manager', 'finance_officer',
   'it_admin', 'super_admin', 'field_ops', 'admin_ops', 'maintenance',
   'transfer_station', 'executive_director', 'deputy_director', 'ops_room',
+  'disclosures_officer', 'complaints_officer',
 ]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 /* ~100 سنة — للتعطيل الدائم عبر ban_duration */

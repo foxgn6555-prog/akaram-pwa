@@ -20,6 +20,7 @@ import { customRoutes as executiveRoutes } from '@portals/executive/routes'
 import { customRoutes as deputyRoutes } from '@portals/deputy/routes'
 import { customRoutes as opsRoomRoutes } from '@portals/ops-room/routes'
 import { customRoutes as disclosuresRoutes } from '@portals/disclosures/routes'
+import { customRoutes as complaintsRoutes } from '@portals/complaints/routes'
 
 // ── Public ──
 const LoginPage = lazy(() => import('@portals/public/pages/Login/LoginPage'))
@@ -42,6 +43,7 @@ const ExecutivePortal = lazy(() => import('@portals/executive/ExecutivePortal'))
 const DeputyPortal = lazy(() => import('@portals/deputy/DeputyPortal'))
 const OpsRoomPortal = lazy(() => import('@portals/ops-room/OpsRoomPortal'))
 const DisclosuresPortal = lazy(() => import('@portals/disclosures/DisclosuresPortal'))
+const ComplaintsPortal = lazy(() => import('@portals/complaints/ComplaintsPortal'))
 
 export interface PortalRouteConfig {
   portal: string
@@ -122,6 +124,11 @@ export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
     portal: PORTALS.DISCLOSURES, path: '/disclosures', shell: DisclosuresPortal,
     allowedRoles: ['disclosures_officer', 'super_admin'],
     children: buildPortalRoutes(PORTALS.DISCLOSURES, disclosuresRoutes),
+  },
+  {
+    portal: PORTALS.COMPLAINTS, path: '/complaints', shell: ComplaintsPortal,
+    allowedRoles: ['complaints_officer', 'super_admin'],
+    children: buildPortalRoutes(PORTALS.COMPLAINTS, complaintsRoutes),
   },
 ] as const
 

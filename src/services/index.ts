@@ -23,3 +23,4 @@ export {
   sectorAttendance,
   sectorSummary,
 } from './sector.sdk'
+export { complaints } from './complaints.sdk'

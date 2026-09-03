@@ -9,10 +9,24 @@ describe('accessiblePortals', () => {
     expect(portals.map((p) => p.id)).toContain('it')
     expect(portals.map((p) => p.id)).toContain('hr')
     // البوابات السبع الجديدة ظاهرة أيضاً
-    expect(portals.map((p) => p.id)).toEqual(expect.arrayContaining([
-      'field-ops', 'admin-ops', 'maintenance', 'transfer-station',
-      'executive', 'deputy', 'ops-room',
-    ]))
+    expect(portals.map((p) => p.id)).toEqual(
+      expect.arrayContaining([
+        'field-ops',
+        'admin-ops',
+        'maintenance',
+        'transfer-station',
+        'executive',
+        'deputy',
+        'ops-room',
+        'complaints',
+      ]),
+    )
+  })
+
+  it('دور الشكاوى يرى بوابة الشكاوى فقط', () => {
+    const portals = accessiblePortals(['complaints_officer'])
+    expect(portals).toHaveLength(1)
+    expect(portals[0]?.id).toBe('complaints')
   })
 
   it('it_admin يرى بوابة IT فقط', () => {
