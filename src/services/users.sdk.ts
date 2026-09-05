@@ -106,17 +106,30 @@ export const users = {
 /** نداء موحّد لـ admin-users مع رسائل عربية آمنة */
 async function invokeAdmin<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke<T>('admin-users', { body })
-  if (error) {
-    throw new SDKError(
-      ERROR_MESSAGES[(error as { code?: string }).code ?? ''] ?? 'فشلت العملية — حاول مجدداً',
-      'ADMIN_USERS_FAILED',
-      error,
-    )
-  }
+  if (error) throw await toAdminError(error)
   if (!data) {
     throw new SDKError('استجابة غير متوقعة من خدمة إدارة المستخدمين', 'ADMIN_USERS_EMPTY')
   }
   return data
+}
+
+/**
+ * استخراج كود خطأ الخادم: FunctionsHttpError يحمل Response غير المقروء
+ * في error.context (لا يملك code) — نقرأ { error: 'CODE' } من الجسم.
+ */
+async function toAdminError(error: unknown): Promise<SDKError> {
+  let code = (error as { code?: string }).code ?? ''
+  if (!code) {
+    const context = (error as { context?: Response }).context
+    if (context && typeof context.json === 'function') {
+      try {
+        const body = (await context.json()) as { error?: string }
+        code = String(body.error ?? '')
+      } catch { /* جسم غير JSON — نستخدم الرسالة العامة */ }
+    }
+  }
+  const message = ERROR_MESSAGES[code] ?? 'فشلت العملية — حاول مجدداً'
+  return new SDKError(message, code || 'ADMIN_USERS_FAILED', error)
 }
 
 /** رسائل آمنة بالعربية لأكواد الـ Edge Function */
@@ -129,12 +142,21 @@ const ERROR_MESSAGES: Record<string, string> = {
   USER_REQUIRED: 'المستخدم غير محدد',
   EMAIL_TAKEN: 'البريد الإلكتروني مستخدم مسبقاً',
   EMPLOYEE_NUMBER_TAKEN: 'الرقم الوظيفي مستخدم مسبقاً',
-  EMPLOYEE_LINK_FAILED: 'أُنشئ المستخدم لكن فشل ربط سجل الموظف — أكمل الربط من الشاشة',
+  EMPLOYEE_LINK_FAILED: 'فشل ربط سجل الموظف — أُجهض الإنشاء أو أُنجز جزئياً؛ أعد المحاولة',
   SELF_FORBIDDEN: 'لا يمكنك تنفيذ هذه العملية على حسابك — استخدم قنواتك الشخصية',
   FORBIDDEN: 'لا تملك صلاحية إدارة المستخدمين',
+  FORBIDDEN_ROLE: 'منح دور الإدارة العليا يتطلب صلاحية المدير المفوض',
   CREATE_FAILED: 'فشل إنشاء المستخدم — حاول مجدداً',
   UPDATE_FAILED: 'فشل تحديث الحساب — حاول مجدداً',
   BAN_FAILED: 'فشل تغيير حالة الحساب — حاول مجدداً',
   RESET_FAILED: 'فشل تعيين كلمة المرور — حاول مجدداً',
   ROLE_ASSIGN_FAILED: 'فشل تعيين الدور — رُجّع الإنشاء، حاول مجدداً',
+  MANAGER_SHIFT_REQUIRED: 'اختر شفت مسؤول القسم',
+  MANAGER_SECTORS_REQUIRED: 'اختر من قاطع إلى ثلاثة قواطع لمسؤول القسم',
+  MANAGER_PROFILE_FAILED: 'فشل إنشاء ملف مسؤول القسم — رُجّع الإنشاء، حاول مجدداً',
+  BAD_DEPARTMENT: 'القسم المحدد غير معروف',
+  JOB_TITLE_TOO_LONG: 'المسمى الوظيفي طويل جداً (100 حرف كحد أقصى)',
+  NO_AUTH: 'انتهت الجلسة — سجّل الدخول من جديد',
+  INVALID_CALLER: 'انتهت الجلسة — سجّل الدخول من جديد',
+  INTERNAL: 'خطأ داخلي في خدمة إدارة المستخدمين — حاول مجدداً',
 }

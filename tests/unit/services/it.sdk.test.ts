@@ -118,6 +118,35 @@ describe('users.sdk', () => {
     invokeMock.mockResolvedValueOnce({ data: null, error: { message: 'x', code: 'SELF_FORBIDDEN' } })
     await expect(users.setBanned('uid-1', true)).rejects.toThrow('لا يمكنك تنفيذ هذه العملية على حسابك')
   })
+
+  it('يقرأ كود الخطأ من جسم FunctionsHttpError الحقيقي (error.context)', async () => {
+    // الشكل الفعلي من supabase-js: Response غير المقروء داخل context — بلا خاصية code
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: { context: { json: async () => ({ error: 'EMAIL_TAKEN' }) } },
+    })
+    await expect(
+      users.create({ email: 'a@b.iq', password: 'Passw0rd1', full_name: 'أحمد', role: 'employee' }),
+    ).rejects.toThrow('البريد الإلكتروني مستخدم مسبقاً')
+  })
+
+  it('FORBIDDEN_ROLE يُترجم لرسالة منع تصعيد الصلاحيات', async () => {
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: { context: { json: async () => ({ error: 'FORBIDDEN_ROLE' }) } },
+    })
+    await expect(
+      users.create({ email: 'a@b.iq', password: 'Passw0rd1', full_name: 'أحمد', role: 'super_admin' }),
+    ).rejects.toThrow('يتطلب صلاحية المدير المفوض')
+  })
+
+  it('جسم غير JSON أو كود مجهول يعطي الرسالة العامة دون انفجار', async () => {
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: { context: { json: async () => { throw new Error('not json') } } },
+    })
+    await expect(users.setBanned('uid-2', true)).rejects.toThrow('فشلت العملية — حاول مجدداً')
+  })
 })
 
 describe('system.sdk', () => {

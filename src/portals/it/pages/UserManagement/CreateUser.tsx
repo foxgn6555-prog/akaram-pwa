@@ -34,7 +34,14 @@ export default function CreateUser() {
     formState: { errors, isSubmitting },
   } = useForm<CreateUserFormInput>({
     resolver: zodResolver(createSuperAdminSchema),
-    defaultValues: { role: 'employee', employee_number: '', department_id: '', job_title: '' },
+    defaultValues: {
+      role: 'employee',
+      employee_number: '',
+      department_id: '',
+      job_title: '',
+      manager_shift: 'morning',
+      manager_sectors: [],
+    },
   })
 
   const selectedRole = watch('role')
@@ -52,19 +59,23 @@ export default function CreateUser() {
   }
 
   const onSubmit = async (data: CreateUserFormInput): Promise<void> => {
-    await create.mutateAsync({
-      email: data.email,
-      password: data.password,
-      full_name: data.full_name,
-      role: data.role,
-      employee_number: data.employee_number || undefined,
-      department_id: data.department_id || undefined,
-      job_title: data.job_title || undefined,
-      ...(data.role === 'department_manager'
-        ? { manager_shift: mgrShift, manager_sectors: mgrSectors }
-        : {}),
-    })
-    navigate('/it/user-management')
+    try {
+      await create.mutateAsync({
+        email: data.email,
+        password: data.password,
+        full_name: data.full_name,
+        role: data.role,
+        employee_number: data.employee_number || undefined,
+        department_id: data.department_id || undefined,
+        job_title: data.job_title || undefined,
+        ...(data.role === 'department_manager'
+          ? { manager_shift: data.manager_shift ?? mgrShift, manager_sectors: mgrSectors }
+          : {}),
+      })
+      navigate('/it/user-management')
+    } catch {
+      /* رسالة الخطأ أُظهرت كتوست من الـ hook — نبقى في الصفحة مع الحفاظ على المدخلات */
+    }
   }
 
   const inputClass = (hasError: boolean): string =>

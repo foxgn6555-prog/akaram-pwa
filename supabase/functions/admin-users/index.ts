@@ -22,6 +22,7 @@ const VALID_ROLES = [
   'disclosures_officer', 'complaints_officer',
 ]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /* ~100 سنة — للتعطيل الدائم عبر ban_duration */
 const PERMANENT_BAN = '876000h'
 
@@ -64,7 +65,7 @@ Deno.serve(async (req: Request) => {
     const body: Body = await req.json()
     const action = String(body.action ?? 'create')
 
-    if (action === 'create') return await createUser(admin, callerId, body)
+    if (action === 'create') return await createUser(admin, callerId, callerRoles, body)
     if (action === 'update_email') return await updateEmail(admin, callerId, body)
     if (action === 'set_ban') return await setBan(admin, callerId, body)
     if (action === 'reset_password') return await resetPassword(admin, callerId, body)
@@ -96,7 +97,12 @@ async function audit(
  * create — إنشاء حساب جديد: auth + دور + ربط موظف
  * (نفس العقد السابق — backward compatible، مع قائمة أدوار كاملة)
  */
-async function createUser(admin: AdminClient, callerId: string, body: Body): Promise<Response> {
+async function createUser(
+  admin: AdminClient,
+  callerId: string,
+  callerRoles: string[],
+  body: Body,
+): Promise<Response> {
   const email = String(body.email ?? '').trim().toLowerCase()
   const password = String(body.password ?? '')
   const role = String(body.role ?? '')
@@ -104,11 +110,37 @@ async function createUser(admin: AdminClient, callerId: string, body: Body): Pro
   const employeeNumber = String(body.employee_number ?? '').trim()
   const departmentId = body.department_id ? String(body.department_id) : null
   const jobTitle = body.job_title ? String(body.job_title).trim() : null
+  const isManager = role === 'department_manager'
 
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
-  if (password.length < 8) return json({ error: 'WEAK_PASSWORD' }, 400)
+  if (
+    password.length < 8 ||
+    !/[A-Za-z\u0600-\u06FF]/.test(password) ||
+    !/[0-9]/.test(password)
+  ) return json({ error: 'WEAK_PASSWORD' }, 400)
   if (!VALID_ROLES.includes(role)) return json({ error: 'BAD_ROLE' }, 400)
   if (!fullName) return json({ error: 'NAME_REQUIRED' }, 400)
+  if (departmentId && !UUID_RE.test(departmentId)) return json({ error: 'BAD_DEPARTMENT' }, 400)
+  if (jobTitle && jobTitle.length > 100) return json({ error: 'JOB_TITLE_TOO_LONG' }, 400)
+
+  // منح الإدارة العليا (it_admin / super_admin) حصراً بالمدير المفوض — منع تصعيد الصلاحيات
+  if (['it_admin', 'super_admin'].includes(role) && !callerRoles.includes('super_admin')) {
+    return json({ error: 'FORBIDDEN_ROLE' }, 403)
+  }
+
+  // تحقق مسؤول القسم قبل أي إنشاء — لا حالة جزئية (شفت صالح + قواطع 1–3)
+  const managerShift = String(body.manager_shift ?? '')
+  const managerSectors = Array.isArray(body.manager_sectors)
+    ? (body.manager_sectors as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
+    : []
+  if (isManager) {
+    if (!['morning', 'evening', 'night'].includes(managerShift)) {
+      return json({ error: 'MANAGER_SHIFT_REQUIRED' }, 400)
+    }
+    if (managerSectors.length < 1 || managerSectors.length > 3) {
+      return json({ error: 'MANAGER_SECTORS_REQUIRED' }, 400)
+    }
+  }
 
   // منع تكرار الرقم الوظيفي
   if (employeeNumber) {
@@ -150,43 +182,39 @@ async function createUser(admin: AdminClient, callerId: string, body: Body): Pro
   // ربط سجل موظف (اختياري لكنه المعتاد) — مسؤول القسم يُربط دائماً
   // لأن اسمه في كتب الطلبات يُشتق من employees.full_name
   let empNumber = employeeNumber
-  if (employeeNumber || role === 'department_manager') {
+  if (employeeNumber || isManager) {
     if (!empNumber) {
       // توليد رقم وظيفي فريد إن لم يُزوَّد به
-      const prefix = `MGR-${userId.slice(0, 8)}`
-      empNumber = prefix
+      empNumber = `MGR-${userId.slice(0, 8)}`
     }
     const { error: empError } = await admin.from('employees').insert({
       user_id: userId,
       employee_number: empNumber,
       full_name: fullName,
       department_id: departmentId,
-      job_title: jobTitle ?? (role === 'department_manager' ? 'مسؤول قسم' : null),
+      job_title: jobTitle ?? (isManager ? 'مسؤول قسم' : null),
     })
     if (empError) {
+      // لمسؤول القسم الربط إلزامي — تراجع نظيف بلا أثر جزئي
+      if (isManager) {
+        await admin.auth.admin.deleteUser(userId)
+        return json({ error: 'EMPLOYEE_LINK_FAILED', detail: empError.message }, 500)
+      }
       return json({ error: 'EMPLOYEE_LINK_FAILED', user_id: userId, detail: empError.message }, 207)
     }
   }
 
-  // إسناد مسؤول القسم: شفت + قواطع (1–3)
-  if (role === 'department_manager') {
-    const mShift = String(body.manager_shift ?? '')
-    const mSectors = Array.isArray(body.manager_sectors)
-      ? (body.manager_sectors as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
-      : []
-    if (!['morning', 'evening', 'night'].includes(mShift)) {
-      return json({ error: 'MANAGER_SHIFT_REQUIRED', user_id: userId }, 400)
-    }
-    if (mSectors.length < 1 || mSectors.length > 3) {
-      return json({ error: 'MANAGER_SECTORS_REQUIRED', user_id: userId }, 400)
-    }
+  // إسناد مسؤول القسم: ملف الشفت والقواطع (تحققه المسبق تم أعلاه قبل الإنشاء)
+  if (isManager) {
     const { error: profileError } = await admin.from('manager_profiles').insert({
       user_id: userId,
-      shift: mShift,
-      sectors: [...new Set(mSectors)].sort((a, b) => a - b),
+      shift: managerShift,
+      sectors: [...new Set(managerSectors)].sort((a, b) => a - b),
     })
     if (profileError) {
-      return json({ error: 'MANAGER_PROFILE_FAILED', user_id: userId, detail: profileError.message }, 207)
+      // مسؤول بلا ملف قواطع = حساب معطّل فعلياً — تراجع نظيف
+      await admin.auth.admin.deleteUser(userId)
+      return json({ error: 'MANAGER_PROFILE_FAILED', detail: profileError.message }, 500)
     }
   }
 

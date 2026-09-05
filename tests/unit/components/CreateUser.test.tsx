@@ -105,4 +105,50 @@ describe('CreateUser — إنشاء مستخدم', () => {
     renderPage()
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
+
+  it('يرسل بيانات مسؤول القسم بالشفت الافتراضي والقواطع المختارة', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    await user.selectOptions(screen.getByTestId('create-role'), 'department_manager')
+    await FILL()
+    await user.click(screen.getByText('القاطع الأول'))
+    await user.click(screen.getByText('القاطع الثاني'))
+    await user.click(screen.getByTestId('create-submit'))
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'department_manager',
+          manager_shift: 'morning',
+          manager_sectors: [1, 2],
+        }),
+      )
+    })
+  })
+
+  it('يرفض مسؤول قسم بلا قواطع — بلا اتصال وبلا شفت وهمي', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    await user.selectOptions(screen.getByTestId('create-role'), 'department_manager')
+    await FILL()
+    await user.click(screen.getByTestId('create-submit'))
+
+    await waitFor(() => {
+      expect(screen.getByText('اختر قاطعاً واحداً على الأقل')).toBeInTheDocument()
+    })
+    expect(mockMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('لا ينتقل بعيداً عند فشل الإنشاء — تبقى الصفحة والبيانات', async () => {
+    mockMutateAsync.mockRejectedValueOnce(new Error('EMAIL_TAKEN'))
+    renderPage()
+    await FILL()
+    await userEvent.click(screen.getByTestId('create-submit'))
+
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalled()
+    })
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('البريد الإلكتروني')).toHaveValue('new@akram.iq')
+  })
 })
