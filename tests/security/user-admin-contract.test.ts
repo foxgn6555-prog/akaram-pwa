@@ -38,6 +38,36 @@ describe('عقد أدوار إنشاء المستخدمين — تطابق ال�
   })
 })
 
+describe('مهاجرة 00051 — تعيين الأدوار من Edge Function (service_role)', () => {
+  const MIGRATION = read('supabase/migrations/00051_user_role_service_actor.sql')
+
+  it('يوجد التوقيع الرباعي p_actor اختياري (Backward-compatible)', () => {
+    expect(MIGRATION).toContain('p_actor uuid default null')
+    expect(MIGRATION).toContain('coalesce(p_actor, auth.uid())')
+  })
+
+  it('لا يعتمد التحقق من المتصرّف على auth.uid() مباشرة داخل الحاجز', () => {
+    // الجوهر: الحاجز يستعلم user_roles بدل app.has_role/auth.uid()
+    expect(MIGRATION).toContain('select 1 from public.user_roles ur')
+    expect(MIGRATION).toContain("ur.role = any(array['it_admin', 'super_admin', 'hr_officer'])")
+  })
+
+  it('يحافظ على حماية الذات والتدقيق والسياسة (منع إعادة الظهور)', () => {
+    expect(MIGRATION).toContain('SELF_MODIFY_FORBIDDEN')
+    expect(MIGRATION).toContain("granted_by")
+    expect(MIGRATION).toContain('audit_logs')
+    expect(MIGRATION).toContain('department_manager')
+    expect(MIGRATION).toContain("grant execute on function public.set_user_role(uuid,text,boolean) to authenticated")
+    expect(MIGRATION).toContain("grant execute on function public.set_user_role(uuid,text,boolean,uuid) to service_role")
+  })
+})
+
+describe('admin-users يتعامل مع service_role (رفع الأدوار)', () => {
+  it('يمرر p_actor: callerId في استدعاء set_user_role', () => {
+    expect(SERVER).toContain('p_actor: callerId')
+  })
+})
+
 describe('حواجز الخادم في admin-users (إنشاء المستخدمين)', () => {
   it('منح الإدارة العليا حصراً بالمدير المفوض — قبل أي إنشاء', () => {
     expect(SERVER).toContain("['it_admin', 'super_admin'].includes(role)")

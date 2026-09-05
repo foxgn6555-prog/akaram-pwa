@@ -168,10 +168,13 @@ async function createUser(
   const userId = created.user.id
 
   // تعيين الدور (يمر عبر RPC ليُدقَّن في audit_logs)
+  // p_actor = المتصل الحقيقي المصادق عليه في الدالة — مصدره JWT العميل
+  // (بدونه auth.uid() = NULL تحت service_role فيرفض app.set_user_role)
   const { error: roleError } = await admin.rpc('set_user_role', {
     p_user_id: userId,
     p_role: role,
     p_grant: true,
+    p_actor: callerId,
   })
   if (roleError) {
     // تراجع نظيف: لا نترك مستخدماً بلا دور
