@@ -4,6 +4,7 @@ import {
   useComplaintReports, useComplaintTemplates, useGenerateComplaintReport,
   usePrepareComplaintReport, useSaveComplaintTemplate, useSendComplaintEmail,
   useSetComplaintReportStatus, useComplaintReportDownload,
+  reportStatusLabel,
   type ComplaintSector, type ComplaintTemplate,
 } from '@features/complaints'
 
@@ -98,7 +99,10 @@ const defaultTemplate = templates.find((t) => t.isDefault)
         </div>
       </form>
 
-      <form onSubmit={(e) => { e.preventDefault(); prepare.mutate({ sector: sectorPick, date, templateId: defaultTemplate?.id }) }} className="rounded-xl border bg-white p-5">
+      <form onSubmit={(e) => { e.preventDefault(); prepare.mutate({ sector: sectorPick, date, templateId: defaultTemplate?.id }, {
+        onSuccess: () => setNotice({ kind: 'ok', text: 'تم إنشاء/تحديث المسودة؛ افتحها من قائمة المسودات أدناه.' }),
+        onError: () => setNotice({ kind: 'err', text: 'تعذر إعداد المسودة؛ تأكد من وجود مواقع معتمدة لهذا القاطع في هذا التاريخ.' }),
+      }) }} className="rounded-xl border bg-white p-5">
         <h2 className="font-bold">إعداد تقرير يومي</h2>
         <p className="mt-1 text-xs text-slate-500">القالب الافتراضي الحالي: {defaultTemplate?.name ?? 'لا يوجد — سيُختار أول قالب نشط تلقائياً'}</p>
         <select value={sectorPick} onChange={(e) => setSectorPick(e.target.value as typeof sectorPick)} className="mt-3 w-full rounded-lg border p-2" aria-label="قاطع التقرير"><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option></select>
@@ -129,13 +133,25 @@ const defaultTemplate = templates.find((t) => t.isDefault)
     <div className="rounded-xl border bg-white p-5">
       <h2 className="mb-3 font-bold">مسودات وتقارير</h2>
       {reports.map((r) => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-3 text-sm">
-        <span>{r.title} — {r.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — <b>{r.status}</b></span>
+        <span>{r.title} — {r.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — <b>{reportStatusLabel(r.status)}</b></span>
         <div className="flex flex-wrap gap-2">
           <Link to={`/complaints/reports/${r.id}`} className="rounded border px-3 py-1.5 font-bold text-blue-700">فتح المحرر والتفاصيل</Link>
-          {['draft', 'quality_review', 'failed'].includes(r.status) && <button onClick={() => generate.mutate(r.id)} className="rounded bg-blue-700 px-3 py-1.5 font-bold text-white">توليد PowerPoint</button>}
-          {r.status === 'quality_review' && r.pptxPath && <button onClick={() => download.mutate(r.pptxPath!, { onSuccess: (url) => window.open(url, '_blank', 'noopener,noreferrer') })} className="rounded bg-slate-700 px-3 py-1.5 font-bold text-white">تنزيل للمراجعة</button>}
-          {r.status === 'quality_review' && <button onClick={() => setStatus.mutate({ reportId: r.id, status: 'approved' })} className="rounded bg-emerald-700 px-3 py-1.5 font-bold text-white">اعتماد التقرير</button>}
-          {r.status === 'approved' && r.pptxPath && <button disabled={!r.recipients.length} onClick={() => send.mutate({ reportId: r.id, to: r.recipients, subject: r.title, text: `مرفق ${r.title}`, attachmentPaths: [r.pptxPath!] })} className="rounded bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">إرسال عبر البريد</button>}
+          {['draft', 'quality_review', 'failed'].includes(r.status) && <button disabled={generate.isPending} onClick={() => generate.mutate(r.id, {
+            onSuccess: () => setNotice({ kind: 'ok', text: 'تم توليد PowerPoint وأصبح جاهزاً للمراجعة.' }),
+            onError: () => setNotice({ kind: 'err', text: 'تعذر توليد PowerPoint؛ افتح المحرر وتأكد من حفظ التصميم وتضمين المواقع.' }),
+          })} className="rounded bg-blue-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">توليد PowerPoint</button>}
+          {r.status === 'quality_review' && r.pptxPath && <button disabled={download.isPending} onClick={() => download.mutate(r.pptxPath!, {
+            onSuccess: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+            onError: () => setNotice({ kind: 'err', text: 'تعذر تجهيز رابط التنزيل؛ أعد المحاولة.' }),
+          })} className="rounded bg-slate-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">تنزيل للمراجعة</button>}
+          {r.status === 'quality_review' && <button disabled={setStatus.isPending} onClick={() => setStatus.mutate({ reportId: r.id, status: 'approved' }, {
+            onSuccess: () => setNotice({ kind: 'ok', text: 'تم اعتماد التقرير؛ يمكنك الآن إرساله عبر البريد.' }),
+            onError: () => setNotice({ kind: 'err', text: 'تعذر الاعتماد؛ يشترط وجود ملف PowerPoint مولّد وحالة قيد التدقيق.' }),
+          })} className="rounded bg-emerald-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">اعتماد التقرير</button>}
+          {r.status === 'approved' && r.pptxPath && <button disabled={!r.recipients.length || send.isPending} onClick={() => send.mutate({ reportId: r.id, to: r.recipients, subject: r.title, text: `مرفق ${r.title}`, attachmentPaths: [r.pptxPath!] }, {
+            onSuccess: () => setNotice({ kind: 'ok', text: 'قُبل طلب الإرسال؛ ستتحدث حالة التسليم تلقائياً عبر أحداث Mailgun.' }),
+            onError: () => setNotice({ kind: 'err', text: 'تعذر الإرسال؛ تحقق من أسرار Mailgun والمستلمين المعتمدين ثم أعد المحاولة.' }),
+          })} className="rounded bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">إرسال عبر البريد</button>}
         </div>
       </div>)}
       {reports.length === 0 && <p className="py-6 text-center text-slate-500">لا توجد مسودات بعد.</p>}
