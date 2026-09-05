@@ -1,8 +1,7 @@
 /** أداة تشخيص PPTX: تبني الحزمة محلياً وتفحص الملفات المخزنة في Supabase مقابل متطلبات OOXML.
  *  لا تطبع أي أسرار — تقرأ المفاتيح من .env.local وتستخدمها في الطلبات فقط. */
 import { createRequire } from 'node:module'
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 
