@@ -10,6 +10,9 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
+import { useComplaintArchiveFolders, useComplaintDeletionRequests, useDecideComplaintDeletion, useRetryComplaintDeletion } from '@features/complaints'
+import { useAuth } from '@features/auth'
+import { ComplaintDeletionQueue } from './ComplaintDeletionQueue'
 
 /**
  * 🗄️ وحدة الأرشيف — كل شيء يذهب لمكانه المخصص:
@@ -39,6 +42,12 @@ const TABLE_ICONS: Record<string, IconName> = {
 }
 
 export default function ArchivePage() {
+  const { data: session } = useAuth()
+  const { data: complaintRequests = [] } = useComplaintDeletionRequests()
+  const { data: complaintFolders = [] } = useComplaintArchiveFolders()
+  const decideComplaintDeletion = useDecideComplaintDeletion()
+  const retryComplaintDeletion = useRetryComplaintDeletion()
+  const isSuperAdmin = session?.roles.includes('super_admin') ?? false
   const { data: counts, isLoading: cLoading } = useArchiveCounts()
   const [activeTable, setActiveTable] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -78,6 +87,15 @@ export default function ArchivePage() {
           لا حذف فعلي — كل سجل محذوف يُحفظ هنا مع سببه وزمانه ومُنفّذه، قابل للاستعادة بنقرة
         </p>
       </div>
+
+      <ComplaintDeletionQueue
+        requests={complaintRequests}
+        folders={complaintFolders}
+        isSuperAdmin={isSuperAdmin}
+        busy={decideComplaintDeletion.isPending || retryComplaintDeletion.isPending}
+        onDecide={(requestId, approved) => decideComplaintDeletion.mutate({ requestId, approved, note: approved ? 'موافقة مدير النظام' : 'مرفوض من مدير النظام' })}
+        onRetry={(requestId) => retryComplaintDeletion.mutate({ requestId, note: 'إعادة محاولة موقعة من مدير النظام' })}
+      />
 
       {/* ═══ سجلات أوزان المحطة التحويلية — أرشيف قابل للاستعادة ═══ */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="station-weights-archive">

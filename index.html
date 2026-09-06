@@ -10,7 +10,8 @@
     <!-- ═══ CSP أساسية (تُكمَّل بمطابقة headers على الاستضافة — انظر docs/login-security.md) ═══ -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self';
+                   script-src 'self' 'sha256-yz4skhV7FLqI5qoSEPgdprhmA0gD4z42Q0bFeAsbjPc=';
+                   worker-src 'self' blob:;
                    style-src 'self' 'unsafe-inline';
                    img-src 'self' data: blob: https://*.supabase.co;
                    font-src 'self' data:;

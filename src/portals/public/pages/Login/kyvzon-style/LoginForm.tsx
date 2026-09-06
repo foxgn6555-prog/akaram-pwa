@@ -51,7 +51,7 @@ export default function LoginForm({
       {error && !isLocked && (
         <div className="mb-4 bg-red-500/15 border border-red-400/30 rounded-2xl px-4 py-3 flex items-start gap-3 backdrop-blur-sm">
           <AlertCircle size={18} className="text-red-300 shrink-0 mt-0.5" />
-          <p role="alert" className="text-sm text-red-100">{error}</p>
+          <p role="alert" data-testid="login-error" className="text-sm text-red-100">{error}</p>
         </div>
       )}
 
@@ -72,6 +72,7 @@ export default function LoginForm({
           <div className="relative">
             <input
               id="kv-email"
+              data-testid="login-email"
               type="email"
               dir="ltr"
               autoComplete="username"
@@ -92,6 +93,7 @@ export default function LoginForm({
           <div className="relative">
             <input
               id="kv-pass"
+              data-testid="login-password"
               type={showPass ? 'text' : 'password'}
               dir="ltr"
               autoComplete="current-password"
@@ -115,6 +117,7 @@ export default function LoginForm({
         {/* زر الدخول */}
         <button
           type="submit"
+          data-testid="login-submit"
           disabled={loading || isLocked}
           className="login-shimmer-btn relative w-full h-12 rounded-xl bg-gradient-to-r from-[#005f8d] to-[#0f7cb0] text-white font-bold text-sm
                      hover:from-[#006fa3] hover:to-[#118fd1] transition-all shadow-lg shadow-[#005f8d]/30

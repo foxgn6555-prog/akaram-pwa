@@ -12,11 +12,13 @@ const h = vi.hoisted(() => {
   return {
     templates: [] as unknown[],
     reports: [] as unknown[],
+    inbox: [] as unknown[],
     contacts: [] as unknown[],
     settings: [] as unknown[],
     report: null as unknown,
+    media: [] as unknown[],
     muts: {
-      saveTemplate: mk(), prepare: mk(), generate: mk(), setStatus: mk(),
+      saveTemplate: mk(), prepare: mk(), prepareEmail: mk(), generate: mk(), setStatus: mk(),
       send: mk(), download: mk(), saveContact: mk(), saveSetting: mk(), saveDraft: mk(),
     },
   }
@@ -30,8 +32,10 @@ const LABELS: Record<string, string> = {
 vi.mock('@features/complaints', () => ({
   useComplaintTemplates: () => ({ data: h.templates, isLoading: false }),
   useComplaintReports: () => ({ data: h.reports, isLoading: false }),
+  useComplaintInbox: (sector: string) => ({ data: h.inbox.filter((item: unknown)=>(item as {sector:string}).sector===sector), isLoading: false }),
   useSaveComplaintTemplate: () => h.muts.saveTemplate,
   usePrepareComplaintReport: () => h.muts.prepare,
+  usePrepareComplaintEmailReport: () => h.muts.prepareEmail,
   useGenerateComplaintReport: () => h.muts.generate,
   useSetComplaintReportStatus: () => h.muts.setStatus,
   useSendComplaintEmail: () => h.muts.send,
@@ -41,6 +45,7 @@ vi.mock('@features/complaints', () => ({
   useSaveComplaintContact: () => h.muts.saveContact,
   useSaveComplaintSetting: () => h.muts.saveSetting,
   useComplaintReport: () => (h.report ? { data: h.report, isLoading: false } : { data: undefined, isLoading: true }),
+  useComplaintItemsMedia: () => ({ data: h.media, isLoading: false }),
   useSaveComplaintReportDraft: () => h.muts.saveDraft,
   reportStatusLabel: (status: string) => LABELS[status] ?? status,
 }))
@@ -89,9 +94,11 @@ const reportDetail = {
 beforeEach(() => {
   h.templates = []
   h.reports = []
+  h.inbox = []
   h.contacts = []
   h.settings = []
   h.report = null
+  h.media = []
   for (const m of Object.values(h.muts)) {
     m.mutate.mockReset()
     m.mutate.mockImplementation(() => {})
@@ -100,10 +107,13 @@ beforeEach(() => {
 })
 
 describe('وحدة القوالب — TemplatesPage', () => {
+  it('ينشئ تقريراً مستقلاً للبريد المحدد بالقالب الافتراضي',()=>{h.templates=[template];h.inbox=[{id:'m1',subject:'موضوع البريد',sector:'karrada',receivedAt:'2026-09-06T08:00:00Z'}];succeed(h.muts.prepareEmail,'r-email');view(<TemplatesPage/>);fireEvent.change(screen.getByLabelText('اختر البريد'),{target:{value:'m1'}});fireEvent.click(screen.getByText('إنشاء مسودة هذا البريد'));expect(h.muts.prepareEmail.mutate).toHaveBeenCalledWith({messageId:'m1',templateId:'t1'},expect.objectContaining({onSuccess:expect.any(Function)}));expect(screen.getByText('تم إنشاء/تحديث مسودة البريد الموحدة.')).toBeInTheDocument()})
+
   it('يعرض القوالب مع الشارات ويمنع الحفظ بلا اسم', () => {
     h.templates = [template]
     view(<TemplatesPage />)
-    expect(screen.getByText('القوالب والتقارير اليومية')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('تصميم القوالب'))
+    expect(screen.getByText('صمّم، راجع، ثم أرسل بثقة')).toBeInTheDocument()
     expect(screen.getByText('قالب قائم')).toBeInTheDocument()
     expect(screen.getByText('الافتراضي')).toBeInTheDocument()
     fireEvent.click(screen.getByText('حفظ القالب'))
@@ -114,6 +124,7 @@ describe('وحدة القوالب — TemplatesPage', () => {
   it('يحفظ قالباً جديداً باسم مقصوص وتخطيط كامل ثم يصفّي النموذج', () => {
     succeed(h.muts.saveTemplate)
     view(<TemplatesPage />)
+    fireEvent.click(screen.getByText('تصميم القوالب'))
     fireEvent.change(screen.getByLabelText('اسم القالب'), { target: { value: '  قالب جديد  ' } })
     fireEvent.click(screen.getByText('حفظ القالب'))
     expect(h.muts.saveTemplate.mutate).toHaveBeenCalledWith(
@@ -121,31 +132,34 @@ describe('وحدة القوالب — TemplatesPage', () => {
         id: undefined, name: 'قالب جديد', description: null, sector: null,
         isDefault: false, isActive: true,
         layout: expect.objectContaining({
-          accent: '#cf63c6', title: 'تقرير معالجة الشكاوى ليوم',
-          beforeLabel: 'صورة التلكؤ / الشكوى', afterLabel: 'صورة المعالجة',
+          accent: '#d269c8', title: 'تقرير معالجة التلكؤات ليوم',
+          authorityLine: 'أمانة بغداد / دائرة بلدية الكرادة', contractorLine: 'تحالف شركات جزيرة الأكرام وفيرست ترايد',
+          beforeLabel: 'صورة التلكؤ', afterLabel: 'صورة المعالجة',
         }),
       }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
-    expect(screen.getByText('تمت إضافة القالب.')).toBeInTheDocument()
+    expect(screen.getByText('تم حفظ القالب بنجاح.')).toBeInTheDocument()
     expect((screen.getByLabelText('اسم القالب') as HTMLInputElement).value).toBe('')
   })
 
   it('يعرض رسالة خطأ عند فشل الحفظ ويحافظ على المدخلات', () => {
     fail(h.muts.saveTemplate)
     view(<TemplatesPage />)
+    fireEvent.click(screen.getByText('تصميم القوالب'))
     fireEvent.change(screen.getByLabelText('اسم القالب'), { target: { value: 'قالب' } })
     fireEvent.click(screen.getByText('حفظ القالب'))
-    expect(screen.getByText('تعذر حفظ القالب؛ تحقق من الصلاحية وأعد المحاولة.')).toBeInTheDocument()
+    expect(screen.getByText('تعذر حفظ القالب.')).toBeInTheDocument()
     expect((screen.getByLabelText('اسم القالب') as HTMLInputElement).value).toBe('قالب')
   })
 
   it('يعبّئ النموذج عند التعديل ويحفظ بالمعرّف', () => {
     h.templates = [template]
     view(<TemplatesPage />)
+    fireEvent.click(screen.getByText('تصميم القوالب'))
     fireEvent.click(screen.getByText('تعديل'))
     expect((screen.getByLabelText('اسم القالب') as HTMLInputElement).value).toBe('قالب قائم')
-    fireEvent.click(screen.getByText('حفظ التعديل'))
+    fireEvent.click(screen.getByText('حفظ القالب'))
     expect(h.muts.saveTemplate.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 't1', name: 'قالب قائم', layout: expect.objectContaining({ title: 'غلاف قائم' }) }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
@@ -157,7 +171,8 @@ describe('وحدة القوالب — الإسناد والمسودات', () => 
   it('يعيّن الافتراضي ويقلب التفعيل دون حذف', () => {
     h.templates = [{ ...template, isDefault: false }]
     view(<TemplatesPage />)
-    fireEvent.click(screen.getByText('تعيين كافتراضي'))
+    fireEvent.click(screen.getByText('تصميم القوالب'))
+    fireEvent.click(screen.getByText('تعيين افتراضياً'))
     expect(h.muts.saveTemplate.mutate).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 't1', isDefault: true }))
     fireEvent.click(screen.getByText('تعطيل'))
     expect(h.muts.saveTemplate.mutate).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 't1', isActive: false }))
@@ -167,46 +182,44 @@ describe('وحدة القوالب — الإسناد والمسودات', () => 
     h.templates = [template]
     succeed(h.muts.prepare)
     view(<TemplatesPage />)
-    fireEvent.click(screen.getByText('إنشاء/تحديث المسودة'))
+    fireEvent.click(screen.getByText('إعداد تقرير يومي'))
     expect(h.muts.prepare.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ sector: 'karrada', templateId: 't1', date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
-    expect(screen.getByText('تم إنشاء/تحديث المسودة؛ افتحها من قائمة المسودات أدناه.')).toBeInTheDocument()
+    expect(screen.getByText('تم إنشاء/تحديث المسودة اليومية الجامعة.')).toBeInTheDocument()
     fail(h.muts.prepare)
-    fireEvent.click(screen.getByText('إنشاء/تحديث المسودة'))
-    expect(screen.getByText('تعذر إعداد المسودة؛ تأكد من وجود مواقع معتمدة لهذا القاطع في هذا التاريخ.')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('مسودة جديدة'))
+    fireEvent.click(screen.getByText('إعداد تقرير يومي'))
+    expect(screen.getByText('لا توجد معالجات معتمدة لهذا اليوم والقاطع.')).toBeInTheDocument()
   })
 
   it('يعرض أزرار المسودة حسب الحالة بتسمية عربية ويولّد مع تغذية راجعة', () => {
     h.reports = [{ id: 'r2', reportDate: '2026-09-03', sector: 'zaafaraniya', title: 'تقرير الزعفرانية', status: 'quality_review', pptxPath: 'reports/r2/a.pptx', recipients: [], deliveryId: null, createdAt: '2026-09-03T18:00:00Z' }]
     view(<TemplatesPage />)
-    expect(screen.getByText('قيد التدقيق')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/المسودات والتقارير/))
+    expect(screen.getByText(/قيد التدقيق/)).toBeInTheDocument()
     expect(screen.getByText('توليد PowerPoint')).toBeInTheDocument()
     expect(screen.getByText('تنزيل للمراجعة')).toBeInTheDocument()
-    expect(screen.getByText('اعتماد التقرير')).toBeInTheDocument()
-    expect(screen.queryByText('إرسال عبر البريد')).toBeNull()
+    expect(screen.queryByText('اعتماد')).toBeNull()
+    expect(screen.getByRole('link', { name: 'فتح المحرر' })).toHaveAttribute('href', '/complaints/reports/r2')
+    expect(screen.queryByText('إرسال إلى الجهة المرسلة')).toBeNull()
     succeed(h.muts.generate)
     fireEvent.click(screen.getByText('توليد PowerPoint'))
     expect(h.muts.generate.mutate).toHaveBeenCalledWith('r2', expect.objectContaining({ onSuccess: expect.any(Function) }))
-    expect(screen.getByText('تم توليد PowerPoint وأصبح جاهزاً للمراجعة.')).toBeInTheDocument()
+    expect(screen.getByText('تم توليد PowerPoint للمراجعة.')).toBeInTheDocument()
     fail(h.muts.generate)
     fireEvent.click(screen.getByText('توليد PowerPoint'))
-    expect(screen.getByText('تعذر توليد PowerPoint؛ افتح المحرر وتأكد من حفظ التصميم وتضمين المواقع.')).toBeInTheDocument()
+    expect(screen.getByText('تعذر توليد التقرير.')).toBeInTheDocument()
   })
 
-  it('يرسل التقرير المعتمد بالمرفق مع حماية التكرار', () => {
+  it('يمرر التقرير المعتمد إلى المحرر للمراجعة والإرسال النهائي ولا يرسل من البطاقة', () => {
     h.reports = [{ id: 'r3', reportDate: '2026-09-03', sector: 'karrada', title: 'تقرير كرادة', status: 'approved', pptxPath: 'reports/r2/a.pptx', recipients: ['foxgn6555@gmail.com'], deliveryId: null, createdAt: '2026-09-03T18:00:00Z' }]
-    succeed(h.muts.send)
     view(<TemplatesPage />)
-    const sendButton = screen.getByText('إرسال عبر البريد')
-    expect(sendButton).not.toBeDisabled()
-    fireEvent.click(sendButton)
-    expect(h.muts.send.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ reportId: 'r3', to: ['foxgn6555@gmail.com'], attachmentPaths: ['reports/r2/a.pptx'] }),
-      expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
-    )
-    expect(screen.getByText('قُبل طلب الإرسال؛ ستتحدث حالة التسليم تلقائياً عبر أحداث Mailgun.')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/المسودات والتقارير/))
+    const finalLink = screen.getByRole('link', { name: /فتح للإرسال النهائي/ })
+    expect(finalLink).toHaveAttribute('href', '/complaints/reports/r3')
+    expect(h.muts.send.mutate).not.toHaveBeenCalled()
   })
 })
 
@@ -267,26 +280,20 @@ describe('وحدة الإعدادات والتواصل — SettingsPage', () => 
   })
 })
 
-describe('وحدة الإعدادات — بطاقة الإعداد', () => {
-  it('يرفض JSON غير صالح أو غير الكائني دون استدعاء الحفظ', () => {
+describe('وحدة الإعدادات — البطاقات المرئية', () => {
+  it('يعرض مفتاحاً منطقياً مفهوماً بدلاً من محرر JSON خام', () => {
     h.settings = [setting]
     view(<SettingsPage />)
-    const textarea = screen.getByLabelText('قيمة الإعداد reports.cc')
-    fireEvent.change(textarea, { target: { value: '{ bad' } })
-    fireEvent.click(screen.getByText('حفظ الإعداد'))
-    expect(screen.getByText('صيغة JSON غير صحيحة.')).toBeInTheDocument()
-    expect(h.muts.saveSetting.mutate).not.toHaveBeenCalled()
-    fireEvent.change(textarea, { target: { value: '[1,2]' } })
-    fireEvent.click(screen.getByText('حفظ الإعداد'))
-    expect(screen.getByText('يجب أن تكون قيمة الإعداد كائن JSON.')).toBeInTheDocument()
-    expect(h.muts.saveSetting.mutate).not.toHaveBeenCalled()
+    expect(screen.getByText('نسخ التقارير الإضافية')).toBeInTheDocument()
+    expect(screen.getByLabelText('تفعيل النسخة الإضافية')).toBeChecked()
+    expect(screen.queryByLabelText('قيمة الإعداد reports.cc')).not.toBeInTheDocument()
   })
 
-  it('يحفظ الإعداد بقيمة محللة ويعرض نجاحاً ويعالج الفشل', () => {
+  it('يحفظ التغييرات المرئية ويعرض نجاح وفشل الحفظ', () => {
     h.settings = [setting]
     succeed(h.muts.saveSetting)
     view(<SettingsPage />)
-    fireEvent.change(screen.getByLabelText('قيمة الإعداد reports.cc'), { target: { value: '{"enabled":false}' } })
+    fireEvent.click(screen.getByLabelText('تفعيل النسخة الإضافية'))
     fireEvent.click(screen.getByText('حفظ الإعداد'))
     expect(h.muts.saveSetting.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'reports.cc', value: { enabled: false }, description: 'نسخة موظف' }),
@@ -297,6 +304,11 @@ describe('وحدة الإعدادات — بطاقة الإعداد', () => {
     fireEvent.click(screen.getByText('حفظ الإعداد'))
     expect(screen.getByText('تعذر حفظ الإعداد؛ تحقق من الصلاحية ثم أعد المحاولة.')).toBeInTheDocument()
   })
+
+  it('يضبط حد مرفقات Mailgun دون كشف الأسرار ويتحقق من حد 24MB',()=>{
+    h.settings=[{key:'mailgun',value:{provider:'mailgun',maxAttachmentMb:24},description:'عام'}]
+    succeed(h.muts.saveSetting);view(<SettingsPage/>);expect(screen.getByLabelText('مزود البريد')).toBeDisabled();const limit=screen.getByLabelText('الحد الأقصى للمرفقات (MB)');expect(limit).toHaveAttribute('max','24');fireEvent.change(limit,{target:{value:'20'}});fireEvent.click(screen.getByText('حفظ الإعداد'));expect(h.muts.saveSetting.mutate).toHaveBeenCalledWith(expect.objectContaining({value:{provider:'mailgun',maxAttachmentMb:20}}),expect.any(Object))
+  })
 })
 
 describe('محرر التقرير — ReportEditorPage', () => {
@@ -304,7 +316,7 @@ describe('محرر التقرير — ReportEditorPage', () => {
     h.report = { ...reportDetail, recipients: [] }
     editorView()
     expect(screen.getByText(/معتمد/)).toBeInTheDocument()
-    expect(screen.getByText('إرسال نهائي')).toBeDisabled()
+    expect(screen.getByText('إرسال إلى الجهة المرسلة')).toBeDisabled()
     expect(screen.queryByText('توليد PowerPoint')).toBeNull()
   })
 
@@ -312,7 +324,7 @@ describe('محرر التقرير — ReportEditorPage', () => {
     h.report = { ...reportDetail, status: 'quality_review', recipients: [] }
     editorView()
     expect(screen.getByText(/قيد التدقيق/)).toBeInTheDocument()
-    expect(screen.queryByText('إرسال نهائي')).toBeNull()
+    expect(screen.queryByText('إرسال إلى الجهة المرسلة')).toBeNull()
     expect(screen.getByText('حفظ التصميم')).toBeDisabled()
     succeed(h.muts.generate)
     fireEvent.click(screen.getByText('توليد PowerPoint'))
@@ -324,7 +336,7 @@ describe('محرر التقرير — ReportEditorPage', () => {
     h.report = reportDetail
     succeed(h.muts.send)
     editorView()
-    const sendButton = screen.getByText('إرسال نهائي')
+    const sendButton = screen.getByText('إرسال إلى الجهة المرسلة')
     expect(sendButton).not.toBeDisabled()
     fireEvent.click(sendButton)
     expect(h.muts.send.mutate).toHaveBeenCalledWith(
@@ -335,6 +347,40 @@ describe('محرر التقرير — ReportEditorPage', () => {
       expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
     )
     expect(screen.getByText('قُبل طلب الإرسال، وسيتم تحديث حالة التسليم تلقائياً.')).toBeInTheDocument()
+  })
+
+  it('يفرض تأكيد المراجعة البصرية قبل اعتماد التقرير', () => {
+    h.report = { ...reportDetail, status: 'quality_review' }
+    succeed(h.muts.setStatus)
+    editorView()
+    const approve = screen.getByRole('button', { name: 'اعتماد التقرير' })
+    expect(approve).toBeDisabled()
+    fireEvent.click(screen.getByText(/نزّلت ملف PowerPoint وراجعت الغلاف/))
+    expect(approve).toBeEnabled()
+    fireEvent.click(approve)
+    expect(h.muts.setStatus.mutate).toHaveBeenCalledWith({ reportId: 'r1', status: 'approved', reviewedPptxPath: 'reports/r1/x.pptx' }, expect.any(Object))
+  })
+
+  it('يعرض صور قبل وبعد الفعلية في المعاينة البصرية', () => {
+    h.report = reportDetail
+    h.media = [
+      { id: 'before', itemId: 'i1', kind: 'before', url: 'https://test/before.jpg' },
+      { id: 'after', itemId: 'i1', kind: 'after', url: 'https://test/after.jpg' },
+    ]
+    editorView()
+    fireEvent.click(screen.getByRole('button', { name: 'قبل / بعد' }))
+    expect(screen.getByAltText('صورة التلكؤ')).toHaveAttribute('src', 'https://test/before.jpg')
+    expect(screen.getByAltText('صورة المعالجة')).toHaveAttribute('src', 'https://test/after.jpg')
+  })
+
+  it('يحفظ التعديلات قبل توليد PowerPoint كي لا يولد نسخة قديمة', () => {
+    h.report = { ...reportDetail, status: 'quality_review' }
+    succeed(h.muts.saveDraft); succeed(h.muts.generate)
+    editorView()
+    fireEvent.change(screen.getByLabelText('عنوان التقرير'), { target: { value: 'تقرير معدل' } })
+    fireEvent.click(screen.getByRole('button', { name: 'توليد PowerPoint' }))
+    expect(h.muts.saveDraft.mutate).toHaveBeenCalledWith(expect.objectContaining({ title: 'تقرير معدل' }), expect.any(Object))
+    expect(h.muts.generate.mutate).toHaveBeenCalledWith('r1', expect.any(Object))
   })
 
   it('يعرض سجل التسليم مع نتيجة التسليم', () => {

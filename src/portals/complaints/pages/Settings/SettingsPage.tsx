@@ -94,43 +94,39 @@ export default function SettingsPage() {
                 </tbody>
               </table>}
       </div>
+      <IssueTypesCard setting={settings.find((value) => value.key === 'complaints.issue_types')} />
       <div className="grid gap-3 md:grid-cols-2">
-        {settings.map((setting) => <SettingCard key={setting.key} setting={setting} />)}
+        {settings.filter((setting) => setting.key !== 'complaints.issue_types').map((setting) => <VisualSettingCard key={setting.key} setting={setting} />)}
       </div>
     </section>
   )
 }
-function SettingCard({ setting }: { setting: ComplaintSetting }) {
-  const save = useSaveComplaintSetting()
-  const [text, setText] = useState(() => JSON.stringify(setting.value, null, 2))
-  const [feedback, setFeedback] = useState<Feedback | null>(null)
-
-  // مزامنة النص عند تحدّث الإعداد من الخارج (بعد الحفظ يعاد الجلب)
-  useEffect(() => {
-    setText(JSON.stringify(setting.value, null, 2))
-    setFeedback(null)
-  }, [setting])
-
-  const saveSetting = () => {
-    let parsed: unknown
-    try { parsed = JSON.parse(text) } catch { setFeedback({ kind: 'err', text: 'صيغة JSON غير صحيحة.' }); return }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      setFeedback({ kind: 'err', text: 'يجب أن تكون قيمة الإعداد كائن JSON.' })
-      return
-    }
-    save.mutate({ ...setting, value: parsed as Record<string, unknown> }, {
-      onSuccess: () => setFeedback({ kind: 'ok', text: 'تم حفظ الإعداد.' }),
-      onError: () => setFeedback({ kind: 'err', text: 'تعذر حفظ الإعداد؛ تحقق من الصلاحية ثم أعد المحاولة.' }),
-    })
-  }
-
-  return (
-    <article className="rounded-xl border bg-white p-4">
-      <strong>{setting.key}</strong>
-      <p className="text-xs text-slate-500">{setting.description}</p>
-      <textarea dir="ltr" value={text} onChange={(e) => setText(e.target.value)} aria-label={`قيمة الإعداد ${setting.key}`} className="mt-3 min-h-32 w-full rounded border p-2 font-mono text-xs" />
-      {feedback && <p aria-live="polite" className={`mt-2 rounded p-2 text-xs font-bold ${feedbackClass(feedback.kind)}`}>{feedback.text}</p>}
-      <button type="button" onClick={saveSetting} className="mt-2 rounded bg-slate-800 px-3 py-2 text-sm font-bold text-white">حفظ الإعداد</button>
-    </article>
-  )
+function IssueTypesCard({setting}:{setting?:ComplaintSetting}){
+  const save=useSaveComplaintSetting();const initial=((setting?.value.items??['تراكم نفايات','أنقاض','مخلفات زراعية'])as unknown[]).filter((value):value is string=>typeof value==='string');const[types,setTypes]=useState(initial);const[newType,setNewType]=useState('');const[feedback,setFeedback]=useState<Feedback|null>(null)
+  useEffect(()=>{if(setting){setTypes(((setting.value.items??[])as unknown[]).filter((value):value is string=>typeof value==='string'))}},[setting])
+  const add=()=>{const value=newType.trim();if(!value||types.includes(value))return;setTypes(old=>[...old,value]);setNewType('')}
+  const persist=()=>save.mutate({key:'complaints.issue_types',value:{items:types},description:'أنواع التلكؤ المتاحة أثناء فرز صور البريد'},{onSuccess:()=>setFeedback({kind:'ok',text:'تم حفظ أنواع التلكؤ.'}),onError:()=>setFeedback({kind:'err',text:'تعذر حفظ الأنواع.'})})
+  return <article className="rounded-2xl border border-blue-100 bg-blue-50/40 p-5"><div><h2 className="font-black text-slate-900">أنواع التلكؤ والشكاوى</h2><p className="mt-1 text-xs text-slate-500">تظهر هذه القائمة لموظف الشكاوى أثناء كتابة بيانات كل صورة.</p></div><div className="mt-4 flex flex-wrap gap-2">{types.map(type=><span key={type} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-bold shadow-sm">{type}<button type="button" onClick={()=>setTypes(old=>old.filter(value=>value!==type))} aria-label={`حذف ${type}`} className="text-red-600">×</button></span>)}</div><div className="mt-4 flex flex-wrap gap-2"><input value={newType} onChange={event=>setNewType(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();add()}}} placeholder="اكتب نوعاً جديداً" className="min-w-56 flex-1 rounded-xl border bg-white p-3"/><button type="button" onClick={add} className="rounded-xl border border-blue-200 bg-white px-4 py-2 font-bold text-blue-800">إضافة للقائمة</button><button type="button" onClick={persist} disabled={!types.length||save.isPending} className="rounded-xl bg-blue-700 px-5 py-2 font-bold text-white disabled:opacity-50">{save.isPending?'جارٍ الحفظ…':'حفظ الأنواع'}</button></div>{feedback&&<p className={`mt-3 rounded p-2 text-xs font-bold ${feedbackClass(feedback.kind)}`}>{feedback.text}</p>}</article>
+}
+const SETTING_LABELS: Record<string,{title:string;description:string;fields:Record<string,string>}>={
+  mailgun:{title:'حدود البريد والمرفقات',description:'إعدادات تشغيلية عامة فقط؛ المفتاح السري والنطاق يبقيان في أسرار الخادم.',fields:{provider:'مزود البريد',maxAttachmentMb:'الحد الأقصى للمرفقات (MB)'}},
+  report:{title:'سياسة التقارير والأرشفة',description:'حدد محتوى التقرير اليومي ووقت أرشفة التقرير بعد الإرسال.',fields:{includeAllDailyItems:'تضمين جميع عناصر اليوم',archiveAfterDelivery:'الأرشفة تلقائياً بعد تأكيد التسليم'}},
+  'reports.cc':{title:'نسخ التقارير الإضافية',description:'التحكم في إرسال نسخة إضافية مع التقارير.',fields:{enabled:'تفعيل النسخة الإضافية'}},
+}
+function titleFor(key:string){return SETTING_LABELS[key]?.title??key.replaceAll(/[._-]+/g,' ')}
+function fieldLabel(settingKey:string,field:string){return SETTING_LABELS[settingKey]?.fields[field]??field.replaceAll(/[._-]+/g,' ')}
+function VisualSettingCard({setting}:{setting:ComplaintSetting}){
+  const save=useSaveComplaintSetting();const[values,setValues]=useState<Record<string,unknown>>(setting.value);const[feedback,setFeedback]=useState<Feedback|null>(null)
+  useEffect(()=>{setValues(setting.value);setFeedback(null)},[setting])
+  const patch=(key:string,value:unknown)=>setValues(old=>({...old,[key]:value}))
+  const persist=()=>save.mutate({...setting,value:values},{onSuccess:()=>setFeedback({kind:'ok',text:'تم حفظ الإعداد.'}),onError:()=>setFeedback({kind:'err',text:'تعذر حفظ الإعداد؛ تحقق من الصلاحية ثم أعد المحاولة.'})})
+  const meta=SETTING_LABELS[setting.key]
+  return <article className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h2 className="font-black text-slate-900">{titleFor(setting.key)}</h2><p className="mt-1 text-xs leading-6 text-slate-500">{meta?.description||setting.description||'إعداد تشغيلي لبوابة الشكاوى.'}</p></div><span className="rounded-full bg-slate-100 px-3 py-1 font-mono text-[10px] text-slate-500">{setting.key}</span></div><div className="mt-4 space-y-3">{Object.entries(values).map(([key,value])=><SettingField key={key} settingKey={setting.key} fieldKey={key} value={value} onChange={next=>patch(key,next)}/>)}</div>{feedback&&<p aria-live="polite" className={`mt-3 rounded-lg p-2 text-xs font-bold ${feedbackClass(feedback.kind)}`}>{feedback.text}</p>}<button type="button" onClick={persist} disabled={save.isPending} className="mt-4 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{save.isPending?'جارٍ الحفظ…':'حفظ الإعداد'}</button></article>
+}
+function SettingField({settingKey,fieldKey,value,onChange}:{settingKey:string;fieldKey:string;value:unknown;onChange:(value:unknown)=>void}){
+  const label=fieldLabel(settingKey,fieldKey)
+  if(typeof value==='boolean')return <label className="flex items-center justify-between rounded-xl border bg-slate-50 p-3 text-sm font-bold"><span>{label}</span><input type="checkbox" checked={value} onChange={event=>onChange(event.target.checked)} aria-label={label} className="size-5 accent-blue-700"/></label>
+  if(typeof value==='number')return <label className="block text-sm font-bold">{label}<input type="number" min={1} max={fieldKey==='maxAttachmentMb'?24:undefined} value={value} onChange={event=>onChange(Number(event.target.value))} aria-label={label} className="mt-2 w-full rounded-xl border p-3"/></label>
+  if(Array.isArray(value))return <label className="block text-sm font-bold">{label}<textarea value={value.filter(item=>typeof item==='string').join('\n')} onChange={event=>onChange(event.target.value.split('\n').map(item=>item.trim()).filter(Boolean))} aria-label={label} className="mt-2 min-h-24 w-full rounded-xl border p-3"/><span className="mt-1 block text-xs font-normal text-slate-500">عنصر واحد في كل سطر.</span></label>
+  return <label className="block text-sm font-bold">{label}<input value={typeof value==='string'?value:''} onChange={event=>onChange(event.target.value)} aria-label={label} disabled={settingKey==='mailgun'&&fieldKey==='provider'} className="mt-2 w-full rounded-xl border p-3 disabled:bg-slate-100 disabled:text-slate-500"/></label>
 }

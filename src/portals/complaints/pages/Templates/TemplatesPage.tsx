@@ -1,160 +1,26 @@
-import { useState } from 'react'
-import { Link } from 'react-router'
-import {
-  useComplaintReports, useComplaintTemplates, useGenerateComplaintReport,
-  usePrepareComplaintReport, useSaveComplaintTemplate, useSendComplaintEmail,
-  useSetComplaintReportStatus, useComplaintReportDownload,
-  reportStatusLabel,
-  type ComplaintSector, type ComplaintTemplate,
-} from '@features/complaints'
+import{useState,type ReactNode}from'react'
+import{Link}from'react-router'
+import{CalendarDays,CheckCircle2,FileText,Mail,Palette,Send,Settings2}from'lucide-react'
+import{ComplaintWorkflow}from'../../components/ComplaintUi'
+import{useComplaintInbox,useComplaintReportDownload,useComplaintReports,useComplaintTemplates,useGenerateComplaintReport,usePrepareComplaintEmailReport,usePrepareComplaintReport,useSaveComplaintTemplate,reportStatusLabel,type ComplaintSector,type ComplaintTemplate}from'@features/complaints'
 
-interface TemplateFormState {
-  id?: string
-  name: string
-  description: string
-  sector: ComplaintSector | ''
-  accent: string
-  coverTitle: string
-  beforeLabel: string
-  afterLabel: string
+type Tab='templates'|'prepare'|'reports';type Form={id?:string;name:string;description:string;sector:ComplaintSector|'';accent:string;coverTitle:string;authorityLine:string;contractorLine:string;beforeLabel:string;afterLabel:string}
+const empty:Form={name:'',description:'',sector:'',accent:'#d269c8',coverTitle:'تقرير معالجة التلكؤات ليوم',authorityLine:'أمانة بغداد / دائرة بلدية الكرادة',contractorLine:'تحالف شركات جزيرة الأكرام وفيرست ترايد',beforeLabel:'صورة التلكؤ',afterLabel:'صورة المعالجة'}
+const value=(layout:Record<string,unknown>,key:string,fallback:string)=>typeof layout[key]==='string'&&layout[key]?String(layout[key]):fallback
+export default function TemplatesPage(){
+ const{data:templates=[]}=useComplaintTemplates();const{data:reports=[]}=useComplaintReports();const{data:karrada=[]}=useComplaintInbox('karrada');const{data:zaafaraniya=[]}=useComplaintInbox('zaafaraniya');const messages=[...karrada,...zaafaraniya].sort((a,b)=>b.receivedAt.localeCompare(a.receivedAt));const save=useSaveComplaintTemplate();const prepareDaily=usePrepareComplaintReport();const prepareEmail=usePrepareComplaintEmailReport();const generate=useGenerateComplaintReport();const download=useComplaintReportDownload();const[tab,setTab]=useState<Tab>('prepare');const[form,setForm]=useState<Form>(empty);const[notice,setNotice]=useState<{ok:boolean;text:string}|null>(null);const[sector,setSector]=useState<ComplaintSector>('karrada');const[date,setDate]=useState(new Date().toISOString().slice(0,10));const[messageId,setMessageId]=useState('');const defaultTemplate=templates.find(item=>item.isDefault)
+ const patch=<K extends keyof Form>(key:K,next:Form[K])=>setForm(old=>({...old,[key]:next}));const layout=()=>({accent:form.accent,title:form.coverTitle,authorityLine:form.authorityLine,contractorLine:form.contractorLine,beforeLabel:form.beforeLabel,afterLabel:form.afterLabel})
+ const submit=()=>{if(!form.name.trim()){setNotice({ok:false,text:'اسم القالب مطلوب.'});return}save.mutate({id:form.id,name:form.name.trim(),description:form.description.trim()||null,sector:form.sector||null,layout:layout(),isDefault:false,isActive:true},{onSuccess:()=>{setNotice({ok:true,text:'تم حفظ القالب بنجاح.'});setForm(empty)},onError:()=>setNotice({ok:false,text:'تعذر حفظ القالب.'})})}
+ const edit=(item:ComplaintTemplate)=>setForm({id:item.id,name:item.name,description:item.description??'',sector:item.sector??'',accent:value(item.layout,'accent','#2563eb'),coverTitle:value(item.layout,'title','تقرير معالجة التلكؤات ليوم'),authorityLine:value(item.layout,'authorityLine','أمانة بغداد / دائرة بلدية الكرادة'),contractorLine:value(item.layout,'contractorLine','تحالف شركات جزيرة الأكرام وفيرست ترايد'),beforeLabel:value(item.layout,'beforeLabel','صورة التلكؤ'),afterLabel:value(item.layout,'afterLabel','صورة المعالجة')})
+ return <section className="space-y-6" dir="rtl"><header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-fuchsia-900 p-7 text-white shadow-xl"><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">استديو التقارير</span><h1 className="mt-3 text-3xl font-black">صمّم، راجع، ثم أرسل بثقة</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-indigo-100">كل بريد يحتفظ بتقريره الموحد مهما تعدد المسؤولون، ويمكن أيضاً إنشاء تقرير يومي جامع لجميع رسائل القاطع.</p><div className="mt-6 grid gap-2 sm:grid-cols-3"><Step number="1" text="اختر أو صمّم القالب"/><Step number="2" text="أنشئ مسودة البريد أو اليوم"/><Step number="3" text="ولّد، راجع، اعتمد ثم أرسل"/></div></header>
+  <ComplaintWorkflow current="report"/>
+  {notice&&<p role="status" className={`rounded-2xl p-4 text-sm font-bold ${notice.ok?'bg-emerald-50 text-emerald-800':'bg-red-50 text-red-800'}`}>{notice.text}</p>}
+  <nav className="grid rounded-2xl border bg-white p-2 shadow-sm sm:grid-cols-3">{([{id:'prepare',label:'إنشاء مسودة',icon:FileText},{id:'templates',label:'تصميم القوالب',icon:Palette},{id:'reports',label:`المسودات والتقارير (${reports.length})`,icon:Send}]as const).map(item=><button key={item.id} onClick={()=>setTab(item.id)} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold ${tab===item.id?'bg-indigo-700 text-white shadow':'text-slate-600 hover:bg-slate-50'}`}><item.icon size={18}/>{item.label}</button>)}</nav>
+  {tab==='prepare'&&<div className="grid items-start gap-5 xl:grid-cols-2"><ReportChoice icon={<Mail/>} title="تقرير مستقل لبريد واحد" description="يجمع كل صور البريد ونتائج جميع المسؤولين في تصميم واحد، ثم يرسل إلى الجهة التي أرسلت البريد."><label className="mt-4 block text-sm font-bold">اختر البريد<select value={messageId} onChange={event=>setMessageId(event.target.value)} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="">اختر رسالة واردة</option>{messages.map(message=><option key={message.id} value={message.id}>{message.subject||'دون موضوع'} — {message.sector==='karrada'?'الكرادة':'الزعفرانية'} — {new Date(message.receivedAt).toLocaleDateString('ar-IQ')}</option>)}</select></label><button disabled={!messageId||prepareEmail.isPending} onClick={()=>prepareEmail.mutate({messageId,templateId:defaultTemplate?.id},{onSuccess:()=>{setNotice({ok:true,text:'تم إنشاء/تحديث مسودة البريد الموحدة.'});setTab('reports')},onError:()=>setNotice({ok:false,text:'لا يمكن إنشاء المسودة قبل اعتماد معالجة واحدة على الأقل من هذا البريد.'})})} className="mt-4 w-full rounded-xl bg-indigo-700 p-3 font-black text-white disabled:opacity-40">{prepareEmail.isPending?'جارٍ إعداد المسودة…':'إنشاء مسودة هذا البريد'}</button></ReportChoice>
+   <ReportChoice icon={<CalendarDays/>} title="التقرير اليومي الجامع" description="تقرير إداري إضافي يجمع كل رسائل القاطع المعتمدة في يوم واحد دون إلغاء تقارير البريد المستقلة."><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-bold">البلدية<select value={sector} onChange={event=>setSector(event.target.value as ComplaintSector)} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="karrada">بلدية الكرادة</option><option value="zaafaraniya">بلدية الزعفرانية</option></select></label><label className="text-sm font-bold">التاريخ<input type="date" value={date} onChange={event=>setDate(event.target.value)} className="mt-2 w-full rounded-xl border bg-white p-3"/></label></div><button disabled={prepareDaily.isPending} onClick={()=>prepareDaily.mutate({sector,date,templateId:defaultTemplate?.id},{onSuccess:()=>{setNotice({ok:true,text:'تم إنشاء/تحديث المسودة اليومية الجامعة.'});setTab('reports')},onError:()=>setNotice({ok:false,text:'لا توجد معالجات معتمدة لهذا اليوم والقاطع.'})})} className="mt-4 w-full rounded-xl bg-slate-900 p-3 font-black text-white disabled:opacity-40">{prepareDaily.isPending?'جارٍ الإعداد…':'إعداد تقرير يومي'}</button></ReportChoice></div>}
+  {tab==='templates'&&<div className="grid items-start gap-5 xl:grid-cols-[1fr_1.15fr]"><form onSubmit={event=>{event.preventDefault();submit()}} className="rounded-3xl border bg-white p-6 shadow-sm"><div className="flex items-center gap-2"><Settings2 className="text-indigo-700"/><h2 className="text-lg font-black">{form.id?'تعديل القالب':'قالب جديد'}</h2></div><div className="mt-4 grid gap-3"><input aria-label="اسم القالب" value={form.name} onChange={event=>patch('name',event.target.value)} placeholder="اسم القالب" className="rounded-xl border p-3"/><input aria-label="وصف القالب" value={form.description} onChange={event=>patch('description',event.target.value)} placeholder="وصف مختصر" className="rounded-xl border p-3"/><select aria-label="قاطع القالب" value={form.sector} onChange={event=>patch('sector',event.target.value as Form['sector'])} className="rounded-xl border p-3"><option value="">جميع البلديات</option><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option></select><label className="flex items-center justify-between rounded-xl border p-3 text-sm font-bold">لون الهوية<input type="color" value={form.accent} onChange={event=>patch('accent',event.target.value)}/></label><input aria-label="الجهة الحكومية على الغلاف" value={form.authorityLine} onChange={event=>patch('authorityLine',event.target.value)} className="rounded-xl border p-3"/><input aria-label="الجهة المنفذة على الغلاف" value={form.contractorLine} onChange={event=>patch('contractorLine',event.target.value)} className="rounded-xl border p-3"/><input aria-label="عنوان الغلاف" value={form.coverTitle} onChange={event=>patch('coverTitle',event.target.value)} className="rounded-xl border p-3"/><div className="grid grid-cols-2 gap-2"><input aria-label="عنوان قبل" value={form.beforeLabel} onChange={event=>patch('beforeLabel',event.target.value)} className="rounded-xl border p-3"/><input aria-label="عنوان بعد" value={form.afterLabel} onChange={event=>patch('afterLabel',event.target.value)} className="rounded-xl border p-3"/></div></div><div className="mt-4 rounded-[2rem] border-4 bg-white p-5 text-center" style={{borderColor:form.accent}}><div className="mx-auto flex items-center justify-center gap-2"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain"/><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain"/><img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain"/></div><p className="mt-3 text-xs font-bold">{form.authorityLine}</p><p className="mt-1 text-xs font-bold">{form.contractorLine}</p><div className="mt-3 text-lg font-black">{form.coverTitle}</div><div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs"><div className="rounded-lg bg-slate-100 p-8">{form.afterLabel}</div><div className="rounded-lg bg-slate-100 p-8">{form.beforeLabel}</div></div></div><div className="mt-4 flex gap-2"><button disabled={save.isPending} className="rounded-xl bg-indigo-700 px-5 py-3 font-bold text-white">حفظ القالب</button>{form.id&&<button type="button" onClick={()=>setForm(empty)} className="rounded-xl border px-5 py-3 font-bold">إلغاء</button>}</div></form><div className="space-y-3">{templates.map(item=><article key={item.id} className="rounded-2xl border bg-white p-5 shadow-sm" style={{borderRightColor:value(item.layout,'accent','#2563eb'),borderRightWidth:6}}><div className="flex items-center justify-between"><div><h3 className="font-black">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.description||'قالب تقارير الشكاوى'}</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{item.isDefault?'الافتراضي':item.isActive?'نشط':'معطل'}</span></div><div className="mt-4 flex flex-wrap gap-2"><button onClick={()=>edit(item)} className="rounded-lg border px-3 py-2 text-xs font-bold text-blue-700">تعديل</button>{!item.isDefault&&<button onClick={()=>save.mutate({...item,isDefault:true})} className="rounded-lg border px-3 py-2 text-xs font-bold text-emerald-700">تعيين افتراضياً</button>}<button onClick={()=>save.mutate({...item,isActive:!item.isActive})} className="rounded-lg border px-3 py-2 text-xs font-bold">{item.isActive?'تعطيل':'تفعيل'}</button></div></article>)}{!templates.length&&<p className="rounded-2xl border border-dashed bg-white p-10 text-center text-slate-500">لا توجد قوالب بعد.</p>}</div></div>}
+  {tab==='reports'&&<div className="space-y-4"><div className="flex items-center justify-between"><div><h2 className="text-xl font-black">مسودات وتقارير</h2><p className="text-sm text-slate-500">كل بطاقة توضح نوع التقرير ومرحلته والإجراء التالي.</p></div><button onClick={()=>setTab('prepare')} className="rounded-xl bg-indigo-700 px-4 py-2 font-bold text-white">مسودة جديدة</button></div>{reports.map(report=><article key={report.id} className="rounded-3xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className={`rounded-2xl p-3 ${report.scope==='email'?'bg-fuchsia-50 text-fuchsia-700':'bg-blue-50 text-blue-700'}`}>{report.scope==='email'?<Mail/>:<CalendarDays/>}</span><div><span className="text-xs font-bold text-slate-500">{report.scope==='email'?'تقرير بريد مستقل':'تقرير يومي جامع'}</span><h3 className="mt-1 font-black">{report.title}</h3><p className="mt-1 text-xs text-slate-500">{report.sector==='karrada'?'بلدية الكرادة':'بلدية الزعفرانية'} · {reportStatusLabel(report.status)} · {report.reportDate}</p></div></div><div className="flex flex-wrap gap-2"><Link to={`/complaints/reports/${report.id}`} className="rounded-xl border px-3 py-2 text-sm font-bold text-blue-700">فتح المحرر</Link>{['draft','quality_review','failed'].includes(report.status)&&<button disabled={generate.isPending} onClick={()=>generate.mutate(report.id,{onSuccess:()=>setNotice({ok:true,text:'تم توليد PowerPoint للمراجعة.'}),onError:()=>setNotice({ok:false,text:'تعذر توليد التقرير.'})})} className="rounded-xl bg-blue-700 px-3 py-2 text-sm font-bold text-white">توليد PowerPoint</button>}{report.status==='quality_review'&&report.pptxPath&&<button onClick={()=>download.mutate(report.pptxPath!,{onSuccess:url=>window.open(url,'_blank','noopener,noreferrer')})} className="rounded-xl bg-slate-700 px-3 py-2 text-sm font-bold text-white">تنزيل للمراجعة</button>}{report.status==='approved'&&<Link to={`/complaints/reports/${report.id}`} className="rounded-xl bg-rose-700 px-3 py-2 text-sm font-bold text-white"><Send className="inline" size={15}/> فتح للإرسال النهائي</Link>}</div></div><div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600"><span className="rounded-lg bg-slate-100 px-3 py-2">المستلمون: {report.recipients.length}</span>{report.pptxPath&&<span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800"><CheckCircle2 size={14}/>ملف PowerPoint جاهز</span>}</div></article>)}{!reports.length&&<p className="rounded-3xl border border-dashed bg-white p-12 text-center text-slate-500">لا توجد مسودات بعد.</p>}</div>}
+ </section>
 }
-
-const emptyForm: TemplateFormState = {
-  name: '', description: '', sector: '', accent: '#cf63c6',
-  coverTitle: 'تقرير معالجة الشكاوى ليوم', beforeLabel: 'صورة التلكؤ / الشكوى', afterLabel: 'صورة المعالجة',
-}
-
-function layoutValue(layout: Record<string, unknown>, key: string, fallback: string): string {
-  return typeof layout[key] === 'string' && (layout[key] as string).length > 0 ? (layout[key] as string) : fallback
-}
-
-export default function TemplatesPage() {
-  const { data: templates = [] } = useComplaintTemplates()
-  const { data: reports = [] } = useComplaintReports()
-  const save = useSaveComplaintTemplate()
-  const prepare = usePrepareComplaintReport()
-  const generate = useGenerateComplaintReport()
-  const setStatus = useSetComplaintReportStatus()
-  const send = useSendComplaintEmail()
-  const download = useComplaintReportDownload()
-  const [form, setForm] = useState<TemplateFormState>(emptyForm)
-  const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
-  const [sectorPick, setSectorPick] = useState<ComplaintSector>('karrada')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-
-  const set = <K extends keyof TemplateFormState>(key: K, value: TemplateFormState[K]) =>
-    setForm((old) => ({ ...old, [key]: value }))
-
-  const layout = (): Record<string, unknown> => ({
-    accent: form.accent, title: form.coverTitle, beforeLabel: form.beforeLabel, afterLabel: form.afterLabel,
-  })
-
-  const submitTemplate = () => {
-    if (!form.name.trim()) { setNotice({ kind: 'err', text: 'اسم القالب مطلوب.' }); return }
-    save.mutate({
-      id: form.id, name: form.name.trim(), description: form.description.trim() || null,
-      sector: form.sector || null, layout: layout(), isDefault: false, isActive: true,
-    }, {
-      onSuccess: () => { setNotice({ kind: 'ok', text: form.id ? 'تم تحديث القالب.' : 'تمت إضافة القالب.' }); setForm(emptyForm) },
-      onError: () => setNotice({ kind: 'err', text: 'تعذر حفظ القالب؛ تحقق من الصلاحية وأعد المحاولة.' }),
-    })
-  }
-
-  const startEdit = (t: ComplaintTemplate) => {
-    const l = t.layout as Record<string, unknown>
-    setForm({
-      id: t.id, name: t.name, description: t.description ?? '', sector: t.sector ?? '',
-      accent: layoutValue(l, 'accent', '#cf63c6'), coverTitle: layoutValue(l, 'title', 'تقرير معالجة الشكاوى ليوم'),
-      beforeLabel: layoutValue(l, 'beforeLabel', 'صورة التلكؤ / الشكوى'), afterLabel: layoutValue(l, 'afterLabel', 'صورة المعالجة'),
-    })
-    setNotice(null)
-  }
-const defaultTemplate = templates.find((t) => t.isDefault)
-
-  return <section className="space-y-6" dir="rtl">
-    <header><h1 className="text-2xl font-bold">القوالب والتقارير اليومية</h1><p className="text-sm text-slate-500">إعداد هوية التقرير وإنشاء مسودة يومية لكل قاطع.</p></header>
-    {notice && <p aria-live="polite" className={`rounded-lg p-3 text-sm font-bold ${notice.kind === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>{notice.text}</p>}
-
-    <div className="grid gap-4 lg:grid-cols-2">
-      <form onSubmit={(e) => { e.preventDefault(); submitTemplate() }} className="rounded-xl border bg-white p-5">
-        <h2 className="font-bold">{form.id ? 'تعديل القالب' : 'قالب جديد'}</h2>
-        <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="اسم القالب (مطلوب)" className="mt-3 w-full rounded-lg border p-2" aria-label="اسم القالب" />
-        <input value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="وصف اختياري" className="mt-2 w-full rounded-lg border p-2" aria-label="وصف القالب" />
-        <select value={form.sector} onChange={(e) => set('sector', e.target.value as ComplaintSector | '')} className="mt-2 w-full rounded-lg border p-2" aria-label="قاطع القالب">
-          <option value="">كل القواطع</option><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option>
-        </select>
-        <label className="mt-3 flex items-center gap-3 text-sm">لون القالب<input type="color" value={form.accent} onChange={(e) => set('accent', e.target.value)} /></label>
-        <input value={form.coverTitle} onChange={(e) => set('coverTitle', e.target.value)} placeholder="عنوان الغلاف" className="mt-3 w-full rounded-lg border p-2" aria-label="عنوان الغلاف" />
-        <div className="grid grid-cols-2 gap-2">
-          <input value={form.beforeLabel} onChange={(e) => set('beforeLabel', e.target.value)} placeholder="عنوان قبل" className="mt-3 rounded-lg border p-2" aria-label="عنوان قبل" />
-          <input value={form.afterLabel} onChange={(e) => set('afterLabel', e.target.value)} placeholder="عنوان بعد" className="mt-3 rounded-lg border p-2" aria-label="عنوان بعد" />
-        </div>
-        <div className="mt-4 rounded-lg border p-3" style={{ borderColor: form.accent }}>
-          <div className="rounded p-2 text-center font-bold text-white" style={{ backgroundColor: form.accent }}>{form.coverTitle || 'معاينة'}</div>
-          <div className="mt-2 grid grid-cols-2 gap-2"><div className="h-20 rounded bg-slate-100 p-2 text-center text-xs">{form.afterLabel}</div><div className="h-20 rounded bg-slate-100 p-2 text-center text-xs">{form.beforeLabel}</div></div>
-        </div>
-        <div className="mt-4 flex gap-2">
-          <button className="rounded-lg bg-rose-700 px-4 py-2 font-bold text-white disabled:opacity-50" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : form.id ? 'حفظ التعديل' : 'حفظ القالب'}</button>
-          {form.id && <button type="button" onClick={() => { setForm(emptyForm); setNotice(null) }} className="rounded-lg border px-4 py-2 font-bold">إلغاء</button>}
-        </div>
-      </form>
-
-      <form onSubmit={(e) => { e.preventDefault(); prepare.mutate({ sector: sectorPick, date, templateId: defaultTemplate?.id }, {
-        onSuccess: () => setNotice({ kind: 'ok', text: 'تم إنشاء/تحديث المسودة؛ افتحها من قائمة المسودات أدناه.' }),
-        onError: () => setNotice({ kind: 'err', text: 'تعذر إعداد المسودة؛ تأكد من وجود مواقع معتمدة لهذا القاطع في هذا التاريخ.' }),
-      }) }} className="rounded-xl border bg-white p-5">
-        <h2 className="font-bold">إعداد تقرير يومي</h2>
-        <p className="mt-1 text-xs text-slate-500">القالب الافتراضي الحالي: {defaultTemplate?.name ?? 'لا يوجد — سيُختار أول قالب نشط تلقائياً'}</p>
-        <select value={sectorPick} onChange={(e) => setSectorPick(e.target.value as typeof sectorPick)} className="mt-3 w-full rounded-lg border p-2" aria-label="قاطع التقرير"><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option></select>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-3 w-full rounded-lg border p-2" aria-label="تاريخ التقرير" />
-        <button className="mt-4 rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-50" disabled={prepare.isPending}>{prepare.isPending ? 'جارٍ الإعداد…' : 'إنشاء/تحديث المسودة'}</button>
-      </form>
-    </div>
-<div className="grid gap-3 md:grid-cols-2">
-      {templates.map((t) => {
-        const l = t.layout as Record<string, unknown>
-        const accent = layoutValue(l, 'accent', '#cf63c6')
-        return <article key={t.id} className="rounded-xl border bg-white p-4" style={{ borderRightColor: accent, borderRightWidth: 6 }}>
-          <div className="flex items-center justify-between gap-2">
-            <strong>{t.name}</strong>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${t.isDefault ? 'bg-blue-100 text-blue-800' : t.isActive ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-700'}`}>{t.isDefault ? 'الافتراضي' : t.isActive ? 'نشط' : 'معطّل'}</span>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">{t.description || (t.sector ? (t.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية') : 'عام لجميع القواطع')}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => startEdit(t)} className="rounded border px-3 py-1 text-xs font-bold text-blue-700">تعديل</button>
-            {!t.isDefault && <button type="button" onClick={() => save.mutate({ ...t, isDefault: true })} className="rounded border px-3 py-1 text-xs font-bold text-emerald-700">تعيين كافتراضي</button>}
-            <button type="button" onClick={() => save.mutate({ ...t, isActive: !t.isActive })} className="rounded border px-3 py-1 text-xs font-bold text-slate-700">{t.isActive ? 'تعطيل' : 'تفعيل'}</button>
-          </div>
-        </article>
-      })}
-      {templates.length === 0 && <p className="rounded-xl border border-dashed bg-white p-8 text-center text-slate-500 md:col-span-2">لا توجد قوالب بعد — أنشئ أول قالب ثم عيّنه كافتراضياً.</p>}
-    </div>
-
-    <div className="rounded-xl border bg-white p-5">
-      <h2 className="mb-3 font-bold">مسودات وتقارير</h2>
-      {reports.map((r) => <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-3 text-sm">
-        <span>{r.title} — {r.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — <b>{reportStatusLabel(r.status)}</b></span>
-        <div className="flex flex-wrap gap-2">
-          <Link to={`/complaints/reports/${r.id}`} className="rounded border px-3 py-1.5 font-bold text-blue-700">فتح المحرر والتفاصيل</Link>
-          {['draft', 'quality_review', 'failed'].includes(r.status) && <button disabled={generate.isPending} onClick={() => generate.mutate(r.id, {
-            onSuccess: () => setNotice({ kind: 'ok', text: 'تم توليد PowerPoint وأصبح جاهزاً للمراجعة.' }),
-            onError: () => setNotice({ kind: 'err', text: 'تعذر توليد PowerPoint؛ افتح المحرر وتأكد من حفظ التصميم وتضمين المواقع.' }),
-          })} className="rounded bg-blue-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">توليد PowerPoint</button>}
-          {r.status === 'quality_review' && r.pptxPath && <button disabled={download.isPending} onClick={() => download.mutate(r.pptxPath!, {
-            onSuccess: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
-            onError: () => setNotice({ kind: 'err', text: 'تعذر تجهيز رابط التنزيل؛ أعد المحاولة.' }),
-          })} className="rounded bg-slate-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">تنزيل للمراجعة</button>}
-          {r.status === 'quality_review' && <button disabled={setStatus.isPending} onClick={() => setStatus.mutate({ reportId: r.id, status: 'approved' }, {
-            onSuccess: () => setNotice({ kind: 'ok', text: 'تم اعتماد التقرير؛ يمكنك الآن إرساله عبر البريد.' }),
-            onError: () => setNotice({ kind: 'err', text: 'تعذر الاعتماد؛ يشترط وجود ملف PowerPoint مولّد وحالة قيد التدقيق.' }),
-          })} className="rounded bg-emerald-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">اعتماد التقرير</button>}
-          {r.status === 'approved' && r.pptxPath && <button disabled={!r.recipients.length || send.isPending} onClick={() => send.mutate({ reportId: r.id, to: r.recipients, subject: r.title, text: `مرفق ${r.title}`, attachmentPaths: [r.pptxPath!] }, {
-            onSuccess: () => setNotice({ kind: 'ok', text: 'قُبل طلب الإرسال؛ ستتحدث حالة التسليم تلقائياً عبر أحداث Mailgun.' }),
-            onError: () => setNotice({ kind: 'err', text: 'تعذر الإرسال؛ تحقق من أسرار Mailgun والمستلمين المعتمدين ثم أعد المحاولة.' }),
-          })} className="rounded bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">إرسال عبر البريد</button>}
-        </div>
-      </div>)}
-      {reports.length === 0 && <p className="py-6 text-center text-slate-500">لا توجد مسودات بعد.</p>}
-    </div>
-  </section>
-}
+function Step({number,text}:{number:string;text:string}){return <div className="rounded-2xl bg-white/10 p-3"><b className="ml-2 inline-flex size-7 items-center justify-center rounded-full bg-white text-indigo-900">{number}</b><span className="text-sm font-bold">{text}</span></div>}
+function ReportChoice({icon,title,description,children}:{icon:ReactNode;title:string;description:string;children:ReactNode}){return <article className="rounded-3xl border bg-white p-6 shadow-sm"><div className="flex items-start gap-3"><span className="rounded-2xl bg-indigo-50 p-3 text-indigo-700">{icon}</span><div><h2 className="text-lg font-black">{title}</h2><p className="mt-1 text-sm leading-6 text-slate-500">{description}</p></div></div>{children}</article>}

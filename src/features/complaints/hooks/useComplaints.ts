@@ -3,7 +3,7 @@ import { complaints } from '@sdk/complaints.sdk'
 import { complaintsKeys } from '@lib/query-keys/complaints.keys'
 import { rasterizePdfPages } from '../lib/pdf-pages'
 import { inferLocationFromArabicText, recognizeComplaintImage } from '../lib/ocr'
-import type { ComplaintItemFields, ComplaintReport, ComplaintSector, SendComplaintEmailInput } from '../types'
+import type { ComplaintAfterUpload, ComplaintItemFields, ComplaintReport, ComplaintSector, ComplaintSortEntry, ComplaintTicketAfterUpload, SendComplaintEmailInput } from '../types'
 
 export function useComplaintInbox(sector?: ComplaintSector) {
   return useQuery({
@@ -31,9 +31,12 @@ export function useExtractComplaintPdf() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ messageId, sourceId, url, name }: { messageId: string; sourceId: string; url: string; name: string }) => {
-      const pages = await rasterizePdfPages(url, name)
-      await complaints.addInboxPdfPages(messageId, sourceId, pages)
-      return pages.length
+      let converted = 0
+      await rasterizePdfPages(url, name, async (page, pageNumber) => {
+        await complaints.addInboxPdfPages(messageId, sourceId, [page], pageNumber)
+        converted = pageNumber
+      })
+      return converted
     },
     onSuccess: (_count, input) => queryClient.invalidateQueries({ queryKey: complaintsKeys.inboxMedia(input.messageId) }),
   })
@@ -47,6 +50,15 @@ export function useCreateComplaintItem() {
       mediaIds: string[]
       fields: ComplaintItemFields
     }) => complaints.createItemFromInbox(messageId, mediaIds, fields),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: complaintsKeys.all }),
+  })
+}
+
+export function useBatchCreateComplaintItems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ messageId, entries }: { messageId: string; entries: ComplaintSortEntry[] }) =>
+      complaints.batchCreateItemsFromInbox(messageId, entries),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: complaintsKeys.all }),
   })
 }
@@ -74,6 +86,15 @@ export function useAssignComplaintItem() {
   })
 }
 
+export function useAssignComplaintItems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemIds, managerId }: { itemIds: string[]; managerId: string }) =>
+      complaints.assignBatch(itemIds, managerId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: complaintsKeys.all }),
+  })
+}
+
 export function useStartComplaintItem() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -88,13 +109,32 @@ export function useComplaintItemDetail(itemId: string | null) {
     queryFn: () => complaints.itemDetail(itemId as string), enabled: Boolean(itemId) })
 }
 
+export function useUpdateComplaintItemDuringReview() {
+  const queryClient=useQueryClient()
+  return useMutation({mutationFn:({itemId,fields,reason}:{itemId:string;fields:ComplaintItemFields;reason:string})=>
+    complaints.updateItemDuringReview(itemId,fields,reason),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
+export function useReplaceComplaintItemMedia() {
+  const queryClient=useQueryClient()
+  return useMutation({mutationFn:({itemId,oldMediaId,kind,file,reason}:{itemId:string;oldMediaId:string;kind:'before'|'after';file:File;reason:string})=>
+    complaints.replaceItemMedia(itemId,oldMediaId,kind,file,reason),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
 export function useComplaintItemMedia(itemId: string | null) {
   return useQuery({ queryKey: complaintsKeys.media(itemId ?? 'none'),
     queryFn: () => complaints.itemMedia(itemId as string), enabled: Boolean(itemId) })
 }
+export function useComplaintItemsMedia(itemIds: string[]) {
+  const ids=[...itemIds].sort()
+  return useQuery({queryKey:[...complaintsKeys.all,'batch-media',ids],queryFn:()=>complaints.itemsMedia(ids),enabled:ids.length>0})
+}
 
 export function useComplaintSummary() {
   return useQuery({ queryKey: complaintsKeys.summary(), queryFn: () => complaints.summary() })
+}
+export function useComplaintAnalytics(from:string,to:string,sector?:ComplaintSector) {
+  return useQuery({queryKey:complaintsKeys.analytics(from,to,sector),queryFn:()=>complaints.analytics(from,to,sector),enabled:Boolean(from&&to)})
 }
 
 export function useComplaintTemplates() {
@@ -104,6 +144,14 @@ export function useComplaintTemplates() {
 export function useComplaintContacts() {
   return useQuery({ queryKey: complaintsKeys.contacts(), queryFn: () => complaints.contacts() })
 }
+
+export function useComplaintArchiveFolders(){return useQuery({queryKey:[...complaintsKeys.all,'archive-folders'],queryFn:()=>complaints.archiveFolders()})}
+export function useComplaintDeletionRequests(){return useQuery({queryKey:[...complaintsKeys.all,'deletion-requests'],queryFn:()=>complaints.deletionRequests()})}
+export function useArchiveComplaintEmail(){const qc=useQueryClient();return useMutation({mutationFn:({messageId,reason}:{messageId:string;reason:string})=>complaints.archiveEmail(messageId,reason),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
+export function useRestoreComplaintEmail(){const qc=useQueryClient();return useMutation({mutationFn:(folderId:string)=>complaints.restoreEmail(folderId),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
+export function useRequestComplaintDeletion(){const qc=useQueryClient();return useMutation({mutationFn:({folderId,reason}:{folderId:string;reason:string})=>complaints.requestPermanentDeletion(folderId,reason),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
+export function useDecideComplaintDeletion(){const qc=useQueryClient();return useMutation({mutationFn:({requestId,approved,note}:{requestId:string;approved:boolean;note?:string})=>complaints.decideDeletion(requestId,approved,note),onSettled:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
+export function useRetryComplaintDeletion(){const qc=useQueryClient();return useMutation({mutationFn:({requestId,note}:{requestId:string;note?:string})=>complaints.retryDeletion(requestId,note),onSettled:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
 
 export function useComplaintSettings() {
   return useQuery({ queryKey: complaintsKeys.settings(), queryFn: () => complaints.settings() })
@@ -138,11 +186,21 @@ export function useReviewComplaintItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.all }) })
 }
 
+export function useReviewComplaintAssignmentTicket(){
+  const qc=useQueryClient()
+  return useMutation({mutationFn:({complaintId,managerId,approved,note}:{complaintId:string;managerId:string;approved:boolean;note?:string})=>complaints.reviewAssignmentTicket(complaintId,managerId,approved,note),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
 export function usePrepareComplaintReport() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: ({ sector, date, templateId }: { sector: ComplaintSector; date: string; templateId?: string }) =>
     complaints.prepareReport(sector, date, templateId),
     onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.reports() }) })
+}
+
+export function usePrepareComplaintEmailReport(){
+  const qc=useQueryClient()
+  return useMutation({mutationFn:({messageId,templateId}:{messageId:string;templateId?:string})=>complaints.prepareEmailReport(messageId,templateId),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.reports()})})
 }
 
 export function useComplaintReport(reportId: string | null) {
@@ -165,8 +223,8 @@ export function useComplaintReportDownload() {
 
 export function useSetComplaintReportStatus() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: ({ reportId, status }: { reportId: string; status: ComplaintReport['status'] }) =>
-    complaints.setReportStatus(reportId, status),
+  return useMutation({ mutationFn: ({ reportId, status, reviewedPptxPath }: { reportId: string; status: ComplaintReport['status']; reviewedPptxPath?: string }) =>
+    complaints.setReportStatus(reportId, status, reviewedPptxPath),
     onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.all }) })
 }
 
@@ -191,12 +249,24 @@ export function useSendComplaintEmail() {
   })
 }
 
+export function useStartComplaintAssignmentTicket(){
+  const queryClient=useQueryClient()
+  return useMutation({mutationFn:(complaintId:string)=>complaints.startAssignmentTicket(complaintId),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
+export function useCompleteComplaintAssignmentTicket(){
+  const queryClient=useQueryClient()
+  return useMutation({mutationFn:({complaintId,files,notes}:{complaintId:string;files:ComplaintTicketAfterUpload[];notes?:string})=>complaints.completeAssignmentTicket(complaintId,files,notes),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
 export function useCompleteComplaintItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ itemId, file, notes }: { itemId: string; file: File; notes?: string }) => {
-      const location = await currentLocation()
-      await complaints.uploadAfter(itemId, file, location ?? undefined)
+    mutationFn: async ({ itemId, file, files, notes, location }: { itemId: string; file?: File; files?: ComplaintAfterUpload[]; notes?: string; location?: {latitude:number;longitude:number} }) => {
+      const uploads=files?.length?files:file?[{file,source:'gallery' as const}]:[]
+      if(!uploads.length)throw new Error('COMPLAINT_AFTER_IMAGE_REQUIRED')
+      const resolvedLocation = location ?? await currentLocation()
+      await complaints.uploadAfterBatch(itemId,uploads,resolvedLocation ?? undefined)
       await complaints.complete(itemId, notes)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: complaintsKeys.all }),

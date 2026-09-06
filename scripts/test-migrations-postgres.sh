@@ -41,7 +41,14 @@ for test_file in \
   supabase/tests/round6_isolation.sql \
   supabase/tests/complaints_isolation.sql \
   supabase/tests/complaints_workflow_isolation.sql \
-  supabase/tests/complaints_end_to_end.sql
+  supabase/tests/complaints_end_to_end.sql \
+  supabase/tests/complaints_batch_automation.sql \
+  supabase/tests/complaints_sixty_item_stress.sql \
+  supabase/tests/complaints_after_media_ordering.sql \
+  supabase/tests/complaint_assignment_tickets_and_reports.sql \
+  supabase/tests/complaint_report_branding_defaults.sql \
+  supabase/tests/complaint_ticket_review.sql \
+  supabase/tests/complaint_archive_deletion_workflow.sql
 do
   echo "TEST $(basename "$test_file")"
   "$PSQL_BIN" "$DB_URL" -v ON_ERROR_STOP=1 -f "$test_file" >/dev/null

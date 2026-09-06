@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 const inbound = readFileSync('supabase/functions/mailgun-inbound/index.ts', 'utf8')
+const attachmentUtils = readFileSync('supabase/functions/_shared/attachment-utils.ts', 'utf8')
 const outbound = readFileSync('supabase/functions/mailgun-send/index.ts', 'utf8')
 const events = readFileSync('supabase/functions/mailgun-events/index.ts', 'utf8')
 const config = readFileSync('supabase/config.toml', 'utf8')
@@ -29,6 +30,24 @@ describe('عقد أمان تكامل Mailgun', () => {
   it('الوارد يطبق منع التكرار وحدود الملفات', () => {
     expect(inbound).toContain(".eq('internet_message_id', messageId)")
     expect(inbound).toContain('maxAttachmentBytes')
+    expect(inbound).toContain('maxMessageAttachmentBytes')
+    expect(inbound).toContain('maxAttachmentCount')
+    expect(inbound).toContain('ATTACHMENT_TOTAL_REJECTED')
     expect(inbound).toContain("digest('SHA-256'")
+  })
+
+  it('يكشف نقص المرفقات ويسجل المعلن والمستلم والمخزن ويعالج بتوازٍ محدود', () => {
+    expect(inbound).toContain('ATTACHMENT_COUNT_MISMATCH')
+    expect(inbound).toContain('ATTACHMENT_IMPORT_INCOMPLETE')
+    expect(inbound).toContain('attachment_declared')
+    expect(inbound).toContain('attachment_received')
+    expect(inbound).toContain('attachment_stored')
+    expect(inbound).toContain('mapConcurrent(attachments, 4')
+    expect(attachmentUtils).toContain('if(firstError)throw firstError')
+    expect(inbound).toContain('attachmentMime(file, bytes)')
+    expect(inbound).toContain('ATTACHMENT_CONTENT_REJECTED')
+    expect(inbound).toContain("existing.import_status !== 'failed'")
+    expect(inbound).toContain('extractionStale')
+    expect(inbound).toContain('100 * 1024 * 1024')
   })
 })

@@ -11,6 +11,7 @@ import DataPage from './pages/Data/DataPage'
 import SettingsPage from './pages/Settings/SettingsPage'
 import ArchivePage from './pages/Archive/ArchivePage'
 import SupportPage from './pages/Support/SupportPage'
+import GuidancePage from './pages/Guidance/GuidancePage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <DashboardPage /> },
@@ -25,4 +26,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'pages-contact-settings', element: <SettingsPage /> },
   { path: 'archive', element: <ArchivePage /> },
   { path: 'technical-support', element: <SupportPage /> },
+  { path: 'guidance', element: <GuidancePage /> },
 ]

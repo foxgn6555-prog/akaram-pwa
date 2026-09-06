@@ -1,0 +1,8 @@
+import{readFileSync}from'node:fs';import{describe,expect,it}from'vitest'
+const sql=readFileSync('supabase/migrations/00057_complaints_analytics_reports.sql','utf8');const dashboard=readFileSync('src/portals/complaints/pages/Dashboard/DashboardPage.tsx','utf8');const manager=readFileSync('src/portals/manager/pages/Complaints/ComplaintTicketPage.tsx','utf8');const inbox=readFileSync('src/portals/complaints/pages/Inbox/InboxPage.tsx','utf8')
+describe('التحليلات وتجربة الاستخدام',()=>{
+ it('تحليلات الفترات محمية وتستخدم توقيت بغداد',()=>{expect(sql).toContain('COMPLAINT_ANALYTICS_FORBIDDEN');expect(sql).toContain("timezone('Asia/Baghdad'");expect(sql).toContain('p_to-p_from>731');expect(sql).toContain('revoke all on function public.complaint_analytics')})
+ it('الرئيسية تدعم الفترات الخمس والطباعة والحفظ دون وصول مباشر للبيانات',()=>{for(const value of ['daily','weekly','monthly','semiannual','annual'])expect(dashboard).toContain(value);expect(dashboard).toContain('printComplaintAnalytics');expect(dashboard).toContain('downloadComplaintAnalytics');expect(dashboard).not.toMatch(/supabase\.(from|rpc)/)})
+ it('صفحة المسؤول تفصل الكاميرا والجهاز وتمنع GPS وتفرض التطابق العددي',()=>{expect(manager).toContain('CameraCapture');expect(manager).toContain('صور دفعة واحدة');expect(manager).not.toContain('getCurrentPosition');expect(manager).toContain('files.length!==activeItems.length')})
+ it('تحويل PDF يدعم 100 صفحة ويعرض نتيجة واضحة',()=>{expect(readFileSync('src/features/complaints/lib/pdf-pages.ts','utf8')).toMatch(/numPages\s*>\s*100/);expect(inbox).toContain('تم تحويل ملف PDF إلى')})
+})

@@ -5,15 +5,17 @@ const workflow = readFileSync('supabase/migrations/00047_complaints_workflow.sql
 const reports = readFileSync('supabase/migrations/00049_complaints_reports_settings.sql', 'utf8')
 const generator = readFileSync('supabase/functions/complaint-generate-report/index.ts', 'utf8')
 const mail = readFileSync('supabase/functions/mailgun-send/index.ts', 'utf8')
-const manager = readFileSync('src/portals/manager/pages/Complaints/AssignedComplaintsPage.tsx', 'utf8')
+const manager = readFileSync('src/portals/manager/pages/Complaints/ComplaintTicketPage.tsx', 'utf8')
+const tickets = readFileSync('supabase/migrations/00059_complaint_assignment_tickets.sql','utf8')
 
 describe('عقد دورة الشكوى المكتملة', () => {
   it('يعزل المسؤول حسب الإسناد ويفرض صورة بعد أحدث من بدء المعالجة', () => {
     expect(workflow).toContain("assigned_to=auth.uid()")
     expect(workflow).toContain("media_kind='after' and captured_at >=")
     expect(workflow).toContain("v_old not in ('assigned','returned')")
-    expect(manager).toContain('useComplaintItemMedia(item.id)')
-    expect(manager).toContain('أؤكد أن صورة «بعد» تخص الموقع')
+    expect(manager).toContain('useComplaintItemsMedia')
+    expect(manager).toContain('useCompleteComplaintAssignmentTicket')
+    expect(tickets).toContain('complaint_complete_assignment_ticket')
   })
 
   it('التدقيق للموظف فقط والإرجاع يحتاج سبباً', () => {
@@ -30,7 +32,7 @@ describe('عقد دورة الشكوى المكتملة', () => {
 
   it('مولد PowerPoint محمي ويتحقق من صور JPEG/PNG قبل تحليلها', () => {
     expect(generator).toContain("['complaints_officer','super_admin']")
-    expect(generator).toContain("['image/jpeg','image/png'].includes(mime)")
+    expect(generator).toContain("['image/jpeg','image/png','image/webp'].includes(mime)")
     expect(generator).toContain('validMagic(bytes,mime)')
     expect(generator).toContain("status:'quality_review'")
     expect(generator).toContain("JSZip from 'npm:jszip@3.10.1'")

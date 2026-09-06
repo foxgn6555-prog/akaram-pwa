@@ -8,6 +8,7 @@ export const complaintsKeys = {
   detail: (itemId: string) => [...complaintsKeys.all, 'detail', itemId] as const,
   report: (reportId: string) => [...complaintsKeys.all, 'report', reportId] as const,
   summary: () => [...complaintsKeys.all, 'summary'] as const,
+  analytics: (from: string,to: string,sector?: string) => [...complaintsKeys.all,'analytics',from,to,sector??'all'] as const,
   templates: () => [...complaintsKeys.all, 'templates'] as const,
   contacts: () => [...complaintsKeys.all, 'contacts'] as const,
   settings: () => [...complaintsKeys.all, 'settings'] as const,

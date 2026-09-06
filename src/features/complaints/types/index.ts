@@ -8,6 +8,7 @@ export interface ComplaintInboxMessage {
   senderName: string | null
   replyTo: string | null
   subject: string | null
+  bodyText: string | null
   sector: ComplaintSector | null
   receivedAt: string
   status: InboxStatus
@@ -17,10 +18,24 @@ export interface ComplaintInboxMessage {
 
 export interface ComplaintInboxMedia {
   id: string
+  mediaCode: string
   name: string
   mimeType: string
   url: string
   duplicate: boolean
+  duplicateCount: number
+  itemId: string | null
+}
+
+export interface ComplaintSortEntry extends ComplaintItemFields {
+  mediaId: string
+}
+
+export interface ComplaintBatchSortResult {
+  complaintId: string
+  itemIds: string[]
+  createdCount: number
+  remainingCount: number
 }
 
 export interface ComplaintItemFields {
@@ -50,6 +65,23 @@ export interface ComplaintItem {
   managerNotes: string | null
   reviewerNotes: string | null
   receivedAt: string
+  inboxMessageId: string | null
+  ticketName: string
+}
+
+export interface ManagerComplaintTicket {
+  complaintId: string
+  referenceNo: string
+  name: string
+  receivedAt: string
+  sector: ComplaintSector
+  items: ComplaintItem[]
+  types: string[]
+  status: 'ready' | 'in_progress' | 'review' | 'approved' | 'returned'
+}
+
+export interface ComplaintTicketAfterUpload extends ComplaintAfterUpload {
+  itemId: string
 }
 
 export interface ComplaintManager {
@@ -77,14 +109,37 @@ export interface ComplaintEmailDelivery {
   deliveredAt: string | null
 }
 
+export interface ComplaintAfterUpload {
+  file: File
+  source: 'camera' | 'gallery'
+}
+
 export interface ComplaintMedia {
   id: string
+  itemId: string | null
+  mediaCode: string
   kind: 'before' | 'after' | 'email_attachment' | 'report'
   url: string
   name: string
   mimeType: string
   capturedAt: string | null
+  isActive: boolean
+  replacementReason: string | null
+  supersededAt: string | null
+  displayOrder: number
 }
+
+export interface ComplaintAnalytics {
+  from: string
+  to: string
+  sector: ComplaintSector | null
+  summary: { total: number; approved: number; active: number; review: number; unassigned: number; withAfter: number }
+  daily: Array<{ day: string; total: number; approved: number; review: number; active: number }>
+  statuses: Array<{ status: ComplaintItemStatus; count: number }>
+  sectors: Array<{ sector: ComplaintSector; count: number; approved: number }>
+}
+
+export type ComplaintReportPeriod = 'daily' | 'weekly' | 'monthly' | 'semiannual' | 'annual'
 
 export interface ComplaintSummary {
   total: number
@@ -116,6 +171,9 @@ export interface ComplaintContact {
   kind: 'sender_rule' | 'recipient' | 'cc'
   isActive: boolean
 }
+
+export interface ComplaintArchiveFolder { id:string; inboxMessageId:string|null; subject:string; senderEmail:string; sector:ComplaintSector; archivedAt:string; restoredAt:string|null; permanentlyDeletedAt:string|null; snapshot:Record<string,unknown> }
+export interface ComplaintDeletionRequest { id:string; folderId:string; reason:string; status:'pending'|'approved'|'executing'|'rejected'|'executed'|'failed'; requestedAt:string; decidedAt:string|null; decisionNote:string|null; errorMessage:string|null; attemptCount:number; executionStartedAt:string|null }
 
 export interface ComplaintSetting {
   key: string
@@ -169,4 +227,6 @@ export interface ComplaintReport {
   recipients: string[]
   deliveryId: string | null
   createdAt: string
+  scope: 'email' | 'daily'
+  inboxMessageId: string | null
 }

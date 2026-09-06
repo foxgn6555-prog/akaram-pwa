@@ -27,7 +27,7 @@ select ok(exists(select 1 from pg_trigger where tgname='trg_no_delete_complaint_
 select ok(exists(select 1 from pg_trigger where tgname='trg_complaint_reports_guard' and not tgisinternal), 'report transition guard');
 select ok(exists(select 1 from pg_trigger where tgname='trg_complaint_delivery_lifecycle' and not tgisinternal), 'delivery lifecycle trigger');
 select ok(not exists(select 1 from pg_policies where schemaname='public' and tablename='complaint_reports' and cmd='DELETE'), 'no report delete policy');
-select ok(to_regprocedure('public.complaint_approve_report(uuid)') is not null, 'report approval RPC');
+select ok(to_regprocedure('public.complaint_approve_report(uuid,text,boolean)') is not null, 'report approval RPC');
 
 select * from finish();
 rollback;

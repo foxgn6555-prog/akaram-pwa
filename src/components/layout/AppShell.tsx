@@ -81,7 +81,7 @@ export function AppShell({ portal }: AppShellProps) {
               <Outlet />
             </div>
           ) : (
-            <div className="mx-auto w-full max-w-7xl">
+            <div className="mx-auto min-h-full w-full max-w-7xl">
               <Outlet />
             </div>
           )}

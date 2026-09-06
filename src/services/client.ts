@@ -31,6 +31,21 @@ export function isNetworkError(error: unknown): boolean {
   )
 }
 
+/** غلاف لاستعلام maybeSingle: يسمح بنتيجة null مع توحيد أخطاء الشبكة والخادم. */
+export async function sdkMaybe<T>(
+  operation: PromiseLike<{ data: T | null; error: { message: string; code?: string } | null }>,
+): Promise<T | null> {
+  try {
+    const result = await operation
+    if (result.error) throw new SDKError(result.error.message, result.error.code ?? 'UNKNOWN', result.error)
+    return result.data
+  } catch (error) {
+    if (error instanceof SDKError) throw error
+    if (error instanceof TypeError) throw new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error)
+    throw new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error)
+  }
+}
+
 /**
  * غلاف موحّد لكل استدعاءات الـ SDK:
  * يحوّل أخطاء Supabase إلى SDKError منظمة (بدل أخطاء خام في الواجهة).

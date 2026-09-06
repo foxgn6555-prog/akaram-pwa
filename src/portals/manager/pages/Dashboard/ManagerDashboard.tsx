@@ -40,6 +40,8 @@ export default function ManagerDashboard() {
     { path: '/manager/attendance', label: 'حضورية العمال', hint: 'حاضر/غائب لعمال قواطعك', icon: 'calendar' },
     { path: '/manager/breakdown', label: 'عطل آلية', hint: 'بلاغ عطل برقم DB', icon: 'alert-triangle' },
     { path: '/manager/photos', label: 'إرسال صور', hint: 'رفع صور ميدانية', icon: 'photo' },
+    { path: '/manager/complaints', label: 'شكاوى المواطنين', hint: 'تذاكر قبل/بعد والمعالجة الميدانية', icon: 'check-square' },
+    { path: '/manager/complaints-guidance', label: 'إرشادات الشكاوى', hint: 'شرح التصوير والموقع والتدقيق', icon: 'file-text' },
     { path: '/manager/archive', label: 'الأرشيف', hint: 'الطلبات والأعطال والصور', icon: 'archive-box' },
   ]
 

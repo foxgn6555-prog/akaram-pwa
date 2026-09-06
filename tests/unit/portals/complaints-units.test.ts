@@ -28,7 +28,7 @@ describe('بوابة الشكاوى', () => {
     expect(routes.some((route) => route.index)).toBe(true)
     expect(paths).toEqual(new Set([
       'karrada-sector', 'zaafaraniya-sector', 'assignment', 'processing', 'templates',
-      'data', 'pages-contact-settings', 'archive', 'technical-support', 'items/:id', 'reports/:id',
+      'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
     ]))
   })
 })

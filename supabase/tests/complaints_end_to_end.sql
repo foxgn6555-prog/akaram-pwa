@@ -82,8 +82,13 @@ begin
   reset role; perform set_config('role','service_role',true);
   update public.complaint_reports set status='quality_review',pptx_path='reports/'||v_report||'/daily.pptx' where id=v_report;
   perform set_config('role','authenticated',true); perform set_config('request.jwt.claim.sub',v_officer::text,true);
-  perform public.complaint_approve_report(v_report);
-  if not exists(select 1 from public.complaint_reports where id=v_report and status='approved' and approved_by=v_officer and approved_at is not null)
+  begin perform public.complaint_approve_report(v_report,'reports/'||v_report||'/daily.pptx',false); raise exception 'E2E FAIL — report approved without review confirmation';
+  exception when others then if sqlerrm='E2E FAIL — report approved without review confirmation' then raise; end if; end;
+  begin perform public.complaint_approve_report(v_report,'reports/'||v_report||'/different.pptx',true); raise exception 'E2E FAIL — different report file attested';
+  exception when others then if sqlerrm='E2E FAIL — different report file attested' then raise; end if; end;
+  if (select status from public.complaint_reports where id=v_report)<>'quality_review' then raise exception 'E2E FAIL — rejected attestation changed report'; end if;
+  perform public.complaint_approve_report(v_report,'reports/'||v_report||'/daily.pptx',true);
+  if not exists(select 1 from public.complaint_reports where id=v_report and status='approved' and approved_by=v_officer and approved_at is not null and review_confirmed_at is not null and reviewed_pptx_path=pptx_path)
     then raise exception 'E2E FAIL — report approval audit missing'; end if;
   begin update public.complaint_report_items set included=false where report_id=v_report; raise exception 'E2E FAIL — approved report items changed';
   exception when others then if sqlerrm='E2E FAIL — approved report items changed' then raise; end if; end;
@@ -107,7 +112,7 @@ begin
 
   update public.complaint_reports set status='quality_review',pptx_path='reports/'||v_report||'/retry.pptx',approved_by=null,approved_at=null,delivery_id=null where id=v_report;
   perform set_config('role','authenticated',true); perform set_config('request.jwt.claim.sub',v_officer::text,true);
-  perform public.complaint_approve_report(v_report);
+  perform public.complaint_approve_report(v_report,'reports/'||v_report||'/retry.pptx',true);
   reset role; perform set_config('role','service_role',true);
   insert into public.complaint_email_deliveries(report_id,sender,recipients,subject,status,sent_by)
     values(v_report,'complaints@akram.iq',v_recipients,'تقرير','queued',v_officer) returning id into v_delivery2;
