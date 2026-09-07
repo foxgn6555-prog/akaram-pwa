@@ -45,9 +45,9 @@ export default function DataPage() {
     </ComplaintSearch>
 
     {isLoading ? <div className="h-64 animate-pulse rounded-3xl bg-slate-100" aria-busy="true" /> : !rows.length ? <ComplaintEmpty icon={Database} title="لا توجد نتائج مطابقة" description="غيّر كلمات البحث أو مرشح الحالة أو القاطع لعرض سجلات أخرى." /> : <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="max-h-[560px] overflow-auto">
+      <div className="overflow-x-auto">
         <table className="w-full min-w-[920px] text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-100 text-xs text-slate-600"><tr>{['التذكرة والموقع', 'اسم البريد', 'القاطع', 'المركز والموقع', 'نوع التلكؤ', 'الحالة', 'تاريخ الاستلام'].map(header => <th key={header} className="p-3 text-right font-black">{header}</th>)}</tr></thead>
+          <thead className="bg-slate-100 text-xs text-slate-600"><tr>{['التذكرة والموقع', 'اسم البريد', 'القاطع', 'المركز والموقع', 'نوع التلكؤ', 'الحالة', 'تاريخ الاستلام'].map(header => <th key={header} className="p-3 text-right font-black">{header}</th>)}</tr></thead>
           <tbody>{rows.map(item => <tr key={item.id} className="border-t border-slate-100 transition hover:bg-sky-50/50">
             <td className="p-3"><Link className="font-black text-blue-700 hover:underline" to={`/complaints/items/${item.id}`}>{item.referenceNo}/{item.sequenceNo}<span className="sr-only"> — الموقع {item.sequenceNo}</span></Link></td>
             <td className="max-w-56 p-3"><span className="block truncate font-bold text-slate-700" title={item.ticketName || undefined}>{item.ticketName || '—'}</span></td>

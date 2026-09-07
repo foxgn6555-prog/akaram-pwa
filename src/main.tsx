@@ -26,6 +26,14 @@ createRoot(document.getElementById('root') as HTMLElement).render(
 
 // تسجيل SW فقط في الإنتاج — في dev يتعارض مع HMR ويخزن ردوداً قديمة
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  // إعادة تحميل واحدة آمنة عندما يسيطر SW جديد — تضمن وصول تحديثات
+  // الواجهة (تصميم/إصلاحات) فوراً بدل البقاء على نسخة قديمة مخزنة
+  let refreshing = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return
+    refreshing = true
+    window.location.reload()
+  })
   void import('virtual:pwa-register').then(({ registerSW }) => {
     registerSW({ immediate: true })
   })

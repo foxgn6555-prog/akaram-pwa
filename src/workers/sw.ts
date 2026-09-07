@@ -25,6 +25,9 @@ if (IS_DEV) {
   console.info('[sw] وضع التطوير — SW شفاف بلا اعتراض (سلوك مقصود)')
 } else {
   // ── وضع الإنتاج ──
+  // skipWaiting فور التثبيت: التحديث الجديد يصل للمستخدم مباشرة
+  // (بدونها يبقى المتصفح على نسخة قديمة مخزنة حتى إغلاق كل التبويبات)
+  self.addEventListener('install', () => void self.skipWaiting())
   precacheAndRoute(manifest)
   cleanupOutdatedCaches()
   clientsClaim()
