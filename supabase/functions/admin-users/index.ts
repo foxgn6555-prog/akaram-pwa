@@ -26,7 +26,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /* ~100 سنة — للتعطيل الدائم عبر ban_duration */
 const PERMANENT_BAN = '876000h'
 
-type AdminClient = ReturnType<typeof createClient>
+const createAdminClient = (url: string, key: string) =>
+  createClient(url, key, { auth: { persistSession: false } })
+type AdminClient = ReturnType<typeof createAdminClient>
 type Body = Record<string, unknown>
 
 Deno.serve(async (req: Request) => {
@@ -42,7 +44,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'NO_AUTH' }, 401)
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
+    const admin = createAdminClient(SUPABASE_URL, SERVICE_ROLE)
 
     // ① من هو المتصل؟
     const { data: callerData, error: callerError } = await admin.auth.getUser(
@@ -128,16 +130,16 @@ async function createUser(
     return json({ error: 'FORBIDDEN_ROLE' }, 403)
   }
 
-  // تحقق مسؤول القسم قبل أي إنشاء — لا حالة جزئية (شفت صالح + قواطع 1–3)
+  // تحقق مسؤول القسم قبل أي إنشاء — شفت صالح ومنطقة واحدة حتى جميع المناطق الثماني
   const managerShift = String(body.manager_shift ?? '')
-  const managerSectors = Array.isArray(body.manager_sectors)
+  const managerSectors = [...new Set(Array.isArray(body.manager_sectors)
     ? (body.manager_sectors as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
-    : []
+    : [])].sort((a, b) => a - b)
   if (isManager) {
     if (!['morning', 'evening', 'night'].includes(managerShift)) {
       return json({ error: 'MANAGER_SHIFT_REQUIRED' }, 400)
     }
-    if (managerSectors.length < 1 || managerSectors.length > 3) {
+    if (managerSectors.length < 1 || managerSectors.length > 8) {
       return json({ error: 'MANAGER_SECTORS_REQUIRED' }, 400)
     }
   }
@@ -212,7 +214,7 @@ async function createUser(
     const { error: profileError } = await admin.from('manager_profiles').insert({
       user_id: userId,
       shift: managerShift,
-      sectors: [...new Set(managerSectors)].sort((a, b) => a - b),
+      sectors: managerSectors,
     })
     if (profileError) {
       // مسؤول بلا ملف قواطع = حساب معطّل فعلياً — تراجع نظيف

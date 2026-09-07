@@ -43,6 +43,11 @@ describe('Header — بحث الموبايل', () => {
     expect(screen.getByTestId('header-search-toggle')).toBeInTheDocument()
   })
 
+  it('يعرض عنوان الصفحة الفرعية لا عنوان البوابة الأب', () => {
+    renderHeader('/employee/requests')
+    expect(screen.getByRole('heading', { name: 'طلباتي' })).toBeInTheDocument()
+  })
+
   it('النقر يفتح لوحة بحث بعرض كامل', async () => {
     const user = userEvent.setup()
     renderHeader()

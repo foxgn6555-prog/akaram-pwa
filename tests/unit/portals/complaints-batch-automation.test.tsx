@@ -12,7 +12,7 @@ vi.mock('@features/complaints',()=>({
  useComplaintSettings:()=>({data:[{key:'complaints.issue_types',value:['مخلفات زراعية','تراكم نفايات','أنقاض']}]}),
  useComplaintInbox:()=>({data:[{id:'m1',senderEmail:'sender@test.iq',senderName:'بلدية الكرادة',replyTo:null,subject:'60 موقع',bodyText:'المحلة والزقاق في الصور',sector:'karrada',receivedAt:'2026-09-05T08:00:00Z',status:'ready',attachmentCount:2,duplicateOf:null}],isLoading:false,error:null,refetch:vi.fn(),isFetching:false}),
  useArchiveComplaintEmail:()=>({mutate:vi.fn(),isPending:false}),
- useComplaintInboxMedia:(id:string|null)=>({isLoading:false,data:id?[{id:'f1',mediaCode:'IMG-A',name:'a.jpg',mimeType:'image/jpeg',url:'https://test/a.jpg',duplicate:false,duplicateCount:0,itemId:null},{id:'f2',mediaCode:'IMG-B',name:'b.jpg',mimeType:'image/jpeg',url:'https://test/b.jpg',duplicate:true,duplicateCount:1,itemId:null}]:[]}),
+ useComplaintInboxMediaPage:(id:string|null)=>({isLoading:false,data:id?{rows:[{id:'f1',mediaCode:'IMG-A',name:'a.jpg',mimeType:'image/jpeg',url:'https://test/a.jpg',duplicate:false,duplicateCount:0,itemId:null},{id:'f2',mediaCode:'IMG-B',name:'b.jpg',mimeType:'image/jpeg',url:'https://test/b.jpg',duplicate:true,duplicateCount:1,itemId:null}],totalCount:2,imageCount:2,sortedImageCount:0,remainingImageCount:2}:{rows:[],totalCount:0,imageCount:0,sortedImageCount:0,remainingImageCount:0}}),
  useBatchCreateComplaintItems:()=>({mutate:h.batchSort,isPending:false}),
  useExtractComplaintPdf:()=>({mutate:vi.fn(),isPending:false}),useComplaintOcr:()=>({mutate:vi.fn(),isPending:false}),
  useComplaintItems:(manager?:boolean)=>({isLoading:false,data:[
@@ -30,15 +30,16 @@ function view(node:ReactNode){return render(<MemoryRouter>{node}</MemoryRouter>)
 
 describe('أتمتة فرز وإسناد الشكاوى على دفعات',()=>{
  beforeEach(()=>{h.batchSort.mockReset();h.batchAssign.mockReset();h.updateReview.mockReset();h.replaceMedia.mockReset()})
+ it('يعرض البريد دون فرض عرض أفقي ويبعد الإجراء الثابت عن شريط الموبايل',()=>{view(<InboxPage sector="karrada"/>);const row=screen.getByRole('button',{name:/بلدية الكرادة.*60 موقع/});expect(row).toHaveClass('min-w-0');expect(row.className).not.toContain('min-w-[680px]');fireEvent.click(row);expect(screen.getByRole('button',{name:'اعتماد بيانات الصور وتجهيزها للإسناد'}).closest('.sticky')).toHaveClass('bottom-[calc(5rem+env(safe-area-inset-bottom))]')})
  it('يعرض تفاصيل البريد وكوداً دائماً وتحذير التكرار لكل صورة',()=>{
   view(<InboxPage sector="karrada"/>);fireEvent.click(screen.getByText('60 موقع'))
   expect(screen.getByText('المحلة والزقاق في الصور')).toBeInTheDocument()
   expect(screen.getByText('IMG-A')).toBeInTheDocument();expect(screen.getByText('IMG-B')).toBeInTheDocument()
   expect(screen.getByText(/البصمة موجودة في 1 ملف/)).toBeInTheDocument()
  })
- it('يضع تراكم نفايات افتراضياً ويطبق نوعاً موحداً على كل الصور',()=>{view(<InboxPage sector="karrada"/>);fireEvent.click(screen.getByText('60 موقع'));const types=screen.getAllByLabelText('نوع التلكؤ (مطلوب)') as HTMLInputElement[];expect(types.every(input=>input.value==='تراكم نفايات')).toBe(true);fireEvent.change(screen.getByLabelText('نوع تلكؤ موحد لكل الصور'),{target:{value:'أنقاض'}});fireEvent.click(screen.getByRole('button',{name:'تطبيق على كل الصور (2)'}));expect((screen.getAllByLabelText('نوع التلكؤ (مطلوب)') as HTMLInputElement[]).every(input=>input.value==='أنقاض')).toBe(true);expect(screen.getByText(/تم تطبيق نوع التلكؤ/)).toBeInTheDocument()})
+ it('يضع تراكم نفايات افتراضياً ويطبق نوعاً موحداً على كل الصور',()=>{view(<InboxPage sector="karrada"/>);fireEvent.click(screen.getByText('60 موقع'));const types=screen.getAllByLabelText('نوع التلكؤ (مطلوب)') as HTMLInputElement[];expect(types.every(input=>input.value==='تراكم نفايات')).toBe(true);fireEvent.change(screen.getByLabelText('نوع تلكؤ موحد لكل الصور'),{target:{value:'أنقاض'}});fireEvent.click(screen.getByRole('button',{name:'تطبيق على صور الصفحة (2)'}));expect((screen.getAllByLabelText('نوع التلكؤ (مطلوب)') as HTMLInputElement[]).every(input=>input.value==='أنقاض')).toBe(true);expect(screen.getByText(/تم تطبيق نوع التلكؤ/)).toBeInTheDocument()})
  it('ينشئ تذكرة مستقلة لكل صورة ولا يسمح بالدفعة قبل موقع كل صورة',()=>{
-  view(<InboxPage sector="karrada"/>);fireEvent.click(screen.getByText('60 موقع'));fireEvent.click(screen.getByText('تحديد كل الصور المتبقية'))
+  view(<InboxPage sector="karrada"/>);fireEvent.click(screen.getByText('60 موقع'));fireEvent.click(screen.getByText('تحديد صور الصفحة (2)'))
   const submit=screen.getByRole('button',{name:'اعتماد بيانات الصور وتجهيزها للإسناد'});expect(submit).toBeDisabled()
   const neighborhoods=screen.getAllByLabelText('المحلة (م)');const alleys=screen.getAllByLabelText('الزقاق (ز)');const types=screen.getAllByLabelText('نوع التلكؤ (مطلوب)')
   fireEvent.change(neighborhoods[0]!,{target:{value:'901'}});fireEvent.change(alleys[0]!,{target:{value:'1'}});fireEvent.change(types[0]!,{target:{value:'تراكم نفايات'}})
@@ -62,7 +63,7 @@ describe('أتمتة فرز وإسناد الشكاوى على دفعات',()=>{
   const consoleError=vi.spyOn(console,'error').mockImplementation(()=>undefined)
   view(<ComplaintDetailPage/>);expect(screen.getByText('النسخ السابقة')).toBeInTheDocument();expect(screen.getByText('IMG-A')).toBeInTheDocument()
   expect(screen.getByText('بانتظار الإسناد ← مسندة إلى المسؤول')).toBeInTheDocument()
-  expect(screen.getByText('تفاصيل البلاغ')).toBeInTheDocument();expect(screen.queryByText(/PHOTO-1/)).toBeNull()
+  expect(screen.getByText('تفاصيل البلاغ')).toBeInTheDocument();expect(screen.queryByText(/PHOTO-1/)).toBeNull();expect(screen.getByRole('alert')).toHaveTextContent('لا يمكن الاعتماد قبل وجود صورة معالجة فعالة');expect(screen.getByRole('button',{name:'اعتماد الموقع'})).toBeDisabled()
   expect(consoleError).not.toHaveBeenCalled();consoleError.mockRestore()
  })
  it('يسجل تصحيح الموقع واستبدال الصورة من صفحة التدقيق',()=>{

@@ -7,6 +7,7 @@ const generator = readFileSync('supabase/functions/complaint-generate-report/ind
 const mail = readFileSync('supabase/functions/mailgun-send/index.ts', 'utf8')
 const manager = readFileSync('src/portals/manager/pages/Complaints/ComplaintTicketPage.tsx', 'utf8')
 const tickets = readFileSync('supabase/migrations/00059_complaint_assignment_tickets.sql','utf8')
+const reviewSafety = readFileSync('supabase/migrations/00071_complaint_review_requires_after_media.sql','utf8')
 
 describe('عقد دورة الشكوى المكتملة', () => {
   it('يعزل المسؤول حسب الإسناد ويفرض صورة بعد أحدث من بدء المعالجة', () => {
@@ -16,12 +17,20 @@ describe('عقد دورة الشكوى المكتملة', () => {
     expect(manager).toContain('useComplaintItemsMedia')
     expect(manager).toContain('useCompleteComplaintAssignmentTicket')
     expect(tickets).toContain('complaint_complete_assignment_ticket')
+    expect(manager).toContain('useManagerComplaintTicket')
   })
 
   it('التدقيق للموظف فقط والإرجاع يحتاج سبباً', () => {
-    expect(reports).toContain("app.has_role(array['complaints_officer','super_admin'])")
-    expect(reports).toContain('COMPLAINT_RETURN_NOTE_REQUIRED')
-    expect(reports).toMatch(/v_next\s*:=\s*case when p_approved then 'approved' else 'returned' end/)
+    expect(reviewSafety).toContain("app.has_role(array['complaints_officer','super_admin'])")
+    expect(reviewSafety).toContain('COMPLAINT_RETURN_NOTE_REQUIRED')
+    expect(reviewSafety).toMatch(/v_next:=case when p_approved then'approved'else'returned'end/)
+  })
+
+  it('يمنع الخادم اعتماد الموقع أو التذكرة دون صورة معالجة فعالة',()=>{
+    expect(reviewSafety).toContain("media_kind='after' and is_active")
+    expect(reviewSafety.match(/COMPLAINT_AFTER_MEDIA_REQUIRED/g)?.length).toBeGreaterThanOrEqual(2)
+    expect(reviewSafety).toContain('complaint_review_assignment_ticket')
+    expect(reviewSafety).toContain('complaint_review_item')
   })
 
   it('التقرير يشمل كل عناصر يوم بغداد مع حالتها ولا يستبعد غير المعالج', () => {
@@ -40,7 +49,7 @@ describe('عقد دورة الشكوى المكتملة', () => {
   })
 
   it('إرسال التقرير مرتبط بتقرير معتمد وسجل التسليم', () => {
-    expect(mail).toContain(".eq('status', 'approved')")
+    expect(mail).toContain(".in('status', ['approved', 'failed'])")
     expect(mail).toContain('REPORT_NOT_APPROVED')
     expect(mail).toContain('report_id: reportId')
   })

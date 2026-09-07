@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowRight, CheckCircle2, Download, Eye, FileCheck2, GripVertical, Image as ImageIcon, LayoutTemplate, Mail, Save, Send, ShieldCheck, Sparkles } from 'lucide-react'
 import {
-  useComplaintItemsMedia, useComplaintReport, useComplaintReportDownload, useGenerateComplaintReport,
+  useComplaintItemsMedia, useComplaintManagers, useComplaintReport, useComplaintReportDownload, useGenerateComplaintReport,
   useSaveComplaintReportDraft, useSendComplaintEmail, useSetComplaintReportStatus,
   reportStatusLabel,
   type ComplaintReportDetail,
@@ -14,13 +14,20 @@ const deliveryLabels: Record<string, string> = {
   temporary_failure: 'فشل مؤقت', permanent_failure: 'فشل نهائي', rejected: 'مرفوض',
 }
 const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+const triggerDownload = (url: string) => {
+  const link = document.createElement('a')
+  link.href = url
+  link.rel = 'noopener noreferrer'
+  link.click()
+}
 
 export default function ReportEditorPage() {
   const { id } = useParams()
   const query = useComplaintReport(id ?? null)
   if (query.isLoading) return <div className="h-72 animate-pulse rounded-3xl bg-slate-100" />
+  if (query.isError) return <ComplaintEmpty icon={LayoutTemplate} title="تعذر تحميل التقرير" description="تحقق من الاتصال والصلاحيات ثم أعد المحاولة؛ لم يتم عرض نسخة ناقصة." />
   if (!query.data) return <ComplaintEmpty icon={LayoutTemplate} title="التقرير غير موجود" description="قد يكون التقرير مؤرشفاً أو أن الرابط غير صحيح." />
-  return <Editor key={`${query.data.id}-${query.data.createdAt}-${query.data.status}`} initial={query.data} />
+  return <Editor key={query.data.id} initial={query.data} />
 }
 
 function Editor({ initial }: { initial: ComplaintReportDetail }) {
@@ -40,12 +47,35 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const approve = useSetComplaintReportStatus()
   const download = useComplaintReportDownload()
   const send = useSendComplaintEmail()
+  const managers = useComplaintManagers().data ?? []
+  const managerNames = new Map(managers.map(manager => [manager.userId, manager.fullName]))
   const includedItems = items.filter(item => item.included)
   const media = useComplaintItemsMedia(includedItems.map(item => item.itemId))
+  const reportGroups = new Map<string, { subject: string; manager: string; count: number }>()
+  for (const entry of includedItems) {
+    const key = `${entry.item.inboxMessageId ?? entry.item.complaintId}:${entry.item.assignedTo ?? 'unassigned'}`
+    const current = reportGroups.get(key) ?? { subject: entry.item.ticketName || 'بريد دون موضوع', manager: managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم', count: 0 }
+    current.count += 1
+    reportGroups.set(key, current)
+  }
 
   useEffect(() => {
-    setTitle(initial.title); setLayout(initial.layout); setRecipients(initial.recipients.join('\n')); setItems(initial.items); setDirty(false)
+    setTitle(initial.title)
+    setLayout(initial.layout)
+    setRecipients(initial.recipients.join('\n'))
+    setItems(initial.items)
+    setDirty(false)
+    setReviewConfirmed(false)
   }, [initial])
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!dirty) return
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   const emails = useMemo(() => [...new Set(recipients.split(/[\n,;]+/).map(value => value.trim().toLowerCase()).filter(Boolean))], [recipients])
   const invalidEmails = emails.filter(email => !validEmail(email))
@@ -73,8 +103,8 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   })
   const generateNow = () => {
     if (!canGenerate) { setMessage('لا يمكن التوليد دون عنوان وموقع واحد مضمن على الأقل.'); return }
-    if (dirty && canSave) save.mutate(payload, { onSuccess: runGenerate, onError: () => setMessage('تعذر حفظ التعديلات، لذلك لم يُولّد ملف قديم.') })
-    else if (dirty) setMessage('احفظ بيانات المستلمين الصحيحة قبل توليد النسخة المعدلة.')
+    if (dirty && canSave) save.mutate(payload, { onSuccess: runGenerate, onError: () => setMessage('تعذر حفظ التعديلات، لذلك أُلغي التوليد حتى لا يُنشأ ملف قديم.') })
+    else if (dirty) setMessage('صحح بيانات المستلمين أولاً حتى يمكن حفظ التصميم المعدل قبل التوليد.')
     else runGenerate()
   }
 
@@ -104,9 +134,9 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
     <div className="sticky top-2 z-20 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
       {editable && <button onClick={saveNow} disabled={save.isPending || !canSave} className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Save size={17} />حفظ التصميم</button>}
       {editable && <button disabled={generate.isPending || save.isPending || !canGenerate} onClick={generateNow} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Sparkles size={17} />توليد PowerPoint</button>}
-      {initial.pptxPath && <button disabled={download.isPending} onClick={() => download.mutate(initial.pptxPath!, { onSuccess: url => window.open(url, '_blank', 'noopener,noreferrer') })} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-40"><Download size={17} />تنزيل ومراجعة</button>}
+      {initial.pptxPath && <button disabled={download.isPending} onClick={() => download.mutate(initial.pptxPath!, { onSuccess: triggerDownload, onError: () => setMessage('تعذر تجهيز رابط تنزيل PowerPoint؛ أعد المحاولة.') })} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-40"><Download size={17} />تنزيل ومراجعة</button>}
       {initial.status === 'quality_review' && <button disabled={approve.isPending || !reviewConfirmed || !initial.pptxPath} onClick={() => approve.mutate({ reportId: initial.id, status: 'approved', reviewedPptxPath: initial.pptxPath ?? undefined }, { onSuccess: () => setMessage('تم اعتماد التقرير.'), onError: () => setMessage('تعذر الاعتماد؛ يشترط ملف PowerPoint مولّد وتأكيد المراجعة.') })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><ShieldCheck size={17} />اعتماد التقرير</button>}
-      {initial.status === 'approved' && initial.pptxPath && <button disabled={!emails.length || invalidEmails.length > 0 || send.isPending} onClick={() => send.mutate({ reportId: initial.id, to: emails, subject: title, text: `السلام عليكم، مرفق ${title}`, attachmentPaths: [initial.pptxPath!] }, { onSuccess: () => setMessage('قُبل طلب الإرسال، وسيتم تحديث حالة التسليم تلقائياً.'), onError: () => setMessage('تعذر الإرسال؛ تحقق من إعداد Mailgun والمستلمين المعتمدين.') })} className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Send size={17} />إرسال إلى الجهة المرسلة</button>}
+      {['approved', 'failed'].includes(initial.status) && initial.pptxPath && <button disabled={!emails.length || invalidEmails.length > 0 || send.isPending} onClick={() => send.mutate({ reportId: initial.id, to: emails, subject: title, text: `السلام عليكم، مرفق ${title}`, attachmentPaths: [initial.pptxPath!] }, { onSuccess: () => setMessage(initial.status === 'failed' ? 'قُبلت إعادة محاولة الإرسال، وستظهر نتيجتها في سجل التسليم.' : 'قُبل طلب الإرسال، وسيتم تحديث حالة التسليم تلقائياً.'), onError: () => setMessage('تعذر الإرسال؛ تحقق من إعداد Mailgun والمستلمين المعتمدين ثم أعد المحاولة.') })} className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Send size={17} />{initial.status === 'failed' ? 'إعادة محاولة الإرسال' : 'إرسال إلى الجهة المرسلة'}</button>}
     </div>
 
     <div className="grid items-start gap-5 xl:grid-cols-[330px_minmax(0,1fr)]">
@@ -115,6 +145,8 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
           <label className="mt-4 block text-xs font-bold">عنوان التقرير<input disabled={!editable} value={title} onChange={event => { setTitle(event.target.value); setDirty(true) }} className="mt-1 w-full rounded-xl border p-2.5 text-sm" /></label>
           <label className="mt-3 flex items-center justify-between text-xs font-bold">اللون الرئيسي<input disabled={!editable} type="color" value={accent} onChange={event => changeLayout('accent', event.target.value)} /></label>
           <label className="mt-3 block text-xs font-bold">عنوان الغلاف<input disabled={!editable} value={String(layout.title ?? 'تقرير معالجة الشكاوى ليوم')} onChange={event => changeLayout('title', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
+          <label className="mt-3 block text-xs font-bold">الجهة الحكومية<input disabled={!editable} value={String(layout.authorityLine ?? `أمانة بغداد / دائرة بلدية ${initial.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}`)} onChange={event => changeLayout('authorityLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
+          <label className="mt-3 block text-xs font-bold">الجهة المنفذة<input disabled={!editable} value={String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد')} onChange={event => changeLayout('contractorLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="mt-3 text-xs font-bold">عنوان قبل<input disabled={!editable} value={String(layout.beforeLabel ?? 'صورة التلكؤ / الشكوى')} onChange={event => changeLayout('beforeLabel', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label><label className="mt-3 text-xs font-bold">عنوان بعد<input disabled={!editable} value={String(layout.afterLabel ?? 'صورة المعالجة')} onChange={event => changeLayout('afterLabel', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label></div>
           <label className="mt-3 block text-xs font-bold">الخط<select disabled={!editable} value={String(layout.fontFamily ?? 'Arial')} onChange={event => changeLayout('fontFamily', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5"><option>Arial</option><option>Tahoma</option><option>Calibri</option></select></label>
           <label className="mt-3 block text-xs font-bold">حجم عنوان الغلاف: {Number(layout.coverFontSize ?? 30)}<input disabled={!editable} type="range" min="20" max="42" value={Number(layout.coverFontSize ?? 30)} onChange={event => changeLayout('coverFontSize', Number(event.target.value))} className="mt-2 w-full" /></label>
@@ -128,16 +160,18 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
         <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
           <div className="mx-auto mt-5 aspect-video w-full max-w-4xl overflow-hidden rounded-xl border bg-white shadow-xl" style={{ borderColor: accent }}>
             {preview === 'cover' && <CoverPreview layout={layout} title={title} accent={accent} initial={initial} />}
-            {preview === 'table' && <TablePreview items={includedItems} accent={accent} />}
+            {preview === 'table' && <TablePreview items={includedItems} accent={accent} managerNames={managerNames} />}
             {preview === 'slides' && <SlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} />}
           </div>
           {preview === 'slides' && includedItems.length > 1 && <div className="mt-4 flex items-center justify-center gap-3"><button onClick={() => setPreviewItem(Math.max(0, previewItem - 1))} disabled={previewItem === 0} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">السابق</button><span className="text-xs font-bold">الموقع {previewItem + 1} من {includedItems.length}</span><button onClick={() => setPreviewItem(Math.min(includedItems.length - 1, previewItem + 1))} disabled={previewItem >= includedItems.length - 1} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">التالي</button></div>}
         </article>
 
         <article className="rounded-3xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap justify-between gap-2"><div><h2 className="font-black">ترتيب ومحتوى التقرير</h2><p className="mt-1 text-xs text-slate-500">السحب أو الأسهم يعيدان ترتيب الشرائح. الاستبعاد لا يحذف بيانات الموقع.</p></div><span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">{includedItems.length} من {items.length} موقع</span></div>
-          <div className="mt-4 space-y-2">{items.map((entry, index) => <div key={entry.itemId} draggable={editable} onDragStart={() => setDragged(index)} onDragOver={event => event.preventDefault()} onDrop={() => { if (dragged !== null) move(dragged, index); setDragged(null) }} className={`flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${entry.included ? 'bg-white' : 'bg-slate-100 opacity-60'}`}>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">{[...reportGroups.entries()].map(([key, group]) => <div key={key} className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="truncate text-xs font-black text-indigo-950">{group.subject}</p><p className="mt-1 text-[11px] text-indigo-700">{group.manager} · {group.count} موقع</p></div>)}</div>
+          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">سيضيف PowerPoint فاصلاً مستقلاً لكل مجموعة «بريد + مسؤول قسم»، ثم يحافظ على ترتيب المواقع داخلها.</p>
+          <div className="mt-3 space-y-2">{items.map((entry, index) => <div key={entry.itemId} draggable={editable} onDragStart={() => setDragged(index)} onDragOver={event => event.preventDefault()} onDrop={() => { if (dragged !== null) move(dragged, index); setDragged(null) }} className={`flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${entry.included ? 'bg-white' : 'bg-slate-100 opacity-60'}`}>
             <GripVertical className="cursor-grab text-slate-400" size={18} /><input aria-label={`تضمين الموقع ${entry.item.sequenceNo}`} disabled={!editable} type="checkbox" checked={entry.included} onChange={event => { setItems(old => old.map(value => value.itemId === entry.itemId ? { ...value, included: event.target.checked } : value)); setDirty(true) }} />
-            <div className="min-w-0 flex-1"><Link to={`/complaints/items/${entry.itemId}`} className="font-black text-blue-700">{entry.item.referenceNo} / {entry.item.sequenceNo}</Link><p className="truncate text-xs text-slate-500">محلة {entry.item.neighborhood || '—'} · زقاق {entry.item.alley || '—'} · {entry.item.title || 'نوع غير محدد'}</p></div><ComplaintStatusBadge status={entry.item.status} />
+            <div className="min-w-0 flex-1"><Link to={`/complaints/items/${entry.itemId}`} className="font-black text-blue-700">{entry.item.referenceNo} / {entry.item.sequenceNo}</Link><p className="truncate text-xs text-slate-500">محلة {entry.item.neighborhood || '—'} · زقاق {entry.item.alley || '—'} · {entry.item.title || 'نوع غير محدد'}</p><p className="mt-1 truncate text-[11px] font-bold text-indigo-700">{entry.item.ticketName || 'بريد دون موضوع'} · {managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'}</p></div><ComplaintStatusBadge status={entry.item.status} />
             <button disabled={!editable || index === 0} onClick={() => move(index, index - 1)} aria-label="تحريك للأعلى" className="rounded-lg border px-2 py-1">↑</button><button disabled={!editable || index === items.length - 1} onClick={() => move(index, index + 1)} aria-label="تحريك للأسفل" className="rounded-lg border px-2 py-1">↓</button>
           </div>)}</div>
         </article>
@@ -153,10 +187,10 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
 function CoverPreview({ layout, title, accent, initial }: { layout: Record<string, unknown>; title: string; accent: string; initial: ComplaintReportDetail }) {
   const configuredAuthority = String(layout.authorityLine ?? '')
   const authority = !configuredAuthority || configuredAuthority === 'أمانة بغداد / دائرة بلدية الكرادة' ? `أمانة بغداد / دائرة بلدية ${initial.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}` : configuredAuthority
-  return <div className="flex h-full flex-col items-center justify-center p-5 text-center"><div className="flex items-center gap-3"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain sm:size-16" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain sm:size-20" /><img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain sm:size-20" /></div><p className="mt-3 text-[9px] font-bold sm:text-xs">{authority}</p><p className="mt-1 text-[8px] font-bold sm:text-[11px]">{String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد')}</p><h3 className="mt-4 max-w-2xl text-base font-black sm:text-2xl" style={{ color: accent }}>{String(layout.title ?? title)}</h3><p className="mt-3 text-[10px] sm:text-sm">{initial.reportDate} · {initial.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}</p></div>
+  return <div className="flex h-full flex-col items-center justify-center p-5 text-center"><div className="flex items-center gap-3"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain sm:size-16" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain sm:size-20" /><img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain sm:size-20" /></div><p className="mt-3 text-[9px] font-bold sm:text-xs">{authority}</p><p className="mt-1 text-[8px] font-bold sm:text-[11px]">{String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد')}</p><h3 className="mt-4 max-w-2xl text-base font-black sm:text-2xl" style={{ color: accent }}>{String(layout.title ?? title)}</h3><p className="mt-2 max-w-2xl text-[9px] font-bold text-slate-700 sm:text-sm">{title}</p><p className="mt-2 text-[10px] sm:text-sm">{initial.reportDate} · {initial.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}</p></div>
 }
-function TablePreview({ items, accent }: { items: ComplaintReportDetail['items']; accent: string }) {
-  return <div className="h-full p-3 sm:p-5"><h3 className="text-center text-xs font-black sm:text-lg" style={{ color: accent }}>جدول بيانات التلكؤات</h3><table className="mt-3 w-full table-fixed text-[7px] sm:text-xs"><thead style={{ background: accent, color: 'white' }}><tr><th className="p-1">ت</th><th>نوع التلكؤ</th><th>المركز</th><th>المحلة</th><th>الزقاق</th></tr></thead><tbody>{items.slice(0, 8).map((entry, index) => <tr key={entry.itemId} className="border-b odd:bg-slate-50"><td className="p-1 text-center">{index + 1}</td><td>{entry.item.title || '—'}</td><td>{entry.item.municipalCenter || '—'}</td><td>{entry.item.neighborhood || '—'}</td><td>{entry.item.alley || '—'}</td></tr>)}</tbody></table>{items.length > 8 && <p className="mt-2 text-center text-[8px] text-slate-500">+ {items.length - 8} موقع في الصفحات التالية</p>}</div>
+function TablePreview({ items, accent, managerNames }: { items: ComplaintReportDetail['items']; accent: string; managerNames: Map<string, string> }) {
+  return <div className="h-full p-3 sm:p-5"><h3 className="text-center text-xs font-black sm:text-lg" style={{ color: accent }}>جدول بيانات التلكؤات</h3><table className="mt-3 w-full table-fixed text-[6px] sm:text-[10px]"><thead style={{ background: accent, color: 'white' }}><tr><th className="p-1">ت</th><th>مسؤول القسم</th><th>نوع التلكؤ</th><th>المركز</th><th>المحلة</th><th>الزقاق</th></tr></thead><tbody>{items.slice(0, 8).map((entry, index) => <tr key={entry.itemId} className="border-b odd:bg-slate-50"><td className="p-1 text-center">{index + 1}</td><td>{managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'}</td><td>{entry.item.title || '—'}</td><td>{entry.item.municipalCenter || '—'}</td><td>{entry.item.neighborhood || '—'}</td><td>{entry.item.alley || '—'}</td></tr>)}</tbody></table>{items.length > 8 && <p className="mt-2 text-center text-[8px] text-slate-500">+ {items.length - 8} موقع في الصفحات التالية</p>}</div>
 }
 function SlidePreview({ entry, before, after, accent, layout }: { entry?: ComplaintReportDetail['items'][number]; before?: string; after?: string; accent: string; layout: Record<string, unknown> }) {
   if (!entry) return <div className="flex h-full items-center justify-center text-sm text-slate-400">لا توجد مواقع مضمنة</div>

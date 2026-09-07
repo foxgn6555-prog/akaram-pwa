@@ -8,7 +8,6 @@ const allowedMimeTypes = new Set([
 ])
 const maxAttachmentBytes = 25 * 1024 * 1024
 const maxMessageAttachmentBytes = 100 * 1024 * 1024
-const maxAttachmentCount = 100
 
 
 Deno.serve(async (request: Request) => {
@@ -79,7 +78,6 @@ Deno.serve(async (request: Request) => {
       .map(([key, value]) => ({ key, file: value as File }))
       .sort((a, b) => Number(a.key.replace(/\D/g, '')) - Number(b.key.replace(/\D/g, '')))
       .map(({ file }) => file)
-    if (attachments.length > maxAttachmentCount) throw new Error(`ATTACHMENT_COUNT_REJECTED:${attachments.length}`)
     if (declaredAttachmentCount > 0 && declaredAttachmentCount !== attachments.length) {
       throw new Error(`ATTACHMENT_COUNT_MISMATCH:declared=${declaredAttachmentCount}:received=${attachments.length}`)
     }

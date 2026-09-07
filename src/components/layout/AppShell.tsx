@@ -12,7 +12,7 @@
  *  · حشو سفلي للمحتوى يحترم شريط النظام (safe-area-inset)
  */
 import { useEffect } from 'react'
-import { Outlet } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 import clsx from 'clsx'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { portalThemes } from '@config/portals.config'
@@ -31,6 +31,7 @@ export interface AppShellProps {
 const MOBILE_MAX_WIDTH = 1024
 
 export function AppShell({ portal }: AppShellProps) {
+  const location = useLocation()
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen)
   const setMobileNav = useUiStore((s) => s.setMobileNav)
   const fullBleed = useUiStore((s) => s.contentFullBleed)
@@ -47,10 +48,16 @@ export function AppShell({ portal }: AppShellProps) {
     return () => window.removeEventListener('resize', sync)
   }, [setMobileNav])
 
+  // التنقل من البحث أو الرجوع/التقدم في المتصفح لا يترك درجاً يحجب الصفحة الجديدة.
+  useEffect(() => {
+    setMobileNav(false)
+  }, [location.pathname, setMobileNav])
+
   return (
-    <div className={clsx(theme.themeClass, 'portal-shell flex h-screen overflow-hidden')}>
-      {/* ── الشريط: عمود ثابت (دسكتوب فقط) ── */}
-      <div className="max-lg:hidden">
+    <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full overflow-hidden')}>
+      <a href="#app-main-content" className="fixed start-3 top-3 z-[100] -translate-y-20 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl transition-transform focus:translate-y-0">تجاوز التنقل إلى المحتوى</a>
+      {/* ── الشريط: طبقة مستقلة لا يمكن لمحتوى الصفحات تجاوزها ── */}
+      <div className="relative z-30 h-dvh shrink-0 max-lg:hidden">
         <Sidebar portal={portal} variant="desktop" />
       </div>
 
@@ -63,17 +70,19 @@ export function AppShell({ portal }: AppShellProps) {
       )}
 
       {/* ── عمود المحتوى: ثابت الارتفاع، التمرير داخلي فقط ── */}
-      <div className="flex h-screen min-w-0 flex-1 flex-col">
+      <div className="relative z-0 flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <Header portal={portal} />
         <main
+          id="app-main-content"
+          tabIndex={-1}
           data-testid="app-main"
           className={clsx(
             'flex-1',
             fullBleed
               ? 'flex min-h-0 flex-col overflow-hidden p-0'
               : // حشو سفلي على الموبايل لتفادي تغطية الشريط السفلي (~64px) + شريط النظام
-                'overflow-y-auto p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6',
+                'min-h-0 scroll-smooth overflow-x-hidden overflow-y-auto overscroll-y-contain p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] outline-none sm:p-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:[scrollbar-gutter:stable] lg:pb-6',
           )}
         >
           {fullBleed ? (

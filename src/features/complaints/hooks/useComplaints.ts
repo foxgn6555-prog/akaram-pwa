@@ -5,10 +5,10 @@ import { rasterizePdfPages } from '../lib/pdf-pages'
 import { inferLocationFromArabicText, recognizeComplaintImage } from '../lib/ocr'
 import type { ComplaintAfterUpload, ComplaintItemFields, ComplaintReport, ComplaintSector, ComplaintSortEntry, ComplaintTicketAfterUpload, SendComplaintEmailInput } from '../types'
 
-export function useComplaintInbox(sector?: ComplaintSector) {
+export function useComplaintInbox(sector?: ComplaintSector, date?: string) {
   return useQuery({
-    queryKey: complaintsKeys.inbox(sector),
-    queryFn: () => complaints.inbox(sector),
+    queryKey: [...complaintsKeys.inbox(sector), date ?? 'all'],
+    queryFn: () => complaints.inbox(sector,date),
   })
 }
 
@@ -16,6 +16,14 @@ export function useComplaintInboxMedia(messageId: string | null) {
   return useQuery({
     queryKey: complaintsKeys.inboxMedia(messageId ?? 'none'),
     queryFn: () => complaints.inboxMedia(messageId as string),
+    enabled: Boolean(messageId),
+  })
+}
+
+export function useComplaintInboxMediaPage(messageId: string | null, page: number, pageSize: number) {
+  return useQuery({
+    queryKey: [...complaintsKeys.inboxMedia(messageId ?? 'none'), 'page', page, pageSize],
+    queryFn: () => complaints.inboxMediaPage(messageId as string, page, pageSize),
     enabled: Boolean(messageId),
   })
 }
@@ -30,11 +38,12 @@ export function useComplaintOcr() {
 export function useExtractComplaintPdf() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ messageId, sourceId, url, name }: { messageId: string; sourceId: string; url: string; name: string }) => {
+    mutationFn: async ({ messageId, sourceId, url, name, onProgress }: { messageId: string; sourceId: string; url: string; name: string; onProgress?: (current: number, total: number) => void }) => {
       let converted = 0
-      await rasterizePdfPages(url, name, async (page, pageNumber) => {
+      await rasterizePdfPages(url, name, async (page, pageNumber, totalPages) => {
         await complaints.addInboxPdfPages(messageId, sourceId, [page], pageNumber)
         converted = pageNumber
+        onProgress?.(pageNumber, totalPages)
       })
       return converted
     },
@@ -63,11 +72,15 @@ export function useBatchCreateComplaintItems() {
   })
 }
 
-export function useComplaintItems(mine = false) {
+export function useComplaintItems(mine = false, date?: string) {
   return useQuery({
-    queryKey: complaintsKeys.items(mine ? 'manager' : 'officer'),
-    queryFn: () => complaints.items(mine),
+    queryKey: [...complaintsKeys.items(mine ? 'manager' : 'officer'), date ?? 'all'],
+    queryFn: () => complaints.items(mine,date),
   })
+}
+
+export function useManagerComplaintTicket(complaintId:string|null){
+  return useQuery({queryKey:complaintsKeys.detail(`manager-ticket:${complaintId??'none'}`),queryFn:()=>complaints.managerTicket(complaintId as string),enabled:Boolean(complaintId)})
 }
 
 export function useComplaintManagers() {
@@ -165,8 +178,15 @@ export function useSaveComplaintSetting() {
 
 export function useSaveComplaintTemplate() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: complaints.saveTemplate,
-    onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.templates() }) })
+  return useMutation({
+    mutationFn: complaints.saveTemplate,
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: complaintsKeys.templates() }),
+        qc.invalidateQueries({ queryKey: complaintsKeys.reports() }),
+      ])
+    },
+  })
 }
 
 export function useSaveComplaintContact() {
@@ -175,8 +195,8 @@ export function useSaveComplaintContact() {
     onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.contacts() }) })
 }
 
-export function useComplaintReports() {
-  return useQuery({ queryKey: complaintsKeys.reports(), queryFn: () => complaints.reports() })
+export function useComplaintReports(date?:string) {
+  return useQuery({ queryKey: [...complaintsKeys.reports(),date??'all'], queryFn: () => complaints.reports(date) })
 }
 
 export function useReviewComplaintItem() {
@@ -193,15 +213,33 @@ export function useReviewComplaintAssignmentTicket(){
 
 export function usePrepareComplaintReport() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: ({ sector, date, templateId }: { sector: ComplaintSector; date: string; templateId?: string }) =>
-    complaints.prepareReport(sector, date, templateId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.reports() }) })
+  return useMutation({
+    mutationFn: ({ sector, date, templateId }: { sector: ComplaintSector; date: string; templateId?: string }) =>
+      complaints.prepareReport(sector, date, templateId),
+    onSuccess: async (reportId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: complaintsKeys.reports() }),
+        qc.invalidateQueries({ queryKey: complaintsKeys.report(reportId) }),
+      ])
+    },
+  })
 }
 
-export function usePrepareComplaintEmailReport(){
-  const qc=useQueryClient()
-  return useMutation({mutationFn:({messageId,templateId}:{messageId:string;templateId?:string})=>complaints.prepareEmailReport(messageId,templateId),onSuccess:()=>qc.invalidateQueries({queryKey:complaintsKeys.reports()})})
+export function usePrepareComplaintEmailReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ messageId, templateId }: { messageId: string; templateId?: string }) =>
+      complaints.prepareEmailReport(messageId, templateId),
+    onSuccess: async (reportId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: complaintsKeys.reports() }),
+        qc.invalidateQueries({ queryKey: complaintsKeys.report(reportId) }),
+      ])
+    },
+  })
 }
+
+export function useArchiveComplaintReport(){const qc=useQueryClient();return useMutation({mutationFn:({reportId,reason}:{reportId:string;reason:string})=>complaints.archiveReport(reportId,reason),onSuccess:async()=>{await qc.invalidateQueries({queryKey:complaintsKeys.reports()})}})}
 
 export function useComplaintReport(reportId: string | null) {
   return useQuery({ queryKey: complaintsKeys.report(reportId ?? 'none'),
@@ -210,11 +248,15 @@ export function useComplaintReport(reportId: string | null) {
 
 export function useSaveComplaintReportDraft() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: complaints.saveReportDraft,
-    onSuccess: (_data, detail) => {
-      void qc.invalidateQueries({ queryKey: complaintsKeys.report(detail.id) })
-      void qc.invalidateQueries({ queryKey: complaintsKeys.reports() })
-    } })
+  return useMutation({
+    mutationFn: complaints.saveReportDraft,
+    onSuccess: async (_data, detail) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: complaintsKeys.report(detail.id) }),
+        qc.invalidateQueries({ queryKey: complaintsKeys.reports() }),
+      ])
+    },
+  })
 }
 
 export function useComplaintReportDownload() {
@@ -223,15 +265,19 @@ export function useComplaintReportDownload() {
 
 export function useSetComplaintReportStatus() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: ({ reportId, status, reviewedPptxPath }: { reportId: string; status: ComplaintReport['status']; reviewedPptxPath?: string }) =>
-    complaints.setReportStatus(reportId, status, reviewedPptxPath),
-    onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.all }) })
+  return useMutation({
+    mutationFn: ({ reportId, status, reviewedPptxPath }: { reportId: string; status: ComplaintReport['status']; reviewedPptxPath?: string }) =>
+      complaints.setReportStatus(reportId, status, reviewedPptxPath),
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: complaintsKeys.all }) },
+  })
 }
 
 export function useGenerateComplaintReport() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: (reportId: string) => complaints.generateReport(reportId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.all }) })
+  return useMutation({
+    mutationFn: (reportId: string) => complaints.generateReport(reportId),
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: complaintsKeys.all }) },
+  })
 }
 
 export function useComplaintDeliveries(complaintId?: string) {

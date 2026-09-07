@@ -8,12 +8,15 @@ export const SHIFT_LABELS: Record<Shift, string> = {
   night: 'الشفت الليلي',
 }
 
-/** قاطع من القواطع الثمانية */
+export type MunicipalitySector = 'karrada' | 'zaafaraniya'
+
+/** منطقة تشغيلية ضمن قاطع الكرادة أو الزعفرانية */
 export interface Sector {
   id: number
   code: string
   name: string
   sort: number
+  parent_sector: MunicipalitySector
 }
 
 /** ملف إسناد المدير للشفت والقواطع */

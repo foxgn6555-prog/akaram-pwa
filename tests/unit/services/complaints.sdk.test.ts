@@ -8,7 +8,7 @@ if (!globalThis.crypto?.subtle) {
 
 type MockFn = ReturnType<typeof vi.fn>
 interface MockBucket { createSignedUrl: MockFn; upload: MockFn; remove: MockFn }
-interface Chain { select: MockFn; eq: MockFn; is: MockFn; in: MockFn; order: MockFn; limit: MockFn
+interface Chain { select: MockFn; eq: MockFn; gte: MockFn; lt: MockFn; is: MockFn; in: MockFn; order: MockFn; limit: MockFn
   single: MockFn; maybeSingle: MockFn; insert: MockFn; update: MockFn; upsert: MockFn; delete: MockFn; returns: MockFn }
 
 const h = vi.hoisted(() => {
@@ -17,7 +17,7 @@ const h = vi.hoisted(() => {
   const tableResults = new Map<string, Result>()
   function makeChain(result: Result) {
     const chain: Record<string, unknown> = {}
-    for (const method of ['select', 'eq', 'is', 'in', 'order', 'limit', 'single', 'maybeSingle', 'insert', 'update', 'upsert', 'delete', 'returns']) {
+    for (const method of ['select', 'eq', 'gte', 'lt', 'is', 'in', 'order', 'limit', 'single', 'maybeSingle', 'insert', 'update', 'upsert', 'delete', 'returns']) {
       chain[method] = vi.fn(() => chain)
     }
     chain.then = (resolve: (r: Result) => void) => resolve(result)
@@ -58,11 +58,16 @@ import { SDKError } from '@lib/errors/SDKError'
 import type { ComplaintReportDetail } from '@features/complaints/types'
 
 function makeFile(name: string, type: string): File {
-  const raw = new TextEncoder().encode('test-bytes')
-  const ab = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer
+  const raw = type === 'image/png'
+    ? Uint8Array.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,1])
+    : type === 'image/webp'
+      ? Uint8Array.from([0x52,0x49,0x46,0x46,0,0,0,0,0x57,0x45,0x42,0x50])
+      : Uint8Array.from([0xff,0xd8,0xff,1])
+  const ab = new ArrayBuffer(raw.byteLength)
+  new Uint8Array(ab).set(raw)
   const file = new File([ab], name, { type })
   // jsdom لا يوفر Blob.arrayBuffer — نعرّفه يدوياً بنفس المحتوى
-  Object.defineProperty(file, 'arrayBuffer', { value: async () => ab })
+  Object.defineProperty(file, 'arrayBuffer', { value: async () => new Uint8Array(ab) })
   return file
 }
 
@@ -96,10 +101,12 @@ describe('SDK الشكاوى — البريد الوارد والمرفقات', 
       subject: 'شكوى نفايات', source_sector: 'karrada', received_at: '2026-09-03T08:00:00Z',
       import_status: 'ready', attachment_count: 2, duplicate_of: null,
     }], error: null }
-    const rows = await complaints.inbox('karrada')
+    const rows = await complaints.inbox('karrada','2026-09-07')
     expect(h.from).toHaveBeenLastCalledWith('complaint_inbox_messages')
     expect(lastChain().order).toHaveBeenCalledWith('received_at', { ascending: false })
     expect(lastChain().eq).toHaveBeenCalledWith('source_sector', 'karrada')
+    expect(lastChain().gte).toHaveBeenCalledWith('received_at','2026-09-06T21:00:00.000Z')
+    expect(lastChain().lt).toHaveBeenCalledWith('received_at','2026-09-07T21:00:00.000Z')
     expect(rows).toEqual([expect.objectContaining({ id: 'm1', sector: 'karrada', status: 'ready', attachmentCount: 2 })])
   })
 
@@ -113,6 +120,14 @@ describe('SDK الشكاوى — البريد الوارد والمرفقات', 
     expect(files[0]).toMatchObject({ mediaCode: 'IMG-001', duplicate: true, duplicateCount: 2, itemId: null })
     expect(files[1]).toMatchObject({ mediaCode: 'IMG-002', duplicate: false, itemId: 'i2' })
     expect(files[0]?.url).toContain('https://signed.test/inbox/m1/a.jpg')
+  })
+
+  it('يجلب صفحة محدودة من صندوق يحوي 500 صورة ويعيد العدادات الكاملة', async () => {
+    h.state.db = { data: { rows: [{ id: 'f49', mediaCode: 'IMG-049', name: '49.jpg', mimeType: 'image/jpeg', storagePath: 'inbox/m1/49.jpg', duplicateCount: 0, itemId: null }], totalCount: 500, imageCount: 500, sortedImageCount: 120, remainingImageCount: 380 }, error: null }
+    const result = await complaints.inboxMediaPage('m1', 2, 48)
+    expect(h.rpc).toHaveBeenCalledWith('complaint_inbox_media_page', { p_message_id: 'm1', p_limit: 48, p_offset: 48 })
+    expect(result).toMatchObject({ totalCount: 500, imageCount: 500, sortedImageCount: 120, remainingImageCount: 380 })
+    expect(result.rows).toHaveLength(1)
   })
 
   it('يرفض صفحة PDF غير صورة قبل أي رفع', async () => {
@@ -208,6 +223,8 @@ describe('SDK الشكاوى — قائمة المواقع والإسناد وا
     expect(items[0]).toMatchObject({ id: 'i1', referenceNo: 'CMP-2026-1', sector: 'karrada', status: 'ready' })
   })
 
+  it('يجلب تفاصيل تذكرة المسؤول مباشرة من الخادم دون تحميل تذاكر الأيام الأخرى',async()=>{h.state.db={data:[itemRowData],error:null};const rows=await complaints.managerTicket('c1');expect(rows).toHaveLength(1);expect(lastChain().eq).toHaveBeenCalledWith('complaint_id','c1');expect(lastChain().order).toHaveBeenCalledWith('sequence_no')})
+
   it('يقيّد قائمة «مشاريعي» بالمستخدم الحالي دون تجاوز RLS', async () => {
     await complaints.items(true)
     expect(h.getUser).toHaveBeenCalledTimes(1)
@@ -237,6 +254,8 @@ describe('SDK الشكاوى — قائمة المواقع والإسناد وا
   })
 
   it('يرفض تكرار ربط عنصر داخل تذكرة المعالجة قبل الرفع',async()=>{const file=makeFile('one.jpg','image/jpeg');await expect(complaints.completeAssignmentTicket('c1',[{itemId:'i1',file,source:'gallery'},{itemId:'i1',file,source:'gallery'}])).rejects.toMatchObject({code:'COMPLAINT_TICKET_FILES_COUNT_MISMATCH'});expect(h.storage.from).not.toHaveBeenCalled()})
+
+  it('يرفض ملفاً يحمل MIME صورة لكن توقيعه الداخلي مزيف قبل الرفع',async()=>{const raw=new TextEncoder().encode('not-an-image');const fake=new File([raw],'fake.jpg',{type:'image/jpeg'});const bytes=new ArrayBuffer(raw.byteLength);new Uint8Array(bytes).set(raw);Object.defineProperty(fake,'arrayBuffer',{value:async()=>new Uint8Array(bytes)});await expect(complaints.completeAssignmentTicket('c1',[{itemId:'i1',file:fake,source:'gallery'}])).rejects.toMatchObject({code:'COMPLAINT_TICKET_FILE_SIGNATURE_INVALID'});expect(h.storage.from).not.toHaveBeenCalled()})
 
   it('يجلب وسائط 60 عنصراً باستعلام بيانات واحد دون طلب مستقل لكل عنصر',async()=>{h.state.db={data:Array.from({length:60},(_,index)=>({id:`m${index}`,item_id:`i${index}`,media_code:`IMG-${index}`,media_kind:'before',storage_path:`p/${index}.jpg`,original_name:`${index}.jpg`,mime_type:'image/jpeg',is_active:true,display_order:1})),error:null};const rows=await complaints.itemsMedia(Array.from({length:60},(_,index)=>`i${index}`));expect(rows).toHaveLength(60);expect(h.from).toHaveBeenCalledTimes(1);expect(lastChain().in).toHaveBeenCalledWith('item_id',expect.arrayContaining(['i0','i59']));expect(h.storage.from).toHaveBeenCalledTimes(60)})
 
@@ -349,12 +368,14 @@ describe('SDK الشكاوى — القوالب وجهات الاتصال وال
     expect(templates[0]).toMatchObject({ id: 't1', isDefault: true, version: 2, layout: { accent: '#cf63c6' } })
   })
 
-  it('يحدّث قالباً موجوداً وينشئ جديداً عند غياب المعرّف', async () => {
-    await complaints.saveTemplate({ name: 'معدّل', description: null, sector: 'karrada', layout: {}, isDefault: false, isActive: true, id: 't1' })
-    expect(lastChain().update).toHaveBeenCalled()
-    expect(lastChain().eq).toHaveBeenCalledWith('id', 't1')
-    await complaints.saveTemplate({ name: 'جديد', description: null, sector: null, layout: {}, isDefault: false, isActive: true })
-    expect(lastChain().insert).toHaveBeenCalled()
+  it('يحفظ القالب عبر RPC ذري كي يوحّد القالب الافتراضي', async () => {
+    h.state.db = { data: 't1', error: null }
+    await complaints.saveTemplate({ name: 'معدّل', description: null, sector: 'karrada', layout: {}, isDefault: true, isActive: true, id: 't1' })
+    expect(h.rpc).toHaveBeenCalledWith('complaint_save_template', {
+      p_template_id: 't1', p_name: 'معدّل', p_description: null, p_sector: 'karrada',
+      p_layout: {}, p_is_default: true, p_is_active: true,
+    })
+    expect(h.from).not.toHaveBeenCalledWith('complaint_templates')
   })
 
   it('يسجل جهة اتصال مع تحويل is_active', async () => {

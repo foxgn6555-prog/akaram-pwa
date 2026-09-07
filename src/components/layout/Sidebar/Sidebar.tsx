@@ -65,14 +65,14 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
     <aside
       data-testid={isMobile ? 'app-sidebar-mobile' : 'app-sidebar'}
       className={clsx(
-        'relative flex h-screen flex-col border-e border-slate-200 bg-white transition-all duration-200',
+        'relative isolate flex h-full shrink-0 flex-col overflow-visible border-e border-slate-200 bg-white transition-all duration-200',
         isMobile
           ? // درج الموبايل: ثابت فوق المحتوى بعرض كامل معقول، ولا يتأثر بالطي
-            'fixed inset-y-0 start-0 z-40 w-72 max-w-[85vw] shadow-2xl'
+            'fixed inset-y-0 start-0 z-[70] w-72 max-w-[85vw] shadow-2xl'
           : // الدسكتوب: شريط لاصق داخل تدفق الصفحة
             // z-20: يبقى الشريط (ومنه مقبض الانبثاق) فوق محتوى <main> وأقل من الدرج (z-40) والنوافذ (z-50)
             // العرض حصري (w-72 أو w-20) — لا يجتمعان أبداً لأن ترتيب كلاسات Tailwind يُبطل أحدهما (سبّب عُطل زر الانبثاق)
-            clsx('sticky top-0 z-20', collapsed ? 'w-20' : 'w-72'),
+            clsx('z-30', collapsed ? 'w-20' : 'w-72'),
       )}
     >
       {/* مقبض الطي على الحافة — للدسكتوب فقط (أكبر وأوضح وأسهل نقراً) */}
@@ -198,7 +198,7 @@ export function SidebarBackdrop({ onClose }: { onClose: () => void }) {
   return (
     <div
       data-testid="sidebar-backdrop"
-      className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-[2px] lg:hidden"
+      className="fixed inset-0 z-[60] bg-slate-900/55 backdrop-blur-[2px] lg:hidden"
       onClick={onClose}
       aria-hidden="true"
     />

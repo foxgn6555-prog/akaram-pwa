@@ -29,13 +29,13 @@ export function ComplaintPageHeader({ icon: Icon, eyebrow, title, description, a
   }
   return <header className={`relative overflow-hidden rounded-3xl bg-gradient-to-l ${gradients[tone]} p-6 text-white shadow-lg sm:p-7`}>
     <div className="absolute -left-12 -top-16 size-52 rounded-full bg-white/10 blur-3xl" />
-    <div className="relative flex flex-wrap items-center justify-between gap-5">
-      <div className="max-w-3xl">
-        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/80"><Icon size={15} />{eyebrow}</span>
-        <h1 className="mt-3 text-2xl font-black sm:text-3xl">{title}</h1>
-        <p className="mt-2 text-sm leading-7 text-white/75">{description}</p>
+    <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 max-w-3xl">
+        <span className="inline-flex max-w-full items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/80"><Icon size={15} className="shrink-0" /><span className="truncate">{eyebrow}</span></span>
+        <h1 className="mt-3 break-words text-2xl font-black sm:text-3xl">{title}</h1>
+        <p className="mt-2 break-words text-sm leading-7 text-white/75">{description}</p>
       </div>
-      {action}
+      {action && <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{action}</div>}
     </div>
   </header>
 }
@@ -54,8 +54,8 @@ export function ComplaintEmpty({ icon: Icon, title, description }: { icon: Lucid
 }
 
 export function ComplaintSearch({ value, onChange, placeholder, children }: { value: string; onChange: (value: string) => void; placeholder: string; children?: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-    <label className="flex min-w-64 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5">
+  return <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <label className="flex w-full min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 sm:min-w-64">
       <Search size={18} className="text-slate-400" />
       <input value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className="w-full bg-transparent text-sm outline-none" />
     </label>

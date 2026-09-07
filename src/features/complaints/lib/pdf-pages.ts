@@ -1,7 +1,7 @@
 export type PdfPageHandler=(file:File,pageNumber:number,totalPages:number)=>Promise<void>
 
-/** يحوّل PDF صفحة بصفحة لتجنب احتجاز عشرات الصور الكبيرة في الذاكرة. */
-export async function rasterizePdfPages(url:string,baseName:string,onPage?:PdfPageHandler):Promise<File[]>{
+/** يحوّل PDF صفحة بصفحة دون حد عددي تطبيقي، مع تحرير ذاكرة كل صفحة فور رفعها. */
+export async function rasterizePdfPages(url:string,baseName:string,onPage?:PdfPageHandler,signal?:AbortSignal):Promise<File[]>{
  const pdfjs=await import('pdfjs-dist')
  pdfjs.GlobalWorkerOptions.workerSrc=new URL('pdfjs-dist/build/pdf.worker.min.mjs',import.meta.url).toString()
  const response=await fetch(url);if(!response.ok)throw new Error('PDF_DOWNLOAD_FAILED')
@@ -9,8 +9,8 @@ export async function rasterizePdfPages(url:string,baseName:string,onPage?:PdfPa
  const files:File[]=[]
  try{
   const document=await task.promise
-  if(document.numPages>100)throw new Error('PDF_TOO_MANY_PAGES')
   for(let pageNumber=1;pageNumber<=document.numPages;pageNumber+=1){
+   if(signal?.aborted)throw new DOMException('PDF conversion cancelled','AbortError')
    const page=await document.getPage(pageNumber);const viewport=page.getViewport({scale:1.45});const canvas=globalThis.document.createElement('canvas')
    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height)
    const context=canvas.getContext('2d',{alpha:false});if(!context)throw new Error('PDF_CANVAS_FAILED')

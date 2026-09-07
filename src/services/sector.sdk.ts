@@ -15,10 +15,11 @@ import type {
 export const sector = {
   async listSectors(): Promise<Sector[]> {
     const rows = (await sdkGuard(
-      supabase.from('sectors').select('id, code, name, sort').order('sort').returns<Record<string, unknown>[]>(),
+      supabase.from('sectors').select('id, code, name, sort, parent_sector').order('sort').returns<Record<string, unknown>[]>(),
     )) ?? []
     return rows.map((r) => ({
       id: Number(r.id), code: String(r.code ?? ''), name: String(r.name ?? ''), sort: Number(r.sort ?? 0),
+      parent_sector: r.parent_sector === 'zaafaraniya' ? 'zaafaraniya' : 'karrada',
     }))
   },
 

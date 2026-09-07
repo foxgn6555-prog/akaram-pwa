@@ -68,15 +68,12 @@ describe('عقود مسؤول القسم', () => {
   })
 
   describe('managerProfileSchema (الإسناد)', () => {
-    it('يقبل من قاطع واحد إلى 3', () => {
+    it('يقبل منطقة واحدة أو جميع المناطق الثماني', () => {
       expect(managerProfileSchema.safeParse({ shift: 'morning', sectors: [1] }).success).toBe(true)
-      expect(managerProfileSchema.safeParse({ shift: 'evening', sectors: [1, 2, 3] }).success).toBe(true)
+      expect(managerProfileSchema.safeParse({ shift: 'evening', sectors: [1, 2, 3, 4, 5, 6, 7, 8] }).success).toBe(true)
     })
-    it('يرفض صفر قواطع', () => {
+    it('يرفض صفر مناطق', () => {
       expect(managerProfileSchema.safeParse({ shift: 'morning', sectors: [] }).success).toBe(false)
-    })
-    it('يرفض أكثر من 3 قواطع (حد العزل الأقصى)', () => {
-      expect(managerProfileSchema.safeParse({ shift: 'morning', sectors: [1, 2, 3, 4] }).success).toBe(false)
     })
     it('يرفض قاطعاً خارج الثمانية', () => {
       expect(managerProfileSchema.safeParse({ shift: 'night', sectors: [9] }).success).toBe(false)
@@ -100,9 +97,9 @@ describe('عقود مسؤول القسم', () => {
       const r = createSuperAdminSchema.safeParse({ ...validUser, manager_shift: 'night', manager_sectors: [] })
       expect(r.success).toBe(false)
     })
-    it('يرفض إسناد 4 قواطع', () => {
-      const r = createSuperAdminSchema.safeParse({ ...validUser, manager_shift: 'night', manager_sectors: [1, 2, 3, 4] })
-      expect(r.success).toBe(false)
+    it('يقبل إسناد القاطعين بجميع المناطق', () => {
+      const r = createSuperAdminSchema.safeParse({ ...validUser, manager_shift: 'night', manager_sectors: [1, 2, 3, 4, 5, 6, 7, 8] })
+      expect(r.success).toBe(true)
     })
     it('لا يطلب الإسناد للأدوار الأخرى', () => {
       const r = createSuperAdminSchema.safeParse({ ...validUser, role: 'employee' })

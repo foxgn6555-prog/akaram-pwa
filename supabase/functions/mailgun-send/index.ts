@@ -43,7 +43,7 @@ Deno.serve(async (request: Request) => {
     }
     if (reportId) {
       const { data: approvedReport, error: approvedError } = await admin.from('complaint_reports')
-        .select('id,pptx_path,status').eq('id', reportId).eq('status', 'approved').single()
+        .select('id,pptx_path,status').eq('id', reportId).in('status', ['approved', 'failed']).single()
       if (approvedError || !approvedReport) return reply({ error: 'REPORT_NOT_APPROVED' }, 409)
       if (!approvedReport.pptx_path || attachmentPaths.length !== 1 || attachmentPaths[0] !== approvedReport.pptx_path) {
         return reply({ error: 'REPORT_ATTACHMENT_MISMATCH' }, 400)
@@ -74,7 +74,7 @@ Deno.serve(async (request: Request) => {
     if (reportId) {
       const { error: reportError } = await admin.from('complaint_reports').update({
         delivery_id: delivery.id, status: 'sending', recipients,
-      }).eq('id', reportId).eq('status', 'approved').select('id').single()
+      }).eq('id', reportId).in('status', ['approved', 'failed']).select('id').single()
       if (reportError) {
         await admin.from('complaint_email_deliveries').update({ status: 'rejected', error_message: 'REPORT_STATE_RACE' }).eq('id', delivery.id)
         return reply({ error: 'REPORT_NOT_APPROVED' }, 409)

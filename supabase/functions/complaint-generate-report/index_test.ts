@@ -1,8 +1,17 @@
 import JSZip from 'npm:jszip@3.10.1'
-import { buildPptx, createPptxSmokeSlides } from './index.ts'
+import { buildPptx, createPptxSmokeSlides, fitInside } from './index.ts'
 
 const SLIDE_WITH_IMAGE = `<?xml version="1.0"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:pic><p:nvPicPr><p:cNvPr id="2" name="Picture 1"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="914400" y="914400"/><a:ext cx="4572000" cy="2571428"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`
 const PNG_1PX = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
+
+Deno.test('يحافظ على نسبة أبعاد الصورة داخل إطار قبل/بعد دون تمديد', () => {
+  const landscape = fitInside(0, 0, 5.6, 4.8, 1600, 900)
+  if (Math.abs(landscape.w / landscape.h - 16 / 9) > 0.001) throw new Error('LANDSCAPE_RATIO_CHANGED')
+  if (landscape.w > 5.6 || landscape.h > 4.8) throw new Error('LANDSCAPE_OUTSIDE_FRAME')
+  const portrait = fitInside(0, 0, 5.6, 4.8, 900, 1600)
+  if (Math.abs(portrait.w / portrait.h - 9 / 16) > 0.001) throw new Error('PORTRAIT_RATIO_CHANGED')
+  if (portrait.w > 5.6 || portrait.h > 4.8) throw new Error('PORTRAIT_OUTSIDE_FRAME')
+})
 
 Deno.test('ينشئ ملف PowerPoint OOXML صالح البنية الأساسية', async () => {
   const bytes = await buildPptx(createPptxSmokeSlides(), 'اختبار تقرير الشكاوى')

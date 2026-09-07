@@ -97,8 +97,10 @@ export function Header({ portal }: HeaderProps) {
     : []
 
   // ── عنوان الصفحة الحالية ──
-  const currentPage = allPages.find((p) =>
-    p.path === location.pathname || location.pathname.startsWith(p.path + '/'))
+  // اختيار المسار الأطول يمنع عنوان الوحدة الأب من حجب عنوان الصفحة الفرعية.
+  const currentPage = allPages
+    .filter((p) => p.path === location.pathname || location.pathname.startsWith(p.path + '/'))
+    .sort((a, b) => b.path.length - a.path.length)[0]
   const pageTitle = currentPage?.label ?? theme.label
 
   // روابط القائمة حسب البوابة الحالية — لا روابط ثابتة لبوابة admin لغير المخوّلين
@@ -120,11 +122,12 @@ export function Header({ portal }: HeaderProps) {
   return (
     <header
       ref={headerRef}
-      className="relative flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6"
+      data-testid="app-header"
+      className="relative z-20 flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6"
     >
       {/* ── القائمة (الموبايل: تفتح الدرج) ── */}
       <button
-        onClick={() => setMobileNav(true)}
+        onClick={() => { setShowSearch(false); setSearchQuery(''); setMobileNav(true) }}
         className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 lg:hidden"
         aria-label="فتح القائمة"
         data-testid="header-mobile-menu"

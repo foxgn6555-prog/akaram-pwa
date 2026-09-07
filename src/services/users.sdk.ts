@@ -152,7 +152,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   RESET_FAILED: 'فشل تعيين كلمة المرور — حاول مجدداً',
   ROLE_ASSIGN_FAILED: 'فشل تعيين الدور — رُجّع الإنشاء، حاول مجدداً',
   MANAGER_SHIFT_REQUIRED: 'اختر شفت مسؤول القسم',
-  MANAGER_SECTORS_REQUIRED: 'اختر من قاطع إلى ثلاثة قواطع لمسؤول القسم',
+  MANAGER_SECTORS_REQUIRED: 'اختر منطقة واحدة على الأقل من قاطع الكرادة أو الزعفرانية',
   MANAGER_PROFILE_FAILED: 'فشل إنشاء ملف مسؤول القسم — رُجّع الإنشاء، حاول مجدداً',
   BAD_DEPARTMENT: 'القسم المحدد غير معروف',
   JOB_TITLE_TOO_LONG: 'المسمى الوظيفي طويل جداً (100 حرف كحد أقصى)',

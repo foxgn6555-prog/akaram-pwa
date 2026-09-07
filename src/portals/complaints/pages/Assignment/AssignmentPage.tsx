@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { ChevronDown, ChevronUp, Inbox, MapPin, Send, Users } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronUp, Inbox, MapPin, Send, Users } from 'lucide-react'
 import { useAssignComplaintItems, useComplaintItems, useComplaintManagers, type ComplaintItem, type ComplaintSector } from '@features/complaints'
+import { baghdadDateKey } from '@features/complaints/lib/baghdad-date'
 import { ComplaintEmpty, ComplaintPageHeader, ComplaintSearch, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
 
 type MailFolder = { complaintId: string; referenceNo: string; name: string; sector: ComplaintSector; receivedAt: string; items: ComplaintItem[] }
 
 export default function AssignmentPage() {
-  const { data: items = [], isLoading } = useComplaintItems(false)
+  const [date, setDate] = useState(baghdadDateKey())
+  const { data: items = [], isLoading } = useComplaintItems(false,date)
   const { data: managers = [] } = useComplaintManagers()
   const assign = useAssignComplaintItems()
   const [selected, setSelected] = useState<string[]>([])
@@ -59,6 +61,7 @@ export default function AssignmentPage() {
     {message && <p aria-live="polite" className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-900">{message}</p>}
 
     <ComplaintSearch value={search} onChange={setSearch} placeholder="ابحث باسم البريد أو الرقم المرجعي">
+      <label className="flex items-center gap-2 rounded-xl border bg-white px-3 text-xs font-bold"><CalendarDays size={15}/><input aria-label="تاريخ الإسناد" type="date" value={date} onChange={event=>{setDate(event.target.value);setSelected([]);setExpanded(null)}} className="py-2.5 outline-none"/></label>
       <select aria-label="تصفية القاطع" value={sector} onChange={event => setSector(event.target.value as 'all' | ComplaintSector)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold">
         <option value="all">كل القواطع</option><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option>
       </select>

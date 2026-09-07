@@ -29,6 +29,16 @@ export default function TeamPage() {
   const createVehicle = useCreateVehicle()
   const archiveWorker = useArchiveWorker()
   const archiveVehicle = useArchiveVehicle()
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'worker' | 'vehicle'; id: string; label: string } | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
+
+  const confirmDelete = (): void => {
+    if (!deleteTarget || deleteReason.trim().length < 3) return
+    const input = { id: deleteTarget.id, reason: deleteReason.trim() }
+    const done = () => { setDeleteTarget(null); setDeleteReason('') }
+    if (deleteTarget.type === 'worker') archiveWorker.mutate(input, { onSuccess: done })
+    else archiveVehicle.mutate(input, { onSuccess: done })
+  }
 
   const sectorName = (id: number): string =>
     sectors.data?.find((s) => s.id === id)?.name ?? `قاطع ${id}`
@@ -149,14 +159,9 @@ export default function TeamPage() {
                       <td className="px-3 py-2.5 text-slate-500 dir-ltr">{w.phone ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         <button type="button" data-testid={`archive-worker-${w.id}`}
-                          onClick={() => {
-                            if (window.confirm(`نقل «${w.full_name}» إلى الأرشيف؟`)) {
-                              archiveWorker.mutate({ id: w.id, reason: 'أرشفة من صفحة الفريق' })
-                            }
-                          }}
-                          title="أرشفة"
-                          className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600">
-                          <Icon name="archive-box" size={15} />
+                          onClick={() => setDeleteTarget({ type: 'worker', id: w.id, label: w.full_name })}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">
+                          <Icon name="trash" size={14} /> حذف العامل
                         </button>
                       </td>
                     </tr>
@@ -201,14 +206,9 @@ export default function TeamPage() {
                       <td className="px-3 py-2.5 text-slate-500">{v.driver_name ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         <button type="button" data-testid={`archive-vehicle-${v.id}`}
-                          onClick={() => {
-                            if (window.confirm(`نقل الآلية ${v.db_number} إلى الأرشيف؟`)) {
-                              archiveVehicle.mutate({ id: v.id, reason: 'أرشفة من صفحة الفريق' })
-                            }
-                          }}
-                          title="أرشفة"
-                          className="flex size-8 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600">
-                          <Icon name="archive-box" size={15} />
+                          onClick={() => setDeleteTarget({ type: 'vehicle', id: v.id, label: v.db_number })}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">
+                          <Icon name="trash" size={14} /> حذف الآلية
                         </button>
                       </td>
                     </tr>
@@ -217,6 +217,24 @@ export default function TeamPage() {
               )}
           </Card>
         </>
+      )}
+
+      {deleteTarget && (
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-team-title" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h2 id="delete-team-title" className="text-lg font-black text-slate-900">
+              {deleteTarget.type === 'worker' ? 'حذف العامل' : 'حذف الآلية'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">سيختفي «{deleteTarget.label}» من قوائم العمل وينتقل إلى الأرشيف، ولن يُحذف سجله التاريخي.</p>
+            <label className="mt-4 block text-sm font-bold">سبب الحذف
+              <textarea autoFocus value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="اكتب سبباً واضحاً" className="mt-2 min-h-24 w-full rounded-xl border p-3" />
+            </label>
+            <div className="mt-4 flex gap-2">
+              <button type="button" disabled={deleteReason.trim().length < 3 || archiveWorker.isPending || archiveVehicle.isPending} onClick={confirmDelete} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-40">تأكيد الحذف إلى الأرشيف</button>
+              <button type="button" onClick={() => { setDeleteTarget(null); setDeleteReason('') }} className="rounded-xl border px-4 py-2 text-sm font-bold">إلغاء</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -27,6 +27,14 @@ export interface ComplaintInboxMedia {
   itemId: string | null
 }
 
+export interface ComplaintInboxMediaPage {
+  rows: ComplaintInboxMedia[]
+  totalCount: number
+  imageCount: number
+  sortedImageCount: number
+  remainingImageCount: number
+}
+
 export interface ComplaintSortEntry extends ComplaintItemFields {
   mediaId: string
 }

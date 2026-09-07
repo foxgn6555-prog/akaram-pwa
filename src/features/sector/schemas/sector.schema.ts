@@ -45,7 +45,7 @@ export const managerProfileSchema = z.object({
   shift: shiftEnum,
   sectors: z
     .array(z.coerce.number().int().min(1).max(8))
-    .min(1, 'اختر قاطعاً واحداً على الأقل')
-    .max(3, 'حد أقصى 3 قواطع'),
+    .min(1, 'اختر منطقة واحدة على الأقل')
+    .max(8, 'لا يمكن تجاوز المناطق الثماني'),
 })
 export type ManagerProfileFormInput = z.infer<typeof managerProfileSchema>

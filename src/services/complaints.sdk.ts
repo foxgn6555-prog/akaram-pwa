@@ -1,9 +1,11 @@
 /** SDK دورة الشكاوى — لا وصول إلى Supabase من صفحات البوابات. */
 import { sdkGuard, sdkMaybe, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
+import { baghdadDayRange } from '@features/complaints/lib/baghdad-date'
 import type {
   ComplaintInboxMessage,
   ComplaintInboxMedia,
+  ComplaintInboxMediaPage,
   ComplaintSortEntry,
   ComplaintBatchSortResult,
   ComplaintItem,
@@ -32,6 +34,12 @@ const inboxCols =
   'id,sender_email,sender_name,reply_to,subject,body_text,source_sector,received_at,import_status,attachment_count,duplicate_of'
 const itemCols =
   'id,complaint_id,sequence_no,title,municipal_center,neighborhood,alley,location_text,ocr_text,assigned_to,status,manager_notes,reviewer_notes,complaints!inner(reference_no,sector,received_at,status,inbox_message_id,complaint_inbox_messages(subject))'
+
+function validImageSignature(bytes:Uint8Array,mime:string):boolean{
+  if(mime==='image/png')return bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a
+  if(mime==='image/webp')return bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x45&&bytes[10]===0x42&&bytes[11]===0x50
+  return bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff
+}
 
 async function mapBatches<T,R>(values:T[],size:number,worker:(value:T,index:number)=>Promise<R>):Promise<R[]>{
   const output:R[]=[]
@@ -88,13 +96,14 @@ function itemRow(row: Record<string, unknown>): ComplaintItem {
 }
 
 export const complaints = {
-  async inbox(sector?: ComplaintSector): Promise<ComplaintInboxMessage[]> {
+  async inbox(sector?: ComplaintSector, date?: string): Promise<ComplaintInboxMessage[]> {
     let query = supabase
       .from('complaint_inbox_messages')
       .select(inboxCols)
       .is('archived_at',null)
       .order('received_at', { ascending: false })
     if (sector) query = query.eq('source_sector', sector)
+    if(date){const{from,to}=baghdadDayRange(date);query=query.gte('received_at',from).lt('received_at',to)}
     const rows = await sdkGuard(query.returns<Record<string, unknown>[]>() )
     return (rows ?? []).map(inboxRow)
   },
@@ -112,6 +121,33 @@ export const complaints = {
         duplicate: duplicateCount > 0, duplicateCount, itemId: (row.itemId as string | null) ?? null,
       }
     }))
+  },
+
+  async inboxMediaPage(messageId: string, page: number, pageSize: number): Promise<ComplaintInboxMediaPage> {
+    const limit = Math.min(100, Math.max(12, Math.trunc(pageSize)))
+    const offset = Math.max(0, Math.trunc(page) - 1) * limit
+    const data = await sdkGuard(supabase.rpc('complaint_inbox_media_page', {
+      p_message_id: messageId, p_limit: limit, p_offset: offset,
+    }))
+    const result = (data ?? {}) as Record<string, unknown>
+    const sourceRows = Array.isArray(result.rows) ? result.rows as Record<string, unknown>[] : []
+    const rows = await mapBatches(sourceRows, 8, async (row) => {
+      const path = String(row.storagePath ?? '')
+      const signed = await sdkGuard(supabase.storage.from('complaint-media').createSignedUrl(path, 600))
+      const duplicateCount = Number(row.duplicateCount ?? 0)
+      return {
+        id: String(row.id), mediaCode: String(row.mediaCode), name: String(row.name ?? 'مرفق'),
+        mimeType: String(row.mimeType ?? ''), url: signed.signedUrl,
+        duplicate: duplicateCount > 0, duplicateCount, itemId: (row.itemId as string | null) ?? null,
+      }
+    })
+    return {
+      rows,
+      totalCount: Number(result.totalCount ?? 0),
+      imageCount: Number(result.imageCount ?? 0),
+      sortedImageCount: Number(result.sortedImageCount ?? 0),
+      remainingImageCount: Number(result.remainingImageCount ?? 0),
+    }
   },
 
   async addInboxPdfPages(messageId: string, sourceId: string, files: File[], startPage = 1): Promise<void> {
@@ -182,15 +218,21 @@ export const complaints = {
     }
   },
 
-  async items(mine = false): Promise<ComplaintItem[]> {
+  async items(mine = false, date?: string): Promise<ComplaintItem[]> {
     let query = supabase.from('complaint_items').select(itemCols).order('created_at', { ascending: false })
     if (mine) {
       const { data } = await supabase.auth.getUser()
       if (!data.user) return []
       query = query.eq('assigned_to', data.user.id)
     }
+    if(date){const{from,to}=baghdadDayRange(date);query=query.gte('complaints.received_at',from).lt('complaints.received_at',to)}
     const rows = await sdkGuard(query.returns<Record<string, unknown>[]>() )
     return (rows ?? []).map(itemRow)
+  },
+
+  async managerTicket(complaintId:string):Promise<ComplaintItem[]>{
+    const rows=await sdkGuard(supabase.from('complaint_items').select(itemCols).eq('complaint_id',complaintId).order('sequence_no').returns<Record<string,unknown>[]>() )
+    return(rows??[]).map(itemRow)
   },
 
   async managers(): Promise<ComplaintManager[]> {
@@ -230,7 +272,7 @@ export const complaints = {
       throw new SDKError('إحدى صور المعالجة غير صالحة أو كبيرة جداً','COMPLAINT_TICKET_FILE_INVALID')
     const paths:string[]=[]
     try{
-      const metadata=await mapBatches(uploads,4,async upload=>{const{file,itemId}=upload;const extension=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path=`item/${itemId}/after/${crypto.randomUUID()}.${extension}`;paths.push(path);const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());const sha256=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');await sdkGuard(supabase.storage.from('complaint-media').upload(path,file,{contentType:file.type}));return{itemId,storagePath:path,originalName:file.name,mimeType:file.type,sizeBytes:file.size,sha256,source:upload.source}})
+      const metadata=await mapBatches(uploads,4,async upload=>{const{file,itemId}=upload;const bytes=new Uint8Array(await file.arrayBuffer());if(!validImageSignature(bytes,file.type))throw new SDKError('محتوى إحدى الصور لا يطابق نوع JPG أو PNG أو WebP','COMPLAINT_TICKET_FILE_SIGNATURE_INVALID');const extension=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path=`item/${itemId}/after/${crypto.randomUUID()}.${extension}`;paths.push(path);const digest=await crypto.subtle.digest('SHA-256',bytes);const sha256=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');await sdkGuard(supabase.storage.from('complaint-media').upload(path,file,{contentType:file.type}));return{itemId,storagePath:path,originalName:file.name,mimeType:file.type,sizeBytes:file.size,sha256,source:upload.source}})
       return Number(await sdkGuard(supabase.rpc('complaint_complete_assignment_ticket',{p_complaint_id:complaintId,p_files:metadata,p_notes:notes?.trim()||null})))
     }catch(error){if(paths.length)await supabase.storage.from('complaint-media').remove(paths);throw error}
   },
@@ -252,7 +294,7 @@ export const complaints = {
       for(let index=0;index<uploads.length;index+=1){const upload=uploads[index]!;const file=upload.file
         if(!allowed.has(file.type)||file.size<1||file.size>25*1024*1024)throw new SDKError('إحدى صور المعالجة غير صالحة أو كبيرة جداً','COMPLAINT_AFTER_FILE_INVALID')
         const extension=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';const path=`item/${itemId}/after/${crypto.randomUUID()}.${extension}`;paths.push(path)
-        const bytes=await file.arrayBuffer();const digest=await crypto.subtle.digest('SHA-256',bytes);const sha256=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')
+        const bytes=new Uint8Array(await file.arrayBuffer());if(!validImageSignature(bytes,file.type))throw new SDKError('محتوى الصورة لا يطابق نوع الملف','COMPLAINT_AFTER_FILE_SIGNATURE_INVALID');const digest=await crypto.subtle.digest('SHA-256',bytes);const sha256=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')
         await sdkGuard(supabase.storage.from('complaint-media').upload(path,file,{contentType:file.type}))
         metadata.push({storagePath:path,originalName:file.name,mimeType:file.type,sizeBytes:file.size,sha256,
           latitude:location?.latitude??null,longitude:location?.longitude??null,source:upload.source,displayOrder:index+1})
@@ -335,7 +377,8 @@ export const complaints = {
     if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size<1 || file.size>25*1024*1024) {
       throw new SDKError('ملف الصورة البديلة غير صالح', 'COMPLAINT_MEDIA_FILE_INVALID')
     }
-    const bytes = await file.arrayBuffer()
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    if (!validImageSignature(bytes,file.type)) throw new SDKError('محتوى الصورة البديلة لا يطابق نوع الملف','COMPLAINT_MEDIA_FILE_SIGNATURE_INVALID')
     const digest = await crypto.subtle.digest('SHA-256', bytes)
     const sha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2,'0')).join('')
     const extension = file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg'
@@ -382,11 +425,17 @@ export const complaints = {
       isActive: Boolean(row.is_active), version: Number(row.version) }))
   },
 
-  async saveTemplate(input: Omit<ComplaintTemplate, 'id' | 'version'> & { id?: string }): Promise<void> {
-    const payload = { name: input.name, description: input.description, sector: input.sector,
-      layout: input.layout, is_default: input.isDefault, is_active: input.isActive }
-    if (input.id) await sdkVoid(supabase.from('complaint_templates').update(payload as never).eq('id', input.id))
-    else await sdkVoid(supabase.from('complaint_templates').insert(payload as never))
+  async saveTemplate(input: Omit<ComplaintTemplate, 'id' | 'version'> & { id?: string }): Promise<string> {
+    const data = await sdkGuard(supabase.rpc('complaint_save_template', {
+      p_template_id: input.id ?? null,
+      p_name: input.name,
+      p_description: input.description,
+      p_sector: input.sector,
+      p_layout: input.layout,
+      p_is_default: input.isDefault,
+      p_is_active: input.isActive,
+    }))
+    return String(data)
   },
 
   async contacts(): Promise<ComplaintContact[]> {
@@ -424,13 +473,18 @@ export const complaints = {
       description: setting.description } as never, { onConflict: 'key' }))
   },
 
-  async reports(): Promise<ComplaintReport[]> {
-    const rows = await sdkGuard(supabase.from('complaint_reports').select('*')
-      .order('report_date', { ascending: false }).returns<Record<string, unknown>[]>() )
+  async reports(date?:string): Promise<ComplaintReport[]> {
+    let query=supabase.from('complaint_reports').select('*').order('report_date', { ascending: false })
+    if(date)query=query.eq('report_date',date)
+    const rows = await sdkGuard(query.returns<Record<string, unknown>[]>() )
     return (rows ?? []).map((row) => ({ id: String(row.id), reportDate: String(row.report_date),
       sector: row.sector as ComplaintSector, title: String(row.title), status: row.status as ComplaintReport['status'],
       pptxPath: (row.pptx_path as string | null) ?? null, recipients: (row.recipients as string[]) ?? [],
       deliveryId: (row.delivery_id as string | null) ?? null, createdAt: String(row.created_at), scope:(row.report_scope as 'email'|'daily')??'daily', inboxMessageId:(row.inbox_message_id as string|null)??null }))
+  },
+
+  async archiveReport(reportId:string,reason:string):Promise<void>{
+    await sdkVoid(supabase.rpc('complaint_archive_report',{p_report_id:reportId,p_reason:reason.trim()}))
   },
 
   async reportDetail(reportId: string): Promise<ComplaintReportDetail> {

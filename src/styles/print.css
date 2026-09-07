@@ -1,6 +1,32 @@
-/* ═══ الطباعة — كشوف الرواتب والتقارير ═══ */
+/* طباعة نظيفة لكل تقارير وأدلة البوابات دون الشريط الجانبي أو شريط الموبايل. */
 @media print {
-  .no-print { display: none !important; }
-  .portal-shell { background: white !important; }
-  body { background: white !important; }
+  @page { margin: 12mm; }
+  html, body, #root { height: auto !important; overflow: visible !important; background: white !important; }
+  .no-print,
+  [data-testid="app-sidebar"],
+  [data-testid="app-sidebar-mobile"],
+  [data-testid="sidebar-backdrop"],
+  [data-testid="app-header"],
+  [data-testid="mobile-bottom-nav"] { display: none !important; }
+  .portal-shell {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  .portal-shell > div { height: auto !important; overflow: visible !important; }
+  [data-testid="app-main"] {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  [data-testid="app-main"] > div { width: 100% !important; max-width: none !important; min-height: 0 !important; }
+  article, figure { break-inside: avoid; }
+  table { break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
 }

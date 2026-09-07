@@ -48,15 +48,38 @@ export default function CreateUser() {
   const isHighPrivilege = selectedRole === 'super_admin' || selectedRole === 'it_admin'
   const isManager = selectedRole === 'department_manager'
 
-  const toggleSector = (id: number): void => {
-    setMgrSectors((prev) => {
-      const has = prev.includes(id)
-      const next = has ? prev.filter((s) => s !== id) : prev.length >= 3 ? prev : [...prev, id]
-      setValue('manager_sectors', next)
-      void trigger('manager_sectors')
-      return next
-    })
+  const updateManagerAreas = (next: number[]): void => {
+    const normalized = [...new Set(next)].sort((a, b) => a - b)
+    setMgrSectors(normalized)
+    setValue('manager_sectors', normalized)
+    void trigger('manager_sectors')
   }
+
+  const toggleSector = (id: number): void => {
+    updateManagerAreas(mgrSectors.includes(id)
+      ? mgrSectors.filter((sectorId) => sectorId !== id)
+      : [...mgrSectors, id])
+  }
+
+  const toggleSectorGroup = (ids: number[]): void => {
+    const allSelected = ids.length > 0 && ids.every((id) => mgrSectors.includes(id))
+    updateManagerAreas(allSelected
+      ? mgrSectors.filter((id) => !ids.includes(id))
+      : [...mgrSectors, ...ids])
+  }
+
+  const sectorGroups = [
+    {
+      key: 'karrada',
+      label: 'قاطع الكرادة',
+      areas: (sectors ?? []).filter((sector) => sector.parent_sector === 'karrada' || (!sector.parent_sector && sector.id <= 4)),
+    },
+    {
+      key: 'zaafaraniya',
+      label: 'قاطع الزعفرانية',
+      areas: (sectors ?? []).filter((sector) => sector.parent_sector === 'zaafaraniya' || (!sector.parent_sector && sector.id >= 5)),
+    },
+  ]
 
   const onSubmit = async (data: CreateUserFormInput): Promise<void> => {
     try {
@@ -166,26 +189,49 @@ export default function CreateUser() {
                 </select>
               </Field>
             </div>
-            <div className="mt-4">
-              <span className="mb-2 block text-sm font-medium">
-                القواطع المسندة <span className="text-xs font-normal text-slate-400">(من 1 إلى 3 — اخترت {mgrSectors.length})</span>
-              </span>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="manager-sectors">
-                {(sectors ?? []).map((s) => {
-                  const on = mgrSectors.includes(s.id)
-                  const disabled = !on && mgrSectors.length >= 3
+            <div className="mt-4" data-testid="manager-sectors">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-medium">
+                  القواطع والمناطق المسندة
+                  <span className="ms-1 text-xs font-normal text-slate-500">(اخترت {mgrSectors.length} من 8 مناطق)</span>
+                </span>
+                <button type="button" onClick={() => toggleSectorGroup((sectors ?? []).map((sector) => sector.id))}
+                  className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50">
+                  {mgrSectors.length === (sectors ?? []).length && mgrSectors.length > 0 ? 'إلغاء اختيار الجميع' : 'اختيار جميع القواطع والمناطق'}
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {sectorGroups.map((group) => {
+                  const ids = group.areas.map((area) => area.id)
+                  const allSelected = ids.length > 0 && ids.every((id) => mgrSectors.includes(id))
                   return (
-                    <label key={s.id}
-                      className={clsx(
-                        'flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors',
-                        on ? 'border-brand-500 bg-brand-600 font-bold text-white'
-                          : disabled ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300'
-                          : 'border-slate-300 bg-white text-slate-700 hover:border-brand-400',
-                      )}>
-                      <input type="checkbox" className="hidden" disabled={disabled}
-                        checked={on} onChange={() => toggleSector(s.id)} />
-                      {s.name}
-                    </label>
+                    <section key={group.key} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-black text-slate-800">{group.label}</h3>
+                          <p className="text-[11px] text-slate-500">{ids.filter((id) => mgrSectors.includes(id)).length} من {ids.length} مناطق</p>
+                        </div>
+                        <button type="button" onClick={() => toggleSectorGroup(ids)} disabled={ids.length === 0}
+                          className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-bold text-brand-700 disabled:opacity-40">
+                          {allSelected ? 'إلغاء القاطع' : 'اختيار القاطع كاملاً'}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {group.areas.map((area) => {
+                          const on = mgrSectors.includes(area.id)
+                          return (
+                            <label key={area.id} className={clsx(
+                              'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                              on ? 'border-brand-500 bg-brand-600 font-bold text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-brand-400',
+                            )}>
+                              <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleSector(area.id)} />
+                              <span aria-hidden="true" className={clsx('size-2 rounded-full', on ? 'bg-white' : 'bg-slate-300')} />
+                              {area.name}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </section>
                   )
                 })}
               </div>
@@ -193,7 +239,7 @@ export default function CreateUser() {
                 <p role="alert" className="mt-1.5 text-xs text-red-600">{errors.manager_sectors.message}</p>
               )}
               <p className="mt-2 text-[11px] text-slate-500">
-                سيرى هذا المسؤول بيانات قواطعه فقط، وتُعزل بياناته عن باقي المسؤولين على مستوى قاعدة البيانات.
+                يمكن إسناد منطقة واحدة أو قاطع كامل أو القاطعين معاً. يرى المسؤول المناطق المسندة إليه فقط، ويستمر عزل البيانات على مستوى قاعدة البيانات.
               </p>
             </div>
           </fieldset>

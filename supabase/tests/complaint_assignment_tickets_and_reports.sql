@@ -24,7 +24,7 @@ begin
  if(select count(*)from public.complaint_media where item_id in(i1,i2,i3)and media_kind='after'and is_active)<>3 then raise exception 'TICKET MEDIA PAIR FAIL';end if;
  perform set_config('request.jwt.claim.sub',other_manager::text,true);begin perform public.complaint_start_assignment_ticket(c1);exception when others then rejected:=true;end;if not rejected then raise exception 'TICKET ISOLATION FAIL';end if;
 
- perform set_config('request.jwt.claim.sub',officer::text,true);update public.complaint_items set status='approved'where id in(i1,i2,i3);insert into public.complaint_templates(name,layout,is_default,is_active,created_by)values('قالب الاختبار','{}',true,true,officer)returning id into t;
+ perform set_config('request.jwt.claim.sub',officer::text,true);update public.complaint_items set status='approved'where id in(i1,i2,i3);insert into public.complaint_templates(name,sector,layout,is_default,is_active,created_by)values('قالب الاختبار','karrada','{}',true,true,officer)returning id into t;
  select public.complaint_prepare_email_report(m1,t)into r_email1;select public.complaint_prepare_email_report(m2,t)into r_email2;select public.complaint_prepare_daily_report('karrada','2026-09-06',t)into r_daily;
  if r_email1=r_email2 or r_email1=r_daily or r_email2=r_daily then raise exception 'REPORT SCOPE COLLISION';end if;
  if(select count(*)from public.complaint_report_items where report_id=r_email1 and included)<>3 then raise exception 'EMAIL REPORT ONE FAIL';end if;

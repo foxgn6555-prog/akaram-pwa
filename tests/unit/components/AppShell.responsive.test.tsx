@@ -6,7 +6,7 @@
  *  · طي شريط الدسكتوب لا يؤثر إطلاقاً على حالة درج الموبايل (فصل الحالتين)
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 
@@ -61,6 +61,19 @@ describe('AppShell — سلوك الدسكتوب', () => {
     renderShell()
     expect(screen.queryByTestId('mobile-bottom-nav')).not.toBeInTheDocument()
   })
+
+  it('يعزل طبقة الشريط الجانبي ويمنع المحتوى من التسرب أفقياً فوقه', () => {
+    renderShell()
+    expect(screen.getByTestId('app-sidebar')).toHaveClass('z-30', 'shrink-0')
+    expect(screen.getByTestId('app-main')).toHaveClass('overflow-x-hidden', 'min-h-0', 'overflow-y-auto')
+  })
+
+  it('يوفر رابط تجاوز التنقل ومنطقة محتوى قابلة للتركيز', () => {
+    renderShell()
+    expect(screen.getByRole('link', { name: 'تجاوز التنقل إلى المحتوى' })).toHaveAttribute('href', '#app-main-content')
+    expect(screen.getByTestId('app-main')).toHaveAttribute('id', 'app-main-content')
+    expect(screen.getByTestId('app-main')).toHaveAttribute('tabindex', '-1')
+  })
 })
 
 describe('AppShell — سلوك الموبايل', () => {
@@ -79,7 +92,7 @@ describe('AppShell — سلوك الموبايل', () => {
 
   it('فتح الدرج عبر المتجر يعرض الشريط المتحرك + الخلفية', async () => {
     renderShell()
-    useUiStore.setState({ mobileNavOpen: true })
+    act(() => useUiStore.setState({ mobileNavOpen: true }))
     // إعادة التحقق بعد تغيير الحالة
     expect(await screen.findByTestId('app-sidebar-mobile')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-backdrop')).toBeInTheDocument()
@@ -88,16 +101,16 @@ describe('AppShell — سلوك الموبايل', () => {
   it('النقر على الخلفية يغلق الدرج', async () => {
     const user = userEvent.setup()
     renderShell()
-    useUiStore.setState({ mobileNavOpen: true })
+    act(() => useUiStore.setState({ mobileNavOpen: true }))
     await user.click(await screen.findByTestId('sidebar-backdrop'))
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
   })
 
   it('تجاوز عرض الدسكتوب (resize) يغلق الدرج تلقائياً', () => {
     renderShell()
-    useUiStore.setState({ mobileNavOpen: true })
+    act(() => useUiStore.setState({ mobileNavOpen: true }))
     setWidth(1280)
-    window.dispatchEvent(new Event('resize'))
+    act(() => window.dispatchEvent(new Event('resize')))
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
   })
 
@@ -113,7 +126,7 @@ describe('AppShell — فصل حالتي الطي والدرج', () => {
   it('طي شريط الدسكتوب لا يغير حالة درج الموبايل', () => {
     renderShell()
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
-    useUiStore.getState().toggleSidebarCollapsed()
+    act(() => useUiStore.getState().toggleSidebarCollapsed())
     expect(useUiStore.getState().sidebarCollapsed).toBe(true)
     // درج الموبايل لم يتأثر
     expect(useUiStore.getState().mobileNavOpen).toBe(false)

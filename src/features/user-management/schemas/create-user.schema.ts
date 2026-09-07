@@ -30,10 +30,10 @@ export const createSuperAdminSchema = z.object({
   job_title: z.string().max(100, 'المسمى طويل جداً').optional().or(z.literal('')),
   /** إسناد مسؤول القسم: الشفت (مطلوب فقط عندما الدور = department_manager) */
   manager_shift: z.enum(['morning', 'evening', 'night']).optional(),
-  /** القواطع المسندة (1–3) — تُدقَّق على الخادم أيضاً */
-  manager_sectors: z.array(z.number().int().min(1).max(8)).optional(),
+  /** مناطق العمل المسندة (1–8) ضمن قاطعي الكرادة والزعفرانية */
+  manager_sectors: z.array(z.number().int().min(1).max(8)).max(8).optional(),
 })
-  // تحقق شرطي: مسؤول القسم يلزمه شفت + قاطع واحد على الأقل (بحد أقصى 3)
+  // تحقق شرطي: مسؤول القسم يلزمه شفت + منطقة واحدة على الأقل
   .superRefine((val, ctx) => {
     if (val.role !== 'department_manager') return
     if (!val.manager_shift) {
@@ -41,9 +41,9 @@ export const createSuperAdminSchema = z.object({
     }
     const n = val.manager_sectors?.length ?? 0
     if (n < 1) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'اختر قاطعاً واحداً على الأقل' })
-    } else if (n > 3) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'الحد الأقصى 3 قواطع' })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'اختر منطقة واحدة على الأقل' })
+    } else if (n > 8) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['manager_sectors'], message: 'لا يمكن تجاوز المناطق الثماني' })
     }
   })
 

@@ -31,10 +31,14 @@ vi.mock('@features/departments', () => ({
 vi.mock('@features/sector', () => ({
   useSectors: () => ({
     data: [
-      { id: 1, code: 'S1', name: 'القاطع الأول', sort: 1 },
-      { id: 2, code: 'S2', name: 'القاطع الثاني', sort: 2 },
-      { id: 3, code: 'S3', name: 'القاطع الثالث', sort: 3 },
-      { id: 4, code: 'S4', name: 'القاطع الرابع', sort: 4 },
+      { id: 1, code: 'S1', name: 'أرخيته', sort: 1, parent_sector: 'karrada' },
+      { id: 2, code: 'S2', name: 'الرياض', sort: 2, parent_sector: 'karrada' },
+      { id: 3, code: 'S3', name: 'الواثق', sort: 3, parent_sector: 'karrada' },
+      { id: 4, code: 'S4', name: 'الجادرية', sort: 4, parent_sector: 'karrada' },
+      { id: 5, code: 'S5', name: 'السندباد', sort: 5, parent_sector: 'zaafaraniya' },
+      { id: 6, code: 'S6', name: 'الزعفرانية', sort: 6, parent_sector: 'zaafaraniya' },
+      { id: 7, code: 'S7', name: 'ديالى', sort: 7, parent_sector: 'zaafaraniya' },
+      { id: 8, code: 'S8', name: 'الوليد', sort: 8, parent_sector: 'zaafaraniya' },
     ],
   }),
   SHIFT_LABELS: { morning: 'الشفت الصباحي', evening: 'الشفت المسائي', night: 'الشفت الليلي' },
@@ -111,8 +115,8 @@ describe('CreateUser — إنشاء مستخدم', () => {
     const user = userEvent.setup()
     await user.selectOptions(screen.getByTestId('create-role'), 'department_manager')
     await FILL()
-    await user.click(screen.getByText('القاطع الأول'))
-    await user.click(screen.getByText('القاطع الثاني'))
+    await user.click(screen.getByText('أرخيته'))
+    await user.click(screen.getByText('الرياض'))
     await user.click(screen.getByTestId('create-submit'))
 
     await waitFor(() => {
@@ -126,7 +130,29 @@ describe('CreateUser — إنشاء مستخدم', () => {
     })
   })
 
-  it('يرفض مسؤول قسم بلا قواطع — بلا اتصال وبلا شفت وهمي', async () => {
+  it('يعرض قاطعي الكرادة والزعفرانية ومناطقهما الثماني', async () => {
+    renderPage()
+    await userEvent.selectOptions(screen.getByTestId('create-role'), 'department_manager')
+    expect(screen.getByRole('heading', { name: 'قاطع الكرادة' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'قاطع الزعفرانية' })).toBeInTheDocument()
+    for (const area of ['أرخيته', 'الرياض', 'الواثق', 'الجادرية', 'السندباد', 'الزعفرانية', 'ديالى', 'الوليد']) {
+      expect(screen.getByText(area)).toBeInTheDocument()
+    }
+  })
+
+  it('يسمح باختيار جميع القواطع والمناطق الثماني دفعة واحدة', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    await user.selectOptions(screen.getByTestId('create-role'), 'department_manager')
+    await FILL()
+    await user.click(screen.getByText('اختيار جميع القواطع والمناطق'))
+    await user.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      manager_sectors: [1, 2, 3, 4, 5, 6, 7, 8],
+    })))
+  })
+
+  it('يرفض مسؤول قسم بلا مناطق — بلا اتصال وبلا شفت وهمي', async () => {
     renderPage()
     const user = userEvent.setup()
     await user.selectOptions(screen.getByTestId('create-role'), 'department_manager')
@@ -134,7 +160,7 @@ describe('CreateUser — إنشاء مستخدم', () => {
     await user.click(screen.getByTestId('create-submit'))
 
     await waitFor(() => {
-      expect(screen.getByText('اختر قاطعاً واحداً على الأقل')).toBeInTheDocument()
+      expect(screen.getByText('اختر منطقة واحدة على الأقل')).toBeInTheDocument()
     })
     expect(mockMutateAsync).not.toHaveBeenCalled()
   })
