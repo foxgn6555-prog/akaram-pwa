@@ -42,6 +42,8 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
   [PORTALS.OPS_ROOM]:         { label: 'غرفة العمليات', icon: 'activity', colorVar: '--portal-ops-room', themeClass: 'portal-ops-room' },
   [PORTALS.DISCLOSURES]:      { label: 'وحدة الكشوفات', icon: 'file-text', colorVar: '--portal-disclosures', themeClass: 'portal-disclosures' },
   [PORTALS.COMPLAINTS]:       { label: 'بوابة الشكاوى', icon: 'clipboard', colorVar: '--portal-complaints', themeClass: 'portal-complaints' },
+  [PORTALS.MEDIA]:            { label: 'بوابة الإعلام', icon: 'camera', colorVar: '--portal-media', themeClass: 'portal-media' },
+  [PORTALS.CENTRAL_GARAGE]:   { label: 'بوابة الكراج المركزي', icon: 'truck', colorVar: '--portal-central-garage', themeClass: 'portal-central-garage' },
 }
 
 /** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
@@ -153,6 +155,9 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       labelKey: 'nav.archive',
       icon: 'database',
       exact: true,
+      children: [
+        { path: '/it/central-garage-approvals', labelKey: 'nav.garage_zero_approvals', icon: 'droplet' },
+      ],
     },
     {
       // الجولة 5 — مصمم التدفقات (FlowBridge): عرض بصري حي لتكاملات المنظومة
@@ -220,6 +225,35 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/complaints/pages-contact-settings', labelKey: 'nav.complaints_pages_contact', icon: 'settings', exact: true },
     { path: '/complaints/archive', labelKey: 'nav.complaints_archive', icon: 'archive-box', exact: true },
     { path: '/complaints/technical-support', labelKey: 'nav.complaints_support', icon: 'life-buoy', exact: true },
+  ],
+
+  // ═══ بوابة الإعلام ═══
+  [PORTALS.MEDIA]: [
+    { path: '/media', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/media/karrada-sector', labelKey: 'nav.media_karrada_sector', icon: 'map-pin', exact: true },
+    { path: '/media/zaafaraniya-sector', labelKey: 'nav.media_zaafaraniya_sector', icon: 'map-pin', exact: true },
+    { path: '/media/zaafaraniya-folder', labelKey: 'nav.media_zaafaraniya_folder', icon: 'folder', exact: true },
+    { path: '/media/karrada-folder', labelKey: 'nav.media_karrada_folder', icon: 'folder', exact: true },
+    { path: '/media/design-templates', labelKey: 'nav.media_design_templates', icon: 'layout-grid', exact: true },
+    { path: '/media/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
+  ],
+
+  // ═══ بوابة الكراج المركزي ═══
+  [PORTALS.CENTRAL_GARAGE]: [
+    { path: '/central-garage', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/central-garage/drivers-dispatch', labelKey: 'nav.garage_drivers_dispatch', icon: 'truck', exact: true },
+    { path: '/central-garage/vehicles-database', labelKey: 'nav.garage_vehicles_database', icon: 'database', exact: true },
+    {
+      path: '/central-garage/fuel', labelKey: 'nav.garage_fuel', icon: 'droplet', exact: true,
+      children: [
+        { path: '/central-garage/fuel/gas-oil', labelKey: 'nav.garage_gas_oil', icon: 'droplet' },
+        { path: '/central-garage/fuel/hydraulic', labelKey: 'nav.garage_hydraulic', icon: 'droplet' },
+        { path: '/central-garage/fuel/grease', labelKey: 'nav.garage_grease', icon: 'droplet' },
+        { path: '/central-garage/fuel/c-oil', labelKey: 'nav.garage_c_oil', icon: 'droplet' },
+      ],
+    },
+    { path: '/central-garage/reports', labelKey: 'nav.garage_reports', icon: 'bar-chart', exact: true },
+    { path: '/central-garage/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
   ],
 
   [PORTALS.DISCLOSURES]: [

@@ -13,11 +13,12 @@ export type IconName =
   | 'user-plus' | 'activity' | 'list' | 'alert-triangle' | 'refresh' | 'search'
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
-  | 'edit' | 'upload' | 'photo' | 'check' | 'camera'
+  | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
 
 const paths: Record<IconName, React.ReactNode> = {
   edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,
   camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3.2" /></>,
+  droplet: <><path d="M12 2.8S5.5 10.1 5.5 15a6.5 6.5 0 0 0 13 0C18.5 10.1 12 2.8 12 2.8z" /></>,
   upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M4.5 19h15" /></>,
   photo: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.6" /><path d="m4 17 5-4.5 3.5 3 2.5-2 5 4.5" /></>,
   check: <><path d="m4.5 12.5 5 5 10-11" /></>,

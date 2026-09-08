@@ -25,6 +25,7 @@ const BiometricPage = lazy(() => import('@portals/it/pages/Integrations/Biometri
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
+const CentralGarageApprovalsPage = lazy(() => import('@portals/it/pages/CentralGarage/CentralGarageApprovalsPage'))
 
 // ── مصمم التدفقات (FlowBridge) — جولة 5 ──
 const FlowBridgePage = lazy(() => import('@portals/it/pages/FlowBridge/FlowBridgePage'))
@@ -66,6 +67,7 @@ export const customRoutes: RouteObject[] = [
 
   // ── وحدة الأرشيف ──
   { path: 'archive', element: s(<ArchivePage />) },
+  { path: 'central-garage-approvals', element: s(<CentralGarageApprovalsPage />) },
 
   // ── وحدة مصمم التدفقات (FlowBridge) ──
   { path: 'flowbridge', element: s(<FlowBridgePage />) },

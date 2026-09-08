@@ -41,6 +41,10 @@ for test_file in \
   supabase/tests/round6_isolation.sql \
   supabase/tests/manager_service_areas.sql \
   supabase/tests/complaints_isolation.sql \
+  supabase/tests/media_role_isolation.sql \
+  supabase/tests/central_garage_role_isolation.sql \
+  supabase/tests/central_garage_core.sql \
+  supabase/tests/central_garage_departures.sql \
   supabase/tests/complaints_workflow_isolation.sql \
   supabase/tests/complaints_end_to_end.sql \
   supabase/tests/complaints_batch_automation.sql \

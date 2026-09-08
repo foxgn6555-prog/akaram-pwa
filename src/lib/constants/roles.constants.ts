@@ -15,6 +15,8 @@ export const ROLES = {
   OPS_ROOM: 'ops_room',
   DISCLOSURES_OFFICER: 'disclosures_officer',
   COMPLAINTS_OFFICER: 'complaints_officer',
+  MEDIA_OFFICER: 'media_officer',
+  CENTRAL_GARAGE_OFFICER: 'central_garage_officer',
 } as const
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
@@ -34,6 +36,8 @@ export const ROLE_PRIORITY: readonly Role[] = [
   ROLES.TRANSFER_STATION,
   ROLES.DISCLOSURES_OFFICER,
   ROLES.COMPLAINTS_OFFICER,
+  ROLES.MEDIA_OFFICER,
+  ROLES.CENTRAL_GARAGE_OFFICER,
   ROLES.DEPARTMENT_MANAGER,
   ROLES.EMPLOYEE,
 ] as const
@@ -55,4 +59,6 @@ export const ROLE_LABELS: Readonly<Record<Role, string>> = {
   ops_room: 'غرفة عمليات',
   disclosures_officer: 'وحدة الكشوفات',
   complaints_officer: 'مسؤول الشكاوى',
+  media_officer: 'مسؤول الإعلام',
+  central_garage_officer: 'مسؤول الكراج المركزي',
 } as const

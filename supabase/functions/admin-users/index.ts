@@ -19,7 +19,7 @@ const VALID_ROLES = [
   'employee', 'hr_officer', 'department_manager', 'finance_officer',
   'it_admin', 'super_admin', 'field_ops', 'admin_ops', 'maintenance',
   'transfer_station', 'executive_director', 'deputy_director', 'ops_room',
-  'disclosures_officer', 'complaints_officer',
+  'disclosures_officer', 'complaints_officer', 'media_officer', 'central_garage_officer',
 ]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

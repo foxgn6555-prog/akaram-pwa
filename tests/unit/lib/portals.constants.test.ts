@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { accessiblePortals, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
 
 describe('accessiblePortals', () => {
-  it('super_admin يرى كل البوابات (13 بوابة)', () => {
+  it('super_admin يرى كل البوابات المسجلة', () => {
     const portals = accessiblePortals(['super_admin'])
     expect(portals).toHaveLength(PORTAL_DEFINITIONS.length)
     expect(portals.map((p) => p.id)).toContain('it')
@@ -21,6 +21,18 @@ describe('accessiblePortals', () => {
         'complaints',
       ]),
     )
+  })
+
+  it('دور الكراج المركزي يرى بوابته فقط', () => {
+    const portals = accessiblePortals(['central_garage_officer'])
+    expect(portals).toHaveLength(1)
+    expect(portals[0]?.id).toBe('central-garage')
+  })
+
+  it('دور الإعلام يرى بوابة الإعلام فقط', () => {
+    const portals = accessiblePortals(['media_officer'])
+    expect(portals).toHaveLength(1)
+    expect(portals[0]?.id).toBe('media')
   })
 
   it('دور الشكاوى يرى بوابة الشكاوى فقط', () => {

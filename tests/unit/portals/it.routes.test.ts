@@ -73,8 +73,9 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(17)
+    expect(itPaths).toHaveLength(18)
     expect(itPaths).toContain('database/tables/:tableName')
+    expect(itPaths).toContain('central-garage-approvals')
     expect(itPaths).toContain('flowbridge')
   })
 })

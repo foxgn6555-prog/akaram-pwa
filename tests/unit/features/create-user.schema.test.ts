@@ -39,6 +39,14 @@ describe('create-user.schema', () => {
     expect(r.success).toBe(false)
   })
 
+  it('يقبل دور مسؤول الإعلام', () => {
+    expect(createSuperAdminSchema.safeParse({ ...VALID, role: 'media_officer' }).success).toBe(true)
+  })
+
+  it('يقبل دور مسؤول الكراج المركزي', () => {
+    expect(createSuperAdminSchema.safeParse({ ...VALID, role: 'central_garage_officer' }).success).toBe(true)
+  })
+
   it('يرفض دوراً خارج القائمة', () => {
     const r = createSuperAdminSchema.safeParse({ ...VALID, role: 'hacker' })
     expect(r.success).toBe(false)

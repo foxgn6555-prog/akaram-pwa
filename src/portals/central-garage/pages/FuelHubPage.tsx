@@ -1,0 +1,12 @@
+import { ArrowLeft, Droplets, Fuel } from 'lucide-react'
+import { Link } from 'react-router'
+import { useGarageTanks } from '@features/central-garage/hooks'
+import type { GarageFuelType } from '@features/central-garage/types'
+
+const pages:Array<{type:GarageFuelType;title:string;path:string;color:string}> = [
+  { type:'gas_oil',title:'الكاز', path:'/central-garage/fuel/gas-oil',color:'from-amber-600 to-orange-700' },
+  { type:'hydraulic',title:'الهيدروليك', path:'/central-garage/fuel/hydraulic',color:'from-blue-600 to-cyan-700' },
+  { type:'grease',title:'الدهن', path:'/central-garage/fuel/grease',color:'from-violet-600 to-fuchsia-700' },
+  { type:'c_oil',title:'C-Oil', path:'/central-garage/fuel/c-oil',color:'from-slate-700 to-teal-700' },
+]
+export default function FuelHubPage(){const tanks=useGarageTanks();return <section className="space-y-6" dir="rtl" data-testid="fuel-hub-page"><header className="overflow-hidden rounded-3xl bg-gradient-to-l from-amber-950 to-orange-800 p-7 text-white shadow-xl"><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-amber-100"><Fuel size={15}/>إدارة الوقود والزيوت</span><h1 className="mt-4 text-3xl font-black">الوقود</h1><p className="mt-2 text-sm leading-7 text-amber-100">أرصدة الخزانات، إضافة المخزون، تعبئة الآليات وطلبات التصفير.</p></header><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{pages.map(page=>{const related=(tanks.data??[]).filter(t=>t.fuelType===page.type);const quantity=related.reduce((n,t)=>n+t.currentQuantity,0);const capacity=related.reduce((n,t)=>n+t.capacity,0);const pct=capacity?quantity*100/capacity:0;return <Link key={page.path} to={page.path} className="group overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"><div className={`bg-gradient-to-l ${page.color} p-5 text-white`}><div className="flex justify-between"><Droplets/><ArrowLeft className="transition group-hover:-translate-x-1"/></div><h2 className="mt-5 text-xl font-black">{page.title}</h2></div><div className="p-4"><div className="flex justify-between text-xs"><span>{related.length} خزان</span><b>{quantity.toLocaleString('ar-IQ')} / {capacity.toLocaleString('ar-IQ')}</b></div><div className="mt-2 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{width:`${Math.min(100,pct)}%`}}/></div></div></Link>})}</div></section>}

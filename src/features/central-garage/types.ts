@@ -1,0 +1,150 @@
+export type GarageShift = 'morning' | 'evening' | 'night'
+export type GarageFuelType = 'gas_oil' | 'hydraulic' | 'grease' | 'c_oil'
+export type GarageParentSector = 'karrada' | 'zaafaraniya'
+
+export interface GarageArea {
+  id: number
+  name: string
+  parentSector: GarageParentSector
+  sort: number
+}
+
+export interface GarageVehicle {
+  id: string
+  vehicleName: string
+  dbNumber: string
+  plateNumber: string
+  chassisNumber: string
+  imagePath: string
+  imageUrl?: string
+  shift: GarageShift
+  driverName: string
+  sectorId: number
+  areaName: string
+  parentSector: GarageParentSector
+  createdAt: string
+  updatedAt: string
+  archivedAt: string | null
+  archivedBy: string | null
+  archiveReason: string | null
+}
+
+export interface GarageVehiclePage {
+  rows: GarageVehicle[]
+  totalCount: number
+}
+
+export interface GarageVehicleFilter {
+  search?: string
+  sectorId?: number
+  shift?: GarageShift
+  page?: number
+  pageSize?: number
+  archived?: boolean
+}
+
+export interface CreateGarageVehicleInput {
+  vehicleName: string
+  dbNumber: string
+  plateNumber: string
+  chassisNumber: string
+  image: File
+  shift: GarageShift
+  driverName: string
+  sectorId: number
+}
+
+export interface GarageDriverAssignment {
+  id: string
+  vehicleId: string
+  driverName: string
+  shift: GarageShift
+  sectorId: number
+  startsAt: string
+  endsAt: string | null
+  changeReason: string | null
+}
+
+export interface GarageTank {
+  id: string
+  fuelType: GarageFuelType
+  tankName: string
+  capacity: number
+  currentQuantity: number
+  lowStockThreshold: number
+  createdAt: string
+  updatedAt: string
+  archivedAt: string | null
+}
+
+export interface GarageInventoryMovement {
+  id: string
+  tankId: string
+  vehicleId: string | null
+  movementType: 'stock_in' | 'vehicle_fill' | 'approved_reset'
+  quantity: number
+  quantityBefore: number
+  quantityAfter: number
+  nextRefillDate: string | null
+  notes: string | null
+  actorId: string
+  createdAt: string
+}
+
+export interface GarageTankZeroRequest {
+  id: string
+  tankId: string
+  requestedQuantity: number
+  reason: string
+  status: 'pending' | 'rejected' | 'executed'
+  requestedBy: string
+  requestedAt: string
+  decidedBy: string | null
+  decidedAt: string | null
+  decisionNote: string | null
+}
+
+/** انطلاقة سائق: خروج الآلية من الكراج إلى ورديتها، وتُغلق بالعودة إلى الكراج. */
+export interface GarageDeparture {
+  id: string
+  vehicleId: string
+  driverName: string
+  shift: GarageShift
+  sectorId: number
+  departedAt: string
+  returnedAt: string | null
+  notes: string | null
+  vehicleName: string
+  dbNumber: string
+  imagePath: string
+  imageUrl?: string
+  areaName: string
+  parentSector: GarageParentSector
+}
+
+export interface GarageDashboardFilter {
+  from?: string
+  to?: string
+  sectorId?: number
+  fuelType?: GarageFuelType
+}
+
+export interface GarageDashboardSummary {
+  vehiclesTotal: number
+  driversTotal: number
+  dispatchesTotal: number
+  vehiclesByShift: Partial<Record<GarageShift, number>>
+  vehiclesByArea: Array<{ sectorId: number; sector: GarageParentSector; area: string; total: number }>
+  tankStock: Array<{ id: string; fuelType: GarageFuelType; name: string; capacity: number; quantity: number; percent: number; lowStock: boolean }>
+  consumptionByType: Partial<Record<GarageFuelType, number>>
+  dailyConsumption: Array<{ date: string; quantity: number }>
+  monthlyConsumption: Array<{ month: string; quantity: number }>
+  topConsumers: Array<{ vehicleId: string; vehicleName: string; dbNumber: string; quantity: number }>
+  recentFills: Array<{ id: string; vehicleName: string; dbNumber: string; tankName: string; fuelType: GarageFuelType; quantity: number; nextRefillDate: string; createdAt: string }>
+  pendingZeroItems: Array<{ id: string; tankName: string; fuelType: GarageFuelType; requestedQuantity: number; reason: string; requestedAt: string }>
+  pendingZeroRequests: number
+  from: string
+  to: string
+  sectorId: number | null
+  fuelType: GarageFuelType | null
+}

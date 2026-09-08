@@ -66,7 +66,21 @@
     "complaints_pages_contact": "إعدادات الصفحات والتواصل",
     "complaints_archive": "أرشيف الشكاوى",
     "complaints_support": "الدعم الفني",
-    "mgr_complaints": "الشكاوى المسندة"
+    "mgr_complaints": "الشكاوى المسندة",
+    "media_karrada_sector": "قاطع الكرادة",
+    "media_zaafaraniya_sector": "الزعفرانية",
+    "media_zaafaraniya_folder": "فولدر الزعفرانية",
+    "media_karrada_folder": "فولدر الكرادة",
+    "media_design_templates": "قوالب التصميم",
+    "garage_drivers_dispatch": "انطلاقية السائقين",
+    "garage_vehicles_database": "قاعدة بيانات الآليات",
+    "garage_fuel": "الوقود",
+    "garage_gas_oil": "الكاز",
+    "garage_hydraulic": "الهيدروليك",
+    "garage_grease": "الدهن",
+    "garage_c_oil": "C-Oil",
+    "garage_reports": "تقارير الكراج",
+    "garage_zero_approvals": "موافقات تصفير خزانات الكراج"
   },
   "sections": {
     "main": "القائمة الرئيسية",
