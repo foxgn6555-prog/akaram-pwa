@@ -69,6 +69,7 @@ export interface GarageTank {
   id: string
   fuelType: GarageFuelType
   tankName: string
+  unit: string
   capacity: number
   currentQuantity: number
   lowStockThreshold: number

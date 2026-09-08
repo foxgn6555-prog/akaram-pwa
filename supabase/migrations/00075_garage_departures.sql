@@ -4,7 +4,7 @@
 -- وتُغلق بالعودة. كل الكتابات عبر RPC؛ قراءة فقط للأدوار المخوّلة.
 -- ═══════════════════════════════════════════════════════════════
 
-create table public.garage_departures (
+create table if not exists public.garage_departures (
   id uuid primary key default gen_random_uuid(),
   vehicle_id uuid not null references public.garage_vehicles(id),
   driver_name text not null check (length(trim(driver_name)) between 2 and 120),
@@ -18,15 +18,17 @@ create table public.garage_departures (
   check (returned_at is null or returned_at >= departed_at)
 );
 -- انطلاقة مفتوحة واحدة فقط لكل آلية (لا خروج ثانٍ قبل تسجيل العودة)
-create unique index uq_garage_open_departure on public.garage_departures(vehicle_id)
+create unique index if not exists uq_garage_open_departure on public.garage_departures(vehicle_id)
   where returned_at is null;
-create index idx_garage_departures_day on public.garage_departures
-  (timezone('Asia/Baghdad',departed_at)::date, departed_at desc);
-create index idx_garage_departures_vehicle on public.garage_departures(vehicle_id,departed_at desc);
+create index if not exists idx_garage_departures_day on public.garage_departures
+  ((departed_at AT TIME ZONE 'Asia/Baghdad')::date, departed_at desc);
+create index if not exists idx_garage_departures_vehicle on public.garage_departures(vehicle_id,departed_at desc);
+drop trigger if exists trg_audit_garage_departures on public.garage_departures;
 create trigger trg_audit_garage_departures after insert or update or delete on public.garage_departures
   for each row execute function app.audit_trigger();
 
 alter table public.garage_departures enable row level security;
+drop policy if exists "garage departures read" on public.garage_departures;
 create policy "garage departures read" on public.garage_departures for select to authenticated
   using (app.has_role(array['central_garage_officer','super_admin']));
 
@@ -34,7 +36,7 @@ create policy "garage departures read" on public.garage_departures for select to
 create or replace function public.garage_record_departure(
   p_vehicle_id uuid, p_notes text default null
 ) returns public.garage_departures
-language plpgsql stable security definer set search_path=public,app as $$
+language plpgsql volatile security definer set search_path=public,app as $$
 declare
   v_uid uuid:=app.require_garage_actor();
   v_vehicle public.garage_vehicles;
@@ -59,7 +61,7 @@ end$$;
 -- ═══ تسجيل عودة: إغلاق الانطلاقة المفتوحة عند عودة الآلية إلى الكراج ═══
 create or replace function public.garage_record_return(p_departure_id uuid)
 returns public.garage_departures
-language plpgsql stable security definer set search_path=public,app as $$
+language plpgsql volatile security definer set search_path=public,app as $$
 declare
   v_uid uuid:=app.require_garage_actor();
   v_departure public.garage_departures;
@@ -84,7 +86,7 @@ language sql stable security definer set search_path=public,app as $$
   from public.garage_departures d
   join public.garage_vehicles v on v.id=d.vehicle_id
   join public.sectors s on s.id=d.sector_id
-  where timezone('Asia/Baghdad',d.departed_at)::date = timezone('Asia/Baghdad',now())::date
+  where (d.departed_at AT TIME ZONE 'Asia/Baghdad')::date = (now() AT TIME ZONE 'Asia/Baghdad')::date
   order by d.departed_at desc;
 $$;
 

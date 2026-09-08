@@ -53,7 +53,7 @@ function assignmentRow(row: Record<string, unknown>): GarageDriverAssignment {
 function tankRow(row: Record<string, unknown>): GarageTank {
   return {
     id: String(row.id), fuelType: row.fuel_type as GarageFuelType, tankName: String(row.tank_name),
-    capacity: Number(row.capacity), currentQuantity: Number(row.current_quantity),
+    unit: (row.unit as string) ?? 'لتر', capacity: Number(row.capacity), currentQuantity: Number(row.current_quantity),
     lowStockThreshold: Number(row.low_stock_threshold), createdAt: String(row.created_at),
     updatedAt: String(row.updated_at), archivedAt: (row.archived_at as string | null) ?? null,
   }
@@ -204,9 +204,9 @@ export const centralGarage = {
     return (rows ?? []).map(tankRow)
   },
 
-  async addTank(fuelType: GarageFuelType, tankName: string, capacity: number, initialQuantity = 0, lowStockThreshold = 20): Promise<GarageTank> {
+  async addTank(fuelType: GarageFuelType, tankName: string, unit: string, capacity: number, initialQuantity = 0, lowStockThreshold = 20): Promise<GarageTank> {
     const data = await sdkGuard(supabase.rpc('garage_add_tank', {
-      p_fuel_type: fuelType, p_tank_name: tankName, p_capacity: capacity,
+      p_fuel_type: fuelType, p_tank_name: tankName, p_unit: unit, p_capacity: capacity,
       p_initial_quantity: initialQuantity, p_low_stock_threshold: lowStockThreshold,
     }))
     return tankRow(data as unknown as Record<string, unknown>)
@@ -217,10 +217,10 @@ export const centralGarage = {
     return movementRow(data as unknown as Record<string, unknown>)
   },
 
-  async fillVehicle(tankId: string, vehicleId: string, quantity: number, nextRefillDate: string, notes?: string): Promise<GarageInventoryMovement> {
+  async fillVehicle(tankId: string, vehicleId: string, quantity: number, nextRefillDate?: string, notes?: string): Promise<GarageInventoryMovement> {
     const data = await sdkGuard(supabase.rpc('garage_fill_vehicle', {
       p_tank_id: tankId, p_vehicle_id: vehicleId, p_quantity: quantity,
-      p_next_refill_date: nextRefillDate, p_notes: notes?.trim() || null,
+      p_next_refill_date: nextRefillDate ?? null, p_notes: notes?.trim() || null,
     }))
     return movementRow(data as unknown as Record<string, unknown>)
   },

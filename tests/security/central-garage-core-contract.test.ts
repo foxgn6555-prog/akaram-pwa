@@ -43,7 +43,7 @@ describe('عقد الكراج المركزي', () => {
   })
 
   it('التوقيت من الخادم والموعد التالي إلزامي ومحكوم بتوقيت بغداد', () => {
-    expect(sql).toContain("timezone('Asia/Baghdad',now())::date")
+    expect(sql).toContain("(now() AT TIME ZONE 'Asia/Baghdad')::date")
     expect(sql).toContain('GARAGE_NEXT_REFILL_DATE_INVALID')
     expect(sql).not.toMatch(/garage_fill_vehicle\([^)]*p_created_at/is)
   })
@@ -82,7 +82,7 @@ describe('عقد الكراج المركزي', () => {
     expect(departuresSql).toContain('GARAGE_NO_ACTIVE_ASSIGNMENT')
     expect(departuresSql).toContain('GARAGE_DEPARTURE_ALREADY_OPEN')
     expect(departuresSql).toContain('GARAGE_OPEN_DEPARTURE_NOT_FOUND')
-    expect(departuresSql).toContain("timezone('Asia/Baghdad',d.departed_at)::date")
+    expect(departuresSql).toContain("(d.departed_at AT TIME ZONE 'Asia/Baghdad')::date")
     expect(sdk).toContain("rpc('garage_today_departures')")
     expect(sdk).toContain("rpc('garage_record_departure'")
     expect(sdk).toContain("rpc('garage_record_return'")
