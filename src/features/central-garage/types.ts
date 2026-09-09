@@ -1,3 +1,5 @@
+import type { GarageFuelUnit } from './fuel-units'
+
 export type GarageShift = 'morning' | 'evening' | 'night'
 export type GarageFuelType = 'gas_oil' | 'hydraulic' | 'grease' | 'c_oil'
 export type GarageParentSector = 'karrada' | 'zaafaraniya'
@@ -69,7 +71,7 @@ export interface GarageTank {
   id: string
   fuelType: GarageFuelType
   tankName: string
-  unit: string
+  unit: GarageFuelUnit
   capacity: number
   currentQuantity: number
   lowStockThreshold: number
@@ -86,6 +88,9 @@ export interface GarageInventoryMovement {
   quantity: number
   quantityBefore: number
   quantityAfter: number
+  fuelType: GarageFuelType | null
+  unit: GarageFuelUnit | null
+  tankName: string | null
   nextRefillDate: string | null
   notes: string | null
   actorId: string
@@ -136,13 +141,15 @@ export interface GarageDashboardSummary {
   dispatchesTotal: number
   vehiclesByShift: Partial<Record<GarageShift, number>>
   vehiclesByArea: Array<{ sectorId: number; sector: GarageParentSector; area: string; total: number }>
-  tankStock: Array<{ id: string; fuelType: GarageFuelType; name: string; capacity: number; quantity: number; percent: number; lowStock: boolean }>
+  tankStock: Array<{ id: string; fuelType: GarageFuelType; name: string; unit: GarageFuelUnit; capacity: number; quantity: number; percent: number; lowStock: boolean }>
+  fuelUnits: Partial<Record<GarageFuelType, GarageFuelUnit>>
   consumptionByType: Partial<Record<GarageFuelType, number>>
+  consumptionByUnit: Partial<Record<GarageFuelUnit, number>>
   dailyConsumption: Array<{ date: string; quantity: number }>
   monthlyConsumption: Array<{ month: string; quantity: number }>
-  topConsumers: Array<{ vehicleId: string; vehicleName: string; dbNumber: string; quantity: number }>
-  recentFills: Array<{ id: string; vehicleName: string; dbNumber: string; tankName: string; fuelType: GarageFuelType; quantity: number; nextRefillDate: string; createdAt: string }>
-  pendingZeroItems: Array<{ id: string; tankName: string; fuelType: GarageFuelType; requestedQuantity: number; reason: string; requestedAt: string }>
+  topConsumers: Array<{ vehicleId: string; vehicleName: string; dbNumber: string; unit: GarageFuelUnit; quantity: number }>
+  recentFills: Array<{ id: string; vehicleName: string; dbNumber: string; tankName: string; fuelType: GarageFuelType; unit: GarageFuelUnit; quantity: number; nextRefillDate: string | null; createdAt: string }>
+  pendingZeroItems: Array<{ id: string; tankName: string; fuelType: GarageFuelType; unit: GarageFuelUnit; requestedQuantity: number; reason: string; requestedAt: string }>
   pendingZeroRequests: number
   from: string
   to: string

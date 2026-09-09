@@ -6,7 +6,7 @@ const h=vi.hoisted(()=>({filter:vi.fn(),restore:vi.fn(),vehicle:{id:'v9',vehicle
 vi.mock('@features/central-garage/hooks',()=>({
   useGarageAreas:()=>({data:[{id:8,name:'الوليد',parentSector:'zaafaraniya',sort:8}],isLoading:false}),
   useGarageVehicles:(filter:unknown)=>{h.filter(filter);return{data:{rows:[h.vehicle],totalCount:1},isLoading:false,isError:false}},
-  useGarageVehicle:()=>({data:h.vehicle,isLoading:false,isError:false}),useGarageAssignments:()=>({data:[],isLoading:false}),useGarageVehicleMovements:()=>({data:[],isLoading:false}),
+  useGarageVehicle:()=>({data:h.vehicle,isLoading:false,isError:false}),useGarageAssignments:()=>({data:[],isLoading:false}),useGarageVehicleMovements:()=>({data:[],isLoading:false}),useGarageDepartures:()=>({data:[],isLoading:false}),
   useArchiveGarageVehicle:()=>({mutate:vi.fn(),isPending:false}),useRestoreGarageVehicle:()=>({mutate:h.restore,isPending:false}),useUpdateGarageVehicle:()=>({mutate:vi.fn(),isPending:false,isError:false}),useAssignGarageDriver:()=>({mutate:vi.fn(),isPending:false}),
 }))
 import GarageArchivePage from '@portals/central-garage/pages/GarageArchivePage'

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync('supabase/migrations/00074_central_garage_core.sql','utf8')
 const departuresSql = readFileSync('supabase/migrations/00075_garage_departures.sql','utf8')
+const fuelSql = readFileSync('supabase/migrations/00076_fuel_unit_and_refill_date.sql','utf8')
 const sdk = readFileSync('src/services/central-garage.sdk.ts','utf8')
 
 describe('عقد الكراج المركزي', () => {
@@ -42,10 +43,19 @@ describe('عقد الكراج المركزي', () => {
     expect(sql).toContain('GARAGE_TANK_BALANCE_INSUFFICIENT')
   })
 
-  it('التوقيت من الخادم والموعد التالي إلزامي ومحكوم بتوقيت بغداد', () => {
-    expect(sql).toContain("(now() AT TIME ZONE 'Asia/Baghdad')::date")
-    expect(sql).toContain('GARAGE_NEXT_REFILL_DATE_INVALID')
-    expect(sql).not.toMatch(/garage_fill_vehicle\([^)]*p_created_at/is)
+  it('التوقيت من الخادم ويلغي الموعد للكاز ويبقيه إلزامياً للمواد الأخرى', () => {
+    expect(fuelSql).toContain("(now() at time zone 'Asia/Baghdad')::date")
+    expect(fuelSql).toContain('GARAGE_GAS_OIL_REFILL_DATE_NOT_ALLOWED')
+    expect(fuelSql).toContain('GARAGE_NEXT_REFILL_DATE_INVALID')
+    expect(fuelSql).not.toMatch(/garage_fill_vehicle\([^)]*p_created_at/is)
+  })
+
+  it('يقيد وحدة الخزان ويحذف توقيع الإضافة القديم ويشدد صلاحيات التوقيع الجديد', () => {
+    expect(fuelSql).toContain("unit in ('liter','kilogram','gallon','barrel','container','piece')")
+    expect(fuelSql).toContain('drop function public.garage_add_tank(text,text,numeric,numeric,numeric)')
+    expect(fuelSql).toContain('revoke all on function public.garage_add_tank(text,text,text,numeric,numeric,numeric) from public,anon')
+    expect(fuelSql).toContain("'consumptionByUnit'")
+    expect(fuelSql).toContain("else '[]'::jsonb end")
   })
 
   it('التصفير يتطلب موافقة التطوير ويحمي من تغير الرصيد', () => {
@@ -82,7 +92,9 @@ describe('عقد الكراج المركزي', () => {
     expect(departuresSql).toContain('GARAGE_NO_ACTIVE_ASSIGNMENT')
     expect(departuresSql).toContain('GARAGE_DEPARTURE_ALREADY_OPEN')
     expect(departuresSql).toContain('GARAGE_OPEN_DEPARTURE_NOT_FOUND')
-    expect(departuresSql).toContain("(d.departed_at AT TIME ZONE 'Asia/Baghdad')::date")
+    expect(departuresSql).toContain("(d.departed_at at time zone 'Asia/Baghdad')::date")
+    expect(departuresSql).toContain('app.require_garage_actor()')
+    expect(departuresSql).toContain('d.returned_at is null')
     expect(sdk).toContain("rpc('garage_today_departures')")
     expect(sdk).toContain("rpc('garage_record_departure'")
     expect(sdk).toContain("rpc('garage_record_return'")

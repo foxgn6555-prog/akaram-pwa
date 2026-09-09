@@ -6,14 +6,14 @@ const h=vi.hoisted(()=>({dashboard:vi.fn(),areas:vi.fn()}))
 vi.mock('@features/central-garage/hooks',()=>({useGarageDashboard:(filter:unknown)=>h.dashboard(filter),useGarageAreas:()=>h.areas()}))
 import CentralGarageDashboardPage from '@portals/central-garage/pages/CentralGarageDashboardPage'
 
-const data={vehiclesTotal:8,driversTotal:7,dispatchesTotal:8,vehiclesByShift:{morning:4,evening:3,night:1},vehiclesByArea:[{sectorId:5,sector:'karrada',area:'الجادرية',total:3}],tankStock:[{id:'t1',fuelType:'gas_oil',name:'خزان الكاز',capacity:1000,quantity:150,percent:15,lowStock:true}],consumptionByType:{gas_oil:500},dailyConsumption:[{date:'2026-09-07',quantity:200},{date:'2026-09-08',quantity:300}],monthlyConsumption:[{month:'2026-09',quantity:500}],topConsumers:[{vehicleId:'v1',vehicleName:'كابسة',dbNumber:'DB-1',quantity:500}],recentFills:[{id:'m1',vehicleName:'كابسة',dbNumber:'DB-1',tankName:'خزان الكاز',fuelType:'gas_oil',quantity:50,nextRefillDate:'2026-09-20',createdAt:'2026-09-08T09:00:00Z'}],pendingZeroItems:[{id:'r1',tankName:'خزان الكاز',fuelType:'gas_oil',requestedQuantity:150,reason:'مطابقة رصيد الخزان',requestedAt:'2026-09-08T10:00:00Z'}],pendingZeroRequests:2,from:'2026-09-01',to:'2026-09-08',sectorId:null,fuelType:null}
+const data={vehiclesTotal:8,driversTotal:7,dispatchesTotal:8,vehiclesByShift:{morning:4,evening:3,night:1},vehiclesByArea:[{sectorId:5,sector:'karrada',area:'الجادرية',total:3}],tankStock:[{id:'t1',fuelType:'gas_oil',name:'خزان الكاز',unit:'liter',capacity:1000,quantity:150,percent:15,lowStock:true}],fuelUnits:{gas_oil:'liter'},consumptionByType:{gas_oil:500},consumptionByUnit:{liter:500},dailyConsumption:[{date:'2026-09-07',quantity:200},{date:'2026-09-08',quantity:300}],monthlyConsumption:[{month:'2026-09',quantity:500}],topConsumers:[{unit:'liter',vehicleId:'v1',vehicleName:'كابسة',dbNumber:'DB-1',quantity:500}],recentFills:[{id:'m1',vehicleName:'كابسة',dbNumber:'DB-1',tankName:'خزان الكاز',fuelType:'gas_oil',unit:'liter',quantity:50,nextRefillDate:'2026-09-20',createdAt:'2026-09-08T09:00:00Z'}],pendingZeroItems:[{id:'r1',tankName:'خزان الكاز',fuelType:'gas_oil',requestedQuantity:150,reason:'مطابقة رصيد الخزان',requestedAt:'2026-09-08T10:00:00Z'}],pendingZeroRequests:2,from:'2026-09-01',to:'2026-09-08',sectorId:null,fuelType:null}
 
 describe('لوحة قيادة الكراج المركزي',()=>{
   beforeEach(()=>{vi.clearAllMocks();h.areas.mockReturnValue({data:[{id:5,name:'الجادرية',parentSector:'karrada',sort:4}]});h.dashboard.mockReturnValue({data,isLoading:false,isError:false})})
   it('يعرض المؤشرات والخزانات والاستهلاك وآخر التعبئات',()=>{
     render(<MemoryRouter><CentralGarageDashboardPage/></MemoryRouter>)
     expect(screen.getByText('إجمالي الآليات')).toBeInTheDocument()
-    expect(screen.getByText('الانطلاقات')).toBeInTheDocument()
+    expect(screen.getByText('الانطلاقات الفعلية')).toBeInTheDocument()
     expect(screen.getByText('أكثر الآليات استهلاكاً')).toBeInTheDocument()
     expect(screen.getAllByText('كابسة')).toHaveLength(2)
     expect(screen.getByText('خزان الكاز')).toBeInTheDocument()

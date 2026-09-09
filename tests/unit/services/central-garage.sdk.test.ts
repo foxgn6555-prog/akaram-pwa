@@ -118,13 +118,19 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
   const movement={id:'m1',tank_id:'t1',vehicle_id:'v1',movement_type:'vehicle_fill',quantity:-40,quantity_before:200,quantity_after:160,next_refill_date:'2026-09-20',notes:null,actor_id:'u1',created_at:'2026-09-08T10:00:00Z'}
 
   it('يدعم الخزانات الأربعة وإضافة الكمية عبر RPC', async () => {
-    h.state.result={data:{id:'t1',fuel_type:'c_oil',tank_name:'C1',unit:'لتر',capacity:500,current_quantity:100,low_stock_threshold:20,created_at:'now',updated_at:'now',archived_at:null},error:null}
-    const tank=await centralGarage.addTank('c_oil','C1','لتر',500,100,20)
-    expect(h.rpc).toHaveBeenCalledWith('garage_add_tank',{p_fuel_type:'c_oil',p_tank_name:'C1',p_unit:'لتر',p_capacity:500,p_initial_quantity:100,p_low_stock_threshold:20})
+    h.state.result={data:{id:'t1',fuel_type:'c_oil',tank_name:'C1',unit:'liter',capacity:500,current_quantity:100,low_stock_threshold:20,created_at:'now',updated_at:'now',archived_at:null},error:null}
+    const tank=await centralGarage.addTank('c_oil','C1','liter',500,100,20)
+    expect(h.rpc).toHaveBeenCalledWith('garage_add_tank',{p_fuel_type:'c_oil',p_tank_name:'C1',p_unit:'liter',p_capacity:500,p_initial_quantity:100,p_low_stock_threshold:20})
     expect(tank).toMatchObject({fuelType:'c_oil',currentQuantity:100})
     h.state.result={data:{...movement,vehicle_id:null,movement_type:'stock_in',quantity:50,quantity_after:150,next_refill_date:null},error:null}
     await centralGarage.addTankStock('t1',50,' وجبة ')
     expect(h.rpc).toHaveBeenLastCalledWith('garage_add_tank_stock',{p_tank_id:'t1',p_quantity:50,p_notes:'وجبة'})
+  })
+
+  it('يجلب حركة الآلية مع وحدة الخزان ونوع المادة لعرض السجل بدقة', async () => {
+    h.state.result={data:[{...movement,garage_tanks:{fuel_type:'hydraulic',unit:'gallon',tank_name:'خزان الهيدروليك'}}],error:null}
+    const rows=await centralGarage.movements({vehicleId:'v1'})
+    expect(rows[0]).toMatchObject({fuelType:'hydraulic',unit:'gallon',tankName:'خزان الهيدروليك'})
   })
 
   it('يرسل موعد التعبئة التالي ولا يرسل وقت العملية من العميل', async () => {

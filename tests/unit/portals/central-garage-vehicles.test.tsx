@@ -24,7 +24,7 @@ vi.mock('@features/central-garage/hooks',()=>({
   useArchiveGarageVehicle:()=>({mutate:h.archiveMutate,isPending:false}),
   useGarageVehicle:(id:string)=>{h.vehicleIdParam(id);return{data:h.vehicle,isLoading:false,isError:false}},
   useGarageAssignments:()=>({data:[{id:'a1',vehicleId:'v1',driverName:'علي حسن',shift:'morning',sectorId:1,startsAt:'2026-09-08T08:00:00Z',endsAt:null,changeReason:null}],isLoading:false}),
-  useGarageVehicleMovements:()=>({data:[{id:'m1',tankId:'t1',vehicleId:'v1',movementType:'vehicle_fill',quantity:-40,quantityBefore:200,quantityAfter:160,nextRefillDate:'2026-09-20',notes:null,actorId:'u1',createdAt:'2026-09-08T09:00:00Z'}],isLoading:false}),
+  useGarageVehicleMovements:()=>({data:[{id:'m1',tankId:'t1',vehicleId:'v1',movementType:'vehicle_fill',quantity:-40,quantityBefore:200,quantityAfter:160,fuelType:'hydraulic',unit:'gallon',tankName:'خزان الهيدروليك',nextRefillDate:'2026-09-20',notes:null,actorId:'u1',createdAt:'2026-09-08T09:00:00Z'}],isLoading:false}),
   useGarageDepartures:()=>({data:h.departures,isLoading:false}),
   useRecordGarageDeparture:()=>({mutate:h.recordDeparture,isPending:false}),
   useRecordGarageReturn:()=>({mutate:h.recordReturn,isPending:false}),
@@ -64,11 +64,15 @@ describe('انطلاقية السائقين وتفاصيل الآلية',()=>{
   })
 
   it('انطلاقة مفتوحة: يظهر «في الميدان» وزر تسجيل عودة إلى الكراج',()=>{
-    h.departures=[h.departure];renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-field')).toBeInTheDocument();expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('في الميدان');expect(screen.queryByTestId('depart-v1')).not.toBeInTheDocument();fireEvent.click(screen.getByTestId('return-v1'));expect(h.recordReturn).toHaveBeenCalledWith({departureId:'d1'})
+    h.departures=[h.departure];renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-field')).toBeInTheDocument();expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('في الميدان');expect(screen.queryByTestId('depart-v1')).not.toBeInTheDocument();fireEvent.click(screen.getByTestId('return-v1'));expect(h.recordReturn).toHaveBeenCalledWith({departureId:'d1'});expect(screen.getByTestId('change-assignment-v1')).toBeDisabled();expect(screen.getByTestId('change-assignment-v1')).toHaveAttribute('title','سجّل عودة الآلية قبل تغيير الإسناد')
   })
 
   it('انطلاقة مغلقة اليوم: يعرض «عادت إلى الكراج» مع زر انطلاق جديد',()=>{
     h.departures=[{...h.departure,returnedAt:'2026-09-08T15:30:00Z'}];renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-returned')).toBeInTheDocument();expect(screen.getByTestId('depart-v1')).toBeInTheDocument()
+  })
+
+  it('يقفل تغيير الإسناد والأرشفة في صفحة التفاصيل أثناء وجود الآلية في الميدان',()=>{
+    h.departures=[h.departure];renderDetail();expect(screen.getByText(/الآلية في الميدان الآن/)).toBeInTheDocument();expect(screen.getByTestId('detail-change-assignment')).toBeDisabled();expect(screen.getByTestId('open-archive-vehicle')).toBeDisabled()
   })
 
   it('يعرض الصورة وشارة DB في بطاقة الآلية',()=>{
@@ -80,7 +84,7 @@ describe('انطلاقية السائقين وتفاصيل الآلية',()=>{
   })
 
   it('تعرض صفحة التفاصيل والسجل والموعد التالي للتعبئة',()=>{
-    renderPage(<VehicleDetailPage/>,'/central-garage/vehicles-database/v1');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('CH-100');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('سجل الانطلاقية');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('2026-09-20');expect(screen.getByText('الحالي')).toBeInTheDocument()
+    renderPage(<VehicleDetailPage/>,'/central-garage/vehicles-database/v1');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('CH-100');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('سجل الانطلاقية');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('2026-09-20');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('غالون');expect(screen.getByTestId('vehicle-detail-page')).toHaveTextContent('خزان الهيدروليك');expect(screen.getByText('الحالي')).toBeInTheDocument()
   })
 
   it('يعدل بيانات الآلية الأساسية دون تغيير الإسناد التاريخي',()=>{

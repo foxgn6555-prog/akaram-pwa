@@ -6,6 +6,7 @@ import { API } from '@lib/constants/api.constants'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import type { GarageReportFilter } from './reports'
+import type { GarageFuelUnit } from './fuel-units'
 import type { CreateGarageVehicleInput, GarageDashboardFilter, GarageFuelType, GarageShift, GarageTankZeroRequest, GarageVehicleFilter } from './types'
 
 export function useGarageAreas() {
@@ -87,7 +88,7 @@ function useInvalidateGarageFuel() {
   const qc=useQueryClient()
   return () => { void qc.invalidateQueries({queryKey:centralGarageKeys.tanks()});void qc.invalidateQueries({queryKey:centralGarageKeys.dashboard()}) }
 }
-export function useAddGarageTank(){const invalidate=useInvalidateGarageFuel();const addToast=useUiStore(s=>s.addToast);const onError=useGarageMutationError('addGarageTank');return useMutation({mutationFn:(x:{fuelType:GarageFuelType;tankName:string;unit?:string;capacity:number;initialQuantity:number;lowStockThreshold:number})=>centralGarage.addTank(x.fuelType,x.tankName,x.unit??'لتر',x.capacity,x.initialQuantity,x.lowStockThreshold),onSuccess:()=>{invalidate();addToast({type:'success',message:'تم إنشاء الخزان وتسجيل الكمية الابتدائية'})},onError})}
+export function useAddGarageTank(){const invalidate=useInvalidateGarageFuel();const addToast=useUiStore(s=>s.addToast);const onError=useGarageMutationError('addGarageTank');return useMutation({mutationFn:(x:{fuelType:GarageFuelType;tankName:string;unit?:GarageFuelUnit;capacity:number;initialQuantity:number;lowStockThreshold:number})=>centralGarage.addTank(x.fuelType,x.tankName,x.unit??'liter',x.capacity,x.initialQuantity,x.lowStockThreshold),onSuccess:()=>{invalidate();addToast({type:'success',message:'تم إنشاء الخزان وتسجيل الكمية الابتدائية'})},onError})}
 export function useAddGarageTankStock(){const qc=useQueryClient();const invalidate=useInvalidateGarageFuel();const addToast=useUiStore(s=>s.addToast);const onError=useGarageMutationError('addGarageTankStock');return useMutation({mutationFn:(x:{tankId:string;quantity:number;notes?:string})=>centralGarage.addTankStock(x.tankId,x.quantity,x.notes),onSuccess:(_d,x)=>{invalidate();void qc.invalidateQueries({queryKey:centralGarageKeys.tankMovements(x.tankId)});addToast({type:'success',message:'تمت إضافة الكمية إلى الخزان'})},onError})}
 
 export function useFillGarageVehicle(){const qc=useQueryClient();const invalidate=useInvalidateGarageFuel();const addToast=useUiStore(s=>s.addToast);const onError=useGarageMutationError('fillGarageVehicle');return useMutation({mutationFn:(x:{tankId:string;vehicleId:string;quantity:number;nextRefillDate?:string;notes?:string})=>centralGarage.fillVehicle(x.tankId,x.vehicleId,x.quantity,x.nextRefillDate,x.notes),onSuccess:(_d,x)=>{invalidate();void qc.invalidateQueries({queryKey:centralGarageKeys.tankMovements(x.tankId)});void qc.invalidateQueries({queryKey:centralGarageKeys.movements(x.vehicleId)});addToast({type:'success',message:'تمت تعبئة الآلية وخصم الكمية من الخزان'})},onError})}

@@ -86,7 +86,7 @@ export default function DriversDispatchPage() {
                     {state.kind === 'field'
                       ? <button data-testid={`return-${vehicle.id}`} disabled={recordReturn.isPending} onClick={()=>recordReturn.mutate({departureId:state.departure.id})} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white disabled:opacity-60"><LogIn size={15}/>تسجيل عودة إلى الكراج</button>
                       : <button data-testid={`depart-${vehicle.id}`} disabled={recordDeparture.isPending} onClick={()=>recordDeparture.mutate({vehicleId:vehicle.id})} className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 text-xs font-black text-white disabled:opacity-60"><LogOut size={15}/>تسجيل انطلاق من الكراج</button>}
-                    <button data-testid={`change-assignment-${vehicle.id}`} onClick={()=>setSelected(vehicle)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-xs font-black text-cyan-800"><ClipboardEdit size={15}/>تغيير الانطلاقية</button>
+                    <button data-testid={`change-assignment-${vehicle.id}`} disabled={state.kind==='field'} title={state.kind==='field'?'سجّل عودة الآلية قبل تغيير الإسناد':undefined} onClick={()=>setSelected(vehicle)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-xs font-black text-cyan-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"><ClipboardEdit size={15}/>{state.kind==='field'?'الإسناد مقفل أثناء الخروج':'تغيير الانطلاقية'}</button>
                   </div>
                 </article>
               })}

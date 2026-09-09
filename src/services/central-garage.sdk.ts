@@ -2,6 +2,7 @@
 import { SDKError } from '@lib/errors/SDKError'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { GarageReportFilter, GarageReportResult } from '@features/central-garage/reports'
+import type { GarageFuelUnit } from '@features/central-garage/fuel-units'
 import type {
   CreateGarageVehicleInput,
   GarageArea,
@@ -53,17 +54,21 @@ function assignmentRow(row: Record<string, unknown>): GarageDriverAssignment {
 function tankRow(row: Record<string, unknown>): GarageTank {
   return {
     id: String(row.id), fuelType: row.fuel_type as GarageFuelType, tankName: String(row.tank_name),
-    unit: (row.unit as string) ?? 'لتر', capacity: Number(row.capacity), currentQuantity: Number(row.current_quantity),
+    unit: (row.unit as GarageFuelUnit) ?? 'liter', capacity: Number(row.capacity), currentQuantity: Number(row.current_quantity),
     lowStockThreshold: Number(row.low_stock_threshold), createdAt: String(row.created_at),
     updatedAt: String(row.updated_at), archivedAt: (row.archived_at as string | null) ?? null,
   }
 }
 
 function movementRow(row: Record<string, unknown>): GarageInventoryMovement {
+  const tank = (Array.isArray(row.garage_tanks) ? row.garage_tanks[0] : row.garage_tanks) as Record<string, unknown> | null | undefined
   return {
     id: String(row.id), tankId: String(row.tank_id), vehicleId: (row.vehicle_id as string | null) ?? null,
     movementType: row.movement_type as GarageInventoryMovement['movementType'], quantity: Number(row.quantity),
     quantityBefore: Number(row.quantity_before), quantityAfter: Number(row.quantity_after),
+    fuelType: (tank?.fuel_type as GarageFuelType | undefined) ?? null,
+    unit: (tank?.unit as GarageFuelUnit | undefined) ?? null,
+    tankName: tank?.tank_name ? String(tank.tank_name) : null,
     nextRefillDate: (row.next_refill_date as string | null) ?? null,
     notes: (row.notes as string | null) ?? null, actorId: String(row.actor_id), createdAt: String(row.created_at),
   }
@@ -204,7 +209,7 @@ export const centralGarage = {
     return (rows ?? []).map(tankRow)
   },
 
-  async addTank(fuelType: GarageFuelType, tankName: string, unit: string, capacity: number, initialQuantity = 0, lowStockThreshold = 20): Promise<GarageTank> {
+  async addTank(fuelType: GarageFuelType, tankName: string, unit: GarageFuelUnit, capacity: number, initialQuantity = 0, lowStockThreshold = 20): Promise<GarageTank> {
     const data = await sdkGuard(supabase.rpc('garage_add_tank', {
       p_fuel_type: fuelType, p_tank_name: tankName, p_unit: unit, p_capacity: capacity,
       p_initial_quantity: initialQuantity, p_low_stock_threshold: lowStockThreshold,
@@ -226,7 +231,7 @@ export const centralGarage = {
   },
 
   async movements(filter: { tankId?: string; vehicleId?: string } = {}): Promise<GarageInventoryMovement[]> {
-    let query = supabase.from('garage_inventory_movements').select('*').order('created_at', { ascending: false }).limit(200)
+    let query = supabase.from('garage_inventory_movements').select('*,garage_tanks!inner(fuel_type,unit,tank_name)').order('created_at', { ascending: false }).limit(1000)
     if (filter.tankId) query = query.eq('tank_id', filter.tankId)
     if (filter.vehicleId) query = query.eq('vehicle_id', filter.vehicleId)
     const rows = await sdkGuard(query.returns<Record<string, unknown>[]>() )

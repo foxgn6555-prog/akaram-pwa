@@ -54,7 +54,7 @@ begin
   if n<>1 then raise exception 'VEHICLE_CURRENT_ASSIGNMENT_FAIL'; end if;
 
   -- إنشاء خزان بكمية أولية يسجل حركة آلية، ثم إضافة مخزون ضمن السعة.
-  t := public.garage_add_tank('gas_oil','خزان الكاز الرئيسي',1000,200,15);
+  t := public.garage_add_tank('gas_oil','خزان الكاز الرئيسي','liter',1000,200,15);
   if t.current_quantity<>200 then raise exception 'TANK_INITIAL_FAIL'; end if;
   select count(*) into n from public.garage_inventory_movements where tank_id=t.id and movement_type='stock_in' and quantity=200 and quantity_before=0 and quantity_after=200;
   if n<>1 then raise exception 'INITIAL_STOCK_MOVEMENT_FAIL'; end if;
@@ -69,12 +69,12 @@ begin
   end;
 
   -- صرف آمن مع الموعد التالي؛ لا يرسل العميل وقت العملية.
-  m := public.garage_fill_vehicle(t.id,v.id,50,(timezone('Asia/Baghdad',now())::date+7),'تعبئة اختبارية');
+  m := public.garage_fill_vehicle(t.id,v.id,50,null,'تعبئة كاز بلا موعد تالٍ');
   if m.quantity<>-50 or m.quantity_before<>300 or m.quantity_after<>250 then raise exception 'VEHICLE_FILL_BALANCE_FAIL'; end if;
-  if m.next_refill_date<>(timezone('Asia/Baghdad',now())::date+7) then raise exception 'NEXT_REFILL_DATE_FAIL'; end if;
+  if m.next_refill_date is not null then raise exception 'GAS_OIL_REFILL_DATE_STORED'; end if;
   if abs(extract(epoch from(now()-m.created_at)))>10 then raise exception 'FILL_SERVER_TIME_FAIL'; end if;
   begin
-    perform public.garage_fill_vehicle(t.id,v.id,251,(timezone('Asia/Baghdad',now())::date+8),null);
+    perform public.garage_fill_vehicle(t.id,v.id,251,null,null);
     raise exception 'INSUFFICIENT_FILL_ACCEPTED';
   exception when others then
     if sqlerrm='INSUFFICIENT_FILL_ACCEPTED' then raise; end if;
@@ -85,7 +85,7 @@ begin
     raise exception 'PAST_REFILL_DATE_ACCEPTED';
   exception when others then
     if sqlerrm='PAST_REFILL_DATE_ACCEPTED' then raise; end if;
-    if sqlerrm not like '%GARAGE_NEXT_REFILL_DATE_INVALID%' then raise; end if;
+    if sqlerrm not like '%GARAGE_GAS_OIL_REFILL_DATE_NOT_ALLOWED%' then raise; end if;
   end;
 
   -- البحث والفلاتر يعيدان الآلية الصحيحة.
@@ -94,18 +94,22 @@ begin
 
   summary := public.garage_dashboard_summary(null,null);
   if (summary->>'vehiclesTotal')::int<>1 or (summary->>'driversTotal')::int<>1
-    or (summary->>'dispatchesTotal')::int<>1 or (summary->'consumptionByType'->>'gas_oil')::numeric<>50
-    or jsonb_array_length(summary->'dailyConsumption')<>30 or jsonb_array_length(summary->'topConsumers')<>1
+    or (summary->>'dispatchesTotal')::int<>0 or (summary->'consumptionByType'->>'gas_oil')::numeric<>50
+    or summary->'tankStock'->0->>'unit'<>'liter' or (summary->'consumptionByUnit'->>'liter')::numeric<>50
+    or jsonb_array_length(summary->'dailyConsumption')<>0 or jsonb_array_length(summary->'topConsumers')<>1
     or jsonb_array_length(summary->'recentFills')<>1 then raise exception 'DASHBOARD_SUMMARY_FAIL'; end if;
   summary := public.garage_dashboard_summary(null,null,8::smallint,'gas_oil');
   if (summary->>'vehiclesTotal')::int<>1 or (summary->>'sectorId')::int<>8
-    or summary->>'fuelType'<>'gas_oil' then raise exception 'DASHBOARD_FILTER_FAIL'; end if;
+    or summary->>'fuelType'<>'gas_oil' or jsonb_array_length(summary->'dailyConsumption')<>30
+    or jsonb_array_length(summary->'monthlyConsumption')<>1 then raise exception 'DASHBOARD_FILTER_FAIL'; end if;
 
   -- مركز التقارير يجمع الإضافة والاستهلاك ويطبق فلاتر الآلية والخزان والمادة والموقع.
   summary := public.garage_consumption_report(null,null,null,'gas_oil',t.id,null,null,50,0);
   if (summary->>'totalCount')::int<>3 or (summary->>'stockInTotal')::numeric<>300
     or (summary->>'consumptionTotal')::numeric<>50 or jsonb_array_length(summary->'rows')<>3
     or jsonb_array_length(summary->'byTank')<>1 or jsonb_array_length(summary->'byVehicle')<>1
+    or jsonb_array_length(summary->'byUnit')<>1 or summary->'byUnit'->0->>'unit'<>'liter'
+    or summary->'rows'->0->>'unit'<>'liter'
   then raise exception 'GARAGE_REPORT_SUMMARY_FAIL'; end if;
   summary := public.garage_consumption_report(null,null,8::smallint,'gas_oil',t.id,v.id,'vehicle_fill',10,0);
   if (summary->>'totalCount')::int<>1 or (summary->>'consumptionTotal')::numeric<>50
@@ -135,13 +139,32 @@ begin
 
   -- إذا تغير الرصيد بعد الطلب تُمنع الموافقة القديمة لمنع فقد مخزون جديد.
   perform set_config('request.jwt.claim.sub',garage_u::text,false);
-  t2 := public.garage_add_tank('hydraulic','خزان الهيدروليك',500,100,20);
+  t2 := public.garage_add_tank('hydraulic','خزان الهيدروليك','gallon',500,100,20);
+  begin
+    perform public.garage_fill_vehicle(t2.id,v.id,10,null,null);
+    raise exception 'NON_GAS_REFILL_DATE_OMITTED';
+  exception when others then
+    if sqlerrm='NON_GAS_REFILL_DATE_OMITTED' then raise; end if;
+    if sqlerrm not like '%GARAGE_NEXT_REFILL_DATE_INVALID%' then raise; end if;
+  end;
+  m := public.garage_fill_vehicle(t2.id,v.id,10,(timezone('Asia/Baghdad',now())::date+5),'موعد هيدروليك');
+  if m.next_refill_date<>(timezone('Asia/Baghdad',now())::date+5) then raise exception 'NON_GAS_REFILL_DATE_FAIL'; end if;
   r := public.garage_request_tank_zero(t2.id,'اختبار تغير الرصيد');
   perform public.garage_add_tank_stock(t2.id,10,'إضافة بعد الطلب');
-  perform public.garage_add_tank('grease','خزان الدهن',300,30,20);
-  perform public.garage_add_tank('c_oil','خزان C-Oil',300,40,20);
+  perform public.garage_add_tank('grease','خزان الدهن','kilogram',300,30,20);
+  perform public.garage_add_tank('c_oil','خزان C-Oil','barrel',300,40,20);
   select count(distinct fuel_type) into n from public.garage_tanks;
   if n<>4 then raise exception 'FOUR_FUEL_TYPES_FAIL'; end if;
+  select count(distinct unit) into n from public.garage_tanks;
+  if n<>4 then raise exception 'GARAGE_TANK_UNITS_FAIL'; end if;
+  if to_regprocedure('public.garage_add_tank(text,text,numeric,numeric,numeric)') is not null then raise exception 'OLD_ADD_TANK_OVERLOAD_LEFT'; end if;
+  begin
+    perform public.garage_add_tank('c_oil','وحدة مرفوضة','meter',100,0,20);
+    raise exception 'INVALID_TANK_UNIT_ACCEPTED';
+  exception when others then
+    if sqlerrm='INVALID_TANK_UNIT_ACCEPTED' then raise; end if;
+    if sqlerrm not like '%GARAGE_TANK_UNIT_INVALID%' then raise; end if;
+  end;
   perform set_config('request.jwt.claim.sub',it_u::text,false);
   begin
     perform public.garage_decide_tank_zero(r.id,true,'موافقة قديمة');
