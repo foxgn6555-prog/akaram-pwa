@@ -14,6 +14,7 @@ const StatementsPage = lazy(() => import('./pages/Statements/StatementsPage'))
 const NewDisclosure = lazy(() => import('./pages/Statements/NewDisclosure'))
 const EditDisclosure = lazy(() => import('./pages/Statements/NewDisclosure'))
 const DisclosuresArchivePage = lazy(() => import('./pages/Archive/DisclosuresArchivePage'))
+const DisclosureReportsPage = lazy(() => import('./pages/Reports/DisclosureReportsPage'))
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -24,5 +25,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'statements', element: s(<StatementsPage />) },
   { path: 'statements/new', element: s(<NewDisclosure />) },
   { path: 'statements/:id/edit', element: s(<EditDisclosure />) },
+  { path: 'reports', element: s(<DisclosureReportsPage />) },
   { path: 'archive', element: s(<DisclosuresArchivePage />) },
 ]

@@ -9,6 +9,9 @@ import type {
   GarageDashboardFilter,
   GarageDashboardSummary,
   GarageDeparture,
+  GarageDispatchRecipient,
+  GarageTripDay,
+  GarageVehicleShiftAssignment,
   GarageDriverAssignment,
   GarageFuelType,
   GarageInventoryMovement,
@@ -32,6 +35,8 @@ function vehicleRow(row: Record<string, unknown>): GarageVehicle {
   return {
     id: String(row.id), vehicleName: String(row.vehicle_name), dbNumber: String(row.db_number),
     plateNumber: String(row.plate_number), chassisNumber: String(row.chassis_number),
+    vehicleCategory: (row.vehicle_category as GarageVehicle['vehicleCategory']) ?? 'other', ownershipType: (row.ownership_type as GarageVehicle['ownershipType']) ?? 'owned',
+    lessorName:(row.lessor_name as string|null)??null,rentalContractNo:(row.rental_contract_no as string|null)??null,rentalStartDate:(row.rental_start_date as string|null)??null,rentalEndDate:(row.rental_end_date as string|null)??null,modelYear:row.model_year==null?null:Number(row.model_year),vehicleColor:(row.vehicle_color as string|null)??null,specifications:(row.specifications as string|null)??null,
     imagePath: String(row.image_path), shift: row.shift as GarageShift,
     driverName: String(row.driver_name), sectorId: Number(row.sector_id),
     areaName: String(row.area_name ?? ''), parentSector: row.parent_sector as GarageVehicle['parentSector'],
@@ -88,7 +93,8 @@ function departureRow(row: Record<string, unknown>): GarageDeparture {
   return {
     id: String(row.id), vehicleId: String(row.vehicle_id), driverName: String(row.driver_name),
     shift: row.shift as GarageShift, sectorId: Number(row.sector_id),
-    departedAt: String(row.departed_at), returnedAt: (row.returned_at as string | null) ?? null,
+    departedAt: String(row.departed_at), arrivedAt:(row.arrived_at as string|null)??null,siteDepartedAt:(row.site_departed_at as string|null)??null,returnedAt: (row.returned_at as string | null) ?? null,
+    recipientManagerId:(row.recipient_manager_id as string|null)??null,recipientManagerName:(row.recipient_manager_name as string|null)??null,arrivalNotes:(row.arrival_notes as string|null)??null,siteDepartureNotes:(row.site_departure_notes as string|null)??null,
     notes: (row.notes as string | null) ?? null, vehicleName: String(row.vehicle_name),
     dbNumber: String(row.db_number), imagePath: String(row.image_path),
     areaName: String(row.area_name ?? ''), parentSector: row.parent_sector as GarageDeparture['parentSector'],
@@ -156,7 +162,7 @@ export const centralGarage = {
         p_vehicle_name: input.vehicleName, p_db_number: input.dbNumber,
         p_plate_number: input.plateNumber, p_chassis_number: input.chassisNumber,
         p_image_path: imagePath, p_shift: input.shift, p_driver_name: input.driverName,
-        p_sector_id: input.sectorId,
+        p_sector_id: input.sectorId,p_vehicle_category:input.vehicleCategory??'other',p_ownership_type:input.ownershipType??'owned',p_lessor_name:input.lessorName||null,p_rental_contract_no:input.rentalContractNo||null,p_rental_start_date:input.rentalStartDate||null,p_rental_end_date:input.rentalEndDate||null,p_model_year:input.modelYear??null,p_vehicle_color:input.vehicleColor||null,p_specifications:input.specifications||null,
       }))
       return vehicleRow(data as unknown as Record<string, unknown>)
     } catch (error) {
@@ -171,7 +177,7 @@ export const centralGarage = {
     try {
       const data = await sdkGuard(supabase.rpc('garage_update_vehicle', {
         p_vehicle_id: id, p_vehicle_name: input.vehicleName, p_db_number: input.dbNumber,
-        p_plate_number: input.plateNumber, p_chassis_number: input.chassisNumber, p_image_path: imagePath,
+        p_plate_number: input.plateNumber, p_chassis_number: input.chassisNumber, p_image_path: imagePath,p_vehicle_category:input.vehicleCategory??'other',p_ownership_type:input.ownershipType??'owned',p_lessor_name:input.lessorName||null,p_rental_contract_no:input.rentalContractNo||null,p_rental_start_date:input.rentalStartDate||null,p_rental_end_date:input.rentalEndDate||null,p_model_year:input.modelYear??null,p_vehicle_color:input.vehicleColor||null,p_specifications:input.specifications||null,
       }))
       return vehicleRow(data as unknown as Record<string, unknown>)
     } catch (error) {
@@ -269,8 +275,19 @@ export const centralGarage = {
     return departures
   },
 
-  async recordDeparture(vehicleId: string, notes?: string): Promise<GarageDeparture> {
-    const data = await sdkGuard(supabase.rpc('garage_record_departure', { p_vehicle_id: vehicleId, p_notes: notes?.trim() || null }))
+  async departureDays(limit=60,offset=0):Promise<GarageTripDay[]>{const rows=await sdkGuard(supabase.rpc('garage_departure_days',{p_limit:limit,p_offset:offset}));return ((rows??[]) as unknown as Record<string,unknown>[]).map(r=>({tripDay:String(r.trip_day),totalCount:Number(r.total_count),openCount:Number(r.open_count),firstDepartureAt:String(r.first_departure_at),lastActivityAt:String(r.last_activity_at)}))},
+
+  async departuresForDay(day:string):Promise<GarageDeparture[]>{const data=await sdkGuard(supabase.rpc('garage_departures_for_day',{p_day:day}));const departures=((data??[]) as unknown as Record<string,unknown>[]).map(departureRow);const signed=departures.length?await sdkGuard(supabase.storage.from('garage-vehicles').createSignedUrls(departures.map(r=>r.imagePath),600)):[];departures.forEach((r,i)=>{if(signed[i]?.signedUrl)r.imageUrl=signed[i].signedUrl});return departures},
+
+  async shiftAssignments(vehicleId:string):Promise<GarageVehicleShiftAssignment[]>{const rows=await sdkGuard(supabase.rpc('garage_vehicle_shift_assignments_list',{p_vehicle_id:vehicleId}));return((rows??[])as unknown as Record<string,unknown>[]).map(r=>({id:String(r.id),vehicleId:String(r.vehicle_id),shift:r.shift as GarageShift,driverName:String(r.driver_name),sectorId:Number(r.sector_id),areaName:String(r.area_name),parentSector:r.parent_sector as GarageVehicleShiftAssignment['parentSector'],startsAt:String(r.starts_at),endsAt:r.ends_at as string|null,changeReason:r.change_reason as string|null}))},
+  async setShiftAssignment(vehicleId:string,shift:GarageShift,driverName:string,sectorId:number,reason:string){return sdkGuard(supabase.rpc('garage_set_vehicle_shift_assignment',{p_vehicle_id:vehicleId,p_shift:shift,p_driver_name:driverName.trim(),p_sector_id:sectorId,p_reason:reason.trim()}))},
+  async shiftDispatchRecipients(vehicleId:string,shift:GarageShift):Promise<GarageDispatchRecipient[]>{const rows=await sdkGuard(supabase.rpc('garage_shift_dispatch_recipients',{p_vehicle_id:vehicleId,p_shift:shift}));return((rows??[])as unknown as Record<string,unknown>[]).map(r=>({userId:String(r.user_id),managerName:String(r.manager_name),shift:r.shift as GarageShift,sectors:Array.isArray(r.sectors)?r.sectors as number[]:[]}))},
+  async recordShiftDeparture(vehicleId:string,shift:GarageShift,recipientManagerId:string,notes?:string):Promise<GarageDeparture>{const data=await sdkGuard(supabase.rpc('garage_record_shift_departure',{p_vehicle_id:vehicleId,p_shift:shift,p_notes:notes?.trim()||null,p_recipient_manager_id:recipientManagerId}));return departureRow(data as unknown as Record<string,unknown>)},
+
+  async dispatchRecipients(vehicleId:string):Promise<GarageDispatchRecipient[]>{const rows=await sdkGuard(supabase.rpc('garage_dispatch_recipients',{p_vehicle_id:vehicleId}));return ((rows??[]) as unknown as Record<string,unknown>[]).map(r=>({userId:String(r.user_id),managerName:String(r.manager_name),shift:r.shift as GarageShift,sectors:Array.isArray(r.sectors)?r.sectors as number[]:[]}))},
+
+  async recordDeparture(vehicleId: string, notes?: string,recipientManagerId?:string): Promise<GarageDeparture> {
+    const data = await sdkGuard(supabase.rpc('garage_record_departure', { p_vehicle_id: vehicleId, p_notes: notes?.trim() || null,p_recipient_manager_id:recipientManagerId??null }))
     return departureRow(data as unknown as Record<string, unknown>)
   },
 
@@ -293,8 +310,8 @@ export const centralGarage = {
     const data = await sdkGuard(supabase.rpc('garage_consumption_report', {
       p_from: filter.from ?? null, p_to: filter.to ?? null, p_sector_id: filter.sectorId ?? null,
       p_fuel_type: filter.fuelType ?? null, p_tank_id: filter.tankId ?? null,
-      p_vehicle_id: filter.vehicleId ?? null, p_movement_type: filter.movementType ?? null,
-      p_limit: pageSize, p_offset: (page - 1) * pageSize,
+      p_vehicle_id: filter.vehicleId ?? null, p_vehicle_ids: filter.vehicleIds ?? null,
+      p_movement_type: filter.movementType ?? null, p_limit: pageSize, p_offset: (page - 1) * pageSize,
     }))
     return data as unknown as GarageReportResult
   },

@@ -64,7 +64,8 @@ const COLUMNS: ReportColumn[] = [
  *  · توزيع الكشوفات حسب نوع المخالفة (أعمدة)
  *  · حالة الكشوفات (مسودة/مرفوعة) (دائري)
  */
-export async function toExcel(list: Disclosure[]): Promise<ExcelJS.Workbook> {
+export interface DisclosureReportOptions { title?: string; description?: string; from?: string; to?: string }
+export async function toExcel(list: Disclosure[],options:DisclosureReportOptions={}): Promise<ExcelJS.Workbook> {
   const today = new Date().toISOString().slice(0, 10)
 
   const rows = list.map((d) => ({
@@ -95,8 +96,8 @@ export async function toExcel(list: Disclosure[]): Promise<ExcelJS.Workbook> {
     sheetName: 'الكشوفات',
     company: 'شركة جزيرة الأكرام',
     companySub: 'وحدة الكشوفات — سجل الكشوفات التأديبية',
-    title: 'سجل الكشوفات التأديبية',
-    meta: `تاريخ التصدير: ${today}   •   عدد الكشوفات: ${list.length}   •   وُلِّد آلياً من نظام بلدية جزيرة الأكرام`,
+    title: options.title??'سجل الكشوفات التأديبية',
+    meta: `${options.description?`${options.description}   •   `:''}${options.from&&options.to?`الفترة: ${options.from} إلى ${options.to}   •   `:''}تاريخ التصدير: ${today}   •   عدد الكشوفات: ${list.length}   •   وُلِّد آلياً من نظام شركة جزيرة الأكرام`,
     columns: COLUMNS,
     rows,
     fileName: `كشوفات-${today}.xlsx`,
@@ -264,4 +265,9 @@ export function printDisclosure(d: Disclosure): void {
   if (!win) throw new Error('تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة')
   win.document.write(htmlDoc(disclosureHtml(d)))
   win.document.close()
+}
+
+/** تقرير جماعي مؤسسي للكشوفات مع مؤشرات ورسوم وجدول كامل. */
+export function printDisclosureReport(list:Disclosure[],options:DisclosureReportOptions={},preparedWindow?:Window|null):void{
+  const win=preparedWindow??window.open('','_blank','width=1200,height=850');if(!win)throw new Error('تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة');const title=options.title??'تقرير الكشوفات التأديبية';const byViolation=(Object.keys(VIOLATION_LABELS) as ViolationType[]).map(key=>({label:VIOLATION_LABELS[key],value:list.filter(d=>d.violation_type===key).length}));const max=Math.max(1,...byViolation.map(x=>x.value));const submitted=list.filter(d=>d.status==='submitted_to_deputy').length;win.opener=null;win.document.open();win.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#edf3f7;color:#172033;font-family:Tahoma,Arial,sans-serif}.sheet{max-width:1200px;margin:auto;background:#fff;padding:24px}.head{display:flex;align-items:center;gap:14px;border-bottom:4px solid #075985;padding-bottom:14px}.head img{width:65px;height:65px;object-fit:contain}.head h1{margin:0;font-size:22px}.head p{margin:5px 0;color:#52677a}.date{margin-right:auto;text-align:left;font-size:11px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.card{border:1px solid #d6e1e8;border-radius:14px;padding:13px;background:#f8fafc}.card b{display:block;font-size:24px;color:#075985;margin-top:5px}.charts{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.box{border:1px solid #d6e1e8;border-radius:15px;padding:14px}.box h2{font-size:14px;margin:0 0 12px}.bar{display:grid;grid-template-columns:100px 1fr 30px;gap:8px;align-items:center;font-size:10px;margin:7px 0}.track{height:11px;background:#e5edf2;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#14b8a6,#075985)}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:9px}thead{display:table-header-group}th{background:#083344;color:#fff}th,td{padding:6px;border:1px solid #d7e1e7;text-align:right}tbody tr:nth-child(even){background:#f5f8fa}tr{break-inside:avoid}.footer{margin-top:12px;border-top:1px solid #d7e1e7;padding-top:9px;font-size:9px;color:#64748b}@media print{body{background:#fff}.sheet{padding:0}.box,.card{break-inside:avoid}}</style></head><body><main class="sheet"><header class="head"><img src="${logoUrl()}" alt="شعار الشركة"><div><h1>شركة جزيرة الأكرام</h1><p>${esc(title)}</p><small>${esc(options.description??'تقرير تشغيلي للكشوفات التأديبية')}</small></div><div class="date">${options.from&&options.to?`الفترة: ${esc(options.from)} — ${esc(options.to)}<br>`:''}${new Date().toLocaleString('ar-IQ')}</div></header><section class="cards"><div class="card">إجمالي الكشوفات<b>${list.length}</b></div><div class="card">مرفوعة للمعاون<b>${submitted}</b></div><div class="card">مسودات<b>${list.length-submitted}</b></div><div class="card">الأشخاص<b>${new Set(list.map(d=>d.driver_name)).size}</b></div></section><section class="charts"><div class="box"><h2>التوزيع حسب نوع المخالفة</h2>${byViolation.map(x=>`<div class="bar"><span>${esc(x.label)}</span><div class="track"><div class="fill" style="width:${x.value/max*100}%"></div></div><b>${x.value}</b></div>`).join('')}</div><div class="box"><h2>ملخص التقرير</h2><p>نسبة المرفوع للمعاون: <b>${list.length?Math.round(submitted/list.length*100):0}%</b></p><p>عدد السائقين: <b>${new Set(list.map(d=>d.driver_name)).size}</b></p><p>عدد منظمي الكشوفات: <b>${new Set(list.map(d=>d.prepared_by_name).filter(Boolean)).size}</b></p></div></section><table><thead><tr><th>#</th><th>الرقم</th><th>التاريخ</th><th>السائق</th><th>DB</th><th>الآلية</th><th>النوع</th><th>الإجراء</th><th>الحالة</th><th>القاطع</th><th>منظم الكشف</th><th>التفاصيل</th></tr></thead><tbody>${list.map((d,i)=>`<tr><td>${i+1}</td><td>${esc(refLabel(d))}</td><td>${esc(d.log_date)}</td><td>${esc(d.driver_name)}</td><td>${esc(d.db_number)}</td><td>${esc(d.vehicle_type??'—')}</td><td>${esc(VIOLATION_LABELS[d.violation_type])}</td><td>${esc(d.penalty_type?PENALTY_LABELS[d.penalty_type]:'—')}</td><td>${d.status==='draft'?'مسودة':'مرفوع'}</td><td>${esc(d.sector??'—')}</td><td>${esc(d.prepared_by_name??'—')}</td><td>${esc(d.details)}</td></tr>`).join('')}</tbody></table><footer class="footer">تقرير إلكتروني صادر من بوابة الكشوفات · شركة جزيرة الأكرام</footer></main><script>addEventListener('load',()=>setTimeout(()=>print(),300))</script></body></html>`);win.document.close()
 }

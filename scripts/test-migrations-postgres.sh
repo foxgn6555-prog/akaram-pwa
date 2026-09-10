@@ -40,11 +40,16 @@ for test_file in \
   supabase/tests/round2_smoke.sql \
   supabase/tests/round6_isolation.sql \
   supabase/tests/manager_service_areas.sql \
+  supabase/tests/sector_breakdown_return_to_work.sql \
   supabase/tests/complaints_isolation.sql \
   supabase/tests/media_role_isolation.sql \
   supabase/tests/central_garage_role_isolation.sql \
   supabase/tests/central_garage_core.sql \
+  supabase/tests/central_garage_vehicle_details.sql \
+  supabase/tests/central_garage_multi_vehicle_reports.sql \
   supabase/tests/central_garage_departures.sql \
+  supabase/tests/garage_sector_handover.sql \
+  supabase/tests/vehicle_operational_cycles.sql \
   supabase/tests/complaints_workflow_isolation.sql \
   supabase/tests/complaints_end_to_end.sql \
   supabase/tests/complaints_batch_automation.sql \

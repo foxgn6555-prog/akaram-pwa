@@ -48,6 +48,7 @@ export default function DisclosuresDashboard() {
   const units = [
     { path: '/disclosures/statements', label: 'الكشوفات', hint: 'إنشاء وعرض الكشوفات', icon: 'file-text' as IconName },
     { path: '/disclosures/statements/new', label: 'إنشاء كشف', hint: 'كشف تأديبي جديد', icon: 'clipboard' as IconName },
+    { path: '/disclosures/reports', label: 'التقارير المخصصة', hint: 'حسب الشخص والفترة والمخالفة', icon: 'bar-chart' as IconName },
     { path: '/disclosures/archive', label: 'الأرشيف', hint: 'الكشوفات المؤرشفة', icon: 'archive-box' as IconName },
   ]
 

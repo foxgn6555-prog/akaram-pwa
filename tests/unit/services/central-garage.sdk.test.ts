@@ -155,7 +155,9 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
     const base={stockInTotal:300,consumptionTotal:50,resetTotal:0,byType:[],byTank:[],byVehicle:[],from:'2026-09-01',to:'2026-09-08'}
     h.state.result={data:{...base,totalCount:1,rows:[{id:'m1'}]},error:null}
     await centralGarage.report({from:'2026-09-01',to:'2026-09-08',sectorId:8,fuelType:'gas_oil',tankId:'t1',vehicleId:'v1',movementType:'vehicle_fill',page:2,pageSize:50})
-    expect(h.rpc).toHaveBeenCalledWith('garage_consumption_report',{p_from:'2026-09-01',p_to:'2026-09-08',p_sector_id:8,p_fuel_type:'gas_oil',p_tank_id:'t1',p_vehicle_id:'v1',p_movement_type:'vehicle_fill',p_limit:50,p_offset:50})
+    expect(h.rpc).toHaveBeenCalledWith('garage_consumption_report',{p_from:'2026-09-01',p_to:'2026-09-08',p_sector_id:8,p_fuel_type:'gas_oil',p_tank_id:'t1',p_vehicle_id:'v1',p_vehicle_ids:null,p_movement_type:'vehicle_fill',p_limit:50,p_offset:50})
+    await centralGarage.report({vehicleIds:['v1','v2'],pageSize:25})
+    expect(h.rpc).toHaveBeenLastCalledWith('garage_consumption_report',expect.objectContaining({p_vehicle_id:null,p_vehicle_ids:['v1','v2'],p_limit:25}))
     h.rpc.mockResolvedValueOnce({data:{...base,totalCount:101,rows:Array.from({length:100},(_,i)=>({id:`m${i}`}))},error:null}).mockResolvedValueOnce({data:{...base,totalCount:101,rows:[{id:'m100'}]},error:null})
     const all=await centralGarage.reportAll({fuelType:'gas_oil'});expect(all.rows).toHaveLength(101)
   })
@@ -175,10 +177,14 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
     expect(departures[0]).toMatchObject({vehicleId:'v1',returnedAt:null,imageUrl:'https://signed/u/v.jpg'})
   })
 
+  it('يجلب فهرس مجلدات الأيام ويحمل محتوى يوم واحد',async()=>{h.state.result={data:[{trip_day:'2026-09-09',total_count:4,open_count:1,first_departure_at:'a',last_activity_at:'b'}],error:null};const days=await centralGarage.departureDays();expect(h.rpc).toHaveBeenCalledWith('garage_departure_days',{p_limit:60,p_offset:0});expect(days[0]).toMatchObject({tripDay:'2026-09-09',totalCount:4,openCount:1});h.state.result={data:[],error:null};await centralGarage.departuresForDay('2026-09-09');expect(h.rpc).toHaveBeenLastCalledWith('garage_departures_for_day',{p_day:'2026-09-09'})})
+
+  it('يجلب مسؤولي الاستلام المتوافقين عبر SDK',async()=>{h.state.result={data:[{user_id:'m1',manager_name:'مسؤول الكرادة',shift:'morning',sectors:[1,2]}],error:null};const rows=await centralGarage.dispatchRecipients('v1');expect(h.rpc).toHaveBeenCalledWith('garage_dispatch_recipients',{p_vehicle_id:'v1'});expect(rows[0]).toEqual({userId:'m1',managerName:'مسؤول الكرادة',shift:'morning',sectors:[1,2]})})
+
   it('يسجل انطلاق السائق وعودته عبر RPC حصراً (وقت الخادم)', async () => {
     h.state.result={data:{id:'d1',vehicle_id:'v1',driver_name:'علي',shift:'morning',sector_id:1,departed_at:'2026-09-08T07:30:00Z',returned_at:null,notes:null,vehicle_name:'كابسة',db_number:'DB-1',image_path:'u/v.jpg',area_name:'أرخيته',parent_sector:'karrada'},error:null}
-    await centralGarage.recordDeparture('v1',' خروج للوردية ')
-    expect(h.rpc).toHaveBeenCalledWith('garage_record_departure',{p_vehicle_id:'v1',p_notes:'خروج للوردية'})
+    await centralGarage.recordDeparture('v1',' خروج للوردية ','manager-1')
+    expect(h.rpc).toHaveBeenCalledWith('garage_record_departure',{p_vehicle_id:'v1',p_notes:'خروج للوردية',p_recipient_manager_id:'manager-1'})
     h.state.result={data:{...(h.state.result.data as Record<string, unknown>),returned_at:'2026-09-08T15:30:00Z'},error:null}
     const returned=await centralGarage.recordReturn('d1')
     expect(h.rpc).toHaveBeenLastCalledWith('garage_record_return',{p_departure_id:'d1'})

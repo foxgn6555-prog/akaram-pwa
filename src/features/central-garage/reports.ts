@@ -2,6 +2,7 @@ import type { GarageFuelUnit } from './fuel-units'
 import type { GarageFuelType, GarageParentSector } from './types'
 
 export type GarageMovementType = 'stock_in' | 'vehicle_fill' | 'approved_reset'
+export type GarageReportMode = 'all' | 'single_vehicle' | 'selected_vehicles'
 export interface GarageReportFilter {
   from?: string
   to?: string
@@ -9,6 +10,7 @@ export interface GarageReportFilter {
   fuelType?: GarageFuelType
   tankId?: string
   vehicleId?: string
+  vehicleIds?: string[]
   movementType?: GarageMovementType
   page?: number
   pageSize?: number
@@ -34,8 +36,17 @@ export interface GarageReportRow {
   areaName: string | null
   parentSector: GarageParentSector | null
 }
+export interface GarageReportVehicle {
+  id: string
+  vehicleName: string
+  dbNumber: string
+  driverName: string
+  plateNumber: string
+  areaName: string | null
+}
 export interface GarageReportResult {
   totalCount: number
+  selectedVehicles?: GarageReportVehicle[]
   stockInTotal: number
   consumptionTotal: number
   resetTotal: number

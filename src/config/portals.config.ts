@@ -77,6 +77,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/request',    labelKey: 'nav.mgr_request',    icon: 'send' },
     { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
     { path: '/manager/breakdown',  labelKey: 'nav.mgr_breakdown',  icon: 'alert-triangle' },
+    { path: '/manager/vehicle-trips', labelKey: 'nav.mgr_vehicle_trips', icon: 'truck' },
     { path: '/manager/complaints', labelKey: 'nav.mgr_complaints', icon: 'clipboard' },
     { path: '/manager/photos',     labelKey: 'nav.mgr_photos',     icon: 'photo' },
     { path: '/manager/archive',    labelKey: 'nav.mgr_archive',    icon: 'archive-box' },
@@ -188,6 +189,8 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
   [PORTALS.MAINTENANCE]: [
     { path: '/maintenance', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/maintenance/vehicle-cases', labelKey: 'nav.maintenance_cases', icon: 'settings' },
+    { path: '/maintenance/inventory', labelKey: 'nav.maintenance_inventory', icon: 'box' },
   ],
   [PORTALS.TRANSFER_STATION]: [
     { path: '/transfer-station', labelKey: 'nav.dashboard', icon: 'home', exact: true },
@@ -197,6 +200,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       ] },
     { path: '/transfer-station/saksat', labelKey: 'nav.ts_saksat', icon: 'send' },
     { path: '/transfer-station/trips', labelKey: 'nav.ts_trips', icon: 'truck' },
+    { path:'/transfer-station/vehicle-movements',labelKey:'nav.ts_vehicle_movements',icon:'truck' },
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
   ],
@@ -211,6 +215,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path:'/ops-room/operations-data',labelKey:'nav.ops_operations_data',icon:'bar-chart' },
   ],
 
   // ═══ وحدة الكشوفات ═══
@@ -264,6 +269,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/disclosures/statements/new', labelKey: 'nav.disc_new', icon: 'clipboard' },
       ],
     },
+    { path: '/disclosures/reports', labelKey: 'nav.disc_reports', icon: 'bar-chart' },
     { path: '/disclosures/archive', labelKey: 'nav.disc_archive', icon: 'archive-box' },
   ],
 }

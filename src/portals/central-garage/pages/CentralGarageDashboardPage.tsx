@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, BarChart3, BusFront, CalendarDays, Droplets, Fuel, Gauge, MapPin, Printer, RefreshCw, Users } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BarChart3, BusFront, CalendarDays, Database, Droplets, Fuel, Gauge, MapPin, Printer, RefreshCw, Users } from 'lucide-react'
 import { Link } from 'react-router'
 import { useGarageAreas, useGarageDashboard } from '@features/central-garage/hooks'
 import type { GarageDashboardFilter, GarageFuelType } from '@features/central-garage/types'
@@ -13,10 +13,12 @@ const number = (value: number) => new Intl.NumberFormat('ar-IQ', { maximumFracti
 const dateTime = (value: string) => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
 
 function StatCard({ title, value, hint, icon: Icon, tone }: { title: string; value: number; hint: string; icon: typeof Gauge; tone: string }) {
-  return <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-slate-500">{title}</p><b className="mt-2 block text-3xl text-slate-950">{number(value)}</b><p className="mt-1 text-[11px] text-slate-400">{hint}</p></div><span className={`flex size-12 items-center justify-center rounded-2xl ${tone}`}><Icon size={23} /></span></div>
+  return <article className={`rounded-3xl border p-5 shadow-sm ${tone}`}>
+    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold text-slate-600">{title}</p><b className="mt-2 block text-3xl text-slate-950">{number(value)}</b><p className="mt-1 text-[11px] text-slate-500">{hint}</p></div><span className="flex size-12 items-center justify-center rounded-2xl bg-white/80 shadow-sm"><Icon size={23} /></span></div>
   </article>
 }
+
+function QuickLink({to,icon:Icon,title,hint,tone}:{to:string;icon:typeof Gauge;title:string;hint:string;tone:string}){return <Link to={to} className="group flex items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><span className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon size={21}/></span><span className="min-w-0 flex-1"><b className="block text-sm text-slate-900">{title}</b><small className="text-slate-500">{hint}</small></span><ArrowLeft size={17} className="text-slate-300 transition group-hover:-translate-x-1 group-hover:text-cyan-700"/></Link>}
 
 export default function CentralGarageDashboardPage() {
   const [filter, setFilter] = useState<GarageDashboardFilter>({ from: monthAgo(), to: today() })
@@ -33,6 +35,8 @@ export default function CentralGarageDashboardPage() {
     <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-cyan-900 p-6 text-white shadow-xl sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-cyan-100"><Gauge size={15} />غرفة قيادة الأسطول والمخزون</span><h1 className="mt-4 text-3xl font-black">لوحة الكراج المركزي</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-cyan-100">مؤشرات الآليات والانطلاقات والخزانات والاستهلاك محدثة من النظام وفق الفترة والموقع المحددين.</p></div><button type="button" onClick={() => window.print()} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black hover:bg-white/20"><Printer size={17} />طباعة التقرير</button></div>
     </header>
+
+    <nav className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden" aria-label="اختصارات عمليات الكراج"><QuickLink to="/central-garage/drivers-dispatch" icon={BusFront} title="حركة السائقين" hint="تسجيل الانطلاق والعودة" tone="bg-cyan-50 text-cyan-800"/><QuickLink to="/central-garage/vehicles-database" icon={Database} title="قاعدة الآليات" hint="بحث وتفاصيل وإسنادات" tone="bg-blue-50 text-blue-800"/><QuickLink to="/central-garage/fuel" icon={Fuel} title="الوقود والمخزون" hint="الخزانات والتعبئة" tone="bg-amber-50 text-amber-800"/><QuickLink to="/central-garage/reports" icon={BarChart3} title="مركز التقارير" hint="تحليل وطباعة وتصدير" tone="bg-emerald-50 text-emerald-800"/></nav>
 
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm print:hidden">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

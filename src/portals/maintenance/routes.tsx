@@ -1,4 +1,1 @@
-/** مسارات بوابة الصيانة — فارغة حالياً (Portal بنيته جاهزة، والصفحات تُضاف لاحقاً) */
-import type { RouteObject } from 'react-router'
-
-export const customRoutes: RouteObject[] = []
+import{lazy,Suspense,type ReactNode}from'react';import type{RouteObject}from'react-router';import{LoadingSpinner}from'@components/feedback/LoadingSpinner';const Dashboard=lazy(()=>import('./pages/Dashboard/MaintenanceDashboardPage'));const Cases=lazy(()=>import('./pages/VehicleCases/MaintenanceCasesPage'));const Inventory=lazy(()=>import('./pages/Inventory/MaintenanceInventoryPage'));const wrap=(node:ReactNode)=><Suspense fallback={<LoadingSpinner fullScreen/>}>{node}</Suspense>;export const customRoutes:RouteObject[]=[{path:'',element:wrap(<Dashboard/>)},{path:'vehicle-cases',element:wrap(<Cases/>)},{path:'inventory',element:wrap(<Inventory/>)}]

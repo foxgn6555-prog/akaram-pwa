@@ -1,0 +1,6 @@
+import{render,screen}from'@testing-library/react'
+import{MemoryRouter}from'react-router'
+import{describe,expect,it,vi}from'vitest'
+vi.mock('@features/vehicle-operations/hooks',()=>({useMaintenanceCases:()=>({data:[{case_id:'c1',vehicle_name:'كابسة',db_number:'DB-1',arrived_at:'2026-09-10',completed_at:null,readiness_approved_at:null,expected_completion_at:'2026-09-01',progress:50,actual_cost:1000}]}),useMaintenanceInventory:()=>({data:[{id:'i1',sku:'P-1',item_name:'فلتر',unit:'قطعة',current_quantity:1,low_stock_threshold:2}]})}))
+import MaintenanceDashboardPage from'@portals/maintenance/pages/Dashboard/MaintenanceDashboardPage'
+describe('لوحة قيادة الصيانة',()=>{it('تعرض بطاقات الحالات والمخزون والرسوم وروابط الوحدات',()=>{render(<MemoryRouter><MaintenanceDashboardPage/></MemoryRouter>);expect(screen.getByTestId('maintenance-dashboard')).toBeInTheDocument();expect(screen.getByText('توزيع الحالات التشغيلية')).toBeInTheDocument();expect(screen.getByText('متوسط تقدم الصيانة')).toBeInTheDocument();expect(screen.getByRole('link',{name:/حالات صيانة الآليات/})).toHaveAttribute('href','/maintenance/vehicle-cases');expect(screen.getByRole('link',{name:/مخزون قطع الصيانة/})).toHaveAttribute('href','/maintenance/inventory')})})

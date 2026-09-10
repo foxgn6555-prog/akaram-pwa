@@ -1,0 +1,6 @@
+import{render,screen}from'@testing-library/react'
+import{MemoryRouter}from'react-router'
+import{describe,expect,it,vi}from'vitest'
+vi.mock('@features/vehicle-operations/hooks',()=>({useOpsAlerts:()=>({data:[{alert_id:'a1',severity:'critical',title:'تأخر آلية',details:'تجاوز وقت الوصول'}]}),useOpsVehicleKpis:()=>({data:[{productive_minutes:120,movement_minutes:30,downtime_minutes:10,maintenance_minutes:20,station_minutes:15}]}),useOpsMovements:()=>({data:[{},{}]}),useOpsStationVisits:()=>({data:[{}]}),useOpsGarageTrips:()=>({data:[{},{}]}),useOpsMaintenance:()=>({data:[{}]}),useOpsAttendance:()=>({data:[{is_present:true},{is_present:false}]})}))
+import OpsRoomDashboardPage from'@portals/ops-room/pages/Dashboard/OpsRoomDashboardPage'
+describe('الصفحة الرئيسية لغرفة العمليات',()=>{it('تعرض ملخص البوابات والرسوم ورابط التقارير دون تحويل الرئيسية إلى جدول تقارير',()=>{render(<MemoryRouter><OpsRoomDashboardPage/></MemoryRouter>);expect(screen.getByTestId('ops-dashboard-page')).toBeInTheDocument();expect(screen.getByText('حجم النشاط حسب البوابة')).toBeInTheDocument();expect(screen.getByText('توزيع وقت الآليات')).toBeInTheDocument();expect(screen.getByRole('link',{name:/فتح التقارير التفصيلية/})).toHaveAttribute('href','/ops-room/operations-data');expect(screen.queryByTestId('operations-data-page')).not.toBeInTheDocument()})})

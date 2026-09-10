@@ -8,7 +8,7 @@ import type {
   Sector, ManagerProfile, SectorWorker, SectorVehicle,
   SupplyRequest, Breakdown, SectorPhoto, SectorAttendance, SectorSummary,
   CreateWorkerInput, CreateVehicleInput, CreateSupplyInput,
-  CreateBreakdownInput, CreateAttendanceInput, Shift,
+  CreateBreakdownInput, CreateAttendanceInput, Shift, SectorVehicleTrip, SectorTripDay,
 } from '@features/sector/types'
 
 /* ── القواطع ── */
@@ -173,7 +173,7 @@ export const sectorSupplies = {
 /* ── بلاغات الأعطال ── */
 const BREAK_COLS =
   'id, manager_id, manager_name, shift, sectors, db_number, fault_type, notes, status,' +
-  ' archived_at, archive_reason, created_at'
+  ' departure_id, vehicle_id, resolved_at, resolved_by, resolution_notes, archived_at, archive_reason, created_at'
 function normBreak(r: Record<string, unknown>): Breakdown {
   return {
     id: String(r.id), manager_id: String(r.manager_id ?? ''), manager_name: String(r.manager_name ?? ''),
@@ -182,6 +182,11 @@ function normBreak(r: Record<string, unknown>): Breakdown {
     db_number: String(r.db_number ?? ''), fault_type: String(r.fault_type ?? ''),
     notes: (r.notes as string | null) ?? null,
     status: (r.status as Breakdown['status']) ?? 'logged',
+    departure_id: (r.departure_id as string | null) ?? null,
+    vehicle_id: (r.vehicle_id as string | null) ?? null,
+    resolved_at: (r.resolved_at as string | null) ?? null,
+    resolved_by: (r.resolved_by as string | null) ?? null,
+    resolution_notes: (r.resolution_notes as string | null) ?? null,
     archived_at: (r.archived_at as string | null) ?? null,
     archive_reason: (r.archive_reason as string | null) ?? null,
     created_at: (r.created_at as string | null) ?? null,
@@ -202,6 +207,12 @@ export const sectorBreakdowns = {
     })
     if (res.error) throw new Error(res.error.message)
     return normBreak(res.data as Record<string, unknown>)
+  },
+  async returnToWork(breakdownId: string, resolutionNotes: string): Promise<Breakdown> {
+    const data = await sdkGuard(supabase.rpc('sector_return_vehicle_to_work', {
+      p_breakdown_id: breakdownId, p_resolution_notes: resolutionNotes.trim(),
+    }))
+    return normBreak(data as unknown as Record<string, unknown>)
   },
 }
 
@@ -309,4 +320,13 @@ export async function sectorSummary(): Promise<SectorSummary> {
     present_today: todayAtt.filter((a) => a.is_present).length,
     absent_today: todayAtt.filter((a) => !a.is_present).length,
   }
+}
+
+/** دورة تسليم الآليات بين الكراج ومسؤول القسم. */
+export const sectorVehicleTrips={
+  async days(limit=60,offset=0):Promise<SectorTripDay[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trip_days',{p_limit:limit,p_offset:offset}));return (data??[]) as unknown as SectorTripDay[]},
+  async forDay(day:string):Promise<SectorVehicleTrip[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trips_for_day',{p_day:day}));return (data??[]) as unknown as SectorVehicleTrip[]},
+  async list():Promise<SectorVehicleTrip[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trips'));return (data??[]) as unknown as SectorVehicleTrip[]},
+  async confirmArrival(departureId:string,notes?:string):Promise<SectorVehicleTrip>{const data=await sdkGuard(supabase.rpc('sector_confirm_vehicle_arrival',{p_departure_id:departureId,p_notes:notes?.trim()||null}));return data as unknown as SectorVehicleTrip},
+  async sendToGarage(departureId:string,notes?:string):Promise<SectorVehicleTrip>{const data=await sdkGuard(supabase.rpc('sector_send_vehicle_to_garage',{p_departure_id:departureId,p_notes:notes?.trim()||null}));return data as unknown as SectorVehicleTrip},
 }

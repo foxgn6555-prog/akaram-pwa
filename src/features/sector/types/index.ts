@@ -84,6 +84,11 @@ export interface Breakdown {
   fault_type: string
   notes: string | null
   status: 'logged' | 'resolved' | 'archived'
+  departure_id: string | null
+  vehicle_id: string | null
+  resolved_at: string | null
+  resolved_by: string | null
+  resolution_notes: string | null
   archived_at: string | null
   archive_reason: string | null
   created_at: string | null
@@ -155,6 +160,9 @@ export interface CreateSupplyInput {
   notes?: string | null
   signed: boolean
 }
+
+export interface SectorTripDay {trip_day:string;total_count:number;open_count:number;first_departure_at:string;last_activity_at:string}
+export interface SectorVehicleTrip { id:string;vehicle_id:string;driver_name:string;shift:Shift;sector_id:number;departed_at:string;arrived_at:string|null;site_departed_at:string|null;returned_at:string|null;recipient_manager_id:string|null;recipient_manager_name:string|null;arrival_notes:string|null;site_departure_notes:string|null;vehicle_name:string;db_number:string;image_path:string;area_name:string;parent_sector:'karrada'|'zaafaraniya' }
 
 export interface CreateBreakdownInput {
   db_number: string

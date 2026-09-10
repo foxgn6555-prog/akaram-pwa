@@ -1,166 +1,30 @@
-/**
- * عطل آلية — تسجيل بلاغ عطل برقم DB ونوع العطل.
- * البلاغات تُحفظ وتنتقل للأرشيف (لا توجد جهة استلام بعد حالياً).
- */
 import { useState } from 'react'
 import clsx from 'clsx'
-import { useVehicles, useBreakdowns, useSubmitBreakdown, useManagerProfile } from '@features/sector'
+import { useVehicles, useBreakdowns, useSubmitBreakdown, useReturnVehicleToWork, useManagerProfile } from '@features/sector'
 import { breakdownSchema, type BreakdownFormInput } from '@features/sector'
-import { SHIFT_LABELS } from '@features/sector/types'
+import { SHIFT_LABELS, type Breakdown } from '@features/sector/types'
 import { Icon } from '@components/ui/Icon/Icon'
 import { EmptyState } from '@components/feedback/EmptyState'
 
-const inputBase =
-  'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20'
+const inputBase='h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20'
+const QUICK_FAULTS=['عطل ميكانيكي','عطل كهربائي','عطل هيدروليك','إطار/كوشوك','وقود/زيوت','حادث','أخرى']
+const dateTime=(value:string|null)=>value?new Intl.DateTimeFormat('ar-IQ',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(value)):'—'
+function duration(from:string|null,to:string|null){if(!from||!to)return'—';const mins=Math.max(0,Math.round((new Date(to).getTime()-new Date(from).getTime())/60000));if(mins<60)return`${mins} دقيقة`;const hours=Math.floor(mins/60),rest=mins%60;return`${hours} ساعة${rest?` و${rest} دقيقة`:''}`}
 
-const QUICK_FAULTS = ['عطل ميكانيكي', 'عطل كهربائي', 'عطل هيدروليك', 'إطار/كوشوك', 'وقود/زيوت', 'حادث', 'أخرى']
-
-export default function BreakdownPage() {
-  const vehicles = useVehicles(true)
-  const breakdowns = useBreakdowns('active')
-  const submit = useSubmitBreakdown()
-  const profile = useManagerProfile()
-
-  const dbList = vehicles.data ?? []
-
-  const [form, setForm] = useState<BreakdownFormInput>({ db_number: '', fault_type: '', notes: '' })
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const set = (k: keyof BreakdownFormInput, v: string) => {
-    setForm((f) => ({ ...f, [k]: v }))
-    setErrors((e) => ({ ...e, [k]: '' }))
-  }
-
-  const onSubmit = (e: React.FormEvent): void => {
-    e.preventDefault()
-    const parsed = breakdownSchema.safeParse(form)
-    if (!parsed.success) {
-      const er: Record<string, string> = {}
-      for (const i of parsed.error.issues) {
-        const k = String(i.path[0] ?? '')
-        if (k && !er[k]) er[k] = i.message
-      }
-      setErrors(er)
-      return
-    }
-    submit.mutate(
-      {
-        db_number: parsed.data.db_number.trim(),
-        fault_type: parsed.data.fault_type.trim(),
-        notes: parsed.data.notes?.trim() || null,
-      },
-      { onSuccess: () => setForm({ db_number: '', fault_type: '', notes: '' }) },
-    )
-  }
-
-  const list = breakdowns.data ?? []
-
-  return (
-    <div className="space-y-5" data-testid="breakdown-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">عطل آلية</h1>
-        <p className="text-sm text-slate-500">
-          بلاغ عطل عن آلية برقم DB — يُحفظ في الأرشيف. شفتك: {profile.data ? SHIFT_LABELS[profile.data.shift] : '—'}
-        </p>
-      </div>
-
-      <form onSubmit={onSubmit} data-testid="breakdown-form"
-        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
-            رقم DB للآلية المعطّلة <span className="text-red-500">*</span>
-            <input
-              value={form.db_number}
-              list="db-list"
-              onChange={(e) => set('db_number', e.target.value)}
-              placeholder={dbList.length > 0 ? 'اختر من آلياتي أو اكتب رقم DB' : 'اكتب رقم DB'}
-              dir="ltr"
-              className={clsx(inputBase, 'mt-1 text-end', errors.db_number && 'border-red-400')}
-              data-testid="f-bd-db"
-            />
-            <datalist id="db-list">
-              {dbList.map((v) => (
-                <option key={v.id} value={v.db_number}>
-                  {v.vehicle_type ? `${v.vehicle_type}` : v.db_number}
-                </option>
-              ))}
-            </datalist>
-            {errors.db_number && <span className="mt-1 block text-[11px] text-red-600">{errors.db_number}</span>}
-          </label>
-
-          <label className="block text-xs font-medium text-slate-600">
-            نوع العطل <span className="text-red-500">*</span>
-            <input value={form.fault_type} onChange={(e) => set('fault_type', e.target.value)}
-              placeholder="مثال: تعطل المكبس الهيدروليكي"
-              list="fault-list"
-              className={clsx(inputBase, 'mt-1 h-auto py-2.5', errors.fault_type && 'border-red-400')}
-              data-testid="f-bd-fault" />
-            <datalist id="fault-list">
-              {QUICK_FAULTS.map((f) => <option key={f} value={f} />)}
-            </datalist>
-            {errors.fault_type && <span className="mt-1 block text-[11px] text-red-600">{errors.fault_type}</span>}
-          </label>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {QUICK_FAULTS.map((q) => (
-            <button key={q} type="button" onClick={() => set('fault_type', q)}
-              className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-brand-400 hover:text-brand-700">
-              {q}
-            </button>
-          ))}
-        </div>
-
-        <label className="block text-xs font-medium text-slate-600">
-          ملاحظات (اختياري)
-          <textarea rows={3} value={form.notes ?? ''} onChange={(e) => set('notes', e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm outline-none focus:border-brand-500"
-            data-testid="f-bd-notes" />
-        </label>
-
-        <button type="submit" disabled={submit.isPending} data-testid="bd-submit"
-          className="flex h-11 items-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-orange-700 disabled:opacity-60">
-          <Icon name="alert-triangle" size={16} /> {submit.isPending ? 'جارٍ التسجيل…' : 'تسجيل بلاغ العطل'}
-        </button>
-      </form>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-bold text-slate-700">بلاغات العطل المسجّلة</h2>
-        {list.length === 0 ? (
-          <EmptyState title="لا توجد بلاغات" hint="سجّل أول بلاغ عطل من النموذج" />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm" data-testid="bd-list">
-              <thead>
-                <tr className="bg-slate-50/70 text-xs text-slate-500">
-                  <th className="px-3 py-2.5 font-semibold">DB</th>
-                  <th className="px-3 py-2.5 font-semibold">نوع العطل</th>
-                  <th className="px-3 py-2.5 font-semibold">الحالة</th>
-                  <th className="px-3 py-2.5 font-semibold">التاريخ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((b) => (
-                  <tr key={b.id} className="border-t border-slate-50">
-                    <td className="px-3 py-2.5 font-bold text-orange-700 dir-ltr">{b.db_number}</td>
-                    <td className="px-3 py-2.5">
-                      <div className="font-medium">{b.fault_type}</div>
-                      {b.notes && <div className="text-[11px] text-slate-500">{b.notes}</div>}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-                        {b.status === 'logged' ? 'مسجّل' : b.status === 'resolved' ? 'تمت المعالجة' : 'مؤرشف'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-slate-500">{(b.created_at ?? '').slice(0, 10)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+export default function BreakdownPage(){
+  const vehicles=useVehicles(true),breakdowns=useBreakdowns('active'),submit=useSubmitBreakdown(),returnToWork=useReturnVehicleToWork(),profile=useManagerProfile()
+  const[form,setForm]=useState<BreakdownFormInput>({db_number:'',fault_type:'',notes:''});const[errors,setErrors]=useState<Record<string,string>>({});const[returning,setReturning]=useState<Breakdown|null>(null);const[resolution,setResolution]=useState('')
+  const set=(key:keyof BreakdownFormInput,value:string)=>{setForm(old=>({...old,[key]:value}));setErrors(old=>({...old,[key]:''}))}
+  const onSubmit=(event:React.FormEvent)=>{event.preventDefault();const parsed=breakdownSchema.safeParse(form);if(!parsed.success){const next:Record<string,string>={};for(const issue of parsed.error.issues){const key=String(issue.path[0]??'');if(key&&!next[key])next[key]=issue.message}setErrors(next);return}submit.mutate({db_number:parsed.data.db_number.trim(),fault_type:parsed.data.fault_type.trim(),notes:parsed.data.notes?.trim()||null},{onSuccess:()=>setForm({db_number:'',fault_type:'',notes:''})})}
+  const confirmReturn=(event:React.FormEvent)=>{event.preventDefault();if(!returning||resolution.trim().length<3)return;returnToWork.mutate({breakdownId:returning.id,resolutionNotes:resolution.trim()},{onSuccess:()=>{setReturning(null);setResolution('')}})}
+  const list=breakdowns.data??[],open=list.filter(item=>item.status==='logged'),resolved=list.filter(item=>item.status==='resolved')
+  return <section className="space-y-5" dir="rtl" data-testid="breakdown-page">
+    <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-orange-950 to-amber-700 p-6 text-white shadow-xl"><span className="text-xs font-bold text-amber-100">متابعة جاهزية الأسطول</span><h1 className="mt-2 text-2xl font-black">أعطال الآليات والعودة إلى العمل</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-amber-100">سجّل لحظة توقف الآلية، ثم اضغط «العودة إلى العمل» فور إصلاحها ليحسب النظام مدة التوقف تلقائياً. الشفت: {profile.data?SHIFT_LABELS[profile.data.shift]:'—'}</p></header>
+    <div className="grid gap-3 sm:grid-cols-3"><Stat title="أعطال مفتوحة" value={open.length} tone="text-red-700"/><Stat title="عادت للعمل" value={resolved.length} tone="text-emerald-700"/><Stat title="آليات ضمن إسنادي" value={(vehicles.data??[]).length} tone="text-blue-700"/></div>
+    <form onSubmit={onSubmit} data-testid="breakdown-form" className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div><h2 className="font-black text-slate-900">تسجيل توقف جديد</h2><p className="mt-1 text-xs text-slate-500">وقت العطل يسجل آلياً من الخادم ولا يُدخل يدوياً.</p></div><div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-slate-600">رقم DB للآلية <span className="text-red-500">*</span><input value={form.db_number} list="db-list" onChange={e=>set('db_number',e.target.value)} placeholder="اختر من الآليات المسندة إليك" dir="ltr" className={clsx(inputBase,'mt-1 text-end',errors.db_number&&'border-red-400')} data-testid="f-bd-db"/><datalist id="db-list">{(vehicles.data??[]).map(vehicle=><option key={vehicle.id} value={vehicle.db_number}>{vehicle.vehicle_type??vehicle.db_number}</option>)}</datalist>{errors.db_number&&<span className="mt-1 block text-[11px] text-red-600">{errors.db_number}</span>}</label><label className="text-xs font-bold text-slate-600">نوع العطل <span className="text-red-500">*</span><input value={form.fault_type} onChange={e=>set('fault_type',e.target.value)} placeholder="مثال: تعطل المكبس الهيدروليكي" list="fault-list" className={clsx(inputBase,'mt-1',errors.fault_type&&'border-red-400')} data-testid="f-bd-fault"/><datalist id="fault-list">{QUICK_FAULTS.map(value=><option key={value} value={value}/>)}</datalist>{errors.fault_type&&<span className="mt-1 block text-[11px] text-red-600">{errors.fault_type}</span>}</label></div><div className="flex flex-wrap gap-2">{QUICK_FAULTS.map(value=><button key={value} type="button" onClick={()=>set('fault_type',value)} className="rounded-full border px-3 py-1 text-[11px] font-bold text-slate-600 hover:border-orange-400 hover:text-orange-700">{value}</button>)}</div><label className="block text-xs font-bold text-slate-600">تفاصيل العطل (اختياري)<textarea rows={3} value={form.notes??''} onChange={e=>set('notes',e.target.value)} className="mt-1 w-full rounded-xl border p-3 text-sm" data-testid="f-bd-notes"/></label><button type="submit" disabled={submit.isPending} data-testid="bd-submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-black text-white disabled:opacity-60 sm:w-auto"><Icon name="alert-triangle" size={16}/>{submit.isPending?'جارٍ التسجيل…':'تسجيل العطل وبدء مدة التوقف'}</button></form>
+    <section className="rounded-3xl border bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="font-black">الآليات المتوقفة الآن</h2><p className="mt-1 text-xs text-slate-500">لا تسجل بلاغاً جديداً للآلية نفسها قبل إغلاق العطل الحالي.</p></div><span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700">{open.length}</span></div>{!open.length?<EmptyState title="لا توجد أعطال مفتوحة" hint="كل الآليات المسجلة عادت إلى العمل"/>:<div className="mt-4 grid gap-3 lg:grid-cols-2">{open.map(item=><article key={item.id} data-testid={`open-breakdown-${item.id}`} className="rounded-2xl border border-red-200 bg-red-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><span className="rounded-lg bg-white px-2 py-1 text-xs font-black text-red-700">DB {item.db_number}</span><h3 className="mt-3 font-black">{item.fault_type}</h3></div><span className="size-3 rounded-full bg-red-500 shadow-[0_0_0_5px_rgba(239,68,68,.12)]"/></div>{item.notes&&<p className="mt-2 text-xs text-slate-600">{item.notes}</p>}<p className="mt-3 text-[11px] text-slate-500">متوقفة منذ: {dateTime(item.created_at)}</p><button data-testid={`return-to-work-${item.id}`} onClick={()=>{setReturning(item);setResolution('')}} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white"><Icon name="check" size={16}/>العودة إلى العمل</button></article>)}</div>}</section>
+    {resolved.length>0&&<section className="rounded-3xl border bg-white p-5 shadow-sm"><h2 className="font-black">آخر الآليات العائدة للعمل</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{resolved.slice(0,8).map(item=><article key={item.id} className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 text-xs"><div className="flex justify-between"><b>DB {item.db_number} · {item.fault_type}</b><span className="font-black text-emerald-700">{duration(item.created_at,item.resolved_at)}</span></div><p className="mt-2 text-slate-600">الإجراء: {item.resolution_notes}</p><p className="mt-2 text-slate-400">عادت: {dateTime(item.resolved_at)}</p></article>)}</div></section>}
+    {returning&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label="تسجيل العودة إلى العمل"><form onSubmit={confirmReturn} className="mx-auto my-16 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-xl font-black">تأكيد عودة الآلية للعمل</h2><p className="mt-2 text-sm text-slate-600">DB {returning.db_number} · {returning.fault_type}</p><p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">سيسجل النظام وقت العودة الآن ويحسب مدة التوقف دون إدخال الوقت يدوياً.</p><label className="mt-4 block text-xs font-bold text-slate-600">الإجراء أو الإصلاح المنفذ <span className="text-red-600">*</span><textarea data-testid="resolution-notes" value={resolution} onChange={e=>setResolution(e.target.value)} className="mt-1 min-h-24 w-full rounded-xl border p-3 text-sm" placeholder="مثال: تبديل الخرطوم وفحص التشغيل" maxLength={1000}/></label><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setReturning(null)} className="h-11 rounded-xl border font-bold">إلغاء</button><button data-testid="confirm-return-to-work" disabled={resolution.trim().length<3||returnToWork.isPending} className="h-11 rounded-xl bg-emerald-700 font-black text-white disabled:opacity-40">{returnToWork.isPending?'جارٍ التسجيل…':'تأكيد العودة للعمل'}</button></div></form></div>}
+  </section>
 }
+function Stat({title,value,tone}:{title:string;value:number;tone:string}){return <article className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs font-bold text-slate-500">{title}</p><b className={`mt-1 block text-3xl ${tone}`}>{value.toLocaleString('ar-IQ')}</b></article>}

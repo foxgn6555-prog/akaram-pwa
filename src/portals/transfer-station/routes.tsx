@@ -21,6 +21,7 @@ const SaksatPage = lazy(() => import('./pages/Saksat/SaksatPage'))
 const TripsPage = lazy(() => import('./pages/Trips/TripsPage'))
 const FinesPage = lazy(() => import('./pages/Fines/FinesPage'))
 const StationArchivePage = lazy(() => import('./pages/Archive/StationArchivePage'))
+const StationVehicleMovementsPage=lazy(()=>import('./pages/VehicleMovements/StationVehicleMovementsPage'))
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -32,6 +33,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'weights/log', element: s(<WeightsPage />) },
   { path: 'saksat', element: s(<SaksatPage />) },
   { path: 'trips', element: s(<TripsPage />) },
+  { path:'vehicle-movements',element:s(<StationVehicleMovementsPage/>) },
   { path: 'fines', element: s(<FinesPage />) },
   { path: 'archive', element: s(<StationArchivePage />) },
 ]

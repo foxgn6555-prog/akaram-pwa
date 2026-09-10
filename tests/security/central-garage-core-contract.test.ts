@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 const sql = readFileSync('supabase/migrations/00074_central_garage_core.sql','utf8')
 const departuresSql = readFileSync('supabase/migrations/00075_garage_departures.sql','utf8')
 const fuelSql = readFileSync('supabase/migrations/00076_fuel_unit_and_refill_date.sql','utf8')
+const multiReportSql = readFileSync('supabase/migrations/00078_garage_multi_vehicle_reports.sql','utf8')
+const vehicleDetailsSql = readFileSync('supabase/migrations/00079_garage_vehicle_details_and_ownership.sql','utf8')
 const sdk = readFileSync('src/services/central-garage.sdk.ts','utf8')
 
 describe('عقد الكراج المركزي', () => {
@@ -73,6 +75,10 @@ describe('عقد الكراج المركزي', () => {
     expect(sql).toContain('byVehicle')
     expect(sql).toContain('byTank')
   })
+
+  it('تفاصيل الآلية تدعم التصنيف والملكية المؤجرة بقيود عقد وحقول مؤجر',()=>{expect(vehicleDetailsSql).toContain('vehicle_category text');expect(vehicleDetailsSql).toContain('ownership_type text');expect(vehicleDetailsSql).toContain('garage_vehicle_ownership_details_check');expect(vehicleDetailsSql).toContain('GARAGE_LESSOR_REQUIRED');expect(vehicleDetailsSql).toMatch(/revoke all on function[\s\S]*from public,anon/)})
+
+  it('تقارير الآليات المحددة محمية وتدعم مصفوفة بحد 50 دون تحويل الاختيار الفارغ إلى تقرير شامل',()=>{expect(multiReportSql).toContain('p_vehicle_ids uuid[]');expect(multiReportSql).toContain('cardinality(v_vehicle_ids)>50');expect(multiReportSql).toContain('m.vehicle_id=any(v_vehicle_ids)');expect(multiReportSql).toContain("'selectedVehicles'");expect(multiReportSql).toMatch(/revoke all on function[\s\S]*from public,anon/)})
 
   it('الأرشفة والاستعادة بسبب إلزامي وتدخلان سجل التدقيق', () => {
     expect(sql).toContain('garage_archive_vehicle')

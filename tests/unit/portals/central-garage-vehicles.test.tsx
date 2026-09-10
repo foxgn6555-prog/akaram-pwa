@@ -9,8 +9,8 @@ const h=vi.hoisted(()=>({
     {id:1,name:'أرخيته',parentSector:'karrada',sort:1},{id:2,name:'الرياض',parentSector:'karrada',sort:2},{id:3,name:'الواثق',parentSector:'karrada',sort:3},{id:4,name:'الجادرية',parentSector:'karrada',sort:4},
     {id:5,name:'السندباد',parentSector:'zaafaraniya',sort:5},{id:6,name:'الزعفرانية',parentSector:'zaafaraniya',sort:6},{id:7,name:'ديالى',parentSector:'zaafaraniya',sort:7},{id:8,name:'الوليد',parentSector:'zaafaraniya',sort:8},
   ],
-  vehicle:{id:'v1',vehicleName:'كابسة نفايات',dbNumber:'DB-100',plateNumber:'بغداد 123',chassisNumber:'CH-100',imagePath:'u/v.jpg',imageUrl:'https://img/v.jpg',shift:'morning',driverName:'علي حسن',sectorId:1,areaName:'أرخيته',parentSector:'karrada',createdAt:'2026-09-08T08:00:00Z',updatedAt:'2026-09-08T08:00:00Z',archivedAt:null},
-  departure:{id:'d1',vehicleId:'v1',driverName:'علي حسن',shift:'morning',sectorId:1,departedAt:'2026-09-08T07:30:00Z',returnedAt:null,notes:null,vehicleName:'كابسة نفايات',dbNumber:'DB-100',imagePath:'u/v.jpg',areaName:'أرخيته',parentSector:'karrada'},
+  vehicle:{id:'v1',vehicleName:'كابسة نفايات',dbNumber:'DB-100',plateNumber:'بغداد 123',chassisNumber:'CH-100',vehicleCategory:'compactor_large',ownershipType:'owned',lessorName:null,rentalContractNo:null,rentalStartDate:null,rentalEndDate:null,modelYear:2024,vehicleColor:'أبيض',specifications:'سعة كبيرة',imagePath:'u/v.jpg',imageUrl:'https://img/v.jpg',shift:'morning',driverName:'علي حسن',sectorId:1,areaName:'أرخيته',parentSector:'karrada',createdAt:'2026-09-08T08:00:00Z',updatedAt:'2026-09-08T08:00:00Z',archivedAt:null},
+  departure:{id:'d1',vehicleId:'v1',driverName:'علي حسن',shift:'morning',sectorId:1,departedAt:'2026-09-08T07:30:00Z',arrivedAt:'2026-09-08T08:00:00Z',siteDepartedAt:'2026-09-08T15:00:00Z',returnedAt:null,recipientManagerId:'m1',recipientManagerName:'مسؤول أرخيته',arrivalNotes:null,siteDepartureNotes:null,notes:null,vehicleName:'كابسة نفايات',dbNumber:'DB-100',imagePath:'u/v.jpg',areaName:'أرخيته',parentSector:'karrada'},
   departures:[] as Array<Record<string, unknown>>,
 }))
 
@@ -26,8 +26,15 @@ vi.mock('@features/central-garage/hooks',()=>({
   useGarageAssignments:()=>({data:[{id:'a1',vehicleId:'v1',driverName:'علي حسن',shift:'morning',sectorId:1,startsAt:'2026-09-08T08:00:00Z',endsAt:null,changeReason:null}],isLoading:false}),
   useGarageVehicleMovements:()=>({data:[{id:'m1',tankId:'t1',vehicleId:'v1',movementType:'vehicle_fill',quantity:-40,quantityBefore:200,quantityAfter:160,fuelType:'hydraulic',unit:'gallon',tankName:'خزان الهيدروليك',nextRefillDate:'2026-09-20',notes:null,actorId:'u1',createdAt:'2026-09-08T09:00:00Z'}],isLoading:false}),
   useGarageDepartures:()=>({data:h.departures,isLoading:false}),
+  useGarageDepartureDays:()=>({data:[]}),
+  useGarageDeparturesForDay:()=>({data:h.departures,isLoading:false}),
   useRecordGarageDeparture:()=>({mutate:h.recordDeparture,isPending:false}),
   useRecordGarageReturn:()=>({mutate:h.recordReturn,isPending:false}),
+  useGarageDispatchRecipients:()=>({data:[]}),
+  useGarageShiftAssignments:()=>({data:[{id:'a1',vehicleId:'v1',shift:'morning',driverName:'علي حسن',sectorId:1,areaName:'أرخيته',parentSector:'karrada',startsAt:'now',endsAt:null,changeReason:null}],refetch:vi.fn()}),
+  useGarageShiftDispatchRecipients:()=>({data:[{userId:'m1',managerName:'مسؤول أرخيته',shift:'morning',sectors:[1]}]}),
+  useRecordGarageShiftDeparture:()=>({mutate:h.recordDeparture,isPending:false}),
+  useSetGarageShiftAssignment:()=>({mutate:h.assignMutate,isPending:false}),
 }))
 
 import VehiclesDatabasePage from '@portals/central-garage/pages/VehiclesDatabasePage'
@@ -43,6 +50,8 @@ describe('قاعدة بيانات آليات الكراج',()=>{
   it('يعرض الآلية كتذكرة ملونة بالمعلومات الأساسية ورابط التفاصيل',()=>{
     renderPage(<VehiclesDatabasePage/>);expect(screen.getByTestId('vehicle-card-v1')).toBeInTheDocument();expect(screen.getByText('كابسة نفايات')).toBeInTheDocument();expect(screen.getByText('علي حسن')).toBeInTheDocument();expect(screen.getByText(/قاطع الكرادة/)).toBeInTheDocument();expect(screen.getByRole('link',{name:/كابسة نفايات/})).toHaveAttribute('href','/central-garage/vehicles-database/v1')
   })
+
+  it('يدعم تصنيف الآلية والملكية المؤجرة ويطلب اسم الجهة المؤجرة',()=>{renderPage(<VehiclesDatabasePage/>);expect(screen.getByText('كابسة كبيرة')).toBeInTheDocument();expect(screen.getByText('آلية ذاتية')).toBeInTheDocument();fireEvent.click(screen.getByTestId('open-add-vehicle'));fireEvent.change(screen.getByTestId('vehicle-category'),{target:{value:'tanker'}});fireEvent.change(screen.getByTestId('vehicle-ownership'),{target:{value:'rented'}});expect(screen.getByTestId('vehicle-lessor')).toBeInTheDocument();expect(screen.getByTestId('vehicle-contract')).toBeInTheDocument()})
 
   it('يوفر البحث وفلاتر المنطقة والشفت دون عرض قائمة فوضوية',async()=>{
     renderPage(<VehiclesDatabasePage/>);fireEvent.change(screen.getByTestId('vehicle-search'),{target:{value:'DB-100'}});fireEvent.change(screen.getByTestId('vehicle-area-filter'),{target:{value:'1'}});fireEvent.change(screen.getByTestId('vehicle-shift-filter'),{target:{value:'night'}});await waitFor(()=>expect(h.vehicleFilter).toHaveBeenLastCalledWith(expect.objectContaining({search:'DB-100',sectorId:1,shift:'night',pageSize:24})))
@@ -60,11 +69,11 @@ describe('انطلاقية السائقين وتفاصيل الآلية',()=>{
   })
 
   it('بدون انطلاقات: يعرض «لم تسجل انطلاقاً» وزر تسجيل انطلاق من الكراج',()=>{
-    renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-pending')).toBeInTheDocument();expect(screen.getByText('لم تنطلق بعد')).toBeInTheDocument();fireEvent.click(screen.getByTestId('depart-v1'));expect(h.recordDeparture).toHaveBeenCalledWith({vehicleId:'v1'})
+    renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-pending')).toBeInTheDocument();expect(screen.getByText('لم تنطلق بعد')).toBeInTheDocument();fireEvent.click(screen.getByTestId('depart-v1'));fireEvent.change(screen.getByTestId('departure-recipient'),{target:{value:'m1'}});fireEvent.click(screen.getByTestId('confirm-departure'));expect(h.recordDeparture).toHaveBeenCalledWith({vehicleId:'v1',shift:'morning',recipientManagerId:'m1',notes:undefined},expect.any(Object))
   })
 
   it('انطلاقة مفتوحة: يظهر «في الميدان» وزر تسجيل عودة إلى الكراج',()=>{
-    h.departures=[h.departure];renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-field')).toBeInTheDocument();expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('في الميدان');expect(screen.queryByTestId('depart-v1')).not.toBeInTheDocument();fireEvent.click(screen.getByTestId('return-v1'));expect(h.recordReturn).toHaveBeenCalledWith({departureId:'d1'});expect(screen.getByTestId('change-assignment-v1')).toBeDisabled();expect(screen.getByTestId('change-assignment-v1')).toHaveAttribute('title','سجّل عودة الآلية قبل تغيير الإسناد')
+    h.departures=[h.departure];renderPage(<DriversDispatchPage/>);expect(screen.getByTestId('departure-state-field')).toBeInTheDocument();expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('في الطريق إلى الكراج');expect(screen.queryByTestId('depart-v1')).not.toBeInTheDocument();fireEvent.click(screen.getByTestId('return-v1'));expect(h.recordReturn).toHaveBeenCalledWith({departureId:'d1'});expect(screen.getByTestId('change-assignment-v1')).toBeDisabled();expect(screen.getByTestId('change-assignment-v1')).toHaveAttribute('title','سجّل عودة الآلية قبل تغيير الإسناد')
   })
 
   it('انطلاقة مغلقة اليوم: يعرض «عادت إلى الكراج» مع زر انطلاق جديد',()=>{

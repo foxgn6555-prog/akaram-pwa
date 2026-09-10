@@ -10,6 +10,7 @@ import ArchivePage from './pages/Archive/ArchivePage'
 import AssignedComplaintsPage from './pages/Complaints/AssignedComplaintsPage'
 import ComplaintTicketPage from './pages/Complaints/ComplaintTicketPage'
 import ComplaintsGuidancePage from './pages/Complaints/ComplaintsGuidancePage'
+import VehicleTripsPage from './pages/VehicleTrips/VehicleTripsPage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
@@ -17,6 +18,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'request', element: <NewRequestPage /> },
   { path: 'attendance', element: <AttendancePage /> },
   { path: 'breakdown', element: <BreakdownPage /> },
+  { path: 'vehicle-trips', element: <VehicleTripsPage /> },
   { path: 'complaints', element: <AssignedComplaintsPage /> },
   { path: 'complaints/:complaintId', element: <ComplaintTicketPage /> },
   { path: 'complaints-guidance', element: <ComplaintsGuidancePage /> },

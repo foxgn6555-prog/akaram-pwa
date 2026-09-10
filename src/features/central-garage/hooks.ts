@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { centralGarage } from '@sdk/central-garage.sdk'
-import { exportGarageCsv, exportGarageReport } from './export-report'
+import { exportGarageCsv, exportGarageReport, printGarageReport } from './export-report'
 import { centralGarageKeys } from '@lib/query-keys/central-garage.keys'
 import { API } from '@lib/constants/api.constants'
 import { handleAppError } from '@lib/errors/error.handler'
@@ -20,7 +20,7 @@ export function useGarageReport(filter: GarageReportFilter = {}) {
 }
 export function useExportGarageReport() {
   const addToast=useUiStore(state=>state.addToast);const onError=useGarageMutationError('exportGarageReport')
-  return useMutation({mutationFn:async(input:{filter:Omit<GarageReportFilter,'page'|'pageSize'>;format:'xlsx'|'csv'})=>{const result=await centralGarage.reportAll(input.filter);if(input.format==='csv')exportGarageCsv(result);else await exportGarageReport(result)},onSuccess:(_data,input)=>addToast({type:'success',message:`تم إنشاء تقرير ${input.format==='csv'?'CSV':'Excel'} الكامل`}),onError})
+  return useMutation({mutationFn:async(input:{filter:Omit<GarageReportFilter,'page'|'pageSize'>;format:'xlsx'|'csv'|'print';printWindow?:Window|null})=>{const result=await centralGarage.reportAll(input.filter);if(input.format==='csv')exportGarageCsv(result);else if(input.format==='print')printGarageReport(result,input.printWindow);else await exportGarageReport(result)},onSuccess:(_data,input)=>addToast({type:'success',message:input.format==='print'?'تم تجهيز التقرير الكامل للطباعة':`تم إنشاء تقرير ${input.format==='csv'?'CSV للبيانات الخام':'Excel'} الكامل`}),onError:(error,input)=>{input.printWindow?.close();onError(error)}})
 }
 export function useGarageVehicles(filter: GarageVehicleFilter = {}) {
   return useQuery({ queryKey: centralGarageKeys.vehicleList(filter), queryFn: () => centralGarage.vehicles(filter), staleTime: API.STALE_TIME.DEFAULT })
@@ -74,15 +74,22 @@ export function useGarageZeroRequests(status?: GarageTankZeroRequest['status']) 
 export function useGarageDepartures() {
   return useQuery({ queryKey: centralGarageKeys.departures(), queryFn: () => centralGarage.todayDepartures(), staleTime: API.STALE_TIME.DEFAULT })
 }
+export function useGarageDepartureDays(){return useQuery({queryKey:['central-garage','departure-days'],queryFn:()=>centralGarage.departureDays(),staleTime:API.STALE_TIME.DEFAULT})}
+export function useGarageDeparturesForDay(day:string){return useQuery({queryKey:['central-garage','departures','day',day],queryFn:()=>centralGarage.departuresForDay(day),enabled:Boolean(day),staleTime:API.STALE_TIME.DEFAULT})}
+export function useGarageShiftAssignments(vehicleId:string){return useQuery({queryKey:['central-garage','shift-assignments',vehicleId],queryFn:()=>centralGarage.shiftAssignments(vehicleId),enabled:Boolean(vehicleId)})}
+export function useGarageShiftDispatchRecipients(vehicleId:string,shift:GarageShift){return useQuery({queryKey:['central-garage','shift-recipients',vehicleId,shift],queryFn:()=>centralGarage.shiftDispatchRecipients(vehicleId,shift),enabled:Boolean(vehicleId&&shift)})}
+export function useSetGarageShiftAssignment(){const qc=useQueryClient(),toast=useUiStore(s=>s.addToast);return useMutation({mutationFn:(x:{vehicleId:string;shift:GarageShift;driverName:string;sectorId:number;reason:string})=>centralGarage.setShiftAssignment(x.vehicleId,x.shift,x.driverName,x.sectorId,x.reason),onSuccess:(_,x)=>{void qc.invalidateQueries({queryKey:['central-garage','shift-assignments',x.vehicleId]});toast({type:'success',message:'تم حفظ سائق وموقع الشفت مع الاحتفاظ بالسجل'})}})}
+export function useRecordGarageShiftDeparture(){const qc=useQueryClient(),toast=useUiStore(s=>s.addToast);return useMutation({mutationFn:(x:{vehicleId:string;shift:GarageShift;recipientManagerId:string;notes?:string})=>centralGarage.recordShiftDeparture(x.vehicleId,x.shift,x.recipientManagerId,x.notes),onSuccess:()=>{void qc.invalidateQueries({queryKey:['central-garage']});toast({type:'success',message:'سُجل انطلاق شفت الآلية وأُبلغ مسؤول القسم'})}})}
+export function useGarageDispatchRecipients(vehicleId:string){return useQuery({queryKey:['central-garage','dispatch-recipients',vehicleId],queryFn:()=>centralGarage.dispatchRecipients(vehicleId),enabled:Boolean(vehicleId)})}
 export function useRecordGarageDeparture() {
   const qc = useQueryClient(); const addToast = useUiStore((state) => state.addToast); const onError = useGarageMutationError('recordGarageDeparture')
-  return useMutation({ mutationFn: (x: { vehicleId: string; notes?: string }) => centralGarage.recordDeparture(x.vehicleId, x.notes),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.departures() }); addToast({ type: 'success', message: 'سُجّل انطلاق السائق من الكراج إلى ورديته' }) }, onError })
+  return useMutation({ mutationFn: (x: { vehicleId: string; notes?: string;recipientManagerId?:string }) => centralGarage.recordDeparture(x.vehicleId, x.notes,x.recipientManagerId),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.departures() });void qc.invalidateQueries({queryKey:['central-garage','departure-days']});void qc.invalidateQueries({queryKey:['central-garage','departures','day']}); addToast({ type: 'success', message: 'سُجّل انطلاق السائق من الكراج إلى ورديته' }) }, onError })
 }
 export function useRecordGarageReturn() {
   const qc = useQueryClient(); const addToast = useUiStore((state) => state.addToast); const onError = useGarageMutationError('recordGarageReturn')
   return useMutation({ mutationFn: (x: { departureId: string }) => centralGarage.recordReturn(x.departureId),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.departures() }); addToast({ type: 'success', message: 'سُجّلت عودة الآلية إلى الكراج' }) }, onError })
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.departures() });void qc.invalidateQueries({queryKey:['central-garage','departure-days']});void qc.invalidateQueries({queryKey:['central-garage','departures','day']}); addToast({ type: 'success', message: 'سُجّلت عودة الآلية إلى الكراج' }) }, onError })
 }
 function useInvalidateGarageFuel() {
   const qc=useQueryClient()

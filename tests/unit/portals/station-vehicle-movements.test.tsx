@@ -1,0 +1,12 @@
+import{fireEvent,render,screen}from'@testing-library/react'
+import{beforeEach,describe,expect,it,vi}from'vitest'
+const h=vi.hoisted(()=>({confirm:vi.fn(),dispatch:vi.fn(),rows:[]as Record<string,unknown>[]}))
+vi.mock('@features/vehicle-operations/hooks',()=>({
+ useStationMovementDays:()=>({data:[{visit_day:'2026-09-09',visit_count:3,vehicle_count:2,open_count:1,total_stay_minutes:75}]}),
+ useStationVisitsForDay:()=>({data:h.rows,isLoading:false}),
+ useStationConfirmArrival:()=>({mutate:h.confirm,isPending:false}),
+ useStationDispatchVehicle:()=>({mutate:h.dispatch,isPending:false}),
+}))
+import StationVehicleMovementsPage from'@portals/transfer-station/pages/VehicleMovements/StationVehicleMovementsPage'
+const base={visit_id:'leg1',departure_id:'d1',visit_number:2,inbound_sequence:3,vehicle_id:'v1',vehicle_name:'كابسة كبيرة',db_number:'DB-1',driver_name:'علي',shift:'morning',sector_id:1,area_name:'أرخيته',manager_name:'مسؤول القسم',inbound_departed_at:'2026-09-09T08:00:00Z',arrived_at:null,dispatched_at:null,outbound_destination:null,status:'in_transit',transit_minutes:null,stay_minutes:null,inbound_notes:'حمولة ثانية',arrival_notes:null,dispatch_notes:null}
+describe('سجل زيارات المحطة اليومي',()=>{beforeEach(()=>{h.confirm.mockReset();h.dispatch.mockReset();h.rows=[base]});it('يعرض مجلد اليوم ورقم الزيارة ويؤكد الوصول بملاحظاته',()=>{render(<StationVehicleMovementsPage/>);expect(screen.getByTestId('station-day-2026-09-09')).toHaveTextContent('3 زيارة');expect(screen.getByTestId('station-visit-leg1')).toHaveTextContent('الزيارة #2');fireEvent.click(screen.getByTestId('station-arrive-leg1'));fireEvent.change(screen.getByTestId('station-action-notes'),{target:{value:'وصلت كاملة'}});fireEvent.click(screen.getByTestId('confirm-station-action'));expect(h.confirm).toHaveBeenCalledWith({legId:'leg1',notes:'وصلت كاملة'},expect.any(Object))});it('يعرض مدة البقاء والسجل التاريخي ولا يعرض إجراء بعد المغادرة',()=>{h.rows=[{...base,status:'dispatched',arrived_at:'2026-09-09T08:20:00Z',dispatched_at:'2026-09-09T09:35:00Z',outbound_destination:'work_site',transit_minutes:20,stay_minutes:75,arrival_notes:'تم الوزن',dispatch_notes:'عودة للموقع'}];render(<StationVehicleMovementsPage/>);expect(screen.getByTestId('station-visit-leg1')).toHaveTextContent('1 س 15 د');expect(screen.getByTestId('station-visit-leg1')).toHaveTextContent('عودة للموقع');expect(screen.queryByTestId('station-work-leg1')).not.toBeInTheDocument()})})

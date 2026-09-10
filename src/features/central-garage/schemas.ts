@@ -1,20 +1,21 @@
 import { z } from 'zod'
 import { GARAGE_FUEL_UNITS } from './fuel-units'
+import { GARAGE_OWNERSHIP_TYPES, GARAGE_VEHICLE_CATEGORIES } from './vehicle-details'
 
 const shift = z.enum(['morning','evening','night'])
-export const garageVehicleSchema = z.object({
+const garageVehicleBase = z.object({
   vehicleName: z.string().trim().min(2,'اسم السيارة مطلوب').max(120),
   dbNumber: z.string().trim().min(1,'رقم DB مطلوب').max(50),
   plateNumber: z.string().trim().min(1,'رقم اللوحة مطلوب').max(50),
   chassisNumber: z.string().trim().min(3,'رقم الشاصي مطلوب').max(100),
-  driverName: z.string().trim().min(2,'اسم السائق مطلوب').max(120),
-  shift,
-  sectorId: z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),
-  image: z.instanceof(File,{message:'صورة الآلية مطلوبة'}),
+  vehicleCategory: z.enum(GARAGE_VEHICLE_CATEGORIES,{message:'اختر نوع الآلية'}), ownershipType: z.enum(GARAGE_OWNERSHIP_TYPES,{message:'اختر ملكية الآلية'}),
+  lessorName:z.string().trim().max(160).optional().or(z.literal('')),rentalContractNo:z.string().trim().max(80).optional().or(z.literal('')),rentalStartDate:z.string().date().optional().or(z.literal('')),rentalEndDate:z.string().date().optional().or(z.literal('')),
+  modelYear:z.preprocess(v=>v===''?undefined:v,z.coerce.number().int().min(1950).max(new Date().getFullYear()+1).optional()),vehicleColor:z.string().trim().max(50).optional().or(z.literal('')),specifications:z.string().trim().max(1000).optional().or(z.literal('')),
+  driverName:z.string().trim().min(2,'اسم السائق مطلوب').max(120),shift,sectorId:z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),image:z.instanceof(File,{message:'صورة الآلية مطلوبة'}),
 })
-export const garageVehicleEditSchema = garageVehicleSchema.omit({driverName:true,shift:true,sectorId:true,image:true}).extend({
-  image: z.instanceof(File).optional(),
-})
+const rentalRules=(v:{ownershipType:'owned'|'rented';lessorName?:string;rentalStartDate?:string;rentalEndDate?:string},ctx:z.RefinementCtx)=>{if(v.ownershipType==='rented'&&(!v.lessorName||v.lessorName.length<2))ctx.addIssue({code:'custom',path:['lessorName'],message:'اسم الجهة المؤجرة مطلوب'});if(v.rentalEndDate&&(!v.rentalStartDate||v.rentalEndDate<v.rentalStartDate))ctx.addIssue({code:'custom',path:['rentalEndDate'],message:'تاريخ نهاية الإيجار يجب ألا يسبق البداية'})}
+export const garageVehicleSchema=garageVehicleBase.superRefine(rentalRules)
+export const garageVehicleEditSchema=garageVehicleBase.omit({driverName:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
 export const garageArchiveReasonSchema = z.string().trim().min(5,'السبب يجب ألا يقل عن 5 أحرف').max(500)
 
 export const garageAssignmentSchema = z.object({

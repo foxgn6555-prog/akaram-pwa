@@ -1,10 +1,9 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import { BusFront, ClipboardEdit, DoorOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
-import { useGarageAreas, useGarageDepartures, useGarageVehicles, useRecordGarageDeparture, useRecordGarageReturn } from '@features/central-garage/hooks'
-import type { GarageDeparture, GarageShift, GarageVehicle } from '@features/central-garage/types'
+import { BusFront, ClipboardEdit, DoorOpen, FolderOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
+import { useGarageAreas, useGarageDepartureDays, useGarageDeparturesForDay, useGarageVehicles, useRecordGarageReturn, useGarageShiftAssignments, useGarageShiftDispatchRecipients, useRecordGarageShiftDeparture, useSetGarageShiftAssignment } from '@features/central-garage/hooks'
+import type { GarageArea, GarageDeparture, GarageShift, GarageVehicle } from '@features/central-garage/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
-import { AssignmentDialog } from '../components/AssignmentDialog'
 
 const inputClass = 'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 const shiftLabels = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' } as const
@@ -27,7 +26,7 @@ function departureState(departures: GarageDeparture[]): Map<string, DepartureSta
 }
 
 function StatusChip({ state }: { state: DepartureState }) {
-  if (state.kind === 'field') return <span data-testid="departure-state-field" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700"><DoorOpen size={13} />في الميدان · انطلقت {clock(state.departure.departedAt)}</span>
+  if (state.kind === 'field') {const d=state.departure;const label=d.siteDepartedAt?'في الطريق إلى الكراج':d.arrivedAt?'وصلت وتعمل في الموقع':'في الطريق إلى موقع العمل';return <span data-testid="departure-state-field" className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black ${d.siteDepartedAt?'bg-blue-50 text-blue-700':d.arrivedAt?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}><DoorOpen size={13}/>{label} · انطلقت {clock(d.departedAt)}</span>}
   if (state.kind === 'returned') return <span data-testid="departure-state-returned" className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600"><LogIn size={13} />عادت إلى الكراج {clock(state.departure.returnedAt as string)}</span>
   return <span data-testid="departure-state-pending" className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">لم تسجل انطلاقاً اليوم</span>
 }
@@ -36,14 +35,18 @@ export default function DriversDispatchPage() {
   const [shift, setShift] = useState('')
   const [sector, setSector] = useState('')
   const [selected, setSelected] = useState<GarageVehicle | null>(null)
+  const [dispatchVehicle,setDispatchVehicle]=useState<GarageVehicle|null>(null)
+  const today=useMemo(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad'}).format(new Date()),[])
+  const[selectedDay,setSelectedDay]=useState(today)
   const deferred = useDeferredValue(search)
   const areas = useGarageAreas()
   const vehicles = useGarageVehicles({ search: deferred, shift: shift as GarageShift || undefined, sectorId: sector ? Number(sector) : undefined, pageSize: 100 })
-  const departures = useGarageDepartures()
-  const recordDeparture = useRecordGarageDeparture()
+  const dayFolders=useGarageDepartureDays()
+  const departures=useGarageDeparturesForDay(selectedDay)
   const recordReturn = useRecordGarageReturn()
   const states = useMemo(() => departureState(departures.data ?? []), [departures.data])
-  const rows = vehicles.data?.rows ?? []
+  const allRows = vehicles.data?.rows ?? []
+  const rows=selectedDay===today?allRows:allRows.filter(v=>states.has(v.id))
   const inField = rows.filter((vehicle) => states.get(vehicle.id)?.kind === 'field').length
   const returned = rows.filter((vehicle) => states.get(vehicle.id)?.kind === 'returned').length
   const pending = rows.length - inField - returned
@@ -59,6 +62,7 @@ export default function DriversDispatchPage() {
         <h1 className="mt-2 text-2xl font-black">انطلاق السائقين من الكراج</h1>
         <p className="mt-1 text-sm text-cyan-100">سجّل خروج كل سائق من الكراج إلى ورديته، ثم سجّل عودته عند الرجوع — كل التوقيتات محفوظة في السجل</p>
       </header>
+      <GarageDailyFolders days={dayFolders.data??[]} selected={selectedDay} onSelect={setSelectedDay}/>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stat('stat-total', 'آليات الانطلاقية', rows.length, 'text-slate-900')}
         {stat('stat-field', 'في الميدان الآن', inField, 'text-emerald-700')}
@@ -80,20 +84,26 @@ export default function DriversDispatchPage() {
                     <p className="font-black text-slate-900">{vehicle.driverName}</p>
                     <p className="mt-1 text-xs text-slate-500">{vehicle.vehicleName} · DB {vehicle.dbNumber} · وردة {shiftLabels[vehicle.shift]}</p>
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600"><MapPin size={14} className="text-cyan-700"/>{vehicle.parentSector==='karrada'?'الكرادة':'الزعفرانية'} · {vehicle.areaName}</p>
-                    <div className="mt-2"><StatusChip state={state}/></div>
+                    <div className="mt-2"><StatusChip state={state}/>{state.kind==='field'&&state.departure.recipientManagerName&&<p className="mt-1 text-[11px] font-bold text-cyan-800">المستلم: {state.departure.recipientManagerName}{state.departure.arrivedAt?` · وصل ${clock(state.departure.arrivedAt)}`:''}{state.departure.siteDepartedAt?` · غادر الموقع ${clock(state.departure.siteDepartedAt)}`:''}</p>}</div>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
-                    {state.kind === 'field'
-                      ? <button data-testid={`return-${vehicle.id}`} disabled={recordReturn.isPending} onClick={()=>recordReturn.mutate({departureId:state.departure.id})} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white disabled:opacity-60"><LogIn size={15}/>تسجيل عودة إلى الكراج</button>
-                      : <button data-testid={`depart-${vehicle.id}`} disabled={recordDeparture.isPending} onClick={()=>recordDeparture.mutate({vehicleId:vehicle.id})} className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 text-xs font-black text-white disabled:opacity-60"><LogOut size={15}/>تسجيل انطلاق من الكراج</button>}
-                    <button data-testid={`change-assignment-${vehicle.id}`} disabled={state.kind==='field'} title={state.kind==='field'?'سجّل عودة الآلية قبل تغيير الإسناد':undefined} onClick={()=>setSelected(vehicle)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-xs font-black text-cyan-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"><ClipboardEdit size={15}/>{state.kind==='field'?'الإسناد مقفل أثناء الخروج':'تغيير الانطلاقية'}</button>
+                    {selectedDay!==today&&state.kind!=='field'?<span className="rounded-xl bg-slate-100 px-4 py-2 text-[11px] font-bold text-slate-600">مجلد محفوظ للعرض فقط</span>:state.kind === 'field'
+                      ? state.departure.siteDepartedAt?<button data-testid={`return-${vehicle.id}`} disabled={recordReturn.isPending} onClick={()=>recordReturn.mutate({departureId:state.departure.id})} className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white disabled:opacity-60"><LogIn size={15}/>تأكيد وصول الآلية إلى الكراج</button>:<span className="text-[11px] font-bold text-slate-500">بانتظار تأكيد مسؤول القسم وإرسال الآلية عائدة</span>
+                      : <button data-testid={`depart-${vehicle.id}`} onClick={()=>setDispatchVehicle(vehicle)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 text-xs font-black text-white"><LogOut size={15}/>تسجيل انطلاق من الكراج</button>}
+                    <button data-testid={`change-assignment-${vehicle.id}`} disabled={selectedDay!==today||state.kind==='field'} title={selectedDay!==today?'المجلدات السابقة للعرض فقط':state.kind==='field'?'سجّل عودة الآلية قبل تغيير الإسناد':undefined} onClick={()=>setSelected(vehicle)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-xs font-black text-cyan-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"><ClipboardEdit size={15}/>{state.kind==='field'?'الإسناد مقفل أثناء الخروج':'إدارة سائقي الشفتات'}</button>
                   </div>
                 </article>
               })}
             </div>
           </div>}
       <p className="rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"><b className="text-slate-700">تسجيل انطلاق</b> يوثّق خروج السائق من الكراج إلى ورديته، و<b className="text-slate-700">تسجيل عودة</b> يوثّق رجوعه إلى الكراج — أما <b className="text-slate-700">تغيير الانطلاقية</b> فيعدّل السائق والوردية والموقع مع حفظ السجل السابق.</p>
-      {selected && <AssignmentDialog vehicle={selected} areas={areas.data ?? []} onClose={()=>setSelected(null)}/>}
+      {selected && <MultiShiftAssignmentsDialog vehicle={selected} areas={areas.data ?? []} onClose={()=>setSelected(null)}/>}
+      {dispatchVehicle&&<DepartureDialog vehicle={dispatchVehicle} onClose={()=>setDispatchVehicle(null)}/>}
     </section>
   )
 }
+
+function MultiShiftAssignmentsDialog({vehicle,areas,onClose}:{vehicle:GarageVehicle;areas:GarageArea[];onClose:()=>void}){const q=useGarageShiftAssignments(vehicle.id),save=useSetGarageShiftAssignment();const[shift,setShift]=useState<GarageShift>('morning'),[driver,setDriver]=useState(''),[sectorId,setSectorId]=useState(vehicle.sectorId),[reason,setReason]=useState('تحديث إسناد الشفت');const submit=(e:React.FormEvent)=>{e.preventDefault();save.mutate({vehicleId:vehicle.id,shift,driverName:driver,sectorId,reason},{onSuccess:()=>{setDriver('');void q.refetch()}})};return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" dir="rtl"><form onSubmit={submit} className="w-full max-w-xl rounded-3xl bg-white p-6"><h2 className="text-xl font-black">سائقو شفتات {vehicle.vehicleName}</h2><select data-testid="assignment-shift" value={shift} onChange={e=>setShift(e.target.value as GarageShift)} className="mt-4 h-11 w-full rounded-xl border px-3"><option value="morning">صباحي</option><option value="evening">مسائي</option><option value="night">ليلي</option></select><div className="mt-3 grid grid-cols-3 gap-2">{(['morning','evening','night']as GarageShift[]).map(x=>{const a=q.data?.find(v=>v.shift===x&&!v.endsAt);return <button type="button" key={x} onClick={()=>{setShift(x);setDriver(a?.driverName??'');setSectorId(a?.sectorId??vehicle.sectorId)}} className={`rounded-xl border p-3 text-xs ${shift===x?'border-cyan-600 bg-cyan-50':''}`}><b>{shiftLabels[x]}</b><span className="mt-1 block">{a?.driverName??'غير مسند'}</span></button>})}</div><input data-testid="assignment-driver" required minLength={2} value={driver} onChange={e=>setDriver(e.target.value)} className="mt-4 h-11 w-full rounded-xl border px-3" placeholder="اسم سائق الشفت"/><select data-testid="assignment-area" value={sectorId} onChange={e=>setSectorId(Number(e.target.value))} className="mt-3 h-11 w-full rounded-xl border px-3">{areas.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><input data-testid="assignment-reason" required minLength={3} value={reason} onChange={e=>setReason(e.target.value)} className="mt-3 h-11 w-full rounded-xl border px-3" placeholder="سبب التغيير"/><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={onClose} className="h-11 rounded-xl border">إغلاق</button><button data-testid="assignment-submit" className="h-11 rounded-xl bg-cyan-700 font-black text-white">حفظ إسناد {shiftLabels[shift]}</button></div></form></div>}
+
+function DepartureDialog({vehicle,onClose}:{vehicle:GarageVehicle;onClose:()=>void}){const assignments=useGarageShiftAssignments(vehicle.id);const[shift,setShift]=useState<GarageShift>('morning');const recipients=useGarageShiftDispatchRecipients(vehicle.id,shift);const departure=useRecordGarageShiftDeparture();const[managerId,setManagerId]=useState('');const[notes,setNotes]=useState('');const active=(assignments.data??[]).filter(a=>!a.endsAt);const selected=active.find(a=>a.shift===shift);const submit=(e:React.FormEvent)=>{e.preventDefault();if(!selected)return;departure.mutate({vehicleId:vehicle.id,shift,recipientManagerId:managerId,notes:notes||undefined},{onSuccess:onClose})};return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" dir="rtl"><form onSubmit={submit} className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl"><h2 className="text-xl font-black">انطلاق الآلية حسب الشفت</h2><p className="mt-1 text-sm text-slate-500">{vehicle.vehicleName} · DB {vehicle.dbNumber}</p><label className="mt-4 block text-xs font-black">الشفت والسائق</label><select value={shift} onChange={e=>{setShift(e.target.value as GarageShift);setManagerId('')}} className="mt-2 h-12 w-full rounded-xl border px-3">{(['morning','evening','night']as GarageShift[]).map(x=><option key={x} value={x}>{shiftLabels[x]} — {active.find(a=>a.shift===x)?.driverName??'لا يوجد إسناد'}</option>)}</select>{selected&&<p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs">السائق: <b>{selected.driverName}</b> · الموقع: <b>{selected.areaName}</b></p>}<label className="mt-4 block text-xs font-black">مسؤول القسم المستلم</label><select data-testid="departure-recipient" required value={managerId} onChange={e=>setManagerId(e.target.value)} className="mt-2 h-12 w-full rounded-xl border px-3 text-sm"><option value="">اختر المسؤول المطابق للشفت والموقع</option>{(recipients.data??[]).map(r=><option key={r.userId} value={r.userId}>{r.managerName}</option>)}</select><textarea value={notes} onChange={e=>setNotes(e.target.value)} maxLength={500} rows={3} className="mt-4 w-full rounded-xl border p-3 text-sm" placeholder="ملاحظات الانطلاق"/><div className="mt-5 grid grid-cols-2 gap-2"><button type="button" onClick={onClose} className="h-11 rounded-xl border font-bold">إلغاء</button><button data-testid="confirm-departure" disabled={!selected||!managerId||departure.isPending} className="h-11 rounded-xl bg-cyan-700 font-black text-white disabled:opacity-50">تأكيد الانطلاق والإبلاغ</button></div></form></div>}
+function GarageDailyFolders({days,selected,onSelect}:{days:Array<{tripDay:string;totalCount:number;openCount:number}>;selected:string;onSelect:(day:string)=>void}){const label=(d:string)=>new Intl.DateTimeFormat('ar-IQ',{weekday:'short',day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Baghdad'}).format(new Date(`${d}T12:00:00Z`));return <section className="rounded-3xl border bg-white p-4 shadow-sm" data-testid="garage-trip-day-folders"><div className="mb-3 flex items-center gap-2"><FolderOpen className="size-5 text-amber-600"/><h2 className="font-black">مجلدات حركة الأيام</h2><span className="text-[11px] text-slate-500">فتح يوم واحد يمنع ازدحام السجل</span><input aria-label="فتح يوم محدد" type="date" value={selected} onChange={e=>onSelect(e.target.value)} className="mr-auto h-9 rounded-xl border px-2 text-xs"/></div><div className="flex gap-2 overflow-x-auto pb-2">{days.map(d=><button key={d.tripDay} data-testid={`garage-trip-day-${d.tripDay}`} onClick={()=>onSelect(d.tripDay)} className={`min-w-44 rounded-2xl border p-3 text-right ${selected===d.tripDay?'border-cyan-600 bg-cyan-50 ring-2 ring-cyan-100':'bg-slate-50 hover:border-amber-400'}`}><b className="block text-xs">{label(d.tripDay)}</b><span className="mt-1 block text-[11px] text-slate-500">{d.totalCount} انطلاقة{d.openCount>0&&<em className="mr-2 not-italic font-black text-emerald-700">· {d.openCount} مفتوحة</em>}</span></button>)}</div>{!days.length&&<p className="py-3 text-center text-xs text-slate-500">سيظهر أول مجلد عند تسجيل انطلاقة.</p>}</section>}

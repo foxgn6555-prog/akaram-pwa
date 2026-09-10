@@ -14,6 +14,7 @@ const read = (name: string): string =>
 
 const sql44 = read('00044_sector_supervisor.sql')
 const sql45 = read('00045_sector_rpc.sql')
+const sql77 = read('00077_sector_breakdown_return_to_work.sql')
 
 describe('⚓ عزل بيانات القواطع — ميجرشن 00044', () => {
   const tables = [
@@ -72,6 +73,12 @@ describe('⚓ عزل بيانات القواطع — ميجرشن 00044', () => 
   it('الحضورية فريدة لكل عامل/يوم/شفت', () => {
     expect(sql44).toMatch(/unique.*worker_id.*log_date.*shift|sector_attendance_worker_day_unique/is)
   })
+})
+
+describe('دورة عطل الآلية والعودة للعمل — ميجرشن 00077',()=>{
+  it('يحفظ وقت العودة والمنفذ وملاحظات الإصلاح ويُدقّق السجل',()=>{expect(sql77).toContain('resolved_at timestamptz');expect(sql77).toContain('resolved_by uuid');expect(sql77).toContain('resolution_notes text');expect(sql77).toContain('trg_audit_sector_breakdowns')})
+  it('يوفر RPC آمنة للعودة ويمنع التحديث المباشر',()=>{expect(sql77).toContain('sector_return_vehicle_to_work');expect(sql77).toContain("manager_id=v_uid and status='logged'");expect(sql77).toContain('drop policy if exists "breakdown: تحديث"');expect(sql77).toMatch(/revoke all on function[\s\S]*from public,anon/)})
+  it('يتحقق من إسناد الآلية ويمنع بلاغاً مفتوحاً مكرراً',()=>{expect(sql77).toContain('BREAKDOWN_VEHICLE_NOT_ASSIGNED');expect(sql77).toContain('BREAKDOWN_ALREADY_OPEN');expect(sql77).toMatch(/sector_vehicles[\s\S]*sector_id=any\(v_profile\.sectors\)/)})
 })
 
 describe('⚓ كتابات القواطع — ميجرشن 00045 (RPCs)', () => {

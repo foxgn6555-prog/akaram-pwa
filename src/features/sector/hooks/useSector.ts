@@ -6,7 +6,7 @@ import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import {
   sector, sectorTeam, sectorSupplies, sectorBreakdowns,
-  sectorPhotos, sectorAttendance, sectorSummary as fetchSummary,
+  sectorPhotos, sectorAttendance, sectorSummary as fetchSummary, sectorVehicleTrips,
 } from '@sdk/sector.sdk'
 import type {
   CreateWorkerInput, CreateVehicleInput, CreateSupplyInput,
@@ -133,6 +133,19 @@ export function useBreakdowns(scope: 'active' | 'archived' = 'active') {
   })
 }
 
+export function useReturnVehicleToWork() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: ({ breakdownId, resolutionNotes }: { breakdownId: string; resolutionNotes: string }) => sectorBreakdowns.returnToWork(breakdownId, resolutionNotes),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: sectorKeys.all })
+      addToast({ type: 'success', message: 'تم تسجيل عودة الآلية إلى العمل وحفظ مدة التوقف' })
+    },
+    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'returnVehicleToWork' }).message }),
+  })
+}
+
 export function useSubmitBreakdown() {
   const qc = useQueryClient()
   const addToast = useUiStore((s) => s.addToast)
@@ -202,3 +215,10 @@ export function useSectorSummary() {
     staleTime: API.STALE_TIME.DEFAULT,
   })
 }
+
+export function useSectorVehicleTrips(){return useQuery({queryKey:['sector','vehicle-trips'],queryFn:()=>sectorVehicleTrips.list(),refetchInterval:30000})}
+export function useSectorVehicleTripDays(){return useQuery({queryKey:['sector','vehicle-trip-days'],queryFn:()=>sectorVehicleTrips.days(),refetchInterval:30000})}
+export function useSectorVehicleTripsForDay(day:string){return useQuery({queryKey:['sector','vehicle-trips-day',day],queryFn:()=>sectorVehicleTrips.forDay(day),enabled:Boolean(day),refetchInterval:30000})}
+function useTripStageMutation(action:'arrival'|'garage') {const qc=useQueryClient();const addToast=useUiStore(s=>s.addToast);return useMutation({mutationFn:(x:{departureId:string;notes?:string})=>action==='arrival'?sectorVehicleTrips.confirmArrival(x.departureId,x.notes):sectorVehicleTrips.sendToGarage(x.departureId,x.notes),onSuccess:()=>{void qc.invalidateQueries({queryKey:['sector','vehicle-trips']});void qc.invalidateQueries({queryKey:['sector','vehicle-trip-days']});void qc.invalidateQueries({queryKey:['sector','vehicle-trips-day']});addToast({type:'success',message:action==='arrival'?'تم تأكيد وصول الآلية وإبلاغ الكراج':'تم إنهاء الوردية وإبلاغ الكراج أن الآلية في طريق العودة'})},onError:e=>addToast({type:'error',message:handleAppError(e,{scope:'sectorVehicleTrip'}).message})})}
+export const useConfirmSectorVehicleArrival=()=>useTripStageMutation('arrival')
+export const useSendSectorVehicleToGarage=()=>useTripStageMutation('garage')

@@ -1,4 +1,5 @@
 import type { GarageFuelUnit } from './fuel-units'
+import type { GarageOwnershipType, GarageVehicleCategory } from './vehicle-details'
 
 export type GarageShift = 'morning' | 'evening' | 'night'
 export type GarageFuelType = 'gas_oil' | 'hydraulic' | 'grease' | 'c_oil'
@@ -17,6 +18,15 @@ export interface GarageVehicle {
   dbNumber: string
   plateNumber: string
   chassisNumber: string
+  vehicleCategory: GarageVehicleCategory
+  ownershipType: GarageOwnershipType
+  lessorName: string | null
+  rentalContractNo: string | null
+  rentalStartDate: string | null
+  rentalEndDate: string | null
+  modelYear: number | null
+  vehicleColor: string | null
+  specifications: string | null
   imagePath: string
   imageUrl?: string
   shift: GarageShift
@@ -50,11 +60,22 @@ export interface CreateGarageVehicleInput {
   dbNumber: string
   plateNumber: string
   chassisNumber: string
+  vehicleCategory?: GarageVehicleCategory
+  ownershipType?: GarageOwnershipType
+  lessorName?: string | null
+  rentalContractNo?: string | null
+  rentalStartDate?: string | null
+  rentalEndDate?: string | null
+  modelYear?: number | null
+  vehicleColor?: string | null
+  specifications?: string | null
   image: File
   shift: GarageShift
   driverName: string
   sectorId: number
 }
+
+export interface GarageVehicleShiftAssignment {id:string;vehicleId:string;shift:GarageShift;driverName:string;sectorId:number;areaName:string;parentSector:GarageParentSector;startsAt:string;endsAt:string|null;changeReason:string|null}
 
 export interface GarageDriverAssignment {
   id: string
@@ -118,7 +139,13 @@ export interface GarageDeparture {
   shift: GarageShift
   sectorId: number
   departedAt: string
+  arrivedAt: string | null
+  siteDepartedAt: string | null
   returnedAt: string | null
+  recipientManagerId: string | null
+  recipientManagerName: string | null
+  arrivalNotes: string | null
+  siteDepartureNotes: string | null
   notes: string | null
   vehicleName: string
   dbNumber: string
@@ -127,6 +154,9 @@ export interface GarageDeparture {
   areaName: string
   parentSector: GarageParentSector
 }
+
+export interface GarageDispatchRecipient { userId: string; managerName: string; shift: GarageShift; sectors: number[] }
+export interface GarageTripDay { tripDay:string;totalCount:number;openCount:number;firstDepartureAt:string;lastActivityAt:string }
 
 export interface GarageDashboardFilter {
   from?: string
