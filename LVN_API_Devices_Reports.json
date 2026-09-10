@@ -1,0 +1,3699 @@
+{
+  "api": {
+    "title": "LVN API",
+    "base_url": "https://track.gpslvn.iq/api",
+    "response_format": "application/json for data endpoints; report downloads return file content.",
+    "authentication": {
+      "type": "api_hash",
+      "parameter": "user_api_hash",
+      "usage": "After login, append user_api_hash as a URL-encoded query parameter to subsequent authenticated requests. Login uses email and password."
+    }
+  },
+  "sections": {
+    "Authentication": {
+      "description": "Login and obtain the user_api_hash required for all subsequent requests.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/login",
+        "url": "https://track.gpslvn.iq/api/login",
+        "description": "Following a good response save 'user_api_hash' and use it for others requests. It may change in the future if user change a password, when system will return error.",
+        "content_type": "multipart/form-data",
+        "parameters": {
+          "required": [
+            {
+              "name": "email",
+              "type": "string",
+              "in": "formData",
+              "description": "email"
+            },
+            {
+              "name": "password",
+              "type": "string",
+              "in": "formData",
+              "description": "password"
+            }
+          ],
+          "optional": [
+            {
+              "name": "as",
+              "type": "string",
+              "in": "formData",
+              "description": "Other user's to login as, email"
+            }
+          ]
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "example": {
+              "status": 1,
+              "user_api_hash": "YOUR_API_HASH"
+            }
+          },
+          "401": {
+            "description": "",
+            "example": {
+              "status": 0,
+              "message": "Wrong credentials."
+            }
+          }
+        }
+      }
+    },
+    "Get Devices": {
+      "description": "Retrieve all vehicles assigned to the authenticated account. Supports optional filters.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_devices",
+        "url": "https://track.gpslvn.iq/api/get_devices",
+        "description": "Get devices",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash"
+            }
+          ],
+          "optional": [
+            {
+              "name": "s",
+              "type": "string",
+              "in": "query",
+              "description": "Value to search in items properties"
+            },
+            {
+              "name": "includes",
+              "type": "array",
+              "in": "query",
+              "description": "Relations to include. Available: `image`, `tags`"
+            },
+            {
+              "name": "limit",
+              "type": "integer",
+              "in": "query",
+              "description": "Specifies amount of items per page"
+            },
+            {
+              "name": "page",
+              "type": "integer",
+              "in": "query",
+              "description": "Specifies which page should be retrieved"
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `id` value"
+            },
+            {
+              "name": "imei",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `imei` value"
+            },
+            {
+              "name": "sim_number",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `sim_number` value"
+            },
+            {
+              "name": "msisdn",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `msisdn` value"
+            },
+            {
+              "name": "vin",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `vin` value"
+            },
+            {
+              "name": "plate_number",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `plate_number` value"
+            },
+            {
+              "name": "registration_number",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `registration_number` value"
+            },
+            {
+              "name": "object_owner",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `object_owner` value"
+            },
+            {
+              "name": "device_model",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `device_model` value"
+            },
+            {
+              "name": "group_id",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `group_id` value"
+            },
+            {
+              "name": "status",
+              "type": "array",
+              "in": "query",
+              "description": "Find items with exact `status` values"
+            },
+            {
+              "name": "online",
+              "type": "string",
+              "in": "query",
+              "description": "Find items which status is `online` for the last specified amount of mintues"
+            },
+            {
+              "name": "offline",
+              "type": "string",
+              "in": "query",
+              "description": "Find items which status is `offline` for the last specified amount of mintues"
+            }
+          ]
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "example": [
+              {
+                "title": "Ungrouped",
+                "items": [
+                  {
+                    "id": 3,
+                    "name": "Device name",
+                    "online": "offline",
+                    "alarm": "",
+                    "time": "2016-04-29 21:01:26",
+                    "timestamp": 1461956486,
+                    "acktimestamp": 0,
+                    "speed": 0,
+                    "lat": 55.922996,
+                    "lng": 23.3466906,
+                    "course": "0",
+                    "power": "-",
+                    "altitude": 175,
+                    "address": "-",
+                    "protocol": "osmand",
+                    "driver": "Drive first",
+                    "sensors": [
+                      {
+                        "name": "Sensor test",
+                        "value": "- nn",
+                        "show_in_popup": "0"
+                      },
+                      {
+                        "name": "test acc",
+                        "value": "- nn",
+                        "show_in_popup": "1"
+                      }
+                    ],
+                    "services": [
+                      {
+                        "name": "Test service",
+                        "value": "Engine hours Left (1000 )"
+                      }
+                    ],
+                    "tail": [
+                      {
+                        "lat": "55.91986482",
+                        "lng": "23.3255625"
+                      },
+                      {
+                        "lat": "55.91590619",
+                        "lng": "23.33778733"
+                      },
+                      {
+                        "lat": "55.91928624",
+                        "lng": "23.34572509"
+                      },
+                      {
+                        "lat": "55.92336524",
+                        "lng": "23.34666575"
+                      },
+                      {
+                        "lat": "55.92297793",
+                        "lng": "23.34665713"
+                      }
+                    ],
+                    "distance_unit_hour": "kph",
+                    "sim_expiration_date": "0000-00-00",
+                    "device_data": {
+                      "id": "3",
+                      "user_id": null,
+                      "traccar_device_id": "3",
+                      "icon_id": "8",
+                      "active": "1",
+                      "deleted": "0",
+                      "name": "Device name",
+                      "imei": "789832",
+                      "fuel_measurement_id": "1",
+                      "fuel_quantity": "0.00",
+                      "fuel_price": "0.00",
+                      "fuel_per_km": "0.00",
+                      "sim_number": "",
+                      "device_model": "",
+                      "plate_number": "",
+                      "vin": "",
+                      "registration_number": "",
+                      "object_owner": "",
+                      "expiration_date": "0000-00-00",
+                      "sim_expiration_date": "0000-00-00",
+                      "tail_color": "#33cc33",
+                      "tail_length": "5",
+                      "engine_hours": "gps",
+                      "detect_engine": "gps",
+                      "min_moving_speed": "6",
+                      "min_fuel_fillings": "10",
+                      "min_fuel_thefts": "10",
+                      "snap_to_road": "0",
+                      "created_at": "2016-04-25 16:21:19",
+                      "updated_at": "2016-06-26 15:52:46",
+                      "pivot": {
+                        "user_id": "2",
+                        "device_id": "3",
+                        "group_id": null,
+                        "current_driver_id": "1",
+                        "active": "1",
+                        "timezone_id": null
+                      },
+                      "group_id": null,
+                      "current_driver_id": "1"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "field": "status",
+                "type": "integer",
+                "description": ""
+              },
+              {
+                "field": "errors",
+                "type": "object",
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "field": "status",
+                "type": "integer",
+                "description": ""
+              },
+              {
+                "field": "error",
+                "type": "string",
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "Get Device Details": {
+      "description": "Retrieve detailed information for a specific vehicle. Uses the same /get_devices endpoint with id or plate_number filter.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_devices",
+        "url": "https://track.gpslvn.iq/api/get_devices",
+        "usage_examples": [
+          {
+            "label": "By device ID",
+            "url": "https://track.gpslvn.iq/api/get_devices?user_api_hash={hash}&id={DEVICE_ID}&lang=en"
+          },
+          {
+            "label": "By plate number",
+            "url": "https://track.gpslvn.iq/api/get_devices?user_api_hash={hash}&plate_number={PLATE_NUMBER}&lang=en"
+          }
+        ],
+        "response_includes": [
+          "Vehicle information",
+          "Device information",
+          "GPS position (lat/lng)",
+          "Driver",
+          "Engine status",
+          "Address",
+          "Sensors",
+          "Services",
+          "Additional metadata"
+        ]
+      }
+    },
+    "Latest Position / Live Updates": {
+      "description": "Returns only vehicles whose data has changed. Save the response time and pass it to the next request. A 5–10 second polling interval is suggested in the supplied LVN reference, not a documented server rate limit; confirm the permitted interval with the platform.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_devices_latest",
+        "url": "https://track.gpslvn.iq/api/get_devices_latest",
+        "description": "Return only devices whose information has changed, all the response returns \"time\", the time needed to transmit the next request.",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash"
+            }
+          ],
+          "optional": [
+            {
+              "name": "time",
+              "type": "string",
+              "in": "query",
+              "description": "Filter items that were updated since provided UNIX timestamp"
+            },
+            {
+              "name": "filters[id]",
+              "type": "integer",
+              "in": "query",
+              "description": "Find items with exact `id` value"
+            },
+            {
+              "name": "filters[imei]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `imei` value"
+            },
+            {
+              "name": "filters[sim_number]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `sim_number` value"
+            },
+            {
+              "name": "filters[msisdn]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `msisdn` value"
+            },
+            {
+              "name": "filters[vin]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `vin` value"
+            },
+            {
+              "name": "filters[plate_number]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `plate_number` value"
+            },
+            {
+              "name": "filters[registration_number]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `registration_number` value"
+            },
+            {
+              "name": "filters[object_owner]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `object_owner` value"
+            },
+            {
+              "name": "filters[device_model]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `device_model` value"
+            },
+            {
+              "name": "filters[group_id]",
+              "type": "integer",
+              "in": "query",
+              "description": "Find items with exact `group_id` value"
+            },
+            {
+              "name": "filters[status]",
+              "type": "array",
+              "in": "query",
+              "description": "Find items with exact `status` values"
+            },
+            {
+              "name": "filters[online]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items which status is `online` for the last specified amount of mintues"
+            },
+            {
+              "name": "filters[offline]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items which status is `offline` for the last specified amount of mintues"
+            }
+          ]
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "example": {
+              "items": [
+                {
+                  "id": 3,
+                  "name": "Device name",
+                  "online": "offline",
+                  "alarm": "",
+                  "time": "2016-04-29 21:01:26",
+                  "timestamp": 1461956486,
+                  "acktimestamp": 0,
+                  "speed": 0,
+                  "lat": 55.922996,
+                  "lng": 23.3466906,
+                  "course": "0",
+                  "power": "-",
+                  "altitude": 175,
+                  "address": "-",
+                  "protocol": "osmand",
+                  "driver": "Drive first",
+                  "sensors": "[\n    {\n        \"name\": \"Sensor test\",\n        \"value\": \"- nn\",\n        \"show_in_popup\": \"0\"\n    },\n    {\n        \"name\": \"test acc\",\n        \"value\": \"- nn\",\n        \"show_in_popup\": \"1\"\n    }\n]",
+                  "services": "[\n    {\n        \"name\": \"Test service\",\n        \"value\": \"Engine hours Left (1000 )\"\n    }\n]",
+                  "tail": "[\n    {\n        \"lat\": \"55.91986482\",\n        \"lng\": \"23.3255625\"\n    },\n    {\n        \"lat\": \"55.91590619\",\n        \"lng\": \"23.33778733\"\n    },\n    {\n        \"lat\": \"55.91928624\",\n        \"lng\": \"23.34572509\"\n    },\n    {\n        \"lat\": \"55.92336524\",\n        \"lng\": \"23.34666575\"\n    },\n    {\n        \"lat\": \"55.92297793\",\n        \"lng\": \"23.34665713\"\n    }\n]",
+                  "distance_unit_hour": "kph",
+                  "device_data": {
+                    "id": "3",
+                    "traccar_device_id": "3",
+                    "icon_id": "8",
+                    "active": "1",
+                    "deleted": "0",
+                    "name": "Device name",
+                    "imei": "789832",
+                    "fuel_measurement_id": "1",
+                    "fuel_quantity": "0.00",
+                    "fuel_price": "0.00",
+                    "fuel_per_km": "0.00",
+                    "sim_number": "",
+                    "device_model": "",
+                    "plate_number": "",
+                    "vin": "",
+                    "registration_number": "",
+                    "object_owner": "",
+                    "expiration_date": "0000-00-00",
+                    "tail_color": "#33cc33",
+                    "tail_length": "5",
+                    "engine_hours": "gps",
+                    "detect_engine": "gps",
+                    "min_moving_speed": "6",
+                    "min_fuel_fillings": "10",
+                    "min_fuel_thefts": "10",
+                    "snap_to_road": "0",
+                    "created_at": "2016-04-25 16:21:19",
+                    "updated_at": "2016-06-26 15:52:46",
+                    "pivot": {
+                      "user_id": "2",
+                      "device_id": "3",
+                      "group_id": null,
+                      "current_driver_id": "1",
+                      "active": "1",
+                      "timezone_id": null
+                    },
+                    "group_id": null,
+                    "current_driver_id": "1"
+                  }
+                }
+              ],
+              "events": [],
+              "time": 1466992735,
+              "version": "2.5.1"
+            }
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "field": "status",
+                "type": "integer",
+                "description": ""
+              },
+              {
+                "field": "errors",
+                "type": "object",
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "field": "status",
+                "type": "integer",
+                "description": ""
+              },
+              {
+                "field": "error",
+                "type": "string",
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "Device History": {
+      "description": "Retrieve historical movement and summary metrics for one device and a selected time period.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_history",
+        "url": "https://track.gpslvn.iq/api/get_history",
+        "description": "Get device history",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            },
+            {
+              "name": "device_id",
+              "type": "integer",
+              "in": "query",
+              "description": "Device ID"
+            },
+            {
+              "name": "from_date",
+              "type": "string",
+              "in": "query",
+              "description": "Date from"
+            },
+            {
+              "name": "from_time",
+              "type": "string",
+              "in": "query",
+              "description": "Time from"
+            },
+            {
+              "name": "to_date",
+              "type": "string",
+              "in": "query",
+              "description": "Date to"
+            },
+            {
+              "name": "to_time",
+              "type": "string",
+              "in": "query",
+              "description": "Time to"
+            }
+          ],
+          "optional": [
+            {
+              "name": "snap_to_road",
+              "type": "boolean",
+              "in": "query",
+              "description": "Align GPS point to the nearest point on a road network"
+            }
+          ]
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "items",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "title": "historyItem",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "description": "1 - Drive, 2 - Stop, 3 - Start, 4 - Finish, 5 - Event"
+                    },
+                    "time": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "show": {
+                      "type": "string"
+                    },
+                    "distance": {
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "raw_time": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ]
+                          },
+                          "device_id": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ]
+                          },
+                          "altitude": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "course": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "latitude": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "longitude": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "other": {
+                            "type": "string"
+                          },
+                          "power": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "speed": {
+                            "type": "number"
+                          },
+                          "time": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "server_time": {
+                            "type": "string"
+                          },
+                          "valid": {
+                            "type": "string"
+                          },
+                          "distance": {
+                            "type": "number"
+                          },
+                          "protocol": {
+                            "type": "string"
+                          },
+                          "sensor_id": {
+                            "type": [
+                              "integer",
+                              "string"
+                            ]
+                          },
+                          "sort": {
+                            "type": "integer"
+                          },
+                          "item_id": {
+                            "type": "string"
+                          },
+                          "raw_time": {
+                            "type": "string"
+                          },
+                          "lat": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "lng": {
+                            "type": [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "other_arr": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "sensors_data": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": [
+                                    "string",
+                                    "number"
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "driver": {
+                      "title": "driver",
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "id": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "user_id": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "device_id": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ]
+                        },
+                        "device_port": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "rfid": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "device": {
+                          "title": "device",
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "user_id": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "traccar_device_id": {
+                              "type": "string"
+                            },
+                            "icon_id": {
+                              "type": "string"
+                            },
+                            "active": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "imei": {
+                              "type": "string"
+                            },
+                            "fuel_measurement_id": {
+                              "type": "string"
+                            },
+                            "fuel_quantity": {
+                              "type": "string"
+                            },
+                            "fuel_price": {
+                              "type": "string"
+                            },
+                            "fuel_per_km": {
+                              "type": "string"
+                            },
+                            "sim_number": {
+                              "type": "string"
+                            },
+                            "device_model": {
+                              "type": "string"
+                            },
+                            "plate_number": {
+                              "type": "string"
+                            },
+                            "vin": {
+                              "type": "string"
+                            },
+                            "registration_number": {
+                              "type": "string"
+                            },
+                            "object_owner": {
+                              "type": "string"
+                            },
+                            "expiration_date": {
+                              "type": "string"
+                            },
+                            "tail_color": {
+                              "type": "string"
+                            },
+                            "tail_length": {
+                              "type": "string"
+                            },
+                            "engine_hours": {
+                              "type": "string"
+                            },
+                            "detect_engine": {
+                              "type": "string"
+                            },
+                            "min_moving_speed": {
+                              "type": "string"
+                            },
+                            "min_fuel_fillings": {
+                              "type": "string"
+                            },
+                            "min_fuel_thefts": {
+                              "type": "string"
+                            },
+                            "snap_to_road": {
+                              "type": "string"
+                            },
+                            "created_at": {
+                              "type": "string"
+                            },
+                            "updated_at": {
+                              "type": "string"
+                            },
+                            "pivot": {
+                              "type": "object",
+                              "properties": {
+                                "user_id": {
+                                  "type": "string"
+                                },
+                                "device_id": {
+                                  "type": "string"
+                                },
+                                "group_id": {
+                                  "type": "null"
+                                },
+                                "current_driver_id": {
+                                  "type": "string"
+                                },
+                                "active": {
+                                  "type": "string"
+                                },
+                                "timezone_id": {
+                                  "type": "null"
+                                }
+                              }
+                            },
+                            "traccar": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "uniqueId": {
+                                  "type": "string"
+                                },
+                                "latestPosition_id": {
+                                  "type": "string"
+                                },
+                                "lastValidLatitude": {
+                                  "type": "string"
+                                },
+                                "lastValidLongitude": {
+                                  "type": "string"
+                                },
+                                "other": {
+                                  "type": "string"
+                                },
+                                "speed": {
+                                  "type": "string"
+                                },
+                                "time": {
+                                  "type": "string"
+                                },
+                                "server_time": {
+                                  "type": "string"
+                                },
+                                "ack_time": {
+                                  "type": "null"
+                                },
+                                "altitude": {
+                                  "type": "string"
+                                },
+                                "course": {
+                                  "type": "string"
+                                },
+                                "power": {
+                                  "type": "null"
+                                },
+                                "address": {
+                                  "type": "null"
+                                },
+                                "protocol": {
+                                  "type": "string"
+                                },
+                                "latest_positions": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "icon": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "order": {
+                                  "type": "string"
+                                },
+                                "width": {
+                                  "type": "string"
+                                },
+                                "height": {
+                                  "type": "string"
+                                },
+                                "path": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "sensors": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "user_id": {
+                                    "type": "string"
+                                  },
+                                  "device_id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "tag_name": {
+                                    "type": "string"
+                                  },
+                                  "add_to_history": {
+                                    "type": "string"
+                                  },
+                                  "on_value": {
+                                    "type": "null"
+                                  },
+                                  "off_value": {
+                                    "type": "null"
+                                  },
+                                  "shown_value_by": {
+                                    "type": "string"
+                                  },
+                                  "fuel_tank_name": {
+                                    "type": "null"
+                                  },
+                                  "full_tank": {
+                                    "type": "null"
+                                  },
+                                  "full_tank_value": {
+                                    "type": "null"
+                                  },
+                                  "min_value": {
+                                    "type": "null"
+                                  },
+                                  "max_value": {
+                                    "type": "null"
+                                  },
+                                  "formula": {
+                                    "type": "null"
+                                  },
+                                  "odometer_value_by": {
+                                    "type": "null"
+                                  },
+                                  "odometer_value": {
+                                    "type": "null"
+                                  },
+                                  "odometer_value_unit": {
+                                    "type": "string"
+                                  },
+                                  "temperature_max": {
+                                    "type": "null"
+                                  },
+                                  "temperature_max_value": {
+                                    "type": "null"
+                                  },
+                                  "temperature_min": {
+                                    "type": "null"
+                                  },
+                                  "temperature_min_value": {
+                                    "type": "null"
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  },
+                                  "value_formula": {
+                                    "type": "string"
+                                  },
+                                  "show_in_popup": {
+                                    "type": "string"
+                                  },
+                                  "unit_of_measurement": {
+                                    "type": "string"
+                                  },
+                                  "on_tag_value": {
+                                    "type": "null"
+                                  },
+                                  "off_tag_value": {
+                                    "type": "null"
+                                  },
+                                  "on_type": {
+                                    "type": "null"
+                                  },
+                                  "off_type": {
+                                    "type": "null"
+                                  },
+                                  "calibrations": {
+                                    "type": "null"
+                                  }
+                                }
+                              }
+                            },
+                            "services": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "user_id": {
+                                    "type": "string"
+                                  },
+                                  "device_id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "expiration_by": {
+                                    "type": "string"
+                                  },
+                                  "interval": {
+                                    "type": "string"
+                                  },
+                                  "last_service": {
+                                    "type": "string"
+                                  },
+                                  "trigger_event_left": {
+                                    "type": "string"
+                                  },
+                                  "renew_after_expiration": {
+                                    "type": "string"
+                                  },
+                                  "expires": {
+                                    "type": "string"
+                                  },
+                                  "expires_date": {
+                                    "type": "null"
+                                  },
+                                  "remind": {
+                                    "type": "string"
+                                  },
+                                  "remind_date": {
+                                    "type": "null"
+                                  },
+                                  "event_sent": {
+                                    "type": "string"
+                                  },
+                                  "expired": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "string"
+                                  },
+                                  "mobile_phone": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "example": {
+                            "id": "32",
+                            "user_id": null,
+                            "traccar_device_id": "3",
+                            "icon_id": "8",
+                            "active": "1",
+                            "deleted": "0",
+                            "name": "Device name",
+                            "imei": "789832",
+                            "fuel_measurement_id": "1",
+                            "fuel_quantity": "0.00",
+                            "fuel_price": "0.00",
+                            "fuel_per_km": "0.00",
+                            "sim_number": "",
+                            "device_model": "",
+                            "plate_number": "",
+                            "vin": "",
+                            "registration_number": "",
+                            "object_owner": "",
+                            "expiration_date": "0000-00-00",
+                            "tail_color": "#33cc33",
+                            "tail_length": "5",
+                            "engine_hours": "gps",
+                            "detect_engine": "gps",
+                            "min_moving_speed": "6",
+                            "min_fuel_fillings": "10",
+                            "min_fuel_thefts": "10",
+                            "snap_to_road": "0",
+                            "created_at": "2016-04-25 16:21:19",
+                            "updated_at": "2016-06-26 15:52:46",
+                            "pivot": {
+                              "user_id": "2",
+                              "device_id": "3",
+                              "group_id": null,
+                              "current_driver_id": "1",
+                              "active": "1",
+                              "timezone_id": null
+                            },
+                            "traccar": {
+                              "id": "3",
+                              "name": "Device name",
+                              "uniqueId": "789832",
+                              "latestPosition_id": "99",
+                              "lastValidLatitude": "55.92299604",
+                              "lastValidLongitude": "23.34669059",
+                              "other": "<info><battery>31.0</battery><ip>83.181.149.238</ip></info>",
+                              "speed": "0.00",
+                              "time": "2016-04-29 19:01:26",
+                              "server_time": "2016-04-29 19:01:26",
+                              "ack_time": null,
+                              "altitude": "175",
+                              "course": "0",
+                              "power": null,
+                              "address": null,
+                              "protocol": "osmand",
+                              "latest_positions": "55.92297793/23.34665713;55.92336524/23.34666575;55.91928624/23.34572509;55.91590619/23.33778733;55.91986482/23.3255625;55.92581495/23.30829421;55.92748307/23.30725942;55.92966571/23.31183084;55.93430696/23.31986459;55.93769598/23.32408059;55.94483741/23.33093897;55.94417471/23.33107782;55.93988092/23.32629426;55.93719855/23.32534909;55.93344595/23.32372258"
+                            },
+                            "icon": {
+                              "id": "8",
+                              "order": "3",
+                              "width": "43.00",
+                              "height": "57.00",
+                              "path": "frontend/images/device_icons/8.png"
+                            },
+                            "sensors": [
+                              {
+                                "id": "1",
+                                "user_id": "2",
+                                "device_id": "3",
+                                "name": "Sensor test",
+                                "type": "battery",
+                                "tag_name": "Parameter name",
+                                "add_to_history": "0",
+                                "on_value": null,
+                                "off_value": null,
+                                "shown_value_by": "tag_value",
+                                "fuel_tank_name": null,
+                                "full_tank": null,
+                                "full_tank_value": null,
+                                "min_value": null,
+                                "max_value": null,
+                                "formula": null,
+                                "odometer_value_by": null,
+                                "odometer_value": null,
+                                "odometer_value_unit": "km",
+                                "temperature_max": null,
+                                "temperature_max_value": null,
+                                "temperature_min": null,
+                                "temperature_min_value": null,
+                                "value": "-",
+                                "value_formula": "0",
+                                "show_in_popup": "0",
+                                "unit_of_measurement": "nn",
+                                "on_tag_value": null,
+                                "off_tag_value": null,
+                                "on_type": null,
+                                "off_type": null,
+                                "calibrations": null
+                              }
+                            ],
+                            "services": [
+                              {
+                                "id": "1",
+                                "user_id": "2",
+                                "device_id": "3",
+                                "name": "Test service",
+                                "expiration_by": "engine_hours",
+                                "interval": "0",
+                                "last_service": "1000",
+                                "trigger_event_left": "0",
+                                "renew_after_expiration": "0",
+                                "expires": "1000",
+                                "expires_date": null,
+                                "remind": "1000",
+                                "remind_date": null,
+                                "event_sent": "0",
+                                "expired": "0",
+                                "email": "",
+                                "mobile_phone": ""
+                              }
+                            ]
+                          },
+                          "x-stoplight": {
+                            "id": "nyxizk1o2gttm"
+                          }
+                        }
+                      },
+                      "example": {
+                        "date": 1461795505,
+                        "id": 1,
+                        "user_id": 2,
+                        "device_id": 3,
+                        "device_port": null,
+                        "name": "Linas",
+                        "rfid": "",
+                        "phone": "",
+                        "email": "",
+                        "description": "",
+                        "created_at": "2016-04-27 22:18:25",
+                        "updated_at": "2016-04-27 22:18:25"
+                      },
+                      "x-stoplight": {
+                        "id": "ig9aoz7in6nl1"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": 3,
+                    "time": null,
+                    "show": "2016-04-25 18:53:39",
+                    "distance": 0,
+                    "raw_time": "2016-04-25 18:53:39",
+                    "items": [
+                      {
+                        "id": "12",
+                        "device_id": "3",
+                        "altitude": 189,
+                        "course": "265.200012207031",
+                        "latitude": "55.92291271",
+                        "longitude": "23.34606776",
+                        "other": "<info><battery>73.0</battery><ip>78.63.151.5</ip></info>",
+                        "power": null,
+                        "speed": 8,
+                        "time": "2016-04-25 18:53:39",
+                        "server_time": "2016-04-25 16:53:39",
+                        "valid": "1",
+                        "distance": 0,
+                        "protocol": "osmand",
+                        "sensor_id": "1",
+                        "sort": 1461603219,
+                        "item_id": "i1",
+                        "raw_time": "2016-04-25 18:53:39",
+                        "lat": "55.9229127",
+                        "lng": "23.3460678",
+                        "other_arr": [
+                          "battery: 73.0",
+                          "ip: 78.63.151.5"
+                        ],
+                        "sensors_data": [
+                          {
+                            "id": "speed",
+                            "value": 8
+                          },
+                          {
+                            "id": "altitude",
+                            "value": 189
+                          }
+                        ]
+                      }
+                    ],
+                    "driver": {
+                      "date": 1461795505,
+                      "id": "1",
+                      "user_id": "2",
+                      "device_id": "3",
+                      "device_port": null,
+                      "name": "Linas",
+                      "rfid": "",
+                      "phone": "",
+                      "email": "",
+                      "description": "",
+                      "created_at": "2016-04-27 22:18:25",
+                      "updated_at": "2016-04-27 22:18:25"
+                    }
+                  },
+                  "x-stoplight": {
+                    "id": "bje7bq65goeso"
+                  }
+                }
+              },
+              {
+                "name": "distance_sum",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "top_speed",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "move_duration",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "stop_duration",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "engine_hours",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "engine_idle",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "engine_work",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "fuel_consumption",
+                "type": "string",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "device",
+                "type": "object",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "sensors",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "item_class",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "images",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "sensors_values",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "fuel_consumption_arr",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ],
+        "request_example": {
+          "query": {
+            "user_api_hash": "YOUR_API_HASH",
+            "lang": "en",
+            "device_id": 123,
+            "from_date": "2026-09-01",
+            "from_time": "00:00:00",
+            "to_date": "2026-09-01",
+            "to_time": "23:59:59"
+          }
+        }
+      }
+    },
+    "Get Reports": {
+      "description": "Retrieve saved report configurations. This does not download generated report files.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_reports",
+        "url": "https://track.gpslvn.iq/api/get_reports",
+        "description": "Get reports",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": []
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "example": {
+              "status": 1,
+              "items": {
+                "reports": {
+                  "total": 1,
+                  "per_page": 10,
+                  "current_page": 1,
+                  "last_page": 1,
+                  "next_page_url": null,
+                  "prev_page_url": null,
+                  "from": 1,
+                  "to": 1,
+                  "data": [
+                    {
+                      "id": "2",
+                      "user_id": "2",
+                      "title": "Report title",
+                      "type": "4",
+                      "format": "html",
+                      "show_addresses": null,
+                      "zones_instead": null,
+                      "stops": "1",
+                      "speed_limit": null,
+                      "daily": null,
+                      "weekly": null,
+                      "email": "",
+                      "weekly_email_sent": "2016-06-27 00:00:00",
+                      "daily_email_sent": "2016-06-26 00:00:00",
+                      "devices": [
+                        3
+                      ],
+                      "geofences": []
+                    }
+                  ],
+                  "url": "/api/get_reports"
+                },
+                "types": [
+                  {
+                    "id": 1,
+                    "title": "General information"
+                  },
+                  {
+                    "id": 2,
+                    "title": "General information (merged)"
+                  },
+                  {
+                    "id": 3,
+                    "title": "Drives and stops"
+                  },
+                  {
+                    "id": 18,
+                    "title": "Drives and stops / Geofences"
+                  },
+                  {
+                    "id": 4,
+                    "title": "Travel sheet"
+                  },
+                  {
+                    "id": 5,
+                    "title": "Overspeed"
+                  },
+                  {
+                    "id": 6,
+                    "title": "Underspeed"
+                  },
+                  {
+                    "id": 7,
+                    "title": "Geofence in/out"
+                  },
+                  {
+                    "id": 15,
+                    "title": "Geofence in/out 24 hour mode"
+                  },
+                  {
+                    "id": 8,
+                    "title": "Events"
+                  },
+                  {
+                    "id": 10,
+                    "title": "Fuel level"
+                  },
+                  {
+                    "id": 11,
+                    "title": "Fuel fillings"
+                  },
+                  {
+                    "id": 12,
+                    "title": "Fuel thefts"
+                  },
+                  {
+                    "id": 13,
+                    "title": "Temperature"
+                  },
+                  {
+                    "id": 14,
+                    "title": "RAG"
+                  }
+                ]
+              }
+            },
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "items",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ]
+      }
+    },
+    "Get Report Types": {
+      "description": "Retrieve the report types available to the authenticated account.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/get_reports_types",
+        "url": "https://track.gpslvn.iq/api/get_reports_types",
+        "description": "Get report types",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": []
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "items",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "title": "reportType",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "formats": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "parameters": {
+                      "items": {
+                        "type": "object",
+                        "description": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "default": {
+                            "type": [
+                              "integer",
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "options": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "description": "object",
+                              "properties": {
+                                "id": {
+                                  "type": [
+                                    "integer",
+                                    "string"
+                                  ]
+                                },
+                                "title": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "validation": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "x-stoplight": {
+                    "id": "8o5uz6fyyzlg4"
+                  }
+                }
+              },
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        }
+      }
+    },
+    "Get Report Creation Data": {
+      "description": "Retrieve available devices, report types, output formats, geofences and stop options.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/add_report_data",
+        "url": "https://track.gpslvn.iq/api/add_report_data",
+        "description": "Get data to create report",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": []
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "example": {
+              "devices": [
+                {
+                  "id": "3",
+                  "user_id": null,
+                  "traccar_device_id": "3",
+                  "icon_id": "8",
+                  "active": "1",
+                  "deleted": "0",
+                  "name": "Device name",
+                  "imei": "789832",
+                  "fuel_measurement_id": "1",
+                  "fuel_quantity": "0.00",
+                  "fuel_price": "0.00",
+                  "fuel_per_km": "0.00",
+                  "sim_number": "",
+                  "device_model": "",
+                  "plate_number": "",
+                  "vin": "",
+                  "registration_number": "",
+                  "object_owner": "",
+                  "expiration_date": "0000-00-00",
+                  "tail_color": "#33cc33",
+                  "tail_length": "5",
+                  "engine_hours": "gps",
+                  "detect_engine": "gps",
+                  "min_moving_speed": "6",
+                  "min_fuel_fillings": "10",
+                  "min_fuel_thefts": "10",
+                  "snap_to_road": "0",
+                  "created_at": "2016-04-25 16:21:19",
+                  "updated_at": "2016-06-26 15:52:46",
+                  "pivot": {
+                    "user_id": "2",
+                    "device_id": "3",
+                    "group_id": null,
+                    "current_driver_id": "1",
+                    "active": "1",
+                    "timezone_id": null
+                  },
+                  "traccar": {
+                    "id": "3",
+                    "name": "Device name",
+                    "uniqueId": "789832",
+                    "latestPosition_id": "99",
+                    "lastValidLatitude": "55.92299604",
+                    "lastValidLongitude": "23.34669059",
+                    "other": "<info><battery>31.0</battery><ip>83.181.149.238</ip></info>",
+                    "speed": "0.00",
+                    "time": "2016-04-29 19:01:26",
+                    "server_time": "2016-04-29 19:01:26",
+                    "ack_time": null,
+                    "altitude": "175",
+                    "course": "0",
+                    "power": null,
+                    "address": null,
+                    "protocol": "osmand",
+                    "latest_positions": "55.92297793/23.34665713;55.92336524/23.34666575;55.91928624/23.34572509;55.91590619/23.33778733;55.91986482/23.3255625;55.92581495/23.30829421;55.92748307/23.30725942;55.92966571/23.31183084;55.93430696/23.31986459;55.93769598/23.32408059;55.94483741/23.33093897;55.94417471/23.33107782;55.93988092/23.32629426;55.93719855/23.32534909;55.93344595/23.32372258"
+                  },
+                  "icon": {
+                    "id": "8",
+                    "order": "3",
+                    "width": "43.00",
+                    "height": "57.00",
+                    "path": "frontend/images/device_icons/8.png"
+                  },
+                  "sensors": [
+                    {
+                      "id": "1",
+                      "user_id": "2",
+                      "device_id": "3",
+                      "name": "Sensor test",
+                      "type": "battery",
+                      "tag_name": "Parameter name",
+                      "add_to_history": "0",
+                      "on_value": null,
+                      "off_value": null,
+                      "shown_value_by": "tag_value",
+                      "fuel_tank_name": null,
+                      "full_tank": null,
+                      "full_tank_value": null,
+                      "min_value": null,
+                      "max_value": null,
+                      "formula": null,
+                      "odometer_value_by": null,
+                      "odometer_value": null,
+                      "odometer_value_unit": "km",
+                      "temperature_max": null,
+                      "temperature_max_value": null,
+                      "temperature_min": null,
+                      "temperature_min_value": null,
+                      "value": "-",
+                      "value_formula": "0",
+                      "show_in_popup": "0",
+                      "unit_of_measurement": "nn",
+                      "on_tag_value": null,
+                      "off_tag_value": null,
+                      "on_type": null,
+                      "off_type": null,
+                      "calibrations": null
+                    }
+                  ],
+                  "services": [
+                    {
+                      "id": "1",
+                      "user_id": "2",
+                      "device_id": "3",
+                      "name": "Test service",
+                      "expiration_by": "engine_hours",
+                      "interval": "0",
+                      "last_service": "1000",
+                      "trigger_event_left": "0",
+                      "renew_after_expiration": "0",
+                      "expires": "1000",
+                      "expires_date": null,
+                      "remind": "1000",
+                      "remind_date": null,
+                      "event_sent": "0",
+                      "expired": "0",
+                      "email": "",
+                      "mobile_phone": ""
+                    }
+                  ]
+                }
+              ],
+              "geofences": [
+                {
+                  "id": 1,
+                  "user_id": 2,
+                  "group_id": null,
+                  "active": 1,
+                  "name": "Test geo",
+                  "coordinates": "[\n    {\n        \"lat\": 55.925307141049,\n        \"lng\": 23.350710868835\n    },\n    {\n        \"lat\": 55.926918076798,\n        \"lng\": 23.333630561829\n    },\n    {\n        \"lat\": 55.91948797954,\n        \"lng\": 23.331656455994\n    },\n    {\n        \"lat\": 55.916000873283,\n        \"lng\": 23.340711593628\n    },\n    {\n        \"lat\": 55.925066697134,\n        \"lng\": 23.353199958801\n    }\n]",
+                  "polygon_color": "#d000df",
+                  "created_at": "2016-04-28 22:13:17",
+                  "updated_at": "2016-04-28 22:13:34"
+                }
+              ],
+              "formats": [
+                {
+                  "id": "html",
+                  "value": "HTML"
+                },
+                {
+                  "id": "xls",
+                  "value": "XLS"
+                },
+                {
+                  "id": "pdf",
+                  "value": "PDF"
+                },
+                {
+                  "id": "pdf_land",
+                  "value": "PDF (Landscape)"
+                }
+              ],
+              "stops": [
+                {
+                  "id": 1,
+                  "value": "> 1 min"
+                },
+                {
+                  "id": 2,
+                  "value": "> 2 min"
+                },
+                {
+                  "id": 5,
+                  "value": "> 5 min"
+                },
+                {
+                  "id": 10,
+                  "value": "> 10 min"
+                },
+                {
+                  "id": 20,
+                  "value": "> 20 min"
+                },
+                {
+                  "id": 30,
+                  "value": "> 30 min"
+                },
+                {
+                  "id": 60,
+                  "value": "> 1 h"
+                },
+                {
+                  "id": 120,
+                  "value": "> 2 h"
+                },
+                {
+                  "id": 300,
+                  "value": "> 5 h"
+                }
+              ],
+              "filters": [
+                {
+                  "id": 0,
+                  "value": ""
+                },
+                {
+                  "id": 1,
+                  "value": "Today"
+                },
+                {
+                  "id": 2,
+                  "value": "Yesterday"
+                },
+                {
+                  "id": 3,
+                  "value": "Before 2 days"
+                },
+                {
+                  "id": 4,
+                  "value": "Before 3 days"
+                },
+                {
+                  "id": 5,
+                  "value": "This week"
+                },
+                {
+                  "id": 6,
+                  "value": "Last week"
+                },
+                {
+                  "id": 7,
+                  "value": "This month"
+                },
+                {
+                  "id": 8,
+                  "value": "Last month"
+                }
+              ],
+              "types": [
+                {
+                  "id": 1,
+                  "value": "General information"
+                },
+                {
+                  "id": 2,
+                  "value": "General information (merged)"
+                },
+                {
+                  "id": 3,
+                  "value": "Drives and stops"
+                },
+                {
+                  "id": 18,
+                  "value": "Drives and stops / Geofences"
+                },
+                {
+                  "id": 4,
+                  "value": "Travel sheet"
+                },
+                {
+                  "id": 5,
+                  "value": "Overspeed"
+                },
+                {
+                  "id": 6,
+                  "value": "Underspeed"
+                },
+                {
+                  "id": 7,
+                  "value": "Geofence in/out"
+                },
+                {
+                  "id": 15,
+                  "value": "Geofence in/out 24 hour mode"
+                },
+                {
+                  "id": 8,
+                  "value": "Events"
+                },
+                {
+                  "id": 10,
+                  "value": "Fuel level"
+                },
+                {
+                  "id": 11,
+                  "value": "Fuel fillings"
+                },
+                {
+                  "id": 12,
+                  "value": "Fuel thefts"
+                },
+                {
+                  "id": 13,
+                  "value": "Temperature"
+                },
+                {
+                  "id": 14,
+                  "value": "RAG"
+                }
+              ],
+              "reports": {
+                "total": 1,
+                "per_page": 10,
+                "current_page": 1,
+                "last_page": 1,
+                "next_page_url": null,
+                "prev_page_url": null,
+                "from": 1,
+                "to": 1,
+                "data": [
+                  {
+                    "id": "2",
+                    "user_id": "2",
+                    "title": "Report title",
+                    "type": "4",
+                    "format": "html",
+                    "show_addresses": null,
+                    "zones_instead": null,
+                    "stops": "1",
+                    "speed_limit": null,
+                    "daily": null,
+                    "weekly": null,
+                    "email": "",
+                    "weekly_email_sent": "2016-06-27 00:00:00",
+                    "daily_email_sent": "2016-06-26 00:00:00",
+                    "devices": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "geofences": []
+                  }
+                ],
+                "url": "/api/get_reports"
+              },
+              "logs": {
+                "sorting": {
+                  "sort": "desc",
+                  "sort_by": "id"
+                }
+              },
+              "status": 1
+            },
+            "schema_fields": [
+              {
+                "name": "devices",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "title": "device",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "traccar_device_id": {
+                      "type": "string"
+                    },
+                    "icon_id": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "imei": {
+                      "type": "string"
+                    },
+                    "fuel_measurement_id": {
+                      "type": "string"
+                    },
+                    "fuel_quantity": {
+                      "type": "string"
+                    },
+                    "fuel_price": {
+                      "type": "string"
+                    },
+                    "fuel_per_km": {
+                      "type": "string"
+                    },
+                    "sim_number": {
+                      "type": "string"
+                    },
+                    "device_model": {
+                      "type": "string"
+                    },
+                    "plate_number": {
+                      "type": "string"
+                    },
+                    "vin": {
+                      "type": "string"
+                    },
+                    "registration_number": {
+                      "type": "string"
+                    },
+                    "object_owner": {
+                      "type": "string"
+                    },
+                    "expiration_date": {
+                      "type": "string"
+                    },
+                    "tail_color": {
+                      "type": "string"
+                    },
+                    "tail_length": {
+                      "type": "string"
+                    },
+                    "engine_hours": {
+                      "type": "string"
+                    },
+                    "detect_engine": {
+                      "type": "string"
+                    },
+                    "min_moving_speed": {
+                      "type": "string"
+                    },
+                    "min_fuel_fillings": {
+                      "type": "string"
+                    },
+                    "min_fuel_thefts": {
+                      "type": "string"
+                    },
+                    "snap_to_road": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "pivot": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "device_id": {
+                          "type": "string"
+                        },
+                        "group_id": {
+                          "type": "null"
+                        },
+                        "current_driver_id": {
+                          "type": "string"
+                        },
+                        "active": {
+                          "type": "string"
+                        },
+                        "timezone_id": {
+                          "type": "null"
+                        }
+                      }
+                    },
+                    "traccar": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "uniqueId": {
+                          "type": "string"
+                        },
+                        "latestPosition_id": {
+                          "type": "string"
+                        },
+                        "lastValidLatitude": {
+                          "type": "string"
+                        },
+                        "lastValidLongitude": {
+                          "type": "string"
+                        },
+                        "other": {
+                          "type": "string"
+                        },
+                        "speed": {
+                          "type": "string"
+                        },
+                        "time": {
+                          "type": "string"
+                        },
+                        "server_time": {
+                          "type": "string"
+                        },
+                        "ack_time": {
+                          "type": "null"
+                        },
+                        "altitude": {
+                          "type": "string"
+                        },
+                        "course": {
+                          "type": "string"
+                        },
+                        "power": {
+                          "type": "null"
+                        },
+                        "address": {
+                          "type": "null"
+                        },
+                        "protocol": {
+                          "type": "string"
+                        },
+                        "latest_positions": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "icon": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "order": {
+                          "type": "string"
+                        },
+                        "width": {
+                          "type": "string"
+                        },
+                        "height": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "sensors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "tag_name": {
+                            "type": "string"
+                          },
+                          "add_to_history": {
+                            "type": "string"
+                          },
+                          "on_value": {
+                            "type": "null"
+                          },
+                          "off_value": {
+                            "type": "null"
+                          },
+                          "shown_value_by": {
+                            "type": "string"
+                          },
+                          "fuel_tank_name": {
+                            "type": "null"
+                          },
+                          "full_tank": {
+                            "type": "null"
+                          },
+                          "full_tank_value": {
+                            "type": "null"
+                          },
+                          "min_value": {
+                            "type": "null"
+                          },
+                          "max_value": {
+                            "type": "null"
+                          },
+                          "formula": {
+                            "type": "null"
+                          },
+                          "odometer_value_by": {
+                            "type": "null"
+                          },
+                          "odometer_value": {
+                            "type": "null"
+                          },
+                          "odometer_value_unit": {
+                            "type": "string"
+                          },
+                          "temperature_max": {
+                            "type": "null"
+                          },
+                          "temperature_max_value": {
+                            "type": "null"
+                          },
+                          "temperature_min": {
+                            "type": "null"
+                          },
+                          "temperature_min_value": {
+                            "type": "null"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "value_formula": {
+                            "type": "string"
+                          },
+                          "show_in_popup": {
+                            "type": "string"
+                          },
+                          "unit_of_measurement": {
+                            "type": "string"
+                          },
+                          "on_tag_value": {
+                            "type": "null"
+                          },
+                          "off_tag_value": {
+                            "type": "null"
+                          },
+                          "on_type": {
+                            "type": "null"
+                          },
+                          "off_type": {
+                            "type": "null"
+                          },
+                          "calibrations": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    },
+                    "services": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "expiration_by": {
+                            "type": "string"
+                          },
+                          "interval": {
+                            "type": "string"
+                          },
+                          "last_service": {
+                            "type": "string"
+                          },
+                          "trigger_event_left": {
+                            "type": "string"
+                          },
+                          "renew_after_expiration": {
+                            "type": "string"
+                          },
+                          "expires": {
+                            "type": "string"
+                          },
+                          "expires_date": {
+                            "type": "null"
+                          },
+                          "remind": {
+                            "type": "string"
+                          },
+                          "remind_date": {
+                            "type": "null"
+                          },
+                          "event_sent": {
+                            "type": "string"
+                          },
+                          "expired": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "mobile_phone": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "example": {
+                    "id": "32",
+                    "user_id": null,
+                    "traccar_device_id": "3",
+                    "icon_id": "8",
+                    "active": "1",
+                    "deleted": "0",
+                    "name": "Device name",
+                    "imei": "789832",
+                    "fuel_measurement_id": "1",
+                    "fuel_quantity": "0.00",
+                    "fuel_price": "0.00",
+                    "fuel_per_km": "0.00",
+                    "sim_number": "",
+                    "device_model": "",
+                    "plate_number": "",
+                    "vin": "",
+                    "registration_number": "",
+                    "object_owner": "",
+                    "expiration_date": "0000-00-00",
+                    "tail_color": "#33cc33",
+                    "tail_length": "5",
+                    "engine_hours": "gps",
+                    "detect_engine": "gps",
+                    "min_moving_speed": "6",
+                    "min_fuel_fillings": "10",
+                    "min_fuel_thefts": "10",
+                    "snap_to_road": "0",
+                    "created_at": "2016-04-25 16:21:19",
+                    "updated_at": "2016-06-26 15:52:46",
+                    "pivot": {
+                      "user_id": "2",
+                      "device_id": "3",
+                      "group_id": null,
+                      "current_driver_id": "1",
+                      "active": "1",
+                      "timezone_id": null
+                    },
+                    "traccar": {
+                      "id": "3",
+                      "name": "Device name",
+                      "uniqueId": "789832",
+                      "latestPosition_id": "99",
+                      "lastValidLatitude": "55.92299604",
+                      "lastValidLongitude": "23.34669059",
+                      "other": "<info><battery>31.0</battery><ip>83.181.149.238</ip></info>",
+                      "speed": "0.00",
+                      "time": "2016-04-29 19:01:26",
+                      "server_time": "2016-04-29 19:01:26",
+                      "ack_time": null,
+                      "altitude": "175",
+                      "course": "0",
+                      "power": null,
+                      "address": null,
+                      "protocol": "osmand",
+                      "latest_positions": "55.92297793/23.34665713;55.92336524/23.34666575;55.91928624/23.34572509;55.91590619/23.33778733;55.91986482/23.3255625;55.92581495/23.30829421;55.92748307/23.30725942;55.92966571/23.31183084;55.93430696/23.31986459;55.93769598/23.32408059;55.94483741/23.33093897;55.94417471/23.33107782;55.93988092/23.32629426;55.93719855/23.32534909;55.93344595/23.32372258"
+                    },
+                    "icon": {
+                      "id": "8",
+                      "order": "3",
+                      "width": "43.00",
+                      "height": "57.00",
+                      "path": "frontend/images/device_icons/8.png"
+                    },
+                    "sensors": [
+                      {
+                        "id": "1",
+                        "user_id": "2",
+                        "device_id": "3",
+                        "name": "Sensor test",
+                        "type": "battery",
+                        "tag_name": "Parameter name",
+                        "add_to_history": "0",
+                        "on_value": null,
+                        "off_value": null,
+                        "shown_value_by": "tag_value",
+                        "fuel_tank_name": null,
+                        "full_tank": null,
+                        "full_tank_value": null,
+                        "min_value": null,
+                        "max_value": null,
+                        "formula": null,
+                        "odometer_value_by": null,
+                        "odometer_value": null,
+                        "odometer_value_unit": "km",
+                        "temperature_max": null,
+                        "temperature_max_value": null,
+                        "temperature_min": null,
+                        "temperature_min_value": null,
+                        "value": "-",
+                        "value_formula": "0",
+                        "show_in_popup": "0",
+                        "unit_of_measurement": "nn",
+                        "on_tag_value": null,
+                        "off_tag_value": null,
+                        "on_type": null,
+                        "off_type": null,
+                        "calibrations": null
+                      }
+                    ],
+                    "services": [
+                      {
+                        "id": "1",
+                        "user_id": "2",
+                        "device_id": "3",
+                        "name": "Test service",
+                        "expiration_by": "engine_hours",
+                        "interval": "0",
+                        "last_service": "1000",
+                        "trigger_event_left": "0",
+                        "renew_after_expiration": "0",
+                        "expires": "1000",
+                        "expires_date": null,
+                        "remind": "1000",
+                        "remind_date": null,
+                        "event_sent": "0",
+                        "expired": "0",
+                        "email": "",
+                        "mobile_phone": ""
+                      }
+                    ]
+                  },
+                  "x-stoplight": {
+                    "id": "nyxizk1o2gttm"
+                  }
+                }
+              },
+              {
+                "name": "geofences",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "title": "geofence",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "polygon",
+                        "circle"
+                      ]
+                    },
+                    "user_id": {
+                      "type": "integer"
+                    },
+                    "group_id": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "active": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "center": {
+                      "title": "LatLng",
+                      "type": "object",
+                      "properties": {
+                        "lat": {
+                          "type": "number"
+                        },
+                        "lng": {
+                          "type": "number"
+                        }
+                      },
+                      "example": {
+                        "lat": 54.91550070170091,
+                        "lng": 23.94092559814453
+                      },
+                      "x-stoplight": {
+                        "id": "m6q86chfs34jk"
+                      }
+                    },
+                    "radius": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "coordinates": {
+                      "type": [
+                        "string",
+                        "array"
+                      ],
+                      "items": {
+                        "title": "LatLng",
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number"
+                          },
+                          "lng": {
+                            "type": "number"
+                          }
+                        },
+                        "example": {
+                          "lat": -6.07,
+                          "lng": 44.98798715552
+                        },
+                        "x-stoplight": {
+                          "id": "n7q86chfs34jk"
+                        }
+                      }
+                    },
+                    "polygon_color": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "x-stoplight": {
+                    "id": "usxty7uahyfrq"
+                  }
+                }
+              },
+              {
+                "name": "formats",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "stops",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "filters",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "types",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "reports",
+                "type": "object",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "logs",
+                "type": "object",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ]
+      }
+    },
+    "Generate Report": {
+      "description": "Generate a report for selected device IDs and dates. On documented success, status is 3 and url points to the generated file.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/generate_report",
+        "url": "https://track.gpslvn.iq/api/generate_report",
+        "description": "If the request is successfully returned { 'status': 3 'url': ###}. \"url\" is link to generated report file",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": []
+        },
+        "body": [
+          {
+            "name": "title",
+            "type": "string",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "type",
+            "type": "integer",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "speed_limit",
+            "type": "number",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "devices",
+            "type": "array",
+            "required": true,
+            "description": "",
+            "items": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "geofences",
+            "type": "array",
+            "required": false,
+            "description": "",
+            "items": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "daily",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "weekly",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "send_to_email",
+            "type": "string",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "date_from",
+            "type": "string",
+            "required": true,
+            "description": "",
+            "format": "date"
+          },
+          {
+            "name": "date_to",
+            "type": "string",
+            "required": true,
+            "description": "",
+            "format": "date"
+          },
+          {
+            "name": "from_time",
+            "type": "string",
+            "required": false,
+            "description": "",
+            "format": "time"
+          },
+          {
+            "name": "to_time",
+            "type": "string",
+            "required": false,
+            "description": "",
+            "format": "time"
+          },
+          {
+            "name": "show_addresses",
+            "type": "boolean",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "zones_instead",
+            "type": "boolean",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "stops",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "url",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ],
+            "example": {
+              "status": 3,
+              "url": "GENERATED_REPORT_URL"
+            }
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ],
+        "request_example": {
+          "query": {
+            "user_api_hash": "YOUR_API_HASH",
+            "lang": "en"
+          },
+          "body": {
+            "title": "Vehicle movement report",
+            "type": 3,
+            "format": "pdf",
+            "devices": [
+              123,
+              456
+            ],
+            "date_from": "2026-09-01",
+            "date_to": "2026-09-01",
+            "from_time": "00:00:00",
+            "to_time": "23:59:59",
+            "stops": 5,
+            "show_addresses": true
+          }
+        }
+      }
+    },
+    "Create Saved Report": {
+      "description": "Save a report configuration. Confirm scheduling values and execution times with the platform before enabling scheduled email delivery.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/add_report",
+        "url": "https://track.gpslvn.iq/api/add_report",
+        "description": "Create report",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": []
+        },
+        "body": [
+          {
+            "name": "title",
+            "type": "string",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "type",
+            "type": "integer",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "format",
+            "type": "string",
+            "required": true,
+            "description": ""
+          },
+          {
+            "name": "speed_limit",
+            "type": "number",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "devices",
+            "type": "array",
+            "required": true,
+            "description": "",
+            "items": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "geofences",
+            "type": "array",
+            "required": false,
+            "description": "",
+            "items": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "daily",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "weekly",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "send_to_email",
+            "type": "string",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "date_from",
+            "type": "string",
+            "required": true,
+            "description": "",
+            "format": "date"
+          },
+          {
+            "name": "date_to",
+            "type": "string",
+            "required": true,
+            "description": "",
+            "format": "date"
+          },
+          {
+            "name": "from_time",
+            "type": "string",
+            "required": false,
+            "description": "",
+            "format": "time"
+          },
+          {
+            "name": "to_time",
+            "type": "string",
+            "required": false,
+            "description": "",
+            "format": "time"
+          },
+          {
+            "name": "show_addresses",
+            "type": "boolean",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "zones_instead",
+            "type": "boolean",
+            "required": false,
+            "description": ""
+          },
+          {
+            "name": "stops",
+            "type": "integer",
+            "required": false,
+            "description": ""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "400": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "errors",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "401": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "error",
+                "type": "string",
+                "required": false,
+                "description": ""
+              }
+            ]
+          },
+          "500": {
+            "description": "",
+            "schema_fields": []
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ]
+      }
+    },
+    "Get Report Logs": {
+      "description": "Retrieve report logs and pagination metadata.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/reports/logs",
+        "url": "https://track.gpslvn.iq/api/reports/logs",
+        "description": "Get report logs",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            }
+          ],
+          "optional": [
+            {
+              "name": "includes",
+              "type": "string",
+              "in": "query",
+              "description": "Include related resources. Example: `user`",
+              "enum": [
+                "user"
+              ]
+            },
+            {
+              "name": "limit",
+              "type": "integer",
+              "in": "query",
+              "description": "Items per page"
+            },
+            {
+              "name": "search_phrase",
+              "type": "string",
+              "in": "query",
+              "description": "Value to be detected in properties"
+            },
+            {
+              "name": "filters[type]",
+              "type": "integer",
+              "in": "query",
+              "description": "Find items with exact `type` value"
+            },
+            {
+              "name": "filters[format]",
+              "type": "string",
+              "in": "query",
+              "description": "Find items with exact `format` value"
+            },
+            {
+              "name": "filters[is_send]",
+              "type": "boolean",
+              "in": "query",
+              "description": "Find items with exact `is_send` value"
+            },
+            {
+              "name": "page",
+              "type": "integer",
+              "in": "query",
+              "description": "Page number"
+            }
+          ]
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema_fields": [
+              {
+                "name": "status",
+                "type": "integer",
+                "required": false,
+                "description": ""
+              },
+              {
+                "name": "data",
+                "type": "array",
+                "required": false,
+                "description": "",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "user_id": {
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "integer"
+                    },
+                    "type_text": {
+                      "type": "string"
+                    },
+                    "format": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "is_send": {
+                      "type": "integer"
+                    },
+                    "is_upload": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "pagination",
+                "type": "object",
+                "required": false,
+                "description": ""
+              }
+            ]
+          }
+        },
+        "response_content_types": [
+          "application/json"
+        ]
+      }
+    },
+    "Download Scheduled Report": {
+      "description": "Download a sent scheduled report file using its report log ID, not the device ID or saved report configuration ID.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/reports/logs/{id}/download",
+        "url": "https://track.gpslvn.iq/api/reports/logs/{id}/download",
+        "description": "Download sent scheduled report file",
+        "content_type": "application/json",
+        "parameters": {
+          "required": [
+            {
+              "name": "lang",
+              "type": "string",
+              "in": "query",
+              "description": "Lang",
+              "default": "en"
+            },
+            {
+              "name": "user_api_hash",
+              "type": "string",
+              "in": "query",
+              "description": "User API hash",
+              "default": "$2y$10$5RACGMNxUdz3h1ug9yAttu95U2acugM0YG1K5wx01ZrNMvpL6BWMS"
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "in": "path",
+              "description": "Report log ID"
+            }
+          ],
+          "optional": []
+        },
+        "body": [],
+        "responses": {
+          "200": {
+            "description": "File content"
+          }
+        },
+        "response_content_types": [
+          "plain/text",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/pdf",
+          "text/csv",
+          "application/json"
+        ]
+      }
+    }
+  },
+  "http_status_codes": [
+    {
+      "code": 200,
+      "meaning": "Success"
+    },
+    {
+      "code": 400,
+      "meaning": "Bad Request"
+    },
+    {
+      "code": 401,
+      "meaning": "Unauthorized — re-authenticate to get a new hash"
+    },
+    {
+      "code": 500,
+      "meaning": "Internal Server Error"
+    }
+  ],
+  "notes": [
+    "Login uses email and password. Subsequent authenticated requests require user_api_hash; pass lang where listed as required.",
+    "HTTPS is required in production.",
+    "Store the vehicle id after the initial lookup to avoid repeated searches.",
+    "Use get_devices_latest for live updates — it reduces bandwidth and server load.",
+    "GPS coordinates (lat/lng) are in decimal format, compatible with Google Maps and GIS systems.",
+    "Get all device pages; get_devices returns groups containing items arrays. Store the device id, not IMEI or traccar_device_id, for report requests.",
+    "Merge live updates by device id. A device absent from a partial update is not necessarily deleted or offline.",
+    "Select report type IDs and formats from current API responses. Sample values are illustrative.",
+    "History uses from_date and to_date. Report bodies use date_from and date_to.",
+    "Resolve the generated report url against the server if it is relative. Download the referenced file rather than saving the JSON response as a PDF.",
+    "Confirm account timezone, measurement units, rate limits, date-range limits, scheduling behavior and download-link validity before production use.",
+    "This document follows the structure and server URL in LVN_API (1).json, with report and history definitions from stoplight1 (3).json. No live requests were executed."
+  ]
+}
