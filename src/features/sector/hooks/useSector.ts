@@ -5,12 +5,21 @@ import { API } from '@lib/constants/api.constants'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import {
-  sector, sectorTeam, sectorSupplies, sectorBreakdowns,
-  sectorPhotos, sectorAttendance, sectorSummary as fetchSummary, sectorVehicleTrips,
+  sector,
+  sectorTeam,
+  sectorSupplies,
+  sectorBreakdowns,
+  sectorPhotos,
+  sectorAttendance,
+  sectorSummary as fetchSummary,
+  sectorVehicleTrips,
 } from '@sdk/sector.sdk'
 import type {
-  CreateWorkerInput, CreateVehicleInput, CreateSupplyInput,
-  CreateBreakdownInput, CreateAttendanceInput,
+  CreateWorkerInput,
+  CreateVehicleInput,
+  CreateSupplyInput,
+  CreateBreakdownInput,
+  CreateAttendanceInput,
 } from '../types'
 
 /* ── القواطع وملف المدير ── */
@@ -27,6 +36,36 @@ export function useManagerProfile() {
     queryKey: sectorKeys.profile(),
     queryFn: () => sector.myProfile(),
     staleTime: API.STALE_TIME.REFERENCE,
+  })
+}
+
+export function useManagerProfileForUser(userId: string) {
+  return useQuery({
+    queryKey: ['sector', 'manager-profile', userId],
+    queryFn: () => sector.managerProfileForUser(userId),
+    enabled: Boolean(userId),
+  })
+}
+
+export function useSaveManagerProfile() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((state) => state.addToast)
+  return useMutation({
+    mutationFn: (input: {
+      userId: string
+      shift: 'morning' | 'evening' | 'night'
+      sectors: number[]
+    }) => sector.upsertManagerProfile(input.userId, input.shift, input.sectors),
+    onSuccess: (_data, input) => {
+      void qc.invalidateQueries({ queryKey: ['sector', 'manager-profile', input.userId] })
+      void qc.invalidateQueries({ queryKey: ['central-garage', 'shift-recipients'] })
+      addToast({ type: 'success', message: 'حُفظت مناطق مسؤول القسم وستظهر آلياته تلقائياً' })
+    },
+    onError: (error) =>
+      addToast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'saveManagerProfile' }).message,
+      }),
   })
 }
 
@@ -48,7 +87,8 @@ export function useCreateWorker() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'أُضيف العامل إلى فريقك' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'createWorker' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'createWorker' }).message }),
   })
 }
 
@@ -62,7 +102,8 @@ export function useArchiveWorker() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'warning', message: 'نُقل العامل إلى الأرشيف' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'archiveWorker' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'archiveWorker' }).message }),
   })
 }
 
@@ -84,7 +125,8 @@ export function useCreateVehicle() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'أُضيفت الآلية إلى قواطعك' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'createVehicle' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'createVehicle' }).message }),
   })
 }
 
@@ -98,7 +140,8 @@ export function useArchiveVehicle() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'warning', message: 'نُقلت الآلية إلى الأرشيف' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'archiveVehicle' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'archiveVehicle' }).message }),
   })
 }
 
@@ -120,7 +163,8 @@ export function useSubmitSupply() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'أُرسل كتاب طلب المستلزمات إلى معاون المدير المفوض' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'submitSupply' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'submitSupply' }).message }),
   })
 }
 
@@ -137,12 +181,22 @@ export function useReturnVehicleToWork() {
   const qc = useQueryClient()
   const addToast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: ({ breakdownId, resolutionNotes }: { breakdownId: string; resolutionNotes: string }) => sectorBreakdowns.returnToWork(breakdownId, resolutionNotes),
+    mutationFn: ({
+      breakdownId,
+      resolutionNotes,
+    }: {
+      breakdownId: string
+      resolutionNotes: string
+    }) => sectorBreakdowns.returnToWork(breakdownId, resolutionNotes),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'تم تسجيل عودة الآلية إلى العمل وحفظ مدة التوقف' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'returnVehicleToWork' }).message }),
+    onError: (e) =>
+      addToast({
+        type: 'error',
+        message: handleAppError(e, { scope: 'returnVehicleToWork' }).message,
+      }),
   })
 }
 
@@ -155,7 +209,8 @@ export function useSubmitBreakdown() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'سُجّل بلاغ العطل وحُفظ في الأرشيف' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'submitBreakdown' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'submitBreakdown' }).message }),
   })
 }
 
@@ -178,7 +233,8 @@ export function useUploadPhoto() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'رُفعت الصورة وحُفظت' })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'uploadPhoto' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'uploadPhoto' }).message }),
   })
 }
 
@@ -200,10 +256,13 @@ export function useSetAttendance() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({
         type: 'success',
-        message: input.is_present ? `سُجّل «${input.worker_name}» حاضرًا` : `سُجّل «${input.worker_name}» غائبًا`,
+        message: input.is_present
+          ? `سُجّل «${input.worker_name}» حاضرًا`
+          : `سُجّل «${input.worker_name}» غائبًا`,
       })
     },
-    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'setAttendance' }).message }),
+    onError: (e) =>
+      addToast({ type: 'error', message: handleAppError(e, { scope: 'setAttendance' }).message }),
   })
 }
 
@@ -216,9 +275,54 @@ export function useSectorSummary() {
   })
 }
 
-export function useSectorVehicleTrips(){return useQuery({queryKey:['sector','vehicle-trips'],queryFn:()=>sectorVehicleTrips.list(),refetchInterval:30000})}
-export function useSectorVehicleTripDays(){return useQuery({queryKey:['sector','vehicle-trip-days'],queryFn:()=>sectorVehicleTrips.days(),refetchInterval:30000})}
-export function useSectorVehicleTripsForDay(day:string){return useQuery({queryKey:['sector','vehicle-trips-day',day],queryFn:()=>sectorVehicleTrips.forDay(day),enabled:Boolean(day),refetchInterval:30000})}
-function useTripStageMutation(action:'arrival'|'garage') {const qc=useQueryClient();const addToast=useUiStore(s=>s.addToast);return useMutation({mutationFn:(x:{departureId:string;notes?:string})=>action==='arrival'?sectorVehicleTrips.confirmArrival(x.departureId,x.notes):sectorVehicleTrips.sendToGarage(x.departureId,x.notes),onSuccess:()=>{void qc.invalidateQueries({queryKey:['sector','vehicle-trips']});void qc.invalidateQueries({queryKey:['sector','vehicle-trip-days']});void qc.invalidateQueries({queryKey:['sector','vehicle-trips-day']});addToast({type:'success',message:action==='arrival'?'تم تأكيد وصول الآلية وإبلاغ الكراج':'تم إنهاء الوردية وإبلاغ الكراج أن الآلية في طريق العودة'})},onError:e=>addToast({type:'error',message:handleAppError(e,{scope:'sectorVehicleTrip'}).message})})}
-export const useConfirmSectorVehicleArrival=()=>useTripStageMutation('arrival')
-export const useSendSectorVehicleToGarage=()=>useTripStageMutation('garage')
+export function useSectorVehicleTrips() {
+  return useQuery({
+    queryKey: ['sector', 'vehicle-trips'],
+    queryFn: () => sectorVehicleTrips.list(),
+    refetchInterval: 30000,
+  })
+}
+export function useSectorVehicleTripDays() {
+  return useQuery({
+    queryKey: ['sector', 'vehicle-trip-days'],
+    queryFn: () => sectorVehicleTrips.days(),
+    refetchInterval: 30000,
+  })
+}
+export function useSectorVehicleTripsForDay(day: string) {
+  return useQuery({
+    queryKey: ['sector', 'vehicle-trips-day', day],
+    queryFn: () => sectorVehicleTrips.forDay(day),
+    enabled: Boolean(day),
+    refetchInterval: 30000,
+  })
+}
+function useTripStageMutation(action: 'arrival' | 'garage') {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (x: { departureId: string; notes?: string }) =>
+      action === 'arrival'
+        ? sectorVehicleTrips.confirmArrival(x.departureId, x.notes)
+        : sectorVehicleTrips.sendToGarage(x.departureId, x.notes),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['sector', 'vehicle-trips'] })
+      void qc.invalidateQueries({ queryKey: ['sector', 'vehicle-trip-days'] })
+      void qc.invalidateQueries({ queryKey: ['sector', 'vehicle-trips-day'] })
+      addToast({
+        type: 'success',
+        message:
+          action === 'arrival'
+            ? 'تم تأكيد وصول الآلية وإبلاغ الكراج'
+            : 'تم إنهاء الوردية وإبلاغ الكراج أن الآلية في طريق العودة',
+      })
+    },
+    onError: (e) =>
+      addToast({
+        type: 'error',
+        message: handleAppError(e, { scope: 'sectorVehicleTrip' }).message,
+      }),
+  })
+}
+export const useConfirmSectorVehicleArrival = () => useTripStageMutation('arrival')
+export const useSendSectorVehicleToGarage = () => useTripStageMutation('garage')

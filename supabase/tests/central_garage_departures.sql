@@ -6,12 +6,12 @@ declare
   v public.garage_vehicles;dep public.garage_departures;closed public.garage_departures;n bigint;
 begin
   insert into auth.users(id,email) values(garage_u,'garage-departures@akram.iq'),(outsider_u,'departures-outsider@akram.iq'),(manager_u,'departures-manager@akram.iq');
-  insert into public.user_roles(user_id,role) values(garage_u,'central_garage_officer'),(outsider_u,'employee'),(manager_u,'department_manager');insert into public.manager_profiles(user_id,shift,sectors)values(manager_u,'morning',array[1]::smallint[]);
+  insert into public.user_roles(user_id,role) values(garage_u,'central_garage_officer'),(outsider_u,'employee'),(manager_u,'department_manager');insert into public.manager_profiles(user_id,shift,sectors)values(manager_u,'night',array[8]::smallint[]);
   perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',garage_u::text,false);
-  v:=public.garage_add_vehicle('كابسة انطلاق','DB-750','بغداد 750','CHASSIS-750',garage_u::text||'/vehicle.webp','morning','سائق الانطلاق',1::smallint);
+  v:=public.garage_add_vehicle('كابسة انطلاق','DB-750','بغداد 750','CHASSIS-750',garage_u::text||'/vehicle.webp','night','سائق الانطلاق',8::smallint);
 
-  dep:=public.garage_record_departure(v.id,'انطلاق الصباح',manager_u);
-  if dep.driver_name<>'سائق الانطلاق' or dep.shift<>'morning' or dep.sector_id<>1 or dep.departed_by<>garage_u then raise exception 'DEPARTURE_SNAPSHOT_FAIL'; end if;
+  dep:=public.garage_record_departure(v.id,'انطلاق الصباح');
+  if dep.driver_name<>'سائق الانطلاق' or dep.shift<>'night' or dep.sector_id<>8 or dep.departed_by<>garage_u then raise exception 'DEPARTURE_SNAPSHOT_FAIL'; end if;
   if dep.departed_at is null or abs(extract(epoch from(now()-dep.departed_at)))>10 or dep.returned_at is not null then raise exception 'DEPARTURE_SERVER_TIME_FAIL'; end if;
 
   begin perform public.garage_record_departure(v.id,null);raise exception 'DOUBLE_DEPARTURE_ACCEPTED';
@@ -33,7 +33,7 @@ begin
   begin perform public.garage_record_return(dep.id);raise exception 'DOUBLE_RETURN_ACCEPTED';
   exception when others then if sqlerrm='DOUBLE_RETURN_ACCEPTED' then raise;end if;if sqlerrm not like '%GARAGE_OPEN_DEPARTURE_NOT_FOUND%' then raise;end if;end;
 
-  dep:=public.garage_record_departure(v.id,null,manager_u);perform set_config('request.jwt.claim.sub',manager_u::text,false);perform public.sector_confirm_vehicle_arrival(dep.id,null);perform public.sector_send_vehicle_to_garage(dep.id,null);perform set_config('request.jwt.claim.sub',garage_u::text,false);perform public.garage_record_return(dep.id);
+  dep:=public.garage_record_departure(v.id,null);perform set_config('request.jwt.claim.sub',manager_u::text,false);perform public.sector_confirm_vehicle_arrival(dep.id,null);perform public.sector_send_vehicle_to_garage(dep.id,null);perform set_config('request.jwt.claim.sub',garage_u::text,false);perform public.garage_record_return(dep.id);
   select count(*) into n from public.garage_today_departures() where vehicle_id=v.id;
   if n<>1 then raise exception 'TODAY_DEPARTURES_FAIL'; end if;
   select count(*) into n from public.audit_logs where table_name='garage_departures' and record_id=dep.id::text;

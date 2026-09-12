@@ -48,6 +48,13 @@ verify_jwt = true
 [functions.complaint-generate-report]
 verify_jwt = true
 
+# المستخدم أو المجدول الخادمي الموثوق فقط؛ لا تُعطّل JWT لهاتين الوظيفتين.
+[functions.lvn-gps-sync]
+verify_jwt = true
+
+[functions.notification-push-dispatch]
+verify_jwt = true
+
 # ── CAPTCHA للدخول (طبقة حماية رابعة — تفعيلها توصية production) ──
 # 1) أنشئ site/secret key من hCaptcha أو Turnstile
 # 2) ألغِ التعليق وضع المفاتيح:

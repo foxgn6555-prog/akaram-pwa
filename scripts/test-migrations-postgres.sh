@@ -50,6 +50,28 @@ for test_file in \
   supabase/tests/central_garage_departures.sql \
   supabase/tests/garage_sector_handover.sql \
   supabase/tests/vehicle_operational_cycles.sql \
+  supabase/tests/automatic_sector_manager_dispatch.sql \
+  supabase/tests/lvn_gps_data_hub.sql \
+  supabase/tests/gps_operational_tracking.sql \
+  supabase/tests/gps_live_operations_alerts.sql \
+  supabase/tests/gps_route_integrity.sql \
+  supabase/tests/gps_zones_alert_workflow.sql \
+  supabase/tests/gps_zone_bulk_notifications.sql \
+  supabase/tests/gps_trip_shift_context.sql \
+  supabase/tests/gps_alert_grouping_escalation.sql \
+  supabase/tests/gps_route_events_multilevel.sql \
+  supabase/tests/gps_operations_observability.sql \
+  supabase/tests/gps_route_diagnostics.sql \
+  supabase/tests/gps_history_window_progress.sql \
+  supabase/tests/gps_window_coverage_audit.sql \
+  supabase/tests/gps_trip_investigations.sql \
+  supabase/tests/enterprise_notifications.sql \
+  supabase/tests/web_push_delivery.sql \
+  supabase/tests/notification_policy_control.sql \
+  supabase/tests/notification_delivery_resilience.sql \
+  supabase/tests/maintenance_timeline_push_operations.sql \
+  supabase/tests/push_admin_actions_timeline_access.sql \
+  supabase/tests/push_metrics_batch_retry.sql \
   supabase/tests/complaints_workflow_isolation.sql \
   supabase/tests/complaints_end_to_end.sql \
   supabase/tests/complaints_batch_automation.sql \

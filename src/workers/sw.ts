@@ -7,7 +7,11 @@
  */
 /// <reference lib="webworker" />
 import { clientsClaim } from 'workbox-core'
-import { precacheAndRoute, createHandlerBoundToURL, cleanupOutdatedCaches } from 'workbox-precaching'
+import {
+  precacheAndRoute,
+  createHandlerBoundToURL,
+  cleanupOutdatedCaches,
+} from 'workbox-precaching'
 import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { NetworkFirst, NetworkOnly } from 'workbox-strategies'
 
@@ -64,4 +68,59 @@ if (IS_DEV) {
 
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') void self.skipWaiting()
+})
+
+type PushPayload = {
+  title?: string
+  body?: string
+  link?: string
+  priority?: string
+  category?: string
+  notificationId?: string
+  deliveryId?: string
+}
+self.addEventListener('push', (event: PushEvent) => {
+  let payload: PushPayload = {}
+  try {
+    payload = (event.data?.json() as PushPayload) ?? {}
+  } catch {
+    payload = { body: event.data?.text() ?? 'لديك إشعار جديد' }
+  }
+  const link = payload.link?.startsWith('/') ? payload.link : '/',
+    trackedUrl = new URL(link, self.location.origin)
+  if (payload.deliveryId) trackedUrl.searchParams.set('_push', payload.deliveryId)
+  const trackedLink = `${trackedUrl.pathname}${trackedUrl.search}${trackedUrl.hash}`
+  event.waitUntil(
+    self.registration.showNotification(payload.title?.slice(0, 160) || 'إشعار جديد', {
+      body: payload.body?.slice(0, 1000),
+      icon: '/icons/icon-192.png',
+      badge: '/icons/logo-128.png',
+      tag: payload.notificationId || `${payload.category ?? 'system'}:${link}`,
+      requireInteraction: payload.priority === 'critical',
+      silent: false,
+      data: { link: trackedLink, notificationId: payload.notificationId },
+    }),
+  )
+})
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close()
+  const link =
+    typeof event.notification.data?.link === 'string' &&
+    event.notification.data.link.startsWith('/')
+      ? event.notification.data.link
+      : '/'
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of windows) {
+        const windowClient = client as WindowClient
+        if ('focus' in windowClient) {
+          await windowClient.focus()
+          await windowClient.navigate(link)
+          return
+        }
+      }
+      await self.clients.openWindow(link)
+    })(),
+  )
 })

@@ -13,13 +13,20 @@ import { UNIT_LIBRARY } from '@features/portals/types'
 const allRoutes = customRoutes.map((r) => r.path).filter(Boolean) as string[]
 
 describe('⚓ عقد البوابة التقنية', () => {
-  it('الوحدات التسع مسجلة بالترتيب الصحيح', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(9)
+  it('الوحدات العشر مسجلة بالترتيب الصحيح', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(10)
     const labels = PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)
     expect(labels).toEqual([
-      'nav.dashboard', 'nav.user_management', 'nav.database',
-      'nav.branches', 'nav.page_permissions', 'nav.integrations',
-      'nav.updates', 'nav.archive', 'nav.flowbridge',
+      'nav.dashboard',
+      'nav.user_management',
+      'nav.database',
+      'nav.branches',
+      'nav.page_permissions',
+      'nav.integrations',
+      'nav.notification_policies',
+      'nav.updates',
+      'nav.archive',
+      'nav.flowbridge',
     ])
   })
 
@@ -34,13 +41,14 @@ describe('⚓ عقد البوابة التقنية', () => {
 
   it('لا مسار يتيم خارج الوحدات', () => {
     const sidebarPaths = new Set(
-      PORTAL_UNITS[PORTALS.IT].flatMap((u) =>
-        u.path !== '/it' ? [u.path.replace('/it/', '')] : []
-      ).concat(
-        PORTAL_UNITS[PORTALS.IT].flatMap((u) =>
-          (u.children ?? []).map((c) => c.path.replace('/it/', ''))
+      PORTAL_UNITS[PORTALS.IT]
+        .flatMap((u) => (u.path !== '/it' ? [u.path.replace('/it/', '')] : []))
+        .concat(
+          PORTAL_UNITS[PORTALS.IT].flatMap((u) =>
+            (u.children ?? []).map((c) => c.path.replace('/it/', '')),
+          ),
         )
-      ).concat(['user-management/:userId', 'database/tables/:tableName'])
+        .concat(['user-management/:userId', 'database/tables/:tableName']),
     )
     for (const route of allRoutes) {
       expect(sidebarPaths.has(route), `مسار يتيم: ${route}`).toBe(true)

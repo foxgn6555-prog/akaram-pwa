@@ -61,6 +61,7 @@
     "maintenance_inventory": "مخزون قطع الصيانة",
     "ts_vehicle_movements": "حركة آليات المواقع",
     "ops_operations_data": "بيانات وتقارير العمليات",
+    "ops_gps_data": "بيانات أجهزة GPS",
     "mgr_photos": "إرسال صور",
     "mgr_archive": "الأرشيف",
     "complaints_karrada": "قاطع الكرادة",
@@ -86,7 +87,9 @@
     "garage_grease": "الدهن",
     "garage_c_oil": "C-Oil",
     "garage_reports": "تقارير الكراج",
-    "garage_zero_approvals": "موافقات تصفير خزانات الكراج"
+    "garage_zero_approvals": "موافقات تصفير خزانات الكراج",
+    "notification_policies": "سياسات الإشعارات والانطلاقات",
+    "garage_maintenance_coordination": "تنسيق حركات الصيانة"
   },
   "sections": {
     "main": "القائمة الرئيسية",

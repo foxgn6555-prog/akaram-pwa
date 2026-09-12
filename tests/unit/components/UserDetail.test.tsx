@@ -16,15 +16,23 @@ const mockUpdateProfile = vi.fn()
 const mockSetBanned = vi.fn()
 const mockResetPass = vi.fn()
 const mockUpdateEmail = vi.fn()
+const mockSaveManagerProfile = vi.fn()
 
 const { FIXTURE, SESSION } = vi.hoisted(() => ({
   FIXTURE: {
-    id: 'u1', email: 'employee@akram.iq', created_at: '2026-01-01T00:00:00Z',
-    last_sign_in_at: '2026-08-01T00:00:00Z', banned_until: null as string | null,
+    id: 'u1',
+    email: 'employee@akram.iq',
+    created_at: '2026-01-01T00:00:00Z',
+    last_sign_in_at: '2026-08-01T00:00:00Z',
+    banned_until: null as string | null,
     roles: ['employee'] as string[],
-    employee_id: 'e1' as string | null, employee_name: 'أحمد علي',
-    employee_number: 'EMP-001', phone: '07701234567', job_title: 'موظف إداري',
-    department_id: 'd1' as string | null, department_name: 'تقنية المعلومات',
+    employee_id: 'e1' as string | null,
+    employee_name: 'أحمد علي',
+    employee_number: 'EMP-001',
+    phone: '07701234567',
+    job_title: 'موظف إداري',
+    department_id: 'd1' as string | null,
+    department_name: 'تقنية المعلومات',
   },
   SESSION: { value: 'admin-1' },
 }))
@@ -51,12 +59,32 @@ vi.mock('@features/user-management', () => ({
 
 vi.mock('@features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
-    data: { id: SESSION.value, email: 'admin@x.iq', fullName: 'مدير النظام', roles: ['it_admin'], primaryRole: 'it_admin' },
+    data: {
+      id: SESSION.value,
+      email: 'admin@x.iq',
+      fullName: 'مدير النظام',
+      roles: ['it_admin'],
+      primaryRole: 'it_admin',
+    },
   }),
 }))
 
 vi.mock('@features/departments', () => ({
   useDepartments: () => ({ data: [{ id: 'd1', name: 'تقنية المعلومات' }] }),
+}))
+vi.mock('@features/sector', () => ({
+  useManagerProfileForUser: () => ({
+    data: { user_id: 'u1', shift: 'evening', sectors: [3] },
+    isLoading: false,
+  }),
+  useSaveManagerProfile: () => ({ mutate: mockSaveManagerProfile, isPending: false }),
+  useSectors: () => ({
+    data: [
+      { id: 1, name: 'أرخيته', parent_sector: 'karrada' },
+      { id: 3, name: 'الواثق', parent_sector: 'karrada' },
+      { id: 5, name: 'السندباد', parent_sector: 'zaafaraniya' },
+    ],
+  }),
 }))
 
 import UserDetail from '@portals/it/pages/UserManagement/UserDetail'
@@ -75,6 +103,7 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
   beforeEach(() => {
     vi.clearAllMocks()
     SESSION.value = 'admin-1'
+    FIXTURE.roles = ['employee']
   })
 
   it('يعرض بطاقة المستخدم مع الحالة والقسم', () => {
@@ -136,6 +165,21 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'hr_officer', grant: true })
     await user.click(screen.getByTestId('role-toggle-employee'))
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'employee', grant: false })
+  })
+
+  it('يتيح إصلاح مناطق حساب مسؤول قائم لتفعيل الربط التلقائي', async () => {
+    FIXTURE.roles = ['department_manager']
+    const user = userEvent.setup()
+    renderPage()
+    const section = screen.getByRole('region', { name: 'إسناد مناطق مسؤول القسم' })
+    expect(section).toHaveTextContent('الواثق')
+    expect(screen.getByLabelText('شفت مسؤول القسم')).toHaveValue('evening')
+    await user.click(screen.getByText('حفظ المناطق وتفعيل الربط التلقائي'))
+    expect(mockSaveManagerProfile).toHaveBeenCalledWith({
+      userId: 'u1',
+      shift: 'evening',
+      sectors: [3],
+    })
   })
 
   it('حماية الذات: تنبيه + تعطيل عمليات الحساب والأدوار على الحساب الشخصي', () => {

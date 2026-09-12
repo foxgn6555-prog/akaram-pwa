@@ -16,11 +16,14 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA(pwaConfig),
     // CSP متساهل في التطوير فقط (HMR/preamble) — build الإنتاج يبقى صارماً
-    { name: 'dev-csp-relax', apply: 'serve',
+    {
+      name: 'dev-csp-relax',
+      apply: 'serve',
       transformIndexHtml: (html) =>
         html
           .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
-          .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173") },
+          .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173"),
+    },
   ],
   build: {
     target: 'es2022',
@@ -28,16 +31,22 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router'],
+          vendor: ['react-router'],
+          'react-core': ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'],
+          validation: ['zod'],
           query: ['@tanstack/react-query'],
           supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+          monitoring: ['@sentry/react'],
+          i18n: ['i18next', 'react-i18next'],
+          icons: ['lucide-react'],
         },
       },
     },
   },
   server: {
     port: 5173,
-    
+
     // السماح بمضيف المعاينة (أعمال البيئة السحابية) — لا يؤثر على الإنتاج
     allowedHosts: true,
   },

@@ -6,12 +6,12 @@ declare
 begin
  insert into auth.users(id,email) values(g,'handover-garage@akram.iq'),(m1,'handover-manager1@akram.iq'),(m2,'handover-manager2@akram.iq');
  insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(m1,'department_manager'),(m2,'department_manager');
- insert into public.manager_profiles(user_id,shift,sectors) values(m1,'morning',array[1]::smallint[]),(m2,'morning',array[1]::smallint[]);
+ insert into public.manager_profiles(user_id,shift,sectors) values(m1,'morning',array[3]::smallint[]),(m2,'morning',array[4]::smallint[]);
  perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',g::text,false);
- v:=public.garage_add_vehicle('كابسة تسليم','DB-HANDOVER','بغداد-H','CHASSIS-H',g::text||'/h.webp','morning','سائق التسليم',1::smallint);
- select count(*) into n from public.garage_dispatch_recipients(v.id) where user_id in(m1,m2);if n<>2 then raise exception 'RECIPIENT_FILTER_FAIL';end if;
- d:=public.garage_record_departure(v.id,'إلى الموقع',m1);
- if d.recipient_manager_id<>m1 or d.departed_at is null or abs(extract(epoch from(now()-d.departed_at)))>10 then raise exception 'EXPLICIT_DISPATCH_FAIL';end if;
+ v:=public.garage_add_vehicle('كابسة تسليم','DB-HANDOVER','بغداد-H','CHASSIS-H',g::text||'/h.webp','morning','سائق التسليم',3::smallint);
+ select count(*) into n from public.garage_dispatch_recipients(v.id) where user_id=m1;if n<>1 then raise exception 'RECIPIENT_FILTER_FAIL';end if;
+ d:=public.garage_record_departure(v.id,'إلى الموقع');
+ if d.recipient_manager_id<>m1 or d.recipient_manager_name is null or d.departed_at is null or abs(extract(epoch from(now()-d.departed_at)))>10 then raise exception 'AUTOMATIC_DISPATCH_FAIL';end if;
  begin perform public.garage_record_return(d.id);raise exception 'EARLY_GARAGE_CLOSE_ACCEPTED';exception when others then if sqlerrm='EARLY_GARAGE_CLOSE_ACCEPTED' then raise;end if;if sqlerrm not like '%GARAGE_VEHICLE_NOT_SENT_BACK%' then raise;end if;end;
  execute 'reset role';update public.garage_departures set departed_at=now()-interval '1 day' where id=d.id;
  perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',m2::text,false);
@@ -31,5 +31,5 @@ begin
  perform set_config('request.jwt.claim.sub',m2::text,false);select count(*) into n from public.manager_vehicle_trips_for_day(tripday) where id=d.id;if n<>0 then raise exception 'MANAGER_DAY_ISOLATION_FAIL';end if;
  execute 'reset role';select count(*) into n from public.notifications where user_id in(g,m1) and link in('/manager/vehicle-trips','/central-garage/drivers-dispatch');if n<>4 then raise exception 'HANDOVER_NOTIFICATIONS_FAIL %',n;end if;
  select count(*) into n from public.audit_logs where table_name='garage_departures' and record_id=d.id::text;if n<4 then raise exception 'HANDOVER_AUDIT_FAIL';end if;
- raise notice '✅ تسليم الآلية: اختيار صريح/عزل/ترتيب/منع تكرار/عبور منتصف الليل/وقت خادمي/تنبيهات/تدقيق ناجحة';
+ raise notice '✅ تسليم الآلية: إسناد تلقائي لمسؤول المنطقة/عزل/ترتيب/منع تكرار/عبور منتصف الليل/وقت خادمي/تنبيهات/تدقيق ناجحة';
 end$$;

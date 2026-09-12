@@ -16,8 +16,8 @@ describe('⚓ تكامل الصلاحيات', () => {
     expect(portalIds).toContain('admin')
   })
 
-  it('بوابة IT بها 9 وحدات (الأكثر شمولية)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(9)
+  it('بوابة IT بها 10 وحدات (الأكثر شمولية)', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(10)
   })
 
   it('كل بوابة لها على الأقل وحدة واحدة', () => {

@@ -1,16 +1,546 @@
-import{useState}from'react';import{CalendarDays,History,Paperclip,ShieldCheck,Wrench}from'lucide-react';import{useMaintenanceApproveReadiness,useMaintenanceConfirmArrival,useMaintenanceDays,useMaintenanceDispatch,useMaintenanceForDay,useMaintenanceInstallPart,useMaintenanceInventory,useMaintenanceIssueInventory,useMaintenanceReturnPart,useMaintenanceTechnicians,useMaintenanceTimeline,useMaintenanceUpdate,useMaintenanceUploadAttachment}from'@features/vehicle-operations/hooks';import type{MaintenanceCase}from'@sdk/vehicle-operations.sdk';
-const labels:Record<string,string>={to_maintenance:'في الطريق إلى الصيانة',at_maintenance:'داخل الصيانة',diagnosing:'قيد التشخيص',waiting_parts:'بانتظار قطع الغيار',in_repair:'قيد الإصلاح',paused:'متوقفة مؤقتاً',ready:'جاهزة للمغادرة',to_work:'في الطريق إلى العمل',to_garage:'في الطريق إلى الكراج',returned_to_work:'عادت إلى العمل',closed_at_garage:'أغلقت في الكراج'};const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad'}).format(new Date());const dt=(x:string)=>new Intl.DateTimeFormat('ar-IQ',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(x));
-export default function MaintenanceCasesPage(){const[day,setDay]=useState(today()),[edit,setEdit]=useState<MaintenanceCase|null>(null),[detail,setDetail]=useState<MaintenanceCase|null>(null);const days=useMaintenanceDays(),q=useMaintenanceForDay(day),arrival=useMaintenanceConfirmArrival(),approve=useMaintenanceApproveReadiness(),dispatch=useMaintenanceDispatch();return <section dir="rtl" className="space-y-5"><header className="rounded-3xl bg-gradient-to-l from-slate-950 to-rose-800 p-6 text-white"><p className="flex gap-2 text-xs"><Wrench size={16}/>متابعة متعددة الأيام دون فقدان التحديثات</p><h1 className="mt-2 text-2xl font-black">حالات صيانة الآليات</h1><p className="mt-1 text-sm text-rose-100">وقت التوقف مستمر حتى عودة الآلية للعمل أو وصولها إلى الكراج.</p></header><section className="rounded-2xl border bg-white p-4"><div className="mb-3 flex items-center gap-2"><CalendarDays className="size-5 text-rose-700"/><b>مجلدات أيام الصيانة</b><input type="date" value={day} onChange={e=>setDay(e.target.value)} className="mr-auto h-9 rounded-xl border px-2"/></div><div className="flex gap-2 overflow-x-auto">{(days.data??[]).map(x=><button key={x.case_day} onClick={()=>setDay(x.case_day)} className={`min-w-40 rounded-xl border p-3 text-xs ${day===x.case_day?'border-rose-600 bg-rose-50':''}`}><b>{x.case_day}</b><span className="mt-1 block">{x.total_count} حالة · {x.open_count} مفتوحة</span></button>)}</div></section><div className="grid gap-4 lg:grid-cols-2">{(q.data??[]).map(c=><article key={c.case_id} className="rounded-3xl border bg-white p-5 shadow-sm"><div className="flex justify-between"><div><b className="rounded-lg bg-slate-900 px-2 py-1 text-xs text-white">DB {c.db_number}</b><h2 className="mt-3 font-black">{c.vehicle_name}</h2><p className="text-xs text-slate-500">{c.driver_name} · {c.area_name} · {c.manager_name}</p></div><span className="h-fit rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">{labels[c.status]??c.status}</span></div><p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm"><b>العطل:</b> {c.fault_type}<br/><b>الأولوية:</b> {c.priority}<br/><b>الفني:</b> {c.assigned_technician??'لم يحدد'}</p><div className="mt-3 h-2 overflow-hidden rounded bg-slate-100"><i className="block h-full bg-emerald-600" style={{width:`${c.progress}%`}}/></div><p className="mt-1 text-xs text-slate-500">نسبة الإنجاز {c.progress}%</p><button onClick={()=>setDetail(c)} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border font-bold"><History size={15}/>التفاصيل والسجل الكامل</button>{c.status==='to_maintenance'&&<button onClick={()=>arrival.mutate({caseId:c.case_id})} className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white">تأكيد وصول الآلية إلى الصيانة</button>}{['at_maintenance','diagnosing','waiting_parts','in_repair','paused'].includes(c.status)&&<button onClick={()=>setEdit(c)} className="mt-3 h-11 w-full rounded-xl bg-rose-700 font-black text-white">إضافة تحديث جديد</button>}{c.status==='ready'&&!c.readiness_approved_at&&<button data-testid={`approve-readiness-${c.case_id}`} onClick={()=>approve.mutate({caseId:c.case_id})} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white"><ShieldCheck size={16}/>اعتماد جاهزية الآلية للمغادرة</button>}{c.status==='ready'&&c.readiness_approved_at&&<><p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">تم اعتماد الجاهزية {dt(c.readiness_approved_at)}</p><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>dispatch.mutate({caseId:c.case_id,destination:'work_site'})} className="h-11 rounded-xl bg-cyan-700 text-xs font-black text-white">إعادتها إلى موقع العمل</button><button onClick={()=>dispatch.mutate({caseId:c.case_id,destination:'garage'})} className="h-11 rounded-xl bg-slate-800 text-xs font-black text-white">إرسالها إلى الكراج</button></div></>}</article>)}</div>{!(q.data??[]).length&&<p className="rounded-2xl border bg-white p-12 text-center text-slate-500">لا توجد حالات في هذا اليوم.</p>}{edit&&<UpdateDialog item={edit} close={()=>setEdit(null)}/>} {detail&&<DetailsDialog item={detail} close={()=>setDetail(null)}/>}</section>}
-function UpdateDialog({item,close}:{item:MaintenanceCase;close:()=>void}){const update=useMaintenanceUpdate(),technicians=useMaintenanceTechnicians();const[status,setStatus]=useState(item.status==='at_maintenance'?'diagnosing':item.status),[progress,setProgress]=useState(item.progress),[diagnosis,setDiagnosis]=useState(item.diagnosis??''),[workNotes,setWorkNotes]=useState(item.work_notes??''),[partsNotes,setPartsNotes]=useState(item.parts_notes??''),[technicianId,setTechnicianId]=useState(item.assigned_technician_id??''),[estimatedCost,setEstimatedCost]=useState(item.estimated_cost??0),[actualCost,setActualCost]=useState(item.actual_cost??0),[delayReason,setDelayReason]=useState(item.delay_reason??''),[expectedAt,setExpectedAt]=useState('');return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={e=>{e.preventDefault();update.mutate({caseId:item.case_id,status,progress,diagnosis,workNotes,partsNotes,technicianId,estimatedCost,actualCost,delayReason,expectedAt},{onSuccess:close})}} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6"><h2 className="text-xl font-black">تحديث جديد · DB {item.db_number}</h2><p className="text-xs text-slate-500">لن يُحذف التحديث السابق.</p><div className="mt-4 grid gap-3 sm:grid-cols-2"><select value={status} onChange={e=>setStatus(e.target.value)} className="h-11 rounded-xl border px-3"><option value="diagnosing">قيد التشخيص</option><option value="waiting_parts">بانتظار القطع</option><option value="in_repair">قيد الإصلاح</option><option value="paused">متوقفة مؤقتاً</option><option value="ready">جاهزة للمغادرة</option></select><input type="number" min="0" max="100" value={progress} onChange={e=>setProgress(Number(e.target.value))} className="h-11 rounded-xl border px-3"/><select data-testid="maintenance-technician" value={technicianId} onChange={e=>setTechnicianId(e.target.value)} className="h-11 rounded-xl border px-3"><option value="">دون تعيين فني</option>{(technicians.data??[]).map(tech=><option key={tech.user_id} value={tech.user_id}>{tech.display_name}</option>)}</select><input type="datetime-local" value={expectedAt} onChange={e=>setExpectedAt(e.target.value)} className="h-11 rounded-xl border px-3"/><input type="number" min="0" value={estimatedCost} onChange={e=>setEstimatedCost(Number(e.target.value))} className="h-11 rounded-xl border px-3" placeholder="الكلفة التقديرية"/><input type="number" min="0" value={actualCost} onChange={e=>setActualCost(Number(e.target.value))} className="h-11 rounded-xl border px-3" placeholder="الكلفة الفعلية"/><textarea value={diagnosis} onChange={e=>setDiagnosis(e.target.value)} className="rounded-xl border p-3 sm:col-span-2" placeholder="التشخيص"/><textarea value={workNotes} onChange={e=>setWorkNotes(e.target.value)} className="rounded-xl border p-3 sm:col-span-2" placeholder="الأعمال المنفذة"/><textarea value={partsNotes} onChange={e=>setPartsNotes(e.target.value)} className="rounded-xl border p-3 sm:col-span-2" placeholder="ملاحظات القطع"/><textarea value={delayReason} onChange={e=>setDelayReason(e.target.value)} className="rounded-xl border p-3 sm:col-span-2" placeholder="سبب التأخير إن وجد"/></div><div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={close} className="h-11 rounded-xl border">إلغاء</button><button className="h-11 rounded-xl bg-rose-700 font-black text-white">حفظ كتحديث جديد</button></div></form></div>}
-function DetailsDialog({item,close}:{item:MaintenanceCase;close:()=>void}){
- const q=useMaintenanceTimeline(item.case_id),inventory=useMaintenanceInventory(),issue=useMaintenanceIssueInventory(),install=useMaintenanceInstallPart(),returnPart=useMaintenanceReturnPart(),upload=useMaintenanceUploadAttachment()
- const[file,setFile]=useState<File|null>(null),[caption,setCaption]=useState(''),[inventoryId,setInventoryId]=useState(''),[quantity,setQuantity]=useState(1)
- const refresh=()=>void q.refetch()
- return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6"><div className="flex justify-between"><h2 className="text-xl font-black">السجل الكامل · DB {item.db_number}</h2><button onClick={close}>إغلاق</button></div>
- <h3 className="mt-5 flex items-center gap-2 font-black"><Paperclip size={16}/>الصور والمرفقات</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{(q.data?.attachments??[]).map(a=><a key={a.id} href={a.signedUrl} target="_blank" rel="noreferrer" className="rounded-xl border bg-slate-50 p-3 text-xs font-bold">{a.original_name}<span className="mt-1 block text-[10px] text-slate-500">{a.caption??a.mime_type} · {(a.size_bytes/1024/1024).toFixed(1)} MB</span></a>)}</div><form onSubmit={e=>{e.preventDefault();if(!file)return;upload.mutate({caseId:item.case_id,file,caption},{onSuccess:()=>{setFile(null);setCaption('');refresh()}})}} className="mt-3 grid gap-2 sm:grid-cols-3"><input data-testid="maintenance-attachment-file" required type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>setFile(e.target.files?.[0]??null)} className="rounded-xl border p-2 text-xs"/><input value={caption} onChange={e=>setCaption(e.target.value)} className="h-10 rounded-xl border px-2 text-xs" placeholder="وصف المرفق"/><button disabled={!file||upload.isPending} className="h-10 rounded-xl bg-indigo-700 text-xs font-black text-white disabled:opacity-40">رفع المرفق</button></form>
- <h3 className="mt-5 font-black">تحديثات الصيانة</h3><div className="mt-2 space-y-2">{(q.data?.updates??[]).map(u=><div key={u.id} className="rounded-xl border-r-4 border-rose-600 bg-slate-50 p-3 text-xs"><b>{labels[u.status]??u.status} · {u.progress}%</b><span className="mr-2 text-slate-500">{dt(u.created_at)}</span><p className="mt-1">{u.diagnosis??u.work_notes??'تحديث حالة'}</p></div>)}</div>
- <h3 className="mt-5 font-black">قطع الغيار المصروفة</h3><div className="mt-2 space-y-2">{(q.data?.parts??[]).map(p=><div key={p.id} className="rounded-xl bg-amber-50 p-3 text-xs"><div className="flex justify-between"><span>{p.part_name} · {p.quantity} {p.unit} · {(p.unit_cost??0).toLocaleString('ar-IQ')}</span><b>{p.part_status==='issued'?'مصروفة بانتظار التركيب':p.part_status==='installed'?'تم تركيبها':'أعيدت للمخزون'}</b></div>{p.part_status==='issued'&&<div className="mt-2 flex gap-2"><button data-testid={`install-part-${p.id}`} onClick={()=>install.mutate({partId:p.id},{onSuccess:refresh})} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white">تأكيد التركيب</button><button onClick={()=>returnPart.mutate({partId:p.id},{onSuccess:refresh})} className="rounded-lg border px-3 py-2 font-bold">إعادة للمخزون</button></div>}</div>)}</div>
- <form onSubmit={e=>{e.preventDefault();issue.mutate({caseId:item.case_id,itemId:inventoryId,quantity},{onSuccess:()=>{setInventoryId('');refresh()}})}} className="mt-3 grid gap-2 sm:grid-cols-3"><select data-testid="issue-inventory-item" required value={inventoryId} onChange={e=>setInventoryId(e.target.value)} className="h-10 rounded-xl border px-2"><option value="">اختر قطعة من المخزون</option>{(inventory.data??[]).map(stock=><option key={stock.id} value={stock.id} disabled={stock.current_quantity<=0}>{stock.item_name} — المتاح {stock.current_quantity} {stock.unit}</option>)}</select><input aria-label="كمية الصرف" type="number" min="0.001" step="0.001" value={quantity} onChange={e=>setQuantity(Number(e.target.value))} className="h-10 rounded-xl border px-2"/><button disabled={!inventoryId} className="h-10 rounded-xl bg-amber-600 font-black text-white disabled:opacity-40">صرف للحالة</button></form>
- <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-3 text-xs text-white"><span>كلفة القطع: <b>{item.parts_actual_cost.toLocaleString('ar-IQ')}</b></span><span>الكلفة الفعلية الإجمالية: <b>{(item.actual_cost??0).toLocaleString('ar-IQ')}</b></span></div>
- </div></div>
+import { useState } from 'react'
+import { CalendarDays, History, Paperclip, ShieldCheck, Wrench } from 'lucide-react'
+import {
+  useMaintenanceApproveReadiness,
+  useMaintenanceConfirmArrival,
+  useMaintenanceDays,
+  useMaintenanceDispatch,
+  useMaintenanceEvents,
+  useMaintenanceForDay,
+  useMaintenanceInstallPart,
+  useMaintenanceInventory,
+  useMaintenanceIssueInventory,
+  useMaintenanceReturnPart,
+  useMaintenanceTechnicians,
+  useMaintenanceTimeline,
+  useMaintenanceUpdate,
+  useMaintenanceUploadAttachment,
+} from '@features/vehicle-operations/hooks'
+import type { MaintenanceCase } from '@sdk/vehicle-operations.sdk'
+const labels: Record<string, string> = {
+  to_maintenance: 'في الطريق إلى الصيانة',
+  at_maintenance: 'داخل الصيانة',
+  diagnosing: 'قيد التشخيص',
+  waiting_parts: 'بانتظار قطع الغيار',
+  in_repair: 'قيد الإصلاح',
+  paused: 'متوقفة مؤقتاً',
+  ready: 'جاهزة للمغادرة',
+  to_work: 'في الطريق إلى العمل',
+  to_garage: 'في الطريق إلى الكراج',
+  returned_to_work: 'عادت إلى العمل',
+  closed_at_garage: 'أغلقت في الكراج',
+}
+const today = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
+const dt = (x: string) =>
+  new Intl.DateTimeFormat('ar-IQ', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Asia/Baghdad',
+  }).format(new Date(x))
+export default function MaintenanceCasesPage() {
+  const [day, setDay] = useState(today()),
+    [edit, setEdit] = useState<MaintenanceCase | null>(null),
+    [detail, setDetail] = useState<MaintenanceCase | null>(null)
+  const days = useMaintenanceDays(),
+    q = useMaintenanceForDay(day),
+    arrival = useMaintenanceConfirmArrival(),
+    approve = useMaintenanceApproveReadiness(),
+    dispatch = useMaintenanceDispatch()
+  return (
+    <section dir="rtl" className="space-y-5">
+      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-rose-800 p-6 text-white">
+        <p className="flex gap-2 text-xs">
+          <Wrench size={16} />
+          متابعة متعددة الأيام دون فقدان التحديثات
+        </p>
+        <h1 className="mt-2 text-2xl font-black">حالات صيانة الآليات</h1>
+        <p className="mt-1 text-sm text-rose-100">
+          وقت التوقف مستمر حتى عودة الآلية للعمل أو وصولها إلى الكراج.
+        </p>
+      </header>
+      <section className="rounded-2xl border bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <CalendarDays className="size-5 text-rose-700" />
+          <b>مجلدات أيام الصيانة</b>
+          <input
+            type="date"
+            value={day}
+            onChange={(e) => setDay(e.target.value)}
+            className="mr-auto h-9 rounded-xl border px-2"
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto">
+          {(days.data ?? []).map((x) => (
+            <button
+              key={x.case_day}
+              onClick={() => setDay(x.case_day)}
+              className={`min-w-40 rounded-xl border p-3 text-xs ${day === x.case_day ? 'border-rose-600 bg-rose-50' : ''}`}
+            >
+              <b>{x.case_day}</b>
+              <span className="mt-1 block">
+                {x.total_count} حالة · {x.open_count} مفتوحة
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {(q.data ?? []).map((c) => (
+          <article key={c.case_id} className="rounded-3xl border bg-white p-5 shadow-sm">
+            <div className="flex justify-between">
+              <div>
+                <b className="rounded-lg bg-slate-900 px-2 py-1 text-xs text-white">
+                  DB {c.db_number}
+                </b>
+                <h2 className="mt-3 font-black">{c.vehicle_name}</h2>
+                <p className="text-xs text-slate-500">
+                  {c.driver_name} · {c.area_name} · {c.manager_name}
+                </p>
+              </div>
+              <span className="h-fit rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">
+                {labels[c.status] ?? c.status}
+              </span>
+            </div>
+            <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
+              <b>العطل:</b> {c.fault_type}
+              <br />
+              <b>الأولوية:</b> {c.priority}
+              <br />
+              <b>الفني:</b> {c.assigned_technician ?? 'لم يحدد'}
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded bg-slate-100">
+              <i className="block h-full bg-emerald-600" style={{ width: `${c.progress}%` }} />
+            </div>
+            <p className="mt-1 text-xs text-slate-500">نسبة الإنجاز {c.progress}%</p>
+            <button
+              onClick={() => setDetail(c)}
+              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border font-bold"
+            >
+              <History size={15} />
+              التفاصيل والسجل الكامل
+            </button>
+            {c.status === 'to_maintenance' && (
+              <button
+                onClick={() => arrival.mutate({ caseId: c.case_id })}
+                className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white"
+              >
+                تأكيد وصول الآلية إلى الصيانة
+              </button>
+            )}
+            {['at_maintenance', 'diagnosing', 'waiting_parts', 'in_repair', 'paused'].includes(
+              c.status,
+            ) && (
+              <button
+                onClick={() => setEdit(c)}
+                className="mt-3 h-11 w-full rounded-xl bg-rose-700 font-black text-white"
+              >
+                إضافة تحديث جديد
+              </button>
+            )}
+            {c.status === 'ready' && !c.readiness_approved_at && (
+              <button
+                data-testid={`approve-readiness-${c.case_id}`}
+                onClick={() => approve.mutate({ caseId: c.case_id })}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white"
+              >
+                <ShieldCheck size={16} />
+                اعتماد جاهزية الآلية للمغادرة
+              </button>
+            )}
+            {c.status === 'ready' && c.readiness_approved_at && (
+              <>
+                <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
+                  تم اعتماد الجاهزية {dt(c.readiness_approved_at)}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => dispatch.mutate({ caseId: c.case_id, destination: 'work_site' })}
+                    className="h-11 rounded-xl bg-cyan-700 text-xs font-black text-white"
+                  >
+                    إعادتها إلى موقع العمل
+                  </button>
+                  <button
+                    onClick={() => dispatch.mutate({ caseId: c.case_id, destination: 'garage' })}
+                    className="h-11 rounded-xl bg-slate-800 text-xs font-black text-white"
+                  >
+                    إرسالها إلى الكراج
+                  </button>
+                </div>
+              </>
+            )}
+          </article>
+        ))}
+      </div>
+      {!(q.data ?? []).length && (
+        <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">
+          لا توجد حالات في هذا اليوم.
+        </p>
+      )}
+      {edit && <UpdateDialog item={edit} close={() => setEdit(null)} />}{' '}
+      {detail && <DetailsDialog item={detail} close={() => setDetail(null)} />}
+    </section>
+  )
+}
+function UpdateDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
+  const update = useMaintenanceUpdate(),
+    technicians = useMaintenanceTechnicians()
+  const [status, setStatus] = useState(
+      item.status === 'at_maintenance' ? 'diagnosing' : item.status,
+    ),
+    [progress, setProgress] = useState(item.progress),
+    [diagnosis, setDiagnosis] = useState(item.diagnosis ?? ''),
+    [workNotes, setWorkNotes] = useState(item.work_notes ?? ''),
+    [partsNotes, setPartsNotes] = useState(item.parts_notes ?? ''),
+    [technicianId, setTechnicianId] = useState(item.assigned_technician_id ?? ''),
+    [estimatedCost, setEstimatedCost] = useState(item.estimated_cost ?? 0),
+    [actualCost, setActualCost] = useState(item.actual_cost ?? 0),
+    [delayReason, setDelayReason] = useState(item.delay_reason ?? ''),
+    [expectedAt, setExpectedAt] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          update.mutate(
+            {
+              caseId: item.case_id,
+              status,
+              progress,
+              diagnosis,
+              workNotes,
+              partsNotes,
+              technicianId,
+              estimatedCost,
+              actualCost,
+              delayReason,
+              expectedAt,
+            },
+            { onSuccess: close },
+          )
+        }}
+        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6"
+      >
+        <h2 className="text-xl font-black">تحديث جديد · DB {item.db_number}</h2>
+        <p className="text-xs text-slate-500">لن يُحذف التحديث السابق.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="h-11 rounded-xl border px-3"
+          >
+            <option value="diagnosing">قيد التشخيص</option>
+            <option value="waiting_parts">بانتظار القطع</option>
+            <option value="in_repair">قيد الإصلاح</option>
+            <option value="paused">متوقفة مؤقتاً</option>
+            <option value="ready">جاهزة للمغادرة</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={progress}
+            onChange={(e) => setProgress(Number(e.target.value))}
+            className="h-11 rounded-xl border px-3"
+          />
+          <select
+            data-testid="maintenance-technician"
+            value={technicianId}
+            onChange={(e) => setTechnicianId(e.target.value)}
+            className="h-11 rounded-xl border px-3"
+          >
+            <option value="">دون تعيين فني</option>
+            {(technicians.data ?? []).map((tech) => (
+              <option key={tech.user_id} value={tech.user_id}>
+                {tech.display_name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="datetime-local"
+            value={expectedAt}
+            onChange={(e) => setExpectedAt(e.target.value)}
+            className="h-11 rounded-xl border px-3"
+          />
+          <input
+            type="number"
+            min="0"
+            value={estimatedCost}
+            onChange={(e) => setEstimatedCost(Number(e.target.value))}
+            className="h-11 rounded-xl border px-3"
+            placeholder="الكلفة التقديرية"
+          />
+          <input
+            type="number"
+            min="0"
+            value={actualCost}
+            onChange={(e) => setActualCost(Number(e.target.value))}
+            className="h-11 rounded-xl border px-3"
+            placeholder="الكلفة الفعلية"
+          />
+          <textarea
+            value={diagnosis}
+            onChange={(e) => setDiagnosis(e.target.value)}
+            className="rounded-xl border p-3 sm:col-span-2"
+            placeholder="التشخيص"
+          />
+          <textarea
+            value={workNotes}
+            onChange={(e) => setWorkNotes(e.target.value)}
+            className="rounded-xl border p-3 sm:col-span-2"
+            placeholder="الأعمال المنفذة"
+          />
+          <textarea
+            value={partsNotes}
+            onChange={(e) => setPartsNotes(e.target.value)}
+            className="rounded-xl border p-3 sm:col-span-2"
+            placeholder="ملاحظات القطع"
+          />
+          <textarea
+            value={delayReason}
+            onChange={(e) => setDelayReason(e.target.value)}
+            className="rounded-xl border p-3 sm:col-span-2"
+            placeholder="سبب التأخير إن وجد"
+          />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={close} className="h-11 rounded-xl border">
+            إلغاء
+          </button>
+          <button className="h-11 rounded-xl bg-rose-700 font-black text-white">
+            حفظ كتحديث جديد
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
+  const q = useMaintenanceTimeline(item.case_id),
+    events = useMaintenanceEvents(item.case_id),
+    inventory = useMaintenanceInventory(),
+    issue = useMaintenanceIssueInventory(),
+    install = useMaintenanceInstallPart(),
+    returnPart = useMaintenanceReturnPart(),
+    upload = useMaintenanceUploadAttachment()
+  const [file, setFile] = useState<File | null>(null),
+    [caption, setCaption] = useState(''),
+    [inventoryId, setInventoryId] = useState(''),
+    [quantity, setQuantity] = useState(1)
+  const refresh = () => {
+    void q.refetch()
+    void events.refetch()
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6">
+        <div className="flex justify-between">
+          <h2 className="text-xl font-black">السجل الكامل · DB {item.db_number}</h2>
+          <button onClick={close}>إغلاق</button>
+        </div>
+        <section
+          className="mt-5 rounded-2xl bg-slate-950 p-4 text-white"
+          aria-label="التسلسل الزمني لدورة الصيانة"
+        >
+          <h3 className="flex items-center gap-2 font-black">
+            <History size={16} />
+            التسلسل الزمني الموحد
+          </h3>
+          <p className="mt-1 text-[11px] text-slate-300">
+            من تسجيل العطل إلى تأكيد الوصول الفعلي والعودة.
+          </p>
+          <div className="mt-4 space-y-1">
+            {(events.data ?? []).map((event, index) => (
+              <article key={event.event_key} className="relative flex gap-3 pb-4">
+                <span
+                  className={`mt-1 size-3 shrink-0 rounded-full ring-4 ring-slate-800 ${event.event_type === 'completion' ? 'bg-emerald-400' : event.event_type === 'movement' ? 'bg-cyan-400' : event.event_type === 'part' ? 'bg-amber-400' : 'bg-rose-400'}`}
+                />
+                {index < (events.data?.length ?? 0) - 1 && (
+                  <i className="absolute right-[5px] top-4 h-full w-px bg-slate-700" />
+                )}
+                <div>
+                  <b className="text-xs">{event.title}</b>
+                  <span className="mr-2 text-[10px] text-slate-400">{dt(event.happened_at)}</span>
+                  {event.details && (
+                    <p className="mt-1 text-[11px] text-slate-300">{event.details}</p>
+                  )}
+                  {event.progress !== null && (
+                    <span className="mt-1 inline-block rounded bg-white/10 px-2 py-0.5 text-[10px]">
+                      الإنجاز {event.progress}%
+                    </span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          {!events.isLoading && !(events.data ?? []).length && (
+            <p className="py-4 text-center text-xs text-slate-400">لا توجد أحداث مسجلة.</p>
+          )}
+        </section>
+        <h3 className="mt-5 flex items-center gap-2 font-black">
+          <Paperclip size={16} />
+          الصور والمرفقات
+        </h3>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {(q.data?.attachments ?? []).map((a) => (
+            <a
+              key={a.id}
+              href={a.signedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border bg-slate-50 p-3 text-xs font-bold"
+            >
+              {a.original_name}
+              <span className="mt-1 block text-[10px] text-slate-500">
+                {a.caption ?? a.mime_type} · {(a.size_bytes / 1024 / 1024).toFixed(1)} MB
+              </span>
+            </a>
+          ))}
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!file) return
+            upload.mutate(
+              { caseId: item.case_id, file, caption },
+              {
+                onSuccess: () => {
+                  setFile(null)
+                  setCaption('')
+                  refresh()
+                },
+              },
+            )
+          }}
+          className="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          <input
+            data-testid="maintenance-attachment-file"
+            required
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="rounded-xl border p-2 text-xs"
+          />
+          <input
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            className="h-10 rounded-xl border px-2 text-xs"
+            placeholder="وصف المرفق"
+          />
+          <button
+            disabled={!file || upload.isPending}
+            className="h-10 rounded-xl bg-indigo-700 text-xs font-black text-white disabled:opacity-40"
+          >
+            رفع المرفق
+          </button>
+        </form>
+        <h3 className="mt-5 font-black">تحديثات الصيانة</h3>
+        <div className="mt-2 space-y-2">
+          {(q.data?.updates ?? []).map((u) => (
+            <div
+              key={u.id}
+              className="rounded-xl border-r-4 border-rose-600 bg-slate-50 p-3 text-xs"
+            >
+              <b>
+                {labels[u.status] ?? u.status} · {u.progress}%
+              </b>
+              <span className="mr-2 text-slate-500">{dt(u.created_at)}</span>
+              <p className="mt-1">{u.diagnosis ?? u.work_notes ?? 'تحديث حالة'}</p>
+            </div>
+          ))}
+        </div>
+        <h3 className="mt-5 font-black">قطع الغيار المصروفة</h3>
+        <div className="mt-2 space-y-2">
+          {(q.data?.parts ?? []).map((p) => (
+            <div key={p.id} className="rounded-xl bg-amber-50 p-3 text-xs">
+              <div className="flex justify-between">
+                <span>
+                  {p.part_name} · {p.quantity} {p.unit} ·{' '}
+                  {(p.unit_cost ?? 0).toLocaleString('ar-IQ')}
+                </span>
+                <b>
+                  {p.part_status === 'issued'
+                    ? 'مصروفة بانتظار التركيب'
+                    : p.part_status === 'installed'
+                      ? 'تم تركيبها'
+                      : 'أعيدت للمخزون'}
+                </b>
+              </div>
+              {p.part_status === 'issued' && (
+                <div className="mt-2 flex gap-2">
+                  <button
+                    data-testid={`install-part-${p.id}`}
+                    onClick={() => install.mutate({ partId: p.id }, { onSuccess: refresh })}
+                    className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white"
+                  >
+                    تأكيد التركيب
+                  </button>
+                  <button
+                    onClick={() => returnPart.mutate({ partId: p.id }, { onSuccess: refresh })}
+                    className="rounded-lg border px-3 py-2 font-bold"
+                  >
+                    إعادة للمخزون
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            issue.mutate(
+              { caseId: item.case_id, itemId: inventoryId, quantity },
+              {
+                onSuccess: () => {
+                  setInventoryId('')
+                  refresh()
+                },
+              },
+            )
+          }}
+          className="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          <select
+            data-testid="issue-inventory-item"
+            required
+            value={inventoryId}
+            onChange={(e) => setInventoryId(e.target.value)}
+            className="h-10 rounded-xl border px-2"
+          >
+            <option value="">اختر قطعة من المخزون</option>
+            {(inventory.data ?? []).map((stock) => (
+              <option key={stock.id} value={stock.id} disabled={stock.current_quantity <= 0}>
+                {stock.item_name} — المتاح {stock.current_quantity} {stock.unit}
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="كمية الصرف"
+            type="number"
+            min="0.001"
+            step="0.001"
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            className="h-10 rounded-xl border px-2"
+          />
+          <button
+            disabled={!inventoryId}
+            className="h-10 rounded-xl bg-amber-600 font-black text-white disabled:opacity-40"
+          >
+            صرف للحالة
+          </button>
+        </form>
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-3 text-xs text-white">
+          <span>
+            كلفة القطع: <b>{item.parts_actual_cost.toLocaleString('ar-IQ')}</b>
+          </span>
+          <span>
+            الكلفة الفعلية الإجمالية: <b>{(item.actual_cost ?? 0).toLocaleString('ar-IQ')}</b>
+          </span>
+        </div>
+      </div>
+    </div>
+  )
 }

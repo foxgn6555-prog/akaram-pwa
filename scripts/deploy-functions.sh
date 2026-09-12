@@ -14,6 +14,10 @@ echo "⑤ Mailgun send (JWT مستخدم التطبيق إلزامي)"
 npx supabase functions deploy mailgun-send
 echo "⑥ مولد تقارير PowerPoint (JWT إلزامي)"
 npx supabase functions deploy complaint-generate-report
+echo "⑦ مزامنة LVN GPS (JWT مستخدم غرفة العمليات إلزامي)"
+npx supabase functions deploy lvn-gps-sync
+echo "⑧ موزع إشعارات Web Push (JWT مستخدم أو service-role للجدولة)"
+npx supabase functions deploy notification-push-dispatch
 echo ""
 echo "✅ النشر اكتمل — راقب: Dashboard → Edge Functions"
 echo "   سجلات المكالمات: supabase functions logs adms-receiver"

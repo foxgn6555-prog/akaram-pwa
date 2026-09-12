@@ -1,51 +1,660 @@
-import{useMemo,useState}from'react'
-import{AlertTriangle,BarChart3,BellRing,Check,ChevronDown,Download,Filter,TimerReset}from'lucide-react'
-import{useOpsAlerts,useOpsAttendance,useOpsGarageTrips,useOpsMaintenance,useOpsMovements,useOpsStationVisits,useOpsVehicleKpis}from'@features/vehicle-operations/hooks'
-import{buildExcelReport,type ReportColumn}from'@lib/export/excel-report'
+import { useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  BarChart3,
+  BellRing,
+  Check,
+  ChevronDown,
+  Download,
+  Filter,
+  TimerReset,
+} from 'lucide-react'
+import {
+  useOpsAlerts,
+  useOpsAttendance,
+  useOpsGarageTrips,
+  useOpsMaintenance,
+  useOpsMovements,
+  useOpsStationVisits,
+  useOpsVehicleKpis,
+} from '@features/vehicle-operations/hooks'
+import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
+import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 
-export type OperationsTab='alerts'|'summary'|'movements'|'station'|'garage'|'maintenance'|'attendance'
-type Row=Record<string,unknown>
-const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad'}).format(new Date())
-const dateTime=(value:unknown)=>value?new Intl.DateTimeFormat('ar-IQ',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(String(value))):'—'
-const minutes=(value:unknown)=>{const n=Number(value);return!Number.isFinite(n)?'—':n<60?`${n} د`:`${Math.floor(n/60)} س ${n%60} د`}
-const labels:Record<string,string>={alert_id:'معرف التنبيه',action_link:'جهة المعالجة',case_id:'معرف حالة الصيانة',visit_id:'معرف الزيارة',departure_id:'معرف الرحلة',vehicle_name:'الآلية',db_number:'رقم DB',driver_name:'السائق',shift:'الشفت',sector_id:'المنطقة',area_name:'اسم المنطقة',manager_name:'مسؤول القسم',started_at:'بداية الرحلة',completed_at:'نهاية الرحلة',total_minutes:'المدة الكلية',movement_minutes:'وقت الحركة',productive_minutes:'وقت العمل المنتج',station_minutes:'البقاء في المحطة',maintenance_minutes:'وقت الصيانة',downtime_minutes:'مدة العطل',other_minutes:'توقف/انتظار آخر',station_visit_count:'زيارات المحطة',breakdown_count:'عدد الأعطال',maintenance_count:'مرات الصيانة',origin_type:'من',destination_type:'إلى',departed_at:'وقت المغادرة',arrived_at:'وقت الوصول',duration_minutes:'مدة الحركة',visit_number:'رقم الزيارة',inbound_departed_at:'التوجه للمحطة',dispatched_at:'مغادرة المحطة',outbound_destination:'الوجهة التالية',status:'الحالة',transit_minutes:'مدة الطريق',stay_minutes:'مدة البقاء',fault_type:'نوع العطل',priority:'الأولوية',progress:'نسبة الإنجاز',reported_at:'وقت البلاغ',expected_completion_at:'الموعد المتوقع',actual_cost:'الكلفة الفعلية',estimated_cost:'الكلفة التقديرية',assigned_technician:'الفني',is_present:'حاضر',worker_name:'العامل',log_date:'التاريخ',severity:'الخطورة',title:'التنبيه',details:'التفاصيل',threshold_minutes:'الحد المسموح',elapsed_minutes:'المدة الحالية',alert_type:'نوع التنبيه'}
-const tabs:Record<OperationsTab,string>={alerts:'التنبيهات الحية',summary:'الملخص المركب',movements:'حركة الآليات',station:'زيارات المحطة',garage:'الكراج والورديات',maintenance:'الأعطال والصيانة',attendance:'حضور العمال'}
-const reportKeys:Record<OperationsTab,string[]>={summary:['vehicle_name','db_number','driver_name','shift','area_name','manager_name','started_at','completed_at','total_minutes','movement_minutes','productive_minutes','station_minutes','maintenance_minutes','downtime_minutes','other_minutes','station_visit_count','breakdown_count','maintenance_count'],alerts:['severity','title','details','db_number','driver_name','shift','area_name','manager_name','started_at','threshold_minutes','elapsed_minutes','action_link'],movements:['vehicle_name','db_number','driver_name','shift','area_name','manager_name','origin_type','destination_type','departed_at','arrived_at','duration_minutes','status'],station:['vehicle_name','db_number','driver_name','shift','area_name','visit_number','inbound_departed_at','arrived_at','dispatched_at','outbound_destination','transit_minutes','stay_minutes','status'],garage:['vehicle_name','db_number','driver_name','shift','area_name','manager_name','departed_at','arrived_at','completed_at','total_minutes','status'],maintenance:['vehicle_name','db_number','fault_type','priority','status','progress','assigned_technician','reported_at','expected_completion_at','maintenance_minutes','estimated_cost','actual_cost'],attendance:['worker_name','area_name','shift','log_date','is_present','started_at','completed_at','total_minutes']}
-const dateKeys=(key:string)=>key.endsWith('_at')||key==='started_at'||key==='completed_at'
-const minuteKeys=(key:string)=>key.endsWith('_minutes')
-const values:Record<string,string>={morning:'صباحي',evening:'مسائي',night:'ليلي',critical:'حرج',warning:'تحذير',garage:'الكراج المركزي',site:'موقع العمل',station:'محطة التحويل',maintenance:'الصيانة',open:'مفتوحة',in_transit:'في الطريق',arrived:'تم الوصول',completed:'مكتملة',returned:'عادت إلى الكراج',work_site:'موقع العمل',back_to_site:'العودة إلى موقع العمل',back_to_garage:'العودة إلى الكراج',garage_arrival_delay:'تأخر الوصول من الكراج',open_leg_stale:'رحلة مفتوحة دون تحديث',maintenance_overdue:'تجاوز موعد الصيانة',dispatched:'غادرت المحطة',pending:'بانتظار الإجراء',at_site:'في موقع العمل',at_station:'في محطة التحويل',at_maintenance:'في الصيانة',active:'نشطة',closed:'مغلقة'}
-const links:Record<string,string>={'/manager/vehicle-trips':'مسؤول القسم — رحلات الآليات','/ops-room/operations-data':'غرفة العمليات — التقارير التشغيلية','/central-garage/drivers-dispatch':'الكراج المركزي — الانطلاق والعودة','/maintenance/vehicle-cases':'الصيانة — حالات الآليات','/transfer-station/vehicle-movements':'محطة التحويل — حركة الآليات'}
-function readableValue(key:string,value:unknown){if(value===null||value===undefined||value==='')return'—';if(dateKeys(key))return dateTime(value);if(minuteKeys(key))return minutes(value);if(key==='action_link')return links[String(value)]??'صفحة المعالجة المختصة';if(key==='sector_id')return`المنطقة رقم ${String(value)}`;if(typeof value==='boolean')return value?'نعم':'لا';return values[String(value)]??String(value)}
-
-export default function OperationsDataPage(){
- const[from,setFrom]=useState(today()),[to,setTo]=useState(today()),[tab,setTab]=useState<OperationsTab>('summary'),[search,setSearch]=useState(''),[shift,setShift]=useState(''),[sector,setSector]=useState(''),[severity,setSeverity]=useState(''),[showColumns,setShowColumns]=useState(false),[columnChoice,setColumnChoice]=useState<Partial<Record<OperationsTab,string[]>>>({})
- const alertQuery=useOpsAlerts({shift:shift||undefined,sectorId:sector?Number(sector):undefined,severity:severity==='warning'||severity==='critical'?severity:undefined}),kpis=useOpsVehicleKpis(from,to,{search,shift:shift||undefined,sectorId:sector?Number(sector):undefined}),movements=useOpsMovements(from,to),station=useOpsStationVisits(from,to),garage=useOpsGarageTrips(from,to),maintenance=useOpsMaintenance(from,to),attendance=useOpsAttendance(from,to)
- const allSources=useMemo<Record<OperationsTab,Row[]>>(()=>({alerts:(alertQuery.data??[])as unknown as Row[],summary:kpis.data??[],movements:(movements.data??[])as unknown as Row[],station:station.data??[],garage:garage.data??[],maintenance:maintenance.data??[],attendance:attendance.data??[]}),[alertQuery.data,kpis.data,movements.data,station.data,garage.data,maintenance.data,attendance.data])
- const source=allSources[tab]
- const rows=useMemo(()=>source.filter(row=>{const text=JSON.stringify(row).toLowerCase();return(!search||text.includes(search.toLowerCase()))&&(!shift||row.shift===shift)&&(!sector||Number(row.sector_id)===Number(sector))&&(!severity||tab!=='alerts'||row.severity===severity)}),[source,search,shift,sector,severity,tab])
- const available=useMemo(()=>reportKeys[tab].filter(key=>labels[key]),[tab])
- const selected=columnChoice[tab]??available
- const visible=available.filter(key=>selected.includes(key))
- const sectors=useMemo(()=>[...new Map(Object.values(allSources).flat().filter(r=>r.sector_id).map(r=>[Number(r.sector_id),String(r.area_name??r.sector_id)])).entries()],[allSources])
- const sum=(key:string)=>rows.reduce((total,row)=>total+Number(row[key]??0),0)
- const toggleColumn=(key:string)=>setColumnChoice(old=>{const current=old[tab]??available;return{...old,[tab]:current.includes(key)?current.filter(item=>item!==key):[...current,key]}})
- const exportExcel=async()=>{const columns:ReportColumn[]=(visible.length?visible:available).map(key=>({header:labels[key]??key,key,width:minuteKeys(key)?16:22,wrap:true}));await buildExcelReport({sheetName:tabs[tab].slice(0,28),companySub:'غرفة العمليات المركزية',title:tabs[tab],meta:`الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search||'الكل'} · الشفت ${shift||'الكل'} · المنطقة ${sector||'الكل'}`,fileName:`غرفة-العمليات-${tab}-${from}-${to}.xlsx`,orientation:'landscape',columns,rows:rows.map(row=>Object.fromEntries((visible.length?visible:available).map(key=>[key,readableValue(key,row[key])])))})}
- return <section dir="rtl" className="space-y-5" data-testid="operations-data-page">
-  <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-cyan-800 p-6 text-white"><p className="flex items-center gap-2 text-xs text-cyan-200"><BarChart3 size={16}/>بيانات لحظية من الأقسام والمحطة والكراج والصيانة</p><h1 className="mt-2 text-2xl font-black">مركز التقارير التشغيلية</h1><p className="mt-1 text-sm text-cyan-100">تقارير مستقلة ومنظمة للحركة والعمل المنتج والمحطة والكراج والأعطال والصيانة.</p></header>
-
-  <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3 xl:grid-cols-6"><div className="md:col-span-3 xl:col-span-6"><h2 className="font-black text-slate-900">نطاق التقرير والفلاتر</h2><p className="mt-1 text-xs text-slate-500">حدد الفترة ثم خصّص التقرير المطلوب قبل العرض أو التصدير.</p></div><label className="text-xs">من<input aria-label="من" type="date" value={from} onChange={e=>setFrom(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3"/></label><label className="text-xs">إلى<input aria-label="إلى" type="date" value={to} onChange={e=>setTo(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3"/></label><label className="relative text-xs">بحث شامل<Filter className="absolute bottom-3 right-3 size-4 text-slate-400"/><input aria-label="بحث شامل" value={search} onChange={e=>setSearch(e.target.value)} className="mt-1 h-11 w-full rounded-xl border pr-9" placeholder="آلية، سائق، منطقة…"/></label><label className="text-xs">الشفت<select aria-label="الشفت" value={shift} onChange={e=>setShift(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">الكل</option><option value="morning">صباحي</option><option value="evening">مسائي</option><option value="night">ليلي</option></select></label><label className="text-xs">المنطقة<select aria-label="المنطقة" value={sector} onChange={e=>setSector(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">الكل</option>{sectors.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>{tab==='alerts'&&<label className="text-xs">الخطورة<select aria-label="الخطورة" value={severity} onChange={e=>setSeverity(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">الكل</option><option value="critical">حرج</option><option value="warning">تحذير</option></select></label>}<button data-testid="ops-export-excel" onClick={()=>void exportExcel()} disabled={!rows.length||!visible.length} className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 font-black text-white disabled:opacity-40"><Download size={17}/>تصدير Excel</button></div>
-
-  <nav aria-label="أنواع التقارير" className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 shadow-sm">{(Object.keys(tabs)as OperationsTab[]).map(value=><button data-testid={`ops-tab-${value}`} key={value} onClick={()=>{setTab(value);setShowColumns(false)}} className={`whitespace-nowrap rounded-xl px-5 py-3 text-xs font-black ${tab===value?'bg-indigo-800 text-white':'border bg-white'}`}>{tabs[value]} <span className="opacity-70">({allSources[value].length})</span></button>)}</nav>
-
-  {tab==='alerts'?<div className="grid grid-cols-2 gap-3 md:grid-cols-4"><Stat label="كل التنبيهات" value={rows.length}/><Stat label="تنبيهات حرجة" value={rows.filter(row=>row.severity==='critical').length}/><Stat label="تحذيرات" value={rows.filter(row=>row.severity==='warning').length}/><Stat label="رحلات متأثرة" value={new Set(rows.map(row=>row.departure_id)).size}/></div>:<div className="grid grid-cols-2 gap-3 lg:grid-cols-6"><Stat label="الرحلات/النتائج" value={rows.length}/><Stat label="وقت العمل المنتج" value={minutes(sum('productive_minutes'))}/><Stat label="وقت الحركة" value={minutes(sum('movement_minutes'))}/><Stat label="وقت المحطة" value={minutes(sum('station_minutes')||sum('stay_minutes'))}/><Stat label="وقت الصيانة" value={minutes(sum('maintenance_minutes'))}/><Stat label="مدة الأعطال" value={minutes(sum('downtime_minutes'))}/></div>}
-
-  {tab==='alerts'&&<div className="grid gap-3 lg:grid-cols-2">{rows.map(row=><article key={String(row.alert_id)} data-testid={`ops-alert-${String(row.alert_id)}`} className={`rounded-2xl border-r-4 bg-white p-4 shadow-sm ${row.severity==='critical'?'border-r-red-600':'border-r-amber-500'}`}><div className="flex items-start justify-between gap-3"><div className="flex gap-3">{row.severity==='critical'?<AlertTriangle className="text-red-600"/>:<BellRing className="text-amber-600"/>}<div><h3 className="font-black">{String(row.title)}</h3><p className="mt-1 text-xs text-slate-600">{String(row.details)}</p></div></div><span className={`rounded-full px-2 py-1 text-[10px] font-black ${row.severity==='critical'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-700'}`}>{row.severity==='critical'?'حرج':'تحذير'}</span></div><div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500"><span>DB {String(row.db_number)}</span><span>{String(row.area_name)}</span><span>المدة: {minutes(row.elapsed_minutes)}</span><span>الحد: {minutes(row.threshold_minutes)}</span></div><a href={String(row.action_link)} className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white">فتح جهة المعالجة</a></article>)}</div>}
-
-  <div className="rounded-2xl border bg-white"><button data-testid="ops-columns-toggle" onClick={()=>setShowColumns(value=>!value)} className="flex w-full items-center justify-between p-4 text-sm font-black"><span>تخصيص أعمدة العرض وملف Excel ({visible.length}/{available.length})</span><ChevronDown className={`transition ${showColumns?'rotate-180':''}`} size={18}/></button>{showColumns&&<div className="flex flex-wrap gap-2 border-t p-4">{available.map(key=><button key={key} onClick={()=>toggleColumn(key)} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs ${selected.includes(key)?'border-indigo-400 bg-indigo-50 text-indigo-800':'text-slate-400'}`}>{selected.includes(key)&&<Check size={14}/>} {labels[key]??key}</button>)}</div>}</div>
-
-  {rows.length?<div key={tab} className="overflow-auto rounded-3xl border bg-white shadow-sm"><table className="w-full min-w-[1100px] text-xs"><thead className="sticky top-0 bg-slate-900 text-white"><tr>{visible.map(key=><th key={key} className="whitespace-nowrap p-4 text-right font-black">{labels[key]??key}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr key={`${tab}-${String(row.departure_id??row.visit_id??row.alert_id??index)}`} className="border-t transition hover:bg-indigo-50/50 even:bg-slate-50">{visible.map(key=><td key={key} className="max-w-72 p-4 leading-6 text-slate-700">{formatValue(key,row[key])}</td>)}</tr>)}</tbody></table></div>:<div key={`${tab}-empty`} className="rounded-3xl border border-dashed bg-white p-16 text-center shadow-sm"><b className="text-slate-700">لا توجد سجلات في هذا التقرير</b><p className="mt-2 text-xs text-slate-500">غيّر الفترة أو الفلاتر، أو اختر نوع تقرير آخر.</p></div>}
-  {tab==='summary'&&<p className="flex items-center gap-2 rounded-2xl bg-indigo-50 p-4 text-xs text-indigo-800"><TimerReset size={17}/>وقت العمل المنتج محسوب من فترات وجود الآلية في موقع العمل بعد طرح الأعطال القصيرة، مع فصل الحركة والمحطة والصيانة.</p>}
- </section>
+export type OperationsTab =
+  'alerts' | 'summary' | 'movements' | 'station' | 'garage' | 'maintenance' | 'attendance'
+type Row = Record<string, unknown>
+const today = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
+const dateTime = (value: unknown) =>
+  value
+    ? new Intl.DateTimeFormat('ar-IQ', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'Asia/Baghdad',
+      }).format(new Date(String(value)))
+    : '—'
+const minutes = (value: unknown) => {
+  const n = Number(value)
+  return !Number.isFinite(n) ? '—' : n < 60 ? `${n} د` : `${Math.floor(n / 60)} س ${n % 60} د`
 }
-function formatValue(key:string,value:unknown){return readableValue(key,value)}
-function Stat({label,value}:{label:string;value:string|number}){return <div className="rounded-2xl border bg-white p-4"><p className="text-[11px] text-slate-500">{label}</p><b className="mt-1 block text-lg text-indigo-800">{value}</b></div>}
+const labels: Record<string, string> = {
+  alert_id: 'معرف التنبيه',
+  action_link: 'جهة المعالجة',
+  case_id: 'معرف حالة الصيانة',
+  visit_id: 'معرف الزيارة',
+  departure_id: 'معرف الرحلة',
+  vehicle_name: 'الآلية',
+  db_number: 'رقم DB',
+  driver_name: 'السائق',
+  shift: 'الشفت',
+  sector_id: 'المنطقة',
+  area_name: 'اسم المنطقة',
+  manager_name: 'مسؤول القسم',
+  started_at: 'بداية الرحلة',
+  completed_at: 'نهاية الرحلة',
+  total_minutes: 'المدة الكلية',
+  movement_minutes: 'وقت الحركة',
+  productive_minutes: 'وقت العمل المنتج',
+  station_minutes: 'البقاء في المحطة',
+  maintenance_minutes: 'وقت الصيانة',
+  downtime_minutes: 'مدة العطل',
+  other_minutes: 'توقف/انتظار آخر',
+  station_visit_count: 'زيارات المحطة',
+  breakdown_count: 'عدد الأعطال',
+  maintenance_count: 'مرات الصيانة',
+  origin_type: 'من',
+  destination_type: 'إلى',
+  departed_at: 'وقت المغادرة',
+  arrived_at: 'وقت الوصول',
+  duration_minutes: 'مدة الحركة',
+  visit_number: 'رقم الزيارة',
+  inbound_departed_at: 'التوجه للمحطة',
+  dispatched_at: 'مغادرة المحطة',
+  outbound_destination: 'الوجهة التالية',
+  status: 'الحالة',
+  transit_minutes: 'مدة الطريق',
+  stay_minutes: 'مدة البقاء',
+  fault_type: 'نوع العطل',
+  priority: 'الأولوية',
+  progress: 'نسبة الإنجاز',
+  reported_at: 'وقت البلاغ',
+  expected_completion_at: 'الموعد المتوقع',
+  actual_cost: 'الكلفة الفعلية',
+  estimated_cost: 'الكلفة التقديرية',
+  assigned_technician: 'الفني',
+  is_present: 'حاضر',
+  worker_name: 'العامل',
+  log_date: 'التاريخ',
+  severity: 'الخطورة',
+  title: 'التنبيه',
+  details: 'التفاصيل',
+  threshold_minutes: 'الحد المسموح',
+  elapsed_minutes: 'المدة الحالية',
+  alert_type: 'نوع التنبيه',
+  timeline: 'التسلسل الزمني',
+}
+const tabs: Record<OperationsTab, string> = {
+  alerts: 'التنبيهات الحية',
+  summary: 'الملخص المركب',
+  movements: 'حركة الآليات',
+  station: 'زيارات المحطة',
+  garage: 'الكراج والورديات',
+  maintenance: 'الأعطال والصيانة',
+  attendance: 'حضور العمال',
+}
+const reportKeys: Record<OperationsTab, string[]> = {
+  summary: [
+    'vehicle_name',
+    'db_number',
+    'driver_name',
+    'shift',
+    'area_name',
+    'manager_name',
+    'started_at',
+    'completed_at',
+    'total_minutes',
+    'movement_minutes',
+    'productive_minutes',
+    'station_minutes',
+    'maintenance_minutes',
+    'downtime_minutes',
+    'other_minutes',
+    'station_visit_count',
+    'breakdown_count',
+    'maintenance_count',
+  ],
+  alerts: [
+    'severity',
+    'title',
+    'details',
+    'db_number',
+    'driver_name',
+    'shift',
+    'area_name',
+    'manager_name',
+    'started_at',
+    'threshold_minutes',
+    'elapsed_minutes',
+    'action_link',
+  ],
+  movements: [
+    'vehicle_name',
+    'db_number',
+    'driver_name',
+    'shift',
+    'area_name',
+    'manager_name',
+    'origin_type',
+    'destination_type',
+    'departed_at',
+    'arrived_at',
+    'duration_minutes',
+    'status',
+  ],
+  station: [
+    'vehicle_name',
+    'db_number',
+    'driver_name',
+    'shift',
+    'area_name',
+    'visit_number',
+    'inbound_departed_at',
+    'arrived_at',
+    'dispatched_at',
+    'outbound_destination',
+    'transit_minutes',
+    'stay_minutes',
+    'status',
+  ],
+  garage: [
+    'vehicle_name',
+    'db_number',
+    'driver_name',
+    'shift',
+    'area_name',
+    'manager_name',
+    'departed_at',
+    'arrived_at',
+    'completed_at',
+    'total_minutes',
+    'status',
+  ],
+  maintenance: [
+    'vehicle_name',
+    'db_number',
+    'fault_type',
+    'priority',
+    'status',
+    'progress',
+    'assigned_technician',
+    'reported_at',
+    'expected_completion_at',
+    'maintenance_minutes',
+    'estimated_cost',
+    'actual_cost',
+    'timeline',
+  ],
+  attendance: [
+    'worker_name',
+    'area_name',
+    'shift',
+    'log_date',
+    'is_present',
+    'started_at',
+    'completed_at',
+    'total_minutes',
+  ],
+}
+const dateKeys = (key: string) =>
+  key.endsWith('_at') || key === 'started_at' || key === 'completed_at'
+const minuteKeys = (key: string) => key.endsWith('_minutes')
+const values: Record<string, string> = {
+  morning: 'صباحي',
+  evening: 'مسائي',
+  night: 'ليلي',
+  critical: 'حرج',
+  warning: 'تحذير',
+  garage: 'الكراج المركزي',
+  site: 'موقع العمل',
+  station: 'محطة التحويل',
+  maintenance: 'الصيانة',
+  open: 'مفتوحة',
+  in_transit: 'في الطريق',
+  arrived: 'تم الوصول',
+  completed: 'مكتملة',
+  returned: 'عادت إلى الكراج',
+  work_site: 'موقع العمل',
+  back_to_site: 'العودة إلى موقع العمل',
+  back_to_garage: 'العودة إلى الكراج',
+  garage_arrival_delay: 'تأخر الوصول من الكراج',
+  open_leg_stale: 'رحلة مفتوحة دون تحديث',
+  maintenance_overdue: 'تجاوز موعد الصيانة',
+  dispatched: 'غادرت المحطة',
+  pending: 'بانتظار الإجراء',
+  at_site: 'في موقع العمل',
+  at_station: 'في محطة التحويل',
+  at_maintenance: 'في الصيانة',
+  active: 'نشطة',
+  closed: 'مغلقة',
+}
+const links: Record<string, string> = {
+  '/manager/vehicle-trips': 'مسؤول القسم — رحلات الآليات',
+  '/ops-room/operations-data': 'غرفة العمليات — التقارير التشغيلية',
+  '/central-garage/drivers-dispatch': 'الكراج المركزي — الانطلاق والعودة',
+  '/maintenance/vehicle-cases': 'الصيانة — حالات الآليات',
+  '/transfer-station/vehicle-movements': 'محطة التحويل — حركة الآليات',
+}
+function readableValue(key: string, value: unknown) {
+  if (key === 'timeline') return 'متاح داخل المنصة'
+  if (value === null || value === undefined || value === '') return '—'
+  if (dateKeys(key)) return dateTime(value)
+  if (minuteKeys(key)) return minutes(value)
+  if (key === 'action_link') return links[String(value)] ?? 'صفحة المعالجة المختصة'
+  if (key === 'sector_id') return `المنطقة رقم ${String(value)}`
+  if (typeof value === 'boolean') return value ? 'نعم' : 'لا'
+  return values[String(value)] ?? String(value)
+}
+
+export default function OperationsDataPage() {
+  const [from, setFrom] = useState(today()),
+    [to, setTo] = useState(today()),
+    [tab, setTab] = useState<OperationsTab>('summary'),
+    [search, setSearch] = useState(''),
+    [shift, setShift] = useState(''),
+    [sector, setSector] = useState(''),
+    [severity, setSeverity] = useState(''),
+    [showColumns, setShowColumns] = useState(false),
+    [columnChoice, setColumnChoice] = useState<Partial<Record<OperationsTab, string[]>>>({}),
+    [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null)
+  const alertQuery = useOpsAlerts({
+      shift: shift || undefined,
+      sectorId: sector ? Number(sector) : undefined,
+      severity: severity === 'warning' || severity === 'critical' ? severity : undefined,
+    }),
+    kpis = useOpsVehicleKpis(from, to, {
+      search,
+      shift: shift || undefined,
+      sectorId: sector ? Number(sector) : undefined,
+    }),
+    movements = useOpsMovements(from, to),
+    station = useOpsStationVisits(from, to),
+    garage = useOpsGarageTrips(from, to),
+    maintenance = useOpsMaintenance(from, to),
+    attendance = useOpsAttendance(from, to)
+  const allSources = useMemo<Record<OperationsTab, Row[]>>(
+    () => ({
+      alerts: (alertQuery.data ?? []) as unknown as Row[],
+      summary: kpis.data ?? [],
+      movements: (movements.data ?? []) as unknown as Row[],
+      station: station.data ?? [],
+      garage: garage.data ?? [],
+      maintenance: maintenance.data ?? [],
+      attendance: attendance.data ?? [],
+    }),
+    [
+      alertQuery.data,
+      kpis.data,
+      movements.data,
+      station.data,
+      garage.data,
+      maintenance.data,
+      attendance.data,
+    ],
+  )
+  const source = allSources[tab]
+  const rows = useMemo(
+    () =>
+      source.filter((row) => {
+        const text = JSON.stringify(row).toLowerCase()
+        return (
+          (!search || text.includes(search.toLowerCase())) &&
+          (!shift || row.shift === shift) &&
+          (!sector || Number(row.sector_id) === Number(sector)) &&
+          (!severity || tab !== 'alerts' || row.severity === severity)
+        )
+      }),
+    [source, search, shift, sector, severity, tab],
+  )
+  const available = useMemo(() => reportKeys[tab].filter((key) => labels[key]), [tab])
+  const selected = columnChoice[tab] ?? available
+  const visible = available.filter((key) => selected.includes(key))
+  const sectors = useMemo(
+    () => [
+      ...new Map(
+        Object.values(allSources)
+          .flat()
+          .filter((r) => r.sector_id)
+          .map((r) => [Number(r.sector_id), String(r.area_name ?? r.sector_id)]),
+      ).entries(),
+    ],
+    [allSources],
+  )
+  const sum = (key: string) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0)
+  const toggleColumn = (key: string) =>
+    setColumnChoice((old) => {
+      const current = old[tab] ?? available
+      return {
+        ...old,
+        [tab]: current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+      }
+    })
+  const exportExcel = async () => {
+    const columns: ReportColumn[] = (visible.length ? visible : available).map((key) => ({
+      header: labels[key] ?? key,
+      key,
+      width: minuteKeys(key) ? 16 : 22,
+      wrap: true,
+    }))
+    await buildExcelReport({
+      sheetName: tabs[tab].slice(0, 28),
+      companySub: 'غرفة العمليات المركزية',
+      title: tabs[tab],
+      meta: `الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search || 'الكل'} · الشفت ${shift || 'الكل'} · المنطقة ${sector || 'الكل'}`,
+      fileName: `غرفة-العمليات-${tab}-${from}-${to}.xlsx`,
+      orientation: 'landscape',
+      columns,
+      rows: rows.map((row) =>
+        Object.fromEntries(
+          (visible.length ? visible : available).map((key) => [key, readableValue(key, row[key])]),
+        ),
+      ),
+    })
+  }
+  return (
+    <section dir="rtl" className="space-y-5" data-testid="operations-data-page">
+      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-cyan-800 p-6 text-white">
+        <p className="flex items-center gap-2 text-xs text-cyan-200">
+          <BarChart3 size={16} />
+          بيانات لحظية من الأقسام والمحطة والكراج والصيانة
+        </p>
+        <h1 className="mt-2 text-2xl font-black">مركز التقارير التشغيلية</h1>
+        <p className="mt-1 text-sm text-cyan-100">
+          تقارير مستقلة ومنظمة للحركة والعمل المنتج والمحطة والكراج والأعطال والصيانة.
+        </p>
+      </header>
+
+      <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3 xl:grid-cols-6">
+        <div className="md:col-span-3 xl:col-span-6">
+          <h2 className="font-black text-slate-900">نطاق التقرير والفلاتر</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            حدد الفترة ثم خصّص التقرير المطلوب قبل العرض أو التصدير.
+          </p>
+        </div>
+        <label className="text-xs">
+          من
+          <input
+            aria-label="من"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border px-3"
+          />
+        </label>
+        <label className="text-xs">
+          إلى
+          <input
+            aria-label="إلى"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border px-3"
+          />
+        </label>
+        <label className="relative text-xs">
+          بحث شامل
+          <Filter className="absolute bottom-3 right-3 size-4 text-slate-400" />
+          <input
+            aria-label="بحث شامل"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border pr-9"
+            placeholder="آلية، سائق، منطقة…"
+          />
+        </label>
+        <label className="text-xs">
+          الشفت
+          <select
+            aria-label="الشفت"
+            value={shift}
+            onChange={(e) => setShift(e.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border px-3"
+          >
+            <option value="">الكل</option>
+            <option value="morning">صباحي</option>
+            <option value="evening">مسائي</option>
+            <option value="night">ليلي</option>
+          </select>
+        </label>
+        <label className="text-xs">
+          المنطقة
+          <select
+            aria-label="المنطقة"
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            className="mt-1 h-11 w-full rounded-xl border px-3"
+          >
+            <option value="">الكل</option>
+            {sectors.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {tab === 'alerts' && (
+          <label className="text-xs">
+            الخطورة
+            <select
+              aria-label="الخطورة"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+              className="mt-1 h-11 w-full rounded-xl border px-3"
+            >
+              <option value="">الكل</option>
+              <option value="critical">حرج</option>
+              <option value="warning">تحذير</option>
+            </select>
+          </label>
+        )}
+        <button
+          data-testid="ops-export-excel"
+          onClick={() => void exportExcel()}
+          disabled={!rows.length || !visible.length}
+          className="mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 font-black text-white disabled:opacity-40"
+        >
+          <Download size={17} />
+          تصدير Excel
+        </button>
+      </div>
+
+      <nav
+        aria-label="أنواع التقارير"
+        className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 shadow-sm"
+      >
+        {(Object.keys(tabs) as OperationsTab[]).map((value) => (
+          <button
+            data-testid={`ops-tab-${value}`}
+            key={value}
+            onClick={() => {
+              setTab(value)
+              setShowColumns(false)
+            }}
+            className={`whitespace-nowrap rounded-xl px-5 py-3 text-xs font-black ${tab === value ? 'bg-indigo-800 text-white' : 'border bg-white'}`}
+          >
+            {tabs[value]} <span className="opacity-70">({allSources[value].length})</span>
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'alerts' ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label="كل التنبيهات" value={rows.length} />
+          <Stat
+            label="تنبيهات حرجة"
+            value={rows.filter((row) => row.severity === 'critical').length}
+          />
+          <Stat label="تحذيرات" value={rows.filter((row) => row.severity === 'warning').length} />
+          <Stat label="رحلات متأثرة" value={new Set(rows.map((row) => row.departure_id)).size} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <Stat label="الرحلات/النتائج" value={rows.length} />
+          <Stat label="وقت العمل المنتج" value={minutes(sum('productive_minutes'))} />
+          <Stat label="وقت الحركة" value={minutes(sum('movement_minutes'))} />
+          <Stat label="وقت المحطة" value={minutes(sum('station_minutes') || sum('stay_minutes'))} />
+          <Stat label="وقت الصيانة" value={minutes(sum('maintenance_minutes'))} />
+          <Stat label="مدة الأعطال" value={minutes(sum('downtime_minutes'))} />
+        </div>
+      )}
+
+      {tab === 'alerts' && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {rows.map((row) => (
+            <article
+              key={String(row.alert_id)}
+              data-testid={`ops-alert-${String(row.alert_id)}`}
+              className={`rounded-2xl border-r-4 bg-white p-4 shadow-sm ${row.severity === 'critical' ? 'border-r-red-600' : 'border-r-amber-500'}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex gap-3">
+                  {row.severity === 'critical' ? (
+                    <AlertTriangle className="text-red-600" />
+                  ) : (
+                    <BellRing className="text-amber-600" />
+                  )}
+                  <div>
+                    <h3 className="font-black">{String(row.title)}</h3>
+                    <p className="mt-1 text-xs text-slate-600">{String(row.details)}</p>
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-1 text-[10px] font-black ${row.severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}
+                >
+                  {row.severity === 'critical' ? 'حرج' : 'تحذير'}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                <span>DB {String(row.db_number)}</span>
+                <span>{String(row.area_name)}</span>
+                <span>المدة: {minutes(row.elapsed_minutes)}</span>
+                <span>الحد: {minutes(row.threshold_minutes)}</span>
+              </div>
+              <a
+                href={String(row.action_link)}
+                className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white"
+              >
+                فتح جهة المعالجة
+              </a>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="rounded-2xl border bg-white">
+        <button
+          data-testid="ops-columns-toggle"
+          onClick={() => setShowColumns((value) => !value)}
+          className="flex w-full items-center justify-between p-4 text-sm font-black"
+        >
+          <span>
+            تخصيص أعمدة العرض وملف Excel ({visible.length}/{available.length})
+          </span>
+          <ChevronDown className={`transition ${showColumns ? 'rotate-180' : ''}`} size={18} />
+        </button>
+        {showColumns && (
+          <div className="flex flex-wrap gap-2 border-t p-4">
+            {available.map((key) => (
+              <button
+                key={key}
+                onClick={() => toggleColumn(key)}
+                className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs ${selected.includes(key) ? 'border-indigo-400 bg-indigo-50 text-indigo-800' : 'text-slate-400'}`}
+              >
+                {selected.includes(key) && <Check size={14} />} {labels[key] ?? key}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {rows.length ? (
+        <div key={tab} className="overflow-auto rounded-3xl border bg-white shadow-sm">
+          <table className="w-full min-w-[1100px] text-xs">
+            <thead className="sticky top-0 bg-slate-900 text-white">
+              <tr>
+                {visible.map((key) => (
+                  <th key={key} className="whitespace-nowrap p-4 text-right font-black">
+                    {labels[key] ?? key}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr
+                  key={`${tab}-${String(row.departure_id ?? row.visit_id ?? row.alert_id ?? index)}`}
+                  className="border-t transition hover:bg-indigo-50/50 even:bg-slate-50"
+                >
+                  {visible.map((key) => (
+                    <td key={key} className="max-w-72 p-4 leading-6 text-slate-700">
+                      {key === 'timeline' && row.case_id ? (
+                        <button
+                          onClick={() =>
+                            setTimeline({
+                              caseId: String(row.case_id),
+                              title: `${String(row.vehicle_name)} · DB ${String(row.db_number)}`,
+                            })
+                          }
+                          className="rounded-lg bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-800"
+                        >
+                          فتح التسلسل
+                        </button>
+                      ) : (
+                        formatValue(key, row[key])
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div
+          key={`${tab}-empty`}
+          className="rounded-3xl border border-dashed bg-white p-16 text-center shadow-sm"
+        >
+          <b className="text-slate-700">لا توجد سجلات في هذا التقرير</b>
+          <p className="mt-2 text-xs text-slate-500">
+            غيّر الفترة أو الفلاتر، أو اختر نوع تقرير آخر.
+          </p>
+        </div>
+      )}
+      {tab === 'summary' && (
+        <p className="flex items-center gap-2 rounded-2xl bg-indigo-50 p-4 text-xs text-indigo-800">
+          <TimerReset size={17} />
+          وقت العمل المنتج محسوب من فترات وجود الآلية في موقع العمل بعد طرح الأعطال القصيرة، مع فصل
+          الحركة والمحطة والصيانة.
+        </p>
+      )}
+      {timeline && (
+        <MaintenanceTimelineDialog
+          caseId={timeline.caseId}
+          title={timeline.title}
+          onClose={() => setTimeline(null)}
+        />
+      )}
+    </section>
+  )
+}
+function formatValue(key: string, value: unknown) {
+  return readableValue(key, value)
+}
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border bg-white p-4">
+      <p className="text-[11px] text-slate-500">{label}</p>
+      <b className="mt-1 block text-lg text-indigo-800">{value}</b>
+    </div>
+  )
+}

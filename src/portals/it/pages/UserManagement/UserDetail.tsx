@@ -4,13 +4,19 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import clsx from 'clsx'
 import {
-  useUserFromList, useSetUserRole, useUpdateEmployeeProfile,
-  useSetUserBanned, useResetUserPassword, useUpdateUserEmail,
-  updateProfileSchema, ASSIGNABLE_ROLES,
+  useUserFromList,
+  useSetUserRole,
+  useUpdateEmployeeProfile,
+  useSetUserBanned,
+  useResetUserPassword,
+  useUpdateUserEmail,
+  updateProfileSchema,
+  ASSIGNABLE_ROLES,
   type UpdateProfileFormInput,
 } from '@features/user-management'
 import { useAuth } from '@features/auth/hooks/useAuth'
 import { useDepartments } from '@features/departments'
+import { useManagerProfileForUser, useSaveManagerProfile, useSectors } from '@features/sector'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import type { Role } from '@lib/constants/roles.constants'
 import { formatDate } from '@lib/utils/date.utils'
@@ -39,7 +45,13 @@ export default function UserDetail() {
   const setBanned = useSetUserBanned()
   const resetPassword = useResetUserPassword()
   const updateEmail = useUpdateUserEmail()
+  const managerProfile = useManagerProfileForUser(userId ?? '')
+  const saveManagerProfile = useSaveManagerProfile()
+  const { data: sectors = [] } = useSectors()
 
+  const [managerShift, setManagerShift] = useState<'morning' | 'evening' | 'night'>('morning')
+  const [managerSectors, setManagerSectors] = useState<number[]>([])
+  const [managerProfileReady, setManagerProfileReady] = useState(false)
   const [confirmRole, setConfirmRole] = useState<Role | null>(null)
   const [confirmBan, setConfirmBan] = useState<boolean | null>(null)
   const [newPassword, setNewPassword] = useState('')
@@ -57,7 +69,13 @@ export default function UserDetail() {
     formState: { errors, isDirty },
   } = useForm<UpdateProfileFormInput>({
     resolver: zodResolver(updateProfileSchema),
-    defaultValues: { full_name: '', phone: '', job_title: '', department_id: '', employee_number: '' },
+    defaultValues: {
+      full_name: '',
+      phone: '',
+      job_title: '',
+      department_id: '',
+      employee_number: '',
+    },
   })
 
   useEffect(() => {
@@ -72,11 +90,21 @@ export default function UserDetail() {
     }
   }, [user, reset])
 
+  useEffect(() => {
+    setManagerProfileReady(false)
+  }, [userId])
+
+  useEffect(() => {
+    if (!managerProfile.isLoading && !managerProfileReady) {
+      setManagerShift(managerProfile.data?.shift ?? 'morning')
+      setManagerSectors(managerProfile.data?.sectors ?? [])
+      setManagerProfileReady(true)
+    }
+  }, [managerProfile.data, managerProfile.isLoading, managerProfileReady])
+
   if (isLoading) return <LoadingSpinner label="جارٍ جلب المستخدم…" />
   if (!user) {
-    return (
-      <EmptyState title="المستخدم غير موجود" hint="ربما حُذف أو تغيّر الرابط" />
-    )
+    return <EmptyState title="المستخدم غير موجود" hint="ربما حُذف أو تغيّر الرابط" />
   }
 
   const hasRole = (role: Role): boolean => user.roles.includes(role)
@@ -121,28 +149,46 @@ export default function UserDetail() {
 
   return (
     <section className="mx-auto max-w-2xl space-y-4">
-      <button onClick={() => navigate('/it/user-management/list')}
-        className="flex items-center gap-1.5 text-sm text-brand-700 hover:underline">
+      <button
+        onClick={() => navigate('/it/user-management/list')}
+        className="flex items-center gap-1.5 text-sm text-brand-700 hover:underline"
+      >
         <Icon name="chevron-right" size={15} /> عودة للقائمة
       </button>
 
       {/* ① بطاقة المستخدم */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="user-card">
+      <div
+        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        data-testid="user-card"
+      >
         <div className="flex items-center gap-4">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-600 text-lg font-bold text-white">
             {initials(user.employee_name ?? user.email ?? '؟') || '؟'}
           </span>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold">{user.employee_name ?? 'بلا سجل موظف'}</h1>
-            <p className="truncate text-sm text-slate-500" dir="ltr">{user.email}</p>
+            <p className="truncate text-sm text-slate-500" dir="ltr">
+              {user.email}
+            </p>
             <p className="mt-1 text-xs text-slate-400">
-              أُنشئ: {formatDate(user.created_at)} · آخر دخول: {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'لم يدخل بعد'}
+              أُنشئ: {formatDate(user.created_at)} · آخر دخول:{' '}
+              {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : 'لم يدخل بعد'}
             </p>
           </div>
           {isBanned ? (
-            <span className="shrink-0 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700" data-testid="user-banned-badge">معطّل</span>
+            <span
+              className="shrink-0 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700"
+              data-testid="user-banned-badge"
+            >
+              معطّل
+            </span>
           ) : (
-            <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700" data-testid="user-active-badge">مفعّل</span>
+            <span
+              className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
+              data-testid="user-active-badge"
+            >
+              مفعّل
+            </span>
           )}
         </div>
         {(user.department_name || user.job_title) && (
@@ -154,11 +200,14 @@ export default function UserDetail() {
       </div>
 
       {isSelf && (
-        <p role="note" className="rounded-xl bg-sky-50 px-4 py-3 text-xs text-sky-800" data-testid="self-notice">
+        <p
+          role="note"
+          className="rounded-xl bg-sky-50 px-4 py-3 text-xs text-sky-800"
+          data-testid="self-notice"
+        >
           ℹ️ هذا حسابك — الخادم يمنع تعديل الأدوار والبريد وتعطيل حسابك بنفسك.
         </p>
-      )
-      }
+      )}
 
       {/* ② تعديل بيانات الموظف */}
       <form
@@ -178,43 +227,81 @@ export default function UserDetail() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="الاسم الكامل" htmlFor="ud-name" error={errors.full_name?.message}>
-            <input id="ud-name" autoComplete="off" placeholder="مثال: أحمد علي حسن"
-              className={inputClass(!!errors.full_name)} {...register('full_name')} />
+            <input
+              id="ud-name"
+              autoComplete="off"
+              placeholder="مثال: أحمد علي حسن"
+              className={inputClass(!!errors.full_name)}
+              {...register('full_name')}
+            />
           </Field>
           <Field label="الرقم الوظيفي" htmlFor="ud-empno" error={errors.employee_number?.message}>
-            <input id="ud-empno" dir="ltr" placeholder="EMP-014"
-              className={inputClass(!!errors.employee_number)} {...register('employee_number')} />
+            <input
+              id="ud-empno"
+              dir="ltr"
+              placeholder="EMP-014"
+              className={inputClass(!!errors.employee_number)}
+              {...register('employee_number')}
+            />
           </Field>
           <Field label="رقم الهاتف" htmlFor="ud-phone" error={errors.phone?.message}>
-            <input id="ud-phone" dir="ltr" placeholder="07701234567"
-              className={inputClass(!!errors.phone)} {...register('phone')} />
+            <input
+              id="ud-phone"
+              dir="ltr"
+              placeholder="07701234567"
+              className={inputClass(!!errors.phone)}
+              {...register('phone')}
+            />
           </Field>
           <Field label="القسم" htmlFor="ud-dept" error={errors.department_id?.message}>
-            <select id="ud-dept" className={inputClass(!!errors.department_id)} {...register('department_id')}>
+            <select
+              id="ud-dept"
+              className={inputClass(!!errors.department_id)}
+              {...register('department_id')}
+            >
               <option value="">— بدون قسم —</option>
               {departments?.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
               ))}
             </select>
           </Field>
         </div>
         <Field label="المسمى الوظيفي" htmlFor="ud-title" error={errors.job_title?.message}>
-          <input id="ud-title" placeholder="مثال: موظف إداري"
-            className={inputClass(!!errors.job_title)} {...register('job_title')} />
+          <input
+            id="ud-title"
+            placeholder="مثال: موظف إداري"
+            className={inputClass(!!errors.job_title)}
+            {...register('job_title')}
+          />
         </Field>
 
         <div className="flex gap-3">
-          <Button type="submit" isLoading={updateProfile.isPending} disabled={!isDirty} data-testid="save-profile">
+          <Button
+            type="submit"
+            isLoading={updateProfile.isPending}
+            disabled={!isDirty}
+            data-testid="save-profile"
+          >
             حفظ التعديلات
           </Button>
-          <Button type="button" variant="secondary" onClick={() => reset()} disabled={!isDirty || updateProfile.isPending}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => reset()}
+            disabled={!isDirty || updateProfile.isPending}
+          >
             تراجع
           </Button>
         </div>
       </form>
 
       {/* ③ إدارة الحساب */}
-      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="account-admin">
+      <div
+        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        data-testid="account-admin"
+      >
         <div>
           <h2 className="text-sm font-bold">إدارة الحساب</h2>
           <p className="mt-0.5 text-xs text-slate-500">
@@ -260,9 +347,12 @@ export default function UserDetail() {
                 data-testid="new-password"
                 className="h-10 w-full rounded-xl border border-slate-300 px-3 pe-10 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               />
-              <button type="button" onClick={() => setShowPassword((v) => !v)}
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'إخفاء' : 'إظهار'}
-                className="absolute inset-y-0 end-0 flex w-10 items-center justify-center text-slate-400">
+                className="absolute inset-y-0 end-0 flex w-10 items-center justify-center text-slate-400"
+              >
                 <Icon name={showPassword ? 'eye-off' : 'eye'} size={16} />
               </button>
             </div>
@@ -280,7 +370,9 @@ export default function UserDetail() {
         {/* تغيير البريد الإلكتروني */}
         <div className="rounded-xl border border-slate-100 px-4 py-3">
           <p className="text-sm font-semibold">تغيير البريد الإلكتروني</p>
-          <p className="mb-2 text-xs text-slate-500">سيصبح البريد الجديد وسيلة الدخول الجديدة للمستخدم</p>
+          <p className="mb-2 text-xs text-slate-500">
+            سيصبح البريد الجديد وسيلة الدخول الجديدة للمستخدم
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="email"
@@ -302,7 +394,108 @@ export default function UserDetail() {
           </div>
         </div>
       </div>
-{/*__PART4__*/}
+      {/*__PART4__*/}
+
+      {hasRole('department_manager') && (
+        <section
+          className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm"
+          aria-label="إسناد مناطق مسؤول القسم"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-black">مناطق مسؤول القسم</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                هذا الإسناد هو الذي يربط السائقين والآليات بالمسؤول تلقائياً. وجود الحساب أو الدور
+                وحده لا يكفي دون تحديد المناطق.
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-[10px] font-black ${managerSectors.length ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}
+            >
+              {managerSectors.length
+                ? `${managerSectors.length} منطقة مسندة`
+                : 'يحتاج إعداد المناطق'}
+            </span>
+          </div>
+          <label className="mt-4 block text-xs font-bold">
+            الشفت الإداري
+            <select
+              aria-label="شفت مسؤول القسم"
+              value={managerShift}
+              onChange={(event) => setManagerShift(event.target.value as typeof managerShift)}
+              className="mt-1 block h-11 w-full max-w-xs rounded-xl border px-3"
+            >
+              <option value="morning">صباحي</option>
+              <option value="evening">مسائي</option>
+              <option value="night">ليلي</option>
+            </select>
+          </label>
+          <p className="mt-2 text-[10px] text-slate-500">
+            الشفت ينظم أعمال المسؤول، لكن الآليات تُنسب إليه حسب المنطقة في جميع شفتات السائقين.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {(['karrada', 'zaafaraniya'] as const).map((parent) => {
+              const rows = sectors.filter((sector) => sector.parent_sector === parent)
+              const allSelected =
+                rows.length > 0 && rows.every((sector) => managerSectors.includes(sector.id))
+              return (
+                <div key={parent} className="rounded-2xl border bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <b className="text-xs">
+                      {parent === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}
+                    </b>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setManagerSectors((current) =>
+                          allSelected
+                            ? current.filter((id) => !rows.some((sector) => sector.id === id))
+                            : [...new Set([...current, ...rows.map((sector) => sector.id)])],
+                        )
+                      }
+                      className="text-[10px] font-black text-cyan-700"
+                    >
+                      {allSelected ? 'إلغاء الكل' : 'تحديد الكل'}
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {rows.map((sector) => (
+                      <label
+                        key={sector.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-xl border bg-white p-3 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={managerSectors.includes(sector.id)}
+                          onChange={() =>
+                            setManagerSectors((current) =>
+                              current.includes(sector.id)
+                                ? current.filter((id) => id !== sector.id)
+                                : [...current, sector.id].sort((a, b) => a - b),
+                            )
+                          }
+                        />
+                        {sector.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            disabled={!userId || managerSectors.length === 0 || saveManagerProfile.isPending}
+            onClick={() =>
+              userId &&
+              saveManagerProfile.mutate({ userId, shift: managerShift, sectors: managerSectors })
+            }
+            className="mt-4 rounded-xl bg-emerald-700 px-6 py-3 text-xs font-black text-white disabled:opacity-40"
+          >
+            {saveManagerProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ المناطق وتفعيل الربط التلقائي'}
+          </button>
+        </section>
+      )}
 
       {/* ④ الأدوار */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -314,8 +507,10 @@ export default function UserDetail() {
           {ASSIGNABLE_ROLES.map((role) => {
             const granted = hasRole(role)
             return (
-              <li key={role}
-                className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3">
+              <li
+                key={role}
+                className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3"
+              >
                 <div className="flex items-center gap-2.5">
                   <span className={granted ? 'text-emerald-600' : 'text-slate-300'}>
                     <Icon name="shield" size={17} />
@@ -331,9 +526,11 @@ export default function UserDetail() {
                   onClick={() => toggle(role)}
                   disabled={setUserRole.isPending || isSelf}
                   data-testid={`role-toggle-${role}`}
-                  className={granted
-                    ? 'rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40'
-                    : 'rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40'}
+                  className={
+                    granted
+                      ? 'rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40'
+                      : 'rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40'
+                  }
                 >
                   {granted ? 'سحب الدور' : 'منح الدور'}
                 </button>
@@ -345,7 +542,11 @@ export default function UserDetail() {
 
       {/* تأكيد منح الإدارة العليا */}
       {confirmRole && (
-        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4">
+        <div
+          role="dialog"
+          aria-modal
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
+        >
           <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
             <h3 className="mb-2 font-bold">منح دور الإدارة العليا؟</h3>
             <p className="mb-5 text-sm text-slate-500">
@@ -361,7 +562,9 @@ export default function UserDetail() {
               >
                 تأكيد المنح
               </Button>
-              <Button variant="secondary" onClick={() => setConfirmRole(null)}>تراجع</Button>
+              <Button variant="secondary" onClick={() => setConfirmRole(null)}>
+                تراجع
+              </Button>
             </div>
           </div>
         </div>
@@ -369,7 +572,11 @@ export default function UserDetail() {
 
       {/* تأكيد تعطيل/تفعيل الحساب */}
       {confirmBan !== null && (
-        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4">
+        <div
+          role="dialog"
+          aria-modal
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
+        >
           <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
             <h3 className="mb-2 font-bold" data-testid="ban-dialog-title">
               {confirmBan ? 'تعطيل هذا الحساب؟' : 'تفعيل هذا الحساب؟'}
@@ -383,7 +590,9 @@ export default function UserDetail() {
               <Button onClick={submitBan} data-testid="confirm-ban">
                 تأكيد
               </Button>
-              <Button variant="secondary" onClick={() => setConfirmBan(null)}>تراجع</Button>
+              <Button variant="secondary" onClick={() => setConfirmBan(null)}>
+                تراجع
+              </Button>
             </div>
           </div>
         </div>
@@ -409,11 +618,16 @@ function Field(props: {
 }) {
   return (
     <div>
-      <label htmlFor={props.htmlFor} className="mb-1.5 block text-sm font-medium">{props.label}</label>
+      <label htmlFor={props.htmlFor} className="mb-1.5 block text-sm font-medium">
+        {props.label}
+      </label>
       {props.children}
       {props.hint && !props.error && <p className="mt-1.5 text-xs text-slate-400">{props.hint}</p>}
-      {props.error && <p role="alert" className="mt-1.5 text-xs text-red-600">{props.error}</p>}
+      {props.error && (
+        <p role="alert" className="mt-1.5 text-xs text-red-600">
+          {props.error}
+        </p>
+      )}
     </div>
   )
 }
-

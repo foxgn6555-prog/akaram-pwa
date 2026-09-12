@@ -1,0 +1,9 @@
+do $$declare ops uuid:='92000000-0000-0000-0000-000000000001';employee uuid:='92000000-0000-0000-0000-000000000002';dep uuid;aid uuid;n bigint;begin
+ execute'reset role';select gd.id into dep from public.garage_departures gd join public.gps_vehicle_bindings b on b.garage_vehicle_id=gd.vehicle_id join public.gps_devices d on d.id=b.device_id where d.external_id='101'order by gd.departed_at desc limit 1;select id into aid from public.gps_operational_alerts where alert_type='engine_idle' order by opened_at desc limit 1;
+ perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',ops::text,false);
+ select count(*)into n from public.gps_trip_route_events_page(dep,null,1,0);if n<>1 then raise exception'GPS_EVENT_PAGE_FAIL';end if;
+ select count(distinct level)into n from public.gps_alert_escalation_history(aid);if n<>3 then raise exception'GPS_ESCALATION_HISTORY_FAIL %',n;end if;
+ select count(distinct level)into n from public.gps_alert_escalations_bulk(array[aid])where alert_id=aid;if n<>3 then raise exception'GPS_ESCALATION_BULK_FAIL';end if;
+ perform set_config('request.jwt.claim.sub',employee::text,false);begin perform public.gps_alert_escalation_history(aid);raise exception'GPS_ESCALATION_HISTORY_EMPLOYEE_ACCEPTED';exception when others then if sqlerrm='GPS_ESCALATION_HISTORY_EMPLOYEE_ACCEPTED'then raise;end if;if sqlerrm not like'%GPS_FORBIDDEN%'then raise;end if;end;
+ execute'reset role';select count(*)into n from pg_indexes where schemaname='public'and indexname in('gps_alerts_open_priority_detected_idx','notifications_gps_alert_history_idx','garage_departures_vehicle_window_idx');if n<>3 then raise exception'GPS_OBSERVABILITY_INDEX_FAIL';end if;
+ raise notice'✅ GPS الجولة 11: صفحات المحطات/سجل التصعيد/التصدير/الفهارس/العزل ناجحة';end$$;

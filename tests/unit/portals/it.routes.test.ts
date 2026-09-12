@@ -20,8 +20,8 @@ const allPaths = new Set<string>()
 }
 
 describe('بنية البوابة التقنية v2', () => {
-  it('تسع وحدات: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + مصمم التدفقات', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(9)
+  it('عشر وحدات: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + مصمم التدفقات', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(10)
     expect(PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)).toEqual([
       'nav.dashboard',
       'nav.user_management',
@@ -29,6 +29,7 @@ describe('بنية البوابة التقنية v2', () => {
       'nav.branches',
       'nav.page_permissions',
       'nav.integrations',
+      'nav.notification_policies',
       'nav.updates',
       'nav.archive',
       'nav.flowbridge',
@@ -55,10 +56,10 @@ describe('بنية البوابة التقنية v2', () => {
       return out
     }
     const paths = walk(routes)
-    expect(paths).toContain('user-management')      // Hub
+    expect(paths).toContain('user-management') // Hub
     expect(paths).toContain('user-management/list') // الصفحة نقلت لمسارها
-    expect(paths).toContain('database')             // Hub
-    expect(paths).toContain('database/tables')      // الجداول صفحة فرعية
+    expect(paths).toContain('database') // Hub
+    expect(paths).toContain('database/tables') // الجداول صفحة فرعية
   })
 
   it('صفحة الهيكل التنظيمي مسجلة كصفحة فرعية لإدارة المستخدمين', () => {
@@ -73,7 +74,7 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(18)
+    expect(itPaths).toHaveLength(19)
     expect(itPaths).toContain('database/tables/:tableName')
     expect(itPaths).toContain('central-garage-approvals')
     expect(itPaths).toContain('flowbridge')

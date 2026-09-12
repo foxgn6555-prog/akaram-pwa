@@ -5,27 +5,65 @@
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
-  Sector, ManagerProfile, SectorWorker, SectorVehicle,
-  SupplyRequest, Breakdown, SectorPhoto, SectorAttendance, SectorSummary,
-  CreateWorkerInput, CreateVehicleInput, CreateSupplyInput,
-  CreateBreakdownInput, CreateAttendanceInput, Shift, SectorVehicleTrip, SectorTripDay,
+  Sector,
+  ManagerProfile,
+  SectorWorker,
+  SectorVehicle,
+  SupplyRequest,
+  Breakdown,
+  SectorPhoto,
+  SectorAttendance,
+  SectorSummary,
+  CreateWorkerInput,
+  CreateVehicleInput,
+  CreateSupplyInput,
+  CreateBreakdownInput,
+  CreateAttendanceInput,
+  Shift,
+  SectorVehicleTrip,
+  SectorTripDay,
 } from '@features/sector/types'
 
 /* ── القواطع ── */
 export const sector = {
   async listSectors(): Promise<Sector[]> {
-    const rows = (await sdkGuard(
-      supabase.from('sectors').select('id, code, name, sort, parent_sector').order('sort').returns<Record<string, unknown>[]>(),
-    )) ?? []
+    const rows =
+      (await sdkGuard(
+        supabase
+          .from('sectors')
+          .select('id, code, name, sort, parent_sector')
+          .order('sort')
+          .returns<Record<string, unknown>[]>(),
+      )) ?? []
     return rows.map((r) => ({
-      id: Number(r.id), code: String(r.code ?? ''), name: String(r.name ?? ''), sort: Number(r.sort ?? 0),
+      id: Number(r.id),
+      code: String(r.code ?? ''),
+      name: String(r.name ?? ''),
+      sort: Number(r.sort ?? 0),
       parent_sector: r.parent_sector === 'zaafaraniya' ? 'zaafaraniya' : 'karrada',
     }))
   },
 
   async myProfile(): Promise<ManagerProfile | null> {
     const { data, error } = await supabase
-      .from('manager_profiles').select('user_id, shift, sectors').maybeSingle()
+      .from('manager_profiles')
+      .select('user_id, shift, sectors')
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) return null
+    return {
+      user_id: String(data.user_id),
+      shift: (data.shift as Shift) ?? 'morning',
+      sectors: Array.isArray(data.sectors) ? (data.sectors as number[]) : [],
+    }
+  },
+
+  async managerProfileForUser(userId: string): Promise<ManagerProfile | null> {
+    const { data, error } = await supabase
+      .from('manager_profiles')
+      .select('user_id, shift, sectors')
+      .eq('user_id', userId)
+      .maybeSingle()
     if (error) throw new Error(error.message)
     if (!data) return null
     return {
@@ -38,10 +76,9 @@ export const sector = {
   /** حفظ/تحديث ملف المدير (تُستخدم من إنشاء المستخدم عبر الإدارة — RLS تسمح للإدارة) */
   async upsertManagerProfile(userId: string, shift: Shift, sectors: number[]): Promise<void> {
     await sdkVoid(
-      supabase.from('manager_profiles').upsert(
-        { user_id: userId, shift, sectors } as never,
-        { onConflict: 'user_id' },
-      ),
+      supabase
+        .from('manager_profiles')
+        .upsert({ user_id: userId, shift, sectors } as never, { onConflict: 'user_id' }),
     )
   },
 }
@@ -54,7 +91,8 @@ const VEHICLE_COLS =
 
 function normWorker(r: Record<string, unknown>): SectorWorker {
   return {
-    id: String(r.id), full_name: String(r.full_name ?? ''),
+    id: String(r.id),
+    full_name: String(r.full_name ?? ''),
     phone: (r.phone as string | null) ?? null,
     sector_id: Number(r.sector_id),
     shift: (r.shift as Shift) ?? 'morning',
@@ -67,7 +105,8 @@ function normWorker(r: Record<string, unknown>): SectorWorker {
 }
 function normVehicle(r: Record<string, unknown>): SectorVehicle {
   return {
-    id: String(r.id), db_number: String(r.db_number ?? ''),
+    id: String(r.id),
+    db_number: String(r.db_number ?? ''),
     vehicle_type: (r.vehicle_type as string | null) ?? null,
     sector_id: Number(r.sector_id),
     shift: (r.shift as Shift) ?? 'morning',
@@ -81,7 +120,10 @@ function normVehicle(r: Record<string, unknown>): SectorVehicle {
 
 export const sectorTeam = {
   async listWorkers(active = true): Promise<SectorWorker[]> {
-    let q = supabase.from('sector_workers').select(WORKER_COLS).order('created_at', { ascending: false })
+    let q = supabase
+      .from('sector_workers')
+      .select(WORKER_COLS)
+      .order('created_at', { ascending: false })
     q = active ? q.is('archived_at', null) : q.not('archived_at', 'is', null)
     const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
     return rows.map(normWorker)
@@ -98,15 +140,27 @@ export const sectorTeam = {
     return normWorker(res.data as Record<string, unknown>)
   },
   async updateWorker(id: string, input: Partial<CreateWorkerInput>): Promise<void> {
-    await sdkVoid(supabase.from('sector_workers').update(input as never).eq('id', id))
+    await sdkVoid(
+      supabase
+        .from('sector_workers')
+        .update(input as never)
+        .eq('id', id),
+    )
   },
   async archiveWorker(id: string, reason: string): Promise<void> {
-    await sdkVoid(supabase.from('sector_workers').update(
-      { archived_at: new Date().toISOString(), archive_reason: reason } as never).eq('id', id))
+    await sdkVoid(
+      supabase
+        .from('sector_workers')
+        .update({ archived_at: new Date().toISOString(), archive_reason: reason } as never)
+        .eq('id', id),
+    )
   },
 
   async listVehicles(active = true): Promise<SectorVehicle[]> {
-    let q = supabase.from('sector_vehicles').select(VEHICLE_COLS).order('created_at', { ascending: false })
+    let q = supabase
+      .from('sector_vehicles')
+      .select(VEHICLE_COLS)
+      .order('created_at', { ascending: false })
     q = active ? q.is('archived_at', null) : q.not('archived_at', 'is', null)
     const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
     return rows.map(normVehicle)
@@ -123,11 +177,20 @@ export const sectorTeam = {
     return normVehicle(res.data as Record<string, unknown>)
   },
   async updateVehicle(id: string, input: Partial<CreateVehicleInput>): Promise<void> {
-    await sdkVoid(supabase.from('sector_vehicles').update(input as never).eq('id', id))
+    await sdkVoid(
+      supabase
+        .from('sector_vehicles')
+        .update(input as never)
+        .eq('id', id),
+    )
   },
   async archiveVehicle(id: string, reason: string): Promise<void> {
-    await sdkVoid(supabase.from('sector_vehicles').update(
-      { archived_at: new Date().toISOString(), archive_reason: reason } as never).eq('id', id))
+    await sdkVoid(
+      supabase
+        .from('sector_vehicles')
+        .update({ archived_at: new Date().toISOString(), archive_reason: reason } as never)
+        .eq('id', id),
+    )
   },
 }
 
@@ -137,12 +200,16 @@ const SUPPLY_COLS =
   ' status, submitted_at, archived_at, archive_reason, created_at'
 function normSupply(r: Record<string, unknown>): SupplyRequest {
   return {
-    id: String(r.id), manager_id: String(r.manager_id ?? ''), manager_name: String(r.manager_name ?? ''),
+    id: String(r.id),
+    manager_id: String(r.manager_id ?? ''),
+    manager_name: String(r.manager_name ?? ''),
     shift: (r.shift as Shift) ?? 'morning',
     sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
-    supply_type: String(r.supply_type ?? ''), quantity: Number(r.quantity ?? 0),
+    supply_type: String(r.supply_type ?? ''),
+    quantity: Number(r.quantity ?? 0),
     notes: (r.notes as string | null) ?? null,
-    signed: Boolean(r.signed), ref_no: (r.ref_no as string | null) ?? null,
+    signed: Boolean(r.signed),
+    ref_no: (r.ref_no as string | null) ?? null,
     status: (r.status as SupplyRequest['status']) ?? 'draft',
     submitted_at: (r.submitted_at as string | null) ?? null,
     archived_at: (r.archived_at as string | null) ?? null,
@@ -152,7 +219,10 @@ function normSupply(r: Record<string, unknown>): SupplyRequest {
 }
 export const sectorSupplies = {
   async list(scope: 'active' | 'archived' = 'active'): Promise<SupplyRequest[]> {
-    let q = supabase.from('sector_supply_requests').select(SUPPLY_COLS).order('created_at', { ascending: false })
+    let q = supabase
+      .from('sector_supply_requests')
+      .select(SUPPLY_COLS)
+      .order('created_at', { ascending: false })
     q = scope === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null)
     const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
     return rows.map(normSupply)
@@ -176,10 +246,13 @@ const BREAK_COLS =
   ' departure_id, vehicle_id, resolved_at, resolved_by, resolution_notes, archived_at, archive_reason, created_at'
 function normBreak(r: Record<string, unknown>): Breakdown {
   return {
-    id: String(r.id), manager_id: String(r.manager_id ?? ''), manager_name: String(r.manager_name ?? ''),
+    id: String(r.id),
+    manager_id: String(r.manager_id ?? ''),
+    manager_name: String(r.manager_name ?? ''),
     shift: (r.shift as Shift) ?? 'morning',
     sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
-    db_number: String(r.db_number ?? ''), fault_type: String(r.fault_type ?? ''),
+    db_number: String(r.db_number ?? ''),
+    fault_type: String(r.fault_type ?? ''),
     notes: (r.notes as string | null) ?? null,
     status: (r.status as Breakdown['status']) ?? 'logged',
     departure_id: (r.departure_id as string | null) ?? null,
@@ -194,7 +267,10 @@ function normBreak(r: Record<string, unknown>): Breakdown {
 }
 export const sectorBreakdowns = {
   async list(scope: 'active' | 'archived' = 'active'): Promise<Breakdown[]> {
-    let q = supabase.from('sector_breakdowns').select(BREAK_COLS).order('created_at', { ascending: false })
+    let q = supabase
+      .from('sector_breakdowns')
+      .select(BREAK_COLS)
+      .order('created_at', { ascending: false })
     q = scope === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null)
     const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
     return rows.map(normBreak)
@@ -209,9 +285,12 @@ export const sectorBreakdowns = {
     return normBreak(res.data as Record<string, unknown>)
   },
   async returnToWork(breakdownId: string, resolutionNotes: string): Promise<Breakdown> {
-    const data = await sdkGuard(supabase.rpc('sector_return_vehicle_to_work', {
-      p_breakdown_id: breakdownId, p_resolution_notes: resolutionNotes.trim(),
-    }))
+    const data = await sdkGuard(
+      supabase.rpc('sector_return_vehicle_to_work', {
+        p_breakdown_id: breakdownId,
+        p_resolution_notes: resolutionNotes.trim(),
+      }),
+    )
     return normBreak(data as unknown as Record<string, unknown>)
   },
 }
@@ -222,10 +301,13 @@ const PHOTO_COLS =
   ' archived_at, archive_reason, created_at'
 function normPhoto(r: Record<string, unknown>): SectorPhoto {
   return {
-    id: String(r.id), manager_id: String(r.manager_id ?? ''), manager_name: String(r.manager_name ?? ''),
+    id: String(r.id),
+    manager_id: String(r.manager_id ?? ''),
+    manager_name: String(r.manager_name ?? ''),
     shift: (r.shift as Shift) ?? 'morning',
     sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
-    caption: (r.caption as string | null) ?? null, storage_path: String(r.storage_path ?? ''),
+    caption: (r.caption as string | null) ?? null,
+    storage_path: String(r.storage_path ?? ''),
     archived_at: (r.archived_at as string | null) ?? null,
     archive_reason: (r.archive_reason as string | null) ?? null,
     created_at: (r.created_at as string | null) ?? null,
@@ -233,7 +315,10 @@ function normPhoto(r: Record<string, unknown>): SectorPhoto {
 }
 export const sectorPhotos = {
   async list(scope: 'active' | 'archived' = 'active'): Promise<SectorPhoto[]> {
-    let q = supabase.from('sector_photos').select(PHOTO_COLS).order('created_at', { ascending: false })
+    let q = supabase
+      .from('sector_photos')
+      .select(PHOTO_COLS)
+      .order('created_at', { ascending: false })
     q = scope === 'archived' ? q.not('archived_at', 'is', null) : q.is('archived_at', null)
     const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
     return rows.map(normPhoto)
@@ -269,8 +354,10 @@ const ATT_COLS =
   'id, manager_id, worker_id, worker_name, sector_id, shift, log_date, is_present, note, archived_at, created_at'
 function normAtt(r: Record<string, unknown>): SectorAttendance {
   return {
-    id: String(r.id), manager_id: String(r.manager_id ?? ''),
-    worker_id: String(r.worker_id ?? ''), worker_name: String(r.worker_name ?? ''),
+    id: String(r.id),
+    manager_id: String(r.manager_id ?? ''),
+    worker_id: String(r.worker_id ?? ''),
+    worker_name: String(r.worker_name ?? ''),
     sector_id: Number(r.sector_id),
     shift: (r.shift as Shift) ?? 'morning',
     log_date: String(r.log_date ?? ''),
@@ -282,10 +369,15 @@ function normAtt(r: Record<string, unknown>): SectorAttendance {
 }
 export const sectorAttendance = {
   async listByDate(date: string): Promise<SectorAttendance[]> {
-    const rows = (await sdkGuard(
-      supabase.from('sector_attendance').select(ATT_COLS).eq('log_date', date)
-        .is('archived_at', null).returns<Record<string, unknown>[]>(),
-    )) ?? []
+    const rows =
+      (await sdkGuard(
+        supabase
+          .from('sector_attendance')
+          .select(ATT_COLS)
+          .eq('log_date', date)
+          .is('archived_at', null)
+          .returns<Record<string, unknown>[]>(),
+      )) ?? []
     return rows.map(normAtt)
   },
   /** تسجيل/تحديث حضور عامل ليوم معيّن — عبر RPC (يتحقق أن العامل ضمن قواطع المدير) */
@@ -323,10 +415,37 @@ export async function sectorSummary(): Promise<SectorSummary> {
 }
 
 /** دورة تسليم الآليات بين الكراج ومسؤول القسم. */
-export const sectorVehicleTrips={
-  async days(limit=60,offset=0):Promise<SectorTripDay[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trip_days',{p_limit:limit,p_offset:offset}));return (data??[]) as unknown as SectorTripDay[]},
-  async forDay(day:string):Promise<SectorVehicleTrip[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trips_for_day',{p_day:day}));return (data??[]) as unknown as SectorVehicleTrip[]},
-  async list():Promise<SectorVehicleTrip[]>{const data=await sdkGuard(supabase.rpc('manager_vehicle_trips'));return (data??[]) as unknown as SectorVehicleTrip[]},
-  async confirmArrival(departureId:string,notes?:string):Promise<SectorVehicleTrip>{const data=await sdkGuard(supabase.rpc('sector_confirm_vehicle_arrival',{p_departure_id:departureId,p_notes:notes?.trim()||null}));return data as unknown as SectorVehicleTrip},
-  async sendToGarage(departureId:string,notes?:string):Promise<SectorVehicleTrip>{const data=await sdkGuard(supabase.rpc('sector_send_vehicle_to_garage',{p_departure_id:departureId,p_notes:notes?.trim()||null}));return data as unknown as SectorVehicleTrip},
+export const sectorVehicleTrips = {
+  async days(limit = 60, offset = 0): Promise<SectorTripDay[]> {
+    const data = await sdkGuard(
+      supabase.rpc('manager_vehicle_trip_days', { p_limit: limit, p_offset: offset }),
+    )
+    return (data ?? []) as unknown as SectorTripDay[]
+  },
+  async forDay(day: string): Promise<SectorVehicleTrip[]> {
+    const data = await sdkGuard(supabase.rpc('manager_vehicle_trips_for_day', { p_day: day }))
+    return (data ?? []) as unknown as SectorVehicleTrip[]
+  },
+  async list(): Promise<SectorVehicleTrip[]> {
+    const data = await sdkGuard(supabase.rpc('manager_vehicle_trips'))
+    return (data ?? []) as unknown as SectorVehicleTrip[]
+  },
+  async confirmArrival(departureId: string, notes?: string): Promise<SectorVehicleTrip> {
+    const data = await sdkGuard(
+      supabase.rpc('sector_confirm_vehicle_arrival', {
+        p_departure_id: departureId,
+        p_notes: notes?.trim() || null,
+      }),
+    )
+    return data as unknown as SectorVehicleTrip
+  },
+  async sendToGarage(departureId: string, notes?: string): Promise<SectorVehicleTrip> {
+    const data = await sdkGuard(
+      supabase.rpc('sector_send_vehicle_to_garage', {
+        p_departure_id: departureId,
+        p_notes: notes?.trim() || null,
+      }),
+    )
+    return data as unknown as SectorVehicleTrip
+  },
 }

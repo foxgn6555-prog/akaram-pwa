@@ -1,6 +1,8 @@
 export {
   useSectors,
   useManagerProfile,
+  useManagerProfileForUser,
+  useSaveManagerProfile,
   useWorkers,
   useCreateWorker,
   useArchiveWorker,

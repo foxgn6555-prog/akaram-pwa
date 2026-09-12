@@ -1,3 +1,10 @@
-// src/features/notifications/hooks/useUnreadCount.ts
-// TODO(v4): التنفيذ وفق docs/onboarding.md — توجد نسخ مرجعية مكتملة (auth · employees · requests).
-export {};
+import { useQuery } from '@tanstack/react-query'
+import { notifications } from '@sdk/notifications.sdk'
+import { notificationKeys } from './useNotifications'
+export const useUnreadCount = () =>
+  useQuery({
+    queryKey: notificationKeys.count(),
+    queryFn: notifications.unreadCount,
+    staleTime: 10_000,
+    refetchInterval: 60_000,
+  })
