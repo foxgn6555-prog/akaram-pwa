@@ -44,6 +44,8 @@ import {
   useGpsHistoryWindows,
   useGpsLiveMap,
   useGpsMapGeofences,
+  useGpsMapLandmark,
+  useGpsMapLandmarks,
   useGpsOpenAlerts,
   useGpsPlatformGeofence,
   useGpsOptions,
@@ -71,7 +73,9 @@ import { gpsLvn } from '@sdk/gps-lvn.sdk'
 import type {
   GpsDevice,
   GpsFilters,
+  GpsLiveDevice,
   GpsMapGeofence,
+  GpsMapLandmark,
   GpsOperationalAlert,
   GpsRoutePoint,
   GpsTripHistory,
@@ -82,9 +86,12 @@ import type {
 } from '@sdk/gps-lvn.sdk'
 import { exportGpsAlerts, exportGpsTrips } from '@features/gps-lvn/export'
 import { useUiStore } from '@stores/ui.store'
+import type { ZoneShape } from './ZoneMapEditor'
+import { LandmarkGlyph, landmarkIconLabels } from './LandmarkIcon'
 const GpsRouteMap = lazy(() => import('./GpsRouteMap'))
 const GpsLiveMap = lazy(() => import('./GpsLiveMap'))
 const ZoneMapEditor = lazy(() => import('./ZoneMapEditor'))
+const LandmarkMapPicker = lazy(() => import('./LandmarkMapPicker'))
 const fmt = (v: string | null) =>
   v
     ? new Intl.DateTimeFormat('ar-IQ', {
@@ -136,6 +143,7 @@ export default function GpsDataPage() {
   const runs = useGpsSyncRuns()
   const liveMap = useGpsLiveMap()
   const mapZones = useGpsMapGeofences()
+  const mapLandmarks = useGpsMapLandmarks()
   const alerts = useGpsOpenAlerts()
   const zoneEvents = useGpsZoneEvents(zoneRangeFrom, zoneRangeTo)
   const schedulerHealth = useGpsSchedulerHealth()
@@ -146,6 +154,7 @@ export default function GpsDataPage() {
   const sync = useGpsSync()
   const alertWorkflow = useGpsAlertWorkflow()
   const platformZone = useGpsPlatformGeofence()
+  const mapLandmark = useGpsMapLandmark()
   const historyImport = useGpsHistoryImport()
   const batchHistoryAudit = useGpsBatchHistoryAudit()
   const bind = useGpsBind()
@@ -364,7 +373,11 @@ export default function GpsDataPage() {
               <Suspense
                 fallback={<div className="h-[540px] animate-pulse rounded-2xl bg-slate-100" />}
               >
-                <GpsLiveMap rows={liveMap.data ?? []} zones={mapZones.data ?? []} />
+                <GpsLiveMap
+                  rows={liveMap.data ?? []}
+                  zones={mapZones.data ?? []}
+                  landmarks={mapLandmarks.data ?? []}
+                />
               </Suspense>
             </div>
           </article>
@@ -588,6 +601,8 @@ export default function GpsDataPage() {
       {view === 'zones' && (
         <ZonesWorkspace
           zones={mapZones.data ?? []}
+          landmarks={mapLandmarks.data ?? []}
+          liveVehicles={liveMap.data ?? []}
           events={zoneEvents.data ?? []}
           from={tripFrom}
           to={tripTo}
@@ -596,6 +611,9 @@ export default function GpsDataPage() {
           pending={platformZone.isPending}
           onSave={(zone) => platformZone.mutate({ type: 'save', ...zone })}
           onArchive={(id) => platformZone.mutate({ type: 'archive', id })}
+          landmarkPending={mapLandmark.isPending}
+          onSaveLandmark={(landmark) => mapLandmark.mutate({ type: 'save', landmark })}
+          onArchiveLandmark={(id) => mapLandmark.mutate({ type: 'archive', id })}
         />
       )}
 
@@ -1832,6 +1850,8 @@ function ZoneVehicleDialog({ zone, onClose }: { zone: GpsMapGeofence; onClose: (
 
 function ZonesWorkspace({
   zones,
+  landmarks,
+  liveVehicles,
   events,
   from,
   to,
@@ -1840,8 +1860,13 @@ function ZonesWorkspace({
   pending,
   onSave,
   onArchive,
+  landmarkPending,
+  onSaveLandmark,
+  onArchiveLandmark,
 }: {
   zones: GpsMapGeofence[]
+  landmarks: GpsMapLandmark[]
+  liveVehicles: GpsLiveDevice[]
   events: GpsZoneEvent[]
   from: string
   to: string
@@ -1855,18 +1880,41 @@ function ZonesWorkspace({
     color: string
   }) => void
   onArchive: (id: string) => void
+  landmarkPending: boolean
+  onSaveLandmark: (landmark: Omit<GpsMapLandmark, 'id'> & { id: string | null }) => void
+  onArchiveLandmark: (id: string) => void
 }) {
   const [editing, setEditing] = useState<{
     id: string | null
     name: string
     color: string
+    shape: ZoneShape
     coordinates: string
   } | null>(null)
+  const [editingLandmark, setEditingLandmark] = useState<
+    (Omit<GpsMapLandmark, 'id'> & { id: string | null }) | null
+  >(null)
   const [error, setError] = useState('')
   const [assigning, setAssigning] = useState<GpsMapGeofence | null>(null)
   const [eventZone, setEventZone] = useState('')
   const [eventVehicle, setEventVehicle] = useState('')
   const [eventType, setEventType] = useState('')
+  useEffect(() => {
+    if (!editing && !editingLandmark) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEditing(null)
+        setEditingLandmark(null)
+      }
+    }
+    window.addEventListener('keydown', close)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', close)
+    }
+  }, [editing, editingLandmark])
   const filteredEvents = useMemo(
     () =>
       events.filter(
@@ -1909,7 +1957,7 @@ function ZonesWorkspace({
     setEditing(null)
   }
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="space-y-4">
       <div className="space-y-4">
         <article className="rounded-[1.75rem] border bg-white shadow-sm">
           <SectionHead
@@ -1952,6 +2000,7 @@ function ZonesWorkspace({
                           id: zone.id,
                           name: zone.name,
                           color: zone.color,
+                          shape: 'polygon',
                           coordinates: zone.polygon
                             .map((p) =>
                               Array.isArray(p) ? `${p[0]}, ${p[1]}` : `${p.lat}, ${p.lng}`,
@@ -1977,10 +2026,86 @@ function ZonesWorkspace({
           </div>
           <div className="p-4 pt-0">
             <button
-              onClick={() => setEditing({ id: null, name: '', color: '#06b6d4', coordinates: '' })}
+              onClick={() =>
+                setEditing({
+                  id: null,
+                  name: '',
+                  color: '#06b6d4',
+                  shape: 'polygon',
+                  coordinates: '',
+                })
+              }
               className="w-full rounded-2xl border border-dashed border-cyan-300 bg-cyan-50 p-4 text-xs font-black text-cyan-900"
             >
               + إنشاء زون تشغيلي جديد
+            </button>
+          </div>
+        </article>
+        <article className="rounded-[1.75rem] border bg-white shadow-sm">
+          <SectionHead
+            icon={MapPinned}
+            title="المعالم التشغيلية"
+            subtitle="مواقع ثابتة تظهر مباشرة فوق الخريطة الحية"
+            badge={String(landmarks.length)}
+          />
+          <div className="grid gap-3 px-4 pb-4 md:grid-cols-2 xl:grid-cols-3">
+            {landmarks.map((landmark) => (
+              <div key={landmark.id} className="flex items-center gap-3 rounded-2xl border p-3">
+                <span
+                  className="grid size-10 shrink-0 place-items-center rounded-xl text-white shadow"
+                  style={{ backgroundColor: landmark.color }}
+                >
+                  <LandmarkGlyph icon={landmark.icon} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <b className="block truncate text-xs">{landmark.name}</b>
+                  <small className="text-slate-500">
+                    {landmark.category} · {landmark.latitude.toFixed(5)},{' '}
+                    {landmark.longitude.toFixed(5)}
+                  </small>
+                </div>
+                <button
+                  onClick={() =>
+                    setEditingLandmark({
+                      id: landmark.id,
+                      name: landmark.name,
+                      category: landmark.category,
+                      icon: landmark.icon,
+                      latitude: landmark.latitude,
+                      longitude: landmark.longitude,
+                      color: landmark.color,
+                      notes: landmark.notes,
+                    })
+                  }
+                  className="rounded-lg bg-slate-100 px-2 py-2 text-[10px] font-black"
+                >
+                  تعديل
+                </button>
+                <button
+                  onClick={() => onArchiveLandmark(landmark.id)}
+                  disabled={landmarkPending}
+                  className="rounded-lg bg-rose-50 px-2 py-2 text-[10px] font-black text-rose-700"
+                >
+                  أرشفة
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() =>
+                setEditingLandmark({
+                  id: null,
+                  name: '',
+                  category: 'landmark',
+                  icon: 'pin',
+                  latitude: 33.3152,
+                  longitude: 44.3661,
+                  color: '#f97316',
+                  notes: null,
+                })
+              }
+              className="min-h-16 rounded-2xl border border-dashed border-orange-300 bg-orange-50 p-4 text-xs font-black text-orange-900"
+            >
+              + إضافة معلم على الخريطة الحية
             </button>
           </div>
         </article>
@@ -2081,96 +2206,252 @@ function ZonesWorkspace({
           </div>
         </article>
       </div>
-      <aside>
-        {editing ? (
-          <div className="sticky top-4 rounded-[1.75rem] border bg-white p-5 shadow-lg">
-            <div className="flex justify-between">
-              <div>
-                <span className="text-[10px] font-black tracking-widest text-cyan-700">
-                  ZONE EDITOR
-                </span>
-                <h2 className="text-lg font-black">{editing.id ? 'تعديل الزون' : 'زون جديد'}</h2>
+      {editing &&
+        createPortal(
+          <div className="fixed inset-0 z-[2100] flex bg-slate-950 max-lg:flex-col" dir="rtl">
+            <aside className="z-10 flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl max-lg:max-h-[42vh] max-lg:w-full">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-black tracking-widest text-cyan-700">
+                    محرر كامل الشاشة
+                  </span>
+                  <h2 className="mt-1 text-xl font-black">
+                    {editing.id ? 'تعديل الزون' : 'إنشاء زون جديد'}
+                  </h2>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                    ارسم مباشرة على الخريطة الحية الكبيرة ثم احفظ الحدود.
+                  </p>
+                </div>
+                <button
+                  aria-label="إغلاق محرر الزون"
+                  onClick={() => setEditing(null)}
+                  className="grid size-10 place-items-center rounded-xl bg-slate-100"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button aria-label="إغلاق محرر الزون" onClick={() => setEditing(null)}>
-                <X />
-              </button>
-            </div>
-            <label className="mt-5 block text-xs font-bold">
-              اسم الزون
-              <input
-                aria-label="اسم الزون"
-                value={editing.name}
-                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                className="mt-1 h-11 w-full rounded-xl border px-3"
-              />
-            </label>
-            <label className="mt-3 block text-xs font-bold">
-              اللون
-              <input
-                aria-label="لون الزون"
-                type="color"
-                value={editing.color}
-                onChange={(e) => setEditing({ ...editing, color: e.target.value })}
-                className="mt-1 h-11 w-full rounded-xl border p-1"
-              />
-            </label>
-            <div className="mt-4">
-              <Suspense
-                fallback={<div className="h-[360px] animate-pulse rounded-2xl bg-slate-100" />}
-              >
-                <ZoneMapEditor
-                  color={editing.color}
-                  points={editing.coordinates
-                    .split('\n')
-                    .map((line) => {
-                      const parts = line.split(',')
-                      return { lat: Number(parts[0]), lng: Number(parts[1]) }
-                    })
-                    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))}
-                  onChange={(points) =>
-                    setEditing({
-                      ...editing,
-                      coordinates: points.map((point) => `${point.lat}, ${point.lng}`).join('\n'),
+              <label className="mt-6 block text-xs font-bold">
+                اسم الزون
+                <input
+                  aria-label="اسم الزون"
+                  value={editing.name}
+                  onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                  className="mt-1 h-11 w-full rounded-xl border px-3"
+                  placeholder="مثال: نطاق عمل الجادرية"
+                />
+              </label>
+              <label className="mt-3 block text-xs font-bold">
+                لون الظهور
+                <input
+                  aria-label="لون الزون"
+                  type="color"
+                  value={editing.color}
+                  onChange={(event) => setEditing({ ...editing, color: event.target.value })}
+                  className="mt-1 h-11 w-full rounded-xl border p-1"
+                />
+              </label>
+              <details className="mt-4 rounded-xl border bg-slate-50 p-3">
+                <summary className="cursor-pointer text-xs font-black">
+                  الإحداثيات اليدوية (
+                  {editing.coordinates ? editing.coordinates.split('\n').length : 0})
+                </summary>
+                <textarea
+                  aria-label="إحداثيات الزون"
+                  value={editing.coordinates}
+                  onChange={(event) => setEditing({ ...editing, coordinates: event.target.value })}
+                  rows={8}
+                  dir="ltr"
+                  className="mt-3 w-full rounded-xl border p-3 font-mono text-[10px]"
+                />
+              </details>
+              {error && (
+                <p className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-700">
+                  {error}
+                </p>
+              )}
+              <div className="mt-auto pt-5">
+                <p className="mb-3 text-[10px] leading-5 text-slate-500">
+                  الدائرة والأشكال المنتظمة تتحول داخلياً إلى حدود دقيقة ومتوافقة مع مراقبة دخول
+                  وخروج الآليات.
+                </p>
+                <button
+                  onClick={submit}
+                  disabled={pending}
+                  className="w-full rounded-xl bg-slate-950 py-3.5 text-xs font-black text-white disabled:opacity-40"
+                >
+                  {pending ? 'جارٍ الحفظ…' : 'حفظ الزون وتفعيله'}
+                </button>
+              </div>
+            </aside>
+            <main className="min-h-0 min-w-0 flex-1 p-3">
+              <div className="h-full overflow-hidden rounded-3xl border border-white/10">
+                <Suspense fallback={<div className="h-full animate-pulse bg-slate-800" />}>
+                  <ZoneMapEditor
+                    color={editing.color}
+                    shape={editing.shape}
+                    zones={zones.filter((zone) => zone.id !== editing.id)}
+                    landmarks={landmarks}
+                    vehicles={liveVehicles}
+                    onShapeChange={(shape) => setEditing({ ...editing, shape })}
+                    points={editing.coordinates
+                      .split('\n')
+                      .map((line) => {
+                        const parts = line.split(',')
+                        return { lat: Number(parts[0]), lng: Number(parts[1]) }
+                      })
+                      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))}
+                    onChange={(points) =>
+                      setEditing({
+                        ...editing,
+                        coordinates: points.map((point) => `${point.lat}, ${point.lng}`).join('\n'),
+                      })
+                    }
+                  />
+                </Suspense>
+              </div>
+            </main>
+          </div>,
+          document.body,
+        )}
+      {editingLandmark &&
+        createPortal(
+          <div className="fixed inset-0 z-[2100] flex bg-slate-950 max-lg:flex-col" dir="rtl">
+            <aside className="z-10 flex w-[360px] shrink-0 flex-col overflow-y-auto border-l bg-white p-5 shadow-2xl max-lg:max-h-[42vh] max-lg:w-full">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-black text-orange-600">معلم الخريطة الحية</span>
+                  <h2 className="mt-1 text-xl font-black">
+                    {editingLandmark.id ? 'تعديل المعلم' : 'إضافة معلم جديد'}
+                  </h2>
+                </div>
+                <button
+                  aria-label="إغلاق محرر المعلم"
+                  onClick={() => setEditingLandmark(null)}
+                  className="grid size-10 place-items-center rounded-xl bg-slate-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <label className="mt-6 text-xs font-bold">
+                اسم المعلم
+                <input
+                  aria-label="اسم المعلم"
+                  value={editingLandmark.name}
+                  onChange={(event) =>
+                    setEditingLandmark({ ...editingLandmark, name: event.target.value })
+                  }
+                  className="mt-1 h-11 w-full rounded-xl border px-3"
+                  placeholder="كراج، محطة، نقطة تجمع…"
+                />
+              </label>
+              <label className="mt-3 text-xs font-bold">
+                التصنيف
+                <select
+                  aria-label="تصنيف المعلم"
+                  value={editingLandmark.category}
+                  onChange={(event) =>
+                    setEditingLandmark({
+                      ...editingLandmark,
+                      category: event.target.value as GpsMapLandmark['category'],
                     })
                   }
+                  className="mt-1 h-11 w-full rounded-xl border px-3"
+                >
+                  <option value="landmark">معلم عام</option>
+                  <option value="garage">كراج</option>
+                  <option value="station">محطة</option>
+                  <option value="maintenance">صيانة</option>
+                  <option value="office">مقر إداري</option>
+                  <option value="checkpoint">نقطة سيطرة</option>
+                  <option value="hazard">موقع خطورة</option>
+                  <option value="other">أخرى</option>
+                </select>
+              </label>
+              <fieldset className="mt-4">
+                <legend className="text-xs font-bold">شكل المعلم</legend>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  اختر الرمز الذي سيظهر فوق الخريطة.
+                </p>
+                <div className="mt-3 grid grid-cols-6 gap-2">
+                  {(Object.keys(landmarkIconLabels) as GpsMapLandmark['icon'][]).map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      aria-label={`شكل المعلم: ${landmarkIconLabels[icon]}`}
+                      title={landmarkIconLabels[icon]}
+                      onClick={() => setEditingLandmark({ ...editingLandmark, icon })}
+                      className={`grid aspect-square place-items-center rounded-xl border transition ${editingLandmark.icon === icon ? 'border-orange-500 bg-orange-500 text-white shadow-md' : 'bg-slate-50 text-slate-700 hover:border-orange-300'}`}
+                    >
+                      <LandmarkGlyph icon={icon} size={17} />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="mt-4 text-xs font-bold">
+                اللون
+                <input
+                  aria-label="لون المعلم"
+                  type="color"
+                  value={editingLandmark.color}
+                  onChange={(event) =>
+                    setEditingLandmark({ ...editingLandmark, color: event.target.value })
+                  }
+                  className="mt-1 h-11 w-full rounded-xl border p-1"
                 />
-              </Suspense>
-            </div>
-            <label className="mt-3 block text-xs font-bold">
-              إحداثيات الحدود (تعديل يدوي اختياري)
-              <textarea
-                aria-label="إحداثيات الزون"
-                value={editing.coordinates}
-                onChange={(e) => setEditing({ ...editing, coordinates: e.target.value })}
-                rows={10}
-                dir="ltr"
-                placeholder={'33.3152, 44.3661\n33.3200, 44.3800\n33.3050, 44.3750'}
-                className="mt-1 w-full rounded-xl border p-3 font-mono text-xs"
-              />
-            </label>
-            <p className="mt-2 text-[10px] leading-5 text-slate-500">
-              كل سطر يمثل نقطة واحدة. تُغلق المنصة المضلع تلقائياً بين آخر نقطة وأول نقطة.
-            </p>
-            {error && (
-              <p className="mt-2 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-700">
-                {error}
-              </p>
-            )}
-            <button
-              onClick={submit}
-              disabled={pending}
-              className="mt-4 w-full rounded-xl bg-slate-950 py-3 text-xs font-black text-white disabled:opacity-40"
-            >
-              {pending ? 'جارٍ الحفظ…' : 'حفظ الزون'}
-            </button>
-          </div>
-        ) : (
-          <div className="rounded-[1.75rem] border border-dashed bg-slate-50 p-8 text-center text-xs text-slate-500">
-            <MapPinned className="mx-auto mb-3 text-slate-300" />
-            اختر منطقة محلية لتعديلها أو أنشئ زوناً جديداً.
-          </div>
+              </label>
+              <label className="mt-3 text-xs font-bold">
+                ملاحظات
+                <textarea
+                  aria-label="ملاحظات المعلم"
+                  value={editingLandmark.notes ?? ''}
+                  onChange={(event) =>
+                    setEditingLandmark({ ...editingLandmark, notes: event.target.value || null })
+                  }
+                  rows={4}
+                  className="mt-1 w-full rounded-xl border p-3"
+                />
+              </label>
+              <div className="mt-4 rounded-xl bg-orange-50 p-3 text-[11px] font-bold text-orange-900">
+                الموقع: {editingLandmark.latitude.toFixed(6)},{' '}
+                {editingLandmark.longitude.toFixed(6)}
+              </div>
+              <button
+                onClick={() => {
+                  if (editingLandmark.name.trim().length >= 2) {
+                    onSaveLandmark(editingLandmark)
+                    setEditingLandmark(null)
+                  }
+                }}
+                disabled={landmarkPending || editingLandmark.name.trim().length < 2}
+                className="mt-auto rounded-xl bg-orange-600 py-3.5 text-xs font-black text-white disabled:opacity-40"
+              >
+                {landmarkPending ? 'جارٍ الحفظ…' : 'حفظ وإظهار على الخريطة'}
+              </button>
+            </aside>
+            <main className="min-h-0 min-w-0 flex-1 p-3">
+              <div className="h-full overflow-hidden rounded-3xl border border-white/10">
+                <Suspense fallback={<div className="h-full animate-pulse bg-slate-800" />}>
+                  <LandmarkMapPicker
+                    point={{ lat: editingLandmark.latitude, lng: editingLandmark.longitude }}
+                    color={editingLandmark.color}
+                    icon={editingLandmark.icon}
+                    zones={zones}
+                    landmarks={landmarks.filter((item) => item.id !== editingLandmark.id)}
+                    vehicles={liveVehicles}
+                    onChange={(point) =>
+                      setEditingLandmark({
+                        ...editingLandmark,
+                        latitude: point.lat,
+                        longitude: point.lng,
+                      })
+                    }
+                  />
+                </Suspense>
+              </div>
+            </main>
+          </div>,
+          document.body,
         )}
-      </aside>
       {assigning && <ZoneVehicleDialog zone={assigning} onClose={() => setAssigning(null)} />}
     </div>
   )

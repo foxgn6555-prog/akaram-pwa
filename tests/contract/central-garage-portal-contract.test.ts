@@ -15,6 +15,15 @@ const managerResolutionRepair = readFileSync(
   'supabase/migrations/00114_sector_manager_resolution_repair.sql',
   'utf8',
 )
+const fleetScope = readFileSync(
+  'supabase/migrations/00117_ops_owned_fleet_and_garage_scope.sql',
+  'utf8',
+)
+const opsRoutes = readFileSync('src/portals/ops-room/routes.tsx', 'utf8')
+const vehiclesPage = readFileSync(
+  'src/portals/central-garage/pages/VehiclesDatabasePage.tsx',
+  'utf8',
+)
 const dispatchPage = readFileSync(
   'src/portals/central-garage/pages/DriversDispatchPage.tsx',
   'utf8',
@@ -89,6 +98,19 @@ describe('بوابة الكراج المركزي', () => {
     )
     expect(dispatchPage).not.toContain('departure-recipient')
     expect(dispatchPage).toContain('المسؤول المستلم تلقائياً')
+  })
+
+  it('تملك غرفة العمليات سجل الآليات ويقتصر الكراج على قاطعه والتشغيل فقط', () => {
+    expect(fleetScope).toContain('app.require_fleet_master_actor()')
+    expect(fleetScope).toContain(
+      "parent_sector text not null check(parent_sector in('karrada','zaafaraniya'))",
+    )
+    expect(fleetScope).toContain("raise exception'GARAGE_VEHICLE_SCOPE_FORBIDDEN'")
+    expect(opsRoutes).toContain("path: 'vehicles-database'")
+    expect(vehiclesPage).toContain('managementMode &&')
+    expect(dispatchPage).not.toContain('change-assignment-')
+    expect(adminUsers).toContain('GARAGE_PARENT_SECTOR_REQUIRED')
+    expect(adminUsers).toContain("from('garage_user_profiles').insert")
   })
 
   it('تسجل migration الدور في القيد وJWT وRPC دون فتح RLS', () => {

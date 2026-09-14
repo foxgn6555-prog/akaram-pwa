@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
-  BarChart3,
+  Activity,
   BellRing,
+  CalendarDays,
   Check,
   ChevronDown,
   Download,
-  Filter,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
   TimerReset,
 } from 'lucide-react'
 import {
@@ -331,6 +335,26 @@ export default function OperationsDataPage() {
     [allSources],
   )
   const sum = (key: string) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0)
+  const activeFilterCount = [search, shift, sector, tab === 'alerts' ? severity : ''].filter(
+    Boolean,
+  ).length
+  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance].some(
+    (query) => query.isLoading,
+  )
+  const setRange = (days: number) => {
+    const end = new Date()
+    const start = new Date(end.getTime() - (days - 1) * 86_400_000)
+    setFrom(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(start))
+    setTo(today())
+  }
+  const resetFilters = () => {
+    setFrom(today())
+    setTo(today())
+    setSearch('')
+    setShift('')
+    setSector('')
+    setSeverity('')
+  }
   const toggleColumn = (key: string) =>
     setColumnChoice((old) => {
       const current = old[tab] ?? available
@@ -363,23 +387,73 @@ export default function OperationsDataPage() {
   }
   return (
     <section dir="rtl" className="space-y-5" data-testid="operations-data-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-cyan-800 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs text-cyan-200">
-          <BarChart3 size={16} />
-          بيانات لحظية من الأقسام والمحطة والكراج والصيانة
-        </p>
-        <h1 className="mt-2 text-2xl font-black">مركز التقارير التشغيلية</h1>
-        <p className="mt-1 text-sm text-cyan-100">
-          تقارير مستقلة ومنظمة للحركة والعمل المنتج والمحطة والكراج والأعطال والصيانة.
-        </p>
+      <header className="relative isolate overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 md:p-8">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(34,211,238,.22),transparent_28%),radial-gradient(circle_at_85%_90%,rgba(99,102,241,.28),transparent_32%)]" />
+        <div className="absolute -left-16 -top-20 -z-10 size-64 rounded-full border border-white/10" />
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-bold text-cyan-300">
+              <Sparkles size={16} /> غرفة العمليات · مركز القرار التشغيلي
+            </p>
+            <h1 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
+              التقارير وذكاء العمليات
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
+              رؤية موحدة للرحلات والحركة والعمل المنتج والمحطة والكراج والصيانة، مع تقارير قابلة
+              للتخصيص والتصدير.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
+              <b className="block text-xl">{Object.values(allSources).flat().length}</b>
+              <span className="text-[10px] text-slate-300">سجل ضمن المصادر</span>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
+              <b className="block text-xl text-cyan-300">{isLoading ? '…' : 'محدّث'}</b>
+              <span className="text-[10px] text-slate-300">حالة البيانات</span>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3 xl:grid-cols-6">
-        <div className="md:col-span-3 xl:col-span-6">
-          <h2 className="font-black text-slate-900">نطاق التقرير والفلاتر</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            حدد الفترة ثم خصّص التقرير المطلوب قبل العرض أو التصدير.
-          </p>
+      <div className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-white p-5 shadow-lg shadow-slate-200/40 md:grid-cols-3 xl:grid-cols-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-3 xl:col-span-6">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
+              <SlidersHorizontal size={19} />
+            </span>
+            <div>
+              <h2 className="font-black text-slate-900">نطاق التقرير والفلاتر</h2>
+              <p className="mt-1 text-xs text-slate-500">خصص البيانات قبل العرض أو التصدير.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setRange(1)}
+              className="rounded-xl border bg-slate-50 px-3 py-2 text-[10px] font-black"
+            >
+              اليوم
+            </button>
+            <button
+              onClick={() => setRange(7)}
+              className="rounded-xl border bg-slate-50 px-3 py-2 text-[10px] font-black"
+            >
+              آخر 7 أيام
+            </button>
+            <button
+              onClick={() => setRange(30)}
+              className="rounded-xl border bg-slate-50 px-3 py-2 text-[10px] font-black"
+            >
+              آخر 30 يوماً
+            </button>
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-700"
+            >
+              <RotateCcw size={13} /> تصفير الفلاتر{' '}
+              {activeFilterCount ? `(${activeFilterCount})` : ''}
+            </button>
+          </div>
         </div>
         <label className="text-xs">
           من
@@ -403,7 +477,7 @@ export default function OperationsDataPage() {
         </label>
         <label className="relative text-xs">
           بحث شامل
-          <Filter className="absolute bottom-3 right-3 size-4 text-slate-400" />
+          <Search className="absolute bottom-3 right-3 size-4 text-slate-400" />
           <input
             aria-label="بحث شامل"
             value={search}
@@ -470,7 +544,7 @@ export default function OperationsDataPage() {
 
       <nav
         aria-label="أنواع التقارير"
-        className="flex gap-2 overflow-x-auto rounded-2xl border bg-white p-2 shadow-sm"
+        className="flex gap-2 overflow-x-auto rounded-[1.5rem] border border-slate-200 bg-white p-2.5 shadow-sm"
       >
         {(Object.keys(tabs) as OperationsTab[]).map((value) => (
           <button
@@ -480,9 +554,17 @@ export default function OperationsDataPage() {
               setTab(value)
               setShowColumns(false)
             }}
-            className={`whitespace-nowrap rounded-xl px-5 py-3 text-xs font-black ${tab === value ? 'bg-indigo-800 text-white' : 'border bg-white'}`}
+            className={`group flex min-w-fit items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-3 text-xs font-black transition ${tab === value ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            {tabs[value]} <span className="opacity-70">({allSources[value].length})</span>
+            <span
+              className={`size-2 rounded-full ${tab === value ? 'bg-cyan-400' : 'bg-slate-300 group-hover:bg-indigo-400'}`}
+            />
+            {tabs[value]}{' '}
+            <span
+              className={`rounded-lg px-2 py-1 text-[9px] ${tab === value ? 'bg-white/10' : 'bg-slate-100'}`}
+            >
+              {allSources[value].length}
+            </span>
           </button>
         ))}
       </nav>
@@ -506,6 +588,18 @@ export default function OperationsDataPage() {
           <Stat label="وقت الصيانة" value={minutes(sum('maintenance_minutes'))} />
           <Stat label="مدة الأعطال" value={minutes(sum('downtime_minutes'))} />
         </div>
+      )}
+
+      {tab === 'summary' && rows.length > 0 && (
+        <OperationsPulse
+          items={[
+            { label: 'عمل منتج', value: sum('productive_minutes'), color: 'bg-emerald-500' },
+            { label: 'حركة', value: sum('movement_minutes'), color: 'bg-cyan-500' },
+            { label: 'محطة', value: sum('station_minutes'), color: 'bg-indigo-500' },
+            { label: 'صيانة', value: sum('maintenance_minutes'), color: 'bg-violet-500' },
+            { label: 'أعطال', value: sum('downtime_minutes'), color: 'bg-rose-500' },
+          ]}
+        />
       )}
 
       {tab === 'alerts' && (
@@ -622,12 +716,31 @@ export default function OperationsDataPage() {
       ) : (
         <div
           key={`${tab}-empty`}
-          className="rounded-3xl border border-dashed bg-white p-16 text-center shadow-sm"
+          className="relative overflow-hidden rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm md:p-16"
         >
-          <b className="text-slate-700">لا توجد سجلات في هذا التقرير</b>
-          <p className="mt-2 text-xs text-slate-500">
-            غيّر الفترة أو الفلاتر، أو اختر نوع تقرير آخر.
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,.06),transparent_45%)]" />
+          <div className="relative mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-100 to-cyan-100 text-indigo-700">
+            <CalendarDays size={28} />
+          </div>
+          <b className="relative mt-5 block text-lg text-slate-800">لا توجد سجلات في هذا التقرير</b>
+          <p className="relative mx-auto mt-2 max-w-md text-xs leading-6 text-slate-500">
+            لم تُسجل عمليات مطابقة ضمن النطاق الحالي. جرّب آخر 7 أيام، أزل الفلاتر، أو انتقل إلى
+            تقرير تشغيلي آخر.
           </p>
+          <div className="relative mt-5 flex justify-center gap-2">
+            <button
+              onClick={() => setRange(7)}
+              className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white"
+            >
+              عرض آخر 7 أيام
+            </button>
+            <button
+              onClick={resetFilters}
+              className="rounded-xl border bg-white px-4 py-2.5 text-xs font-black"
+            >
+              إزالة الفلاتر
+            </button>
+          </div>
         </div>
       )}
       {tab === 'summary' && (
@@ -650,11 +763,60 @@ export default function OperationsDataPage() {
 function formatValue(key: string, value: unknown) {
   return readableValue(key, value)
 }
+function OperationsPulse({
+  items,
+}: {
+  items: Array<{ label: string; value: number; color: string }>
+}) {
+  const total = items.reduce((sum, item) => sum + item.value, 0)
+  return (
+    <article className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black tracking-widest text-indigo-600">
+            توزيع الزمن التشغيلي
+          </p>
+          <h2 className="mt-1 font-black text-slate-900">بصمة النشاط ضمن الفترة المحددة</h2>
+        </div>
+        <span className="rounded-xl bg-slate-100 px-3 py-2 text-[10px] font-black text-slate-600">
+          الإجمالي {minutes(total)}
+        </span>
+      </div>
+      <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-slate-100">
+        {items.map((item) => (
+          <span
+            key={item.label}
+            title={`${item.label}: ${minutes(item.value)}`}
+            className={`${item.color} min-w-0 transition-all`}
+            style={{ width: total ? `${(item.value / total) * 100}%` : '0%' }}
+          />
+        ))}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-xl bg-slate-50 p-3">
+            <span className={`mb-2 block size-2.5 rounded-full ${item.color}`} />
+            <small className="block text-[10px] font-bold text-slate-500">{item.label}</small>
+            <b className="mt-1 block text-xs text-slate-800">{minutes(item.value)}</b>
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border bg-white p-4">
-      <p className="text-[11px] text-slate-500">{label}</p>
-      <b className="mt-1 block text-lg text-indigo-800">{value}</b>
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-cyan-400 via-indigo-500 to-violet-500 opacity-70" />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold text-slate-500">{label}</p>
+          <b className="mt-2 block text-xl font-black text-slate-900">{value}</b>
+        </div>
+        <span className="grid size-9 place-items-center rounded-xl bg-indigo-50 text-indigo-700 transition group-hover:bg-indigo-700 group-hover:text-white">
+          <Activity size={16} />
+        </span>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { gpsLvn, type GpsFilters, type GpsTripInvestigation } from '@sdk/gps-lvn.sdk'
+import {
+  gpsLvn,
+  type GpsFilters,
+  type GpsMapLandmark,
+  type GpsTripInvestigation,
+} from '@sdk/gps-lvn.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 
@@ -9,6 +14,7 @@ export const gpsKeys = {
   dashboard: () => ['gps-lvn', 'dashboard'] as const,
   liveMap: () => ['gps-lvn', 'live-map'] as const,
   mapGeofences: () => ['gps-lvn', 'map-geofences'] as const,
+  mapLandmarks: () => ['gps-lvn', 'map-landmarks'] as const,
   alerts: () => ['gps-lvn', 'alerts'] as const,
   zoneEvents: (from: string, to: string) => ['gps-lvn', 'zone-events', from, to] as const,
   zoneVehicles: (zoneId: string, search: string) =>
@@ -45,6 +51,8 @@ export const useGpsDashboard = () =>
   useQuery({ queryKey: gpsKeys.dashboard(), queryFn: gpsLvn.dashboard, refetchInterval: 30_000 })
 export const useGpsMapGeofences = () =>
   useQuery({ queryKey: gpsKeys.mapGeofences(), queryFn: gpsLvn.mapGeofences, staleTime: 60_000 })
+export const useGpsMapLandmarks = () =>
+  useQuery({ queryKey: gpsKeys.mapLandmarks(), queryFn: gpsLvn.mapLandmarks, staleTime: 60_000 })
 export const useGpsLiveMap = () =>
   useQuery({ queryKey: gpsKeys.liveMap(), queryFn: gpsLvn.liveMap, refetchInterval: 30_000 })
 export const useGpsOpenAlerts = () =>
@@ -290,6 +298,32 @@ export function useGpsPlatformGeofence() {
       toast({
         type: 'error',
         message: handleAppError(error, { scope: 'gpsPlatformZone' }).message,
+      }),
+  })
+}
+export function useGpsMapLandmark() {
+  const qc = useQueryClient()
+  const toast = useUiStore((state) => state.addToast)
+  return useMutation({
+    mutationFn: (
+      action:
+        | { type: 'save'; landmark: Omit<GpsMapLandmark, 'id'> & { id: string | null } }
+        | { type: 'archive'; id: string },
+    ) =>
+      action.type === 'save'
+        ? gpsLvn.saveMapLandmark(action.landmark).then(() => undefined)
+        : gpsLvn.archiveMapLandmark(action.id),
+    onSuccess: (_, action) => {
+      void qc.invalidateQueries({ queryKey: gpsKeys.mapLandmarks() })
+      toast({
+        type: 'success',
+        message: action.type === 'save' ? 'تم حفظ المعلم على الخريطة الحية' : 'تمت أرشفة المعلم',
+      })
+    },
+    onError: (error) =>
+      toast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'gpsMapLandmark' }).message,
       }),
   })
 }

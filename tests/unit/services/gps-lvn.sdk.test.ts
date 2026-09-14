@@ -98,6 +98,28 @@ describe('LVN GPS SDK', () => {
       'gps_platform_geofence_save',
       expect.objectContaining({ p_name: 'زون الاختبار' }),
     )
+    await gpsLvn.mapLandmarks()
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_map_landmarks_list')
+    await gpsLvn.saveMapLandmark({
+      id: null,
+      name: ' محطة الاختبار ',
+      category: 'station',
+      icon: 'building',
+      latitude: 33.3152,
+      longitude: 44.3661,
+      color: '#f97316',
+      notes: ' موقع ثابت ',
+    })
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_map_landmark_save', {
+      p_id: null,
+      p_name: 'محطة الاختبار',
+      p_category: 'station',
+      p_latitude: 33.3152,
+      p_longitude: 44.3661,
+      p_color: '#f97316',
+      p_notes: 'موقع ثابت',
+      p_icon: 'building',
+    })
   })
   it('يحفظ إسناد الزون وسياسة إشعار GPS بعقود محمية', async () => {
     h.rpc.mockResolvedValueOnce({ data: [{ gps_schedule_healthy: true }], error: null })

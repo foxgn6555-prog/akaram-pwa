@@ -104,6 +104,7 @@ function tankRow(row: Record<string, unknown>): GarageTank {
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     archivedAt: (row.archived_at as string | null) ?? null,
+    parentSector: (row.garage_parent_sector as GarageTank['parentSector']) ?? null,
   }
 }
 
@@ -191,14 +192,8 @@ async function uploadVehicleImage(file: File): Promise<string> {
 
 export const centralGarage = {
   async areas(): Promise<GarageArea[]> {
-    const rows = await sdkGuard(
-      supabase
-        .from('sectors')
-        .select('id,name,parent_sector,sort')
-        .order('sort')
-        .returns<Record<string, unknown>[]>(),
-    )
-    return (rows ?? []).map((row) => ({
+    const rows = await sdkGuard(supabase.rpc('garage_visible_areas'))
+    return ((rows ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
       id: Number(row.id),
       name: String(row.name),
       parentSector: row.parent_sector as GarageArea['parentSector'],
@@ -376,6 +371,19 @@ export const centralGarage = {
     if (fuelType) query = query.eq('fuel_type', fuelType)
     const rows = await sdkGuard(query.returns<Record<string, unknown>[]>())
     return (rows ?? []).map(tankRow)
+  },
+
+  async assignTankSector(
+    tankId: string,
+    parentSector: 'karrada' | 'zaafaraniya',
+  ): Promise<GarageTank> {
+    const data = await sdkGuard(
+      supabase.rpc('admin_assign_garage_tank_sector', {
+        p_tank_id: tankId,
+        p_parent_sector: parentSector,
+      }),
+    )
+    return tankRow(data as unknown as Record<string, unknown>)
   },
 
   async addTank(

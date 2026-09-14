@@ -150,6 +150,40 @@ export interface GpsMapGeofence {
   color: string
   polygon: Array<{ lat: number; lng: number } | [number, number]>
 }
+export type GpsLandmarkIcon =
+  | 'pin'
+  | 'building'
+  | 'garage'
+  | 'fuel'
+  | 'maintenance'
+  | 'warehouse'
+  | 'office'
+  | 'checkpoint'
+  | 'warning'
+  | 'trash'
+  | 'tree'
+  | 'park'
+  | 'hospital'
+  | 'school'
+  | 'restaurant'
+  | 'water'
+  | 'camera'
+  | 'parking'
+  | 'toilet'
+  | 'bridge'
+  | 'target'
+  | 'flag'
+export interface GpsMapLandmark {
+  id: string
+  name: string
+  category:
+    'landmark' | 'garage' | 'station' | 'maintenance' | 'office' | 'checkpoint' | 'hazard' | 'other'
+  icon: GpsLandmarkIcon
+  latitude: number
+  longitude: number
+  color: string
+  notes: string | null
+}
 export interface GpsLiveDevice {
   device_id: string
   device_name: string
@@ -469,6 +503,24 @@ export const gpsLvn = {
       []) as unknown as GpsSyncRun[],
   mapGeofences: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_map_geofences'))) ?? []) as unknown as GpsMapGeofence[],
+  mapLandmarks: async () =>
+    ((await sdkGuard(supabase.rpc('gps_map_landmarks_list'))) ?? []) as unknown as GpsMapLandmark[],
+  saveMapLandmark: async (landmark: Omit<GpsMapLandmark, 'id'> & { id: string | null }) =>
+    (await sdkGuard(
+      supabase.rpc('gps_map_landmark_save', {
+        p_id: landmark.id,
+        p_name: landmark.name.trim(),
+        p_category: landmark.category,
+        p_latitude: landmark.latitude,
+        p_longitude: landmark.longitude,
+        p_color: landmark.color,
+        p_notes: landmark.notes?.trim() || null,
+        p_icon: landmark.icon,
+      }),
+    )) as unknown as string,
+  archiveMapLandmark: async (id: string) => {
+    await sdkGuard(supabase.rpc('gps_map_landmark_archive', { p_id: id }))
+  },
   liveMap: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_live_map'))) ?? []) as unknown as GpsLiveDevice[],
   openAlerts: async () =>

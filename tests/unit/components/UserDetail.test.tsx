@@ -17,6 +17,7 @@ const mockSetBanned = vi.fn()
 const mockResetPass = vi.fn()
 const mockUpdateEmail = vi.fn()
 const mockSaveManagerProfile = vi.fn()
+const mockSaveGarageProfile = vi.fn()
 
 const { FIXTURE, SESSION } = vi.hoisted(() => ({
   FIXTURE: {
@@ -47,6 +48,8 @@ vi.mock('@features/user-management', () => ({
   useSetUserBanned: () => ({ mutate: mockSetBanned, isPending: false }),
   useResetUserPassword: () => ({ mutate: mockResetPass, isPending: false }),
   useUpdateUserEmail: () => ({ mutate: mockUpdateEmail, isPending: false }),
+  useGarageProfileForUser: () => ({ data: null, isLoading: false }),
+  useSaveGarageProfile: () => ({ mutate: mockSaveGarageProfile, isPending: false }),
   updateProfileSchema: z.object({
     full_name: z.string().min(3, 'الاسم مطلوب'),
     phone: z.string().optional().or(z.literal('')),
@@ -165,6 +168,19 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'hr_officer', grant: true })
     await user.click(screen.getByTestId('role-toggle-employee'))
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'employee', grant: false })
+  })
+
+  it('يتيح ربط حساب كراج قائم بقاطع الزعفرانية', async () => {
+    FIXTURE.roles = ['central_garage_officer']
+    const user = userEvent.setup()
+    renderPage()
+    expect(screen.getByRole('region', { name: 'ربط حساب الكراج بالقاطع' })).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('قاطع حساب الكراج'), 'zaafaraniya')
+    await user.click(screen.getByText('حفظ ربط الكراج'))
+    expect(mockSaveGarageProfile).toHaveBeenCalledWith({
+      userId: 'u1',
+      parentSector: 'zaafaraniya',
+    })
   })
 
   it('يتيح إصلاح مناطق حساب مسؤول قائم لتفعيل الربط التلقائي', async () => {

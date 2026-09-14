@@ -7,7 +7,7 @@ declare
  vehicle_one public.garage_vehicles;vehicle_two public.garage_vehicles;departure public.garage_departures;n bigint;
 begin
  insert into auth.users(id,email)values(garage_user,'auto-garage@akram.iq'),(manager_one,'auto-manager1@akram.iq'),(manager_two,'auto-manager2@akram.iq');
- insert into public.user_roles(user_id,role)values(garage_user,'central_garage_officer'),(manager_one,'department_manager'),(manager_two,'department_manager');
+ insert into public.user_roles(user_id,role)values(garage_user,'central_garage_officer'),(garage_user,'ops_room'),(manager_one,'department_manager'),(manager_two,'department_manager');
  insert into public.manager_profiles(user_id,shift,sectors)values(manager_one,'evening',array[6]::smallint[]);
  perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',garage_user::text,false);
  vehicle_one:=public.garage_add_vehicle('آلية إسناد تلقائي','DB-AUTO-1','P-AUTO-1','C-AUTO-1',garage_user::text||'/auto1.webp','morning','سائق تلقائي',6::smallint);

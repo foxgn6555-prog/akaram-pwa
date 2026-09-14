@@ -11,6 +11,7 @@ const h=vi.hoisted(()=>({
 }))
 vi.mock('@features/central-garage/hooks',()=>({
   useGarageTanks:()=>({data:h.tanks,isLoading:false}),
+  useAssignGarageTankSector:()=>({mutate:vi.fn(),isPending:false}),
   useGarageTankMovements:()=>({data:[{id:'m1',tankId:'t1',vehicleId:h.vehicle.id,movementType:'vehicle_fill',quantity:-20,quantityBefore:170,quantityAfter:150,nextRefillDate:'2026-09-20',notes:null,actorId:'u1',createdAt:'2026-09-08T09:00:00Z'}],isLoading:false}),
   useGarageVehicles:()=>({data:{rows:[h.vehicle],totalCount:1},isLoading:false}),
   useAddGarageTank:()=>({mutate:h.addTank,isPending:false}),

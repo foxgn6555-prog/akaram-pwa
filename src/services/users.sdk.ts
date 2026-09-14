@@ -39,6 +39,7 @@ export interface CreateUserInput {
   /** إسناد مسؤول القسم (فقط مع role = department_manager) */
   manager_shift?: 'morning' | 'evening' | 'night'
   manager_sectors?: number[]
+  garage_parent_sector?: 'karrada' | 'zaafaraniya'
 }
 
 /** تعديل بيانات الموظف المرتبط بمستخدم (ينشئ السجل إن لم يوجد) */
@@ -79,6 +80,20 @@ export const users = {
         p_job_title: input.job_title ?? null,
         p_department_id: input.department_id ?? null,
         p_employee_number: input.employee_number ?? null,
+      }),
+    )
+  },
+
+  async garageProfileForUser(userId: string): Promise<'karrada' | 'zaafaraniya' | null> {
+    const data = await sdkGuard(supabase.rpc('garage_profile_for_user', { p_user_id: userId }))
+    return data === 'karrada' || data === 'zaafaraniya' ? data : null
+  },
+
+  async saveGarageProfile(userId: string, parentSector: 'karrada' | 'zaafaraniya'): Promise<void> {
+    await sdkVoid(
+      supabase.rpc('garage_profile_save', {
+        p_user_id: userId,
+        p_parent_sector: parentSector,
       }),
     )
   },
@@ -125,7 +140,9 @@ async function toAdminError(error: unknown): Promise<SDKError> {
       try {
         const body = (await context.json()) as { error?: string }
         code = String(body.error ?? '')
-      } catch { /* جسم غير JSON — نستخدم الرسالة العامة */ }
+      } catch {
+        /* جسم غير JSON — نستخدم الرسالة العامة */
+      }
     }
   }
   const message = ERROR_MESSAGES[code] ?? 'فشلت العملية — حاول مجدداً'
@@ -154,6 +171,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   MANAGER_SHIFT_REQUIRED: 'اختر شفت مسؤول القسم',
   MANAGER_SECTORS_REQUIRED: 'اختر منطقة واحدة على الأقل من قاطع الكرادة أو الزعفرانية',
   MANAGER_PROFILE_FAILED: 'فشل إنشاء ملف مسؤول القسم — رُجّع الإنشاء، حاول مجدداً',
+  GARAGE_PARENT_SECTOR_REQUIRED: 'اختر قاطع الكراج: الكرادة أو الزعفرانية',
+  GARAGE_PROFILE_FAILED: 'فشل ربط حساب الكراج بالقاطع — رُجّع الإنشاء، حاول مجدداً',
   BAD_DEPARTMENT: 'القسم المحدد غير معروف',
   JOB_TITLE_TOO_LONG: 'المسمى الوظيفي طويل جداً (100 حرف كحد أقصى)',
   NO_AUTH: 'انتهت الجلسة — سجّل الدخول من جديد',

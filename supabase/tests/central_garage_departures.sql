@@ -6,7 +6,7 @@ declare
   v public.garage_vehicles;dep public.garage_departures;closed public.garage_departures;n bigint;
 begin
   insert into auth.users(id,email) values(garage_u,'garage-departures@akram.iq'),(outsider_u,'departures-outsider@akram.iq'),(manager_u,'departures-manager@akram.iq');
-  insert into public.user_roles(user_id,role) values(garage_u,'central_garage_officer'),(outsider_u,'employee'),(manager_u,'department_manager');insert into public.manager_profiles(user_id,shift,sectors)values(manager_u,'night',array[8]::smallint[]);
+  insert into public.user_roles(user_id,role) values(garage_u,'central_garage_officer'),(garage_u,'ops_room'),(outsider_u,'employee'),(manager_u,'department_manager');insert into public.manager_profiles(user_id,shift,sectors)values(manager_u,'night',array[8]::smallint[]);
   perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',garage_u::text,false);
   v:=public.garage_add_vehicle('كابسة انطلاق','DB-750','بغداد 750','CHASSIS-750',garage_u::text||'/vehicle.webp','night','سائق الانطلاق',8::smallint);
 

@@ -1,9 +1,40 @@
 /** عمليات حساب المستخدم عبر admin-users: تعطيل/تفعيل · كلمة مرور · بريد */
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usersKeys } from '@lib/query-keys/users.keys'
 import { users, type PlatformUser } from '@sdk/users.sdk'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
+
+export function useGarageProfileForUser(userId: string) {
+  return useQuery({
+    queryKey: ['users', 'garage-profile', userId],
+    queryFn: () => users.garageProfileForUser(userId),
+    enabled: Boolean(userId),
+  })
+}
+
+export function useSaveGarageProfile() {
+  const queryClient = useQueryClient()
+  const addToast = useUiStore((state) => state.addToast)
+  return useMutation({
+    mutationFn: ({
+      userId,
+      parentSector,
+    }: {
+      userId: string
+      parentSector: 'karrada' | 'zaafaraniya'
+    }) => users.saveGarageProfile(userId, parentSector),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['users', 'garage-profile', input.userId] })
+      addToast({ type: 'success', message: 'تم ربط حساب الكراج بالقاطع المحدد' })
+    },
+    onError: (error) =>
+      addToast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'saveGarageProfile' }).message,
+      }),
+  })
+}
 
 function useUserAdminMutation() {
   const queryClient = useQueryClient()
@@ -25,14 +56,19 @@ export function useSetUserBanned() {
       queryClient.setQueriesData(
         { queryKey: usersKeys.lists() },
         (old: PlatformUser[] | undefined) =>
-          old?.map((u) => (u.id === userId ? { ...u, banned_until: banned ? '2099-01-01' : null } : u)),
+          old?.map((u) =>
+            u.id === userId ? { ...u, banned_until: banned ? '2099-01-01' : null } : u,
+          ),
       )
       return { previous }
     },
 
     onError: (error, _vars, context) => {
       context?.previous.forEach(([key, value]) => queryClient.setQueryData(key, value))
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'setUserBanned' }).message })
+      addToast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'setUserBanned' }).message,
+      })
     },
 
     onSuccess: (_d, { banned }) => {
@@ -57,11 +93,17 @@ export function useResetUserPassword() {
       users.resetPassword(userId, password),
 
     onError: (error) => {
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'resetUserPassword' }).message })
+      addToast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'resetUserPassword' }).message,
+      })
     },
 
     onSuccess: () => {
-      addToast({ type: 'success', message: 'عُيّنت كلمة المرور الجديدة — شاركها مع المستخدم بقناة آمنة' })
+      addToast({
+        type: 'success',
+        message: 'عُيّنت كلمة المرور الجديدة — شاركها مع المستخدم بقناة آمنة',
+      })
       void queryClient.invalidateQueries({ queryKey: usersKeys.lists() })
     },
   })
@@ -76,7 +118,10 @@ export function useUpdateUserEmail() {
       users.updateEmail(userId, email),
 
     onError: (error) => {
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'updateUserEmail' }).message })
+      addToast({
+        type: 'error',
+        message: handleAppError(error, { scope: 'updateUserEmail' }).message,
+      })
     },
 
     onSuccess: (_d, { email }) => {

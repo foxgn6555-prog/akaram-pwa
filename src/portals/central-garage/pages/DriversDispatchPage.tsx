@@ -1,14 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import {
-  BusFront,
-  ClipboardEdit,
-  DoorOpen,
-  FolderOpen,
-  LogIn,
-  LogOut,
-  MapPin,
-  Search,
-} from 'lucide-react'
+import { BusFront, DoorOpen, FolderOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
 import {
   useGarageAreas,
   useGarageDepartureDays,
@@ -18,14 +9,8 @@ import {
   useGarageShiftDispatchRecipients,
   useRecordGarageReturn,
   useRecordGarageShiftDeparture,
-  useSetGarageShiftAssignment,
 } from '@features/central-garage/hooks'
-import type {
-  GarageArea,
-  GarageDeparture,
-  GarageShift,
-  GarageVehicle,
-} from '@features/central-garage/types'
+import type { GarageDeparture, GarageShift, GarageVehicle } from '@features/central-garage/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 
@@ -99,7 +84,6 @@ export default function DriversDispatchPage() {
   const [search, setSearch] = useState('')
   const [shift, setShift] = useState('')
   const [sector, setSector] = useState('')
-  const [selected, setSelected] = useState<GarageVehicle | null>(null)
   const [dispatchVehicle, setDispatchVehicle] = useState<GarageVehicle | null>(null)
   const today = useMemo(
     () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date()),
@@ -290,22 +274,6 @@ export default function DriversDispatchPage() {
                         تسجيل انطلاق من الكراج
                       </button>
                     )}
-                    <button
-                      data-testid={`change-assignment-${vehicle.id}`}
-                      disabled={selectedDay !== today || state.kind === 'field'}
-                      title={
-                        selectedDay !== today
-                          ? 'المجلدات السابقة للعرض فقط'
-                          : state.kind === 'field'
-                            ? 'سجّل عودة الآلية قبل تغيير الإسناد'
-                            : undefined
-                      }
-                      onClick={() => setSelected(vehicle)}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 text-xs font-black text-cyan-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                    >
-                      <ClipboardEdit size={15} />
-                      {state.kind === 'field' ? 'الإسناد مقفل أثناء الخروج' : 'إدارة سائقي الشفتات'}
-                    </button>
                   </div>
                 </article>
               )
@@ -315,131 +283,13 @@ export default function DriversDispatchPage() {
       )}
       <p className="rounded-2xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500">
         <b className="text-slate-700">تسجيل انطلاق</b> يوثّق خروج السائق من الكراج إلى ورديته، و
-        <b className="text-slate-700">تسجيل عودة</b> يوثّق رجوعه إلى الكراج — أما{' '}
-        <b className="text-slate-700">تغيير الانطلاقية</b> فيعدّل السائق والوردية والموقع مع حفظ
-        السجل السابق.
+        <b className="text-slate-700">تسجيل عودة</b> يوثّق رجوعه إلى الكراج. تُدار بيانات السائقين
+        والشفتات والمواقع حصراً من غرفة العمليات.
       </p>
-      {selected && (
-        <MultiShiftAssignmentsDialog
-          vehicle={selected}
-          areas={areas.data ?? []}
-          onClose={() => setSelected(null)}
-        />
-      )}
       {dispatchVehicle && (
         <DepartureDialog vehicle={dispatchVehicle} onClose={() => setDispatchVehicle(null)} />
       )}
     </section>
-  )
-}
-
-function MultiShiftAssignmentsDialog({
-  vehicle,
-  areas,
-  onClose,
-}: {
-  vehicle: GarageVehicle
-  areas: GarageArea[]
-  onClose: () => void
-}) {
-  const q = useGarageShiftAssignments(vehicle.id),
-    save = useSetGarageShiftAssignment()
-  const [shift, setShift] = useState<GarageShift>('morning'),
-    [driver, setDriver] = useState(''),
-    [sectorId, setSectorId] = useState(vehicle.sectorId),
-    [reason, setReason] = useState('تحديث إسناد الشفت')
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault()
-    save.mutate(
-      { vehicleId: vehicle.id, shift, driverName: driver, sectorId, reason },
-      {
-        onSuccess: () => {
-          setDriver('')
-          void q.refetch()
-        },
-      },
-    )
-  }
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
-      dir="rtl"
-    >
-      <form onSubmit={submit} className="w-full max-w-xl rounded-3xl bg-white p-6">
-        <h2 className="text-xl font-black">سائقو شفتات {vehicle.vehicleName}</h2>
-        <select
-          data-testid="assignment-shift"
-          value={shift}
-          onChange={(e) => setShift(e.target.value as GarageShift)}
-          className="mt-4 h-11 w-full rounded-xl border px-3"
-        >
-          <option value="morning">صباحي</option>
-          <option value="evening">مسائي</option>
-          <option value="night">ليلي</option>
-        </select>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {(['morning', 'evening', 'night'] as GarageShift[]).map((x) => {
-            const a = q.data?.find((v) => v.shift === x && !v.endsAt)
-            return (
-              <button
-                type="button"
-                key={x}
-                onClick={() => {
-                  setShift(x)
-                  setDriver(a?.driverName ?? '')
-                  setSectorId(a?.sectorId ?? vehicle.sectorId)
-                }}
-                className={`rounded-xl border p-3 text-xs ${shift === x ? 'border-cyan-600 bg-cyan-50' : ''}`}
-              >
-                <b>{shiftLabels[x]}</b>
-                <span className="mt-1 block">{a?.driverName ?? 'غير مسند'}</span>
-              </button>
-            )
-          })}
-        </div>
-        <input
-          data-testid="assignment-driver"
-          required
-          minLength={2}
-          value={driver}
-          onChange={(e) => setDriver(e.target.value)}
-          className="mt-4 h-11 w-full rounded-xl border px-3"
-          placeholder="اسم سائق الشفت"
-        />
-        <select
-          data-testid="assignment-area"
-          value={sectorId}
-          onChange={(e) => setSectorId(Number(e.target.value))}
-          className="mt-3 h-11 w-full rounded-xl border px-3"
-        >
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <input
-          data-testid="assignment-reason"
-          required
-          minLength={3}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-3 h-11 w-full rounded-xl border px-3"
-          placeholder="سبب التغيير"
-        />
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl border">
-            إغلاق
-          </button>
-          <button
-            data-testid="assignment-submit"
-            className="h-11 rounded-xl bg-cyan-700 font-black text-white"
-          >
-            حفظ إسناد {shiftLabels[shift]}
-          </button>
-        </div>
-      </form>
-    </div>
   )
 }
 

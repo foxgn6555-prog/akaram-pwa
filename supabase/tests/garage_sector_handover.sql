@@ -5,7 +5,7 @@ declare
  v public.garage_vehicles;d public.garage_departures;n bigint;tripday date;
 begin
  insert into auth.users(id,email) values(g,'handover-garage@akram.iq'),(m1,'handover-manager1@akram.iq'),(m2,'handover-manager2@akram.iq');
- insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(m1,'department_manager'),(m2,'department_manager');
+ insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(g,'ops_room'),(m1,'department_manager'),(m2,'department_manager');
  insert into public.manager_profiles(user_id,shift,sectors) values(m1,'morning',array[3]::smallint[]),(m2,'morning',array[4]::smallint[]);
  perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',g::text,false);
  v:=public.garage_add_vehicle('كابسة تسليم','DB-HANDOVER','بغداد-H','CHASSIS-H',g::text||'/h.webp','morning','سائق التسليم',3::smallint);

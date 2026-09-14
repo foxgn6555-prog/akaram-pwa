@@ -99,6 +99,7 @@ export interface GarageTank {
   createdAt: string
   updatedAt: string
   archivedAt: string | null
+  parentSector: 'karrada' | 'zaafaraniya' | null
 }
 
 export interface GarageInventoryMovement {

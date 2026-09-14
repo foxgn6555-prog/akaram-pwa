@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   batchHistory: vi.fn(),
   alert: vi.fn(),
   zone: vi.fn(),
+  landmark: vi.fn(),
   routeWindow: vi.fn((..._args: unknown[]) => ({ data: [], isLoading: false })),
   zoneVehicles: vi.fn(),
   alertBulk: vi.fn().mockResolvedValue([]),
@@ -178,6 +179,8 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsAlertEscalations: () => ({ data: [], isLoading: false }),
   useGpsSchedulerHealth: () => ({ data: null, isLoading: false }),
   useGpsLiveMap: () => ({ data: [] }),
+  useGpsMapLandmarks: () => ({ data: [] }),
+  useGpsMapLandmark: () => ({ mutate: h.landmark, isPending: false }),
   useGpsMapGeofences: () => ({
     data: [
       {
@@ -329,8 +332,26 @@ describe('بيانات LVN GPS', () => {
     fireEvent.change(screen.getByLabelText('إحداثيات الزون'), {
       target: { value: '33.3,44.3\n33.4,44.3\n33.4,44.4' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'حفظ الزون' }))
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ الزون وتفعيله' }))
     expect(h.zone).toHaveBeenCalledWith(expect.objectContaining({ type: 'save', name: 'زون جديد' }))
+  })
+  it('يفتح محرر المعالم كامل الشاشة ويحفظ المعلم على الخريطة الحية', () => {
+    render(<GpsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: /الزونات المناطق والحركة/ }))
+    fireEvent.click(screen.getByRole('button', { name: '+ إضافة معلم على الخريطة الحية' }))
+    fireEvent.change(screen.getByLabelText('اسم المعلم'), { target: { value: 'محطة اختبار' } })
+    fireEvent.click(screen.getByRole('button', { name: 'شكل المعلم: وقود' }))
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ وإظهار على الخريطة' }))
+    expect(h.landmark).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'save',
+        landmark: expect.objectContaining({
+          name: 'محطة اختبار',
+          category: 'landmark',
+          icon: 'fuel',
+        }),
+      }),
+    )
   })
   it('يفتح مسار الانطلاقية ويتيح تدقيقه من LVN', async () => {
     render(<GpsDataPage />)

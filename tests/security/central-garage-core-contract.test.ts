@@ -7,6 +7,7 @@ const departuresSql = readFileSync('supabase/migrations/00075_garage_departures.
 const fuelSql = readFileSync('supabase/migrations/00076_fuel_unit_and_refill_date.sql','utf8')
 const multiReportSql = readFileSync('supabase/migrations/00078_garage_multi_vehicle_reports.sql','utf8')
 const vehicleDetailsSql = readFileSync('supabase/migrations/00079_garage_vehicle_details_and_ownership.sql','utf8')
+const garageScopeSql = readFileSync('supabase/migrations/00119_garage_fuel_scope_and_cycle_hardening.sql','utf8')
 const sdk = readFileSync('src/services/central-garage.sdk.ts','utf8')
 
 describe('عقد الكراج المركزي', () => {
@@ -58,6 +59,16 @@ describe('عقد الكراج المركزي', () => {
     expect(fuelSql).toContain('revoke all on function public.garage_add_tank(text,text,text,numeric,numeric,numeric) from public,anon')
     expect(fuelSql).toContain("'consumptionByUnit'")
     expect(fuelSql).toContain("else '[]'::jsonb end")
+  })
+
+  it('يعزل الخزانات والصرف والحركات والتقارير بين كراجي القاطعين خادمياً', () => {
+    expect(garageScopeSql).toContain('garage_parent_sector text')
+    expect(garageScopeSql).toContain('app.garage_tank_allowed')
+    expect(garageScopeSql).toContain('GARAGE_TANK_SCOPE_FORBIDDEN')
+    expect(garageScopeSql).toContain('GARAGE_VEHICLE_SCOPE_FORBIDDEN')
+    expect(garageScopeSql).toContain('garage movements scoped read')
+    expect(garageScopeSql).toContain('garage zero requests scoped read')
+    expect(garageScopeSql).toContain('uq_garage_tank_name_type_sector')
   })
 
   it('التصفير يتطلب موافقة التطوير ويحمي من تغير الرصيد', () => {

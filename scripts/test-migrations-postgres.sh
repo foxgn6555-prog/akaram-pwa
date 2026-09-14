@@ -51,6 +51,8 @@ for test_file in \
   supabase/tests/garage_sector_handover.sql \
   supabase/tests/vehicle_operational_cycles.sql \
   supabase/tests/automatic_sector_manager_dispatch.sql \
+  supabase/tests/ops_fleet_garage_scope.sql \
+  supabase/tests/garage_two_sector_full_cycle.sql \
   supabase/tests/lvn_gps_data_hub.sql \
   supabase/tests/gps_operational_tracking.sql \
   supabase/tests/gps_live_operations_alerts.sql \
@@ -65,6 +67,7 @@ for test_file in \
   supabase/tests/gps_history_window_progress.sql \
   supabase/tests/gps_window_coverage_audit.sql \
   supabase/tests/gps_trip_investigations.sql \
+  supabase/tests/gps_landmarks_zone_shapes.sql \
   supabase/tests/enterprise_notifications.sql \
   supabase/tests/web_push_delivery.sql \
   supabase/tests/notification_policy_control.sql \

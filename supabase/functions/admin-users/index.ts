@@ -16,10 +16,23 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts'
 
 /* mirror لـ ASSIGNABLE_ROLES في src/features/user-management/types.ts */
 const VALID_ROLES = [
-  'employee', 'hr_officer', 'department_manager', 'finance_officer',
-  'it_admin', 'super_admin', 'field_ops', 'admin_ops', 'maintenance',
-  'transfer_station', 'executive_director', 'deputy_director', 'ops_room',
-  'disclosures_officer', 'complaints_officer', 'media_officer', 'central_garage_officer',
+  'employee',
+  'hr_officer',
+  'department_manager',
+  'finance_officer',
+  'it_admin',
+  'super_admin',
+  'field_ops',
+  'admin_ops',
+  'maintenance',
+  'transfer_station',
+  'executive_director',
+  'deputy_director',
+  'ops_room',
+  'disclosures_officer',
+  'complaints_officer',
+  'media_officer',
+  'central_garage_officer',
 ]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -54,10 +67,7 @@ Deno.serve(async (req: Request) => {
     const callerId = callerData.user.id
 
     // ② هل يملك دوراً مصرحاً؟
-    const { data: roleRows } = await admin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', callerId)
+    const { data: roleRows } = await admin.from('user_roles').select('role').eq('user_id', callerId)
     const callerRoles: string[] = (roleRows ?? []).map((r: { role: string }) => r.role)
     if (!callerRoles.some((r) => ['it_admin', 'super_admin', 'hr_officer'].includes(r))) {
       return json({ error: 'FORBIDDEN' }, 403)
@@ -105,7 +115,9 @@ async function createUser(
   callerRoles: string[],
   body: Body,
 ): Promise<Response> {
-  const email = String(body.email ?? '').trim().toLowerCase()
+  const email = String(body.email ?? '')
+    .trim()
+    .toLowerCase()
   const password = String(body.password ?? '')
   const role = String(body.role ?? '')
   const fullName = String(body.full_name ?? '').trim()
@@ -113,13 +125,12 @@ async function createUser(
   const departmentId = body.department_id ? String(body.department_id) : null
   const jobTitle = body.job_title ? String(body.job_title).trim() : null
   const isManager = role === 'department_manager'
+  const isGarageOfficer = role === 'central_garage_officer'
+  const garageParentSector = String(body.garage_parent_sector ?? '')
 
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
-  if (
-    password.length < 8 ||
-    !/[A-Za-z\u0600-\u06FF]/.test(password) ||
-    !/[0-9]/.test(password)
-  ) return json({ error: 'WEAK_PASSWORD' }, 400)
+  if (password.length < 8 || !/[A-Za-z\u0600-\u06FF]/.test(password) || !/[0-9]/.test(password))
+    return json({ error: 'WEAK_PASSWORD' }, 400)
   if (!VALID_ROLES.includes(role)) return json({ error: 'BAD_ROLE' }, 400)
   if (!fullName) return json({ error: 'NAME_REQUIRED' }, 400)
   if (departmentId && !UUID_RE.test(departmentId)) return json({ error: 'BAD_DEPARTMENT' }, 400)
@@ -130,11 +141,21 @@ async function createUser(
     return json({ error: 'FORBIDDEN_ROLE' }, 403)
   }
 
+  if (isGarageOfficer && !['karrada', 'zaafaraniya'].includes(garageParentSector)) {
+    return json({ error: 'GARAGE_PARENT_SECTOR_REQUIRED' }, 400)
+  }
+
   // تحقق مسؤول القسم قبل أي إنشاء — شفت صالح ومنطقة واحدة حتى جميع المناطق الثماني
   const managerShift = String(body.manager_shift ?? '')
-  const managerSectors = [...new Set(Array.isArray(body.manager_sectors)
-    ? (body.manager_sectors as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
-    : [])].sort((a, b) => a - b)
+  const managerSectors = [
+    ...new Set(
+      Array.isArray(body.manager_sectors)
+        ? (body.manager_sectors as unknown[])
+            .map(Number)
+            .filter((n) => Number.isInteger(n) && n >= 1 && n <= 8)
+        : [],
+    ),
+  ].sort((a, b) => a - b)
   if (isManager) {
     if (!['morning', 'evening', 'night'].includes(managerShift)) {
       return json({ error: 'MANAGER_SHIFT_REQUIRED' }, 400)
@@ -162,9 +183,7 @@ async function createUser(
     user_metadata: { full_name: fullName },
   })
   if (createError || !created.user) {
-    const code = (createError?.message ?? '').includes('already')
-      ? 'EMAIL_TAKEN'
-      : 'CREATE_FAILED'
+    const code = (createError?.message ?? '').includes('already') ? 'EMAIL_TAKEN' : 'CREATE_FAILED'
     return json({ error: code, detail: createError?.message }, 409)
   }
   const userId = created.user.id
@@ -223,14 +242,31 @@ async function createUser(
     }
   }
 
-  await audit(admin, callerId, 'create', userId, { email, role })
+  if (isGarageOfficer) {
+    const { error: garageProfileError } = await admin.from('garage_user_profiles').insert({
+      user_id: userId,
+      parent_sector: garageParentSector,
+    })
+    if (garageProfileError) {
+      await admin.auth.admin.deleteUser(userId)
+      return json({ error: 'GARAGE_PROFILE_FAILED', detail: garageProfileError.message }, 500)
+    }
+  }
+
+  await audit(admin, callerId, 'create', userId, {
+    email,
+    role,
+    ...(isGarageOfficer ? { garage_parent_sector: garageParentSector } : {}),
+  })
   return json({ user_id: userId, email, role }, 200)
 }
 
 /** update_email — تغيير بريد حساب قائم (الذات ممنوع — له مساره الخاص) */
 async function updateEmail(admin: AdminClient, callerId: string, body: Body): Promise<Response> {
   const userId = String(body.user_id ?? '')
-  const email = String(body.email ?? '').trim().toLowerCase()
+  const email = String(body.email ?? '')
+    .trim()
+    .toLowerCase()
   if (!userId) return json({ error: 'USER_REQUIRED' }, 400)
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
   if (userId === callerId) return json({ error: 'SELF_FORBIDDEN' }, 403)
@@ -240,9 +276,10 @@ async function updateEmail(admin: AdminClient, callerId: string, body: Body): Pr
     email_confirm: true,
   })
   if (error) {
-    const code = error.message.includes('already been registered') || error.message.includes('already')
-      ? 'EMAIL_TAKEN'
-      : 'UPDATE_FAILED'
+    const code =
+      error.message.includes('already been registered') || error.message.includes('already')
+        ? 'EMAIL_TAKEN'
+        : 'UPDATE_FAILED'
     return json({ error: code, detail: error.message }, 409)
   }
 
@@ -271,11 +308,7 @@ async function resetPassword(admin: AdminClient, callerId: string, body: Body): 
   const userId = String(body.user_id ?? '')
   const password = String(body.password ?? '')
   if (!userId) return json({ error: 'USER_REQUIRED' }, 400)
-  if (
-    password.length < 8 ||
-    !/[A-Za-z\u0600-\u06FF]/.test(password) ||
-    !/[0-9]/.test(password)
-  ) {
+  if (password.length < 8 || !/[A-Za-z\u0600-\u06FF]/.test(password) || !/[0-9]/.test(password)) {
     return json({ error: 'WEAK_PASSWORD' }, 400)
   }
 
@@ -292,4 +325,3 @@ function json(payload: unknown, status: number): Response {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
-

@@ -184,13 +184,13 @@ const renderPage = (node: React.ReactNode, path = '/') =>
     </MemoryRouter>,
   )
 /** يعرض صفحة التفاصيل عبر المسار الحقيقي المعتمد بارامتر vehicleId — يكشف أي اختلال في اسم البارامتر. */
-const renderDetail = () =>
+const renderDetail = (managementMode = false) =>
   render(
     <MemoryRouter initialEntries={['/central-garage/vehicles-database/v1']}>
       <Routes>
         <Route
           path="/central-garage/vehicles-database/:vehicleId"
-          element={<VehicleDetailPage />}
+          element={<VehicleDetailPage managementMode={managementMode} />}
         />
       </Routes>
     </MemoryRouter>,
@@ -209,8 +209,14 @@ describe('قاعدة بيانات آليات الكراج', () => {
     )
   })
 
-  it('يدعم تصنيف الآلية والملكية المؤجرة ويطلب اسم الجهة المؤجرة', () => {
+  it('يعرض قاعدة الكراج للقراءة فقط دون زر إضافة', () => {
     renderPage(<VehiclesDatabasePage />)
+    expect(screen.getByText(/البيانات الأساسية للقراءة فقط/)).toBeInTheDocument()
+    expect(screen.queryByTestId('open-add-vehicle')).not.toBeInTheDocument()
+  })
+
+  it('تدعم غرفة العمليات تصنيف الآلية والملكية المؤجرة وتطلب اسم الجهة المؤجرة', () => {
+    renderPage(<VehiclesDatabasePage managementMode />)
     expect(screen.getByText('كابسة كبيرة')).toBeInTheDocument()
     expect(screen.getByText('آلية ذاتية')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
@@ -232,8 +238,8 @@ describe('قاعدة بيانات آليات الكراج', () => {
     )
   })
 
-  it('يتحقق من كل حقول إضافة الآلية ثم يرسل الصورة والقاطع والشفت', () => {
-    renderPage(<VehiclesDatabasePage />)
+  it('تتحقق غرفة العمليات من كل حقول إضافة الآلية ثم ترسل الصورة والقاطع والشفت', () => {
+    renderPage(<VehiclesDatabasePage managementMode />)
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
     fireEvent.click(screen.getByTestId('vehicle-submit'))
     expect(screen.getByText('اسم السيارة مطلوب')).toBeInTheDocument()
@@ -262,26 +268,14 @@ describe('قاعدة بيانات آليات الكراج', () => {
 })
 
 describe('انطلاقية السائقين وتفاصيل الآلية', () => {
-  it('تعرض الانطلاقية الحالية وتسمح بتغيير السائق والشفت والموقع', () => {
+  it('تعرض للكراج الانطلاقية الحالية دون أدوات تعديل السائق والشفت والموقع', () => {
     renderPage(<DriversDispatchPage />)
     expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('علي حسن')
     expect(screen.getByTestId('dispatch-row-v1')).toHaveTextContent('DB-100')
-    fireEvent.click(screen.getByTestId('change-assignment-v1'))
-    fireEvent.change(screen.getByTestId('assignment-driver'), { target: { value: 'سائق جديد' } })
-    fireEvent.change(screen.getByTestId('assignment-shift'), { target: { value: 'evening' } })
-    fireEvent.change(screen.getByTestId('assignment-area'), { target: { value: '6' } })
-    fireEvent.change(screen.getByTestId('assignment-reason'), { target: { value: 'تبديل موقع' } })
-    fireEvent.click(screen.getByTestId('assignment-submit'))
-    expect(h.assignMutate).toHaveBeenCalledWith(
-      {
-        vehicleId: 'v1',
-        driverName: 'سائق جديد',
-        shift: 'evening',
-        sectorId: 6,
-        reason: 'تبديل موقع',
-      },
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    )
+    expect(screen.queryByTestId('change-assignment-v1')).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/تُدار بيانات السائقين والشفتات والمواقع حصراً من غرفة العمليات/),
+    ).toBeInTheDocument()
   })
 
   it('بدون انطلاقات: يعرض «لم تسجل انطلاقاً» وزر تسجيل انطلاق من الكراج', () => {
@@ -305,11 +299,7 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
     expect(screen.queryByTestId('depart-v1')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('return-v1'))
     expect(h.recordReturn).toHaveBeenCalledWith({ departureId: 'd1' })
-    expect(screen.getByTestId('change-assignment-v1')).toBeDisabled()
-    expect(screen.getByTestId('change-assignment-v1')).toHaveAttribute(
-      'title',
-      'سجّل عودة الآلية قبل تغيير الإسناد',
-    )
+    expect(screen.queryByTestId('change-assignment-v1')).not.toBeInTheDocument()
   })
 
   it('انطلاقة مغلقة اليوم: يعرض «عادت إلى الكراج» مع زر انطلاق جديد', () => {
@@ -321,7 +311,7 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
 
   it('يقفل تغيير الإسناد والأرشفة في صفحة التفاصيل أثناء وجود الآلية في الميدان', () => {
     h.departures = [h.departure]
-    renderDetail()
+    renderDetail(true)
     expect(screen.getByText(/الآلية في الميدان الآن/)).toBeInTheDocument()
     expect(screen.getByTestId('detail-change-assignment')).toBeDisabled()
     expect(screen.getByTestId('open-archive-vehicle')).toBeDisabled()
@@ -349,8 +339,16 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
     expect(screen.getByText('الحالي')).toBeInTheDocument()
   })
 
-  it('يعدل بيانات الآلية الأساسية دون تغيير الإسناد التاريخي', () => {
-    renderPage(<VehicleDetailPage />, '/central-garage/vehicles-database/v1')
+  it('يعرض تفاصيل الآلية للكراج دون أزرار تعديل أو أرشفة أو تغيير إسناد', () => {
+    renderDetail()
+    expect(screen.getByText('بيانات الآلية للقراءة فقط')).toBeInTheDocument()
+    expect(screen.queryByTestId('open-edit-vehicle')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('open-archive-vehicle')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('detail-change-assignment')).not.toBeInTheDocument()
+  })
+
+  it('تعدل غرفة العمليات بيانات الآلية الأساسية دون تغيير الإسناد التاريخي', () => {
+    renderPage(<VehicleDetailPage managementMode />, '/ops-room/vehicles-database/v1')
     fireEvent.click(screen.getByTestId('open-edit-vehicle'))
     expect(screen.getByTestId('edit-vehicle-db')).toHaveValue('DB-100')
     fireEvent.change(screen.getByTestId('edit-vehicle-name'), { target: { value: 'كابسة محدثة' } })
@@ -368,8 +366,8 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
     )
   })
 
-  it('لا يسمح بالأرشفة بلا سبب كاف ويرسل السبب عند اكتماله', () => {
-    renderPage(<VehicleDetailPage />, '/central-garage/vehicles-database/v1')
+  it('لا تسمح غرفة العمليات بالأرشفة بلا سبب كاف وترسل السبب عند اكتماله', () => {
+    renderPage(<VehicleDetailPage managementMode />, '/ops-room/vehicles-database/v1')
     fireEvent.click(screen.getByTestId('open-archive-vehicle'))
     expect(screen.getByTestId('archive-submit')).toBeDisabled()
     fireEvent.change(screen.getByTestId('archive-reason'), {

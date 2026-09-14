@@ -16,7 +16,8 @@ begin
   insert into auth.users(id,email) values
     (garage_u,'garage-core@akram.iq'),(it_u,'garage-it@akram.iq'),(outsider_u,'garage-outsider@akram.iq');
   insert into public.user_roles(user_id,role) values
-    (garage_u,'central_garage_officer'),(it_u,'it_admin'),(outsider_u,'employee');
+    (garage_u,'central_garage_officer'),(garage_u,'ops_room'),(it_u,'it_admin'),(outsider_u,'employee');
+  insert into public.garage_user_profiles(user_id,parent_sector)values(garage_u,'karrada');
 
   perform set_config('role','authenticated',false);
   perform set_config('request.jwt.claim.sub',garage_u::text,false);

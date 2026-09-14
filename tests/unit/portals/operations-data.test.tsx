@@ -94,6 +94,9 @@ describe('تقارير غرفة العمليات المركبة', () => {
     render(<OperationsDataPage />)
     expect(screen.getAllByText('5 س 0 د').length).toBeGreaterThan(0)
     expect(screen.getByRole('cell', { name: '2' })).toBeInTheDocument()
+    expect(screen.getByText('بصمة النشاط ضمن الفترة المحددة')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'آخر 7 أيام' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /تصفير الفلاتر/ })).toBeInTheDocument()
     expect(
       screen.getByText(
         'وقت العمل المنتج محسوب من فترات وجود الآلية في موقع العمل بعد طرح الأعطال القصيرة، مع فصل الحركة والمحطة والصيانة.',

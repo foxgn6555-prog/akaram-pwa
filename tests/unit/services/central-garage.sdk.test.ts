@@ -383,6 +383,22 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
     })
   })
 
+  it('يربط الخزان القديم بقاطعه عبر RPC الإداري فقط', async () => {
+    h.state.result = {
+      data: {
+        id: 't1', fuel_type: 'gas_oil', tank_name: 'قديم', unit: 'liter', capacity: 500,
+        current_quantity: 100, low_stock_threshold: 20, created_at: 'now', updated_at: 'now',
+        archived_at: null, garage_parent_sector: 'zaafaraniya',
+      },
+      error: null,
+    }
+    const tank = await centralGarage.assignTankSector('t1', 'zaafaraniya')
+    expect(h.rpc).toHaveBeenCalledWith('admin_assign_garage_tank_sector', {
+      p_tank_id: 't1', p_parent_sector: 'zaafaraniya',
+    })
+    expect(tank.parentSector).toBe('zaafaraniya')
+  })
+
   it('يجلب حركة الآلية مع وحدة الخزان ونوع المادة لعرض السجل بدقة', async () => {
     h.state.result = {
       data: [

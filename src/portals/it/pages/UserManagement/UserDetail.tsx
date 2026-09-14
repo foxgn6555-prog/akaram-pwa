@@ -10,6 +10,8 @@ import {
   useSetUserBanned,
   useResetUserPassword,
   useUpdateUserEmail,
+  useGarageProfileForUser,
+  useSaveGarageProfile,
   updateProfileSchema,
   ASSIGNABLE_ROLES,
   type UpdateProfileFormInput,
@@ -45,10 +47,14 @@ export default function UserDetail() {
   const setBanned = useSetUserBanned()
   const resetPassword = useResetUserPassword()
   const updateEmail = useUpdateUserEmail()
+  const garageProfile = useGarageProfileForUser(userId ?? '')
+  const saveGarageProfile = useSaveGarageProfile()
   const managerProfile = useManagerProfileForUser(userId ?? '')
   const saveManagerProfile = useSaveManagerProfile()
   const { data: sectors = [] } = useSectors()
 
+  const [garageParentSector, setGarageParentSector] = useState<'karrada' | 'zaafaraniya'>('karrada')
+  const [garageProfileReady, setGarageProfileReady] = useState(false)
   const [managerShift, setManagerShift] = useState<'morning' | 'evening' | 'night'>('morning')
   const [managerSectors, setManagerSectors] = useState<number[]>([])
   const [managerProfileReady, setManagerProfileReady] = useState(false)
@@ -92,7 +98,15 @@ export default function UserDetail() {
 
   useEffect(() => {
     setManagerProfileReady(false)
+    setGarageProfileReady(false)
   }, [userId])
+
+  useEffect(() => {
+    if (!garageProfile.isLoading && !garageProfileReady) {
+      setGarageParentSector(garageProfile.data ?? 'karrada')
+      setGarageProfileReady(true)
+    }
+  }, [garageProfile.data, garageProfile.isLoading, garageProfileReady])
 
   useEffect(() => {
     if (!managerProfile.isLoading && !managerProfileReady) {
@@ -395,6 +409,47 @@ export default function UserDetail() {
         </div>
       </div>
       {/*__PART4__*/}
+
+      {hasRole('central_garage_officer') && (
+        <section
+          className="rounded-2xl border border-cyan-200 bg-white p-6 shadow-sm"
+          aria-label="ربط حساب الكراج بالقاطع"
+        >
+          <div>
+            <h2 className="text-sm font-black">قاطع حساب الكراج المركزي</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              يحدد الآليات والمناطق التي يستطيع هذا الحساب رؤيتها وتشغيل انطلاقياتها. تعديل بيانات
+              الآلية يبقى حصراً لدى غرفة العمليات.
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="min-w-64 text-xs font-bold">
+              الكراج المرتبط
+              <select
+                aria-label="قاطع حساب الكراج"
+                value={garageParentSector}
+                onChange={(event) =>
+                  setGarageParentSector(event.target.value as 'karrada' | 'zaafaraniya')
+                }
+                className="mt-1 h-11 w-full rounded-xl border px-3"
+              >
+                <option value="karrada">كراج قاطع الكرادة</option>
+                <option value="zaafaraniya">كراج قاطع الزعفرانية</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!userId || saveGarageProfile.isPending}
+              onClick={() =>
+                userId && saveGarageProfile.mutate({ userId, parentSector: garageParentSector })
+              }
+              className="h-11 rounded-xl bg-cyan-700 px-6 text-xs font-black text-white disabled:opacity-40"
+            >
+              {saveGarageProfile.isPending ? 'جارٍ الحفظ…' : 'حفظ ربط الكراج'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {hasRole('department_manager') && (
         <section

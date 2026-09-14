@@ -22,9 +22,7 @@ vi.mock('@features/user-management', async (importOriginal) => {
 
 vi.mock('@features/departments', () => ({
   useDepartments: () => ({
-    data: [
-      { id: 'd1', name: 'تقنية المعلومات', code: 'IT', parent_id: null, is_active: true },
-    ],
+    data: [{ id: 'd1', name: 'تقنية المعلومات', code: 'IT', parent_id: null, is_active: true }],
   }),
 }))
 
@@ -110,6 +108,23 @@ describe('CreateUser — إنشاء مستخدم', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
 
+  it('يلزم حساب الكراج بقاطع ويرسله ضمن طلب الإنشاء', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    await user.selectOptions(screen.getByTestId('create-role'), 'central_garage_officer')
+    await FILL()
+    await user.selectOptions(screen.getByTestId('garage-parent-sector'), 'zaafaraniya')
+    await user.click(screen.getByTestId('create-submit'))
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: 'central_garage_officer',
+          garage_parent_sector: 'zaafaraniya',
+        }),
+      ),
+    )
+  })
+
   it('يرسل بيانات مسؤول القسم بالشفت الافتراضي والقواطع المختارة', async () => {
     renderPage()
     const user = userEvent.setup()
@@ -135,7 +150,16 @@ describe('CreateUser — إنشاء مستخدم', () => {
     await userEvent.selectOptions(screen.getByTestId('create-role'), 'department_manager')
     expect(screen.getByRole('heading', { name: 'قاطع الكرادة' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'قاطع الزعفرانية' })).toBeInTheDocument()
-    for (const area of ['أرخيته', 'الرياض', 'الواثق', 'الجادرية', 'السندباد', 'الزعفرانية', 'ديالى', 'الوليد']) {
+    for (const area of [
+      'أرخيته',
+      'الرياض',
+      'الواثق',
+      'الجادرية',
+      'السندباد',
+      'الزعفرانية',
+      'ديالى',
+      'الوليد',
+    ]) {
       expect(screen.getByText(area)).toBeInTheDocument()
     }
   })
@@ -147,9 +171,13 @@ describe('CreateUser — إنشاء مستخدم', () => {
     await FILL()
     await user.click(screen.getByText('اختيار جميع القواطع والمناطق'))
     await user.click(screen.getByTestId('create-submit'))
-    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
-      manager_sectors: [1, 2, 3, 4, 5, 6, 7, 8],
-    })))
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          manager_sectors: [1, 2, 3, 4, 5, 6, 7, 8],
+        }),
+      ),
+    )
   })
 
   it('يرفض مسؤول قسم بلا مناطق — بلا اتصال وبلا شفت وهمي', async () => {

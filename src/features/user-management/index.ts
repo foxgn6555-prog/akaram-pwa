@@ -3,7 +3,13 @@ export { useUsers, useUserFromList } from './hooks/useUsers'
 export { useCreateUser } from './hooks/useCreateUser'
 export { useSetUserRole } from './hooks/useSetUserRole'
 export { useUpdateEmployeeProfile } from './hooks/useUpdateEmployeeProfile'
-export { useSetUserBanned, useResetUserPassword, useUpdateUserEmail } from './hooks/useUserAdminOps'
+export {
+  useSetUserBanned,
+  useResetUserPassword,
+  useUpdateUserEmail,
+  useGarageProfileForUser,
+  useSaveGarageProfile,
+} from './hooks/useUserAdminOps'
 export { createSuperAdminSchema, updateProfileSchema } from './schemas/create-user.schema'
 export type { CreateUserFormInput, UpdateProfileFormInput } from './schemas/create-user.schema'
 export type { PlatformUser, CreateUserInput, UpdateEmployeeProfileInput } from './types'

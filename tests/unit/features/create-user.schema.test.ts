@@ -43,8 +43,20 @@ describe('create-user.schema', () => {
     expect(createSuperAdminSchema.safeParse({ ...VALID, role: 'media_officer' }).success).toBe(true)
   })
 
-  it('يقبل دور مسؤول الكراج المركزي', () => {
-    expect(createSuperAdminSchema.safeParse({ ...VALID, role: 'central_garage_officer' }).success).toBe(true)
+  it('يقبل دور مسؤول الكراج المركزي عند تحديد القاطع', () => {
+    expect(
+      createSuperAdminSchema.safeParse({
+        ...VALID,
+        role: 'central_garage_officer',
+        garage_parent_sector: 'karrada',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('يرفض حساب كراج بلا قاطع', () => {
+    expect(
+      createSuperAdminSchema.safeParse({ ...VALID, role: 'central_garage_officer' }).success,
+    ).toBe(false)
   })
 
   it('يرفض دوراً خارج القائمة', () => {

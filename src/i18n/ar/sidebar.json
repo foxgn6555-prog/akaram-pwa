@@ -61,6 +61,8 @@
     "maintenance_inventory": "مخزون قطع الصيانة",
     "ts_vehicle_movements": "حركة آليات المواقع",
     "ops_operations_data": "بيانات وتقارير العمليات",
+    "ops_vehicles_database": "قاعدة بيانات الآليات",
+    "ops_vehicles_archive": "أرشيف الآليات",
     "ops_gps_data": "بيانات أجهزة GPS",
     "mgr_photos": "إرسال صور",
     "mgr_archive": "الأرشيف",

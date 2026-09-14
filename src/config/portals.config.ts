@@ -337,6 +337,16 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/ops-room/operations-data', labelKey: 'nav.ops_operations_data', icon: 'bar-chart' },
+    {
+      path: '/ops-room/vehicles-database',
+      labelKey: 'nav.ops_vehicles_database',
+      icon: 'database',
+    },
+    {
+      path: '/ops-room/vehicles-archive',
+      labelKey: 'nav.ops_vehicles_archive',
+      icon: 'archive-box',
+    },
     { path: '/ops-room/gps', labelKey: 'nav.ops_gps_data', icon: 'map-pin' },
   ],
 

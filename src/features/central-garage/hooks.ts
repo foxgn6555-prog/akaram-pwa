@@ -204,6 +204,24 @@ export function useGarageTanks(fuelType?: GarageFuelType) {
     staleTime: API.STALE_TIME.DEFAULT,
   })
 }
+export function useAssignGarageTankSector() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  const onError = useGarageMutationError('assignGarageTankSector')
+  return useMutation({
+    mutationFn: (input: {
+      tankId: string
+      parentSector: 'karrada' | 'zaafaraniya'
+    }) => centralGarage.assignTankSector(input.tankId, input.parentSector),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: centralGarageKeys.tanks() })
+      void qc.invalidateQueries({ queryKey: centralGarageKeys.dashboard() })
+      addToast({ type: 'success', message: 'تم ربط الخزان بالكراج المحدد' })
+    },
+    onError,
+  })
+}
+
 export function useGarageTankMovements(tankId: string) {
   return useQuery({
     queryKey: centralGarageKeys.tankMovements(tankId),

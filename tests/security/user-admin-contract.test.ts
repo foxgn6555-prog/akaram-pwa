@@ -11,9 +11,21 @@ const LABELS = read('src/lib/constants/roles.constants.ts')
 const SERVER = read('supabase/functions/admin-users/index.ts')
 const SDK = read('src/services/users.sdk.ts')
 
-const schemaRoles = /role: z\.enum\(\[([\s\S]*?)\], \{/.exec(SCHEMA)?.[1]?.match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
-const serverRoles = /const VALID_ROLES = \[([\s\S]*?)\]/.exec(SERVER)?.[1]?.match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
-const assignRoles = /ASSIGNABLE_ROLES[^=]*= \[([\s\S]*?)\] as const/.exec(TYPES)?.[1]?.match(/'([a-z_]+)'/g)?.map((s) => s.slice(1, -1)) ?? []
+const schemaRoles =
+  /role:\s*z\.enum\(\s*\[([\s\S]*?)\],\s*\{/
+    .exec(SCHEMA)?.[1]
+    ?.match(/'([a-z_]+)'/g)
+    ?.map((s) => s.slice(1, -1)) ?? []
+const serverRoles =
+  /const VALID_ROLES = \[([\s\S]*?)\]/
+    .exec(SERVER)?.[1]
+    ?.match(/'([a-z_]+)'/g)
+    ?.map((s) => s.slice(1, -1)) ?? []
+const assignRoles =
+  /ASSIGNABLE_ROLES[^=]*= \[([\s\S]*?)\] as const/
+    .exec(TYPES)?.[1]
+    ?.match(/'([a-z_]+)'/g)
+    ?.map((s) => s.slice(1, -1)) ?? []
 const labelKeys = [...LABELS.matchAll(/^\s{2}([a-z_]+): '/gm)].map((m) => m[1])
 
 describe('عقد أدوار إنشاء المستخدمين — تطابق المصادر الأربعة', () => {
@@ -54,11 +66,15 @@ describe('مهاجرة 00051 — تعيين الأدوار من Edge Function (s
 
   it('يحافظ على حماية الذات والتدقيق والسياسة (منع إعادة الظهور)', () => {
     expect(MIGRATION).toContain('SELF_MODIFY_FORBIDDEN')
-    expect(MIGRATION).toContain("granted_by")
+    expect(MIGRATION).toContain('granted_by')
     expect(MIGRATION).toContain('audit_logs')
     expect(MIGRATION).toContain('department_manager')
-    expect(MIGRATION).toContain("grant execute on function public.set_user_role(uuid,text,boolean) to authenticated")
-    expect(MIGRATION).toContain("grant execute on function public.set_user_role(uuid,text,boolean,uuid) to service_role")
+    expect(MIGRATION).toContain(
+      'grant execute on function public.set_user_role(uuid,text,boolean) to authenticated',
+    )
+    expect(MIGRATION).toContain(
+      'grant execute on function public.set_user_role(uuid,text,boolean,uuid) to service_role',
+    )
   })
 })
 
@@ -89,10 +105,14 @@ describe('حواجز الخادم في admin-users (إنشاء المستخدم�
   })
 
   it('تراجع نظيف deleteUser في كل حالات الفشل بعد الإنشاء (الدور + الموظف + ملف المسؤول)', () => {
-    expect((SERVER.match(/admin\.auth\.admin\.deleteUser\(userId\)/g) ?? []).length).toBeGreaterThanOrEqual(3)
+    expect(
+      (SERVER.match(/admin\.auth\.admin\.deleteUser\(userId\)/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(3)
   })
 
   it('فحص تكرار الرقم الوظيفي قبل إنشاء الحساب', () => {
-    expect(SERVER.indexOf('EMPLOYEE_NUMBER_TAKEN')).toBeLessThan(SERVER.indexOf('admin.auth.admin.createUser'))
+    expect(SERVER.indexOf('EMPLOYEE_NUMBER_TAKEN')).toBeLessThan(
+      SERVER.indexOf('admin.auth.admin.createUser'),
+    )
   })
 })

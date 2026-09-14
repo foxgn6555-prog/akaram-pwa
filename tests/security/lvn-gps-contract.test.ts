@@ -27,6 +27,10 @@ const edge = readFileSync('supabase/functions/lvn-gps-sync/index.ts', 'utf8'),
   ),
   windowAudit = readFileSync('supabase/migrations/00111_gps_window_coverage_audit.sql', 'utf8'),
   investigations = readFileSync('supabase/migrations/00112_gps_trip_investigations.sql', 'utf8'),
+  landmarks = readFileSync('supabase/migrations/00115_gps_landmarks_and_zone_shapes.sql', 'utf8'),
+  landmarkIcons = readFileSync('supabase/migrations/00116_gps_landmark_icon_library.sql', 'utf8'),
+  zoneEditor = readFileSync('src/portals/ops-room/pages/Gps/ZoneMapEditor.tsx', 'utf8'),
+  liveMap = readFileSync('src/portals/ops-room/pages/Gps/GpsLiveMap.tsx', 'utf8'),
   pushDispatcher = readFileSync('supabase/functions/notification-push-dispatch/index.ts', 'utf8')
 describe('عقد أمان LVN GPS', () => {
   it('يحصر بيانات دخول LVN في Edge Function ولا يرسلها من العميل', () => {
@@ -145,6 +149,22 @@ describe('عقد أمان LVN GPS', () => {
     const exportSource = readFileSync('src/features/gps-lvn/export.ts', 'utf8')
     expect(exportSource).toContain("workbook.addWorksheet('زونات الانطلاقية المحددة'")
     expect(exportSource).toContain("workbook.addWorksheet('تحقيقات المسار'")
+  })
+  it('يدعم محرر الزونات كامل الشاشة والأشكال والمعالم المحمية', () => {
+    expect(gpsPage).toContain('fixed inset-0 z-[2100]')
+    for (const shape of ['rectangle', 'square', 'circle', 'triangle', 'hexagon', 'corridor'])
+      expect(zoneEditor).toContain(shape)
+    expect(zoneEditor).toContain('ممر تشغيلي')
+    expect(landmarks).toContain('enable row level security')
+    expect(landmarks).toContain('perform app.require_gps_operator()')
+    expect(landmarks).toContain('gps_map_landmark_save')
+    expect(client).toContain('gps_map_landmarks_list')
+    expect(landmarkIcons).toContain("add column icon text not null default 'pin'")
+    expect(landmarkIcons).toContain('GPS_LANDMARK_ICON_INVALID')
+    expect(gpsPage).toContain('شكل المعلم')
+    expect(liveMap).toContain("toggleLayer('vehicles')")
+    expect(liveMap).toContain("toggleLayer('zones')")
+    expect(liveMap).toContain("toggleLayer('landmarks')")
   })
   it('يجلب التاريخ ضمن نوافذ بغداد ويقارن المستلم بالمخزن ويقيس الفجوات', () => {
     expect(edge).toContain("request('/get_history'")
