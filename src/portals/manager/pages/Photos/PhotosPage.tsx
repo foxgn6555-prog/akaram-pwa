@@ -99,7 +99,7 @@ export default function PhotosPage() {
     setBusy(true)
     try {
       // 1) رفع الصور إلى التخزين (دفعة متوازية)
-      const paths = await upload.mutateAsync(files)
+      const paths = await upload.mutateAsync([files])
       // 2) تسجيل التذكرة بكل المسارات
       await send.mutateAsync([
         mode,

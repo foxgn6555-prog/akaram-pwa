@@ -315,7 +315,7 @@ describe('بيانات LVN GPS', () => {
   })
   it('يسند عدة آليات للزون من النافذة الجماعية', () => {
     render(<GpsDataPage />)
-    fireEvent.click(screen.getByRole('button', { name: /الزونات/ }))
+    fireEvent.click(screen.getByRole('button', { name: /الزونات المناطق والحركة/ }))
     fireEvent.click(screen.getByRole('button', { name: 'إسناد الآليات' }))
     fireEvent.click(screen.getByRole('checkbox'))
     fireEvent.click(screen.getByRole('button', { name: 'حفظ الإسناد' }))

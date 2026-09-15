@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CircleMarker,
   MapContainer,
@@ -49,15 +49,42 @@ function FocusPoint({ point }: { point: GpsRoutePoint | null }) {
   }, [map, point])
   return null
 }
-function FitRoute({ points, enabled }: { points: GpsRoutePoint[]; enabled: boolean }) {
+function FitRoute({
+  points,
+  enabled,
+  fitSignal,
+}: {
+  points: GpsRoutePoint[]
+  enabled: boolean
+  fitSignal: number
+}) {
   const map = useMap()
+  const pointsRef = useRef(points)
+  pointsRef.current = points
+  // ملاءمة واحدة عند تغيّر المسار المحدَّد (أول نقطة = بصمة الاختيار) —
+  // إضافة نقاط جديدة أثناء المزامنة لا تحرّك الخريطة.
+  const fittedKey = useRef<string | null>(null)
   useEffect(() => {
-    if (enabled && points.length)
-      map.fitBounds(L.latLngBounds(points.map((point) => [point.latitude, point.longitude])), {
+    if (!enabled || !points.length) return
+    const first = points[0]
+    if (!first) return
+    const key = `${first.fix_time}|${first.latitude}|${first.longitude}`
+    if (fittedKey.current === key) return
+    fittedKey.current = key
+    map.fitBounds(L.latLngBounds(points.map((point) => [point.latitude, point.longitude])), {
+      padding: [25, 25],
+      maxZoom: 17,
+    })
+  }, [enabled, map, points])
+  useEffect(() => {
+    if (!fitSignal) return
+    const latest = pointsRef.current
+    if (latest.length)
+      map.fitBounds(L.latLngBounds(latest.map((point) => [point.latitude, point.longitude])), {
         padding: [25, 25],
         maxZoom: 17,
       })
-  }, [enabled, map, points])
+  }, [fitSignal, map])
   return null
 }
 const shiftFor = (point: GpsRoutePoint, shifts: GpsTripShiftContext[]) => {
@@ -91,6 +118,7 @@ export default function GpsRouteMap({
   const [focused, setFocused] = useState<GpsRoutePoint | null>(null)
   const [visibility, setVisibility] = useState<'all' | 'moving' | 'stopped' | 'gaps'>('all')
   const [colorMode, setColorMode] = useState<'status' | 'speed'>('status')
+  const [fitSignal, setFitSignal] = useState(0)
   useEffect(() => {
     if (!focusAt || !points.length) return
     const target = new Date(focusAt).getTime()
@@ -229,6 +257,14 @@ export default function GpsRouteMap({
               <option value="status">حسب الحالة</option>
               <option value="speed">خريطة السرعة الحرارية</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setFitSignal((value) => value + 1)}
+              title="إعادة توسيط الخريطة على كامل المسار"
+              className="h-8 rounded-lg bg-cyan-700 px-2 text-[10px] font-black text-white transition hover:bg-cyan-800"
+            >
+              ⛶ ملاءمة المسار
+            </button>
           </div>
           <div className="absolute bottom-3 right-3 z-[1000] flex flex-wrap items-center gap-3 rounded-xl border border-white/60 bg-slate-950/90 px-3 py-2 text-[10px] font-bold text-white shadow-xl backdrop-blur">
             <span>
@@ -414,7 +450,7 @@ export default function GpsRouteMap({
                 </Popup>
               </CircleMarker>
             )}
-            <FitRoute points={points} enabled={!focused} />
+            <FitRoute points={points} enabled={!focused} fitSignal={fitSignal} />
             <FocusPoint point={focused} />
           </MapContainer>
         </div>

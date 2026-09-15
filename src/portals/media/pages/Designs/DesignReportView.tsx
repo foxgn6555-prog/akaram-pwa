@@ -39,7 +39,7 @@ export default function DesignReportView({
   groups,
 }: DesignReportData) {
   const allPaths = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.path)), [groups])
-  const urls = useSignedPhotoUrls(allPaths)
+  const urls = useSignedPhotoUrls(allPaths).data ?? {}
   const range = periodRange(periodType)
   const start = periodStart || range.start
   const end = periodEnd || range.end
@@ -127,9 +127,15 @@ export default function DesignReportView({
             {groups.map((g, i) => (
               <tr key={g.workType} className={i % 2 ? 'bg-sky-50/50' : ''}>
                 <td className="border border-sky-300 px-2 py-2 text-center">{i + 1}</td>
-                <td className="border border-sky-300 px-2 py-2 text-center font-bold text-sky-900">
-                  {SECTOR_LABEL[sector]}
-                </td>
+                {i === 0 && (
+                  <td
+                    rowSpan={groups.length}
+                    className="border border-sky-300 px-2 py-2 text-center align-middle font-bold text-sky-900"
+                    style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                  >
+                    {SECTOR_LABEL[sector]}
+                  </td>
+                )}
                 <td className="border border-sky-300 px-3 py-2">{g.workType}</td>
                 <td className="border border-sky-300 px-2 py-2 text-center">{g.photos.length}</td>
               </tr>
@@ -156,7 +162,10 @@ export default function DesignReportView({
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {g.photos.map((p) => (
-              <figure key={p.id} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+              <figure key={p.id} className="overflow-hidden rounded-lg border border-slate-300 bg-slate-50">
+                <figcaption className="border-b border-slate-300 bg-gradient-to-b from-slate-100 to-slate-300 px-2 py-1 text-center text-[10px] font-black text-slate-800">
+                  {p.caption || g.workType}
+                </figcaption>
                 <div className="aspect-video bg-slate-100">
                   {urls[p.path] ? (
                     <img src={urls[p.path]} alt={p.caption ?? g.workType} className="size-full object-cover" loading="lazy" />
@@ -164,9 +173,6 @@ export default function DesignReportView({
                     <div className="grid size-full place-items-center text-xs text-slate-300">…</div>
                   )}
                 </div>
-                {p.caption && (
-                  <figcaption className="truncate px-2 py-1 text-[10px] font-bold text-slate-600">{p.caption}</figcaption>
-                )}
               </figure>
             ))}
           </div>

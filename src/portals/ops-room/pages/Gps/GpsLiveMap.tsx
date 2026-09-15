@@ -1,13 +1,6 @@
-import { useEffect, useState } from 'react'
-import {
-  CircleMarker,
-  MapContainer,
-  Marker,
-  Polygon,
-  Popup,
-  TileLayer,
-  useMap,
-} from 'react-leaflet'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { MapContainer, Marker, Polygon, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark } from '@sdk/gps-lvn.sdk'
@@ -29,20 +22,74 @@ const labels = {
   parked: 'متوقفة والمحرك مطفأ',
   unknown: 'غير معروفة',
 }
-function Fit({ rows, landmarks }: { rows: GpsLiveDevice[]; landmarks: GpsMapLandmark[] }) {
+function collectPoints(rows: GpsLiveDevice[], landmarks: GpsMapLandmark[]) {
+  return [
+    ...rows.map((row) => [row.latitude, row.longitude] as [number, number]),
+    ...landmarks.map((landmark) => [landmark.latitude, landmark.longitude] as [number, number]),
+  ]
+}
+// ملاءمة الإطار مرة واحدة فقط عند أول وصول للبيانات — تحدّثات المزامنة
+// اللاحقة لا تحرّك الشاشة؛ المستخدم يستعيدها يدوياً بزر «ملاءمة العرض».
+function Fit({
+  rows,
+  landmarks,
+  fitSignal,
+}: {
+  rows: GpsLiveDevice[]
+  landmarks: GpsMapLandmark[]
+  fitSignal: number
+}) {
   const map = useMap()
+  const dataRef = useRef({ rows, landmarks })
+  dataRef.current = { rows, landmarks }
+  const fittedOnce = useRef(false)
   useEffect(() => {
-    const points = [
-      ...rows.map((row) => [row.latitude, row.longitude] as [number, number]),
-      ...landmarks.map((landmark) => [landmark.latitude, landmark.longitude] as [number, number]),
-    ]
+    if (fittedOnce.current) return
+    const points = collectPoints(rows, landmarks)
+    if (!points.length) return
+    fittedOnce.current = true
+    map.fitBounds(L.latLngBounds(points), {
+      padding: [30, 30],
+      maxZoom: 16,
+    })
+  }, [landmarks, map, rows])
+  // زر الملاءمة فقط — تحديثات المزامنة لا تحرّك الخريطة أبداً
+  useEffect(() => {
+    if (!fitSignal) return
+    const points = collectPoints(dataRef.current.rows, dataRef.current.landmarks)
     if (points.length)
       map.fitBounds(L.latLngBounds(points), {
         padding: [30, 30],
         maxZoom: 16,
       })
-  }, [landmarks, map, rows])
+  }, [fitSignal, map])
   return null
+}
+function InvalidateSize({ dep }: { dep: unknown }) {
+  const map = useMap()
+  useEffect(() => {
+    map.invalidateSize()
+  }, [dep, map])
+  return null
+}
+// ذاكرة أيقونات: نفس الأيقونة لكل (لون/اتجاه مقرّب/حجم) — لا إعادة إنشاء
+// كل مزامنة (يمنع الوميض ويثبّت الرسم)
+const iconCache = new Map<string, L.DivIcon>()
+const arrowIcon = (color: string, course: number | null, active: boolean) => {
+  const deg = (Math.round((course ?? 0) / 10) * 10) % 360
+  const key = `${color}|${deg}|${active}`
+  const cached = iconCache.get(key)
+  if (cached) return cached
+  const size = active ? 30 : 24
+  const icon = L.divIcon({
+    className: 'gps-arrow-icon',
+    html: `<div style="transform:rotate(${deg}deg);line-height:0"><svg width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 1.5 L19.5 21 L12 16 L4.5 21 Z" fill="${color}" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  })
+  iconCache.set(key, icon)
+  return icon
 }
 export default function GpsLiveMap({
   rows,
@@ -54,11 +101,15 @@ export default function GpsLiveMap({
   landmarks: GpsMapLandmark[]
 }) {
   const [tileFailed, setTileFailed] = useState(false)
+  const [fitSignal, setFitSignal] = useState(0)
+  const [full, setFull] = useState(false)
   const [layers, setLayers] = useState({ vehicles: true, zones: true, landmarks: true })
   const toggleLayer = (key: keyof typeof layers) =>
     setLayers((current) => ({ ...current, [key]: !current[key] }))
-  return (
-    <div className="relative overflow-hidden rounded-2xl border">
+  // ملء الشاشة عبر portal إلى body — يهرب من أي ancestor بـ transform/filter
+  // كان يكسر position:fixed ويجعل الخريطة لا تملأ النافذة
+  const shell = (
+    <div className={full ? 'fixed inset-0 z-[2000] bg-white' : 'relative overflow-hidden rounded-2xl border'}>
       <div className="absolute right-3 top-3 z-[1000] max-w-[calc(100%-1.5rem)] rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur">
         <div className="flex flex-wrap gap-1.5 text-[10px] font-black">
           <button
@@ -85,6 +136,22 @@ export default function GpsLiveMap({
           >
             ◆ المعالم ({landmarks.length})
           </button>
+          <button
+            type="button"
+            onClick={() => setFitSignal((value) => value + 1)}
+            title="إعادة توسيط الخريطة على كل الآليات والمعالم"
+            className="rounded-xl bg-cyan-700 px-3 py-2 text-white transition hover:bg-cyan-800"
+          >
+            ⛶ ملاءمة العرض
+          </button>
+          <button
+            type="button"
+            aria-pressed={full}
+            onClick={() => setFull((value) => !value)}
+            className="rounded-xl bg-slate-950 px-3 py-2 text-white transition hover:bg-slate-800"
+          >
+            {full ? '✕ إنهاء ملء الشاشة' : '⛶ ملء الشاشة'}
+          </button>
         </div>
         {layers.vehicles && (
           <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-[9px]">
@@ -100,7 +167,11 @@ export default function GpsLiveMap({
           تعذر تحميل خلفية OpenStreetMap؛ تحقق من الاتصال ثم أعد تحميل الصفحة.
         </div>
       )}
-      <MapContainer center={[33.3152, 44.3661]} zoom={11} className="h-[65vh] min-h-[460px] w-full">
+      <MapContainer
+        center={[33.3152, 44.3661]}
+        zoom={11}
+        className={full ? 'h-full w-full' : 'h-[65vh] min-h-[460px] w-full'}
+      >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -150,16 +221,14 @@ export default function GpsLiveMap({
           ))}
         {layers.vehicles &&
           rows.map((row) => (
-            <CircleMarker
+            <Marker
               key={row.device_id}
-              center={[row.latitude, row.longitude]}
-              radius={row.departure_id ? 9 : 6}
-              pathOptions={{
-                color: colors[row.operational_status],
-                fillColor: colors[row.operational_status],
-                fillOpacity: 0.9,
-                weight: row.departure_id ? 4 : 2,
-              }}
+              position={[row.latitude, row.longitude]}
+              icon={arrowIcon(
+                colors[row.operational_status],
+                row.course,
+                Boolean(row.departure_id),
+              )}
             >
               <Popup>
                 <b>{row.vehicle_name ?? row.device_name}</b>
@@ -180,10 +249,12 @@ export default function GpsLiveMap({
                     ? 'داخل الزون'
                     : 'خارج الزون'}
               </Popup>
-            </CircleMarker>
+            </Marker>
           ))}
-        <Fit rows={rows} landmarks={landmarks} />
+        <Fit rows={rows} landmarks={landmarks} fitSignal={fitSignal} />
+        <InvalidateSize dep={full} />
       </MapContainer>
     </div>
   )
+  return full ? createPortal(shell, document.body) : shell
 }

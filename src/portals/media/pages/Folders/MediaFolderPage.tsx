@@ -7,6 +7,8 @@ import { FolderOpen } from 'lucide-react'
 import { MODE_LABEL, SECTOR_LABEL, WORK_TYPES, type MediaMode, type SectorParent } from '@features/media/constants'
 import { useSubmissionPhotos, useSubmissions } from '@features/media/hooks'
 import PhotoGrid from '../../components/PhotoGrid'
+import { DayFilter } from '../../components/DayFilter'
+import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (x: string) =>
@@ -14,8 +16,12 @@ const dt = (x: string) =>
 
 export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
   const [workType, setWorkType] = useState('')
+  const [day, setDay] = useState('')
   const tickets = useSubmissions(sector, 'all', workType || null)
-  const rows = tickets.data ?? []
+  const rows = (tickets.data ?? []).filter(
+    (t) => !day || (t.event_date ?? t.created_at).slice(0, 10) === day,
+  )
+  const photoTotal = rows.reduce((sum, t) => sum + t.photo_count, 0)
 
   return (
     <section dir="rtl" className="space-y-5">
@@ -30,27 +36,36 @@ export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4">
-        <select
-          aria-label="تصفية حسب النوع"
-          value={workType}
-          onChange={(e) => setWorkType(e.target.value)}
-          className="h-11 rounded-xl border px-3 text-sm"
-        >
-          <option value="">كل الأنواع</option>
-          {WORK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <p className="mr-auto text-xs text-slate-500">{rows.length} تذكرة</p>
+      <div className="space-y-3 rounded-2xl border bg-white p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            aria-label="تصفية حسب النوع"
+            value={workType}
+            onChange={(e) => setWorkType(e.target.value)}
+            className="h-11 rounded-xl border px-3 text-sm"
+          >
+            <option value="">كل الأنواع</option>
+            {WORK_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <DayFilter value={day} onChange={setDay} />
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] font-black">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{rows.length} تذكرة</span>
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-800">{photoTotal} صورة</span>
+          <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-800">
+            {rows.filter((t) => (t.event_date ?? t.created_at).slice(0, 10) === baghdadDay()).length} تذكرة اليوم
+          </span>
+        </div>
       </div>
 
       <div className="space-y-4">
         {rows.map((t) => (
           <FolderTicket key={t.id} ticketId={t.id} title={t.title} mode={t.mode} workType={t.work_type}
-            date={t.created_at} archived={t.status === 'archived'} />
+            date={t.event_date ?? t.created_at} archived={t.status === 'archived'} />
         ))}
         {!tickets.isLoading && rows.length === 0 && (
           <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">

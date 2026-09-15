@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { BellRing, CheckCheck, Settings2 } from 'lucide-react'
 import {
   useDismissNotification,
@@ -8,19 +9,40 @@ import {
 } from '../hooks/useNotifications'
 import { NotificationItem } from './NotificationItem'
 import { NotificationSettingsPanel } from './NotificationSettingsPanel'
-export function NotificationDropdown({ onClose }: { onClose: () => void }) {
+export function NotificationDropdown({
+  onClose,
+  anchor,
+}: {
+  onClose: () => void
+  anchor: { top: number; left: number } | null
+}) {
   const [settings, setSettings] = useState(false)
+  // يُرسم عبر portal خارج الهيدر حتى لا يحبسَه backdrop-blur (مشكلة الجوال)
+  const [desktop] = useState(() => window.matchMedia('(min-width: 640px)').matches)
   const q = useNotifications(),
     read = useMarkNotificationRead(),
     all = useMarkAllNotificationsRead(),
     dismiss = useDismissNotification()
   const rows = q.data ?? []
-  return (
+  const width = desktop ? Math.min(window.innerWidth * 0.92, 420) : window.innerWidth - 24
+  const style = desktop
+    ? {
+        width,
+        top: Math.min(anchor?.top ?? 64, window.innerHeight - 120),
+        left: Math.max(8, Math.min(anchor?.left ?? 8, window.innerWidth - width - 8)),
+      }
+    : undefined
+  return createPortal(
     <section
       role="dialog"
       aria-label="مركز الإشعارات"
       dir="rtl"
-      className="absolute left-0 top-12 z-50 w-[min(92vw,420px)] overflow-hidden rounded-2xl border bg-white shadow-2xl"
+      style={style}
+      className={
+        desktop
+          ? 'fixed z-[3000] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl'
+          : 'fixed inset-x-3 bottom-4 top-16 z-[3000] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl'
+      }
     >
       <header className="bg-gradient-to-l from-slate-950 to-cyan-900 p-4 text-white">
         <div className="flex items-center gap-2">
@@ -52,7 +74,7 @@ export function NotificationDropdown({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       {settings && <NotificationSettingsPanel onClose={() => setSettings(false)} />}
-      <div className="max-h-[65vh] overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[65vh] sm:flex-none">
         {q.isLoading ? (
           <div className="space-y-2 p-4">
             {[1, 2, 3].map((x) => (
@@ -82,6 +104,7 @@ export function NotificationDropdown({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-    </section>
+    </section>,
+    document.body,
   )
 }

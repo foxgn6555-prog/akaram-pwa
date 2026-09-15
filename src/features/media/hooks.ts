@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mediaService,
   type MediaDesign,
+  type MediaDesignTemplate,
   type MediaSubmission,
 } from '@sdk/media.sdk'
 import { useUiStore } from '@stores/ui.store'
@@ -30,7 +31,7 @@ const ERROR_MAP: Record<string, string> = {
 
 const friendly = (e: unknown): string => {
   const raw = e instanceof Error ? e.message : String(e ?? '')
-  const code = raw.split(':')[0].trim()
+  const code = (raw.split(':')[0] ?? '').trim()
   return ERROR_MAP[code] ?? handleAppError(e, { scope: 'media' }).message
 }
 
@@ -61,8 +62,13 @@ export const useMySubmissions = () =>
 
 export const useSendPhotos = () =>
   useMediaAction(
-    (args: [string, string, string | null, string, Array<{ storagePath: string; caption: string }>]) =>
-      mediaService.sendPhotos(...args),
+    (
+      mode: string,
+      title: string,
+      work: string | null,
+      notes: string,
+      photos: Array<{ storagePath: string; caption: string }>,
+    ) => mediaService.sendPhotos(mode, title, work, notes, photos),
     'أُرسلت التذكرة إلى بوابة الإعلام',
     ['media', 'my-submissions', 'sector-photos'],
   )
@@ -96,20 +102,22 @@ export const useSignedPhotoUrls = (paths: string[]) =>
 
 export const useUpdateSubmission = () =>
   useMediaAction(
-    (args: [string, { title: string; workType: string | null; eventDate: string | null; notes: string }]) =>
-      mediaService.updateSubmission(...args),
+    (
+      id: string,
+      meta: { title: string; workType: string | null; eventDate: string | null; notes: string },
+    ) => mediaService.updateSubmission(id, meta),
     'حُدثت معلومات التذكرة',
   )
 
 export const useUpdatePhotoCaption = () =>
   useMediaAction(
-    (args: [string, string]) => mediaService.updatePhotoCaption(...args),
+    (id: string, caption: string) => mediaService.updatePhotoCaption(id, caption),
     'حُفظ وصف الصورة',
   )
 
 export const useArchiveSubmission = () =>
   useMediaAction(
-    (args: [string, string]) => mediaService.archiveSubmission(...args),
+    (id: string, reason: string) => mediaService.archiveSubmission(id, reason),
     'أُرشفت التذكرة',
   )
 
@@ -130,41 +138,38 @@ export const useDesignDetail = (designId: string | null) =>
 
 export const useCreateDesign = () =>
   useMediaAction(
-    (args: [
-      string,
-      string,
-      string,
-      string | null,
-      Array<{ photoId: string; workType: string; caption: string }>,
-    ]) => mediaService.createDesign(...args),
+    (
+      sectorParent: string,
+      periodType: string,
+      title: string,
+      coverPath: string | null,
+      photos: Array<{ photoId: string; workType: string; caption: string }>,
+    ) => mediaService.createDesign(sectorParent, periodType, title, coverPath, photos),
     'أُنشئ التصميم بالصور المحددة',
   )
 
 export const useUpdateDesign = () =>
   useMediaAction(
-    (args: [string, { title: string; periodType: string; coverPath: string | null }]) =>
-      mediaService.updateDesign(...args),
+    (id: string, meta: { title: string; periodType: string; coverPath: string | null }) =>
+      mediaService.updateDesign(id, meta),
     'حُفظ التصميم',
   )
 
 export const useAddDesignPhotos = () =>
   useMediaAction(
-    (args: [string, Array<{ photoId: string; workType: string; caption: string }>]) =>
-      mediaService.addDesignPhotos(...args),
+    (id: string, photos: Array<{ photoId: string; workType: string; caption: string }>) =>
+      mediaService.addDesignPhotos(id, photos),
     'أُضيفت الصور إلى التصميم',
   )
 
 export const useRemoveDesignPhoto = () =>
-  useMediaAction((args: [string]) => mediaService.removeDesignPhoto(...args), 'حُذفت الصورة من التصميم')
+  useMediaAction((id: string) => mediaService.removeDesignPhoto(id), 'حُذفت الصورة من التصميم')
 
 export const useCompleteDesign = () =>
-  useMediaAction(
-    (args: [string]) => mediaService.completeDesign(...args),
-    'اكتمل التصميم وأُغلق للتعديل',
-  )
+  useMediaAction((id: string) => mediaService.completeDesign(id), 'اكتمل التصميم وأُغلق للتعديل')
 
 export const useDeleteDesign = () =>
-  useMediaAction((args: [string]) => mediaService.deleteDesign(...args), 'حُذف التصميم')
+  useMediaAction((id: string) => mediaService.deleteDesign(id), 'حُذف التصميم')
 
 export const useUploadCover = () =>
   useMediaAction(
@@ -178,4 +183,35 @@ export const useUploadPhotos = () =>
     'رُفعت الصور إلى التخزين',
   )
 
-export type { MediaDesign, MediaSubmission }
+/* ── قوالب التصميم (الهوية البصرية) ── */
+export interface MediaTemplateInput {
+  title: string
+  sectorParent: string | null
+  periodType: string
+  coverPath: string | null
+  workTypes: string[]
+  notes: string
+}
+
+export const useMediaTemplates = (includeArchived = false) =>
+  useQuery({
+    queryKey: ['media', 'templates', includeArchived],
+    queryFn: () => mediaService.listTemplates(includeArchived),
+  })
+
+export const useCreateMediaTemplate = () =>
+  useMediaAction(
+    (args: MediaTemplateInput) => mediaService.createTemplate(args),
+    'أُنشئ قالب التصميم',
+  )
+
+export const useUpdateMediaTemplate = () =>
+  useMediaAction(
+    (id: string, args: MediaTemplateInput) => mediaService.updateTemplate(id, args),
+    'حُفظ قالب التصميم',
+  )
+
+export const useArchiveMediaTemplate = () =>
+  useMediaAction((id: string) => mediaService.archiveTemplate(id), 'أُرشف القالب')
+
+export type { MediaDesign, MediaSubmission, MediaDesignTemplate }

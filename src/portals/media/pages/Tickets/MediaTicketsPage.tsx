@@ -20,13 +20,15 @@ import {
   useArchiveSubmission,
   useCreateDesign,
   useDesigns,
+  useMediaTemplates,
   useSubmissionPhotos,
   useSubmissions,
   useUpdatePhotoCaption,
   useUpdateSubmission,
 } from '@features/media/hooks'
-import type { MediaSubmission } from '@sdk/media.sdk'
 import PhotoGrid from '../../components/PhotoGrid'
+import { DayFilter } from '../../components/DayFilter'
+import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (x: string) =>
@@ -34,9 +36,13 @@ const dt = (x: string) =>
 
 export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
   const [workType, setWorkType] = useState('')
+  const [day, setDay] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const tickets = useSubmissions(sector, 'active', workType || null)
-  const rows = tickets.data ?? []
+  const rows = (tickets.data ?? []).filter(
+    (t) => !day || (t.event_date ?? t.created_at).slice(0, 10) === day,
+  )
+  const photoTotal = rows.reduce((sum, t) => sum + t.photo_count, 0)
 
   return (
     <section dir="rtl" className="space-y-5">
@@ -51,21 +57,30 @@ export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4">
-        <select
-          aria-label="تصفية حسب النوع"
-          value={workType}
-          onChange={(e) => setWorkType(e.target.value)}
-          className="h-11 rounded-xl border px-3 text-sm"
-        >
-          <option value="">كل الأنواع</option>
-          {WORK_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <p className="mr-auto text-xs text-slate-500">{rows.length} تذكرة</p>
+      <div className="space-y-3 rounded-2xl border bg-white p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            aria-label="تصفية حسب النوع"
+            value={workType}
+            onChange={(e) => setWorkType(e.target.value)}
+            className="h-11 rounded-xl border px-3 text-sm"
+          >
+            <option value="">كل الأنواع</option>
+            {WORK_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <DayFilter value={day} onChange={setDay} />
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] font-black">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{rows.length} تذكرة</span>
+          <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-cyan-800">{photoTotal} صورة</span>
+          <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-800">
+            {rows.filter((t) => (t.event_date ?? t.created_at).slice(0, 10) === baghdadDay()).length} تذكرة اليوم
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-3">
@@ -127,6 +142,11 @@ function TicketDialog({
   const createDesign = useCreateDesign()
   const addDesignPhotos = useAddDesignPhotos()
   const designs = useDesigns(sector)
+  const templates = useMediaTemplates()
+  const [templateId, setTemplateId] = useState('')
+  const sectorTemplates = (templates.data ?? []).filter(
+    (t) => t.status === 'active' && (t.sector_parent === null || t.sector_parent === sector),
+  )
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [period, setPeriod] = useState<PeriodType>(autoPeriodType())
@@ -193,11 +213,14 @@ function TicketDialog({
         const d = await addDesignPhotos.mutateAsync([existing.id, payload])
         designId = d.id
       } else {
+        const tpl = sectorTemplates.find((t) => t.id === templateId)
         const d = await createDesign.mutateAsync([
           sector,
-          period,
-          `${SECTOR_LABEL[sector]} — تصميم ${PERIODS.find((p) => p.value === period)?.label ?? ''}`,
-          null,
+          tpl?.period_type ? (tpl.period_type as PeriodType) : period,
+          tpl?.title?.trim()
+            ? tpl.title.trim()
+            : `${SECTOR_LABEL[sector]} — تصميم ${PERIODS.find((p) => p.value === period)?.label ?? ''}`,
+          tpl?.cover_path ?? null,
           payload,
         ])
         designId = d.id
@@ -341,6 +364,21 @@ function TicketDialog({
             {PERIODS.map((p) => (
               <option key={p.value} value={p.value} className="text-slate-900">
                 {p.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="قالب التصميم"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="h-10 rounded-xl bg-white/10 px-3 text-sm"
+          >
+            <option value="" className="text-slate-900">
+              بدون قالب
+            </option>
+            {sectorTemplates.map((t) => (
+              <option key={t.id} value={t.id} className="text-slate-900">
+                قالب: {t.title}
               </option>
             ))}
           </select>

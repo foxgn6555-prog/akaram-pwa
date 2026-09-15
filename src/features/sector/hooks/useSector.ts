@@ -192,11 +192,20 @@ export function useReturnVehicleToWork() {
       void qc.invalidateQueries({ queryKey: sectorKeys.all })
       addToast({ type: 'success', message: 'تم تسجيل عودة الآلية إلى العمل وحفظ مدة التوقف' })
     },
-    onError: (e) =>
+    onError: (e) => {
+      const code = e instanceof Error ? (e.message.split(':')[0] ?? '').trim() : ''
+      const friendly: Record<string, string> = {
+        BREAKDOWN_CONTROLLED_BY_MAINTENANCE:
+          'الآلية بحالة صيانة مفتوحة الآن — تُعاد للعمل بعد إغلاق الحالة من بوابة الصيانة (الحالات المرفوضة لا تمنع العودة).',
+        BREAKDOWN_RESOLUTION_NOTES_REQUIRED: 'اكتب الإجراء أو الإصلاح المنفذ (3 أحرف على الأقل).',
+        BREAKDOWN_OPEN_NOT_FOUND: 'العطل غير موجود أو سبق إغلاقه أو ليس ضمن صلاحياتك.',
+        SECTOR_MANAGER_FORBIDDEN: 'ليس لديك صلاحية هذه العملية.',
+      }
       addToast({
         type: 'error',
-        message: handleAppError(e, { scope: 'returnVehicleToWork' }).message,
-      }),
+        message: friendly[code] ?? handleAppError(e, { scope: 'returnVehicleToWork' }).message,
+      })
+    },
   })
 }
 

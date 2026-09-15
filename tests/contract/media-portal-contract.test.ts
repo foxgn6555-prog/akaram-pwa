@@ -43,8 +43,8 @@ describe('بوابة الإعلام', () => {
   it('لكل رابط جانبي مسار فعلي مخصص', () => {
     const routePaths = customRoutes.map((route) => route.path)
     expect(routePaths).toEqual([
-      '', 'karrada-sector', 'zaafaraniya-sector', 'zaafaraniya-folder',
-      'karrada-folder', 'design-templates', 'archive',
+      '', 'karrada-sector', 'zaafaraniya-sector', 'karrada-folder',
+      'zaafaraniya-folder', 'designs', 'design-templates', 'archive',
     ])
   })
 

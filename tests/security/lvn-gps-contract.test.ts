@@ -53,6 +53,8 @@ describe('عقد أمان LVN GPS', () => {
   })
   it('يستورد مناطق LVN ويدعم التحديث التلقائي وCron الموثوق', () => {
     expect(hooks).toContain("gpsLvn.sync('incremental')")
+    // دورة المزامنة كل ثانية — حارس running يمنع تراكب الطلبات.
+    expect(hooks).toContain('1_000')
     expect(hooks).toContain('30_000')
     expect(edge).toContain("request('/add_report_data'")
     expect(edge).toContain("from('gps_geofences')")

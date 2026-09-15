@@ -713,15 +713,13 @@ export const vehicleOperations = {
       supabase.rpc('maintenance_purchase_create', {
         p_supplier_name: supplierName.trim() || null,
         p_notes: notes.trim() || null,
-        p_items: JSON.stringify(
-          items.map((item) => ({
-            part_category: item.part_category,
-            item_name: item.item_name.trim(),
-            quantity: item.quantity,
-            unit: item.unit.trim() || 'قطعة',
-            unit_price: item.unit_price,
-          })),
-        ),
+        p_items: items.map((item) => ({
+          part_category: item.part_category,
+          item_name: item.item_name.trim(),
+          quantity: item.quantity,
+          unit: item.unit.trim() || 'قطعة',
+          unit_price: item.unit_price,
+        })),
       }),
     )
   },

@@ -46,6 +46,19 @@ export interface MediaDesign {
   completed_at: string | null
 }
 
+export interface MediaDesignTemplate {
+  id: string
+  title: string
+  sector_parent: string | null
+  period_type: string
+  cover_path: string | null
+  work_types: string[]
+  notes: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
 export interface MediaDesignPhoto {
   photo_id: string
   source_photo_id: string | null
@@ -83,9 +96,7 @@ export const mediaService = {
         p_title: title,
         p_work_type: workType || null,
         p_notes: notes || null,
-        p_photos: JSON.stringify(
-          photos.map((p) => ({ storage_path: p.storagePath, caption: p.caption })),
-        ),
+        p_photos: photos.map((p) => ({ storage_path: p.storagePath, caption: p.caption })),
       }),
     )) as unknown as MediaSubmission
   },
@@ -165,6 +176,7 @@ export const mediaService = {
       while (index < files.length) {
         const i = index++
         const file = files[i]
+        if (!file) continue
         const safe = (file.name || `photo-${i + 1}`).replace(/[^\\w.-]+/g, '_')
         const path = `${uid}/${stamp}-${i + 1}-${safe}`
         const up = await supabase.storage.from(BUCKET).upload(path, file, {
@@ -187,7 +199,7 @@ export const mediaService = {
     )
     const map: Record<string, string> = {}
     ;(res ?? []).forEach((item) => {
-      if (item && item.signedUrl) map[item.path] = item.signedUrl
+      if (item && item.signedUrl && item.path) map[item.path] = item.signedUrl
     })
     return map
   },
@@ -206,13 +218,11 @@ export const mediaService = {
         p_period_type: periodType,
         p_title: title,
         p_cover_path: coverPath || null,
-        p_photos: JSON.stringify(
-          photos.map((p) => ({
-            photo_id: p.photoId,
-            work_type: p.workType,
-            caption: p.caption,
-          })),
-        ),
+        p_photos: photos.map((p) => ({
+          photo_id: p.photoId,
+          work_type: p.workType,
+          caption: p.caption,
+        })),
       }),
     )) as unknown as MediaDesign
   },
@@ -227,8 +237,8 @@ export const mediaService = {
     const rows = ((await sdkGuard(
       supabase.rpc('media_design_detail', { p_id: id }),
     )) ?? []) as unknown as Array<Record<string, unknown>>
-    if (!rows.length) throw new Error('MEDIA_DESIGN_EMPTY')
     const first = rows[0]
+    if (!first) throw new Error('MEDIA_DESIGN_EMPTY')
     return {
       design: (first.design ?? {}) as MediaDesign,
       photos: rows.map((r) => ({
@@ -264,13 +274,11 @@ export const mediaService = {
     return (await sdkGuard(
       supabase.rpc('media_design_add_photos', {
         p_id: id,
-        p_photos: JSON.stringify(
-          photos.map((p) => ({
-            photo_id: p.photoId,
-            work_type: p.workType,
-            caption: p.caption,
-          })),
-        ),
+        p_photos: photos.map((p) => ({
+          photo_id: p.photoId,
+          work_type: p.workType,
+          caption: p.caption,
+        })),
       }),
     )) as unknown as MediaDesign
   },
@@ -289,6 +297,63 @@ export const mediaService = {
 
   async deleteDesign(id: string): Promise<void> {
     await sdkGuard(supabase.rpc('media_design_delete', { p_id: id }))
+  },
+
+  /* ── قوالب التصميم (الهوية البصرية) ── */
+  async listTemplates(includeArchived = false): Promise<MediaDesignTemplate[]> {
+    return ((await sdkGuard(
+      supabase.rpc('media_templates_list', { p_include_archived: includeArchived }),
+    )) ?? []) as unknown as MediaDesignTemplate[]
+  },
+
+  async createTemplate(args: {
+    title: string
+    sectorParent: string | null
+    periodType: string
+    coverPath: string | null
+    workTypes: string[]
+    notes: string
+  }): Promise<MediaDesignTemplate> {
+    return (await sdkGuard(
+      supabase.rpc('media_template_create', {
+        p_title: args.title,
+        p_sector_parent: args.sectorParent,
+        p_period_type: args.periodType,
+        p_cover_path: args.coverPath,
+        p_work_types: args.workTypes,
+        p_notes: args.notes,
+      }),
+    )) as unknown as MediaDesignTemplate
+  },
+
+  async updateTemplate(
+    id: string,
+    args: {
+      title: string
+      sectorParent: string | null
+      periodType: string
+      coverPath: string | null
+      workTypes: string[]
+      notes: string
+    },
+  ): Promise<MediaDesignTemplate> {
+    return (await sdkGuard(
+      supabase.rpc('media_template_update', {
+        p_id: id,
+        p_title: args.title,
+        p_sector_parent: args.sectorParent,
+        p_period_type: args.periodType,
+        p_cover_path: args.coverPath,
+        p_work_types: args.workTypes,
+        p_notes: args.notes,
+      }),
+    )) as unknown as MediaDesignTemplate
+  },
+
+  async archiveTemplate(id: string): Promise<MediaDesignTemplate> {
+    return (await sdkGuard(
+      supabase.rpc('media_template_archive', { p_id: id }),
+    )) as unknown as MediaDesignTemplate
   },
 
   /** رفع غلاف التصميم (مسار media-officer/…) */

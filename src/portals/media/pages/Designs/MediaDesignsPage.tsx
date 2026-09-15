@@ -153,7 +153,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
 
   const onCover = (file: File | null) => {
     if (!file) return
-    uploadCover.mutate(file, {
+    uploadCover.mutate([file], {
       onSuccess: (path) => {
         setCoverPath(path)
         update.mutate([designId, { title, periodType, coverPath: path }])
@@ -344,7 +344,11 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
       {addOpen && (
         <AddPhotosDialog
           sector={sector}
-          excludePhotoIds={new Set((data.photos ?? []).map((p) => p.source_photo_id).filter(Boolean))}
+          excludePhotoIds={new Set(
+            (data.photos ?? [])
+              .map((p) => p.source_photo_id)
+              .filter((id): id is string => Boolean(id)),
+          )}
           onAdd={(photos) => {
             addPhotos.mutate(
               [designId, photos.map((p) => ({ photoId: p.photoId, workType: p.workType, caption: p.caption }))],

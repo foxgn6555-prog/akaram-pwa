@@ -197,12 +197,13 @@ export function useGpsAutoSync(enabled = true) {
         await qc.invalidateQueries({ queryKey: gpsKeys.all })
         setLastAttempt(new Date().toISOString())
       } catch {
-        // The visible sync log reports failures; avoid a toast every 30 seconds.
+        // The visible sync log reports failures; avoid a toast every second.
       } finally {
         running.current = false
       }
     }
-    const timer = window.setInterval(() => void execute(), 30_000)
+    // مزامنة أجهزة GPS كل ثانية (كانت 30 ثانية) — حارس running يمنع تراكب الطلبات.
+    const timer = window.setInterval(() => void execute(), 1_000)
     return () => window.clearInterval(timer)
   }, [enabled, qc])
   return { lastAttempt }

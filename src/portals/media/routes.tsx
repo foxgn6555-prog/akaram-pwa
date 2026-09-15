@@ -3,10 +3,10 @@ import type { RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const MediaDashboardPage = lazy(() => import('./pages/MediaDashboardPage'))
-const MediaUnitPage = lazy(() => import('./pages/MediaUnitPage'))
 const MediaTicketsPage = lazy(() => import('./pages/Tickets/MediaTicketsPage'))
 const MediaFolderPage = lazy(() => import('./pages/Folders/MediaFolderPage'))
 const MediaDesignsPage = lazy(() => import('./pages/Designs/MediaDesignsPage'))
+const MediaTemplatesPage = lazy(() => import('./pages/Templates/MediaTemplatesPage'))
 const MediaArchivePage = lazy(() => import('./pages/Archive/MediaArchivePage'))
 
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -18,6 +18,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'karrada-folder', element: s(<MediaFolderPage sector="karrada" />) },
   { path: 'zaafaraniya-folder', element: s(<MediaFolderPage sector="zaafaraniya" />) },
   { path: 'designs', element: s(<MediaDesignsPage />) },
-  { path: 'design-templates', element: s(<MediaUnitPage title="قوالب التصميم" kind="templates" />) },
+  { path: 'design-templates', element: s(<MediaTemplatesPage />) },
   { path: 'archive', element: s(<MediaArchivePage />) },
 ]

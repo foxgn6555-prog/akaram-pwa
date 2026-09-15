@@ -75,8 +75,13 @@ export function periodRange(type: PeriodType, ref: Date = new Date()): { start: 
   endMonth.setDate(0) // آخر يوم في الشهر
   const iso = (d: Date) =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(d)
-  if (type === 'first_half') return { start: iso(first), end: iso(new Date(first).setDate(14)) }
-  if (type === 'second_half') return { start: iso(new Date(first).setDate(15)), end: iso(endMonth) }
+  const withDay = (d: Date, day: number) => {
+    const copy = new Date(d)
+    copy.setDate(day)
+    return copy
+  }
+  if (type === 'first_half') return { start: iso(first), end: iso(withDay(first, 14)) }
+  if (type === 'second_half') return { start: iso(withDay(first, 15)), end: iso(endMonth) }
   return { start: iso(first), end: iso(endMonth) }
 }
 
@@ -102,6 +107,22 @@ export function suggestedDesignTitle(sector: SectorParent, type: PeriodType, ref
 
 export const designStatusLabel = (status: string): string =>
   status === 'completed' ? 'مكتمل' : 'مسودة'
+
+/** تاريخ اليوم في بغداد YYYY-MM-DD (مع إزاحة اختيارية بالأيام) */
+export const baghdadDay = (offset = 0) => {
+  const d = new Date(Date.now() + offset * 86_400_000)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(d)
+}
+
+/** عرض التاريخ بالعربية (تقويم بغداد) */
+export const fmtDayAr = (iso: string) =>
+  new Intl.DateTimeFormat('ar-IQ', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Baghdad',
+  }).format(new Date(iso))
 
 export const submissionModeTitleField: Record<MediaMode, { label: string; placeholder: string }> = {
   street: { label: 'اسم الشارع', placeholder: 'مثال: شارع الكرادة داخل' },
