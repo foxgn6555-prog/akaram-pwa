@@ -163,16 +163,16 @@ export const useMaintenanceTimeline = (caseId: string) =>
     queryFn: () => vehicleOperations.maintenanceTimeline(caseId),
     enabled: Boolean(caseId),
   })
-export const useMaintenanceInventory = (search = '') =>
+export const useMaintenanceInventory = (search = '', category = '') =>
   useQuery({
-    queryKey: ['vehicle-operations', 'maintenance-inventory', search],
-    queryFn: () => vehicleOperations.maintenanceInventory(search),
+    queryKey: ['vehicle-operations', 'maintenance-inventory', search, category],
+    queryFn: () => vehicleOperations.maintenanceInventory(search, category),
   })
 export const useMaintenanceCreateInventory = () =>
   useAction(
-    (x: { sku: string; name: string; unit: string; threshold: number }) =>
-      vehicleOperations.maintenanceCreateInventory(x.sku, x.name, x.unit, x.threshold),
-    'تمت إضافة صنف المخزون',
+    (x: { sku: string; name: string; unit: string; threshold: number; category: string }) =>
+      vehicleOperations.maintenanceCreateInventory(x.sku, x.name, x.unit, x.threshold, x.category),
+    'تمت إضافة صنف المخزون إلى قسمه',
   )
 export const useMaintenanceReceiveInventory = () =>
   useAction(
@@ -263,4 +263,58 @@ export const useOpsAlerts = (filters: {
     queryKey: ['vehicle-operations', 'ops-alerts', filters],
     queryFn: () => vehicleOperations.opsAlerts(filters),
     refetchInterval: 30000,
+  })
+
+// ─── مشتريات الصيانة ───
+export const useMaintenancePurchases = () =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-purchases'],
+    queryFn: () => vehicleOperations.maintenancePurchases(),
+  })
+export const useMaintenancePurchaseDetail = (orderId: string) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-purchase-detail', orderId],
+    queryFn: () => vehicleOperations.maintenancePurchaseDetail(orderId),
+    enabled: Boolean(orderId),
+  })
+export const useMaintenancePurchaseCreate = () =>
+  useAction(
+    (x: {
+      supplierName: string
+      notes: string
+      items: Array<{
+        part_category: string
+        item_name: string
+        quantity: number
+        unit: string
+        unit_price: number
+      }>
+    }) => vehicleOperations.maintenancePurchaseCreate(x.supplierName, x.notes, x.items),
+    'سُجل أمر الشراء ودخلت الأصناف المخزون وأُرسل المبلغ للشؤون المالية',
+  )
+// ─── المشتريات المالية ───
+export const useMaintenancePurchasesFinance = (from?: string, to?: string, search?: string) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-purchases-finance', from, to, search],
+    queryFn: () => vehicleOperations.maintenancePurchasesFinance(from, to, search),
+  })
+// ─── مراحل الصيانة ───
+export const useMaintenanceCaseStages = (caseId: string) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-case-stages', caseId],
+    queryFn: () => vehicleOperations.maintenanceCaseStages(caseId),
+    enabled: Boolean(caseId),
+    refetchInterval: 30000,
+  })
+export const useMaintenanceAdvanceStage = () =>
+  useAction(
+    (x: { caseId: string; diagnosis?: string; notes?: string }) =>
+      vehicleOperations.maintenanceAdvanceStage(x.caseId, x.diagnosis, x.notes),
+    'تم الانتقال إلى المرحلة التالية من الصيانة',
+  )
+// ─── أرشيف الصيانة ───
+export const useMaintenanceArchive = (search = '', from = '', to = '') =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-archive', search, from, to],
+    queryFn: () => vehicleOperations.maintenanceArchive(search, from, to),
   })

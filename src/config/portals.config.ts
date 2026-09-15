@@ -182,6 +182,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.FINANCE]: [
     { path: '/finance', labelKey: 'nav.dashboard', icon: 'home' },
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
+    { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
     { path: '/finance/reports', labelKey: 'nav.financial_reports', icon: 'bar-chart' },
     { path: '/finance/audit-report', labelKey: 'nav.audit', icon: 'file-text' },
@@ -298,8 +299,10 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
   [PORTALS.MAINTENANCE]: [
     { path: '/maintenance', labelKey: 'nav.dashboard', icon: 'home', exact: true },
-    { path: '/maintenance/vehicle-cases', labelKey: 'nav.maintenance_cases', icon: 'settings' },
+    { path: '/maintenance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/maintenance/inventory', labelKey: 'nav.maintenance_inventory', icon: 'box' },
+    { path: '/maintenance/vehicle-cases', labelKey: 'nav.maintenance_cases', icon: 'settings' },
+    { path: '/maintenance/archive', labelKey: 'nav.maintenance_archive', icon: 'archive-box' },
   ],
   [PORTALS.TRANSFER_STATION]: [
     { path: '/transfer-station', labelKey: 'nav.dashboard', icon: 'home', exact: true },

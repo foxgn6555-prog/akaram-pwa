@@ -14,6 +14,7 @@ export type IconName =
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
   | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
+  | 'shopping-cart'
 
 const paths: Record<IconName, React.ReactNode> = {
   edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,
@@ -67,6 +68,7 @@ const paths: Record<IconName, React.ReactNode> = {
   trash: <><path d="M4.5 6.5h15" /><path d="M9 6.5V4.5h6v2" /><path d="M6.5 6.5 7.2 20h9.6l.7-13.5" /><path d="M10 10.5v6M14 10.5v6" /></>,
   printer: <><path d="M7 8V3.5h10V8" /><rect x="4" y="8" width="16" height="8" rx="1.5" /><path d="M7 13h10v7.5H7z" /></>,
   'file-spreadsheet': <><path d="M7 3h7l4 4v14H7z" /><path d="M14 3v4h4" /><path d="M9 12h8M9 15.5h8M9 19h8" /></>,
+  'shopping-cart': <><circle cx="9" cy="20" r="1.6" /><circle cx="17.5" cy="20" r="1.6" /><path d="M3 3.5h2.5L7.5 15h10l2.5-9H6" /></>,
 }
 
 export interface IconProps extends SVGProps<SVGSVGElement> {

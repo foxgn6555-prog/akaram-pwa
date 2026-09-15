@@ -123,6 +123,8 @@ export interface MaintenanceCase {
   readiness_approved_at: string | null
   readiness_approved_by: string | null
   readiness_approval_notes: string | null
+  stage_key: StageKey | null
+  stage_no: number
 }
 export interface MaintenanceUpdate {
   id: string
@@ -166,6 +168,76 @@ export interface MaintenanceInventoryItem {
   low_stock_threshold: number
   is_active: boolean
   updated_at: string
+  part_category: string
+}
+export type PartCategory = 'mechanical' | 'electrical' | 'bodywork' | 'metalwork' | 'other'
+export type StageKey = 'arrival' | 'diagnosis' | 'repair' | 'inspection' | 'handover'
+export interface MaintenanceStage {
+  id: string
+  case_id: string
+  stage_key: StageKey
+  stage_no: number
+  status: 'pending' | 'active' | 'completed'
+  notes: string | null
+  started_at: string | null
+  completed_at: string | null
+}
+export interface MaintenancePurchaseOrder {
+  id: string
+  order_number: string
+  supplier_name: string | null
+  notes: string | null
+  total_amount: number
+  item_count: number
+  created_at: string
+}
+export interface MaintenancePurchaseDetailRow {
+  order_number: string
+  supplier_name: string | null
+  notes: string | null
+  created_at: string
+  total_amount: number
+  part_category: string
+  item_name: string
+  quantity: number
+  unit: string
+  unit_price: number
+  line_total: number
+}
+export interface MaintenanceFinancePurchaseRow {
+  order_id: string
+  order_number: string
+  supplier_name: string | null
+  notes: string | null
+  order_date: string
+  part_category: string
+  item_name: string
+  quantity: number
+  unit: string
+  unit_price: number
+  line_total: number
+}
+export interface MaintenanceArchiveEntry {
+  case_id: string
+  vehicle_name: string
+  db_number: string
+  driver_name: string
+  shift: string
+  area_name: string
+  manager_name: string
+  fault_type: string
+  priority: string
+  reported_at: string
+  arrived_at: string | null
+  completed_at: string
+  final_status: string
+  diagnosis: string | null
+  progress: number
+  service_cost: number
+  parts_actual_cost: number
+  actual_cost: number
+  parts_count: number
+  duration_days: number | null
 }
 export interface MaintenanceAttachment {
   id: string
@@ -478,18 +550,31 @@ export const vehicleOperations = {
       }),
     )
   },
-  async maintenanceInventory(search?: string): Promise<MaintenanceInventoryItem[]> {
+  async maintenanceInventory(
+    search?: string,
+    category?: string,
+  ): Promise<MaintenanceInventoryItem[]> {
     return ((await sdkGuard(
-      supabase.rpc('maintenance_inventory_list', { p_search: search?.trim() || null }),
+      supabase.rpc('maintenance_inventory_list', {
+        p_search: search?.trim() || null,
+        p_category: category || null,
+      }),
     )) ?? []) as unknown as MaintenanceInventoryItem[]
   },
-  async maintenanceCreateInventory(sku: string, name: string, unit: string, threshold: number) {
+  async maintenanceCreateInventory(
+    sku: string,
+    name: string,
+    unit: string,
+    threshold: number,
+    category: string = 'other',
+  ) {
     return await sdkGuard(
       supabase.rpc('maintenance_inventory_create', {
         p_sku: sku.trim(),
         p_item_name: name.trim(),
         p_unit: unit.trim() || 'قطعة',
         p_low_stock_threshold: threshold,
+        p_part_category: category,
       }),
     )
   },
@@ -600,5 +685,87 @@ export const vehicleOperations = {
         p_severity: filters.severity || null,
       }),
     )) ?? []) as unknown as OperationsAlert[]
+  },
+
+  // ─── مشتريات الصيانة ───
+  async maintenancePurchases(): Promise<MaintenancePurchaseOrder[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_purchases_list', { p_limit: 50, p_offset: 0 }),
+    )) ?? []) as unknown as MaintenancePurchaseOrder[]
+  },
+  async maintenancePurchaseDetail(orderId: string): Promise<MaintenancePurchaseDetailRow[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_purchase_detail', { p_order_id: orderId }),
+    )) ?? []) as unknown as MaintenancePurchaseDetailRow[]
+  },
+  async maintenancePurchaseCreate(
+    supplierName: string,
+    notes: string,
+    items: Array<{
+      part_category: string
+      item_name: string
+      quantity: number
+      unit: string
+      unit_price: number
+    }>,
+  ) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_purchase_create', {
+        p_supplier_name: supplierName.trim() || null,
+        p_notes: notes.trim() || null,
+        p_items: JSON.stringify(
+          items.map((item) => ({
+            part_category: item.part_category,
+            item_name: item.item_name.trim(),
+            quantity: item.quantity,
+            unit: item.unit.trim() || 'قطعة',
+            unit_price: item.unit_price,
+          })),
+        ),
+      }),
+    )
+  },
+  // ─── المشتريات المالية (بوابة الشؤون المالية) ───
+  async maintenancePurchasesFinance(
+    from?: string,
+    to?: string,
+    search?: string,
+  ): Promise<MaintenanceFinancePurchaseRow[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_purchases_finance', {
+        p_from: from || null,
+        p_to: to || null,
+        p_search: search?.trim() || null,
+      }),
+    )) ?? []) as unknown as MaintenanceFinancePurchaseRow[]
+  },
+  // ─── مراحل صيانة الآلية ───
+  async maintenanceCaseStages(caseId: string): Promise<MaintenanceStage[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_case_stages', { p_case_id: caseId }),
+    )) ?? []) as unknown as MaintenanceStage[]
+  },
+  async maintenanceAdvanceStage(caseId: string, diagnosis?: string, notes?: string) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_advance_stage', {
+        p_case_id: caseId,
+        p_diagnosis: diagnosis?.trim() || null,
+        p_notes: notes?.trim() || null,
+      }),
+    )
+  },
+  // ─── أرشيف الصيانة ───
+  async maintenanceArchive(
+    search?: string,
+    from?: string,
+    to?: string,
+  ): Promise<MaintenanceArchiveEntry[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_archive_list', {
+        p_search: search?.trim() || null,
+        p_from: from || null,
+        p_to: to || null,
+      }),
+    )) ?? []) as unknown as MaintenanceArchiveEntry[]
   },
 }

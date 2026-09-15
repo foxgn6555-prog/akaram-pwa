@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { CalendarDays, History, Paperclip, ShieldCheck, Wrench } from 'lucide-react'
 import {
+  useMaintenanceAdvanceStage,
   useMaintenanceApproveReadiness,
+  useMaintenanceCaseStages,
   useMaintenanceConfirmArrival,
   useMaintenanceDays,
   useMaintenanceDispatch,
@@ -16,7 +18,8 @@ import {
   useMaintenanceUpdate,
   useMaintenanceUploadAttachment,
 } from '@features/vehicle-operations/hooks'
-import type { MaintenanceCase } from '@sdk/vehicle-operations.sdk'
+import { MAINTENANCE_STAGES, stageLabel } from '@features/vehicle-operations/purchase-schemas'
+import type { MaintenanceCase, MaintenanceStage } from '@sdk/vehicle-operations.sdk'
 const labels: Record<string, string> = {
   to_maintenance: 'في الطريق إلى الصيانة',
   at_maintenance: 'داخل الصيانة',
@@ -41,7 +44,8 @@ const dt = (x: string) =>
 export default function MaintenanceCasesPage() {
   const [day, setDay] = useState(today()),
     [edit, setEdit] = useState<MaintenanceCase | null>(null),
-    [detail, setDetail] = useState<MaintenanceCase | null>(null)
+    [detail, setDetail] = useState<MaintenanceCase | null>(null),
+    [advancing, setAdvancing] = useState<MaintenanceCase | null>(null)
   const days = useMaintenanceDays(),
     q = useMaintenanceForDay(day),
     arrival = useMaintenanceConfirmArrival(),
@@ -113,6 +117,9 @@ export default function MaintenanceCasesPage() {
               <i className="block h-full bg-emerald-600" style={{ width: `${c.progress}%` }} />
             </div>
             <p className="mt-1 text-xs text-slate-500">نسبة الإنجاز {c.progress}%</p>
+            <div className="mt-4">
+              <CaseStageStrip item={c} />
+            </div>
             <button
               onClick={() => setDetail(c)}
               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border font-bold"
@@ -137,6 +144,31 @@ export default function MaintenanceCasesPage() {
               >
                 إضافة تحديث جديد
               </button>
+            )}
+            {c.stage_key === 'diagnosis' && (
+              <button
+                data-testid={`advance-stage-${c.case_id}`}
+                onClick={() => setAdvancing(c)}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 text-xs font-black text-white"
+              >
+                <History size={15} />
+                إكمال مرحلة التشخيص (كتابة العطل)
+              </button>
+            )}
+            {c.stage_key === 'repair' && (
+              <button
+                data-testid={`advance-stage-${c.case_id}`}
+                onClick={() => setAdvancing(c)}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 text-xs font-black text-white"
+              >
+                <History size={15} />
+                إكمال مرحلة الإصلاح والانتقال إلى الفحص
+              </button>
+            )}
+            {c.stage_key === 'inspection' && c.status !== 'ready' && (
+              <p className="mt-3 rounded-xl bg-indigo-50 p-3 text-[11px] font-bold text-indigo-800">
+                المرحلة الحالية: الفحص — حدّث الحالة إلى «جاهزة للمغادرة» بالإنجاز 100% ثم اعتمد الجاهزية.
+              </p>
             )}
             {c.status === 'ready' && !c.readiness_approved_at && (
               <button
@@ -178,7 +210,166 @@ export default function MaintenanceCasesPage() {
         </p>
       )}
       {edit && <UpdateDialog item={edit} close={() => setEdit(null)} />}{' '}
-      {detail && <DetailsDialog item={detail} close={() => setDetail(null)} />}
+      {detail && <DetailsDialog item={detail} close={() => setDetail(null)} />}{' '}
+      {advancing && <AdvanceStageDialog item={advancing} close={() => setAdvancing(null)} />}
+    </section>
+  )
+}
+
+/** شريط المراحل الخمس (مختصر) — يظهر داخل بطاقة الحالة */
+function CaseStageStrip({ item }: { item: MaintenanceCase }) {
+  const allDone = !item.stage_key && (item.stage_no ?? 0) === 0
+  return (
+    <div className="rounded-2xl border bg-slate-50 p-3">
+      <p className="mb-2 text-[11px] font-black text-slate-600">
+        مراحل الصيانة الخمس —{' '}
+        <b className="text-indigo-700">
+          {item.completed_at
+            ? 'اكتملت جميع المراحل — الحالة مغلقة'
+            : allDone
+              ? 'اكتملت جميع المراحل — الآلية في الطريق'
+              : `المرحلة الحالية: ${stageLabel(item.stage_key) || 'الاستلام'}`}
+        </b>
+      </p>
+      <ol className="grid grid-cols-5 gap-1">
+        {MAINTENANCE_STAGES.map((stage) => {
+          const no = item.stage_no || 1
+          const state =
+            item.completed_at || allDone
+              ? 'completed'
+              : stage.no < no
+                ? 'completed'
+                : stage.no === no
+                  ? 'active'
+                  : 'pending'
+          return (
+            <li key={stage.key} className="flex flex-col items-center gap-1 text-center">
+              <span
+                className={`grid size-7 place-items-center rounded-full text-[11px] font-black ${
+                  state === 'completed'
+                    ? 'bg-emerald-600 text-white'
+                    : state === 'active'
+                      ? 'bg-indigo-700 text-white ring-4 ring-indigo-100'
+                      : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {state === 'completed' ? '✓' : stage.no}
+              </span>
+              <span
+                className={`text-[9px] leading-3 ${
+                  state === 'active' ? 'font-black text-indigo-800' : 'text-slate-500'
+                }`}
+              >
+                {stage.label}
+              </span>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+/** مربع حوار تدرّج المرحلة: التشخيص إلزامي في المرحلة الثانية */
+function AdvanceStageDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
+  const advance = useMaintenanceAdvanceStage()
+  const needsDiagnosis = item.stage_key === 'diagnosis'
+  const [diagnosis, setDiagnosis] = useState(item.diagnosis ?? '')
+  const [notes, setNotes] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          advance.mutate(
+            { caseId: item.case_id, diagnosis: needsDiagnosis ? diagnosis : undefined, notes },
+            { onSuccess: close },
+          )
+        }}
+        className="w-full max-w-lg rounded-3xl bg-white p-6"
+      >
+        <h2 className="text-lg font-black">
+          {needsDiagnosis ? 'تشخيص العطل — المرحلة 2 من 5' : 'إكمال مرحلة الإصلاح — المرحلة 3 من 5'}
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          {needsDiagnosis
+            ? 'لا يمكن بدء أي إصلاح قبل كتابة تشخيص العطل (5 أحرف على الأقل).'
+            : 'بعد الإكمال تنتقل الحالة إلى مرحلة الفحص واعتماد الجاهزية.'}
+        </p>
+        <textarea
+          data-testid="stage-diagnosis"
+          required={needsDiagnosis}
+          value={diagnosis}
+          onChange={(e) => setDiagnosis(e.target.value)}
+          className="mt-4 w-full rounded-xl border p-3 text-sm"
+          rows={4}
+          placeholder={
+            needsDiagnosis
+              ? 'اكتب تشخيص العطل: السبب، الأجزاء المتأثرة، ما يلزم الإصلاح'
+              : 'ملاحظات على أعمال الإصلاح (اختياري)'
+          }
+        />
+        {!needsDiagnosis && (
+          <input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mt-3 h-11 w-full rounded-xl border px-3 text-sm"
+            placeholder="ملاحظات إضافية (اختياري)"
+          />
+        )}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={close} className="h-11 rounded-xl border">
+            إلغاء
+          </button>
+          <button
+            disabled={advance.isPending}
+            className="h-11 rounded-xl bg-indigo-700 font-black text-white disabled:opacity-40"
+          >
+            {advance.isPending ? 'جارٍ الحفظ…' : needsDiagnosis ? 'اعتماد التشخيص والبدء بالإصلاح' : 'الانتقال إلى مرحلة الفحص'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+/** تفاصيل مراحل الحالة داخل السجل الكامل */
+function StagesSection({ caseId }: { caseId: string }) {
+  const stages = useMaintenanceCaseStages(caseId)
+  const rows: MaintenanceStage[] = stages.data ?? []
+  if (!rows.length) return null
+  return (
+    <section className="mt-5 rounded-2xl border p-4">
+      <h3 className="flex items-center gap-2 font-black">
+        <History size={16} />
+        مراحل الصيانة الخمس
+      </h3>
+      <div className="mt-3 space-y-2">
+        {rows.map((stage) => (
+          <div
+            key={stage.id}
+            className={`flex items-center justify-between rounded-xl p-3 text-xs ${
+              stage.status === 'completed'
+                ? 'bg-emerald-50'
+                : stage.status === 'active'
+                  ? 'bg-indigo-50 ring-1 ring-indigo-200'
+                  : 'bg-slate-50'
+            }`}
+          >
+            <b>
+              {stage.stage_no}. {MAINTENANCE_STAGES.find((s) => s.key === stage.stage_key)?.label}
+            </b>
+            <span>
+              {stage.status === 'completed'
+                ? `مكتملة ${stage.completed_at ? dt(stage.completed_at) : ''}`
+                : stage.status === 'active'
+                  ? 'قيد التنفيذ الآن'
+                  : 'لم تبدأ'}
+              {stage.notes && <i className="mr-2 block text-[10px] not-italic text-slate-500">{stage.notes}</i>}
+            </span>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
@@ -377,6 +568,7 @@ function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => vo
             <p className="py-4 text-center text-xs text-slate-400">لا توجد أحداث مسجلة.</p>
           )}
         </section>
+        <StagesSection caseId={item.case_id} />
         <h3 className="mt-5 flex items-center gap-2 font-black">
           <Paperclip size={16} />
           الصور والمرفقات

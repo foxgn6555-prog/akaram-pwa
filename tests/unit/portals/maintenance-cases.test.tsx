@@ -105,6 +105,18 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
     refetch: vi.fn(),
   }),
   useMaintenanceAddPart: () => ({ mutate: h.part }),
+  useMaintenanceCaseStages: () => ({
+    data: [
+      { id: 's1', case_id: 'c1', stage_key: 'arrival', stage_no: 1, status: 'completed', notes: null, started_at: null, completed_at: '2026-09-09T09:00:00Z' },
+      { id: 's2', case_id: 'c1', stage_key: 'diagnosis', stage_no: 2, status: 'completed', notes: null, started_at: null, completed_at: '2026-09-09T10:00:00Z' },
+      { id: 's3', case_id: 'c1', stage_key: 'repair', stage_no: 3, status: 'active', notes: null, started_at: '2026-09-09T10:00:00Z', completed_at: null },
+      { id: 's4', case_id: 'c1', stage_key: 'inspection', stage_no: 4, status: 'pending', notes: null, started_at: null, completed_at: null },
+      { id: 's5', case_id: 'c1', stage_key: 'handover', stage_no: 5, status: 'pending', notes: null, started_at: null, completed_at: null },
+    ],
+    isLoading: false,
+    refetch: vi.fn(),
+  }),
+  useMaintenanceAdvanceStage: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 import Page from '@portals/maintenance/pages/VehicleCases/MaintenanceCasesPage'
 describe('تفاصيل الصيانة متعددة الأيام', () => {

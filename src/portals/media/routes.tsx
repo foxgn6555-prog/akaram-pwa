@@ -4,14 +4,20 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const MediaDashboardPage = lazy(() => import('./pages/MediaDashboardPage'))
 const MediaUnitPage = lazy(() => import('./pages/MediaUnitPage'))
+const MediaTicketsPage = lazy(() => import('./pages/Tickets/MediaTicketsPage'))
+const MediaFolderPage = lazy(() => import('./pages/Folders/MediaFolderPage'))
+const MediaDesignsPage = lazy(() => import('./pages/Designs/MediaDesignsPage'))
+const MediaArchivePage = lazy(() => import('./pages/Archive/MediaArchivePage'))
+
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: s(<MediaDashboardPage />) },
-  { path: 'karrada-sector', element: s(<MediaUnitPage title="قاطع الكرادة" kind="sector" />) },
-  { path: 'zaafaraniya-sector', element: s(<MediaUnitPage title="الزعفرانية" kind="sector" />) },
-  { path: 'zaafaraniya-folder', element: s(<MediaUnitPage title="فولدر الزعفرانية" kind="folder" />) },
-  { path: 'karrada-folder', element: s(<MediaUnitPage title="فولدر الكرادة" kind="folder" />) },
+  { path: 'karrada-sector', element: s(<MediaTicketsPage sector="karrada" />) },
+  { path: 'zaafaraniya-sector', element: s(<MediaTicketsPage sector="zaafaraniya" />) },
+  { path: 'karrada-folder', element: s(<MediaFolderPage sector="karrada" />) },
+  { path: 'zaafaraniya-folder', element: s(<MediaFolderPage sector="zaafaraniya" />) },
+  { path: 'designs', element: s(<MediaDesignsPage />) },
   { path: 'design-templates', element: s(<MediaUnitPage title="قوالب التصميم" kind="templates" />) },
-  { path: 'archive', element: s(<MediaUnitPage title="الأرشيف" kind="archive" />) },
+  { path: 'archive', element: s(<MediaArchivePage />) },
 ]
