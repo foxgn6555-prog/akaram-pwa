@@ -89,7 +89,8 @@ for test_file in \
   supabase/tests/complaint_review_after_required.sql \
   supabase/tests/complaint_archive_deletion_workflow.sql \
   supabase/tests/media_design_templates.sql \
-  supabase/tests/media_send_photos_limits.sql
+  supabase/tests/media_send_photos_limits.sql \
+  supabase/tests/media_design_report_editing.sql
 do
   echo "TEST $(basename "$test_file")"
   "$PSQL_BIN" "$DB_URL" -v ON_ERROR_STOP=1 -f "$test_file" >/dev/null

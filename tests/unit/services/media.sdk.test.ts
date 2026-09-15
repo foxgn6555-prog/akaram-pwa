@@ -60,6 +60,19 @@ describe('وسائط jsonb في SDK الإعلام', () => {
     expect(Array.isArray(params.p_photos)).toBe(true)
   })
 
+  it('saveDesignReport يرسل الورقات والعبارات مصفوفات jsonb', async () => {
+    await mediaService.saveDesignReport(
+      'd9',
+      [{ workType: 'كنس الشوارع', text: 'أعمال كنس الشوارع' }],
+      [{ rowId: 'r1', text: 'كنس شارع المستنك' }],
+    )
+    expect(h.rpc).toHaveBeenCalledWith('media_design_report_save', {
+      p_id: 'd9',
+      p_sheets: [{ work_type: 'كنس الشوارع', text: 'أعمال كنس الشوارع' }],
+      p_captions: [{ row_id: 'r1', text: 'كنس شارع المستنك' }],
+    })
+  })
+
   it('القوالب: تمرير الوسائط بأسمائها الصحيحة', async () => {
     h.rpc.mockResolvedValue({ data: { id: 't1' }, error: null })
     await mediaService.createTemplate({

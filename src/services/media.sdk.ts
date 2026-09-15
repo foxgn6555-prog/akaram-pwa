@@ -66,12 +66,19 @@ export interface MediaDesignPhoto {
   work_type: string
   storage_path: string
   caption: string | null
+  report_caption: string | null
   sort_order: number
+}
+
+export interface MediaDesignSheet {
+  work_type: string
+  sheet_text: string
 }
 
 export interface MediaDesignDetail {
   design: MediaDesign
   photos: MediaDesignPhoto[]
+  sheets: MediaDesignSheet[]
 }
 
 export interface MediaDraftPhoto {
@@ -234,23 +241,44 @@ export const mediaService = {
   },
 
   async designDetail(id: string): Promise<MediaDesignDetail> {
-    const rows = ((await sdkGuard(
-      supabase.rpc('media_design_detail', { p_id: id }),
-    )) ?? []) as unknown as Array<Record<string, unknown>>
-    const first = rows[0]
+    const [rows, sheets] = await Promise.all([
+      sdkGuard(supabase.rpc('media_design_detail', { p_id: id })),
+      sdkGuard(supabase.rpc('media_design_sheets_list', { p_id: id })),
+    ])
+    const list = (rows ?? []) as unknown as Array<Record<string, unknown>>
+    const first = list[0]
     if (!first) throw new Error('MEDIA_DESIGN_EMPTY')
     return {
       design: (first.design ?? {}) as MediaDesign,
-      photos: rows.map((r) => ({
+      sheets: ((sheets ?? []) as unknown as Array<Record<string, unknown>>).map((s) => ({
+        work_type: String(s.work_type ?? ''),
+        sheet_text: String(s.sheet_text ?? ''),
+      })),
+      photos: list.map((r) => ({
         photo_id: String(r.photo_id ?? ''),
         source_photo_id: (r.source_photo_id as string) ?? null,
         source_submission_id: (r.source_submission_id as string) ?? null,
         work_type: String(r.work_type ?? ''),
         storage_path: String(r.storage_path ?? ''),
         caption: (r.caption as string) ?? null,
+        report_caption: (r.report_caption as string) ?? null,
         sort_order: Number(r.sort_order ?? 0),
       })),
     }
+  },
+
+  async saveDesignReport(
+    id: string,
+    sheets: Array<{ workType: string; text: string }>,
+    captions: Array<{ rowId: string; text: string }>,
+  ): Promise<void> {
+    await sdkGuard(
+      supabase.rpc('media_design_report_save', {
+        p_id: id,
+        p_sheets: sheets.map((s) => ({ work_type: s.workType, text: s.text })),
+        p_captions: captions.map((c) => ({ row_id: c.rowId, text: c.text })),
+      }),
+    )
   },
 
   async updateDesign(

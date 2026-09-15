@@ -31,6 +31,7 @@ import {
   useDesignDetail,
   useDesigns,
   useRemoveDesignPhoto,
+  useSaveDesignReport,
   useSignedPhotoUrls,
   useSubmissions,
   useSubmissionPhotos,
@@ -110,6 +111,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const addPhotos = useAddDesignPhotos()
   const uploadCover = useUploadCover()
   const deleteDesign = useDeleteDesign()
+  const saveReport = useSaveDesignReport(designId)
 
   const data = detail.data
   const [title, setTitle] = useState(data?.design.title ?? '')
@@ -127,10 +129,19 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const coverUrl = coverPath ? coverUrls.data?.[coverPath] : null
 
   const groups = useMemo(() => {
-    const map = new Map<string, Array<{ id: string; path: string; caption: string | null; rowId: string }>>()
+    const map = new Map<
+      string,
+      Array<{ id: string; path: string; caption: string | null; reportCaption: string | null; rowId: string }>
+    >()
     for (const p of data?.photos ?? []) {
       const arr = map.get(p.work_type) ?? []
-      arr.push({ id: p.photo_id, path: p.storage_path, caption: p.caption, rowId: p.photo_id })
+      arr.push({
+        id: p.photo_id,
+        path: p.storage_path,
+        caption: p.caption,
+        reportCaption: p.report_caption,
+        rowId: p.photo_id,
+      })
       map.set(p.work_type, arr)
     }
     return [...map.entries()].map(([workType, photos]) => ({ workType, photos }))
@@ -328,15 +339,19 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
         <div className="mt-5 max-h-[70vh] overflow-y-auto rounded-2xl border bg-slate-100 p-4">
           <DesignReportView
             title={title || data.design.title}
-            sector={sector}
-            periodType={periodType}
-            periodStart={periodRange(periodType).start}
-            periodEnd={periodRange(periodType).end}
             coverUrl={coverUrl}
+            sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
             groups={groups.map((g) => ({
               workType: g.workType,
-              photos: g.photos.map((p) => ({ id: p.id, path: p.path, caption: p.caption })),
+              photos: g.photos.map((p) => ({
+                id: p.id,
+                rowId: p.rowId,
+                path: p.path,
+                caption: p.caption,
+                reportCaption: p.reportCaption,
+              })),
             }))}
+            onSaveReport={(sh, caps) => saveReport.mutateAsync([sh, caps])}
           />
         </div>
       )}

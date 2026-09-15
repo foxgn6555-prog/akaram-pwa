@@ -171,6 +171,16 @@ export const useCompleteDesign = () =>
 export const useDeleteDesign = () =>
   useMediaAction((id: string) => mediaService.deleteDesign(id), 'حُذف التصميم')
 
+export const useSaveDesignReport = (designId: string) =>
+  useMediaAction(
+    (
+      sheets: Array<{ workType: string; text: string }>,
+      captions: Array<{ rowId: string; text: string }>,
+    ) => mediaService.saveDesignReport(designId, sheets, captions),
+    'حُفظت تعديلات نص التقرير والعبارات',
+    ['media', 'design-detail', designId],
+  )
+
 export const useUploadCover = () =>
   useMediaAction(
     (file: File) => mediaService.uploadCover(file),
