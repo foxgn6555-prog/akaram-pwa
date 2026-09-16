@@ -1,7 +1,7 @@
 /** ثوابت قوالب التقرير المصور: أشكال صفحات الصور، قوالب ورقة النص، ثيمات الجدول، والخطوط */
-export type PhotoLayout = 'classic' | 'round' | 'stack' | 'mosaic'
-export type SheetStyle = 'frame' | 'plain' | 'double'
-export type SummaryTheme = 'blue' | 'green' | 'slate'
+export type PhotoLayout = 'classic' | 'round' | 'stack' | 'mosaic' | 'film' | 'collage'
+export type SheetStyle = 'frame' | 'plain' | 'double' | 'underline'
+export type SummaryTheme = 'blue' | 'green' | 'slate' | 'royal'
 export type ReportFont = 'cairo' | 'tajawal' | 'amiri' | 'kufi'
 export interface ReportStyle {
   photoLayout: PhotoLayout
@@ -15,16 +15,20 @@ export const PHOTO_LAYOUTS: Array<{ value: PhotoLayout; label: string }> = [
   { value: 'round', label: 'شبكة 2×2 بحواف دائرية' },
   { value: 'stack', label: 'عمود رباعي عريض' },
   { value: 'mosaic', label: 'فسيفساء: عنوان كبير + ثلاث' },
+  { value: 'film', label: 'شريط فيلم أفقي' },
+  { value: 'collage', label: 'كولاج: كبير جانبياً' },
 ]
 export const SHEET_STYLES: Array<{ value: SheetStyle; label: string }> = [
   { value: 'frame', label: 'إطار أسود' },
   { value: 'double', label: 'إطار مزدوج' },
   { value: 'plain', label: 'بدون إطار' },
+  { value: 'underline', label: 'خط أنيق تحت النص' },
 ]
 export const SUMMARY_THEMES: Array<{ value: SummaryTheme; label: string }> = [
   { value: 'blue', label: 'أزرق رسمي' },
   { value: 'green', label: 'أخضر ميداني' },
   { value: 'slate', label: 'رمادي فحمي' },
+  { value: 'royal', label: 'بنفسجي ملكي' },
 ]
 export const REPORT_FONTS: Array<{ value: ReportFont; label: string }> = [
   { value: 'cairo', label: 'القاهرة' },
@@ -55,6 +59,11 @@ export const THEMES: Record<SummaryTheme, Array<{ bg: string; fg: string }>> = {
     { bg: '#0f172a', fg: '#ffffff' },
     { bg: '#334155', fg: '#ffffff' },
     { bg: '#f59e0b', fg: '#0f172a' },
+  ],
+  royal: [
+    { bg: '#581c87', fg: '#ffffff' },
+    { bg: '#7e22ce', fg: '#ffffff' },
+    { bg: '#fbbf24', fg: '#0f172a' },
   ],
 }
 

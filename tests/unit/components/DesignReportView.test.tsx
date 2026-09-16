@@ -152,6 +152,25 @@ describe('بنية أوراق التقرير', () => {
     })
   })
 
+  it('القوالب الموسعة: شريط فيلم وكولاج وخط تحت النص والثيم الملكي', () => {
+    const { container } = render(
+      <DesignReportView
+        {...base}
+        groups={[{ workType: 'كنس الشوارع', photos: [1, 2, 3, 4].map((n) => photo(n)) }]}
+        onSaveReport={vi.fn(async () => {})}
+      />,
+    )
+    fireEvent.click(screen.getByText('شريط فيلم أفقي'))
+    expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('film')
+    fireEvent.click(screen.getByText('كولاج: كبير جانبياً'))
+    expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('collage')
+    fireEvent.click(screen.getByText('خط أنيق تحت النص'))
+    expect(container.querySelector('.rp-sheet-inner')?.getAttribute('data-style')).toBe('underline')
+    fireEvent.click(screen.getByText('بنفسجي ملكي'))
+    const orgRow = container.querySelectorAll('table tbody tr')[0] as HTMLElement
+    expect(orgRow.style.background).toMatch(/581c87|88, 28, 135/)
+  })
+
   it('css الطباعة يفكك الحاويات الثابتة ويفصل الأوراق', () => {
     const { container } = render(
       <DesignReportView {...base} groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]} />,
