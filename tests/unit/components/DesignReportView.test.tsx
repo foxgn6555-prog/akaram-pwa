@@ -94,6 +94,36 @@ describe('بنية أوراق التقرير', () => {
     expect(extra.summary.rows.map((r) => r.work)).toEqual(['كنس الشوارع'])
   })
 
+  it('جدول الملخص: ثلاثة أعمدة ثابتة المحاذاة وصف ترويسة مستقل', () => {
+    const { container } = render(
+      <DesignReportView
+        {...base}
+        groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]}
+      />,
+    )
+    const table = container.querySelector('.rp-summary table')!
+    expect(table.querySelectorAll('colgroup col').length).toBe(3)
+    const headerRow = table.querySelectorAll('tr')[3]!
+    expect(headerRow.children.length).toBe(3)
+    expect(headerRow.textContent).toContain('الفقرات المنجزة')
+    expect(headerRow.textContent).toContain('اسم القاطع')
+    expect(headerRow.textContent).toContain('ت')
+    // صف الفقرات الأول: عمود العمل + القاطع (rowSpan) + الترقيم
+    const firstRow = table.querySelectorAll('tr')[4]!
+    expect(firstRow.children.length).toBe(3)
+  })
+
+  it('css الطباعة يفكك الحاويات الثابتة ويفصل الأوراق', () => {
+    const { container } = render(
+      <DesignReportView {...base} groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]} />,
+    )
+    const css = container.querySelector('style')?.textContent ?? ''
+    expect(css).toContain('[data-rp-overlay]')
+    expect(css).toContain('[data-rp-preview]')
+    expect(css).toContain('break-after: page')
+    expect(css).not.toContain('inset: 0; width: 100%')
+  })
+
   it('صفحة الجدول: تعديل قيمة التاريخ وإضافة فقرة', async () => {
     const onSave = vi.fn(async () => {})
     const { container } = render(

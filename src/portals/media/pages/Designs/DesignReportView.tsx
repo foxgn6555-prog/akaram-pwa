@@ -341,12 +341,19 @@ export default function DesignReportView({
           .rp-editable:hover { outline: 1.5px dashed #0891b2; outline-offset: 2px; }
         }
         @media print {
+          html, body { background: #fff !important; }
+          [data-rp-overlay] {
+            position: static !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
+          [data-rp-preview] { padding: 0 !important; border: 0 !important; background: none !important; }
           body * { visibility: hidden; }
           #design-report, #design-report * { visibility: visible; }
-          #design-report { position: absolute; inset: 0; width: 100%; }
+          #design-report { position: absolute; top: 0; inset-inline: 0; width: 100%; height: auto; }
           .no-print { display: none !important; }
           @page { size: A4; margin: 10mm; }
-          .rp-page { box-shadow: none; margin: 0 auto; }
+          .rp-page { box-shadow: none; margin: 0 auto; height: 276mm; }
         }
       `}</style>
 
@@ -449,9 +456,14 @@ export default function DesignReportView({
           </div>
 
           <table>
+            <colgroup>
+              <col />
+              <col style={{ width: '26mm' }} />
+              <col style={{ width: '10mm' }} />
+            </colgroup>
             <tbody>
               <tr className="bg-[#1e3a8a] text-white">
-                <td className="w-44 font-black">
+                <td className="font-black">
                   <EditableText
                     label="عنوان الجهة"
                     value={sum.orgLabel}
@@ -460,7 +472,7 @@ export default function DesignReportView({
                     inputClassName="rp-sum-in font-black text-white"
                   />
                 </td>
-                <td>
+                <td colSpan={2}>
                   <EditableText
                     label="قيمة الجهة"
                     value={sum.orgValue}
@@ -480,7 +492,7 @@ export default function DesignReportView({
                     inputClassName="rp-sum-in font-black text-white"
                   />
                 </td>
-                <td>
+                <td colSpan={2}>
                   <EditableText
                     label="قيمة الموضوع"
                     value={sum.subjectValue}
@@ -500,7 +512,7 @@ export default function DesignReportView({
                     inputClassName="rp-sum-in font-black"
                   />
                 </td>
-                <td className="font-bold">
+                <td colSpan={2} className="font-bold">
                   <EditableText
                     label="قيمة التاريخ"
                     value={sum.dateValue}
@@ -512,10 +524,8 @@ export default function DesignReportView({
               </tr>
               <tr className="bg-sky-100">
                 <td className="font-black text-sky-900">الفقرات المنجزة</td>
-                <td className="grid grid-cols-[1fr_auto]">
-                  <span className="font-black text-sky-900">اسم القاطع</span>
-                  <span className="w-8 border-r border-sky-300 text-center font-black text-sky-900">ت</span>
-                </td>
+                <td className="text-center font-black text-sky-900">اسم القاطع</td>
+                <td className="text-center font-black text-sky-900">ت</td>
               </tr>
               {sum.rows.map((r, i) => (
                 <tr key={i}>
@@ -539,7 +549,7 @@ export default function DesignReportView({
                         <button
                           type="button"
                           aria-label={`حذف فقرة ${i + 1}`}
-                          className="no-print text-red-500"
+                          className="no-print text-[9px] text-red-300 hover:text-red-600"
                           onClick={() => patchSum({ rows: sum.rows.filter((_, j) => j !== i) })}
                         >
                           ✕
@@ -562,7 +572,7 @@ export default function DesignReportView({
                       />
                     </td>
                   )}
-                  <td className="w-8 text-center">{r.t}</td>
+                  <td className="text-center">{r.t}</td>
                 </tr>
               ))}
             </tbody>

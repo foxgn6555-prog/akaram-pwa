@@ -3,7 +3,7 @@
  * مصمّم بملء الشاشة: غلاف يدوي، صور حسب نوع العمل مع سحب وإفلات
  * (إعادة ترتيب ونقل بين الأنواع)، وفتح الصور بعرض كبير، ومعاينة التقرير وطباعته
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
   Eye,
@@ -179,6 +179,16 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const coverUrls = useSignedPhotoUrls(coverPath ? [coverPath] : [])
   const coverUrl = coverPath ? coverUrls.data?.[coverPath] : null
 
+  // عنوان الوثيقة أثناء المعاينة ليظهر اسم التقرير في ترويسة الطباعة بدل عنوان التطبيق
+  useEffect(() => {
+    if (!preview) return
+    const prev = document.title
+    document.title = `جزيرة الاكرام — تقرير ${title || (data?.design.title ?? '')}`
+    return () => {
+      document.title = prev
+    }
+  }, [preview, title, data?.design.title])
+
   const groups = useMemo<ThumbGroup[]>(() => {
     const map = new Map<string, ThumbPhoto[]>()
     for (const p of data?.photos ?? []) {
@@ -239,9 +249,14 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100" dir="rtl" data-testid="composer-fullscreen">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-100"
+      dir="rtl"
+      data-testid="composer-fullscreen"
+      data-rp-overlay
+    >
       {/* ترويسة المصمم */}
-      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-300 bg-white/95 px-4 py-3 backdrop-blur">
+      <div className="no-print sticky top-0 z-10 flex items-center gap-2 border-b border-slate-300 bg-white/95 px-4 py-3 backdrop-blur">
         <h2 className="text-base font-black text-slate-800">
           {locked ? 'التصميم (مكتمل)' : 'مُصمم التصميم — ملء الشاشة'}
         </h2>
@@ -257,7 +272,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
         </button>
       </div>
 
-      <div className="mx-auto max-w-6xl space-y-4 p-4 pb-24">
+      <div className="no-print mx-auto max-w-6xl space-y-4 p-4 pb-24">
         {!locked && (
           <section className="grid gap-2 rounded-2xl border bg-white p-3 sm:grid-cols-[1fr_auto_auto]">
             <input
@@ -457,10 +472,15 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
             </>
           )}
         </div>
+      </div>
 
-        {/* المعاينة الحية */}
+      {/* المعاينة الحية — خارج المحتوى المخفي حتى تُفصل الأوراق فصلاً سليماً عند الطباعة */}
         {preview && (
-          <div className="overflow-y-auto rounded-2xl border bg-slate-200 p-4">
+          <div data-rp-preview className="p-4">
+            <p className="no-print mx-auto mb-3 max-w-6xl rounded-xl border border-amber-300 bg-amber-50 p-2 text-center text-[11px] font-bold text-amber-800">
+              كل ورقة تُطبع على صفحة مستقلة. ولطباعة أنظف: ألغِ خيار «الرؤوس والتذييلات» وفعّل «الرسومات
+              الخلفية» في نافذة الطباعة.
+            </p>
             <DesignReportView
               title={title || data.design.title}
               sector={sector}
@@ -487,7 +507,6 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
             />
           </div>
         )}
-      </div>
 
       {/* عارض الصور */}
       {lightbox && (
