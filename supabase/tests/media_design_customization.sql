@@ -95,6 +95,15 @@ begin
   if (select template_colors->>'border' from public.media_designs where id = d.id) <> '#123456' then
     raise exception 'COLORS FAIL';
   end if;
+  -- نمط القوالب والخط يُحفظ على التصميم
+  perform public.media_design_report_save(
+    d.id, null, null, null, null,
+    jsonb_build_object('photoLayout', 'mosaic', 'sheetStyle', 'double', 'summaryTheme', 'green', 'font', 'amiri'));
+  if (select (template_style->>'photoLayout') || ':' || (template_style->>'font')
+      from public.media_designs where id = d.id) <> 'mosaic:amiri' then
+    raise exception 'STYLE FAIL';
+  end if;
+
   -- ملخص بصيغة غير كائن يُرفض
   begin
     perform public.media_design_report_save(d.id, null, null, '[]'::jsonb, null);

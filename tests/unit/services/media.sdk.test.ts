@@ -72,6 +72,7 @@ describe('وسائط jsonb في SDK الإعلام', () => {
       p_captions: [{ row_id: 'r1', text: 'كنس شارع المستنك', fit: null, zoom: null }],
       p_summary: null,
       p_colors: null,
+      p_style: null,
     })
   })
 

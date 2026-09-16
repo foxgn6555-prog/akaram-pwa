@@ -43,7 +43,11 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
-import DesignReportView, { type ReportColors, type ReportSummary } from './DesignReportView'
+import DesignReportView, {
+  type ReportColors,
+  type ReportStyle,
+  type ReportSummary,
+} from './DesignReportView'
 
 export default function MediaDesignsPage() {
   const [params, setParams] = useSearchParams()
@@ -491,6 +495,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
               sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
               summary={(data.design.summary as unknown as ReportSummary | null) ?? null}
               colors={(data.design.template_colors as unknown as ReportColors | null) ?? null}
+              style={(data.design.template_style as unknown as ReportStyle | null) ?? null}
               groups={groups.map((g) => ({
                 workType: g.workType,
                 photos: g.photos.map((p) => ({

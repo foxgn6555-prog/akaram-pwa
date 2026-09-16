@@ -113,6 +113,45 @@ describe('بنية أوراق التقرير', () => {
     expect(firstRow.children.length).toBe(3)
   })
 
+  it('لوحة التخصيص: حالة التقرير + قوالب الصفحات والخط والثيم تُطبق وتُحفظ', async () => {
+    const onSave = vi.fn(async () => {})
+    const { container } = render(
+      <DesignReportView
+        {...base}
+        groups={[{ workType: 'كنس الشوارع', photos: [1, 2, 3, 4].map((n) => photo(n)) }]}
+        onSaveReport={onSave}
+      />,
+    )
+    // حالة التقرير: غلاف وصور وأوراق
+    expect(screen.getByText('✓ الغلاف مرفوع')).toBeInTheDocument()
+    expect(screen.getByText('4 صورة')).toBeInTheDocument()
+    expect(screen.getByText('4 ورقة')).toBeInTheDocument()
+    // القالب الافتراضي كلاسيكي ثم فسيفساء
+    expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('classic')
+    fireEvent.click(screen.getByText('فسيفساء: عنوان كبير + ثلاث'))
+    expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('mosaic')
+    // الخط
+    fireEvent.click(screen.getByText('أميري'))
+    expect((container.querySelector('#design-report') as HTMLElement).style.fontFamily).toContain('Amiri')
+    // الثيم الأخضر: صف التاريخ كهرماني ضمن الثيم
+    fireEvent.click(screen.getByText('أخضر ميداني'))
+    const dateRow = container.querySelectorAll('table tbody tr')[2] as HTMLElement
+    expect(dateRow.style.background).toMatch(/fbbf24|251, 191, 36/)
+    // قالب ورقة النص
+    fireEvent.click(screen.getByText('إطار مزدوج'))
+    expect(container.querySelector('.rp-sheet-inner')?.getAttribute('data-style')).toBe('double')
+    // الحفظ يحمل النمط كاملاً
+    fireEvent.click(screen.getByTestId('report-save'))
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalled())
+    const extra = (onSave.mock.calls[0] as unknown[])[2] as { style: Record<string, string> }
+    expect(extra.style).toEqual({
+      photoLayout: 'mosaic',
+      sheetStyle: 'double',
+      summaryTheme: 'green',
+      font: 'amiri',
+    })
+  })
+
   it('css الطباعة يفكك الحاويات الثابتة ويفصل الأوراق', () => {
     const { container } = render(
       <DesignReportView {...base} groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]} />,
@@ -134,7 +173,7 @@ describe('بنية أوراق التقرير', () => {
       />,
     )
     const summaryPage = container.querySelectorAll('.rp-page')[1]!
-    const dateBtn = summaryPage.querySelectorAll('.bg-amber-400 .rp-editable')[1]!
+    const dateBtn = summaryPage.querySelectorAll('table tbody tr')[2]!.querySelectorAll('.rp-editable')[1]!
     fireEvent.click(dateBtn)
     const dateInput = screen.getByLabelText('قيمة التاريخ')
     fireEvent.change(dateInput, { target: { value: 'من 1 الى 14 اب 2026' } })
