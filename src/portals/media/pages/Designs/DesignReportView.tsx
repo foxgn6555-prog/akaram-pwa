@@ -1,15 +1,24 @@
 /**
  * التقرير المصور النهائي — بنية الأوراق المطبوعة:
  *  · الورقة 1: الغلاف صورة يُضيفها مسؤول الإعلام يدوياً كما هي
- *     (وإن لم يُرفع غلاف: ورقة بيضاء بإطار أسود وعنوان التصميم في المنتصف)
- *  · الورقة 2: صفحة الجدول الرسمية (الشعارات + الجهة/الموضوع/التاريخ + الفقرات
- *     المنجزة + التذييل) — مطابقة للقالب اليدوي وقابلة للتعديل بالكامل
- *  · لكل نوع عمل: ورقة نص وسطية (إطار أسود + نص أوسط) ثم صفحات 2×2 بأربع صور،
- *     العبارة فوق كل صورة قابلة للتعديل، وعرض الصورة كامل/مقتطع مع تقريب،
- *     وألوان القالب قابلة للتغيير — وكل ذلك يُحفظ في قاعدة البيانات
+ *  · الورقة 2: صفحة الجدول الرسمية قابلة للتعديل بالكامل (ثيمات ألوان)
+ *  · لكل نوع عمل: ورقة نص وسطية (قوالب إطار) ثم صفحات صور بقوالب متعددة
+ *     (كلاسيكي 2×2 / بحواف دائرية / عمودي / فسيفساء) بأربع صور لكل صفحة
+ *  · لوحة تخصيص جانبية: قوالب الصفحات + الثيمات + الخطوط العربية + حالة التقرير
+ *  · كل التعديلات (نصوص/ألوان/ملخص/نمط) تُحفظ في قاعدة البيانات
+ * الطباعة: كل .rp-page ورقة A4 مستقلة
  */
 import { useMemo, useState } from 'react'
 import { Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react'
+import '@fontsource/cairo/400.css'
+import '@fontsource/cairo/700.css'
+import '@fontsource/cairo/900.css'
+import '@fontsource/tajawal/400.css'
+import '@fontsource/tajawal/700.css'
+import '@fontsource/amiri/400.css'
+import '@fontsource/amiri/700.css'
+import '@fontsource/noto-kufi-arabic/400.css'
+import '@fontsource/noto-kufi-arabic/700.css'
 import {
   PERIOD_LABEL,
   SECTOR_LABEL,
@@ -53,6 +62,24 @@ export interface ReportColors {
   barText: string
 }
 
+export type {
+  PhotoLayout,
+  SheetStyle,
+  SummaryTheme,
+  ReportFont,
+  ReportStyle,
+} from './reportTemplates'
+import {
+  DEFAULT_STYLE,
+  FONTS,
+  PHOTO_LAYOUTS,
+  REPORT_FONTS,
+  SHEET_STYLES,
+  SUMMARY_THEMES,
+  THEMES,
+  type ReportStyle,
+} from './reportTemplates'
+
 export interface DesignReportData {
   title: string
   sector?: SectorParent
@@ -65,10 +92,11 @@ export interface DesignReportData {
   sheets?: Record<string, string>
   summary?: ReportSummary | null
   colors?: ReportColors | null
+  style?: ReportStyle | null
   onSaveReport?: (
     sheets: Array<{ workType: string; text: string }>,
     captions: Array<{ rowId: string; text: string; fit: 'contain' | 'cover'; zoom: number }>,
-    extra: { summary: ReportSummary; colors: ReportColors },
+    extra: { summary: ReportSummary; colors: ReportColors; style: ReportStyle },
   ) => Promise<void>
 }
 
@@ -187,6 +215,42 @@ function EditableText({
   )
 }
 
+function Pick<T extends string>({
+  label,
+  value,
+  options,
+  onPick,
+  testId,
+}: {
+  label: string
+  value: T
+  options: Array<{ value: T; label: string }>
+  onPick: (v: T) => void
+  testId?: string
+}) {
+  return (
+    <div data-testid={testId}>
+      <p className="mb-1 text-[11px] font-black text-slate-700">{label}</p>
+      <div className="flex flex-wrap gap-1">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onPick(o.value)}
+            className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${
+              o.value === value
+                ? 'border-cyan-700 bg-cyan-700 text-white'
+                : 'border-slate-300 bg-white text-slate-600 hover:border-cyan-400'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function DesignReportView({
   title,
   coverUrl,
@@ -194,6 +258,7 @@ export default function DesignReportView({
   sheets,
   summary,
   colors,
+  style,
   onSaveReport,
   ...periodProps
 }: DesignReportData) {
@@ -217,18 +282,28 @@ export default function DesignReportView({
       for (const p of g.photos) init[p.rowId] = { fit: p.fit ?? 'contain', zoom: p.zoom ?? 1 }
     return init
   })
-  const [sum, setSum] = useState<ReportSummary>(() => summary ?? buildDefaultSummary({ ...periodProps, title, groups }))
+  const [sum, setSum] = useState<ReportSummary>(() =>
+    summary ?? buildDefaultSummary({ ...periodProps, title, groups }),
+  )
   const [cols, setCols] = useState<ReportColors>(() => ({ ...DEFAULT_COLORS, ...colors }))
+  const [sty, setSty] = useState<ReportStyle>(() => ({ ...DEFAULT_STYLE, ...style }))
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const editable = Boolean(onSaveReport)
   const mark = () => setDirty(true)
+  const theme = THEMES[sty.summaryTheme]
 
   const patchSum = (patch: Partial<ReportSummary>) => {
     setSum((s) => ({ ...s, ...patch }))
     mark()
   }
+  const patchSty = (patch: Partial<ReportStyle>) => {
+    setSty((s) => ({ ...s, ...patch }))
+    mark()
+  }
+
+  const pageCount = 2 + groups.reduce((acc, g) => acc + 1 + Math.ceil(g.photos.length / 4), 0)
 
   const save = async () => {
     if (!onSaveReport) return
@@ -242,7 +317,7 @@ export default function DesignReportView({
           fit: fits[rowId]?.fit ?? 'contain',
           zoom: fits[rowId]?.zoom ?? 1,
         })),
-        { summary: sum, colors: cols },
+        { summary: sum, colors: cols, style: sty },
       )
       setDirty(false)
     } finally {
@@ -258,9 +333,16 @@ export default function DesignReportView({
   const cellStyle = { border: `1px solid ${cols.border}` }
 
   return (
-    <div id="design-report" dir="rtl">
+    <div id="design-report" dir="rtl" style={{ fontFamily: FONTS[sty.font] }}>
       <style>{`
         #design-report { background: transparent; }
+        .rp-workspace { display: flex; flex-direction: column; gap: 16px; }
+        @media (min-width: 1024px) { .rp-workspace { flex-direction: row; align-items: flex-start; } }
+        .rp-panel { width: 100%; }
+        @media (min-width: 1024px) {
+          .rp-panel { width: 290px; flex-shrink: 0; position: sticky; top: 8px; }
+        }
+        .rp-pages { min-width: 0; flex: 1; }
         .rp-page {
           position: relative;
           width: 190mm;
@@ -282,6 +364,8 @@ export default function DesignReportView({
           place-items: center;
           padding: 8mm;
         }
+        .rp-sheet-inner[data-style='double'] { border: 2mm double #111; }
+        .rp-sheet-inner[data-style='plain'] { border: 0; }
         .rp-sheet-text {
           font-size: 15pt;
           font-weight: 700;
@@ -315,6 +399,10 @@ export default function DesignReportView({
           grid-template-rows: 1fr 1fr;
           gap: 2.5mm;
         }
+        .rp-grid[data-layout='stack'] { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
+        .rp-grid[data-layout='mosaic'] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 3fr 2fr; }
+        .rp-grid[data-layout='mosaic'] .rp-cell:first-child { grid-column: 1 / -1; }
+        .rp-grid[data-layout='round'] .rp-cell { border-radius: 3mm; overflow: hidden; }
         .rp-cell { display: flex; flex-direction: column; min-height: 0; background: #fff; }
         .rp-bar { text-align: center; font-size: 10pt; font-weight: 800; padding: 1.6mm 1mm; width: 100%; }
         .rp-bar-input {
@@ -348,6 +436,7 @@ export default function DesignReportView({
             background: #fff !important;
           }
           [data-rp-preview] { padding: 0 !important; border: 0 !important; background: none !important; }
+          .rp-workspace { display: block !important; }
           body * { visibility: hidden; }
           #design-report, #design-report * { visibility: visible; }
           #design-report { position: absolute; top: 0; inset-inline: 0; width: 100%; height: auto; }
@@ -357,364 +446,389 @@ export default function DesignReportView({
         }
       `}</style>
 
-      {/* شريط أدوات الشاشة فقط: تلميح + ألوان القالب + حفظ */}
-      {editable && (
-        <div className="no-print sticky top-0 z-10 mb-4 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/95 p-2 text-xs font-bold text-slate-600">
-          <span>انقر أي نص داخل الأوراق لتعديله.</span>
-          <label className="flex items-center gap-1">
-            شريط العبارة
-            <input
-              aria-label="لون الشريط العلوي"
-              type="color"
-              value={cols.barFrom}
-              onChange={(e) => {
-                setCols((c) => ({ ...c, barFrom: e.target.value }))
-                mark()
-              }}
+      <div className="rp-workspace">
+        {/* لوحة التخصيص — تشغل المساحات الفارغة بجانب الأوراق (شاشة فقط) */}
+        {editable && (
+          <aside className="rp-panel no-print space-y-3 rounded-2xl border border-slate-300 bg-white p-3 text-slate-700">
+            <h3 className="text-sm font-black text-slate-800">لوحة تخصيص التقرير</h3>
+
+            <div className="flex flex-wrap gap-1 text-[10px] font-bold">
+              <span className={`rounded-full px-2 py-1 ${coverUrl ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                {coverUrl ? '✓ الغلاف مرفوع' : '✗ بلا غلاف'}
+              </span>
+              <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700">{allPaths.length} صورة</span>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{pageCount} ورقة</span>
+              <span className={`rounded-full px-2 py-1 ${dirty ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {dirty ? 'تعديلات غير محفوظة' : 'كل شيء محفوظ'}
+              </span>
+            </div>
+
+            <Pick
+              testId="pick-layout"
+              label="قالب صفحات الصور (4 بالصفحة)"
+              value={sty.photoLayout}
+              options={PHOTO_LAYOUTS}
+              onPick={(v) => patchSty({ photoLayout: v })}
             />
-            <input
-              aria-label="لون الشريط السفلي"
-              type="color"
-              value={cols.barTo}
-              onChange={(e) => {
-                setCols((c) => ({ ...c, barTo: e.target.value }))
-                mark()
-              }}
+            <Pick
+              testId="pick-sheet"
+              label="قالب ورقة النص الوسطية"
+              value={sty.sheetStyle}
+              options={SHEET_STYLES}
+              onPick={(v) => patchSty({ sheetStyle: v })}
             />
-          </label>
-          <label className="flex items-center gap-1">
-            الحدود
-            <input
-              aria-label="لون الحدود"
-              type="color"
-              value={cols.border}
-              onChange={(e) => {
-                setCols((c) => ({ ...c, border: e.target.value }))
-                mark()
-              }}
+            <Pick
+              testId="pick-theme"
+              label="ثيم صفحة الجدول"
+              value={sty.summaryTheme}
+              options={SUMMARY_THEMES}
+              onPick={(v) => patchSty({ summaryTheme: v })}
             />
-          </label>
-          <label className="flex items-center gap-1">
-            نص الشريط
-            <input
-              aria-label="لون نص الشريط"
-              type="color"
-              value={cols.barText}
-              onChange={(e) => {
-                setCols((c) => ({ ...c, barText: e.target.value }))
-                mark()
-              }}
+            <Pick
+              testId="pick-font"
+              label="خط التقرير"
+              value={sty.font}
+              options={REPORT_FONTS}
+              onPick={(v) => patchSty({ font: v })}
             />
-          </label>
-          {dirty && (
+
+            <div>
+              <p className="mb-1 text-[11px] font-black text-slate-700">ألوان شريط العبارة والحدود</p>
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                <label className="flex items-center gap-1">
+                  الشريط
+                  <input
+                    aria-label="لون الشريط العلوي"
+                    type="color"
+                    value={cols.barFrom}
+                    onChange={(e) => {
+                      setCols((c) => ({ ...c, barFrom: e.target.value }))
+                      mark()
+                    }}
+                  />
+                  <input
+                    aria-label="لون الشريط السفلي"
+                    type="color"
+                    value={cols.barTo}
+                    onChange={(e) => {
+                      setCols((c) => ({ ...c, barTo: e.target.value }))
+                      mark()
+                    }}
+                  />
+                </label>
+                <label className="flex items-center gap-1">
+                  الحدود
+                  <input
+                    aria-label="لون الحدود"
+                    type="color"
+                    value={cols.border}
+                    onChange={(e) => {
+                      setCols((c) => ({ ...c, border: e.target.value }))
+                      mark()
+                    }}
+                  />
+                </label>
+                <label className="flex items-center gap-1">
+                  النص
+                  <input
+                    aria-label="لون نص الشريط"
+                    type="color"
+                    value={cols.barText}
+                    onChange={(e) => {
+                      setCols((c) => ({ ...c, barText: e.target.value }))
+                      mark()
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
             <button
               type="button"
               data-testid="report-save"
               onClick={() => void save()}
-              disabled={saving}
-              className="rounded-lg bg-cyan-700 px-4 py-2 font-black text-white disabled:opacity-50"
+              disabled={saving || !dirty}
+              className="w-full rounded-xl bg-cyan-700 py-2 text-sm font-black text-white disabled:opacity-40"
             >
               {saving ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}
             </button>
-          )}
-        </div>
-      )}
-
-      {/* الورقة 1: الغلاف اليدوي كما هو */}
-      <section className="rp-page">
-        {coverUrl ? (
-          <img src={coverUrl} alt="غلاف التقرير" className="rp-cover-img" />
-        ) : (
-          <div className="rp-sheet-inner">
-            <p className="rp-sheet-text">{title}</p>
-          </div>
+          </aside>
         )}
-      </section>
 
-      {/* الورقة 2: صفحة الجدول الرسمية — قابلة للتعديل بالكامل */}
-      <section className="rp-page">
-        <div className="rp-summary">
-          <div className="flex items-start justify-between gap-2 pb-2">
-            <img src="/report-assets/logo-company.png" alt="شعار الشركة" className="h-16 w-28 object-contain" />
-            <div className="pt-1 text-center">
-              <EditableText
-                label="اسم الشركة"
-                value={sum.companyName}
-                onCommit={editable ? (v) => patchSum({ companyName: v }) : undefined}
-                className="text-[13pt] font-black text-blue-800"
-                inputClassName="rp-sum-in text-center font-black text-blue-800"
-              />
-              <EditableText
-                label="سطر التقرير"
-                value={sum.reportLine}
-                onCommit={editable ? (v) => patchSum({ reportLine: v }) : undefined}
-                className="mt-1 text-[11pt] font-bold text-amber-600"
-                inputClassName="rp-sum-in text-center font-bold text-amber-600"
-              />
-            </div>
-            <img src="/report-assets/logo-baghdad.png" alt="شعار أمانة بغداد" className="h-16 w-24 object-contain" />
-          </div>
-
-          <table>
-            <colgroup>
-              <col />
-              <col style={{ width: '26mm' }} />
-              <col style={{ width: '10mm' }} />
-            </colgroup>
-            <tbody>
-              <tr className="bg-[#1e3a8a] text-white">
-                <td className="font-black">
-                  <EditableText
-                    label="عنوان الجهة"
-                    value={sum.orgLabel}
-                    onCommit={editable ? (v) => patchSum({ orgLabel: v }) : undefined}
-                    className="font-black"
-                    inputClassName="rp-sum-in font-black text-white"
-                  />
-                </td>
-                <td colSpan={2}>
-                  <EditableText
-                    label="قيمة الجهة"
-                    value={sum.orgValue}
-                    onCommit={editable ? (v) => patchSum({ orgValue: v }) : undefined}
-                    className=""
-                    inputClassName="rp-sum-in text-white"
-                  />
-                </td>
-              </tr>
-              <tr className="bg-[#1d4ed8] text-white">
-                <td className="font-black">
-                  <EditableText
-                    label="عنوان الموضوع"
-                    value={sum.subjectLabel}
-                    onCommit={editable ? (v) => patchSum({ subjectLabel: v }) : undefined}
-                    className="font-black"
-                    inputClassName="rp-sum-in font-black text-white"
-                  />
-                </td>
-                <td colSpan={2}>
-                  <EditableText
-                    label="قيمة الموضوع"
-                    value={sum.subjectValue}
-                    onCommit={editable ? (v) => patchSum({ subjectValue: v }) : undefined}
-                    className=""
-                    inputClassName="rp-sum-in text-white"
-                  />
-                </td>
-              </tr>
-              <tr className="bg-amber-400 text-slate-900">
-                <td className="font-black">
-                  <EditableText
-                    label="عنوان التاريخ"
-                    value={sum.dateLabel}
-                    onCommit={editable ? (v) => patchSum({ dateLabel: v }) : undefined}
-                    className="font-black"
-                    inputClassName="rp-sum-in font-black"
-                  />
-                </td>
-                <td colSpan={2} className="font-bold">
-                  <EditableText
-                    label="قيمة التاريخ"
-                    value={sum.dateValue}
-                    onCommit={editable ? (v) => patchSum({ dateValue: v }) : undefined}
-                    className="font-bold"
-                    inputClassName="rp-sum-in font-bold"
-                  />
-                </td>
-              </tr>
-              <tr className="bg-sky-100">
-                <td className="font-black text-sky-900">الفقرات المنجزة</td>
-                <td className="text-center font-black text-sky-900">اسم القاطع</td>
-                <td className="text-center font-black text-sky-900">ت</td>
-              </tr>
-              {sum.rows.map((r, i) => (
-                <tr key={i}>
-                  <td>
-                    <span className="flex items-center gap-1">
-                      <EditableText
-                        label={`فقرة ${i + 1}`}
-                        value={r.work}
-                        onCommit={
-                          editable
-                            ? (v) =>
-                                patchSum({
-                                  rows: sum.rows.map((row, j) => (j === i ? { ...row, work: v } : row)),
-                                })
-                            : undefined
-                        }
-                        className="text-right"
-                        inputClassName="rp-sum-in"
-                      />
-                      {editable && (
-                        <button
-                          type="button"
-                          aria-label={`حذف فقرة ${i + 1}`}
-                          className="no-print text-[9px] text-red-300 hover:text-red-600"
-                          onClick={() => patchSum({ rows: sum.rows.filter((_, j) => j !== i) })}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </span>
-                  </td>
-                  {i === 0 && (
-                    <td
-                      rowSpan={sum.rows.length}
-                      className="text-center align-middle font-bold text-sky-900"
-                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                    >
-                      <EditableText
-                        label="اسم القاطع"
-                        value={sum.sectorName}
-                        onCommit={editable ? (v) => patchSum({ sectorName: v }) : undefined}
-                        className="font-bold"
-                        inputClassName="rp-sum-in font-bold"
-                      />
-                    </td>
-                  )}
-                  <td className="text-center">{r.t}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {editable && (
-            <button
-              type="button"
-              className="no-print mt-1 self-start rounded-lg border px-2 py-1 text-[10px] font-bold text-sky-800"
-              onClick={() =>
-                patchSum({ rows: [...sum.rows, { t: String(sum.rows.length + 1), work: 'فقرة جديدة' }] })
-              }
-            >
-              + إضافة فقرة
-            </button>
-          )}
-
-          <div className="mt-auto">
-            <div className="bg-[#1e3a8a] px-3 py-2 text-center">
-              <EditableText
-                label="تذييل الصفحة"
-                value={sum.footer}
-                onCommit={editable ? (v) => patchSum({ footer: v }) : undefined}
-                className="text-[10pt] font-black text-white"
-                inputClassName="rp-sum-in text-center font-black text-white"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* لكل نوع عمل: ورقة نص ثم صفحات 4 صور */}
-      {groups.map((g) => (
-        <div key={g.workType}>
+        <div className="rp-pages">
+          {/* الورقة 1: الغلاف اليدوي كما هو */}
           <section className="rp-page">
-            <div className="rp-sheet-inner">
-              <EditableText
-                label={`نص ورقة ${g.workType}`}
-                value={sheetTexts[g.workType] ?? g.workType}
-                onCommit={
-                  editable
-                    ? (next) => {
-                        setSheetTexts((s) => ({ ...s, [g.workType]: next }))
-                        mark()
-                      }
-                    : undefined
-                }
-                className="rp-sheet-text"
-                inputClassName="rp-sheet-input"
-              />
+            {coverUrl ? (
+              <img src={coverUrl} alt="غلاف التقرير" className="rp-cover-img" />
+            ) : (
+              <div className="rp-sheet-inner" data-style={sty.sheetStyle}>
+                <p className="rp-sheet-text">{title}</p>
+              </div>
+            )}
+          </section>
+
+          {/* الورقة 2: صفحة الجدول الرسمية — قابلة للتعديل بالكامل */}
+          <section className="rp-page">
+            <div className="rp-summary">
+              <div className="flex items-start justify-between gap-2 pb-2">
+                <img src="/report-assets/logo-company.png" alt="شعار الشركة" className="h-16 w-28 object-contain" />
+                <div className="pt-1 text-center">
+                  <EditableText
+                    label="اسم الشركة"
+                    value={sum.companyName}
+                    onCommit={editable ? (v) => patchSum({ companyName: v }) : undefined}
+                    className="text-[13pt] font-black text-blue-800"
+                    inputClassName="rp-sum-in text-center font-black text-blue-800"
+                  />
+                  <EditableText
+                    label="سطر التقرير"
+                    value={sum.reportLine}
+                    onCommit={editable ? (v) => patchSum({ reportLine: v }) : undefined}
+                    className="mt-1 text-[11pt] font-bold text-amber-600"
+                    inputClassName="rp-sum-in text-center font-bold text-amber-600"
+                  />
+                </div>
+                <img src="/report-assets/logo-baghdad.png" alt="شعار أمانة بغداد" className="h-16 w-24 object-contain" />
+              </div>
+
+              <table>
+                <colgroup>
+                  <col />
+                  <col style={{ width: '26mm' }} />
+                  <col style={{ width: '10mm' }} />
+                </colgroup>
+                <tbody>
+                  {[
+                    { l: sum.orgLabel, lv: sum.orgValue, lk: 'orgLabel', vk: 'orgValue', ll: 'عنوان الجهة', vl: 'قيمة الجهة' },
+                    {
+                      l: sum.subjectLabel,
+                      lv: sum.subjectValue,
+                      lk: 'subjectLabel',
+                      vk: 'subjectValue',
+                      ll: 'عنوان الموضوع',
+                      vl: 'قيمة الموضوع',
+                    },
+                    { l: sum.dateLabel, lv: sum.dateValue, lk: 'dateLabel', vk: 'dateValue', ll: 'عنوان التاريخ', vl: 'قيمة التاريخ' },
+                  ].map((row, i) => (
+                    <tr key={row.vk} style={{ background: theme[i]!.bg, color: theme[i]!.fg }}>
+                      <td className="font-black">
+                        <EditableText
+                          label={row.ll}
+                          value={row.l}
+                          onCommit={editable ? (v) => patchSum({ [row.lk]: v } as Partial<ReportSummary>) : undefined}
+                          className="font-black"
+                          inputClassName="rp-sum-in font-black"
+                          style={{ color: theme[i]!.fg }}
+                        />
+                      </td>
+                      <td colSpan={2} className={i === 2 ? 'font-bold' : ''}>
+                        <EditableText
+                          label={row.vl}
+                          value={row.lv}
+                          onCommit={editable ? (v) => patchSum({ [row.vk]: v } as Partial<ReportSummary>) : undefined}
+                          className={i === 2 ? 'font-bold' : ''}
+                          inputClassName="rp-sum-in"
+                          style={{ color: theme[i]!.fg }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-sky-100">
+                    <td className="font-black text-sky-900">الفقرات المنجزة</td>
+                    <td className="text-center font-black text-sky-900">اسم القاطع</td>
+                    <td className="text-center font-black text-sky-900">ت</td>
+                  </tr>
+                  {sum.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td>
+                        <span className="flex items-center gap-1">
+                          <EditableText
+                            label={`فقرة ${i + 1}`}
+                            value={r.work}
+                            onCommit={
+                              editable
+                                ? (v) =>
+                                    patchSum({
+                                      rows: sum.rows.map((row, j) => (j === i ? { ...row, work: v } : row)),
+                                    })
+                                : undefined
+                            }
+                            className="text-right"
+                            inputClassName="rp-sum-in"
+                          />
+                          {editable && (
+                            <button
+                              type="button"
+                              aria-label={`حذف فقرة ${i + 1}`}
+                              className="no-print text-[9px] text-red-300 hover:text-red-600"
+                              onClick={() => patchSum({ rows: sum.rows.filter((_, j) => j !== i) })}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                      {i === 0 && (
+                        <td
+                          rowSpan={sum.rows.length}
+                          className="text-center align-middle font-bold text-sky-900"
+                          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                        >
+                          <EditableText
+                            label="اسم القاطع"
+                            value={sum.sectorName}
+                            onCommit={editable ? (v) => patchSum({ sectorName: v }) : undefined}
+                            className="font-bold"
+                            inputClassName="rp-sum-in font-bold"
+                          />
+                        </td>
+                      )}
+                      <td className="text-center">{r.t}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {editable && (
+                <button
+                  type="button"
+                  className="no-print mt-1 self-start rounded-lg border px-2 py-1 text-[10px] font-bold text-sky-800"
+                  onClick={() =>
+                    patchSum({ rows: [...sum.rows, { t: String(sum.rows.length + 1), work: 'فقرة جديدة' }] })
+                  }
+                >
+                  + إضافة فقرة
+                </button>
+              )}
+
+              <div className="mt-auto">
+                <div className="px-3 py-2 text-center" style={{ background: theme[0]!.bg }}>
+                  <EditableText
+                    label="تذييل الصفحة"
+                    value={sum.footer}
+                    onCommit={editable ? (v) => patchSum({ footer: v }) : undefined}
+                    className="text-[10pt] font-black text-white"
+                    inputClassName="rp-sum-in text-center font-black text-white"
+                    style={{ color: theme[0]!.fg }}
+                  />
+                </div>
+              </div>
             </div>
           </section>
 
-          {chunk4(g.photos).map((four, i) => (
-            <section key={`${g.workType}-${i}`} className="rp-page">
-              <div className="rp-grid">
-                {four.map((p) => {
-                  const fz = fits[p.rowId] ?? { fit: 'contain' as const, zoom: 1 }
-                  return (
-                    <figure key={p.rowId} className="rp-cell" style={cellStyle}>
-                      <EditableText
-                        label={`عبارة صورة ${g.workType}`}
-                        value={captions[p.rowId] ?? p.caption ?? g.workType}
-                        onCommit={
-                          editable
-                            ? (next) => {
-                                setCaptions((c) => ({ ...c, [p.rowId]: next }))
-                                mark()
-                              }
-                            : undefined
-                        }
-                        className="rp-bar"
-                        inputClassName="rp-bar-input"
-                        style={barStyle}
-                      />
-                      <div className="rp-photo">
-                        {urls[p.path] ? (
-                          <img
-                            src={urls[p.path]}
-                            alt={captions[p.rowId] ?? g.workType}
-                            loading="lazy"
-                            style={{
-                              objectFit: fz.fit,
-                              transform: fz.zoom !== 1 ? `scale(${fz.zoom})` : undefined,
-                              transformOrigin: 'center',
-                            }}
+          {/* لكل نوع عمل: ورقة نص ثم صفحات 4 صور */}
+          {groups.map((g) => (
+            <div key={g.workType}>
+              <section className="rp-page">
+                <div className="rp-sheet-inner" data-style={sty.sheetStyle}>
+                  <EditableText
+                    label={`نص ورقة ${g.workType}`}
+                    value={sheetTexts[g.workType] ?? g.workType}
+                    onCommit={
+                      editable
+                        ? (next) => {
+                            setSheetTexts((s) => ({ ...s, [g.workType]: next }))
+                            mark()
+                          }
+                        : undefined
+                    }
+                    className="rp-sheet-text"
+                    inputClassName="rp-sheet-input"
+                  />
+                </div>
+              </section>
+
+              {chunk4(g.photos).map((four, i) => (
+                <section key={`${g.workType}-${i}`} className="rp-page">
+                  <div className="rp-grid" data-layout={sty.photoLayout}>
+                    {four.map((p) => {
+                      const fz = fits[p.rowId] ?? { fit: 'contain' as const, zoom: 1 }
+                      return (
+                        <figure key={p.rowId} className="rp-cell" style={cellStyle}>
+                          <EditableText
+                            label={`عبارة صورة ${g.workType}`}
+                            value={captions[p.rowId] ?? p.caption ?? g.workType}
+                            onCommit={
+                              editable
+                                ? (next) => {
+                                    setCaptions((c) => ({ ...c, [p.rowId]: next }))
+                                    mark()
+                                  }
+                                : undefined
+                            }
+                            className="rp-bar"
+                            inputClassName="rp-bar-input"
+                            style={barStyle}
                           />
-                        ) : (
-                          <div className="grid size-full place-items-center text-xs text-slate-300">…</div>
-                        )}
-                        {editable && (
-                          <div className="rp-celltools no-print">
-                            <button
-                              type="button"
-                              aria-label="تبديل ملء/احتواء"
-                              title={fz.fit === 'contain' ? 'عرض كامل — انقر للملء' : 'ملء — انقر للعرض الكامل'}
-                              onClick={() => {
-                                setFits((f) => ({
-                                  ...f,
-                                  [p.rowId]: { ...fz, fit: fz.fit === 'contain' ? 'cover' : 'contain' },
-                                }))
-                                mark()
-                              }}
-                            >
-                              {fz.fit === 'contain' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="تقريب"
-                              onClick={() => {
-                                setFits((f) => ({
-                                  ...f,
-                                  [p.rowId]: { ...fz, zoom: Math.min(3, +(fz.zoom + 0.25).toFixed(2)) },
-                                }))
-                                mark()
-                              }}
-                            >
-                              <ZoomIn size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="إبعاد"
-                              onClick={() => {
-                                setFits((f) => ({
-                                  ...f,
-                                  [p.rowId]: { ...fz, zoom: Math.max(0.5, +(fz.zoom - 0.25).toFixed(2)) },
-                                }))
-                                mark()
-                              }}
-                            >
-                              <ZoomOut size={12} />
-                            </button>
+                          <div className="rp-photo">
+                            {urls[p.path] ? (
+                              <img
+                                src={urls[p.path]}
+                                alt={captions[p.rowId] ?? g.workType}
+                                loading="lazy"
+                                style={{
+                                  objectFit: fz.fit,
+                                  transform: fz.zoom !== 1 ? `scale(${fz.zoom})` : undefined,
+                                  transformOrigin: 'center',
+                                }}
+                              />
+                            ) : (
+                              <div className="grid size-full place-items-center text-xs text-slate-300">…</div>
+                            )}
+                            {editable && (
+                              <div className="rp-celltools no-print">
+                                <button
+                                  type="button"
+                                  aria-label="تبديل ملء/احتواء"
+                                  title={fz.fit === 'contain' ? 'عرض كامل — انقر للملء' : 'ملء — انقر للعرض الكامل'}
+                                  onClick={() => {
+                                    setFits((f) => ({
+                                      ...f,
+                                      [p.rowId]: { ...fz, fit: fz.fit === 'contain' ? 'cover' : 'contain' },
+                                    }))
+                                    mark()
+                                  }}
+                                >
+                                  {fz.fit === 'contain' ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="تقريب"
+                                  onClick={() => {
+                                    setFits((f) => ({
+                                      ...f,
+                                      [p.rowId]: { ...fz, zoom: Math.min(3, +(fz.zoom + 0.25).toFixed(2)) },
+                                    }))
+                                    mark()
+                                  }}
+                                >
+                                  <ZoomIn size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="إبعاد"
+                                  onClick={() => {
+                                    setFits((f) => ({
+                                      ...f,
+                                      [p.rowId]: { ...fz, zoom: Math.max(0.5, +(fz.zoom - 0.25).toFixed(2)) },
+                                    }))
+                                    mark()
+                                  }}
+                                >
+                                  <ZoomOut size={12} />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </figure>
-                  )
-                })}
-              </div>
-            </section>
+                        </figure>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
           ))}
         </div>
-      ))}
+      </div>
     </div>
   )
 }

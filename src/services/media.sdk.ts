@@ -46,6 +46,7 @@ export interface MediaDesign {
   completed_at: string | null
   summary?: Record<string, unknown> | null
   template_colors?: Record<string, string> | null
+  template_style?: Record<string, unknown> | null
 }
 
 export interface MediaDesignTemplate {
@@ -282,7 +283,7 @@ export const mediaService = {
       fit?: 'contain' | 'cover'
       zoom?: number
     }>,
-    extra?: { summary?: unknown; colors?: unknown },
+    extra?: { summary?: unknown; colors?: unknown; style?: unknown },
   ): Promise<void> {
     await sdkGuard(
       supabase.rpc('media_design_report_save', {
@@ -296,6 +297,7 @@ export const mediaService = {
         })),
         p_summary: extra?.summary ?? null,
         p_colors: extra?.colors ?? null,
+        p_style: extra?.style ?? null,
       }),
     )
   },

@@ -176,7 +176,7 @@ export const useSaveDesignReport = (designId: string) =>
     (
       sheets: Array<{ workType: string; text: string }>,
       captions: Array<{ rowId: string; text: string; fit?: 'contain' | 'cover'; zoom?: number }>,
-      extra?: { summary?: unknown; colors?: unknown },
+      extra?: { summary?: unknown; colors?: unknown; style?: unknown },
     ) => mediaService.saveDesignReport(designId, sheets, captions, extra),
     'حُفظت تعديلات نص التقرير والعبارات',
     ['media', 'design-detail', designId],
