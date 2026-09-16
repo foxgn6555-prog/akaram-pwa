@@ -180,6 +180,9 @@ describe('بنية أوراق التقرير', () => {
     expect(css).toContain('[data-rp-preview]')
     expect(css).toContain('break-after: page')
     expect(css).not.toContain('inset: 0; width: 100%')
+    // الألوان تُطبع إجبارياً ورؤوس المتصفح مُلغاة بالهامش الصفري
+    expect(css).toContain('print-color-adjust: exact')
+    expect(css).toContain('@page { size: A4; margin: 0; }')
   })
 
   it('صفحة الجدول: تعديل قيمة التاريخ وإضافة فقرة', async () => {

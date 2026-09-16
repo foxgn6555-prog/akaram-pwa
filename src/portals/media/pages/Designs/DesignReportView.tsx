@@ -392,7 +392,7 @@ export default function DesignReportView({
           padding: 2mm;
         }
         /* صفحة الجدول الرسمية */
-        .rp-summary { position: absolute; inset: 6mm 8mm; display: flex; flex-direction: column; }
+        .rp-summary { position: absolute; inset: 12mm 14mm; display: flex; flex-direction: column; }
         .rp-summary table { border-collapse: collapse; width: 100%; }
         .rp-summary td, .rp-summary th { border: 1px solid #7ba7d7; padding: 2mm 3mm; font-size: 10pt; }
         .rp-sum-in { width: 100%; border: 0; outline: none; background: transparent; font: inherit; text-align: inherit; }
@@ -448,9 +448,15 @@ export default function DesignReportView({
           body * { visibility: hidden; }
           #design-report, #design-report * { visibility: visible; }
           #design-report { position: absolute; top: 0; inset-inline: 0; width: 100%; height: auto; }
+          /* ألوان التقرير تُطبع كما هي دون الاعتماد على إعدادات المتصفح */
+          #design-report, #design-report * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .no-print { display: none !important; }
-          @page { size: A4; margin: 10mm; }
-          .rp-page { box-shadow: none; margin: 0 auto; height: 276mm; }
+          /* هامش صفري: يلغي رؤوس وتذييلات المتصفح (التاريخ/العنوان/الرابط/الترقيم) */
+          @page { size: A4; margin: 0; }
+          .rp-page { box-shadow: none; margin: 0 auto; height: 296mm; }
         }
       `}</style>
 
