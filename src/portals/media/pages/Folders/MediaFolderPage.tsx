@@ -22,6 +22,10 @@ export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
     (t) => !day || (t.event_date ?? t.created_at).slice(0, 10) === day,
   )
   const photoTotal = rows.reduce((sum, t) => sum + t.photo_count, 0)
+  const dist = WORK_TYPES.map((w) => ({ w, c: rows.filter((t) => t.work_type === w).length }))
+    .filter((x) => x.c > 0)
+    .sort((a, b) => b.c - a.c)
+  const distMax = Math.max(1, ...dist.map((d) => d.c))
 
   return (
     <section dir="rtl" className="space-y-5">
@@ -61,6 +65,26 @@ export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
           </span>
         </div>
       </div>
+
+      {dist.length > 0 && (
+        <div className="space-y-2 rounded-2xl border bg-white p-4">
+          <h2 className="text-xs font-black text-slate-700">توزيع التذاكر حسب نوع العمل</h2>
+          <div data-testid="work-dist" className="space-y-2">
+            {dist.map((d) => (
+              <div key={d.w} className="flex items-center gap-2">
+                <span className="w-40 truncate text-[11px] font-bold text-slate-600">{d.w}</span>
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-l from-cyan-600 to-indigo-600"
+                    style={{ width: `${Math.round((d.c / distMax) * 100)}%` }}
+                  />
+                </div>
+                <b className="w-8 text-left text-[11px] text-slate-700">{d.c}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {rows.map((t) => (

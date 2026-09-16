@@ -366,6 +366,11 @@ export default function DesignReportView({
         }
         .rp-sheet-inner[data-style='double'] { border: 2mm double #111; }
         .rp-sheet-inner[data-style='plain'] { border: 0; }
+        .rp-sheet-inner[data-style='underline'] { border: 0; }
+        .rp-sheet-inner[data-style='underline'] .rp-sheet-text {
+          border-bottom: 1mm solid #111;
+          padding-bottom: 4mm;
+        }
         .rp-sheet-text {
           font-size: 15pt;
           font-weight: 700;
@@ -402,6 +407,9 @@ export default function DesignReportView({
         .rp-grid[data-layout='stack'] { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
         .rp-grid[data-layout='mosaic'] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 3fr 2fr; }
         .rp-grid[data-layout='mosaic'] .rp-cell:first-child { grid-column: 1 / -1; }
+        .rp-grid[data-layout='film'] { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; }
+        .rp-grid[data-layout='collage'] { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
+        .rp-grid[data-layout='collage'] .rp-cell:first-child { grid-row: 1 / -1; }
         .rp-grid[data-layout='round'] .rp-cell { border-radius: 3mm; overflow: hidden; }
         .rp-cell { display: flex; flex-direction: column; min-height: 0; background: #fff; }
         .rp-bar { text-align: center; font-size: 10pt; font-weight: 800; padding: 1.6mm 1mm; width: 100%; }
