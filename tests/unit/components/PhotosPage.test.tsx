@@ -53,7 +53,7 @@ describe('وحدة إرسال الصور', () => {
     wrap(<PhotosPage />)
     expect(await screen.findByText('قاطع الكرادة')).toBeInTheDocument()
     expect(screen.getByText('قسم الآليات')).toBeInTheDocument()
-    expect(screen.getByText('2026-09-15')).toBeInTheDocument()
+    expect(screen.getByText('التاريخ (تلقائي)')).toBeInTheDocument()
   })
 
   it('طريقة الشارع: بلا نوع عمل، وإرسال ناجح بمصفوفة صور', async () => {
