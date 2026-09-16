@@ -175,9 +175,18 @@ export const useSaveDesignReport = (designId: string) =>
   useMediaAction(
     (
       sheets: Array<{ workType: string; text: string }>,
-      captions: Array<{ rowId: string; text: string }>,
-    ) => mediaService.saveDesignReport(designId, sheets, captions),
+      captions: Array<{ rowId: string; text: string; fit?: 'contain' | 'cover'; zoom?: number }>,
+      extra?: { summary?: unknown; colors?: unknown },
+    ) => mediaService.saveDesignReport(designId, sheets, captions, extra),
     'حُفظت تعديلات نص التقرير والعبارات',
+    ['media', 'design-detail', designId],
+  )
+
+export const useReorderDesignPhotos = (designId: string) =>
+  useMediaAction(
+    (items: Array<{ rowId: string; workType: string; sortOrder: number }>) =>
+      mediaService.reorderDesignPhotos(designId, items),
+    'حُفظ ترتيب الصور',
     ['media', 'design-detail', designId],
   )
 

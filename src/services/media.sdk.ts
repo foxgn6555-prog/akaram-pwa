@@ -44,6 +44,8 @@ export interface MediaDesign {
   created_by: string
   created_at: string
   completed_at: string | null
+  summary?: Record<string, unknown> | null
+  template_colors?: Record<string, string> | null
 }
 
 export interface MediaDesignTemplate {
@@ -67,6 +69,8 @@ export interface MediaDesignPhoto {
   storage_path: string
   caption: string | null
   report_caption: string | null
+  display_fit: 'contain' | 'cover'
+  display_zoom: number
   sort_order: number
 }
 
@@ -262,6 +266,8 @@ export const mediaService = {
         storage_path: String(r.storage_path ?? ''),
         caption: (r.caption as string) ?? null,
         report_caption: (r.report_caption as string) ?? null,
+        display_fit: ((r.display_fit as string) ?? 'contain') as 'contain' | 'cover',
+        display_zoom: Number(r.display_zoom ?? 1),
         sort_order: Number(r.sort_order ?? 0),
       })),
     }
@@ -270,13 +276,42 @@ export const mediaService = {
   async saveDesignReport(
     id: string,
     sheets: Array<{ workType: string; text: string }>,
-    captions: Array<{ rowId: string; text: string }>,
+    captions: Array<{
+      rowId: string
+      text: string
+      fit?: 'contain' | 'cover'
+      zoom?: number
+    }>,
+    extra?: { summary?: unknown; colors?: unknown },
   ): Promise<void> {
     await sdkGuard(
       supabase.rpc('media_design_report_save', {
         p_id: id,
         p_sheets: sheets.map((s) => ({ work_type: s.workType, text: s.text })),
-        p_captions: captions.map((c) => ({ row_id: c.rowId, text: c.text })),
+        p_captions: captions.map((c) => ({
+          row_id: c.rowId,
+          text: c.text,
+          fit: c.fit ?? null,
+          zoom: c.zoom != null ? String(c.zoom) : null,
+        })),
+        p_summary: extra?.summary ?? null,
+        p_colors: extra?.colors ?? null,
+      }),
+    )
+  },
+
+  async reorderDesignPhotos(
+    id: string,
+    items: Array<{ rowId: string; workType: string; sortOrder: number }>,
+  ): Promise<void> {
+    await sdkGuard(
+      supabase.rpc('media_design_photos_reorder', {
+        p_id: id,
+        p_items: items.map((i) => ({
+          row_id: i.rowId,
+          work_type: i.workType,
+          sort_order: i.sortOrder,
+        })),
       }),
     )
   },

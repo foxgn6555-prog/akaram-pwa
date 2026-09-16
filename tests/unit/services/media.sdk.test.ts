@@ -69,7 +69,19 @@ describe('وسائط jsonb في SDK الإعلام', () => {
     expect(h.rpc).toHaveBeenCalledWith('media_design_report_save', {
       p_id: 'd9',
       p_sheets: [{ work_type: 'كنس الشوارع', text: 'أعمال كنس الشوارع' }],
-      p_captions: [{ row_id: 'r1', text: 'كنس شارع المستنك' }],
+      p_captions: [{ row_id: 'r1', text: 'كنس شارع المستنك', fit: null, zoom: null }],
+      p_summary: null,
+      p_colors: null,
+    })
+  })
+
+  it('reorderDesignPhotos يرسل العناصر بمصفوفة jsonb', async () => {
+    await mediaService.reorderDesignPhotos('d9', [
+      { rowId: 'r2', workType: 'غسل المدارس', sortOrder: 1 },
+    ])
+    expect(h.rpc).toHaveBeenCalledWith('media_design_photos_reorder', {
+      p_id: 'd9',
+      p_items: [{ row_id: 'r2', work_type: 'غسل المدارس', sort_order: 1 }],
     })
   })
 

@@ -1,11 +1,12 @@
 /**
  * وحدة «التصاميم» — فولدر التصاميم الخاص
- * قائمة التصاميم + المُصمم: غلاف يدوي (الورقة الأولى) + تقرير تلقائي (الورقة الثانية)
- * + لوحات صور لكل نوع عمل — بدورة نصف شهري (1–14 / 15–آخر) أو شهري كامل
+ * مصمّم بملء الشاشة: غلاف يدوي، صور حسب نوع العمل مع سحب وإفلات
+ * (إعادة ترتيب ونقل بين الأنواع)، وفتح الصور بعرض كبير، ومعاينة التقرير وطباعته
  */
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import {
+  Eye,
   ImagePlus,
   LayoutTemplate,
   Palette,
@@ -31,6 +32,7 @@ import {
   useDesignDetail,
   useDesigns,
   useRemoveDesignPhoto,
+  useReorderDesignPhotos,
   useSaveDesignReport,
   useSignedPhotoUrls,
   useSubmissions,
@@ -41,7 +43,7 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
-import DesignReportView from './DesignReportView'
+import DesignReportView, { type ReportColors, type ReportSummary } from './DesignReportView'
 
 export default function MediaDesignsPage() {
   const [params, setParams] = useSearchParams()
@@ -103,6 +105,52 @@ export default function MediaDesignsPage() {
 
 /* ──────────────────────────────────────────────────────────────── */
 
+interface ThumbPhoto {
+  id: string
+  rowId: string
+  path: string
+  caption: string | null
+  reportCaption: string | null
+  fit: 'contain' | 'cover'
+  zoom: number
+}
+interface ThumbGroup {
+  workType: string
+  photos: ThumbPhoto[]
+}
+
+/** إسقاط صورة قبل صورة أخرى (أو نهاية المجموعة) مع إمكانية تغيير نوع العمل */
+function applyMove(
+  gs: ThumbGroup[],
+  dragRowId: string,
+  toWork: string,
+  beforeRowId: string | null,
+): ThumbGroup[] {
+  let moved: ThumbPhoto | null = null
+  const stripped = gs
+    .map((g) => ({
+      ...g,
+      photos: g.photos.filter((p) => {
+        if (p.rowId === dragRowId) {
+          moved = p
+          return false
+        }
+        return true
+      }),
+    }))
+    .filter((g) => g.photos.length > 0 || g.workType === toWork)
+  if (!moved) return gs
+  const target = stripped.find((g) => g.workType === toWork)
+  if (!target) return gs
+  let idx = target.photos.length
+  if (beforeRowId) {
+    const f = target.photos.findIndex((p) => p.rowId === beforeRowId)
+    if (f >= 0) idx = f
+  }
+  target.photos.splice(idx, 0, moved)
+  return stripped
+}
+
 function DesignComposer({ designId, close }: { designId: string; close: () => void }) {
   const detail = useDesignDetail(designId)
   const update = useUpdateDesign()
@@ -112,6 +160,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const uploadCover = useUploadCover()
   const deleteDesign = useDeleteDesign()
   const saveReport = useSaveDesignReport(designId)
+  const reorder = useReorderDesignPhotos(designId)
 
   const data = detail.data
   const [title, setTitle] = useState(data?.design.title ?? '')
@@ -121,6 +170,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const [preview, setPreview] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [coverPath, setCoverPath] = useState<string | null>(data?.design.cover_image_path ?? null)
+  const [dragRow, setDragRow] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<{ url: string; caption: string | null } | null>(null)
 
   const locked = data?.design.status === 'completed'
   const sector = (data?.design.sector_parent ?? 'karrada') as SectorParent
@@ -128,11 +179,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   const coverUrls = useSignedPhotoUrls(coverPath ? [coverPath] : [])
   const coverUrl = coverPath ? coverUrls.data?.[coverPath] : null
 
-  const groups = useMemo(() => {
-    const map = new Map<
-      string,
-      Array<{ id: string; path: string; caption: string | null; reportCaption: string | null; rowId: string }>
-    >()
+  const groups = useMemo<ThumbGroup[]>(() => {
+    const map = new Map<string, ThumbPhoto[]>()
     for (const p of data?.photos ?? []) {
       const arr = map.get(p.work_type) ?? []
       arr.push({
@@ -140,6 +188,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
         path: p.storage_path,
         caption: p.caption,
         reportCaption: p.report_caption,
+        fit: p.display_fit,
+        zoom: p.display_zoom,
         rowId: p.photo_id,
       })
       map.set(p.work_type, arr)
@@ -149,11 +199,9 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
 
   if (detail.isLoading || !data) {
     return (
-      <DialogShell title="التصميم" close={close} wide>
-        <div className="py-16 text-center">
-          <LoadingSpinner label="جارٍ فتح التصميم…" />
-        </div>
-      </DialogShell>
+      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-100" dir="rtl">
+        <LoadingSpinner label="جارٍ فتح التصميم…" />
+      </div>
     )
   }
 
@@ -172,188 +220,292 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
     })
   }
 
+  const commitMove = (toWork: string, beforeRowId: string | null) => {
+    if (!dragRow || dragRow === beforeRowId) return
+    const next = applyMove(groups, dragRow, toWork, beforeRowId)
+    setDragRow(null)
+    reorder.mutate(
+      [
+        next.flatMap((g, gi) =>
+          g.photos.map((p, i) => ({
+            rowId: p.rowId,
+            workType: g.workType,
+            sortOrder: gi * 100 + i + 1,
+          })),
+        ),
+      ],
+      { onSuccess: () => detail.refetch() },
+    )
+  }
+
   return (
-    <DialogShell title={locked ? 'التصميم (مكتمل)' : 'مُصمم التصميم'} close={close} wide>
-      {!locked && (
-        <section className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="h-11 rounded-xl border px-3 text-sm font-bold"
-            placeholder="عنوان التقرير"
-          />
-          <select
-            value={periodType}
-            onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-            className="h-11 rounded-xl border bg-white px-3 text-sm"
-          >
-            {PERIODS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={save}
-            disabled={update.isPending}
-            className="flex h-11 items-center gap-2 rounded-xl bg-fuchsia-700 px-4 text-sm font-black text-white disabled:opacity-40"
-          >
-            <Save size={15} />
-            حفظ
-          </button>
-        </section>
-      )}
-      <p className="mt-2 text-xs text-slate-500">
-        {SECTOR_LABEL[sector]} · الدورة:{' '}
-        <b>
-          {periodRange(periodType).start} ← {periodRange(periodType).end}
-        </b>{' '}
-        · {data.design.photo_count} صورة · {locked ? 'مقفل بعد الإكمال' : 'مسودة قابلة للتعديل'}
-      </p>
-
-      {/* الغلاف (الورقة الأولى — يدوي) */}
-      <section className="mt-4 rounded-2xl border bg-slate-50 p-4">
-        <h3 className="mb-2 text-sm font-black">الورقة الأولى — الغلاف (يُرفع يدوياً)</h3>
-        <div className="flex flex-wrap items-center gap-3">
-          {coverUrl ? (
-            <img src={coverUrl} alt="الغلاف" className="h-24 w-40 rounded-xl object-cover" />
-          ) : (
-            <div className="grid h-24 w-40 place-items-center rounded-xl border border-dashed text-xs text-slate-400">
-              بلا غلاف
-            </div>
-          )}
-          {!locked && (
-            <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-4 text-xs font-bold hover:bg-white">
-              <Upload size={14} />
-              {coverUrl ? 'استبدال الغلاف' : 'رفع الغلاف'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => onCover(e.target.files?.[0] ?? null)}
-              />
-            </label>
-          )}
-          {!locked && coverUrl && (
-            <button
-              onClick={() => {
-                setCoverPath(null)
-                update.mutate([designId, { title, periodType, coverPath: null }])
-              }}
-              className="flex h-10 items-center gap-1 rounded-xl border px-3 text-xs font-bold text-red-600"
-            >
-              <X size={13} />
-              إزالة
-            </button>
-          )}
-        </div>
-      </section>
-
-      {/* الصور حسب النوع (الورقة الثانية — تلقائي) */}
-      <section className="mt-4">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-black">صور التصميم حسب نوع العمل (تلقائي)</h3>
-          {!locked && (
-            <button
-              onClick={() => setAddOpen(true)}
-              className="mr-auto flex h-9 items-center gap-1 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white"
-            >
-              <ImagePlus size={14} />
-              إضافة صور من تذكرات
-            </button>
-          )}
-        </div>
-        <div className="space-y-3">
-          {groups.map((g) => (
-            <div key={g.workType} className="rounded-xl border p-3">
-              <b className="text-xs text-sky-900">
-                {g.workType} <span className="text-slate-400">({g.photos.length})</span>
-              </b>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {g.photos.map((p) => (
-                  <div key={p.rowId} className="relative">
-                    <DesignThumb path={p.path} caption={p.caption} />
-                    {!locked && (
-                      <button
-                        aria-label="إزالة من التصميم"
-                        onClick={() => removePhoto.mutate([p.rowId], { onSuccess: () => detail.refetch() })}
-                        className="absolute -left-1.5 -top-1.5 rounded-full bg-red-600 p-1 text-white"
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {!groups.length && (
-            <p className="rounded-xl border border-dashed p-6 text-center text-xs text-slate-400">
-              لا توجد صور في هذا التصميم بعد.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* الأزرار */}
-      <div className="mt-5 flex flex-wrap gap-2">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100" dir="rtl" data-testid="composer-fullscreen">
+      {/* ترويسة المصمم */}
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-300 bg-white/95 px-4 py-3 backdrop-blur">
+        <h2 className="text-base font-black text-slate-800">
+          {locked ? 'التصميم (مكتمل)' : 'مُصمم التصميم — ملء الشاشة'}
+        </h2>
+        <span className="text-[11px] text-slate-400">
+          اسحب الصور لإعادة ترتيبها أو نقلها لنوع آخر · انقر صورة لعرضها
+        </span>
         <button
-          onClick={() => setPreview(!preview)}
-          className="flex h-11 items-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-black text-white"
+          onClick={close}
+          className="mr-auto flex h-10 items-center gap-1 rounded-xl border px-4 text-sm font-black text-slate-700 hover:bg-slate-100"
         >
-          <LayoutTemplate size={15} />
-          {preview ? 'إخفاء المعاينة' : 'معاينة التقرير'}
+          <X size={15} />
+          إغلاق
         </button>
-        {preview && (
-          <button
-            onClick={() => window.print()}
-            className="no-print flex h-11 items-center gap-2 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
-          >
-            <Printer size={15} />
-            طباعة / تصدير PDF
-          </button>
-        )}
+      </div>
+
+      <div className="mx-auto max-w-6xl space-y-4 p-4 pb-24">
         {!locked && (
-          <>
-            <button
-              onClick={() => complete.mutate([designId], { onSuccess: () => detail.refetch() })}
-              disabled={data.design.photo_count === 0 || complete.isPending}
-              className="flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-black text-white disabled:opacity-40"
+          <section className="grid gap-2 rounded-2xl border bg-white p-3 sm:grid-cols-[1fr_auto_auto]">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="h-11 rounded-xl border px-3 text-sm font-bold"
+              placeholder="عنوان التقرير"
+            />
+            <select
+              value={periodType}
+              onChange={(e) => setPeriodType(e.target.value as PeriodType)}
+              className="h-11 rounded-xl border bg-white px-3 text-sm"
             >
-              إكمال التصميم وقفله
-            </button>
+              {PERIODS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
             <button
-              onClick={() => deleteIfConfirmed()}
-              disabled={deleteDesign.isPending}
-              className="flex h-11 items-center gap-2 rounded-xl border border-red-300 px-4 text-sm font-bold text-red-600"
+              onClick={save}
+              disabled={update.isPending}
+              className="flex h-11 items-center gap-2 rounded-xl bg-fuchsia-700 px-4 text-sm font-black text-white disabled:opacity-40"
             >
-              <Trash2 size={14} />
-              حذف المسودة
+              <Save size={15} />
+              حفظ
             </button>
-          </>
+          </section>
+        )}
+        <p className="text-xs text-slate-500">
+          {SECTOR_LABEL[sector]} · الدورة:{' '}
+          <b>
+            {periodRange(periodType).start} ← {periodRange(periodType).end}
+          </b>{' '}
+          · {data.design.photo_count} صورة · {locked ? 'مقفل بعد الإكمال' : 'مسودة قابلة للتعديل'}
+        </p>
+
+        {/* الغلاف (الورقة الأولى — يدوي) */}
+        <section className="rounded-2xl border bg-white p-4">
+          <h3 className="mb-2 text-sm font-black">الورقة الأولى — الغلاف (يُرفع يدوياً)</h3>
+          <div className="flex flex-wrap items-center gap-3">
+            {coverUrl ? (
+              <button onClick={() => setLightbox({ url: coverUrl, caption: 'الغلاف' })}>
+                <img src={coverUrl} alt="الغلاف" className="h-24 w-40 rounded-xl object-cover" />
+              </button>
+            ) : (
+              <div className="grid h-24 w-40 place-items-center rounded-xl border border-dashed text-xs text-slate-400">
+                بلا غلاف
+              </div>
+            )}
+            {!locked && (
+              <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-4 text-xs font-bold hover:bg-slate-50">
+                <Upload size={14} />
+                {coverUrl ? 'استبدال الغلاف' : 'رفع الغلاف'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => onCover(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            )}
+            {!locked && coverUrl && (
+              <button
+                onClick={() => {
+                  setCoverPath(null)
+                  update.mutate([designId, { title, periodType, coverPath: null }])
+                }}
+                className="flex h-10 items-center gap-1 rounded-xl border px-3 text-xs font-bold text-red-600"
+              >
+                <X size={13} />
+                إزالة
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* الصور حسب النوع: سحب وإفلات + فتح */}
+        <section>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-black">صور التصميم حسب نوع العمل</h3>
+            {!locked && (
+              <button
+                onClick={() => setAddOpen(true)}
+                className="mr-auto flex h-9 items-center gap-1 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white"
+              >
+                <ImagePlus size={14} />
+                إضافة صور من تذكرات
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            {groups.map((g) => (
+              <div
+                key={g.workType}
+                data-testid={`drop-group-${g.workType}`}
+                onDragOver={(e) => {
+                  if (!locked) e.preventDefault()
+                }}
+                onDrop={(e) => {
+                  if (locked) return
+                  e.preventDefault()
+                  commitMove(g.workType, null)
+                }}
+                className={`rounded-xl border bg-white p-3 transition ${
+                  dragRow ? 'border-dashed border-emerald-500' : ''
+                }`}
+              >
+                <b className="text-xs text-sky-900">
+                  {g.workType} <span className="text-slate-400">({g.photos.length})</span>
+                </b>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {g.photos.map((p) => (
+                    <div
+                      key={p.rowId}
+                      data-testid={`drag-${p.rowId}`}
+                      draggable={!locked}
+                      onDragStart={() => setDragRow(p.rowId)}
+                      onDragEnd={() => setDragRow(null)}
+                      onDragOver={(e) => {
+                        if (!locked) {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }
+                      }}
+                      onDrop={(e) => {
+                        if (locked) return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        commitMove(g.workType, p.rowId)
+                      }}
+                      className={`relative cursor-grab active:cursor-grabbing ${
+                        dragRow === p.rowId ? 'opacity-40' : ''
+                      }`}
+                    >
+                      <DesignThumb path={p.path} caption={p.caption} onOpen={setLightbox} />
+                      <span className="absolute right-0 top-0 grid size-5 place-items-center rounded-br-lg bg-slate-800/70 text-white">
+                        ⠿
+                      </span>
+                      {!locked && (
+                        <button
+                          aria-label="إزالة من التصميم"
+                          onClick={() => removePhoto.mutate([p.rowId], { onSuccess: () => detail.refetch() })}
+                          className="absolute -left-1.5 -top-1.5 rounded-full bg-red-600 p-1 text-white"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {!groups.length && (
+              <p className="rounded-xl border border-dashed bg-white p-6 text-center text-xs text-slate-400">
+                لا توجد صور في هذا التصميم بعد.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* الأزرار */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setPreview(!preview)}
+            className="flex h-11 items-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-black text-white"
+          >
+            <LayoutTemplate size={15} />
+            {preview ? 'إخفاء المعاينة' : 'معاينة التقرير'}
+          </button>
+          {preview && (
+            <button
+              onClick={() => window.print()}
+              className="no-print flex h-11 items-center gap-2 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
+            >
+              <Printer size={15} />
+              طباعة / تصدير PDF
+            </button>
+          )}
+          {!locked && (
+            <>
+              <button
+                onClick={() => complete.mutate([designId], { onSuccess: () => detail.refetch() })}
+                disabled={data.design.photo_count === 0 || complete.isPending}
+                className="flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-black text-white disabled:opacity-40"
+              >
+                إكمال التصميم وقفله
+              </button>
+              <button
+                onClick={() => deleteIfConfirmed()}
+                disabled={deleteDesign.isPending}
+                className="flex h-11 items-center gap-2 rounded-xl border border-red-300 bg-white px-4 text-sm font-bold text-red-600"
+              >
+                <Trash2 size={14} />
+                حذف المسودة
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* المعاينة الحية */}
+        {preview && (
+          <div className="overflow-y-auto rounded-2xl border bg-slate-200 p-4">
+            <DesignReportView
+              title={title || data.design.title}
+              sector={sector}
+              periodType={periodType}
+              periodStart={data.design.period_start}
+              periodEnd={data.design.period_end}
+              coverUrl={coverUrl}
+              sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
+              summary={(data.design.summary as unknown as ReportSummary | null) ?? null}
+              colors={(data.design.template_colors as unknown as ReportColors | null) ?? null}
+              groups={groups.map((g) => ({
+                workType: g.workType,
+                photos: g.photos.map((p) => ({
+                  id: p.id,
+                  rowId: p.rowId,
+                  path: p.path,
+                  caption: p.caption,
+                  reportCaption: p.reportCaption,
+                  fit: p.fit,
+                  zoom: p.zoom,
+                })),
+              }))}
+              onSaveReport={(sh, caps, extra) => saveReport.mutateAsync([sh, caps, extra])}
+            />
+          </div>
         )}
       </div>
 
-      {/* المعاينة الحية */}
-      {preview && (
-        <div className="mt-5 max-h-[70vh] overflow-y-auto rounded-2xl border bg-slate-100 p-4">
-          <DesignReportView
-            title={title || data.design.title}
-            coverUrl={coverUrl}
-            sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
-            groups={groups.map((g) => ({
-              workType: g.workType,
-              photos: g.photos.map((p) => ({
-                id: p.id,
-                rowId: p.rowId,
-                path: p.path,
-                caption: p.caption,
-                reportCaption: p.reportCaption,
-              })),
-            }))}
-            onSaveReport={(sh, caps) => saveReport.mutateAsync([sh, caps])}
+      {/* عارض الصور */}
+      {lightbox && (
+        <button
+          data-testid="lightbox"
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-[60] grid place-items-center bg-black/85 p-6"
+          aria-label="إغلاق العارض"
+        >
+          <img
+            src={lightbox.url}
+            alt={lightbox.caption ?? ''}
+            className="max-h-full max-w-full rounded-lg object-contain"
           />
-        </div>
+          <span className="absolute bottom-4 rounded-full bg-white/10 px-4 py-1 text-xs font-bold text-white">
+            {lightbox.caption ?? ''} — انقر للإغلاق
+          </span>
+        </button>
       )}
 
       {addOpen && (
@@ -378,7 +530,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
           close={() => setAddOpen(false)}
         />
       )}
-    </DialogShell>
+    </div>
   )
 
   function deleteIfConfirmed() {
@@ -388,18 +540,36 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   }
 }
 
-function DesignThumb({ path, caption }: { path: string; caption: string | null }) {
+function DesignThumb({
+  path,
+  caption,
+  onOpen,
+}: {
+  path: string
+  caption: string | null
+  onOpen: (v: { url: string; caption: string | null }) => void
+}) {
   const urls = useSignedPhotoUrls([path])
   const url = urls.data?.[path]
   return (
-    <figure className="w-28 overflow-hidden rounded-lg border bg-white">
-      <div className="aspect-video bg-slate-100">
+    <figure className="w-32 overflow-hidden rounded-lg border bg-white">
+      <button
+        type="button"
+        aria-label="فتح الصورة"
+        onClick={() => url && onOpen({ url, caption })}
+        className="block aspect-video w-full relative bg-slate-100"
+      >
         {url ? (
-          <img src={url} alt={caption ?? ''} className="size-full object-cover" loading="lazy" />
+          <span className="flex size-full items-center justify-center">
+            <img src={url} alt={caption ?? ''} className="size-full object-cover" loading="lazy" />
+            <span className="absolute grid size-7 place-items-center rounded-full bg-black/45 text-white">
+              <Eye size={14} />
+            </span>
+          </span>
         ) : (
-          <div className="grid size-full place-items-center text-[10px] text-slate-300">…</div>
+          <span className="grid size-full place-items-center text-[10px] text-slate-300">…</span>
         )}
-      </div>
+      </button>
       {caption && <figcaption className="truncate px-1.5 py-1 text-[9px] text-slate-500">{caption}</figcaption>}
     </figure>
   )
@@ -487,5 +657,3 @@ function AddPhotosDialog({
     </DialogShell>
   )
 }
-
-
