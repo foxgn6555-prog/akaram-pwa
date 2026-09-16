@@ -481,9 +481,9 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
       {/* المعاينة الحية — خارج المحتوى المخفي حتى تُفصل الأوراق فصلاً سليماً عند الطباعة */}
         {preview && (
           <div data-rp-preview className="p-4">
-            <p className="no-print mx-auto mb-3 max-w-6xl rounded-xl border border-amber-300 bg-amber-50 p-2 text-center text-[11px] font-bold text-amber-800">
-              كل ورقة تُطبع على صفحة مستقلة. ولطباعة أنظف: ألغِ خيار «الرؤوس والتذييلات» وفعّل «الرسومات
-              الخلفية» في نافذة الطباعة.
+            <p className="no-print mx-auto mb-3 max-w-6xl rounded-xl border border-emerald-300 bg-emerald-50 p-2 text-center text-[11px] font-bold text-emerald-800">
+              الطباعة جاهزة: كل ورقة على صفحة مستقلة، الألوان تُطبع كما هي، ورؤوس المتصفح (التاريخ
+              والعنوان والرابط والترقيم) مُلغاة تلقائياً.
             </p>
             <DesignReportView
               title={title || data.design.title}
