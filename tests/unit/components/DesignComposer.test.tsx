@@ -76,6 +76,18 @@ describe('المصمم بملء الشاشة', () => {
     expect(screen.queryByTestId('lightbox')).toBeNull()
   })
 
+  it('المعاينة تُفعّل بنية الطباعة وتغيّر عنوان الوثيقة', () => {
+    openComposer()
+    const root = screen.getByTestId('composer-fullscreen')
+    expect(root.hasAttribute('data-rp-overlay')).toBe(true)
+    fireEvent.click(screen.getByText('معاينة التقرير'))
+    expect(document.title).toContain('تقرير')
+    // المحتوى الإداري مخفي عند الطباعة والمعاينة خارج حاويته
+    const preview = document.querySelector('[data-rp-preview]')
+    expect(preview).not.toBeNull()
+    expect(preview?.closest('.no-print')).toBeNull()
+  })
+
   it('سحب صورة وإفلاتها في نوع عمل آخر ينقلها ويحفظ الترتيب', () => {
     openComposer()
     fireEvent.dragStart(screen.getByTestId('drag-r1'))
