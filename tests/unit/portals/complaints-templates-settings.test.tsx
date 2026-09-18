@@ -359,7 +359,7 @@ describe('محرر التقرير — ReportEditorPage', () => {
     expect(screen.getByText('تم توليد PowerPoint وأصبح جاهزاً للمراجعة.')).toBeInTheDocument()
   })
 
-  it('يعرض تجميع البريد مع مسؤول القسم ويتيح تحرير هوية الغلاف',()=>{h.report={...reportDetail,status:'draft',items:[{...reportDetail.items[0],item:{...item,assignedTo:'mgr1',inboxMessageId:'m1',ticketName:'موضوع البريد'}}]};editorView();expect(screen.getAllByText('موضوع البريد').length).toBeGreaterThan(0);expect(screen.getByText('المهندس علي · 1 موقع')).toBeInTheDocument();expect(screen.getByText(/سيضيف PowerPoint فاصلاً مستقلاً لكل مجموعة/)).toBeInTheDocument();fireEvent.change(screen.getByLabelText('الجهة الحكومية'),{target:{value:'أمانة بغداد / دائرة بلدية الكرادة'}});fireEvent.change(screen.getByLabelText('الجهة المنفذة'),{target:{value:'تحالف جزيرة الأكرام'}});expect(screen.getByText('تحالف جزيرة الأكرام')).toBeInTheDocument()})
+  it('يعرض تجميع البريد مع مسؤول القسم ويتيح تحرير هوية الغلاف',()=>{h.report={...reportDetail,status:'draft',items:[{...reportDetail.items[0],item:{...item,assignedTo:'mgr1',inboxMessageId:'m1',ticketName:'موضوع البريد'}}]};editorView();expect(screen.getAllByText('موضوع البريد').length).toBeGreaterThan(0);expect(screen.getByText('المهندس علي · 1 موقع')).toBeInTheDocument();expect(screen.getByText(/يحافظ PowerPoint على ترتيب المواقع كما في المعاينة/)).toBeInTheDocument();fireEvent.change(screen.getByLabelText('الجهة الحكومية'),{target:{value:'أمانة بغداد / دائرة بلدية الكرادة'}});fireEvent.change(screen.getByLabelText('الجهة المنفذة'),{target:{value:'تحالف جزيرة الأكرام'}});expect(screen.getByText('تحالف جزيرة الأكرام')).toBeInTheDocument()})
 
   it('يرسل التقرير المعتمد إلى المستلمين مع مرفق PPTX', () => {
     h.report = reportDetail

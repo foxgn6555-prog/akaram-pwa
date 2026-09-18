@@ -1,8 +1,8 @@
 /**
  * بانٍ مشترك لملف PowerPoint الخاص بتقارير الشكاوى — يعمل في المتصفح وفي دالة
  * الحافة معاً حتى يكون الملف المنزل مطابقاً حرفياً للمعاينة والتصميم المعتمد:
- * غلاف بالشعارات الثلاثة ← المؤشرات التنفيذية ← صفحات الجدول (11 صفاً) ←
- * فواصل المجموعات ← شرائح قبل/بعد مع شريط التذييل «محلة - زقاق - نوع».
+ * غلاف بالشعارات الثلاثة ← صفحات الجدول (11 صفاً) ← شرائح قبل/بعد
+ * مع شريط التذييل «محلة - زقاق - نوع».
  */
 export const EMU = 914400
 export type SlidePart = { xml: string; rels: string; images: { name: string; bytes: Uint8Array }[] }
@@ -82,24 +82,6 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
   const brandRels = input.brand.map((logo, index) => `<Relationship Id="rId${index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${logo.name}"/>`)
   slides.push(makeSlide(coverShapes, brandRels, input.brand))
 
-  // 2) المؤشرات التنفيذية
-  const centerCounts = new Map<string, number>()
-  input.items.forEach(item => centerCounts.set(item.center, (centerCounts.get(item.center) ?? 0) + 1))
-  const centerRows = [...centerCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8)
-  const centerMax = Math.max(1, ...centerRows.map(([, count]) => count))
-  const approvedCount = input.items.filter(item => item.status === 'approved').length
-  const afterPhotos = input.items.reduce((sum, item) => sum + input.mediaFor(item.id).afters.length, 0)
-  const summaryShapes = [textBox('المؤشرات التنفيذية للتقرير', 3.1, .25, 7, .55, 25, true, accent, fontFamily),
-    rect(.7, 1, 3.6, 1, 'E0F2FE', accent), textBox(`إجمالي المواقع\n${input.items.length}`, .8, 1.12, 3.4, .7, 18, true, '075985', fontFamily),
-    rect(4.85, 1, 3.6, 1, 'DCFCE7', '16A34A'), textBox(`المواقع المعتمدة\n${approvedCount}`, 4.95, 1.12, 3.4, .7, 18, true, '166534', fontFamily),
-    rect(9, 1, 3.1, 1, 'F3E8FF', '9333EA'), textBox(`صور المعالجة\n${afterPhotos}`, 9.1, 1.12, 2.9, .7, 18, true, '6B21A8', fontFamily),
-    textBox('توزيع المواقع حسب المركز البلدي', 3.2, 2.25, 6.8, .45, 18, true, '334155', fontFamily)]
-  centerRows.forEach(([name, count], index) => {
-    const y = 2.9 + index * .43
-    summaryShapes.push(textBox(name, .55, y, 2.2, .3, 11, true, '334155', fontFamily), rect(2.85, y, 8.6, .28, 'E2E8F0', 'E2E8F0'), rect(2.85, y, Math.max(.18, 8.6 * count / centerMax), .28, accent, accent), textBox(String(count), 11.55, y, 1, .3, 11, true, '0F172A', fontFamily))
-  })
-  slides.push(makeSlide(summaryShapes))
-
   // 3) صفحات الجدول — 11 صفاً لكل شريحة، والعناوين وحدها بالخط العريض
   const headers = ['الزقاق', 'المحلة', 'المركز', 'نوع التلكؤ', 'مسؤول القسم', 'ت']
   const widths = [1.35, 1.35, 2, 2.7, 3.25, .75]
@@ -121,15 +103,8 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
     slides.push(makeSlide(shapes))
   }
 
-  // 4) فواصل المجموعات ثم شرائح قبل/بعد بإطارات البطاقات وشريط التذييل
-  let lastKey = ''
+  // 4) شرائح قبل/بعد لكل موقع بإطارات البطاقات وشريط التذييل
   for (const item of input.items) {
-    const key = `${item.subject}:${item.manager}`
-    if (key !== lastKey) {
-      lastKey = key
-      const groupCount = input.items.filter(value => `${value.subject}:${value.manager}` === key).length
-      slides.push(makeSlide([roundRect(.8, .75, 11.7, 5.8, 'FFFFFF', accent, 4), textBox('مجموعة البريد والمسؤول', 3.65, 1.35, 6, .45, 18, true, accent, fontFamily), textBox(item.subject, 1.25, 2.2, 10.8, .85, 28, true, '0F172A', fontFamily), textBox(`مسؤول القسم: ${item.manager}`, 2.4, 3.4, 8.5, .55, 20, true, '334155', fontFamily), textBox(`${groupCount} موقع معالجة`, 4.55, 4.45, 4.2, .45, 16, true, '64748B', fontFamily)]))
-    }
     const media = input.mediaFor(item.id)
     const pages: Array<LoadedPptxImage | undefined> = media.afters.length ? media.afters : [undefined]
     for (let afterIndex = 0; afterIndex < pages.length; afterIndex += 1) {

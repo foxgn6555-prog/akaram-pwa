@@ -8,8 +8,8 @@ import {
   type ComplaintReportDetail,
 } from '@features/complaints'
 import { ComplaintEmpty, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
-import { ReportCoverPreview, ReportSlidePreview, ReportSummaryPreview, ReportTablePreview } from '../../components/reportPreview'
-import { buildSlidePlan, entryGroupKey } from '../../components/reportPreviewModel'
+import { ReportCoverPreview, ReportSlidePreview, ReportTablePreview } from '../../components/reportPreview'
+import { buildSlidePlan } from '../../components/reportPreviewModel'
 
 const deliveryLabels: Record<string, string> = {
   queued: 'في قائمة الإرسال', accepted: 'قبله مزود البريد', delivered: 'مُسلّم',
@@ -40,7 +40,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const [dragged, setDragged] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [dirty, setDirty] = useState(false)
-  const [preview, setPreview] = useState<'cover' | 'summary' | 'table' | 'slides'>('cover')
+  const [preview, setPreview] = useState<'cover' | 'table' | 'slides'>('cover')
   const [previewItem, setPreviewItem] = useState(0)
   const [reviewConfirmed, setReviewConfirmed] = useState(false)
 
@@ -113,12 +113,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const slideEntry = includedItems[Math.min(previewItem, Math.max(0, includedItems.length - 1))]
   const before = media.data?.find(value => value.itemId === slideEntry?.itemId && value.kind === 'before')
   const after = media.data?.find(value => value.itemId === slideEntry?.itemId && value.kind === 'after')
-  const afterPhotos = media.data?.filter(value => value.kind === 'after').length ?? 0
-  const slidePlan = buildSlidePlan(includedItems, managerNames)
-  const slideEntryKey = slideEntry ? entryGroupKey(slideEntry) : ''
-  const slideEntryGroup = reportGroups.get(slideEntryKey)
-  const isFirstOfGroup = Boolean(slideEntry) && includedItems.findIndex(entry => entryGroupKey(entry) === slideEntryKey) === includedItems.findIndex(entry => entry.itemId === slideEntry?.itemId)
-  const groupNote = slideEntry && isFirstOfGroup && slideEntryGroup ? `${slideEntryGroup.subject} — ${slideEntryGroup.manager}` : undefined
+  const slidePlan = buildSlidePlan(includedItems)
   const readyChecks = [
     { label: 'عنوان التقرير', ok: Boolean(title.trim()) },
     { label: 'موقع واحد على الأقل', ok: includedItems.length > 0 },
@@ -165,20 +160,19 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
       </aside>
 
       <main className="space-y-5">
-        <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'summary', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'summary' ? 'المؤشرات' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
+        <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
           <div className="mx-auto mt-5 aspect-video w-full max-w-4xl overflow-hidden rounded-xl border bg-white shadow-xl" style={{ borderColor: accent }}>
             {preview === 'cover' && <ReportCoverPreview layout={layout} title={title} accent={accent} sector={initial.sector} reportDate={initial.reportDate} />}
-            {preview === 'summary' && <ReportSummaryPreview entries={includedItems} afterPhotos={afterPhotos} accent={accent} />}
             {preview === 'table' && <ReportTablePreview entries={includedItems} accent={accent} managerNames={managerNames} />}
-            {preview === 'slides' && <ReportSlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} groupNote={groupNote} />}
+            {preview === 'slides' && <ReportSlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} />}
           </div>
-          <details className="mx-auto mt-4 w-full max-w-4xl rounded-xl border bg-white p-3"><summary className="cursor-pointer text-xs font-black text-slate-600">ترتيب شرائح ملف PowerPoint الناتج ({slidePlan.length} شريحة) — مطابق للمعاينة أعلاه</summary><div className="mt-3 flex flex-wrap gap-1.5">{slidePlan.map((step, index) => <span key={`${step.kind}-${index}`} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${step.kind === 'cover' ? 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800' : step.kind === 'summary' ? 'border-purple-200 bg-purple-50 text-purple-800' : step.kind === 'table' ? 'border-sky-200 bg-sky-50 text-sky-800' : step.kind === 'group' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{step.label}</span>)}</div></details>
+          <details className="mx-auto mt-4 w-full max-w-4xl rounded-xl border bg-white p-3"><summary className="cursor-pointer text-xs font-black text-slate-600">ترتيب شرائح ملف PowerPoint الناتج ({slidePlan.length} شريحة) — مطابق للمعاينة أعلاه</summary><div className="mt-3 flex flex-wrap gap-1.5">{slidePlan.map((step, index) => <span key={`${step.kind}-${index}`} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${step.kind === 'cover' ? 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800' : step.kind === 'table' ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{step.label}</span>)}</div></details>
           {preview === 'slides' && includedItems.length > 1 && <div className="mt-4 flex items-center justify-center gap-3"><button onClick={() => setPreviewItem(Math.max(0, previewItem - 1))} disabled={previewItem === 0} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">السابق</button><span className="text-xs font-bold">الموقع {previewItem + 1} من {includedItems.length}</span><button onClick={() => setPreviewItem(Math.min(includedItems.length - 1, previewItem + 1))} disabled={previewItem >= includedItems.length - 1} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">التالي</button></div>}
         </article>
 
         <article className="rounded-3xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap justify-between gap-2"><div><h2 className="font-black">ترتيب ومحتوى التقرير</h2><p className="mt-1 text-xs text-slate-500">السحب أو الأسهم يعيدان ترتيب الشرائح. الاستبعاد لا يحذف بيانات الموقع.</p></div><span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">{includedItems.length} من {items.length} موقع</span></div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">{[...reportGroups.entries()].map(([key, group]) => <div key={key} className="rounded-xl border border-indigo-100 bg-indigo-50 p-3"><p className="truncate text-xs font-black text-indigo-950">{group.subject}</p><p className="mt-1 text-[11px] text-indigo-700">{group.manager} · {group.count} موقع</p></div>)}</div>
-          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">سيضيف PowerPoint فاصلاً مستقلاً لكل مجموعة «بريد + مسؤول قسم»، ثم يحافظ على ترتيب المواقع داخلها.</p>
+          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600">يحافظ PowerPoint على ترتيب المواقع كما في المعاينة: غلاف، جدول البيانات، ثم شريحة قبل/بعد لكل موقع.</p>
           <div className="mt-3 space-y-2">{items.map((entry, index) => <div key={entry.itemId} draggable={editable} onDragStart={() => setDragged(index)} onDragOver={event => event.preventDefault()} onDrop={() => { if (dragged !== null) move(dragged, index); setDragged(null) }} className={`flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${entry.included ? 'bg-white' : 'bg-slate-100 opacity-60'}`}>
             <GripVertical className="cursor-grab text-slate-400" size={18} /><input aria-label={`تضمين الموقع ${entry.item.sequenceNo}`} disabled={!editable} type="checkbox" checked={entry.included} onChange={event => { setItems(old => old.map(value => value.itemId === entry.itemId ? { ...value, included: event.target.checked } : value)); setDirty(true) }} />
             <div className="min-w-0 flex-1"><Link to={`/complaints/items/${entry.itemId}`} className="font-black text-blue-700">{entry.item.referenceNo} / {entry.item.sequenceNo}</Link><p className="truncate text-xs text-slate-500">محلة {entry.item.neighborhood || '—'} · زقاق {entry.item.alley || '—'} · {entry.item.title || 'نوع غير محدد'}</p><p className="mt-1 truncate text-[11px] font-bold text-indigo-700">{entry.item.ticketName || 'بريد دون موضوع'} · {managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'}</p></div><ComplaintStatusBadge status={entry.item.status} />
