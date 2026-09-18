@@ -136,7 +136,7 @@ export default function TemplatesPage() {
   const edit = (item: ComplaintTemplate) => {
     setForm({
       id: item.id, name: item.name, description: item.description ?? '', sector: item.sector ?? '',
-      accent: value(item.layout, 'accent', '#2563eb'),
+      accent: value(item.layout, 'accent', '#d269c8'),
       coverTitle: value(item.layout, 'title', 'تقرير معالجة التلكؤات ليوم'),
       authorityLine: value(item.layout, 'authorityLine', 'أمانة بغداد / دائرة بلدية الكرادة'),
       contractorLine: value(item.layout, 'contractorLine', 'تحالف شركات جزيرة الأكرام وفيرست ترايد'),

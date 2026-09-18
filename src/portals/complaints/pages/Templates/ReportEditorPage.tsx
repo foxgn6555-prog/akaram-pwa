@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowRight, CheckCircle2, Download, Eye, FileCheck2, GripVertical, Image as ImageIcon, LayoutTemplate, Mail, Save, Send, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Download, Eye, FileCheck2, GripVertical, LayoutTemplate, Mail, Save, Send, ShieldCheck, Sparkles } from 'lucide-react'
 import {
   useComplaintItemsMedia, useComplaintManagers, useComplaintReport, useComplaintReportDownload, useGenerateComplaintReport,
   useSaveComplaintReportDraft, useSendComplaintEmail, useSetComplaintReportStatus,
@@ -8,6 +8,8 @@ import {
   type ComplaintReportDetail,
 } from '@features/complaints'
 import { ComplaintEmpty, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
+import { ReportCoverPreview, ReportSlidePreview, ReportSummaryPreview, ReportTablePreview } from '../../components/reportPreview'
+import { buildSlidePlan, entryGroupKey } from '../../components/reportPreviewModel'
 
 const deliveryLabels: Record<string, string> = {
   queued: 'في قائمة الإرسال', accepted: 'قبله مزود البريد', delivered: 'مُسلّم',
@@ -38,7 +40,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const [dragged, setDragged] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [dirty, setDirty] = useState(false)
-  const [preview, setPreview] = useState<'cover' | 'table' | 'slides'>('cover')
+  const [preview, setPreview] = useState<'cover' | 'summary' | 'table' | 'slides'>('cover')
   const [previewItem, setPreviewItem] = useState(0)
   const [reviewConfirmed, setReviewConfirmed] = useState(false)
 
@@ -111,6 +113,12 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const slideEntry = includedItems[Math.min(previewItem, Math.max(0, includedItems.length - 1))]
   const before = media.data?.find(value => value.itemId === slideEntry?.itemId && value.kind === 'before')
   const after = media.data?.find(value => value.itemId === slideEntry?.itemId && value.kind === 'after')
+  const afterPhotos = media.data?.filter(value => value.kind === 'after').length ?? 0
+  const slidePlan = buildSlidePlan(includedItems, managerNames)
+  const slideEntryKey = slideEntry ? entryGroupKey(slideEntry) : ''
+  const slideEntryGroup = reportGroups.get(slideEntryKey)
+  const isFirstOfGroup = Boolean(slideEntry) && includedItems.findIndex(entry => entryGroupKey(entry) === slideEntryKey) === includedItems.findIndex(entry => entry.itemId === slideEntry?.itemId)
+  const groupNote = slideEntry && isFirstOfGroup && slideEntryGroup ? `${slideEntryGroup.subject} — ${slideEntryGroup.manager}` : undefined
   const readyChecks = [
     { label: 'عنوان التقرير', ok: Boolean(title.trim()) },
     { label: 'موقع واحد على الأقل', ok: includedItems.length > 0 },
@@ -157,12 +165,14 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
       </aside>
 
       <main className="space-y-5">
-        <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
+        <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'summary', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'summary' ? 'المؤشرات' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
           <div className="mx-auto mt-5 aspect-video w-full max-w-4xl overflow-hidden rounded-xl border bg-white shadow-xl" style={{ borderColor: accent }}>
-            {preview === 'cover' && <CoverPreview layout={layout} title={title} accent={accent} initial={initial} />}
-            {preview === 'table' && <TablePreview items={includedItems} accent={accent} managerNames={managerNames} />}
-            {preview === 'slides' && <SlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} />}
+            {preview === 'cover' && <ReportCoverPreview layout={layout} title={title} accent={accent} sector={initial.sector} reportDate={initial.reportDate} />}
+            {preview === 'summary' && <ReportSummaryPreview entries={includedItems} afterPhotos={afterPhotos} accent={accent} />}
+            {preview === 'table' && <ReportTablePreview entries={includedItems} accent={accent} managerNames={managerNames} />}
+            {preview === 'slides' && <ReportSlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} groupNote={groupNote} />}
           </div>
+          <details className="mx-auto mt-4 w-full max-w-4xl rounded-xl border bg-white p-3"><summary className="cursor-pointer text-xs font-black text-slate-600">ترتيب شرائح ملف PowerPoint الناتج ({slidePlan.length} شريحة) — مطابق للمعاينة أعلاه</summary><div className="mt-3 flex flex-wrap gap-1.5">{slidePlan.map((step, index) => <span key={`${step.kind}-${index}`} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${step.kind === 'cover' ? 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800' : step.kind === 'summary' ? 'border-purple-200 bg-purple-50 text-purple-800' : step.kind === 'table' ? 'border-sky-200 bg-sky-50 text-sky-800' : step.kind === 'group' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{step.label}</span>)}</div></details>
           {preview === 'slides' && includedItems.length > 1 && <div className="mt-4 flex items-center justify-center gap-3"><button onClick={() => setPreviewItem(Math.max(0, previewItem - 1))} disabled={previewItem === 0} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">السابق</button><span className="text-xs font-bold">الموقع {previewItem + 1} من {includedItems.length}</span><button onClick={() => setPreviewItem(Math.min(includedItems.length - 1, previewItem + 1))} disabled={previewItem >= includedItems.length - 1} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold disabled:opacity-40">التالي</button></div>}
         </article>
 
@@ -183,17 +193,3 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
     <article className="rounded-3xl border bg-white p-5 shadow-sm"><h2 className="font-black">سجل محاولات التسليم</h2>{!initial.deliveries.length ? <p className="mt-3 text-sm text-slate-500">لم تبدأ أي محاولة إرسال لهذا التقرير.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[650px] text-sm"><thead><tr className="bg-slate-50"><th className="p-3 text-right">الوقت</th><th className="p-3 text-right">المستلمون</th><th className="p-3">الحالة</th><th className="p-3 text-right">النتيجة</th></tr></thead><tbody>{initial.deliveries.map(delivery => <tr key={delivery.id} className="border-t"><td className="p-3">{new Date(delivery.createdAt).toLocaleString('ar-IQ')}</td><td className="p-3" dir="ltr">{delivery.recipients.join(', ')}</td><td className="p-3 text-center font-bold">{deliveryLabels[delivery.status] ?? delivery.status}</td><td className="p-3">{delivery.errorMessage ?? (delivery.deliveredAt ? `تم التسليم ${new Date(delivery.deliveredAt).toLocaleString('ar-IQ')}` : 'بانتظار تحديث مزود البريد')}</td></tr>)}</tbody></table></div>}</article>
   </section>
 }
-
-function CoverPreview({ layout, title, accent, initial }: { layout: Record<string, unknown>; title: string; accent: string; initial: ComplaintReportDetail }) {
-  const configuredAuthority = String(layout.authorityLine ?? '')
-  const authority = !configuredAuthority || configuredAuthority === 'أمانة بغداد / دائرة بلدية الكرادة' ? `أمانة بغداد / دائرة بلدية ${initial.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}` : configuredAuthority
-  return <div className="flex h-full flex-col items-center justify-center p-5 text-center"><div className="flex items-center gap-3"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain sm:size-16" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain sm:size-20" /><img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain sm:size-20" /></div><p className="mt-3 text-[9px] font-bold sm:text-xs">{authority}</p><p className="mt-1 text-[8px] font-bold sm:text-[11px]">{String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد')}</p><h3 className="mt-4 max-w-2xl text-base font-black sm:text-2xl" style={{ color: accent }}>{String(layout.title ?? title)}</h3><p className="mt-2 max-w-2xl text-[9px] font-bold text-slate-700 sm:text-sm">{title}</p><p className="mt-2 text-[10px] sm:text-sm">{initial.reportDate} · {initial.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}</p></div>
-}
-function TablePreview({ items, accent, managerNames }: { items: ComplaintReportDetail['items']; accent: string; managerNames: Map<string, string> }) {
-  return <div className="h-full p-3 sm:p-5"><h3 className="text-center text-xs font-black sm:text-lg" style={{ color: accent }}>جدول بيانات التلكؤات</h3><table className="mt-3 w-full table-fixed text-[6px] sm:text-[10px]"><thead style={{ background: accent, color: 'white' }}><tr><th className="p-1">ت</th><th>مسؤول القسم</th><th>نوع التلكؤ</th><th>المركز</th><th>المحلة</th><th>الزقاق</th></tr></thead><tbody>{items.slice(0, 8).map((entry, index) => <tr key={entry.itemId} className="border-b odd:bg-slate-50"><td className="p-1 text-center">{index + 1}</td><td>{managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'}</td><td>{entry.item.title || '—'}</td><td>{entry.item.municipalCenter || '—'}</td><td>{entry.item.neighborhood || '—'}</td><td>{entry.item.alley || '—'}</td></tr>)}</tbody></table>{items.length > 8 && <p className="mt-2 text-center text-[8px] text-slate-500">+ {items.length - 8} موقع في الصفحات التالية</p>}</div>
-}
-function SlidePreview({ entry, before, after, accent, layout }: { entry?: ComplaintReportDetail['items'][number]; before?: string; after?: string; accent: string; layout: Record<string, unknown> }) {
-  if (!entry) return <div className="flex h-full items-center justify-center text-sm text-slate-400">لا توجد مواقع مضمنة</div>
-  return <div className="flex h-full flex-col p-3"><div className="grid grid-cols-2 gap-3"><PreviewImage title={String(layout.afterLabel ?? 'صورة المعالجة')} src={after} accent={accent} /><PreviewImage title={String(layout.beforeLabel ?? 'صورة التلكؤ')} src={before} accent={accent} /></div><p className="mt-auto rounded-lg bg-slate-100 p-2 text-center text-[8px] font-bold sm:text-xs">محلة {entry.item.neighborhood || '—'} · زقاق {entry.item.alley || '—'} · {entry.item.title || 'نوع غير محدد'}</p></div>
-}
-function PreviewImage({ title, src, accent }: { title: string; src?: string; accent: string }) { return <div className="overflow-hidden rounded-lg border"><div className="p-1 text-center text-[8px] font-bold text-white sm:text-xs" style={{ background: accent }}>{title}</div>{src ? <img src={src} alt={title} className="aspect-[4/3] w-full bg-slate-100 object-contain" /> : <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 text-[8px] text-slate-400 sm:text-xs"><ImageIcon size={18} className="ml-1" />غير متاحة</div>}</div> }
