@@ -17,13 +17,7 @@ export const siteCaption = (entry: ReportEntry) =>
 /** سطر التاريخ على الغلاف — مطابق لسطر الغلاف في ملف PowerPoint. */
 export const coverDateLine = (sector: string, reportDate: string) => `${sectorLabel(sector)} - ${reportDate}`
 
-/** القاعدة المشتركة بين المعاينة والمولّد لسطر الجهة الحكومية حسب القطاع. */
-export const authorityLineFor = (layout: ReportLayout, sector: string) => {
-  const configured = String(layout.authorityLine ?? '')
-  return !configured || configured === 'أمانة بغداد / دائرة بلدية الكرادة'
-    ? `أمانة بغداد / دائرة بلدية ${sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}`
-    : configured
-}
+export { authorityLineFor } from '@lib/pptx/complaintPptx'
 
 /** مفتاح مجموعة «البريد + مسؤول القسم» — مطابق لتجميع مولّد PowerPoint. */
 export const entryGroupKey = (entry: ReportEntry) =>

@@ -275,7 +275,7 @@ export function useSetComplaintReportStatus() {
 export function useGenerateComplaintReport() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (reportId: string) => complaints.generateReport(reportId),
+    mutationFn: (reportId: string) => complaints.generateReportLocally(reportId),
     onSuccess: async () => { await qc.invalidateQueries({ queryKey: complaintsKeys.all }) },
   })
 }

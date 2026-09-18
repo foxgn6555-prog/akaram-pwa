@@ -1,5 +1,10 @@
 /** SDK دورة الشكاوى — لا وصول إلى Supabase من صفحات البوابات. */
+import JSZip from 'jszip'
 import { sdkGuard, sdkMaybe, sdkVoid, supabase } from './client'
+import {
+  authorityLineFor, buildPptx, composeComplaintSlides, imageDimensions, validMagic,
+  type ComposeBrandImage, type ComposeItem, type LoadedPptxImage,
+} from '@lib/pptx/complaintPptx'
 import { SDKError } from '@lib/errors/SDKError'
 import { baghdadDayRange } from '@features/complaints/lib/baghdad-date'
 import type {
@@ -39,6 +44,29 @@ function validImageSignature(bytes:Uint8Array,mime:string):boolean{
   if(mime==='image/png')return bytes.length>=8&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47&&bytes[4]===0x0d&&bytes[5]===0x0a&&bytes[6]===0x1a&&bytes[7]===0x0a
   if(mime==='image/webp')return bytes.length>=12&&bytes[0]===0x52&&bytes[1]===0x49&&bytes[2]===0x46&&bytes[3]===0x46&&bytes[8]===0x57&&bytes[9]===0x45&&bytes[10]===0x42&&bytes[11]===0x50
   return bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff
+}
+
+async function fetchLoadedImage(url: string | null, mime: string): Promise<LoadedPptxImage | null> {
+  if (!url || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) return null
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (!validMagic(bytes, mime)) return null
+    const dimensions = imageDimensions(bytes, mime)
+    return { bytes, width: dimensions?.width ?? 1, height: dimensions?.height ?? 1, ext: mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg' }
+  } catch { return null }
+}
+
+async function loadBrandLogos(): Promise<ComposeBrandImage[]> {
+  const sources: Array<[string, string]> = [['brand-baghdad.png', '/icons/baghdad-municipality.png'], ['brand-alliance.png', '/icons/alliance.png'], ['brand-akaram.png', '/icons/logo.png']]
+  try {
+    return await Promise.all(sources.map(async ([name, path]) => {
+      const response = await fetch(path)
+      if (!response.ok) throw new Error('BRAND_MISSING')
+      return { name, bytes: new Uint8Array(await response.arrayBuffer()) }
+    }))
+  } catch { return [] }
 }
 
 async function mapBatches<T,R>(values:T[],size:number,worker:(value:T,index:number)=>Promise<R>):Promise<R[]>{
@@ -547,6 +575,72 @@ export const complaints = {
     })
     if (error || !data?.path) throw new SDKError('تعذر إنشاء ملف PowerPoint', 'REPORT_GENERATION_FAILED', error)
     return data.path
+  },
+
+  /**
+   * توليد PowerPoint داخل المتصفح بالوحدة المشتركة نفسها التي تبني المعاينة،
+   * ثم رفعه وربطه بالتقرير — ضماناً لمطابقة الملف المنزل للتصميم المعتمد.
+   */
+  async generateReportLocally(reportId: string): Promise<string> {
+    const report = await complaints.reportDetail(reportId)
+    const included = report.items.filter(entry => entry.included)
+    if (included.length === 0) throw new SDKError('لا يمكن توليد التقرير دون موقع مضمن واحد على الأقل', 'REPORT_ITEMS_REQUIRED')
+    const [mediaRows, managers] = await Promise.all([
+      complaints.itemsMedia(included.map(entry => entry.itemId)),
+      complaints.managers(),
+    ])
+    const managerNames = new Map(managers.map(manager => [manager.userId, manager.fullName]))
+    const loaded = new Map<string, { before?: LoadedPptxImage; afters: LoadedPptxImage[] }>()
+    await mapBatches(mediaRows, 8, async row => {
+      const image = await fetchLoadedImage(row.url, row.mimeType)
+      if (!image || !row.itemId) return
+      const bucket = loaded.get(row.itemId) ?? { afters: [] }
+      if (row.kind === 'before') bucket.before = image
+      else bucket.afters.push(image)
+      loaded.set(row.itemId, bucket)
+    })
+    const groups = new Map<string, { subject: string; manager: string; entries: typeof included }>()
+    for (const entry of included) {
+      const key = `${entry.item.inboxMessageId ?? entry.item.complaintId}:${entry.item.assignedTo ?? 'unassigned'}`
+      const current = groups.get(key) ?? { subject: entry.item.ticketName || 'بريد دون موضوع', manager: managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم', entries: [] }
+      current.entries.push(entry)
+      groups.set(key, current)
+    }
+    const composeItems: ComposeItem[] = [...groups.values()].flatMap(group => group.entries.map(entry => ({
+      id: entry.itemId,
+      alley: entry.item.alley || '—',
+      neighborhood: entry.item.neighborhood || '—',
+      center: entry.item.municipalCenter || '—',
+      title: entry.item.title || 'نوع التلكؤ غير محدد',
+      status: entry.item.status,
+      manager: group.manager,
+      subject: group.subject,
+    })))
+    const brand = await loadBrandLogos()
+    const layout = report.layout
+    const slides = composeComplaintSlides({
+      reportTitle: report.title,
+      coverTitle: String(layout.title ?? report.title ?? 'تقرير معالجة التلكؤات'),
+      authorityLine: authorityLineFor(layout, report.sector),
+      contractorLine: String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد'),
+      reportDate: report.reportDate,
+      sectorLabel: report.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية',
+      scopeLabel: report.scope === 'email' ? 'تقرير بريد مستقل' : 'تقرير يومي جامع',
+      layout,
+      items: composeItems,
+      mediaFor: id => loaded.get(id) ?? { afters: [] },
+      brand,
+    })
+    const bytes = await buildPptx(slides, report.title, new JSZip())
+    const generationId = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+    const path = `reports/${reportId}/complaints-${report.sector}-${report.reportDate}-${generationId}.pptx`
+    await sdkGuard(supabase.storage.from('complaint-media').upload(path, bytes, {
+      contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      upsert: false,
+      cacheControl: 'no-cache',
+    }))
+    await sdkVoid(supabase.rpc('complaint_attach_pptx', { p_report_id: reportId, p_path: path }))
+    return path
   },
 
   async reportDownloadUrl(path: string): Promise<string> {
