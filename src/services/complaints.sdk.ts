@@ -2,7 +2,7 @@
 import JSZip from 'jszip'
 import { sdkGuard, sdkMaybe, sdkVoid, supabase } from './client'
 import {
-  authorityLineFor, buildPptx, composeComplaintSlides, imageDimensions, validMagic,
+  authorityLineFor, buildPptx, composeComplaintSlides, dateTimeLabels, imageDimensions, validMagic,
   type ComposeBrandImage, type ComposeItem, type LoadedPptxImage,
 } from '@lib/pptx/complaintPptx'
 import { SDKError } from '@lib/errors/SDKError'
@@ -585,11 +585,7 @@ export const complaints = {
     const report = await complaints.reportDetail(reportId)
     const included = report.items.filter(entry => entry.included)
     if (included.length === 0) throw new SDKError('لا يمكن توليد التقرير دون موقع مضمن واحد على الأقل', 'REPORT_ITEMS_REQUIRED')
-    const [mediaRows, managers] = await Promise.all([
-      complaints.itemsMedia(included.map(entry => entry.itemId)),
-      complaints.managers(),
-    ])
-    const managerNames = new Map(managers.map(manager => [manager.userId, manager.fullName]))
+    const mediaRows = await complaints.itemsMedia(included.map(entry => entry.itemId))
     const loaded = new Map<string, { before?: LoadedPptxImage; afters: LoadedPptxImage[] }>()
     await mapBatches(mediaRows, 8, async row => {
       const image = await fetchLoadedImage(row.url, row.mimeType)
@@ -599,23 +595,18 @@ export const complaints = {
       else bucket.afters.push(image)
       loaded.set(row.itemId, bucket)
     })
-    const groups = new Map<string, { subject: string; manager: string; entries: typeof included }>()
-    for (const entry of included) {
-      const key = `${entry.item.inboxMessageId ?? entry.item.complaintId}:${entry.item.assignedTo ?? 'unassigned'}`
-      const current = groups.get(key) ?? { subject: entry.item.ticketName || 'بريد دون موضوع', manager: managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم', entries: [] }
-      current.entries.push(entry)
-      groups.set(key, current)
-    }
-    const composeItems: ComposeItem[] = [...groups.values()].flatMap(group => group.entries.map(entry => ({
-      id: entry.itemId,
-      alley: entry.item.alley || '—',
-      neighborhood: entry.item.neighborhood || '—',
-      center: entry.item.municipalCenter || '—',
-      title: entry.item.title || 'نوع التلكؤ غير محدد',
-      status: entry.item.status,
-      manager: group.manager,
-      subject: group.subject,
-    })))
+    const composeItems: ComposeItem[] = included.map(entry => {
+      const labels = dateTimeLabels(entry.item.receivedAt)
+      return {
+        id: entry.itemId,
+        alley: entry.item.alley || '—',
+        neighborhood: entry.item.neighborhood || '—',
+        center: entry.item.municipalCenter || '—',
+        title: entry.item.title || 'نوع التلكؤ غير محدد',
+        dateLabel: labels.dateLabel,
+        arrivalLabel: labels.arrivalLabel,
+      }
+    })
     const brand = await loadBrandLogos()
     const layout = report.layout
     const slides = composeComplaintSlides({

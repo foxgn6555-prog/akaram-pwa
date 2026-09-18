@@ -1,5 +1,5 @@
 import JSZip from 'npm:jszip@3.10.1'
-import { buildPptx, composeComplaintSlides, loadImage, type ComposeItem, type LoadedPptxImage } from '../../../src/lib/pptx/complaintPptx.ts'
+import { buildPptx, composeComplaintSlides, dateTimeLabels, loadImage, type ComposeItem, type LoadedPptxImage } from '../../../src/lib/pptx/complaintPptx.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors } from '../_shared/cors.ts'
 
@@ -39,7 +39,7 @@ if (import.meta.main) Deno.serve(async (request: Request) => {
     const contractorLine=String(layout.contractorLine??'تحالف شركات جزيرة الأكرام وفيرست ترايد')
     const mediaByItem=new Map<string,{before?:LoadedPptxImage;afters:LoadedPptxImage[]}>()
     for(const row of (media??[])){const loaded=await loadImage((path)=>admin.storage.from('complaint-media').download(path),String(row.storage_path),String(row.mime_type));if(!loaded)continue;const bucket=mediaByItem.get(String(row.item_id))??{afters:[]};if(row.media_kind==='before')bucket.before=loaded;else if(row.media_kind==='after')bucket.afters.push(loaded);mediaByItem.set(String(row.item_id),bucket)}
-    const composeItems:ComposeItem[]=[...groups.values()].flatMap(group=>group.items.map(item=>{const parent=parentMap.get(String(item.complaint_id)) as Row|undefined;return{id:String(item.id),alley:String(item.alley??parent?.alley??'—'),neighborhood:String(item.neighborhood??parent?.neighborhood??'—'),center:String(item.municipal_center??parent?.municipal_center??'—'),title:String(item.title??parent?.complaint_type??'—'),status:String(item.status),manager:group.manager,subject:group.subject}}))
+    const composeItems:ComposeItem[]=[...groups.values()].flatMap(group=>group.items.map(item=>{const parent=parentMap.get(String(item.complaint_id)) as Row|undefined;const labels=dateTimeLabels(String(item.received_at??parent?.received_at??''));return{id:String(item.id),alley:String(item.alley??parent?.alley??'—'),neighborhood:String(item.neighborhood??parent?.neighborhood??'—'),center:String(item.municipal_center??parent?.municipal_center??'—'),title:String(item.title??parent?.complaint_type??'—'),dateLabel:labels.dateLabel,arrivalLabel:labels.arrivalLabel}}))
     const brand=await brandLogos()
     const slides=composeComplaintSlides({reportTitle:String(report.title),coverTitle:String(layout.title??report.title??'تقرير معالجة التلكؤات'),authorityLine,contractorLine,reportDate:String(report.report_date),sectorLabel:report.sector==='karrada'?'قاطع الكرادة':'قاطع الزعفرانية',scopeLabel:report.report_scope==='email'?'تقرير بريد مستقل':'تقرير يومي جامع',layout,items:composeItems,mediaFor:(id)=>mediaByItem.get(id)??{afters:[]},brand})
     const bytes=await buildPptx(slides,String(report.title),new JSZip())

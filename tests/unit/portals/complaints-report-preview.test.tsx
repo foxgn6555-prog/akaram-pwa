@@ -37,7 +37,6 @@ const entry = (overrides: Partial<{ itemId: string; neighborhood: string | null;
   },
 })
 
-const managers = new Map([['user-1', 'المهندس علي']])
 
 describe('الصيغ المشتركة بين المعاينة وملف PowerPoint', () => {
   it('تذييل شريحة قبل/بعد يطابق التصميم: محلة - زقاق - نوع', () => {
@@ -99,10 +98,11 @@ describe('مكونات المعاينة', () => {
 
   it('معاينة الجدول بأعمدة التصميم نفسها ورسالة التجزئة بعد 11 صفاً', () => {
     const entries = Array.from({ length: 12 }, (_, index) => entry({ itemId: `item-${index}`, sequenceNo: index + 1 } as Partial<Parameters<typeof entry>[0]>))
-    render(<ReportTablePreview entries={entries} accent="#cf63c6" managerNames={managers} />)
-    for (const header of ['ت', 'مسؤول القسم', 'نوع التلكؤ', 'المركز', 'المحلة', 'الزقاق']) {
+    render(<ReportTablePreview entries={entries} accent="#cf63c6" />)
+    for (const header of ['ت', 'التاريخ', 'رقم المحلة', 'رقم الزقاق', 'المركز البلدي', 'نوع التلكؤ', 'وقت وصول الشكوى']) {
       expect(screen.getByText(header)).toBeTruthy()
     }
+    expect(screen.queryByText('مسؤول القسم')).toBeNull()
     expect(screen.getByText('+ 1 موقع في الصفحات التالية')).toBeTruthy()
   })
 

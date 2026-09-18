@@ -2,7 +2,7 @@
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import {
-  authorityLineFor, buildPptx, composeComplaintSlides, fitInside, imageDimensions, validMagic,
+  authorityLineFor, buildPptx, composeComplaintSlides, dateTimeLabels, fitInside, imageDimensions, validMagic,
   type ComposeInput, type ComposeItem,
 } from '@lib/pptx/complaintPptx'
 
@@ -21,9 +21,8 @@ const item = (overrides: Partial<ComposeItem> = {}): ComposeItem => ({
   neighborhood: overrides.neighborhood ?? '44',
   center: overrides.center ?? 'بلدية الكرادة',
   title: overrides.title ?? 'أنقاض',
-  status: overrides.status ?? 'approved',
-  manager: overrides.manager ?? 'المهندس علي',
-  subject: overrides.subject ?? 'بريد الأنقاض',
+  dateLabel: overrides.dateLabel ?? '3/9/2026',
+  arrivalLabel: overrides.arrivalLabel ?? '9:07 ص',
 })
 
 const brand = [
@@ -50,7 +49,7 @@ const input = (overrides: Partial<ComposeInput> = {}): ComposeInput => ({
 describe('تكوين الشرائح المطابق للتصميم المعتمد', () => {
   it('الترتيب: غلاف ← مؤشرات ← جدول ← فواصل وصور لكل مجموعة', () => {
     const slides = composeComplaintSlides(input({
-      items: [item({ id: 'a' }), item({ id: 'b' }), item({ id: 'c', subject: 'بريد ثانٍ', manager: 'مسؤول آخر' })],
+      items: [item({ id: 'a' }), item({ id: 'b' }), item({ id: 'c' })],
     }))
     // غلاف + جدول + صورة لكل موقع — دون شريحتي المؤشرات والفاصل
     expect(slides).toHaveLength(5)
@@ -79,8 +78,12 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
     const table = slides[1]!
     expect(table.xml).toContain('b="1"')
     expect(table.xml).toContain('b="0"')
-    expect(table.xml).toContain('مسؤول القسم')
-    expect(table.xml).toContain('بلدية الكرادة')
+    for (const header of ['وقت وصول الشكوى', 'نوع التلكؤ', 'المركز البلدي', 'رقم الزقاق', 'رقم المحلة', 'التاريخ', 'ت']) {
+      expect(table.xml).toContain(header)
+    }
+    expect(table.xml).toContain('9:07 ص')
+    expect(table.xml).toContain('3/9/2026')
+    expect(table.xml).not.toContain('مسؤول القسم')
   })
 
   it('شريحة قبل/بعد: شريط التذييل بصيغة التصميم وإطارات البطاقتين', () => {
@@ -129,6 +132,15 @@ describe('حزمة PowerPoint الناتجة', () => {
     expect(types).toContain('presentationml.presentation.main+xml')
     const presentation = await zip.file('ppt/presentation.xml')!.async('string')
     expect(presentation).toContain('<p:sldId')
+  })
+})
+
+describe('تنسيق التاريخ ووقت الوصول', () => {
+  it('dateTimeLabels ينسق كما في التصميم ويرفض القيم التالفة', () => {
+    const labels = dateTimeLabels('2026-09-03T09:07:00Z')
+    expect(labels.dateLabel).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4}$/)
+    expect(labels.arrivalLabel).toMatch(/^\d{1,2}:\d{2} (ص|م)$/)
+    expect(dateTimeLabels('invalid').dateLabel).toBe('—')
   })
 })
 

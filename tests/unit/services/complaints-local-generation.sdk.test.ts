@@ -107,6 +107,8 @@ describe('generateReportLocally', () => {
     expect(cover).toContain('قاطع الكرادة - 2026-09-18')
     const table = await zip.file('ppt/slides/slide2.xml')!.async('string')
     expect(table).toContain('جدول بيانات التلكؤات')
+    expect(table).toContain('وقت وصول الشكوى')
+    expect(table).toContain('التاريخ')
     const photo = await zip.file('ppt/slides/slide3.xml')!.async('string')
     expect(photo).toContain('محلة 44 - زقاق 44 - أنقاض')
     expect(photo).toContain('r:embed="rId2"')

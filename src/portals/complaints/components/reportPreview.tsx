@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Image as ImageIcon } from 'lucide-react'
 import { authorityLineFor, coverDateLine, siteCaption, type ReportEntry, type ReportLayout } from './reportPreviewModel'
+import { dateTimeLabels } from '@lib/pptx/complaintPptx'
 
 export function ReportPreviewImage({ title, src, accent }: { title: string; src?: string; accent: string }) {
   const [failed, setFailed] = useState(false)
@@ -34,19 +35,23 @@ export function ReportCoverPreview({ layout, title, accent, sector, reportDate }
   </div>
 }
 
-export function ReportTablePreview({ entries, accent, managerNames }: { entries: ReportEntry[]; accent: string; managerNames: Map<string, string> }) {
+export function ReportTablePreview({ entries, accent }: { entries: ReportEntry[]; accent: string }) {
   return <div className="h-full overflow-y-auto p-3 sm:p-5">
     <h3 className="text-center text-xs font-black sm:text-lg" style={{ color: accent }}>جدول بيانات التلكؤات</h3>
     <table className="mt-3 w-full table-fixed text-[6px] sm:text-[10px]">
-      <thead style={{ background: accent, color: 'white' }}><tr><th className="p-1">ت</th><th>مسؤول القسم</th><th>نوع التلكؤ</th><th>المركز</th><th>المحلة</th><th>الزقاق</th></tr></thead>
-      <tbody>{entries.slice(0, 11).map((entry, index) => <tr key={entry.itemId} className="border-b odd:bg-slate-50">
-        <td className="p-1 text-center">{index + 1}</td>
-        <td>{managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'}</td>
-        <td>{entry.item.title || '—'}</td>
-        <td>{entry.item.municipalCenter || '—'}</td>
-        <td>{entry.item.neighborhood || '—'}</td>
-        <td>{entry.item.alley || '—'}</td>
-      </tr>)}</tbody>
+      <thead style={{ background: accent, color: 'white' }}><tr><th className="p-1">ت</th><th>التاريخ</th><th>رقم المحلة</th><th>رقم الزقاق</th><th>المركز البلدي</th><th>نوع التلكؤ</th><th>وقت وصول الشكوى</th></tr></thead>
+      <tbody>{entries.slice(0, 11).map((entry, index) => {
+        const labels = dateTimeLabels(entry.item.receivedAt)
+        return <tr key={entry.itemId} className="border-b odd:bg-slate-50">
+          <td className="p-1 text-center">{index + 1}</td>
+          <td>{labels.dateLabel}</td>
+          <td>{entry.item.neighborhood || '—'}</td>
+          <td>{entry.item.alley || '—'}</td>
+          <td>{entry.item.municipalCenter || '—'}</td>
+          <td>{entry.item.title || '—'}</td>
+          <td>{labels.arrivalLabel}</td>
+        </tr>
+      })}</tbody>
     </table>
     {entries.length > 11 && <p className="mt-2 text-center text-[8px] text-slate-500">+ {entries.length - 11} موقع في الصفحات التالية</p>}
   </div>
