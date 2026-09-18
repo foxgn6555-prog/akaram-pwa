@@ -15,7 +15,7 @@ export interface PptxZip {
 
 export interface LoadedPptxImage { bytes: Uint8Array; width: number; height: number; ext: 'png' | 'jpg' | 'webp' }
 export interface ComposeBrandImage { name: string; bytes: Uint8Array }
-export interface ComposeItem { id: string; alley: string; neighborhood: string; center: string; title: string; status: string; manager: string; subject: string }
+export interface ComposeItem { id: string; alley: string; neighborhood: string; center: string; title: string; dateLabel: string; arrivalLabel: string }
 export interface ComposeInput {
   reportTitle: string
   coverTitle: string
@@ -31,6 +31,19 @@ export interface ComposeInput {
 }
 
 export const TABLE_ROWS_PER_SLIDE = 11
+
+/** تنسيق تاريخ الشكوى ووقت وصولها بالأرقام الغربية مع ص/م كما في التصميم. */
+export const dateTimeLabels = (receivedAt: string): { dateLabel: string; arrivalLabel: string } => {
+  const date = new Date(receivedAt)
+  if (Number.isNaN(date.getTime())) return { dateLabel: '—', arrivalLabel: '—' }
+  const hours24 = date.getHours()
+  const suffix = hours24 < 12 ? 'ص' : 'م'
+  const hours = hours24 % 12 || 12
+  return {
+    dateLabel: `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`,
+    arrivalLabel: `${hours}:${String(date.getMinutes()).padStart(2, '0')} ${suffix}`,
+  }
+}
 
 /** القاعدة المشتركة لسطر الجهة الحكومية حسب القطاع (معاينة ومتصفح وحافة). */
 export const authorityLineFor = (layout: Record<string, unknown>, sector: string) => {
@@ -82,13 +95,13 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
   const brandRels = input.brand.map((logo, index) => `<Relationship Id="rId${index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${logo.name}"/>`)
   slides.push(makeSlide(coverShapes, brandRels, input.brand))
 
-  // 3) صفحات الجدول — 11 صفاً لكل شريحة، والعناوين وحدها بالخط العريض
-  const headers = ['الزقاق', 'المحلة', 'المركز', 'نوع التلكؤ', 'مسؤول القسم', 'ت']
-  const widths = [1.35, 1.35, 2, 2.7, 3.25, .75]
+  // 3) صفحات الجدول — 11 صفاً لكل شريحة بأعمدة التصميم: ت، التاريخ، المحلة، الزقاق، المركز، النوع، وقت الوصول
+  const headers = ['وقت وصول الشكوى', 'نوع التلكؤ', 'المركز البلدي', 'رقم الزقاق', 'رقم المحلة', 'التاريخ', 'ت']
+  const widths = [2.3, 2.3, 2.1, 1.5, 1.5, 1.7, .7]
   for (let start = 0; start < input.items.length || start === 0; start += TABLE_ROWS_PER_SLIDE) {
     const slice = input.items.slice(start, start + TABLE_ROWS_PER_SLIDE)
     const shapes = [textBox('جدول بيانات التلكؤات', 3.25, .18, 6.8, .45, 20, true, accent, fontFamily)]
-    const rows = [headers, ...slice.map((item, index) => [item.alley, item.neighborhood, item.center, item.title, item.manager, String(start + index + 1)])]
+    const rows = [headers, ...slice.map((item, index) => [item.arrivalLabel, item.title, item.center, item.alley, item.neighborhood, item.dateLabel, String(start + index + 1)])]
     rows.forEach((row, ri) => {
       let x = .6
       row.forEach((cell, ci) => {
