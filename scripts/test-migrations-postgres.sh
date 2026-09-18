@@ -84,6 +84,7 @@ for test_file in \
   supabase/tests/complaint_assignment_tickets_and_reports.sql \
   supabase/tests/complaint_report_branding_defaults.sql \
   supabase/tests/complaint_template_draft_safety.sql \
+  supabase/tests/complaint_client_pptx_generation.sql \
   supabase/tests/complaint_report_archiving.sql \
   supabase/tests/complaint_ticket_review.sql \
   supabase/tests/complaint_review_after_required.sql \

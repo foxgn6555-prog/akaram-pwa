@@ -14,7 +14,7 @@ Deno.test('يحافظ على نسبة أبعاد الصورة داخل إطار 
 })
 
 Deno.test('ينشئ ملف PowerPoint OOXML صالح البنية الأساسية', async () => {
-  const bytes = await buildPptx(createPptxSmokeSlides(), 'اختبار تقرير الشكاوى')
+  const bytes = await buildPptx(createPptxSmokeSlides(), 'اختبار تقرير الشكاوى', new JSZip())
   if (bytes.length < 2_000) throw new Error(`PPTX_TOO_SMALL: ${bytes.length}`)
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('PPTX_ZIP_SIGNATURE_MISSING')
   const output = await Deno.makeTempFile({ suffix: '.pptx' })
@@ -31,7 +31,7 @@ Deno.test('حزمة PPTX تفي بالمتطلبات الإلزامية لمخط
     rels: `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>`,
     images: [{ name: 'image1.png', bytes: PNG_1PX }],
   }
-  const bytes = await buildPptx([...createPptxSmokeSlides(), slideWithImage], 'اختبار بنية الحزمة')
+  const bytes = await buildPptx([...createPptxSmokeSlides(), slideWithImage], 'اختبار بنية الحزمة', new JSZip())
   const zip = await JSZip.loadAsync(bytes)
   const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir)
   const text = async (name: string) => {
