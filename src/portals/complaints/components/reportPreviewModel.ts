@@ -23,30 +23,20 @@ export { authorityLineFor } from '@lib/pptx/complaintPptx'
 export const entryGroupKey = (entry: ReportEntry) =>
   `${entry.item.inboxMessageId ?? entry.item.complaintId}:${entry.item.assignedTo ?? 'unassigned'}`
 
-export interface SlidePlanStep { kind: 'cover' | 'summary' | 'table' | 'group' | 'photo'; label: string }
+export interface SlidePlanStep { kind: 'cover' | 'table' | 'photo'; label: string }
 
 /**
  * خطة شرائح ملف PowerPoint الناتج (نفس ترتيب المولّد):
  * غلاف ← مؤشرات تنفيذية ← صفحات الجدول ← لكل مجموعة فاصل ثم شريحة لكل موقع.
  */
-export function buildSlidePlan(entries: ReportEntry[], managerNames: Map<string, string>): SlidePlanStep[] {
-  const steps: SlidePlanStep[] = [
-    { kind: 'cover', label: 'الغلاف' },
-    { kind: 'summary', label: 'المؤشرات التنفيذية' },
-  ]
+export function buildSlidePlan(entries: ReportEntry[]): SlidePlanStep[] {
+  const steps: SlidePlanStep[] = [{ kind: 'cover', label: 'الغلاف' }]
   const TABLE_ROWS_PER_SLIDE = 11
   const tablePages = Math.max(1, Math.ceil(entries.length / TABLE_ROWS_PER_SLIDE))
   for (let page = 0; page < tablePages; page += 1) {
     steps.push({ kind: 'table', label: tablePages === 1 ? 'جدول بيانات التلكؤات' : `جدول بيانات التلكؤات ${page + 1}/${tablePages}` })
   }
-  let lastKey = ''
   entries.forEach(entry => {
-    const key = entryGroupKey(entry)
-    if (key !== lastKey) {
-      lastKey = key
-      const manager = managerNames.get(entry.item.assignedTo ?? '') ?? 'مسؤول القسم'
-      steps.push({ kind: 'group', label: `مجموعة: ${entry.item.ticketName || 'بريد دون موضوع'} / ${manager}` })
-    }
     steps.push({ kind: 'photo', label: `قبل/بعد ${entry.item.referenceNo} / ${entry.item.sequenceNo}` })
   })
   return steps

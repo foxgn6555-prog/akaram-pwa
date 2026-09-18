@@ -52,13 +52,13 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
     const slides = composeComplaintSlides(input({
       items: [item({ id: 'a' }), item({ id: 'b' }), item({ id: 'c', subject: 'بريد ثانٍ', manager: 'مسؤول آخر' })],
     }))
-    // غلاف + مؤشرات + جدول + (فاصل + صورتان) + (فاصل + صورة)
-    expect(slides).toHaveLength(8)
+    // غلاف + جدول + صورة لكل موقع — دون شريحتي المؤشرات والفاصل
+    expect(slides).toHaveLength(5)
     expect(slides[0]!.xml).toContain('تقرير معالجة التلكؤات ليوم')
-    expect(slides[1]!.xml).toContain('المؤشرات التنفيذية للتقرير')
-    expect(slides[2]!.xml).toContain('جدول بيانات التلكؤات')
-    expect(slides[3]!.xml).toContain('مجموعة البريد والمسؤول')
-    expect(slides[6]!.xml).toContain('بريد ثانٍ')
+    expect(slides[1]!.xml).toContain('جدول بيانات التلكؤات')
+    expect(slides[2]!.xml).toContain('محلة 44 - زقاق 44 - أنقاض')
+    expect(slides.some(slide => slide.xml.includes('المؤشرات التنفيذية للتقرير'))).toBe(false)
+    expect(slides.some(slide => slide.xml.includes('مجموعة البريد والمسؤول'))).toBe(false)
   })
 
   it('الغلاف: الشعارات الثلاثة بترتيب التصميم وأسطر الجهة والقاطع', () => {
@@ -76,7 +76,7 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
 
   it('الجدول: العناوين وحدها عريضة والجسم عادي بتخطيط الأعمدة المعتمد', () => {
     const slides = composeComplaintSlides(input({ items: [item()] }))
-    const table = slides[2]!
+    const table = slides[1]!
     expect(table.xml).toContain('b="1"')
     expect(table.xml).toContain('b="0"')
     expect(table.xml).toContain('مسؤول القسم')
@@ -89,7 +89,7 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
         ? { before: { bytes: pngBytes(16, 9), width: 16, height: 9, ext: 'png' }, afters: [{ bytes: pngBytes(16, 9), width: 16, height: 9, ext: 'png' }] }
         : { afters: [] },
     }))
-    const photo = slides[slides.length - 1]!
+    const photo = slides[2]!
     expect(photo.xml).toContain('محلة 44 - زقاق 44 - أنقاض')
     expect(photo.xml).toContain('صورة المعالجة')
     expect(photo.xml).toContain('صورة التلكؤ / الشكوى')
@@ -99,7 +99,7 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
 
   it('غياب صور المعالجة يعرض شريحة واحدة برسالة واضحة', () => {
     const slides = composeComplaintSlides(input())
-    const photo = slides[slides.length - 1]!
+    const photo = slides[2]!
     expect(photo.xml).toContain('لم تتم المعالجة بعد')
     expect(photo.xml).toContain('الصورة غير متاحة')
     expect(photo.images).toHaveLength(0)
@@ -108,8 +108,8 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
   it('تعدد صور المعالجة ينتج شريحة لكل صورة بعنوان مرقم', () => {
     const after = { bytes: pngBytes(4, 4), width: 4, height: 4, ext: 'png' as const }
     const slides = composeComplaintSlides(input({ mediaFor: () => ({ afters: [after, after] }) }))
-    const first = slides[slides.length - 2]!
-    const second = slides[slides.length - 1]!
+    const first = slides[2]!
+    const second = slides[3]!
     expect(first.xml).toContain('صورة المعالجة 1 من 2')
     expect(second.xml).toContain('صورة المعالجة 2 من 2')
   })

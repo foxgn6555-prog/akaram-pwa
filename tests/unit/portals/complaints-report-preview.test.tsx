@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
-  ReportCoverPreview, ReportPreviewImage, ReportSlidePreview, ReportSummaryPreview, ReportTablePreview,
+  ReportCoverPreview, ReportPreviewImage, ReportSlidePreview, ReportTablePreview,
 } from '../../../src/portals/complaints/components/reportPreview'
 import {
   authorityLineFor, buildSlidePlan, coverDateLine, entryGroupKey, siteCaption,
@@ -67,31 +67,27 @@ describe('الصيغ المشتركة بين المعاينة وملف PowerPoin
 })
 
 describe('خطة شرائح ملف PowerPoint الناتج', () => {
-  it('ترتيب الشرائح: غلاف ثم مؤشرات ثم جدول ثم فواصل المجموعات وصورها', () => {
+  it('ترتيب الشرائح: غلاف ثم جدول ثم صورة لكل موقع', () => {
     const entries = [entry({ itemId: 'a' }), entry({ itemId: 'b' }), entry({ itemId: 'c', inboxMessageId: 'msg-2', ticketName: 'بريد ثانٍ' })]
-    const plan = buildSlidePlan(entries, managers)
-    expect(plan.map(step => step.kind)).toEqual(['cover', 'summary', 'table', 'group', 'photo', 'photo', 'group', 'photo'])
-    expect(plan[1]?.label).toBe('المؤشرات التنفيذية')
-    expect(plan[3]?.label).toContain('المهندس علي')
-    expect(plan[6]?.label).toContain('بريد ثانٍ')
+    const plan = buildSlidePlan(entries)
+    expect(plan.map(step => step.kind)).toEqual(['cover', 'table', 'photo', 'photo', 'photo'])
   })
 
   it('يجزئ الجدول إلى صفحات من 11 صفاً مثل المولّد', () => {
     const entries = Array.from({ length: 12 }, (_, index) => entry({ itemId: `item-${index}` }))
-    const plan = buildSlidePlan(entries, managers)
+    const plan = buildSlidePlan(entries)
     const tableSteps = plan.filter(step => step.kind === 'table')
     expect(tableSteps.map(step => step.label)).toEqual(['جدول بيانات التلكؤات 1/2', 'جدول بيانات التلكؤات 2/2'])
   })
 })
 
 describe('مكونات المعاينة', () => {
-  it('شريحة قبل/بعد تعرض المعالجة يميناً والتذييل بصيغة التصميم مع لافتة الفاصل', () => {
-    render(<ReportSlidePreview entry={entry()} before="before.png" after="after.png" accent="#cf63c6" layout={{ afterLabel: 'صورة المعالجة', beforeLabel: 'صورة التلكؤ / الشكوى' }} groupNote="شكوى الأنقاض اليومية — المهندس علي" />)
+  it('شريحة قبل/بعد تعرض المعالجة يميناً والتذييل بصيغة التصميم', () => {
+    render(<ReportSlidePreview entry={entry()} before="before.png" after="after.png" accent="#cf63c6" layout={{ afterLabel: 'صورة المعالجة', beforeLabel: 'صورة التلكؤ / الشكوى' }} />)
     const headers = screen.getAllByText(/صورة المعالجة|صورة التلكؤ/)
     expect(headers[0]?.textContent).toBe('صورة المعالجة')
     expect(headers[1]?.textContent).toBe('صورة التلكؤ / الشكوى')
     expect(screen.getByText('محلة 44 - زقاق 44 - أنقاض')).toBeTruthy()
-    expect(screen.getByText(/تسبق هذه الشريحة شريحة فاصل/)).toBeTruthy()
   })
 
   it('صورة المعاينة تتحول إلى رسالة واضحة عند فشل التحميل', () => {
@@ -99,16 +95,6 @@ describe('مكونات المعاينة', () => {
     const image = screen.getByRole('img', { name: 'صورة المعالجة' })
     fireEvent.error(image)
     expect(screen.getByText('الصورة غير متاحة')).toBeTruthy()
-  })
-
-  it('معاينة المؤشرات تعرض الإجمالي والمعتمدة وصور المعالجة وتوزيع المراكز', () => {
-    const entries = [entry({ itemId: 'a', municipalCenter: 'مركز الزعفرانية' }), entry({ itemId: 'b', municipalCenter: 'مركز الزعفرانية', status: 'in_progress' }), entry({ itemId: 'c', municipalCenter: 'مركز آخر', status: 'approved' })]
-    render(<ReportSummaryPreview entries={entries} afterPhotos={2} accent="#cf63c6" />)
-    expect(screen.getByText('المؤشرات التنفيذية للتقرير')).toBeTruthy()
-    expect(screen.getByText('إجمالي المواقع').parentElement?.textContent).toContain('3')
-    expect(screen.getByText('صور المعالجة').parentElement?.textContent).toContain('2')
-    expect(screen.getByText('مركز الزعفرانية')).toBeTruthy()
-    expect(screen.getByText('مركز آخر')).toBeTruthy()
   })
 
   it('معاينة الجدول بأعمدة التصميم نفسها ورسالة التجزئة بعد 11 صفاً', () => {

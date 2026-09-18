@@ -105,11 +105,9 @@ describe('generateReportLocally', () => {
     const cover = await zip.file('ppt/slides/slide1.xml')!.async('string')
     expect(cover).toContain('أمانة بغداد / دائرة بلدية الكرادة')
     expect(cover).toContain('قاطع الكرادة - 2026-09-18')
-    const summary = await zip.file('ppt/slides/slide2.xml')!.async('string')
-    expect(summary).toContain('المؤشرات التنفيذية للتقرير')
-    const table = await zip.file('ppt/slides/slide3.xml')!.async('string')
+    const table = await zip.file('ppt/slides/slide2.xml')!.async('string')
     expect(table).toContain('جدول بيانات التلكؤات')
-    const photo = await zip.file('ppt/slides/slide5.xml')!.async('string')
+    const photo = await zip.file('ppt/slides/slide3.xml')!.async('string')
     expect(photo).toContain('محلة 44 - زقاق 44 - أنقاض')
     expect(photo).toContain('r:embed="rId2"')
 
