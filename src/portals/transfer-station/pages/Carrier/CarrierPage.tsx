@@ -1,30 +1,30 @@
 /**
- * وحدة السكسات الخارجة — المحطة التحويلية (00043):
- *  · تسجيل خروج سكسة: اسم السائق · نوع الآلية · وقت الخروج (تلقائي)
+ * وحدة ناقلة الحاويات المكبسية (00130) — بنفس فكرة السكسات/النسافات:
+ *  · اسم السائق · نوع الآلية · الوزن (يدخله المسؤول) · وقت الخروج تلقائي
  *  · نظام الفولدر الشهري: إرسال سجلات الشهر لمعاون المدير المفوض
  */
 import { useState } from 'react'
 import clsx from 'clsx'
 import {
-  useSaksatList,
-  useCreateSaksat,
-  useSendSaksatFolder,
+  useCarrierList,
+  useCreateCarrier,
+  useSendCarrierFolder,
 } from '@features/transfer-station'
 import { FolderBar } from '@components/station/FolderBar'
 import { StationTable } from '@components/station/StationTable'
 import { currentMonth } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
 
-export default function SaksatPage() {
+export default function CarrierPage() {
   const [name, setName] = useState('')
   const [vehicle, setVehicle] = useState('')
   const [weight, setWeight] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [month, setMonth] = useState(currentMonth())
 
-  const list = useSaksatList(month)
-  const create = useCreateSaksat()
-  const sendFolder = useSendSaksatFolder()
+  const list = useCarrierList(month)
+  const create = useCreateCarrier()
+  const sendFolder = useSendCarrierFolder()
   const records = list.data ?? []
 
   const submit = (): void => {
@@ -46,21 +46,20 @@ export default function SaksatPage() {
   }
 
   return (
-    <div className="space-y-5" data-testid="saksat-page">
+    <div className="space-y-5" data-testid="carrier-page">
       <div>
-        <h1 className="text-lg font-bold text-slate-800">السكسات الخارجة</h1>
-        <p className="text-sm text-slate-500">تسجيل السكسات الخارجة من المحطة التحويلية</p>
+        <h1 className="text-lg font-bold text-slate-800">ناقلة الحاويات المكبسية</h1>
+        <p className="text-sm text-slate-500">تسجيل خروج ناقلات الحاويات المكبسية من المحطة التحويلية — الوقت تلقائي والوزن يُدخله المسؤول</p>
       </div>
 
-      {/* ── نموذج الإدخال ── */}
       <form
         onSubmit={(e) => { e.preventDefault(); submit() }}
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-        data-testid="saksat-form"
+        data-testid="carrier-form"
       >
         <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
           <Icon name="edit" size={16} className="text-brand-600" />
-          تسجيل سكسة خارجة
+          تسجيل ناقلة خارجة
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
@@ -68,7 +67,7 @@ export default function SaksatPage() {
             <input
               value={name}
               onChange={(e) => { setName(e.target.value); setErrors((er) => ({ ...er, name: '' })) }}
-              data-testid="f-saksat-name"
+              data-testid="f-carrier-name"
               placeholder="اسم السائق"
               className={clsx(
                 'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500',
@@ -82,7 +81,7 @@ export default function SaksatPage() {
             <input
               value={vehicle}
               onChange={(e) => setVehicle(e.target.value)}
-              data-testid="f-saksat-vehicle"
+              data-testid="f-carrier-vehicle"
               placeholder="نوع الآلية"
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500"
             />
@@ -95,8 +94,8 @@ export default function SaksatPage() {
               step={0.1}
               value={weight}
               onChange={(e) => { setWeight(e.target.value); setErrors((er) => ({ ...er, weight: '' })) }}
-              data-testid="f-saksat-weight"
-              placeholder="مثال: 7.5"
+              data-testid="f-carrier-weight"
+              placeholder="مثال: 9"
               className={clsx(
                 'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500',
                 errors.weight ? 'border-red-400' : 'border-slate-200',
@@ -114,7 +113,7 @@ export default function SaksatPage() {
             <button
               type="submit"
               disabled={create.isPending}
-              data-testid="saksat-submit"
+              data-testid="carrier-submit"
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
             >
               <Icon name="check-square" size={16} /> تسجيل الخروج
@@ -123,17 +122,15 @@ export default function SaksatPage() {
         </div>
       </form>
 
-      {/* ── نظام الفولدر الشهري ── */}
       <FolderBar
-        kind="saksat"
+        kind="carrier"
         records={records}
         month={month}
         onMonthChange={setMonth}
         onSend={(m) => sendFolder.mutate(m)}
       />
 
-      {/* ── الجدول ── */}
-      <StationTable kind="saksat" records={records} personLabel="اسم السائق" />
+      <StationTable kind="carrier" records={records} personLabel="اسم السائق" />
     </div>
   )
 }

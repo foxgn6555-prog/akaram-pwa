@@ -16,6 +16,25 @@ export {
   useSendTripsFolder,
   useTripsSubmitted,
 } from './hooks/useWeightRecords'
+export {
+  useViolations,
+  useRecordWeighing,
+  useCompleteWeighing,
+  useCarrierList,
+  useCarrierSubmitted,
+  useCreateCarrier,
+  useSendCarrierFolder,
+  useOpsWorkflow,
+} from './hooks/useWorkflow'
+export {
+  VEHICLE_KINDS,
+  DESTINATION_LABELS,
+  kindByKey,
+  kindsForDestination,
+  weighingViolation,
+  kindRangeLabel,
+} from './lib/vehicleKinds'
+export type { VehicleKind, WeighingDestination } from './lib/vehicleKinds'
 export { weightRecordSchema, archiveReasonSchema } from './schemas/weight.schema'
 export {
   outboundRecordSchema,
@@ -35,5 +54,9 @@ export type {
   StationRecordStatus,
   Shift,
   WeightStatus,
+  ViolationRecord,
+  CarrierRecord,
+  CreateCarrierInput,
+  WorkflowRow,
 } from './types'
 export { SHIFT_LABELS } from './types'

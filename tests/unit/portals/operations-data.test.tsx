@@ -24,6 +24,7 @@ const summary = {
   breakdown_count: 1,
   maintenance_count: 1,
 }
+vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: [] }) }))
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useOpsAlerts: () => ({
     data: [

@@ -10,6 +10,7 @@ vi.mock('@features/transfer-station', () => ({
     ],
   }),
   useTripsSubmitted: () => ({ data: [] }),
+  useCarrierSubmitted: () => ({ data: [] }),
 }))
 
 import StationFoldersPage from '@portals/deputy/pages/StationFolders/StationFoldersPage'

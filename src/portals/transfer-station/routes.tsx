@@ -19,6 +19,7 @@ const StationDashboard = lazy(() => import('./pages/Dashboard/StationDashboard')
 const WeightsPage = lazy(() => import('./pages/Weights/WeightsPage'))
 const SaksatPage = lazy(() => import('./pages/Saksat/SaksatPage'))
 const TripsPage = lazy(() => import('./pages/Trips/TripsPage'))
+const CarrierPage = lazy(() => import('./pages/Carrier/CarrierPage'))
 const FinesPage = lazy(() => import('./pages/Fines/FinesPage'))
 const StationArchivePage = lazy(() => import('./pages/Archive/StationArchivePage'))
 const StationVehicleMovementsPage=lazy(()=>import('./pages/VehicleMovements/StationVehicleMovementsPage'))
@@ -33,6 +34,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'weights/log', element: s(<WeightsPage />) },
   { path: 'saksat', element: s(<SaksatPage />) },
   { path: 'trips', element: s(<TripsPage />) },
+  { path: 'carrier', element: s(<CarrierPage />) },
   { path:'vehicle-movements',element:s(<StationVehicleMovementsPage/>) },
   { path: 'fines', element: s(<FinesPage />) },
   { path: 'archive', element: s(<StationArchivePage />) },

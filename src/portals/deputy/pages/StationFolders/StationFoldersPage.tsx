@@ -8,6 +8,7 @@ import { useMemo } from 'react'
 import {
   useSaksatSubmitted,
   useTripsSubmitted,
+  useCarrierSubmitted,
   type SaksatRecord,
 } from '@features/transfer-station'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -96,6 +97,7 @@ function FolderCard({ title, icon, records, accent }: {
 export default function StationFolders() {
   const saksat = useSaksatSubmitted()
   const trips = useTripsSubmitted()
+  const carrier = useCarrierSubmitted()
 
   return (
     <div className="space-y-5" data-testid="station-folders-page">
@@ -117,6 +119,12 @@ export default function StationFolders() {
         icon="truck"
         records={trips.data ?? []}
         accent="border-sky-200 bg-sky-50/50"
+      />
+      <FolderCard
+        title="ناقلات الحاويات المكبسية"
+        icon="truck"
+        records={carrier.data ?? []}
+        accent="border-emerald-200 bg-emerald-50/50"
       />
     </div>
   )

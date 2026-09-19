@@ -320,6 +320,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     },
     { path: '/transfer-station/saksat', labelKey: 'nav.ts_saksat', icon: 'send' },
     { path: '/transfer-station/trips', labelKey: 'nav.ts_trips', icon: 'truck' },
+    { path: '/transfer-station/carrier', labelKey: 'nav.ts_carrier', icon: 'truck' },
     {
       path: '/transfer-station/vehicle-movements',
       labelKey: 'nav.ts_vehicle_movements',

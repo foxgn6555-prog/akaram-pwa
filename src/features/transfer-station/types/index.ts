@@ -53,6 +53,8 @@ export interface WeightSummary {
   archived: number
   total_net_tons: number
   today_net_tons: number
+  today_violations?: number
+  total_violations?: number
 }
 
 /** تسميات الشفت */
@@ -71,6 +73,8 @@ export interface SaksatRecord {
   id: string
   driver_name: string
   vehicle_type: string | null
+  /** الوزن (طن) — يدخله مسؤول المحطة (00130) */
+  weight_tons: number | null
   /** ISO datetime — يُحدَّد تلقائياً لحظة الحفظ */
   exit_time: string | null
   log_date: string
@@ -87,9 +91,64 @@ export type TripRecord = SaksatRecord
 export interface CreateSaksatInput {
   driver_name: string
   vehicle_type?: string | null
+  /** الوزن (طن) — مطلوب في النموذج */
+  weight_tons?: number | null
   /** ISO — يُولَّد تلقائياً عند غيابه */
   exit_time?: string | null
   log_date: string
 }
 
 export type CreateTripInput = CreateSaksatInput
+
+/* ═══ سير العمل بالخطوات · المخالفات · ناقلة الحاويات (00130) ═══ */
+
+/** مخالفة وزن: الأقل من الحد الأدنى غير مسموح — بلا مبالغ، تنبيه وتدقيق */
+export interface ViolationRecord {
+  id: string
+  driver_name: string
+  db_number: string
+  vehicle_kind: string
+  kind_label: string | null
+  weight_tons: number
+  min_tons: number
+  deficit_tons: number
+  violated_at: string | null
+  visit_leg_id: string
+}
+
+/** سجل ناقلة حاويات مكبسية — نفس فكرة السكسات + الوزن */
+export interface CarrierRecord extends SaksatRecord {
+  weight_tons: number
+}
+
+export type CreateCarrierInput = CreateSaksatInput & { weight_tons: number }
+
+/** صف جدول غرفة العمليات لسير عمل المحطة بكل الأزمنة */
+export interface WorkflowRow {
+  visit_id: string
+  departure_id: string
+  trip_day: string | null
+  db_number: string
+  vehicle_name: string
+  driver_name: string
+  shift: string
+  area_name: string
+  manager_name: string | null
+  inbound_departed_at: string | null
+  arrived_at: string | null
+  weighed_at: string | null
+  completed_at: string | null
+  dispatched_at: string | null
+  weight_tons: number | null
+  destination: string | null
+  destination_label: string | null
+  vehicle_kind: string | null
+  kind_label: string | null
+  min_tons: number | null
+  violation: boolean
+  deficit_tons: number | null
+  transit_minutes: number | null
+  weigh_wait_minutes: number | null
+  process_minutes: number | null
+  stay_minutes: number | null
+}

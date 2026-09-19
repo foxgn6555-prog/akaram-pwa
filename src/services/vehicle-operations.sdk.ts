@@ -63,6 +63,13 @@ export interface StationVisit {
   inbound_notes: string | null
   arrival_notes: string | null
   dispatch_notes: string | null
+  /** خطوة الوزن (00130): الوزن والوجهة والنوع والأوقات والمخالفة */
+  step_weight_tons?: number | null
+  step_destination?: 'press' | 'transfer_station' | null
+  step_vehicle_kind?: string | null
+  step_weighed_at?: string | null
+  step_completed_at?: string | null
+  step_violation?: boolean
 }
 export interface MaintenanceDispatchState {
   case_id?: string

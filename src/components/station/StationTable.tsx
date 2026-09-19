@@ -34,6 +34,7 @@ export function StationTable({
                 <th className="px-3 py-2.5 font-semibold">ت</th>
                 <th className="px-3 py-2.5 font-semibold">{personLabel ?? 'اسم السائق'}</th>
                 {withVehicle && <th className="px-3 py-2.5 font-semibold">نوع الآلية</th>}
+                <th className="px-3 py-2.5 font-semibold">الوزن (طن)</th>
                 <th className="px-3 py-2.5 font-semibold">وقت الخروج</th>
                 <th className="px-3 py-2.5 font-semibold">التاريخ</th>
                 <th className="px-3 py-2.5 font-semibold">حالة الإرسال</th>
@@ -45,6 +46,7 @@ export function StationTable({
                   <td className="px-3 py-2.5 text-slate-400">{i + 1}</td>
                   <td className="px-3 py-2.5 font-medium">{r.driver_name}</td>
                   {withVehicle && <td className="px-3 py-2.5 text-slate-500">{r.vehicle_type ?? '—'}</td>}
+                  <td className="px-3 py-2.5 font-bold text-slate-700 dir-ltr">{r.weight_tons ?? '—'}</td>
                   <td className="px-3 py-2.5 font-bold text-brand-700 dir-ltr">{formatTime(r.exit_time)}</td>
                   <td className="px-3 py-2.5 text-slate-500 dir-ltr">{r.log_date}</td>
                   <td className="px-3 py-2.5">

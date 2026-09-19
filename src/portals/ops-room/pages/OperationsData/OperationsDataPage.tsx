@@ -22,11 +22,12 @@ import {
   useOpsStationVisits,
   useOpsVehicleKpis,
 } from '@features/vehicle-operations/hooks'
+import { useOpsWorkflow } from '@features/transfer-station'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 
 export type OperationsTab =
-  'alerts' | 'summary' | 'movements' | 'station' | 'garage' | 'maintenance' | 'attendance'
+  'alerts' | 'summary' | 'movements' | 'station' | 'weighings' | 'garage' | 'maintenance' | 'attendance'
 type Row = Record<string, unknown>
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -46,6 +47,16 @@ const labels: Record<string, string> = {
   alert_id: 'معرف التنبيه',
   action_link: 'جهة المعالجة',
   case_id: 'معرف حالة الصيانة',
+  trip_day: 'اليوم',
+  weighed_at: 'وقت الوزن',
+  weight_tons: 'الوزن (طن)',
+  destination_label: 'الوجهة',
+  kind_label: 'نوع الآلية',
+  min_tons: 'الحد الأدنى (طن)',
+  violation: 'مخالفة',
+  deficit_tons: 'الفرق (طن)',
+  weigh_wait_minutes: 'انتظار الوزن (د)',
+  process_minutes: 'مدة العملية (د)',
   visit_id: 'معرف الزيارة',
   departure_id: 'معرف الرحلة',
   vehicle_name: 'الآلية',
@@ -103,6 +114,7 @@ const tabs: Record<OperationsTab, string> = {
   summary: 'الملخص المركب',
   movements: 'حركة الآليات',
   station: 'زيارات المحطة',
+  weighings: 'أوزان المحطة والوجهات',
   garage: 'الكراج والورديات',
   maintenance: 'الأعطال والصيانة',
   attendance: 'حضور العمال',
@@ -155,6 +167,30 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'arrived_at',
     'duration_minutes',
     'status',
+  ],
+  weighings: [
+    'trip_day',
+    'db_number',
+    'vehicle_name',
+    'driver_name',
+    'shift',
+    'area_name',
+    'manager_name',
+    'inbound_departed_at',
+    'arrived_at',
+    'weighed_at',
+    'completed_at',
+    'dispatched_at',
+    'weight_tons',
+    'destination_label',
+    'kind_label',
+    'min_tons',
+    'violation',
+    'deficit_tons',
+    'transit_minutes',
+    'weigh_wait_minutes',
+    'process_minutes',
+    'stay_minutes',
   ],
   station: [
     'vehicle_name',
@@ -286,12 +322,14 @@ export default function OperationsDataPage() {
     garage = useOpsGarageTrips(from, to),
     maintenance = useOpsMaintenance(from, to),
     attendance = useOpsAttendance(from, to)
+  const weighings = useOpsWorkflow()
   const allSources = useMemo<Record<OperationsTab, Row[]>>(
     () => ({
       alerts: (alertQuery.data ?? []) as unknown as Row[],
       summary: kpis.data ?? [],
       movements: (movements.data ?? []) as unknown as Row[],
       station: station.data ?? [],
+      weighings: (weighings.data ?? []) as unknown as Row[],
       garage: garage.data ?? [],
       maintenance: maintenance.data ?? [],
       attendance: attendance.data ?? [],
@@ -301,6 +339,7 @@ export default function OperationsDataPage() {
       kpis.data,
       movements.data,
       station.data,
+      weighings.data,
       garage.data,
       maintenance.data,
       attendance.data,

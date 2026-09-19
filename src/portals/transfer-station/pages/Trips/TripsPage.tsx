@@ -18,6 +18,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 export default function TripsPage() {
   const [name, setName] = useState('')
   const [vehicle, setVehicle] = useState('')
+  const [weight, setWeight] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [month, setMonth] = useState(currentMonth())
 
@@ -29,16 +30,19 @@ export default function TripsPage() {
   const submit = (): void => {
     const er: Record<string, string> = {}
     if (name.trim().length < 2) er.name = 'اسم السائق مطلوب (حرفان فأكثر)'
+    if (!(Number(weight) > 0)) er.weight = 'الوزن مطلوب بالطن (أكبر من صفر)'
     setErrors(er)
     if (Object.keys(er).length > 0) return
 
     create.mutate({
       driver_name: name.trim(),
       vehicle_type: vehicle.trim() || null,
+      weight_tons: Number(weight),
       log_date: new Date().toISOString().slice(0, 10),
     })
     setName('')
     setVehicle('')
+    setWeight('')
   }
 
   return (
@@ -57,7 +61,7 @@ export default function TripsPage() {
           <Icon name="truck" size={16} className="text-brand-600" />
           تسجيل نسافة خارجة
         </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
             اسم السائق <span className="text-red-500">*</span>
             <input
@@ -83,12 +87,29 @@ export default function TripsPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+            الوزن (طن) <span className="text-red-500">*</span>
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={weight}
+              onChange={(e) => { setWeight(e.target.value); setErrors((er) => ({ ...er, weight: '' })) }}
+              data-testid="f-trips-weight"
+              placeholder="مثال: 7.5"
+              className={clsx(
+                'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500',
+                errors.weight ? 'border-red-400' : 'border-slate-200',
+              )}
+            />
+            {errors.weight && <span className="text-[11px] text-red-600">{errors.weight}</span>}
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
             وقت الخروج <span className="font-normal text-slate-400">(تلقائي)</span>
             <div className="flex h-11 items-center rounded-xl border border-dashed border-brand-200 bg-brand-50/60 px-3 text-sm font-bold text-brand-700 dir-ltr">
               {new Date().toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </label>
-          <div className="flex items-end lg:col-start-3">
+          <div className="flex items-end">
             <button
               type="submit"
               disabled={create.isPending}

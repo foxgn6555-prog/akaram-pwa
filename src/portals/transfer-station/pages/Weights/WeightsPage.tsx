@@ -1,20 +1,16 @@
 /**
- * وحدة الأوزان — المحطة التحويلية:
- *  · نموذج إدخال سجل وزن (مطابق لدفتر الشفت الورقي): DB · السائق · الصنف · الكلي · الفارغ · الوقت
- *  · الصافي يُحسب آلياً = الكلي − الفارغ
- *  · قائمة سجلات التاريخ/الشفت المختار
+ * سجل الأوزان — المحطة التحويلية (00130):
+ *  · المصدر الوحيد للأوزان: سير العمل بالخطوات (وزن ← وجهة ← اكتمال) في صفحة حركة الآليات
+ *  · أُلغي الإدخال/التعديل اليدوي — الدفتر عرض وتدقيق وتصدير فقط
  *  · تصدير: Excel · PDF (طباعة) · إرسال إلى غرفة العمليات للتدقيق
  */
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
 import {
   useWeightList,
-  useCreateWeight,
-  useUpdateWeight,
   useSendToOps,
 } from '@features/transfer-station'
-import type { Shift, WeightRecord } from '@features/transfer-station/types'
-import { weightRecordSchema, type WeightFormInput } from '@features/transfer-station/schemas/weight.schema'
+import type { Shift } from '@features/transfer-station/types'
 import { toExcel, printPdf, netOf, sheetTitle } from '@features/transfer-station/lib/export'
 import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -24,107 +20,14 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-const emptyForm = (): WeightFormInput => ({
-  db_number: '',
-  driver_name: '',
-  vehicle_type: '',
-  gross_weight: '',
-  tare_weight: '',
-  entry_time: '',
-  log_date: todayISO(),
-  shift: 'morning',
-})
-
 export default function WeightsPage() {
-  const [form, setForm] = useState<WeightFormInput>(emptyForm)
-  const [errors, setErrors] = useState<Record<string, string>>({})
   const [filterDate, setFilterDate] = useState(todayISO())
   const [filterShift, setFilterShift] = useState<Shift>('morning')
   const [exportOpen, setExportOpen] = useState(false)
 
   const list = useWeightList({ date: filterDate, shift: filterShift })
-  const create = useCreateWeight()
-  const update = useUpdateWeight()
   const sendOps = useSendToOps()
-
-  /** معرّف السجل قيد التعديل — null يعني إدخال سجل جديد */
-  const [editingId, setEditingId] = useState<string | null>(null)
-
   const records = list.data ?? []
-
-  const netPreview = useMemo(() => {
-    const g = Number(form.gross_weight)
-    const t = Number(form.tare_weight)
-    if (form.gross_weight !== '' && form.tare_weight !== '' && g >= t) return (g - t).toFixed(2)
-    return null
-  }, [form.gross_weight, form.tare_weight])
-
-  const set = (key: keyof WeightFormInput) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ): void => {
-    setForm((f) => ({ ...f, [key]: e.target.value }))
-    setErrors((er) => ({ ...er, [key]: '' }))
-  }
-
-  /** تحميل سجل مسودة في النموذج للتعديل — المسودات فقط قابلة للتعديل */
-  const startEdit = (r: WeightRecord): void => {
-    setEditingId(r.id)
-    setForm({
-      db_number: r.db_number,
-      driver_name: r.driver_name,
-      vehicle_type: r.vehicle_type ?? '',
-      gross_weight: r.gross_weight ?? '',
-      tare_weight: r.tare_weight ?? '',
-      entry_time: r.entry_time ?? '',
-      log_date: r.log_date,
-      shift: r.shift,
-    })
-    setErrors({})
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  /** إلغاء التعديل والعودة لإدخال سجل جديد */
-  const cancelEdit = (): void => {
-    setEditingId(null)
-    setForm(emptyForm())
-    setErrors({})
-  }
-
-  const handleSubmit = (e: React.FormEvent): void => {
-    e.preventDefault()
-    const parsed = weightRecordSchema.safeParse(form)
-    if (!parsed.success) {
-      const fieldErrors: Record<string, string> = {}
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0]
-        if (key && !fieldErrors[key as string]) fieldErrors[key as string] = issue.message
-      }
-      setErrors(fieldErrors)
-      return
-    }
-    const v = parsed.data
-    const payload = {
-      db_number: v.db_number.trim(),
-      driver_name: v.driver_name.trim(),
-      vehicle_type: v.vehicle_type?.trim() || null,
-      gross_weight: v.gross_weight === '' || v.gross_weight == null ? null : Number(v.gross_weight),
-      tare_weight: v.tare_weight === '' || v.tare_weight == null ? null : Number(v.tare_weight),
-      entry_time: v.entry_time || null,
-      log_date: v.log_date,
-      shift: v.shift,
-    }
-    // وضع التعديل: تحديث السجل القائم
-    if (editingId) {
-      update.mutate({ id: editingId, input: payload }, { onSuccess: cancelEdit })
-      return
-    }
-    create.mutate(payload, {
-      onSuccess: () => {
-        // يبقى التاريخ/الشفت لتسهيل الإدخال المتتالي، ويُمسح باقي الحقول
-        setForm((f) => ({ ...emptyForm(), log_date: f.log_date, shift: f.shift }))
-      },
-    })
-  }
 
   const handleExportExcel = async (): Promise<void> => {
     await toExcel(records, filterDate, filterShift)
@@ -146,7 +49,7 @@ export default function WeightsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-slate-800">سجل الأوزان</h1>
-          <p className="text-sm text-slate-500">دفتر أوزان الشفت — مطابق للسجل الورقي</p>
+          <p className="text-sm text-slate-500">دفتر أوزان الشفت — يُغذيه سير العمل بالخطوات تلقائياً (بلا إدخال يدوي)</p>
         </div>
       </div>
 
@@ -199,75 +102,6 @@ export default function WeightsPage() {
         </div>
       </div>
 
-      {/* ── نموذج الإدخال ── */}
-      <form
-        onSubmit={handleSubmit}
-        data-testid="weight-form"
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-      >
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-          <Icon name={editingId ? 'edit' : 'scale'} size={16} className="text-brand-600" />
-          {editingId ? 'تعديل سجل قائم' : 'إدخال سجل جديد'}
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <Field label="DB (رقم الآلية)" error={errors.db_number} required>
-            <input value={form.db_number} onChange={set('db_number')} data-testid="f-db"
-              className={clsx(inputBase, errors.db_number && 'border-red-400')} placeholder="مثال: 12345" />
-          </Field>
-          <Field label="اسم السائق" error={errors.driver_name} required>
-            <input value={form.driver_name} onChange={set('driver_name')} data-testid="f-driver"
-              className={clsx(inputBase, errors.driver_name && 'border-red-400')} placeholder="اسم السائق" />
-          </Field>
-          <Field label="صنف الآلية" error={errors.vehicle_type}>
-            <input value={form.vehicle_type ?? ''} onChange={set('vehicle_type')} data-testid="f-type"
-              className={inputBase} placeholder="نوع الآلية" />
-          </Field>
-          <Field label="وقت الدخول" error={errors.entry_time}>
-            <input type="time" value={form.entry_time ?? ''} onChange={set('entry_time')} data-testid="f-time"
-              className={clsx(inputBase, 'dir-ltr text-center')} />
-          </Field>
-          <Field label="الوزن الكلي (طن)" error={errors.gross_weight}>
-            <input type="number" step="0.01" min="0" inputMode="decimal" value={form.gross_weight ?? ''}
-              onChange={set('gross_weight')} data-testid="f-gross"
-              className={clsx(inputBase, 'dir-ltr')} placeholder="0.00" />
-          </Field>
-          <Field label="الوزن الفارغ (طن)" error={errors.tare_weight}>
-            <input type="number" step="0.01" min="0" inputMode="decimal" value={form.tare_weight ?? ''}
-              onChange={set('tare_weight')} data-testid="f-tare"
-              className={clsx(inputBase, 'dir-ltr', errors.tare_weight && 'border-red-400')} placeholder="0.00" />
-          </Field>
-          <Field label="الوزن الصافي (طن)" hint="يُحسب آلياً">
-            <div className="flex h-11 items-center rounded-xl border border-dashed border-brand-200 bg-brand-50/60 px-3 text-sm font-bold text-brand-700 dir-ltr">
-              {netPreview ?? '—'}
-            </div>
-          </Field>
-          <div className="flex items-end gap-2">
-            <button
-              type="submit"
-              disabled={create.isPending || update.isPending}
-              data-testid="weight-submit"
-              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
-            >
-              {create.isPending || update.isPending
-                ? <LoadingSpinner label="" />
-                : <Icon name={editingId ? 'edit' : 'check-square'} size={16} />}
-              {editingId ? 'حفظ التعديلات' : 'حفظ السجل'}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={cancelEdit}
-                data-testid="cancel-edit"
-                className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                <Icon name="x" size={14} />
-                إلغاء
-              </button>
-            )}
-          </div>
-        </div>
-      </form>
-
       {/* ── جدول سجلات الدفتر ── */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -281,7 +115,7 @@ export default function WeightsPage() {
           <div className="p-8"><LoadingSpinner label="جارٍ جلب السجلات…" /></div>
         ) : records.length === 0 ? (
           <div className="p-4">
-            <EmptyState title="لا توجد سجلات في هذا الدفتر" hint="أضِف سجلاً من النموذج أعلاه" />
+            <EmptyState title="لا توجد سجلات في هذا الدفتر" hint="تُسجل الأوزان من صفحة حركة الآليات: وصول ← وزن ← وجهة ← اكتمال" />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -297,7 +131,6 @@ export default function WeightsPage() {
                   <th className="px-3 py-2.5 font-semibold">الصافي</th>
                   <th className="hidden px-3 py-2.5 font-semibold md:table-cell">وقت الدخول</th>
                   <th className="px-3 py-2.5 font-semibold">الحالة</th>
-                  <th className="px-3 py-2.5 font-semibold">إجراء</th>
                 </tr>
               </thead>
               <tbody>
@@ -322,20 +155,6 @@ export default function WeightsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5">
-                      {r.status === 'draft' ? (
-                        <button
-                          type="button"
-                          onClick={() => startEdit(r)}
-                          data-testid={`edit-${r.id}`}
-                          className="flex min-h-8 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
-                        >
-                          <Icon name="edit" size={12} /> تعديل
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-300">—</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -344,27 +163,6 @@ export default function WeightsPage() {
         )}
       </div>
     </div>
-  )
-}
-
-function Field({
-  label, error, hint, required, children,
-}: {
-  label: string
-  error?: string
-  hint?: string
-  required?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-      <span>
-        {label} {required && <span className="text-red-500">*</span>}
-        {hint && <span className="font-normal text-slate-400"> ({hint})</span>}
-      </span>
-      {children}
-      {error && <span className="text-[11px] font-normal text-red-600">{error}</span>}
-    </label>
   )
 }
 

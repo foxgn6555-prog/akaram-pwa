@@ -1,6 +1,6 @@
 /** أدوات مشتركة لوحدات المحطة الجديدة (السكسات · النسافات) */
 
-export type StationUnitKind = 'saksat' | 'trips'
+export type StationUnitKind = 'saksat' | 'trips' | 'carrier'
 
 /** الشهر الحالي بصيغة YYYY-MM */
 export function currentMonth(): string {

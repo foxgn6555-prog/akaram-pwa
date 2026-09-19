@@ -16,7 +16,12 @@ import type {
   TripRecord,
   CreateSaksatInput,
   CreateTripInput,
+  CarrierRecord,
+  CreateCarrierInput,
+  ViolationRecord,
+  WorkflowRow,
 } from '@features/transfer-station/types'
+import type { WeighingDestination } from '@features/transfer-station/lib/vehicleKinds'
 
 const COLS =
   'id, seq, db_number, driver_name, vehicle_type, gross_weight, tare_weight, net_weight, ' +
@@ -58,7 +63,7 @@ function withNet(input: CreateWeightInput | UpdateWeightInput) {
 /* ═══ مساعدات السكسات · النسافات (00043) ═══ */
 
 const STATION_COLS =
-  'id, driver_name, vehicle_type, exit_time, log_date, status, submitted_at, ' +
+  'id, driver_name, vehicle_type, weight_tons, exit_time, log_date, status, submitted_at, ' +
   'archived_at, archive_reason, created_at'
 
 function normalizeStation(r: Record<string, unknown>): SaksatRecord {
@@ -66,6 +71,7 @@ function normalizeStation(r: Record<string, unknown>): SaksatRecord {
     id: String(r.id ?? ''),
     driver_name: String(r.driver_name ?? ''),
     vehicle_type: (r.vehicle_type as string | null) ?? null,
+    weight_tons: (r.weight_tons as number | null) ?? null,
     exit_time: (r.exit_time as string | null) ?? null,
     log_date: String(r.log_date ?? ''),
     status: (r.status as SaksatRecord['status']) ?? 'draft',
@@ -120,6 +126,7 @@ async function createStation(table: string, input: CreateSaksatInput): Promise<S
       .insert({
         driver_name: input.driver_name,
         vehicle_type: input.vehicle_type?.trim() || null,
+        weight_tons: input.weight_tons ?? null,
         exit_time: input.exit_time ?? new Date().toISOString(), // وقت الخروج — تلقائي
         log_date: input.log_date,
       } as never)
@@ -242,5 +249,102 @@ export const transferStation = {
 
   async sendTripsFolder(month: string): Promise<number> {
     return sendFolder('ts_trips_send_folder', month)
+  },
+
+  /* ═══ ناقلة الحاويات المكبسية (00130) ═══ */
+
+  async listCarrier(month?: string): Promise<CarrierRecord[]> {
+    return (await listStation('ts_carrier_records', month)) as CarrierRecord[]
+  },
+
+  async listCarrierSubmitted(): Promise<CarrierRecord[]> {
+    return (await listStationSubmitted('ts_carrier_records')) as CarrierRecord[]
+  },
+
+  /** تسجيل خروج ناقلة حاويات — الوقت تلقائي والوزن يدخله المسؤول */
+  async createCarrier(input: CreateCarrierInput): Promise<CarrierRecord> {
+    return (await createStation('ts_carrier_records', input)) as CarrierRecord
+  },
+
+  async sendCarrierFolder(month: string): Promise<number> {
+    return sendFolder('ts_carrier_send_folder', month)
+  },
+
+  /* ═══ سير العمل بالخطوات (00130) ═══ */
+
+  /** الخطوة الأولى: كتابة الوزن — وقت الوزن تلقائي */
+  async recordWeighing(visitLegId: string, weightTons: number) {
+    const res = await supabase.rpc('ts_record_weighing', {
+      p_visit_leg_id: visitLegId,
+      p_weight_tons: weightTons,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return res.data
+  },
+
+  /** الخطوة الثانية: الوجهة + نوع الآلية ثم الاكتمال (دفتر تلقائي + مخالفة + تنبيه) */
+  async completeWeighing(visitLegId: string, destination: WeighingDestination, vehicleKind: string) {
+    const res = await supabase.rpc('ts_complete_weighing', {
+      p_visit_leg_id: visitLegId,
+      p_destination: destination,
+      p_vehicle_kind: vehicleKind,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return res.data
+  },
+
+  /** سجل مخالفات الوزن (الأقل من الحد الأدنى) */
+  async listViolations(day?: string): Promise<ViolationRecord[]> {
+    const res = await supabase.rpc('ts_violations_list', { p_day: day ?? null })
+    if (res.error) throw new Error(res.error.message)
+    return ((res.data ?? []) as Record<string, unknown>[]).map(r => ({
+      id: String(r.id ?? ''),
+      driver_name: String(r.driver_name ?? ''),
+      db_number: String(r.db_number ?? ''),
+      vehicle_kind: String(r.vehicle_kind ?? ''),
+      kind_label: (r.kind_label as string | null) ?? null,
+      weight_tons: Number(r.weight_tons ?? 0),
+      min_tons: Number(r.min_tons ?? 0),
+      deficit_tons: Number(r.deficit_tons ?? 0),
+      violated_at: (r.violated_at as string | null) ?? null,
+      visit_leg_id: String(r.visit_leg_id ?? ''),
+    }))
+  },
+
+  /** جدول غرفة العمليات الاحترافي لسير عمل المحطة بكل الأزمنة */
+  async opsWorkflow(day?: string, search?: string): Promise<WorkflowRow[]> {
+    const res = await supabase.rpc('ops_station_workflow', {
+      p_day: day ?? null,
+      p_search: search?.trim() || null,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return ((res.data ?? []) as Record<string, unknown>[]).map(r => ({
+      visit_id: String(r.visit_id ?? ''),
+      departure_id: String(r.departure_id ?? ''),
+      trip_day: (r.trip_day as string | null) ?? null,
+      db_number: String(r.db_number ?? ''),
+      vehicle_name: String(r.vehicle_name ?? ''),
+      driver_name: String(r.driver_name ?? ''),
+      shift: String(r.shift ?? ''),
+      area_name: String(r.area_name ?? ''),
+      manager_name: (r.manager_name as string | null) ?? null,
+      inbound_departed_at: (r.inbound_departed_at as string | null) ?? null,
+      arrived_at: (r.arrived_at as string | null) ?? null,
+      weighed_at: (r.weighed_at as string | null) ?? null,
+      completed_at: (r.completed_at as string | null) ?? null,
+      dispatched_at: (r.dispatched_at as string | null) ?? null,
+      weight_tons: (r.weight_tons as number | null) ?? null,
+      destination: (r.destination as string | null) ?? null,
+      destination_label: (r.destination_label as string | null) ?? null,
+      vehicle_kind: (r.vehicle_kind as string | null) ?? null,
+      kind_label: (r.kind_label as string | null) ?? null,
+      min_tons: (r.min_tons as number | null) ?? null,
+      violation: Boolean(r.violation),
+      deficit_tons: (r.deficit_tons as number | null) ?? null,
+      transit_minutes: (r.transit_minutes as number | null) ?? null,
+      weigh_wait_minutes: (r.weigh_wait_minutes as number | null) ?? null,
+      process_minutes: (r.process_minutes as number | null) ?? null,
+      stay_minutes: (r.stay_minutes as number | null) ?? null,
+    }))
   },
 }

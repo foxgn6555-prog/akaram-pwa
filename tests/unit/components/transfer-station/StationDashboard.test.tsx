@@ -38,7 +38,9 @@ describe('StationDashboard', () => {
     expect(screen.getByText('الأوزان')).toBeInTheDocument()
     expect(screen.getByText('السكسات الخارجة')).toBeInTheDocument()
     expect(screen.getByText('النسافات الخارجة')).toBeInTheDocument()
-    expect(screen.getByText('الغرامات')).toBeInTheDocument()
+    expect(screen.getByText('مخالفات الوزن')).toBeInTheDocument()
+    expect(screen.getByText('ناقلات الحاويات')).toBeInTheDocument()
+    expect(screen.getByText('حركة الآليات')).toBeInTheDocument()
     expect(screen.getByText('الأرشيف')).toBeInTheDocument()
     // أُلغيت وحدة الحضورية من هذه البوابة
     expect(screen.queryByText('الحضورية')).not.toBeInTheDocument()

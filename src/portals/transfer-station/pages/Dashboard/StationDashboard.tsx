@@ -49,6 +49,8 @@ interface WeightSummaryLike {
   archived?: number
   total_net_tons?: number
   today_net_tons?: number
+  today_violations?: number
+  total_violations?: number
 }
 
 export default function StationDashboard() {
@@ -63,14 +65,16 @@ export default function StationDashboard() {
     { label: 'مُرسل لغرفة العمليات', value: String(s.submitted_ops ?? 0), icon: 'send', tone: 'bg-emerald-50 text-emerald-700' },
     { label: 'أطنان اليوم', value: `${(s.today_net_tons ?? 0).toFixed(2)} طن`, icon: 'bar-chart', tone: 'bg-indigo-50 text-indigo-700' },
     { label: 'في الأرشيف المركزي', value: String(s.archived ?? 0), icon: 'archive-box', tone: 'bg-red-50 text-red-700' },
+    { label: 'مخالفات اليوم', value: String(s.today_violations ?? 0), icon: 'alert-triangle', tone: 'bg-red-50 text-red-700' },
   ]
 
   const quick: Array<{ path: string; label: string; hint: string; icon: IconName }> = [
-    { path: '/transfer-station/weights', label: 'الأوزان', hint: 'تسجيل ودفاتر الشفتات', icon: 'scale' },
-    { path: '/transfer-station/weights/log', label: 'تسجيل الأوزان', hint: 'إدخال سجل جديد', icon: 'clipboard' },
+    { path: '/transfer-station/vehicle-movements', label: 'حركة الآليات', hint: 'وصول ← وزن ← وجهة ← اكتمال', icon: 'truck' },
+    { path: '/transfer-station/weights', label: 'الأوزان', hint: 'دفتر تلقائي من سير العمل', icon: 'scale' },
     { path: '/transfer-station/saksat', label: 'السكسات الخارجة', hint: 'فولدر شهري للمعاون', icon: 'send' },
     { path: '/transfer-station/trips', label: 'النسافات الخارجة', hint: 'فولدر شهري للمعاون', icon: 'truck' },
-    { path: '/transfer-station/fines', label: 'الغرامات', hint: 'قيد الإنشاء', icon: 'alert-triangle' },
+    { path: '/transfer-station/carrier', label: 'ناقلات الحاويات', hint: 'فولدر شهري للمعاون', icon: 'truck' },
+    { path: '/transfer-station/fines', label: 'مخالفات الوزن', hint: 'الأقل من الحد المسموح', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', label: 'الأرشيف', hint: 'السجلات والأرشفة المركزية', icon: 'archive-box' },
   ]
 

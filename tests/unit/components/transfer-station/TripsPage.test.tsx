@@ -43,10 +43,11 @@ describe('TripsPage', () => {
     renderPage()
     await user.type(screen.getByTestId('f-trips-name'), 'سائق نسافة')
     await user.type(screen.getByTestId('f-trips-vehicle'), 'شاحنة')
+    await user.type(screen.getByTestId('f-trips-weight'), '6')
     await user.click(screen.getByTestId('trips-submit'))
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ driver_name: 'سائق نسافة', vehicle_type: 'شاحنة' }),
+      expect.objectContaining({ weight_tons: 6, driver_name: 'سائق نسافة', vehicle_type: 'شاحنة' }),
     )
   })
 
