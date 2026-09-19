@@ -3,6 +3,7 @@ import type { RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const Dashboard = lazy(() => import('./pages/Dashboard/OpsRoomDashboardPage'))
 const Reports = lazy(() => import('./pages/OperationsData/OperationsDataPage'))
+const StationDaily = lazy(() => import('./pages/StationDaily/StationDailyReportPage'))
 const Gps = lazy(() => import('./pages/Gps/GpsDataPage'))
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
@@ -25,6 +26,7 @@ const load = (page: ReactNode) => (
 export const customRoutes: RouteObject[] = [
   { path: '', element: load(<Dashboard />) },
   { path: 'operations-data', element: load(<Reports />) },
+  { path: 'station-daily', element: load(<StationDaily />) },
   { path: 'vehicles-database', element: load(<FleetDatabase />) },
   { path: 'vehicles-database/:vehicleId', element: load(<FleetDetail />) },
   { path: 'vehicles-archive', element: load(<FleetArchive />) },

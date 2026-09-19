@@ -43,6 +43,7 @@ describe('TripsPage', () => {
     renderPage()
     await user.type(screen.getByTestId('f-trips-name'), 'سائق نسافة')
     await user.type(screen.getByTestId('f-trips-vehicle'), 'شاحنة')
+    await user.clear(screen.getByTestId('f-trips-weight'))
     await user.type(screen.getByTestId('f-trips-weight'), '6')
     await user.click(screen.getByTestId('trips-submit'))
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))

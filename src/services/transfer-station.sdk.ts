@@ -22,6 +22,11 @@ import type {
   WorkflowRow,
 } from '@features/transfer-station/types'
 import type { WeighingDestination } from '@features/transfer-station/lib/vehicleKinds'
+import type {
+  DailyStationReport,
+  DeputyDailyReport,
+  SectorTonnageRow,
+} from '@features/transfer-station/types'
 
 const COLS =
   'id, seq, db_number, driver_name, vehicle_type, gross_weight, tare_weight, net_weight, ' +
@@ -308,6 +313,50 @@ export const transferStation = {
       deficit_tons: Number(r.deficit_tons ?? 0),
       violated_at: (r.violated_at as string | null) ?? null,
       visit_leg_id: String(r.visit_leg_id ?? ''),
+    }))
+  },
+
+  /** التقرير اليومي الكامل للمحطة (وارد/مجاميع/صادر/مخالفات) */
+  async opsDailyReport(day: string) {
+    const res = await supabase.rpc('ops_station_daily_report', { p_day: day })
+    if (res.error) throw new Error(res.error.message)
+    return (res.data ?? {}) as DailyStationReport
+  },
+
+  /** أطنان القواطع (كرادة/زعفرانية) ضمن مدى تاريخي */
+  async opsSectorTonnage(from: string, to: string): Promise<SectorTonnageRow[]> {
+    const res = await supabase.rpc('ops_sector_tonnage', { p_from: from, p_to: to })
+    if (res.error) throw new Error(res.error.message)
+    return ((res.data ?? []) as Record<string, unknown>[]).map(r => ({
+      parent_sector: String(r.parent_sector ?? ''),
+      inbound_count: Number(r.inbound_count ?? 0),
+      inbound_tons: Number(r.inbound_tons ?? 0),
+      press_tons: Number(r.press_tons ?? 0),
+      station_tons: Number(r.station_tons ?? 0),
+      violation_count: Number(r.violation_count ?? 0),
+    }))
+  },
+
+  /** إرسال التقرير اليومي إلى معاون المدير بعد التدقيق */
+  async opsSendDailyToDeputy(day: string, note?: string) {
+    const res = await supabase.rpc('ops_send_daily_to_deputy', {
+      p_day: day,
+      p_note: note?.trim() || null,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return res.data
+  },
+
+  /** التقارير اليومية المرسلة للمعاون (تحليل البيانات) */
+  async deputyDailyReports(limit = 60): Promise<DeputyDailyReport[]> {
+    const res = await supabase.rpc('deputy_daily_reports_list', { p_limit: limit })
+    if (res.error) throw new Error(res.error.message)
+    return ((res.data ?? []) as Record<string, unknown>[]).map(r => ({
+      report_day: String(r.report_day ?? ''),
+      sent_at: (r.sent_at as string | null) ?? null,
+      sender_name: (r.sender_name as string | null) ?? null,
+      note: (r.note as string | null) ?? null,
+      payload: (r.payload ?? {}) as DailyStationReport,
     }))
   },
 

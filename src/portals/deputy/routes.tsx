@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const DeputyDashboard = lazy(() => import('./pages/DeputyDashboard'))
 const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))
+const DataAnalysisPage = lazy(() => import('./pages/DataAnalysis/DataAnalysisPage'))
 const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 
 const s = (node: ReactNode): ReactNode => (
@@ -20,5 +21,6 @@ export const customRoutes: RouteObject[] = [
   { path: '', element: s(<DeputyDashboard />) },
   { path: 'statements', element: s(<IncomingStatements />) },
   { path: 'station-folders', element: s(<StationFoldersPage />) },
+  { path: 'data-analysis', element: s(<DataAnalysisPage />) },
   { path: 'sector-supplies', element: s(<SectorSupplies />) },
 ]

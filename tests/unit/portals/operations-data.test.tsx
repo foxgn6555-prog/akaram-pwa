@@ -24,7 +24,7 @@ const summary = {
   breakdown_count: 1,
   maintenance_count: 1,
 }
-vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: [] }) }))
+vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: [] }), useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useOpsAlerts: () => ({
     data: [
@@ -155,5 +155,12 @@ describe('تقارير غرفة العمليات المركبة', () => {
         action_link: 'الصيانة — حالات الآليات',
       }),
     )
+  })
+
+  it('يعرض تقرير أطنان القواطع مترجماً', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByText('أطنان القواطع'))
+    expect(screen.getByText('الكرادة')).toBeInTheDocument()
+    expect(screen.getByText('31.5')).toBeInTheDocument()
   })
 })

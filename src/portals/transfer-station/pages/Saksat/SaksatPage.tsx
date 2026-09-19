@@ -18,7 +18,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 export default function SaksatPage() {
   const [name, setName] = useState('')
   const [vehicle, setVehicle] = useState('')
-  const [weight, setWeight] = useState('')
+  const [weight, setWeight] = useState('10') // الحمولة القياسية افتراضاً (00131)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [month, setMonth] = useState(currentMonth())
 
@@ -88,7 +88,7 @@ export default function SaksatPage() {
             />
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-            الوزن (طن) <span className="text-red-500">*</span>
+            الوزن (طن) <span className="text-red-500">*</span> <span className="font-normal text-slate-400">(القياسي 10 طن)</span>
             <input
               type="number"
               min={0.1}

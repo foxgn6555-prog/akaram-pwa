@@ -22,12 +22,12 @@ import {
   useOpsStationVisits,
   useOpsVehicleKpis,
 } from '@features/vehicle-operations/hooks'
-import { useOpsWorkflow } from '@features/transfer-station'
+import { useOpsWorkflow, useSectorTonnage } from '@features/transfer-station'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 
 export type OperationsTab =
-  'alerts' | 'summary' | 'movements' | 'station' | 'weighings' | 'garage' | 'maintenance' | 'attendance'
+  'alerts' | 'summary' | 'movements' | 'station' | 'weighings' | 'sectors' | 'garage' | 'maintenance' | 'attendance'
 type Row = Record<string, unknown>
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -47,6 +47,12 @@ const labels: Record<string, string> = {
   alert_id: 'معرف التنبيه',
   action_link: 'جهة المعالجة',
   case_id: 'معرف حالة الصيانة',
+  parent_sector: 'القاطع',
+  inbound_count: 'شحنات واردة',
+  inbound_tons: 'أطنان واردة',
+  press_tons: 'أطنان المكبس',
+  station_tons: 'أطنان المحطة',
+  violation_count: 'مخالفات',
   trip_day: 'اليوم',
   weighed_at: 'وقت الوزن',
   weight_tons: 'الوزن (طن)',
@@ -115,6 +121,7 @@ const tabs: Record<OperationsTab, string> = {
   movements: 'حركة الآليات',
   station: 'زيارات المحطة',
   weighings: 'أوزان المحطة والوجهات',
+  sectors: 'أطنان القواطع',
   garage: 'الكراج والورديات',
   maintenance: 'الأعطال والصيانة',
   attendance: 'حضور العمال',
@@ -167,6 +174,14 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'arrived_at',
     'duration_minutes',
     'status',
+  ],
+  sectors: [
+    'parent_sector',
+    'inbound_count',
+    'inbound_tons',
+    'press_tons',
+    'station_tons',
+    'violation_count',
   ],
   weighings: [
     'trip_day',
@@ -323,6 +338,7 @@ export default function OperationsDataPage() {
     maintenance = useOpsMaintenance(from, to),
     attendance = useOpsAttendance(from, to)
   const weighings = useOpsWorkflow()
+  const sectorsTonnage = useSectorTonnage(from, to)
   const allSources = useMemo<Record<OperationsTab, Row[]>>(
     () => ({
       alerts: (alertQuery.data ?? []) as unknown as Row[],
@@ -330,6 +346,10 @@ export default function OperationsDataPage() {
       movements: (movements.data ?? []) as unknown as Row[],
       station: station.data ?? [],
       weighings: (weighings.data ?? []) as unknown as Row[],
+      sectors: (sectorsTonnage.data ?? []).map((row) => ({
+        ...row,
+        parent_sector: row.parent_sector === 'karrada' ? 'الكرادة' : row.parent_sector === 'zaafaraniya' ? 'الزعفرانية' : row.parent_sector,
+      })) as unknown as Row[],
       garage: garage.data ?? [],
       maintenance: maintenance.data ?? [],
       attendance: attendance.data ?? [],
@@ -340,6 +360,7 @@ export default function OperationsDataPage() {
       movements.data,
       station.data,
       weighings.data,
+      sectorsTonnage.data,
       garage.data,
       maintenance.data,
       attendance.data,
@@ -377,7 +398,7 @@ export default function OperationsDataPage() {
   const activeFilterCount = [search, shift, sector, tab === 'alerts' ? severity : ''].filter(
     Boolean,
   ).length
-  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance].some(
+  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance, sectorsTonnage].some(
     (query) => query.isLoading,
   )
   const setRange = (days: number) => {

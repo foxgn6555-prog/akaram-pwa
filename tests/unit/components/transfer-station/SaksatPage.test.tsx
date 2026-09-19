@@ -59,6 +59,7 @@ describe('SaksatPage', () => {
     const user = userEvent.setup()
     renderPage()
     await user.type(screen.getByTestId('f-saksat-name'), 'سائق جديد')
+    await user.clear(screen.getByTestId('f-saksat-weight')) // الحمولة القياسية افتراض — تُمسح لاختبار التحقق
     await user.click(screen.getByTestId('saksat-submit'))
     expect(mockCreate).not.toHaveBeenCalled()
     expect(screen.getByText('الوزن مطلوب بالطن (أكبر من صفر)')).toBeInTheDocument()
@@ -69,6 +70,7 @@ describe('SaksatPage', () => {
     renderPage()
     await user.type(screen.getByTestId('f-saksat-name'), 'سائق جديد')
     await user.type(screen.getByTestId('f-saksat-vehicle'), 'قلاب')
+    await user.clear(screen.getByTestId('f-saksat-weight'))
     await user.type(screen.getByTestId('f-saksat-weight'), '7.5')
     await user.click(screen.getByTestId('saksat-submit'))
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1))

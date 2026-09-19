@@ -25,7 +25,13 @@ export {
   useCreateCarrier,
   useSendCarrierFolder,
   useOpsWorkflow,
+  useOpsDailyReport,
+  useSectorTonnage,
+  useSendDailyToDeputy,
+  useDeputyDailyReports,
 } from './hooks/useWorkflow'
+export { UNIT_CAPACITIES, unitCapacity } from './lib/unitCapacities'
+export type { OutboundUnit } from './lib/unitCapacities'
 export {
   VEHICLE_KINDS,
   DESTINATION_LABELS,
@@ -58,5 +64,9 @@ export type {
   CarrierRecord,
   CreateCarrierInput,
   WorkflowRow,
+  DailyStationReport,
+  DailyUnitSummary,
+  SectorTonnageRow,
+  DeputyDailyReport,
 } from './types'
 export { SHIFT_LABELS } from './types'

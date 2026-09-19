@@ -337,10 +337,12 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
+    { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'bar-chart' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/ops-room/operations-data', labelKey: 'nav.ops_operations_data', icon: 'bar-chart' },
+    { path: '/ops-room/station-daily', labelKey: 'nav.ops_station_daily', icon: 'scale' },
     {
       path: '/ops-room/vehicles-database',
       labelKey: 'nav.ops_vehicles_database',

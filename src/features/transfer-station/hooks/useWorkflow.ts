@@ -88,3 +88,49 @@ export function useOpsWorkflow(day?: string) {
     queryFn: () => transferStation.opsWorkflow(day),
   })
 }
+
+/* ═══ التقارير اليومية (00131) ═══ */
+
+export const dailyKeys = {
+  report: (day: string) => ['transfer-station', 'daily-report', day] as const,
+  sectors: (from: string, to: string) => ['transfer-station', 'sector-tonnage', from, to] as const,
+  deputyDaily: () => ['deputy', 'daily-reports'] as const,
+}
+
+/** التقرير اليومي الكامل للمحطة */
+export function useOpsDailyReport(day: string) {
+  return useQuery({
+    queryKey: dailyKeys.report(day),
+    queryFn: () => transferStation.opsDailyReport(day),
+    enabled: Boolean(day),
+  })
+}
+
+/** أطنان القواطع ضمن مدى */
+export function useSectorTonnage(from: string, to: string) {
+  return useQuery({
+    queryKey: dailyKeys.sectors(from, to),
+    queryFn: () => transferStation.opsSectorTonnage(from, to),
+    enabled: Boolean(from && to),
+  })
+}
+
+/** إرسال اليوم إلى المعاون بعد التدقيق */
+export function useSendDailyToDeputy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { day: string; note?: string }) =>
+      transferStation.opsSendDailyToDeputy(input.day, input.note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['deputy', 'daily-reports'] })
+    },
+  })
+}
+
+/** التقارير اليومية في بوابة المعاون */
+export function useDeputyDailyReports() {
+  return useQuery({
+    queryKey: dailyKeys.deputyDaily(),
+    queryFn: () => transferStation.deputyDailyReports(90),
+  })
+}
