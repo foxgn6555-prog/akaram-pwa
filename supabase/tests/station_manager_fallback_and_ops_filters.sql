@@ -8,11 +8,12 @@ declare
   op uuid:='86000000-0000-0000-0000-000000000003';
   fm uuid:='86000000-0000-0000-0000-000000000004';
   m1 uuid:='86000000-0000-0000-0000-000000000005';
+  m3 uuid:='86000000-0000-0000-0000-000000000006';
   v public.garage_vehicles; d public.garage_departures; l public.vehicle_trip_legs;
   s public.ts_visit_weighing_steps; n bigint;
 begin
-  insert into auth.users(id,email) values(g,'fb-garage@x.iq'),(st,'fb-station@x.iq'),(op,'fb-ops@x.iq'),(fm,'fb-fallback@x.iq'),(m1,'fb-direct@x.iq');
-  insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(g,'ops_room'),(st,'transfer_station'),(op,'ops_room'),(fm,'department_manager'),(m1,'department_manager');
+  insert into auth.users(id,email) values(g,'fb-garage@x.iq'),(st,'fb-station@x.iq'),(op,'fb-ops@x.iq'),(fm,'fb-fallback@x.iq'),(m1,'fb-direct@x.iq'),(m3,'fb-direct2@x.iq');
+  insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(g,'ops_room'),(st,'transfer_station'),(op,'ops_room'),(fm,'department_manager'),(m1,'department_manager'),(m3,'department_manager');
   insert into public.garage_user_profiles(user_id,parent_sector) values(g,'karrada'),(fm,'karrada'),(m1,'karrada');
   insert into public.manager_profiles(user_id,shift,sectors) values(fm,'morning',array[2]::smallint[]);
 
@@ -25,6 +26,13 @@ begin
   v := public.garage_add_vehicle('كابسة الارتداد','DB-FB1','P-FB1','C-FB1',g::text||'/x.webp','morning','سائق الارتداد',4::smallint);
   d := public.garage_record_shift_departure(v.id,'morning',null);
   if d.recipient_manager_id is null then raise exception 'FALLBACK_MANAGER_MISSING'; end if;
+
+  -- معاينة نافذة الانطلاق (00133) تعكس الارتداد نفسه الذي سيسجله الخادم
+  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning');
+  if n <> 1 then raise exception 'PREVIEW_FALLBACK_COUNT_FAIL %', n; end if;
+  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning') r
+   where r.resolution = 'parent_fallback' and r.user_id = d.recipient_manager_id;
+  if n <> 1 then raise exception 'PREVIEW_FALLBACK_MATCH_FAIL %', n; end if;
 
   perform set_config('role', session_user::text, false);
   select count(*) into n from public.manager_profiles mp
@@ -54,6 +62,22 @@ begin
   v := public.garage_add_vehicle('كابسة الفلاتر','DB-FB3','P-FB3','C-FB3',g::text||'/x.webp','morning','سائق الفلاتر',4::smallint);
   d := public.garage_record_shift_departure(v.id,'morning',null);
   if d.recipient_manager_id is distinct from m1 then raise exception 'DIRECT_MANAGER_FAIL %', coalesce(d.recipient_manager_id::text,'null'); end if;
+
+  -- المعاينة مباشرة عند وجود مدير مباشر، وصف لكل مدير عند التداخل
+  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning') r
+   where r.resolution = 'direct' and r.user_id = m1;
+  if n <> 1 then raise exception 'PREVIEW_DIRECT_FAIL %', n; end if;
+  perform set_config('role', session_user::text, false);
+  insert into public.manager_profiles(user_id,shift,sectors) values(m3,'morning',array[4]::smallint[]);
+  perform set_config('role','authenticated',false);
+  perform set_config('request.jwt.claim.sub', g::text, false);
+  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning') r
+   where r.resolution = 'direct';
+  if n <> 2 then raise exception 'PREVIEW_AMBIGUOUS_FAIL %', n; end if;
+  perform set_config('role', session_user::text, false);
+  delete from public.manager_profiles where user_id = m3;
+  perform set_config('role','authenticated',false);
+  perform set_config('request.jwt.claim.sub', g::text, false);
 
   -- زيارتان متتاليتان للمحطة ضمن نفس الانطلاقة
   perform set_config('request.jwt.claim.sub', m1::text, false);

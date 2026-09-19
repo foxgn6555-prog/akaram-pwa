@@ -371,13 +371,24 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                     <span className="font-normal">
                       سيسجل الخادم المسؤول في الانطلاقية ويرسل له الإشعار فوراً، دون اختيار يدوي.
                     </span>
+                    {automaticManager.resolution === 'parent_fallback' && (
+                      <span
+                        data-testid="dispatch-fallback-note"
+                        className="mt-1 block font-normal text-amber-800"
+                      >
+                        لا مدير مباشر لهذه المنطقة — ارتد الإسناد تلقائياً إلى مسؤول يغطي قطاعاً
+                        شقيقاً ضمن القاطع نفسه.
+                      </span>
+                    )}
                   </>
                 ) : matchedManagers.length > 1 ? (
                   <span className="text-rose-700">
                     يوجد أكثر من مسؤول للمنطقة نفسها. يجب تصحيح التداخل من إعدادات المسؤولين.
                   </span>
                 ) : (
-                  <span className="text-rose-700">لم يُهيأ مسؤول لهذه المنطقة بعد.</span>
+                  <span className="text-rose-700">
+                    لم يُهيأ مسؤول لهذه المنطقة ولا لأي منطقة ضمن قاطعها بعد.
+                  </span>
                 )}
               </div>
             </div>

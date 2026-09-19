@@ -630,6 +630,28 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
       managerName: 'مسؤول الكرادة',
       shift: 'morning',
       sectors: [1, 2],
+      resolution: 'direct',
+    })
+  })
+
+  it('يميز معاينة الشفت بين الإسناد المباشر وارتداد القاطع', async () => {
+    h.state.result = {
+      data: [
+        { user_id: 'm2', manager_name: 'مسؤول القاطع', shift: 'morning', sectors: [2], resolution: 'parent_fallback' },
+      ],
+      error: null,
+    }
+    const rows = await centralGarage.shiftDispatchRecipients('v1', 'morning')
+    expect(h.rpc).toHaveBeenCalledWith('garage_shift_dispatch_recipients', {
+      p_vehicle_id: 'v1',
+      p_shift: 'morning',
+    })
+    expect(rows[0]).toEqual({
+      userId: 'm2',
+      managerName: 'مسؤول القاطع',
+      shift: 'morning',
+      sectors: [2],
+      resolution: 'parent_fallback',
     })
   })
 

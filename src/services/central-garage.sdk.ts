@@ -582,6 +582,7 @@ export const centralGarage = {
       managerName: String(r.manager_name),
       shift: r.shift as GarageShift,
       sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
+      resolution: (r.resolution as 'direct' | 'parent_fallback' | undefined) ?? 'direct',
     }))
   },
   async recordShiftDeparture(
@@ -608,6 +609,7 @@ export const centralGarage = {
       managerName: String(r.manager_name),
       shift: r.shift as GarageShift,
       sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
+      resolution: 'direct' as const,
     }))
   },
 
