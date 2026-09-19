@@ -8,8 +8,6 @@ export const transferStationKeys = {
   summary: () => [...transferStationKeys.all, 'summary'] as const,
   saksatList: (month?: string) =>
     [...transferStationKeys.all, 'saksat', 'list', month ?? 'all'] as const,
-  saksatSubmitted: () => [...transferStationKeys.all, 'saksat', 'submitted'] as const,
   tripsList: (month?: string) =>
     [...transferStationKeys.all, 'trips', 'list', month ?? 'all'] as const,
-  tripsSubmitted: () => [...transferStationKeys.all, 'trips', 'submitted'] as const,
 }

@@ -6,11 +6,9 @@ import { MemoryRouter } from 'react-router'
 
 const mockList = vi.fn()
 const mockCreate = vi.fn().mockResolvedValue({ id: 'c1' })
-const mockSend = vi.fn().mockResolvedValue(1)
 vi.mock('@features/transfer-station', () => ({
   useCarrierList: () => ({ data: mockList(), isLoading: false }),
   useCreateCarrier: () => ({ mutate: mockCreate, isPending: false }),
-  useSendCarrierFolder: () => ({ mutate: mockSend, isPending: false }),
 }))
 
 import CarrierPage from '@portals/transfer-station/pages/Carrier/CarrierPage'
@@ -22,6 +20,8 @@ describe('CarrierPage — ناقلة حاويات مكبسية', () => {
     const user = userEvent.setup()
     render(<MemoryRouter><CarrierPage /></MemoryRouter>)
     expect(screen.getByTestId('carrier-page')).toBeInTheDocument()
+    expect(screen.getByTestId('carrier-month')).toBeInTheDocument()
+    expect(screen.queryByTestId('folder-carrier-send')).not.toBeInTheDocument()
     expect(screen.getByTestId('f-carrier-weight')).toHaveValue(16)
     await user.type(screen.getByTestId('f-carrier-name'), 'سائق الناقلة')
     await user.click(screen.getByTestId('carrier-submit'))

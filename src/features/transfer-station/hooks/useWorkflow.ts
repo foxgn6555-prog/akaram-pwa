@@ -64,23 +64,6 @@ export function useCreateCarrier() {
   })
 }
 
-export function useCarrierSubmitted() {
-  return useQuery({
-    queryKey: [...workflowKeys.carrier(), 'submitted'] as const,
-    queryFn: () => transferStation.listCarrierSubmitted(),
-  })
-}
-
-export function useSendCarrierFolder() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: transferStation.sendCarrierFolder,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transfer-station', 'carrier'] })
-    },
-  })
-}
-
 /** جدول غرفة العمليات لسير عمل المحطة */
 export function useOpsWorkflow(day?: string) {
   return useQuery({

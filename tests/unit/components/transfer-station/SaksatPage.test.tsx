@@ -1,4 +1,4 @@
-/** وحدة السكسات الخارجة — النموذج (اسم السائق/نوع الآلية/وقت تلقائي) + الفولدر الشهري */
+/** وحدة السكسات الخارجة — النموذج (اسم السائق/نوع الآلية/وقت تلقائي) + التنقل الشهري (النمط الجديد: بلا إرسال مباشر) */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -7,12 +7,10 @@ import type { SaksatRecord } from '@features/transfer-station/types'
 
 const mockList = vi.fn()
 const mockCreate = vi.fn().mockResolvedValue({ id: 's1' })
-const mockSend = vi.fn().mockResolvedValue(2)
 
 vi.mock('@features/transfer-station', () => ({
   useSaksatList: () => ({ data: mockList(), isLoading: false }),
   useCreateSaksat: () => ({ mutate: mockCreate, isPending: false }),
-  useSendSaksatFolder: () => ({ mutate: mockSend, isPending: false }),
 }))
 
 import SaksatPage from '@portals/transfer-station/pages/Saksat/SaksatPage'
@@ -37,13 +35,14 @@ beforeEach(() => {
 })
 
 describe('SaksatPage', () => {
-  it('يعرض النموذج والجدول وشريط الفولدر', () => {
+  it('يعرض النموذج والجدول وشريط الشهر بالنمط الجديد', () => {
     renderPage()
     expect(screen.getByTestId('saksat-page')).toBeInTheDocument()
     expect(screen.getByTestId('saksat-form')).toBeInTheDocument()
     expect(screen.getByTestId('saksat-table')).toBeInTheDocument()
-    expect(screen.getByTestId('folder-saksat-month')).toBeInTheDocument()
-    expect(screen.getByTestId('folder-saksat-send')).toBeInTheDocument()
+    expect(screen.getByTestId('saksat-month')).toBeInTheDocument()
+    expect(screen.getByText('تصل غرفة العمليات تلقائياً ضمن التقرير اليومي ومنها إلى المعاون')).toBeInTheDocument()
+    expect(screen.queryByTestId('folder-saksat-send')).not.toBeInTheDocument()
     expect(screen.getByText('سائق سكسة')).toBeInTheDocument()
   })
 
@@ -85,11 +84,4 @@ describe('SaksatPage', () => {
     expect(within(screen.getByTestId('saksat-table')).getByText('8')).toBeInTheDocument()
   })
 
-  it('إرسال الفولدر يستدعي إرسال الشهر لمعاون المدير', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByTestId('folder-saksat-send'))
-    await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1))
-    expect(mockSend.mock.calls[0]?.[0]).toMatch(/^\d{4}-\d{2}$/)
-  })
 })

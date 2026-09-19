@@ -172,6 +172,8 @@ export interface WorkflowRow {
   vehicle_name: string
   driver_name: string
   shift: string
+  sector_id: number | null
+  parent_sector: string | null
   area_name: string
   manager_name: string | null
   inbound_departed_at: string | null

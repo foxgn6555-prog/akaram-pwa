@@ -304,7 +304,7 @@ export function useRecordGarageShiftDeparture() {
     onError: (error: unknown) => {
       const raw = error instanceof Error ? error.message : String(error)
       const message = raw.includes('GARAGE_SECTOR_MANAGER_NOT_CONFIGURED')
-        ? 'لا يوجد مسؤول مهيأ لهذه المنطقة. حدّث ملف مسؤول القسم أولاً.'
+        ? 'لا يوجد مسؤول مهيأ لهذه المنطقة ولا لأي منطقة ضمن القاطع. حدّث ملفات مسؤولي القسم أولاً.'
         : raw.includes('GARAGE_SECTOR_MANAGER_AMBIGUOUS')
           ? 'يوجد أكثر من مسؤول للمنطقة نفسها. صحح الإسنادات المتداخلة قبل الانطلاق.'
           : handleAppError(error, { scope: 'recordGarageShiftDeparture' }).message

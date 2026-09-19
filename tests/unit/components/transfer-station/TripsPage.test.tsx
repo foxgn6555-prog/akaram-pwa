@@ -1,4 +1,4 @@
-/** وحدة النسافات الخارجة — النموذج + الفولدر الشهري */
+/** وحدة النسافات الخارجة — النموذج + التنقل الشهري (النمط الجديد: بلا إرسال مباشر) */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,12 +6,10 @@ import { MemoryRouter } from 'react-router'
 
 const mockList = vi.fn()
 const mockCreate = vi.fn().mockResolvedValue({ id: 't1' })
-const mockSend = vi.fn().mockResolvedValue(3)
 
 vi.mock('@features/transfer-station', () => ({
   useTripsList: () => ({ data: mockList(), isLoading: false }),
   useCreateTrips: () => ({ mutate: mockCreate, isPending: false }),
-  useSendTripsFolder: () => ({ mutate: mockSend, isPending: false }),
 }))
 
 import TripsPage from '@portals/transfer-station/pages/Trips/TripsPage'
@@ -30,11 +28,12 @@ beforeEach(() => {
 })
 
 describe('TripsPage', () => {
-  it('يعرض النموذج والجدول وشريط الفولدر', () => {
+  it('يعرض النموذج والجدول وشريط الشهر بالنمط الجديد', () => {
     renderPage()
     expect(screen.getByTestId('trips-page')).toBeInTheDocument()
     expect(screen.getByTestId('trips-form')).toBeInTheDocument()
-    expect(screen.getByTestId('folder-trips-send')).toBeInTheDocument()
+    expect(screen.getByTestId('trips-month')).toBeInTheDocument()
+    expect(screen.getByText('تصل غرفة العمليات تلقائياً ضمن التقرير اليومي ومنها إلى المعاون')).toBeInTheDocument()
     expect(screen.getByText('النسافات الخارجة')).toBeInTheDocument()
   })
 
@@ -52,8 +51,8 @@ describe('TripsPage', () => {
     )
   })
 
-  it('زر الفولدر معطل عند عدم وجود مسودات', async () => {
+  it('لا يوفر إرسال فولدر مباشر للمعاون', () => {
     renderPage()
-    expect(screen.getByTestId('folder-trips-send')).toBeDisabled()
+    expect(screen.queryByTestId('folder-trips-send')).not.toBeInTheDocument()
   })
 })

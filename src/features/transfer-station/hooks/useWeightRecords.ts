@@ -145,23 +145,6 @@ export function useCreateSaksat() {
   })
 }
 
-export function useSendSaksatFolder() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (month: string) => transferStation.sendSaksatFolder(month),
-    onSuccess: (count, month) => {
-      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
-      addToast({
-        type: 'success',
-        message: `أُرسل فولدر السكسات لشهر ${month} (${count} سجل) لمعاون المدير المفوض`,
-      })
-    },
-    onError: (error) =>
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'sendSaksatFolder' }).message }),
-  })
-}
-
 export function useTripsList(month?: string) {
   return useQuery({
     queryKey: transferStationKeys.tripsList(month),
@@ -181,39 +164,5 @@ export function useCreateTrips() {
     },
     onError: (error) =>
       addToast({ type: 'error', message: handleAppError(error, { scope: 'createTrips' }).message }),
-  })
-}
-
-export function useSendTripsFolder() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (month: string) => transferStation.sendTripsFolder(month),
-    onSuccess: (count, month) => {
-      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
-      addToast({
-        type: 'success',
-        message: `أُرسل فولدر النسافات لشهر ${month} (${count} سجل) لمعاون المدير المفوض`,
-      })
-    },
-    onError: (error) =>
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'sendTripsFolder' }).message }),
-  })
-}
-
-/** الفولدرات الواردة لبوابة معاون المدير المفوض */
-export function useSaksatSubmitted() {
-  return useQuery({
-    queryKey: transferStationKeys.saksatSubmitted(),
-    queryFn: () => transferStation.listSaksatSubmitted(),
-    staleTime: API.STALE_TIME.DEFAULT,
-  })
-}
-
-export function useTripsSubmitted() {
-  return useQuery({
-    queryKey: transferStationKeys.tripsSubmitted(),
-    queryFn: () => transferStation.listTripsSubmitted(),
-    staleTime: API.STALE_TIME.DEFAULT,
   })
 }

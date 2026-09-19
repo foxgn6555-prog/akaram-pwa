@@ -1,6 +1,94 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const h = vi.hoisted(() => ({ excel: vi.fn() }))
+const h = vi.hoisted(() => ({
+  excel: vi.fn(),
+  weighings: [
+    {
+      visit_id: 'v1',
+      departure_id: 'd9',
+      trip_day: '2026-09-19',
+      db_number: 'DB-9',
+      vehicle_name: 'كابسة تسع',
+      driver_name: 'سائق تسع',
+      shift: 'morning',
+      sector_id: 4,
+      parent_sector: 'karrada',
+      area_name: 'الجادرية',
+      manager_name: 'مسؤول',
+      inbound_departed_at: '2026-09-19T06:30:00Z',
+      arrived_at: '2026-09-19T06:50:00Z',
+      weighed_at: '2026-09-19T07:00:00Z',
+      completed_at: '2026-09-19T07:10:00Z',
+      dispatched_at: '2026-09-19T07:15:00Z',
+      weight_tons: 5,
+      destination_label: 'المكبس',
+      kind_label: 'كابسة وسط',
+      min_tons: 4,
+      violation: false,
+      deficit_tons: null,
+      transit_minutes: 20,
+      weigh_wait_minutes: 10,
+      process_minutes: 25,
+      stay_minutes: 45,
+    },
+    {
+      visit_id: 'v2',
+      departure_id: 'd9',
+      trip_day: '2026-09-19',
+      db_number: 'DB-9',
+      vehicle_name: 'كابسة تسع',
+      driver_name: 'سائق تسع',
+      shift: 'morning',
+      sector_id: 4,
+      parent_sector: 'karrada',
+      area_name: 'الجادرية',
+      manager_name: 'مسؤول',
+      inbound_departed_at: '2026-09-19T08:30:00Z',
+      arrived_at: '2026-09-19T08:50:00Z',
+      weighed_at: '2026-09-19T09:00:00Z',
+      completed_at: '2026-09-19T09:10:00Z',
+      dispatched_at: '2026-09-19T09:15:00Z',
+      weight_tons: 6,
+      destination_label: 'المكبس',
+      kind_label: 'كابسة وسط',
+      min_tons: 4,
+      violation: false,
+      deficit_tons: null,
+      transit_minutes: 20,
+      weigh_wait_minutes: 10,
+      process_minutes: 25,
+      stay_minutes: 45,
+    },
+    {
+      visit_id: 'v3',
+      departure_id: 'd10',
+      trip_day: '2026-09-19',
+      db_number: 'DB-10',
+      vehicle_name: 'كابسة عشر',
+      driver_name: 'سائق عشر',
+      shift: 'morning',
+      sector_id: 6,
+      parent_sector: 'zaafaraniya',
+      area_name: 'الزعفرانية',
+      manager_name: 'مسؤول',
+      inbound_departed_at: '2026-09-19T06:40:00Z',
+      arrived_at: '2026-09-19T07:00:00Z',
+      weighed_at: '2026-09-19T07:20:00Z',
+      completed_at: '2026-09-19T07:30:00Z',
+      dispatched_at: '2026-09-19T07:35:00Z',
+      weight_tons: 7,
+      destination_label: 'المحطة التحويلية',
+      kind_label: 'كيا',
+      min_tons: 2,
+      violation: false,
+      deficit_tons: null,
+      transit_minutes: 20,
+      weigh_wait_minutes: 10,
+      process_minutes: 30,
+      stay_minutes: 55,
+    },
+  ],
+}))
 vi.mock('@lib/export/excel-report', () => ({ buildExcelReport: h.excel }))
 const summary = {
   departure_id: 'd1',
@@ -24,7 +112,7 @@ const summary = {
   breakdown_count: 1,
   maintenance_count: 1,
 }
-vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: [] }), useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
+vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: h.weighings }), useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useOpsAlerts: () => ({
     data: [
@@ -160,7 +248,40 @@ describe('تقارير غرفة العمليات المركبة', () => {
   it('يعرض تقرير أطنان القواطع مترجماً', () => {
     render(<OperationsDataPage />)
     fireEvent.click(screen.getByText('أطنان القواطع'))
-    expect(screen.getByText('الكرادة')).toBeInTheDocument()
+    expect(screen.getAllByText('الكرادة').length).toBeGreaterThan(0)
     expect(screen.getByText('31.5')).toBeInTheDocument()
+  })
+
+  it('يفصل زيارات الانطلاقة الواحدة بصفوف مستقلة ومفاتيح فريدة', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-weighings'))
+    expect(screen.getAllByText('DB-9')).toHaveLength(2)
+    expect(screen.getByText('DB-10')).toBeInTheDocument()
+    const dupKey = err.mock.calls.find((call) => String(call[0]).includes('same key'))
+    expect(dupKey).toBeUndefined()
+    err.mockRestore()
+  })
+
+  it('يفلتر الأوزان حسب القاطع ثم المنطقة', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-weighings'))
+    expect(screen.getByRole('columnheader', { name: 'القاطع' })).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('ops-parent-sector-filter'), {
+      target: { value: 'zaafaraniya' },
+    })
+    expect(screen.queryByText('DB-9')).not.toBeInTheDocument()
+    expect(screen.getByText('DB-10')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('ops-parent-sector-filter'), {
+      target: { value: 'karrada' },
+    })
+    expect(screen.getAllByText('DB-9')).toHaveLength(2)
+    expect(screen.queryByText('DB-10')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('المنطقة'), { target: { value: '4' } })
+    expect(screen.getAllByText('DB-9')).toHaveLength(2)
+    fireEvent.change(screen.getByTestId('ops-parent-sector-filter'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('المنطقة'), { target: { value: '6' } })
+    expect(screen.queryByText('DB-9')).not.toBeInTheDocument()
+    expect(screen.getByText('DB-10')).toBeInTheDocument()
   })
 })

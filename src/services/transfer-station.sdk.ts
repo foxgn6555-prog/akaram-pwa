@@ -110,20 +110,6 @@ async function listStation(table: string, month?: string): Promise<SaksatRecord[
   return rows.map(normalizeStation)
 }
 
-async function listStationSubmitted(table: string): Promise<SaksatRecord[]> {
-  const rows =
-    (await sdkGuard(
-      supabase
-        .from(table)
-        .select(STATION_COLS)
-        .eq('status', 'submitted_to_deputy')
-        .is('archived_at', null)
-        .order('submitted_at', { ascending: false })
-        .returns<Record<string, unknown[]>>(),
-    )) ?? []
-  return (rows as unknown as Record<string, unknown>[]).map(normalizeStation)
-}
-
 async function createStation(table: string, input: CreateSaksatInput): Promise<SaksatRecord> {
   return sdkGuard(
     supabase
@@ -139,12 +125,6 @@ async function createStation(table: string, input: CreateSaksatInput): Promise<S
       .single()
       .returns<Record<string, unknown>>(),
   ).then((r) => normalizeStation(r as Record<string, unknown>))
-}
-
-async function sendFolder(fn: string, month: string): Promise<number> {
-  const res = await supabase.rpc(fn, { p_month: month })
-  if (res.error) throw new Error(res.error.message)
-  return Number(res.data ?? 0)
 }
 
 export const transferStation = {
@@ -225,35 +205,17 @@ export const transferStation = {
     return listStation('ts_saksat_records', month)
   },
 
-  /** السكسات المُرسلة لمعاون المدير (الفولدرات الواردة) */
-  async listSaksatSubmitted(): Promise<SaksatRecord[]> {
-    return listStationSubmitted('ts_saksat_records')
-  },
-
   /** تسجيل خروج سكسة — وقت الخروج تلقائي عند غيابه */
   async createSaksat(input: CreateSaksatInput): Promise<SaksatRecord> {
     return createStation('ts_saksat_records', input)
-  },
-
-  /** إرسال فولدر شهر السكسات لمعاون المدير — يعيد عدد السجلات المُرسلة */
-  async sendSaksatFolder(month: string): Promise<number> {
-    return sendFolder('ts_saksat_send_folder', month)
   },
 
   async listTrips(month?: string): Promise<TripRecord[]> {
     return listStation('ts_trips_records', month)
   },
 
-  async listTripsSubmitted(): Promise<TripRecord[]> {
-    return listStationSubmitted('ts_trips_records')
-  },
-
   async createTrips(input: CreateTripInput): Promise<TripRecord> {
     return createStation('ts_trips_records', input)
-  },
-
-  async sendTripsFolder(month: string): Promise<number> {
-    return sendFolder('ts_trips_send_folder', month)
   },
 
   /* ═══ ناقلة الحاويات المكبسية (00130) ═══ */
@@ -262,17 +224,9 @@ export const transferStation = {
     return (await listStation('ts_carrier_records', month)) as CarrierRecord[]
   },
 
-  async listCarrierSubmitted(): Promise<CarrierRecord[]> {
-    return (await listStationSubmitted('ts_carrier_records')) as CarrierRecord[]
-  },
-
   /** تسجيل خروج ناقلة حاويات — الوقت تلقائي والوزن يدخله المسؤول */
   async createCarrier(input: CreateCarrierInput): Promise<CarrierRecord> {
     return (await createStation('ts_carrier_records', input)) as CarrierRecord
-  },
-
-  async sendCarrierFolder(month: string): Promise<number> {
-    return sendFolder('ts_carrier_send_folder', month)
   },
 
   /* ═══ سير العمل بالخطوات (00130) ═══ */
@@ -375,6 +329,8 @@ export const transferStation = {
       vehicle_name: String(r.vehicle_name ?? ''),
       driver_name: String(r.driver_name ?? ''),
       shift: String(r.shift ?? ''),
+      sector_id: (r.sector_id as number | null) ?? null,
+      parent_sector: (r.parent_sector as string | null) ?? null,
       area_name: String(r.area_name ?? ''),
       manager_name: (r.manager_name as string | null) ?? null,
       inbound_departed_at: (r.inbound_departed_at as string | null) ?? null,

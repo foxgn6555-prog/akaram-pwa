@@ -189,6 +189,7 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'vehicle_name',
     'driver_name',
     'shift',
+    'parent_sector',
     'area_name',
     'manager_name',
     'inbound_departed_at',
@@ -264,6 +265,13 @@ const reportKeys: Record<OperationsTab, string[]> = {
 const dateKeys = (key: string) =>
   key.endsWith('_at') || key === 'started_at' || key === 'completed_at'
 const minuteKeys = (key: string) => key.endsWith('_minutes')
+const parentLabels: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const parentOf = (row: Record<string, unknown>) => {
+  const direct = String(row.parent_sector ?? '')
+  if (direct) return direct
+  const sid = Number(row.sector_id)
+  return Number.isFinite(sid) && sid > 0 ? (sid <= 4 ? 'karrada' : 'zaafaraniya') : ''
+}
 const values: Record<string, string> = {
   morning: 'صباحي',
   evening: 'مسائي',
@@ -292,6 +300,8 @@ const values: Record<string, string> = {
   at_maintenance: 'في الصيانة',
   active: 'نشطة',
   closed: 'مغلقة',
+  karrada: 'الكرادة',
+  zaafaraniya: 'الزعفرانية',
 }
 const links: Record<string, string> = {
   '/manager/vehicle-trips': 'مسؤول القسم — رحلات الآليات',
@@ -317,6 +327,7 @@ export default function OperationsDataPage() {
     [tab, setTab] = useState<OperationsTab>('summary'),
     [search, setSearch] = useState(''),
     [shift, setShift] = useState(''),
+    [parentSector, setParentSector] = useState(''),
     [sector, setSector] = useState(''),
     [severity, setSeverity] = useState(''),
     [showColumns, setShowColumns] = useState(false),
@@ -374,11 +385,12 @@ export default function OperationsDataPage() {
         return (
           (!search || text.includes(search.toLowerCase())) &&
           (!shift || row.shift === shift) &&
+          (!parentSector || parentOf(row) === parentSector) &&
           (!sector || Number(row.sector_id) === Number(sector)) &&
           (!severity || tab !== 'alerts' || row.severity === severity)
         )
       }),
-    [source, search, shift, sector, severity, tab],
+    [source, search, shift, parentSector, sector, severity, tab],
   )
   const available = useMemo(() => reportKeys[tab].filter((key) => labels[key]), [tab])
   const selected = columnChoice[tab] ?? available
@@ -389,13 +401,14 @@ export default function OperationsDataPage() {
         Object.values(allSources)
           .flat()
           .filter((r) => r.sector_id)
+          .filter((r) => !parentSector || parentOf(r) === parentSector)
           .map((r) => [Number(r.sector_id), String(r.area_name ?? r.sector_id)]),
       ).entries(),
     ],
-    [allSources],
+    [allSources, parentSector],
   )
   const sum = (key: string) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0)
-  const activeFilterCount = [search, shift, sector, tab === 'alerts' ? severity : ''].filter(
+  const activeFilterCount = [search, shift, parentSector, sector, tab === 'alerts' ? severity : ''].filter(
     Boolean,
   ).length
   const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance, sectorsTonnage].some(
@@ -412,6 +425,7 @@ export default function OperationsDataPage() {
     setTo(today())
     setSearch('')
     setShift('')
+    setParentSector('')
     setSector('')
     setSeverity('')
   }
@@ -434,7 +448,7 @@ export default function OperationsDataPage() {
       sheetName: tabs[tab].slice(0, 28),
       companySub: 'غرفة العمليات المركزية',
       title: tabs[tab],
-      meta: `الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search || 'الكل'} · الشفت ${shift || 'الكل'} · المنطقة ${sector || 'الكل'}`,
+      meta: `الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search || 'الكل'} · الشفت ${shift || 'الكل'} · القاطع ${parentLabels[parentSector] ?? 'الكل'} · المنطقة ${sector || 'الكل'}`,
       fileName: `غرفة-العمليات-${tab}-${from}-${to}.xlsx`,
       orientation: 'landscape',
       columns,
@@ -558,6 +572,24 @@ export default function OperationsDataPage() {
             <option value="morning">صباحي</option>
             <option value="evening">مسائي</option>
             <option value="night">ليلي</option>
+          </select>
+        </label>
+        <label className="text-xs">
+          القاطع
+          <select
+            aria-label="القاطع"
+            data-testid="ops-parent-sector-filter"
+            value={parentSector}
+            onChange={(e) => {
+              const next = e.target.value
+              setParentSector(next)
+              if (next && sector && parentOf({ sector_id: Number(sector) }) !== next) setSector('')
+            }}
+            className="mt-1 h-11 w-full rounded-xl border px-3"
+          >
+            <option value="">الكل</option>
+            <option value="karrada">الكرادة</option>
+            <option value="zaafaraniya">الزعفرانية</option>
           </select>
         </label>
         <label className="text-xs">
@@ -746,7 +778,7 @@ export default function OperationsDataPage() {
             <tbody>
               {rows.map((row, index) => (
                 <tr
-                  key={`${tab}-${String(row.departure_id ?? row.visit_id ?? row.alert_id ?? index)}`}
+                  key={`${tab}-${index}-${String(row.visit_id ?? row.departure_id ?? row.alert_id ?? '')}`}
                   className="border-t transition hover:bg-indigo-50/50 even:bg-slate-50"
                 >
                   {visible.map((key) => (

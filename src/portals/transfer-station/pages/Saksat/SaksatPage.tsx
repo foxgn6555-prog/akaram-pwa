@@ -1,18 +1,16 @@
 /**
  * وحدة السكسات الخارجة — المحطة التحويلية (00043):
  *  · تسجيل خروج سكسة: اسم السائق · نوع الآلية · وقت الخروج (تلقائي)
- *  · نظام الفولدر الشهري: إرسال سجلات الشهر لمعاون المدير المفوض
+ *  · النمط الجديد: البيانات تصل غرفة العمليات ضمن التقرير اليومي ومنها إلى المعاون (لا إرسال مباشر)
  */
 import { useState } from 'react'
 import clsx from 'clsx'
 import {
   useSaksatList,
   useCreateSaksat,
-  useSendSaksatFolder,
 } from '@features/transfer-station'
-import { FolderBar } from '@components/station/FolderBar'
 import { StationTable } from '@components/station/StationTable'
-import { currentMonth } from '@components/station/station.utils'
+import { currentMonth, monthLabel } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
 
 export default function SaksatPage() {
@@ -24,7 +22,6 @@ export default function SaksatPage() {
 
   const list = useSaksatList(month)
   const create = useCreateSaksat()
-  const sendFolder = useSendSaksatFolder()
   const records = list.data ?? []
 
   const submit = (): void => {
@@ -123,14 +120,24 @@ export default function SaksatPage() {
         </div>
       </form>
 
-      {/* ── نظام الفولدر الشهري ── */}
-      <FolderBar
-        kind="saksat"
-        records={records}
-        month={month}
-        onMonthChange={setMonth}
-        onSend={(m) => sendFolder.mutate(m)}
-      />
+      {/* ── التنقل الشهري — الإرسال للمعاون عبر غرفة العمليات فقط (النمط الجديد) ── */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <Icon name="folder" size={16} className="text-brand-600" />
+        <span className="text-sm font-bold text-slate-700">سجلات الشهر</span>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          data-testid="saksat-month"
+          className="h-10 rounded-xl border border-slate-200 px-3 text-sm"
+        />
+        <span className="text-xs text-slate-500">
+          {monthLabel(month)} — {records.length} سجل
+        </span>
+        <span className="ms-auto text-[11px] text-slate-400">
+          تصل غرفة العمليات تلقائياً ضمن التقرير اليومي ومنها إلى المعاون
+        </span>
+      </div>
 
       {/* ── الجدول ── */}
       <StationTable kind="saksat" records={records} personLabel="اسم السائق" />
