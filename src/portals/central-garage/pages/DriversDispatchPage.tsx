@@ -299,15 +299,24 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
   const [shift, setShift] = useState<GarageShift>('morning')
   const recipients = useGarageShiftDispatchRecipients(vehicle.id, shift)
   const [notes, setNotes] = useState('')
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto')
+  const [manualId, setManualId] = useState('')
   const active = (assignments.data ?? []).filter((assignment) => !assignment.endsAt)
   const selected = active.find((assignment) => assignment.shift === shift)
-  const matchedManagers = recipients.data ?? []
-  const automaticManager = matchedManagers.length === 1 ? matchedManagers[0] : null
+  const candidates = recipients.data ?? []
+  const automaticManager = candidates.find((candidate) => candidate.pickRank === 1) ?? null
+  const manualChoice = candidates.find((candidate) => candidate.userId === manualId) ?? null
+  const effectiveManager = mode === 'manual' ? manualChoice : automaticManager
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (!selected || !automaticManager) return
+    if (!selected || !effectiveManager) return
     departure.mutate(
-      { vehicleId: vehicle.id, shift, notes: notes || undefined },
+      {
+        vehicleId: vehicle.id,
+        shift,
+        notes: notes || undefined,
+        managerId: mode === 'manual' ? effectiveManager.userId : undefined,
+      },
       { onSuccess: onClose },
     )
   }
@@ -365,13 +374,11 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                   <span>جارٍ تحديد مسؤول المنطقة…</span>
                 ) : automaticManager ? (
                   <>
-                    <span className="block">
-                      المسؤول المستلم تلقائياً: {automaticManager.managerName}
+                    <span className="block" data-testid="dispatch-manager-line">
+                      {mode === 'manual' ? 'المسؤول المختار يدوياً:' : 'المسؤول المستلم تلقائياً:'}{' '}
+                      {effectiveManager?.managerName ?? '—'}
                     </span>
-                    <span className="font-normal">
-                      سيسجل الخادم المسؤول في الانطلاقية ويرسل له الإشعار فوراً، دون اختيار يدوي.
-                    </span>
-                    {automaticManager.resolution === 'parent_fallback' && (
+                    {mode === 'auto' && automaticManager.resolution === 'parent_fallback' && (
                       <span
                         data-testid="dispatch-fallback-note"
                         className="mt-1 block font-normal text-amber-800"
@@ -380,11 +387,49 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                         شقيقاً ضمن القاطع نفسه.
                       </span>
                     )}
+                    {candidates.length > 1 && (
+                      <span className="block font-normal text-slate-600">
+                        يوجد {candidates.length} مسؤولين متوافقين؛ الإسناد التلقائي للأكثر تحديداً
+                        ويمكنك الاختيار يدوياً.
+                      </span>
+                    )}
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        data-testid="dispatch-mode-auto"
+                        onClick={() => setMode('auto')}
+                        className={`h-9 rounded-xl text-[11px] font-black transition ${mode === 'auto' ? 'bg-emerald-600 text-white' : 'border bg-white text-slate-600'}`}
+                      >
+                        إسناد تلقائي
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="dispatch-mode-manual"
+                        onClick={() => setMode('manual')}
+                        className={`h-9 rounded-xl text-[11px] font-black transition ${mode === 'manual' ? 'bg-emerald-600 text-white' : 'border bg-white text-slate-600'}`}
+                      >
+                        اختيار يدوي
+                      </button>
+                    </div>
+                    {mode === 'manual' && (
+                      <select
+                        aria-label="اختيار المسؤول يدوياً"
+                        data-testid="manual-manager-select"
+                        value={manualId}
+                        onChange={(event) => setManualId(event.target.value)}
+                        className="mt-2 h-11 w-full rounded-xl border bg-white px-3 text-sm"
+                      >
+                        <option value="">— اختر المسؤول —</option>
+                        {candidates.map((candidate) => (
+                          <option key={candidate.userId} value={candidate.userId}>
+                            {candidate.managerName} ·{' '}
+                            {candidate.resolution === 'direct' ? 'تغطية مباشرة' : 'ضمن القاطع'} ·
+                            شفت {shiftLabels[candidate.shift]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </>
-                ) : matchedManagers.length > 1 ? (
-                  <span className="text-rose-700">
-                    يوجد أكثر من مسؤول للمنطقة نفسها. يجب تصحيح التداخل من إعدادات المسؤولين.
-                  </span>
                 ) : (
                   <span className="text-rose-700">
                     لم يُهيأ مسؤول لهذه المنطقة ولا لأي منطقة ضمن قاطعها بعد.
@@ -413,11 +458,15 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
             <button
               data-testid="confirm-departure"
               disabled={
-                !selected || recipients.isLoading || !automaticManager || departure.isPending
+                !selected || recipients.isLoading || !effectiveManager || departure.isPending
               }
               className="h-11 rounded-xl bg-cyan-700 font-black text-white disabled:opacity-50"
             >
-              {departure.isPending ? 'جارٍ الإرسال…' : 'تأكيد الانطلاق والإبلاغ التلقائي'}
+              {departure.isPending
+                ? 'جارٍ الإرسال…'
+                : mode === 'manual'
+                  ? 'تأكيد الانطلاق وإبلاغ المختار'
+                  : 'تأكيد الانطلاق والإبلاغ التلقائي'}
             </button>
           </div>
         </div>

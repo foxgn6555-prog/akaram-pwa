@@ -295,18 +295,23 @@ export function useRecordGarageShiftDeparture() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (x: { vehicleId: string; shift: GarageShift; notes?: string }) =>
-      centralGarage.recordShiftDeparture(x.vehicleId, x.shift, x.notes),
-    onSuccess: () => {
+    mutationFn: (x: { vehicleId: string; shift: GarageShift; notes?: string; managerId?: string }) =>
+      centralGarage.recordShiftDeparture(x.vehicleId, x.shift, x.notes, x.managerId),
+    onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['central-garage'] })
-      toast({ type: 'success', message: 'سُجلت الانطلاقية وأُبلغ مسؤول المنطقة تلقائياً' })
+      toast({
+        type: 'success',
+        message: vars.managerId
+          ? 'سُجلت الانطلاقية وأُبلغ المسؤول المختار يدوياً'
+          : 'سُجلت الانطلاقية وأُبلغ مسؤول المنطقة تلقائياً',
+      })
     },
     onError: (error: unknown) => {
       const raw = error instanceof Error ? error.message : String(error)
       const message = raw.includes('GARAGE_SECTOR_MANAGER_NOT_CONFIGURED')
         ? 'لا يوجد مسؤول مهيأ لهذه المنطقة ولا لأي منطقة ضمن القاطع. حدّث ملفات مسؤولي القسم أولاً.'
-        : raw.includes('GARAGE_SECTOR_MANAGER_AMBIGUOUS')
-          ? 'يوجد أكثر من مسؤول للمنطقة نفسها. صحح الإسنادات المتداخلة قبل الانطلاق.'
+        : raw.includes('GARAGE_RECIPIENT_NOT_ELIGIBLE')
+          ? 'المسؤول المختار غير مؤهل لهذه المنطقة. اختر مسؤولاً يغطي المنطقة أو قاطعها.'
           : handleAppError(error, { scope: 'recordGarageShiftDeparture' }).message
       toast({ type: 'error', message })
     },

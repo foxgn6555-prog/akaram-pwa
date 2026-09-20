@@ -28,7 +28,9 @@ begin
   if d.recipient_manager_id is null then raise exception 'FALLBACK_MANAGER_MISSING'; end if;
 
   -- معاينة نافذة الانطلاق (00133) تعكس الارتداد نفسه الذي سيسجله الخادم
-  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning');
+  select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning') r
+   where r.pick_rank = 1 and r.resolution = 'parent_fallback'
+     and r.user_id = d.recipient_manager_id;
   if n <> 1 then raise exception 'PREVIEW_FALLBACK_COUNT_FAIL %', n; end if;
   select count(*) into n from public.garage_shift_dispatch_recipients(v.id,'morning') r
    where r.resolution = 'parent_fallback' and r.user_id = d.recipient_manager_id;

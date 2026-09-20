@@ -583,18 +583,21 @@ export const centralGarage = {
       shift: r.shift as GarageShift,
       sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
       resolution: (r.resolution as 'direct' | 'parent_fallback' | undefined) ?? 'direct',
+      pickRank: Number(r.pick_rank ?? 0),
     }))
   },
   async recordShiftDeparture(
     vehicleId: string,
     shift: GarageShift,
     notes?: string,
+    managerId?: string,
   ): Promise<GarageDeparture> {
     const data = await sdkGuard(
       supabase.rpc('garage_record_shift_departure', {
         p_vehicle_id: vehicleId,
         p_shift: shift,
         p_notes: notes?.trim() || null,
+        p_manager_id: managerId ?? null,
       }),
     )
     return departureRow(data as unknown as Record<string, unknown>)
@@ -610,6 +613,7 @@ export const centralGarage = {
       shift: r.shift as GarageShift,
       sectors: Array.isArray(r.sectors) ? (r.sectors as number[]) : [],
       resolution: 'direct' as const,
+      pickRank: 0,
     }))
   },
 

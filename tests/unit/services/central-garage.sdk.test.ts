@@ -631,13 +631,14 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
       shift: 'morning',
       sectors: [1, 2],
       resolution: 'direct',
+      pickRank: 0,
     })
   })
 
   it('يميز معاينة الشفت بين الإسناد المباشر وارتداد القاطع', async () => {
     h.state.result = {
       data: [
-        { user_id: 'm2', manager_name: 'مسؤول القاطع', shift: 'morning', sectors: [2], resolution: 'parent_fallback' },
+        { user_id: 'm2', manager_name: 'مسؤول القاطع', shift: 'morning', sectors: [2], resolution: 'parent_fallback', pick_rank: 1 },
       ],
       error: null,
     }
@@ -652,6 +653,32 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
       shift: 'morning',
       sectors: [2],
       resolution: 'parent_fallback',
+      pickRank: 1,
+    })
+  })
+
+  it('يمرر الإسناد اليدوي عبر p_manager_id والافتراضي null', async () => {
+    h.state.result = {
+      data: {
+        id: 'd1', vehicle_id: 'v1', driver_name: 'علي', shift: 'morning', sector_id: 1,
+        departed_at: '2026-09-08T07:30:00Z', returned_at: null, notes: null, vehicle_name: 'كابسة',
+        db_number: 'DB-1', image_path: 'u/v.jpg', area_name: 'أرخيته', parent_sector: 'karrada',
+      },
+      error: null,
+    }
+    await centralGarage.recordShiftDeparture('v1', 'morning', undefined, 'm7')
+    expect(h.rpc).toHaveBeenLastCalledWith('garage_record_shift_departure', {
+      p_vehicle_id: 'v1',
+      p_shift: 'morning',
+      p_notes: null,
+      p_manager_id: 'm7',
+    })
+    await centralGarage.recordShiftDeparture('v1', 'morning', 'ملاحظة')
+    expect(h.rpc).toHaveBeenLastCalledWith('garage_record_shift_departure', {
+      p_vehicle_id: 'v1',
+      p_shift: 'morning',
+      p_notes: 'ملاحظة',
+      p_manager_id: null,
     })
   })
 

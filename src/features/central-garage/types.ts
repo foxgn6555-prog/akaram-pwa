@@ -156,7 +156,7 @@ export interface GarageDeparture {
   parentSector: GarageParentSector
 }
 
-export interface GarageDispatchRecipient { userId: string; managerName: string; shift: GarageShift; sectors: number[]; resolution: 'direct' | 'parent_fallback' }
+export interface GarageDispatchRecipient { userId: string; managerName: string; shift: GarageShift; sectors: number[]; resolution: 'direct' | 'parent_fallback'; pickRank: number }
 export interface GarageTripDay { tripDay:string;totalCount:number;openCount:number;firstDepartureAt:string;lastActivityAt:string }
 
 export interface GarageDashboardFilter {

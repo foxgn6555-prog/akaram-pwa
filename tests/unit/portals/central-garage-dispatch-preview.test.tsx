@@ -86,7 +86,7 @@ beforeEach(() => h.recipients.mockReset())
 describe('معاينة مسؤول الانطلاقية', () => {
   it('يعرض المسؤول المباشر دون ملاحظة الارتداد', () => {
     h.recipients.mockReturnValue([
-      { userId: 'm1', managerName: 'مسؤول الجادرية', shift: 'morning', sectors: [4], resolution: 'direct' },
+      { userId: 'm1', managerName: 'مسؤول الجادرية', shift: 'morning', sectors: [4], resolution: 'direct', pickRank: 1 },
     ])
     openDialog()
     expect(screen.getByText(/المسؤول المستلم تلقائياً: مسؤول الجادرية/)).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe('معاينة مسؤول الانطلاقية', () => {
 
   it('يعرض مسؤول الارتداد مع ملاحظة توضح سبب الإسناد', () => {
     h.recipients.mockReturnValue([
-      { userId: 'm2', managerName: 'مسؤول الرياض', shift: 'morning', sectors: [2], resolution: 'parent_fallback' },
+      { userId: 'm2', managerName: 'مسؤول الرياض', shift: 'morning', sectors: [2], resolution: 'parent_fallback', pickRank: 1 },
     ])
     openDialog()
     expect(screen.getByText(/المسؤول المستلم تلقائياً: مسؤول الرياض/)).toBeInTheDocument()
@@ -107,14 +107,19 @@ describe('معاينة مسؤول الانطلاقية', () => {
     expect(screen.getByTestId('confirm-departure')).toBeEnabled()
   })
 
-  it('يبقي تحذير التداخل عند تعدد المسؤولين المباشرين', () => {
+  it('يحسم التداخل تلقائياً ويتيح التبديل اليدوي', () => {
     h.recipients.mockReturnValue([
-      { userId: 'm1', managerName: 'أ', shift: 'morning', sectors: [4], resolution: 'direct' },
-      { userId: 'm2', managerName: 'ب', shift: 'morning', sectors: [4], resolution: 'direct' },
+      { userId: 'm1', managerName: 'أ', shift: 'morning', sectors: [4], resolution: 'direct', pickRank: 1 },
+      { userId: 'm2', managerName: 'ب', shift: 'morning', sectors: [4], resolution: 'direct', pickRank: 2 },
     ])
     openDialog()
-    expect(screen.getByText(/يوجد أكثر من مسؤول للمنطقة نفسها/)).toBeInTheDocument()
-    expect(screen.getByTestId('confirm-departure')).toBeDisabled()
+    expect(screen.getByText(/المسؤول المستلم تلقائياً: أ/)).toBeInTheDocument()
+    expect(screen.getByText(/يوجد 2 مسؤولين متوافقين/)).toBeInTheDocument()
+    expect(screen.getByTestId('confirm-departure')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('dispatch-mode-manual'))
+    fireEvent.change(screen.getByTestId('manual-manager-select'), { target: { value: 'm2' } })
+    expect(screen.getByText(/المسؤول المختار يدوياً: ب/)).toBeInTheDocument()
+    expect(screen.getByTestId('confirm-departure')).toBeEnabled()
   })
 
   it('يوضح الغياب الكلي للمسؤولين ضمن القاطع', () => {

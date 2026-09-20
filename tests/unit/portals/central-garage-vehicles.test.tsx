@@ -148,7 +148,7 @@ vi.mock('@features/central-garage/hooks', () => ({
     refetch: vi.fn(),
   }),
   useGarageShiftDispatchRecipients: () => ({
-    data: [{ userId: 'm1', managerName: 'مسؤول أرخيته', shift: 'morning', sectors: [1] }],
+    data: [{ userId: 'm1', managerName: 'مسؤول أرخيته', shift: 'morning', sectors: [1], resolution: 'direct', pickRank: 1 }],
   }),
   useRecordGarageShiftDeparture: () => ({ mutate: h.recordDeparture, isPending: false }),
   useSetGarageShiftAssignment: () => ({ mutate: h.assignMutate, isPending: false }),
