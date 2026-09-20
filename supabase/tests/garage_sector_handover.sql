@@ -6,7 +6,7 @@ declare
 begin
  insert into auth.users(id,email) values(g,'handover-garage@akram.iq'),(m1,'handover-manager1@akram.iq'),(m2,'handover-manager2@akram.iq');
  insert into public.user_roles(user_id,role) values(g,'central_garage_officer'),(g,'ops_room'),(m1,'department_manager'),(m2,'department_manager');
- insert into public.manager_profiles(user_id,shift,sectors) values(m1,'morning',array[3]::smallint[]),(m2,'morning',array[4]::smallint[]);
+ insert into public.manager_profiles(user_id,shift,sectors) values(m1,'morning',array[3]::smallint[]),(m2,'morning',array[6]::smallint[]);
  perform set_config('role','authenticated',false);perform set_config('request.jwt.claim.sub',g::text,false);
  v:=public.garage_add_vehicle('كابسة تسليم','DB-HANDOVER','بغداد-H','CHASSIS-H',g::text||'/h.webp','morning','سائق التسليم',3::smallint);
  select count(*) into n from public.garage_dispatch_recipients(v.id) where user_id=m1;if n<>1 then raise exception 'RECIPIENT_FILTER_FAIL';end if;
@@ -29,7 +29,7 @@ begin
  select count(*) into n from public.garage_departure_days() where trip_day=tripday;if n<>1 then raise exception 'GARAGE_DAY_FOLDER_FAIL';end if;select count(*) into n from public.garage_departures_for_day(tripday) where id=d.id;if n<>1 then raise exception 'GARAGE_DAY_CONTENT_FAIL';end if;
  perform set_config('request.jwt.claim.sub',m1::text,false);select count(*) into n from public.manager_vehicle_trip_days() where trip_day=tripday;if n<>1 then raise exception 'MANAGER_DAY_FOLDER_FAIL';end if;select count(*) into n from public.manager_vehicle_trips_for_day(tripday) where id=d.id;if n<>1 then raise exception 'MANAGER_DAY_CONTENT_FAIL';end if;
  perform set_config('request.jwt.claim.sub',m2::text,false);select count(*) into n from public.manager_vehicle_trips_for_day(tripday) where id=d.id;if n<>0 then raise exception 'MANAGER_DAY_ISOLATION_FAIL';end if;
- execute 'reset role';select count(*) into n from public.notifications where user_id in(g,m1) and link in('/manager/vehicle-trips','/central-garage/drivers-dispatch');if n<>4 then raise exception 'HANDOVER_NOTIFICATIONS_FAIL %',n;end if;
+ execute 'reset role';delete from public.manager_profiles where user_id in(m1,m2);select count(*) into n from public.notifications where user_id in(g,m1) and link in('/manager/vehicle-trips','/central-garage/drivers-dispatch');if n<>4 then raise exception 'HANDOVER_NOTIFICATIONS_FAIL %',n;end if;
  select count(*) into n from public.audit_logs where table_name='garage_departures' and record_id=d.id::text;if n<4 then raise exception 'HANDOVER_AUDIT_FAIL';end if;
  raise notice '✅ تسليم الآلية: إسناد تلقائي لمسؤول المنطقة/عزل/ترتيب/منع تكرار/عبور منتصف الليل/وقت خادمي/تنبيهات/تدقيق ناجحة';
 end$$;

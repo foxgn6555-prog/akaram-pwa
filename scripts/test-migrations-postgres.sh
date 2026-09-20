@@ -88,6 +88,7 @@ for test_file in \
   supabase/tests/station_weighing_workflow.sql \
   supabase/tests/station_daily_reports.sql \
   supabase/tests/station_manager_fallback_and_ops_filters.sql \
+  supabase/tests/sector_garage_return_after_station.sql \
   supabase/tests/complaint_report_archiving.sql \
   supabase/tests/complaint_ticket_review.sql \
   supabase/tests/complaint_review_after_required.sql \
