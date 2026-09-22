@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 import GbsMap from '@features/gbs/GbsMap'
 import SignedPhoto from '@features/gbs/SignedPhoto'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
-import { useGbsContainers, useGbsMyUpdates, useGbsRequestUpdate } from '@features/gbs/hooks'
+import { useGbsContainers, useGbsMyUpdates, useGbsRequestUpdate, useGbsZones } from '@features/gbs/hooks'
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
@@ -22,6 +22,7 @@ export default function GbsContainersPage() {
   const [uploading, setUploading] = useState(false)
 
   const containers = useGbsContainers(search || null, statusFilter || null)
+  const zones = useGbsZones()
   const myUpdates = useGbsMyUpdates()
   const request = useGbsRequestUpdate()
   const addToast = useUiStore((s) => s.addToast)
@@ -113,6 +114,7 @@ export default function GbsContainersPage() {
           ) : (
             <GbsMap
               containers={list}
+              zones={zones.data ?? []}
               selectedId={selectedId}
               onSelect={(container) => setSelectedId(container.id)}
               renderPopupActions={(container) => (
@@ -147,6 +149,10 @@ export default function GbsContainersPage() {
               >
                 <span className="text-xs font-black">
                   {container.code} · {container.label}
+                  <span className="block text-[9px] font-bold text-slate-400">
+                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {container.areaName}
+                  </span>
                 </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[9px] font-black ${GBS_STATUS_META[container.status].chip}`}

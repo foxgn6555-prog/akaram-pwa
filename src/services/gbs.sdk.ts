@@ -6,6 +6,7 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
   GbsContainer,
+  GbsZone,
   GbsContainerSaveInput,
   GbsContainerStatus,
   GbsUpdateRequest,
@@ -27,6 +28,9 @@ function normContainer(r: Record<string, unknown>): GbsContainer {
     notes: (r.notes as string | null) ?? null,
     updatedAt: String(r.updated_at),
     pendingCount: Number(r.pending_count ?? 0),
+    sectorId: Number(r.sector_id ?? 1),
+    areaName: String(r.area_name ?? ''),
+    parentSector: (r.parent_sector as 'karrada' | 'zaafaraniya') ?? 'karrada',
   }
 }
 
@@ -50,11 +54,18 @@ function normUpdate(r: Record<string, unknown>): GbsUpdateRequest {
 
 export const gbs = {
   /** قائمة الحاويات للخريطة مع بحث وفلترة حالة */
-  async containers(search?: string | null, status?: GbsContainerStatus | null): Promise<GbsContainer[]> {
+  async containers(
+    search?: string | null,
+    status?: GbsContainerStatus | null,
+    parent?: 'karrada' | 'zaafaraniya' | null,
+    sectorId?: number | null,
+  ): Promise<GbsContainer[]> {
     const data = await sdkGuard(
       supabase.rpc('gbs_containers_list', {
         p_search: search?.trim() || null,
         p_status: status ?? null,
+        p_parent: parent ?? null,
+        p_sector_id: sectorId ?? null,
       }),
     )
     return ((data ?? []) as Record<string, unknown>[]).map(normContainer)
@@ -69,6 +80,7 @@ export const gbs = {
         p_latitude: input.latitude,
         p_longitude: input.longitude,
         p_status: input.status,
+        p_sector_id: input.sectorId,
         p_image_path: input.imagePath?.trim() || null,
         p_notes: input.notes?.trim() || null,
       }),
@@ -126,6 +138,18 @@ export const gbs = {
       code: String(row.code),
       newStatus: row.new_status as GbsContainerStatus,
     }
+  },
+
+  /** زونات GPS التشغيلية لعرضها على خريطة الحاويات */
+  async zones(): Promise<GbsZone[]> {
+    const data = await sdkGuard(supabase.rpc('gbs_zones_list'))
+    return ((data ?? []) as Record<string, unknown>[]).map((z) => ({
+      id: String(z.id),
+      name: String(z.name),
+      source: String(z.source),
+      color: (z.color as string | null) ?? null,
+      polygon: (z.polygon as [number, number][]) ?? [],
+    }))
   },
 
   /** رفع صورة حاوية (اختياري) إلى مخزن خاص بمجلد المستخدم */

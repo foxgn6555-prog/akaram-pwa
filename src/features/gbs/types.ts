@@ -14,6 +14,17 @@ export interface GbsContainer {
   notes: string | null
   updatedAt: string
   pendingCount: number
+  sectorId: number
+  areaName: string
+  parentSector: 'karrada' | 'zaafaraniya'
+}
+
+export interface GbsZone {
+  id: string
+  name: string
+  source: string
+  color: string | null
+  polygon: ([number, number] | { lat: number; lng: number })[]
 }
 
 export interface GbsUpdateRequest {
@@ -38,6 +49,7 @@ export interface GbsContainerSaveInput {
   latitude: number
   longitude: number
   status: GbsContainerStatus
+  sectorId: number
   imagePath?: string | null
   notes?: string | null
 }

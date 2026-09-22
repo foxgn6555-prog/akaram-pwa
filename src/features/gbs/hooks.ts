@@ -11,8 +11,13 @@ import type {
 } from './types'
 
 export const gbsKeys = {
-  containers: (search?: string | null, status?: GbsContainerStatus | null) =>
-    ['gbs', 'containers', search ?? '', status ?? ''] as const,
+  containers: (
+    search?: string | null,
+    status?: GbsContainerStatus | null,
+    parent?: 'karrada' | 'zaafaraniya' | null,
+    sectorId?: number | null,
+  ) => ['gbs', 'containers', search ?? '', status ?? '', parent ?? '', sectorId ?? 0] as const,
+  zones: () => ['gbs', 'zones'] as const,
   updates: (state: GbsUpdateState) => ['gbs', 'updates', state] as const,
   myUpdates: () => ['gbs', 'my-updates'] as const,
 }
@@ -23,11 +28,24 @@ function useGbsError(scope: string) {
     addToast({ type: 'error' as const, message: handleAppError(error, { scope }).message })
 }
 
-export function useGbsContainers(search?: string | null, status?: GbsContainerStatus | null) {
+export function useGbsContainers(
+  search?: string | null,
+  status?: GbsContainerStatus | null,
+  parent?: 'karrada' | 'zaafaraniya' | null,
+  sectorId?: number | null,
+) {
   return useQuery({
-    queryKey: gbsKeys.containers(search, status),
-    queryFn: () => gbs.containers(search, status),
+    queryKey: gbsKeys.containers(search, status, parent, sectorId),
+    queryFn: () => gbs.containers(search, status, parent, sectorId),
     refetchInterval: 60000,
+  })
+}
+
+export function useGbsZones() {
+  return useQuery({
+    queryKey: gbsKeys.zones(),
+    queryFn: () => gbs.zones(),
+    staleTime: 5 * 60000,
   })
 }
 

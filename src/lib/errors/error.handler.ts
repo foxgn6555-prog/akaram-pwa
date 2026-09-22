@@ -57,6 +57,8 @@ const APP_ERROR_AR: Record<string, string> = {
   GBS_LABEL_INVALID: 'اسم الحاوية يجب أن يكون بين 2 و120 حرفاً.',
   GBS_POINT_INVALID: 'الإحداثيات غير صالحة — حدد موقعاً صحيحاً على الخريطة.',
   GBS_STATUS_INVALID: 'حالة الحاوية غير صالحة — اختر واحدة من الحالات الأربع.',
+  GBS_SECTOR_INVALID: 'المنطقة غير صالحة — اختر منطقة من القاطعين.',
+  GBS_PARENT_INVALID: 'القاطع غير صالح — الكرادة أو الزعفرانية فقط.',
   GBS_NOTES_INVALID: 'الملاحظات طويلة جداً — الحد الأقصى 500 حرف.',
   GBS_UPDATE_ALREADY_PENDING: 'لديك طلب تحديث معلق لهذه الحاوية — انتظر قرار غرفة العمليات.',
   GBS_UPDATE_NOT_PENDING: 'هذا الطلب حُسم مسبقاً (اعتماد أو رفض).',

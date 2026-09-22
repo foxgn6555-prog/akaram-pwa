@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   containers: [] as unknown[],
   myUpdates: [] as unknown[],
   request: vi.fn(),
+  zones: [] as unknown[],
   uploadImage: vi.fn(),
   imageUrl: vi.fn(),
 }))
@@ -17,6 +18,7 @@ vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Polygon: ({ children }: { children: ReactNode }) => <div data-testid="gbs-zone">{children}</div>,
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
@@ -25,6 +27,7 @@ vi.mock('@features/gbs/hooks', () => ({
   useGbsContainers: () => ({ data: h.containers, isLoading: false }),
   useGbsMyUpdates: () => ({ data: h.myUpdates, isLoading: false }),
   useGbsRequestUpdate: () => ({ mutate: h.request, isPending: false }),
+  useGbsZones: () => ({ data: h.zones, isLoading: false }),
 }))
 
 vi.mock('@sdk/gbs.sdk', () => ({
@@ -44,6 +47,9 @@ const container = (over: Record<string, unknown> = {}) => ({
   notes: null,
   updatedAt: '2026-09-21T08:00:00Z',
   pendingCount: 0,
+  sectorId: 4,
+  areaName: 'الجادرية',
+  parentSector: 'karrada',
   ...over,
 })
 
@@ -135,6 +141,12 @@ describe('مسؤول القسم — حاويات GBS', () => {
     expect(screen.getByTestId('gbs-my-request-u1').textContent).toContain('معتمد')
     expect(screen.getByTestId('gbs-my-request-u1').textContent).toContain('تم التحقق')
     expect(screen.getByTestId('gbs-my-request-u2').textContent).toContain('قيد الانتظار')
+  })
+
+  it('يعرض القاطع والمنطقة في القائمة والpopup', () => {
+    render(<GbsContainersPage />)
+    expect(screen.getByTestId('gbs-list-item-c1').textContent).toContain('قاطع الكرادة')
+    expect(screen.getByTestId('gbs-popup-c1').textContent).toContain('الجادرية')
   })
 
   it('الضغط على نقطة الحاوية في الخريطة يفتح الاقتراح أيضاً', () => {

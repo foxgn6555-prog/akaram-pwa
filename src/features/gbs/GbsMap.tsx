@@ -1,14 +1,20 @@
-/** خريطة حاويات GBS المشتركة (غرفة العمليات + مسؤول القسم) — نقاط ملونة حسب الحالة */
+/**
+ * خريطة حاويات GBS المشتركة (غرفة العمليات + مسؤول القسم).
+ * نقاط ملونة أصغر حسب الحالة + زونات GPS التشغيلية (بنفس أسلوب خريطة GPS)
+ * + ملء الشاشة عبر portal إلى body (يهرب من أي ancestor يكسر fixed).
+ */
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   CircleMarker,
   MapContainer,
+  Polygon,
   Popup,
   TileLayer,
   useMap,
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { GbsContainer } from './types'
+import type { GbsContainer, GbsZone } from './types'
 import { GBS_STATUS_META } from './statusMeta'
 
 const BAGHDAD: [number, number] = [33.3152, 44.3661]
@@ -23,6 +29,7 @@ function FlyTo({ container }: { container: GbsContainer | null }) {
 
 export interface GbsMapProps {
   containers: GbsContainer[]
+  zones?: GbsZone[]
   selectedId?: string | null
   onSelect?: (container: GbsContainer) => void
   renderPopupActions?: (container: GbsContainer) => ReactNode
@@ -31,33 +38,52 @@ export interface GbsMapProps {
 
 export default function GbsMap({
   containers,
+  zones = [],
   selectedId,
   onSelect,
   renderPopupActions,
   heightClass = 'h-[520px]',
 }: GbsMapProps) {
   const [tileFailed, setTileFailed] = useState(false)
-  const [fullscreen, setFullscreen] = useState(false)
+  const [full, setFull] = useState(false)
+  const [showZones, setShowZones] = useState(true)
   const selected = containers.find((c) => c.id === selectedId) ?? null
-  return (
+
+  const shell = (
     <div
-      className={`relative overflow-hidden rounded-3xl border bg-slate-900 ${
-        fullscreen ? 'fixed inset-0 z-[2000] rounded-none' : heightClass
-      }`}
+      className={
+        full
+          ? 'fixed inset-0 z-[2000] bg-white'
+          : `relative overflow-hidden rounded-3xl border bg-slate-900 ${heightClass}`
+      }
       data-testid="gbs-map"
     >
-      <button
-        type="button"
-        data-testid="gbs-map-fullscreen"
-        onClick={() => setFullscreen((v) => !v)}
-        className="absolute left-3 top-3 z-[1000] rounded-xl bg-slate-950/85 px-3 py-2 text-[11px] font-black text-white"
-      >
-        {fullscreen ? 'إنهاء ملء الشاشة' : 'ملء الشاشة'}
-      </button>
-      <div className="absolute right-3 top-3 z-[1000] flex gap-2 rounded-2xl bg-slate-950/85 px-3 py-2 text-[10px] font-black text-white">
+      <div className="absolute right-3 top-3 z-[1000] flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5 rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur">
+        <button
+          type="button"
+          aria-pressed={showZones}
+          data-testid="gbs-toggle-zones"
+          onClick={() => setShowZones((v) => !v)}
+          className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${
+            showZones ? 'bg-violet-700 text-white' : 'bg-slate-100 text-slate-400'
+          }`}
+        >
+          ▧ الزونات ({zones.length})
+        </button>
+        <button
+          type="button"
+          aria-pressed={full}
+          data-testid="gbs-map-fullscreen"
+          onClick={() => setFull((v) => !v)}
+          className="rounded-xl bg-slate-950 px-3 py-2 text-[10px] font-black text-white transition hover:bg-slate-800"
+        >
+          {full ? '✕ إنهاء ملء الشاشة' : '⛶ ملء الشاشة'}
+        </button>
+      </div>
+      <div className="absolute left-3 top-3 z-[1000] flex flex-wrap gap-2 rounded-2xl bg-slate-950/85 px-3 py-2 text-[10px] font-black text-white">
         {Object.entries(GBS_STATUS_META).map(([key, meta]) => (
           <span key={key} className="flex items-center gap-1">
-            <span className="size-2.5 rounded-full" style={{ background: meta.color }} />
+            <span className="size-2 rounded-full" style={{ background: meta.color }} />
             {meta.label}
           </span>
         ))}
@@ -82,19 +108,41 @@ export default function GbsMap({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{ tileerror: () => setTileFailed(true) }}
+          eventHandlers={{
+            tileerror: () => setTileFailed(true),
+            tileload: () => setTileFailed(false),
+          }}
         />
         <FlyTo container={selected} />
+        {showZones &&
+          zones.map((zone) => {
+            const positions = zone.polygon.map((p) =>
+              Array.isArray(p) ? p : ([p.lat, p.lng] as [number, number]),
+            )
+            return (
+              <Polygon
+                key={zone.id}
+                positions={positions}
+                pathOptions={{ color: zone.color || '#7c3aed', fillOpacity: 0.08, weight: 2 }}
+              >
+                <Popup>
+                  <b>{zone.name}</b>
+                  <br />
+                  {zone.source === 'lvn' ? 'منطقة مستوردة من LVN' : 'منطقة المنصة'}
+                </Popup>
+              </Polygon>
+            )
+          })}
         {containers.map((container) => {
           const meta = GBS_STATUS_META[container.status]
           return (
             <CircleMarker
               key={container.id}
               center={[container.latitude, container.longitude]}
-              radius={container.id === selectedId ? 12 : 9}
+              radius={container.id === selectedId ? 8 : 5.5}
               pathOptions={{
                 color: '#ffffff',
-                weight: 2,
+                weight: 1.5,
                 fillColor: meta.color,
                 fillOpacity: 0.95,
               }}
@@ -107,6 +155,10 @@ export default function GbsMap({
                   </p>
                   <p className="text-[11px] font-bold" style={{ color: meta.color }}>
                     الحالة: {meta.label}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500">
+                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {container.areaName}
                   </p>
                   <p className="text-[10px] text-slate-500">
                     {container.latitude.toFixed(5)}, {container.longitude.toFixed(5)}
@@ -121,4 +173,6 @@ export default function GbsMap({
       </MapContainer>
     </div>
   )
+
+  return full ? createPortal(shell, document.body) : shell
 }

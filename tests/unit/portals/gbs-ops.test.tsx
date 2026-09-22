@@ -5,7 +5,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 
 const h = vi.hoisted(() => ({
   containers: [] as unknown[],
-  containersArgs: [null, null] as [string | null, string | null],
+  containersArgs: [null, null, null, null] as [string | null, string | null, string | null, number | null],
+  zones: [] as unknown[],
   updates: [] as unknown[],
   updatesArg: 'pending' as string,
   save: vi.fn(),
@@ -21,15 +22,22 @@ vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Polygon: ({ children }: { children: ReactNode }) => <div data-testid="gbs-zone">{children}</div>,
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@features/gbs/hooks', () => ({
   gbsKeys: { containers: () => [], updates: () => [], myUpdates: () => [] },
-  useGbsContainers: (search: string | null, status: string | null) => {
-    h.containersArgs = [search, status]
+  useGbsContainers: (
+    search: string | null,
+    status: string | null,
+    parent: string | null,
+    sectorId: number | null,
+  ) => {
+    h.containersArgs = [search, status, parent, sectorId]
     return { data: h.containers, isLoading: false }
   },
+  useGbsZones: () => ({ data: h.zones, isLoading: false }),
   useGbsUpdates: (state: string) => {
     h.updatesArg = state
     return { data: h.updates, isLoading: false }
@@ -56,13 +64,17 @@ const container = (over: Record<string, unknown> = {}) => ({
   notes: null,
   updatedAt: '2026-09-21T08:00:00Z',
   pendingCount: 0,
+  sectorId: 4,
+  areaName: 'الجادرية',
+  parentSector: 'karrada',
   ...over,
 })
 
 beforeEach(() => {
   h.containers = [container(), container({ id: 'c2', code: 'GBS-0002', label: 'حاوية الزيرو', status: 'damaged' })]
   h.updates = []
-  h.containersArgs = [null, null]
+  h.containersArgs = [null, null, null, null]
+  h.zones = []
   h.updatesArg = 'pending'
   h.imageUrl.mockResolvedValue('https://signed/x.jpg')
   h.save.mockReset()
@@ -85,7 +97,9 @@ describe('غرفة العمليات — خريطة GBS', () => {
     render(<GbsContainersPage />)
     fireEvent.change(screen.getByTestId('gbs-search'), { target: { value: 'زيرو' } })
     fireEvent.change(screen.getByTestId('gbs-status-filter'), { target: { value: 'damaged' } })
-    expect(h.containersArgs).toEqual(['زيرو', 'damaged'])
+    fireEvent.change(screen.getByTestId('gbs-parent-filter'), { target: { value: 'zaafaraniya' } })
+    fireEvent.change(screen.getByTestId('gbs-sector-filter'), { target: { value: '6' } })
+    expect(h.containersArgs).toEqual(['زيرو', 'damaged', 'zaafaraniya', 6])
   })
 
   it('إضافة حاوية: إحداثيات + حالة + حفظ عبر useGbsSaveContainer', () => {
@@ -95,6 +109,7 @@ describe('غرفة العمليات — خريطة GBS', () => {
     fireEvent.change(screen.getByTestId('gbs-lat'), { target: { value: '33.25' } })
     fireEvent.change(screen.getByTestId('gbs-lng'), { target: { value: '44.35' } })
     fireEvent.click(screen.getByTestId('gbs-status-replace'))
+    fireEvent.change(screen.getByTestId('gbs-sector'), { target: { value: '6' } })
     fireEvent.change(screen.getByTestId('gbs-notes'), { target: { value: 'بجانب المدرسة' } })
     h.save.mockImplementation((_input: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.())
     fireEvent.click(screen.getByTestId('gbs-save'))
@@ -105,6 +120,7 @@ describe('غرفة العمليات — خريطة GBS', () => {
         latitude: 33.25,
         longitude: 44.35,
         status: 'replace',
+        sectorId: 6,
         imagePath: null,
         notes: 'بجانب المدرسة',
       },
@@ -130,7 +146,7 @@ describe('غرفة العمليات — خريطة GBS', () => {
     fireEvent.change(screen.getByTestId('gbs-label'), { target: { value: 'اسم معدل' } })
     fireEvent.click(screen.getByTestId('gbs-save'))
     expect(h.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'c2', label: 'اسم معدل', status: 'damaged' }),
+      expect.objectContaining({ id: 'c2', label: 'اسم معدل', status: 'damaged', sectorId: 4 }),
       expect.anything(),
     )
   })
@@ -186,6 +202,24 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     expect(screen.queryByTestId('gbs-approve-u1')).not.toBeInTheDocument()
     fireEvent.change(screen.getByTestId('gbs-queue-state'), { target: { value: 'rejected' } })
     expect(h.updatesArg).toBe('rejected')
+  })
+
+  it('يعرض الزونات مع زر إظهار/إخفاء', () => {
+    h.zones = [
+      { id: 'z1', name: 'زون الكرادة', source: 'platform', color: '#7c3aed', polygon: [[33.3, 44.4]] },
+      { id: 'z2', name: 'زون الزعفرانية', source: 'lvn', color: '#2563eb', polygon: [[33.2, 44.5]] },
+    ]
+    render(<GbsContainersPage />)
+    expect(screen.getAllByTestId('gbs-zone')).toHaveLength(2)
+    expect(screen.getByTestId('gbs-toggle-zones').textContent).toContain('2')
+    fireEvent.click(screen.getByTestId('gbs-toggle-zones'))
+    expect(screen.queryAllByTestId('gbs-zone')).toHaveLength(0)
+  })
+
+  it('القائمة تعرض القاطع والمنطقة لكل حاوية', () => {
+    render(<GbsContainersPage />)
+    expect(screen.getByTestId('gbs-list-item-c1').textContent).toContain('قاطع الكرادة')
+    expect(screen.getByTestId('gbs-list-item-c1').textContent).toContain('الجادرية')
   })
 
   it('شارة الطلبات المعلقة تظهر على الحاوية', () => {

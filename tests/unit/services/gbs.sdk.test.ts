@@ -56,6 +56,9 @@ const containerRow = {
   notes: 'ملاحظة',
   updated_at: '2026-09-21T08:00:00Z',
   pending_count: 2,
+  sector_id: 4,
+  area_name: 'الجادرية',
+  parent_sector: 'karrada',
 }
 
 beforeEach(() => {
@@ -68,10 +71,12 @@ beforeEach(() => {
 describe('gbs.sdk — الحاويات', () => {
   it('يجلب القائمة مع البحث والفلتر ويوحد الشكل', async () => {
     h.state.result = { data: [containerRow], error: null }
-    const rows = await gbs.containers('كرادة', 'damaged')
+    const rows = await gbs.containers('كرادة', 'damaged', 'karrada', 4)
     expect(h.rpc).toHaveBeenCalledWith('gbs_containers_list', {
       p_search: 'كرادة',
       p_status: 'damaged',
+      p_parent: 'karrada',
+      p_sector_id: 4,
     })
     expect(rows[0]).toEqual({
       id: 'c1',
@@ -84,12 +89,20 @@ describe('gbs.sdk — الحاويات', () => {
       notes: 'ملاحظة',
       updatedAt: '2026-09-21T08:00:00Z',
       pendingCount: 2,
+      sectorId: 4,
+      areaName: 'الجادرية',
+      parentSector: 'karrada',
     })
   })
 
   it('يمرر البحث الفارغ null', async () => {
     await gbs.containers('   ', null)
-    expect(h.rpc).toHaveBeenCalledWith('gbs_containers_list', { p_search: null, p_status: null })
+    expect(h.rpc).toHaveBeenCalledWith('gbs_containers_list', {
+      p_search: null,
+      p_status: null,
+      p_parent: null,
+      p_sector_id: null,
+    })
   })
 
   it('يضيف حاوية جديدة بمسافات مهذبة', async () => {
@@ -99,6 +112,7 @@ describe('gbs.sdk — الحاويات', () => {
       latitude: 33.1,
       longitude: 44.2,
       status: 'ok',
+      sectorId: 2,
       notes: '  ',
     })
     expect(h.rpc).toHaveBeenCalledWith('gbs_container_save', {
@@ -107,6 +121,7 @@ describe('gbs.sdk — الحاويات', () => {
       p_latitude: 33.1,
       p_longitude: 44.2,
       p_status: 'ok',
+      p_sector_id: 2,
       p_image_path: null,
       p_notes: null,
     })
@@ -121,6 +136,7 @@ describe('gbs.sdk — الحاويات', () => {
       latitude: 33.3,
       longitude: 44.4,
       status: 'replace',
+      sectorId: 4,
       imagePath: 'u/x.jpg',
     })
     expect(h.rpc).toHaveBeenCalledWith('gbs_container_save', {
@@ -129,6 +145,7 @@ describe('gbs.sdk — الحاويات', () => {
       p_latitude: 33.3,
       p_longitude: 44.4,
       p_status: 'replace',
+      p_sector_id: 4,
       p_image_path: 'u/x.jpg',
       p_notes: null,
     })
@@ -231,6 +248,22 @@ describe('gbs.sdk — الصور', () => {
       file,
       expect.objectContaining({ contentType: 'image/jpeg', upsert: false }),
     )
+  })
+
+  it('يجلب زونات GPS للخريطة', async () => {
+    h.state.result = {
+      data: [{ id: 'z1', name: 'زون الكرادة', source: 'platform', color: '#7c3aed', polygon: [[33.3, 44.4]] }],
+      error: null,
+    }
+    const zones = await gbs.zones()
+    expect(h.rpc).toHaveBeenCalledWith('gbs_zones_list')
+    expect(zones[0]).toEqual({
+      id: 'z1',
+      name: 'زون الكرادة',
+      source: 'platform',
+      color: '#7c3aed',
+      polygon: [[33.3, 44.4]],
+    })
   })
 
   it('ينشئ رابط عرض مؤقت', async () => {

@@ -15,8 +15,8 @@ begin
   -- ① الإضافة من غرفة العمليات + رموز تسلسلية فريدة
   perform set_config('role', 'authenticated', false);
   perform set_config('request.jwt.claim.sub', o1::text, false);
-  select s.id, s.code into c1, code1 from public.gbs_container_save(null, 'حاوية الكرادة الأولى', 33.30, 44.40, 'ok', null, 'قرب الجسر') s;
-  select s.id, s.code into c2, code2 from public.gbs_container_save(null, 'حاوية الزعفرانية', 33.20, 44.50, 'ok', null, null) s;
+  select s.id, s.code into c1, code1 from public.gbs_container_save(null, 'حاوية الكرادة الأولى', 33.30, 44.40, 'ok', 4::smallint, null, 'قرب الجسر') s;
+  select s.id, s.code into c2, code2 from public.gbs_container_save(null, 'حاوية الزعفرانية', 33.20, 44.50, 'ok', 6::smallint, null, null) s;
   if code1 !~ '^GBS-[0-9]{4,}$' or code2 !~ '^GBS-[0-9]{4,}$' or code1 = code2 then
     raise exception 'GBS_CODE_FAIL % %', code1, code2;
   end if;
@@ -43,7 +43,7 @@ begin
   -- ③ مسؤول القسم لا يعدل ولا يحذف مباشرة
   perform set_config('request.jwt.claim.sub', m1::text, false);
   begin
-    perform public.gbs_container_save(c1, 'اسم جديد', 33.3, 44.4, 'damaged', null, null);
+    perform public.gbs_container_save(c1, 'اسم جديد', 33.3, 44.4, 'damaged', 4::smallint, null, null);
     raise exception 'GBS_MANAGER_SAVE_ACCEPTED';
   exception when others then
     if SQLERRM not like '%GBS_FORBIDDEN%' then raise; end if;
@@ -117,19 +117,19 @@ begin
 
   -- ⑧ تعديل وحذف من غرفة العمليات + تحقق المدخلات + منع التكرار
   perform set_config('request.jwt.claim.sub', o1::text, false);
-  select s.id into c1 from public.gbs_container_save(c1, 'حاوية معدلة', 33.31, 44.41, 'replace', null, null) s;
+  select s.id into c1 from public.gbs_container_save(c1, 'حاوية معدلة', 33.31, 44.41, 'replace', 4::smallint, null, null) s;
   select count(*) into n from public.gbs_containers_list('معدلة', null);
   if n <> 1 then raise exception 'GBS_EDIT_FAIL'; end if;
   select count(*) into n from public.gbs_containers_list(null, 'replace');
   if n <> 1 then raise exception 'GBS_STATUS_AFTER_EDIT_FAIL %', n; end if;
   begin
-    perform public.gbs_container_save(null, 'حاوية', 33.3, 44.4, 'broken', null, null);
+    perform public.gbs_container_save(null, 'حاوية', 33.3, 44.4, 'broken', 4::smallint, null, null);
     raise exception 'GBS_BAD_STATUS_ACCEPTED';
   exception when others then
     if SQLERRM not like '%GBS_STATUS_INVALID%' then raise; end if;
   end;
   begin
-    perform public.gbs_container_save(null, 'حاوية', 999, 44.4, 'ok', null, null);
+    perform public.gbs_container_save(null, 'حاوية', 999, 44.4, 'ok', 4::smallint, null, null);
     raise exception 'GBS_BAD_POINT_ACCEPTED';
   exception when others then
     if SQLERRM not like '%GBS_POINT_INVALID%' then raise; end if;
@@ -144,7 +144,54 @@ begin
     if SQLERRM not like '%GBS_CONTAINER_NOT_FOUND%' then raise; end if;
   end;
 
+  -- ⑨ القاطع والمنطقة: فلاتر + بحث باسم المنطقة + زونات GPS + تحقق المدخلات
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select count(*) into n from public.gbs_containers_list(null, null, 'karrada', null);
+  if n <> 1 then raise exception 'GBS_PARENT_FILTER_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list(null, null, null, 4::smallint);
+  if n <> 1 then raise exception 'GBS_SECTOR_FILTER_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list('الجعفرية', null);
+  if n <> 0 then raise exception 'GBS_AREA_SEARCH_NEG_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list('الجادرية', null);
+  if n <> 1 then raise exception 'GBS_AREA_SEARCH_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list(null, null) l
+   where l.sector_id = 4 and l.area_name = 'الجادرية' and l.parent_sector = 'karrada';
+  if n <> 1 then raise exception 'GBS_AREA_COLUMNS_FAIL %', n; end if;
+  begin
+    perform public.gbs_container_save(null, 'حاوية', 33.3, 44.4, 'ok', 99::smallint, null, null);
+    raise exception 'GBS_BAD_SECTOR_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_SECTOR_INVALID%' then raise; end if;
+  end;
+  begin
+    perform public.gbs_containers_list(null, null, 'bad', null);
+    raise exception 'GBS_BAD_PARENT_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_PARENT_INVALID%' then raise; end if;
+  end;
+  perform set_config('role', session_user::text, false);
+  insert into public.gps_geofences(name, source, polygon, color)
+  values ('زون اختبار GBS', 'platform', '[[33.30,44.40],[33.32,44.40],[33.32,44.44],[33.30,44.44]]'::jsonb, '#7c3aed');
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select count(*) into n from public.gbs_zones_list() z where z.name = 'زون اختبار GBS' and z.polygon is not null;
+  if n <> 1 then raise exception 'GBS_ZONES_FAIL %', n; end if;
+  perform set_config('request.jwt.claim.sub', m1::text, false);
+  select count(*) into n from public.gbs_zones_list() z where z.name = 'زون اختبار GBS';
+  if n <> 1 then raise exception 'GBS_ZONES_MANAGER_FAIL %', n; end if;
+  perform set_config('request.jwt.claim.sub', x1::text, false);
+  begin
+    perform public.gbs_zones_list();
+    raise exception 'GBS_ZONES_OUTSIDER_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_FORBIDDEN%' then raise; end if;
+  end;
+  perform set_config('role', session_user::text, false);
+  delete from public.gps_geofences where name = 'زون اختبار GBS';
+
   -- تنظيف: لا تلوّث بقية الاختبارات
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', o1::text, false);
   perform public.gbs_container_delete(c1);
   perform set_config('role', session_user::text, false);
   delete from public.notifications where user_id in (o1, m1, m2);

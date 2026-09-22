@@ -8,12 +8,14 @@ import 'leaflet/dist/leaflet.css'
 import GbsMap from '@features/gbs/GbsMap'
 import SignedPhoto from '@features/gbs/SignedPhoto'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
+import { GBS_PARENT_LABELS, GBS_SECTOR_OPTIONS } from '@features/gbs/sectorOptions'
 import {
   useGbsContainers,
   useGbsDeleteContainer,
   useGbsReviewUpdate,
   useGbsSaveContainer,
   useGbsUpdates,
+  useGbsZones,
 } from '@features/gbs/hooks'
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus, GbsUpdateState } from '@features/gbs/types'
@@ -25,6 +27,7 @@ type Draft = {
   latitude: number | null
   longitude: number | null
   status: GbsContainerStatus
+  sectorId: number
   imagePath: string | null
   notes: string
 }
@@ -34,6 +37,7 @@ const emptyDraft = (): Draft => ({
   latitude: null,
   longitude: null,
   status: 'ok',
+  sectorId: 4,
   imagePath: null,
   notes: '',
 })
@@ -52,6 +56,8 @@ function PointCapture({ onPick }: { onPick: (lat: number, lng: number) => void }
 export default function GbsContainersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<GbsContainerStatus | ''>('')
+  const [parentFilter, setParentFilter] = useState<'karrada' | 'zaafaraniya' | ''>('')
+  const [sectorFilter, setSectorFilter] = useState<number | ''>('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<GbsContainer | null>(null)
@@ -59,7 +65,13 @@ export default function GbsContainersPage() {
   const [reviewNote, setReviewNote] = useState('')
   const [uploading, setUploading] = useState(false)
 
-  const containers = useGbsContainers(search || null, statusFilter || null)
+  const containers = useGbsContainers(
+    search || null,
+    statusFilter || null,
+    parentFilter || null,
+    sectorFilter === '' ? null : sectorFilter,
+  )
+  const zones = useGbsZones()
   const updates = useGbsUpdates(queueState)
   const save = useGbsSaveContainer()
   const remove = useGbsDeleteContainer()
@@ -80,6 +92,7 @@ export default function GbsContainersPage() {
       latitude: container.latitude,
       longitude: container.longitude,
       status: container.status,
+      sectorId: container.sectorId,
       imagePath: container.imagePath,
       notes: container.notes ?? '',
     })
@@ -98,6 +111,7 @@ export default function GbsContainersPage() {
         latitude: draft.latitude,
         longitude: draft.longitude,
         status: draft.status,
+        sectorId: draft.sectorId,
         imagePath: draft.imagePath,
         notes: draft.notes || null,
       },
@@ -188,6 +202,39 @@ export default function GbsContainersPage() {
             </option>
           ))}
         </select>
+        <select
+          data-testid="gbs-parent-filter"
+          value={parentFilter}
+          onChange={(event) => {
+            const value = event.target.value as 'karrada' | 'zaafaraniya' | ''
+            setParentFilter(value)
+            setSectorFilter('')
+          }}
+          className="h-10 rounded-xl border bg-white px-3 text-sm"
+          aria-label="فلتر القاطع"
+        >
+          <option value="">كل القواطع</option>
+          <option value="karrada">{GBS_PARENT_LABELS.karrada}</option>
+          <option value="zaafaraniya">{GBS_PARENT_LABELS.zaafaraniya}</option>
+        </select>
+        <select
+          data-testid="gbs-sector-filter"
+          value={sectorFilter}
+          onChange={(event) =>
+            setSectorFilter(event.target.value === '' ? '' : Number(event.target.value))
+          }
+          className="h-10 rounded-xl border bg-white px-3 text-sm"
+          aria-label="فلتر المنطقة"
+        >
+          <option value="">كل المناطق</option>
+          {GBS_SECTOR_OPTIONS.filter(
+            (option) => parentFilter === '' || option.parent === parentFilter,
+          ).map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
         <span className="text-xs font-black text-slate-500" data-testid="gbs-result-count">
           {list.length} نتيجة
         </span>
@@ -202,6 +249,7 @@ export default function GbsContainersPage() {
           ) : (
             <GbsMap
               containers={list}
+              zones={zones.data ?? []}
               selectedId={selectedId}
               onSelect={(container) => setSelectedId(container.id)}
               renderPopupActions={(container) => (
@@ -243,6 +291,10 @@ export default function GbsContainersPage() {
               >
                 <span className="text-xs font-black">
                   {container.code} · {container.label}
+                  <span className="block text-[9px] font-bold text-slate-400">
+                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {container.areaName}
+                  </span>
                 </span>
                 <span className="flex items-center gap-1">
                   {container.pendingCount > 0 && (
@@ -456,6 +508,27 @@ export default function GbsContainersPage() {
                 ))}
               </div>
             </div>
+            <label className="block space-y-1 text-[11px] font-black text-slate-500">
+              المنطقة (القطاع التشغيلي)
+              <select
+                data-testid="gbs-sector"
+                value={draft.sectorId}
+                onChange={(event) => setDraft({ ...draft, sectorId: Number(event.target.value) })}
+                className="h-11 w-full rounded-xl border bg-white px-3 text-sm"
+              >
+                {(['karrada', 'zaafaraniya'] as const).map((parent) => (
+                  <optgroup key={parent} label={GBS_PARENT_LABELS[parent]}>
+                    {GBS_SECTOR_OPTIONS.filter((option) => option.parent === parent).map(
+                      (option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ),
+                    )}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
             <label className="block space-y-1 text-[11px] font-black text-slate-500">
               صورة الحاوية (اختياري)
               <input
