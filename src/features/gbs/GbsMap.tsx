@@ -37,6 +37,24 @@ function PickCapture({ onPick }: { onPick: (lat: number, lng: number) => void })
   return null
 }
 
+/**
+ * طبقة مستقلة للزونات أسفل طبقة النقاط (overlayPane=400) — zIndex=350.
+ * السبب الجذري لإصلاح «الزون يمنع الضغط على الحاوية/على الخريطة»:
+ * CircleMarker يرسم في overlayPane نفسها التي تُرسم فيها المضلعات، وكانت الزونات
+ * تصل متأخرة (تحميل غير متزامن) فتُضاف فوق النقاط وتلتقط النقرات. بطبقة أدنى
+ * تبقى النقاط قابلة للنقر دائماً مهما كان ترتيب الوصول.
+ */
+function ZonePane() {
+  const map = useMap()
+  useEffect(() => {
+    if (!map.getPane('gbsZones')) {
+      const pane = map.createPane('gbsZones')
+      pane.style.zIndex = '350'
+    }
+  }, [map])
+  return null
+}
+
 export interface GbsMapProps {
   containers: GbsContainer[]
   zones?: GbsZone[]
@@ -152,6 +170,7 @@ export default function GbsMap({
           }}
         />
         <FlyTo container={selected} />
+        <ZonePane />
         {onPick && <PickCapture onPick={onPick} />}
         {showZones &&
           zones.map((zone) => {
@@ -162,13 +181,17 @@ export default function GbsMap({
               <Polygon
                 key={zone.id}
                 positions={positions}
+                pane="gbsZones"
+                interactive={!onPick}
                 pathOptions={{ color: zone.color || '#7c3aed', fillOpacity: 0.08, weight: 2 }}
               >
-                <Popup>
-                  <b>{zone.name}</b>
-                  <br />
-                  {zone.source === 'lvn' ? 'منطقة مستوردة من LVN' : 'منطقة المنصة'}
-                </Popup>
+                {!onPick && (
+                  <Popup>
+                    <b>{zone.name}</b>
+                    <br />
+                    {zone.source === 'lvn' ? 'منطقة مستوردة من LVN' : 'منطقة المنصة'}
+                  </Popup>
+                )}
               </Polygon>
             )
           })}

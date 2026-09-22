@@ -6,7 +6,14 @@ import { useMemo, useState } from 'react'
 import GbsMap from '@features/gbs/GbsMap'
 import SignedPhoto from '@features/gbs/SignedPhoto'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
-import { useGbsContainers, useGbsMyUpdates, useGbsRequestUpdate, useGbsZones } from '@features/gbs/hooks'
+import { GBS_SECTOR_OPTIONS } from '@features/gbs/sectorOptions'
+import {
+  useGbsContainers,
+  useGbsJurisdiction,
+  useGbsMyUpdates,
+  useGbsRequestUpdate,
+  useGbsZones,
+} from '@features/gbs/hooks'
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
@@ -24,10 +31,18 @@ export default function GbsContainersPage() {
   const containers = useGbsContainers(search || null, statusFilter || null)
   const zones = useGbsZones()
   const myUpdates = useGbsMyUpdates()
+  const jurisdiction = useGbsJurisdiction()
   const request = useGbsRequestUpdate()
   const addToast = useUiStore((s) => s.addToast)
 
   const list = useMemo(() => containers.data ?? [], [containers.data])
+  const jurNames = useMemo(
+    () =>
+      (jurisdiction.data ?? []).map(
+        (id) => GBS_SECTOR_OPTIONS.find((o) => o.id === id)?.name ?? `منطقة ${id}`,
+      ),
+    [jurisdiction.data],
+  )
 
   const openPropose = (container: GbsContainer) => {
     setProposeFor(container)
@@ -79,6 +94,25 @@ export default function GbsContainersPage() {
       >
         كل تحديث ترسله يبقى «قيد الانتظار» حتى توافق غرفة العمليات، ويصلك إشعار بالاعتماد أو الرفض.
       </div>
+
+      {jurisdiction.data && jurisdiction.data.length === 0 && (
+        <div
+          className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-black text-rose-900"
+          data-testid="gbs-jurisdiction-empty"
+        >
+          لم تُسند إليك أي منطقة بعد — لا يمكنك رؤية الحاويات أو طلب تحديثها حتى تسند لك الإدارة
+          منطقتك (أو حتى 3 مناطق) في ملف مسؤولي الأقسام.
+        </div>
+      )}
+      {jurisdiction.data && jurisdiction.data.length > 0 && (
+        <div
+          className="rounded-2xl border border-cyan-200 bg-cyan-50 p-3 text-xs font-black text-cyan-900"
+          data-testid="gbs-jurisdiction-banner"
+        >
+          نطاق اختصاصك: {jurNames.join('، ')} — تظهر لك حاويات مناطقك فقط، ونقاطها هي الوحيدة
+          القابلة للضغط والتحديث على الخريطة.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-3">
         <input

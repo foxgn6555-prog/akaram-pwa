@@ -20,6 +20,7 @@ export const gbsKeys = {
   zones: () => ['gbs', 'zones'] as const,
   updates: (state: GbsUpdateState) => ['gbs', 'updates', state] as const,
   myUpdates: () => ['gbs', 'my-updates'] as const,
+  jurisdiction: () => ['gbs', 'jurisdiction'] as const,
 }
 
 function useGbsError(scope: string) {
@@ -62,6 +63,15 @@ export function useGbsMyUpdates() {
     queryKey: gbsKeys.myUpdates(),
     queryFn: () => gbs.myUpdates(),
     refetchInterval: 60000,
+  })
+}
+
+/** مناطق اختصاص مسؤول القسم (00138) — للواجهة التوضيحية؛ العزل يطبقه الخادم */
+export function useGbsJurisdiction() {
+  return useQuery({
+    queryKey: gbsKeys.jurisdiction(),
+    queryFn: () => gbs.jurisdiction(),
+    staleTime: 5 * 60000,
   })
 }
 

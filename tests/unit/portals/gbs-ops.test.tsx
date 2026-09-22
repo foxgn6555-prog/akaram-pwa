@@ -1,7 +1,7 @@
 /** اختبارات صفحة غرفة العمليات — وحدة GBS الحاويات (00136). */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
 const h = vi.hoisted(() => ({
   containers: [] as unknown[],
@@ -17,12 +17,28 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('react-leaflet', () => ({
-  useMap: () => ({ flyTo: vi.fn() }),
+  useMap: () => ({
+    flyTo: vi.fn(),
+    getPane: vi.fn(() => ({ style: {} })),
+    createPane: vi.fn(() => ({ style: {} })),
+  }),
   useMapEvents: () => null,
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Polygon: ({ children }: { children: ReactNode }) => <div data-testid="gbs-zone">{children}</div>,
+  Polygon: ({
+    children,
+    pane,
+    interactive,
+  }: {
+    children: ReactNode
+    pane?: string
+    interactive?: boolean
+  }) => (
+    <div data-testid="gbs-zone" data-pane={pane} data-interactive={String(interactive)}>
+      {children}
+    </div>
+  ),
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
@@ -235,8 +251,18 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     // خريطة التحديد داخل الحوار موجودة ومستقلة عن خريطة العرض
     expect(screen.getByTestId('gbs-pick-map')).toBeInTheDocument()
     expect(screen.getByTestId('gbs-map')).toBeInTheDocument()
-    // الزونات مرسومة على الخريطتين معاً
+    // الزونات مرسومة على الخريطتين معاً — في طبقة أدنى من النقاط دائماً
     expect(screen.getAllByTestId('gbs-zone').length).toBeGreaterThanOrEqual(2)
+    const mainZone = within(screen.getByTestId('gbs-map')).getAllByTestId('gbs-zone')[0]!
+    expect(mainZone).toHaveAttribute('data-pane', 'gbsZones')
+    expect(mainZone).toHaveAttribute('data-interactive', 'true')
+    // خريطة الالتقاط: الزونات غير تفاعلية إطلاقاً — كل نقرة تصل إلى الخريطة لتحديد الموقع
+    const pickZone = within(screen.getByTestId('gbs-pick-map')).getAllByTestId('gbs-zone')[0]!
+    expect(pickZone).toHaveAttribute('data-pane', 'gbsZones')
+    expect(pickZone).toHaveAttribute('data-interactive', 'false')
+    // ولا popup للزون في وضع الالتقاط (لا يعترض التحديد)
+    expect(within(screen.getByTestId('gbs-pick-map')).queryByText('زون الكرادة')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('gbs-map')).getByText('زون الكرادة')).toBeInTheDocument()
     // زر ملء الشاشة وزر الزونات على خريطة الحوار كما على خريطة العرض
     expect(screen.getAllByTestId('gbs-map-fullscreen')).toHaveLength(2)
     expect(screen.getAllByTestId('gbs-toggle-zones')).toHaveLength(2)

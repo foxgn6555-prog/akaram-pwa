@@ -5,12 +5,18 @@ declare
   m1 uuid := '88000000-0000-0000-0000-000000000002';
   m2 uuid := '88000000-0000-0000-0000-000000000003';
   x1 uuid := '88000000-0000-0000-0000-000000000004';
-  c1 uuid; c2 uuid; k1 uuid; code1 text; code2 text; st text; n bigint;
+  m3 uuid := '88000000-0000-0000-0000-000000000005';
+  m4 uuid := '88000000-0000-0000-0000-000000000006';
+  c1 uuid; c2 uuid; c3 uuid; c4 uuid; c5 uuid; k1 uuid; k4 uuid;
+  code1 text; code2 text; code5 text; st text; n bigint;
 begin
   insert into auth.users(id, email) values
     (o1, 'gbs-ops@x.iq'), (m1, 'gbs-mgr@x.iq'), (m2, 'gbs-mgr2@x.iq'), (x1, 'gbs-out@x.iq');
   insert into public.user_roles(user_id, role) values
     (o1, 'ops_room'), (m1, 'department_manager'), (m2, 'department_manager');
+  -- 00138: اختصاص كل مسؤول = مناطعه المسندة (كلاهما على الجادرية حيث الحاويات)
+  insert into public.manager_profiles(user_id, shift, sectors) values
+    (m1, 'morning', '{4}'), (m2, 'morning', '{4}');
 
   -- ① الإضافة من غرفة العمليات + رموز تسلسلية فريدة
   perform set_config('role', 'authenticated', false);
@@ -189,11 +195,88 @@ begin
   perform set_config('role', session_user::text, false);
   delete from public.gps_geofences where name = 'زون اختبار GBS';
 
-  -- تنظيف: لا تلوّث بقية الاختبارات
+  -- ⑩ اختصاص المسؤول (00138): يرى مناطعه فقط + الطلب داخل الاختصاص حصراً + تدقيق مكمل
   perform set_config('role', 'authenticated', false);
   perform set_config('request.jwt.claim.sub', o1::text, false);
-  perform public.gbs_container_delete(c1);
+  select s.id into c3 from public.gbs_container_save(null, 'حاوية الواثق', 33.28, 44.38, 'ok', 3::smallint, null, null) s;
+  select s.id into c4 from public.gbs_container_save(null, 'حاوية الزعفرانية الجديدة', 33.21, 44.51, 'ok', 6::smallint, 'x/y.jpg', null) s;
   perform set_config('role', session_user::text, false);
-  delete from public.notifications where user_id in (o1, m1, m2);
-  raise notice '✅ GBS الحاويات: رموز تسلسلية/صلاحيات/بحث/طلب تحديث/اعتماد/رفض/حذف/تحقق مدخلات ناجحة';
+  insert into auth.users(id, email) values (m4, 'gbs-mgr4@x.iq'), (m3, 'gbs-mgr3@x.iq');
+  insert into public.user_roles(user_id, role) values (m4, 'department_manager'), (m3, 'department_manager');
+  insert into public.manager_profiles(user_id, shift, sectors) values (m4, 'morning', '{6}'); -- m3 بلا مناطق
+  perform set_config('role', 'authenticated', false);
+
+  -- m4 (الزعفرانية فقط): يرى حاويته وحدها مع صورتها
+  perform set_config('request.jwt.claim.sub', m4::text, false);
+  select count(*) into n from public.gbs_containers_list(null, null);
+  if n <> 1 then raise exception 'GBS_JURISDICTION_LIST_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list(null, null) l
+   where l.id = c4 and l.image_path = 'x/y.jpg' and l.sector_id = 6;
+  if n <> 1 then raise exception 'GBS_JURISDICTION_ROW_FAIL %', n; end if;
+
+  -- الطلب خارج الاختصاص مرفوض
+  begin
+    perform public.gbs_container_request_update(c3, 'damaged', null, null);
+    raise exception 'GBS_OUT_OF_SECTOR_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_OUT_OF_SECTOR%' then raise; end if;
+  end;
+
+  -- الطلب داخل الاختصاص مقبول ويظهر في سجله
+  select r.id into k4 from (select public.gbs_container_request_update(c4, 'missing', null, 'لا أثر لها') as id) r;
+  if k4 is null then raise exception 'GBS_JURISDICTION_REQUEST_FAIL'; end if;
+  select count(*) into n from public.gbs_my_update_requests() where id = k4 and state = 'pending';
+  if n <> 1 then raise exception 'GBS_JURISDICTION_MY_FAIL %', n; end if;
+
+  -- تقاطع الفلتر مع الاختصاص: منطقة خارج الاختصاص → صفر
+  select count(*) into n from public.gbs_containers_list(null, null, null, 4::smallint);
+  if n <> 0 then raise exception 'GBS_JURISDICTION_FILTER_FAIL %', n; end if;
+
+  -- مسؤول بلا مناطق مسندة: لا يرى شيئاً ولا يطلب شيئاً
+  perform set_config('request.jwt.claim.sub', m3::text, false);
+  select count(*) into n from public.gbs_containers_list(null, null);
+  if n <> 0 then raise exception 'GBS_NO_SECTORS_LIST_FAIL %', n; end if;
+  begin
+    perform public.gbs_container_request_update(c4, 'damaged', null, null);
+    raise exception 'GBS_NO_SECTORS_REQUEST_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_OUT_OF_SECTOR%' then raise; end if;
+  end;
+
+  -- غرفة العمليات ترى الكل بلا تقييد (c1 + c3 + c4)
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select count(*) into n from public.gbs_containers_list(null, null);
+  if n <> 3 then raise exception 'GBS_OPS_FULL_VIEW_FAIL %', n; end if;
+
+  -- تدقيق مكمل: الرمز لا يعيد أرقاماً محذوفة + حدود المدخلات
+  select s.id, s.code into c5, code5 from public.gbs_container_save(null, 'حاوية التدقيق', 33.3, 44.4, 'ok', 1::smallint, null, null) s;
+  if code5 <= code2 then raise exception 'GBS_CODE_REUSE_FAIL % %', code5, code2; end if;
+  begin
+    perform public.gbs_container_save(null, 'x', 33.3, 44.4, 'ok', 1::smallint, null, null);
+    raise exception 'GBS_SHORT_LABEL_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_LABEL_INVALID%' then raise; end if;
+  end;
+  begin
+    perform public.gbs_container_save(null, rpad('ط', 121, 'ب'), 33.3, 44.4, 'ok', 1::smallint, null, null);
+    raise exception 'GBS_LONG_LABEL_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_LABEL_INVALID%' then raise; end if;
+  end;
+  begin
+    perform public.gbs_container_save(null, 'حاوية', 33.3, 44.4, 'ok', 1::smallint, null, rpad('م', 501, 'ن'));
+    raise exception 'GBS_LONG_NOTES_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_NOTES_INVALID%' then raise; end if;
+  end;
+  perform public.gbs_container_delete(c5);
+
+  -- تنظيف: لا تلوّث بقية الاختبارات
+  perform public.gbs_container_delete(c1);
+  perform public.gbs_container_delete(c3);
+  perform public.gbs_container_delete(c4);
+  perform set_config('role', session_user::text, false);
+  delete from public.notifications where user_id in (o1, m1, m2, m3, m4);
+  delete from public.manager_profiles where user_id in (m1, m2, m3, m4);
+  raise notice '✅ GBS الحاويات: رموز/صلاحيات/بحث/تحديث/اعتماد/رفض/حذف/مدخلات/اختصاص المسؤول ناجحة';
 end$$;

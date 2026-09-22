@@ -140,6 +140,20 @@ export const gbs = {
     }
   },
 
+  /** مناطق اختصاص مسؤول القسم (manager_profiles.sectors) — فارغة لبلا إسناد */
+  async jurisdiction(): Promise<number[]> {
+    const { data: authData } = await supabase.auth.getUser()
+    const uid = authData.user?.id
+    if (!uid) return []
+    const res = await supabase
+      .from('manager_profiles')
+      .select('sectors')
+      .eq('user_id', uid)
+      .maybeSingle()
+    if (res.error) throw new SDKError(res.error.message, 'GBS_JURISDICTION_FAILED')
+    return ((res.data?.sectors ?? []) as number[]).map(Number)
+  },
+
   /** زونات GPS التشغيلية لعرضها على خريطة الحاويات */
   async zones(): Promise<GbsZone[]> {
     const data = await sdkGuard(supabase.rpc('gbs_zones_list'))

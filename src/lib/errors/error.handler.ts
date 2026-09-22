@@ -66,6 +66,10 @@ const APP_ERROR_AR: Record<string, string> = {
   GBS_IMAGE_INVALID: 'ملف الصورة غير صالح — اختر صورة فقط.',
   GBS_UPLOAD_FAILED: 'تعذر رفع الصورة — حاول مرة أخرى.',
   GBS_IMAGE_URL_FAILED: 'تعذر تحميل الصورة — حاول مرة أخرى.',
+  // اختصاص مسؤول القسم (00138)
+  GBS_OUT_OF_SECTOR:
+    'هذه الحاوية خارج مناطقك المسندة إليك — يمكنك رؤية حاويات منطقتك وتحديثها فقط.',
+  GBS_JURISDICTION_FAILED: 'تعذر تحميل مناطق اختصاصك — حاول مرة أخرى.',
 }
 
 function translateAppMessage(message: string): string | null {

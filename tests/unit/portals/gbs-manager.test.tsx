@@ -8,26 +8,44 @@ const h = vi.hoisted(() => ({
   myUpdates: [] as unknown[],
   request: vi.fn(),
   zones: [] as unknown[],
+  jur: [4] as number[],
   uploadImage: vi.fn(),
   imageUrl: vi.fn(),
 }))
 
 vi.mock('react-leaflet', () => ({
-  useMap: () => ({ flyTo: vi.fn() }),
+  useMap: () => ({
+    flyTo: vi.fn(),
+    getPane: vi.fn(() => ({ style: {} })),
+    createPane: vi.fn(() => ({ style: {} })),
+  }),
   useMapEvents: () => null,
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Polygon: ({ children }: { children: ReactNode }) => <div data-testid="gbs-zone">{children}</div>,
+  Polygon: ({
+    children,
+    pane,
+    interactive,
+  }: {
+    children: ReactNode
+    pane?: string
+    interactive?: boolean
+  }) => (
+    <div data-testid="gbs-zone" data-pane={pane} data-interactive={String(interactive)}>
+      {children}
+    </div>
+  ),
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 
 vi.mock('@features/gbs/hooks', () => ({
-  gbsKeys: { containers: () => [], updates: () => [], myUpdates: () => [] },
+  gbsKeys: { containers: () => [], updates: () => [], myUpdates: () => [], jurisdiction: () => [] },
   useGbsContainers: () => ({ data: h.containers, isLoading: false }),
   useGbsMyUpdates: () => ({ data: h.myUpdates, isLoading: false }),
   useGbsRequestUpdate: () => ({ mutate: h.request, isPending: false }),
   useGbsZones: () => ({ data: h.zones, isLoading: false }),
+  useGbsJurisdiction: () => ({ data: h.jur, isLoading: false }),
 }))
 
 vi.mock('@sdk/gbs.sdk', () => ({
@@ -56,6 +74,8 @@ const container = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   h.containers = [container()]
   h.myUpdates = []
+  h.zones = []
+  h.jur = [4]
   h.request.mockReset()
   h.uploadImage.mockReset()
   h.imageUrl.mockReset()
@@ -67,6 +87,46 @@ describe('مسؤول القسم — حاويات GBS', () => {
     render(<GbsContainersPage />)
     expect(screen.getByTestId('gbs-approval-banner').textContent).toContain('قيد الانتظار')
     expect(screen.getByTestId('gbs-approval-banner').textContent).toContain('توافق غرفة العمليات')
+  })
+
+  it('لافتة نطاق الاختصاص تعرض مناطق المسؤول المسندة إليه', () => {
+    h.jur = [4, 6]
+    render(<GbsContainersPage />)
+    const banner = screen.getByTestId('gbs-jurisdiction-banner')
+    expect(banner.textContent).toContain('الجادرية')
+    expect(banner.textContent).toContain('الزعفرانية')
+    expect(screen.queryByTestId('gbs-jurisdiction-empty')).not.toBeInTheDocument()
+  })
+
+  it('مسؤول بلا مناطق مسندة يرى تحذيراً واضحاً', () => {
+    h.jur = []
+    render(<GbsContainersPage />)
+    expect(screen.getByTestId('gbs-jurisdiction-empty').textContent).toContain('لم تُسند إليك أي منطقة')
+    expect(screen.queryByTestId('gbs-jurisdiction-banner')).not.toBeInTheDocument()
+  })
+
+  it('الزونات في طبقة أدنى من النقاط فتبقى الحاويات قابلة للضغط', () => {
+    h.zones = [
+      {
+        id: 'z1',
+        name: 'زون الجادرية',
+        source: 'platform',
+        color: '#7c3aed',
+        polygon: [
+          [33.3, 44.4],
+          [33.3, 44.5],
+          [33.4, 44.5],
+        ],
+      },
+    ]
+    render(<GbsContainersPage />)
+    const zones = screen.getAllByTestId('gbs-zone')
+    expect(zones.length).toBeGreaterThan(0)
+    // طبقة مستقلة أدنى من overlayPane(400) — لا تغطي نقاط الحاويات مهما كان ترتيب التحميل
+    expect(zones[0]).toHaveAttribute('data-pane', 'gbsZones')
+    // وضع العرض: الزون تفاعلي (popup باسم الزون)
+    expect(zones[0]).toHaveAttribute('data-interactive', 'true')
+    expect(screen.getByText('زون الجادرية')).toBeInTheDocument()
   })
 
   it('لا يملك أزرار إضافة أو حذف أو تعديل مباشر', () => {

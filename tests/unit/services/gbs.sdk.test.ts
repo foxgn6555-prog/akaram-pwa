@@ -27,6 +27,23 @@ const h = vi.hoisted(() => {
       h.buckets.push(bucket)
       return bucket
     }),
+    profileResult: { data: { sectors: [4, 6] }, error: null } as {
+      data: { sectors: number[] } | null
+      error: { message: string } | null
+    },
+    fromCalls: [] as string[],
+    eqCalls: [] as [string, unknown][],
+    from: vi.fn((table: string) => {
+      h.fromCalls.push(table)
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn((col: string, val: unknown) => {
+            h.eqCalls.push([col, val])
+            return { maybeSingle: vi.fn(async () => h.profileResult) }
+          }),
+        })),
+      }
+    }),
   }
 })
 
@@ -37,6 +54,7 @@ vi.mock('@sdk/client', async (importOriginal) => {
     supabase: {
       auth: { getUser: h.getUser },
       rpc: h.rpc,
+      from: h.from,
       storage: { from: h.storageFrom },
     },
   }
@@ -66,6 +84,9 @@ beforeEach(() => {
   h.buckets.length = 0
   h.rpc.mockClear()
   h.storageFrom.mockClear()
+  h.profileResult = { data: { sectors: [4, 6] }, error: null }
+  h.fromCalls.length = 0
+  h.eqCalls.length = 0
 })
 
 describe('gbs.sdk — الحاويات', () => {
@@ -270,5 +291,31 @@ describe('gbs.sdk — الصور', () => {
     const url = await gbs.imageUrl('u/p.jpg')
     expect(url).toBe('https://signed/u/p.jpg')
     expect((h.buckets[0] as Bucket).createSignedUrl).toHaveBeenCalledWith('u/p.jpg', 1800)
+  })
+})
+
+describe('gbs.sdk — اختصاص مسؤول القسم (00138)', () => {
+  it('يقرأ مناطق المسؤول من manager_profiles بمعرّفه', async () => {
+    const jur = await gbs.jurisdiction()
+    expect(jur).toEqual([4, 6])
+    expect(h.fromCalls[h.fromCalls.length - 1]).toBe('manager_profiles')
+    expect(h.eqCalls[h.eqCalls.length - 1]).toEqual(['user_id', 'gbs-user'])
+  })
+
+  it('يعيد مصفوفة فارغة بلا مستخدم مصادَق', async () => {
+    h.getUser.mockResolvedValueOnce({ data: { user: null as unknown as { id: string } }, error: null })
+    expect(await gbs.jurisdiction()).toEqual([])
+  })
+
+  it('يعيد مصفوفة فارغة عندما لا يوجد ملف مسؤول (بلا إسناد)', async () => {
+    h.profileResult = { data: null, error: null }
+    expect(await gbs.jurisdiction()).toEqual([])
+  })
+
+  it('يترجم خطأ قراءة الاختصاص إلى SDKError', async () => {
+    h.profileResult = { data: null, error: { message: 'db down' } }
+    const err = await gbs.jurisdiction().catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(SDKError)
+    expect((err as SDKError).code).toBe('GBS_JURISDICTION_FAILED')
   })
 })
