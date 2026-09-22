@@ -216,6 +216,36 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     expect(screen.queryAllByTestId('gbs-zone')).toHaveLength(0)
   })
 
+  it('خريطة حوار الإضافة = خريطة العرض: زونات وملء شاشة وقراءة إحداثيات', () => {
+    h.zones = [
+      {
+        id: 'z1',
+        name: 'زون الكرادة',
+        source: 'platform',
+        color: '#7c3aed',
+        polygon: [
+          [33.3, 44.4],
+          [33.3, 44.5],
+          [33.4, 44.5],
+        ],
+      },
+    ]
+    render(<GbsContainersPage />)
+    fireEvent.click(screen.getByTestId('gbs-add-container'))
+    // خريطة التحديد داخل الحوار موجودة ومستقلة عن خريطة العرض
+    expect(screen.getByTestId('gbs-pick-map')).toBeInTheDocument()
+    expect(screen.getByTestId('gbs-map')).toBeInTheDocument()
+    // الزونات مرسومة على الخريطتين معاً
+    expect(screen.getAllByTestId('gbs-zone').length).toBeGreaterThanOrEqual(2)
+    // زر ملء الشاشة وزر الزونات على خريطة الحوار كما على خريطة العرض
+    expect(screen.getAllByTestId('gbs-map-fullscreen')).toHaveLength(2)
+    expect(screen.getAllByTestId('gbs-toggle-zones')).toHaveLength(2)
+    // تحديد الإحداثيات يدوياً ينعكس قراءة رقمية دقيقة على الخريطة
+    fireEvent.change(screen.getByTestId('gbs-lat'), { target: { value: '33.25' } })
+    fireEvent.change(screen.getByTestId('gbs-lng'), { target: { value: '44.35' } })
+    expect(screen.getByTestId('gbs-pick-readout')).toHaveTextContent('33.250000, 44.350000')
+  })
+
   it('القائمة تعرض القاطع والمنطقة لكل حاوية', () => {
     render(<GbsContainersPage />)
     expect(screen.getByTestId('gbs-list-item-c1').textContent).toContain('قاطع الكرادة')

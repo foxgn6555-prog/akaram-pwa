@@ -2,6 +2,38 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   excel: vi.fn(),
+  gbs: [
+    {
+      id: 'g1',
+      code: 'GBS-0001',
+      label: 'حاوية الكرادة',
+      latitude: 33.3,
+      longitude: 44.4,
+      status: 'ok',
+      imagePath: 'gbs/g1.jpg',
+      notes: 'بجانب المدرسة',
+      updatedAt: '2026-09-21T08:00:00Z',
+      pendingCount: 2,
+      sectorId: 4,
+      areaName: 'الجادرية',
+      parentSector: 'karrada',
+    },
+    {
+      id: 'g2',
+      code: 'GBS-0002',
+      label: 'حاوية الزعفرانية',
+      latitude: 33.2,
+      longitude: 44.5,
+      status: 'missing',
+      imagePath: null,
+      notes: null,
+      updatedAt: '2026-09-20T08:00:00Z',
+      pendingCount: 0,
+      sectorId: 6,
+      areaName: 'الزعفرانية',
+      parentSector: 'zaafaraniya',
+    },
+  ] as unknown[],
   weighings: [
     {
       visit_id: 'v1',
@@ -90,6 +122,9 @@ const h = vi.hoisted(() => ({
   ],
 }))
 vi.mock('@lib/export/excel-report', () => ({ buildExcelReport: h.excel }))
+vi.mock('@features/gbs/hooks', () => ({
+  useGbsContainers: () => ({ data: h.gbs, isLoading: false }),
+}))
 const summary = {
   departure_id: 'd1',
   vehicle_name: 'كابسة',
@@ -283,5 +318,87 @@ describe('تقارير غرفة العمليات المركبة', () => {
     fireEvent.change(screen.getByLabelText('المنطقة'), { target: { value: '6' } })
     expect(screen.queryByText('DB-9')).not.toBeInTheDocument()
     expect(screen.getByText('DB-10')).toBeInTheDocument()
+  })
+
+  it('يعرض تبويب حاويات GBS مترجماً مع إحصاءات الحالات', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-gbs'))
+    expect(screen.getByRole('columnheader', { name: 'رمز الحاوية' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'طلبات تحديث معلّقة' })).toBeInTheDocument()
+    expect(screen.getByText('GBS-0001')).toBeInTheDocument()
+    expect(screen.getByText('GBS-0002')).toBeInTheDocument()
+    expect(screen.getAllByText('سليمة').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('الكرادة').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('الجادرية').length).toBeGreaterThan(0)
+    expect(screen.getByText('33.300000')).toBeInTheDocument()
+    expect(screen.getByTestId('gbs-stat-ok')).toHaveTextContent('1')
+    expect(screen.getByTestId('gbs-stat-missing')).toHaveTextContent('1')
+    expect(screen.getByTestId('gbs-stat-replace')).toHaveTextContent('0')
+    // لا مفاتيح مكررة أو مفقودة في React (عقد معتمد)
+    const keyWarn = err.mock.calls.find((call) => String(call[0]).includes('key'))
+    expect(keyWarn).toBeUndefined()
+    err.mockRestore()
+  })
+
+  it('يصدر كل بيانات الحاويات بملف Excel الاحترافي مع رسم الحالات', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-gbs'))
+    fireEvent.click(screen.getByTestId('ops-export-excel'))
+    expect(h.excel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'حاويات GBS',
+        fileName: expect.stringContaining('حاويات-GBS-'),
+        rows: [
+          expect.objectContaining({
+            code: 'GBS-0001',
+            label: 'حاوية الكرادة',
+            status: 'سليمة',
+            parent_sector: 'الكرادة',
+            area_name: 'الجادرية',
+            latitude: '33.300000',
+            longitude: '44.400000',
+            pending_updates: '2',
+            has_image: 'نعم',
+            notes: 'بجانب المدرسة',
+          }),
+          expect.objectContaining({
+            code: 'GBS-0002',
+            status: 'مفقودة',
+            parent_sector: 'الزعفرانية',
+            has_image: 'لا',
+            notes: '—',
+          }),
+        ],
+      }),
+    )
+    const call = h.excel.mock.calls[0]![0] as {
+      columns: { header: string }[]
+      charts?: { kind: string; data: { label: string; value: number }[] }[]
+    }
+    expect(call.columns.map((column) => column.header)).toContain('رمز الحاوية')
+    expect(call.columns.map((column) => column.header)).toContain('خط العرض')
+    expect(call.charts).toHaveLength(1)
+    expect(call.charts![0]!.kind).toBe('donut')
+    expect(call.charts![0]!.data).toEqual([
+      { label: 'سليمة', value: 1, color: '#16a34a' },
+      { label: 'متضررة', value: 0, color: '#eab308' },
+      { label: 'يجب استبدالها', value: 0, color: '#dc2626' },
+      { label: 'مفقودة', value: 1, color: '#64748b' },
+    ])
+  })
+
+  it('يفلتر الحاويات حسب القاطع ثم المنطقة', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-gbs'))
+    fireEvent.change(screen.getByTestId('ops-parent-sector-filter'), {
+      target: { value: 'zaafaraniya' },
+    })
+    expect(screen.queryByText('GBS-0001')).not.toBeInTheDocument()
+    expect(screen.getByText('GBS-0002')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('ops-parent-sector-filter'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('المنطقة'), { target: { value: '4' } })
+    expect(screen.getByText('GBS-0001')).toBeInTheDocument()
+    expect(screen.queryByText('GBS-0002')).not.toBeInTheDocument()
   })
 })

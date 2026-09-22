@@ -3,8 +3,6 @@
  * خريطة كاملة + إضافة/تعديل/حذف + بحث متقدم + اعتماد أو رفض طلبات تحديث مسؤولي الأقسام.
  */
 import { useMemo, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, useMapEvents } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
 import GbsMap from '@features/gbs/GbsMap'
 import SignedPhoto from '@features/gbs/SignedPhoto'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
@@ -41,17 +39,6 @@ const emptyDraft = (): Draft => ({
   imagePath: null,
   notes: '',
 })
-
-function PointCapture({ onPick }: { onPick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (event) =>
-      onPick(
-        Number(event.latlng.lat.toFixed(7)),
-        Number(event.latlng.lng.toFixed(7)),
-      ),
-  })
-  return null
-}
 
 export default function GbsContainersPage() {
   const [search, setSearch] = useState('')
@@ -410,7 +397,7 @@ export default function GbsContainersPage() {
         >
           <form
             onSubmit={submitDraft}
-            className="max-h-[92vh] w-full max-w-lg space-y-3 overflow-y-auto rounded-3xl bg-white p-5"
+            className="max-h-[92vh] w-full max-w-2xl space-y-3 overflow-y-auto rounded-3xl bg-white p-5"
           >
             <h2 className="text-lg font-black">
               {draft.id ? `تعديل الحاوية ${list.find((c) => c.id === draft.id)?.code ?? ''}` : 'إضافة حاوية جديدة'}
@@ -461,34 +448,27 @@ export default function GbsContainersPage() {
                 />
               </label>
             </div>
-            <div className="relative h-56 overflow-hidden rounded-2xl border bg-slate-900">
-              <div className="absolute right-3 top-3 z-[1000] rounded-xl bg-slate-950/85 px-3 py-1.5 text-[10px] font-black text-white">
-                انقر على الخريطة لتحديد موقع الحاوية
-              </div>
-              <MapContainer
-                center={[draft.latitude ?? 33.3152, draft.longitude ?? 44.3661]}
-                zoom={13}
-                style={{ height: '100%', width: '100%' }}
-                scrollWheelZoom
-              >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <PointCapture
-                  onPick={(lat, lng) => setDraft((prev) => (prev ? { ...prev, latitude: lat, longitude: lng } : prev))}
-                />
-                {draft.latitude != null && draft.longitude != null && (
-                  <CircleMarker
-                    center={[draft.latitude, draft.longitude]}
-                    radius={10}
-                    pathOptions={{
-                      color: '#fff',
-                      weight: 2,
-                      fillColor: GBS_STATUS_META[draft.status].color,
-                      fillOpacity: 0.95,
-                    }}
-                  />
-                )}
-              </MapContainer>
-            </div>
+            {/* خريطة التحديد = خريطة العرض نفسها: زونات + ملء شاشة + نقاط الحاويات القائمة للمقارنة */}
+            <GbsMap
+              testId="gbs-pick-map"
+              containers={list}
+              zones={zones.data ?? []}
+              heightClass="h-72"
+              center={
+                draft.latitude != null && draft.longitude != null
+                  ? [draft.latitude, draft.longitude]
+                  : undefined
+              }
+              zoom={draft.latitude != null && draft.longitude != null ? 15 : 12}
+              pickPoint={
+                draft.latitude != null && draft.longitude != null
+                  ? { lat: draft.latitude, lng: draft.longitude }
+                  : null
+              }
+              onPick={(lat, lng) =>
+                setDraft((prev) => (prev ? { ...prev, latitude: lat, longitude: lng } : prev))
+              }
+            />
             <div>
               <p className="mb-1 text-[11px] font-black text-slate-500">حالة الحاوية</p>
               <div className="grid grid-cols-4 gap-2">

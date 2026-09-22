@@ -12,6 +12,7 @@ import {
   Popup,
   TileLayer,
   useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GbsContainer, GbsZone } from './types'
@@ -27,6 +28,15 @@ function FlyTo({ container }: { container: GbsContainer | null }) {
   return null
 }
 
+/** وضع الالتقاط: نقرة على الخريطة تحدد إحداثيات الحاوية (حوار الإضافة/التعديل) */
+function PickCapture({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (event) =>
+      onPick(Number(event.latlng.lat.toFixed(7)), Number(event.latlng.lng.toFixed(7))),
+  })
+  return null
+}
+
 export interface GbsMapProps {
   containers: GbsContainer[]
   zones?: GbsZone[]
@@ -34,6 +44,16 @@ export interface GbsMapProps {
   onSelect?: (container: GbsContainer) => void
   renderPopupActions?: (container: GbsContainer) => ReactNode
   heightClass?: string
+  /** وضع الالتقاط — عند وجوده يمكن اختيار الموقع بالنقر (خريطة حوار الإضافة/التعديل) */
+  onPick?: (lat: number, lng: number) => void
+  /** الإحداثيات الملتقطة حالياً — علامة مميزة + قراءة رقمية دقيقة */
+  pickPoint?: { lat: number; lng: number } | null
+  /** معرف اختباري خاص (خريطة الحوار تُعرف بـ gbs-pick-map) */
+  testId?: string
+  /** مركز ابتدائي مخصص (الافتراضي بغداد) — يُقرأ عند التركيب فقط */
+  center?: [number, number]
+  /** تكبير ابتدائي (الافتراضي 12) */
+  zoom?: number
 }
 
 export default function GbsMap({
@@ -43,6 +63,11 @@ export default function GbsMap({
   onSelect,
   renderPopupActions,
   heightClass = 'h-[520px]',
+  onPick,
+  pickPoint = null,
+  testId = 'gbs-map',
+  center,
+  zoom,
 }: GbsMapProps) {
   const [tileFailed, setTileFailed] = useState(false)
   const [full, setFull] = useState(false)
@@ -53,10 +78,10 @@ export default function GbsMap({
     <div
       className={
         full
-          ? 'fixed inset-0 z-[2000] bg-white'
+          ? 'fixed inset-0 z-[2200] bg-white'
           : `relative overflow-hidden rounded-3xl border bg-slate-900 ${heightClass}`
       }
-      data-testid="gbs-map"
+      data-testid={testId}
     >
       <div className="absolute right-3 top-3 z-[1000] flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5 rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur">
         <button
@@ -93,14 +118,27 @@ export default function GbsMap({
           تعذر تحميل خلفية OpenStreetMap — النقاط ما زالت ظاهرة.
         </div>
       )}
-      {containers.length === 0 && (
+      {containers.length === 0 && !onPick && (
         <div className="absolute inset-x-10 bottom-4 z-[1000] rounded-xl bg-white/95 p-3 text-center text-xs font-bold text-slate-600">
           لا توجد حاويات مطابقة — أضف حاوية أو غيّر البحث.
         </div>
       )}
+      {onPick && (
+        <div className="absolute inset-x-3 bottom-4 z-[1000] mx-auto w-fit max-w-[90%] rounded-2xl bg-slate-950/85 px-4 py-2 text-center text-[11px] font-black text-white">
+          انقر على الخريطة لتحديد موقع الحاوية
+          {pickPoint && (
+            <span
+              data-testid="gbs-pick-readout"
+              className="mt-0.5 block text-[10px] font-bold text-cyan-300"
+            >
+              الموقع المحدد: {pickPoint.lat.toFixed(6)}, {pickPoint.lng.toFixed(6)}
+            </span>
+          )}
+        </div>
+      )}
       <MapContainer
-        center={BAGHDAD}
-        zoom={12}
+        center={center ?? BAGHDAD}
+        zoom={zoom ?? 12}
         className="h-full w-full"
         scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
@@ -114,6 +152,7 @@ export default function GbsMap({
           }}
         />
         <FlyTo container={selected} />
+        {onPick && <PickCapture onPick={onPick} />}
         {showZones &&
           zones.map((zone) => {
             const positions = zone.polygon.map((p) =>
@@ -170,6 +209,19 @@ export default function GbsMap({
             </CircleMarker>
           )
         })}
+        {onPick && pickPoint && (
+          <CircleMarker
+            center={[pickPoint.lat, pickPoint.lng]}
+            radius={9}
+            pathOptions={{
+              color: '#ffffff',
+              weight: 2.5,
+              dashArray: '4 3',
+              fillColor: '#0284c7',
+              fillOpacity: 1,
+            }}
+          />
+        )}
       </MapContainer>
     </div>
   )

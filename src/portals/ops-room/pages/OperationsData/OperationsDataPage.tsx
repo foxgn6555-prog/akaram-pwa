@@ -23,11 +23,22 @@ import {
   useOpsVehicleKpis,
 } from '@features/vehicle-operations/hooks'
 import { useOpsWorkflow, useSectorTonnage } from '@features/transfer-station'
+import { useGbsContainers } from '@features/gbs/hooks'
+import { GBS_STATUS_META, GBS_STATUS_ORDER } from '@features/gbs/statusMeta'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 
 export type OperationsTab =
-  'alerts' | 'summary' | 'movements' | 'station' | 'weighings' | 'sectors' | 'garage' | 'maintenance' | 'attendance'
+  | 'alerts'
+  | 'summary'
+  | 'movements'
+  | 'station'
+  | 'weighings'
+  | 'sectors'
+  | 'garage'
+  | 'maintenance'
+  | 'attendance'
+  | 'gbs'
 type Row = Record<string, unknown>
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -114,6 +125,14 @@ const labels: Record<string, string> = {
   elapsed_minutes: 'المدة الحالية',
   alert_type: 'نوع التنبيه',
   timeline: 'التسلسل الزمني',
+  code: 'رمز الحاوية',
+  label: 'اسم الحاوية',
+  latitude: 'خط العرض',
+  longitude: 'خط الطول',
+  pending_updates: 'طلبات تحديث معلّقة',
+  has_image: 'صورة',
+  notes: 'ملاحظات',
+  updated_at: 'آخر تحديث',
 }
 const tabs: Record<OperationsTab, string> = {
   alerts: 'التنبيهات الحية',
@@ -125,6 +144,7 @@ const tabs: Record<OperationsTab, string> = {
   garage: 'الكراج والورديات',
   maintenance: 'الأعطال والصيانة',
   attendance: 'حضور العمال',
+  gbs: 'حاويات GBS',
 }
 const reportKeys: Record<OperationsTab, string[]> = {
   summary: [
@@ -261,6 +281,19 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'completed_at',
     'total_minutes',
   ],
+  gbs: [
+    'code',
+    'label',
+    'status',
+    'parent_sector',
+    'area_name',
+    'latitude',
+    'longitude',
+    'pending_updates',
+    'has_image',
+    'notes',
+    'updated_at',
+  ],
 }
 const dateKeys = (key: string) =>
   key.endsWith('_at') || key === 'started_at' || key === 'completed_at'
@@ -317,6 +350,7 @@ function readableValue(key: string, value: unknown) {
   if (minuteKeys(key)) return minutes(value)
   if (key === 'action_link') return links[String(value)] ?? 'صفحة المعالجة المختصة'
   if (key === 'sector_id') return `المنطقة رقم ${String(value)}`
+  if (key === 'latitude' || key === 'longitude') return Number(value).toFixed(6)
   if (typeof value === 'boolean') return value ? 'نعم' : 'لا'
   return values[String(value)] ?? String(value)
 }
@@ -350,6 +384,7 @@ export default function OperationsDataPage() {
     attendance = useOpsAttendance(from, to)
   const weighings = useOpsWorkflow()
   const sectorsTonnage = useSectorTonnage(from, to)
+  const gbsContainers = useGbsContainers(null, null, null, null)
   const allSources = useMemo<Record<OperationsTab, Row[]>>(
     () => ({
       alerts: (alertQuery.data ?? []) as unknown as Row[],
@@ -364,6 +399,20 @@ export default function OperationsDataPage() {
       garage: garage.data ?? [],
       maintenance: maintenance.data ?? [],
       attendance: attendance.data ?? [],
+      gbs: (gbsContainers.data ?? []).map((c) => ({
+        code: c.code,
+        label: c.label,
+        status: GBS_STATUS_META[c.status].label,
+        parent_sector: c.parentSector,
+        area_name: c.areaName,
+        sector_id: c.sectorId,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        pending_updates: c.pendingCount,
+        has_image: c.imagePath != null,
+        notes: c.notes ?? '',
+        updated_at: c.updatedAt,
+      })) as unknown as Row[],
     }),
     [
       alertQuery.data,
@@ -375,6 +424,7 @@ export default function OperationsDataPage() {
       garage.data,
       maintenance.data,
       attendance.data,
+      gbsContainers.data,
     ],
   )
   const source = allSources[tab]
@@ -411,7 +461,7 @@ export default function OperationsDataPage() {
   const activeFilterCount = [search, shift, parentSector, sector, tab === 'alerts' ? severity : ''].filter(
     Boolean,
   ).length
-  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance, sectorsTonnage].some(
+  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance, sectorsTonnage, gbsContainers].some(
     (query) => query.isLoading,
   )
   const setRange = (days: number) => {
@@ -441,15 +491,22 @@ export default function OperationsDataPage() {
     const columns: ReportColumn[] = (visible.length ? visible : available).map((key) => ({
       header: labels[key] ?? key,
       key,
-      width: minuteKeys(key) ? 16 : 22,
+      width: minuteKeys(key) ? 16 : key === 'latitude' || key === 'longitude' ? 14 : 22,
       wrap: true,
     }))
+    const statusCount = (label: string) => rows.filter((row) => row.status === label).length
     await buildExcelReport({
       sheetName: tabs[tab].slice(0, 28),
       companySub: 'غرفة العمليات المركزية',
       title: tabs[tab],
-      meta: `الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search || 'الكل'} · الشفت ${shift || 'الكل'} · القاطع ${parentLabels[parentSector] ?? 'الكل'} · المنطقة ${sector || 'الكل'}`,
-      fileName: `غرفة-العمليات-${tab}-${from}-${to}.xlsx`,
+      meta:
+        tab === 'gbs'
+          ? `كل الحاويات المسجلة · النتائج ${rows.length} · البحث ${search || 'الكل'} · القاطع ${parentLabels[parentSector] ?? 'الكل'} · المنطقة ${sector || 'الكل'}`
+          : `الفترة ${from} إلى ${to} · النتائج ${rows.length} · البحث ${search || 'الكل'} · الشفت ${shift || 'الكل'} · القاطع ${parentLabels[parentSector] ?? 'الكل'} · المنطقة ${sector || 'الكل'}`,
+      fileName:
+        tab === 'gbs'
+          ? `حاويات-GBS-${today()}.xlsx`
+          : `غرفة-العمليات-${tab}-${from}-${to}.xlsx`,
       orientation: 'landscape',
       columns,
       rows: rows.map((row) =>
@@ -457,6 +514,21 @@ export default function OperationsDataPage() {
           (visible.length ? visible : available).map((key) => [key, readableValue(key, row[key])]),
         ),
       ),
+      charts:
+        tab === 'gbs'
+          ? [
+              {
+                title: 'حالات حاويات GBS',
+                kind: 'donut' as const,
+                valueLabel: 'حاوية',
+                data: GBS_STATUS_ORDER.map((key) => ({
+                  label: GBS_STATUS_META[key].label,
+                  value: statusCount(GBS_STATUS_META[key].label),
+                  color: GBS_STATUS_META[key].color,
+                })),
+              },
+            ]
+          : undefined,
     })
   }
   return (
@@ -661,7 +733,20 @@ export default function OperationsDataPage() {
         ))}
       </nav>
 
-      {tab === 'alerts' ? (
+      {tab === 'gbs' ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <Stat label="عدد الحاويات" value={rows.length} />
+          {GBS_STATUS_ORDER.map((key) => (
+            <Stat
+              key={key}
+              id={`gbs-stat-${key}`}
+              label={GBS_STATUS_META[key].label}
+              value={rows.filter((row) => row.status === GBS_STATUS_META[key].label).length}
+            />
+          ))}
+          <Stat label="طلبات تحديث معلّقة" value={sum('pending_updates')} />
+        </div>
+      ) : tab === 'alerts' ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="كل التنبيهات" value={rows.length} />
           <Stat
@@ -778,7 +863,7 @@ export default function OperationsDataPage() {
             <tbody>
               {rows.map((row, index) => (
                 <tr
-                  key={`${tab}-${index}-${String(row.visit_id ?? row.departure_id ?? row.alert_id ?? '')}`}
+                  key={`${tab}-${index}-${String(row.visit_id ?? row.departure_id ?? row.alert_id ?? row.code ?? '')}`}
                   className="border-t transition hover:bg-indigo-50/50 even:bg-slate-50"
                 >
                   {visible.map((key) => (
@@ -896,9 +981,9 @@ function OperationsPulse({
     </article>
   )
 }
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({ label, value, id }: { label: string; value: string | number; id?: string }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div data-testid={id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-cyan-400 via-indigo-500 to-violet-500 opacity-70" />
       <div className="flex items-start justify-between gap-3">
         <div>
