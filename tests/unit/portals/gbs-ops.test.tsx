@@ -25,6 +25,7 @@ vi.mock('react-leaflet', () => ({
   useMapEvents: () => null,
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
+  Marker: ({ children }: { children: ReactNode }) => <div data-testid="gbs-marker">{children}</div>,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Polygon: ({
     children,
@@ -102,6 +103,8 @@ describe('غرفة العمليات — خريطة GBS', () => {
   it('يعرض النقاط والقائمة وإحصاءات الحالات', () => {
     render(<GbsContainersPage />)
     expect(screen.getByTestId('gbs-map')).toBeInTheDocument()
+    // نقاط الحاويات Markers DOM في طبقة أعلى من الزونات — لا تُغطى ولا تُمنع نقراتها أبداً
+    expect(screen.getAllByTestId('gbs-marker')).toHaveLength(2)
     expect(screen.getByTestId('gbs-popup-c1')).toBeInTheDocument()
     expect(screen.getByTestId('gbs-list-item-c2')).toBeInTheDocument()
     expect(screen.getByTestId('gbs-stat-ok').textContent).toContain('1')
@@ -254,11 +257,9 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     // الزونات مرسومة على الخريطتين معاً — في طبقة أدنى من النقاط دائماً
     expect(screen.getAllByTestId('gbs-zone').length).toBeGreaterThanOrEqual(2)
     const mainZone = within(screen.getByTestId('gbs-map')).getAllByTestId('gbs-zone')[0]!
-    expect(mainZone).toHaveAttribute('data-pane', 'gbsZones')
     expect(mainZone).toHaveAttribute('data-interactive', 'true')
     // خريطة الالتقاط: الزونات غير تفاعلية إطلاقاً — كل نقرة تصل إلى الخريطة لتحديد الموقع
     const pickZone = within(screen.getByTestId('gbs-pick-map')).getAllByTestId('gbs-zone')[0]!
-    expect(pickZone).toHaveAttribute('data-pane', 'gbsZones')
     expect(pickZone).toHaveAttribute('data-interactive', 'false')
     // ولا popup للزون في وضع الالتقاط (لا يعترض التحديد)
     expect(within(screen.getByTestId('gbs-pick-map')).queryByText('زون الكرادة')).not.toBeInTheDocument()

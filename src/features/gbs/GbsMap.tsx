@@ -8,12 +8,14 @@ import { createPortal } from 'react-dom'
 import {
   CircleMarker,
   MapContainer,
+  Marker,
   Polygon,
   Popup,
   TileLayer,
   useMap,
   useMapEvents,
 } from 'react-leaflet'
+import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GbsContainer, GbsZone } from './types'
 import { GBS_STATUS_META } from './statusMeta'
@@ -38,21 +40,21 @@ function PickCapture({ onPick }: { onPick: (lat: number, lng: number) => void })
 }
 
 /**
- * طبقة مستقلة للزونات أسفل طبقة النقاط (overlayPane=400) — zIndex=350.
- * السبب الجذري لإصلاح «الزون يمنع الضغط على الحاوية/على الخريطة»:
- * CircleMarker يرسم في overlayPane نفسها التي تُرسم فيها المضلعات، وكانت الزونات
- * تصل متأخرة (تحميل غير متزامن) فتُضاف فوق النقاط وتلتقط النقرات. بطبقة أدنى
- * تبقى النقاط قابلة للنقر دائماً مهما كان ترتيب الوصول.
+ * نقطة الحاوية كـ Marker برموز DOM في markerPane (طبقة 600) — نفس عمارة خريطة GPS:
+ * الآليات والمعالم هناك Markers فوق مضلعات الزونات (overlayPane 400) فلا تُغطى أبداً.
+ * CircleMarker السابق كان SVG في طبقة المضلعات نفسها فتغطيه الزونات عند وصولها
+ * المتأخر (التحميل غير المتزامن) — وهذا كان سبب «الزون يمنع الضغط على الحاوية».
  */
-function ZonePane() {
-  const map = useMap()
-  useEffect(() => {
-    if (!map.getPane('gbsZones')) {
-      const pane = map.createPane('gbsZones')
-      pane.style.zIndex = '350'
-    }
-  }, [map])
-  return null
+function containerIcon(container: GbsContainer, selected: boolean): L.DivIcon {
+  const size = selected ? 16 : 12
+  const color = GBS_STATUS_META[container.status].color
+  return L.divIcon({
+    className: '',
+    html: `<div data-testid="gbs-marker-${container.id}" style="width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:9999px;box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2 - 2],
+  })
 }
 
 export interface GbsMapProps {
@@ -170,7 +172,6 @@ export default function GbsMap({
           }}
         />
         <FlyTo container={selected} />
-        <ZonePane />
         {onPick && <PickCapture onPick={onPick} />}
         {showZones &&
           zones.map((zone) => {
@@ -181,7 +182,6 @@ export default function GbsMap({
               <Polygon
                 key={zone.id}
                 positions={positions}
-                pane="gbsZones"
                 interactive={!onPick}
                 pathOptions={{ color: zone.color || '#7c3aed', fillOpacity: 0.08, weight: 2 }}
               >
@@ -198,16 +198,10 @@ export default function GbsMap({
         {containers.map((container) => {
           const meta = GBS_STATUS_META[container.status]
           return (
-            <CircleMarker
+            <Marker
               key={container.id}
-              center={[container.latitude, container.longitude]}
-              radius={container.id === selectedId ? 8 : 5.5}
-              pathOptions={{
-                color: '#ffffff',
-                weight: 1.5,
-                fillColor: meta.color,
-                fillOpacity: 0.95,
-              }}
+              position={[container.latitude, container.longitude]}
+              icon={containerIcon(container, container.id === selectedId)}
               eventHandlers={{ click: () => onSelect?.(container) }}
             >
               <Popup>
@@ -229,7 +223,7 @@ export default function GbsMap({
                   {renderPopupActions?.(container)}
                 </div>
               </Popup>
-            </CircleMarker>
+            </Marker>
           )
         })}
         {onPick && pickPoint && (

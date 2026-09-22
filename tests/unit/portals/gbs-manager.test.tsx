@@ -22,6 +22,7 @@ vi.mock('react-leaflet', () => ({
   useMapEvents: () => null,
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
+  Marker: ({ children }: { children: ReactNode }) => <div data-testid="gbs-marker">{children}</div>,
   CircleMarker: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Polygon: ({
     children,
@@ -122,11 +123,10 @@ describe('مسؤول القسم — حاويات GBS', () => {
     render(<GbsContainersPage />)
     const zones = screen.getAllByTestId('gbs-zone')
     expect(zones.length).toBeGreaterThan(0)
-    // طبقة مستقلة أدنى من overlayPane(400) — لا تغطي نقاط الحاويات مهما كان ترتيب التحميل
-    expect(zones[0]).toHaveAttribute('data-pane', 'gbsZones')
-    // وضع العرض: الزون تفاعلي (popup باسم الزون)
+    // وضع العرض: الزون تفاعلي (popup باسم الزون) والنقاط Markers فوقه دائماً
     expect(zones[0]).toHaveAttribute('data-interactive', 'true')
     expect(screen.getByText('زون الجادرية')).toBeInTheDocument()
+    expect(screen.getAllByTestId('gbs-marker')).toHaveLength(1)
   })
 
   it('لا يملك أزرار إضافة أو حذف أو تعديل مباشر', () => {
