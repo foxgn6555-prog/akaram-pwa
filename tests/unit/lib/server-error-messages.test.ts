@@ -41,6 +41,15 @@ describe('ترجمة أكواد أخطاء الخادم إلى رسائل عرب
     expect(handleAppError(e).message).toBe('SOME_FUTURE_CODE')
   })
 
+  it('يترجم أكواد وحدة GBS الحاويات', () => {
+    expect(
+      handleAppError(new SDKError('GBS_UPDATE_ALREADY_PENDING', 'P0001')).message,
+    ).toContain('طلب تحديث معلق')
+    expect(handleAppError(new SDKError('GBS_FORBIDDEN', 'P0001')).message).toContain(
+      'غرفة العمليات فقط',
+    )
+  })
+
   it('يترجم أكواد الكراج المركزي المتبقية', () => {
     expect(
       handleAppError(new SDKError('GARAGE_VEHICLE_IN_MAINTENANCE', 'P0001')).message,

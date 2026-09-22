@@ -96,7 +96,9 @@
     "garage_reports": "تقارير الكراج",
     "garage_zero_approvals": "موافقات تصفير خزانات الكراج",
     "notification_policies": "سياسات الإشعارات والانطلاقات",
-    "garage_maintenance_coordination": "تنسيق حركات الصيانة"
+    "garage_maintenance_coordination": "تنسيق حركات الصيانة",
+    "ops_gbs_containers": "GBS الحاويات",
+    "mgr_gbs_containers": "حاويات GBS"
   },
   "sections": {
     "main": "القائمة الرئيسية",

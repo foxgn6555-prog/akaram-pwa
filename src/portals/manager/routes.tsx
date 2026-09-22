@@ -11,6 +11,7 @@ import AssignedComplaintsPage from './pages/Complaints/AssignedComplaintsPage'
 import ComplaintTicketPage from './pages/Complaints/ComplaintTicketPage'
 import ComplaintsGuidancePage from './pages/Complaints/ComplaintsGuidancePage'
 import VehicleTripsPage from './pages/VehicleTrips/VehicleTripsPage'
+import GbsContainersPage from './pages/Gbs/GbsContainersPage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
@@ -19,6 +20,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'attendance', element: <AttendancePage /> },
   { path: 'breakdown', element: <BreakdownPage /> },
   { path: 'vehicle-trips', element: <VehicleTripsPage /> },
+  { path: 'gbs-containers', element: <GbsContainersPage /> },
   { path: 'complaints', element: <AssignedComplaintsPage /> },
   { path: 'complaints/:complaintId', element: <ComplaintTicketPage /> },
   { path: 'complaints-guidance', element: <ComplaintsGuidancePage /> },

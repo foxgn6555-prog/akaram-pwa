@@ -5,6 +5,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard/OpsRoomDashboardPage'))
 const Reports = lazy(() => import('./pages/OperationsData/OperationsDataPage'))
 const StationDaily = lazy(() => import('./pages/StationDaily/StationDailyReportPage'))
 const Gps = lazy(() => import('./pages/Gps/GpsDataPage'))
+const GbsContainers = lazy(() => import('./pages/Gbs/GbsContainersPage'))
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
     default: () => <module.default managementMode />,
@@ -31,4 +32,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'vehicles-database/:vehicleId', element: load(<FleetDetail />) },
   { path: 'vehicles-archive', element: load(<FleetArchive />) },
   { path: 'gps', element: load(<Gps />) },
+  { path: 'gbs-containers', element: load(<GbsContainers />) },
 ]

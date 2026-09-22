@@ -1,0 +1,152 @@
+-- 00136 · وحدة GBS الحاويات: رمز تسلسلي فريد + صلاحيات + طلب تحديث + اعتماد/رفض + حذف تتالي.
+do $$
+declare
+  o1 uuid := '88000000-0000-0000-0000-000000000001';
+  m1 uuid := '88000000-0000-0000-0000-000000000002';
+  m2 uuid := '88000000-0000-0000-0000-000000000003';
+  x1 uuid := '88000000-0000-0000-0000-000000000004';
+  c1 uuid; c2 uuid; k1 uuid; code1 text; code2 text; st text; n bigint;
+begin
+  insert into auth.users(id, email) values
+    (o1, 'gbs-ops@x.iq'), (m1, 'gbs-mgr@x.iq'), (m2, 'gbs-mgr2@x.iq'), (x1, 'gbs-out@x.iq');
+  insert into public.user_roles(user_id, role) values
+    (o1, 'ops_room'), (m1, 'department_manager'), (m2, 'department_manager');
+
+  -- ① الإضافة من غرفة العمليات + رموز تسلسلية فريدة
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select s.id, s.code into c1, code1 from public.gbs_container_save(null, 'حاوية الكرادة الأولى', 33.30, 44.40, 'ok', null, 'قرب الجسر') s;
+  select s.id, s.code into c2, code2 from public.gbs_container_save(null, 'حاوية الزعفرانية', 33.20, 44.50, 'ok', null, null) s;
+  if code1 !~ '^GBS-[0-9]{4,}$' or code2 !~ '^GBS-[0-9]{4,}$' or code1 = code2 then
+    raise exception 'GBS_CODE_FAIL % %', code1, code2;
+  end if;
+  if code2 <= code1 then raise exception 'GBS_CODE_ORDER_FAIL % %', code1, code2; end if;
+
+  -- outsider بلا دور: القائمة محجوبة
+  perform set_config('request.jwt.claim.sub', x1::text, false);
+  begin
+    perform public.gbs_containers_list(null, null);
+    raise exception 'GBS_OUTSIDER_LIST_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_FORBIDDEN%' then raise; end if;
+  end;
+
+  -- ② القائمة + البحث المتقدم + فلترة الحالة
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select count(*) into n from public.gbs_containers_list('الكرادة', null);
+  if n <> 1 then raise exception 'GBS_SEARCH_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list(null, 'damaged');
+  if n <> 0 then raise exception 'GBS_FILTER_FAIL %', n; end if;
+  select count(*) into n from public.gbs_containers_list(code1, null);
+  if n <> 1 then raise exception 'GBS_SEARCH_CODE_FAIL %', n; end if;
+
+  -- ③ مسؤول القسم لا يعدل ولا يحذف مباشرة
+  perform set_config('request.jwt.claim.sub', m1::text, false);
+  begin
+    perform public.gbs_container_save(c1, 'اسم جديد', 33.3, 44.4, 'damaged', null, null);
+    raise exception 'GBS_MANAGER_SAVE_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_FORBIDDEN%' then raise; end if;
+  end;
+  begin
+    perform public.gbs_container_delete(c2);
+    raise exception 'GBS_MANAGER_DELETE_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_FORBIDDEN%' then raise; end if;
+  end;
+
+  -- ④ طلب تحديث من مسؤول القسم ⇒ معلق + إشعار لغرفة العمليات + منع التكرار
+  select r.id into k1 from (select public.gbs_container_request_update(c1, 'damaged', null, 'تضرر الغطاء') as id) r;
+  if k1 is null then raise exception 'GBS_REQUEST_FAIL'; end if;
+  perform set_config('role', session_user::text, false);
+  select count(*) into n from public.notifications where user_id = o1 and title = 'طلب تحديث حاوية';
+  if n < 1 then raise exception 'GBS_REQUEST_NOTIFY_FAIL'; end if;
+  select count(*) into n from public.gbs_container_updates where id = k1 and state = 'pending';
+  if n <> 1 then raise exception 'GBS_PENDING_FAIL'; end if;
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', m1::text, false);
+  begin
+    perform public.gbs_container_request_update(c1, 'replace', null, null);
+    raise exception 'GBS_DUP_PENDING_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_UPDATE_ALREADY_PENDING%' then raise; end if;
+  end;
+  -- مسؤول آخر يطلب بشكل مستقل
+  perform set_config('request.jwt.claim.sub', m2::text, false);
+  perform public.gbs_container_request_update(c1, 'replace', null, 'طلب مستقل');
+
+  -- ⑤ الاعتماد: يطبق الحالة فوراً + سجل المراجعة + إشعار الطالب + عدّاد المعلق
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select count(*) into n from public.gbs_containers_list(null, null) l
+   where l.id = c1 and l.pending_count = 2;
+  if n <> 1 then raise exception 'GBS_PENDING_COUNT_FAIL %', n; end if;
+  select count(*) into n from public.gbs_updates_list('pending') where container_id = c1;
+  if n <> 2 then raise exception 'GBS_UPDATES_LIST_FAIL %', n; end if;
+  select rv.new_status into st from public.gbs_update_review(k1, true, 'تم التحقق ميدانياً') rv;
+  if st <> 'damaged' then raise exception 'GBS_APPROVE_APPLY_FAIL %', st; end if;
+  perform set_config('role', session_user::text, false);
+  select count(*) into n from public.notifications where user_id = m1 and title = 'تم اعتماد تحديث الحاوية';
+  if n < 1 then raise exception 'GBS_APPROVE_NOTIFY_FAIL'; end if;
+  select count(*) into n from public.gbs_container_updates
+   where id = k1 and state = 'approved' and reviewed_by = o1 and review_note = 'تم التحقق ميدانياً';
+  if n <> 1 then raise exception 'GBS_REVIEW_RECORD_FAIL'; end if;
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  begin
+    perform public.gbs_update_review(k1, false, null);
+    raise exception 'GBS_DOUBLE_REVIEW_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_UPDATE_NOT_PENDING%' then raise; end if;
+  end;
+
+  -- ⑥ الرفض: لا يغير الحالة + إشعار الطالب
+  select u0.id into k1 from public.gbs_updates_list('pending') u0 where u0.container_id = c1 limit 1;
+  select rv.new_status into st from public.gbs_update_review(k1, false, 'غير دقيق') rv;
+  if st <> 'damaged' then raise exception 'GBS_REJECT_STATUS_CHANGED %', st; end if;
+  perform set_config('role', session_user::text, false);
+  select count(*) into n from public.notifications where user_id = m2 and title = 'تم رفض تحديث الحاوية';
+  if n < 1 then raise exception 'GBS_REJECT_NOTIFY_FAIL'; end if;
+  select count(*) into n from public.gbs_container_updates where id = k1 and state = 'rejected';
+  if n <> 1 then raise exception 'GBS_REJECT_RECORD_FAIL'; end if;
+
+  -- ⑦ سجل طلبات مسؤول القسم نفسه
+  perform set_config('role', 'authenticated', false);
+  perform set_config('request.jwt.claim.sub', m1::text, false);
+  select count(*) into n from public.gbs_my_update_requests() where state = 'approved';
+  if n <> 1 then raise exception 'GBS_MY_REQUESTS_FAIL %', n; end if;
+
+  -- ⑧ تعديل وحذف من غرفة العمليات + تحقق المدخلات + منع التكرار
+  perform set_config('request.jwt.claim.sub', o1::text, false);
+  select s.id into c1 from public.gbs_container_save(c1, 'حاوية معدلة', 33.31, 44.41, 'replace', null, null) s;
+  select count(*) into n from public.gbs_containers_list('معدلة', null);
+  if n <> 1 then raise exception 'GBS_EDIT_FAIL'; end if;
+  select count(*) into n from public.gbs_containers_list(null, 'replace');
+  if n <> 1 then raise exception 'GBS_STATUS_AFTER_EDIT_FAIL %', n; end if;
+  begin
+    perform public.gbs_container_save(null, 'حاوية', 33.3, 44.4, 'broken', null, null);
+    raise exception 'GBS_BAD_STATUS_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_STATUS_INVALID%' then raise; end if;
+  end;
+  begin
+    perform public.gbs_container_save(null, 'حاوية', 999, 44.4, 'ok', null, null);
+    raise exception 'GBS_BAD_POINT_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_POINT_INVALID%' then raise; end if;
+  end;
+  perform public.gbs_container_delete(c2);
+  select count(*) into n from public.gbs_containers_list(null, null) l where l.id = c2;
+  if n <> 0 then raise exception 'GBS_DELETE_FAIL'; end if;
+  begin
+    perform public.gbs_container_delete(c2);
+    raise exception 'GBS_DOUBLE_DELETE_ACCEPTED';
+  exception when others then
+    if SQLERRM not like '%GBS_CONTAINER_NOT_FOUND%' then raise; end if;
+  end;
+
+  -- تنظيف: لا تلوّث بقية الاختبارات
+  perform public.gbs_container_delete(c1);
+  perform set_config('role', session_user::text, false);
+  delete from public.notifications where user_id in (o1, m1, m2);
+  raise notice '✅ GBS الحاويات: رموز تسلسلية/صلاحيات/بحث/طلب تحديث/اعتماد/رفض/حذف/تحقق مدخلات ناجحة';
+end$$;

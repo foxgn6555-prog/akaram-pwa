@@ -173,6 +173,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
     { path: '/manager/breakdown', labelKey: 'nav.mgr_breakdown', icon: 'alert-triangle' },
     { path: '/manager/vehicle-trips', labelKey: 'nav.mgr_vehicle_trips', icon: 'truck' },
+    { path: '/manager/gbs-containers', labelKey: 'nav.mgr_gbs_containers', icon: 'box' },
     { path: '/manager/complaints', labelKey: 'nav.mgr_complaints', icon: 'clipboard' },
     { path: '/manager/photos', labelKey: 'nav.mgr_photos', icon: 'photo' },
     { path: '/manager/archive', labelKey: 'nav.mgr_archive', icon: 'archive-box' },
@@ -354,6 +355,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'archive-box',
     },
     { path: '/ops-room/gps', labelKey: 'nav.ops_gps_data', icon: 'map-pin' },
+    { path: '/ops-room/gbs-containers', labelKey: 'nav.ops_gbs_containers', icon: 'box' },
   ],
 
   // ═══ وحدة الكشوفات ═══
