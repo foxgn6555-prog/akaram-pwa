@@ -52,9 +52,17 @@ BIO_PIN_INVALID · BIO_EMPLOYEE_NOT_FOUND · BIO_DATE_INVALID`
 - فخ SQL مثبت بالاختبار: `at time zone '+03:00'` كنص = إشارة POSIX معكوسة؛ الصحيح `at time zone interval '+03:00'`.
 - OPERLOG: أسماء المستخدمين من الجهاز تُحفظ في `biometric_device_users` وتظهر في دفتر HR بجانب PIN غير المطابَق وتُقترح في نموذج الربط.
 
+## وكيل الشبكة الداخلية zk_bridge (00141)
+- سحب مباشر حقيقي من الجهاز عبر المنفذ 4370 (node-zklib) من حاسوب داخل الجهة: `tools/zk-bridge/` (README هناك).
+- مصادقة بمفتاح لكل جهاز `zkb_…` (RPC `biometric_bridge_rotate_key` لـ IT؛ يُخزَّن SHA-256 فقط، يُعرض مرة واحدة).
+- Edge `biometric-bridge` (بلا JWT — `--no-verify-jwt`) → `biometric_bridge_authenticate_public` → `biometric_bridge_import_public` (service_role فقط).
+- يرسل الوقت المحلي للجهاز؛ التحويل بمنطقة الجهاز في القاعدة. يرسل مستخدمي الجهاز أيضاً (أسماء).
+- كل دفعة/فشل تُسجَّل في `biometric_pulls` بنمط `zk_bridge`؛ آخر اتصال/خطأ على `biometric_devices.bridge_*`.
+- اختبارات: SQL `biometric_bridge.sql` (9 كتل) + Vitest `bridge-protocol` 16 (تطابق نسخة الوكيل مع Edge + دورة الوكيل بلا جهاز).
+
 ## النشر
-1. `supabase db push` (00139 + 00140)
-2. `supabase functions deploy adms-receiver --no-verify-jwt` (الجهاز لا يحمل JWT — بدون هذا العلم يُرفض قبل كودنا)
+1. `supabase db push` (00139 + 00140 + 00141)
+2. `supabase functions deploy adms-receiver --no-verify-jwt` و`supabase functions deploy biometric-bridge --no-verify-jwt` (الجهاز/الوكيل لا يحملان JWT)
 3. `supabase functions deploy biometric-pull` — يحتاج `SUPABASE_ANON_KEY` ضمن أسرار الدوال (متوفر افتراضياً).
 4. في بوابة التطوير المركزية: سجّل مصدر `app_api_pull` برابط المزود ومفتاحه → «اختبار الاتصال» → «اسحب الآن».
 

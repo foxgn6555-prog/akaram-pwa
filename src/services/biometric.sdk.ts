@@ -10,7 +10,7 @@ import type {
   BiometricPunch, BiometricPunchFilters, BiometricTestResult,
 } from '@features/integrations/types'
 
-const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config, timezone_offset'
+const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config, timezone_offset, bridge_key_prefix, bridge_last_seen_at, bridge_last_error'
 
 /** رسائل عربية ثابتة لرموز الخطأ المرمّزة (قاعدة البيانات + Edge Function + المزوّدون) */
 export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
@@ -38,6 +38,8 @@ export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
   BIO_EMPLOYEE_NOT_FOUND: 'الموظف غير موجود',
   BIO_DATE_INVALID: 'التاريخ مطلوب',
   biometric_devices_tz_check: 'منطقة الوقت يجب أن تكون بصيغة ±HH:MM مثل +03:00',
+  BIO_MODE_NOT_BRIDGE: 'توليد مفتاح الجسر متاح فقط لمصدر بنمط «وكيل الشبكة الداخلية»',
+  BRIDGE_UNAUTHORIZED: 'المنصة رفضت مفتاح الجسر — ولّد مفتاحاً جديداً وحدّث config.json',
   UNAUTHORIZED: 'انتهت الجلسة — سجّل الدخول مجدداً',
 }
 
@@ -78,6 +80,11 @@ export const biometric = {
     return sdkGuard(
       supabase.from('biometric_devices').update(patch as never).eq('id', id).select(DEVICE_COLUMNS).single(),
     )
+  },
+
+  /** 00141 · توليد/تدوير مفتاح وكيل الجسر — يُعاد المفتاح الصريح مرة واحدة فقط */
+  async rotateBridgeKey(deviceId: string): Promise<string> {
+    return (await sdkGuard(supabase.rpc('biometric_bridge_rotate_key', { p_device_id: deviceId } as never))) as string
   },
 
   /** اختبار الاتصال بالمصدر دون إدراج */

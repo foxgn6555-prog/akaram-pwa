@@ -52,6 +52,14 @@ export function useUpdateBiometricDevice() {
   })
 }
 
+export function useRotateBridgeKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (deviceId: string) => biometric.rotateBridgeKey(deviceId),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: integrationsKeys.devices() }) },
+  })
+}
+
 export function useTestBiometricSource() {
   const addToast = useUiStore((s) => s.addToast)
   return useMutation({

@@ -28,10 +28,10 @@ export default tseslint.config(
   },
   {
     // سكربتات Node (mjs) — globals بيئة Node
-    files: ['scripts/**/*.mjs', 'k6/**/*.js'],
+    files: ['scripts/**/*.mjs', 'k6/**/*.js', 'tools/**/*.mjs'],
     languageOptions: {
       globals: {
-        console: 'readonly', process: 'readonly', fetch: 'readonly',
+        console: 'readonly', process: 'readonly', fetch: 'readonly', setTimeout: 'readonly',
         URL: 'readonly', Buffer: 'readonly', __ENV: 'readonly',
         __VU: 'readonly', __ITER: 'readonly', sleep: 'readonly',
         check: 'readonly', http: 'readonly', Rate: 'readonly',

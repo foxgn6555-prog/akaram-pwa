@@ -11,10 +11,11 @@
  *                   punch|status, ... }] }) أو نص ATTLOG خام (سطر لكل بصمة).
  *   generic_pull  — أي JSON مع خريطة حقول قابلة للتهيئة (mapping) + مسار المصفوفة (records_path).
  *   adms_push     — لا سحب (الجهاز يدفع إلينا) — يُرفض هنا بوضوح.
+ *   zk_bridge     — لا سحب من الخادم (وكيل داخل الشبكة يرسل عبر biometric-bridge) — يُرفض هنا أيضاً.
  */
 
 export type PullMode = 'app_api_pull' | 'lan_pull' | 'generic_pull'
-export type BiometricMode = PullMode | 'adms_push'
+export type BiometricMode = PullMode | 'adms_push' | 'zk_bridge'
 export type PunchDirection = 'in' | 'out' | 'unknown'
 
 export interface NormalizedPunch {

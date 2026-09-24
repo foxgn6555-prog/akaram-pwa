@@ -1,0 +1,15 @@
+{
+  "name": "akaram-zk-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "وكيل جسر الشبكة الداخلية — يسحب البصمات من أجهزة ZKTeco (TCP/UDP 4370) داخل شبكة الجهة ويرسلها إلى منصة أكرم",
+  "type": "module",
+  
+  "scripts": {
+    "start": "node bridge.mjs",
+    "once": "node bridge.mjs --once",
+    "test-device": "node bridge.mjs --test"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "node-zklib": "^1.0.0" }
+}

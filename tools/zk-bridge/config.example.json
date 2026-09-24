@@ -1,0 +1,14 @@
+{
+  "supabase_url": "https://YOUR-PROJECT.supabase.co",
+  "interval_minutes": 5,
+  "devices": [
+    {
+      "serial": "ZK-001",
+      "ip": "192.168.1.201",
+      "port": 4370,
+      "comm_key": 0,
+      "bridge_key": "zkb_PASTE_KEY_FROM_IT_PORTAL",
+      "send_users": true
+    }
+  ]
+}

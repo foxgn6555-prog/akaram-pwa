@@ -92,6 +92,7 @@ for test_file in \
   supabase/tests/gbs_containers_workflow.sql \
   supabase/tests/hr_biometric_sources.sql \
   supabase/tests/biometric_device_timezone.sql \
+  supabase/tests/biometric_bridge.sql \
   supabase/tests/complaint_report_archiving.sql \
   supabase/tests/complaint_ticket_review.sql \
   supabase/tests/complaint_review_after_required.sql \

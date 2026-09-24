@@ -1,4 +1,4 @@
-/** بوابة التطوير المركزية · أجهزة البصمة ومصادرها: الأنماط الأربعة + اختبار/سحب + معالجة ADMS + سجل العمليات */
+/** بوابة التطوير المركزية · أجهزة البصمة ومصادرها: الأنماط الخمسة (+ وكيل الجسر) + اختبار/سحب + معالجة ADMS + سجل العمليات */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -11,6 +11,7 @@ const mockUpdate = vi.fn()
 const mockTest = vi.fn()
 const mockPull = vi.fn()
 const mockProcess = vi.fn()
+const mockRotate = vi.fn()
 
 vi.mock('@features/branches', () => ({
   useBranches: () => ({ data: [{ id: 'b1', name: 'المركز' }], isLoading: false }),
@@ -21,6 +22,7 @@ vi.mock('@features/integrations', async () => {
   return {
     BIOMETRIC_MODES: types.BIOMETRIC_MODES,
     BIOMETRIC_MODE_LABELS: types.BIOMETRIC_MODE_LABELS,
+    BIOMETRIC_PASSIVE_MODES: types.BIOMETRIC_PASSIVE_MODES,
     useDevices: () => mockDevices(),
     useCreateDevice: () => ({ mutateAsync: mockCreate, isPending: false }),
     useToggleDevice: () => ({ mutate: mockToggle, isPending: false }),
@@ -29,6 +31,7 @@ vi.mock('@features/integrations', async () => {
     useTestBiometricSource: () => ({ mutate: mockTest, isPending: false }),
     usePullBiometric: () => ({ mutate: mockPull, isPending: false }),
     useProcessBiometricPushes: () => ({ mutate: mockProcess, isPending: false }),
+    useRotateBridgeKey: () => ({ mutate: mockRotate, isPending: false }),
   }
 })
 
@@ -46,6 +49,9 @@ const DEVICES = [
     config: { base_url: 'https://vendor.example/api', api_key: 'k' }, timezone_offset: '+03:00' },
   { id: 'd3', serial_number: 'LAN-01', name: 'جهاز المخزن', branch_id: null, is_active: true,
     last_seen_at: null, firmware: null, location_hint: null, mode: 'lan_pull', config: { base_url: 'http://192.168.1.50' }, timezone_offset: '+04:00' },
+  { id: 'd4', serial_number: 'BR-01', name: 'بصمة الورشة (جسر)', branch_id: null, is_active: true,
+    last_seen_at: null, firmware: null, location_hint: null, mode: 'zk_bridge', config: {}, timezone_offset: '+03:00',
+    bridge_key_prefix: 'zkb_abc123', bridge_last_seen_at: '2026-09-24T07:50:00Z', bridge_last_error: 'ETIMEDOUT 192.168.1.201:4370' },
 ]
 const PULLS = [
   { id: 'p1', device_id: 'd2', device_name: 'تطبيق البصمة المشترك', mode: 'app_api_pull', status: 'success',
@@ -212,8 +218,9 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
   it('فلتر الأنماط يحصر البطاقات ويعرض العدادات', async () => {
     const user = userEvent.setup()
     render(<BiometricPage />)
-    expect(screen.getByTestId('mode-filter-all')).toHaveTextContent('(3)')
+    expect(screen.getByTestId('mode-filter-all')).toHaveTextContent('(4)')
     expect(screen.getByTestId('mode-filter-app_api_pull')).toHaveTextContent('(1)')
+    expect(screen.getByTestId('mode-filter-zk_bridge')).toHaveTextContent('(1)')
     await user.click(screen.getByTestId('mode-filter-lan_pull'))
     expect(screen.getByTestId('devices-grid').querySelectorAll('[data-testid^="source-card-"]')).toHaveLength(1)
     expect(screen.getByTestId('source-card-LAN-01')).toBeInTheDocument()
@@ -266,6 +273,45 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     await user.clear(tz); await user.type(tz, '+02:00')
     await user.click(within(panel).getByTestId('edit-save'))
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'd1', mode: 'adms_push', config: {}, timezone_offset: '+02:00' })))
+  })
+
+  it('مصدر zk_bridge: لا «اسحب الآن» (الوكيل يرسل)، لوحة الوكيل تعرض الحالة وآخر خطأ وبادئة المفتاح ومقتطف config.json', () => {
+    render(<BiometricPage />)
+    const card = screen.getByTestId('source-card-BR-01')
+    expect(within(card).getByTestId('source-mode-badge')).toHaveTextContent('وكيل الشبكة الداخلية')
+    expect(within(card).queryByTestId('pull-now-BR-01')).toBeNull()
+    const panel = within(card).getByTestId('bridge-panel-BR-01')
+    expect(within(panel).getByTestId('bridge-status')).toHaveTextContent('الوكيل آخر مرة')
+    expect(within(panel).getByTestId('bridge-last-error')).toHaveTextContent('ETIMEDOUT 192.168.1.201:4370')
+    expect(within(panel).getByTestId('bridge-key-prefix')).toHaveTextContent('zkb_abc123…')
+    expect(within(panel).getByTestId('bridge-rotate-key')).toHaveTextContent('تدوير المفتاح')
+    const snippet = JSON.parse(within(panel).getByTestId('bridge-config-snippet').textContent ?? '{}')
+    expect(snippet.devices[0]).toMatchObject({ serial: 'BR-01', port: 4370, comm_key: 0, send_users: true })
+    expect(snippet.devices[0].bridge_key).toMatch(/^zkb_/)
+  })
+
+  it('توليد مفتاح الجسر يُعرض مرة واحدة ويدخل في مقتطف config.json', async () => {
+    const user = userEvent.setup()
+    mockRotate.mockImplementation((_id: string, opts: { onSuccess: (k: string) => void }) => opts.onSuccess('zkb_' + 'f'.repeat(48)))
+    render(<BiometricPage />)
+    const panel = screen.getByTestId('bridge-panel-BR-01')
+    await user.click(within(panel).getByTestId('bridge-rotate-key'))
+    expect(mockRotate).toHaveBeenCalledWith('d4', expect.anything())
+    expect(within(panel).getByTestId('bridge-key-value')).toHaveTextContent('zkb_' + 'f'.repeat(48))
+    expect(within(panel).getByTestId('bridge-key-reveal')).toHaveTextContent('لن يُعرض مرة أخرى')
+    const snippet = JSON.parse(within(panel).getByTestId('bridge-config-snippet').textContent ?? '{}')
+    expect(snippet.devices[0].bridge_key).toBe('zkb_' + 'f'.repeat(48))
+  })
+
+  it('تسجيل مصدر بنمط zk_bridge لا يطلب رابطاً (config فارغ)', async () => {
+    const user = userEvent.setup()
+    render(<BiometricPage />)
+    await user.click(screen.getByTestId('toggle-device-form'))
+    await user.selectOptions(screen.getByTestId('device-mode'), 'zk_bridge')
+    await user.type(screen.getByTestId('device-sn'), 'BR-02')
+    await user.type(screen.getByTestId('device-name'), 'جسر')
+    await user.click(screen.getByTestId('device-submit'))
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ serial_number: 'BR-02', mode: 'zk_bridge', config: {} })))
   })
 
   it('تعطيل/تفعيل المصدر ما زال يعمل', async () => {

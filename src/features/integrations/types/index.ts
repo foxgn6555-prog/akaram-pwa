@@ -12,6 +12,10 @@ export interface BiometricDevice {
   config: BiometricDeviceConfig
   /** منطقة أوقات الجهاز ±HH:MM (00140) — أوقات ZKTeco محلية بلا منطقة */
   timezone_offset: string
+  /** 00141 · جسر الشبكة الداخلية: بادئة المفتاح (المفتاح نفسه يُعرض مرة واحدة) وآخر اتصال/خطأ من الوكيل */
+  bridge_key_prefix: string | null
+  bridge_last_seen_at: string | null
+  bridge_last_error: string | null
 }
 
 export interface CreateDeviceInput {
@@ -25,15 +29,18 @@ export interface CreateDeviceInput {
 }
 
 // ── 00139: مصادر البصمة القابلة للتوصيل ──
-/** adms_push = الجهاز يدفع إلينا · app_api_pull = API تطبيق مشترك · lan_pull = شبكة داخلية · generic_pull = عام بخريطة حقول */
-export type BiometricMode = 'adms_push' | 'app_api_pull' | 'lan_pull' | 'generic_pull'
-export const BIOMETRIC_MODES: readonly BiometricMode[] = ['adms_push', 'app_api_pull', 'lan_pull', 'generic_pull'] as const
+/** adms_push = الجهاز يدفع إلينا · app_api_pull = API تطبيق مشترك · lan_pull = HTTP شبكة داخلية · generic_pull = عام بخريطة حقول · zk_bridge = وكيل داخل الشبكة يسحب من الجهاز (TCP 4370) */
+export type BiometricMode = 'adms_push' | 'app_api_pull' | 'lan_pull' | 'generic_pull' | 'zk_bridge'
+export const BIOMETRIC_MODES: readonly BiometricMode[] = ['adms_push', 'zk_bridge', 'app_api_pull', 'lan_pull', 'generic_pull'] as const
 export const BIOMETRIC_MODE_LABELS: Record<BiometricMode, string> = {
   adms_push: 'جهاز ZKTeco (دفع ADMS)',
+  zk_bridge: 'جهاز ZKTeco عبر وكيل الشبكة الداخلية (جسر)',
   app_api_pull: 'API تطبيق مشترك',
-  lan_pull: 'سحب مباشر من الجهاز (شبكة داخلية)',
+  lan_pull: 'سحب HTTP من الجهاز (شبكة داخلية)',
   generic_pull: 'مصدر عام (خريطة حقول)',
 }
+/** الأنماط التي لا يسحبها الخادم بنفسه (الجهاز/الوكيل هو من يرسل) */
+export const BIOMETRIC_PASSIVE_MODES: readonly BiometricMode[] = ['adms_push', 'zk_bridge'] as const
 
 export interface BiometricFieldMapping {
   pin: string

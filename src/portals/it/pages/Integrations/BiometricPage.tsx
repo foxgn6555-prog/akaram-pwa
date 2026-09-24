@@ -1,6 +1,6 @@
 /**
  * بوابة التطوير المركزية · أجهزة البصمة ومصادرها (الجانب التقني بالكامل):
- *   ① تسجيل مصدر بأحد الأنماط الأربعة (ADMS دفع · API تطبيق · شبكة داخلية · عام).
+ *   ① تسجيل مصدر بأحد الأنماط الخمسة (ADMS دفع · وكيل الشبكة الداخلية zk_bridge · API تطبيق · HTTP داخلي · عام).
  *   ② تهيئة كل مصدر (رابط/مفتاح/خريطة حقول) + اختبار الاتصال دون إدراج.
  *   ③ «اسحب الآن» بنافذة زمنية → الدفتر الموحّد (تكرار/مطابقة تلقائية).
  *   ④ معالجة دفعات ADMS المتراكمة + سجل عمليات كامل (متى/من/كم/الخطأ).
@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react'
 import { useBranches } from '@features/branches'
 import {
-  BIOMETRIC_MODES, BIOMETRIC_MODE_LABELS,
+  BIOMETRIC_MODES, BIOMETRIC_MODE_LABELS, BIOMETRIC_PASSIVE_MODES,
   useBiometricPulls, useCreateDevice, useDevices, useProcessBiometricPushes, usePullBiometric,
   useTestBiometricSource, useToggleDevice, useUpdateBiometricDevice,
 } from '@features/integrations'
@@ -23,11 +23,13 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { SourceConfigFields } from './biometric/SourceConfigFields'
+import { BridgePanel } from './biometric/BridgePanel'
 import { cleanConfig, MODE_HINTS, validateConfigLocally } from './biometric/source-config.utils'
 
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
 const label = 'mb-1.5 block text-sm font-medium'
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? 'https://YOUR-PROJECT.supabase.co'
 const TZ_RE = /^[+-](0[0-9]|1[0-4]):[0-5][0-9]$/
 const TZ_OPTIONS = ['+03:00', '+02:00', '+04:00', '+04:30', '+05:00', '+05:30', '+01:00', '+00:00', '-05:00']
 
@@ -197,7 +199,7 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
   const [testResult, setTestResult] = useState<BiometricTestResult | null>(null)
 
   const online = d.last_seen_at ? Date.now() - new Date(d.last_seen_at).getTime() < 2 * 60_000 : false
-  const pullable = d.mode !== 'adms_push'
+  const pullable = !BIOMETRIC_PASSIVE_MODES.includes(d.mode)
   const windowArgs = () => ({ deviceId: d.id, from: `${from}T00:00:00.000Z`, to: `${to}T23:59:59.999Z` })
 
   const save = async () => {
@@ -261,6 +263,8 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           )}
         </div>
       )}
+
+      {d.mode === 'zk_bridge' && d.is_active && !editing && <BridgePanel device={d} supabaseUrl={SUPABASE_URL} />}
 
       {editing && (
         <div className="mt-3 space-y-3 rounded-xl border border-slate-200 p-3" data-testid={`edit-panel-${d.serial_number}`}>

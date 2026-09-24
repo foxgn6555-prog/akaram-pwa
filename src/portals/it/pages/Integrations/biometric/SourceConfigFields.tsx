@@ -16,7 +16,7 @@ const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text
 const label = 'mb-1.5 block text-sm font-medium'
 
 export function SourceConfigFields({ mode, value, onChange, idPrefix = 'src' }: SourceConfigFieldsProps) {
-  if (mode === 'adms_push') return null
+  if (mode === 'adms_push' || mode === 'zk_bridge') return null
   const set = <K extends keyof BiometricDeviceConfig>(k: K, v: BiometricDeviceConfig[K]) => onChange({ ...value, [k]: v })
   const mapping = value.mapping ?? { pin: '' }
   const setMap = (k: keyof NonNullable<BiometricDeviceConfig['mapping']>, v: string) =>
