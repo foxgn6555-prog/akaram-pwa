@@ -10,6 +10,8 @@ export interface BiometricDevice {
   firmware: string | null
   mode: BiometricMode
   config: BiometricDeviceConfig
+  /** منطقة أوقات الجهاز ±HH:MM (00140) — أوقات ZKTeco محلية بلا منطقة */
+  timezone_offset: string
 }
 
 export interface CreateDeviceInput {
@@ -19,6 +21,7 @@ export interface CreateDeviceInput {
   location_hint?: string
   mode?: BiometricMode
   config?: BiometricDeviceConfig
+  timezone_offset?: string
 }
 
 // ── 00139: مصادر البصمة القابلة للتوصيل ──
@@ -72,6 +75,18 @@ export interface BiometricPunch {
   direction: PunchDirection
   person_name: string | null
   method: BiometricMode | 'manual'
+  /** اسم المستخدم كما سجّله الجهاز (OPERLOG) — يساعد HR على الربط */
+  device_user_name?: string | null
+}
+
+export interface BiometricDeviceUser {
+  device_serial: string
+  pin: string
+  name: string | null
+  card: string | null
+  updated_at: string
+  employee_id: string | null
+  employee_name: string | null
 }
 
 export interface BiometricPunchFilters {

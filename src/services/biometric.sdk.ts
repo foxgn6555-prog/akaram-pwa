@@ -6,11 +6,11 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
-  BiometricDeviceConfig, BiometricMode, BiometricPullLog, BiometricPullResult,
+  BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
   BiometricPunch, BiometricPunchFilters, BiometricTestResult,
 } from '@features/integrations/types'
 
-const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config'
+const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config, timezone_offset'
 
 /** رسائل عربية ثابتة لرموز الخطأ المرمّزة (قاعدة البيانات + Edge Function + المزوّدون) */
 export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
@@ -37,6 +37,7 @@ export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
   BIO_PIN_TAKEN: 'رقم البصمة مرتبط بموظف آخر',
   BIO_EMPLOYEE_NOT_FOUND: 'الموظف غير موجود',
   BIO_DATE_INVALID: 'التاريخ مطلوب',
+  biometric_devices_tz_check: 'منطقة الوقت يجب أن تكون بصيغة ±HH:MM مثل +03:00',
   UNAUTHORIZED: 'انتهت الجلسة — سجّل الدخول مجدداً',
 }
 
@@ -73,7 +74,7 @@ async function invokePull<T>(body: Record<string, unknown>): Promise<T> {
 export const biometric = {
   // ─────────── تقني (IT) ───────────
   /** تحديث نمط/تهيئة/اسم المصدر */
-  async updateDevice(id: string, patch: { name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null }) {
+  async updateDevice(id: string, patch: { name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string }) {
     return sdkGuard(
       supabase.from('biometric_devices').update(patch as never).eq('id', id).select(DEVICE_COLUMNS).single(),
     )
@@ -118,6 +119,13 @@ export const biometric = {
         p_device_id: f.deviceId ?? null, p_unmatched_only: f.unmatchedOnly ?? false, p_limit: f.limit ?? 300,
       } as never),
     )) as BiometricPunch[]
+  },
+
+  /** مستخدمو الأجهزة (PIN ↔ الاسم كما سجّله الجهاز) مع اقتراح الموظف المطابق */
+  async listDeviceUsers(search?: string, limit = 100): Promise<BiometricDeviceUser[]> {
+    return (await sdkGuard(
+      supabase.rpc('biometric_device_users_list', { p_search: search?.trim() || null, p_limit: limit } as never),
+    )) as BiometricDeviceUser[]
   },
 
   async linkPin(pin: string, employeeId: string): Promise<void> {

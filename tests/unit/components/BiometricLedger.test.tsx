@@ -36,7 +36,9 @@ const PUNCHES = [
   { id: 'p2', device_serial: 'ZK-001', pin: '7001', employee_id: 'e1', employee_name: 'أحمد علي', employee_number: '7001',
     punched_at: '2026-09-24T12:31:00Z', direction: 'out', person_name: null, method: 'adms_push' },
   { id: 'p3', device_serial: 'API-01', pin: '9999', employee_id: null, employee_name: null, employee_number: null,
-    punched_at: '2026-09-24T05:11:00Z', direction: 'in', person_name: 'مجهول', method: 'app_api_pull' },
+    punched_at: '2026-09-24T05:11:00Z', direction: 'in', person_name: 'مجهول', method: 'app_api_pull', device_user_name: null },
+  { id: 'p5', device_serial: 'ZK-001', pin: '8102', employee_id: null, employee_name: null, employee_number: null,
+    punched_at: '2026-09-24T05:15:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: 'سارة حسن' },
   { id: 'p4', device_serial: 'API-01', pin: '555', employee_id: 'e2', employee_name: 'سارة حسن', employee_number: '7002',
     punched_at: '2026-09-24T05:20:00Z', direction: 'unknown', person_name: null, method: 'lan_pull' },
 ]
@@ -49,11 +51,11 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('يعرض الإحصاءات المشتقة من البصمات المعروضة', () => {
     render(<BiometricLedger />)
-    expect(screen.getByTestId('ledger-stat-total')).toHaveTextContent('4')
-    expect(screen.getByTestId('ledger-stat-people')).toHaveTextContent('3')
-    expect(screen.getByTestId('ledger-stat-in')).toHaveTextContent('2')
+    expect(screen.getByTestId('ledger-stat-total')).toHaveTextContent('5')
+    expect(screen.getByTestId('ledger-stat-people')).toHaveTextContent('4')
+    expect(screen.getByTestId('ledger-stat-in')).toHaveTextContent('3')
     expect(screen.getByTestId('ledger-stat-out')).toHaveTextContent('1')
-    expect(screen.getByTestId('ledger-stat-unmatched')).toHaveTextContent('1')
+    expect(screen.getByTestId('ledger-stat-unmatched')).toHaveTextContent('2')
   })
 
   it('يعرض كل بصمة بالاتجاه والموظف والطريقة ويميّز غير المطابَق', () => {
@@ -99,6 +101,18 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
     await user.type(date, '2026-09-20')
     await user.click(screen.getByTestId('derive-run'))
     expect(mockDerive).toHaveBeenCalledWith('2026-09-20')
+  })
+
+  it('اسم المستخدم كما سجّله الجهاز (OPERLOG) يظهر لغير المطابَق ويُقترح في نموذج الربط', async () => {
+    const user = userEvent.setup()
+    render(<BiometricLedger />)
+    const row = screen.getByTestId('punch-unmatched-p5')
+    expect(row).toHaveTextContent('غير مطابَق · سارة حسن')
+    expect(row).toHaveTextContent('اسمه على الجهاز')
+    await user.click(screen.getByTestId('punch-link-p5'))
+    const form = screen.getByTestId('link-form-8102')
+    expect(within(form).getByTestId('link-search')).toHaveValue('سارة حسن')
+    expect(form).toHaveTextContent('«سارة حسن» على الجهاز')
   })
 
   it('حالة فارغة عند غياب البصمات', () => {

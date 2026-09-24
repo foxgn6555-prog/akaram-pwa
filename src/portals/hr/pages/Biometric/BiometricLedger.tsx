@@ -149,7 +149,8 @@ function PunchRow({ punch: p }: { punch: BiometricPunch }) {
             <span className="font-semibold text-slate-800">{p.employee_name} <span className="text-slate-400">({p.employee_number})</span></span>
           ) : (
             <span className="font-semibold text-amber-700" data-testid={`punch-unmatched-${p.id}`}>
-              غير مطابَق{p.person_name ? ` · ${p.person_name}` : ''}
+              غير مطابَق{(p.device_user_name ?? p.person_name) ? ` · ${p.device_user_name ?? p.person_name}` : ''}
+              {p.device_user_name && <span className="ms-1 text-[10px] font-normal text-amber-600">(اسمه على الجهاز)</span>}
             </span>
           )}
         </td>
@@ -167,7 +168,7 @@ function PunchRow({ punch: p }: { punch: BiometricPunch }) {
       {linking && (
         <tr className="border-t border-amber-100 bg-amber-50/60">
           <td colSpan={7} className="px-3 py-2">
-            <LinkPinForm pin={p.pin} onDone={() => setLinking(false)} />
+            <LinkPinForm pin={p.pin} deviceName={p.device_user_name ?? p.person_name} onDone={() => setLinking(false)} />
           </td>
         </tr>
       )}
@@ -175,14 +176,15 @@ function PunchRow({ punch: p }: { punch: BiometricPunch }) {
   )
 }
 
-function LinkPinForm({ pin, onDone }: { pin: string; onDone: () => void }) {
-  const [search, setSearch] = useState('')
+function LinkPinForm({ pin, deviceName, onDone }: { pin: string; deviceName?: string | null; onDone: () => void }) {
+  // اقتراح: ابدأ البحث بالاسم كما سجّله الجهاز (إن وُجد)
+  const [search, setSearch] = useState(deviceName ?? '')
   const [employeeId, setEmployeeId] = useState('')
   const { data: candidates } = useEmployees({ search: search || undefined, limit: 20 })
   const link = useLinkBiometricPin()
   return (
     <div className="flex flex-wrap items-end gap-2" data-testid={`link-form-${pin}`}>
-      <span className="text-xs text-slate-600">ربط PIN <b dir="ltr">{pin}</b> بـ:</span>
+      <span className="text-xs text-slate-600">ربط PIN <b dir="ltr">{pin}</b>{deviceName ? <> («{deviceName}» على الجهاز)</> : null} بـ:</span>
       <input className="h-9 w-40 rounded-lg border border-slate-300 px-2 text-xs" placeholder="بحث بالاسم" value={search}
         onChange={(e) => setSearch(e.target.value)} data-testid="link-search" />
       <select className="h-9 min-w-48 rounded-lg border border-slate-300 bg-white px-2 text-xs" value={employeeId}

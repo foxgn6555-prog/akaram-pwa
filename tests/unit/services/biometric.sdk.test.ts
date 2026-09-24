@@ -51,6 +51,14 @@ describe('biometric.sdk', () => {
     expect(h.rpc).toHaveBeenCalledWith('biometric_pulls_list', { p_device_id: 'd1', p_limit: 10 })
   })
 
+  it('listDeviceUsers يستدعي RPC مستخدمي الأجهزة بالبحث المنظّف', async () => {
+    h.rpc.mockResolvedValue({ data: [], error: null })
+    await biometric.listDeviceUsers('  ليث ')
+    expect(h.rpc).toHaveBeenCalledWith('biometric_device_users_list', { p_search: 'ليث', p_limit: 100 })
+    await biometric.listDeviceUsers()
+    expect(h.rpc).toHaveBeenLastCalledWith('biometric_device_users_list', { p_search: null, p_limit: 100 })
+  })
+
   it('importPunches يعيد صف العدادات من RPC', async () => {
     h.rpc.mockResolvedValue({ data: [{ received: 3, inserted: 2, duplicates: 1, unmatched: 0 }], error: null })
     const r = await biometric.importPunches('d1', [{ pin: '1', at: '2026-01-01T00:00:00Z' }], 'manual')
@@ -85,6 +93,7 @@ describe('biometric.sdk', () => {
     expect(biometricErrorMessage('BIO_FORBIDDEN')).toBe('ليست لديك صلاحية هذا الإجراء')
     expect(biometricErrorMessage('BIO_CONFIG_MAPPING')).toContain('خريطة الحقول')
     expect(biometricErrorMessage('BIO_SOURCE_UNREACHABLE: fetch failed')).toBe('تعذر الوصول إلى المصدر (الشبكة/الرابط/المهلة) (fetch failed)')
+    expect(biometricErrorMessage('new row violates check constraint "biometric_devices_tz_check"')).toContain('±HH:MM')
     expect(biometricErrorMessage('something else')).toBe('something else')
   })
 })

@@ -13,6 +13,7 @@
  * التحول: biometric_ingest (00026) — يحوّل السطور لسجلات حضور حقيقية.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildOptionsResponse } from '../_shared/adms-protocol.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -27,11 +28,10 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'GET' && path.startsWith('/iclock/cdata') && url.searchParams.get('options')) {
     const { error } = await admin.rpc('biometric_touch', { p_sn: sn })
     if (error) console.error('touch failed:', error.message)
-    return admsResponse(
-      `GET OPTION FROM: ${sn}\nATTLOGStamp=0\nOPERLOGStamp=0\nATTPHOTOStamp=0\n` +
-      `ErrorDelay=30\nDelay=10\nTimeZone=-3\nRealtime=1\nEncrypt=0\nServerVer=3.0.1\n` +
-      `TransFlag=111111111111\nPushProtVer=2.4.1\nSupportPing=1`,
-    )
+    // منطقة الجهاز من تسجيله (00140) — TimeZone الخاطئ يزيح كل الأوقات
+    const { data: dev } = await admin
+      .from('biometric_devices').select('timezone_offset').eq('serial_number', sn).maybeSingle()
+    return admsResponse(buildOptionsResponse({ sn, timezoneOffset: dev?.timezone_offset ?? '+03:00' }))
   }
 
   // ═══ ② نبض القلب ═══
@@ -60,8 +60,9 @@ Deno.serve(async (req: Request) => {
       return admsResponse('ERROR')
     }
 
-    // رد ADMS القياسي: عدد السجلات المستقبَلة (أو OK)
-    return admsResponse(inserted !== null && inserted > 0 ? String(inserted) : 'OK')
+    // رد ADMS القياسي «OK» (رقم مجرد غير قياسي وقد يُعاد إرسال الدفعة)
+    console.log(`adms ${table} sn=${sn} converted=${inserted ?? 0}`)
+    return admsResponse('OK')
   }
 
   // ═══ ④ تأكيد تنفيذ أمر ═══

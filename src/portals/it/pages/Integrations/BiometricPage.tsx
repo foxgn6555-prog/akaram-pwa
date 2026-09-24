@@ -28,6 +28,8 @@ import { cleanConfig, MODE_HINTS, validateConfigLocally } from './biometric/sour
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
 const label = 'mb-1.5 block text-sm font-medium'
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+const TZ_RE = /^[+-](0[0-9]|1[0-4]):[0-5][0-9]$/
+const TZ_OPTIONS = ['+03:00', '+02:00', '+04:00', '+04:30', '+05:00', '+05:30', '+01:00', '+00:00', '-05:00']
 
 export default function BiometricPage() {
   const { data: devices, isLoading } = useDevices()
@@ -44,6 +46,7 @@ export default function BiometricPage() {
   const [branchId, setBranchId] = useState('')
   const [mode, setMode] = useState<BiometricMode>('adms_push')
   const [config, setConfig] = useState<BiometricDeviceConfig>({})
+  const [tz, setTz] = useState('+03:00')
   const [formError, setFormError] = useState<string | null>(null)
 
   const admsUrl = integrations.getAdmsServerUrl()
@@ -64,8 +67,9 @@ export default function BiometricPage() {
     const cleaned = cleanConfig(mode, config)
     const code = validateConfigLocally(mode, cleaned)
     if (code) { setFormError(BIOMETRIC_ERROR_MESSAGES[code] ?? code); return }
-    await create.mutateAsync({ serial_number: sn.trim(), name: name.trim(), branch_id: branchId || undefined, mode, config: cleaned })
-    setSn(''); setName(''); setBranchId(''); setMode('adms_push'); setConfig({}); setFormOpen(false)
+    if (!TZ_RE.test(tz)) { setFormError(BIOMETRIC_ERROR_MESSAGES.biometric_devices_tz_check ?? 'منطقة الوقت غير صالحة'); return }
+    await create.mutateAsync({ serial_number: sn.trim(), name: name.trim(), branch_id: branchId || undefined, mode, config: cleaned, timezone_offset: tz })
+    setSn(''); setName(''); setBranchId(''); setMode('adms_push'); setConfig({}); setTz('+03:00'); setFormOpen(false)
   }
 
   return (
@@ -136,6 +140,7 @@ export default function BiometricPage() {
               </select>
             </div>
           </div>
+          <TimezoneField id="dev-tz" value={tz} onChange={setTz} testId="device-tz" />
           <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600" data-testid="mode-hint">{MODE_HINTS[mode]}</p>
           <SourceConfigFields mode={mode} value={config} onChange={setConfig} idPrefix="new" />
           {formError && <p role="alert" data-testid="device-form-error" className="text-xs font-semibold text-red-600">{formError}</p>}
@@ -185,6 +190,7 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
   const [mode, setMode] = useState<BiometricMode>(d.mode)
   const [config, setConfig] = useState<BiometricDeviceConfig>(d.config ?? {})
   const [name, setName] = useState(d.name)
+  const [tz, setTz] = useState(d.timezone_offset ?? '+03:00')
   const [err, setErr] = useState<string | null>(null)
   const [from, setFrom] = useState(isoDay(new Date(Date.now() - 6 * 86400000)))
   const [to, setTo] = useState(isoDay(new Date()))
@@ -199,7 +205,8 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
     const cleaned = cleanConfig(mode, config)
     const code = validateConfigLocally(mode, cleaned)
     if (code) { setErr(BIOMETRIC_ERROR_MESSAGES[code] ?? code); return }
-    await update.mutateAsync({ id: d.id, name: name.trim() || d.name, mode, config: cleaned })
+    if (!TZ_RE.test(tz)) { setErr(BIOMETRIC_ERROR_MESSAGES.biometric_devices_tz_check ?? 'منطقة الوقت غير صالحة'); return }
+    await update.mutateAsync({ id: d.id, name: name.trim() || d.name, mode, config: cleaned, timezone_offset: tz })
     setEditing(false)
   }
 
@@ -215,6 +222,9 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           <p className="text-xs text-slate-500" dir="ltr">{d.serial_number}</p>
           <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600" data-testid="source-mode-badge">
             {BIOMETRIC_MODE_LABELS[d.mode]}
+          </span>
+          <span className="ms-1 mt-1 inline-block rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700" dir="ltr" data-testid="source-tz-badge">
+            UTC{d.timezone_offset ?? '+03:00'}
           </span>
         </div>
         <span className={clsx('flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold',
@@ -267,12 +277,13 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
               </select>
             </div>
           </div>
+          <TimezoneField id={`e-tz-${d.id}`} value={tz} onChange={setTz} testId="edit-tz" />
           <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">{MODE_HINTS[mode]}</p>
           <SourceConfigFields mode={mode} value={config} onChange={setConfig} idPrefix={`e-${d.id}`} />
           {err && <p role="alert" className="text-xs font-semibold text-red-600" data-testid="edit-error">{err}</p>}
           <div className="flex gap-2">
             <Button size="sm" onClick={() => void save()} isLoading={update.isPending} data-testid="edit-save">حفظ</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setMode(d.mode); setConfig(d.config ?? {}); setErr(null) }}>إلغاء</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setMode(d.mode); setConfig(d.config ?? {}); setTz(d.timezone_offset ?? '+03:00'); setErr(null) }}>إلغاء</Button>
           </div>
         </div>
       )}
@@ -293,6 +304,23 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─────────────────────────── منطقة وقت الجهاز ───────────────────────────
+function TimezoneField({ id, value, onChange, testId }: { id: string; value: string; onChange: (v: string) => void; testId: string }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-[14rem_1fr]">
+      <div>
+        <label htmlFor={id} className={label}>منطقة وقت الجهاز (UTC±HH:MM)</label>
+        <input id={id} list={`${id}-list`} dir="ltr" className={field} value={value} data-testid={testId}
+          onChange={(e) => onChange(e.target.value.trim())} placeholder="+03:00" />
+        <datalist id={`${id}-list`}>{TZ_OPTIONS.map((o) => <option key={o} value={o} />)}</datalist>
+      </div>
+      <p className="self-end rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+        أجهزة ZKTeco ترسل الوقت المحلي بلا منطقة — هذه القيمة هي التي تحوّله إلى وقت صحيح. بغداد = +03:00.
+      </p>
     </div>
   )
 }

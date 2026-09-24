@@ -40,12 +40,12 @@ import BiometricPage from '@portals/it/pages/Integrations/BiometricPage'
 
 const DEVICES = [
   { id: 'd1', serial_number: 'ZK-001', name: 'بصمة المدخل', branch_id: 'b1', is_active: true,
-    last_seen_at: new Date().toISOString(), firmware: null, location_hint: null, mode: 'adms_push', config: {} },
+    last_seen_at: new Date().toISOString(), firmware: null, location_hint: null, mode: 'adms_push', config: {}, timezone_offset: '+03:00' },
   { id: 'd2', serial_number: 'API-01', name: 'تطبيق البصمة المشترك', branch_id: null, is_active: true,
     last_seen_at: '2026-01-01T00:00:00Z', firmware: null, location_hint: null, mode: 'app_api_pull',
-    config: { base_url: 'https://vendor.example/api', api_key: 'k' } },
+    config: { base_url: 'https://vendor.example/api', api_key: 'k' }, timezone_offset: '+03:00' },
   { id: 'd3', serial_number: 'LAN-01', name: 'جهاز المخزن', branch_id: null, is_active: true,
-    last_seen_at: null, firmware: null, location_hint: null, mode: 'lan_pull', config: { base_url: 'http://192.168.1.50' } },
+    last_seen_at: null, firmware: null, location_hint: null, mode: 'lan_pull', config: { base_url: 'http://192.168.1.50' }, timezone_offset: '+04:00' },
 ]
 const PULLS = [
   { id: 'p1', device_id: 'd2', device_name: 'تطبيق البصمة المشترك', mode: 'app_api_pull', status: 'success',
@@ -89,7 +89,7 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     await user.click(screen.getByTestId('device-submit'))
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ serial_number: 'CL-999', name: 'جهاز جديد', mode: 'adms_push', config: {} }),
+        expect.objectContaining({ serial_number: 'CL-999', name: 'جهاز جديد', mode: 'adms_push', config: {}, timezone_offset: '+03:00' }),
       )
     })
   })
@@ -205,7 +205,7 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     await user.type(within(panel).getByTestId('cfg-path'), 'cgi-bin/attlog')
     await user.click(within(panel).getByTestId('edit-save'))
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({
-      id: 'd3', name: 'جهاز المخزن', mode: 'lan_pull', config: { base_url: 'http://10.1.1.9/', path: 'cgi-bin/attlog' },
+      id: 'd3', name: 'جهاز المخزن', mode: 'lan_pull', config: { base_url: 'http://10.1.1.9/', path: 'cgi-bin/attlog' }, timezone_offset: '+04:00',
     }))
   })
 
@@ -235,6 +235,37 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     mockPulls.mockReturnValue({ data: [], isLoading: false })
     render(<BiometricPage />)
     expect(screen.getByTestId('pull-log-empty')).toBeInTheDocument()
+  })
+
+  it('منطقة وقت الجهاز: افتراضي بغداد +03:00، تُعرض على البطاقة، وتُرفض الصيغة الخاطئة', async () => {
+    const user = userEvent.setup()
+    render(<BiometricPage />)
+    expect(within(screen.getByTestId('source-card-LAN-01')).getByTestId('source-tz-badge')).toHaveTextContent('UTC+04:00')
+    await user.click(screen.getByTestId('toggle-device-form'))
+    expect(screen.getByTestId('device-tz')).toHaveValue('+03:00')
+    await user.type(screen.getByTestId('device-sn'), 'CL-1')
+    await user.type(screen.getByTestId('device-name'), 'جهاز')
+    await user.clear(screen.getByTestId('device-tz'))
+    await user.type(screen.getByTestId('device-tz'), '3')
+    await user.click(screen.getByTestId('device-submit'))
+    expect(await screen.findByTestId('device-form-error')).toHaveTextContent('±HH:MM')
+    expect(mockCreate).not.toHaveBeenCalled()
+    await user.clear(screen.getByTestId('device-tz'))
+    await user.type(screen.getByTestId('device-tz'), '+04:30')
+    await user.click(screen.getByTestId('device-submit'))
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ timezone_offset: '+04:30' })))
+  })
+
+  it('تعديل منطقة وقت جهاز ADMS قائم يُحفظ', async () => {
+    const user = userEvent.setup()
+    render(<BiometricPage />)
+    await user.click(screen.getByTestId('device-edit-ZK-001'))
+    const panel = screen.getByTestId('edit-panel-ZK-001')
+    const tz = within(panel).getByTestId('edit-tz')
+    expect(tz).toHaveValue('+03:00')
+    await user.clear(tz); await user.type(tz, '+02:00')
+    await user.click(within(panel).getByTestId('edit-save'))
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'd1', mode: 'adms_push', config: {}, timezone_offset: '+02:00' })))
   })
 
   it('تعطيل/تفعيل المصدر ما زال يعمل', async () => {

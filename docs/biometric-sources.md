@@ -46,11 +46,18 @@ BIO_CONFIG_MAPPING · BIO_WINDOW_INVALID · BIO_WINDOW_TOO_LARGE · BIO_SOURCE_U
 BIO_SOURCE_HTTP · BIO_RESPONSE_SHAPE · BIO_RECORD_PIN · BIO_RECORD_TIME · BIO_IMPORT_INVALID · BIO_PIN_TAKEN ·
 BIO_PIN_INVALID · BIO_EMPLOYEE_NOT_FOUND · BIO_DATE_INVALID`
 
+## المنطقة الزمنية (00140) — حرج
+- أجهزة ZKTeco ترسل الوقت **المحلي بلا منطقة**؛ لكل جهاز `timezone_offset` (افتراضي `+03:00` بغداد) يحوّله إلى وقت صحيح.
+- رد التسجيل يرسل للجهاز `TimeZone=3` المشتق من الحقل نفسه (كان `-3` = إزاحة 6 ساعات).
+- فخ SQL مثبت بالاختبار: `at time zone '+03:00'` كنص = إشارة POSIX معكوسة؛ الصحيح `at time zone interval '+03:00'`.
+- OPERLOG: أسماء المستخدمين من الجهاز تُحفظ في `biometric_device_users` وتظهر في دفتر HR بجانب PIN غير المطابَق وتُقترح في نموذج الربط.
+
 ## النشر
-1. `supabase db push` (00139)
-2. `supabase functions deploy biometric-pull` — يحتاج `SUPABASE_ANON_KEY` ضمن أسرار الدوال (متوفر افتراضياً).
-3. في بوابة التطوير المركزية: سجّل مصدر `app_api_pull` برابط المزود ومفتاحه → «اختبار الاتصال» → «اسحب الآن».
+1. `supabase db push` (00139 + 00140)
+2. `supabase functions deploy adms-receiver --no-verify-jwt` (الجهاز لا يحمل JWT — بدون هذا العلم يُرفض قبل كودنا)
+3. `supabase functions deploy biometric-pull` — يحتاج `SUPABASE_ANON_KEY` ضمن أسرار الدوال (متوفر افتراضياً).
+4. في بوابة التطوير المركزية: سجّل مصدر `app_api_pull` برابط المزود ومفتاحه → «اختبار الاتصال» → «اسحب الآن».
 
 ## الاختبارات
-- SQL: `supabase/tests/hr_biometric_sources.sql` (11 كتلة: الأنماط، الاستيراد، التكرار، ADMS، المطابقة، الربط، الاشتقاق، السجل، الصلاحيات).
-- Vitest: `biometric-providers` 18 · `BiometricPage` 14 · `BiometricLedger` 6 · `biometric.sdk` 6 · `hr-units` 4.
+- SQL: `hr_biometric_sources.sql` (11 كتلة) + `biometric_device_timezone.sql` (9 كتل: منطقة الجهاز/TAB/OPERLOG/منتصف الليل/الدفعات المتراكمة).
+- Vitest: `biometric-providers` 18 · `adms-protocol` 11 · `BiometricPage` 16 · `BiometricLedger` 6 · `biometric.sdk` 6 · `hr-units` 4.

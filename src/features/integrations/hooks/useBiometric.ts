@@ -23,6 +23,15 @@ export function useBiometricPunches(filters: BiometricPunchFilters, enabled = tr
   })
 }
 
+export function useBiometricDeviceUsers(search?: string, enabled = true) {
+  return useQuery({
+    queryKey: [...integrationsKeys.all, 'bio-device-users', search ?? ''] as const,
+    queryFn: () => biometric.listDeviceUsers(search),
+    staleTime: API.STALE_TIME.DEFAULT,
+    enabled,
+  })
+}
+
 function useInvalidateBiometric() {
   const qc = useQueryClient()
   return () => {
@@ -36,8 +45,8 @@ export function useUpdateBiometricDevice() {
   const invalidate = useInvalidateBiometric()
   const addToast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (v: { id: string; name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null }) =>
-      biometric.updateDevice(v.id, { name: v.name, mode: v.mode, config: v.config, location_hint: v.location_hint }),
+    mutationFn: (v: { id: string; name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string }) =>
+      biometric.updateDevice(v.id, { name: v.name, mode: v.mode, config: v.config, location_hint: v.location_hint, timezone_offset: v.timezone_offset }),
     onSuccess: () => { invalidate(); addToast({ type: 'success', message: 'حُفظت إعدادات المصدر' }) },
     onError: (e) => addToast({ type: 'error', message: biometricErrorMessage(e) }),
   })
