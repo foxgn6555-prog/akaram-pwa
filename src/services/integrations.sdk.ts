@@ -11,7 +11,7 @@ export const integrations = {
     return sdkGuard(
       supabase
         .from('biometric_devices')
-        .select('id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware')
+        .select('id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config')
         .order('name'),
     ) as Promise<BiometricDevice[]>
   },
@@ -21,7 +21,7 @@ export const integrations = {
       supabase
         .from('biometric_devices')
         .insert(input as never)
-        .select('id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware')
+        .select('id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config')
         .single(),
     ) as Promise<BiometricDevice>
   },

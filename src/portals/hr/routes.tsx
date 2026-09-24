@@ -1,17 +1,17 @@
-/** مسارات بوابة الموارد البشرية — كل صفحة ملف مستقل داخل هذا المجلد */
+/** مسارات بوابة الموارد البشرية — الوحدات الست المعتمدة، كل صفحة ملف مستقل */
 import type { RouteObject } from 'react-router'
 import HRDashboard from './pages/Dashboard/HRDashboard'
+import Recruitment from './pages/Recruitment/Recruitment'
 import EmployeesList from './pages/Employees/EmployeesList'
-import AllRequests from './pages/Requests/AllRequests'
 import AttendanceLog from './pages/Attendance/AttendanceLog'
-import PayrollManager from './pages/Payroll/PayrollManager'
-import HRReports from './pages/Reports/HRReports'
+import BiometricLedger from './pages/Biometric/BiometricLedger'
+import Leaves from './pages/Leaves/Leaves'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <HRDashboard /> },
+  { path: 'recruitment', element: <Recruitment /> },
   { path: 'employees', element: <EmployeesList /> },
-  { path: 'requests', element: <AllRequests /> },
   { path: 'attendance', element: <AttendanceLog /> },
-  { path: 'payroll', element: <PayrollManager /> },
-  { path: 'reports', element: <HRReports /> },
+  { path: 'leaves', element: <Leaves /> },
+  { path: 'biometric', element: <BiometricLedger /> },
 ]

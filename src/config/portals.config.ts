@@ -156,13 +156,14 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
 
   // بوابة الموارد البشرية
+  // بوابة الموارد البشرية — الوحدات الست المعتمدة (البيانات فقط؛ التقني في بوابة التطوير المركزية)
   [PORTALS.HR]: [
-    { path: '/hr', labelKey: 'nav.dashboard', icon: 'home' },
+    { path: '/hr', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/hr/recruitment', labelKey: 'nav.hr_recruitment', icon: 'user-plus' },
     { path: '/hr/employees', labelKey: 'nav.employees', icon: 'users' },
-    { path: '/hr/requests', labelKey: 'nav.requests', icon: 'clipboard' },
     { path: '/hr/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
-    { path: '/hr/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
-    { path: '/hr/reports', labelKey: 'nav.reports', icon: 'bar-chart' },
+    { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },
+    { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },
   ],
 
   // بوابة مسؤول القسم (قواطع/شفتات)

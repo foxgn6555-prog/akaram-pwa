@@ -98,7 +98,10 @@
     "notification_policies": "سياسات الإشعارات والانطلاقات",
     "garage_maintenance_coordination": "تنسيق حركات الصيانة",
     "ops_gbs_containers": "GBS الحاويات",
-    "mgr_gbs_containers": "حاويات GBS"
+    "mgr_gbs_containers": "حاويات GBS",
+    "hr_recruitment": "التوظيف وإنهاء الخدمات",
+    "hr_leaves": "الإجازات والزمنيات",
+    "hr_biometric_ledger": "دفتر البصمة"
   },
   "sections": {
     "main": "القائمة الرئيسية",
