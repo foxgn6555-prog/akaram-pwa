@@ -35,15 +35,28 @@ import AttendanceLog from '@portals/hr/pages/Attendance/AttendanceLog'
 
 const pick = (input: HTMLElement) => fireEvent.change(input, { target: { files: [new File(['x'], 'emp.xlsx')] } })
 
-beforeEach(() => { h.importCalls.length = 0; h.exported.length = 0; h.saveDept.mockClear(); h.parsed = { rows: [], unknownHeaders: [], missingRequired: [], localErrors: [] }; h.importResult = { total: 0, ok: 0, failed: 0, rows: [] }; h.depts = [] })
+const P = (o: Record<string, unknown>) => ({ rows: [], unknownHeaders: [], missingRequired: [], mapped: [{ header: 'الاسم', key: 'full_name' }, { header: 'الرقم الوظيفي', key: 'employee_number' }], headerRow: 1, skippedEmpty: 0, hasEmployeeNumber: true, localErrors: [], ...o })
+beforeEach(() => { h.importCalls.length = 0; h.exported.length = 0; h.saveDept.mockClear(); h.parsed = P({}); h.importResult = { total: 0, ok: 0, failed: 0, rows: [] }; h.depts = [] })
 
 describe('استيراد الموظفين', () => {
-  it('ملف بلا الأعمدة الإلزامية يُرفض قبل أي اتصال بالخادم', async () => {
-    h.parsed = { rows: [{ full_name: 'x' }], unknownHeaders: ['غريب'], missingRequired: ['الرقم الوظيفي'], localErrors: [] }
+  it('ملف بلا عمود اسم يُرفض بتوجيه واضح قبل أي اتصال بالخادم', async () => {
+    h.parsed = P({ rows: [], missingRequired: ['الاسم'], headerRow: 0, mapped: [] })
     render(<ImportEmployeesPanel />)
     pick(screen.getByTestId('imp-file'))
-    await waitFor(() => expect(screen.getByTestId('imp-error')).toHaveTextContent('الرقم الوظيفي'))
-    expect(h.importCalls).toEqual([]); expect(screen.getByTestId('imp-unknown')).toHaveTextContent('غريب')
+    await waitFor(() => expect(screen.getByTestId('imp-error')).toHaveTextContent('«الاسم»'))
+    expect(h.importCalls).toEqual([])
+  })
+  it('ملف بأعمدة ناقصة وبلا رقم وظيفي: تُسحب البيانات الموجودة، تُولَّد الأرقام بالبادئة، وتظهر خريطة الأعمدة', async () => {
+    h.parsed = P({ rows: [{ full_name: 'أحمد', phone: '0770' }, { full_name: 'سارة', phone: '0781', employee_number: 'X-1' }], hasEmployeeNumber: false, mapped: [{ header: 'الاسم', key: 'full_name' }, { header: 'الموبايل', key: 'phone' }], unknownHeaders: ['ملاحظات'], skippedEmpty: 2 })
+    h.importResult = { total: 2, ok: 2, failed: 0, rows: [{ row: 1, employee_number: 'EMP-0001', full_name: 'أحمد', ok: true, id: null, errors: [] }, { row: 2, employee_number: 'X-1', full_name: 'سارة', ok: true, id: null, errors: [] }] }
+    render(<ImportEmployeesPanel />)
+    pick(screen.getByTestId('imp-file'))
+    await waitFor(() => expect(screen.getByTestId('imp-table')).toBeInTheDocument())
+    expect(h.importCalls[0]!.rows).toEqual([{ full_name: 'أحمد', phone: '0770', employee_number: 'EMP-0001' }, { full_name: 'سارة', phone: '0781', employee_number: 'X-1' }]) // الموجود «E1» لا يبدأ بـ EMP- فالعدّاد يبدأ من 0001
+    expect(screen.getByTestId('imp-autonumber')).toBeInTheDocument()
+    expect(screen.getByTestId('imp-map-phone')).toHaveAttribute('data-mapped', 'true'); expect(screen.getByTestId('imp-map-mother_name')).toHaveAttribute('data-mapped', 'false')
+    expect(screen.getByTestId('imp-mapping')).toHaveTextContent('تُجوهل 2 صفاً بلا اسم'); expect(screen.getByTestId('imp-unknown')).toHaveTextContent('ملاحظات')
+    expect(screen.queryByTestId('imp-error')).toBeNull()
   })
   it('التحقق المسبق (dry run) يعرض الصالح والخاطئ بأسبابه العربية، ثم التنفيذ يرسل الصفوف الصالحة فقط ويعرض تقرير النتائج', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)

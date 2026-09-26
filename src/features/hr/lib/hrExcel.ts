@@ -182,9 +182,9 @@ export const IMPORT_COLUMNS: Array<{ key: keyof ImportEmployeeRow; header: strin
   { key: 'blood_type', header: 'فصيلة الدم', hint: 'A+ O- ...', width: 8 },
   { key: 'email', header: 'البريد', hint: '', width: 20 },
 ]
-const CONTRACT_IN: Record<string, 'monthly' | 'daily'> = { شهري: 'monthly', يومي: 'daily', 'أجر يومي': 'daily', monthly: 'monthly', daily: 'daily' }
-const GENDER_IN: Record<string, 'male' | 'female'> = { ذكر: 'male', أنثى: 'female', انثى: 'female', male: 'male', female: 'female' }
-const MARITAL_IN: Record<string, string> = { أعزب: 'single', عزباء: 'single', اعزب: 'single', متزوج: 'married', متزوجة: 'married', مطلق: 'divorced', مطلقة: 'divorced', أرمل: 'widowed', أرملة: 'widowed', ارمل: 'widowed', single: 'single', married: 'married', divorced: 'divorced', widowed: 'widowed' }
+const CONTRACT_IN_RAW: Record<string, 'monthly' | 'daily'> = { شهري: 'monthly', شهريه: 'monthly', راتب: 'monthly', 'راتب شهري': 'monthly', يومي: 'daily', يوميه: 'daily', 'اجر يومي': 'daily', 'أجر يومي': 'daily', اجور: 'daily', 'اجر': 'daily', monthly: 'monthly', daily: 'daily' }
+const GENDER_IN_RAW: Record<string, 'male' | 'female'> = { ذكر: 'male', رجل: 'male', م: 'male', انثي: 'female', انثى: 'female', أنثى: 'female', امراه: 'female', ف: 'female', male: 'male', female: 'female', m: 'male', f: 'female' }
+const MARITAL_IN_RAW: Record<string, string> = { اعزب: 'single', أعزب: 'single', عزباء: 'single', 'اعزب/عزباء': 'single', متزوج: 'married', متزوجه: 'married', متزوجة: 'married', 'متزوج/ه': 'married', مطلق: 'divorced', مطلقه: 'divorced', مطلقة: 'divorced', 'مطلق/ه': 'divorced', ارمل: 'widowed', أرمل: 'widowed', ارمله: 'widowed', أرملة: 'widowed', 'ارمل/ه': 'widowed', single: 'single', married: 'married', divorced: 'divorced', widowed: 'widowed' }
 
 export async function buildImportTemplate(ctx: { departments: string[]; branches: string[]; shifts: string[] }) {
   const ExcelJS = await import('exceljs')
@@ -204,47 +204,133 @@ export async function buildImportTemplate(ctx: { departments: string[]; branches
   return wb
 }
 
-const norm = (s: string) => s.replace(/\s*\*$/, '').replace(/\s+/g, ' ').trim()
+const norm = (s: string) => s.replace(/\s*\*$/, '').replace(/[\u0610-\u061A\u064B-\u065F]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/\s+/g, ' ').trim().toLowerCase()
+/** مرادفات شائعة لرؤوس الأعمدة (بعد التطبيع) — تُقبل ملفات المستخدم وليس القالب فقط، وكذلك كشوف التصدير نفسها */
+const HEADER_SYNONYMS_RAW: Record<string, keyof ImportEmployeeRow> = {
+  'الرقم': 'employee_number', 'رقم الموظف': 'employee_number', 'الرقم الوظيفي': 'employee_number', 'رقم وظيفي': 'employee_number', 'الرقم الذاتي': 'employee_number', 'employee_number': 'employee_number', 'id': 'employee_number',
+  'الاسم': 'full_name', 'اسم الموظف': 'full_name', 'الاسم الكامل': 'full_name', 'الاسم الرباعي': 'full_name', 'الاسم الثلاثي': 'full_name', 'name': 'full_name', 'full_name': 'full_name',
+  'القسم': 'department', 'الشعبة': 'department', 'الدائرة': 'department', 'department': 'department',
+  'الفرع': 'branch', 'الموقع': 'branch', 'branch': 'branch',
+  'الشفت': 'shift', 'الوجبة': 'shift', 'وجبة العمل': 'shift', 'shift': 'shift',
+  'نوع التعاقد': 'contract_type', 'التعاقد': 'contract_type', 'نوع العقد': 'contract_type', 'العقد': 'contract_type', 'صفة التعيين': 'contract_type',
+  'تاريخ المباشرة': 'hire_date', 'المباشرة': 'hire_date', 'تاريخ التعيين': 'hire_date', 'تاريخ التعاقد': 'hire_date',
+  'العنوان الوظيفي': 'job_title', 'المسمى الوظيفي': 'job_title', 'الوظيفة': 'job_title', 'المهنة': 'job_title',
+  'رقم البصمة': 'biometric_pin', 'البصمة': 'biometric_pin', 'pin': 'biometric_pin',
+  'الهاتف': 'phone', 'رقم الهاتف': 'phone', 'الموبايل': 'phone', 'الجوال': 'phone', 'الهاتف 1': 'phone', 'هاتف 1': 'phone',
+  'هاتف 2': 'phone2', 'الهاتف 2': 'phone2', 'هاتف اخر': 'phone2',
+  'اسم الام': 'mother_name', 'الام': 'mother_name',
+  'الجنس': 'gender', 'النوع': 'gender',
+  'تاريخ الولادة': 'birth_date', 'التولد': 'birth_date', 'المواليد': 'birth_date', 'تاريخ الميلاد': 'birth_date',
+  'محل الولادة': 'birth_place', 'مكان الولادة': 'birth_place',
+  'الحالة الاجتماعية': 'marital_status', 'الحالة الزوجية': 'marital_status',
+  'التحصيل الدراسي': 'education', 'التحصيل': 'education', 'الشهادة': 'education',
+  'البطاقة الموحدة': 'national_id_number', 'رقم البطاقة الموحدة': 'national_id_number', 'الموحدة': 'national_id_number', 'رقم الهوية': 'national_id_number',
+  'بطاقة السكن': 'residence_card_number', 'رقم بطاقة السكن': 'residence_card_number', 'السكن': 'residence_card_number',
+  'المحافظة': 'governorate',
+  'العنوان': 'address', 'عنوان السكن': 'address', 'محل السكن': 'address',
+  'قريب الطوارئ': 'emergency_contact_name', 'اسم قريب الطوارئ': 'emergency_contact_name', 'شخص للطوارئ': 'emergency_contact_name',
+  'هاتف الطوارئ': 'emergency_contact_phone', 'رقم الطوارئ': 'emergency_contact_phone',
+  'فصيلة الدم': 'blood_type', 'فصيله الدم': 'blood_type', 'زمرة الدم': 'blood_type',
+  'البريد': 'email', 'البريد الالكتروني': 'email', 'الايميل': 'email', 'email': 'email',
+}
+const normKeys = <V,>(o: Record<string, V>): Record<string, V> => Object.fromEntries(Object.entries(o).map(([k, v]) => [norm(k), v]))
+const HEADER_SYNONYMS = normKeys(HEADER_SYNONYMS_RAW)
+const CONTRACT_IN = normKeys(CONTRACT_IN_RAW); const GENDER_IN = normKeys(GENDER_IN_RAW); const MARITAL_IN = normKeys(MARITAL_IN_RAW)
+/** رؤوس كشوف التصدير التي لا تقابلها حقول استيراد — تُتجاهل بصمت */
+const IGNORED_HEADERS = new Set(['ت', '#', 'الحالة', 'حالة الراتب', 'اخر يوم عمل', 'نوع الانهاء', 'الحالة الوظيفية'].map(norm))
 const cellText = (v: unknown): string => {
   if (v == null) return ''
   if (v instanceof Date) return `${v.getUTCFullYear()}-${String(v.getUTCMonth() + 1).padStart(2, '0')}-${String(v.getUTCDate()).padStart(2, '0')}`
   if (typeof v === 'object') { const o = v as { text?: string; result?: unknown; richText?: Array<{ text: string }> }; if (o.richText) return o.richText.map((t) => t.text).join(''); if (o.text != null) return String(o.text); if (o.result != null) return cellText(o.result) }
   return String(v).trim()
 }
-export interface ParsedImport { rows: ImportEmployeeRow[]; unknownHeaders: string[]; missingRequired: string[]; localErrors: Array<{ row: number; errors: string[] }> }
+const matchHeader = (h: string): keyof ImportEmployeeRow | null => {
+  const n = norm(h); if (!n) return null
+  const exact = IMPORT_COLUMNS.find((x) => norm(x.header) === n || x.key === n)
+  return exact?.key ?? HEADER_SYNONYMS[n] ?? null
+}
+/** يطبّع التاريخ من صيغ شائعة (2026-03-05 · 5/3/2026 · 05-03-2026 · 2026/03/05 · رقم تسلسلي Excel) إلى YYYY-MM-DD أو null إن تعذّر */
+export function normalizeDate(v: string): string | null {
+  const t = v.trim(); if (!t) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t
+  let m = t.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/); if (m) return `${m[1]}-${m[2]!.padStart(2, '0')}-${m[3]!.padStart(2, '0')}`
+  m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/); if (m) return `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`
+  if (/^\d{5}$/.test(t)) { const d = new Date(Date.UTC(1899, 11, 30) + Number(t) * 86400000); return d.toISOString().slice(0, 10) }
+  return null
+}
+export interface ParsedImport {
+  rows: ImportEmployeeRow[]
+  /** رؤوس لم نتعرف عليها (بلا تكرار) */
+  unknownHeaders: string[]
+  /** الأعمدة الإلزامية غير الموجودة (الاسم فقط إلزامي؛ الرقم الوظيفي يمكن توليده) */
+  missingRequired: string[]
+  /** الأعمدة التي تعرّفنا عليها ورقم صف الرؤوس */
+  mapped: Array<{ header: string; key: keyof ImportEmployeeRow }>
+  headerRow: number
+  /** صفوف تُجوهلت لأنها بلا اسم */
+  skippedEmpty: number
+  hasEmployeeNumber: boolean
+  localErrors: Array<{ row: number; errors: string[] }>
+}
 
-/** يحلّل ملف Excel/‏CSV إلى صفوف استيراد مع تطبيع القيم العربية (شهري→monthly …) وأخطاء محلية قبل الإرسال */
+/**
+ * يحلّل ملف Excel إلى صفوف استيراد بمرونة: يكتشف صف الرؤوس تلقائياً (حتى لو سبقه عنوان مدمج كما في كشوف التصدير)،
+ * يقبل مرادفات الرؤوس، يسحب ما هو موجود فقط (الأعمدة الناقصة أو الفارغة ليست مشكلة)، ويطبّع القيم العربية والتواريخ.
+ */
 export async function parseImportFile(file: Blob | ArrayBuffer | Uint8Array): Promise<ParsedImport> {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook()
   const buf = file instanceof Blob ? await file.arrayBuffer() : file
   await wb.xlsx.load(buf as ArrayBuffer)
-  const ws = wb.worksheets[0]
-  if (!ws) return { rows: [], unknownHeaders: [], missingRequired: ['الرقم الوظيفي', 'الاسم الرباعي'], localErrors: [] }
-  const headerRow = ws.getRow(1)
-  const map: Array<keyof ImportEmployeeRow | null> = []; const unknown: string[] = []
-  headerRow.eachCell({ includeEmpty: true }, (c, col) => {
-    const h = norm(cellText(c.value)); const col_ = IMPORT_COLUMNS.find((x) => norm(x.header) === h || x.key === h)
-    map[col] = col_?.key ?? null; if (h && !col_) unknown.push(h)
+  const ws = wb.worksheets.find((w) => w.rowCount > 0) ?? wb.worksheets[0]
+  const base: ParsedImport = { rows: [], unknownHeaders: [], missingRequired: ['الاسم'], mapped: [], headerRow: 0, skippedEmpty: 0, hasEmployeeNumber: false, localErrors: [] }
+  if (!ws) return base
+  // ① اكتشاف صف الرؤوس: أول 15 صفاً، الصف الذي يطابق أكبر عدد من الرؤوس المعروفة (ويتضمن الاسم)
+  let best = { row: 0, score: 0, map: [] as Array<keyof ImportEmployeeRow | null>, headers: [] as string[] }
+  for (let rn = 1; rn <= Math.min(15, ws.rowCount); rn++) {
+    const row = ws.getRow(rn); const map: Array<keyof ImportEmployeeRow | null> = []; const headers: string[] = []; let score = 0
+    row.eachCell({ includeEmpty: true }, (c, col) => { const h = cellText(c.value); headers[col] = h; const k = matchHeader(h); map[col] = k; if (k) score++ })
+    if (score > best.score && map.includes('full_name')) best = { row: rn, score, map, headers }
+  }
+  if (!best.row) return base
+  const { map, headers } = best
+  const seenKeys = new Set<string>(); const mapped: ParsedImport['mapped'] = []; const unknown = new Set<string>()
+  headers.forEach((h, col) => {
+    const k = map[col]
+    if (k) { if (seenKeys.has(k)) map[col] = null; else { seenKeys.add(k); mapped.push({ header: h, key: k }) } }
+    else if (h && !IGNORED_HEADERS.has(norm(h))) unknown.add(h)
   })
-  const missing = IMPORT_COLUMNS.filter((c) => c.required && !map.includes(c.key)).map((c) => c.header)
-  const rows: ImportEmployeeRow[] = []; const localErrors: ParsedImport['localErrors'] = []
+  const hasNumber = seenKeys.has('employee_number')
+  const rows: ImportEmployeeRow[] = []; const localErrors: ParsedImport['localErrors'] = []; let skipped = 0
   ws.eachRow((row, rn) => {
-    if (rn === 1) return
+    if (rn <= best.row) return
     const rec: Record<string, string> = {}
     row.eachCell({ includeEmpty: false }, (c, col) => { const k = map[col]; if (k) { const t = cellText(c.value); if (t) rec[k] = t } })
     if (Object.keys(rec).length === 0) return
-    // صف التلميحات في القالب (إن بقي): يُتجاهل إذا طابقت قيمه تلميحات الأعمدة
-    if (rn === 2 && Object.entries(rec).every(([k, v]) => IMPORT_COLUMNS.find((c) => c.key === k)?.hint === v)) return
+    const vals = Object.values(rec); if (vals.length >= 3 && new Set(vals).size === 1) return // صف مدمج (عنوان/تذييل) تتكرر قيمته في كل الخلايا
+    if (rn === best.row + 1 && Object.entries(rec).every(([k, v]) => IMPORT_COLUMNS.find((c) => c.key === k)?.hint === v)) return // صف تلميحات القالب
+    if (!rec.full_name) { skipped++; return }
     const errs: string[] = []
-    if (rec.contract_type) { const v = CONTRACT_IN[rec.contract_type]; if (v) rec.contract_type = v; else errs.push('HR_CONTRACT_INVALID') }
-    if (rec.gender) { const v = GENDER_IN[rec.gender]; if (v) rec.gender = v; else errs.push('HR_GENDER_INVALID') }
-    if (rec.marital_status) { const v = MARITAL_IN[rec.marital_status]; if (v) rec.marital_status = v; else errs.push('HR_MARITAL_INVALID') }
-    for (const k of ['hire_date', 'birth_date'] as const) if (rec[k] && !/^\d{4}-\d{2}-\d{2}$/.test(rec[k])) errs.push('HR_DATE_INVALID')
+    if (rec.contract_type) { const v = CONTRACT_IN[norm(rec.contract_type)]; if (v) rec.contract_type = v; else errs.push('HR_CONTRACT_INVALID') }
+    if (rec.gender) { const v = GENDER_IN[norm(rec.gender)]; if (v) rec.gender = v; else errs.push('HR_GENDER_INVALID') }
+    if (rec.marital_status) { const v = MARITAL_IN[norm(rec.marital_status)]; if (v) rec.marital_status = v; else errs.push('HR_MARITAL_INVALID') }
+    for (const k of ['hire_date', 'birth_date'] as const) if (rec[k]) { const d = normalizeDate(rec[k]); if (d) rec[k] = d; else errs.push('HR_DATE_INVALID') }
     if (errs.length) localErrors.push({ row: rows.length + 1, errors: errs })
     rows.push(rec as unknown as ImportEmployeeRow)
   })
-  return { rows, unknownHeaders: unknown, missingRequired: missing, localErrors }
+  return { rows, unknownHeaders: [...unknown], missingRequired: [], mapped, headerRow: best.row, skippedEmpty: skipped, hasEmployeeNumber: hasNumber, localErrors }
+}
+
+/** يولّد أرقاماً وظيفية للصفوف التي بلا رقم: بادئة + عدّاد يبدأ بعد أكبر رقم مستخدم بالبادئة نفسها */
+export function assignEmployeeNumbers(rows: ImportEmployeeRow[], prefix: string, existing: string[]): ImportEmployeeRow[] {
+  const p = prefix.trim() || 'EMP-'
+  const used = new Set(existing)
+  let counter = existing.filter((n) => n.startsWith(p)).reduce((m, n) => Math.max(m, Number(n.slice(p.length)) || 0), 0)
+  return rows.map((r) => {
+    if (r.employee_number?.trim()) { used.add(r.employee_number.trim()); return r }
+    let next: string; do { counter += 1; next = `${p}${String(counter).padStart(4, '0')}` } while (used.has(next))
+    used.add(next); return { ...r, employee_number: next }
+  })
 }
 
 /** تقرير نتائج الاستيراد (لتنزيله بعد التنفيذ): صف لكل سجل مع الحالة والأخطاء بالعربية */

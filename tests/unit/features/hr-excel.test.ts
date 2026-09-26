@@ -1,7 +1,7 @@
 /** Excel الموارد البشرية: قالب الاستيراد ↔ التحليل (تطبيع القيم العربية)، أعمدة التصدير بلا رواتب، ترويسة وفلاتر */
 import { describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
-import { attendanceSpec, buildImportTemplate, buildWorkbook, EMPLOYEE_COLUMNS, EMPLOYEE_DEFAULT_COLUMNS, employeesSpec, IMPORT_COLUMNS, importReportSpec, leavesSpec, parseImportFile } from '@features/hr/lib/hrExcel'
+import { assignEmployeeNumbers, attendanceSpec, buildImportTemplate, buildWorkbook, EMPLOYEE_COLUMNS, EMPLOYEE_DEFAULT_COLUMNS, employeesSpec, IMPORT_COLUMNS, importReportSpec, leavesSpec, normalizeDate, parseImportFile } from '@features/hr/lib/hrExcel'
 
 async function sheetBuffer(headers: string[], rows: unknown[][]) {
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('x')
@@ -33,7 +33,7 @@ describe('تحليل ملف الاستيراد', () => {
   it('يطبّع القيم العربية (يومي/أنثى/عزباء) ويكشف القيم غير المعروفة والتواريخ الخاطئة محلياً', async () => {
     const buf = await sheetBuffer(['الرقم الوظيفي', 'الاسم الرباعي', 'نوع التعاقد', 'الجنس', 'الحالة الاجتماعية', 'تاريخ المباشرة', 'عمود غريب'], [
       ['A1', 'سارة', 'يومي', 'أنثى', 'عزباء', new Date(Date.UTC(2026, 2, 5)), 'x'],
-      ['A2', 'علي', 'أسبوعي', 'ذكر', 'متزوج', '5/3/2026', ''],
+      ['A2', 'علي', 'أسبوعي', 'ذكر', 'متزوج', 'غداً', ''],
     ])
     const p = await parseImportFile(buf)
     expect(p.unknownHeaders).toEqual(['عمود غريب'])
@@ -41,10 +41,36 @@ describe('تحليل ملف الاستيراد', () => {
     expect(p.rows[1]).not.toHaveProperty('x')
     expect(p.localErrors).toEqual([{ row: 2, errors: ['HR_CONTRACT_INVALID', 'HR_DATE_INVALID'] }])
   })
-  it('يرفض ملفاً بلا الأعمدة الإلزامية ويتجاهل الصفوف الفارغة والأرقام كنص', async () => {
-    const p = await parseImportFile(await sheetBuffer(['الاسم الرباعي', 'الهاتف'], [['x', 7701234567], [], ['', '']]))
-    expect(p.missingRequired).toEqual(['الرقم الوظيفي'])
-    expect(p.rows).toHaveLength(1); expect(p.rows[0]!.phone).toBe('7701234567')
+  it('الأعمدة الناقصة ليست مشكلة: ملف بالاسم والهاتف فقط يُقرأ، والصفوف الفارغة/بلا اسم تُتجاهل وتُعدّ', async () => {
+    const p = await parseImportFile(await sheetBuffer(['الاسم', 'الهاتف'], [['x', 7701234567], [], ['', ''], ['', 770]]))
+    expect(p.missingRequired).toEqual([]); expect(p.hasEmployeeNumber).toBe(false)
+    expect(p.rows).toHaveLength(1); expect(p.rows[0]!.phone).toBe('7701234567'); expect(p.skippedEmpty).toBe(1)
+    expect(p.mapped.map((m) => m.key)).toEqual(['full_name', 'phone'])
+  })
+  it('كشف التصدير نفسه (عنوان مدمج + سطر فلاتر + رؤوس في الصف 4 + عمود ت) يُستورد بلا ضجيج — سيناريو المستخدم', async () => {
+    const wb = await buildWorkbook(employeesSpec([
+      { id: 'e', employee_number: 'E1', full_name: 'أحمد', job_title: 'سائق', department_name: 'النقل', branch_name: 'بغداد', shift_name: 'صباحي', contract_type: 'daily', employment_status: 'active', hire_date: '2026-01-05', phone: '0770', biometric_pin: '11', salary_status: 'pending' } as never,
+    ], EMPLOYEE_DEFAULT_COLUMNS, [['القسم', 'النقل']]))
+    const p = await parseImportFile((await wb.xlsx.writeBuffer()) as ArrayBuffer)
+    expect(p.headerRow).toBe(4); expect(p.missingRequired).toEqual([]); expect(p.unknownHeaders).toEqual([])
+    expect(p.rows).toEqual([{ employee_number: 'E1', full_name: 'أحمد', job_title: 'سائق', department: 'النقل', branch: 'بغداد', shift: 'صباحي', contract_type: 'daily', hire_date: '2026-01-05', phone: '0770', biometric_pin: '11' }])
+  })
+  it('يقبل مرادفات الرؤوس (اسم الموظف/الرقم/الموبايل/التولد/الشعبة) مع اختلاف الهمزة والتاء المربوطة، والصيغ المختلفة للتواريخ', async () => {
+    const p = await parseImportFile(await sheetBuffer(['الرقم', 'اسم الموظف', 'الشعبه', 'الموبايل', 'التولد', 'تاريخ التعيين', 'الحاله الاجتماعيه', 'فصيله الدم', 'ملاحظات'], [
+      [7, 'كريم', 'الورشة', '0781', '5/3/1990', '2026/01/15', 'متزوجة', 'A+', 'x'],
+    ]))
+    expect(p.rows[0]).toEqual({ employee_number: '7', full_name: 'كريم', department: 'الورشة', phone: '0781', birth_date: '1990-03-05', hire_date: '2026-01-15', marital_status: 'married', blood_type: 'A+' })
+    expect(p.unknownHeaders).toEqual(['ملاحظات']); expect(p.localErrors).toEqual([])
+    expect(normalizeDate('05-03-2026')).toBe('2026-03-05'); expect(normalizeDate('46000')).toBe('2025-12-09'); expect(normalizeDate('غداً')).toBeNull()
+  })
+  it('توليد الأرقام الوظيفية: يبدأ بعد أكبر رقم موجود بالبادئة نفسها ويحترم الأرقام المكتوبة ويتجنب المستخدم', () => {
+    const out = assignEmployeeNumbers([{ full_name: 'a', employee_number: '' }, { full_name: 'b', employee_number: 'X-9' }, { full_name: 'c', employee_number: '' }], 'EMP-', ['EMP-0007', 'EMP-0009', 'other'])
+    expect(out.map((r) => r.employee_number)).toEqual(['EMP-0010', 'X-9', 'EMP-0011'])
+    expect(assignEmployeeNumbers([{ full_name: 'a', employee_number: '' }], '', [])[0]!.employee_number).toBe('EMP-0001')
+  })
+  it('ملف بلا عمود اسم إطلاقاً يُبلغ بوضوح بدل التخمين', async () => {
+    const p = await parseImportFile(await sheetBuffer(['الهاتف', 'القسم'], [['0770', 'النقل']]))
+    expect(p.missingRequired).toEqual(['الاسم']); expect(p.rows).toEqual([])
   })
 })
 
