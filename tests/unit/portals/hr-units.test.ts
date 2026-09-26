@@ -43,7 +43,7 @@ describe('بوابة الموارد البشرية — الوحدات الست',
     const routes = buildPortalRoutes(PORTALS.HR, customRoutes)
     const paths = new Set(routes.map((r) => r.path).filter(Boolean))
     expect(routes.some((r) => r.index)).toBe(true)
-    expect(paths).toEqual(new Set(['recruitment', 'employees', 'attendance', 'leaves', 'biometric']))
+    expect(paths).toEqual(new Set(['recruitment', 'employees', 'employees/:employeeId', 'attendance', 'leaves', 'biometric']))
   })
 
   it('الفصل التقني/البياناتي: أجهزة البصمة في بوابة التطوير المركزية فقط، والدفتر في HR فقط', () => {

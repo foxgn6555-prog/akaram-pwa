@@ -1,0 +1,18 @@
+export const hrKeys = {
+  all: ['hr'] as const,
+  shifts: () => [...hrKeys.all, 'shifts'] as const,
+  employees: (f?: unknown) => [...hrKeys.all, 'employees', f ?? {}] as const,
+  employee: (id: string) => [...hrKeys.all, 'employee', id] as const,
+  documents: (id: string) => [...hrKeys.all, 'documents', id] as const,
+  assignments: (id: string) => [...hrKeys.all, 'assignments', id] as const,
+  attendance: (f?: unknown) => [...hrKeys.all, 'attendance', f ?? {}] as const,
+  leaves: (f?: unknown) => [...hrKeys.all, 'leaves', f ?? {}] as const,
+  deductions: (month: string, employee?: string | null) => [...hrKeys.all, 'deductions', month, employee ?? 'all'] as const,
+  audit: (f?: unknown) => [...hrKeys.all, 'audit', f ?? {}] as const,
+  exports: (month?: string) => [...hrKeys.all, 'exports', month ?? 'all'] as const,
+  exportRows: (id: string) => [...hrKeys.all, 'export-rows', id] as const,
+  dashboard: () => [...hrKeys.all, 'dashboard'] as const,
+  payrollSheet: (month: string) => [...hrKeys.all, 'payroll-sheet', month] as const,
+  salaryProfile: (id: string) => [...hrKeys.all, 'salary-profile', id] as const,
+  notices: () => [...hrKeys.all, 'finance-notices'] as const,
+}
