@@ -110,7 +110,7 @@ begin
   perform pg_temp.as_user(hr_u);
   perform pg_temp.assert_eq('HR يرى كل الموظفين (3)', (select count(*) from public.employees), 3);
   perform pg_temp.assert_eq('HR يرى كل الطلبات (2)', (select count(*) from public.requests), 2);
-  perform pg_temp.assert_eq('HR يرى الرواتب', (select count(*) from public.payslips), 1);
+  perform pg_temp.assert_eq('HR لا يرى الرواتب (00142: المالية فقط)', (select count(*) from public.payslips), 0);
   perform pg_temp.assert_eq('HR يقرأ سجل التدقيق؟ لا — super_admin فقط', (select count(*) from public.audit_logs), 0);
 
   -- ═══ ⑤ عين IT: إدارة مستخدمين وقاعدة بيانات — لا بيانات رواتب ولا تدقيق ═══

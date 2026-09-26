@@ -93,6 +93,7 @@ for test_file in \
   supabase/tests/hr_biometric_sources.sql \
   supabase/tests/biometric_device_timezone.sql \
   supabase/tests/biometric_bridge.sql \
+  supabase/tests/hr_core_shifts_attendance_payroll.sql \
   supabase/tests/complaint_report_archiving.sql \
   supabase/tests/complaint_ticket_review.sql \
   supabase/tests/complaint_review_after_required.sql \
