@@ -1,9 +1,10 @@
 /** خطافات الموارد البشرية (00142) — HR + غرفة العمليات + المالية */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { hrKeys } from '@lib/query-keys/hr.keys'
+import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, CreateEmployeeInput, DocType, HrShift, TerminationType } from '../types'
+import type { AttendanceFilters, CreateEmployeeInput, DocType, HrShift, ImportEmployeeRow, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -209,6 +210,27 @@ export function useMarkNoticeDone() {
   return useMutation({
     mutationFn: (id: string) => hr.markNoticeDone(id),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.notices() }); t.ok('أُغلق الإشعار') },
+    onError: t.err,
+  })
+}
+
+// ─── 00143 ───
+export function useImportEmployees() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { rows: ImportEmployeeRow[]; dryRun: boolean }) => hr.importEmployees(v.rows, v.dryRun),
+    onSuccess: (res) => { if (!res.dry_run) { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(`استُورد ${res.ok} موظفاً${res.failed ? ` · رُفض ${res.failed}` : ''}`) } },
+    onError: t.err,
+  })
+}
+export function useHrDepartments() {
+  return useQuery({ queryKey: hrKeys.departments(), queryFn: hr.listDepartments })
+}
+export function useSaveDepartment() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: hr.saveDepartment,
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.departments() }); void qc.invalidateQueries({ queryKey: departmentsKeys.all }); t.ok('حُفظ القسم') },
     onError: t.err,
   })
 }

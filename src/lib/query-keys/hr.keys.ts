@@ -15,4 +15,5 @@ export const hrKeys = {
   payrollSheet: (month: string) => [...hrKeys.all, 'payroll-sheet', month] as const,
   salaryProfile: (id: string) => [...hrKeys.all, 'salary-profile', id] as const,
   notices: () => [...hrKeys.all, 'finance-notices'] as const,
+  departments: () => [...hrKeys.all, 'departments'] as const,
 }

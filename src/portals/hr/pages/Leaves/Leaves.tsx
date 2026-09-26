@@ -10,6 +10,8 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { StatCard } from '../../components/hr-ui'
 import { field, hhmm, isoDay, monthStart } from '../../components/hr-format'
+import { ExportButton } from '../../components/ExportButton'
+import { exportToExcel, leavesSpec } from '@features/hr/lib/hrExcel'
 
 export default function Leaves() {
   const [from, setFrom] = useState(monthStart())
@@ -27,9 +29,12 @@ export default function Leaves() {
 
   return (
     <div className="space-y-4" data-testid="hr-leaves">
-      <header>
-        <h1 className="text-xl font-black">الإجازات والزمنيات</h1>
-        <p className="text-xs text-slate-500">المعتمد والموافق عليه فقط — يُستثنى تلقائياً من الغياب في الحضور</p>
+      <header className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-black">الإجازات والزمنيات</h1>
+          <p className="text-xs text-slate-500">المعتمد والموافق عليه فقط — يُستثنى تلقائياً من الغياب في الحضور</p>
+        </div>
+        <ExportButton disabled={rows.length === 0} testId="lv-export" onExport={() => exportToExcel(leavesSpec(rows, [['من', from], ['إلى', to], ['النوع', kind === 'leave' ? 'إجازات' : kind === 'time_permit' ? 'زمنيات' : ''], ['القسم', departments.find((d) => d.id === departmentId)?.name ?? ''], ['بحث', search]]))} />
       </header>
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-5" data-testid="leave-filters">
         <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="lv-from" />

@@ -14,6 +14,9 @@ import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import clsx from 'clsx'
 import { DocumentsPanel } from '../../components/DocumentsPanel'
+import { ExportButton } from '../../components/ExportButton'
+import { buildEmployeeProfileWorkbook, downloadWorkbook } from '@features/hr/lib/hrExcel'
+import { hr } from '@sdk/hr.sdk'
 import { Field, MonthPicker, StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, hhmm, isoDay, monthStart } from '../../components/hr-format'
 
@@ -43,7 +46,13 @@ export default function EmployeeDetail() {
             </div>
           </div>
         </div>
-        <Link to="/hr/employees" className="text-xs font-semibold text-brand-700 hover:underline">← كل الموظفين</Link>
+        <div className="flex items-center gap-2">
+          <ExportButton label="تصدير الملف Excel" testId="emp-profile-export" onExport={async () => {
+            const [assignments, shifts, attendance] = await Promise.all([hr.listAssignments(e.id), hr.listShifts(true), hr.listAttendance({ from: monthStart(), to: isoDay(), search: e.employee_number })])
+            await downloadWorkbook(await buildEmployeeProfileWorkbook(e, assignments, shifts, attendance.filter((r) => r.employee_id === e.id)), `ملف-${e.employee_number}.xlsx`)
+          }} />
+          <Link to="/hr/employees" className="text-xs font-semibold text-brand-700 hover:underline">← كل الموظفين</Link>
+        </div>
       </header>
 
       <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">

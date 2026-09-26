@@ -4,7 +4,7 @@
  * حالة الراتب تظهر كشارة فقط (بلا أرقام — الأرقام في بوابة المالية حصراً).
  */
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import { CONTRACT_LABELS, useHrEmployees, useHrShifts } from '@features/hr'
@@ -12,15 +12,19 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { field } from '../../components/hr-format'
+import { ColumnPicker, ExportButton } from '../../components/ExportButton'
+import { EMPLOYEE_COLUMNS, EMPLOYEE_DEFAULT_COLUMNS, employeesSpec, exportToExcel } from '@features/hr/lib/hrExcel'
 
 const STATUS_AR: Record<string, string> = { active: 'نشط', on_leave: 'في إجازة', suspended: 'موقوف', terminated: 'منتهية خدمته' }
 
 export default function EmployeesList() {
   const [search, setSearch] = useState('')
-  const [departmentId, setDepartmentId] = useState('')
+  const [params] = useSearchParams()
+  const [departmentId, setDepartmentId] = useState(params.get('dept') ?? '')
   const [branchId, setBranchId] = useState('')
   const [status, setStatus] = useState('')
   const [shiftId, setShiftId] = useState('')
+  const [columns, setColumns] = useState<string[]>(EMPLOYEE_DEFAULT_COLUMNS)
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
   const { data: shifts = [] } = useHrShifts(true)
@@ -33,7 +37,14 @@ export default function EmployeesList() {
           <h1 className="text-xl font-black">بيانات الموظفين</h1>
           <p className="text-xs text-slate-500">{rows.length} موظفاً ضمن الفلاتر الحالية</p>
         </div>
-        <Link to="/hr/recruitment" className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-bold text-white">+ توظيف موظف</Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ColumnPicker all={EMPLOYEE_COLUMNS} selected={columns} onChange={setColumns} />
+          <ExportButton disabled={rows.length === 0 || columns.length === 0} onExport={() => exportToExcel(employeesSpec(rows, columns, [
+            ['بحث', search], ['القسم', departments.find((d) => d.id === departmentId)?.name ?? ''], ['الفرع', branches.find((b) => b.id === branchId)?.name ?? ''],
+            ['الحالة', status ? STATUS_AR[status] ?? status : ''], ['الشفت', shifts.find((x) => x.id === shiftId)?.name ?? ''],
+          ]))} testId="emp-export" />
+          <Link to="/hr/recruitment" className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-bold text-white">+ توظيف موظف</Link>
+        </div>
       </header>
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-5" data-testid="emp-filters">

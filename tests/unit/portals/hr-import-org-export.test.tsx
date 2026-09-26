@@ -1,0 +1,146 @@
+/** HR: استيراد الموظفين من Excel (تحقق مسبق → تنفيذ) · الهيكل التنظيمي (إضافة/تعديل/فرعي/تعطيل) · أزرار التصدير بالفلاتر */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
+
+const h = vi.hoisted(() => ({
+  importCalls: [] as Array<{ rows: unknown[]; dryRun: boolean }>,
+  importResult: null as unknown,
+  depts: [] as unknown[],
+  saveDept: vi.fn(async () => 'd'),
+  parsed: null as unknown,
+  exported: [] as unknown[],
+}))
+vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'بغداد' }] }) }))
+vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null }] }) }))
+vi.mock('@features/hr/hooks/useHr', () => ({
+  useHrShifts: () => ({ data: [{ id: 's1', name: 'صباحي', start_time: '08:00', end_time: '16:00', grace_minutes: 15, work_days: [0, 1, 2, 3, 4], is_active: true }] }),
+  useImportEmployees: () => ({ mutateAsync: async (v: { rows: unknown[]; dryRun: boolean }) => { h.importCalls.push(v); const r = h.importResult as { rows: unknown[] }; return { ...r, dry_run: v.dryRun } }, isPending: false }),
+  useHrDepartments: () => ({ data: h.depts, isLoading: false }),
+  useHrEmployees: () => ({ data: [{ id: 'e1', employee_number: 'E1', full_name: 'أحمد', contract_type: 'monthly', employment_status: 'active', salary_status: 'pending', department_name: 'النقل' }], isLoading: false }),
+  useSaveDepartment: () => ({ mutateAsync: h.saveDept, isPending: false }),
+  useAttendance: () => ({ data: [{ id: 'r1', employee_id: 'e1', employee_number: 'E1', full_name: 'أحمد', work_date: '2026-09-05', status: 'late', source: 'auto', late_minutes: 5, early_minutes: 0, worked_minutes: 400, check_in: null, check_out: null, expected_in: null, expected_out: null, is_rest_day: false }], isLoading: false }),
+  useEvaluateAttendance: () => ({ mutate: vi.fn(), isPending: false }),
+  useHrLeaves: () => ({ data: [], isLoading: false }),
+}))
+vi.mock('@features/hr/lib/hrExcel', async (orig) => {
+  const actual = await orig<Record<string, unknown>>()
+  return { ...actual, parseImportFile: async () => h.parsed, exportToExcel: async (spec: unknown) => { h.exported.push(spec) }, downloadWorkbook: async () => undefined }
+})
+
+import { ImportEmployeesPanel } from '@portals/hr/components/ImportEmployeesPanel'
+import OrgStructure from '@portals/hr/pages/Org/OrgStructure'
+import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
+import AttendanceLog from '@portals/hr/pages/Attendance/AttendanceLog'
+
+const pick = (input: HTMLElement) => fireEvent.change(input, { target: { files: [new File(['x'], 'emp.xlsx')] } })
+
+beforeEach(() => { h.importCalls.length = 0; h.exported.length = 0; h.saveDept.mockClear(); h.parsed = { rows: [], unknownHeaders: [], missingRequired: [], localErrors: [] }; h.importResult = { total: 0, ok: 0, failed: 0, rows: [] }; h.depts = [] })
+
+describe('استيراد الموظفين', () => {
+  it('ملف بلا الأعمدة الإلزامية يُرفض قبل أي اتصال بالخادم', async () => {
+    h.parsed = { rows: [{ full_name: 'x' }], unknownHeaders: ['غريب'], missingRequired: ['الرقم الوظيفي'], localErrors: [] }
+    render(<ImportEmployeesPanel />)
+    pick(screen.getByTestId('imp-file'))
+    await waitFor(() => expect(screen.getByTestId('imp-error')).toHaveTextContent('الرقم الوظيفي'))
+    expect(h.importCalls).toEqual([]); expect(screen.getByTestId('imp-unknown')).toHaveTextContent('غريب')
+  })
+  it('التحقق المسبق (dry run) يعرض الصالح والخاطئ بأسبابه العربية، ثم التنفيذ يرسل الصفوف الصالحة فقط ويعرض تقرير النتائج', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    h.parsed = { rows: [{ employee_number: 'E1', full_name: 'أحمد', department: 'النقل', contract_type: 'daily' }, { employee_number: 'E2', full_name: 'سارة', department: 'مجهول' }, { employee_number: 'E3', full_name: 'علي', contract_type: 'monthly' }], unknownHeaders: [], missingRequired: [], localErrors: [{ row: 3, errors: ['HR_GENDER_INVALID'] }] }
+    h.importResult = { total: 3, ok: 2, failed: 1, rows: [
+      { row: 1, employee_number: 'E1', full_name: 'أحمد', ok: true, id: null, errors: [] },
+      { row: 2, employee_number: 'E2', full_name: 'سارة', ok: false, id: null, errors: ['HR_IMPORT_DEPT_UNKNOWN'] },
+      { row: 3, employee_number: 'E3', full_name: 'علي', ok: true, id: null, errors: [] },
+    ] }
+    render(<ImportEmployeesPanel />)
+    pick(screen.getByTestId('imp-file'))
+    await waitFor(() => expect(screen.getByTestId('imp-table')).toBeInTheDocument())
+    expect(h.importCalls[0]).toMatchObject({ dryRun: true }); expect(h.importCalls[0]!.rows).toHaveLength(3)
+    // الأخطاء المحلية (الجنس) تُدمج مع أخطاء الخادم (القسم) → صالح واحد فقط
+    expect(screen.getByTestId('imp-ok')).toHaveTextContent('1'); expect(screen.getByTestId('imp-failed')).toHaveTextContent('2')
+    expect(screen.getByTestId('imp-row-2')).toHaveTextContent('القسم غير موجود'); expect(screen.getByTestId('imp-row-3')).toHaveTextContent('الجنس')
+    expect(screen.getByTestId('imp-row-1')).toHaveTextContent('النقل'); expect(screen.getByTestId('imp-row-1')).toHaveTextContent('يومي')
+    h.importResult = { total: 1, ok: 1, failed: 0, rows: [{ row: 1, employee_number: 'E1', full_name: 'أحمد', ok: true, id: 'new', errors: [] }] }
+    fireEvent.click(screen.getByTestId('imp-run'))
+    await waitFor(() => expect(h.importCalls[1]).toMatchObject({ dryRun: false }))
+    expect(h.importCalls[1]!.rows).toEqual([{ employee_number: 'E1', full_name: 'أحمد', department: 'النقل', contract_type: 'daily' }])
+    await waitFor(() => expect(screen.getByTestId('imp-done')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('imp-report'))
+    await waitFor(() => expect(h.exported).toHaveLength(1))
+    expect((h.exported[0] as { title: string }).title).toBe('تقرير استيراد الموظفين')
+  })
+  it('زر الاستيراد معطّل حين لا يوجد صف صالح', async () => {
+    h.parsed = { rows: [{ employee_number: '', full_name: '' }], unknownHeaders: [], missingRequired: [], localErrors: [] }
+    h.importResult = { total: 1, ok: 0, failed: 1, rows: [{ row: 1, employee_number: '', full_name: '', ok: false, id: null, errors: ['HR_NUMBER_REQUIRED', 'HR_NAME_REQUIRED'] }] }
+    render(<ImportEmployeesPanel />)
+    pick(screen.getByTestId('imp-file'))
+    await waitFor(() => expect(screen.getByTestId('imp-table')).toBeInTheDocument())
+    expect(screen.getByTestId('imp-run')).toBeDisabled()
+  })
+})
+
+describe('الهيكل التنظيمي', () => {
+  const d = (o: Partial<{ id: string; name: string; code: string; parent_id: string | null; is_active: boolean; employees_active: number; manager_name: string | null }>) => ({ id: 'x', name: 'x', code: 'X', parent_id: null, is_active: true, manager_id: null, manager_name: null, employees_active: 0, employees_total: 0, children: 0, created_at: '', ...o })
+  it('يعرض الشجرة بعمق صحيح مع عدد الموظفين ومجموع الفروع، ويخفي المعطّل افتراضياً', () => {
+    h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS', employees_active: 2 }), d({ id: 'b', name: 'القاطع الأول', code: 'OPS-1', parent_id: 'a', employees_active: 5 }), d({ id: 'c', name: 'قديم', code: 'OLD', is_active: false })]
+    render(<MemoryRouter><OrgStructure /></MemoryRouter>)
+    expect(screen.getByTestId('org-row-OPS')).toHaveAttribute('data-depth', '0'); expect(screen.getByTestId('org-row-OPS-1')).toHaveAttribute('data-depth', '1')
+    expect(within(screen.getByTestId('org-row-OPS')).getAllByRole('cell')[4]).toHaveTextContent('7')
+    expect(screen.queryByTestId('org-row-OLD')).toBeNull()
+    fireEvent.click(screen.getByTestId('org-show-inactive'))
+    expect(screen.getByTestId('org-row-OLD')).toBeInTheDocument(); expect(screen.getByTestId('org-reactivate-OLD')).toBeInTheDocument()
+    expect(screen.getByTestId('org-stat-active')).toHaveTextContent('2'); expect(screen.getByTestId('org-stat-headcount')).toHaveTextContent('7')
+  })
+  it('إضافة قسم فرعي تملأ الأب تلقائياً وتتحقق من الاسم والرمز ثم تستدعي الحفظ', async () => {
+    h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS' })]
+    render(<MemoryRouter><OrgStructure /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('org-addchild-OPS'))
+    expect((screen.getByTestId('org-parent') as HTMLSelectElement).value).toBe('a')
+    fireEvent.click(screen.getByTestId('org-save'))
+    expect(screen.getByTestId('org-error')).toHaveTextContent('اسم القسم'); expect(h.saveDept).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('org-name'), { target: { value: 'القاطع الثاني' } })
+    fireEvent.click(screen.getByTestId('org-save'))
+    expect(screen.getByTestId('org-error')).toHaveTextContent('رمز')
+    fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'ops-2' } })
+    fireEvent.change(screen.getByTestId('org-manager'), { target: { value: 'e1' } })
+    fireEvent.click(screen.getByTestId('org-save'))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true }))
+  })
+  it('التعديل يحمّل بيانات القسم، والتعطيل يطلب تأكيداً ويرسل isActive=false', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS' }), d({ id: 'b', name: 'الفرعي', code: 'OPS-1', parent_id: 'a' })]
+    render(<MemoryRouter><OrgStructure /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('org-edit-OPS-1'))
+    expect((screen.getByTestId('org-name') as HTMLInputElement).value).toBe('الفرعي'); expect((screen.getByTestId('org-parent') as HTMLSelectElement).value).toBe('a')
+    // القسم نفسه لا يظهر كأب محتمل (منع الدورة من الواجهة أيضاً)
+    expect(within(screen.getByTestId('org-parent')).queryByText(/OPS-1/)).toBeNull()
+    fireEvent.click(screen.getByTestId('org-deactivate-OPS-1'))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith(expect.objectContaining({ id: 'b', isActive: false })))
+  })
+})
+
+describe('تصدير Excel من HR', () => {
+  it('الموظفون: اختيار الأعمدة يؤثر في التصدير والفلاتر تُرفق', async () => {
+    render(<MemoryRouter><EmployeesList /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('column-picker-toggle'))
+    fireEvent.click(screen.getByTestId('column-picker-mother_name'))
+    fireEvent.click(screen.getByTestId('column-picker-phone'))
+    fireEvent.change(screen.getByTestId('emp-search'), { target: { value: 'أحمد' } })
+    fireEvent.click(screen.getByTestId('emp-export'))
+    await waitFor(() => expect(h.exported).toHaveLength(1))
+    const spec = h.exported[0] as { columns: Array<{ key: string }>; filters: Array<[string, string]>; rows: unknown[] }
+    const keys = spec.columns.map((c) => c.key)
+    expect(keys).toContain('mother_name'); expect(keys).not.toContain('phone'); expect(keys).not.toContain('base_salary')
+    expect(spec.filters).toContainEqual(['بحث', 'أحمد']); expect(spec.rows).toHaveLength(1)
+  })
+  it('الحضور: التصدير يحمل نطاق التاريخ والحالة المختارة', async () => {
+    render(<AttendanceLog />)
+    fireEvent.change(screen.getByTestId('att-from'), { target: { value: '2026-09-01' } }); fireEvent.change(screen.getByTestId('att-to'), { target: { value: '2026-09-30' } })
+    fireEvent.click(screen.getByTestId('att-stat-late'))
+    fireEvent.click(screen.getByTestId('att-export'))
+    await waitFor(() => expect(h.exported).toHaveLength(1))
+    const spec = h.exported[0] as { title: string; filters: Array<[string, string]> }
+    expect(spec.title).toBe('سجل الحضور والانصراف'); expect(spec.filters).toContainEqual(['من', '2026-09-01']); expect(spec.filters).toContainEqual(['الحالة', 'متأخر'])
+  })
+})

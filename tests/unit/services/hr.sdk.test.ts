@@ -106,3 +106,22 @@ describe('hr.sdk — الأخطاء', () => {
     expect(hrErrorMessage(new Error('HR_MONTH_LOCKED'))).toMatch(/مقفول/)
   })
 })
+
+describe('hr.sdk — الاستيراد والهيكل التنظيمي (00143)', () => {
+  it('الاستيراد يمرر الصفوف وعلم التحقق المسبق إلى hr_employees_import', async () => {
+    h.state.result = { data: { dry_run: true, total: 1, ok: 1, failed: 0, rows: [] }, error: null }
+    const res = await hr.importEmployees([{ employee_number: 'E1', full_name: 'x', department: 'النقل' }], true)
+    expect(res.dry_run).toBe(true)
+    expect(h.rpc).toHaveBeenCalledWith('hr_employees_import', { p_rows: [{ employee_number: 'E1', full_name: 'x', department: 'النقل' }], p_dry_run: true })
+  })
+  it('الأقسام: النظرة العامة عبر hr_departments_overview والحفظ عبر hr_department_save بقيم null للاختياري', async () => {
+    await hr.listDepartments(); expect(h.rpc).toHaveBeenCalledWith('hr_departments_overview', {})
+    await hr.saveDepartment({ name: 'النقل', code: 'trn', parentId: '', managerId: undefined })
+    expect(h.rpc).toHaveBeenLastCalledWith('hr_department_save', { p_id: null, p_name: 'النقل', p_code: 'trn', p_parent: null, p_is_active: true, p_manager: null })
+    await hr.saveDepartment({ id: 'd', name: 'x', code: 'X', parentId: 'p', isActive: false, managerId: 'm' })
+    expect(h.rpc).toHaveBeenLastCalledWith('hr_department_save', { p_id: 'd', p_name: 'x', p_code: 'X', p_parent: 'p', p_is_active: false, p_manager: 'm' })
+  })
+  it('رسائل أخطاء الاستيراد والأقسام مترجمة', () => {
+    for (const c of ['HR_IMPORT_DEPT_UNKNOWN', 'HR_IMPORT_DUP_IN_FILE', 'HR_DEPT_CYCLE', 'HR_DEPT_HAS_EMPLOYEES', 'HR_DEPT_CODE_TAKEN']) expect(hrErrorMessage(new Error(c))).not.toBe(c)
+  })
+})

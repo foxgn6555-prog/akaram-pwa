@@ -15,6 +15,8 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, isoDay, STATUS_STYLES } from '../../components/hr-format'
+import { ExportButton } from '../../components/ExportButton'
+import { attendanceSpec, exportToExcel } from '@features/hr/lib/hrExcel'
 
 export default function AttendanceLog() {
   const [from, setFrom] = useState(isoDay(new Date(Date.now() - 6 * 86400000)))
@@ -37,9 +39,15 @@ export default function AttendanceLog() {
           <h1 className="text-xl font-black">الحضور والانصراف</h1>
           <p className="text-xs text-slate-500">مشتق من البصمات حسب شفت كل موظف · التدقيق والتعديل في غرفة العمليات</p>
         </div>
-        <Button size="sm" variant="secondary" isLoading={evaluate.isPending} onClick={() => evaluate.mutate({ from, to })} data-testid="att-evaluate">
-          <Icon name="refresh" size={14} /> إعادة الاحتساب من البصمات
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExportButton disabled={rows.length === 0} testId="att-export" onExport={() => exportToExcel(attendanceSpec(rows, [
+            ['من', from], ['إلى', to], ['الفرع', branches.find((b) => b.id === branchId)?.name ?? ''], ['القسم', departments.find((d) => d.id === departmentId)?.name ?? ''],
+            ['الحالة', status ? ATTENDANCE_STATUS_LABELS[status] : ''], ['بحث', search],
+          ]))} />
+          <Button size="sm" variant="secondary" isLoading={evaluate.isPending} onClick={() => evaluate.mutate({ from, to })} data-testid="att-evaluate">
+            <Icon name="refresh" size={14} /> إعادة الاحتساب من البصمات
+          </Button>
+        </div>
       </header>
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="att-filters">

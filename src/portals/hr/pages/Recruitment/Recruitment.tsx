@@ -21,8 +21,9 @@ import clsx from 'clsx'
 import { Field } from '../../components/hr-ui'
 import { field, hhmm, isoDay } from '../../components/hr-format'
 import { DocumentsPanel } from '../../components/DocumentsPanel'
+import { ImportEmployeesPanel } from '../../components/ImportEmployeesPanel'
 
-type Tab = 'hire' | 'terminate' | 'shifts'
+type Tab = 'hire' | 'import' | 'terminate' | 'shifts'
 
 const EMPTY: CreateEmployeeInput = {
   employee_number: '', full_name: '', contract_type: 'monthly', hire_date: isoDay(), department_id: '', branch_id: '', manager_id: '',
@@ -41,13 +42,14 @@ export default function Recruitment() {
           <p className="text-xs text-slate-500">بيانات الموظف الكاملة · المستمسكات · الشفت · إنهاء الخدمة — الراتب يُعرَّف في بوابة المالية حصراً</p>
         </div>
         <nav className="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="أقسام الوحدة">
-          {([['hire', 'توظيف موظف'], ['terminate', 'إنهاء خدمات'], ['shifts', 'قوالب الشفتات']] as const).map(([k, l]) => (
+          {([['hire', 'توظيف موظف'], ['import', 'استيراد من Excel'], ['terminate', 'إنهاء خدمات'], ['shifts', 'قوالب الشفتات']] as const).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setTab(k)} data-testid={`tab-${k}`}
               className={clsx('rounded-lg px-3 py-1.5 text-xs font-bold', tab === k ? 'bg-white shadow text-brand-700' : 'text-slate-600')}>{l}</button>
           ))}
         </nav>
       </header>
       {tab === 'hire' && <HireForm />}
+      {tab === 'import' && <ImportEmployeesPanel />}
       {tab === 'terminate' && <TerminatePanel />}
       {tab === 'shifts' && <ShiftsPanel />}
     </div>

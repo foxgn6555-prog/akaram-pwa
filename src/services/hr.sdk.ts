@@ -8,7 +8,7 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
   AttendanceAudit, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
-  SalaryProfile, ShiftAssignment, TerminationType,
+  SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, ImportEmployeeRow, ImportResult,
 } from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, hire_date,
@@ -38,7 +38,26 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_PAY_TYPE_INVALID: 'نوع الأجر غير صالح',
   HR_TERMINATION_TYPE_INVALID: 'نوع الإنهاء غير صالح',
   HR_ALREADY_TERMINATED: 'خدمة هذا الموظف منتهية أصلاً',
-  HR_DATE_INVALID: 'التاريخ مطلوب',
+  HR_DATE_INVALID: 'تاريخ غير صالح (الصيغة المطلوبة YYYY-MM-DD)',
+  HR_CONTRACT_INVALID: 'نوع التعاقد يجب أن يكون شهري أو يومي',
+  HR_GENDER_INVALID: 'الجنس يجب أن يكون ذكر أو أنثى',
+  HR_MARITAL_INVALID: 'الحالة الاجتماعية غير صالحة',
+  HR_IMPORT_EMPTY: 'الملف لا يحتوي صفوفاً',
+  HR_IMPORT_TOO_LARGE: 'الحد الأقصى 2000 صف في الاستيراد الواحد',
+  HR_IMPORT_DUP_IN_FILE: 'الرقم الوظيفي مكرر داخل الملف',
+  HR_IMPORT_DUP_PIN_IN_FILE: 'رقم البصمة مكرر داخل الملف',
+  HR_IMPORT_DUP_ID_IN_FILE: 'رقم البطاقة الموحدة مكرر داخل الملف',
+  HR_IMPORT_DEPT_UNKNOWN: 'القسم غير موجود (اكتب الاسم أو الرمز كما في الهيكل التنظيمي)',
+  HR_IMPORT_BRANCH_UNKNOWN: 'الفرع غير موجود',
+  HR_IMPORT_SHIFT_UNKNOWN: 'الشفت غير موجود',
+  HR_DEPT_NAME_REQUIRED: 'اسم القسم مطلوب',
+  HR_DEPT_CODE_REQUIRED: 'رمز القسم مطلوب',
+  HR_DEPT_CODE_TAKEN: 'رمز القسم مستخدم لقسم آخر',
+  HR_DEPT_CYCLE: 'لا يمكن جعل القسم تابعاً لنفسه أو لأحد أقسامه الفرعية',
+  HR_DEPT_PARENT_INVALID: 'القسم الأب غير موجود',
+  HR_DEPT_MANAGER_INVALID: 'مدير القسم غير موجود أو منتهية خدمته',
+  HR_DEPT_HAS_EMPLOYEES: 'لا يمكن تعطيل قسم فيه موظفون نشطون — انقلهم أولاً',
+  HR_DEPT_HAS_CHILDREN: 'لا يمكن تعطيل قسم له أقسام فرعية نشطة',
   employees_national_id_uq: 'رقم البطاقة الموحدة مسجل لموظف آخر',
   employees_employee_number_key: 'الرقم الوظيفي مستخدم لموظف آخر',
 }
@@ -209,6 +228,14 @@ export const hr = {
     return (await sdkGuard(
       supabase.from('finance_hr_notices').select('*, employees(full_name, employee_number, contract_type)').eq('is_done', false).order('created_at', { ascending: false }),
     )) as FinanceNotice[]
+  },
+  // ─────────── الاستيراد والهيكل التنظيمي (00143) ───────────
+  importEmployees(rows: ImportEmployeeRow[], dryRun: boolean) {
+    return rpc<ImportResult>('hr_employees_import', { p_rows: rows, p_dry_run: dryRun })
+  },
+  listDepartments() { return rpc<HrDepartment[]>('hr_departments_overview', {}) },
+  saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null }) {
+    return rpc<string>('hr_department_save', { p_id: v.id ?? null, p_name: v.name, p_code: v.code, p_parent: v.parentId || null, p_is_active: v.isActive ?? true, p_manager: v.managerId || null })
   },
   markNoticeDone(id: string) {
     return sdkVoid(supabase.from('finance_hr_notices').update({ is_done: true, done_at: new Date().toISOString() } as never).eq('id', id))

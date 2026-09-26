@@ -164,6 +164,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
     { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },
     { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },
+    { path: '/hr/org', labelKey: 'nav.hr_org', icon: 'folder' },
   ],
 
   // بوابة مسؤول القسم (قواطع/شفتات)

@@ -291,3 +291,55 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
 export const CONTRACT_LABELS: Record<ContractType, string> = { monthly: 'راتب شهري', daily: 'أجر يومي' }
 export const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 export const GOVERNORATES_IQ = ['بغداد', 'البصرة', 'نينوى', 'أربيل', 'النجف', 'كربلاء', 'كركوك', 'الأنبار', 'ديالى', 'ذي قار', 'بابل', 'واسط', 'ميسان', 'المثنى', 'القادسية', 'صلاح الدين', 'السليمانية', 'دهوك']
+
+// ─── 00143: الاستيراد والهيكل التنظيمي ───
+export interface ImportEmployeeRow {
+  employee_number: string
+  full_name: string
+  department?: string
+  branch?: string
+  shift?: string
+  contract_type?: ContractType
+  hire_date?: string
+  job_title?: string
+  phone?: string
+  phone2?: string
+  email?: string
+  mother_name?: string
+  gender?: 'male' | 'female'
+  birth_date?: string
+  birth_place?: string
+  marital_status?: string
+  education?: string
+  national_id_number?: string
+  residence_card_number?: string
+  governorate?: string
+  address?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  blood_type?: string
+  biometric_pin?: string
+}
+export interface ImportRowResult {
+  row: number
+  employee_number: string | null
+  full_name: string | null
+  ok: boolean
+  id: string | null
+  errors: string[]
+}
+export interface ImportResult { dry_run: boolean; total: number; ok: number; failed: number; rows: ImportRowResult[] }
+
+export interface HrDepartment {
+  id: string
+  name: string
+  code: string
+  parent_id: string | null
+  is_active: boolean
+  manager_id: string | null
+  manager_name: string | null
+  employees_active: number
+  employees_total: number
+  children: number
+  created_at: string
+}

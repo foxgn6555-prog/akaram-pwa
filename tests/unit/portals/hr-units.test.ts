@@ -1,5 +1,5 @@
 /**
- * عقد بوابة الموارد البشرية: الوحدات الست المعتمدة بالترتيب — والفصل الصارم:
+ * عقد بوابة الموارد البشرية: الوحدات السبع المعتمدة بالترتيب — والفصل الصارم:
  *   · التقني (تسجيل الأجهزة/المصادر، السحب، سجل العمليات) في بوابة التطوير المركزية فقط.
  *   · البيانات (دفتر البصمة، الربط، اشتقاق الحضور) في بوابة الموارد البشرية فقط.
  */
@@ -13,10 +13,10 @@ import sidebar from '../../../src/i18n/ar/sidebar.json'
 const flat = (units: typeof PORTAL_UNITS[keyof typeof PORTAL_UNITS]) =>
   units.flatMap((u) => [u, ...(u.children ?? [])])
 
-describe('بوابة الموارد البشرية — الوحدات الست', () => {
-  it('تسجل الوحدات الست بالترتيب المعتمد', () => {
+describe('بوابة الموارد البشرية — الوحدات السبع', () => {
+  it('تسجل الوحدات السبع بالترتيب المعتمد', () => {
     const units = PORTAL_UNITS[PORTALS.HR]
-    expect(units).toHaveLength(6)
+    expect(units).toHaveLength(7)
     expect(units.map((u) => u.labelKey)).toEqual([
       'nav.dashboard',          // ① الرئيسية
       'nav.hr_recruitment',     // ② التوظيف وإنهاء الخدمات
@@ -24,9 +24,10 @@ describe('بوابة الموارد البشرية — الوحدات الست',
       'nav.attendance',         // ④ الحضور والانصراف
       'nav.hr_leaves',          // ⑤ الإجازات والزمنيات
       'nav.hr_biometric_ledger', // ⑥ دفتر البصمة (بيانات)
+      'nav.hr_org',              // ⑦ الهيكل التنظيمي
     ])
     expect(units.map((u) => u.path)).toEqual([
-      '/hr', '/hr/recruitment', '/hr/employees', '/hr/attendance', '/hr/leaves', '/hr/biometric',
+      '/hr', '/hr/recruitment', '/hr/employees', '/hr/attendance', '/hr/leaves', '/hr/biometric', '/hr/org',
     ])
   })
 
@@ -37,13 +38,14 @@ describe('بوابة الموارد البشرية — الوحدات الست',
     expect(nav.attendance).toBe('الحضور والانصراف')
     expect(nav.hr_leaves).toBe('الإجازات والزمنيات')
     expect(nav.hr_biometric_ledger).toBe('دفتر البصمة')
+    expect(nav.hr_org).toBe('الهيكل التنظيمي')
   })
 
   it('لكل وحدة مسار مسجل في routes', () => {
     const routes = buildPortalRoutes(PORTALS.HR, customRoutes)
     const paths = new Set(routes.map((r) => r.path).filter(Boolean))
     expect(routes.some((r) => r.index)).toBe(true)
-    expect(paths).toEqual(new Set(['recruitment', 'employees', 'employees/:employeeId', 'attendance', 'leaves', 'biometric']))
+    expect(paths).toEqual(new Set(['recruitment', 'employees', 'employees/:employeeId', 'attendance', 'leaves', 'biometric', 'org']))
   })
 
   it('الفصل التقني/البياناتي: أجهزة البصمة في بوابة التطوير المركزية فقط، والدفتر في HR فقط', () => {
