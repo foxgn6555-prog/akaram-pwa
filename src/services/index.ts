@@ -24,3 +24,4 @@ export {
   sectorSummary,
 } from './sector.sdk'
 export { complaints } from './complaints.sdk'
+export { executive, execErrorMessage } from './executive.sdk'

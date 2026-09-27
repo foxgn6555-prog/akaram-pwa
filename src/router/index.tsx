@@ -63,6 +63,18 @@ export const router = createBrowserRouter([
     children: p.children ?? [],
   })),
 
+  // رابط الإشعار العام للتبليغ → يعاد توجيهه إلى وارد بوابة المستخدم الأساسية
+  {
+    path: '/announcements/:announcementId?',
+    loader: async ({ params }) => {
+      const { authenticated, session } = await authGuard()
+      if (!authenticated) return redirect('/login')
+      const resolution = resolvePortal(session?.roles ?? [])
+      if (resolution.type !== 'single') return redirect('/403')
+      return redirect(`${resolution.path}/announcements/inbox${params.announcementId ? '/' + params.announcementId : ''}`)
+    },
+  },
+
   // 403 — دخول بوابة غير مصرح بها
   {
     path: '/403',

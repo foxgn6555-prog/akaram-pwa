@@ -90,18 +90,18 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
     expect(canEnter(['employee'], 'manager')).toBe(false)
   })
 
-  it('super_admin: إشراف على كل البوابات — والافتراضية «التطوير المركزية» /it', () => {
-    expect(resolvePortal(['super_admin'])).toEqual({ type: 'single', portal: 'it', path: '/it' })
+  it('super_admin: إشراف على كل البوابات — والافتراضية بوابة المدير المفوض /admin', () => {
+    expect(resolvePortal(['super_admin'])).toEqual({ type: 'single', portal: 'admin', path: '/admin' })
     for (const p of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
       expect(canEnter(['super_admin'], p), `super_admin → ${p}`).toBe(true)
     }
   })
 
-  it('super_admin + it_admin معاً: الافتراضية تبقى «التطوير المركزية»', () => {
+  it('super_admin + it_admin معاً: الافتراضية بوابة المدير المفوض (الأعلى رتبة) — والتقنية متاحة من المبدّل', () => {
     expect(resolvePortal(['it_admin', 'super_admin'])).toEqual({
       type: 'single',
-      portal: 'it',
-      path: '/it',
+      portal: 'admin',
+      path: '/admin',
     })
   })
 

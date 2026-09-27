@@ -4,7 +4,7 @@ import FinanceDashboard from './pages/Dashboard/FinanceDashboard'
 import BudgetOverview from './pages/Budget/BudgetOverview'
 import PayrollOverview from './pages/Payroll/PayrollOverview'
 import FinancialReports from './pages/Reports/FinancialReports'
-import AuditReport from './pages/Reports/AuditReport'
+import FinanceAnnouncements from './pages/Announcements/FinanceAnnouncements'
 import MaintenancePurchases from './pages/Purchases/MaintenancePurchases'
 
 export const customRoutes: RouteObject[] = [
@@ -13,5 +13,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'purchases', element: <MaintenancePurchases /> },
   { path: 'payroll', element: <PayrollOverview /> },
   { path: 'reports', element: <FinancialReports /> },
-  { path: 'audit-report', element: <AuditReport /> },
+  { path: 'announcements', element: <FinanceAnnouncements /> },
 ]

@@ -11,8 +11,9 @@ export type PortalResolution =
  * مدير النظام (super_admin) بوابته «التطوير المركزية» (/it): من خلالها
  * يُضاف المستخدمون والفروع ويُتحكم بالتطبيق كاملاً.
  */
+// المدير المفوض (super_admin) يهبط في بوابته /admin (أعمال صافية)؛ ويصل إلى /it وكل البوابات من المبدّل
 const ROLE_DEFAULT_PORTAL: Partial<Record<Role, PortalId>> = {
-  super_admin: PORTALS.IT,
+  super_admin: PORTALS.ADMIN,
 }
 
 export function resolvePortal(roles: readonly Role[]): PortalResolution {

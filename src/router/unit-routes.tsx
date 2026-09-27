@@ -11,6 +11,11 @@ import type { PortalId } from '@lib/constants/portals.constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const UnitPlaceholder = lazy(() => import('@components/layout/UnitPlaceholder'))
+const AnnouncementInbox = lazy(() => import('@components/executive/AnnouncementInbox'))
+const AnnouncementDetail = lazy(() => import('@components/executive/AnnouncementInbox').then((m) => ({ default: m.AnnouncementDetail })))
+
+/** وارد التبليغات متاح في كل بوابة على نفس المسار النسبي (يستهدفه إشعار التبليغ) */
+export const ANNOUNCEMENT_INBOX_PATH = 'announcements/inbox'
 
 function suspense(node: ReactNode): ReactNode {
   return <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -60,6 +65,10 @@ export function buildPortalRoutes(
   for (const route of customRoutes) {
     if (route.path && !covered.has(route.path)) children.push(route)
   }
+
+  // وارد التبليغات + تفصيل تبليغ — في كل بوابة بلا استثناء
+  if (!covered.has(ANNOUNCEMENT_INBOX_PATH)) children.push({ path: ANNOUNCEMENT_INBOX_PATH, element: suspense(<AnnouncementInbox />) })
+  children.push({ path: `${ANNOUNCEMENT_INBOX_PATH}/:announcementId`, element: suspense(<AnnouncementDetail />) })
 
   // فهرس البوابة: أول وحدة (إلا إن كانت الوحدة الأولى هي الجذر — عندها صارت index أعلاه)
   const first = units[0]

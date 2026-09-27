@@ -29,6 +29,7 @@ describe('بوابة الشكاوى', () => {
     expect(paths).toEqual(new Set([
       'karrada-sector', 'zaafaraniya-sector', 'assignment', 'processing', 'templates',
       'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
+      'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
     ]))
   })
 })

@@ -1,17 +1,21 @@
-/** مسارات بوابة الإدارة العليا — كل صفحة ملف مستقل داخل هذا المجلد */
+/**
+ * مسارات بوابة المدير المفوض — أعمال صافية 100%:
+ *  · ''             → الرئيسية (ملخص كل الوحدات + استنتاجات)
+ *  · reports        → التقارير الجاهزة (يومي/شهري/نصف سنوي/سنوي) + Excel/PDF
+ *  · announcements  → التبليغات (نشر + صادر + وارد)
+ * لا صفحات تقنية هنا — كل ما هو تقني في بوابة التطوير المركزية /it.
+ */
+import { lazy, Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
-import AdminDashboard from './pages/Dashboard/AdminDashboard'
-import PortalManager from './pages/Portals/PortalManager'
-import RoleAssignment from './pages/Portals/RoleAssignment'
-import GeneralSettings from './pages/Settings/GeneralSettings'
-import AuditLogViewer from './pages/AuditLogs/AuditLogViewer'
-import DataBackup from './pages/Backup/DataBackup'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+
+const AdminHome = lazy(() => import('./pages/AdminHome'))
+const AdminReports = lazy(() => import('./pages/AdminReports'))
+const AdminAnnouncements = lazy(() => import('./pages/AdminAnnouncements'))
+const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <AdminDashboard /> },
-  { path: 'portals', element: <PortalManager /> },
-  { path: 'roles', element: <RoleAssignment /> },
-  { path: 'settings', element: <GeneralSettings /> },
-  { path: 'audit-logs', element: <AuditLogViewer /> },
-  { path: 'backup', element: <DataBackup /> },
+  { path: '', element: s(<AdminHome />) },
+  { path: 'reports', element: s(<AdminReports />) },
+  { path: 'announcements', element: s(<AdminAnnouncements />) },
 ]

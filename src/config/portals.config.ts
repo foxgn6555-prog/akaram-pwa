@@ -184,12 +184,12 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
 
   // بوابة المالية
   [PORTALS.FINANCE]: [
-    { path: '/finance', labelKey: 'nav.dashboard', icon: 'home' },
-    { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
-    { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
+    { path: '/finance', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/finance/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
-    { path: '/finance/reports', labelKey: 'nav.financial_reports', icon: 'bar-chart' },
-    { path: '/finance/audit-report', labelKey: 'nav.audit', icon: 'file-text' },
+    { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
+    { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
+    { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },
   ],
 
   // بوابة التطوير المركزية (تقنية المعلومات سابقاً) — مركز التحكم الكامل:
@@ -280,14 +280,11 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     },
   ],
 
-  // بوابة الإدارة العليا
+  // بوابة المدير المفوض — أعمال صافية (لا شيء تقني؛ التقني كله في /it)
   [PORTALS.ADMIN]: [
-    { path: '/admin', labelKey: 'nav.dashboard', icon: 'home' },
-    { path: '/admin/portals', labelKey: 'nav.portals', icon: 'layout-grid' },
-    { path: '/admin/roles', labelKey: 'nav.roles', icon: 'shield' },
-    { path: '/admin/settings', labelKey: 'nav.settings', icon: 'settings' },
-    { path: '/admin/audit-logs', labelKey: 'nav.audit', icon: 'file-text' },
-    { path: '/admin/backup', labelKey: 'nav.backup', icon: 'database' },
+    { path: '/admin', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/admin/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
+    { path: '/admin/announcements', labelKey: 'nav.announcements', icon: 'send' },
   ],
 
   // ═══ البوابات السبع الجديدة — فارغة (صفحة رئيسية Placeholder فقط،
@@ -332,9 +329,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   ],
   [PORTALS.EXECUTIVE]: [
     { path: '/executive', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/executive/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
+    { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'send' },
   ],
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/deputy/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
+    { path: '/deputy/announcements', labelKey: 'nav.announcements', icon: 'send' },
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },

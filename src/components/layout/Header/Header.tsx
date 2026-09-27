@@ -104,13 +104,9 @@ export function Header({ portal }: HeaderProps) {
   const pageTitle = currentPage?.label ?? theme.label
 
   // روابط القائمة حسب البوابة الحالية — لا روابط ثابتة لبوابة admin لغير المخوّلين
-  const accountPath =
-    portal === PORTALS.EMPLOYEE
-      ? '/employee/profile'
-      : portal === PORTALS.ADMIN
-        ? '/admin/settings'
-        : undefined
-  const settingsPath = portal === PORTALS.ADMIN ? '/admin/settings' : undefined
+  const accountPath = portal === PORTALS.EMPLOYEE ? '/employee/profile' : undefined
+  // الإعدادات التقنية كلها في بوابة التطوير المركزية — لا رابط إعدادات في بوابة المدير المفوض
+  const settingsPath = undefined
 
   // الدور الفعلي للمستخدم (وليس اسم البوابة)
   const roleLabel = session ? (ROLE_LABELS[session.primaryRole] ?? theme.label) : theme.label
