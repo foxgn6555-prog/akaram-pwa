@@ -43,31 +43,46 @@ const ann = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => { h.overview = sample(); h.previous = sample({ complaints: { ...sample().complaints, total: 50 } }); h.feedInbox = []; h.feedSent = []; h.recipients = []; h.detail = null; vi.clearAllMocks() })
 
-describe('الرئيسية — المدير المفوض', () => {
-  it('ما يحتاج قراره → قراءة الفترة → بطاقة لكل وحدة → تفاصيل مطوية؛ ولا شيء تقني', () => {
+const openTab = (k: string) => fireEvent.click(screen.getByTestId(`tab-${k}`))
+const toStep3 = () => { fireEvent.click(screen.getByTestId('next-step')); fireEvent.click(screen.getByTestId('next-step')) }
+
+describe('الرئيسية — تبويبات ثابتة ونظرة عامة خفيفة', () => {
+  it('المدير المفوض: نظرة عامة = قرارات + 4 نتائج فقط + بطاقات؛ التبويبات بشارات الإنذار؛ ولا شيء تقني', () => {
     r(<ExecHome kind="admin" basePath="/admin" />)
-    expect(screen.getByTestId('exec-home')).toHaveAttribute('data-kind', 'admin')
-    expect(screen.getByText('المدير المفوض — الرئيسية')).toBeInTheDocument()
-    // بنود القرار: كشف غير معتمد لا يظهر (معتمد)، إجازات معلّقة 4، شكاوى مفتوحة 30، صيانة 4، ميدان 6، تنبيهات 6
+    expect(screen.getByTestId('exec-home')).toHaveAttribute('data-tab', 'overview')
+    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent)).toEqual(['نظرة عامة', 'الشكاوى1', 'الأسطول والصيانة', 'المحطة التحويلية1', 'القوى العاملة1', 'المالية', 'الميدان'])
     const decisions = within(screen.getByTestId('decisions')).getAllByTestId('decision-item')
-    expect(decisions.map((d) => d.textContent)).toEqual([
-      expect.stringContaining('4طلب إجازة'), expect.stringContaining('30شكوى قيد المعالجة'), expect.stringContaining('4آلية متوقفة'), expect.stringContaining('6آلية في الميدان'), expect.stringContaining('6تنبيه'),
-    ])
-    expect(screen.getByTestId('health-gauge')).toBeInTheDocument()
+    expect(decisions.map((d) => d.textContent)).toEqual([expect.stringContaining('4طلب إجازة'), expect.stringContaining('30شكوى قيد المعالجة'), expect.stringContaining('4آلية متوقفة'), expect.stringContaining('6آلية في الميدان'), expect.stringContaining('6تنبيه')])
     const insights = within(screen.getByTestId('insights')).getAllByRole('listitem')
-    expect(insights.length).toBeGreaterThanOrEqual(6)
-    expect(insights.some((li) => li.textContent?.includes('وردت 100 شكوى') && li.textContent?.includes('بارتفاع 100٪'))).toBe(true)
+    expect(insights).toHaveLength(4)
+    expect(insights[0]).toHaveAttribute('data-tone', 'bad')            // الأسوأ أولاً
+    expect(screen.getByTestId('health-gauge')).toBeInTheDocument()
     const cards = screen.getByTestId('scorecards')
-    for (const id of ['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-finance', 'card-field']) expect(within(cards).getByTestId(id)).toBeInTheDocument()
+    expect(within(cards).getAllByTestId(/^card-/).map((c) => c.dataset.testid)).toEqual(['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-finance', 'card-field'])
     expect(within(within(cards).getByTestId('card-complaints')).getByTestId('delta')).toHaveAttribute('data-good', 'false')
-    expect(within(cards).getByTestId('card-workforce')).toHaveTextContent('95٪')
-    // التفاصيل موجودة في DOM (تُطوى على الهاتف فقط عبر CSS)
-    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'panel-workforce', 'panel-finance', 'panel-disclosures', 'panel-support', 'panel-sectors']) expect(screen.getByTestId(id)).toBeInTheDocument()
-    fireEvent.click(within(screen.getByTestId('details-ops')).getByRole('button'))
-    expect(within(screen.getByTestId('details-ops')).getByRole('button')).toHaveAttribute('aria-expanded', 'true')
+    // لا لوحات تفصيلية في النظرة العامة (خفيفة)
+    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'kpi-grid']) expect(screen.queryByTestId(id)).toBeNull()
     expect(screen.getByTestId('go-reports')).toHaveAttribute('href', '/admin/reports')
-    expect(screen.getByTestId('go-announcements')).toHaveAttribute('href', '/admin/announcements')
     expect(document.body.textContent).not.toMatch(/قاعدة البيانات|الجداول|Supabase|الخادم/)
+  })
+  it('تبويب الوحدة = استنتاجاتها + لوحتها فقط؛ البطاقة تفتح تبويبها؛ التبويب في hash الرابط', () => {
+    r(<ExecHome kind="admin" basePath="/admin" />)
+    openTab('complaints')
+    expect(screen.getByTestId('exec-home')).toHaveAttribute('data-tab', 'complaints')
+    expect(screen.getByTestId('tab-panel-complaints')).toBeInTheDocument()
+    expect(screen.getByTestId('panel-complaints')).toBeInTheDocument()
+    expect(within(screen.getByTestId('tab-insights')).getAllByRole('listitem').every((li) => li.textContent?.includes('الشكاوى'))).toBe(true)
+    expect(screen.queryByTestId('panel-fleet')).toBeNull(); expect(screen.queryByTestId('scorecards')).toBeNull()
+    openTab('overview')
+    fireEvent.click(screen.getByTestId('open-station'))
+    expect(screen.getByTestId('panel-station')).toBeInTheDocument()
+    openTab('field')
+    for (const id of ['panel-sectors', 'panel-disclosures', 'panel-supplies', 'panel-support']) expect(screen.getByTestId(id)).toBeInTheDocument()
+  })
+  it('فتح مباشر عبر hash: /admin#fleet', () => {
+    r(<ExecHome kind="admin" basePath="/admin" />, '/admin#fleet')
+    expect(screen.getByTestId('exec-home')).toHaveAttribute('data-tab', 'fleet')
+    expect(screen.getByTestId('panel-fleet')).toBeInTheDocument()
   })
   it('كشف رواتب غير معتمد يتصدر بنود القرار', () => {
     h.overview = sample({ finance: { ...sample().finance, payroll: { ...sample().finance.payroll!, status: 'exported' } } })
@@ -93,100 +108,123 @@ describe('الرئيسية — المدير المفوض', () => {
 describe('الرسوم — SVG/CSS خالصة ومتجاوبة', () => {
   it('لا recharts؛ الاتجاه يعرض القيم نصاً (الإجمالي والذروة وتواريخ المحور) ويتمدد بـ viewBox', () => {
     h.overview = sample({ complaints: { ...sample().complaints, series: [{ d: '2026-09-01', count: 4 }, { d: '2026-09-02', count: 9 }, { d: '2026-09-03', count: 2 }] } })
-    r(<ExecHome kind="executive" basePath="/executive" />)
+    r(<ExecHome kind="executive" basePath="/executive" />, '/executive#complaints')
     expect(document.querySelector('.recharts-wrapper')).toBeNull()
-    const panel = screen.getByTestId('panel-complaints')
-    const trend = panel.querySelector('.exec-chart')!
+    const trend = screen.getByTestId('panel-complaints').querySelector('.exec-chart')!
     expect(trend).toHaveAttribute('data-points', '3')
     expect(trend.textContent).toContain('شكاوى/يوم: 15')
     expect(trend.textContent).toContain('الذروة 9 يوم 09/02')
     const svg = trend.querySelector('svg')!
     expect(svg).toHaveAttribute('viewBox', '0 0 600 100'); expect(svg).toHaveAttribute('preserveAspectRatio', 'none'); expect(svg.getAttribute('class')).toContain('w-full')
+    expect(svg.querySelector('path[d^="M"]')).not.toBeNull()   // منحنى ناعم
     expect(trend.textContent).toContain('09/01'); expect(trend.textContent).toContain('09/03')
   })
   it('الأعمدة الأفقية HTML: الاسم كاملاً + القيمة + النسبة، وعرض العمود نسبي', () => {
-    r(<ExecHome kind="executive" basePath="/executive" />)
+    r(<ExecHome kind="executive" basePath="/executive" />, '/executive#complaints')
     const bars = within(screen.getByTestId('panel-complaints')).getAllByRole('list').find((l) => l.textContent?.includes('نفايات'))!
     expect(bars).toHaveTextContent('نفايات80(100٪)')
     expect((bars.querySelector('li > div:last-child > div') as HTMLElement).style.width).toBe('100%')
   })
   it('الحلقة: مجموع في الوسط وقائمة كاملة بالنِّسب', () => {
-    r(<ExecHome kind="executive" basePath="/executive" />)
+    r(<ExecHome kind="executive" basePath="/executive" />, '/executive#fleet')
     const fleet = screen.getByTestId('panel-fleet')
     expect(fleet.querySelector('svg text')?.textContent).toBe('300')
     expect(fleet).toHaveTextContent('صباحي300 (100٪)')
   })
   it('المكدّس اليومي: أعمدة CSS بارتفاعات نسبية ومجاميع نصية', () => {
-    r(<ExecHome kind="executive" basePath="/executive" />)
+    r(<ExecHome kind="executive" basePath="/executive" />, '/executive#workforce')
     const wf = screen.getByTestId('panel-workforce')
     expect(wf).toHaveTextContent('حاضر: 90'); expect(wf).toHaveTextContent('غائب: 5')
-    const seg = wf.querySelector('.exec-chart div[title] div') as HTMLElement
-    expect(seg.style.height).toBe('90%')
+    expect((wf.querySelector('.exec-chart div[title] div') as HTMLElement).style.height).toBe('90%')
   })
   it('حالة فارغة نصية بدل رسم فارغ', () => {
     h.overview = sample({ complaints: { total: 0, open: 0, resolved: 0, by_status: [], by_sector: [], by_type: [], series: [] } })
-    r(<ExecHome kind="executive" basePath="/executive" />)
+    r(<ExecHome kind="executive" basePath="/executive" />, '/executive#complaints')
     expect(within(screen.getByTestId('panel-complaints')).getAllByText('لا بيانات في هذه الفترة').length).toBeGreaterThanOrEqual(3)
   })
 })
 
 describe('الرئيسية — التنفيذي والمعاون والمالية', () => {
-  it('التنفيذي: مؤشرات التشغيل الست بخطوط اتجاه ثم قراءة تشغيلية بلا استنتاجات مالية', () => {
+  it('التنفيذي: تبويبات تشغيلية بلا مالية، وبطاقات بلا بطاقة مالية، وقراءة بلا استنتاجات مالية', () => {
     r(<ExecHome kind="executive" basePath="/executive" />)
     expect(screen.getByText('المدير التنفيذي — الرئيسية')).toBeInTheDocument()
-    const grid = screen.getByTestId('kpi-grid')
-    for (const id of ['kpi-complaints', 'kpi-departures', 'kpi-tons', 'kpi-attendance', 'kpi-maint', 'kpi-disclosures']) expect(within(grid).getByTestId(id)).toBeInTheDocument()
-    expect(within(grid).getByTestId('kpi-complaints').querySelector('svg')).not.toBeNull()
-    const ins = within(screen.getByTestId('insights')).getAllByRole('listitem')
-    expect(ins.some((li) => li.textContent?.includes('المالية'))).toBe(false)
-    expect(screen.queryByTestId('panel-finance')).toBeNull(); expect(screen.queryByTestId('decisions')).toBeNull()
-    expect(screen.getByTestId('panel-sectors')).toBeInTheDocument()
+    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(['نظرة عامة', 'الشكاوى', 'الأسطول والصيانة', 'المحطة التحويلية', 'القوى العاملة', 'القواطع والدعم'])
+    expect(within(screen.getByTestId('scorecards')).getAllByTestId(/^card-/).map((c) => c.dataset.testid)).toEqual(['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-field'])
+    expect(within(screen.getByTestId('insights')).getAllByRole('listitem').some((li) => li.textContent?.includes('المالية'))).toBe(false)
+    expect(screen.queryByTestId('decisions')).toBeNull()
   })
-  it('المعاون: شريط الوارد العاجل فوق الملخص، ثم الميدان (قواطع/كشوفات/محطة/تجهيز) بلا مالية', () => {
+  it('المعاون: شريط الوارد العاجل فوق الملخص، ثم تبويبات الميدان وبطاقة القواطع أولاً', () => {
     r(<DeputyHome />)
     expect(screen.getByTestId('tile-statements')).toHaveTextContent('1 بانتظار الاعتماد')
     expect(screen.getByTestId('exec-home')).toHaveAttribute('data-kind', 'deputy')
-    const grid = screen.getByTestId('kpi-grid')
-    expect(within(grid).getAllByTestId(/^kpi-/).map((k) => k.dataset.testid)).toEqual(['kpi-disclosures', 'kpi-complaints', 'kpi-violations', 'kpi-supplies'])
-    for (const id of ['panel-sectors', 'panel-disclosures', 'panel-station', 'panel-supplies']) expect(screen.getByTestId(id)).toBeInTheDocument()
-    expect(screen.queryByTestId('panel-finance')).toBeNull(); expect(screen.queryByTestId('panel-payroll')).toBeNull()
+    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(['نظرة عامة', 'القواطع', 'الكشوفات', 'المحطة التحويلية', 'الشكاوى', 'التجهيز', 'الأسطول'])
+    expect(within(screen.getByTestId('scorecards')).getAllByTestId(/^card-/)[0]).toHaveAttribute('data-testid', 'card-sectors')
+    expect(screen.getByTestId('card-sectors')).toHaveTextContent('الكرادة')
+    openTab('sectors')
+    expect(screen.getByTestId('panel-sectors')).toBeInTheDocument()
+    expect(screen.queryByTestId('tab-finance')).toBeNull(); expect(screen.queryByTestId('card-finance')).toBeNull()
   })
-  it('المالية: أرقام مالية فقط — لا شكاوى ولا أسطول ولا محطة؛ الاستنتاجات مالية أولاً', () => {
+  it('المالية: تبويبات مالية فقط، بطاقات مالية أربع، قراءة مالية أولاً، ولا شكاوى/أسطول/محطة في أي تبويب', () => {
     r(<ExecHome kind="finance" basePath="/finance" />)
+    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(['نظرة عامة', 'الرواتب', 'الموازنة', 'الإنفاق', 'أثر الحضور'])
     const fk = screen.getByTestId('finance-kpis')
     expect(within(fk).getByTestId('kpi-payroll')).toHaveTextContent('88,000,000')
-    expect(within(fk).getByTestId('kpi-deductions')).toHaveTextContent('2,000,000')
+    expect(within(fk).getByTestId('kpi-payroll')).toHaveTextContent('2,000,000')
     expect(within(fk).getByTestId('kpi-budget')).toHaveTextContent('60٪')
+    expect(within(fk).getByTestId('kpi-deductions')).toHaveTextContent('12')
     const ins = within(screen.getByTestId('insights')).getAllByRole('listitem')
-    expect(ins[0]!.textContent).toContain('المالية')
     expect(ins.every((li) => /المالية|الموارد البشرية/.test(li.textContent ?? ''))).toBe(true)
-    for (const id of ['panel-payroll', 'panel-budget', 'panel-spend', 'panel-workforce']) expect(screen.getByTestId(id)).toBeInTheDocument()
-    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'panel-disclosures', 'panel-support', 'kpi-grid']) expect(screen.queryByTestId(id)).toBeNull()
-    expect(screen.getByTestId('panel-budget')).toHaveTextContent('وقود')
-    expect(screen.getByTestId('panel-payroll')).toHaveTextContent('2026-08 · معتمد')
+    for (const k of ['payroll', 'budget', 'spend', 'workforce_cost']) { openTab(k); expect(screen.getByTestId(`tab-panel-${k}`)).toBeInTheDocument(); for (const id of ['panel-complaints', 'panel-fleet', 'panel-station']) expect(screen.queryByTestId(id)).toBeNull() }
+    openTab('payroll'); expect(screen.getByTestId('panel-payroll')).toHaveTextContent('2026-08 · معتمد')
+    openTab('budget'); expect(screen.getByTestId('panel-budget')).toHaveTextContent('وقود')
   })
 })
 
-describe('التقارير الجاهزة', () => {
-  it('أقسام المدير المفوض كاملة: غلاف + قراءة + جدول + بطاقات؛ اختيار الأقسام؛ مقارنة اختيارية', () => {
+describe('التقارير — معالج من ثلاث خطوات', () => {
+  it('الخطوة ١: أنواع التقرير تضبط الفترة، والملخص يتحدث؛ الخطوة ٢: الأقسام مرقّمة بوصف؛ الخطوة ٣: معاينة مرقّمة بفهرس', () => {
     r(<ExecReports kind="admin" />)
+    expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '1')
+    expect(screen.getByTestId('step-1')).toHaveAttribute('data-state', 'current')
+    fireEvent.click(screen.getByTestId('preset-year'))
+    expect((h.lastFilters as { from: string }).from).toMatch(/-01-01$/)
+    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('تقرير سنوي')
+    fireEvent.click(screen.getByTestId('preset-month'))
+    fireEvent.click(screen.getByTestId('next-step'))
+    expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '2')
+    expect(screen.getByTestId('step-1')).toHaveAttribute('data-state', 'done')
+    const items = within(screen.getByTestId('section-toggles')).getAllByRole('listitem')
+    expect(items).toHaveLength(11)
+    expect(items[0]).toHaveTextContent('1. قراءة تحليلية'); expect(items[0]).toHaveTextContent('جمل جاهزة')
+    fireEvent.click(screen.getByTestId('sec-finance'))
+    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('10 قسم')
+    fireEvent.click(screen.getByTestId('next-step'))
+    expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '3')
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري')
-    expect(screen.getByTestId('rep-insights')).toBeInTheDocument()
-    expect(screen.getByTestId('scorecards')).toBeInTheDocument()
+    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(10)
+    expect(screen.getByTestId('rep-sec-insights')).toHaveTextContent('1قراءة تحليلية')
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('الفترة السابقة')
-    expect(screen.getByTestId('rep-summary')).toHaveTextContent('الشكاوى الواردة')
-    fireEvent.click(screen.getByTestId('sec-finance'))
-    expect(screen.queryByTestId('panel-finance')).toBeNull()
-    fireEvent.click(screen.getByTestId('sec-finance'))
-    expect(screen.getByTestId('panel-finance')).toBeInTheDocument()
+    expect(screen.getByTestId('scorecards')).toBeInTheDocument()
+    expect(screen.queryByTestId('rep-sec-finance')).toBeNull()
+    fireEvent.click(screen.getByTestId('prev-step'))
+    expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '2')
+  })
+  it('لا معاينة بلا أقسام؛ «تحديد الكل/إلغاء الكل»؛ إلغاء المقارنة يُسقط عمود الفترة السابقة', () => {
+    r(<ExecReports kind="admin" />)
     fireEvent.click(screen.getByTestId('compare-toggle'))
     expect(h.withPrev).toBe(false)
+    fireEvent.click(screen.getByTestId('next-step'))
+    fireEvent.click(screen.getByTestId('toggle-all'))
+    expect(screen.getByTestId('next-step')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('toggle-all'))
+    fireEvent.click(screen.getByTestId('next-step'))
     expect(screen.getByTestId('rep-summary')).not.toHaveTextContent('الفترة السابقة')
   })
   it('تقارير المالية: أقسام مالية فقط، جدول مؤشرات مالي، وExcel بنطاق finance واسم «مالي»', async () => {
     r(<ExecReports kind="finance" />)
     expect(screen.getByText('التقارير المالية')).toBeInTheDocument()
-    expect(within(screen.getByTestId('section-toggles')).getAllByRole('button').map((b) => b.textContent)).toEqual(['قراءة مالية', 'جدول المؤشرات المالية', 'الرواتب', 'الموازنة', 'الإنفاق التشغيلي', 'أثر الحضور على الرواتب'])
+    fireEvent.click(screen.getByTestId('next-step'))
+    expect(within(screen.getByTestId('section-toggles')).getAllByRole('listitem').map((b) => b.textContent)).toEqual([expect.stringContaining('قراءة مالية'), expect.stringContaining('جدول المؤشرات المالية'), expect.stringContaining('الرواتب'), expect.stringContaining('الموازنة'), expect.stringContaining('الإنفاق التشغيلي'), expect.stringContaining('أثر الحضور على الرواتب')])
+    fireEvent.click(screen.getByTestId('next-step'))
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('صافي كشف الرواتب')
     expect(screen.getByTestId('rep-summary')).not.toHaveTextContent('الشكاوى الواردة')
     for (const id of ['panel-payroll', 'panel-budget', 'panel-spend']) expect(screen.getByTestId(id)).toBeInTheDocument()
@@ -198,9 +236,10 @@ describe('التقارير الجاهزة', () => {
     expect(name).toMatch(/^تقرير شهري مالي \d{4}-\d{2}-\d{2} إلى \d{4}-\d{2}-\d{2}\.xlsx$/)
     expect(scope).toBe('finance')
   })
-  it('تصدير Excel للإدارة بنطاق كامل، وPDF عبر الطباعة بلا هوامش متصفح وبألوان', async () => {
+  it('تصدير Excel للإدارة بنطاق كامل، وPDF عبر الطباعة بلا هوامش متصفح وبألوان وكل قسم في صفحة', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
     r(<ExecReports kind="executive" />)
+    toStep3()
     fireEvent.click(screen.getByTestId('export-excel'))
     await waitFor(() => expect(h.download).toHaveBeenCalled())
     const [o, ins, prev, name, scope] = h.download.mock.calls[0] as unknown as [unknown, unknown[], unknown, string, string]
@@ -211,7 +250,7 @@ describe('التقارير الجاهزة', () => {
     const css = document.querySelector('style')!.textContent!
     expect(css).toContain('@page { size: A4; margin: 0; }')
     expect(css).toContain('print-color-adjust: exact')
-    expect(css).toContain('#exec-report')
+    expect(css).toContain('.exec-section { break-before: page; }')
     print.mockRestore()
   })
 })

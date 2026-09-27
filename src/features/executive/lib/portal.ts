@@ -66,3 +66,38 @@ export const REPORT_SECTIONS: Record<ExecPortalKind, Array<{ key: SectionKey; la
     { key: 'insights', label: 'قراءة مالية' }, { key: 'summary', label: 'جدول المؤشرات المالية' }, { key: 'payroll', label: 'الرواتب' }, { key: 'budget', label: 'الموازنة' }, { key: 'spend', label: 'الإنفاق التشغيلي' }, { key: 'workforce_cost', label: 'أثر الحضور على الرواتب' },
   ],
 }
+
+/* ─── تبويبات الرئيسية: نظرة عامة + تبويب لكل وحدة (كل تبويب صفحة قصيرة) ─── */
+export type HomeTabKey = 'overview' | 'complaints' | 'fleet' | 'station' | 'workforce' | 'finance' | 'field' | 'sectors' | 'disclosures' | 'supplies' | 'payroll' | 'budget' | 'spend' | 'workforce_cost'
+export interface HomeTab { key: HomeTabKey; label: string; domains: string[] }
+export const HOME_TABS: Record<ExecPortalKind, HomeTab[]> = {
+  admin: [
+    { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'complaints', label: 'الشكاوى', domains: ['الشكاوى'] }, { key: 'fleet', label: 'الأسطول والصيانة', domains: ['الأسطول', 'الصيانة'] },
+    { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] }, { key: 'workforce', label: 'القوى العاملة', domains: ['الموارد البشرية'] }, { key: 'finance', label: 'المالية', domains: ['المالية'] }, { key: 'field', label: 'الميدان', domains: ['الكشوفات', 'التجهيز', 'الإعلام'] },
+  ],
+  executive: [
+    { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'complaints', label: 'الشكاوى', domains: ['الشكاوى'] }, { key: 'fleet', label: 'الأسطول والصيانة', domains: ['الأسطول', 'الصيانة'] },
+    { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] }, { key: 'workforce', label: 'القوى العاملة', domains: ['الموارد البشرية'] }, { key: 'field', label: 'القواطع والدعم', domains: ['الكشوفات', 'التجهيز', 'الإعلام'] },
+  ],
+  deputy: [
+    { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'sectors', label: 'القواطع', domains: [] }, { key: 'disclosures', label: 'الكشوفات', domains: ['الكشوفات'] }, { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] },
+    { key: 'complaints', label: 'الشكاوى', domains: ['الشكاوى'] }, { key: 'supplies', label: 'التجهيز', domains: ['التجهيز'] }, { key: 'fleet', label: 'الأسطول', domains: ['الأسطول', 'الصيانة'] },
+  ],
+  finance: [
+    { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'payroll', label: 'الرواتب', domains: ['المالية'] }, { key: 'budget', label: 'الموازنة', domains: [] }, { key: 'spend', label: 'الإنفاق', domains: [] }, { key: 'workforce_cost', label: 'أثر الحضور', domains: ['الموارد البشرية'] },
+  ],
+}
+/** استنتاجات تبويب معيّن */
+export const insightsForTab = (tab: HomeTab, all: Insight[]): Insight[] => all.filter((i) => tab.domains.includes(i.domain))
+
+/* ─── معالج التقارير: أنواع التقرير الجاهزة ─── */
+export const REPORT_TYPES = [
+  { key: 'today', label: 'تقرير يومي', hint: 'اليوم' }, { key: 'yesterday', label: 'تقرير يومي', hint: 'أمس' }, { key: 'week', label: 'تقرير أسبوعي', hint: 'آخر 7 أيام' },
+  { key: 'month', label: 'تقرير شهري', hint: 'هذا الشهر' }, { key: 'prev_month', label: 'تقرير شهري', hint: 'الشهر الماضي' }, { key: 'quarter', label: 'تقرير ربع سنوي', hint: 'هذا الربع' },
+  { key: 'half', label: 'تقرير نصف سنوي', hint: 'هذا النصف' }, { key: 'year', label: 'تقرير سنوي', hint: 'هذه السنة' }, { key: 'custom', label: 'فترة مخصصة', hint: 'من — إلى' },
+] as const
+export const SECTION_HINTS: Record<SectionKey, string> = {
+  insights: 'جمل جاهزة تشرح ما حدث ولماذا', summary: 'كل المؤشرات في جدول مقارن', scorecards: 'بطاقة موجزة لكل وحدة', kpis: 'الأرقام التشغيلية الست', complaints: 'الاتجاه والحالة والأنواع', fleet: 'الانطلاقات والشفتات والصيانة',
+  station: 'الأطنان والمخالفات والأكثر مخالفة', workforce: 'الحضور والغياب والأقسام', sectors: 'الشكاوى مقابل الانطلاقات لكل قاطع', disclosures: 'المخالفات الميدانية والمتعهدون', supplies: 'طلبات التجهيز وحالتها', finance: 'إجماليات الرواتب والإنفاق',
+  support: 'الإعلام وحاويات GBS', payroll: 'المقترح والاستقطاعات والصافي والأشهر', budget: 'الصرف من المخصص لكل بند', spend: 'المشتريات وكلفة الصيانة', workforce_cost: 'الغياب والنقص وأيام الاستقطاع',
+}

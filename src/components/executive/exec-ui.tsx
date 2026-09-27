@@ -78,14 +78,14 @@ export function ScoreCard({ title, icon, tone, value, unit, delta, increaseIsGoo
   title: string; icon: IconName; tone: Tone; value: string | number; unit?: string; delta?: number | null; increaseIsGood?: boolean; facts: Array<[string, string | number]>; spark?: number[]; to?: string; testId?: string
 }) {
   return (
-    <div className="exec-kpi flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 print:break-inside-avoid" data-testid={testId}>
+    <div className="exec-kpi flex h-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 print:break-inside-avoid" data-testid={testId}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-xs font-black text-slate-700"><span className={clsx('grid h-7 w-7 place-items-center rounded-lg', TONE_BG[tone])}><Icon name={icon} className="h-4 w-4" /></span>{title}</span>
         {delta !== undefined && <Delta value={delta} increaseIsGood={increaseIsGood} />}
       </div>
       <p className={clsx('mt-2 font-black tabular-nums text-slate-900', String(value).length > 11 ? 'text-lg' : 'text-2xl')}>{typeof value === 'number' ? fmtInt(value) : value}{unit && <span className="mr-1 text-xs font-bold text-slate-500">{unit}</span>}</p>
       {spark && spark.length > 1 && <Sparkline values={spark} color={TONE_HEX[tone]} height={34} />}
-      <dl className="mt-2 grid grid-cols-3 gap-1 border-t border-slate-100 pt-2">
+      <dl className="mt-auto grid grid-cols-3 gap-1 border-t border-slate-100 pt-2">
         {facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="truncate text-[10px] text-slate-400">{k}</dt><dd className="truncate text-xs font-black tabular-nums text-slate-700">{typeof v === 'number' ? fmtNum(v, 1) : v}</dd></div>)}
       </dl>
       {to && <a href={to} className="mt-2 text-[11px] font-bold text-blue-700 hover:underline print:hidden">التفاصيل ←</a>}
@@ -305,5 +305,42 @@ export function Collapsible({ title, children, defaultOpen = false, testId }: { 
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center justify-between rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 lg:hidden print:hidden">{title}<Icon name={open ? 'chevron-up' : 'chevron-down'} className="h-4 w-4" /></button>
       <div className={clsx(open ? 'mt-2 block' : 'hidden', 'lg:block print:block')}>{children}</div>
     </div>
+  )
+}
+
+/** شريط تبويبات: قابل للتمرير أفقياً على الهاتف، لاصق أسفل رأس الصفحة، يحفظ التبويب في hash الرابط */
+export function Tabs<K extends string>({ tabs, value, onChange, testId = 'tabs' }: { tabs: ReadonlyArray<{ key: K; label: string; badge?: string | number }>; value: K; onChange: (k: K) => void; testId?: string }) {
+  return (
+    <div className="sticky top-0 z-10 -mx-1 bg-slate-50/95 px-1 py-1 backdrop-blur print:hidden" data-testid={testId}>
+      <div role="tablist" className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+        {tabs.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={value === t.key} onClick={() => onChange(t.key)} data-testid={`tab-${t.key}`}
+            className={clsx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition', value === t.key ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-100')}>
+            {t.label}{t.badge !== undefined && t.badge !== 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', value === t.key ? 'bg-white/20' : 'bg-slate-100 text-slate-600')}>{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** خطوات المعالج */
+export function Stepper({ steps, current, onGo, testId = 'stepper' }: { steps: string[]; current: number; onGo?: (i: number) => void; testId?: string }) {
+  return (
+    <ol className="flex items-center gap-1 sm:gap-2 print:hidden" data-testid={testId}>
+      {steps.map((s, i) => {
+        const state = i < current ? 'done' : i === current ? 'current' : 'todo'
+        return (
+          <li key={s} className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+            <button type="button" disabled={i > current || !onGo} onClick={() => onGo?.(i)} data-testid={`step-${i + 1}`} data-state={state}
+              className={clsx('flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-2 py-1.5 text-right sm:px-3', state === 'current' ? 'border-slate-900 bg-slate-900 text-white' : state === 'done' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-400')}>
+              <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', state === 'current' ? 'bg-white text-slate-900' : state === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-100')}>{state === 'done' ? '✓' : i + 1}</span>
+              <span className="truncate text-[11px] font-bold sm:text-xs">{s}</span>
+            </button>
+            {i < steps.length - 1 && <span className="hidden h-px w-4 bg-slate-300 sm:block" />}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
