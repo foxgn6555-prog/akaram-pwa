@@ -11,7 +11,8 @@
  * ملاحظة: أُلغيت وحدة «الحضورية» من هذه البوابة — الحضور والانصراف من اختصاص
  * بوابة الموارد البشرية (HR) ولا يُدار هنا.
  */
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 

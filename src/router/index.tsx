@@ -2,7 +2,8 @@
  * Router المركزي — React Router v7 (createBrowserRouter) + Lazy + Guards.
  * التسلسل: authGuard (جلسة) → portalGuard (بوابة) → صفحات البوابة.
  */
-import { Suspense, lazy } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { Suspense } from 'react'
 import { createBrowserRouter, redirect, Outlet, Navigate } from 'react-router'
 import { PUBLIC_ROUTES, PORTAL_ROUTES } from './routes.config'
 import { authGuard } from './guards/auth.guard'

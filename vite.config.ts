@@ -25,6 +25,8 @@ export default defineConfig({
           .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173"),
     },
   ],
+  // اعتماديات ثقيلة تُحمَّل كسولاً فقط: تُحسَّن مسبقاً كي لا يعيد Vite التحسين أثناء الجلسة (504 Outdated Optimize Dep)
+  optimizeDeps: { include: ['recharts', 'exceljs', 'leaflet', 'react-leaflet'] },
   build: {
     target: 'es2022',
     sourcemap: true,

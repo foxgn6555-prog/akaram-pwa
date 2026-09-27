@@ -4,10 +4,14 @@ import { createRoot } from 'react-dom/client'
 import { initMonitoring } from '@lib/monitoring/sentry'
 import { onErrorReport } from '@lib/monitoring/logger'
 import { system } from '@sdk/system.sdk'
+import { reloadOnce } from '@lib/router/lazy'
 import App from './App'
 import './styles/globals.css'
 
 initMonitoring()
+
+// قطعة قديمة بعد نشر جديد أو إعادة تحسين اعتماديات Vite: إعادة تحميل واحدة بدل شاشة خطأ ميتة
+window.addEventListener('vite:preloadError', (e) => { if (reloadOnce('preload')) e.preventDefault() })
 
 // تبلّغ الأخطاء إلى وحدة قاعدة البيانات — آمن الفشل ومحدود المعدل
 onErrorReport((error, context) => {

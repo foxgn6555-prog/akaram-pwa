@@ -4,7 +4,8 @@
  * فلا يبقى أي رابط يسقط في wildcard {*} → لا عودة مفاجئة لصفحة الدخول.
  * البوابات ذات الصفحات الجاهزة تمرر customRoutes فتُستخدم بدل الـ Placeholder.
  */
-import { Suspense, lazy, type ReactNode } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import { Navigate, type RouteObject } from 'react-router'
 import { PORTAL_UNITS } from '@config/portals.config'
 import type { PortalId } from '@lib/constants/portals.constants'

@@ -5,7 +5,8 @@
  *  · announcements  → التبليغات (نشر + صادر + وارد)
  * لا صفحات تقنية هنا — كل ما هو تقني في بوابة التطوير المركزية /it.
  */
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 

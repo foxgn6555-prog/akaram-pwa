@@ -4,7 +4,8 @@
  *  · reports → التقارير الجاهزة · announcements → التبليغات
  *  · statements → وارد الكشوفات المرفوعة من وحدة الكشوفات
  */
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 

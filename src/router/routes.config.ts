@@ -2,7 +2,8 @@
  * تعريف كل المسارات مركزياً — مولّد الوحدات يضمن أن كل رابط في الشريط الجانبي
  * له صفحة فعلية في كل البوابات (القضاء على ثغرة wildcard → login).
  */
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
+import { lazy } from '@lib/router/lazy'
+import { type ComponentType, type LazyExoticComponent } from 'react'
 import type { RouteObject } from 'react-router'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { buildPortalRoutes } from './unit-routes'
