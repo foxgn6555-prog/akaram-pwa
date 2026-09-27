@@ -12,7 +12,6 @@ const UserManagementHub = lazy(() => import('@portals/it/pages/UserManagement/Us
 const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'))
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
 const UserDetail = lazy(() => import('@portals/it/pages/UserManagement/UserDetail'))
-const DepartmentsPage = lazy(() => import('@portals/it/pages/UserManagement/DepartmentsPage'))
 const DatabaseHub = lazy(() => import('@portals/it/pages/Database/DatabaseHub'))
 const DatabaseOverview = lazy(() => import('@portals/it/pages/Database/DatabaseOverview'))
 const TableDetailPage = lazy(() => import('@portals/it/pages/Database/TableDetailPage'))
@@ -48,7 +47,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management', element: s(<UserManagementHub />) },
   { path: 'user-management/list', element: s(<UsersList />) },
   { path: 'user-management/create', element: s(<CreateUser />) },
-  { path: 'user-management/departments', element: s(<DepartmentsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },
 
   // ── وحدة قاعدة البيانات ──

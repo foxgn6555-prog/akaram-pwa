@@ -69,7 +69,7 @@ describe('⚓ الانحدار: كل روابط الشريط الجانبي له
     const { paths } = flattenPaths(routes)
     expect(paths).toContain('user-management')
     expect(paths).toContain('user-management/create')
-    expect(paths).toContain('user-management/departments')
+    expect(paths).not.toContain('user-management/departments') // الهيكل التنظيمي في HR فقط
     expect(paths).toContain('user-management/:userId')
     expect(paths).toContain('database')
     expect(paths).toContain('database/errors')

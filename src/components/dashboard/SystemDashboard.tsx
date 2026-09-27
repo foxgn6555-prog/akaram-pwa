@@ -224,7 +224,6 @@ export default function ITDashboard() {
       {/* ── روابط سريعة ── */}
       <div className="grid gap-3 sm:grid-cols-4" data-testid="quick-actions">
         <QuickAction icon="user-plus" title="إنشاء مستخدم" onClick={() => navigate('/it/user-management/create')} />
-        <QuickAction icon="layout-grid" title="الهيكل التنظيمي" onClick={() => navigate('/it/user-management/departments')} />
         <QuickAction icon="activity" title="أخطاء التطبيق" hint={`${openErrorsCount} مفتوح`} onClick={() => navigate('/it/database/errors')} />
         <QuickAction icon="database" title="قاعدة البيانات" onClick={() => navigate('/it/database')} />
       </div>

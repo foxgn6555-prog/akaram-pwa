@@ -45,11 +45,12 @@ describe('صفحة وحدة إدارة المستخدمين (Hub)', () => {
     mockNavigate.mockClear()
   })
 
-  it('يعرض أيقونات صفحات الوحدة الثلاث', () => {
+  it('يعرض أيقونتي صفحات الوحدة (الهيكل التنظيمي انتقل إلى بوابة الموارد البشرية)', () => {
     renderHub()
     expect(screen.getByTestId('hub-card-list')).toHaveTextContent('المستخدمون')
     expect(screen.getByTestId('hub-card-create')).toHaveTextContent('إنشاء مستخدم')
-    expect(screen.getByTestId('hub-card-departments')).toHaveTextContent('الهيكل التنظيمي')
+    expect(screen.queryByTestId('hub-card-departments')).toBeNull()
+    expect(screen.queryByText('الهيكل التنظيمي')).toBeNull()
   })
 
   it('الضغط على أيقونة ينقل لصفحتها', async () => {

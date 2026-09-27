@@ -317,7 +317,6 @@ export default function ITDashboard() {
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="quick-actions">
         <QuickAction icon="user-plus" title="إنشاء مستخدم" onClick={() => navigate('/it/user-management/create')} />
         <QuickAction icon="users" title="قائمة المستخدمين" onClick={() => navigate('/it/user-management/list')} />
-        <QuickAction icon="layout-grid" title="الهيكل التنظيمي" onClick={() => navigate('/it/user-management/departments')} />
         <QuickAction icon="layout-grid" title="فروع الشركة" onClick={() => navigate('/it/branches')} />
         <QuickAction icon="shield" title="مصفوفة الصلاحيات" onClick={() => navigate('/it/permissions')} />
         <QuickAction icon="database" title="قاعدة البيانات" onClick={() => navigate('/it/database')} />

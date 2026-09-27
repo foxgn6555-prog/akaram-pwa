@@ -15,10 +15,10 @@ insert into public.user_roles (user_id, role) values
   ('aaaa0000-0000-0000-0000-00000000000e', 'ops_room'), ('aaaa0000-0000-0000-0000-00000000000f', 'finance_officer'),
   ('aaaa0000-0000-0000-0000-000000000010', 'department_manager')
 on conflict do nothing;
-insert into public.employees (id, user_id, employee_number, full_name, hire_date) values
-  ('bbbb0000-0000-0000-0000-000000000010', 'aaaa0000-0000-0000-0000-000000000010', 'T-BOSS', 'المدير الأعلى', '2024-01-01'),
-  ('bbbb0000-0000-0000-0000-00000000000c', 'aaaa0000-0000-0000-0000-00000000000c', 'T-MGR', 'المدير المباشر', '2024-01-01'),
-  ('bbbb0000-0000-0000-0000-00000000000d', 'aaaa0000-0000-0000-0000-00000000000d', 'T-EMP', 'الموظف التجريبي', '2024-01-01')
+insert into public.employees (id, user_id, employee_number, full_name, hire_date, biometric_pin) values
+  ('bbbb0000-0000-0000-0000-000000000010', 'aaaa0000-0000-0000-0000-000000000010', 'T-BOSS', 'المدير الأعلى', '2024-01-01', 'B1'),
+  ('bbbb0000-0000-0000-0000-00000000000c', 'aaaa0000-0000-0000-0000-00000000000c', 'T-MGR', 'المدير المباشر', '2024-01-01', 'M1'),
+  ('bbbb0000-0000-0000-0000-00000000000d', 'aaaa0000-0000-0000-0000-00000000000d', 'T-EMP', 'الموظف التجريبي', '2024-01-01', '1')
 on conflict (employee_number) do nothing;
 update public.employees set manager_id = 'bbbb0000-0000-0000-0000-000000000010' where id = 'bbbb0000-0000-0000-0000-00000000000c';
 update public.employees set manager_id = 'bbbb0000-0000-0000-0000-00000000000c' where id = 'bbbb0000-0000-0000-0000-00000000000d';

@@ -11,7 +11,6 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const PAGES: readonly HubPageLink[] = [
   { path: '/it/user-management/list', label: 'المستخدمون', hint: 'قائمة كل الحسابات والأدوار', icon: 'users' },
   { path: '/it/user-management/create', label: 'إنشاء مستخدم', hint: 'حساب + دور + ربط موظف', icon: 'user-plus' },
-  { path: '/it/user-management/departments', label: 'الهيكل التنظيمي', hint: 'الأقسام والأقسام الفرعية', icon: 'layout-grid' },
 ]
 
 export default function UserManagementHub() {
@@ -68,7 +67,7 @@ export default function UserManagementHub() {
               </ul>
             )}
             <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-400">
-              الأقسام المسجلة: {departments?.length ?? 0}
+              الأقسام المسجلة: {departments?.length ?? 0} · تُدار من بوابة الموارد البشرية → الهيكل التنظيمي
             </p>
           </div>
 

@@ -211,11 +211,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/it/user-management/list', labelKey: 'nav.users_list', icon: 'users' },
         { path: '/it/user-management/create', labelKey: 'nav.create_user', icon: 'user-plus' },
-        {
-          path: '/it/user-management/departments',
-          labelKey: 'nav.org_structure',
-          icon: 'layout-grid',
-        },
+        // الهيكل التنظيمي (الأقسام) يُدار حصراً من بوابة الموارد البشرية /hr/org — لا نسخة هنا لتفادي التداخل
       ],
     },
     {

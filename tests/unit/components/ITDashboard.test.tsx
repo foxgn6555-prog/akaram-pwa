@@ -164,7 +164,8 @@ describe('ITDashboard v3 — اللوحة الحية للبوابة', () => {
   it('روابط سريعة تغطي وحدات البوابة وتوجّه للصفحات', async () => {
     const user = userEvent.setup()
     renderDash()
-    expect(screen.getByTestId('quick-actions').children.length).toBeGreaterThanOrEqual(10)
+    expect(screen.getByTestId('quick-actions').children.length).toBeGreaterThanOrEqual(9)
+    expect(screen.queryByText('الهيكل التنظيمي')).toBeNull()   // الهيكل التنظيمي صار حصرياً في بوابة HR
     await user.click(screen.getByTestId('quick-user-plus'))
     expect(mockNavigate).toHaveBeenCalledWith('/it/user-management/create')
     await user.click(screen.getByTestId('quick-activity'))

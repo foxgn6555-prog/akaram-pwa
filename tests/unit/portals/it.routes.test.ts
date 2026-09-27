@@ -64,8 +64,8 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('صفحة الهيكل التنظيمي مسجلة كصفحة فرعية لإدارة المستخدمين', () => {
     const unit = PORTAL_UNITS[PORTALS.IT].find((u) => u.labelKey === 'nav.user_management')
-    expect(unit?.children?.some((c) => c.labelKey === 'nav.org_structure')).toBe(true)
-    expect(allPaths).toContain('user-management/departments')
+    expect(unit?.children?.some((c) => c.labelKey === 'nav.org_structure')).toBe(false) // أُلغيت النسخة المكررة
+    expect(allPaths).not.toContain('user-management/departments') // الهيكل التنظيمي يُدار من /hr/org حصراً
   })
 
   it('صفحة التفاصيل :userId محفوظة رغم أنها ليست في الشريط', () => {
@@ -74,7 +74,7 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(20)
+    expect(itPaths).toHaveLength(19)
     expect(itPaths).toContain('database/tables/:tableName')
     expect(itPaths).toContain('central-garage-approvals')
     expect(itPaths).toContain('flowbridge')

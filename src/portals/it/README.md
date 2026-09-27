@@ -9,7 +9,6 @@
 | الرئيسية | اللوحة الحية (ترحيب ذكي + مؤشرات المنظومة + رسوم) | /it | pages/Dashboard/ITDashboard.tsx (+ DashboardWidgets.tsx) |
 | إدارة المستخدمين | المستخدمون (فلاتر + حالة + تعطيل سريع) | /it/user-management | pages/UserManagement/UsersList.tsx |
 | إدارة المستخدمين | إنشاء مستخدم | /it/user-management/create | pages/UserManagement/CreateUser.tsx |
-| إدارة المستخدمين | الهيكل التنظيمي | /it/user-management/departments | pages/UserManagement/DepartmentsPage.tsx |
 | إدارة المستخدمين | تفاصيل/إدارة مستخدم (تعديل بيانات + حساب + أدوار) | /it/user-management/:userId | pages/UserManagement/UserDetail.tsx |
 | قاعدة البيانات | نظرة عامة + الجداول (Hub) | /it/database | pages/Database/DatabaseHub.tsx |
 | الفروع | فروع الشركة (إنشاء/تفعيل/تعطيل) | /it/branches | pages/Branches/BranchesPage.tsx |
