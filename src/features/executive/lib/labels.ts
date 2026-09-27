@@ -1,5 +1,6 @@
 /** تسميات عربية موحّدة للرموز التي تصل من قاعدة البيانات (حالات/شفتات/قطاعات/أنواع) */
 export const STATUS_LABELS: Record<string, string> = {
+  other: 'أخرى',
   // الشكاوى
   new: 'جديدة', under_review: 'قيد المراجعة', assigned: 'مُحالة', in_progress: 'قيد التنفيذ', processed: 'مُعالجة',
   quality_review: 'مراجعة الجودة', ready_to_send: 'جاهزة للإرسال', sent: 'مُرسلة', archived: 'مؤرشفة',

@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildInsights, healthScore, attendanceRate, pct } from '@features/executive/lib/insights'
 import { presetRange, previousRange, reportKindLabel, periodLabel } from '@features/executive/lib/period'
-import { buildExecSheets } from '@features/executive/lib/execExcel'
+import { buildExecSheets, buildFinanceSheets } from '@features/executive/lib/execExcel'
+import { buildDecisions, insightsFor } from '@features/executive/lib/portal'
 import { sample } from '../../fixtures/exec-overview'
 
 describe('الفترات الجاهزة', () => {
@@ -87,5 +88,32 @@ describe('أوراق Excel', () => {
     const sheets = buildExecSheets(sample(), [], null)
     expect(sheets[0]!.columns).toEqual(['المؤشر', 'القيمة'])
     expect(sheets[0]!.rows[0]).toEqual(['الشكاوى الواردة', 100])
+  })
+  it('نطاق المالية: ست أوراق مالية فقط — لا شكاوى ولا أسطول', () => {
+    const ins = buildInsights(sample(), sample())
+    const sheets = buildExecSheets(sample(), ins, sample(), 'finance')
+    expect(sheets).toEqual(buildFinanceSheets(sample(), ins, sample()))
+    expect(sheets.map((s) => s.name)).toEqual(['الملخص المالي', 'الاستنتاجات', 'الرواتب', 'الموازنة', 'الإنفاق', 'أثر الحضور'])
+    expect(sheets[0]!.rows[0]).toEqual(['صافي كشف الرواتب (د.ع)', 88000000, 88000000, '0٪'])
+    expect(JSON.stringify(sheets)).not.toMatch(/شكوى|انطلاق|المحطة/)
+    expect(sheets[1]!.rows.every((r) => r[0] === 'المالية' || r[0] === 'الموارد البشرية')).toBe(true)
+    expect(sheets[3]!.rows).toContainEqual(['وقود', 50000000, 30000000, '60٪'])
+  })
+})
+
+describe('منطق البوابات', () => {
+  it('استنتاجات كل رتبة: المالية مالية فقط، التنفيذي بلا مالية، المعاون ميداني', () => {
+    const all = buildInsights(sample(), sample())
+    expect(insightsFor('finance', all).every((i) => i.domain === 'المالية' || i.domain === 'الموارد البشرية')).toBe(true)
+    expect(insightsFor('finance', all)[0]!.domain).toBe('المالية')
+    expect(insightsFor('executive', all).some((i) => i.domain === 'المالية')).toBe(false)
+    expect(insightsFor('deputy', all).every((i) => ['الشكاوى', 'المحطة التحويلية', 'الكشوفات', 'الأسطول', 'التجهيز', 'الإعلام'].includes(i.domain))).toBe(true)
+    expect(insightsFor('admin', all)).toBe(all)
+  })
+  it('بنود القرار تُبنى من الحالة الحيّة فقط وبترتيب الأهمية', () => {
+    const d = buildDecisions(sample())
+    expect(d.map((x) => x.count)).toEqual([4, 30, 4, 6, 6])
+    const quiet = buildDecisions(sample({ workforce: { ...sample().workforce, leaves: { ...sample().workforce.leaves, pending: 0 }, alerts: 0 }, complaints: { ...sample().complaints, open: 0 }, fleet: { ...sample().fleet, open_now: 0, maintenance: { ...sample().fleet.maintenance, open_now: 0 } } }))
+    expect(quiet).toEqual([])
   })
 })

@@ -3,6 +3,7 @@
  * مقارنةً بالفترة السابقة المكافئة — هذا ما يصل للمدير المفوض: نتائج لا جداول خام.
  */
 import type { ExecOverview } from '../types'
+import { label } from './labels'
 
 export type InsightTone = 'good' | 'bad' | 'neutral' | 'warn'
 export interface Insight { id: string; text: string; tone: InsightTone; delta?: number; domain: string }
@@ -44,7 +45,7 @@ export function buildInsights(cur: ExecOverview, prev: ExecOverview | null): Ins
     const c = cur.complaints.total, p = P((o) => o.complaints.total, 0), d = pct(c, p)
     const top = cur.complaints.by_sector[0]
     out.push({ id: 'complaints', domain: 'الشكاوى', delta: d ?? undefined, tone: c === 0 ? 'good' : tone(d, false),
-      text: c === 0 ? 'لم تُسجَّل أي شكوى خلال الفترة.' : `وردت ${fmtInt(c)} شكوى${deltaText(d)}؛ ما زال ${fmtInt(cur.complaints.open)} منها قيد المعالجة${top ? `، وأكثرها من ${top.name} (${fmtInt(top.count)})` : ''}.` })
+      text: c === 0 ? 'لم تُسجَّل أي شكوى خلال الفترة.' : `وردت ${fmtInt(c)} شكوى${deltaText(d)}؛ ما زال ${fmtInt(cur.complaints.open)} منها قيد المعالجة${top ? `، وأكثرها من ${label(top.name)} (${fmtInt(top.count)})` : ''}.` })
     if (c > 0) {
       const rr = Math.round((cur.complaints.resolved / c) * 100)
       out.push({ id: 'complaints_rate', domain: 'الشكاوى', tone: rr >= 70 ? 'good' : rr >= 40 ? 'warn' : 'bad', text: `نسبة إنجاز الشكاوى ${fmtInt(rr)}٪ (${fmtInt(cur.complaints.resolved)} من ${fmtInt(c)} أُرسلت أو أُرشفت).` })

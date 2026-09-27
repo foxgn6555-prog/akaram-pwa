@@ -8,14 +8,6 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import type { ReactNode } from 'react'
 import { sample } from '../../fixtures/exec-overview'
 
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  AreaChart: ({ children }: { children?: ReactNode }) => <div data-testid="area-chart">{children}</div>,
-  BarChart: ({ children }: { children?: ReactNode }) => <div data-testid="bar-chart">{children}</div>,
-  PieChart: ({ children }: { children?: ReactNode }) => <div data-testid="pie-chart">{children}</div>,
-  Area: () => null, Bar: () => null, Pie: () => null, XAxis: () => null, YAxis: () => null, Tooltip: () => null, CartesianGrid: () => null, Cell: () => null, Legend: () => null,
-}))
-
 const h = vi.hoisted(() => ({
   overview: null as unknown, previous: null as unknown, lastFilters: null as unknown, withPrev: true,
   feedInbox: [] as unknown[], feedSent: [] as unknown[], recipients: [] as unknown[], detail: null as unknown,
@@ -52,22 +44,35 @@ const ann = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => { h.overview = sample(); h.previous = sample({ complaints: { ...sample().complaints, total: 50 } }); h.feedInbox = []; h.feedSent = []; h.recipients = []; h.detail = null; vi.clearAllMocks() })
 
 describe('الرئيسية — المدير المفوض', () => {
-  it('استنتاجات + مؤشر الأداء + المؤشرات بدلتا + لوحات كل الوحدات + روابط التقارير والتبليغات', () => {
+  it('ما يحتاج قراره → قراءة الفترة → بطاقة لكل وحدة → تفاصيل مطوية؛ ولا شيء تقني', () => {
     r(<ExecHome kind="admin" basePath="/admin" />)
     expect(screen.getByTestId('exec-home')).toHaveAttribute('data-kind', 'admin')
     expect(screen.getByText('المدير المفوض — الرئيسية')).toBeInTheDocument()
+    // بنود القرار: كشف غير معتمد لا يظهر (معتمد)، إجازات معلّقة 4، شكاوى مفتوحة 30، صيانة 4، ميدان 6، تنبيهات 6
+    const decisions = within(screen.getByTestId('decisions')).getAllByTestId('decision-item')
+    expect(decisions.map((d) => d.textContent)).toEqual([
+      expect.stringContaining('4طلب إجازة'), expect.stringContaining('30شكوى قيد المعالجة'), expect.stringContaining('4آلية متوقفة'), expect.stringContaining('6آلية في الميدان'), expect.stringContaining('6تنبيه'),
+    ])
     expect(screen.getByTestId('health-gauge')).toBeInTheDocument()
     const insights = within(screen.getByTestId('insights')).getAllByRole('listitem')
     expect(insights.length).toBeGreaterThanOrEqual(6)
     expect(insights.some((li) => li.textContent?.includes('وردت 100 شكوى') && li.textContent?.includes('بارتفاع 100٪'))).toBe(true)
-    const kpi = within(screen.getByTestId('kpi-complaints'))
-    expect(kpi.getByTestId('delta')).toHaveAttribute('data-good', 'false')   // ارتفاع الشكاوى سلبي
-    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'panel-workforce', 'panel-finance', 'panel-support']) expect(screen.getByTestId(id)).toBeInTheDocument()
-    expect(screen.queryByTestId('panel-disclosures')).toBeNull()
+    const cards = screen.getByTestId('scorecards')
+    for (const id of ['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-finance', 'card-field']) expect(within(cards).getByTestId(id)).toBeInTheDocument()
+    expect(within(within(cards).getByTestId('card-complaints')).getByTestId('delta')).toHaveAttribute('data-good', 'false')
+    expect(within(cards).getByTestId('card-workforce')).toHaveTextContent('95٪')
+    // التفاصيل موجودة في DOM (تُطوى على الهاتف فقط عبر CSS)
+    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'panel-workforce', 'panel-finance', 'panel-disclosures', 'panel-support', 'panel-sectors']) expect(screen.getByTestId(id)).toBeInTheDocument()
+    fireEvent.click(within(screen.getByTestId('details-ops')).getByRole('button'))
+    expect(within(screen.getByTestId('details-ops')).getByRole('button')).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('go-reports')).toHaveAttribute('href', '/admin/reports')
     expect(screen.getByTestId('go-announcements')).toHaveAttribute('href', '/admin/announcements')
-    // لا شيء تقني في الصفحة
     expect(document.body.textContent).not.toMatch(/قاعدة البيانات|الجداول|Supabase|الخادم/)
+  })
+  it('كشف رواتب غير معتمد يتصدر بنود القرار', () => {
+    h.overview = sample({ finance: { ...sample().finance, payroll: { ...sample().finance.payroll!, status: 'exported' } } })
+    r(<ExecHome kind="admin" basePath="/admin" />)
+    expect(within(screen.getByTestId('decisions')).getAllByTestId('decision-item')[0]).toHaveTextContent('بانتظار اعتماد المالية')
   })
   it('تغيير الفترة والقاطع والشفت يعيد الاستعلام بالفلاتر الصحيحة', () => {
     r(<ExecHome kind="admin" basePath="/admin" />)
@@ -85,36 +90,91 @@ describe('الرئيسية — المدير المفوض', () => {
   })
 })
 
+describe('الرسوم — SVG/CSS خالصة ومتجاوبة', () => {
+  it('لا recharts؛ الاتجاه يعرض القيم نصاً (الإجمالي والذروة وتواريخ المحور) ويتمدد بـ viewBox', () => {
+    h.overview = sample({ complaints: { ...sample().complaints, series: [{ d: '2026-09-01', count: 4 }, { d: '2026-09-02', count: 9 }, { d: '2026-09-03', count: 2 }] } })
+    r(<ExecHome kind="executive" basePath="/executive" />)
+    expect(document.querySelector('.recharts-wrapper')).toBeNull()
+    const panel = screen.getByTestId('panel-complaints')
+    const trend = panel.querySelector('.exec-chart')!
+    expect(trend).toHaveAttribute('data-points', '3')
+    expect(trend.textContent).toContain('شكاوى/يوم: 15')
+    expect(trend.textContent).toContain('الذروة 9 يوم 09/02')
+    const svg = trend.querySelector('svg')!
+    expect(svg).toHaveAttribute('viewBox', '0 0 600 100'); expect(svg).toHaveAttribute('preserveAspectRatio', 'none'); expect(svg.getAttribute('class')).toContain('w-full')
+    expect(trend.textContent).toContain('09/01'); expect(trend.textContent).toContain('09/03')
+  })
+  it('الأعمدة الأفقية HTML: الاسم كاملاً + القيمة + النسبة، وعرض العمود نسبي', () => {
+    r(<ExecHome kind="executive" basePath="/executive" />)
+    const bars = within(screen.getByTestId('panel-complaints')).getAllByRole('list').find((l) => l.textContent?.includes('نفايات'))!
+    expect(bars).toHaveTextContent('نفايات80(100٪)')
+    expect((bars.querySelector('li > div:last-child > div') as HTMLElement).style.width).toBe('100%')
+  })
+  it('الحلقة: مجموع في الوسط وقائمة كاملة بالنِّسب', () => {
+    r(<ExecHome kind="executive" basePath="/executive" />)
+    const fleet = screen.getByTestId('panel-fleet')
+    expect(fleet.querySelector('svg text')?.textContent).toBe('300')
+    expect(fleet).toHaveTextContent('صباحي300 (100٪)')
+  })
+  it('المكدّس اليومي: أعمدة CSS بارتفاعات نسبية ومجاميع نصية', () => {
+    r(<ExecHome kind="executive" basePath="/executive" />)
+    const wf = screen.getByTestId('panel-workforce')
+    expect(wf).toHaveTextContent('حاضر: 90'); expect(wf).toHaveTextContent('غائب: 5')
+    const seg = wf.querySelector('.exec-chart div[title] div') as HTMLElement
+    expect(seg.style.height).toBe('90%')
+  })
+  it('حالة فارغة نصية بدل رسم فارغ', () => {
+    h.overview = sample({ complaints: { total: 0, open: 0, resolved: 0, by_status: [], by_sector: [], by_type: [], series: [] } })
+    r(<ExecHome kind="executive" basePath="/executive" />)
+    expect(within(screen.getByTestId('panel-complaints')).getAllByText('لا بيانات في هذه الفترة').length).toBeGreaterThanOrEqual(3)
+  })
+})
+
 describe('الرئيسية — التنفيذي والمعاون والمالية', () => {
-  it('التنفيذي: نفس المحرك بعنوانه', () => {
+  it('التنفيذي: مؤشرات التشغيل الست بخطوط اتجاه ثم قراءة تشغيلية بلا استنتاجات مالية', () => {
     r(<ExecHome kind="executive" basePath="/executive" />)
     expect(screen.getByText('المدير التنفيذي — الرئيسية')).toBeInTheDocument()
-    expect(screen.getByTestId('kpi-grid')).toBeInTheDocument()
+    const grid = screen.getByTestId('kpi-grid')
+    for (const id of ['kpi-complaints', 'kpi-departures', 'kpi-tons', 'kpi-attendance', 'kpi-maint', 'kpi-disclosures']) expect(within(grid).getByTestId(id)).toBeInTheDocument()
+    expect(within(grid).getByTestId('kpi-complaints').querySelector('svg')).not.toBeNull()
+    const ins = within(screen.getByTestId('insights')).getAllByRole('listitem')
+    expect(ins.some((li) => li.textContent?.includes('المالية'))).toBe(false)
+    expect(screen.queryByTestId('panel-finance')).toBeNull(); expect(screen.queryByTestId('decisions')).toBeNull()
+    expect(screen.getByTestId('panel-sectors')).toBeInTheDocument()
   })
-  it('المعاون: شريط الوارد العاجل (كشوفات بانتظار الاعتماد) فوق الملخص + لوحة الكشوفات بدل المالية', () => {
+  it('المعاون: شريط الوارد العاجل فوق الملخص، ثم الميدان (قواطع/كشوفات/محطة/تجهيز) بلا مالية', () => {
     r(<DeputyHome />)
     expect(screen.getByTestId('tile-statements')).toHaveTextContent('1 بانتظار الاعتماد')
     expect(screen.getByTestId('exec-home')).toHaveAttribute('data-kind', 'deputy')
-    expect(screen.getByTestId('panel-disclosures')).toBeInTheDocument()
-    expect(screen.queryByTestId('panel-finance')).toBeNull()
+    const grid = screen.getByTestId('kpi-grid')
+    expect(within(grid).getAllByTestId(/^kpi-/).map((k) => k.dataset.testid)).toEqual(['kpi-disclosures', 'kpi-complaints', 'kpi-violations', 'kpi-supplies'])
+    for (const id of ['panel-sectors', 'panel-disclosures', 'panel-station', 'panel-supplies']) expect(screen.getByTestId(id)).toBeInTheDocument()
+    expect(screen.queryByTestId('panel-finance')).toBeNull(); expect(screen.queryByTestId('panel-payroll')).toBeNull()
   })
-  it('المالية: الأرقام المالية أولاً (رواتب/استقطاعات/إنفاق/موازنة) ثم الاستنتاجات المالية في المقدمة', () => {
+  it('المالية: أرقام مالية فقط — لا شكاوى ولا أسطول ولا محطة؛ الاستنتاجات مالية أولاً', () => {
     r(<ExecHome kind="finance" basePath="/finance" />)
     const fk = screen.getByTestId('finance-kpis')
     expect(within(fk).getByTestId('kpi-payroll')).toHaveTextContent('88,000,000')
-    expect(fk.compareDocumentPosition(screen.getByTestId('panel-insights')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const first = within(screen.getByTestId('insights')).getAllByRole('listitem')[0]!
-    expect(first.textContent).toContain('المالية')
-    expect(screen.getByTestId('panel-payroll-months')).toBeInTheDocument()
+    expect(within(fk).getByTestId('kpi-deductions')).toHaveTextContent('2,000,000')
+    expect(within(fk).getByTestId('kpi-budget')).toHaveTextContent('60٪')
+    const ins = within(screen.getByTestId('insights')).getAllByRole('listitem')
+    expect(ins[0]!.textContent).toContain('المالية')
+    expect(ins.every((li) => /المالية|الموارد البشرية/.test(li.textContent ?? ''))).toBe(true)
+    for (const id of ['panel-payroll', 'panel-budget', 'panel-spend', 'panel-workforce']) expect(screen.getByTestId(id)).toBeInTheDocument()
+    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'panel-disclosures', 'panel-support', 'kpi-grid']) expect(screen.queryByTestId(id)).toBeNull()
+    expect(screen.getByTestId('panel-budget')).toHaveTextContent('وقود')
+    expect(screen.getByTestId('panel-payroll')).toHaveTextContent('2026-08 · معتمد')
   })
 })
 
 describe('التقارير الجاهزة', () => {
-  it('غلاف للطباعة + اختيار الأقسام + مقارنة اختيارية', () => {
+  it('أقسام المدير المفوض كاملة: غلاف + قراءة + جدول + بطاقات؛ اختيار الأقسام؛ مقارنة اختيارية', () => {
     r(<ExecReports kind="admin" />)
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري')
     expect(screen.getByTestId('rep-insights')).toBeInTheDocument()
+    expect(screen.getByTestId('scorecards')).toBeInTheDocument()
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('الفترة السابقة')
+    expect(screen.getByTestId('rep-summary')).toHaveTextContent('الشكاوى الواردة')
     fireEvent.click(screen.getByTestId('sec-finance'))
     expect(screen.queryByTestId('panel-finance')).toBeNull()
     fireEvent.click(screen.getByTestId('sec-finance'))
@@ -123,13 +183,28 @@ describe('التقارير الجاهزة', () => {
     expect(h.withPrev).toBe(false)
     expect(screen.getByTestId('rep-summary')).not.toHaveTextContent('الفترة السابقة')
   })
-  it('تصدير Excel باسم ملف يعكس نوع التقرير وفترته، وPDF عبر الطباعة بلا هوامش متصفح', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
+  it('تقارير المالية: أقسام مالية فقط، جدول مؤشرات مالي، وExcel بنطاق finance واسم «مالي»', async () => {
     r(<ExecReports kind="finance" />)
+    expect(screen.getByText('التقارير المالية')).toBeInTheDocument()
+    expect(within(screen.getByTestId('section-toggles')).getAllByRole('button').map((b) => b.textContent)).toEqual(['قراءة مالية', 'جدول المؤشرات المالية', 'الرواتب', 'الموازنة', 'الإنفاق التشغيلي', 'أثر الحضور على الرواتب'])
+    expect(screen.getByTestId('rep-summary')).toHaveTextContent('صافي كشف الرواتب')
+    expect(screen.getByTestId('rep-summary')).not.toHaveTextContent('الشكاوى الواردة')
+    for (const id of ['panel-payroll', 'panel-budget', 'panel-spend']) expect(screen.getByTestId(id)).toBeInTheDocument()
+    for (const id of ['panel-complaints', 'panel-fleet', 'panel-station', 'scorecards', 'health-gauge']) expect(screen.queryByTestId(id)).toBeNull()
+    expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري — مالي')
     fireEvent.click(screen.getByTestId('export-excel'))
     await waitFor(() => expect(h.download).toHaveBeenCalled())
-    const [o, ins, prev, name] = h.download.mock.calls[0] as unknown as [unknown, unknown[], unknown, string]
-    expect(o).toBeTruthy(); expect(ins.length).toBeGreaterThan(3); expect(prev).toBeTruthy()
+    const [, , , name, scope] = h.download.mock.calls[0] as unknown as [unknown, unknown[], unknown, string, string]
+    expect(name).toMatch(/^تقرير شهري مالي \d{4}-\d{2}-\d{2} إلى \d{4}-\d{2}-\d{2}\.xlsx$/)
+    expect(scope).toBe('finance')
+  })
+  it('تصدير Excel للإدارة بنطاق كامل، وPDF عبر الطباعة بلا هوامش متصفح وبألوان', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined)
+    r(<ExecReports kind="executive" />)
+    fireEvent.click(screen.getByTestId('export-excel'))
+    await waitFor(() => expect(h.download).toHaveBeenCalled())
+    const [o, ins, prev, name, scope] = h.download.mock.calls[0] as unknown as [unknown, unknown[], unknown, string, string]
+    expect(o).toBeTruthy(); expect(ins.length).toBeGreaterThan(3); expect(prev).toBeTruthy(); expect(scope).toBe('all')
     expect(name).toMatch(/^تقرير شهري \d{4}-\d{2}-\d{2} إلى \d{4}-\d{2}-\d{2}\.xlsx$/)
     fireEvent.click(screen.getByTestId('export-pdf'))
     expect(print).toHaveBeenCalled()

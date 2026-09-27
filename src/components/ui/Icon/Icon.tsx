@@ -14,9 +14,11 @@ export type IconName =
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
   | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
-  | 'shopping-cart'
+  | 'shopping-cart' | 'chevron-up' | 'chevron-down'
 
 const paths: Record<IconName, React.ReactNode> = {
+  'chevron-up': <path d="m6 15 6-6 6 6" />,
+  'chevron-down': <path d="m6 9 6 6 6-6" />,
   edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,
   camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3.2" /></>,
   droplet: <><path d="M12 2.8S5.5 10.1 5.5 15a6.5 6.5 0 0 0 13 0C18.5 10.1 12 2.8 12 2.8z" /></>,

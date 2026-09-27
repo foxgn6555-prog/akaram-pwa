@@ -16,7 +16,42 @@ const nc = (items: NamedCount[], extra?: 'tons' | 'qty' | 'deficit') => items.ma
 const kc = (items: KeyedCount[]) => items.map((i) => [STATUS_LABELS[i.key] ?? i.key, i.count])
 
 /** يبني أوراق التقرير كبيانات صافية (قابلة للاختبار دون exceljs) */
-export function buildExecSheets(o: ExecOverview, insights: Insight[], prev?: ExecOverview | null): ExecSheet[] {
+export type ExecScope = 'all' | 'finance'
+
+/** أوراق المالية فقط: ملخص مالي مقارن + استنتاجات مالية + الرواتب الشهرية + الموازنة + الإنفاق + أثر الحضور على الرواتب */
+export function buildFinanceSheets(o: ExecOverview, insights: Insight[], prev?: ExecOverview | null): ExecSheet[] {
+  const f = o.finance, pf = prev?.finance, a = o.workforce.attendance
+  const cmp = (cur: number, p?: number) => (prev ? [cur, p ?? 0, p ? Math.round(((cur - p) / p) * 100) + '٪' : '—'] : [cur])
+  const cmpCols = prev ? ['المؤشر', 'الفترة الحالية', 'الفترة السابقة', 'التغيّر'] : ['المؤشر', 'القيمة']
+  const spend = f.purchases.total + f.maintenance_cost
+  const summary: Array<Array<string | number | null>> = [
+    ['صافي كشف الرواتب (د.ع)', ...cmp(f.payroll?.final_total ?? 0, pf?.payroll?.final_total)],
+    ['الراتب المقترح (د.ع)', ...cmp(f.payroll?.proposed_total ?? 0, pf?.payroll?.proposed_total)],
+    ['الاستقطاعات (د.ع)', ...cmp(f.payroll?.deductions_total ?? 0, pf?.payroll?.deductions_total)],
+    ['المخصصات (د.ع)', ...cmp(f.payroll?.allowances_total ?? 0, pf?.payroll?.allowances_total)],
+    ['موظفو الكشف', ...cmp(f.payroll?.employees ?? 0, pf?.payroll?.employees)],
+    ['الإنفاق التشغيلي (د.ع)', ...cmp(spend, pf ? pf.purchases.total + pf.maintenance_cost : undefined)],
+    ['مشتريات الصيانة (د.ع)', ...cmp(f.purchases.total, pf?.purchases.total)],
+    ['أوامر الشراء', ...cmp(f.purchases.orders, pf?.purchases.orders)],
+    ['كلفة أعمال الصيانة (د.ع)', ...cmp(f.maintenance_cost, pf?.maintenance_cost)],
+    [`موازنة ${f.budget.year}: المخصص (د.ع)`, ...cmp(f.budget.allocated, pf?.budget.allocated)],
+    [`موازنة ${f.budget.year}: المصروف (د.ع)`, ...cmp(f.budget.spent, pf?.budget.spent)],
+    ['الملاك الفعلي', ...cmp(o.workforce.active, prev?.workforce.active)],
+    ['أيام الاستقطاع المقترحة', ...cmp(a.deduction_days, prev?.workforce.attendance.deduction_days)],
+  ]
+  const fin = insights.filter((i) => i.domain === 'المالية' || i.id === 'attendance' || i.id === 'hr_moves')
+  return [
+    { name: 'الملخص المالي', title: `${reportKindLabel(o.period.from, o.period.to)} (مالي) — ${periodLabel(o.period.from, o.period.to)}`, columns: cmpCols, rows: summary },
+    { name: 'الاستنتاجات', title: 'قراءة مالية للفترة', columns: ['الوحدة', 'الاستنتاج', 'الاتجاه'], rows: fin.map((i) => [i.domain, i.text, i.tone === 'good' ? 'إيجابي' : i.tone === 'bad' ? 'سلبي' : i.tone === 'warn' ? 'يحتاج انتباهاً' : 'محايد']) },
+    { name: 'الرواتب', title: 'كشوف الرواتب الشهرية', columns: ['الشهر', 'الحالة', 'الصافي (د.ع)'], rows: [...(f.payroll ? [[`${f.payroll.month.slice(0, 7)} (الأحدث)`, STATUS_LABELS[f.payroll.status] ?? f.payroll.status, f.payroll.final_total]] : []), ...f.payroll_months.map((m) => [m.month.slice(0, 7), STATUS_LABELS[m.status] ?? m.status, Number(m.total)])] },
+    { name: 'الموازنة', title: `موازنة ${f.budget.year} حسب البند`, columns: ['البند', 'المخصص (د.ع)', 'المصروف (د.ع)', 'نسبة الصرف'], rows: [['الإجمالي', f.budget.allocated, f.budget.spent, f.budget.allocated ? Math.round((f.budget.spent / f.budget.allocated) * 100) + '٪' : '—'], ...f.budget.by_category.map((b) => [b.name, Number(b.allocated), Number(b.spent), Number(b.allocated) ? Math.round((Number(b.spent) / Number(b.allocated)) * 100) + '٪' : '—'])] },
+    { name: 'الإنفاق', title: 'الإنفاق التشغيلي', columns: ['البند', 'القيمة'], rows: kv([['مشتريات الصيانة (د.ع)', f.purchases.total], ['عدد أوامر الشراء', f.purchases.orders], ['عدد المواد', f.purchases.items], ['كلفة أعمال الصيانة (د.ع)', f.maintenance_cost], ['حالات صيانة منجزة', o.fleet.maintenance.closed], ['متوسط كلفة الحالة (د.ع)', o.fleet.maintenance.closed ? Math.round(f.maintenance_cost / o.fleet.maintenance.closed) : 0]]) },
+    { name: 'أثر الحضور', title: 'أثر الحضور على الرواتب', columns: ['البند', 'القيمة'], rows: kv([['الملاك الفعلي', o.workforce.active], ['تعيينات', o.workforce.hired], ['إنهاء خدمة', o.workforce.terminated], ['أيام الغياب', a.absent], ['أيام التأخير', a.late], ['دقائق النقص', a.shortfall_minutes], ['دقائق الإضافي', a.overtime_minutes], ['أيام الاستقطاع المقترحة', a.deduction_days], ['إجازات معتمدة (أيام)', o.workforce.leaves.days]]) },
+  ]
+}
+
+export function buildExecSheets(o: ExecOverview, insights: Insight[], prev?: ExecOverview | null, scope: ExecScope = 'all'): ExecSheet[] {
+  if (scope === 'finance') return buildFinanceSheets(o, insights, prev)
   const rate = attendanceRate(o.workforce.attendance)
   const a = o.workforce.attendance
   const cmp = (cur: number, p?: number) => (prev ? [cur, p ?? 0, p ? Math.round(((cur - p) / p) * 100) + '٪' : '—'] : [cur])
@@ -62,10 +97,10 @@ function mergeSeries(o: ExecOverview): Array<Array<string | number | null>> {
   return [...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([d, x]) => [d, x.c, x.f, x.t, x.p, x.ab, x.l])
 }
 
-export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, orgName = 'منصة الأكرم'): Promise<Workbook> {
+export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, orgName = 'منصة الأكرم', scope: ExecScope = 'all'): Promise<Workbook> {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook(); wb.creator = `${orgName} — الإدارة العليا`; wb.created = new Date()
-  const sheets = buildExecSheets(o, insights, prev)
+  const sheets = buildExecSheets(o, insights, prev, scope)
   for (const s of sheets) {
     const ws = wb.addWorksheet(s.name.slice(0, 31), { views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }], pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
     head(ws, s, o)
@@ -98,8 +133,8 @@ function head(ws: Worksheet, s: ExecSheet, o: ExecOverview) {
   hr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', vertical: 'middle' } })
 }
 
-export async function downloadExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, fileName: string) {
-  const wb = await buildExecWorkbook(o, insights, prev)
+export async function downloadExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, fileName: string, scope: ExecScope = 'all') {
+  const wb = await buildExecWorkbook(o, insights, prev, undefined, scope)
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url)
