@@ -9,6 +9,7 @@ import type {
   AttendanceAudit, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, ImportEmployeeRow, ImportResult,
+  HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
 } from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, hire_date,
@@ -58,6 +59,19 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_DEPT_MANAGER_INVALID: 'مدير القسم غير موجود أو منتهية خدمته',
   HR_DEPT_HAS_EMPLOYEES: 'لا يمكن تعطيل قسم فيه موظفون نشطون — انقلهم أولاً',
   HR_DEPT_HAS_CHILDREN: 'لا يمكن تعطيل قسم له أقسام فرعية نشطة',
+  HR_POLICY_INVALID: 'قيم السياسة غير صالحة (راجع الأرقام)',
+  HR_TIERS_INVALID: 'شرائح الاستقطاع غير صالحة: يجب أن تكون متتالية بلا فجوات تبدأ من الدقيقة 1 وآخرها مفتوح، ولكل شريحة دقائق أو كسر يوم',
+  HR_LEAVE_TYPE_INVALID: 'نوع الإجازة غير صالح أو معطّل',
+  HR_NO_MANAGER: 'لا يوجد مدير مباشر مسجّل لهذا الموظف — اطلب من الموارد البشرية تحديده',
+  HR_ATTACHMENT_REQUIRED: 'هذا النوع يتطلب مرفقاً (مثل تقرير طبي)',
+  HR_PERMIT_TIME_INVALID: 'الزمنية تحتاج يوماً واحداً ووقت بداية ونهاية صحيحين',
+  HR_PERMIT_TOO_LONG: 'مدة الزمنية تتجاوز الحد المسموح',
+  HR_PERMIT_MONTH_LIMIT: 'بلغت الحد الشهري للزمنيات',
+  HR_LEAVE_TOO_LONG: 'عدد الأيام يتجاوز الحد المسموح لهذا النوع',
+  HR_LEAVE_OVERLAP: 'يوجد طلب آخر (معلّق أو معتمد) يتداخل مع هذه الفترة',
+  HR_BALANCE_INSUFFICIENT: 'الرصيد غير كافٍ لهذا الطلب',
+  HR_LEAVE_NOT_PENDING: 'هذا الطلب لم يعد معلّقاً',
+  HR_LEAVE_STARTED: 'لا يمكن إلغاء إجازة بدأت — راجع الموارد البشرية',
   employees_national_id_uq: 'رقم البطاقة الموحدة مسجل لموظف آخر',
   employees_employee_number_key: 'الرقم الوظيفي مستخدم لموظف آخر',
 }
@@ -236,6 +250,56 @@ export const hr = {
   listDepartments() { return rpc<HrDepartment[]>('hr_departments_overview', {}) },
   saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null }) {
     return rpc<string>('hr_department_save', { p_id: v.id ?? null, p_name: v.name, p_code: v.code, p_parent: v.parentId || null, p_is_active: v.isActive ?? true, p_manager: v.managerId || null })
+  },
+  // ─────────── 00144: السياسة · أنواع الإجازات · الأرصدة · الطلبات · التنبيهات ───────────
+  policy() { return rpc<HrPolicy>('hr_policy_get', {}) },
+  setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
+  async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
+    let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')
+    if (!includeInactive) q = q.eq('is_active', true)
+    return (await sdkGuard(q)) as LeaveType[]
+  },
+  saveLeaveType(v: Partial<LeaveType>) { return rpc<string>('hr_leave_type_save', { p: v }) },
+  balance(employeeId: string, year?: number | null) { return rpc<LeaveBalance>('hr_leave_balance', { p_employee: employeeId, p_year: year ?? null }) },
+  async ledger(employeeId: string, year?: number | null): Promise<LeaveLedgerEntry[]> {
+    let q = supabase.from('hr_leave_ledger').select('*').eq('employee_id', employeeId).order('created_at', { ascending: false })
+    if (year) q = q.eq('year', year)
+    return (await sdkGuard(q)) as LeaveLedgerEntry[]
+  },
+  setGrant(employeeId: string, year: number, days: number, note?: string | null) {
+    return sdkVoid(supabase.rpc('hr_balance_set_grant', { p_employee: employeeId, p_year: year, p_days: days, p_note: note || null } as never))
+  },
+  adjustBalance(employeeId: string, year: number, days: number, reason: string) {
+    return rpc<string>('hr_balance_adjust', { p_employee: employeeId, p_year: year, p_days: days, p_reason: reason })
+  },
+  requestLeave(v: LeaveRequestInput) {
+    return rpc<string>('hr_leave_request', {
+      p_employee: v.employeeId, p_type: v.typeId, p_start: v.start, p_end: v.end, p_start_time: v.startTime || null, p_end_time: v.endTime || null,
+      p_notes: v.notes || null, p_attachment: v.attachment || null,
+    })
+  },
+  decideLeave(id: string, approve: boolean, note?: string | null) {
+    return sdkVoid(supabase.rpc('hr_leave_decide', { p_leave: id, p_approve: approve, p_note: note || null } as never))
+  },
+  cancelLeave(id: string, reason?: string | null) { return sdkVoid(supabase.rpc('hr_leave_cancel', { p_leave: id, p_reason: reason || null } as never)) },
+  listLeaveRequests(f: { scope: LeaveScope; from?: string | null; to?: string | null; status?: string | null; departmentId?: string | null; search?: string | null; limit?: number }) {
+    return rpc<LeaveRequestRow[]>('hr_leaves_list', {
+      p_scope: f.scope, p_from: f.from || null, p_to: f.to || null, p_status: f.status || null, p_department: f.departmentId || null,
+      p_search: f.search?.trim() || null, p_limit: f.limit ?? 500,
+    })
+  },
+  waiveDeduction(employeeId: string, date: string, waive: boolean, reason: string) {
+    return sdkVoid(supabase.rpc('ops_deduction_waive', { p_employee: employeeId, p_date: date, p_waive: waive, p_reason: reason } as never))
+  },
+  listAlerts(month?: string | null, onlyOpen = true) { return rpc<HrAlert[]>('hr_alerts_list', { p_month: month || null, p_only_open: onlyOpen }) },
+  ackAlert(id: string) { return sdkVoid(supabase.rpc('hr_alert_ack', { p_alert: id } as never)) },
+  myEmployee() { return rpc<MyEmployee | null>('hr_my_employee', {}) },
+  leavesDashboard() { return rpc<LeavesDashboard | null>('hr_leaves_dashboard', {}) },
+  async uploadLeaveAttachment(employeeId: string, file: File): Promise<string> {
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const path = `${employeeId}/leave-${Date.now()}.${ext}`
+    await sdkGuard(supabase.storage.from('employee-documents').upload(path, file, { contentType: file.type, upsert: false }))
+    return path
   },
   markNoticeDone(id: string) {
     return sdkVoid(supabase.from('finance_hr_notices').update({ is_done: true, done_at: new Date().toISOString() } as never).eq('id', id))

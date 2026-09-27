@@ -14,3 +14,10 @@ export const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : n
 export const monthStart = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 export const isoDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 export const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : '')
+/** نص الاستقطاع المقترح لصف حضور (أيام و/أو دقائق) */
+export const proposedLabel = (r: { proposed_deduction_minutes: number; proposed_deduction_days: number }) => {
+  const parts: string[] = []
+  if (r.proposed_deduction_days > 0) parts.push(`${r.proposed_deduction_days} يوم`)
+  if (r.proposed_deduction_minutes > 0) parts.push(fmtMinutes(r.proposed_deduction_minutes))
+  return parts.length ? parts.join(' + ') : '—'
+}

@@ -23,6 +23,7 @@ const BranchesPage = lazy(() => import('@portals/it/pages/Branches/BranchesPage'
 const PermissionsMatrix = lazy(() => import('@portals/it/pages/Permissions/PermissionsMatrix'))
 const BiometricPage = lazy(() => import('@portals/it/pages/Integrations/BiometricPage'))
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
+const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 const CentralGarageApprovalsPage = lazy(
@@ -66,6 +67,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'integrations', element: s(<BiometricPage />) },
   { path: 'integrations/biometric', element: s(<BiometricPage />) },
   { path: 'integrations/gps', element: s(<GpsPage />) },
+  { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },
 
   // ── وحدة التحديثات والمراقبة ──
   { path: 'updates', element: s(<UpdatesPage />) },

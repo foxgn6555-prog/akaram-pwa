@@ -47,7 +47,7 @@ function SheetTab() {
   const head = rows[0]
   const approved = head?.export_status === 'approved'
   const missing = rows.filter((r) => r.pay_type == null).length
-  const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount, 0) }), [rows])
+  const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount, 0), auto: rows.reduce((s, r) => s + (r.auto_deduction_amount ?? 0), 0) }), [rows])
 
   const doApprove = async () => {
     if (!head) return
@@ -68,11 +68,12 @@ function SheetTab() {
         </div>
       </div>
       {head && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
           <StatCard title="الموظفون في الكشف" value={rows.length} testId="ps-count" />
           <StatCard title="إجمالي الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" testId="ps-proposed" />
           <StatCard title="إجمالي الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" testId="ps-final" />
           <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="amber" testId="ps-ops" />
+          <StatCard title="استقطاع تلقائي (نقص/غياب)" value={fmtMoney(totals.auto)} tone="red" hint="محسوب من الشرائح بعد تدقيق غرفة العمليات" testId="ps-auto" />
           <StatCard title="بلا ملف راتب" value={missing} tone={missing ? 'red' : 'slate'} hint={missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
         </div>
       )}
@@ -82,7 +83,7 @@ function SheetTab() {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table">
             <thead className="bg-slate-50 text-slate-600">
-              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2">أيام العمل</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2">إجازة</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
+              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2">أيام العمل</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2">إجازة</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
             </thead>
             <tbody>
               {shown.map((r) => (
@@ -94,6 +95,7 @@ function SheetTab() {
                   <td className="p-2 text-center tabular-nums">{fmtMoney(r.allowances_total)}</td>
                   <td className="p-2 text-center tabular-nums">{fmtMoney(r.fixed_deductions_total)}</td>
                   <td className="p-2 text-center tabular-nums text-amber-700" title={r.ops_deduction_reasons ?? ''}>{fmtMoney(r.ops_deduction_amount)}{r.ops_deduction_days > 0 && <span className="block text-[10px]">+ {r.ops_deduction_days} يوم</span>}</td>
+                  <td className="p-2 text-center tabular-nums text-red-700" data-testid={`ps-auto-${r.employee_number}`}>{fmtMoney(r.auto_deduction_amount ?? 0)}{(r.auto_deduction_days > 0 || r.auto_deduction_minutes > 0) && <span className="block text-[10px]">{r.auto_deduction_days > 0 ? `${r.auto_deduction_days} يوم` : ''}{r.auto_deduction_days > 0 && r.auto_deduction_minutes > 0 ? ' + ' : ''}{r.auto_deduction_minutes > 0 ? `${r.auto_deduction_minutes} د` : ''}</span>}</td>
                   <td className="p-2 text-center font-bold tabular-nums">{fmtMoney(r.proposed_net)}</td>
                   <td className={clsx('p-2 text-center font-black tabular-nums', r.final_net != null && r.final_net !== r.proposed_net && 'text-amber-700')} title={r.finance_note ?? ''}>{fmtMoney(r.final_net ?? r.proposed_net)}{r.finance_note && <span className="block max-w-[8rem] truncate text-[10px] font-normal text-slate-500">{r.finance_note}</span>}</td>
                   <td className="p-2 text-center">{!approved && <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 font-bold text-brand-700" onClick={() => setEditing(r)} data-testid={`ps-edit-${r.employee_number}`}>تعديل</button>}</td>
@@ -121,7 +123,7 @@ function AdjustPanel({ row, onClose }: { row: PayrollSheetRow; onClose: () => vo
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-2 sm:items-center" role="dialog" aria-modal="true" data-testid="ps-adjust-panel">
       <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
         <h3 className="text-sm font-bold">تعديل صافي {row.full_name}</h3>
-        <p className="mb-3 text-[11px] text-slate-500">المقترح: {fmtMoney(row.proposed_net)} · أيام حاضر {row.days_present} · استقطاع العمليات {fmtMoney(row.ops_deduction_amount)}{row.ops_deduction_days ? ` + ${row.ops_deduction_days} يوم` : ''}</p>
+        <p className="mb-3 text-[11px] text-slate-500">المقترح: {fmtMoney(row.proposed_net)} · أيام حاضر {row.days_present} · استقطاع العمليات {fmtMoney(row.ops_deduction_amount)}{row.ops_deduction_days ? ` + ${row.ops_deduction_days} يوم` : ''} · استقطاع تلقائي {fmtMoney(row.auto_deduction_amount ?? 0)}</p>
         <div className="space-y-3">
           <Field id="adj-net" label="الصافي المعتمد (د.ع)"><input id="adj-net" type="number" min={0} step={250} className={field} value={net} onChange={(e) => setNet(e.target.value)} data-testid="adj-net" /></Field>
           <Field id="adj-note" label="سبب التعديل *"><textarea id="adj-note" className={clsx(field, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} data-testid="adj-note" /></Field>

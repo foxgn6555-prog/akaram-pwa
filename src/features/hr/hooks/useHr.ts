@@ -4,7 +4,7 @@ import { hrKeys } from '@lib/query-keys/hr.keys'
 import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, CreateEmployeeInput, DocType, HrShift, ImportEmployeeRow, TerminationType } from '../types'
+import type { AttendanceFilters, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -233,4 +233,105 @@ export function useSaveDepartment() {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.departments() }); void qc.invalidateQueries({ queryKey: departmentsKeys.all }); t.ok('حُفظ القسم') },
     onError: t.err,
   })
+}
+
+// ─── 00144: السياسة · الإجازات · الأرصدة · التنبيهات ───
+const invalidateLeaves = (qc: ReturnType<typeof useQueryClient>) => {
+  for (const k of ['leave-requests', 'balance', 'ledger', 'leaves', 'attendance', 'alerts', 'leaves-dashboard']) void qc.invalidateQueries({ queryKey: [...hrKeys.all, k] })
+}
+export function useHrPolicy() {
+  return useQuery({ queryKey: hrKeys.policy(), queryFn: hr.policy, staleTime: 60_000 })
+}
+export function useSetHrPolicy() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (patch: Partial<HrPolicy>) => hr.setPolicy(patch),
+    onSuccess: (p) => { qc.setQueryData(hrKeys.policy(), p); t.ok('حُفظت السياسة') },
+    onError: t.err,
+  })
+}
+export function useLeaveTypes(includeInactive = false) {
+  return useQuery({ queryKey: hrKeys.leaveTypes(includeInactive), queryFn: () => hr.listLeaveTypes(includeInactive), staleTime: 60_000 })
+}
+export function useSaveLeaveType() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: Partial<LeaveType>) => hr.saveLeaveType(v),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'leave-types'] }); t.ok('حُفظ نوع الإجازة') },
+    onError: t.err,
+  })
+}
+export function useLeaveBalance(employeeId: string | null | undefined, year?: number | null) {
+  return useQuery({ queryKey: hrKeys.balance(employeeId ?? '', year), queryFn: () => hr.balance(employeeId!, year), enabled: !!employeeId, staleTime: 15_000 })
+}
+export function useLeaveLedger(employeeId: string | null | undefined, year?: number | null) {
+  return useQuery({ queryKey: hrKeys.ledger(employeeId ?? '', year), queryFn: () => hr.ledger(employeeId!, year), enabled: !!employeeId })
+}
+export function useSetGrant() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { employeeId: string; year: number; days: number; note?: string | null }) => hr.setGrant(v.employeeId, v.year, v.days, v.note),
+    onSuccess: () => { invalidateLeaves(qc); t.ok('حُدّث الرصيد السنوي') },
+    onError: t.err,
+  })
+}
+export function useAdjustBalance() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { employeeId: string; year: number; days: number; reason: string }) => hr.adjustBalance(v.employeeId, v.year, v.days, v.reason),
+    onSuccess: () => { invalidateLeaves(qc); t.ok('سُجّل التعديل على الرصيد') },
+    onError: t.err,
+  })
+}
+export function useLeaveRequests(f: Parameters<typeof hr.listLeaveRequests>[0], enabled = true) {
+  return useQuery({ queryKey: hrKeys.leaveRequests(f), queryFn: () => hr.listLeaveRequests(f), enabled, staleTime: 10_000 })
+}
+export function useRequestLeave() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: LeaveRequestInput) => hr.requestLeave(v),
+    onSuccess: () => { invalidateLeaves(qc); t.ok('أُرسل الطلب إلى المدير المباشر') },
+    onError: t.err,
+  })
+}
+export function useDecideLeave() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { id: string; approve: boolean; note?: string | null }) => hr.decideLeave(v.id, v.approve, v.note),
+    onSuccess: (_d, v) => { invalidateLeaves(qc); t.ok(v.approve ? 'تمت الموافقة على الطلب' : 'رُفض الطلب') },
+    onError: t.err,
+  })
+}
+export function useCancelLeave() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { id: string; reason?: string | null }) => hr.cancelLeave(v.id, v.reason),
+    onSuccess: () => { invalidateLeaves(qc); t.ok('أُلغي الطلب') },
+    onError: t.err,
+  })
+}
+export function useWaiveDeduction() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { employeeId: string; date: string; waive: boolean; reason: string }) => hr.waiveDeduction(v.employeeId, v.date, v.waive, v.reason),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'attendance'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'alerts'] }); t.ok(v.waive ? 'أُلغي الاستقطاع المقترح وسُجّل السبب' : 'أُعيد الاستقطاع المقترح') },
+    onError: t.err,
+  })
+}
+export function useHrAlerts(month?: string | null, onlyOpen = true) {
+  return useQuery({ queryKey: hrKeys.alerts(month, onlyOpen), queryFn: () => hr.listAlerts(month, onlyOpen), staleTime: 15_000 })
+}
+export function useAckAlert() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (id: string) => hr.ackAlert(id),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'alerts'] }); void qc.invalidateQueries({ queryKey: hrKeys.leavesDashboard() }); t.ok('تم الإقرار بالتنبيه') },
+    onError: t.err,
+  })
+}
+export function useLeavesDashboard() {
+  return useQuery({ queryKey: hrKeys.leavesDashboard(), queryFn: hr.leavesDashboard, staleTime: 30_000 })
+}
+export function useMyEmployee() {
+  return useQuery({ queryKey: hrKeys.me(), queryFn: hr.myEmployee, staleTime: 5 * 60_000 })
 }

@@ -11,7 +11,7 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   const wb = new ExcelJS.Workbook()
   wb.creator = 'منصة الأكرم — الشؤون المالية'; wb.created = new Date()
   const ws = wb.addWorksheet(`رواتب ${month.slice(0, 7)}`, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
-  const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد', 'أيام العمل', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة', 'دقائق التأخير', 'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات']
+  const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد', 'أيام العمل', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة', 'دقائق التأخير', 'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'استقطاع تلقائي (مبلغ)', 'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات']
   const approved = rows[0]?.export_status === 'approved'
   ws.mergeCells(1, 1, 1, headers.length)
   ws.getCell('A1').value = `كشف رواتب شهر ${month.slice(0, 7)} — ${approved ? 'معتمد ومقفل' : 'مسودة قبل الاعتماد'}`
@@ -29,16 +29,17 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
     const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
       r.working_days, r.days_present, r.days_late, r.days_absent, r.days_incomplete, r.days_leave, r.late_minutes,
       r.base_salary ?? 0, r.daily_rate ?? 0, r.allowances_total ?? 0, r.fixed_deductions_total ?? 0, r.ops_deduction_amount, r.ops_deduction_days,
+      r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_deduction_amount ?? 0,
       r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? ''])
-    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col >= 23 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 23 }; if (col >= 15 && col <= 22 && col !== 20) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
-    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(22).font = { bold: true, color: { argb: 'FFB45309' } }
-    if (r.pay_type == null) row.getCell(21).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col >= 26 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 26 }; if ([15, 16, 17, 18, 19, 23, 24, 25].includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(25).font = { bold: true, color: { argb: 'FFB45309' } }
+    if (r.pay_type == null) row.getCell(24).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
   })
   const first = 5, last = 4 + rows.length
   const tot = ws.addRow(['', '', 'الإجمالي', '', '', '', '', '', '', '', '', '', '', ''])
-  ;[15, 17, 18, 19, 21, 22].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; tot.getCell(col).numFmt = '#,##0' })
+  ;[15, 17, 18, 19, 23, 24, 25].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; tot.getCell(col).numFmt = '#,##0' })
   tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
-  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 7, 7, 7, 7, 7, 9, 13, 11, 12, 13, 13, 11, 14, 14, 24, 34]
+  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 7, 7, 7, 7, 7, 9, 13, 11, 12, 13, 13, 11, 10, 10, 13, 14, 14, 24, 34]
   widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
   ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
   return wb

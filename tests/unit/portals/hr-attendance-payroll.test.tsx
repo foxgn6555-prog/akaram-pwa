@@ -29,7 +29,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: (f: unknown) => { h.attendanceFilters = f; return { data: h.attendance, isLoading: false } },
   useEvaluateAttendance: () => mut(async () => 0), useHrDashboard: () => ({ data: h.dashboard, isLoading: false }),
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
-  useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
+  useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
@@ -174,9 +174,9 @@ describe('المالية — الرواتب', () => {
     expect(ws.views[0]).toMatchObject({ rightToLeft: true })
     expect(String(ws.getCell('A1').value)).toContain('مسودة')
     expect(ws.getRow(4).getCell(3).value).toBe('الاسم')
-    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(21).value).toBe(855000)
-    expect(ws.getRow(6).getCell(22).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
-    expect((ws.getRow(7).getCell(22).value as { formula: string }).formula).toBe('SUM(V5:V6)')
+    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(24).value).toBe(855000)
+    expect(ws.getRow(6).getCell(25).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
+    expect((ws.getRow(7).getCell(25).value as { formula: string }).formula).toBe('SUM(Y5:Y6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
   })

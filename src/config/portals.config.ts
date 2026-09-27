@@ -173,6 +173,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/team', labelKey: 'nav.team', icon: 'users' },
     { path: '/manager/request', labelKey: 'nav.mgr_request', icon: 'send' },
     { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
+    { path: '/manager/leaves', labelKey: 'nav.mgr_leaves', icon: 'clipboard' },
     { path: '/manager/breakdown', labelKey: 'nav.mgr_breakdown', icon: 'alert-triangle' },
     { path: '/manager/vehicle-trips', labelKey: 'nav.mgr_vehicle_trips', icon: 'truck' },
     { path: '/manager/gbs-containers', labelKey: 'nav.mgr_gbs_containers', icon: 'box' },
@@ -246,6 +247,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/it/integrations/biometric', labelKey: 'nav.biometric', icon: 'fingerprint' },
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
+        { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
       ],
     },
     {

@@ -8,7 +8,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useExportMonth, useMonthExports, useResetAttendance,
+  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useExportMonth, useMonthExports, useResetAttendance, useWaiveDeduction,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { Button } from '@components/ui'
@@ -17,10 +17,10 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/components/hr-ui'
-import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart } from '@portals/hr/components/hr-format'
+import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
 
 type Mode = 'day' | 'month'
-const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية' }
+const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح' }
 const EDITABLE: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 
 export default function OpsAttendancePage() {
@@ -35,6 +35,7 @@ export default function OpsAttendancePage() {
   const [auditFor, setAuditFor] = useState<AttendanceDay | null>(null)
   const [deductFor, setDeductFor] = useState<AttendanceDay | null>(null)
   const [panel, setPanel] = useState<'rows' | 'deductions' | 'exports'>('rows')
+  const waive = useWaiveDeduction()
 
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
@@ -46,6 +47,15 @@ export default function OpsAttendancePage() {
   const monthExport = exports.find((x) => x.period_month === month)
   const counts = useMemo(() => Object.fromEntries(ATTENDANCE_STATUS_ORDER.map((s) => [s, rows.filter((r) => r.status === s).length])) as Record<AttendanceStatus, number>, [rows])
   const locked = monthExport?.status === 'approved'
+  const proposedTotals = useMemo(() => rows.reduce((a, r) => {
+    if (r.deduction_waived) { a.waived += 1; return a }
+    a.minutes += r.proposed_deduction_minutes; a.days += r.proposed_deduction_days; if (r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0) a.count += 1; return a
+  }, { minutes: 0, days: 0, count: 0, waived: 0 }), [rows])
+  const toggleWaive = async (r: AttendanceDay) => {
+    const reason = window.prompt(r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):')
+    if (!reason || reason.trim().length < 3) return
+    try { await waive.mutateAsync({ employeeId: r.employee_id, date: r.work_date, waive: !r.deduction_waived, reason: reason.trim() }) } catch { /* toast in hook */ }
+  }
 
   const doExport = async () => {
     if (locked) return
@@ -85,6 +95,13 @@ export default function OpsAttendancePage() {
         ))}
       </div>
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
+        <StatCard title="أيام حضور بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
+        <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
+        <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
+        <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
+      </div>
+
       <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
         {([['rows', 'سجلات الحضور'], ['deductions', 'الاستقطاعات اليدوية'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
       </nav>
@@ -93,7 +110,7 @@ export default function OpsAttendancePage() {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm" data-testid="ops-table">
             <thead className="bg-slate-50 text-xs text-slate-600">
-              <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
+              <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">نقص</th><th className="p-2">إضافي</th><th className="p-2">استقطاع مقترح</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
             </thead>
             <tbody>
               {rows.map((r) => (
@@ -106,6 +123,18 @@ export default function OpsAttendancePage() {
                   <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
                   <td className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
                   <td className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
+                  <td className={clsx('p-2 text-center text-xs tabular-nums', r.shortfall_minutes > 0 && 'font-bold text-red-700')} title={r.permit_minutes > 0 ? `زمنية معتمدة ${fmtMinutes(r.permit_minutes)}` : ''} data-testid={`ops-shortfall-${r.employee_number}-${r.work_date}`}>{fmtMinutes(r.shortfall_minutes)}{r.permit_minutes > 0 && <span className="block text-[10px] text-violet-600">زمنية {fmtMinutes(r.permit_minutes)}</span>}</td>
+                  <td className={clsx('p-2 text-center text-xs tabular-nums', r.overtime_minutes > 0 && 'font-bold text-emerald-700')}>{fmtMinutes(r.overtime_minutes)}</td>
+                  <td className="p-2 text-center text-xs" data-testid={`ops-proposed-${r.employee_number}-${r.work_date}`}>
+                    {r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0 ? (
+                      <div>
+                        <span className={clsx('font-bold', r.deduction_waived ? 'text-slate-400 line-through' : 'text-red-700')}>{proposedLabel(r)}</span>
+                        {r.deduction_reason && <span className="block max-w-[10rem] truncate text-[10px] text-slate-500" title={r.deduction_reason}>{r.deduction_reason}</span>}
+                        {r.deduction_waived && <span className="block text-[10px] font-bold text-emerald-700" title={r.waive_reason ?? ''}>مُلغى: {r.waive_reason}</span>}
+                        {!locked && <button type="button" className="mt-0.5 text-[10px] font-bold text-brand-700 hover:underline" onClick={() => void toggleWaive(r)} data-testid={`ops-waive-${r.employee_number}-${r.work_date}`}>{r.deduction_waived ? 'إعادة الاستقطاع' : 'إلغاء بسبب'}</button>}
+                      </div>
+                    ) : '—'}
+                  </td>
                   <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
                   <td className="p-2">
                     <div className="flex justify-center gap-1">

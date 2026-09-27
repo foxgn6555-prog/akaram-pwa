@@ -16,4 +16,12 @@ export const hrKeys = {
   salaryProfile: (id: string) => [...hrKeys.all, 'salary-profile', id] as const,
   notices: () => [...hrKeys.all, 'finance-notices'] as const,
   departments: () => [...hrKeys.all, 'departments'] as const,
+  me: () => [...hrKeys.all, 'me'] as const,
+  policy: () => [...hrKeys.all, 'policy'] as const,
+  leaveTypes: (all?: boolean) => [...hrKeys.all, 'leave-types', all ? 'all' : 'active'] as const,
+  leaveRequests: (f?: unknown) => [...hrKeys.all, 'leave-requests', f ?? {}] as const,
+  balance: (employeeId: string, year?: number | null) => [...hrKeys.all, 'balance', employeeId, year ?? 'current'] as const,
+  ledger: (employeeId: string, year?: number | null) => [...hrKeys.all, 'ledger', employeeId, year ?? 'current'] as const,
+  alerts: (month?: string | null, onlyOpen?: boolean) => [...hrKeys.all, 'alerts', month ?? 'all', onlyOpen ?? true] as const,
+  leavesDashboard: () => [...hrKeys.all, 'leaves-dashboard'] as const,
 }

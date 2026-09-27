@@ -12,12 +12,14 @@ import ComplaintTicketPage from './pages/Complaints/ComplaintTicketPage'
 import ComplaintsGuidancePage from './pages/Complaints/ComplaintsGuidancePage'
 import VehicleTripsPage from './pages/VehicleTrips/VehicleTripsPage'
 import GbsContainersPage from './pages/Gbs/GbsContainersPage'
+import TeamLeavesPage from './pages/Leaves/TeamLeavesPage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
   { path: 'team', element: <TeamPage /> },
   { path: 'request', element: <NewRequestPage /> },
   { path: 'attendance', element: <AttendancePage /> },
+  { path: 'leaves', element: <TeamLeavesPage /> },
   { path: 'breakdown', element: <BreakdownPage /> },
   { path: 'vehicle-trips', element: <VehicleTripsPage /> },
   { path: 'gbs-containers', element: <GbsContainersPage /> },

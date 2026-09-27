@@ -142,6 +142,16 @@ export interface AttendanceDayRow {
   edited_by: string | null
   edited_at: string | null
   edit_reason: string | null
+  /** 00144: نقص الدقائق والاستقطاع المقترح */
+  required_minutes: number
+  permit_minutes: number
+  shortfall_minutes: number
+  overtime_minutes: number
+  proposed_deduction_minutes: number
+  proposed_deduction_days: number
+  deduction_reason: string | null
+  deduction_waived: boolean
+  waive_reason: string | null
 }
 
 export interface AttendanceFilters {
@@ -184,7 +194,7 @@ export interface AttendanceAudit {
   id: string
   employee_id: string
   work_date: string
-  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto'
+  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto' | 'waive' | 'unwaive'
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
   reason: string
@@ -222,9 +232,14 @@ export interface OpsExportRow {
   ops_deduction_amount: number
   ops_deduction_days: number
   ops_deduction_reasons: string | null
+  auto_deduction_minutes: number
+  auto_deduction_days: number
+  overtime_minutes: number
+  shortfall_minutes: number
 }
 
 export interface PayrollSheetRow extends OpsExportRow {
+  auto_deduction_amount: number
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
@@ -342,4 +357,135 @@ export interface HrDepartment {
   employees_total: number
   children: number
   created_at: string
+}
+
+// ─────────── 00144: السياسة والإجازات والأرصدة ───────────
+export interface DeductionTier { from: number; to: number | null; minutes?: number | null; day_fraction?: number | null }
+export interface HrPolicy {
+  annual_leave_days_default: number
+  balance_mode: 'annual_upfront' | 'monthly_accrual'
+  carry_over: boolean
+  carry_over_max_days: number
+  permits_per_leave_day: number
+  permit_max_minutes: number
+  permits_max_per_month: number | null
+  grace_minutes_default: number
+  deduction_basis: 'shortfall'
+  deduction_tiers: DeductionTier[]
+  absent_day_deduction_days: number
+  incomplete_punch_as_absent: boolean
+  overtime_enabled: boolean
+  overtime_min_block_minutes: number
+  overtime_minutes_per_leave_day: number | null
+  alert_late_days_per_month: number
+  alert_shortfall_minutes_per_month: number
+  alert_absent_days_per_month: number
+  alert_balance_low_days: number
+}
+export interface LeaveType {
+  id: string
+  code: string
+  name: string
+  kind: 'leave' | 'time_permit'
+  is_paid: boolean
+  consumes_balance: boolean
+  deduction_days_per_day: number
+  requires_attachment: boolean
+  max_days_per_request: number | null
+  max_minutes: number | null
+  sort_order: number
+  is_active: boolean
+}
+export interface LeaveBalance {
+  year: number
+  granted: number
+  accrued: number
+  carried: number
+  adjusted: number
+  used_leave_days: number
+  used_permit_days: number
+  permits_count: number
+  overtime_days: number
+  reversed: number
+  remaining: number
+  permits_per_leave_day: number
+}
+export interface LeaveLedgerEntry {
+  id: string
+  employee_id: string
+  year: number
+  kind: 'grant' | 'adjust' | 'consume' | 'permit' | 'overtime' | 'carry_over' | 'reversal'
+  days: number
+  leave_id: string | null
+  period_month: string | null
+  note: string | null
+  created_at: string
+}
+export type LeaveScope = 'mine' | 'team' | 'all'
+export interface LeaveRequestRow {
+  id: string
+  employee_id: string
+  employee_number: string
+  full_name: string
+  department_name: string | null
+  kind: 'leave' | 'time_permit'
+  type_code: string | null
+  type_name: string | null
+  is_paid: boolean | null
+  consumes_balance: boolean | null
+  start_date: string
+  end_date: string
+  start_time: string | null
+  end_time: string | null
+  days: number
+  minutes: number
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  notes: string | null
+  attachment_path: string | null
+  manager_id: string | null
+  manager_name: string | null
+  requested_by: string | null
+  decided_at: string | null
+  decision_note: string | null
+  cancelled_reason: string | null
+  created_at: string
+  can_decide: boolean
+}
+export interface LeaveRequestInput {
+  employeeId: string
+  typeId: string
+  start: string
+  end: string
+  startTime?: string | null
+  endTime?: string | null
+  notes?: string | null
+  attachment?: string | null
+}
+export interface HrAlert {
+  id: string
+  employee_id: string
+  employee_number: string
+  full_name: string
+  department_name: string | null
+  manager_name: string | null
+  period_month: string
+  kind: 'late_repeat' | 'shortfall' | 'absent_repeat' | 'balance_low'
+  value: number
+  threshold: number
+  details: string | null
+  acknowledged_at: string | null
+  created_at: string
+}
+export interface LeavesDashboard { pending: number; approved_today: number; open_alerts: number; permits_this_month: number }
+export interface MyEmployee {
+  id: string
+  full_name: string
+  employee_number: string
+  job_title: string | null
+  department_id: string | null
+  department_name: string | null
+  manager_id: string | null
+  manager_name: string | null
+  has_biometric: boolean
+  reports_count: number
 }
