@@ -30,6 +30,7 @@ const APP_ERROR_AR: Record<string, string> = {
   STATION_ARRIVAL_NOT_ALLOWED: 'لا يمكن تأكيد وصول الآلية إلى المحطة في حالتها الحالية.',
   STATION_DESTINATION_INVALID: 'جهة الإرسال غير صالحة — اختر موقع العمل أو الكراج.',
   VEHICLE_NOT_AT_STATION: 'الآلية غير موجودة في المحطة الآن.',
+  STATION_WEIGHING_REQUIRED: 'لا خروج من المحطة قبل تسجيل الوزن وإكماله من موظف المحطة.',
   // الصيانة
   MAINTENANCE_FORBIDDEN: 'هذه العملية متاحة لموظف الصيانة فقط.',
   MAINTENANCE_INPUT_INVALID: 'بيانات العطل غير صالحة — تحقق من نوع العطل والأولوية.',
@@ -40,6 +41,14 @@ const APP_ERROR_AR: Record<string, string> = {
   BREAKDOWN_ALREADY_OPEN: 'العطل مسجل على رحلة أخرى — أغلقه أولاً.',
   // الكراج المركزي والانطلاقيات
   GARAGE_VEHICLE_NOT_FOUND: 'الآلية غير موجودة أو مؤرشفة.',
+  GARAGE_VEHICLE_IN_FIELD: 'الآلية في الميدان الآن — لا يمكن تغيير سائقها حتى تعود إلى الكراج.',
+  GARAGE_SHIFT_IN_FIELD: 'الآلية منطلقة في هذا الشفت الآن — انتظر عودتها قبل تغيير الإسناد.',
+  OPS_FLEET_MASTER_FORBIDDEN: 'إدارة قاعدة الآليات والسائقين من صلاحية غرفة العمليات فقط.',
+  FLEET_DRIVER_REQUIRED: 'اختر السائق من قائمة الموظفين.',
+  FLEET_DRIVER_NOT_FOUND: 'السائق المختار غير موجود في سجل الموظفين.',
+  FLEET_DRIVER_TERMINATED: 'هذا الموظف مُنهى الخدمة — لا يمكن إسناده سائقاً.',
+  OPS_DRIVER_CHANGE_REASON_REQUIRED: 'سبب تغيير السائق إلزامي (3 أحرف على الأقل).',
+  OPS_DRIVER_CHANGE_TOO_OLD: 'لا يمكن تغيير سائق انطلاقة مضى على إغلاقها أكثر من 3 أيام.',
   GARAGE_DEPARTURE_ALREADY_OPEN: 'توجد انطلاقية مفتوحة لهذه الآلية — أغلقها بتسجيل العودة أولاً.',
   GARAGE_SHIFT_ASSIGNMENT_NOT_FOUND: 'لا يوجد سائق ومنطقة مسندان لهذا الشفت — أكمل الإسناد أولاً.',
   GARAGE_SHIFT_INVALID: 'الشفت المحدد غير صالح.',

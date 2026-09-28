@@ -144,6 +144,11 @@ export default function VehicleDetailPage({
                 <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
                   <UserRound size={17} />
                   {v.driverName}
+                  {v.driverEmployeeId === null && (
+                    <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700" data-testid="driver-unlinked">
+                      غير مرتبط بموظف
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

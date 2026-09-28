@@ -5,6 +5,7 @@ import type { GarageReportFilter, GarageReportResult } from '@features/central-g
 import type { GarageFuelUnit } from '@features/central-garage/fuel-units'
 import type {
   CreateGarageVehicleInput,
+  FleetDriverOption,
   GarageArea,
   GarageDashboardFilter,
   GarageDashboardSummary,
@@ -68,6 +69,9 @@ function vehicleRow(row: Record<string, unknown>): GarageVehicle {
     imagePath: String(row.image_path),
     shift: row.shift as GarageShift,
     driverName: String(row.driver_name),
+    driverEmployeeId: (row.driver_employee_id as string | null) ?? null,
+    driverEmployeeNumber: (row.driver_employee_number as string | null) ?? null,
+    driverHasBiometric: typeof row.driver_has_biometric === 'boolean' ? row.driver_has_biometric : null,
     sectorId: Number(row.sector_id),
     areaName: String(row.area_name ?? ''),
     parentSector: row.parent_sector as GarageVehicle['parentSector'],
@@ -84,6 +88,7 @@ function assignmentRow(row: Record<string, unknown>): GarageDriverAssignment {
     id: String(row.id),
     vehicleId: String(row.vehicle_id),
     driverName: String(row.driver_name),
+    driverEmployeeId: (row.driver_employee_id as string | null) ?? null,
     shift: row.shift as GarageShift,
     sectorId: Number(row.sector_id),
     startsAt: String(row.starts_at),
@@ -236,7 +241,7 @@ export const centralGarage = {
       supabase
         .from('garage_vehicles')
         .select(
-          'id,vehicle_name,db_number,plate_number,chassis_number,image_path,shift,driver_name,sector_id,created_at,updated_at,archived_at,archived_by,archive_reason,sectors(name,parent_sector)',
+          'id,vehicle_name,db_number,plate_number,chassis_number,image_path,shift,driver_name,driver_employee_id,sector_id,created_at,updated_at,archived_at,archived_by,archive_reason,sectors(name,parent_sector)',
         )
         .eq('id', vehicleId)
         .single()
@@ -267,7 +272,7 @@ export const centralGarage = {
           p_chassis_number: input.chassisNumber,
           p_image_path: imagePath,
           p_shift: input.shift,
-          p_driver_name: input.driverName,
+          p_driver_employee_id: input.driverEmployeeId,
           p_sector_id: input.sectorId,
           p_vehicle_category: input.vehicleCategory ?? 'other',
           p_ownership_type: input.ownershipType ?? 'owned',
@@ -289,7 +294,7 @@ export const centralGarage = {
 
   async updateVehicle(
     id: string,
-    input: Omit<CreateGarageVehicleInput, 'shift' | 'driverName' | 'sectorId' | 'image'> & {
+    input: Omit<CreateGarageVehicleInput, 'shift' | 'driverEmployeeId' | 'sectorId' | 'image'> & {
       image?: File
     },
   ): Promise<GarageVehicle> {
@@ -324,7 +329,7 @@ export const centralGarage = {
 
   async assignDriver(
     vehicleId: string,
-    driverName: string,
+    driverEmployeeId: string,
     shift: GarageShift,
     sectorId: number,
     reason?: string,
@@ -332,7 +337,7 @@ export const centralGarage = {
     const data = await sdkGuard(
       supabase.rpc('garage_assign_driver', {
         p_vehicle_id: vehicleId,
-        p_driver_name: driverName,
+        p_driver_employee_id: driverEmployeeId,
         p_shift: shift,
         p_sector_id: sectorId,
         p_reason: reason?.trim() || null,
@@ -545,6 +550,8 @@ export const centralGarage = {
       vehicleId: String(r.vehicle_id),
       shift: r.shift as GarageShift,
       driverName: String(r.driver_name),
+      driverEmployeeId: (r.driver_employee_id as string | null) ?? null,
+      driverEmployeeNumber: (r.driver_employee_number as string | null) ?? null,
       sectorId: Number(r.sector_id),
       areaName: String(r.area_name),
       parentSector: r.parent_sector as GarageVehicleShiftAssignment['parentSector'],
@@ -553,10 +560,36 @@ export const centralGarage = {
       changeReason: r.change_reason as string | null,
     }))
   },
+  /** قائمة السائقين (موظفو HR) لغرفة العمليات — بحث حر يشمل كل الموظفين */
+  async driverOptions(search?: string, all = false): Promise<FleetDriverOption[]> {
+    const rows = await sdkGuard(
+      supabase.rpc('fleet_driver_options', { p_search: search?.trim() || null, p_all: all }),
+    )
+    return ((rows ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+      employeeId: String(r.employee_id),
+      fullName: String(r.full_name),
+      employeeNumber: String(r.employee_number),
+      jobTitle: (r.job_title as string | null) ?? null,
+      departmentName: (r.department_name as string | null) ?? null,
+      hasBiometric: Boolean(r.has_biometric),
+      employmentStatus: String(r.employment_status ?? 'active'),
+      assignedVehicles: ((r.assigned_vehicles as string[] | null) ?? []).map(String),
+    }))
+  },
+  /** غرفة العمليات: تغيير سائق انطلاقة (مفتوحة أو ضمن 3 أيام) بسبب إلزامي */
+  async setDepartureDriver(departureId: string, driverEmployeeId: string, reason: string) {
+    return sdkGuard(
+      supabase.rpc('ops_set_departure_driver', {
+        p_departure_id: departureId,
+        p_driver_employee_id: driverEmployeeId,
+        p_reason: reason.trim(),
+      }),
+    )
+  },
   async setShiftAssignment(
     vehicleId: string,
     shift: GarageShift,
-    driverName: string,
+    driverEmployeeId: string,
     sectorId: number,
     reason: string,
   ) {
@@ -564,7 +597,7 @@ export const centralGarage = {
       supabase.rpc('garage_set_vehicle_shift_assignment', {
         p_vehicle_id: vehicleId,
         p_shift: shift,
-        p_driver_name: driverName.trim(),
+        p_driver_employee_id: driverEmployeeId,
         p_sector_id: sectorId,
         p_reason: reason.trim(),
       }),

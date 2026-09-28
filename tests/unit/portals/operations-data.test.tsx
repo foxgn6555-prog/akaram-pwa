@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
+  setDriver: vi.fn(),
   excel: vi.fn(),
   gbs: [
     {
@@ -122,6 +123,27 @@ const h = vi.hoisted(() => ({
   ],
 }))
 vi.mock('@lib/export/excel-report', () => ({ buildExcelReport: h.excel }))
+vi.mock('@features/central-garage/hooks', () => ({
+  useFleetDriverOptions: (search: string) => ({
+    data:
+      search.trim().length >= 2
+        ? [
+            {
+              employeeId: 'e0000000-0000-0000-0000-000000000002',
+              fullName: 'كريم سعد',
+              employeeNumber: 'EMP-2',
+              jobTitle: 'سائق',
+              departmentName: 'الآليات',
+              hasBiometric: true,
+              employmentStatus: 'active',
+              assignedVehicles: [],
+            },
+          ]
+        : [],
+    isLoading: false,
+  }),
+  useSetDepartureDriver: () => ({ mutate: h.setDriver, isPending: false }),
+}))
 vi.mock('@features/gbs/hooks', () => ({
   useGbsContainers: () => ({ data: h.gbs, isLoading: false }),
 }))
@@ -400,5 +422,23 @@ describe('تقارير غرفة العمليات المركبة', () => {
     fireEvent.change(screen.getByLabelText('المنطقة'), { target: { value: '4' } })
     expect(screen.getByText('GBS-0001')).toBeInTheDocument()
     expect(screen.queryByText('GBS-0002')).not.toBeInTheDocument()
+  })
+  it('تغيير سائق انطلاقية من الملخص: يتطلب موظفاً من HR وسبباً ثم يستدعي ops_set_departure_driver', async () => {
+    h.setDriver.mockReset()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('change-departure-driver-d1'))
+    expect(screen.getByTestId('departure-driver-current')).toHaveTextContent('علي')
+    fireEvent.click(screen.getByTestId('departure-driver-submit'))
+    expect(screen.getByText('اختر السائق من قائمة الموظفين')).toBeInTheDocument()
+    expect(screen.getByText(/سبب التغيير مطلوب/)).toBeInTheDocument()
+    expect(h.setDriver).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('departure-driver-search'), { target: { value: 'كريم' } })
+    fireEvent.click(await screen.findByTestId('departure-driver-option-EMP-2'))
+    fireEvent.change(screen.getByTestId('departure-driver-reason'), { target: { value: 'السائق الفعلي حسب البصمة' } })
+    fireEvent.click(screen.getByTestId('departure-driver-submit'))
+    expect(h.setDriver).toHaveBeenCalledWith(
+      { departureId: 'd1', driverEmployeeId: 'e0000000-0000-0000-0000-000000000002', reason: 'السائق الفعلي حسب البصمة' },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
   })
 })

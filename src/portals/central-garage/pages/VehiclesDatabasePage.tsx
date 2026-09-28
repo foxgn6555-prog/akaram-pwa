@@ -23,6 +23,7 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { VehicleCard } from '../components/VehicleCard'
+import { DriverPicker } from '../components/DriverPicker'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -40,7 +41,7 @@ const blank = {
   modelYear: '',
   vehicleColor: '',
   specifications: '',
-  driverName: '',
+  driverEmployeeId: '',
   shift: 'morning' as GarageShift,
   sectorId: '',
   image: null as File | null,
@@ -410,14 +411,12 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
               placeholder="السعة، التجهيزات، الحالة أو أي تفاصيل تشغيلية"
             />
           </Field>
-          <Field label="اسم السائق" error={errors.driverName}>
-            <input
-              data-testid="vehicle-driver"
-              className={inputClass}
-              value={form.driverName}
-              onChange={(e) => update('driverName', e.target.value)}
-            />
-          </Field>
+          <DriverPicker
+            testId="vehicle-driver"
+            value={form.driverEmployeeId}
+            onChange={(id) => update('driverEmployeeId', id)}
+            error={errors.driverEmployeeId}
+          />
           <Field label="الشفت" error={errors.shift}>
             <select
               data-testid="vehicle-shift"

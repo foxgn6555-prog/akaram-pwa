@@ -11,15 +11,15 @@ const garageVehicleBase = z.object({
   vehicleCategory: z.enum(GARAGE_VEHICLE_CATEGORIES,{message:'اختر نوع الآلية'}), ownershipType: z.enum(GARAGE_OWNERSHIP_TYPES,{message:'اختر ملكية الآلية'}),
   lessorName:z.string().trim().max(160).optional().or(z.literal('')),rentalContractNo:z.string().trim().max(80).optional().or(z.literal('')),rentalStartDate:z.string().date().optional().or(z.literal('')),rentalEndDate:z.string().date().optional().or(z.literal('')),
   modelYear:z.preprocess(v=>v===''?undefined:v,z.coerce.number().int().min(1950).max(new Date().getFullYear()+1).optional()),vehicleColor:z.string().trim().max(50).optional().or(z.literal('')),specifications:z.string().trim().max(1000).optional().or(z.literal('')),
-  driverName:z.string().trim().min(2,'اسم السائق مطلوب').max(120),shift,sectorId:z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),image:z.instanceof(File,{message:'صورة الآلية مطلوبة'}),
+  driverEmployeeId:z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i,'اختر السائق من قائمة الموظفين'),shift,sectorId:z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),image:z.instanceof(File,{message:'صورة الآلية مطلوبة'}),
 })
 const rentalRules=(v:{ownershipType:'owned'|'rented';lessorName?:string;rentalStartDate?:string;rentalEndDate?:string},ctx:z.RefinementCtx)=>{if(v.ownershipType==='rented'&&(!v.lessorName||v.lessorName.length<2))ctx.addIssue({code:'custom',path:['lessorName'],message:'اسم الجهة المؤجرة مطلوب'});if(v.rentalEndDate&&(!v.rentalStartDate||v.rentalEndDate<v.rentalStartDate))ctx.addIssue({code:'custom',path:['rentalEndDate'],message:'تاريخ نهاية الإيجار يجب ألا يسبق البداية'})}
 export const garageVehicleSchema=garageVehicleBase.superRefine(rentalRules)
-export const garageVehicleEditSchema=garageVehicleBase.omit({driverName:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
+export const garageVehicleEditSchema=garageVehicleBase.omit({driverEmployeeId:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
 export const garageArchiveReasonSchema = z.string().trim().min(5,'السبب يجب ألا يقل عن 5 أحرف').max(500)
 
 export const garageAssignmentSchema = z.object({
-  driverName: z.string().trim().min(2,'اسم السائق مطلوب').max(120),
+  driverEmployeeId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i, 'اختر السائق من قائمة الموظفين'),
   shift,
   sectorId: z.coerce.number().int().min(1,'اختر المنطقة').max(8),
   reason: z.string().trim().max(300).optional(),

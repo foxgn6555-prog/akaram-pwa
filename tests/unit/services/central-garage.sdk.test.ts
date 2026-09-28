@@ -171,7 +171,7 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
         chassisNumber: '333',
         image: imageFile('text/plain'),
         shift: 'morning',
-        driverName: 'علي',
+        driverEmployeeId: 'e0000000-0000-0000-0000-000000000001',
         sectorId: 1,
       }),
     ).rejects.toMatchObject({ code: 'GARAGE_IMAGE_INVALID' })
@@ -183,7 +183,7 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
         chassisNumber: '333',
         image: imageFile('image/jpeg', false),
         shift: 'morning',
-        driverName: 'علي',
+        driverEmployeeId: 'e0000000-0000-0000-0000-000000000001',
         sectorId: 1,
       }),
     ).rejects.toMatchObject({ code: 'GARAGE_IMAGE_SIGNATURE_INVALID' })
@@ -198,7 +198,7 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
       chassisNumber: 'CH-1',
       image: imageFile(),
       shift: 'morning' as const,
-      driverName: 'علي',
+      driverEmployeeId: 'e0000000-0000-0000-0000-000000000001',
       sectorId: 1,
     }
     h.state.result = {
@@ -226,7 +226,7 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
     )
     expect(h.rpc).toHaveBeenCalledWith(
       'garage_add_vehicle',
-      expect.objectContaining({ p_db_number: 'DB-1', p_driver_name: 'علي', p_sector_id: 1 }),
+      expect.objectContaining({ p_db_number: 'DB-1', p_driver_employee_id: 'e0000000-0000-0000-0000-000000000001', p_sector_id: 1 }),
     )
 
     h.state.result = { data: null, error: { message: 'duplicate', code: '23505' } }
@@ -284,10 +284,10 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
       },
       error: null,
     }
-    const assignment = await centralGarage.assignDriver('v1', 'حسن', 'evening', 5, ' نقل ')
+    const assignment = await centralGarage.assignDriver('v1', 'e0000000-0000-0000-0000-000000000002', 'evening', 5, ' نقل ')
     expect(h.rpc).toHaveBeenCalledWith('garage_assign_driver', {
       p_vehicle_id: 'v1',
-      p_driver_name: 'حسن',
+      p_driver_employee_id: 'e0000000-0000-0000-0000-000000000002',
       p_shift: 'evening',
       p_sector_id: 5,
       p_reason: 'نقل',

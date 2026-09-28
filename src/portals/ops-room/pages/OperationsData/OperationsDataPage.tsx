@@ -27,6 +27,7 @@ import { useGbsContainers } from '@features/gbs/hooks'
 import { GBS_STATUS_META, GBS_STATUS_ORDER } from '@features/gbs/statusMeta'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
+import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDriverDialog'
 
 export type OperationsTab =
   | 'alerts'
@@ -366,7 +367,8 @@ export default function OperationsDataPage() {
     [severity, setSeverity] = useState(''),
     [showColumns, setShowColumns] = useState(false),
     [columnChoice, setColumnChoice] = useState<Partial<Record<OperationsTab, string[]>>>({}),
-    [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null)
+    [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null),
+    [driverTarget, setDriverTarget] = useState<DepartureDriverTarget | null>(null)
   const alertQuery = useOpsAlerts({
       shift: shift || undefined,
       sectorId: sector ? Number(sector) : undefined,
@@ -880,6 +882,25 @@ export default function OperationsDataPage() {
                         >
                           فتح التسلسل
                         </button>
+                      ) : key === 'driver_name' && row.departure_id && (tab === 'summary' || tab === 'garage' || tab === 'movements') ? (
+                        <span className="flex items-center gap-2">
+                          <span>{formatValue(key, row[key])}</span>
+                          <button
+                            type="button"
+                            data-testid={`change-departure-driver-${String(row.departure_id)}`}
+                            title="تغيير سائق هذه الانطلاقية (غرفة العمليات)"
+                            onClick={() =>
+                              setDriverTarget({
+                                departureId: String(row.departure_id),
+                                vehicleLabel: `${String(row.vehicle_name ?? '')} · DB ${String(row.db_number ?? '')}`,
+                                currentDriver: row.driver_name ? String(row.driver_name) : null,
+                              })
+                            }
+                            className="rounded-lg bg-cyan-50 px-2 py-1 text-[10px] font-black text-cyan-800 hover:bg-cyan-100"
+                          >
+                            تغيير
+                          </button>
+                        </span>
                       ) : (
                         formatValue(key, row[key])
                       )}
@@ -934,6 +955,7 @@ export default function OperationsDataPage() {
           onClose={() => setTimeline(null)}
         />
       )}
+      {driverTarget && <DepartureDriverDialog target={driverTarget} onClose={() => setDriverTarget(null)} />}
     </section>
   )
 }

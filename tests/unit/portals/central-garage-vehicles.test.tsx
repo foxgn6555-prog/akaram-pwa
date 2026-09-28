@@ -3,6 +3,10 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
+  driverOptions: [
+    { employeeId: 'e0000000-0000-0000-0000-000000000009', fullName: 'حسن كريم', employeeNumber: 'EMP-9', jobTitle: 'سائق', departmentName: 'الآليات', hasBiometric: false, employmentStatus: 'active', assignedVehicles: [] },
+    { employeeId: 'e0000000-0000-0000-0000-000000000001', fullName: 'علي حسن', employeeNumber: 'EMP-1', jobTitle: 'سائق', departmentName: 'الآليات', hasBiometric: true, employmentStatus: 'active', assignedVehicles: ['DB-100'] },
+  ],
   createMutate: vi.fn(),
   updateMutate: vi.fn(),
   assignMutate: vi.fn(),
@@ -42,6 +46,9 @@ const h = vi.hoisted(() => ({
     imageUrl: 'https://img/v.jpg',
     shift: 'morning',
     driverName: 'علي حسن',
+    driverEmployeeId: 'e0000000-0000-0000-0000-000000000001',
+    driverEmployeeNumber: 'EMP-1',
+    driverHasBiometric: true,
     sectorId: 1,
     areaName: 'أرخيته',
     parentSector: 'karrada',
@@ -75,6 +82,10 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@features/central-garage/hooks', () => ({
   useGarageAreas: () => ({ data: h.areas, isLoading: false }),
+  useFleetDriverOptions: (search: string) => ({
+    data: search.trim().length >= 2 ? h.driverOptions.filter((o) => o.fullName.includes(search.trim())) : [],
+    isLoading: false,
+  }),
   useGarageVehicles: (filter: unknown) => {
     h.vehicleFilter(filter)
     return { data: { rows: [h.vehicle], totalCount: 1 }, isLoading: false, isError: false }
@@ -238,17 +249,26 @@ describe('قاعدة بيانات آليات الكراج', () => {
     )
   })
 
-  it('تتحقق غرفة العمليات من كل حقول إضافة الآلية ثم ترسل الصورة والقاطع والشفت', () => {
+  it('تتحقق غرفة العمليات من كل حقول إضافة الآلية ثم ترسل الصورة والقاطع والشفت والسائق كموظف', async () => {
     renderPage(<VehiclesDatabasePage managementMode />)
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
     fireEvent.click(screen.getByTestId('vehicle-submit'))
     expect(screen.getByText('اسم السيارة مطلوب')).toBeInTheDocument()
     expect(screen.getByText('صورة الآلية مطلوبة')).toBeInTheDocument()
+    expect(screen.getByText('اختر السائق من قائمة الموظفين')).toBeInTheDocument()
+    // لا حقل اسم حر: السائق يُختار من موظفي HR فقط
+    expect(screen.queryByTestId('vehicle-driver')).not.toBeNull()
+    fireEvent.change(screen.getByTestId('vehicle-driver-search'), { target: { value: 'غير موجود' } })
+    expect(await screen.findByTestId('vehicle-driver-empty')).toHaveTextContent('توظيف السائق')
+    fireEvent.change(screen.getByTestId('vehicle-driver-search'), { target: { value: 'حسن كريم' } })
+    const option = await screen.findByTestId('vehicle-driver-option-EMP-9')
+    expect(option).toHaveTextContent('بلا بصمة')
+    fireEvent.click(option)
+    expect(screen.getByTestId('vehicle-driver-selected')).toHaveTextContent('حسن كريم · EMP-9')
     fireEvent.change(screen.getByTestId('vehicle-name'), { target: { value: 'كابسة جديدة' } })
     fireEvent.change(screen.getByTestId('vehicle-db'), { target: { value: 'DB-200' } })
     fireEvent.change(screen.getByTestId('vehicle-plate'), { target: { value: 'بغداد 200' } })
     fireEvent.change(screen.getByTestId('vehicle-chassis'), { target: { value: 'CH-200' } })
-    fireEvent.change(screen.getByTestId('vehicle-driver'), { target: { value: 'حسن كريم' } })
     fireEvent.change(screen.getByTestId('vehicle-shift'), { target: { value: 'night' } })
     fireEvent.change(screen.getByTestId('vehicle-area'), { target: { value: '8' } })
     const file = new File(['x'], 'vehicle.png', { type: 'image/png' })
@@ -260,6 +280,7 @@ describe('قاعدة بيانات آليات الكراج', () => {
         dbNumber: 'DB-200',
         shift: 'night',
         sectorId: 8,
+        driverEmployeeId: 'e0000000-0000-0000-0000-000000000009',
         image: file,
       }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
@@ -345,6 +366,30 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
     expect(screen.queryByTestId('open-edit-vehicle')).not.toBeInTheDocument()
     expect(screen.queryByTestId('open-archive-vehicle')).not.toBeInTheDocument()
     expect(screen.queryByTestId('detail-change-assignment')).not.toBeInTheDocument()
+  })
+
+  it('تغيير السائق من غرفة العمليات: سجل قديم بلا رابط يُعلَّم، والاختيار من موظفي HR فقط ويُرسل بهوية الموظف', async () => {
+    const linked = h.vehicle
+    h.vehicle = { ...linked, driverEmployeeId: null, driverEmployeeNumber: null, driverHasBiometric: null } as unknown as typeof linked
+    renderPage(<VehicleDetailPage managementMode />, '/ops-room/vehicles-database/v1')
+    expect(screen.getByTestId('driver-unlinked')).toHaveTextContent('غير مرتبط بموظف')
+    fireEvent.click(screen.getByTestId('detail-change-assignment'))
+    expect(screen.getByTestId('assignment-driver-unlinked')).toHaveTextContent('علي حسن')
+    fireEvent.click(screen.getByTestId('assignment-submit'))
+    expect(screen.getByText('اختر السائق من قائمة الموظفين')).toBeInTheDocument()
+    expect(h.assignMutate).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('assignment-driver-search'), { target: { value: 'علي حسن' } })
+    const option = await screen.findByTestId('assignment-driver-option-EMP-1')
+    expect(option).toHaveTextContent('DB-100')
+    expect(option).toHaveTextContent('بصمة')
+    fireEvent.click(option)
+    fireEvent.change(screen.getByTestId('assignment-reason'), { target: { value: 'ربط السجل القديم' } })
+    fireEvent.click(screen.getByTestId('assignment-submit'))
+    expect(h.assignMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ vehicleId: 'v1', driverEmployeeId: 'e0000000-0000-0000-0000-000000000001', shift: 'morning', sectorId: 1, reason: 'ربط السجل القديم' }),
+      expect.any(Object),
+    )
+    h.vehicle = linked
   })
 
   it('تعدل غرفة العمليات بيانات الآلية الأساسية دون تغيير الإسناد التاريخي', () => {

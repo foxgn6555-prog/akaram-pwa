@@ -63,6 +63,21 @@ export function VehicleCard({
             <p className="flex items-center gap-2">
               <UserRound size={14} className="text-cyan-700" />
               <span className="font-bold">{vehicle.driverName}</span>
+              {vehicle.driverEmployeeNumber && (
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-600" data-testid={`driver-emp-${vehicle.id}`}>
+                  {vehicle.driverEmployeeNumber}
+                </span>
+              )}
+              {vehicle.driverEmployeeId === null && (
+                <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-black text-amber-700" data-testid={`driver-unlinked-${vehicle.id}`} title="اسم قديم غير مرتبط بموظف — تصحيحه من غرفة العمليات">
+                  غير مرتبط بموظف
+                </span>
+              )}
+              {vehicle.driverHasBiometric === false && vehicle.driverEmployeeId && (
+                <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-black text-rose-700" title="السائق بلا بصمة مسجلة في HR">
+                  بلا بصمة
+                </span>
+              )}
             </p>
             <p className="flex items-center gap-2">
               <MapPin size={14} className="text-cyan-700" />

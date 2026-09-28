@@ -23,6 +23,29 @@ export function useGarageAreas() {
     staleTime: API.STALE_TIME.REFERENCE,
   })
 }
+/** سائقو غرفة العمليات من HR — بحث حي، والنتيجة تُخزَّن لكل نص بحث */
+export function useFleetDriverOptions(search = '', all = false, enabled = true) {
+  return useQuery({
+    queryKey: [...centralGarageKeys.all, 'driver-options', search.trim(), all],
+    queryFn: () => centralGarage.driverOptions(search, all),
+    staleTime: 30_000,
+    enabled,
+  })
+}
+export function useSetDepartureDriver() {
+  const qc = useQueryClient(),
+    toast = useUiStore((s) => s.addToast)
+  const onError = useGarageMutationError('setDepartureDriver')
+  return useMutation({
+    mutationFn: (x: { departureId: string; driverEmployeeId: string; reason: string }) =>
+      centralGarage.setDepartureDriver(x.departureId, x.driverEmployeeId, x.reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: centralGarageKeys.all })
+      toast({ type: 'success', message: 'تم تغيير سائق الانطلاقة وتسجيل السبب في التدقيق' })
+    },
+    onError,
+  })
+}
 export function useGarageDashboard(filter: GarageDashboardFilter = {}) {
   return useQuery({
     queryKey: centralGarageKeys.dashboardSummary(filter),
@@ -143,14 +166,14 @@ export function useAssignGarageDriver() {
   return useMutation({
     mutationFn: (input: {
       vehicleId: string
-      driverName: string
+      driverEmployeeId: string
       shift: GarageShift
       sectorId: number
       reason?: string
     }) =>
       centralGarage.assignDriver(
         input.vehicleId,
-        input.driverName,
+        input.driverEmployeeId,
         input.shift,
         input.sectorId,
         input.reason,
@@ -280,11 +303,11 @@ export function useSetGarageShiftAssignment() {
     mutationFn: (x: {
       vehicleId: string
       shift: GarageShift
-      driverName: string
+      driverEmployeeId: string
       sectorId: number
       reason: string
     }) =>
-      centralGarage.setShiftAssignment(x.vehicleId, x.shift, x.driverName, x.sectorId, x.reason),
+      centralGarage.setShiftAssignment(x.vehicleId, x.shift, x.driverEmployeeId, x.sectorId, x.reason),
     onSuccess: (_, x) => {
       void qc.invalidateQueries({ queryKey: ['central-garage', 'shift-assignments', x.vehicleId] })
       toast({ type: 'success', message: 'تم حفظ سائق وموقع الشفت مع الاحتفاظ بالسجل' })

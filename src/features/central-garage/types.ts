@@ -31,6 +31,10 @@ export interface GarageVehicle {
   imageUrl?: string
   shift: GarageShift
   driverName: string
+  /** هوية السائق في الموارد البشرية (null = سجل قديم بلا رابط، تصححه غرفة العمليات) */
+  driverEmployeeId: string | null
+  driverEmployeeNumber: string | null
+  driverHasBiometric: boolean | null
   sectorId: number
   areaName: string
   parentSector: GarageParentSector
@@ -71,16 +75,29 @@ export interface CreateGarageVehicleInput {
   specifications?: string | null
   image: File
   shift: GarageShift
-  driverName: string
+  driverEmployeeId: string
   sectorId: number
 }
 
-export interface GarageVehicleShiftAssignment {id:string;vehicleId:string;shift:GarageShift;driverName:string;sectorId:number;areaName:string;parentSector:GarageParentSector;startsAt:string;endsAt:string|null;changeReason:string|null}
+/** خيار سائق من قائمة الموظفين (fleet_driver_options) */
+export interface FleetDriverOption {
+  employeeId: string
+  fullName: string
+  employeeNumber: string
+  jobTitle: string | null
+  departmentName: string | null
+  hasBiometric: boolean
+  employmentStatus: string
+  assignedVehicles: string[]
+}
+
+export interface GarageVehicleShiftAssignment {id:string;vehicleId:string;shift:GarageShift;driverName:string;driverEmployeeId:string|null;driverEmployeeNumber:string|null;sectorId:number;areaName:string;parentSector:GarageParentSector;startsAt:string;endsAt:string|null;changeReason:string|null}
 
 export interface GarageDriverAssignment {
   id: string
   vehicleId: string
   driverName: string
+  driverEmployeeId: string | null
   shift: GarageShift
   sectorId: number
   startsAt: string
