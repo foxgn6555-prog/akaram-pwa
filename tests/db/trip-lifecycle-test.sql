@@ -24,12 +24,22 @@ on conflict do nothing;
 insert into public.garage_user_profiles (user_id, parent_sector) values ('c0c00000-0000-0000-0000-000000000001', 'karrada') on conflict do nothing;
 insert into public.manager_profiles (user_id, shift, sectors) values
   ('c0c00000-0000-0000-0000-000000000002', 'morning', '{4}'), ('c0c00000-0000-0000-0000-000000000006', 'morning', '{8}') on conflict do nothing;
-insert into public.employees (id, user_id, employee_number, full_name, hire_date, job_title, biometric_pin, is_driver) values
-  ('c0c00000-0000-0000-0000-0000000000e2', 'c0c00000-0000-0000-0000-000000000002', 'LC-M1', 'مسؤول قاطع الدورة', '2024-01-01', 'مسؤول قسم', null, false),
-  ('c0c00000-0000-0000-0000-0000000000d1', null, 'LC-D1', 'سائق الدورة', '2024-01-01', 'سائق كابسة', 'D1', false),
-  ('c0c00000-0000-0000-0000-0000000000d2', null, 'LC-D2', 'سائق ثانٍ', '2024-01-01', 'عامل', null, true),
-  ('c0c00000-0000-0000-0000-0000000000d3', null, 'LC-D3', 'سائق بديل', '2024-01-01', 'سائق', 'D3', false),
-  ('c0c00000-0000-0000-0000-0000000000d9', null, 'LC-D9', 'سائق مُنهى', '2024-01-01', 'سائق', null, false)
+-- (00153) المسميات من الهيكل: قسم الآليات → «سائق كابسة»/«سائق» (يقودان آليات)، قسم الإدارة → «مسؤول قسم»
+insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles) values
+  ('c0c0d000-0000-0000-0000-000000000001', 'قسم الآليات (اختبار)', 'LC-FLEET', null, false, false),
+  ('c0c0d000-0000-0000-0000-000000000004', 'قسم الإدارة (اختبار)', 'LC-ADMIN', null, false, false)
+on conflict (id) do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles) values
+  ('c0c0d000-0000-0000-0000-000000000002', 'سائق كابسة', 'LC-T1', 'c0c0d000-0000-0000-0000-000000000001', true, true),
+  ('c0c0d000-0000-0000-0000-000000000003', 'سائق', 'LC-T2', 'c0c0d000-0000-0000-0000-000000000001', true, true),
+  ('c0c0d000-0000-0000-0000-000000000005', 'مسؤول قسم', 'LC-T3', 'c0c0d000-0000-0000-0000-000000000004', true, false)
+on conflict (id) do nothing;
+insert into public.employees (id, user_id, employee_number, full_name, hire_date, job_title_id, biometric_pin) values
+  ('c0c00000-0000-0000-0000-0000000000e2', 'c0c00000-0000-0000-0000-000000000002', 'LC-M1', 'مسؤول قاطع الدورة', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000005', null),
+  ('c0c00000-0000-0000-0000-0000000000d1', null, 'LC-D1', 'سائق الدورة', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000002', 'D1'),
+  ('c0c00000-0000-0000-0000-0000000000d2', null, 'LC-D2', 'سائق ثانٍ', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000003', null),
+  ('c0c00000-0000-0000-0000-0000000000d3', null, 'LC-D3', 'سائق بديل', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000003', 'D3'),
+  ('c0c00000-0000-0000-0000-0000000000d9', null, 'LC-D9', 'سائق مُنهى', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000003', null)
 on conflict (employee_number) do nothing;
 update public.employees set employment_status = 'terminated', terminated_at = current_date - 10 where employee_number = 'LC-D9';
 insert into public.garage_vehicles (id, vehicle_name, db_number, plate_number, chassis_number, image_path, driver_name, driver_employee_id, shift, sector_id, vehicle_category, created_by) values
@@ -56,13 +66,16 @@ do $$
 declare v public.garage_vehicles; a public.garage_driver_assignments; d public.garage_departures; n int; ops uuid := 'c0c00000-0000-0000-0000-000000000005';
 begin
   perform pg_temp.as_user(ops);
-  -- القائمة: عنوان «سائق» أو خانة is_driver، بلا المُنهى، ومع مؤشر البصمة
+  -- القائمة (00153): فقط من مسماه الوظيفي «يقود آليات»، بلا المُنهى، ومع مؤشر البصمة
   select count(*) into n from public.fleet_driver_options() where employee_number like 'LC-D%';
   assert n = 3, format('L0: ثلاثة سائقين مؤهلين (فعلي %s)', n);
   assert (select has_biometric from public.fleet_driver_options() where employee_number = 'LC-D1'), 'L0: D1 لديه بصمة';
   assert (select 'DB-LC1' = any(assigned_vehicles) from public.fleet_driver_options() where employee_number = 'LC-D1'), 'L0: D1 مسند إلى DB-LC1';
   assert not exists (select 1 from public.fleet_driver_options() where employee_number = 'LC-M1'), 'L0: غير السائقين لا يظهرون افتراضياً';
-  assert exists (select 1 from public.fleet_driver_options('مسؤول قاطع') where employee_number = 'LC-M1'), 'L0: البحث الحر يصل لأي موظف';
+  assert not exists (select 1 from public.fleet_driver_options('مسؤول قاطع') where employee_number = 'LC-M1'), 'L0: البحث لا يتجاوز مسميات القيادة (00153)';
+  assert (select job_title from public.employees where employee_number = 'LC-D1') = 'سائق كابسة' and (select is_driver from public.employees where employee_number = 'LC-D1'), 'L0: المسمى والقيادة مشتقان من الهيكل';
+  assert (select department_id from public.employees where employee_number = 'LC-D1') = 'c0c0d000-0000-0000-0000-000000000001', 'L0: القسم = أب المسمى';
+  perform pg_temp.expect_error(format('select public.garage_assign_driver(%L::uuid,%L::uuid,%L,%s::smallint)', 'c0c0a000-0000-0000-0000-000000000001', 'c0c00000-0000-0000-0000-0000000000e2', 'morning', 4), 'FLEET_DRIVER_NOT_DRIVER_TITLE');
   -- الكراج لا يدير قاعدة الآليات
   perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
   perform pg_temp.expect_error('select * from public.fleet_driver_options()', 'OPS_FLEET_MASTER_FORBIDDEN');

@@ -19,6 +19,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useHrDepartments: () => ({ data: h.depts, isLoading: false }),
   useHrEmployees: () => ({ data: [{ id: 'e1', employee_number: 'E1', full_name: 'أحمد', contract_type: 'monthly', employment_status: 'active', salary_status: 'pending', department_name: 'النقل' }], isLoading: false }),
   useSaveDepartment: () => ({ mutateAsync: h.saveDept, isPending: false }),
+  useHrJobTitles: () => ({ data: [], isLoading: false }),
   useAttendance: () => ({ data: [{ id: 'r1', employee_id: 'e1', employee_number: 'E1', full_name: 'أحمد', work_date: '2026-09-05', status: 'late', source: 'auto', late_minutes: 5, early_minutes: 0, worked_minutes: 400, check_in: null, check_out: null, expected_in: null, expected_out: null, is_rest_day: false }], isLoading: false }),
   useEvaluateAttendance: () => ({ mutate: vi.fn(), isPending: false }),
   useHrLeaves: () => ({ data: [], isLoading: false }),
@@ -94,7 +95,7 @@ describe('استيراد الموظفين', () => {
 })
 
 describe('الهيكل التنظيمي', () => {
-  const d = (o: Partial<{ id: string; name: string; code: string; parent_id: string | null; is_active: boolean; employees_active: number; manager_name: string | null }>) => ({ id: 'x', name: 'x', code: 'X', parent_id: null, is_active: true, manager_id: null, manager_name: null, employees_active: 0, employees_total: 0, children: 0, created_at: '', ...o })
+  const d = (o: Partial<{ id: string; name: string; code: string; parent_id: string | null; is_active: boolean; employees_active: number; manager_name: string | null; is_job_title: boolean; drives_vehicles: boolean }>) => ({ id: 'x', name: 'x', code: 'X', parent_id: null, is_active: true, manager_id: null, manager_name: null, employees_active: 0, employees_total: 0, children: 0, created_at: '', is_job_title: false, drives_vehicles: false, ...o })
   it('يعرض الشجرة بعمق صحيح مع عدد الموظفين ومجموع الفروع، ويخفي المعطّل افتراضياً', () => {
     h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS', employees_active: 2 }), d({ id: 'b', name: 'القاطع الأول', code: 'OPS-1', parent_id: 'a', employees_active: 5 }), d({ id: 'c', name: 'قديم', code: 'OLD', is_active: false })]
     render(<MemoryRouter><OrgStructure /></MemoryRouter>)
@@ -118,7 +119,7 @@ describe('الهيكل التنظيمي', () => {
     fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'ops-2' } })
     fireEvent.change(screen.getByTestId('org-manager'), { target: { value: 'e1' } })
     fireEvent.click(screen.getByTestId('org-save'))
-    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true }))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true, isJobTitle: false, drivesVehicles: false }))
   })
   it('التعديل يحمّل بيانات القسم، والتعطيل يطلب تأكيداً ويرسل isActive=false', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -130,6 +131,32 @@ describe('الهيكل التنظيمي', () => {
     expect(within(screen.getByTestId('org-parent')).queryByText(/OPS-1/)).toBeNull()
     fireEvent.click(screen.getByTestId('org-deactivate-OPS-1'))
     await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith(expect.objectContaining({ id: 'b', isActive: false })))
+  })
+  it('00153: «+ مسمى» يفتح نموذج مسمى وظيفي تحت القسم الأب مع خانة «يقود آليات»، والمسمى لا يقبل فروعاً ولا يظهر كأب', async () => {
+    h.depts = [
+      d({ id: 'a', name: 'قسم الآليات', code: 'FLEET' }),
+      d({ id: 't', name: 'سائق كابسة', code: 'T-DRV', parent_id: 'a', is_job_title: true, drives_vehicles: true }),
+      d({ id: 'm', name: 'ميكانيكي', code: 'T-MECH', parent_id: 'a', is_job_title: true, drives_vehicles: false }),
+    ]
+    render(<MemoryRouter><OrgStructure /></MemoryRouter>)
+    expect(screen.getByTestId('org-stat-titles')).toHaveTextContent('2')
+    expect(screen.getByTestId('org-stat-driver-titles')).toHaveTextContent('1')
+    expect(screen.getByTestId('org-title-badge-T-DRV')).toBeInTheDocument()
+    expect(screen.getByTestId('org-drives-badge-T-DRV')).toBeInTheDocument()
+    expect(screen.queryByTestId('org-drives-badge-T-MECH')).toBeNull()
+    // المسمى لا يقبل فروعاً ولا مسميات تحته
+    expect(screen.queryByTestId('org-addchild-T-DRV')).toBeNull()
+    expect(screen.queryByTestId('org-addtitle-T-DRV')).toBeNull()
+    fireEvent.click(screen.getByTestId('org-addtitle-FLEET'))
+    expect((screen.getByTestId('org-is-title') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByTestId('org-parent') as HTMLSelectElement).value).toBe('a')
+    // المسميات لا تظهر كأب محتمل
+    expect(within(screen.getByTestId('org-parent')).queryByText(/T-DRV/)).toBeNull()
+    fireEvent.change(screen.getByTestId('org-name'), { target: { value: 'سائق شفل' } })
+    fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'T-LOADER' } })
+    fireEvent.click(screen.getByTestId('org-drives'))
+    fireEvent.click(screen.getByTestId('org-save'))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'سائق شفل', code: 'T-LOADER', parentId: 'a', managerId: null, isActive: true, isJobTitle: true, drivesVehicles: true }))
   })
 })
 

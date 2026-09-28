@@ -8,11 +8,11 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
   AttendanceAudit, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
-  SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, ImportEmployeeRow, ImportResult,
+  SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
 } from '@features/hr/types'
 
-const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, hire_date,
+const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
   residence_card_number, governorate, address, emergency_contact_name, emergency_contact_phone, blood_type, biometric_pin, photo_path,
   terminated_at, termination_type, termination_reason, termination_attachment_path`
@@ -51,6 +51,16 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_IMPORT_DEPT_UNKNOWN: 'القسم غير موجود (اكتب الاسم أو الرمز كما في الهيكل التنظيمي)',
   HR_IMPORT_BRANCH_UNKNOWN: 'الفرع غير موجود',
   HR_IMPORT_SHIFT_UNKNOWN: 'الشفت غير موجود',
+  HR_IMPORT_JOB_TITLE_UNKNOWN: 'المسمى الوظيفي غير معرَّف في الهيكل التنظيمي — استُورد الموظف بلا مسمى؛ عيّنه من ملفه',
+  HR_JOB_TITLE_FREE_TEXT_FORBIDDEN: 'المسمى الوظيفي لا يُكتب نصاً — يُختار من الهيكل التنظيمي',
+  HR_JOB_TITLE_INVALID: 'المسمى الوظيفي غير موجود أو معطّل في الهيكل التنظيمي',
+  HR_JOB_TITLE_INACTIVE: 'هذا المسمى معطّل — فعّله من الهيكل أو اختر غيره',
+  HR_JOB_TITLE_PARENT_REQUIRED: 'المسمى الوظيفي يجب أن يتفرع من قسم أب',
+  HR_JOB_TITLE_NAME_TAKEN: 'يوجد مسمى بالاسم نفسه داخل هذا القسم',
+  HR_JOB_TITLE_HAS_CHILDREN: 'لا يمكن تحويل قسم له فروع إلى مسمى وظيفي',
+  HR_JOB_TITLE_IN_USE: 'لا يمكن تحويل مسمى عليه موظفون إلى قسم — انقلهم أولاً',
+  HR_DEPT_PARENT_IS_JOB_TITLE: 'المسمى الوظيفي لا يكون أباً لأي قسم أو مسمى',
+  FLEET_DRIVER_NOT_DRIVER_TITLE: 'هذا الموظف ليس على مسمى وظيفي «يقود آليات الشركة» — راجع الهيكل التنظيمي في الموارد البشرية',
   HR_DEPT_NAME_REQUIRED: 'اسم القسم مطلوب',
   HR_DEPT_CODE_REQUIRED: 'رمز القسم مطلوب',
   HR_DEPT_CODE_TAKEN: 'رمز القسم مستخدم لقسم آخر',
@@ -249,9 +259,14 @@ export const hr = {
     return rpc<ImportResult>('hr_employees_import', { p_rows: rows, p_dry_run: dryRun })
   },
   listDepartments() { return rpc<HrDepartment[]>('hr_departments_overview', {}) },
-  saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null }) {
-    return rpc<string>('hr_department_save', { p_id: v.id ?? null, p_name: v.name, p_code: v.code, p_parent: v.parentId || null, p_is_active: v.isActive ?? true, p_manager: v.managerId || null })
+  saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null; isJobTitle?: boolean; drivesVehicles?: boolean }) {
+    return rpc<string>('hr_department_save', {
+      p_id: v.id ?? null, p_name: v.name, p_code: v.code, p_parent: v.parentId || null, p_is_active: v.isActive ?? true, p_manager: v.managerId || null,
+      p_is_job_title: v.isJobTitle ?? false, p_drives_vehicles: (v.isJobTitle ?? false) && (v.drivesVehicles ?? false),
+    })
   },
+  /** 00153: المسميات الوظيفية من الهيكل (للاختيار في التوظيف/ملف الموظف/الاستيراد) */
+  listJobTitles(includeInactive = false) { return rpc<HrJobTitle[]>('hr_job_titles', { p_include_inactive: includeInactive }) },
   // ─────────── 00144: السياسة · أنواع الإجازات · الأرصدة · الطلبات · التنبيهات ───────────
   policy() { return rpc<HrPolicy>('hr_policy_get', {}) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },

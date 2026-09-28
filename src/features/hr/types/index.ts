@@ -33,6 +33,8 @@ export interface HrEmployeeRow {
   employee_number: string
   full_name: string
   job_title: string | null
+  job_title_id?: string | null
+  is_driver?: boolean
   phone: string | null
   department_id: string | null
   department_name: string | null
@@ -91,7 +93,8 @@ export interface CreateEmployeeInput {
   department_id?: string | null
   branch_id?: string | null
   manager_id?: string | null
-  job_title?: string
+  /** 00153: المسمى من الهيكل التنظيمي — لا نص حر */
+  job_title_id?: string | null
   phone?: string
   phone2?: string
   email?: string
@@ -342,8 +345,10 @@ export interface ImportRowResult {
   ok: boolean
   id: string | null
   errors: string[]
+  /** 00153: تحذيرات لا تمنع الاستيراد (مثل مسمى غير معرَّف) */
+  warnings?: string[]
 }
-export interface ImportResult { dry_run: boolean; total: number; ok: number; failed: number; rows: ImportRowResult[] }
+export interface ImportResult { dry_run: boolean; total: number; ok: number; failed: number; warned?: number; rows: ImportRowResult[] }
 
 export interface HrDepartment {
   id: string
@@ -357,6 +362,22 @@ export interface HrDepartment {
   employees_total: number
   children: number
   created_at: string
+  /** 00153: عقدة مسمى وظيفي (لا قسم) */
+  is_job_title: boolean
+  /** 00153: هذا المسمى يقود آليات الشركة */
+  drives_vehicles: boolean
+}
+
+/** 00153: مسمى وظيفي للاختيار (hr_job_titles) */
+export interface HrJobTitle {
+  id: string
+  name: string
+  code: string
+  department_id: string
+  department_name: string
+  drives_vehicles: boolean
+  is_active: boolean
+  employees_active: number
 }
 
 // ─────────── 00144: السياسة والإجازات والأرصدة ───────────

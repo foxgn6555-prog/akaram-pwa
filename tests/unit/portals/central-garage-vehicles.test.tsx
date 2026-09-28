@@ -259,7 +259,7 @@ describe('قاعدة بيانات آليات الكراج', () => {
     // لا حقل اسم حر: السائق يُختار من موظفي HR فقط
     expect(screen.queryByTestId('vehicle-driver')).not.toBeNull()
     fireEvent.change(screen.getByTestId('vehicle-driver-search'), { target: { value: 'غير موجود' } })
-    expect(await screen.findByTestId('vehicle-driver-empty')).toHaveTextContent('توظيف السائق')
+    expect(await screen.findByTestId('vehicle-driver-empty')).toHaveTextContent('يقود آليات الشركة')
     fireEvent.change(screen.getByTestId('vehicle-driver-search'), { target: { value: 'حسن كريم' } })
     const option = await screen.findByTestId('vehicle-driver-option-EMP-9')
     expect(option).toHaveTextContent('بلا بصمة')

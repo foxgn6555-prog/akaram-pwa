@@ -163,7 +163,7 @@ export const IMPORT_COLUMNS: Array<{ key: keyof ImportEmployeeRow; header: strin
   { key: 'shift', header: 'الشفت', hint: 'اسم الشفت كما في قوالب الشفتات', width: 12 },
   { key: 'contract_type', header: 'نوع التعاقد', hint: 'شهري أو يومي', width: 11 },
   { key: 'hire_date', header: 'تاريخ المباشرة', hint: 'YYYY-MM-DD', width: 13 },
-  { key: 'job_title', header: 'العنوان الوظيفي', hint: '', width: 16 },
+  { key: 'job_title', header: 'العنوان الوظيفي', hint: 'كما هو معرَّف في الهيكل التنظيمي (اسم المسمى أو رمزه)', width: 16 },
   { key: 'biometric_pin', header: 'رقم البصمة', hint: 'PIN جهاز البصمة (فريد)', width: 10 },
   { key: 'phone', header: 'الهاتف', hint: '', width: 13 },
   { key: 'phone2', header: 'هاتف 2', hint: '', width: 13 },

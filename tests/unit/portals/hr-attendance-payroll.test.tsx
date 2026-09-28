@@ -9,6 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router'
 
 const h = vi.hoisted(() => ({
+  titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
   employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown,
   edit: vi.fn(async () => undefined), reset: vi.fn(async () => undefined), addDed: vi.fn(async () => 'd'), exportMonth: vi.fn(async () => 'x'),
@@ -26,6 +27,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useCreateEmployee: () => mut(async () => 'e'), useUpdateEmployee: () => mut(h.update), useTerminateEmployee: () => mut(async () => undefined),
   useEmployeeDocuments: () => ({ data: [], isLoading: false }), useUploadDocument: () => mut(async () => undefined), useDeleteDocument: () => mut(async () => undefined),
   useHrLeaves: () => ({ data: [], isLoading: false }),
+  useHrJobTitles: () => ({ data: h.titles ?? [], isLoading: false }),
   useAttendance: (f: unknown) => { h.attendanceFilters = f; return { data: h.attendance, isLoading: false } },
   useEvaluateAttendance: () => mut(async () => 0), useHrDashboard: () => ({ data: h.dashboard, isLoading: false }),
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
@@ -72,6 +74,25 @@ describe('HR — بيانات الموظفين', () => {
     expect(screen.getByTestId('shift-hist-2026-09-01')).toHaveTextContent('الحالي')
     fireEvent.click(screen.getByTestId('etab-docs'))
     for (const t of ['photo', 'national_id_front', 'national_id_back', 'residence_front', 'residence_back', 'other']) expect(screen.getByTestId(`doc-slot-${t}`)).toBeInTheDocument()
+  })
+  it('00153: المسمى يُختار من الهيكل (لا نص حر)، «بلا مسمى» يظهر تحذيراً، والحفظ يرسل job_title_id والقسم يُشتق', async () => {
+    h.titles = [{ id: 't1', name: 'سائق كابسة', code: 'T1', department_id: 'd1', department_name: 'قسم الآليات', drives_vehicles: true, is_active: true, employees_active: 0 }]
+    h.employees = [{ ...emp, job_title: null, job_title_id: null, is_driver: false }]
+    render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)
+    expect(screen.getByTestId('no-title')).toHaveTextContent('بلا مسمى')
+    fireEvent.click(screen.getByTestId('edit-toggle'))
+    expect(screen.queryByTestId('inp-job_title')).toBeNull()
+    fireEvent.change(screen.getByTestId('edit-title'), { target: { value: 't1' } })
+    expect(screen.getByTestId('fld-department_id')).toHaveTextContent('يُشتق من المسمى')
+    fireEvent.click(screen.getByTestId('edit-save'))
+    await waitFor(() => expect(h.update).toHaveBeenCalledWith({ id: 'e1', patch: { job_title_id: 't1' } }))
+  })
+  it('00153: قائمة الموظفين تُعلّم «بلا مسمى» وتُظهر شارة السائق', () => {
+    h.employees = [{ ...emp, job_title: null }, { ...emp, id: 'e2', employee_number: 'E200', full_name: 'حسن', job_title: 'سائق كابسة', is_driver: true }]
+    render(<MemoryRouter><EmployeesList /></MemoryRouter>)
+    expect(screen.getByTestId('emp-no-title-E100')).toBeInTheDocument()
+    expect(screen.queryByTestId('emp-no-title-E200')).toBeNull()
+    expect(screen.getByTestId('emp-row-E200')).toHaveTextContent('🚛')
   })
 })
 

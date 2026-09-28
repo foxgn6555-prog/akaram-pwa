@@ -7,7 +7,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, WEEKDAYS_AR,
-  useAssignShift, useAttendance, useHrEmployee, useHrLeaves, useHrShifts, useShiftAssignments, useUpdateEmployee,
+  useAssignShift, useAttendance, useHrEmployee, useHrLeaves, useHrShifts, useShiftAssignments, useUpdateEmployee, useHrJobTitles,
 } from '@features/hr'
 import type { AttendanceStatus } from '@features/hr'
 import { Button } from '@components/ui'
@@ -84,6 +84,7 @@ function DataTab({ e }: { e: Full }) {
   const [editing, setEditing] = useState(false)
   const [p, setP] = useState<Record<string, string>>({})
   const { data: departments = [] } = useDepartments()
+  const { data: jobTitles = [] } = useHrJobTitles()
   const { data: branches = [] } = useBranches()
   const update = useUpdateEmployee()
   const val = (k: keyof Full) => (p[k as string] ?? (e[k] as string | null) ?? '')
@@ -92,17 +93,18 @@ function DataTab({ e }: { e: Full }) {
     const patch = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v === '' ? null : v]))
     await update.mutateAsync({ id: e.id, patch }); setEditing(false); setP({})
   }
-  const rows: Array<[string, keyof Full, 'text' | 'date' | 'select-dept' | 'select-branch' | 'select-gender' | 'select-marital' | 'readonly']> = [
+  const rows: Array<[string, keyof Full, 'text' | 'date' | 'select-dept' | 'select-branch' | 'select-title' | 'select-gender' | 'select-marital' | 'readonly']> = [
     ['الرقم الوظيفي', 'employee_number', 'readonly'], ['الاسم الرباعي', 'full_name', 'text'], ['اسم الأم', 'mother_name', 'text'], ['الجنس', 'gender', 'select-gender'],
     ['تاريخ الولادة', 'birth_date', 'date'], ['محل الولادة', 'birth_place', 'text'], ['الحالة الاجتماعية', 'marital_status', 'select-marital'], ['التحصيل الدراسي', 'education', 'text'],
     ['فصيلة الدم', 'blood_type', 'text'], ['البطاقة الموحدة', 'national_id_number', 'text'], ['بطاقة السكن', 'residence_card_number', 'text'], ['المحافظة', 'governorate', 'text'],
     ['العنوان', 'address', 'text'], ['الهاتف 1', 'phone', 'text'], ['الهاتف 2', 'phone2', 'text'], ['البريد', 'email', 'text'],
-    ['قريب الطوارئ', 'emergency_contact_name', 'text'], ['هاتف الطوارئ', 'emergency_contact_phone', 'text'], ['المسمى الوظيفي', 'job_title', 'text'],
+    ['قريب الطوارئ', 'emergency_contact_name', 'text'], ['هاتف الطوارئ', 'emergency_contact_phone', 'text'], ['المسمى الوظيفي', 'job_title_id', 'select-title'],
     ['القسم', 'department_id', 'select-dept'], ['الفرع', 'branch_id', 'select-branch'], ['تاريخ المباشرة', 'hire_date', 'date'], ['رقم البصمة', 'biometric_pin', 'text'],
   ]
   const display = (k: keyof Full) => {
     const v = e[k] as string | null
     if (k === 'department_id') return e.department_name ?? '—'
+    if (k === 'job_title_id') return e.job_title ? <>{e.job_title}{e.is_driver && <span className="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800" data-testid="driver-badge">🚛 يقود آليات</span>}</> : <span className="text-amber-700" data-testid="no-title">بلا مسمى — عيّنه من الهيكل</span>
     if (k === 'branch_id') return e.branch_name ?? '—'
     if (k === 'gender') return v ? GENDER[v] : '—'
     if (k === 'marital_status') return v ? MARITAL[v] : '—'
@@ -124,7 +126,8 @@ function DataTab({ e }: { e: Full }) {
             <dt className="text-[11px] text-slate-500">{l}</dt>
             <dd className="text-sm font-semibold">
               {!editing || kind === 'readonly' ? display(k)
-                : kind === 'select-dept' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+                : kind === 'select-title' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)} data-testid="edit-title"><option value="">— بلا مسمى —</option>{jobTitles.map((t) => <option key={t.id} value={t.id}>{t.department_name} › {t.name}{t.drives_vehicles ? ' 🚛' : ''}</option>)}</select>
+                : kind === 'select-dept' ? (val('job_title_id') ? <span className="text-xs text-slate-500">يُشتق من المسمى</span> : <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{departments.filter((d) => !d.is_job_title).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>)
                 : kind === 'select-branch' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
                 : kind === 'select-gender' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option><option value="male">ذكر</option><option value="female">أنثى</option></select>
                 : kind === 'select-marital' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{Object.entries(MARITAL).map(([kk, ll]) => <option key={kk} value={kk}>{ll}</option>)}</select>

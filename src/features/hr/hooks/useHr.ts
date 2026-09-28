@@ -226,6 +226,10 @@ export function useImportEmployees() {
 export function useHrDepartments() {
   return useQuery({ queryKey: hrKeys.departments(), queryFn: hr.listDepartments })
 }
+/** 00153: المسميات الوظيفية من الهيكل */
+export function useHrJobTitles(includeInactive = false) {
+  return useQuery({ queryKey: [...hrKeys.departments(), 'job-titles', includeInactive], queryFn: () => hr.listJobTitles(includeInactive) })
+}
 export function useSaveDepartment() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({

@@ -74,7 +74,7 @@ export default function EmployeesList() {
                 <tr key={e.id} className={clsx('border-t border-slate-100 hover:bg-slate-50', e.employment_status === 'terminated' && 'opacity-60')} data-testid={`emp-row-${e.employee_number}`}>
                   <td className="p-2">
                     <Link to={`/hr/employees/${e.id}`} className="font-semibold text-brand-700 hover:underline" data-testid={`emp-link-${e.employee_number}`}>{e.full_name}</Link>
-                    <p className="text-[11px] text-slate-500">{e.employee_number} · {e.job_title ?? '—'}</p>
+                    <p className="text-[11px] text-slate-500">{e.employee_number} · {e.job_title ?? <span className="font-bold text-amber-700" data-testid={`emp-no-title-${e.employee_number}`}>بلا مسمى</span>}{e.is_driver && <span className="ms-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">🚛</span>}</p>
                   </td>
                   <td className="p-2 text-xs">{e.department_name ?? '—'}</td>
                   <td className="p-2 text-xs">{e.branch_name ?? '—'}</td>

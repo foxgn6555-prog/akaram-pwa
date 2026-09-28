@@ -18,7 +18,7 @@ export const departments = {
           code: input.code.toUpperCase(),
           parent_id: input.parent_id ?? null,
         } as never)
-        .select('id, name, code, parent_id, is_active')
+        .select('id, name, code, parent_id, is_active, is_job_title, drives_vehicles')
         .single(),
     ) as Promise<Department>
   },
@@ -27,7 +27,7 @@ export const departments = {
     return sdkGuard(
       supabase
         .from('departments')
-        .select('id, name, code, parent_id, is_active')
+        .select('id, name, code, parent_id, is_active, is_job_title, drives_vehicles')
         .eq('is_active', true)
         .order('name'),
     ) as Promise<Department[]>

@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
+import { useHrJobTitles } from '@features/hr'
 import {
   CONTRACT_LABELS, GOVERNORATES_IQ, TERMINATION_LABELS, WEEKDAYS_AR,
   useCreateEmployee, useHrEmployees, useHrShifts, useSaveShift, useTerminateEmployee, useUploadDocument,
@@ -27,7 +28,7 @@ type Tab = 'hire' | 'import' | 'terminate' | 'shifts'
 
 const EMPTY: CreateEmployeeInput = {
   employee_number: '', full_name: '', contract_type: 'monthly', hire_date: isoDay(), department_id: '', branch_id: '', manager_id: '',
-  job_title: '', phone: '', phone2: '', email: '', mother_name: '', gender: '', birth_date: '', birth_place: '', marital_status: '', education: '',
+  job_title_id: '', phone: '', phone2: '', email: '', mother_name: '', gender: '', birth_date: '', birth_place: '', marital_status: '', education: '',
   national_id_number: '', residence_card_number: '', governorate: 'بغداد', address: '', emergency_contact_name: '', emergency_contact_phone: '',
   blood_type: '', biometric_pin: '', shift_id: '', shift_start_override: '', shift_end_override: '', shift_grace_override: null,
 }
@@ -62,8 +63,13 @@ function HireForm() {
   const [err, setErr] = useState<string | null>(null)
   const [createdId, setCreatedId] = useState<string | null>(null)
   const { data: departments = [] } = useDepartments()
+  const { data: jobTitles = [] } = useHrJobTitles()
   const { data: branches = [] } = useBranches()
   const { data: shifts = [] } = useHrShifts()
+  const selectedTitle = jobTitles.find((t) => t.id === v.job_title_id)
+  // القسم يُشتق من المسمى (القسم الأب)؛ الأقسام الأب فقط تُعرض عند غياب المسميات
+  const departmentOptions = departments.filter((d) => !d.is_job_title)
+  const titleGroups = Array.from(new Map(jobTitles.map((t) => [t.department_id, t.department_name])).entries())
   const { data: managers = [] } = useHrEmployees({ status: 'active' })
   const create = useCreateEmployee()
   const set = <K extends keyof CreateEmployeeInput>(k: K, val: CreateEmployeeInput[K]) => setV((s) => ({ ...s, [k]: val }))
@@ -73,13 +79,14 @@ function HireForm() {
     e.preventDefault(); setErr(null)
     if (!v.full_name.trim()) return setErr('الاسم الرباعي مطلوب')
     if (!v.employee_number.trim()) return setErr('الرقم الوظيفي مطلوب')
-    if (!v.department_id) return setErr('اختر القسم')
+    if (jobTitles.length > 0 && !v.job_title_id) return setErr('اختر المسمى الوظيفي من الهيكل التنظيمي')
+    if (!v.job_title_id && !v.department_id) return setErr('اختر القسم')
     if (!v.branch_id) return setErr('اختر الفرع')
     if (!v.shift_id) return setErr('اختر الشفت')
     if (v.phone && !/^0?7\d{9}$/.test(v.phone.replace(/\s/g, ''))) return setErr('رقم الهاتف غير صالح (07XXXXXXXXX)')
     if (v.national_id_number && !/^\d{12}$/.test(v.national_id_number)) return setErr('رقم البطاقة الموحدة 12 رقماً')
     try {
-      const id = await create.mutateAsync({ ...v, shift_grace_override: v.shift_grace_override ?? undefined })
+      const id = await create.mutateAsync({ ...v, department_id: selectedTitle ? selectedTitle.department_id : v.department_id, shift_grace_override: v.shift_grace_override ?? undefined })
       setCreatedId(id)
     } catch { /* toast */ }
   }
@@ -105,12 +112,23 @@ function HireForm() {
       <Section title="البيانات الوظيفية">
         <Field id="h-number" label="الرقم الوظيفي *"><input id="h-number" className={field} value={v.employee_number} onChange={(e) => set('employee_number', e.target.value)} data-testid="f-number" /></Field>
         <Field id="h-name" label="الاسم الرباعي واللقب *"><input id="h-name" className={field} value={v.full_name} onChange={(e) => set('full_name', e.target.value)} data-testid="f-name" /></Field>
-        <Field id="h-title" label="المسمى الوظيفي"><input id="h-title" className={field} value={v.job_title} onChange={(e) => set('job_title', e.target.value)} data-testid="f-title" /></Field>
-        <Field id="h-dept" label="القسم *">
-          <select id="h-dept" className={field} value={v.department_id ?? ''} onChange={(e) => set('department_id', e.target.value)} data-testid="f-dept">
-            <option value="">— اختر —</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}
+        <Field id="h-title" label="المسمى الوظيفي *" hint={jobTitles.length === 0 ? 'لا مسميات معرَّفة بعد — أضفها من الهيكل التنظيمي' : selectedTitle?.drives_vehicles ? '🚛 هذا المسمى يقود آليات — سيظهر الموظف لغرفة العمليات كسائق' : 'يُختار من الهيكل التنظيمي؛ القسم يُشتق تلقائياً'}>
+          <select id="h-title" className={field} value={v.job_title_id ?? ''} onChange={(e) => set('job_title_id', e.target.value)} data-testid="f-title" disabled={jobTitles.length === 0}>
+            <option value="">— اختر المسمى —</option>
+            {titleGroups.map(([deptId, deptName]) => (
+              <optgroup key={deptId} label={deptName}>
+                {jobTitles.filter((t) => t.department_id === deptId).map((t) => <option key={t.id} value={t.id}>{t.name}{t.drives_vehicles ? ' 🚛' : ''}</option>)}
+              </optgroup>
+            ))}
           </select>
+        </Field>
+        <Field id="h-dept" label={selectedTitle ? 'القسم (من المسمى)' : 'القسم *'}>
+          {selectedTitle
+            ? <input id="h-dept" className={clsx(field, 'bg-slate-50')} value={selectedTitle.department_name} readOnly data-testid="f-dept-derived" />
+            : <select id="h-dept" className={field} value={v.department_id ?? ''} onChange={(e) => set('department_id', e.target.value)} data-testid="f-dept">
+                <option value="">— اختر —</option>
+                {departmentOptions.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}
+              </select>}
         </Field>
         <Field id="h-branch" label="الفرع *">
           <select id="h-branch" className={field} value={v.branch_id ?? ''} onChange={(e) => set('branch_id', e.target.value)} data-testid="f-branch">

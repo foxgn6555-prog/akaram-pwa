@@ -100,7 +100,20 @@ node scripts/db-migrations-test.mjs tests/db/executive-suite-test.sql
 | X10 | كل ناشر يرى صادره فقط، والمدير المفوض يرى الكل |
 | X11 | التبليغ المنتهي لا يظهر في الوارد ولا يُحتسب في غير المقروء |
 
-## `trip-lifecycle-test.sql` (00147–00152 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
+## `hr-org-job-titles-test.sql` (00153 — المسميات الوظيفية من الهيكل التنظيمي)
+
+```powershell
+node scripts/db-migrations-test.mjs tests/db/hr-org-job-titles-test.sql
+```
+
+| # | الحالة المثبتة |
+|---|---|
+| ① | المسمى عقدة فرعية تحت قسم أب (`HR_JOB_TITLE_PARENT_REQUIRED`)، اسم فريد داخل القسم (`HR_JOB_TITLE_NAME_TAKEN`)، المسمى لا يكون أباً (`HR_DEPT_PARENT_IS_JOB_TITLE`)، «يقود آليات» بلا «مسمى» يُهمل، `hr_departments_overview`/`hr_job_titles` تحمل الأعلام |
+| ② | إنشاء/تعديل الموظف يرفض `job_title` نصاً (`HR_JOB_TITLE_FREE_TEXT_FORBIDDEN`) ويقبل `job_title_id` صالحاً فقط؛ الاشتقاق التلقائي (النص/القسم/القيادة)؛ الكتابة المباشرة في العمود تُلغى بالـ trigger؛ نقل المسمى يحدّث القيادة؛ إعادة تسمية المسمى/تبديل القيادة تنتشر لموظفيه؛ تحويل مسمى عليه موظفون أو تعطيله مرفوض |
+| ③ | الاستيراد: المسمى يُطابَق بالاسم داخل القسم؛ غير المطابق يُستورد بلا مسمى مع `HR_IMPORT_JOB_TITLE_UNKNOWN` في `warnings` |
+| ④ | غرفة العمليات: `fleet_driver_options` يُرجع حصراً موظفي مسميات القيادة (حتى مع البحث)، و`require_fleet_driver` يرفض غيرهم (`FLEET_DRIVER_NOT_DRIVER_TITLE`) |
+
+## `trip-lifecycle-test.sql` (00147–00153 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
 ```bash
 node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 ```
@@ -124,4 +137,5 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - **L16** (00134/00151) إغلاق انطلاقية مفتوحة عبر مسار محطة → كراج مع **تعيين المسؤول يدوياً**: مسؤول من قاطع غريب يُرفض `GARAGE_RECIPIENT_NOT_ELIGIBLE`، مسؤول القاطع نفسه يُقبل بوضع `assignment_mode='manual'`.
 - **L17** (00151) حلّ العطل المرن: تسجيل عطل قصير (`sector_submit_breakdown`)، رفض التكرار `ALREADY_OPEN`، حالة الرحلة `breakdown`، تنبيه `breakdown_stale` بعد 250 دقيقة، رفض المسؤول الغريب ودور الصيانة، حلّ **غرفة العمليات** `ops_resolve_breakdown` بملاحظة إلزامية → تدقيق `RESOLVE_BREAKDOWN` + إشعار للمسؤول + زوال التنبيه + مؤشرات (عدد الأعطال/زمن التوقف) + الخط الزمني «حُسم»، ثم حلّ عطل ثانٍ من المسؤول نفسه. العطل المحال للصيانة يبقى مقفلاً `BREAKDOWN_CONTROLLED_BY_MAINTENANCE`.
 - **L18** (00151) سياسة القراءة: غرفة العمليات ترى كل البلاغات؛ المسؤول الغريب لا يرى بلاغات قاطع آخر.
+- **L0** يعتمد منذ 00153 على مسميات من الهيكل (قسم الآليات → «سائق كابسة»/«سائق» يقودان، «مسؤول قسم» لا)؛ البحث لا يتجاوز مسميات القيادة.
 - **L19** (00152) مرحلة الرحلة من مصدر واحد `app.trip_status`: بعد جولة محطة→موقع الآلية «تعمل في الموقع» (كانت تبدو «في الطريق للكراج» ويستطيع الكراج إغلاقها خطأً — الآن `GARAGE_VEHICLE_NOT_SENT_BACK`)؛ إرسال المسؤول إلى الكراج يفتح ساقاً `work_site→garage` (رفض التكرار `TRIP_LEG_ALREADY_OPEN`)؛ مسار الصيانة يثبّت `site_departed_at` تلقائياً (trigger على السيقان)؛ دوال الكراج والمسؤول تُرجع `trip_status`.

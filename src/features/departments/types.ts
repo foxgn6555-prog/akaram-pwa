@@ -5,4 +5,6 @@ export interface Department {
   code: string
   parent_id: string | null
   is_active: boolean
+  is_job_title?: boolean
+  drives_vehicles?: boolean
 }

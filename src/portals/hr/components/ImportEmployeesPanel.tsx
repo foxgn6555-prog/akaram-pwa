@@ -127,7 +127,7 @@ export function ImportEmployeesPanel() {
                     <td className="p-2">{r.full_name || <span className="text-red-600">—</span>}</td>
                     <td className="p-2 text-slate-600">{[src?.department, src?.branch, src?.shift].filter(Boolean).join(' / ') || '—'}</td>
                     <td className="p-2 text-center">{src?.contract_type === 'daily' ? 'يومي' : src?.contract_type === 'monthly' ? 'شهري' : '—'}</td>
-                    <td className="p-2">{r.ok ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">{done ? 'تم' : 'صالح'}</span> : <ul className="list-disc ps-4 text-red-700">{r.errors.map((e) => <li key={e}>{tr(e)}</li>)}</ul>}</td>
+                    <td className="p-2">{r.ok ? <><span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">{done ? 'تم' : 'صالح'}</span>{(r.warnings ?? []).length > 0 && <ul className="mt-1 list-disc ps-4 text-amber-700" data-testid={`imp-warn-${r.row}`}>{(r.warnings ?? []).map((w) => <li key={w}>{tr(w)}</li>)}</ul>}</> : <ul className="list-disc ps-4 text-red-700">{r.errors.map((e) => <li key={e}>{tr(e)}</li>)}</ul>}</td>
                   </tr>) })}
               </tbody>
             </table>
