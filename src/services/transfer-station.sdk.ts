@@ -21,7 +21,7 @@ import type {
   ViolationRecord,
   WorkflowRow,
 } from '@features/transfer-station/types'
-import type { WeighingDestination } from '@features/transfer-station/lib/vehicleKinds'
+import type { VehicleKindRow, WeighingDestination } from '@features/transfer-station/lib/vehicleKinds'
 import type {
   DailyStationReport,
   DeputyDailyReport,
@@ -232,6 +232,55 @@ export const transferStation = {
   /* ═══ سير العمل بالخطوات (00130) ═══ */
 
   /** الخطوة الأولى: كتابة الوزن — وقت الوزن تلقائي */
+  /** أنواع الآليات وحدودها من القاعدة (المحطة: الفعّالة فقط · غرفة العمليات: الكل) */
+  async vehicleKinds(includeInactive = false): Promise<VehicleKindRow[]> {
+    const res = await supabase.rpc('ts_vehicle_kinds_list', { p_include_inactive: includeInactive })
+    if (res.error) throw new Error(res.error.message)
+    return (res.data ?? []) as VehicleKindRow[]
+  },
+
+  /** حفظ/تعديل نوع آلية وحدوده — غرفة العمليات فقط (00149) */
+  async saveVehicleKind(input: {
+    kind: string
+    label: string
+    minTons: number
+    maxTons: number | null
+    destination: 'press' | 'transfer_station' | 'both'
+    sort: number
+    active: boolean
+  }): Promise<VehicleKindRow> {
+    const res = await supabase.rpc('ops_ts_vehicle_kind_save', {
+      p_kind: input.kind,
+      p_label: input.label,
+      p_min_tons: input.minTons,
+      p_max_tons: input.maxTons,
+      p_destination: input.destination,
+      p_sort: input.sort,
+      p_active: input.active,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return res.data as VehicleKindRow
+  },
+
+  /** تصحيح وزن مكتمل — غرفة العمليات فقط، بسبب إلزامي (00149) */
+  async correctWeighing(input: {
+    visitLegId: string
+    weightTons: number
+    destination: WeighingDestination
+    vehicleKind: string
+    reason: string
+  }) {
+    const res = await supabase.rpc('ops_correct_weighing', {
+      p_visit_leg_id: input.visitLegId,
+      p_weight_tons: input.weightTons,
+      p_destination: input.destination,
+      p_vehicle_kind: input.vehicleKind,
+      p_reason: input.reason,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return res.data
+  },
+
   async recordWeighing(visitLegId: string, weightTons: number) {
     const res = await supabase.rpc('ts_record_weighing', {
       p_visit_leg_id: visitLegId,

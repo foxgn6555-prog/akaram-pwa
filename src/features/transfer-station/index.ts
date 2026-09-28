@@ -20,6 +20,9 @@ export {
   useCreateCarrier,
   useOpsWorkflow,
   useOpsWorkflowRange,
+  useVehicleKinds,
+  useSaveVehicleKind,
+  useCorrectWeighing,
   useOpsDailyReport,
   useSectorTonnage,
   useSendDailyToDeputy,
@@ -29,13 +32,14 @@ export { UNIT_CAPACITIES, unitCapacity } from './lib/unitCapacities'
 export type { OutboundUnit } from './lib/unitCapacities'
 export {
   VEHICLE_KINDS,
+  kindFromRow,
   DESTINATION_LABELS,
   kindByKey,
   kindsForDestination,
   weighingViolation,
   kindRangeLabel,
 } from './lib/vehicleKinds'
-export type { VehicleKind, WeighingDestination } from './lib/vehicleKinds'
+export type { VehicleKind, VehicleKindRow, WeighingDestination } from './lib/vehicleKinds'
 export { weightRecordSchema, archiveReasonSchema } from './schemas/weight.schema'
 export {
   outboundRecordSchema,

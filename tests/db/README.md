@@ -100,7 +100,7 @@ node scripts/db-migrations-test.mjs tests/db/executive-suite-test.sql
 | X10 | كل ناشر يرى صادره فقط، والمدير المفوض يرى الكل |
 | X11 | التبليغ المنتهي لا يظهر في الوارد ولا يُحتسب في غير المقروء |
 
-## `trip-lifecycle-test.sql` (00147 + 00148 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
+## `trip-lifecycle-test.sql` (00147–00149 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
 ```bash
 node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 ```
@@ -117,3 +117,5 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - **L9** العزل: غير غرفة العمليات لا يقرأ التقارير.
 - **L10** (00148) الملخص يحمل `work_started_at` (بدء العمل الفعلي = وصول الموقع)، `site_departed_at`، `trip_status` (to_site/at_site/to_station/at_station/to_maintenance/at_maintenance/to_garage/returned/breakdown)، `driver_employee_id`؛ `operational_departure_timeline` مرتب زمنياً ويبدأ بالكراج وينتهي بالعودة ويضم الوزن/المخالفة/العطل/الصيانة، بلا رموز إنجليزية، مقصور على غرفة العمليات، ويرفض معرّفاً مجهولاً.
 - **L11** (00148) `ops_station_workflow_range` (نطاق تاريخ + تحقق ≤366 يوماً)، `operational_vehicle_movements` (تحقق النطاق + `origin_label/destination_label/area_name`)، تفاصيل `operational_live_alerts` عربية بالكامل.
+- **L12** (00149) تصحيح وزن مكتمل `ops_correct_weighing`: غرفة العمليات فقط (المحطة ⇒ OPS_ROOM_FORBIDDEN)، سبب إلزامي، تحقق الوزن/النوع/الوجهة، إعادة احتساب المخالفة (إزالة/إنشاء/تحديث)، تحديث صف الدفتر المرتبط بـ`step_id`، تدقيق `CORRECT_WEIGHING` قبل/بعد، إبلاغ المحطة، أثر التصحيح في تقرير الأوزان و`station_visits_for_day`، رفض زيارة غير مكتملة.
+- **L13** (00149) حدود الأوزان `ops_ts_vehicle_kind_save`: غرفة العمليات فقط، تحقق الرمز/الحد الأدنى/الأعلى، تدقيق `SAVE_VEHICLE_KIND`، نوع جديد + تعطيله (يختفي عن المحطة عبر `ts_vehicle_kinds_list`)، المحطة تلتزم بالحد الجديد فوراً وترفض النوع المعطّل.

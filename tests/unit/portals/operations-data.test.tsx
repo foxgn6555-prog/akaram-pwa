@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   setDriver: vi.fn(),
+  saveKind: vi.fn(),
+  correct: vi.fn(),
   workflowRange: vi.fn(),
   excel: vi.fn(),
   gbs: [
@@ -56,6 +58,8 @@ const h = vi.hoisted(() => ({
       dispatched_at: '2026-09-19T07:15:00Z',
       weight_tons: 5,
       destination_label: 'المكبس',
+      destination: 'press',
+      vehicle_kind: 'compactor_medium',
       kind_label: 'كابسة وسط',
       min_tons: 4,
       violation: false,
@@ -173,7 +177,24 @@ const summary = {
   breakdown_count: 1,
   maintenance_count: 1,
 }
-vi.mock('@features/transfer-station', () => ({ useOpsWorkflowRange: (from: string, to: string) => { h.workflowRange(from, to); return { data: h.weighings, isLoading: false } }, useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
+vi.mock('@features/transfer-station', async (importOriginal) => {
+  const original = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...original,
+    useOpsWorkflowRange: (from: string, to: string) => { h.workflowRange(from, to); return { data: h.weighings, isLoading: false } },
+    useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }),
+    useVehicleKinds: () => ({
+      kinds: (original.VEHICLE_KINDS as unknown[]),
+      rows: [
+        { kind: 'compactor_large', label: 'كابسة كبيرة', min_tons: '6', max_tons: '8', destination: 'both', sort: 3, active: true },
+        { kind: 'kia', label: 'كيا', min_tons: '2', max_tons: null, destination: 'transfer_station', sort: 4, active: false },
+      ],
+      isLoading: false,
+    }),
+    useSaveVehicleKind: () => ({ mutate: h.saveKind, isPending: false }),
+    useCorrectWeighing: () => ({ mutate: h.correct, isPending: false, error: null }),
+  }
+})
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useOpsAlerts: () => ({
     data: [
@@ -523,5 +544,61 @@ describe('تقارير غرفة العمليات المركبة', () => {
     expect(screen.getByText('لا توجد سجلات في هذا التقرير')).toBeInTheDocument()
     fireEvent.change(screen.getByPlaceholderText('آلية، سائق، منطقة…'), { target: { value: 'DB-1' } })
     expect(screen.queryByText('لا توجد سجلات في هذا التقرير')).not.toBeInTheDocument()
+  })
+  it('تصحيح الوزن من غرفة العمليات فقط: يتطلب تغييراً وسبباً، يعرض أثر المخالفة، ويستدعي ops_correct_weighing', () => {
+    h.correct.mockReset()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-weighings'))
+    fireEvent.click(screen.getByTestId('correct-weighing-v1'))
+    const dialog = screen.getByTestId('weighing-correction-dialog')
+    expect(within(dialog).getByTestId('weighing-correction-current')).toHaveTextContent('5 طن')
+    // بلا تغيير ⇒ زر الحفظ معطّل
+    expect(within(dialog).getByTestId('weighing-correction-submit')).toBeDisabled()
+    fireEvent.change(within(dialog).getByTestId('weighing-correction-weight'), { target: { value: '4.5' } })
+    fireEvent.change(within(dialog).getByTestId('weighing-correction-kind'), { target: { value: 'compactor_large' } })
+    expect(within(dialog).getByTestId('weighing-correction-violation')).toHaveTextContent('فرق 1.5 طن')
+    fireEvent.click(within(dialog).getByTestId('weighing-correction-submit'))
+    expect(within(dialog).getByText(/سبب التصحيح إلزامي/)).toBeInTheDocument()
+    expect(h.correct).not.toHaveBeenCalled()
+    fireEvent.change(within(dialog).getByTestId('weighing-correction-weight'), { target: { value: '6.5' } })
+    expect(within(dialog).getByTestId('weighing-correction-ok')).toBeInTheDocument()
+    fireEvent.change(within(dialog).getByTestId('weighing-correction-reason'), { target: { value: 'خطأ إدخال من المحطة' } })
+    fireEvent.click(within(dialog).getByTestId('weighing-correction-submit'))
+    expect(h.correct).toHaveBeenCalledWith(
+      { visitLegId: 'v1', weightTons: 6.5, destination: 'press', vehicleKind: 'compactor_large', reason: 'خطأ إدخال من المحطة' },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
+  })
+  it('حدود الأوزان حسب النوع تُدار من غرفة العمليات: تعديل حد قائم وإضافة نوع مع تحقق محلي', () => {
+    h.saveKind.mockReset()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-weighings'))
+    fireEvent.click(screen.getByTestId('toggle-vehicle-kinds'))
+    const panel = screen.getByTestId('vehicle-kinds-panel')
+    expect(within(panel).getByTestId('vehicle-kind-kia')).toHaveTextContent('معطّل')
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-edit-compactor_large'))
+    expect(within(panel).getByTestId('vehicle-kind-code')).toBeDisabled()
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-min'), { target: { value: '9' } })
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-save'))
+    expect(within(panel).getByTestId('vehicle-kind-error')).toHaveTextContent('الحد الأعلى يجب أن يكون ≥ الحد الأدنى')
+    expect(h.saveKind).not.toHaveBeenCalled()
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-min'), { target: { value: '7' } })
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-save'))
+    expect(h.saveKind).toHaveBeenCalledWith(
+      { kind: 'compactor_large', label: 'كابسة كبيرة', minTons: 7, maxTons: 8, destination: 'both', sort: 3, active: true },
+      expect.any(Object),
+    )
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-add'))
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-code'), { target: { value: 'Trailer 20' } })
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-label'), { target: { value: 'مقطورة 20' } })
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-min'), { target: { value: '12' } })
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-save'))
+    expect(within(panel).getByTestId('vehicle-kind-error')).toHaveTextContent('رمز النوع')
+    fireEvent.change(within(panel).getByTestId('vehicle-kind-code'), { target: { value: 'trailer_20' } })
+    fireEvent.click(within(panel).getByTestId('vehicle-kind-save'))
+    expect(h.saveKind).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'trailer_20', label: 'مقطورة 20', minTons: 12, maxTons: null, destination: 'transfer_station', active: true }),
+      expect.any(Object),
+    )
   })
 })

@@ -33,19 +33,42 @@ export const DESTINATION_LABELS: Record<WeighingDestination, string> = {
   transfer_station: 'المحطة التحويلية',
 }
 
-export const kindByKey = (kind: string): VehicleKind | undefined =>
-  VEHICLE_KINDS.find(entry => entry.kind === kind)
+/** صف جدول ts_vehicle_kinds كما يعيده ts_vehicle_kinds_list (تديره غرفة العمليات — 00149) */
+export interface VehicleKindRow {
+  kind: string
+  label: string
+  min_tons: number | string
+  max_tons: number | string | null
+  destination: 'press' | 'transfer_station' | 'both'
+  sort: number
+  active: boolean
+  updated_at?: string | null
+}
+
+/** تحويل صف قاعدة البيانات إلى الشكل المستعمل في الواجهة — القاعدة هي المصدر، والقائمة الثابتة احتياط فقط */
+export const kindFromRow = (row: VehicleKindRow): VehicleKind => ({
+  kind: row.kind,
+  label: row.label,
+  minTons: Number(row.min_tons),
+  maxTons: row.max_tons === null || row.max_tons === undefined ? null : Number(row.max_tons),
+  destinations: row.destination === 'both' ? 'both' : [row.destination],
+  sort: row.sort,
+})
+
+export const kindByKey = (kind: string, kinds: VehicleKind[] = VEHICLE_KINDS): VehicleKind | undefined =>
+  kinds.find(entry => entry.kind === kind)
 
 /** الأنواع المتاحة لوجهة معينة */
-export const kindsForDestination = (destination: WeighingDestination): VehicleKind[] =>
-  VEHICLE_KINDS.filter(entry => entry.destinations === 'both' || entry.destinations.includes(destination))
+export const kindsForDestination = (destination: WeighingDestination, kinds: VehicleKind[] = VEHICLE_KINDS): VehicleKind[] =>
+  kinds.filter(entry => entry.destinations === 'both' || entry.destinations.includes(destination))
 
 /** الأقل غير مسموح: مخالفة عندما يقل الوزن عن الحد الأدنى للنوع */
 export const weighingViolation = (
   kind: string | undefined,
   weightTons: number | null,
+  kinds: VehicleKind[] = VEHICLE_KINDS,
 ): { violates: boolean; deficit: number | null; minTons: number | null } => {
-  const meta = kind ? kindByKey(kind) : undefined
+  const meta = kind ? kindByKey(kind, kinds) : undefined
   if (!meta || weightTons === null || Number.isNaN(weightTons)) return { violates: false, deficit: null, minTons: meta?.minTons ?? null }
   const violates = weightTons < meta.minTons
   return { violates, deficit: violates ? +(meta.minTons - weightTons).toFixed(2) : null, minTons: meta.minTons }

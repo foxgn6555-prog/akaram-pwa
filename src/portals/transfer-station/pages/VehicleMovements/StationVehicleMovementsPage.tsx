@@ -9,7 +9,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AlertTriangle, ArrowLeftRight, CheckCircle2, Clock3, Filter, FolderOpen, History, MapPin, Scale, Search, Truck } from 'lucide-react'
 import { useStationConfirmArrival, useStationDispatchVehicle, useStationMovementDays, useStationVisitsForDay } from '@features/vehicle-operations/hooks'
-import { useCompleteWeighing, useRecordWeighing, kindsForDestination, kindByKey, kindRangeLabel, weighingViolation, DESTINATION_LABELS, type WeighingDestination } from '@features/transfer-station'
+import { useCompleteWeighing, useRecordWeighing, useVehicleKinds, kindsForDestination, kindByKey, kindRangeLabel, weighingViolation, DESTINATION_LABELS, type WeighingDestination } from '@features/transfer-station'
 import type { StationVisit } from '@sdk/vehicle-operations.sdk'
 
 const dateTime = (value: string | null) => value ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value)) : '—'
@@ -55,13 +55,14 @@ export default function StationVehicleMovementsPage() {
 /** حوار خطوتي الوزن والوجهة — الأوزان المسموحة والمخالفة الفورية */
 function WeighingDialog({ row, step, onClose }: { row: StationVisit; step: 'weigh' | 'complete'; onClose: () => void }) {
   const record = useRecordWeighing(), complete = useCompleteWeighing()
+  const { kinds: allKinds } = useVehicleKinds()
   const [weight, setWeight] = useState(row.step_weight_tons?.toString() ?? '')
   const [destination, setDestination] = useState<WeighingDestination>('press')
   const [kind, setKind] = useState('compactor_medium')
   const weightValue = Number(weight)
   const hasWeight = weight.trim() !== '' && Number.isFinite(weightValue) && weightValue > 0
-  const preview = weighingViolation(kind, hasWeight ? weightValue : null)
-  const kinds = kindsForDestination(destination)
+  const preview = weighingViolation(kind, hasWeight ? weightValue : null, allKinds)
+  const kinds = kindsForDestination(destination, allKinds)
   const submitWeigh = () => { if (!hasWeight) return; record.mutate({ visitLegId: row.visit_id, weightTons: +weightValue.toFixed(2) }, { onSuccess: onClose }) }
   const submitComplete = () => complete.mutate({ visitLegId: row.visit_id, destination, vehicleKind: kind }, { onSuccess: onClose })
   return <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" data-testid="weighing-dialog">
@@ -74,8 +75,9 @@ function WeighingDialog({ row, step, onClose }: { row: StationVisit; step: 'weig
         <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={onClose} className="h-11 rounded-xl border">إلغاء</button><button data-testid="confirm-weighing" onClick={submitWeigh} disabled={!hasWeight || record.isPending} className="h-11 rounded-xl bg-orange-700 font-black text-white disabled:opacity-40">حفظ الوزن</button></div>
       </> : <>
         <p className="mt-3 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-700">الوزن المسجل: {row.step_weight_tons} طن · وقت الوزن {dateTime(row.step_weighed_at ?? null)}</p>
-        <fieldset className="mt-4"><legend className="text-xs font-black text-slate-600">الوجهة</legend><div className="mt-2 grid grid-cols-2 gap-2">{(Object.keys(DESTINATION_LABELS) as WeighingDestination[]).map(dest => <label key={dest} className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border p-3 text-sm font-black ${destination === dest ? 'border-orange-600 bg-orange-50 text-orange-800' : 'text-slate-600'}`}><input type="radio" name="weighing-destination" data-testid={`weighing-dest-${dest}`} checked={destination === dest} onChange={() => { setDestination(dest); if (!kindsForDestination(dest).some(entry => entry.kind === kind)) setKind(kindsForDestination(dest)[0]?.kind ?? 'compactor_small') }} className="sr-only" />{DESTINATION_LABELS[dest]}</label>)}</div></fieldset>
+        <fieldset className="mt-4"><legend className="text-xs font-black text-slate-600">الوجهة</legend><div className="mt-2 grid grid-cols-2 gap-2">{(Object.keys(DESTINATION_LABELS) as WeighingDestination[]).map(dest => <label key={dest} className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border p-3 text-sm font-black ${destination === dest ? 'border-orange-600 bg-orange-50 text-orange-800' : 'text-slate-600'}`}><input type="radio" name="weighing-destination" data-testid={`weighing-dest-${dest}`} checked={destination === dest} onChange={() => { setDestination(dest); if (!kindsForDestination(dest, allKinds).some(entry => entry.kind === kind)) setKind(kindsForDestination(dest, allKinds)[0]?.kind ?? 'compactor_small') }} className="sr-only" />{DESTINATION_LABELS[dest]}</label>)}</div></fieldset>
         <label className="mt-4 block text-xs font-black text-slate-600">نوع الآلية<select data-testid="weighing-kind" value={kind} onChange={e => setKind(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3 text-sm font-bold">{kinds.map(entry => <option key={entry.kind} value={entry.kind}>{entry.label} — {kindRangeLabel(entry)}</option>)}</select></label>
+        <p className="mt-1 text-[10px] text-slate-400">حدود الأوزان تُدار من غرفة العمليات وتُطبَّق هنا تلقائياً.</p>
         {preview.violates && <p data-testid="weighing-violation-warning" className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-black text-red-700"><AlertTriangle size={15} />وزن أقل من الحد المسموح ({preview.minTons} طن) — سيُسجل مخالفة على السائق وتنبيه لغرفة العمليات (فرق {preview.deficit} طن).</p>}
         {!preview.violates && <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-700">الوزن ضمن المسموح — عند الإكمال يُحفظ السجل ويُرسل لغرفة العمليات.</p>}
         <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={onClose} className="h-11 rounded-xl border">إلغاء</button><button data-testid="confirm-complete" onClick={submitComplete} disabled={complete.isPending} className="h-11 rounded-xl bg-emerald-700 font-black text-white disabled:opacity-40">إكمال العملية</button></div>
@@ -88,11 +90,12 @@ function WeighingDialog({ row, step, onClose }: { row: StationVisit; step: 'weig
 function VisitCard({ row, onAction }: { row: StationVisit; onAction: (action: Action) => void }) {
   const weighed = row.step_weight_tons !== null && row.step_weight_tons !== undefined
   const completed = Boolean(row.step_completed_at)
-  const kindLabel = row.step_vehicle_kind ? kindByKey(row.step_vehicle_kind)?.label ?? row.step_vehicle_kind : null
+  const { kinds: allKinds } = useVehicleKinds()
+  const kindLabel = row.step_vehicle_kind ? kindByKey(row.step_vehicle_kind, allKinds)?.label ?? row.step_vehicle_kind : null
   return <article className="rounded-3xl border bg-white p-5 shadow-sm" data-testid={`station-visit-${row.visit_id}`}>
     <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><b className="rounded-lg bg-slate-900 px-2 py-1 text-xs text-white">DB {row.db_number}</b><span className={`rounded-full px-2 py-1 text-[10px] font-black ${statusTone[row.status]}`}>{statusLabel[row.status]}</span><span className="text-[10px] font-bold text-slate-400">الزيارة #{row.visit_number}</span>{row.step_violation && <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[10px] font-black text-red-700"><AlertTriangle size={11} />مخالفة وزن</span>}</div><h2 className="mt-3 font-black">{row.vehicle_name}</h2><p className="mt-1 text-xs text-slate-500">{row.driver_name} · {row.shift}</p></div><ArrowLeftRight className="text-orange-600" /></div>
     <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><Info label="منطقة العمل" value={row.area_name} icon={<MapPin />} /><Info label="مسؤول القسم" value={row.manager_name} icon={<Truck />} /><Info label="غادرت للمحطة" value={dateTime(row.inbound_departed_at)} icon={<Clock3 />} /><Info label="وصلت المحطة" value={dateTime(row.arrived_at)} icon={<CheckCircle2 />} /><Info label="مدة الطريق" value={minutes(row.transit_minutes)} icon={<Clock3 />} /><Info label="مدة البقاء" value={minutes(row.stay_minutes)} icon={<Clock3 />} /></div>
-    {completed && <div className="mt-3 rounded-2xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800" data-testid={`weighing-summary-${row.visit_id}`}>اكتملت العملية: الوزن {row.step_weight_tons} طن · الوجهة {row.step_destination === 'press' ? 'المكبس' : 'المحطة التحويلية'} · {kindLabel} · الوزن {dateTime(row.step_weighed_at ?? null)} · الاكتمال {dateTime(row.step_completed_at ?? null)}.</div>}
+    {completed && <div className="mt-3 rounded-2xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800" data-testid={`weighing-summary-${row.visit_id}`}>اكتملت العملية: الوزن {row.step_weight_tons} طن · الوجهة {row.step_destination === 'press' ? 'المكبس' : 'المحطة التحويلية'} · {kindLabel} · الوزن {dateTime(row.step_weighed_at ?? null)} · الاكتمال {dateTime(row.step_completed_at ?? null)}.{row.step_corrected_at ? <span className="mr-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800" data-testid={`weighing-corrected-${row.visit_id}`}>صُحح من غرفة العمليات</span> : null}</div>}
     {weighed && !completed && <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-xs font-bold text-amber-800">الوزن المسجل {row.step_weight_tons} طن — بانتظار اختيار الوجهة وإكمال العملية.</p>}
     <Notes row={row} />
     {row.status === 'in_transit' && <button data-testid={`station-arrive-${row.visit_id}`} onClick={() => onAction('arrive')} className="mt-4 h-11 w-full rounded-xl bg-emerald-700 font-black text-white">تأكيد وصول الآلية إلى المحطة</button>}

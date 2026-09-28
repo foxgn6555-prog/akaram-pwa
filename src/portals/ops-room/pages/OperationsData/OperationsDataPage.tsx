@@ -29,6 +29,8 @@ import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDriverDialog'
 import { TripTimelineDialog } from './TripTimelineDialog'
+import { WeighingCorrectionDialog, type WeighingCorrectionTarget } from './WeighingCorrectionDialog'
+import { VehicleKindsPanel } from './VehicleKindsPanel'
 
 export type OperationsTab =
   | 'alerts'
@@ -91,6 +93,9 @@ const labels: Record<string, string> = {
   completed_at: 'العودة إلى الكراج',
   trip_status: 'حالة الرحلة',
   trip_timeline: 'تسلسل الرحلة',
+  corrected_at: 'صُحح في',
+  correction_reason: 'سبب التصحيح',
+  weighing_actions: 'إجراء',
   origin_label: 'من',
   total_minutes: 'المدة الكلية',
   movement_minutes: 'وقت الحركة',
@@ -237,6 +242,9 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'transit_minutes',
     'weigh_wait_minutes',
     'process_minutes',
+    'corrected_at',
+    'correction_reason',
+    'weighing_actions',
     'stay_minutes',
   ],
   station: [
@@ -374,7 +382,7 @@ const links: Record<string, string> = {
   '/transfer-station/vehicle-movements': 'محطة التحويل — حركة الآليات',
 }
 function readableValue(key: string, value: unknown) {
-  if (key === 'timeline' || key === 'trip_timeline') return 'متاح داخل المنصة'
+  if (key === 'timeline' || key === 'trip_timeline' || key === 'weighing_actions') return 'متاح داخل المنصة'
   if (value === null || value === undefined || value === '') return '—'
   if (dateKeys(key)) return dateTime(value)
   if (minuteKeys(key)) return minutes(value)
@@ -398,7 +406,9 @@ export default function OperationsDataPage() {
     [columnChoice, setColumnChoice] = useState<Partial<Record<OperationsTab, string[]>>>({}),
     [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null),
     [driverTarget, setDriverTarget] = useState<DepartureDriverTarget | null>(null),
-    [tripTimeline, setTripTimeline] = useState<{ departureId: string; title: string } | null>(null)
+    [tripTimeline, setTripTimeline] = useState<{ departureId: string; title: string } | null>(null),
+    [correction, setCorrection] = useState<WeighingCorrectionTarget | null>(null),
+    [showKinds, setShowKinds] = useState(false)
   const alertQuery = useOpsAlerts({
       shift: shift || undefined,
       sectorId: sector ? Number(sector) : undefined,
@@ -801,6 +811,19 @@ export default function OperationsDataPage() {
         </div>
       )}
 
+      {tab === 'weighings' && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            data-testid="toggle-vehicle-kinds"
+            onClick={() => setShowKinds((v) => !v)}
+            className="rounded-xl border bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            {showKinds ? 'إخفاء حدود الأوزان' : 'حدود الأوزان حسب نوع الآلية'}
+          </button>
+          {showKinds && <VehicleKindsPanel />}
+        </div>
+      )}
       {tab === 'summary' && rows.length > 0 && (
         <OperationsPulse
           items={[
@@ -902,7 +925,29 @@ export default function OperationsDataPage() {
                 >
                   {visible.map((key) => (
                     <td key={key} className="max-w-72 p-4 leading-6 text-slate-700">
-                      {key === 'trip_timeline' && row.departure_id ? (
+                      {key === 'weighing_actions' ? (
+                        row.completed_at ? (
+                          <button
+                            type="button"
+                            data-testid={`correct-weighing-${String(row.visit_id)}`}
+                            onClick={() =>
+                              setCorrection({
+                                visitLegId: String(row.visit_id),
+                                dbNumber: String(row.db_number ?? ''),
+                                driverName: String(row.driver_name ?? ''),
+                                weightTons: row.weight_tons == null ? null : Number(row.weight_tons),
+                                destination: (row.destination as WeighingCorrectionTarget['destination']) ?? null,
+                                vehicleKind: row.vehicle_kind ? String(row.vehicle_kind) : null,
+                              })
+                            }
+                            className="rounded-lg bg-orange-50 px-3 py-2 text-[11px] font-black text-orange-800"
+                          >
+                            تصحيح الوزن
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">لم تكتمل بعد</span>
+                        )
+                      ) : key === 'trip_timeline' && row.departure_id ? (
                         <button
                           type="button"
                           data-testid={`trip-timeline-${String(row.departure_id)}`}
@@ -1002,6 +1047,7 @@ export default function OperationsDataPage() {
         />
       )}
       {driverTarget && <DepartureDriverDialog target={driverTarget} onClose={() => setDriverTarget(null)} />}
+      {correction && <WeighingCorrectionDialog target={correction} onClose={() => setCorrection(null)} />}
       {tripTimeline && (
         <TripTimelineDialog departureId={tripTimeline.departureId} title={tripTimeline.title} onClose={() => setTripTimeline(null)} />
       )}

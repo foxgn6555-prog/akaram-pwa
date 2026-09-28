@@ -193,4 +193,8 @@ export interface WorkflowRow {
   weigh_wait_minutes: number | null
   process_minutes: number | null
   stay_minutes: number | null
+  /** أثر تصحيح غرفة العمليات (00149) */
+  corrected_at?: string | null
+  correction_reason?: string | null
+  correction_count?: number
 }

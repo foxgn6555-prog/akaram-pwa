@@ -415,3 +415,77 @@ begin
   assert (select trip_status from public.operational_vehicle_kpis(current_date - 1, current_date) where departure_id = did2) = 'to_station', 'L11: الحالة to_station';
   raise notice 'L11 ok';
 end $$;
+
+-- ═══════════ L12 · (00149) تصحيح الوزن: غرفة العمليات فقط، بسبب، مع إعادة احتساب المخالفة والدفتر والتدقيق ═══════════
+do $$
+declare did uuid := current_setting('test.dep')::uuid; bad public.vehicle_trip_legs; good public.vehicle_trip_legs; s public.ts_visit_weighing_steps; n int;
+begin
+  select l.* into bad from public.vehicle_trip_legs l join public.ts_visit_weighing_steps st on st.visit_leg_id = l.id where l.departure_id = did and st.violation limit 1;
+  select l.* into good from public.vehicle_trip_legs l join public.ts_visit_weighing_steps st on st.visit_leg_id = l.id where l.departure_id = did and not st.violation limit 1;
+  assert bad.id is not null and good.id is not null, 'L12: زيارتان (مخالفة/سليمة)';
+  assert (select count(*) from public.ts_weight_records where step_id is not null and db_number = 'DB-LC1') = 2, 'L12: صفّا الدفتر مرتبطان بالخطوتين';
+  -- المحطة لا تصحح، وغرفة العمليات تحتاج سبباً
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  perform pg_temp.expect_error(format('select public.ops_correct_weighing(%L::uuid, 6.5, %L, %L, %L)', bad.id, 'press', 'compactor_large', 'خطأ إدخال'), 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error(format('select public.ops_correct_weighing(%L::uuid, 6.5, %L, %L, %L)', bad.id, 'press', 'compactor_large', ''), 'OPS_CORRECTION_REASON_REQUIRED');
+  perform pg_temp.expect_error(format('select public.ops_correct_weighing(%L::uuid, 0, %L, %L, %L)', bad.id, 'press', 'compactor_large', 'سبب'), 'STATION_WEIGHT_INVALID');
+  perform pg_temp.expect_error(format('select public.ops_correct_weighing(%L::uuid, 6.5, %L, %L, %L)', bad.id, 'press', 'kia', 'سبب'), 'STATION_KIND_DESTINATION_INVALID');
+  -- تصحيح المخالفة إلى وزن سليم ⇒ تُرفع المخالفة ويُحدَّث الدفتر ويُسجَّل التدقيق
+  s := public.ops_correct_weighing(bad.id, 6.5, 'press', 'compactor_large', 'خطأ إدخال من موظف المحطة (الميزان أظهر 6.5)');
+  assert s.weight_tons = 6.5 and s.violation = false and s.deficit_tons is null and s.correction_count = 1 and s.corrected_by = 'c0c00000-0000-0000-0000-000000000005', 'L12: الخطوة صُححت';
+  assert not exists (select 1 from public.ts_violations where step_id = s.id), 'L12: المخالفة أُزيلت';
+  assert (select net_weight from public.ts_weight_records where step_id = s.id) = 6.5, 'L12: الدفتر تبع التصحيح';
+  assert exists (select 1 from public.audit_logs where table_name = 'ts_visit_weighing_steps' and record_id = s.id::text and operation = 'CORRECT_WEIGHING' and (old_row->>'weight_tons')::numeric = 4.5 and (new_row->>'weight_tons')::numeric = 6.5), 'L12: سجل تدقيق قبل/بعد';
+  assert exists (select 1 from public.notifications where user_id = 'c0c00000-0000-0000-0000-000000000003' and title like '%صحّحت غرفة العمليات%'), 'L12: أُبلغت المحطة';
+  assert (select count(*) from public.ts_violations_list(current_date) where db_number = 'DB-LC1') = 0, 'L12: سجل المخالفات فارغ بعد التصحيح';
+  -- تصحيح الزيارة السليمة إلى وزن ناقص ⇒ تُنشأ مخالفة
+  s := public.ops_correct_weighing(good.id, 5.0, 'transfer_station', 'compactor_large', 'مراجعة كاميرا الميزان');
+  assert s.violation and s.deficit_tons = 1.0, 'L12: مخالفة جديدة بعد التصحيح';
+  assert (select count(*) from public.ts_violations where step_id = s.id) = 1, 'L12: سجل مخالفة واحد';
+  select count(*) into n from public.ops_station_workflow_range(current_date - 7, current_date) where departure_id = did and violation;
+  assert n = 1, format('L12: تقرير الأوزان يعكس المخالفة الجديدة فقط (فعلي %s)', n);
+  assert (select count(*) from public.ops_station_workflow_range(current_date - 7, current_date) where departure_id = did and corrected_at is not null and correction_count >= 1) = 2, 'L12: التقرير يحمل أثر التصحيح';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  assert (select count(*) from public.station_visits_for_day(current_date) where departure_id = did and step_corrected_at is not null) = 2, 'L12: المحطة ترى أن الوزن صُحح';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  -- إعادة التصحيح مرة ثانية تزيد العدّاد وتحدّث المخالفة بدل تكرارها
+  s := public.ops_correct_weighing(good.id, 5.5, 'transfer_station', 'compactor_large', 'تدقيق نهائي');
+  assert s.correction_count = 2 and s.deficit_tons = 0.5 and (select deficit_tons from public.ts_violations where step_id = s.id) = 0.5, 'L12: تحديث المخالفة القائمة';
+  -- زيارة غير مكتملة لا تُصحَّح
+  perform pg_temp.expect_error(format('select public.ops_correct_weighing(%L::uuid, 6, %L, %L, %L)', (select l.id from public.vehicle_trip_legs l where l.departure_id = current_setting('test.dep2')::uuid and l.destination_type = 'transfer_station' limit 1), 'press', 'compactor_large', 'سبب'), 'OPS_CORRECTION_NOT_COMPLETED');
+  raise notice 'L12 ok';
+end $$;
+
+-- ═══════════ L13 · (00149) حدود الأوزان لكل نوع: غرفة العمليات تديرها، المحطة تلتزم بها ═══════════
+do $$
+declare k public.ts_vehicle_kinds; d public.garage_departures; l public.vehicle_trip_legs; s public.ts_visit_weighing_steps;
+begin
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  perform pg_temp.expect_error('select public.ops_ts_vehicle_kind_save(''kia'', ''كيا'', 3, null, ''transfer_station'')', 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error('select public.ops_ts_vehicle_kind_save(''Bad Code'', ''x'', 3, null, ''transfer_station'')', 'TS_KIND_CODE_INVALID');
+  perform pg_temp.expect_error('select public.ops_ts_vehicle_kind_save(''kia'', ''كيا'', 0, null, ''transfer_station'')', 'TS_KIND_MIN_INVALID');
+  perform pg_temp.expect_error('select public.ops_ts_vehicle_kind_save(''kia'', ''كيا'', 5, 4, ''transfer_station'')', 'TS_KIND_MAX_INVALID');
+  -- رفع الحد الأدنى للكابسة الكبيرة إلى 7 ⇒ الوزن 6.5 القادم يصبح مخالفة
+  k := public.ops_ts_vehicle_kind_save('compactor_large', 'كابسة كبيرة', 7, 9, 'both', 3, true);
+  assert k.min_tons = 7 and k.max_tons = 9 and k.updated_by = 'c0c00000-0000-0000-0000-000000000005', 'L13: تحديث الحدود';
+  assert exists (select 1 from public.audit_logs where table_name = 'ts_vehicle_kinds' and record_id = 'compactor_large' and operation = 'SAVE_VEHICLE_KIND' and (old_row->>'min_tons')::numeric = 6), 'L13: تدقيق التغيير';
+  -- نوع جديد ثم تعطيله
+  k := public.ops_ts_vehicle_kind_save('trailer_20', 'مقطورة 20', 12, null, 'transfer_station', 9, true);
+  assert (select count(*) from public.ts_vehicle_kinds_list(false) where kind = 'trailer_20') = 1, 'L13: النوع الجديد ظاهر للمحطة';
+  k := public.ops_ts_vehicle_kind_save('trailer_20', 'مقطورة 20', 12, null, 'transfer_station', 9, false);
+  assert (select count(*) from public.ts_vehicle_kinds_list(false) where kind = 'trailer_20') = 0 and (select count(*) from public.ts_vehicle_kinds_list(true) where kind = 'trailer_20') = 1, 'L13: المعطّل يختفي عن المحطة ويبقى لغرفة العمليات';
+  -- المحطة: الآلية الثانية (داخل المحطة منذ L8) تُوزن 6.5 بالكابسة الكبيرة ⇒ مخالفة بالحد الجديد 7، والنوع المعطّل مرفوض
+  select * into d from public.garage_departures where vehicle_id = 'c0c0a000-0000-0000-0000-000000000002' and returned_at is null;
+  select * into l from public.vehicle_trip_legs where departure_id = d.id and destination_type = 'transfer_station' order by sequence_no desc limit 1;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  perform public.ts_record_weighing(l.id, 6.5);
+  perform pg_temp.expect_error(format('select public.ts_complete_weighing(%L::uuid, %L, %L)', l.id, 'transfer_station', 'trailer_20'), 'STATION_KIND_INVALID');
+  s := public.ts_complete_weighing(l.id, 'transfer_station', 'compactor_large');
+  assert s.violation and s.deficit_tons = 0.5, format('L13: 6.5 < 7 ⇒ مخالفة 0.5 (فعلي %s)', s.deficit_tons);
+  -- إعادة الحد الأصلي كي لا تتأثر أقسام لاحقة
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform public.ops_ts_vehicle_kind_save('compactor_large', 'كابسة كبيرة', 6, 8, 'both', 3, true);
+  raise notice 'L13 ok';
+end $$;

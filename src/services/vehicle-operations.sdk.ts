@@ -70,6 +70,8 @@ export interface StationVisit {
   step_weighed_at?: string | null
   step_completed_at?: string | null
   step_violation?: boolean
+  step_corrected_at?: string | null
+  step_correction_reason?: string | null
 }
 export interface MaintenanceDispatchState {
   case_id?: string
