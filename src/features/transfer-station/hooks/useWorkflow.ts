@@ -10,6 +10,16 @@ export const workflowKeys = {
   violations: (day?: string) => ['transfer-station', 'violations', day ?? 'all'] as const,
   carrier: (month?: string) => ['transfer-station', 'carrier', month ?? 'all'] as const,
   workflow: (day?: string) => ['transfer-station', 'ops-workflow', day ?? 'all'] as const,
+  workflowRange: (from: string, to: string) => ['transfer-station', 'ops-workflow-range', from, to] as const,
+}
+
+/** أوزان المحطة ضمن نطاق التاريخ المختار في صفحة تقارير غرفة العمليات */
+export function useOpsWorkflowRange(from: string, to: string) {
+  return useQuery({
+    queryKey: workflowKeys.workflowRange(from, to),
+    queryFn: () => transferStation.opsWorkflowRange(from, to),
+    enabled: Boolean(from && to),
+  })
 }
 
 /** سجل مخالفات الوزن — الأقل من الحد الأدنى */

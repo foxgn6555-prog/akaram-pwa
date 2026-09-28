@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   setDriver: vi.fn(),
+  workflowRange: vi.fn(),
   excel: vi.fn(),
   gbs: [
     {
@@ -157,7 +158,10 @@ const summary = {
   area_name: 'أرخيته',
   manager_name: 'مسؤول',
   started_at: '2026-09-09T06:00:00Z',
+  work_started_at: '2026-09-09T06:20:00Z',
+  site_departed_at: '2026-09-09T13:40:00Z',
   completed_at: '2026-09-09T14:00:00Z',
+  trip_status: 'returned',
   total_minutes: 480,
   movement_minutes: 60,
   productive_minutes: 300,
@@ -169,7 +173,7 @@ const summary = {
   breakdown_count: 1,
   maintenance_count: 1,
 }
-vi.mock('@features/transfer-station', () => ({ useOpsWorkflow: () => ({ data: h.weighings }), useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
+vi.mock('@features/transfer-station', () => ({ useOpsWorkflowRange: (from: string, to: string) => { h.workflowRange(from, to); return { data: h.weighings, isLoading: false } }, useSectorTonnage: () => ({ data: [{ parent_sector: 'karrada', inbound_count: 4, inbound_tons: 31.5, press_tons: 20, station_tons: 11.5, violation_count: 1 }], isLoading: false }) }))
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useOpsAlerts: () => ({
     data: [
@@ -190,7 +194,40 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
     ],
   }),
   useOpsVehicleKpis: () => ({ data: [summary] }),
-  useOpsMovements: () => ({ data: [] }),
+  useOpsMovements: () => ({
+    data: [
+      {
+        leg_id: 'l1',
+        departure_id: 'd1',
+        vehicle_name: 'كابسة',
+        db_number: 'DB-1',
+        driver_name: 'علي',
+        shift: 'morning',
+        sector_id: 1,
+        area_name: 'أرخيته',
+        manager_name: 'مسؤول',
+        origin_type: 'work_site',
+        destination_type: 'transfer_station',
+        origin_label: 'موقع العمل',
+        destination_label: 'المحطة التحويلية',
+        departed_at: '2026-09-09T08:00:00Z',
+        arrived_at: null,
+        duration_minutes: null,
+      },
+    ],
+  }),
+  useOpsDepartureTimeline: (id: string | null) => ({
+    data: id
+      ? [
+          { event_key: 'departure:garage', event_type: 'departure', title: 'انطلقت من الكراج المركزي', details: 'السائق علي · صباحي · أرخيته', happened_at: '2026-09-09T06:00:00Z', minutes_since_prev: 0, sequence_no: 1 },
+          { event_key: 'departure:site-arrived', event_type: 'work_start', title: 'وصلت موقع العمل — بدء العمل الفعلي', details: null, happened_at: '2026-09-09T06:20:00Z', minutes_since_prev: 20, sequence_no: 2 },
+          { event_key: 'weighing:w1', event_type: 'weighing', title: 'وزن في المحطة — نقص عن الحد الأدنى', details: '3.50 طن · المكبس · النقص 1.50 طن عن الحد 5', happened_at: '2026-09-09T09:00:00Z', minutes_since_prev: 160, sequence_no: 3 },
+          { event_key: 'departure:returned', event_type: 'departure', title: 'عادت إلى الكراج المركزي — انتهاء الانطلاقية', details: null, happened_at: '2026-09-09T14:00:00Z', minutes_since_prev: 300, sequence_no: 4 },
+        ]
+      : [],
+    isLoading: false,
+    isError: false,
+  }),
   useOpsStationVisits: () => ({
     data: [
       {
@@ -440,5 +477,51 @@ describe('تقارير غرفة العمليات المركبة', () => {
       { departureId: 'd1', driverEmployeeId: 'e0000000-0000-0000-0000-000000000002', reason: 'السائق الفعلي حسب البصمة' },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
+  })
+  it('الملخص يعرض حالة الرحلة وبدء العمل الفعلي (وصول الموقع) ومغادرة الموقع بمسمّيات عربية', () => {
+    render(<OperationsDataPage />)
+    expect(screen.getByRole('columnheader', { name: 'بدء العمل الفعلي (وصول الموقع)' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'مغادرة الموقع' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'عادت إلى الكراج' })).toBeInTheDocument()
+  })
+  it('تسلسل الرحلة الكامل يُفتح من الملخص ويعرض الأحداث بترتيبها مع الفروق الزمنية', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('trip-timeline-d1'))
+    const dialog = screen.getByTestId('trip-timeline-dialog')
+    expect(within(dialog).getByText(/كابسة · DB DB-1 · علي/)).toBeInTheDocument()
+    expect(within(dialog).getByTestId('trip-timeline-span')).toHaveTextContent('4 حدثاً · 8 س 0 د')
+    const items = within(dialog).getAllByRole('listitem')
+    expect(items).toHaveLength(4)
+    expect(items[0]).toHaveTextContent('انطلقت من الكراج المركزي')
+    expect(items[1]).toHaveTextContent('بدء العمل الفعلي')
+    expect(items[1]).toHaveTextContent('+20 د')
+    expect(items[2]).toHaveTextContent('نقص عن الحد الأدنى')
+    expect(items[2]).toHaveTextContent('+2 س 40 د')
+    expect(items[3]).toHaveTextContent('انتهاء الانطلاقية')
+    fireEvent.click(within(dialog).getByLabelText('إغلاق'))
+    expect(screen.queryByTestId('trip-timeline-dialog')).not.toBeInTheDocument()
+  })
+  it('تبويب الحركة يعرض المسمّيات العربية للمصدر والوجهة وحالة الانتقال المشتقة', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-movements'))
+    expect(screen.getByRole('cell', { name: 'موقع العمل' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'المحطة التحويلية' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'في الطريق' })).toBeInTheDocument()
+    expect(screen.queryByText('work_site')).not.toBeInTheDocument()
+  })
+  it('أوزان المحطة تتبع نطاق التاريخ المختار في الصفحة لا يوم اليوم فقط', () => {
+    h.workflowRange.mockClear()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'آخر 7 أيام' }))
+    const [from, to] = h.workflowRange.mock.calls.at(-1) as [string, string]
+    expect(from < to).toBe(true)
+    expect(Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000)).toBe(6)
+  })
+  it('البحث لا يطابق المعرّفات الداخلية (UUID) بل البيانات المقروءة فقط', () => {
+    render(<OperationsDataPage />)
+    fireEvent.change(screen.getByPlaceholderText('آلية، سائق، منطقة…'), { target: { value: 'd1' } })
+    expect(screen.getByText('لا توجد سجلات في هذا التقرير')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('آلية، سائق، منطقة…'), { target: { value: 'DB-1' } })
+    expect(screen.queryByText('لا توجد سجلات في هذا التقرير')).not.toBeInTheDocument()
   })
 })

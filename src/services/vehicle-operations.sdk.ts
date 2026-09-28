@@ -288,6 +288,15 @@ export interface MaintenanceDay {
   total_count: number
   open_count: number
 }
+export interface TripTimelineEvent {
+  event_key: string
+  event_type: 'departure' | 'work_start' | 'movement' | 'weighing' | 'breakdown' | 'maintenance'
+  title: string
+  details: string | null
+  happened_at: string
+  minutes_since_prev: number
+  sequence_no: number
+}
 export interface OpsMovement {
   leg_id: string
   departure_id: string
@@ -297,9 +306,12 @@ export interface OpsMovement {
   driver_name: string
   shift: string
   sector_id: number
+  area_name: string
   manager_name: string
   origin_type: LocationType
   destination_type: LocationType
+  origin_label: string
+  destination_label: string
   departed_at: string
   arrived_at: string | null
   duration_minutes: number | null
@@ -647,6 +659,12 @@ export const vehicleOperations = {
     return ((await sdkGuard(
       supabase.rpc('operational_vehicle_movements', { p_from: from, p_to: to }),
     )) ?? []) as unknown as OpsMovement[]
+  },
+  /** تسلسل الرحلة الكامل لانطلاقية واحدة (غرفة العمليات) — 00148 */
+  async opsDepartureTimeline(departureId: string): Promise<TripTimelineEvent[]> {
+    return ((await sdkGuard(
+      supabase.rpc('operational_departure_timeline', { p_departure_id: departureId }),
+    )) ?? []) as unknown as TripTimelineEvent[]
   },
   async opsAttendance(from: string, to: string) {
     return ((await sdkGuard(supabase.rpc('operational_attendance', { p_from: from, p_to: to }))) ??

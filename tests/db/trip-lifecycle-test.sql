@@ -346,3 +346,72 @@ begin
   perform pg_temp.expect_error('select * from public.operational_garage_trips(current_date, current_date)', 'OPS_ROOM_FORBIDDEN');
   raise notice 'L9 ok';
 end $$;
+
+-- ═══════════ L10 · (00148) الملخص: بدء العمل الفعلي + الحالة، وتسلسل الرحلة الكامل ═══════════
+do $$
+declare did uuid := current_setting('test.dep')::uuid; did2 uuid := current_setting('test.dep2')::uuid; k record; n int; e record; prev timestamptz;
+begin
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  select * into k from public.operational_vehicle_kpis(current_date - 1, current_date) where departure_id = did;
+  assert k.work_started_at is not null and k.work_started_at > k.started_at, 'L10: بدء العمل الفعلي = وصول الموقع بعد الانطلاق';
+  assert k.site_departed_at is not null and k.completed_at >= k.site_departed_at, 'L10: مغادرة الموقع قبل العودة للكراج';
+  assert k.trip_status = 'returned', format('L10: حالة الرحلة المغلقة returned (فعلي %s)', k.trip_status);
+  assert k.driver_employee_id is not null, 'L10: الملخص يحمل هوية السائق الوظيفية';
+  select * into k from public.operational_vehicle_kpis(current_date - 1, current_date) where departure_id = did2;
+  assert k.trip_status = 'to_site' and k.work_started_at is null, format('L10: انطلاقة لم تصل بعد = to_site (فعلي %s)', k.trip_status);
+  -- آلية L8 الثانية داخل المحطة
+  assert exists (select 1 from public.operational_vehicle_kpis(current_date - 1, current_date) where trip_status = 'at_station' and db_number = 'DB-LC2'), 'L10: الآلية الثانية at_station';
+
+  -- تسلسل الرحلة: مرتب زمنياً، يبدأ بالكراج وينتهي بالعودة، ويضم كل الأحداث
+  select count(*) into n from public.operational_departure_timeline(did);
+  assert n >= 22, format('L10: تسلسل غني (فعلي %s حدثاً)', n);
+  prev := null;
+  for e in select * from public.operational_departure_timeline(did) loop
+    assert prev is null or e.happened_at >= prev, 'L10: التسلسل مرتب زمنياً';
+    assert e.minutes_since_prev >= 0, 'L10: لا فروق سالبة';
+    prev := e.happened_at;
+  end loop;
+  assert (select event_key from public.operational_departure_timeline(did) order by sequence_no limit 1) = 'departure:garage', 'L10: يبدأ بالانطلاق من الكراج';
+  assert (select event_key from public.operational_departure_timeline(did) order by sequence_no desc limit 1) = 'departure:returned', 'L10: ينتهي بالعودة للكراج';
+  assert (select count(*) from public.operational_departure_timeline(did) where event_type = 'weighing' and title like '%نقص%') = 1, 'L10: حدث وزن ناقص واحد';
+  assert (select count(*) from public.operational_departure_timeline(did) where event_type = 'weighing') = 4, 'L10: وزنان + اكتمالان';
+  assert (select count(*) from public.operational_departure_timeline(did) where event_type = 'breakdown') >= 1, 'L10: بلاغ العطل ضمن التسلسل';
+  assert (select count(*) from public.operational_departure_timeline(did) where event_type = 'maintenance') >= 5, 'L10: مراحل الصيانة ضمن التسلسل';
+  assert (select count(*) from public.operational_departure_timeline(did) where event_key = 'departure:site-arrived' and event_type = 'work_start') = 1, 'L10: بدء العمل الفعلي حدث مستقل';
+  assert not exists (select 1 from public.operational_departure_timeline(did) where title ~ '(work_site|transfer_station)'), 'L10: لا رموز إنجليزية في العناوين';
+  -- التسلسل مقتصر على غرفة العمليات
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform pg_temp.expect_error(format('select * from public.operational_departure_timeline(%L::uuid)', did), 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error('select * from public.operational_departure_timeline(gen_random_uuid())', 'OPS_DEPARTURE_NOT_FOUND');
+  raise notice 'L10 ok';
+end $$;
+
+-- ═══════════ L11 · (00148) أوزان المحطة بنطاق تاريخ، الحركة بمسمّيات عربية، التنبيهات بلا رموز ═══════════
+do $$
+declare did uuid := current_setting('test.dep')::uuid; did2 uuid := current_setting('test.dep2')::uuid; n int; m record;
+begin
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  select count(*) into n from public.ops_station_workflow_range(current_date - 7, current_date) where departure_id = did;
+  assert n = 2, format('L11: نطاق أسبوع يشمل زيارتي المحطة (فعلي %s)', n);
+  select count(*) into n from public.ops_station_workflow_range(current_date - 30, current_date - 8) where departure_id = did;
+  assert n = 0, 'L11: نطاق سابق لا يشمل الزيارات';
+  assert (select count(*) from public.ops_station_workflow_range(current_date - 7, current_date) where departure_id = did and violation) = 1, 'L11: مخالفة واحدة في النطاق';
+  perform pg_temp.expect_error('select * from public.ops_station_workflow_range(current_date, current_date - 1)', 'OPS_DATE_RANGE_INVALID');
+  perform pg_temp.expect_error('select * from public.ops_station_workflow_range(current_date - 400, current_date)', 'OPS_DATE_RANGE_INVALID');
+  -- الحركة
+  perform pg_temp.expect_error('select * from public.operational_vehicle_movements(current_date - 400, current_date)', 'OPS_DATE_RANGE_INVALID');
+  select * into m from public.operational_vehicle_movements(current_date - 1, current_date) where departure_id = did and destination_type = 'transfer_station' order by departed_at limit 1;
+  assert m.origin_label = 'موقع العمل' and m.destination_label = 'المحطة التحويلية' and m.area_name is not null, 'L11: مسمّيات عربية + اسم المنطقة';
+  -- التنبيه: انتقال مفتوح بتفاصيل عربية
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_arrival(did2);
+  perform public.sector_send_vehicle_to_station(did2);
+  update public.vehicle_trip_legs set departed_at = now() - interval '50 min' where departure_id = did2 and arrived_at is null;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  select * into m from public.operational_live_alerts() where departure_id = did2 and alert_type = 'leg_transit_delay';
+  assert m.alert_id is not null, 'L11: تنبيه تأخر الانتقال';
+  assert m.details like '%موقع العمل%' and m.details like '%المحطة التحويلية%' and m.details !~ '(work_site|transfer_station)', format('L11: تفاصيل عربية (فعلي %s)', m.details);
+  assert (select trip_status from public.operational_vehicle_kpis(current_date - 1, current_date) where departure_id = did2) = 'to_station', 'L11: الحالة to_station';
+  raise notice 'L11 ok';
+end $$;

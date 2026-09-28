@@ -220,6 +220,12 @@ export const useOpsMovements = (from: string, to: string) =>
     queryFn: () => vehicleOperations.opsMovements(from, to),
     enabled: Boolean(from && to),
   })
+export const useOpsDepartureTimeline = (departureId: string | null) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'ops-departure-timeline', departureId],
+    queryFn: () => vehicleOperations.opsDepartureTimeline(departureId as string),
+    enabled: Boolean(departureId),
+  })
 export const useOpsAttendance = (from: string, to: string) =>
   useQuery({
     queryKey: ['vehicle-operations', 'ops-attendance', from, to],

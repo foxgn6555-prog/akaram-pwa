@@ -19,6 +19,7 @@ export {
   useCarrierList,
   useCreateCarrier,
   useOpsWorkflow,
+  useOpsWorkflowRange,
   useOpsDailyReport,
   useSectorTonnage,
   useSendDailyToDeputy,

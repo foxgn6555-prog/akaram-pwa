@@ -100,7 +100,7 @@ node scripts/db-migrations-test.mjs tests/db/executive-suite-test.sql
 | X10 | كل ناشر يرى صادره فقط، والمدير المفوض يرى الكل |
 | X11 | التبليغ المنتهي لا يظهر في الوارد ولا يُحتسب في غير المقروء |
 
-## `trip-lifecycle-test.sql` (00147 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
+## `trip-lifecycle-test.sql` (00147 + 00148 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
 ```bash
 node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 ```
@@ -115,3 +115,5 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - **L7** تقارير غرفة العمليات (`ops_vehicle_kpis`، `ops_garage_trips`، حركة الآليات، زيارات المحطة) تعكس الدقائق نفسها بدون تعارض.
 - **L8** التنبيهات الحية: تأخر الوصول من الكراج + بقاء طويل في المحطة.
 - **L9** العزل: غير غرفة العمليات لا يقرأ التقارير.
+- **L10** (00148) الملخص يحمل `work_started_at` (بدء العمل الفعلي = وصول الموقع)، `site_departed_at`، `trip_status` (to_site/at_site/to_station/at_station/to_maintenance/at_maintenance/to_garage/returned/breakdown)، `driver_employee_id`؛ `operational_departure_timeline` مرتب زمنياً ويبدأ بالكراج وينتهي بالعودة ويضم الوزن/المخالفة/العطل/الصيانة، بلا رموز إنجليزية، مقصور على غرفة العمليات، ويرفض معرّفاً مجهولاً.
+- **L11** (00148) `ops_station_workflow_range` (نطاق تاريخ + تحقق ≤366 يوماً)، `operational_vehicle_movements` (تحقق النطاق + `origin_label/destination_label/area_name`)، تفاصيل `operational_live_alerts` عربية بالكامل.

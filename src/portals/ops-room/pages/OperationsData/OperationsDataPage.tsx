@@ -22,12 +22,13 @@ import {
   useOpsStationVisits,
   useOpsVehicleKpis,
 } from '@features/vehicle-operations/hooks'
-import { useOpsWorkflow, useSectorTonnage } from '@features/transfer-station'
+import { useOpsWorkflowRange, useSectorTonnage } from '@features/transfer-station'
 import { useGbsContainers } from '@features/gbs/hooks'
 import { GBS_STATUS_META, GBS_STATUS_ORDER } from '@features/gbs/statusMeta'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDriverDialog'
+import { TripTimelineDialog } from './TripTimelineDialog'
 
 export type OperationsTab =
   | 'alerts'
@@ -84,8 +85,13 @@ const labels: Record<string, string> = {
   sector_id: 'المنطقة',
   area_name: 'اسم المنطقة',
   manager_name: 'مسؤول القسم',
-  started_at: 'بداية الرحلة',
-  completed_at: 'نهاية الرحلة',
+  started_at: 'الانطلاق من الكراج',
+  work_started_at: 'بدء العمل الفعلي (وصول الموقع)',
+  site_departed_at: 'مغادرة الموقع',
+  completed_at: 'العودة إلى الكراج',
+  trip_status: 'حالة الرحلة',
+  trip_timeline: 'تسلسل الرحلة',
+  origin_label: 'من',
   total_minutes: 'المدة الكلية',
   movement_minutes: 'وقت الحركة',
   productive_minutes: 'وقت العمل المنتج',
@@ -155,7 +161,10 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'shift',
     'area_name',
     'manager_name',
+    'trip_status',
     'started_at',
+    'work_started_at',
+    'site_departed_at',
     'completed_at',
     'total_minutes',
     'movement_minutes',
@@ -167,6 +176,7 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'station_visit_count',
     'breakdown_count',
     'maintenance_count',
+    'trip_timeline',
   ],
   alerts: [
     'severity',
@@ -189,7 +199,7 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'shift',
     'area_name',
     'manager_name',
-    'origin_type',
+    'origin_label',
     'destination_type',
     'departed_at',
     'arrived_at',
@@ -322,6 +332,25 @@ const values: Record<string, string> = {
   completed: 'مكتملة',
   returned: 'عادت إلى الكراج',
   work_site: 'موقع العمل',
+  transfer_station: 'المحطة التحويلية',
+  to_site: 'في الطريق إلى الموقع',
+  to_station: 'في الطريق إلى المحطة',
+  to_maintenance: 'في الطريق إلى الصيانة',
+  to_garage: 'في الطريق إلى الكراج',
+  breakdown: 'عطل مفتوح في الموقع',
+  diagnosing: 'قيد التشخيص',
+  waiting_parts: 'بانتظار القطع',
+  in_repair: 'قيد الإصلاح',
+  paused: 'متوقفة مؤقتاً',
+  ready: 'جاهزة',
+  to_work: 'في الطريق إلى العمل',
+  returned_to_work: 'عادت إلى العمل',
+  closed_at_garage: 'أُغلقت في الكراج',
+  leg_transit_delay: 'تأخر انتقال',
+  station_stay_delay: 'طول البقاء في المحطة',
+  maintenance_no_update: 'الصيانة دون تحديث',
+  trip_stale: 'رحلة مفتوحة دون تحديث',
+  breakdown_stale: 'عطل مفتوح دون حسم',
   back_to_site: 'العودة إلى موقع العمل',
   back_to_garage: 'العودة إلى الكراج',
   garage_arrival_delay: 'تأخر الوصول من الكراج',
@@ -345,7 +374,7 @@ const links: Record<string, string> = {
   '/transfer-station/vehicle-movements': 'محطة التحويل — حركة الآليات',
 }
 function readableValue(key: string, value: unknown) {
-  if (key === 'timeline') return 'متاح داخل المنصة'
+  if (key === 'timeline' || key === 'trip_timeline') return 'متاح داخل المنصة'
   if (value === null || value === undefined || value === '') return '—'
   if (dateKeys(key)) return dateTime(value)
   if (minuteKeys(key)) return minutes(value)
@@ -368,7 +397,8 @@ export default function OperationsDataPage() {
     [showColumns, setShowColumns] = useState(false),
     [columnChoice, setColumnChoice] = useState<Partial<Record<OperationsTab, string[]>>>({}),
     [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null),
-    [driverTarget, setDriverTarget] = useState<DepartureDriverTarget | null>(null)
+    [driverTarget, setDriverTarget] = useState<DepartureDriverTarget | null>(null),
+    [tripTimeline, setTripTimeline] = useState<{ departureId: string; title: string } | null>(null)
   const alertQuery = useOpsAlerts({
       shift: shift || undefined,
       sectorId: sector ? Number(sector) : undefined,
@@ -384,14 +414,14 @@ export default function OperationsDataPage() {
     garage = useOpsGarageTrips(from, to),
     maintenance = useOpsMaintenance(from, to),
     attendance = useOpsAttendance(from, to)
-  const weighings = useOpsWorkflow()
+  const weighings = useOpsWorkflowRange(from, to)
   const sectorsTonnage = useSectorTonnage(from, to)
   const gbsContainers = useGbsContainers(null, null, null, null)
   const allSources = useMemo<Record<OperationsTab, Row[]>>(
     () => ({
       alerts: (alertQuery.data ?? []) as unknown as Row[],
       summary: kpis.data ?? [],
-      movements: (movements.data ?? []) as unknown as Row[],
+      movements: (movements.data ?? []).map((m) => ({ ...m, status: m.arrived_at ? 'arrived' : 'in_transit' })) as unknown as Row[],
       station: station.data ?? [],
       weighings: (weighings.data ?? []) as unknown as Row[],
       sectors: (sectorsTonnage.data ?? []).map((row) => ({
@@ -433,7 +463,9 @@ export default function OperationsDataPage() {
   const rows = useMemo(
     () =>
       source.filter((row) => {
-        const text = JSON.stringify(row).toLowerCase()
+        const text = JSON.stringify(
+          Object.fromEntries(Object.entries(row).filter(([k]) => !k.endsWith('_id') && k !== 'alert_id')),
+        ).toLowerCase()
         return (
           (!search || text.includes(search.toLowerCase())) &&
           (!shift || row.shift === shift) &&
@@ -463,7 +495,7 @@ export default function OperationsDataPage() {
   const activeFilterCount = [search, shift, parentSector, sector, tab === 'alerts' ? severity : ''].filter(
     Boolean,
   ).length
-  const isLoading = [alertQuery, kpis, movements, station, garage, maintenance, attendance, sectorsTonnage, gbsContainers].some(
+  const isLoading = [alertQuery, kpis, movements, station, weighings, garage, maintenance, attendance, sectorsTonnage, gbsContainers].some(
     (query) => query.isLoading,
   )
   const setRange = (days: number) => {
@@ -870,7 +902,21 @@ export default function OperationsDataPage() {
                 >
                   {visible.map((key) => (
                     <td key={key} className="max-w-72 p-4 leading-6 text-slate-700">
-                      {key === 'timeline' && row.case_id ? (
+                      {key === 'trip_timeline' && row.departure_id ? (
+                        <button
+                          type="button"
+                          data-testid={`trip-timeline-${String(row.departure_id)}`}
+                          onClick={() =>
+                            setTripTimeline({
+                              departureId: String(row.departure_id),
+                              title: `${String(row.vehicle_name)} · DB ${String(row.db_number)} · ${String(row.driver_name ?? '')}`,
+                            })
+                          }
+                          className="rounded-lg bg-cyan-50 px-3 py-2 text-[11px] font-black text-cyan-800"
+                        >
+                          فتح التسلسل
+                        </button>
+                      ) : key === 'timeline' && row.case_id ? (
                         <button
                           onClick={() =>
                             setTimeline({
@@ -956,6 +1002,9 @@ export default function OperationsDataPage() {
         />
       )}
       {driverTarget && <DepartureDriverDialog target={driverTarget} onClose={() => setDriverTarget(null)} />}
+      {tripTimeline && (
+        <TripTimelineDialog departureId={tripTimeline.departureId} title={tripTimeline.title} onClose={() => setTripTimeline(null)} />
+      )}
     </section>
   )
 }

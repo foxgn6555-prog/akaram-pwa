@@ -315,6 +315,16 @@ export const transferStation = {
   },
 
   /** جدول غرفة العمليات الاحترافي لسير عمل المحطة بكل الأزمنة */
+  /** أوزان المحطة ضمن نطاق تاريخ (غرفة العمليات) — 00148 */
+  async opsWorkflowRange(from: string, to: string, search?: string): Promise<WorkflowRow[]> {
+    const res = await supabase.rpc('ops_station_workflow_range', {
+      p_from: from,
+      p_to: to,
+      p_search: search?.trim() || null,
+    })
+    if (res.error) throw new Error(res.error.message)
+    return (res.data ?? []) as WorkflowRow[]
+  },
   async opsWorkflow(day?: string, search?: string): Promise<WorkflowRow[]> {
     const res = await supabase.rpc('ops_station_workflow', {
       p_day: day ?? null,
