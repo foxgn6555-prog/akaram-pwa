@@ -566,3 +566,86 @@ begin
   perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_service_cost => 5)', c.id, 'سبب'), 'OPS_CORRECTION_NOT_COMPLETED');
   raise notice 'L15 ok';
 end $$;
+
+-- ═══════════ L16 · الكراج: التعيين اليدوي للمسؤول (المؤهل فقط) ═══════════
+do $$
+declare d public.garage_departures; open_id uuid;
+begin
+  -- الآلية الثانية لديها انطلاقة مفتوحة من L15 (في الطريق إلى الصيانة) — نغلق عبر الحالة لاحقاً؛ نختبر اليدوي على الأولى
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  select id into open_id from public.garage_departures where vehicle_id = 'c0c0a000-0000-0000-0000-000000000001' and returned_at is null;
+  if open_id is not null then
+    -- انطلاقة dep2 مفتوحة في الطريق إلى المحطة (L11): نعيدها ونغلقها بسلاسة عبر المسار الطبيعي
+    perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+    perform public.station_confirm_vehicle_arrival((select id from public.vehicle_trip_legs where departure_id = open_id and arrived_at is null));
+    perform public.ts_record_weighing((select id from public.vehicle_trip_legs where departure_id = open_id and destination_type = 'transfer_station' order by sequence_no desc limit 1), 7);
+    perform public.ts_complete_weighing((select id from public.vehicle_trip_legs where departure_id = open_id and destination_type = 'transfer_station' order by sequence_no desc limit 1), 'press', 'compactor_large');
+    perform public.station_dispatch_vehicle(open_id, 'garage');
+    perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+    perform public.garage_record_return(open_id);
+  end if;
+  -- مسؤول من قاطع آخر (منطقة 8 · زعفرانية) غير مؤهل لمنطقة 4
+  perform pg_temp.expect_error(format('select public.garage_record_shift_departure(%L::uuid, %L, null, %L::uuid)', 'c0c0a000-0000-0000-0000-000000000001', 'morning', 'c0c00000-0000-0000-0000-000000000006'), 'GARAGE_RECIPIENT_NOT_ELIGIBLE');
+  d := public.garage_record_shift_departure('c0c0a000-0000-0000-0000-000000000001', 'morning', 'تعيين يدوي', 'c0c00000-0000-0000-0000-000000000002');
+  assert d.assignment_mode = 'manual' and d.recipient_manager_id = 'c0c00000-0000-0000-0000-000000000002' and d.driver_employee_id is not null, 'L16: تعيين يدوي لمسؤول مؤهل مع هوية السائق';
+  perform set_config('test.dep3', d.id::text, false);
+  raise notice 'L16 ok';
+end $$;
+
+-- ═══════════ L17 · (00151) العطل القصير في الموقع: تنبيه غرفة العمليات، وحلّ مرن (المسؤول / المستلم / غرفة العمليات) ═══════════
+do $$
+declare did uuid := current_setting('test.dep3')::uuid; b public.sector_breakdowns; k record; n int;
+begin
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_arrival(did);
+  b := public.sector_submit_breakdown('DB-LC1', 'انثقاب إطار', 'في الموقع');
+  assert b.departure_id = did and b.status = 'logged', 'L17: البلاغ مرتبط بالانطلاقية المفتوحة';
+  perform pg_temp.expect_error('select public.sector_submit_breakdown(''DB-LC1'', ''عطل ثانٍ'')', 'BREAKDOWN_ALREADY_OPEN');
+  -- الحالة الآنية للرحلة = عطل مفتوح
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  assert (select trip_status from public.operational_vehicle_kpis(current_date, current_date) where departure_id = did) = 'breakdown', 'L17: حالة الرحلة breakdown';
+  -- بعد 4 ساعات يظهر تنبيه لغرفة العمليات
+  update public.sector_breakdowns set created_at = now() - interval '250 min' where id = b.id;
+  assert exists (select 1 from public.operational_live_alerts() where departure_id = did and alert_type = 'breakdown_stale' and severity = 'warning'), 'L17: تنبيه عطل مفتوح دون حسم';
+  -- مسؤول غريب لا يحلّه
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000006');
+  perform pg_temp.expect_error(format('select public.sector_return_vehicle_to_work(%L::uuid, %L)', b.id, 'أُصلح'), 'BREAKDOWN_OPEN_NOT_FOUND');
+  -- الصيانة لا تملك صلاحية غرفة العمليات
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
+  perform pg_temp.expect_error(format('select public.ops_resolve_breakdown(%L::uuid, %L)', did, 'أُصلح'), 'OPS_ROOM_FORBIDDEN');
+  -- غرفة العمليات تحلّه بملاحظة إلزامية ⇒ يُغلق، يُسجَّل تدقيق، يُبلَّغ المسؤول، يختفي التنبيه، وتُحتسب مدة العطل
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error(format('select public.ops_resolve_breakdown(%L::uuid, %L)', did, ''), 'BREAKDOWN_RESOLUTION_NOTES_REQUIRED');
+  b := public.ops_resolve_breakdown(did, 'بدّل السائق الإطار في الموقع');
+  assert b.status = 'resolved' and b.resolved_by = 'c0c00000-0000-0000-0000-000000000005', 'L17: حُلّ من غرفة العمليات';
+  assert exists (select 1 from public.audit_logs where table_name = 'sector_breakdowns' and record_id = b.id::text and operation = 'RESOLVE_BREAKDOWN'), 'L17: تدقيق الحل';
+  assert exists (select 1 from public.notifications where user_id = 'c0c00000-0000-0000-0000-000000000002' and title like '%حلّت غرفة العمليات%'), 'L17: أُبلغ المسؤول';
+  assert not exists (select 1 from public.operational_live_alerts() where departure_id = did and alert_type = 'breakdown_stale'), 'L17: التنبيه اختفى';
+  perform pg_temp.expect_error(format('select public.ops_resolve_breakdown(%L::uuid, %L)', did, 'مكرر'), 'BREAKDOWN_OPEN_NOT_FOUND');
+  select * into k from public.operational_vehicle_kpis(current_date, current_date) where departure_id = did;
+  assert k.breakdown_count = 1 and k.downtime_minutes >= 249 and k.trip_status = 'at_site', format('L17: مؤشرات العطل (عدد %s مدة %s حالة %s)', k.breakdown_count, k.downtime_minutes, k.trip_status);
+  assert exists (select 1 from public.operational_departure_timeline(did) where event_type = 'breakdown' and title like 'حُسم%'), 'L17: حلّ العطل في التسلسل';
+  -- المستلم الحالي (وليس صاحب البلاغ) يستطيع الحلّ: بلاغ ثانٍ بعد تغيير المستلم غير ممكن هنا؛ نتحقق من الصيغة عبر بلاغ جديد من نفس المسؤول
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  b := public.sector_submit_breakdown('DB-LC1', 'تسرب زيت');
+  b := public.sector_return_vehicle_to_work(b.id, 'أُحكم الغطاء');
+  assert b.status = 'resolved', 'L17: المسؤول يحلّ بلاغه';
+  select count(*) into n from public.sector_breakdowns where departure_id = did and status = 'resolved';
+  assert n = 2, format('L17: بلاغان محلولان (فعلي %s)', n);
+  raise notice 'L17 ok';
+end $$;
+
+-- ═══════════ L18 · (00151) قراءة البلاغات: غرفة العمليات ترى الكل، المسؤول الغريب لا يرى شيئاً ═══════════
+do $$
+declare n int;
+begin
+  set local role authenticated;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  select count(*) into n from public.sector_breakdowns where db_number = 'DB-LC1';
+  assert n >= 3, format('L18: غرفة العمليات تقرأ بلاغات DB-LC1 (فعلي %s)', n);
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000006');
+  select count(*) into n from public.sector_breakdowns where db_number = 'DB-LC1';
+  assert n = 0, format('L18: المسؤول الغريب لا يرى بلاغات قاطع آخر (فعلي %s)', n);
+  reset role;
+  raise notice 'L18 ok';
+end $$;

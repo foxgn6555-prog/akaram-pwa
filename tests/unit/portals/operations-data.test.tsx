@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   setDriver: vi.fn(),
+  resolveBreakdown: vi.fn(),
   correctCase: vi.fn(),
   saveKind: vi.fn(),
   correct: vi.fn(),
@@ -198,10 +199,12 @@ vi.mock('@features/transfer-station', async (importOriginal) => {
 })
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useCorrectMaintenanceCase: () => ({ mutate: h.correctCase, isPending: false }),
+  useOpsResolveBreakdown: () => ({ mutate: h.resolveBreakdown, isPending: false }),
   useOpsAlerts: () => ({
     data: [
       {
         alert_id: 'a1',
+        alert_type: 'maintenance_overdue',
         severity: 'critical',
         title: 'تجاوز موعد إنجاز الصيانة',
         details: 'حالة متأخرة',
@@ -211,6 +214,21 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
         threshold_minutes: 0,
         departure_id: 'd1',
         action_link: '/maintenance/vehicle-cases',
+        shift: 'morning',
+        sector_id: 1,
+      },
+      {
+        alert_id: 'a2',
+        alert_type: 'breakdown_stale',
+        severity: 'warning',
+        title: 'عطل مفتوح دون حسم',
+        details: 'العطل المفتوح للآلية DB-2: انثقاب إطار',
+        db_number: 'DB-2',
+        area_name: 'أرخيته',
+        elapsed_minutes: 250,
+        threshold_minutes: 240,
+        departure_id: 'd2',
+        action_link: '/manager/breakdown',
         shift: 'morning',
         sector_id: 1,
       },
@@ -366,7 +384,7 @@ describe('تقارير غرفة العمليات المركبة', () => {
     fireEvent.click(screen.getByTestId('ops-tab-alerts'))
     expect(screen.getByTestId('ops-alert-a1')).toHaveTextContent('تجاوز موعد إنجاز الصيانة')
     expect(screen.getByTestId('ops-alert-a1')).toHaveTextContent('حرج')
-    expect(screen.getByRole('link', { name: 'فتح جهة المعالجة' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'فتح جهة المعالجة' })[0] as HTMLElement).toHaveAttribute(
       'href',
       '/maintenance/vehicle-cases',
     )
@@ -654,5 +672,17 @@ describe('تقارير غرفة العمليات المركبة', () => {
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
+  })
+  it('تنبيه «عطل مفتوح دون حسم» يتيح لغرفة العمليات تسجيل الحلّ بملاحظة إلزامية، وبقية التنبيهات بلا زر', () => {
+    h.resolveBreakdown.mockReset()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-alerts'))
+    expect(screen.queryByTestId('resolve-breakdown-d1')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('resolve-breakdown-d2'))
+    const dialog = screen.getByTestId('resolve-breakdown-dialog')
+    expect(within(dialog).getByTestId('resolve-breakdown-submit')).toBeDisabled()
+    fireEvent.change(within(dialog).getByTestId('resolve-breakdown-notes'), { target: { value: 'بدّل السائق الإطار' } })
+    fireEvent.click(within(dialog).getByTestId('resolve-breakdown-submit'))
+    expect(h.resolveBreakdown).toHaveBeenCalledWith({ departureId: 'd2', notes: 'بدّل السائق الإطار' }, expect.objectContaining({ onSuccess: expect.any(Function) }))
   })
 })

@@ -27,6 +27,7 @@ import { useGbsContainers } from '@features/gbs/hooks'
 import { GBS_STATUS_META, GBS_STATUS_ORDER } from '@features/gbs/statusMeta'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
+import { useOpsResolveBreakdown } from '@features/vehicle-operations/hooks'
 import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDriverDialog'
 import { TripTimelineDialog } from './TripTimelineDialog'
 import { WeighingCorrectionDialog, type WeighingCorrectionTarget } from './WeighingCorrectionDialog'
@@ -101,6 +102,7 @@ const labels: Record<string, string> = {
   parts_actual_cost: 'كلفة القطع',
   completed_case_at: 'إغلاق الحالة',
   maintenance_actions: 'تصحيح',
+  alert_actions: 'إجراء',
   origin_label: 'من',
   total_minutes: 'المدة الكلية',
   movement_minutes: 'وقت الحركة',
@@ -201,6 +203,7 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'threshold_minutes',
     'elapsed_minutes',
     'action_link',
+    'alert_actions',
   ],
   movements: [
     'vehicle_name',
@@ -390,7 +393,7 @@ const links: Record<string, string> = {
   '/transfer-station/vehicle-movements': 'محطة التحويل — حركة الآليات',
 }
 function readableValue(key: string, value: unknown) {
-  if (key === 'timeline' || key === 'trip_timeline' || key === 'weighing_actions' || key === 'maintenance_actions') return 'متاح داخل المنصة'
+  if (key === 'timeline' || key === 'trip_timeline' || key === 'weighing_actions' || key === 'maintenance_actions' || key === 'alert_actions') return 'متاح داخل المنصة'
   if (value === null || value === undefined || value === '') return '—'
   if (dateKeys(key)) return dateTime(value)
   if (minuteKeys(key)) return minutes(value)
@@ -417,7 +420,10 @@ export default function OperationsDataPage() {
     [tripTimeline, setTripTimeline] = useState<{ departureId: string; title: string } | null>(null),
     [correction, setCorrection] = useState<WeighingCorrectionTarget | null>(null),
     [showKinds, setShowKinds] = useState(false),
-    [mcTarget, setMcTarget] = useState<MaintenanceCorrectionTarget | null>(null)
+    [mcTarget, setMcTarget] = useState<MaintenanceCorrectionTarget | null>(null),
+    [resolveTarget, setResolveTarget] = useState<{ departureId: string; label: string } | null>(null),
+    [resolveNotes, setResolveNotes] = useState('')
+  const resolveBreakdown = useOpsResolveBreakdown()
   const alertQuery = useOpsAlerts({
       shift: shift || undefined,
       sectorId: sector ? Number(sector) : undefined,
@@ -934,7 +940,23 @@ export default function OperationsDataPage() {
                 >
                   {visible.map((key) => (
                     <td key={key} className="max-w-72 p-4 leading-6 text-slate-700">
-                      {key === 'maintenance_actions' ? (
+                      {key === 'alert_actions' ? (
+                        row.alert_type === 'breakdown_stale' && row.departure_id ? (
+                          <button
+                            type="button"
+                            data-testid={`resolve-breakdown-${String(row.departure_id)}`}
+                            onClick={() => {
+                              setResolveNotes('')
+                              setResolveTarget({ departureId: String(row.departure_id), label: `DB ${String(row.db_number ?? '')} · ${String(row.details ?? '')}` })
+                            }}
+                            className="rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-black text-rose-800"
+                          >
+                            تسجيل حلّ العطل
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
+                        )
+                      ) : key === 'maintenance_actions' ? (
                         row.completed_at ? (
                           <button
                             type="button"
@@ -1085,6 +1107,42 @@ export default function OperationsDataPage() {
       {driverTarget && <DepartureDriverDialog target={driverTarget} onClose={() => setDriverTarget(null)} />}
       {correction && <WeighingCorrectionDialog target={correction} onClose={() => setCorrection(null)} />}
       {mcTarget && <MaintenanceCorrectionDialog target={mcTarget} onClose={() => setMcTarget(null)} />}
+      {resolveTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" data-testid="resolve-breakdown-dialog">
+          <div className="w-full max-w-md space-y-3 rounded-3xl bg-white p-5 shadow-2xl" dir="rtl">
+            <b className="block text-base text-slate-900">تسجيل حلّ العطل في الموقع</b>
+            <p className="text-xs leading-6 text-slate-500">{resolveTarget.label}</p>
+            <p className="text-[11px] leading-5 text-slate-500">يجوز الحلّ من مسؤول القسم أو المستلم الحالي أو غرفة العمليات؛ يُبلَّغ المسؤول ويُحفظ في التدقيق. العطل المحال إلى الصيانة يبقى تحت سيطرتها.</p>
+            <textarea
+              data-testid="resolve-breakdown-notes"
+              rows={3}
+              value={resolveNotes}
+              onChange={(e) => setResolveNotes(e.target.value)}
+              className="w-full rounded-xl border p-3 text-sm outline-none focus:border-rose-600"
+              placeholder="ملاحظة الحلّ (إلزامية) — مثال: بدّل السائق الإطار في الموقع"
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setResolveTarget(null)} className="rounded-xl border px-4 py-2.5 text-xs font-black">
+                إلغاء
+              </button>
+              <button
+                type="button"
+                data-testid="resolve-breakdown-submit"
+                disabled={resolveNotes.trim().length < 3 || resolveBreakdown.isPending}
+                onClick={() =>
+                  resolveBreakdown.mutate(
+                    { departureId: resolveTarget.departureId, notes: resolveNotes.trim() },
+                    { onSuccess: () => setResolveTarget(null) },
+                  )
+                }
+                className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
+              >
+                تأكيد الحلّ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {tripTimeline && (
         <TripTimelineDialog departureId={tripTimeline.departureId} title={tripTimeline.title} onClose={() => setTripTimeline(null)} />
       )}

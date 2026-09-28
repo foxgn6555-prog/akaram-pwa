@@ -669,6 +669,12 @@ export const vehicleOperations = {
       supabase.rpc('operational_vehicle_movements', { p_from: from, p_to: to }),
     )) ?? []) as unknown as OpsMovement[]
   },
+  /** حلّ العطل القصير المفتوح لانطلاقية — غرفة العمليات، بملاحظة إلزامية (00151) */
+  async opsResolveBreakdown(input: { departureId: string; notes: string }) {
+    return await sdkGuard(
+      supabase.rpc('ops_resolve_breakdown', { p_departure_id: input.departureId, p_resolution_notes: input.notes }),
+    )
+  },
   /** تصحيح حالة صيانة مكتملة — غرفة العمليات فقط، بسبب إلزامي (00150) */
   async opsCorrectMaintenanceCase(input: {
     caseId: string
