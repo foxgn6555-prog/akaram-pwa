@@ -38,6 +38,7 @@ const eventLabels: Record<MaintenanceEvent['event_type'], string> = {
   part: 'قطع الغيار',
   readiness: 'الجاهزية',
   completion: 'إكمال الدورة',
+  correction: 'تصحيح غرفة العمليات',
 }
 export async function exportMaintenanceTimeline(title: string, events: MaintenanceEvent[]) {
   const rows = events.map((event, index) => {

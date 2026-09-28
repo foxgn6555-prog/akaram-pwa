@@ -220,6 +220,8 @@ export const useOpsMovements = (from: string, to: string) =>
     queryFn: () => vehicleOperations.opsMovements(from, to),
     enabled: Boolean(from && to),
   })
+export const useCorrectMaintenanceCase = () =>
+  useAction(vehicleOperations.opsCorrectMaintenanceCase, 'صُححت بيانات حالة الصيانة وأُبلغت الصيانة')
 export const useOpsDepartureTimeline = (departureId: string | null) =>
   useQuery({
     queryKey: ['vehicle-operations', 'ops-departure-timeline', departureId],

@@ -63,7 +63,7 @@ export function MaintenanceTimelineDialog({
               {(events.data ?? []).map((event, index) => (
                 <article key={event.event_key} className="relative flex gap-3 pb-5">
                   <span
-                    className={`mt-1 size-3 shrink-0 rounded-full ring-4 ring-slate-100 ${event.event_type === 'completion' ? 'bg-emerald-500' : event.event_type === 'movement' ? 'bg-cyan-500' : event.event_type === 'part' ? 'bg-amber-500' : 'bg-violet-500'}`}
+                    className={`mt-1 size-3 shrink-0 rounded-full ring-4 ring-slate-100 ${event.event_type === 'completion' ? 'bg-emerald-500' : event.event_type === 'movement' ? 'bg-cyan-500' : event.event_type === 'part' ? 'bg-amber-500' : event.event_type === 'correction' ? 'bg-orange-500' : 'bg-violet-500'}`}
                   />
                   {index < (events.data?.length ?? 0) - 1 && (
                     <i className="absolute right-[5px] top-4 h-full w-px bg-slate-200" />

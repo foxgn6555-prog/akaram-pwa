@@ -31,6 +31,7 @@ import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDr
 import { TripTimelineDialog } from './TripTimelineDialog'
 import { WeighingCorrectionDialog, type WeighingCorrectionTarget } from './WeighingCorrectionDialog'
 import { VehicleKindsPanel } from './VehicleKindsPanel'
+import { MaintenanceCorrectionDialog, type MaintenanceCorrectionTarget } from './MaintenanceCorrectionDialog'
 
 export type OperationsTab =
   | 'alerts'
@@ -96,6 +97,10 @@ const labels: Record<string, string> = {
   corrected_at: 'صُحح في',
   correction_reason: 'سبب التصحيح',
   weighing_actions: 'إجراء',
+  service_cost: 'كلفة الخدمة',
+  parts_actual_cost: 'كلفة القطع',
+  completed_case_at: 'إغلاق الحالة',
+  maintenance_actions: 'تصحيح',
   origin_label: 'من',
   total_minutes: 'المدة الكلية',
   movement_minutes: 'وقت الحركة',
@@ -289,6 +294,9 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'estimated_cost',
     'actual_cost',
     'timeline',
+    'corrected_at',
+    'correction_reason',
+    'maintenance_actions',
   ],
   attendance: [
     'worker_name',
@@ -382,7 +390,7 @@ const links: Record<string, string> = {
   '/transfer-station/vehicle-movements': 'محطة التحويل — حركة الآليات',
 }
 function readableValue(key: string, value: unknown) {
-  if (key === 'timeline' || key === 'trip_timeline' || key === 'weighing_actions') return 'متاح داخل المنصة'
+  if (key === 'timeline' || key === 'trip_timeline' || key === 'weighing_actions' || key === 'maintenance_actions') return 'متاح داخل المنصة'
   if (value === null || value === undefined || value === '') return '—'
   if (dateKeys(key)) return dateTime(value)
   if (minuteKeys(key)) return minutes(value)
@@ -408,7 +416,8 @@ export default function OperationsDataPage() {
     [driverTarget, setDriverTarget] = useState<DepartureDriverTarget | null>(null),
     [tripTimeline, setTripTimeline] = useState<{ departureId: string; title: string } | null>(null),
     [correction, setCorrection] = useState<WeighingCorrectionTarget | null>(null),
-    [showKinds, setShowKinds] = useState(false)
+    [showKinds, setShowKinds] = useState(false),
+    [mcTarget, setMcTarget] = useState<MaintenanceCorrectionTarget | null>(null)
   const alertQuery = useOpsAlerts({
       shift: shift || undefined,
       sectorId: sector ? Number(sector) : undefined,
@@ -925,7 +934,34 @@ export default function OperationsDataPage() {
                 >
                   {visible.map((key) => (
                     <td key={key} className="max-w-72 p-4 leading-6 text-slate-700">
-                      {key === 'weighing_actions' ? (
+                      {key === 'maintenance_actions' ? (
+                        row.completed_at ? (
+                          <button
+                            type="button"
+                            data-testid={`correct-maintenance-${String(row.case_id ?? row.id)}`}
+                            onClick={() =>
+                              setMcTarget({
+                                caseId: String(row.case_id ?? row.id),
+                                dbNumber: String(row.db_number ?? ''),
+                                faultType: String(row.fault_type ?? ''),
+                                priority: (row.priority as MaintenanceCorrectionTarget['priority']) ?? 'normal',
+                                diagnosis: row.diagnosis == null ? null : String(row.diagnosis),
+                                workNotes: row.work_notes == null ? null : String(row.work_notes),
+                                partsNotes: row.parts_notes == null ? null : String(row.parts_notes),
+                                assignedTechnician: row.assigned_technician == null ? null : String(row.assigned_technician),
+                                estimatedCost: row.estimated_cost == null ? null : Number(row.estimated_cost),
+                                serviceCost: row.service_cost == null ? null : Number(row.service_cost),
+                                partsActualCost: row.parts_actual_cost == null ? null : Number(row.parts_actual_cost),
+                              })
+                            }
+                            className="rounded-lg bg-violet-50 px-3 py-2 text-[11px] font-black text-violet-800"
+                          >
+                            تصحيح البيانات
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">مفتوحة</span>
+                        )
+                      ) : key === 'weighing_actions' ? (
                         row.completed_at ? (
                           <button
                             type="button"
@@ -1048,6 +1084,7 @@ export default function OperationsDataPage() {
       )}
       {driverTarget && <DepartureDriverDialog target={driverTarget} onClose={() => setDriverTarget(null)} />}
       {correction && <WeighingCorrectionDialog target={correction} onClose={() => setCorrection(null)} />}
+      {mcTarget && <MaintenanceCorrectionDialog target={mcTarget} onClose={() => setMcTarget(null)} />}
       {tripTimeline && (
         <TripTimelineDialog departureId={tripTimeline.departureId} title={tripTimeline.title} onClose={() => setTripTimeline(null)} />
       )}

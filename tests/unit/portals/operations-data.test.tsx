@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   setDriver: vi.fn(),
+  correctCase: vi.fn(),
   saveKind: vi.fn(),
   correct: vi.fn(),
   workflowRange: vi.fn(),
@@ -196,6 +197,7 @@ vi.mock('@features/transfer-station', async (importOriginal) => {
   }
 })
 vi.mock('@features/vehicle-operations/hooks', () => ({
+  useCorrectMaintenanceCase: () => ({ mutate: h.correctCase, isPending: false }),
   useOpsAlerts: () => ({
     data: [
       {
@@ -274,6 +276,25 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
         status: 'in_repair',
         progress: 50,
       },
+      {
+        id: 'c2',
+        case_id: 'c2',
+        vehicle_name: 'كابسة',
+        db_number: 'DB-2',
+        fault_type: 'فرامل',
+        priority: 'urgent',
+        status: 'returned_to_work',
+        progress: 100,
+        completed_at: '2026-09-09T12:00:00Z',
+        diagnosis: 'تلف أسطوانة',
+        work_notes: null,
+        parts_notes: null,
+        assigned_technician: 'الفني علي',
+        estimated_cost: 100,
+        service_cost: 80,
+        parts_actual_cost: 20,
+        actual_cost: 100,
+      },
     ],
   }),
   useMaintenanceEvents: () => ({
@@ -336,7 +357,7 @@ describe('تقارير غرفة العمليات المركبة', () => {
   it('يفتح تسلسل الصيانة من غرفة العمليات', () => {
     render(<OperationsDataPage />)
     fireEvent.click(screen.getByTestId('ops-tab-maintenance'))
-    fireEvent.click(screen.getByRole('button', { name: 'فتح التسلسل' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'فتح التسلسل' })[0] as HTMLElement)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('تسجيل العطل وإرسال الآلية')).toBeInTheDocument()
   })
@@ -599,6 +620,39 @@ describe('تقارير غرفة العمليات المركبة', () => {
     expect(h.saveKind).toHaveBeenLastCalledWith(
       expect.objectContaining({ kind: 'trailer_20', label: 'مقطورة 20', minTons: 12, maxTons: null, destination: 'transfer_station', active: true }),
       expect.any(Object),
+    )
+  })
+  it('تصحيح حالة صيانة مكتملة من غرفة العمليات فقط: الحالات المفتوحة بلا زر، سبب إلزامي، وتُرسل الحقول المتغيرة فقط', () => {
+    h.correctCase.mockReset()
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-maintenance'))
+    expect(screen.queryByTestId('correct-maintenance-c1')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('correct-maintenance-c2'))
+    const dialog = screen.getByTestId('maintenance-correction-dialog')
+    fireEvent.click(within(dialog).getByTestId('mc-submit'))
+    expect(within(dialog).getByTestId('mc-error')).toHaveTextContent('لا يوجد تغيير')
+    fireEvent.change(within(dialog).getByTestId('mc-service'), { target: { value: '150' } })
+    expect(within(dialog).getByTestId('mc-projected')).toHaveTextContent('خدمة + قطع')
+    fireEvent.change(within(dialog).getByTestId('mc-technician'), { target: { value: 'الفني حيدر' } })
+    fireEvent.click(within(dialog).getByTestId('mc-submit'))
+    expect(within(dialog).getByTestId('mc-error')).toHaveTextContent('سبب التصحيح إلزامي')
+    expect(h.correctCase).not.toHaveBeenCalled()
+    fireEvent.change(within(dialog).getByTestId('mc-reason'), { target: { value: 'فاتورة الورشة النهائية' } })
+    fireEvent.click(within(dialog).getByTestId('mc-submit'))
+    expect(h.correctCase).toHaveBeenCalledWith(
+      {
+        caseId: 'c2',
+        reason: 'فاتورة الورشة النهائية',
+        faultType: null,
+        priority: null,
+        diagnosis: null,
+        workNotes: null,
+        partsNotes: null,
+        assignedTechnician: 'الفني حيدر',
+        estimatedCost: null,
+        serviceCost: 150,
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
   })
 })

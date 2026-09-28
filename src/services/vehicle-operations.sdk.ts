@@ -269,7 +269,14 @@ export interface MaintenanceTechnician {
 export interface MaintenanceEvent {
   event_key: string
   event_type:
-    'case' | 'decision' | 'movement' | 'maintenance_update' | 'part' | 'readiness' | 'completion'
+    | 'case'
+    | 'decision'
+    | 'movement'
+    | 'maintenance_update'
+    | 'part'
+    | 'readiness'
+    | 'completion'
+    | 'correction'
   title: string
   details: string | null
   happened_at: string
@@ -661,6 +668,34 @@ export const vehicleOperations = {
     return ((await sdkGuard(
       supabase.rpc('operational_vehicle_movements', { p_from: from, p_to: to }),
     )) ?? []) as unknown as OpsMovement[]
+  },
+  /** تصحيح حالة صيانة مكتملة — غرفة العمليات فقط، بسبب إلزامي (00150) */
+  async opsCorrectMaintenanceCase(input: {
+    caseId: string
+    reason: string
+    faultType?: string | null
+    priority?: 'normal' | 'urgent' | 'critical' | null
+    diagnosis?: string | null
+    workNotes?: string | null
+    partsNotes?: string | null
+    assignedTechnician?: string | null
+    estimatedCost?: number | null
+    serviceCost?: number | null
+  }) {
+    return await sdkGuard(
+      supabase.rpc('ops_correct_maintenance_case', {
+        p_case_id: input.caseId,
+        p_reason: input.reason,
+        p_fault_type: input.faultType ?? null,
+        p_priority: input.priority ?? null,
+        p_diagnosis: input.diagnosis ?? null,
+        p_work_notes: input.workNotes ?? null,
+        p_parts_notes: input.partsNotes ?? null,
+        p_assigned_technician: input.assignedTechnician ?? null,
+        p_estimated_cost: input.estimatedCost ?? null,
+        p_service_cost: input.serviceCost ?? null,
+      }),
+    )
   },
   /** تسلسل الرحلة الكامل لانطلاقية واحدة (غرفة العمليات) — 00148 */
   async opsDepartureTimeline(departureId: string): Promise<TripTimelineEvent[]> {

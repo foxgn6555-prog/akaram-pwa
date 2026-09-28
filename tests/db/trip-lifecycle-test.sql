@@ -489,3 +489,80 @@ begin
   perform public.ops_ts_vehicle_kind_save('compactor_large', 'كابسة كبيرة', 6, 8, 'both', 3, true);
   raise notice 'L13 ok';
 end $$;
+
+-- ═══════════ L14 · الصيانة → الكراج: المسار الثاني للعودة يغلق الحالة والانطلاقية معاً ═══════════
+do $$
+declare d public.garage_departures; l public.vehicle_trip_legs; c public.vehicle_maintenance_cases; k record;
+begin
+  select * into d from public.garage_departures where vehicle_id = 'c0c0a000-0000-0000-0000-000000000002' and returned_at is null;
+  assert d.id is not null, 'L14: انطلاقة الآلية الثانية مفتوحة';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  l := public.station_dispatch_vehicle(d.id, 'work_site', 'عودة للموقع');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_site_return(l.id);
+  c := public.sector_send_vehicle_to_maintenance(d.id, 'عطل فرامل', 'critical', 'لا استجابة');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
+  c := public.maintenance_confirm_arrival(c.id, 'وصلت');
+  c := public.maintenance_advance_stage(c.id, 'تلف أسطوانة الفرامل');
+  c := public.maintenance_advance_stage(c.id, null, 'استُبدلت الأسطوانة');
+  perform public.maintenance_update_case(c.id, 'ready', 100, null, 'جاهزة بعد الفحص');
+  c := public.maintenance_approve_readiness(c.id, 'معتمدة');
+  -- الكراج لا يستلم آلية ما زالت داخل الصيانة (خلل مكتشف: كان يمرّ عندما لا مسؤول قسم على الانطلاقية)
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  perform pg_temp.expect_error(format('select public.garage_record_return(%L::uuid)', d.id), 'GARAGE_VEHICLE_NOT_SENT_BACK');
+  assert (select returned_at from public.garage_departures where id = d.id) is null, 'L14: الانطلاقية ما زالت مفتوحة';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
+  c := public.maintenance_dispatch_vehicle(c.id, 'garage', 'إلى الكراج مباشرة');
+  assert c.status = 'to_garage', 'L14: في الطريق إلى الكراج';
+  assert exists (select 1 from public.vehicle_trip_legs where departure_id = d.id and origin_type = 'maintenance' and destination_type = 'garage' and arrived_at is null), 'L14: ساق صيانة→كراج مفتوحة';
+  assert exists (select 1 from public.notifications where user_id = 'c0c00000-0000-0000-0000-000000000001' and title like '%عائدة من الصيانة إلى الكراج%'), 'L14: أُبلغ الكراج';
+  -- الكراج يؤكد الاستلام ⇒ تُغلق الساق والحالة والبلاغ والانطلاقية
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  d := public.garage_record_return(d.id);
+  assert d.returned_at is not null, 'L14: الانطلاقية مغلقة';
+  select * into c from public.vehicle_maintenance_cases where id = c.id;
+  assert c.status = 'closed_at_garage' and c.completed_at is not null, format('L14: الحالة أُغلقت في الكراج (فعلي %s)', c.status);
+  assert (select status from public.sector_breakdowns where id = c.breakdown_id) = 'resolved', 'L14: البلاغ محلول';
+  assert not exists (select 1 from public.vehicle_trip_legs where departure_id = d.id and arrived_at is null), 'L14: لا سيقان مفتوحة';
+  -- غرفة العمليات ترى المسار كاملاً
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  select * into k from public.operational_vehicle_kpis(current_date - 1, current_date) where departure_id = d.id;
+  assert k.trip_status = 'returned' and k.maintenance_count = 1 and k.station_visit_count = 1 and k.breakdown_count = 1, format('L14: مؤشرات (حالة %s صيانة %s محطة %s)', k.trip_status, k.maintenance_count, k.station_visit_count);
+  assert (select title from public.operational_departure_timeline(d.id) where event_type = 'maintenance' order by sequence_no desc limit 1) like '%وصلت الكراج%', 'L14: التسلسل يبين إغلاق الصيانة بالكراج';
+  assert (select event_key from public.operational_departure_timeline(d.id) order by sequence_no desc limit 1) = 'departure:returned', 'L14: ينتهي بالعودة للكراج';
+  assert not exists (select 1 from public.operational_live_alerts() where departure_id = d.id), 'L14: لا تنبيهات بعد الإغلاق';
+  perform set_config('test.case2', c.id::text, false);
+  raise notice 'L14 ok';
+end $$;
+
+-- ═══════════ L15 · (00150) تصحيح حالة صيانة مكتملة: غرفة العمليات فقط، بسبب، مع تدقيق وإبلاغ الصيانة ═══════════
+do $$
+declare cid uuid := current_setting('test.case')::uuid; c public.vehicle_maintenance_cases; before_parts numeric;
+begin
+  select parts_actual_cost into before_parts from public.vehicle_maintenance_cases where id = cid;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_service_cost => 150)', cid, 'سبب'), 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_service_cost => 150)', cid, ''), 'OPS_CORRECTION_REASON_REQUIRED');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L)', cid, 'بلا تغيير'), 'OPS_CORRECTION_NO_CHANGE');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_priority => %L)', cid, 'سبب', 'extreme'), 'MAINTENANCE_PRIORITY_INVALID');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_service_cost => -1)', cid, 'سبب'), 'MAINTENANCE_COST_INVALID');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(gen_random_uuid(), %L, p_service_cost => 1)', 'سبب'), 'MAINTENANCE_CASE_NOT_FOUND');
+  c := public.ops_correct_maintenance_case(cid, 'فاتورة الورشة النهائية 150 ألف + تصحيح اسم الفني', p_service_cost => 150, p_assigned_technician => 'الفني حيدر', p_priority => 'normal');
+  assert c.service_cost = 150 and c.actual_cost = 150 + before_parts and c.assigned_technician = 'الفني حيدر' and c.priority = 'normal', 'L15: الحقول صُححت والكلفة الفعلية = خدمة + قطع';
+  assert c.correction_count = 1 and c.corrected_by = 'c0c00000-0000-0000-0000-000000000005' and c.correction_reason like 'فاتورة%', 'L15: أثر التصحيح';
+  assert c.diagnosis like 'تلف%' and c.fault_type = 'عطل هيدروليك', 'L15: الحقول غير الممررة لم تُمس';
+  assert exists (select 1 from public.audit_logs where table_name = 'vehicle_maintenance_cases' and record_id = cid::text and operation = 'CORRECT_MAINTENANCE' and (new_row->>'service_cost')::numeric = 150 and old_row ? 'service_cost'), 'L15: تدقيق قبل/بعد';
+  assert exists (select 1 from public.notifications where user_id = 'c0c00000-0000-0000-0000-000000000004' and title like '%صحّحت غرفة العمليات بيانات حالة صيانة%'), 'L15: أُبلغت الصيانة';
+  assert exists (select 1 from public.maintenance_case_events(cid) where event_type = 'correction' and details like 'فاتورة%'), 'L15: التصحيح ظاهر في تسلسل الحالة';
+  assert (select corrected_at from public.operational_maintenance_cases(current_date - 1, current_date) where id = cid) is not null, 'L15: تقرير الصيانة يحمل أثر التصحيح';
+  -- حالة مفتوحة لا تُصحَّح: نفتح بلاغاً جديداً على انطلاقة جديدة ونتأكد
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  perform public.garage_record_shift_departure('c0c0a000-0000-0000-0000-000000000002', 'morning');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_arrival((select id from public.garage_departures where vehicle_id = 'c0c0a000-0000-0000-0000-000000000002' and returned_at is null));
+  c := public.sector_send_vehicle_to_maintenance((select id from public.garage_departures where vehicle_id = 'c0c0a000-0000-0000-0000-000000000002' and returned_at is null), 'عطل كهرباء');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
+  perform pg_temp.expect_error(format('select public.ops_correct_maintenance_case(%L::uuid, %L, p_service_cost => 5)', c.id, 'سبب'), 'OPS_CORRECTION_NOT_COMPLETED');
+  raise notice 'L15 ok';
+end $$;

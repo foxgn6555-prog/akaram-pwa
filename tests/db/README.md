@@ -100,7 +100,7 @@ node scripts/db-migrations-test.mjs tests/db/executive-suite-test.sql
 | X10 | كل ناشر يرى صادره فقط، والمدير المفوض يرى الكل |
 | X11 | التبليغ المنتهي لا يظهر في الوارد ولا يُحتسب في غير المقروء |
 
-## `trip-lifecycle-test.sql` (00147–00149 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
+## `trip-lifecycle-test.sql` (00147–00150 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
 ```bash
 node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 ```
@@ -119,3 +119,5 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - **L11** (00148) `ops_station_workflow_range` (نطاق تاريخ + تحقق ≤366 يوماً)، `operational_vehicle_movements` (تحقق النطاق + `origin_label/destination_label/area_name`)، تفاصيل `operational_live_alerts` عربية بالكامل.
 - **L12** (00149) تصحيح وزن مكتمل `ops_correct_weighing`: غرفة العمليات فقط (المحطة ⇒ OPS_ROOM_FORBIDDEN)، سبب إلزامي، تحقق الوزن/النوع/الوجهة، إعادة احتساب المخالفة (إزالة/إنشاء/تحديث)، تحديث صف الدفتر المرتبط بـ`step_id`، تدقيق `CORRECT_WEIGHING` قبل/بعد، إبلاغ المحطة، أثر التصحيح في تقرير الأوزان و`station_visits_for_day`، رفض زيارة غير مكتملة.
 - **L13** (00149) حدود الأوزان `ops_ts_vehicle_kind_save`: غرفة العمليات فقط، تحقق الرمز/الحد الأدنى/الأعلى، تدقيق `SAVE_VEHICLE_KIND`، نوع جديد + تعطيله (يختفي عن المحطة عبر `ts_vehicle_kinds_list`)، المحطة تلتزم بالحد الجديد فوراً وترفض النوع المعطّل.
+- **L14** (00150) مسار الصيانة → الكراج: المغادرة إلى الكراج تفتح ساقاً وتُبلغ الكراج؛ `garage_record_return` يرفض الاستلام والآلية داخل الصيانة/المحطة/الموقع (خلل مكتشف: كان يمرّ بلا مسؤول قسم)، ثم يغلق الساق والحالة (`closed_at_garage`) والبلاغ والانطلاقية؛ المؤشرات والتسلسل يعكسان المسار.
+- **L15** (00150) تصحيح حالة صيانة مكتملة `ops_correct_maintenance_case`: غرفة العمليات فقط، سبب إلزامي، رفض «بلا تغيير»/أولوية أو كلفة غير صالحة/حالة مجهولة/حالة مفتوحة، الكلفة الفعلية = خدمة + قطع، تدقيق `CORRECT_MAINTENANCE` قبل/بعد، إبلاغ الصيانة، ظهور التصحيح في `maintenance_case_events` وتقرير الصيانة.
