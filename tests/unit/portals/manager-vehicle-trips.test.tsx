@@ -108,4 +108,17 @@ describe('صفحة حركة آليات مسؤول القسم', () => {
       expect.any(Object),
     )
   })
+  it('شارة الحالة تعتمد مرحلة الرحلة من الخادم لا الأعمدة القديمة (جولة محطة→موقع تبقى «تعمل في الموقع»)', () => {
+    h.data = [
+      { ...trip, id: 'd1', arrived_at: '2026-09-09T06:30:00Z', site_departed_at: '2026-09-09T09:00:00Z', trip_status: 'at_site' },
+      { ...trip, id: 'd2', vehicle_id: 'v2', arrived_at: '2026-09-09T06:30:00Z', site_departed_at: null, trip_status: 'at_maintenance' },
+      { ...trip, id: 'd3', vehicle_id: 'v3', arrived_at: '2026-09-09T06:30:00Z', site_departed_at: '2026-09-09T13:00:00Z', trip_status: 'to_garage' },
+    ]
+    render(<VehicleTripsPage />)
+    const chips = screen.getAllByTestId('trip-status-chip')
+    expect(chips.map((c) => c.getAttribute('data-trip-status'))).toEqual(['at_site', 'at_maintenance', 'to_garage'])
+    expect(chips[0]).toHaveTextContent('تعمل في الموقع')
+    expect(chips[1]).toHaveTextContent('داخل الصيانة')
+    expect(chips[2]).toHaveTextContent('في الطريق إلى الكراج')
+  })
 })

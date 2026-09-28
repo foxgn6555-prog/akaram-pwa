@@ -10,6 +10,7 @@ import {
   useRecordGarageReturn,
   useRecordGarageShiftDeparture,
 } from '@features/central-garage/hooks'
+import { canGarageReceive, garageWaitingHint, resolveTripStatus, tripStatusMeta } from '@features/vehicle-operations/trip-status'
 import type { GarageDeparture, GarageShift, GarageVehicle } from '@features/central-garage/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -23,6 +24,11 @@ const clock = (value: string) =>
     minute: '2-digit',
     timeZone: 'Asia/Baghdad',
   }).format(new Date(value))
+
+/** مرحلة الرحلة من الخادم (00152) مع اشتقاق احتياطي للسجلات القديمة. */
+const statusOf = (d: GarageDeparture) =>
+  d.tripStatus ??
+  resolveTripStatus({ arrived_at: d.arrivedAt, site_departed_at: d.siteDepartedAt, returned_at: d.returnedAt })
 
 type DepartureState =
   | { kind: 'field'; departure: GarageDeparture }
@@ -46,15 +52,14 @@ function departureState(departures: GarageDeparture[]): Map<string, DepartureSta
 function StatusChip({ state }: { state: DepartureState }) {
   if (state.kind === 'field') {
     const d = state.departure
-    const label = d.siteDepartedAt
-      ? 'في الطريق إلى الكراج'
-      : d.arrivedAt
-        ? 'وصلت وتعمل في الموقع'
-        : 'في الطريق إلى موقع العمل'
+    const status = statusOf(d)
+    const meta = tripStatusMeta[status]
+    const label = meta.label
     return (
       <span
         data-testid="departure-state-field"
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black ${d.siteDepartedAt ? 'bg-blue-50 text-blue-700' : d.arrivedAt ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}
+        data-trip-status={status}
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black ${meta.tone}`}
       >
         <DoorOpen size={13} />
         {label} · انطلقت {clock(d.departedAt)}
@@ -249,7 +254,7 @@ export default function DriversDispatchPage() {
                         مجلد محفوظ للعرض فقط
                       </span>
                     ) : state.kind === 'field' ? (
-                      state.departure.siteDepartedAt ? (
+                      canGarageReceive(statusOf(state.departure)) ? (
                         <button
                           data-testid={`return-${vehicle.id}`}
                           disabled={recordReturn.isPending}
@@ -260,8 +265,13 @@ export default function DriversDispatchPage() {
                           تأكيد وصول الآلية إلى الكراج
                         </button>
                       ) : (
-                        <span className="text-[11px] font-bold text-slate-500">
-                          بانتظار تأكيد مسؤول القسم وإرسال الآلية عائدة
+                        <span
+                          data-testid={`waiting-${vehicle.id}`}
+                          className="max-w-56 text-[11px] font-bold leading-5 text-slate-500"
+                        >
+                          {statusOf(state.departure) === 'returned'
+                            ? ''
+                            : garageWaitingHint[statusOf(state.departure) as keyof typeof garageWaitingHint]}
                         </span>
                       )
                     ) : (

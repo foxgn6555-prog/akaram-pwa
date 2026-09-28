@@ -1,3 +1,4 @@
+import { resolveTripStatus, tripStatusMeta } from '@features/vehicle-operations/trip-status'
 import { useState } from 'react'
 import { CheckCircle2, Clock3, FolderOpen, MapPin, RotateCcw } from 'lucide-react'
 import {
@@ -57,9 +58,10 @@ export default function VehicleTripsPage() {
     )
   }
   const list = trips.data ?? []
-  const incoming = list.filter((t) => !t.arrived_at)
-  const working = list.filter((t) => t.arrived_at && !t.site_departed_at)
-  const returning = list.filter((t) => t.site_departed_at && !t.returned_at)
+  const statusOf = (t: SectorVehicleTrip) => resolveTripStatus(t)
+  const incoming = list.filter((t) => statusOf(t) === 'to_site')
+  const working = list.filter((t) => ['at_site', 'breakdown', 'to_station', 'at_station', 'to_maintenance', 'at_maintenance'].includes(statusOf(t)))
+  const returning = list.filter((t) => statusOf(t) === 'to_garage')
   return (
     <section className="space-y-5" dir="rtl" data-testid="manager-vehicle-trips">
       <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-cyan-800 p-6 text-white shadow-xl">
@@ -211,14 +213,14 @@ export default function VehicleTripsPage() {
   )
 }
 function Status({ trip: t }: { trip: SectorVehicleTrip }) {
-  const x = t.returned_at
-    ? ['عادت إلى الكراج', 'bg-slate-100 text-slate-700']
-    : t.site_departed_at
-      ? ['في الطريق للكراج', 'bg-blue-50 text-blue-700']
-      : t.arrived_at
-        ? ['تعمل في الموقع', 'bg-emerald-50 text-emerald-700']
-        : ['في الطريق إليك', 'bg-amber-50 text-amber-700']
-  return <span className={`rounded-full px-3 py-1 text-[11px] font-black ${x[1]}`}>{x[0]}</span>
+  const status = resolveTripStatus(t)
+  const meta = tripStatusMeta[status]
+  const label = status === 'to_site' ? 'في الطريق إليك' : status === 'at_site' ? 'تعمل في الموقع' : meta.label
+  return (
+    <span data-testid="trip-status-chip" data-trip-status={status} className={`rounded-full px-3 py-1 text-[11px] font-black ${meta.tone}`}>
+      {label}
+    </span>
+  )
 }
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (

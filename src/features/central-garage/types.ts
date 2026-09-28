@@ -1,3 +1,4 @@
+import type { TripStatus } from '@features/vehicle-operations/trip-status'
 import type { GarageFuelUnit } from './fuel-units'
 import type { GarageOwnershipType, GarageVehicleCategory } from './vehicle-details'
 
@@ -171,6 +172,7 @@ export interface GarageDeparture {
   imageUrl?: string
   areaName: string
   parentSector: GarageParentSector
+  tripStatus: TripStatus
 }
 
 export interface GarageDispatchRecipient { userId: string; managerName: string; shift: GarageShift; sectors: number[]; resolution: 'direct' | 'parent_fallback'; pickRank: number }

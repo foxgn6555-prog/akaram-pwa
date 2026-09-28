@@ -100,7 +100,7 @@ node scripts/db-migrations-test.mjs tests/db/executive-suite-test.sql
 | X10 | كل ناشر يرى صادره فقط، والمدير المفوض يرى الكل |
 | X11 | التبليغ المنتهي لا يظهر في الوارد ولا يُحتسب في غير المقروء |
 
-## `trip-lifecycle-test.sql` (00147–00151 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
+## `trip-lifecycle-test.sql` (00147–00152 — دورة حياة الانطلاقية كاملة: كراج → عمل → محطة → صيانة → كراج)
 ```bash
 node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 ```
@@ -124,3 +124,4 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - **L16** (00134/00151) إغلاق انطلاقية مفتوحة عبر مسار محطة → كراج مع **تعيين المسؤول يدوياً**: مسؤول من قاطع غريب يُرفض `GARAGE_RECIPIENT_NOT_ELIGIBLE`، مسؤول القاطع نفسه يُقبل بوضع `assignment_mode='manual'`.
 - **L17** (00151) حلّ العطل المرن: تسجيل عطل قصير (`sector_submit_breakdown`)، رفض التكرار `ALREADY_OPEN`، حالة الرحلة `breakdown`، تنبيه `breakdown_stale` بعد 250 دقيقة، رفض المسؤول الغريب ودور الصيانة، حلّ **غرفة العمليات** `ops_resolve_breakdown` بملاحظة إلزامية → تدقيق `RESOLVE_BREAKDOWN` + إشعار للمسؤول + زوال التنبيه + مؤشرات (عدد الأعطال/زمن التوقف) + الخط الزمني «حُسم»، ثم حلّ عطل ثانٍ من المسؤول نفسه. العطل المحال للصيانة يبقى مقفلاً `BREAKDOWN_CONTROLLED_BY_MAINTENANCE`.
 - **L18** (00151) سياسة القراءة: غرفة العمليات ترى كل البلاغات؛ المسؤول الغريب لا يرى بلاغات قاطع آخر.
+- **L19** (00152) مرحلة الرحلة من مصدر واحد `app.trip_status`: بعد جولة محطة→موقع الآلية «تعمل في الموقع» (كانت تبدو «في الطريق للكراج» ويستطيع الكراج إغلاقها خطأً — الآن `GARAGE_VEHICLE_NOT_SENT_BACK`)؛ إرسال المسؤول إلى الكراج يفتح ساقاً `work_site→garage` (رفض التكرار `TRIP_LEG_ALREADY_OPEN`)؛ مسار الصيانة يثبّت `site_departed_at` تلقائياً (trigger على السيقان)؛ دوال الكراج والمسؤول تُرجع `trip_status`.

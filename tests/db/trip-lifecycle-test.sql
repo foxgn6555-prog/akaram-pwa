@@ -259,13 +259,15 @@ begin
   d := public.sector_send_vehicle_to_garage(did, 'انتهت الوردية');
   assert d.site_departed_at is not null, 'L6: غادرت الموقع نحو الكراج';
   update public.garage_departures set site_departed_at = now() - interval '20 min' where id = did;
+  update public.vehicle_trip_legs set departed_at = now() - interval '20 min' where departure_id = did and arrived_at is null;
   perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
   d := public.garage_record_return(did);
   assert d.returned_at is not null and d.returned_by = 'c0c00000-0000-0000-0000-000000000001', 'L6: الكراج أغلق الانطلاقة';
   perform pg_temp.expect_error(format('select public.garage_record_return(%L)', did), 'GARAGE_OPEN_DEPARTURE_NOT_FOUND');
   -- سلامة السيقان: تسلسل متصل بلا ساق مفتوحة
-  assert (select array_agg(sequence_no order by sequence_no) from public.vehicle_trip_legs where departure_id = did) = '{1,2,3,4,5,6}', 'L6: 6 سيقان متسلسلة';
+  assert (select array_agg(sequence_no order by sequence_no) from public.vehicle_trip_legs where departure_id = did) = '{1,2,3,4,5,6,7}', 'L6: 7 سيقان متسلسلة (00152: الإرسال إلى الكراج ساق مستقلة)';
   assert not exists (select 1 from public.vehicle_trip_legs where departure_id = did and arrived_at is null), 'L6: لا ساق مفتوحة';
+  assert (select destination_type from public.vehicle_trip_legs where departure_id = did and sequence_no = 7) = 'garage', 'L6: الساق الأخيرة إلى الكراج';
   -- يمكن إطلاق الآلية مجدداً بعد الإغلاق
   d := public.garage_record_shift_departure('c0c0a000-0000-0000-0000-000000000001', 'morning');
   perform set_config('test.dep2', d.id::text, false);
@@ -304,7 +306,7 @@ begin
   assert n = 1, format('L7: مخالفة واحدة (فعلي %s)', n);
   -- الحركات + السيقان
   select count(*) into n from public.operational_vehicle_movements(current_date - 1, current_date) where departure_id = did;
-  assert n = 6, format('L7: 6 حركات (فعلي %s)', n);
+  assert n = 7, format('L7: 7 حركات مع ساق العودة إلى الكراج (فعلي %s)', n);
   -- حالات الصيانة
   assert exists (select 1 from public.operational_maintenance_cases(current_date - 1, current_date) where departure_id = did and status = 'returned_to_work'), 'L7: حالة الصيانة في التقرير';
   -- لا تنبيهات حية لانطلاقة مغلقة
@@ -648,4 +650,69 @@ begin
   assert n = 0, format('L18: المسؤول الغريب لا يرى بلاغات قاطع آخر (فعلي %s)', n);
   reset role;
   raise notice 'L18 ok';
+end $$;
+
+-- ═══════════ L19 · (00152) مرحلة الرحلة من مصدر واحد: محطة→موقع ثم كراج، ومسار الصيانة يثبّت مغادرة الموقع ═══════════
+do $$
+declare d public.garage_departures; did uuid; l public.vehicle_trip_legs; st text; n int;
+begin
+  -- إغلاق dep3 (L17، الآلية 01 تعمل في الموقع بعد حسم الأعطال): المسؤول يرسلها إلى الكراج → ساق → الكراج يستلم
+  did := current_setting('test.dep3')::uuid;
+  assert app.trip_status(did) = 'at_site', format('L19: dep3 تعمل في الموقع بعد حسم الأعطال (فعلي %s)', app.trip_status(did));
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_send_vehicle_to_garage(did, 'نهاية الوردية');
+  assert (select destination_type from public.vehicle_trip_legs where departure_id = did and arrived_at is null) = 'garage', 'L19: ساق مفتوحة إلى الكراج';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  d := public.garage_record_return(did);
+  assert d.returned_at is not null, 'L19: dep3 أُغلقت';
+  -- انطلاقة جديدة للآلية 01 (المسؤول 02 تلقائياً)
+  d := public.garage_record_shift_departure('c0c0a000-0000-0000-0000-000000000001','morning',null,null);
+  did := d.id;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_arrival(did, null);
+  assert app.trip_status(did) = 'at_site', 'L19: تعمل في الموقع';
+  assert (select t.trip_status from public.manager_vehicle_trips() t where t.id = did) = 'at_site', 'L19: دالة المسؤول تُرجع trip_status';
+  -- إلى المحطة ثم العودة إلى الموقع
+  perform public.sector_send_vehicle_to_station(did, 'حمولة');
+  assert app.trip_status(did) = 'to_station', 'L19: في الطريق إلى المحطة';
+  select * into d from public.garage_departures where id = did;
+  assert d.site_departed_at is not null, 'L19: مغادرة الموقع مثبتة';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000003');
+  select * into l from public.vehicle_trip_legs where departure_id = did and arrived_at is null;
+  perform public.station_confirm_vehicle_arrival(l.id, null);
+  perform public.ts_record_weighing(l.id, 7.1);
+  perform public.ts_complete_weighing(l.id, 'transfer_station', 'compactor_large');
+  perform public.station_dispatch_vehicle(did, 'work_site', 'عودة');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  select * into l from public.vehicle_trip_legs where departure_id = did and arrived_at is null;
+  perform public.sector_confirm_vehicle_site_return(l.id, null);
+  st := app.trip_status(did);
+  assert st = 'at_site', format('L19: بعد العودة من المحطة الآلية تعمل في الموقع لا «في الطريق للكراج» (فعلي %s)', st);
+  -- الكراج لا يستطيع إغلاق انطلاقة آلية تعمل في الموقع (كان يمرّ قبل 00152)
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  perform pg_temp.expect_error(format('select public.garage_record_return(%L)', did), 'GARAGE_VEHICLE_NOT_SENT_BACK');
+  assert (select t.trip_status from public.garage_today_departures() t where t.id = did) = 'at_site', 'L19: دالة الكراج تُرجع trip_status';
+  -- المسؤول يرسلها إلى الكراج → ساق مفتوحة إلى الكراج → الكراج يستلم
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_send_vehicle_to_garage(did, 'انتهت');
+  assert app.trip_status(did) = 'to_garage', 'L19: في الطريق إلى الكراج';
+  perform pg_temp.expect_error(format('select public.sector_send_vehicle_to_garage(%L, null)', did), 'TRIP_LEG_ALREADY_OPEN');
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  d := public.garage_record_return(did);
+  assert d.returned_at is not null and app.trip_status(did) = 'returned', 'L19: أُغلقت';
+  assert not exists (select 1 from public.vehicle_trip_legs where departure_id = did and arrived_at is null), 'L19: لا ساق مفتوحة';
+
+  -- مسار الصيانة: الإرسال إلى الصيانة يثبّت site_departed_at (كان يبقى فارغاً فيختفي زر الكراج)
+  d := public.garage_record_shift_departure('c0c0a000-0000-0000-0000-000000000001','morning',null,null);
+  did := d.id;
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000002');
+  perform public.sector_confirm_vehicle_arrival(did, null);
+  perform public.sector_send_vehicle_to_maintenance(did, 'عطل محرك', 'normal', null);
+  select * into d from public.garage_departures where id = did;
+  assert d.site_departed_at is not null and d.site_departed_by = 'c0c00000-0000-0000-0000-000000000002', 'L19: مسار الصيانة يثبّت مغادرة الموقع';
+  assert app.trip_status(did) = 'to_maintenance', 'L19: في الطريق إلى الصيانة';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
+  perform pg_temp.expect_error(format('select public.garage_record_return(%L)', did), 'GARAGE_VEHICLE_NOT_SENT_BACK');
+  perform set_config('test.dep4', did::text, false);
+  raise notice 'L19 ok';
 end $$;

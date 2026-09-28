@@ -162,7 +162,7 @@ export interface CreateSupplyInput {
 }
 
 export interface SectorTripDay {trip_day:string;total_count:number;open_count:number;first_departure_at:string;last_activity_at:string}
-export interface SectorVehicleTrip { id:string;vehicle_id:string;driver_name:string;shift:Shift;sector_id:number;departed_at:string;arrived_at:string|null;site_departed_at:string|null;returned_at:string|null;recipient_manager_id:string|null;recipient_manager_name:string|null;arrival_notes:string|null;site_departure_notes:string|null;vehicle_name:string;db_number:string;image_path:string;area_name:string;parent_sector:'karrada'|'zaafaraniya' }
+export interface SectorVehicleTrip { trip_status?:string|null;id:string;vehicle_id:string;driver_name:string;shift:Shift;sector_id:number;departed_at:string;arrived_at:string|null;site_departed_at:string|null;returned_at:string|null;recipient_manager_id:string|null;recipient_manager_name:string|null;arrival_notes:string|null;site_departure_notes:string|null;vehicle_name:string;db_number:string;image_path:string;area_name:string;parent_sector:'karrada'|'zaafaraniya' }
 
 export interface CreateBreakdownInput {
   db_number: string

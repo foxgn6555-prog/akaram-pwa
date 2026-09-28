@@ -1,4 +1,5 @@
 /** SDK بوابة الكراج المركزي — لا وصول إلى Supabase من صفحات البوابة. */
+import { resolveTripStatus } from '@features/vehicle-operations/trip-status'
 import { SDKError } from '@lib/errors/SDKError'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { GarageReportFilter, GarageReportResult } from '@features/central-garage/reports'
@@ -170,6 +171,12 @@ function departureRow(row: Record<string, unknown>): GarageDeparture {
     imagePath: String(row.image_path),
     areaName: String(row.area_name ?? ''),
     parentSector: row.parent_sector as GarageDeparture['parentSector'],
+    tripStatus: resolveTripStatus({
+      trip_status: (row.trip_status as string | null) ?? null,
+      arrived_at: (row.arrived_at as string | null) ?? null,
+      site_departed_at: (row.site_departed_at as string | null) ?? null,
+      returned_at: (row.returned_at as string | null) ?? null,
+    }),
   }
 }
 

@@ -105,6 +105,7 @@ const departure = {
   imageUrl: 'x',
   areaName: 'أرخيته',
   parentSector: 'karrada',
+  tripStatus: 'to_garage',
 }
 describe('تسليم الانطلاقية من الكراج', () => {
   beforeEach(() => {
@@ -126,12 +127,30 @@ describe('تسليم الانطلاقية من الكراج', () => {
     )
   })
   it('لا يظهر تأكيد الكراج حتى يرسل مسؤول القسم الآلية عائدة', () => {
-    h.departures = [{ ...departure, siteDepartedAt: null }]
+    h.departures = [{ ...departure, siteDepartedAt: null, tripStatus: 'at_site' }]
     const { rerender } = render(<DriversDispatchPage />)
     expect(screen.queryByTestId('return-v1')).not.toBeInTheDocument()
     h.departures = [departure]
     rerender(<DriversDispatchPage />)
     fireEvent.click(screen.getByTestId('return-v1'))
     expect(h.returned).toHaveBeenCalledWith({ departureId: 'd1' })
+  })
+  it('مرحلة الرحلة من الخادم هي المرجع: مسار الصيانة يظهر زر الوصول رغم غياب مغادرة الموقع، وجولة المحطة→الموقع تخفيه', () => {
+    // مسار الصيانة → الكراج: الآلية في طريقها إلى الكراج
+    h.departures = [{ ...departure, siteDepartedAt: null, tripStatus: 'to_garage' }]
+    const { rerender } = render(<DriversDispatchPage />)
+    expect(screen.getByTestId('return-v1')).toBeInTheDocument()
+    expect(screen.getByTestId('departure-state-field')).toHaveAttribute('data-trip-status', 'to_garage')
+    // عادت من المحطة إلى الموقع وتعمل: لا زر، مع توضيح للكراج
+    h.departures = [{ ...departure, siteDepartedAt: '2026-09-09T10:00:00Z', tripStatus: 'at_site' }]
+    rerender(<DriversDispatchPage />)
+    expect(screen.queryByTestId('return-v1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('waiting-v1')).toHaveTextContent('تعمل في الموقع')
+    // داخل الصيانة
+    h.departures = [{ ...departure, tripStatus: 'at_maintenance' }]
+    rerender(<DriversDispatchPage />)
+    expect(screen.queryByTestId('return-v1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('departure-state-field')).toHaveTextContent('داخل الصيانة')
+    expect(screen.getByTestId('waiting-v1')).toHaveTextContent('بانتظار تسريحها من الورشة')
   })
 })
