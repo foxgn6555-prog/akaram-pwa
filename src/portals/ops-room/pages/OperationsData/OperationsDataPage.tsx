@@ -32,6 +32,9 @@ import { DepartureDriverDialog, type DepartureDriverTarget } from './DepartureDr
 import { TripTimelineDialog } from './TripTimelineDialog'
 import { WeighingCorrectionDialog, type WeighingCorrectionTarget } from './WeighingCorrectionDialog'
 import { VehicleKindsPanel } from './VehicleKindsPanel'
+import { SupportRequestsPanel } from './SupportRequestsPanel'
+import { SUPPORT_STATUS_LABEL } from '@features/sector/supportMeta'
+import { useOpsSupportRequests } from '@features/sector'
 import { MaintenanceCorrectionDialog, type MaintenanceCorrectionTarget } from './MaintenanceCorrectionDialog'
 
 export type OperationsTab =
@@ -45,6 +48,7 @@ export type OperationsTab =
   | 'maintenance'
   | 'attendance'
   | 'gbs'
+  | 'support'
 type Row = Record<string, unknown>
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -61,6 +65,13 @@ const minutes = (value: unknown) => {
   return !Number.isFinite(n) ? '—' : n < 60 ? `${n} د` : `${Math.floor(n / 60)} س ${n % 60} د`
 }
 const labels: Record<string, string> = {
+  requester_name: 'المسؤول الطالب',
+  target_name: 'المسؤول المطلوب منه',
+  needed_count: 'العدد المطلوب',
+  vehicles: 'الآليات المرسلة',
+  reason: 'سبب الطلب',
+  decision_note: 'ملاحظة الرد / الإلغاء',
+  decided_at: 'وقت البتّ',
   alert_id: 'معرف التنبيه',
   action_link: 'جهة المعالجة',
   case_id: 'معرف حالة الصيانة',
@@ -164,6 +175,7 @@ const tabs: Record<OperationsTab, string> = {
   maintenance: 'الأعطال والصيانة',
   attendance: 'حضور العمال',
   gbs: 'حاويات GBS',
+  support: 'طلبات الدعم بين المسؤولين',
 }
 const reportKeys: Record<OperationsTab, string[]> = {
   summary: [
@@ -324,6 +336,20 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'notes',
     'updated_at',
   ],
+  support: [
+    'status',
+    'requester_name',
+    'area_name',
+    'parent_sector',
+    'target_name',
+    'needed_count',
+    'vehicles',
+    'reason',
+    'decision_note',
+    'created_at',
+    'decided_at',
+    'completed_at',
+  ],
 }
 const dateKeys = (key: string) =>
   key.endsWith('_at') || key === 'started_at' || key === 'completed_at'
@@ -442,6 +468,7 @@ export default function OperationsDataPage() {
   const weighings = useOpsWorkflowRange(from, to)
   const sectorsTonnage = useSectorTonnage(from, to)
   const gbsContainers = useGbsContainers(null, null, null, null)
+  const supportRequests = useOpsSupportRequests(from, to)
   const allSources = useMemo<Record<OperationsTab, Row[]>>(
     () => ({
       alerts: (alertQuery.data ?? []) as unknown as Row[],
@@ -470,8 +497,25 @@ export default function OperationsDataPage() {
         notes: c.notes ?? '',
         updated_at: c.updatedAt,
       })) as unknown as Row[],
+      support: (supportRequests.data ?? []).map((r) => ({
+        request_id: r.id,
+        status: SUPPORT_STATUS_LABEL[r.status],
+        requester_name: r.requester_name,
+        area_name: r.requester_area_name,
+        sector_id: r.requester_sector_id,
+        parent_sector: r.requester_parent_sector ?? '',
+        target_name: r.target_name,
+        needed_count: r.needed_count,
+        vehicles: r.assignments.map((a) => `${a.vehicle_name} · DB ${a.db_number}${a.ended_at ? ' (انتهى)' : ''}`).join('، ') || '—',
+        reason: r.reason,
+        decision_note: r.decision_note ?? r.cancel_reason ?? '',
+        created_at: r.created_at,
+        decided_at: r.decided_at,
+        completed_at: r.completed_at,
+      })) as unknown as Row[],
     }),
     [
+      supportRequests.data,
       alertQuery.data,
       kpis.data,
       movements.data,
@@ -825,6 +869,8 @@ export default function OperationsDataPage() {
           <Stat label="مدة الأعطال" value={minutes(sum('downtime_minutes'))} />
         </div>
       )}
+
+      {tab === 'support' && <SupportRequestsPanel requests={supportRequests.data ?? []} />}
 
       {tab === 'weighings' && (
         <div className="space-y-3">

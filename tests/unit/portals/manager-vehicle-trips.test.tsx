@@ -122,3 +122,16 @@ describe('صفحة حركة آليات مسؤول القسم', () => {
     expect(chips[2]).toHaveTextContent('في الطريق إلى الكراج')
   })
 })
+describe('00154: شارة الدعم على بطاقة الآلية', () => {
+  it('آلية مستعارة تُظهر مصدرها ومنطقة العمل الحالية', () => {
+    h.data = [{ ...trip, arrived_at: '2026-09-09T06:30:00Z', support_role: 'borrowed', support_area_name: 'الجادرية', support_counterpart_name: 'مسؤول أرخيته' }]
+    render(<VehicleTripsPage />)
+    expect(screen.getByTestId('support-badge-d1')).toHaveTextContent('دعم وارد من مسؤول أرخيته · تعمل الآن في الجادرية')
+  })
+  it('آلية مُعارة تُظهر المستفيد ومنطقته، ولا شارة بدون دعم', () => {
+    h.data = [{ ...trip, id: 'd2', arrived_at: '2026-09-09T06:30:00Z', support_role: 'lent', support_area_name: 'الجادرية', support_counterpart_name: 'مسؤول الجادرية' }, { ...trip, id: 'd3' }]
+    render(<VehicleTripsPage />)
+    expect(screen.getByTestId('support-badge-d2')).toHaveTextContent('مُرسلة دعماً إلى مسؤول الجادرية · منطقة الجادرية')
+    expect(screen.queryByTestId('support-badge-d3')).not.toBeInTheDocument()
+  })
+})

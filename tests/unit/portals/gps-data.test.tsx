@@ -15,6 +15,9 @@ const h = vi.hoisted(() => ({
   alertBulk: vi.fn().mockResolvedValue([]),
   exportAlerts: vi.fn(),
   exportTrips: vi.fn().mockResolvedValue(undefined),
+  zoneSector: vi.fn(),
+  routeGrace: vi.fn(),
+  extraAlerts: [] as Record<string, unknown>[],
 }))
 vi.mock('@portals/ops-room/pages/Gps/GpsRouteMap', () => ({
   default: () => <div data-testid="mock-route-map" />,
@@ -196,10 +199,13 @@ vi.mock('@features/gps-lvn/hooks', () => ({
       },
     ],
   }),
-  useGpsOpenAlerts: () => ({ data: [alert] }),
+  useGpsOpenAlerts: () => ({ data: h.extraAlerts.length ? [alert, ...h.extraAlerts] : [alert] }),
   useGpsZoneEvents: () => ({ data: [] }),
   useGpsAlertWorkflow: () => ({ mutate: h.alert, isPending: false }),
   useGpsPlatformGeofence: () => ({ mutate: h.zone, isPending: false }),
+  useGpsZoneSector: () => ({ mutate: h.zoneSector, isPending: false }),
+  useGpsRouteDeviationSettings: () => ({ data: { grace_minutes: 3, updated_at: '' } }),
+  useSaveGpsRouteDeviationSettings: () => ({ mutate: h.routeGrace, isPending: false }),
   useGpsGeofences: () => ({ data: [] }),
   useGpsGeofenceAssignment: () => ({ mutate: vi.fn(), isPending: false }),
   useGpsZoneVehicles: () => ({
@@ -245,6 +251,9 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsUnbind: () => ({ mutate: h.unbind, isPending: false }),
   useGpsDetail: () => ({ data: null, isLoading: false }),
   useGpsCandidates: () => ({ data: [] }),
+}))
+vi.mock('@features/sector', () => ({
+  useSectors: () => ({ data: [{ id: 1, name: 'أرخيته', parent_sector: 'karrada' }, { id: 4, name: 'الجادرية', parent_sector: 'karrada' }] }),
 }))
 import GpsDataPage from '@portals/ops-room/pages/Gps/GpsDataPage'
 import { useUiStore } from '@stores/ui.store'
@@ -403,5 +412,34 @@ describe('بيانات LVN GPS', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'تدقيق نافذة 2 من LVN' }))
     expect(h.history).toHaveBeenCalledWith({ departureId: 'trip-1', windowIndex: 1 })
+  })
+})
+
+describe('00154: زون المنطقة وتنبيه الخروج عن المسار', () => {
+  it('يربط الزون بمنطقة تشغيلية ويُظهر المناطق بلا زون', () => {
+    render(<GpsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: /الزونات المناطق والحركة/ }))
+    expect(screen.getByTestId('route-unlinked-areas')).toHaveTextContent('أرخيته، الجادرية')
+    fireEvent.change(screen.getByTestId('zone-sector-z1'), { target: { value: '4' } })
+    expect(h.zoneSector).toHaveBeenCalledWith({ id: 'z1', sectorId: 4 })
+    fireEvent.change(screen.getByTestId('zone-sector-z1'), { target: { value: '' } })
+    expect(h.zoneSector).toHaveBeenLastCalledWith({ id: 'z1', sectorId: null })
+  })
+  it('يحفظ مهلة التسامح من غرفة العمليات ويرفض القيم خارج 0..120', () => {
+    render(<GpsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: /الزونات المناطق والحركة/ }))
+    expect(screen.getByTestId('route-grace-input')).toHaveValue(3)
+    fireEvent.change(screen.getByTestId('route-grace-input'), { target: { value: '500' } })
+    fireEvent.click(screen.getByTestId('route-grace-save'))
+    expect(h.routeGrace).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('route-grace-input'), { target: { value: '5' } })
+    fireEvent.click(screen.getByTestId('route-grace-save'))
+    expect(h.routeGrace).toHaveBeenCalledWith(5)
+  })
+  it('تنبيه «خرجت من مسارها» يعرض السائق والمنطقة ومسؤولها ومدة الخروج', () => {
+    h.extraAlerts = [{ ...alert, id: 'alert-2', alert_type: 'route_deviation', title: 'الآلية خرجت من مسارها', occurrence_count: 1, details: { driver_name: 'أحمد', area_name: 'الجادرية', manager_name: 'مسؤول الجادرية', outside_minutes: 7, in_support: true } }]
+    render(<GpsDataPage />)
+    h.extraAlerts = []
+    expect(screen.getByTestId('route-deviation-alert-2')).toHaveTextContent('السائق أحمد · خرج من منطقة الجادرية (مهمة دعم) · مسؤولها مسؤول الجادرية · خارج الزون منذ 7 دقيقة')
   })
 })

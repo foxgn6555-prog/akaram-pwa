@@ -120,7 +120,7 @@ export interface GpsGeofence {
   is_assigned: boolean
 }
 export interface GpsAlertNotificationPolicy {
-  alert_type: 'gps_offline' | 'gps_stale' | 'outside_zone' | 'engine_idle'
+  alert_type: GpsAlertType
   enabled: boolean
   priority: 'low' | 'normal' | 'high' | 'critical'
   recipient_roles: string[]
@@ -149,6 +149,15 @@ export interface GpsMapGeofence {
   source: 'lvn' | 'platform'
   color: string
   polygon: Array<{ lat: number; lng: number } | [number, number]>
+  /** 00154: المنطقة التشغيلية المرتبطة بالزون (اتحاد زونات المنطقة = حدودها) */
+  sector_id?: number | null
+  area_name?: string | null
+  parent_sector?: 'karrada' | 'zaafaraniya' | null
+}
+export type GpsAlertType = 'gps_offline' | 'gps_stale' | 'outside_zone' | 'engine_idle' | 'route_deviation'
+export interface GpsRouteDeviationSettings {
+  grace_minutes: number
+  updated_at: string
 }
 export type GpsLandmarkIcon =
   | 'pin'
@@ -214,7 +223,7 @@ export interface GpsOperationalAlert {
   vehicle_name: string | null
   db_number: string | null
   departure_id: string | null
-  alert_type: 'gps_offline' | 'gps_stale' | 'outside_zone' | 'engine_idle'
+  alert_type: GpsAlertType
   severity: 'info' | 'warning' | 'critical'
   title: string
   details: Record<string, unknown>
@@ -548,6 +557,7 @@ export const gpsLvn = {
     name: string,
     polygon: GpsMapGeofence['polygon'],
     color: string,
+    sectorId: number | null = null,
   ) =>
     (await sdkGuard(
       supabase.rpc('gps_platform_geofence_save', {
@@ -555,8 +565,20 @@ export const gpsLvn = {
         p_name: name.trim(),
         p_polygon: polygon,
         p_color: color,
+        p_sector_id: sectorId,
       }),
     )) as unknown as string,
+  /** 00154: ربط أي زون نشط بمنطقة تشغيلية (أو فكّه بـ null) */
+  setGeofenceSector: async (id: string, sectorId: number | null) => {
+    await sdkGuard(supabase.rpc('gps_geofence_set_sector', { p_id: id, p_sector_id: sectorId }))
+  },
+  routeDeviationSettings: async () => {
+    const rows = ((await sdkGuard(supabase.rpc('gps_route_deviation_settings_get'))) ?? []) as unknown as GpsRouteDeviationSettings[]
+    return rows[0] ?? { grace_minutes: 3, updated_at: '' }
+  },
+  saveRouteDeviationSettings: async (graceMinutes: number) => {
+    await sdkGuard(supabase.rpc('gps_route_deviation_settings_save', { p_grace_minutes: graceMinutes }))
+  },
   archivePlatformGeofence: async (id: string) => {
     await sdkGuard(supabase.rpc('gps_platform_geofence_archive', { p_id: id }))
   },

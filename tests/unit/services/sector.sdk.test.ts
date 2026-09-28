@@ -1,7 +1,37 @@
 import { beforeEach,describe,expect,it,vi } from 'vitest'
 const h=vi.hoisted(()=>({rpc:vi.fn()}))
 vi.mock('@sdk/client',()=>({supabase:{rpc:h.rpc},sdkGuard:async(value:Promise<{data:unknown;error:null|{message:string}}>)=>{const result=await value;if(result.error)throw new Error(result.error.message);return result.data},sdkVoid:vi.fn()}))
-import { sectorBreakdowns,sectorVehicleTrips } from '@sdk/sector.sdk'
+import { sectorBreakdowns,sectorSupport,sectorVehicleTrips } from '@sdk/sector.sdk'
 const row={id:'b1',manager_id:'m1',manager_name:'مدير',shift:'morning',sectors:[1],db_number:'DB-1',fault_type:'عطل',notes:null,status:'resolved',resolved_at:'2026-09-09T09:00:00Z',resolved_by:'m1',resolution_notes:'تم تبديل الخرطوم',archived_at:null,archive_reason:null,created_at:'2026-09-09T08:00:00Z'}
 describe('SDK دورة عطل القطاع',()=>{beforeEach(()=>h.rpc.mockReset());it('يغلق العطل حصراً عبر RPC ويربط حقول العودة',async()=>{h.rpc.mockResolvedValue({data:row,error:null});const result=await sectorBreakdowns.returnToWork('b1',' تم تبديل الخرطوم ');expect(h.rpc).toHaveBeenCalledWith('sector_return_vehicle_to_work',{p_breakdown_id:'b1',p_resolution_notes:'تم تبديل الخرطوم'});expect(result).toMatchObject({status:'resolved',resolved_at:row.resolved_at,resolved_by:'m1',resolution_notes:'تم تبديل الخرطوم'})});it('يمرر خطأ الخادم ولا يحوّله إلى نجاح',async()=>{h.rpc.mockResolvedValue({data:null,error:{message:'BREAKDOWN_OPEN_NOT_FOUND'}});await expect(sectorBreakdowns.returnToWork('other','إصلاح مكتمل')).rejects.toThrow('BREAKDOWN_OPEN_NOT_FOUND')})})
 describe('SDK تسليم الآليات لمسؤول القسم',()=>{beforeEach(()=>h.rpc.mockReset());it('يجلب الرحلات ثم يؤكد الوصول والمغادرة بملاحظات منضبطة',async()=>{h.rpc.mockResolvedValue({data:[],error:null});await sectorVehicleTrips.days();expect(h.rpc).toHaveBeenLastCalledWith('manager_vehicle_trip_days',{p_limit:60,p_offset:0});await sectorVehicleTrips.forDay('2026-09-09');expect(h.rpc).toHaveBeenLastCalledWith('manager_vehicle_trips_for_day',{p_day:'2026-09-09'});await sectorVehicleTrips.list();expect(h.rpc).toHaveBeenLastCalledWith('manager_vehicle_trips');h.rpc.mockResolvedValue({data:{id:'d1',arrived_at:'now'},error:null});await sectorVehicleTrips.confirmArrival('d1',' وصلت ');expect(h.rpc).toHaveBeenLastCalledWith('sector_confirm_vehicle_arrival',{p_departure_id:'d1',p_notes:'وصلت'});await sectorVehicleTrips.sendToGarage('d1',' انتهت ');expect(h.rpc).toHaveBeenLastCalledWith('sector_send_vehicle_to_garage',{p_departure_id:'d1',p_notes:'انتهت'})});it('يمرر منع الخادم للضغط غير المرتب',async()=>{h.rpc.mockResolvedValue({data:null,error:{message:'GARAGE_SITE_DEPARTURE_NOT_ALLOWED'}});await expect(sectorVehicleTrips.sendToGarage('d1')).rejects.toThrow('GARAGE_SITE_DEPARTURE_NOT_ALLOWED')})})
+describe('SDK طلبات الدعم بين المسؤولين (00154)', () => {
+  beforeEach(() => h.rpc.mockReset())
+  it('يستدعي دوال الخادم بالأسماء والمعاملات التعاقدية مع تشذيب النصوص', async () => {
+    h.rpc.mockResolvedValue({ data: [], error: null })
+    await sectorSupport.managers()
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_managers')
+    await sectorSupport.list()
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_requests_list', { p_limit: 100 })
+    await sectorSupport.lendable()
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_lendable_vehicles')
+    h.rpc.mockResolvedValue({ data: { id: 'r1' }, error: null })
+    await sectorSupport.create({ targetUserId: 'mA', sectorId: 1, neededCount: 2, reason: ' تراكم ' })
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_request_create', { p_target_user_id: 'mA', p_sector_id: 1, p_needed_count: 2, p_reason: 'تراكم' })
+    await sectorSupport.accept('r1', ['d1', 'd2'])
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_request_accept', { p_request_id: 'r1', p_departure_ids: ['d1', 'd2'], p_note: null })
+    await sectorSupport.reject('r1', ' لا تتوفر ')
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_request_reject', { p_request_id: 'r1', p_note: 'لا تتوفر' })
+    await sectorSupport.cancel('r1', 'انتفت')
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_request_cancel', { p_request_id: 'r1', p_reason: 'انتفت' })
+    await sectorSupport.end('a1', '  ')
+    expect(h.rpc).toHaveBeenLastCalledWith('sector_support_end', { p_assignment_id: 'a1', p_note: null })
+    h.rpc.mockResolvedValue({ data: [], error: null })
+    await sectorSupport.opsList({ from: 'x', status: 'accepted' })
+    expect(h.rpc).toHaveBeenLastCalledWith('ops_support_requests_list', { p_from: 'x', p_to: null, p_status: 'accepted', p_limit: 200 })
+  })
+  it('يمرر أكواد الخادم كما هي', async () => {
+    h.rpc.mockResolvedValue({ data: null, error: { message: 'SUPPORT_VEHICLE_NOT_AT_SITE' } })
+    await expect(sectorSupport.accept('r1', ['d1'])).rejects.toThrow('SUPPORT_VEHICLE_NOT_AT_SITE')
+  })
+})

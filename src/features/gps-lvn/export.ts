@@ -569,6 +569,7 @@ export async function exportGpsAlerts(
     gps_offline: 'انقطاع GPS',
     gps_stale: 'تأخر القراءة',
     outside_zone: 'خارج الزون',
+    route_deviation: 'خرجت من مسارها',
     engine_idle: 'توقف المحرك',
   }
   alerts.forEach((alert) =>

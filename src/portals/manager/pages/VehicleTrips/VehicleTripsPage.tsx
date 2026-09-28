@@ -98,6 +98,18 @@ export default function VehicleTripsPage() {
                   </span>
                   <h2 className="mt-3 text-lg font-black">{t.vehicle_name}</h2>
                   <p className="mt-1 text-xs text-slate-500">السائق: {t.driver_name}</p>
+                  {t.support_role && (
+                    <p
+                      data-testid={`support-badge-${t.id}`}
+                      className={`mt-2 inline-flex rounded-lg px-2 py-1 text-[11px] font-black ${
+                        t.support_role === 'borrowed' ? 'bg-violet-100 text-violet-800' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {t.support_role === 'borrowed'
+                        ? `دعم وارد من ${t.support_counterpart_name ?? '—'} · تعمل الآن في ${t.support_area_name ?? '—'}`
+                        : `مُرسلة دعماً إلى ${t.support_counterpart_name ?? '—'} · منطقة ${t.support_area_name ?? '—'}`}
+                    </p>
+                  )}
                 </div>
                 <Status trip={t} />
               </div>

@@ -45,6 +45,9 @@ import {
   useGpsHistoryWindows,
   useGpsLiveMap,
   useGpsMapGeofences,
+  useGpsZoneSector,
+  useGpsRouteDeviationSettings,
+  useSaveGpsRouteDeviationSettings,
   useGpsMapLandmark,
   useGpsMapLandmarks,
   useGpsOpenAlerts,
@@ -70,6 +73,7 @@ import {
   useGpsZoneVehicleAssignment,
   useGpsZoneVehicles,
 } from '@features/gps-lvn/hooks'
+import { useSectors } from '@features/sector'
 import { gpsLvn } from '@sdk/gps-lvn.sdk'
 import type {
   GpsDevice,
@@ -144,6 +148,10 @@ export default function GpsDataPage() {
   const runs = useGpsSyncRuns()
   const liveMap = useGpsLiveMap()
   const mapZones = useGpsMapGeofences()
+  const sectorsList = useSectors()
+  const zoneSector = useGpsZoneSector()
+  const routeSettings = useGpsRouteDeviationSettings()
+  const saveRouteSettings = useSaveGpsRouteDeviationSettings()
   const mapLandmarks = useGpsMapLandmarks()
   const alerts = useGpsOpenAlerts()
   const zoneEvents = useGpsZoneEvents(zoneRangeFrom, zoneRangeTo)
@@ -500,6 +508,13 @@ export default function GpsDataPage() {
                       {a.vehicle_name ?? a.device_name}
                       {a.db_number ? ` · DB ${a.db_number}` : ''}
                     </p>
+                    {a.alert_type === 'route_deviation' && (
+                      <p className="mt-1 rounded-lg bg-white/70 p-2 text-[10px] text-slate-700" data-testid={`route-deviation-${a.id}`}>
+                        السائق <b>{String(a.details.driver_name ?? '—')}</b> · خرج من منطقة <b>{String(a.details.area_name ?? '—')}</b>
+                        {a.details.in_support ? ' (مهمة دعم)' : ''} · مسؤولها <b>{String(a.details.manager_name ?? '—')}</b> · خارج الزون منذ{' '}
+                        <b>{String(a.details.outside_minutes ?? '?')}</b> دقيقة
+                      </p>
+                    )}
                     <div className="mt-2 flex gap-2">
                       {!a.acknowledged_at ? (
                         <button
@@ -612,6 +627,12 @@ export default function GpsDataPage() {
           pending={platformZone.isPending}
           onSave={(zone) => platformZone.mutate({ type: 'save', ...zone })}
           onArchive={(id) => platformZone.mutate({ type: 'archive', id })}
+          sectors={sectorsList.data ?? []}
+          sectorPending={zoneSector.isPending}
+          onSetSector={(id, sectorId) => zoneSector.mutate({ id, sectorId })}
+          routeGrace={routeSettings.data?.grace_minutes ?? 3}
+          routeGracePending={saveRouteSettings.isPending}
+          onSaveRouteGrace={(m) => saveRouteSettings.mutate(m)}
           landmarkPending={mapLandmark.isPending}
           onSaveLandmark={(landmark) => mapLandmark.mutate({ type: 'save', landmark })}
           onArchiveLandmark={(id) => mapLandmark.mutate({ type: 'archive', id })}
@@ -1864,6 +1885,12 @@ function ZonesWorkspace({
   landmarkPending,
   onSaveLandmark,
   onArchiveLandmark,
+  sectors,
+  sectorPending,
+  onSetSector,
+  routeGrace,
+  routeGracePending,
+  onSaveRouteGrace,
 }: {
   zones: GpsMapGeofence[]
   landmarks: GpsMapLandmark[]
@@ -1884,7 +1911,14 @@ function ZonesWorkspace({
   landmarkPending: boolean
   onSaveLandmark: (landmark: Omit<GpsMapLandmark, 'id'> & { id: string | null }) => void
   onArchiveLandmark: (id: string) => void
+  sectors: Array<{ id: number; name: string; parent_sector?: string }>
+  sectorPending: boolean
+  onSetSector: (id: string, sectorId: number | null) => void
+  routeGrace: number
+  routeGracePending: boolean
+  onSaveRouteGrace: (minutes: number) => void
 }) {
+  const [graceDraft, setGraceDraft] = useState<string>('')
   const [editing, setEditing] = useState<{
     id: string | null
     name: string
@@ -1957,14 +1991,55 @@ function ZonesWorkspace({
     onSave({ id: editing.id, name: editing.name, polygon, color: editing.color })
     setEditing(null)
   }
+  const linkedAreas = new Set(zones.filter((z) => z.sector_id).map((z) => z.sector_id))
   return (
     <div className="space-y-4">
       <div className="space-y-4">
+        <article className="rounded-[1.75rem] border border-amber-200 bg-amber-50/60 p-4 shadow-sm" data-testid="route-deviation-settings">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <b className="text-sm text-amber-900">تنبيه «خرجت من مسارها»</b>
+              <p className="mt-1 text-xs text-amber-800">
+                كل آلية تعمل في موقعها تُراقَب تلقائياً ضد زونات منطقتها (أو منطقة الدعم إن كانت مُعارة). لا تنبيه أثناء الطريق أو المحطة أو الصيانة.
+                المناطق المرتبطة بزون: <b>{linkedAreas.size}</b> من {sectors.length}
+                {sectors.length > 0 && linkedAreas.size < sectors.length && (
+                  <span className="mr-1 text-rose-700" data-testid="route-unlinked-areas">
+                    — بلا زون: {sectors.filter((s) => !linkedAreas.has(s.id)).map((s) => s.name).join('، ')}
+                  </span>
+                )}
+              </p>
+            </div>
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                const m = Number(graceDraft === '' ? routeGrace : graceDraft)
+                if (Number.isFinite(m) && m >= 0 && m <= 120) onSaveRouteGrace(m)
+              }}
+            >
+              <label className="text-xs font-bold text-amber-900">
+                مهلة التسامح (دقائق متواصلة خارج الزون)
+                <input
+                  data-testid="route-grace-input"
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={graceDraft === '' ? routeGrace : graceDraft}
+                  onChange={(e) => setGraceDraft(e.target.value)}
+                  className="mr-2 h-10 w-20 rounded-xl border px-2 text-sm"
+                />
+              </label>
+              <button data-testid="route-grace-save" disabled={routeGracePending} className="h-10 rounded-xl bg-amber-700 px-4 text-xs font-black text-white disabled:opacity-50">
+                حفظ
+              </button>
+            </form>
+          </div>
+        </article>
         <article className="rounded-[1.75rem] border bg-white shadow-sm">
           <SectionHead
             icon={MapPinned}
             title="مناطق التشغيل"
-            subtitle="زونات LVN ومناطق المنصة في سجل موحد"
+            subtitle="زونات LVN ومناطق المنصة في سجل موحد — اربط كل زون بمنطقته التشغيلية"
             badge={String(zones.length)}
           />
           <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
@@ -1987,6 +2062,23 @@ function ZonesWorkspace({
                     {zone.source === 'lvn' ? 'LVN' : 'محلية'}
                   </span>
                 </div>
+                <label className="mt-3 block text-[11px] font-bold text-slate-600">
+                  المنطقة التشغيلية
+                  <select
+                    data-testid={`zone-sector-${zone.id}`}
+                    value={zone.sector_id ?? ''}
+                    disabled={sectorPending}
+                    onChange={(e) => onSetSector(zone.id, e.target.value ? Number(e.target.value) : null)}
+                    className={`mt-1 h-10 w-full rounded-xl border px-2 text-xs ${zone.sector_id ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}
+                  >
+                    <option value="">— غير مرتبط (لا مراقبة مسار) —</option>
+                    {sectors.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}{s.parent_sector ? ` — ${s.parent_sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 {zone.source === 'platform' && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button

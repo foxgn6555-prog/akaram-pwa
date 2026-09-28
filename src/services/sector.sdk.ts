@@ -22,6 +22,10 @@ import type {
   Shift,
   SectorVehicleTrip,
   SectorTripDay,
+  SupportRequest,
+  SupportAssignment,
+  SupportManagerOption,
+  SupportLendableVehicle,
 } from '@features/sector/types'
 
 /* ── القواطع ── */
@@ -447,5 +451,67 @@ export const sectorVehicleTrips = {
       }),
     )
     return data as unknown as SectorVehicleTrip
+  },
+}
+
+/** طلبات الدعم بين مسؤولي الأقسام (00154) */
+export const sectorSupport = {
+  async managers(): Promise<SupportManagerOption[]> {
+    const data = await sdkGuard(supabase.rpc('sector_support_managers'))
+    return (data ?? []) as unknown as SupportManagerOption[]
+  },
+  async list(limit = 100): Promise<SupportRequest[]> {
+    const data = await sdkGuard(supabase.rpc('sector_support_requests_list', { p_limit: limit }))
+    return (data ?? []) as unknown as SupportRequest[]
+  },
+  async lendable(): Promise<SupportLendableVehicle[]> {
+    const data = await sdkGuard(supabase.rpc('sector_support_lendable_vehicles'))
+    return (data ?? []) as unknown as SupportLendableVehicle[]
+  },
+  async create(input: { targetUserId: string; sectorId: number; neededCount: number; reason: string }) {
+    return (await sdkGuard(
+      supabase.rpc('sector_support_request_create', {
+        p_target_user_id: input.targetUserId,
+        p_sector_id: input.sectorId,
+        p_needed_count: input.neededCount,
+        p_reason: input.reason.trim(),
+      }),
+    )) as unknown as SupportRequest
+  },
+  async accept(requestId: string, departureIds: string[], note?: string) {
+    return (await sdkGuard(
+      supabase.rpc('sector_support_request_accept', {
+        p_request_id: requestId,
+        p_departure_ids: departureIds,
+        p_note: note?.trim() || null,
+      }),
+    )) as unknown as SupportRequest
+  },
+  async reject(requestId: string, note: string) {
+    return (await sdkGuard(
+      supabase.rpc('sector_support_request_reject', { p_request_id: requestId, p_note: note.trim() }),
+    )) as unknown as SupportRequest
+  },
+  async cancel(requestId: string, reason: string) {
+    return (await sdkGuard(
+      supabase.rpc('sector_support_request_cancel', { p_request_id: requestId, p_reason: reason.trim() }),
+    )) as unknown as SupportRequest
+  },
+  async end(assignmentId: string, note?: string) {
+    return (await sdkGuard(
+      supabase.rpc('sector_support_end', { p_assignment_id: assignmentId, p_note: note?.trim() || null }),
+    )) as unknown as SupportAssignment
+  },
+  /** تقرير غرفة العمليات */
+  async opsList(params: { from?: string | null; to?: string | null; status?: string | null; limit?: number } = {}) {
+    const data = await sdkGuard(
+      supabase.rpc('ops_support_requests_list', {
+        p_from: params.from ?? null,
+        p_to: params.to ?? null,
+        p_status: params.status ?? null,
+        p_limit: params.limit ?? 200,
+      }),
+    )
+    return (data ?? []) as unknown as SupportRequest[]
   },
 }

@@ -13,6 +13,7 @@ import {
   sectorAttendance,
   sectorSummary as fetchSummary,
   sectorVehicleTrips,
+  sectorSupport,
 } from '@sdk/sector.sdk'
 import type {
   CreateWorkerInput,
@@ -335,3 +336,56 @@ function useTripStageMutation(action: 'arrival' | 'garage') {
 }
 export const useConfirmSectorVehicleArrival = () => useTripStageMutation('arrival')
 export const useSendSectorVehicleToGarage = () => useTripStageMutation('garage')
+
+/** طلبات الدعم بين مسؤولي الأقسام (00154) */
+const SUPPORT_KEYS = [['sector', 'support'], ['sector', 'vehicle-trips'], ['sector', 'vehicle-trips-day'], ['ops', 'support']] as const
+export function useSupportRequests() {
+  return useQuery({ queryKey: ['sector', 'support', 'list'], queryFn: () => sectorSupport.list(), refetchInterval: 20000 })
+}
+export function useSupportManagers(enabled = true) {
+  return useQuery({ queryKey: ['sector', 'support', 'managers'], queryFn: () => sectorSupport.managers(), enabled })
+}
+export function useSupportLendableVehicles(enabled = true) {
+  return useQuery({ queryKey: ['sector', 'support', 'lendable'], queryFn: () => sectorSupport.lendable(), enabled })
+}
+function useSupportMutation<TArgs, TOut>(fn: (a: TArgs) => Promise<TOut>, success: string) {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      SUPPORT_KEYS.forEach((k) => void qc.invalidateQueries({ queryKey: [...k] }))
+      addToast({ type: 'success', message: success })
+    },
+    onError: (e) => addToast({ type: 'error', message: handleAppError(e, { scope: 'sectorSupport' }).message }),
+  })
+}
+export const useCreateSupportRequest = () =>
+  useSupportMutation(
+    (x: { targetUserId: string; sectorId: number; neededCount: number; reason: string }) => sectorSupport.create(x),
+    'أُرسل طلب الدعم إلى المسؤول المختار وأُبلغت غرفة العمليات',
+  )
+export const useAcceptSupportRequest = () =>
+  useSupportMutation(
+    (x: { requestId: string; departureIds: string[]; note?: string }) => sectorSupport.accept(x.requestId, x.departureIds, x.note),
+    'تمت الموافقة وإرسال الآليات — أُبلغ المسؤول الطالب',
+  )
+export const useRejectSupportRequest = () =>
+  useSupportMutation((x: { requestId: string; note: string }) => sectorSupport.reject(x.requestId, x.note), 'تم الاعتذار عن الطلب وإبلاغ الطالب')
+export const useCancelSupportRequest = () =>
+  useSupportMutation((x: { requestId: string; reason: string }) => sectorSupport.cancel(x.requestId, x.reason), 'أُلغي طلب الدعم')
+export const useEndSupport = () =>
+  useSupportMutation((x: { assignmentId: string; note?: string }) => sectorSupport.end(x.assignmentId, x.note), 'انتهى الدعم وعادت الآلية إلى منطقتها الأصلية')
+/** تقرير غرفة العمليات لطلبات الدعم (00154) — من/إلى تواريخ بغداد */
+export function useOpsSupportRequests(from: string, to: string) {
+  return useQuery({
+    queryKey: ['ops', 'support', from, to],
+    queryFn: () =>
+      sectorSupport.opsList({
+        from: from ? `${from}T00:00:00+03:00` : null,
+        to: to ? `${to}T23:59:59.999+03:00` : null,
+        limit: 500,
+      }),
+    refetchInterval: 20000,
+  })
+}

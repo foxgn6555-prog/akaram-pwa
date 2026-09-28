@@ -8,6 +8,20 @@ const h = vi.hoisted(() => ({
   correct: vi.fn(),
   workflowRange: vi.fn(),
   excel: vi.fn(),
+  cancelSupport: vi.fn(),
+  support: [
+    {
+      id: 'r1', status: 'accepted', requester_user_id: 'mB', requester_name: 'مسؤول أرخيته', requester_sector_id: 1, requester_area_name: 'أرخيته', requester_parent_sector: 'karrada',
+      target_user_id: 'mA', target_name: 'مسؤول الجادرية', needed_count: 1, reason: 'تراكم نفايات', decision_note: null, cancel_reason: null,
+      created_at: '2026-09-28T06:00:00Z', decided_at: '2026-09-28T06:10:00Z', completed_at: null,
+      assignments: [{ id: 'a1', departure_id: 'd1', vehicle_id: 'v1', vehicle_name: 'كابسة 1', db_number: 'DB-1', driver_name: 'علي', from_sector_id: 4, to_sector_id: 1, started_at: '2026-09-28T06:10:00Z', ended_at: null, end_kind: null, end_note: null, trip_status: 'at_site' }],
+    },
+    {
+      id: 'r2', status: 'rejected', requester_user_id: 'mB', requester_name: 'مسؤول أرخيته', requester_sector_id: 1, requester_area_name: 'أرخيته', requester_parent_sector: 'karrada',
+      target_user_id: 'mA', target_name: 'مسؤول الجادرية', needed_count: 2, reason: 'سوق', decision_note: 'لا تتوفر آليات', cancel_reason: null,
+      created_at: '2026-09-28T05:00:00Z', decided_at: '2026-09-28T05:05:00Z', completed_at: null, assignments: [],
+    },
+  ] as Record<string, unknown>[],
   gbs: [
     {
       id: 'g1',
@@ -153,6 +167,10 @@ vi.mock('@features/central-garage/hooks', () => ({
 }))
 vi.mock('@features/gbs/hooks', () => ({
   useGbsContainers: () => ({ data: h.gbs, isLoading: false }),
+}))
+vi.mock('@features/sector', () => ({
+  useOpsSupportRequests: () => ({ data: h.support, isLoading: false }),
+  useCancelSupportRequest: () => ({ mutate: h.cancelSupport, isPending: false }),
 }))
 const summary = {
   departure_id: 'd1',
@@ -684,5 +702,23 @@ describe('تقارير غرفة العمليات المركبة', () => {
     fireEvent.change(within(dialog).getByTestId('resolve-breakdown-notes'), { target: { value: 'بدّل السائق الإطار' } })
     fireEvent.click(within(dialog).getByTestId('resolve-breakdown-submit'))
     expect(h.resolveBreakdown).toHaveBeenCalledWith({ departureId: 'd2', notes: 'بدّل السائق الإطار' }, expect.objectContaining({ onSuccess: expect.any(Function) }))
+  })
+})
+
+describe('00154: طلبات الدعم في غرفة العمليات', () => {
+  it('يعرض التبويب مترجماً مع الآليات المرسلة ويلغي المفتوح بسبب إلزامي', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-support'))
+    expect(screen.getByTestId('ops-support-panel')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'المسؤول الطالب' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'الآليات المرسلة' })).toBeInTheDocument()
+    expect(screen.getAllByText('دعم جارٍ').length).toBeGreaterThan(0)
+    expect(screen.getByText('كابسة 1 · DB DB-1')).toBeInTheDocument()
+    expect(screen.getByText('لا تتوفر آليات')).toBeInTheDocument()
+    expect(screen.queryByTestId('ops-support-r2')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('ops-support-cancel-r1'))
+    fireEvent.change(screen.getByTestId('ops-support-cancel-reason'), { target: { value: 'قرار تشغيلي' } })
+    fireEvent.click(screen.getByTestId('ops-support-cancel-submit'))
+    expect(h.cancelSupport).toHaveBeenCalledWith({ requestId: 'r1', reason: 'قرار تشغيلي' }, expect.any(Object))
   })
 })

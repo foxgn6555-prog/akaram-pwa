@@ -70,6 +70,33 @@ export const useGpsSchedulerHealth = () =>
     queryFn: gpsLvn.schedulerHealth,
     refetchInterval: 30_000,
   })
+/** 00154: ربط الزون بالمنطقة + مهلة تنبيه الخروج عن المسار */
+export function useGpsZoneSector() {
+  const invalidate = useInvalidate(),
+    toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (x: { id: string; sectorId: number | null }) => gpsLvn.setGeofenceSector(x.id, x.sectorId),
+    onSuccess: (_, x) => {
+      invalidate()
+      toast({ type: 'success', message: x.sectorId ? 'رُبط الزون بالمنطقة — آليات المنطقة تُراقَب ضده تلقائياً' : 'فُكّ ربط الزون بالمنطقة' })
+    },
+    onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsZoneSector' }).message }),
+  })
+}
+export const useGpsRouteDeviationSettings = () =>
+  useQuery({ queryKey: ['gps-lvn', 'route-deviation-settings'] as const, queryFn: gpsLvn.routeDeviationSettings })
+export function useSaveGpsRouteDeviationSettings() {
+  const qc = useQueryClient(),
+    toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (graceMinutes: number) => gpsLvn.saveRouteDeviationSettings(graceMinutes),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gps-lvn', 'route-deviation-settings'] })
+      toast({ type: 'success', message: 'حُفظت مهلة التسامح لتنبيه الخروج عن المسار' })
+    },
+    onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsRouteDeviation' }).message }),
+  })
+}
 export const useGpsAlertNotificationPolicies = () =>
   useQuery({ queryKey: gpsKeys.alertPolicies, queryFn: gpsLvn.alertNotificationPolicies })
 export const useGpsZoneVehicles = (zoneId: string, search: string) =>
@@ -279,12 +306,13 @@ export function useGpsPlatformGeofence() {
             name: string
             polygon: Array<{ lat: number; lng: number } | [number, number]>
             color: string
+            sectorId?: number | null
           }
         | { type: 'archive'; id: string },
     ) => {
       if (action.type === 'save')
         return gpsLvn
-          .savePlatformGeofence(action.id, action.name, action.polygon, action.color)
+          .savePlatformGeofence(action.id, action.name, action.polygon, action.color, action.sectorId ?? null)
           .then(() => undefined)
       return gpsLvn.archivePlatformGeofence(action.id)
     },

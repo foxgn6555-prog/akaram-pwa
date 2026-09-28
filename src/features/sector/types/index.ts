@@ -162,7 +162,7 @@ export interface CreateSupplyInput {
 }
 
 export interface SectorTripDay {trip_day:string;total_count:number;open_count:number;first_departure_at:string;last_activity_at:string}
-export interface SectorVehicleTrip { trip_status?:string|null;id:string;vehicle_id:string;driver_name:string;shift:Shift;sector_id:number;departed_at:string;arrived_at:string|null;site_departed_at:string|null;returned_at:string|null;recipient_manager_id:string|null;recipient_manager_name:string|null;arrival_notes:string|null;site_departure_notes:string|null;vehicle_name:string;db_number:string;image_path:string;area_name:string;parent_sector:'karrada'|'zaafaraniya' }
+export interface SectorVehicleTrip { trip_status?:string|null;id:string;vehicle_id:string;driver_name:string;shift:Shift;sector_id:number;departed_at:string;arrived_at:string|null;site_departed_at:string|null;returned_at:string|null;recipient_manager_id:string|null;recipient_manager_name:string|null;arrival_notes:string|null;site_departure_notes:string|null;vehicle_name:string;db_number:string;image_path:string;area_name:string;parent_sector:'karrada'|'zaafaraniya';support_assignment_id?:string|null;support_role?:'borrowed'|'lent'|null;support_sector_id?:number|null;support_area_name?:string|null;support_counterpart_name?:string|null }
 
 export interface CreateBreakdownInput {
   db_number: string
@@ -178,4 +178,61 @@ export interface CreateAttendanceInput {
   log_date: string
   is_present: boolean
   note?: string | null
+}
+
+/** طلبات الدعم بين مسؤولي الأقسام (00154) */
+export type SupportRequestStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'completed'
+export interface SupportAssignment {
+  id: string
+  departure_id: string
+  vehicle_id: string
+  vehicle_name: string
+  db_number: string
+  driver_name: string
+  from_sector_id: number
+  to_sector_id: number
+  started_at: string
+  ended_at: string | null
+  end_kind: 'released' | 'recalled' | 'returned' | 'cancelled' | null
+  end_note: string | null
+  trip_status: string | null
+}
+export interface SupportRequest {
+  id: string
+  direction?: 'incoming' | 'outgoing'
+  status: SupportRequestStatus
+  requester_user_id: string
+  requester_name: string
+  requester_sector_id: number
+  requester_area_name: string
+  requester_parent_sector?: 'karrada' | 'zaafaraniya'
+  target_user_id: string
+  target_name: string
+  needed_count: number
+  reason: string
+  decision_note: string | null
+  cancel_reason: string | null
+  created_at: string
+  decided_at: string | null
+  completed_at: string | null
+  assignments: SupportAssignment[]
+}
+export interface SupportManagerOption {
+  user_id: string
+  manager_name: string
+  shift: Shift
+  sectors: number[]
+  area_names: string[]
+  parent_sectors: string[]
+  active_vehicles: number
+}
+export interface SupportLendableVehicle {
+  departure_id: string
+  vehicle_id: string
+  vehicle_name: string
+  db_number: string
+  driver_name: string
+  sector_id: number
+  area_name: string
+  trip_status: string
 }

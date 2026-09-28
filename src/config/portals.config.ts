@@ -176,6 +176,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/leaves', labelKey: 'nav.mgr_leaves', icon: 'clipboard' },
     { path: '/manager/breakdown', labelKey: 'nav.mgr_breakdown', icon: 'alert-triangle' },
     { path: '/manager/vehicle-trips', labelKey: 'nav.mgr_vehicle_trips', icon: 'truck' },
+    { path: '/manager/support', labelKey: 'nav.mgr_support', icon: 'send' },
     { path: '/manager/gbs-containers', labelKey: 'nav.mgr_gbs_containers', icon: 'box' },
     { path: '/manager/complaints', labelKey: 'nav.mgr_complaints', icon: 'clipboard' },
     { path: '/manager/photos', labelKey: 'nav.mgr_photos', icon: 'photo' },

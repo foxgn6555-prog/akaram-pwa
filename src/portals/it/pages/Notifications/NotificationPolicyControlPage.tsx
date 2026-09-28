@@ -749,6 +749,7 @@ const gpsAlertLabels: Record<GpsAlertNotificationPolicy['alert_type'], string> =
   gps_offline: 'انقطاع GPS',
   gps_stale: 'تأخر القراءة',
   outside_zone: 'خارج الزون',
+  route_deviation: 'خرجت من مسارها (زون المنطقة)',
   engine_idle: 'توقف المحرك',
 }
 function GpsPolicyCard({ policy }: { policy: GpsAlertNotificationPolicy }) {
