@@ -34,11 +34,20 @@ describe('CameraCapture — التقاط مباشر بالكاميرا', () => {
     await waitFor(() => expect(gum).toHaveBeenCalled())
     expect(JSON.stringify(gum.mock.calls[0]?.[0])).toContain('"facingMode":{"exact":"environment"}')
   })
-  it('عند رفض الإذن: رسالة خطأ وبديل input بخاصية capture للكاميرا نفسها', async () => {
+  it('عند رفض الإذن: رسالة سبب + زر إعادة محاولة فقط — لا يوجد أي اختيار من الألبوم', async () => {
     mockCamera(() => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' })))
-    render(<CameraCapture facing="environment" title="العمال" testId="team" onCapture={vi.fn()} onClose={vi.fn()} />)
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByTestId('team-fallback')).toHaveAttribute('capture', 'environment')
+    const { container } = render(<CameraCapture facing="environment" title="العمال" testId="team" onCapture={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('رفضت إذن الكاميرا'))
+    expect(container.querySelector('input[type="file"]')).toBeNull()
+    const gum = navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>
+    const before = gum.mock.calls.length
+    fireEvent.click(screen.getByTestId('team-retry'))
+    await waitFor(() => expect(gum.mock.calls.length).toBeGreaterThan(before))
+  })
+  it('لا كاميرا في الجهاز → رسالة مناسبة', async () => {
+    mockCamera(() => Promise.reject(Object.assign(new Error(), { name: 'NotFoundError' })))
+    render(<CameraCapture facing="user" title="صورتك" testId="selfie" onCapture={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('لم يُعثر على كاميرا'))
   })
   it('exact غير مدعوم → يعيد المحاولة بقيد أخف', async () => {
     let n = 0

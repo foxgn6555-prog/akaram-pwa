@@ -1,19 +1,28 @@
 /**
  * التقاط صورة داخل التطبيق بالكاميرا مباشرة (getUserMedia) — لا يفتح «اختيار ملف».
  * facing='user' = الكاميرا الأمامية (سلفي)، 'environment' = الكاميرا الخلفية (العمال).
- * إن لم يتوفر getUserMedia أو رُفض الإذن، يُستخدم بديل <input capture> الأصلي.
+ * لا يوجد أي بديل لاختيار صورة من الألبوم: عند الفشل تظهر رسالة توضّح السبب وزر إعادة المحاولة فقط.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, RefreshCw, X } from 'lucide-react'
 
 export type Facing = 'user' | 'environment'
-export const cameraSupported = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+
+export function cameraErrorMessage(name: string): string {
+  switch (name) {
+    case 'NotAllowedError': case 'SecurityError': return 'رفضت إذن الكاميرا — اسمح بالكاميرا لهذا الموقع من إعدادات المتصفح ثم أعد المحاولة'
+    case 'NotFoundError': case 'DevicesNotFoundError': return 'لم يُعثر على كاميرا في هذا الجهاز'
+    case 'NotReadableError': case 'TrackStartError': return 'الكاميرا مشغولة بتطبيق آخر — أغلقه ثم أعد المحاولة'
+    default: return 'تعذّر فتح الكاميرا — أعد المحاولة'
+  }
+}
 
 export function CameraCapture({ facing, title, onCapture, onClose, testId }: { facing: Facing; title: string; onCapture: (f: File) => void; onClose: () => void; testId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   const stop = useCallback(() => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null }, [])
 
@@ -21,6 +30,9 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
     let cancelled = false
     const start = async () => {
       setError(null); setReady(false)
+      if (typeof window !== 'undefined' && window.isSecureContext === false) { setError('الكاميرا تعمل فقط عبر اتصال آمن (https) — افتح التطبيق من رابطه الرسمي'); return }
+      if (!navigator.mediaDevices?.getUserMedia) { setError('هذا المتصفح لا يدعم الكاميرا المباشرة — استخدم Chrome أو Safari محدثاً'); return }
+      let lastName = ''
       const attempts: MediaStreamConstraints[] = [
         { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false },
         { video: { facingMode: facing }, audio: false },
@@ -35,14 +47,15 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
           setReady(true)
           return
         } catch (e) {
-          if ((e as DOMException)?.name === 'NotAllowedError') break
+          lastName = (e as DOMException)?.name ?? ''
+          if (lastName === 'NotAllowedError' || lastName === 'SecurityError') break
         }
       }
-      if (!cancelled) setError('تعذّر فتح الكاميرا — تأكد من منح إذن الكاميرا للمتصفح')
+      if (!cancelled) setError(cameraErrorMessage(lastName))
     }
     void start()
     return () => { cancelled = true; stop() }
-  }, [facing, stop])
+  }, [facing, stop, attempt])
 
   const snap = () => {
     const v = videoRef.current
@@ -74,10 +87,9 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
       </div>
       <div className="flex items-center justify-center gap-6 p-5">
         {error ? (
-          <label className="flex h-12 cursor-pointer items-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-slate-900">
-            <RefreshCw size={16} />استخدام كاميرا الجهاز
-            <input type="file" accept="image/*" capture={facing} className="hidden" data-testid={`${testId}-fallback`} onChange={(e) => { const f = e.target.files?.[0]; if (f) { onCapture(f); onClose() } }} />
-          </label>
+          <button type="button" onClick={() => setAttempt((a) => a + 1)} data-testid={`${testId}-retry`} className="flex h-12 items-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-slate-900">
+            <RefreshCw size={16} />إعادة المحاولة
+          </button>
         ) : (
           <button type="button" onClick={snap} disabled={!ready} aria-label="التقاط" data-testid={`${testId}-snap`} className="flex size-16 items-center justify-center rounded-full border-4 border-white bg-white/30 text-white disabled:opacity-40"><Camera size={26} /></button>
         )}

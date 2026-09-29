@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
@@ -29,6 +29,20 @@ import Dashboard from '@portals/employee/pages/Dashboard/ContractorDashboard'
 import Team from '@portals/employee/pages/Team/ContractorTeamPage'
 import Attendance from '@portals/employee/pages/Attendance/ContractorAttendancePage'
 URL.createObjectURL = () => 'blob:preview'
+const gumMock = vi.fn((_c: MediaStreamConstraints) => Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream))
+Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: gumMock } })
+Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: () => Promise.resolve() })
+function mockCanvas() {
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => ({ translate: vi.fn(), scale: vi.fn(), drawImage: vi.fn() })) as never
+  HTMLCanvasElement.prototype.toBlob = function (cb: BlobCallback) { cb(new Blob(['x'], { type: 'image/jpeg' })) }
+}
+async function snapVia(testId: string) {
+  mockCanvas()
+  fireEvent.click(screen.getByTestId(`${testId}-open`))
+  await waitFor(() => expect(screen.getByTestId(`${testId}-snap`)).toBeEnabled())
+  await act(async () => { fireEvent.click(screen.getByTestId(`${testId}-snap`)) })
+  await waitFor(() => expect(screen.queryByTestId(`${testId}-camera`)).toBeNull())
+}
 URL.revokeObjectURL = () => undefined
 const wrap = (el: React.ReactElement) => render(<MemoryRouter>{el}</MemoryRouter>)
 const geoOk = (lat = 33.3, lng = 44.4) => Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
@@ -78,35 +92,29 @@ describe('بوابة المتعهد (00158)', () => {
     expect(screen.getByTestId('checkin-missing')).toHaveTextContent('يلزم: صورتك، صورة العمال')
     expect(screen.getByTestId('present-w1')).toBeDisabled()
     expect(screen.getByTestId('locked-note')).toBeInTheDocument()
-    const selfie = new File(['a'], 'selfie.jpg', { type: 'image/jpeg' }), team = new File(['b'], 'team.jpg', { type: 'image/jpeg' })
-    expect(screen.getByTestId('selfie-input')).toHaveAttribute('capture', 'user')
-    expect(screen.getByTestId('team-input')).toHaveAttribute('capture', 'environment')
-    fireEvent.change(screen.getByTestId('selfie-input'), { target: { files: [selfie] } })
+    // لا يوجد أي input لاختيار ملف — الالتقاط حصراً عبر الكاميرا داخل التطبيق
+    expect(document.querySelector('input[type="file"]')).toBeNull()
+    expect(screen.getByTestId('selfie-input-open')).toBeInTheDocument()
+    expect(screen.getByTestId('team-input-open')).toBeInTheDocument()
+    await snapVia('selfie-input')
     expect(screen.getByTestId('checkin-missing')).toHaveTextContent('يلزم: صورة العمال')
-    fireEvent.change(screen.getByTestId('team-input'), { target: { files: [team] } })
+    await snapVia('team-input')
     expect(screen.getByTestId('checkin-submit')).toBeEnabled()
     fireEvent.click(screen.getByTestId('checkin-submit'))
-    expect(h.checkin).toHaveBeenCalledWith({ latitude: 33.3, longitude: 44.4, accuracy: 7, selfie, teamPhoto: team }, expect.any(Object))
+    expect(h.checkin).toHaveBeenCalledWith({ latitude: 33.3, longitude: 44.4, accuracy: 7, selfie: expect.any(File), teamPhoto: expect.any(File) }, expect.any(Object))
   })
 
-  it('عند توفر getUserMedia: زر «التقاط الصورة» يفتح الكاميرا داخل التطبيق (أمامية للسلفي، خلفية للعمال) وليس اختيار ملف', async () => {
-    const gum = vi.fn((_c: MediaStreamConstraints) => Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream))
-    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: gum } })
-    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: () => Promise.resolve() })
-    try {
-      wrap(<Attendance />)
-      await waitFor(() => expect(screen.getByTestId('geo-text')).toHaveTextContent('تم التقاط الموقع'))
-      expect(screen.queryByTestId('selfie-input')).toBeNull()
-      fireEvent.click(screen.getByTestId('selfie-input-open'))
-      await waitFor(() => expect(gum).toHaveBeenCalled())
-      expect(JSON.stringify(gum.mock.calls[0]?.[0])).toContain('"facingMode":{"exact":"user"}')
-      fireEvent.click(screen.getByTestId('selfie-input-camera-close'))
-      fireEvent.click(screen.getByTestId('team-input-open'))
-      await waitFor(() => expect(gum).toHaveBeenCalledTimes(2))
-      expect(JSON.stringify(gum.mock.calls[1]?.[0])).toContain('"facingMode":{"exact":"environment"}')
-    } finally {
-      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined })
-    }
+  it('السلفي يفتح الكاميرا الأمامية وصورة العمال الخلفية', async () => {
+    gumMock.mockClear()
+    wrap(<Attendance />)
+    await waitFor(() => expect(screen.getByTestId('geo-text')).toHaveTextContent('تم التقاط الموقع'))
+    fireEvent.click(screen.getByTestId('selfie-input-open'))
+    await waitFor(() => expect(gumMock).toHaveBeenCalled())
+    expect(JSON.stringify(gumMock.mock.calls[0]?.[0])).toContain('"facingMode":{"exact":"user"}')
+    fireEvent.click(screen.getByTestId('selfie-input-camera-close'))
+    fireEvent.click(screen.getByTestId('team-input-open'))
+    await waitFor(() => expect(gumMock).toHaveBeenCalledTimes(2))
+    expect(JSON.stringify(gumMock.mock.calls[1]?.[0])).toContain('"facingMode":{"exact":"environment"}')
   })
 
   it('رفض إذن الموقع يظهر رسالة واضحة وزر إعادة المحاولة، ويبقى الزر معطلاً', async () => {
