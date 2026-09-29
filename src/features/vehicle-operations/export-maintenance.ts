@@ -32,6 +32,7 @@ const statusLabels: Record<string, string> = {
 }
 const eventLabels: Record<MaintenanceEvent['event_type'], string> = {
   case: 'بلاغ الصيانة',
+  technician: 'الفنيون',
   decision: 'قرار الكراج',
   movement: 'حركة الآلية',
   maintenance_update: 'تحديث الصيانة',

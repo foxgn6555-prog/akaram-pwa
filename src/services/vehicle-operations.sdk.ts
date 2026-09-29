@@ -134,6 +134,55 @@ export interface MaintenanceCase {
   readiness_approval_notes: string | null
   stage_key: StageKey | null
   stage_no: number
+  /** (00156) نص الفنيين النشطين «اسم (تخصص)، …» */
+  technicians?: string | null
+  technician_count?: number
+  parts_count?: number
+  parts_summary?: string | null
+  wait_minutes?: number | null
+  maintenance_minutes?: number | null
+  corrected_at?: string | null
+  correction_reason?: string | null
+  correction_count?: number
+  updates_count?: number
+  last_update_at?: string | null
+  sector_id?: number
+}
+export type MaintenanceSpecialty = 'mechanical' | 'electrical' | 'bodywork' | 'tires' | 'hydraulic' | 'ac' | 'general'
+export const MAINTENANCE_SPECIALTIES: { key: MaintenanceSpecialty; label: string }[] = [
+  { key: 'mechanical', label: 'ميكانيك' },
+  { key: 'electrical', label: 'كهرباء' },
+  { key: 'bodywork', label: 'سمكرة وحدادة' },
+  { key: 'tires', label: 'إطارات' },
+  { key: 'hydraulic', label: 'هيدروليك' },
+  { key: 'ac', label: 'تبريد وتكييف' },
+  { key: 'general', label: 'فني عام' },
+]
+export const specialtyLabel = (key: string | null | undefined) =>
+  MAINTENANCE_SPECIALTIES.find((s) => s.key === key)?.label ?? (key ?? '')
+export interface MaintenanceTechnicianOption {
+  employee_id: string
+  full_name: string
+  employee_number: string
+  job_title: string
+  specialty: MaintenanceSpecialty
+  specialty_label: string
+  employment_status: string
+  open_cases: number
+}
+export interface MaintenanceCaseTechnician {
+  id: string
+  case_id: string
+  employee_id: string
+  technician_name: string
+  employee_number: string
+  specialty: MaintenanceSpecialty
+  specialty_label: string
+  notes: string | null
+  assigned_at: string
+  released_at: string | null
+  release_notes: string | null
+  active: boolean
 }
 export interface MaintenanceUpdate {
   id: string
@@ -247,6 +296,21 @@ export interface MaintenanceArchiveEntry {
   actual_cost: number
   parts_count: number
   duration_days: number | null
+  /** (00156) */
+  sector_id: number
+  ready_at: string | null
+  readiness_approved_at: string | null
+  departed_maintenance_at: string | null
+  work_notes: string | null
+  delay_reason: string | null
+  technicians: string | null
+  technician_count: number
+  parts_summary: string | null
+  estimated_cost: number | null
+  wait_minutes: number | null
+  maintenance_minutes: number | null
+  corrected_at: string | null
+  correction_reason: string | null
 }
 export interface MaintenanceAttachment {
   id: string
@@ -269,6 +333,7 @@ export interface MaintenanceTechnician {
 export interface MaintenanceEvent {
   event_key: string
   event_type:
+    | 'technician'
     | 'case'
     | 'decision'
     | 'movement'
@@ -513,6 +578,53 @@ export const vehicleOperations = {
     return ((await sdkGuard(supabase.rpc('maintenance_technicians'))) ??
       []) as unknown as MaintenanceTechnician[]
   },
+  /** (00156) الفنيون من الهيكل التنظيمي: موظفون بمسمى ذي تخصص صيانة */
+  async maintenanceTechnicianOptions(search?: string): Promise<MaintenanceTechnicianOption[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_technician_options', { p_search: search?.trim() || null }),
+    )) ?? []) as unknown as MaintenanceTechnicianOption[]
+  },
+  async maintenanceCaseTechnicians(caseId: string): Promise<MaintenanceCaseTechnician[]> {
+    return ((await sdkGuard(
+      supabase.rpc('maintenance_case_technicians', { p_case_id: caseId }),
+    )) ?? []) as unknown as MaintenanceCaseTechnician[]
+  },
+  async maintenanceAssignTechnician(caseId: string, employeeId: string, notes?: string) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_assign_technician', {
+        p_case_id: caseId,
+        p_employee_id: employeeId,
+        p_notes: notes?.trim() || null,
+      }),
+    )
+  },
+  async maintenanceReleaseTechnician(caseId: string, employeeId: string, notes?: string) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_release_technician', {
+        p_case_id: caseId,
+        p_employee_id: employeeId,
+        p_notes: notes?.trim() || null,
+      }),
+    )
+  },
+  /** (00156) صرف من المخزن مع تركيب فوري اختياري — الكلفة من المخزن تلقائياً */
+  async maintenanceIssueAndInstall(
+    caseId: string,
+    itemId: string,
+    quantity: number,
+    installNow: boolean,
+    notes?: string,
+  ) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_issue_and_install', {
+        p_case_id: caseId,
+        p_item_id: itemId,
+        p_quantity: quantity,
+        p_notes: notes?.trim() || null,
+        p_install_now: installNow,
+      }),
+    )
+  },
   async maintenanceApproveReadiness(caseId: string, notes?: string) {
     return await sdkGuard(
       supabase.rpc('maintenance_approve_readiness', {
@@ -720,7 +832,7 @@ export const vehicleOperations = {
   },
   async opsMaintenance(from: string, to: string) {
     return ((await sdkGuard(
-      supabase.rpc('operational_maintenance_cases', { p_from: from, p_to: to }),
+      supabase.rpc('operational_maintenance_report', { p_from: from, p_to: to }),
     )) ?? []) as unknown as Record<string, unknown>[]
   },
   async opsStationVisits(from: string, to: string) {

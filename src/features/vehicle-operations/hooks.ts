@@ -138,6 +138,36 @@ export const useMaintenanceTechnicians = () =>
     queryKey: ['vehicle-operations', 'maintenance-technicians'],
     queryFn: () => vehicleOperations.maintenanceTechnicians(),
   })
+/** (00156) الفنيون من الهيكل التنظيمي */
+export const useMaintenanceTechnicianOptions = (search?: string) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-technician-options', search ?? ''],
+    queryFn: () => vehicleOperations.maintenanceTechnicianOptions(search),
+  })
+export const useMaintenanceCaseTechnicians = (caseId: string) =>
+  useQuery({
+    queryKey: ['vehicle-operations', 'maintenance-case-technicians', caseId],
+    queryFn: () => vehicleOperations.maintenanceCaseTechnicians(caseId),
+    enabled: Boolean(caseId),
+  })
+export const useMaintenanceAssignTechnician = () =>
+  useAction(
+    (x: { caseId: string; employeeId: string; notes?: string }) =>
+      vehicleOperations.maintenanceAssignTechnician(x.caseId, x.employeeId, x.notes),
+    'تم تعيين الفني على الحالة',
+  )
+export const useMaintenanceReleaseTechnician = () =>
+  useAction(
+    (x: { caseId: string; employeeId: string; notes?: string }) =>
+      vehicleOperations.maintenanceReleaseTechnician(x.caseId, x.employeeId, x.notes),
+    'تم إنهاء عمل الفني على الحالة',
+  )
+export const useMaintenanceIssueAndInstall = () =>
+  useAction(
+    (x: { caseId: string; itemId: string; quantity: number; installNow: boolean; notes?: string }) =>
+      vehicleOperations.maintenanceIssueAndInstall(x.caseId, x.itemId, x.quantity, x.installNow, x.notes),
+    'صُرفت القطعة من المخزن وأُضيفت كلفتها تلقائياً',
+  )
 export const useMaintenanceApproveReadiness = () =>
   useAction(
     (x: { caseId: string; notes?: string }) =>

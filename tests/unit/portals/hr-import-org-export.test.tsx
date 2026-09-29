@@ -95,7 +95,7 @@ describe('استيراد الموظفين', () => {
 })
 
 describe('الهيكل التنظيمي', () => {
-  const d = (o: Partial<{ id: string; name: string; code: string; parent_id: string | null; is_active: boolean; employees_active: number; manager_name: string | null; is_job_title: boolean; drives_vehicles: boolean }>) => ({ id: 'x', name: 'x', code: 'X', parent_id: null, is_active: true, manager_id: null, manager_name: null, employees_active: 0, employees_total: 0, children: 0, created_at: '', is_job_title: false, drives_vehicles: false, ...o })
+  const d = (o: Partial<{ id: string; name: string; code: string; parent_id: string | null; is_active: boolean; employees_active: number; manager_name: string | null; is_job_title: boolean; drives_vehicles: boolean; maintenance_specialty: string | null }>) => ({ id: 'x', name: 'x', code: 'X', parent_id: null, is_active: true, manager_id: null, manager_name: null, employees_active: 0, employees_total: 0, children: 0, created_at: '', is_job_title: false, drives_vehicles: false, maintenance_specialty: null, ...o })
   it('يعرض الشجرة بعمق صحيح مع عدد الموظفين ومجموع الفروع، ويخفي المعطّل افتراضياً', () => {
     h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS', employees_active: 2 }), d({ id: 'b', name: 'القاطع الأول', code: 'OPS-1', parent_id: 'a', employees_active: 5 }), d({ id: 'c', name: 'قديم', code: 'OLD', is_active: false })]
     render(<MemoryRouter><OrgStructure /></MemoryRouter>)
@@ -119,7 +119,7 @@ describe('الهيكل التنظيمي', () => {
     fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'ops-2' } })
     fireEvent.change(screen.getByTestId('org-manager'), { target: { value: 'e1' } })
     fireEvent.click(screen.getByTestId('org-save'))
-    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true, isJobTitle: false, drivesVehicles: false }))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true, isJobTitle: false, drivesVehicles: false, maintenanceSpecialty: null }))
   })
   it('التعديل يحمّل بيانات القسم، والتعطيل يطلب تأكيداً ويرسل isActive=false', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -156,7 +156,21 @@ describe('الهيكل التنظيمي', () => {
     fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'T-LOADER' } })
     fireEvent.click(screen.getByTestId('org-drives'))
     fireEvent.click(screen.getByTestId('org-save'))
-    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'سائق شفل', code: 'T-LOADER', parentId: 'a', managerId: null, isActive: true, isJobTitle: true, drivesVehicles: true }))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'سائق شفل', code: 'T-LOADER', parentId: 'a', managerId: null, isActive: true, isJobTitle: true, drivesVehicles: true, maintenanceSpecialty: null }))
+  })
+  it('00156: خانة «تخصص صيانة» على المسمى — شارة على العقدة وإرسال التخصص عند الحفظ', async () => {
+    h.depts = [
+      d({ id: 'a', name: 'قسم الصيانة', code: 'MAINT' }),
+      d({ id: 'm', name: 'فني كهرباء', code: 'T-EL', parent_id: 'a', is_job_title: true, drives_vehicles: false, maintenance_specialty: 'electrical' }),
+    ]
+    render(<MemoryRouter><OrgStructure /></MemoryRouter>)
+    expect(screen.getByTestId('org-tech-badge-T-EL')).toHaveTextContent('فني كهرباء')
+    fireEvent.click(screen.getByTestId('org-addtitle-MAINT'))
+    fireEvent.change(screen.getByTestId('org-name'), { target: { value: 'فني إطارات' } })
+    fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'T-TIRE' } })
+    fireEvent.change(screen.getByTestId('org-maintenance-specialty'), { target: { value: 'tires' } })
+    fireEvent.click(screen.getByTestId('org-save'))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith(expect.objectContaining({ name: 'فني إطارات', isJobTitle: true, maintenanceSpecialty: 'tires' })))
   })
 })
 

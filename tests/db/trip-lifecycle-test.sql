@@ -34,6 +34,13 @@ insert into public.departments (id, name, code, parent_id, is_job_title, drives_
   ('c0c0d000-0000-0000-0000-000000000003', 'سائق', 'LC-T2', 'c0c0d000-0000-0000-0000-000000000001', true, true),
   ('c0c0d000-0000-0000-0000-000000000005', 'مسؤول قسم', 'LC-T3', 'c0c0d000-0000-0000-0000-000000000004', true, false)
 on conflict (id) do nothing;
+-- (00156) قسم الصيانة → مسمى «فني هيدروليك» بتخصص صيانة، وموظف فني عليه
+insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles) values
+  ('c0c0d000-0000-0000-0000-000000000006', 'قسم الصيانة (اختبار)', 'LC-MAINT', null, false, false) on conflict (id) do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles, maintenance_specialty) values
+  ('c0c0d000-0000-0000-0000-000000000007', 'فني هيدروليك', 'LC-T4', 'c0c0d000-0000-0000-0000-000000000006', true, false, 'hydraulic') on conflict (id) do nothing;
+insert into public.employees (id, user_id, employee_number, full_name, hire_date, job_title_id) values
+  ('c0c00000-0000-0000-0000-0000000000f1', null, 'LC-F1', 'فني الدورة', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000007') on conflict (employee_number) do nothing;
 insert into public.employees (id, user_id, employee_number, full_name, hire_date, job_title_id, biometric_pin) values
   ('c0c00000-0000-0000-0000-0000000000e2', 'c0c00000-0000-0000-0000-000000000002', 'LC-M1', 'مسؤول قاطع الدورة', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000005', null),
   ('c0c00000-0000-0000-0000-0000000000d1', null, 'LC-D1', 'سائق الدورة', '2024-01-01', 'c0c0d000-0000-0000-0000-000000000002', 'D1'),
@@ -245,6 +252,12 @@ begin
   perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', cid), 'MAINTENANCE_READINESS_NOT_READY');
   perform pg_temp.expect_error(format('select public.maintenance_update_case(%L, %L, 100)', cid, 'ready'), 'MAINTENANCE_READY_REQUIRES_WORK_NOTES');
   perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', gen_random_uuid()), 'MAINTENANCE_CASE_NOT_OPEN');
+  -- (00156) الجاهزية تتطلب فنياً معيَّناً من الهيكل
+  perform pg_temp.expect_error(format('select public.maintenance_update_case(%L, %L, 100, null, %L)', cid, 'ready', 'اكتمل'), 'MAINTENANCE_READY_REQUIRES_TECHNICIAN');
+  perform pg_temp.expect_error(format('select public.maintenance_assign_technician(%L, %L)', cid, 'c0c00000-0000-0000-0000-0000000000d1'), 'MAINTENANCE_TECHNICIAN_NOT_TECHNICIAN_TITLE');
+  perform public.maintenance_assign_technician(cid, 'c0c00000-0000-0000-0000-0000000000f1', 'مسؤول الهيدروليك');
+  perform pg_temp.expect_error(format('select public.maintenance_assign_technician(%L, %L)', cid, 'c0c00000-0000-0000-0000-0000000000f1'), 'MAINTENANCE_TECHNICIAN_ALREADY_ASSIGNED');
+  assert (select assigned_technician from public.vehicle_maintenance_cases where id = cid) = 'فني الدورة (هيدروليك)', 'L5: نص الفنيين مُزامن';
   perform public.maintenance_update_case(cid, 'ready', 100, null, 'اكتمل الإصلاح والفحص');
   perform pg_temp.expect_error(format('select public.maintenance_dispatch_vehicle(%L, %L)', cid, 'work_site'), 'MAINTENANCE_READINESS_APPROVAL_REQUIRED');
   c := public.maintenance_approve_readiness(cid, 'جاهزة');
@@ -325,6 +338,29 @@ begin
   assert n = 7, format('L7: 7 حركات مع ساق العودة إلى الكراج (فعلي %s)', n);
   -- حالات الصيانة
   assert exists (select 1 from public.operational_maintenance_cases(current_date - 1, current_date) where departure_id = did and status = 'returned_to_work'), 'L7: حالة الصيانة في التقرير';
+  -- (00156) تقرير الصيانة الكامل لغرفة العمليات: آلية/DB/فنيون/أوقات/كلف
+  select * into t from public.operational_maintenance_report(current_date - 1, current_date) where departure_id = did;
+  assert t.db_number = 'DB-LC1' and t.vehicle_name = 'كابسة الدورة' and t.area_name is not null and t.driver_name = 'سائق الدورة', 'L7: تقرير الصيانة يحمل الآلية والسائق والمنطقة';
+  assert t.technicians = 'فني الدورة (هيدروليك)' and t.technician_count = 1, format('L7: الفنيون في التقرير (فعلي %s)', t.technicians);
+  assert t.wait_minutes between 9 and 11, format('L7: انتظار الوصول 10 د (فعلي %s)', t.wait_minutes);
+  assert t.maintenance_minutes between 59 and 61, format('L7: وقت الصيانة 60 د (فعلي %s)', t.maintenance_minutes);
+  assert t.stage_key = 'handover' and t.status = 'returned_to_work' and t.progress = 100 and t.updates_count >= 1 and t.overdue = false, 'L7: مرحلة/حالة/تحديثات';
+  assert t.actual_cost = t.service_cost + t.parts_actual_cost, 'L7: الكلفة الفعلية = خدمة + قطع';
+  -- الأرشيف بنفس الأعمدة
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
+  select * into t from public.maintenance_archive_list(null, current_date - 1, current_date) where db_number = 'DB-LC1';
+  assert t.technicians = 'فني الدورة (هيدروليك)' and t.maintenance_minutes between 59 and 61 and t.final_status = 'returned_to_work' and t.work_notes is not null, 'L7: الأرشيف كامل التفاصيل';
+  select count(*) into n from public.maintenance_archive_list('فني الدورة', null, null);
+  assert n >= 1, 'L7: البحث في الأرشيف باسم الفني';
+  -- قائمة اليوم تحمل الفنيين والقطع والمرحلة
+  select * into t from public.maintenance_cases_for_day(current_date) where db_number = 'DB-LC1';
+  assert t.technicians = 'فني الدورة (هيدروليك)' and t.stage_key = 'handover' and t.technician_count = 1, 'L7: قائمة اليوم تحمل الفنيين والمرحلة';
+  -- التسلسل الزمني يحوي حدث تعيين الفني
+  assert exists (select 1 from public.maintenance_case_events(t.case_id) where event_type = 'technician' and title like 'تعيين فني%'), 'L7: حدث تعيين الفني في التسلسل';
+  -- الفني يظهر في قائمة الخيارات بتخصصه؛ السائق لا يظهر
+  assert exists (select 1 from public.maintenance_technician_options(null) where employee_id = 'c0c00000-0000-0000-0000-0000000000f1' and specialty = 'hydraulic' and specialty_label = 'هيدروليك'), 'L7: خيارات الفنيين';
+  assert not exists (select 1 from public.maintenance_technician_options(null) where employee_id = 'c0c00000-0000-0000-0000-0000000000d1'), 'L7: السائق ليس فنياً';
+  perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000005');
   -- لا تنبيهات حية لانطلاقة مغلقة
   assert not exists (select 1 from public.operational_live_alerts() where departure_id = did), 'L7: لا تنبيهات للانطلاقة المغلقة';
   raise notice 'L7 ok';
@@ -523,6 +559,7 @@ begin
   c := public.maintenance_confirm_arrival(c.id, 'وصلت');
   c := public.maintenance_advance_stage(c.id, 'تلف أسطوانة الفرامل');
   c := public.maintenance_advance_stage(c.id, null, 'استُبدلت الأسطوانة');
+  perform public.maintenance_assign_technician(c.id, 'c0c00000-0000-0000-0000-0000000000f1');
   perform public.maintenance_update_case(c.id, 'ready', 100, null, 'جاهزة بعد الفحص');
   c := public.maintenance_approve_readiness(c.id, 'معتمدة');
   -- الكراج لا يستلم آلية ما زالت داخل الصيانة (خلل مكتشف: كان يمرّ عندما لا مسؤول قسم على الانطلاقية)

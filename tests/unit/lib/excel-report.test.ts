@@ -157,4 +157,29 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
     }
     expect(names[2]).toContain(' (2)')
   })
+
+  it('00156: extraSheets تُضاف بنفس القالب (ترويسة + رؤوس في الصف 5 + إجمالي) وبالترتيب قبل الرسوم', async () => {
+    const wb = await buildExcelReport({
+      sheetName: 'رئيسية',
+      title: 'تقرير',
+      columns: [{ header: 'أ', key: 'a' }],
+      rows: [{ a: 1 }],
+      fileName: 't.xlsx',
+      extraSheets: [
+        { sheetName: 'الملخص', title: 'ملخص', columns: [{ header: 'المؤشر', key: 'metric' }, { header: 'القيمة', key: 'value' }], rows: [{ metric: 'عدد', value: 3 }], totalRow: { metric: 'الإجمالي', value: 3 } },
+        { sheetName: 'التفاصيل', title: 'تفاصيل', columns: [{ header: 'نص', key: 't', wrap: true }], rows: [{ t: 'x' }, { t: 'y' }], orientation: 'landscape' },
+      ],
+      charts: [{ title: 'رسم', kind: 'bar', data: [{ label: 'a', value: 1 }] }],
+    })
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['رئيسية', 'الملخص', 'التفاصيل', 'رسم'])
+    const sum = wb.getWorksheet('الملخص')!
+    expect(String(sum.getCell('A3').value)).toBe('ملخص')
+    expect(String(sum.getCell(5, 1).value)).toBe('المؤشر')
+    expect(String(sum.getCell(6, 1).value)).toBe('عدد')
+    expect(String(sum.getCell(7, 1).value)).toBe('الإجمالي')
+    expect(sum.views?.[0]?.rightToLeft).toBe(true)
+    const det = wb.getWorksheet('التفاصيل')!
+    expect(det.pageSetup?.orientation).toBe('landscape')
+    expect(String(det.getCell(7, 1).value)).toBe('y')
+  })
 })

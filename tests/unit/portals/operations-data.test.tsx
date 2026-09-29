@@ -326,10 +326,22 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
         work_notes: null,
         parts_notes: null,
         assigned_technician: 'الفني علي',
+        technicians: 'الفني علي (ميكانيك)، حسن (كهرباء)',
+        technician_count: 2,
+        stage_key: 'handover',
+        driver_name: 'سائق الاختبار',
+        area_name: 'الجادرية',
+        arrived_at: '2026-09-09T08:30:00Z',
+        wait_minutes: 30,
+        maintenance_minutes: 200,
+        overdue: false,
+        parts_summary: 'أسطوانة فرامل ×1 قطعة',
+        parts_count: 1,
         estimated_cost: 100,
         service_cost: 80,
         parts_actual_cost: 20,
         actual_cost: 100,
+        updates_count: 3,
       },
     ],
   }),
@@ -389,6 +401,17 @@ describe('تقارير غرفة العمليات المركبة', () => {
     fireEvent.click(screen.getByTestId('ops-tab-station'))
     expect(screen.getByRole('columnheader', { name: 'مدة البقاء' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: '45 د' })).toBeInTheDocument()
+  })
+  it('00156: جدول الصيانة يعرض كل التفاصيل (السائق، المنطقة، الفنيون، المرحلة، الأوقات، القطع، الكلف) بدل الشرطات', () => {
+    render(<OperationsDataPage />)
+    fireEvent.click(screen.getByTestId('ops-tab-maintenance'))
+    for (const header of ['السائق', 'اسم المنطقة', 'الفنيون (التخصص)', 'المرحلة', 'انتظار الوصول', 'وقت الصيانة', 'القطع المستخدمة', 'كلفة القطع', 'كلفة الخدمة', 'إغلاق الحالة', 'عدد التحديثات'])
+      expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'الفني علي (ميكانيك)، حسن (كهرباء)' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'التسليم' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '3 س 20 د' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'أسطوانة فرامل ×1 قطعة' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'سائق الاختبار' })).toBeInTheDocument()
   })
   it('يفتح تسلسل الصيانة من غرفة العمليات', () => {
     render(<OperationsDataPage />)

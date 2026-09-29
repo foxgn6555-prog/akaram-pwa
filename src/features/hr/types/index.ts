@@ -366,6 +366,8 @@ export interface HrDepartment {
   is_job_title: boolean
   /** 00153: هذا المسمى يقود آليات الشركة */
   drives_vehicles: boolean
+  /** 00156: تخصص صيانة (المسمى فني) أو null */
+  maintenance_specialty?: string | null
 }
 
 /** 00153: مسمى وظيفي للاختيار (hr_job_titles) */
@@ -378,6 +380,7 @@ export interface HrJobTitle {
   drives_vehicles: boolean
   is_active: boolean
   employees_active: number
+  maintenance_specialty?: string | null
 }
 
 // ─────────── 00144: السياسة والإجازات والأرصدة ───────────

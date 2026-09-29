@@ -66,6 +66,17 @@ export interface BuildReportOptions {
   charts?: ChartSheet[]
   /** اتجاه الطباعة: عمودي (portrait) أو أفقي (landscape) */
   orientation?: 'portrait' | 'landscape'
+  /** أوراق بيانات إضافية بنفس القالب (ملخص/تفاصيل) تُضاف بعد الورقة الرئيسية وقبل الرسوم */
+  extraSheets?: ExtraDataSheet[]
+}
+export interface ExtraDataSheet {
+  sheetName: string
+  title: string
+  meta?: string
+  columns: ReportColumn[]
+  rows: Record<string, unknown>[]
+  totalRow?: Record<string, unknown>
+  orientation?: 'portrait' | 'landscape'
 }
 
 const thin: Partial<ExcelJS.Borders> = {
@@ -124,21 +135,14 @@ function sanitizeSheetName(raw: string, used: Set<string>): string {
   }
 }
 
-/**
- * يبني المصنف ويُفعّل التنزيل في المتصفح. يعيد المصنف للاختبارات/المعاينة.
- */
-export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJS.Workbook> {
-  const wb = new ExcelJS.Workbook()
-  wb.creator = 'نظام بلدية جزيرة الأكرام'
-  wb.created = new Date()
-
-  const usedNames = new Set<string>()
-  const ws = wb.addWorksheet(sanitizeSheetName(opts.sheetName, usedNames), {
+type DataSheetSpec = ExtraDataSheet & { company?: string; companySub?: string }
+function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: ArrayBuffer | null, spec: DataSheetSpec) {
+  const ws = wb.addWorksheet(sanitizeSheetName(spec.sheetName, usedNames), {
     views: [{ ...RTL_VIEW }],
     properties: { defaultRowHeight: 20 },
     pageSetup: {
       paperSize: 9, // A4
-      orientation: opts.orientation ?? 'portrait',
+      orientation: spec.orientation ?? 'portrait',
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
@@ -147,12 +151,11 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
     },
   })
 
-  const ncols = opts.columns.length
+  const ncols = spec.columns.length
   const lastCol = colLetter(ncols - 1)
 
   // ── صف 1: شعار + اسم الشركة ──
   ws.getRow(1).height = 52
-  const logo = await fetchLogo()
   if (logo) {
     const imgId = wb.addImage({ buffer: logo, extension: 'png' })
     // الشعار في أقصى يمين الصفحة (RTL) داخل العمود A، مع إزاحة لطيفة
@@ -162,14 +165,14 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   const brandStart = logo ? 'C1' : 'A1'
   ws.mergeCells(`${brandStart}:${lastCol}1`)
   const titleBrand = ws.getCell(brandStart)
-  titleBrand.value = opts.company ?? 'شركة جزيرة الأكرام'
+  titleBrand.value = spec.company ?? 'شركة جزيرة الأكرام'
   titleBrand.font = { name: 'Segoe UI', bold: true, size: 18, color: { argb: `FF${BRAND.primary}` } }
   titleBrand.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 }
 
   // ── صف 2: السطر التعريفي للوحدة ──
   ws.mergeCells(`A2:${lastCol}2`)
   const subCell = ws.getCell('A2')
-  subCell.value = opts.companySub ?? ''
+  subCell.value = spec.companySub ?? ''
   subCell.font = { name: 'Segoe UI', size: 11, color: { argb: `FF${BRAND.muted}` } }
   subCell.alignment = { horizontal: 'right', vertical: 'middle' }
   ws.getRow(2).height = 18
@@ -178,7 +181,7 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   ws.mergeCells(`A3:${lastCol}3`)
   ws.getRow(3).height = 34
   const c3 = ws.getCell('A3')
-  c3.value = opts.title
+  c3.value = spec.title
   c3.font = { name: 'Segoe UI', bold: true, size: 15, color: { argb: `FF${BRAND.white}` } }
   c3.alignment = { horizontal: 'center', vertical: 'middle' }
   c3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.headerFill}` } }
@@ -186,7 +189,7 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   // ── صف 4: سطر المعلومات ──
   ws.mergeCells(`A4:${lastCol}4`)
   const c4 = ws.getCell('A4')
-  c4.value = opts.meta ?? ''
+  c4.value = spec.meta ?? ''
   c4.font = { name: 'Segoe UI', size: 10, italic: true, color: { argb: `FF${BRAND.muted}` } }
   c4.alignment = { horizontal: 'right', vertical: 'middle' }
   ws.getRow(4).height = 18
@@ -195,7 +198,7 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   const headerRowIdx = 5
   const hr = ws.getRow(headerRowIdx)
   hr.height = 26
-  opts.columns.forEach((col, i) => {
+  spec.columns.forEach((col, i) => {
     const cell = hr.getCell(i + 1)
     cell.value = col.header
     cell.font = { name: 'Segoe UI', bold: true, size: 11, color: { argb: `FF${BRAND.white}` } }
@@ -207,9 +210,9 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
 
   // ── صفوف البيانات ──
   const firstData = headerRowIdx + 1
-  opts.rows.forEach((row, ri) => {
+  spec.rows.forEach((row, ri) => {
     const excelRow = ws.getRow(firstData + ri)
-    opts.columns.forEach((col, ci) => {
+    spec.columns.forEach((col, ci) => {
       const cell = excelRow.getCell(ci + 1)
       const v = row[col.key]
       cell.value =
@@ -232,15 +235,15 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
     })
   })
 
-  const lastDataRow = Math.max(firstData + opts.rows.length - 1, headerRowIdx)
+  const lastDataRow = Math.max(firstData + spec.rows.length - 1, headerRowIdx)
 
   // ── صف الإجمالي ──
-  if (opts.totalRow) {
+  if (spec.totalRow) {
     const tr = ws.getRow(lastDataRow + 1)
     tr.height = 24
-    opts.columns.forEach((col, ci) => {
+    spec.columns.forEach((col, ci) => {
       const cell = tr.getCell(ci + 1)
-      const v = opts.totalRow?.[col.key]
+      const v = spec.totalRow?.[col.key]
       cell.value = (v ?? '') as ExcelJS.CellValue
       cell.font = { name: 'Segoe UI', bold: true, size: 11, color: { argb: `FF${BRAND.ink}` } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.totalFill}` } }
@@ -258,6 +261,23 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   ws.headerFooter = {
     oddHeader: '&Cشركة جزيرة الأكرام',
     oddFooter: `&Lوُلّد آلياً — ${new Date().toLocaleDateString('ar')}&Cصفحة &P من &N`,
+  }
+
+}
+
+/**
+ * يبني المصنف ويُفعّل التنزيل في المتصفح. يعيد المصنف للاختبارات/المعاينة.
+ */
+export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJS.Workbook> {
+  const wb = new ExcelJS.Workbook()
+  wb.creator = 'نظام بلدية جزيرة الأكرام'
+  wb.created = new Date()
+
+  const usedNames = new Set<string>()
+  const logo = await fetchLogo()
+  writeDataSheet(wb, usedNames, logo, opts)
+  for (const extra of opts.extraSheets ?? []) {
+    writeDataSheet(wb, usedNames, logo, { company: opts.company, companySub: opts.companySub, ...extra })
   }
 
   // ── أوراق الرسوم البيانية ──

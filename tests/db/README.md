@@ -149,3 +149,9 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 
 ## 00155 — تشخيص اعتماد جاهزية الصيانة (ضمن `trip-lifecycle-test.sql` L5)
 `maintenance_update_case(…,'ready')` يرفض بلا تشخيص/ملاحظات (`MAINTENANCE_READY_REQUIRES_DIAGNOSIS/_WORK_NOTES`)؛ `maintenance_approve_readiness` يعطي السبب الدقيق: `MAINTENANCE_CASE_NOT_OPEN` / `MAINTENANCE_READINESS_NOT_READY` / `MAINTENANCE_READINESS_ALREADY_APPROVED` / نقص البيانات / `MAINTENANCE_READY_REQUIRES_INSTALLED_PARTS`. مساعد `expect_error` في هذا الملف يطابق الكود نصياً الآن.
+
+## 00156 — فنيو الصيانة من الهيكل + القطع/الكلف التلقائية + التقارير الكاملة (ضمن `trip-lifecycle-test.sql` L5/L7)
+- المسمى الوظيفي يحمل `maintenance_specialty` (ميكانيك/كهرباء/سمكرة وحدادة/إطارات/هيدروليك/تبريد/عام)؛ `maintenance_technician_options()` يعرض موظفي هذه المسميات فقط (السائق لا يظهر).
+- `maintenance_assign_technician` / `maintenance_release_technician` (فني أو أكثر لكل حالة، جدول `vehicle_maintenance_case_technicians`)؛ أكواد: `MAINTENANCE_TECHNICIAN_NOT_TECHNICIAN_TITLE`، `MAINTENANCE_TECHNICIAN_ALREADY_ASSIGNED`، `MAINTENANCE_READY_REQUIRES_TECHNICIAN`.
+- `operational_maintenance_report` (غرفة العمليات) و`maintenance_archive_list` و`maintenance_cases_for_day`: الآلية/السائق/المنطقة/الفنيون/المرحلة/انتظار الوصول/وقت الصيانة/القطع/الكلف (قطع+خدمة=فعلية)/التحديثات/التصحيح — كلها مُتحقَّق منها بالقيم.
+- التسلسل الزمني يضم أحداث `technician`.

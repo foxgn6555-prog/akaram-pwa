@@ -5,7 +5,12 @@ const h = vi.hoisted(() => ({
   part: vi.fn(),
   approve: vi.fn(),
   upload: vi.fn(),
+  assign: vi.fn(),
+  release: vi.fn(),
+  issue: vi.fn(),
   rows: [] as Record<string, unknown>[],
+  caseTechs: [] as Record<string, unknown>[],
+  parts: [] as Record<string, unknown>[],
 }))
 const base = {
   case_id: 'c1',
@@ -42,6 +47,11 @@ const base = {
   readiness_approved_at: null,
   readiness_approved_by: null,
   readiness_approval_notes: null,
+  technicians: 'فني (ميكانيك)',
+  technician_count: 1,
+  parts_summary: null,
+  wait_minutes: 60,
+  maintenance_minutes: 130,
 }
 vi.mock('@features/vehicle-operations/hooks', () => ({
   useMaintenanceDays: () => ({ data: [{ case_day: '2026-09-09', total_count: 1, open_count: 1 }] }),
@@ -49,16 +59,21 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
   useMaintenanceConfirmArrival: () => ({ mutate: vi.fn() }),
   useMaintenanceDispatch: () => ({ mutate: vi.fn() }),
   useMaintenanceUpdate: () => ({ mutate: h.update }),
-  useMaintenanceTechnicians: () => ({
+  useMaintenanceTechnicianOptions: () => ({
     data: [
-      { user_id: 't1', display_name: 'الفني الأول', email: 't@x.iq' },
-      { user_id: 't2', display_name: 'الفني الثاني', email: 't2@x.iq' },
+      { employee_id: 'e1', full_name: 'حسن الكهربائي', employee_number: 'E1', job_title: 'فني كهرباء', specialty: 'electrical', specialty_label: 'كهرباء', employment_status: 'active', open_cases: 0 },
+      { employee_id: 'e2', full_name: 'كريم الميكانيكي', employee_number: 'E2', job_title: 'فني ميكانيك', specialty: 'mechanical', specialty_label: 'ميكانيك', employment_status: 'active', open_cases: 2 },
     ],
+    isLoading: false,
   }),
+  useMaintenanceCaseTechnicians: () => ({ data: h.caseTechs, isLoading: false, refetch: vi.fn() }),
+  useMaintenanceAssignTechnician: () => ({ mutate: h.assign, isPending: false }),
+  useMaintenanceReleaseTechnician: () => ({ mutate: h.release, isPending: false }),
+  useMaintenanceIssueAndInstall: () => ({ mutate: h.issue, isPending: false }),
   useMaintenanceApproveReadiness: () => ({ mutate: h.approve }),
   useMaintenanceUploadAttachment: () => ({ mutate: h.upload, isPending: false }),
   useMaintenanceInventory: () => ({
-    data: [{ id: 'i1', item_name: 'مضخة', current_quantity: 5, unit: 'قطعة' }],
+    data: [{ id: 'i1', item_name: 'مضخة', current_quantity: 5, unit: 'قطعة', average_unit_cost: 25000 }],
   }),
   useMaintenanceIssueInventory: () => ({ mutate: vi.fn() }),
   useMaintenanceInstallPart: () => ({ mutate: vi.fn() }),
@@ -89,7 +104,7 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
           diagnosis: 'عطل',
         },
       ],
-      parts: [],
+      parts: h.parts,
       attachments: [
         {
           id: 'a1',
@@ -122,10 +137,15 @@ import Page from '@portals/maintenance/pages/VehicleCases/MaintenanceCasesPage'
 describe('تفاصيل الصيانة متعددة الأيام', () => {
   beforeEach(() => {
     h.rows = [base]
+    h.caseTechs = [{ id: 'ct1', case_id: 'c1', employee_id: 'e2', technician_name: 'كريم الميكانيكي', employee_number: 'E2', specialty: 'mechanical', specialty_label: 'ميكانيك', active: true, assigned_at: '2026-09-09T09:30:00Z', released_at: null }]
+    h.parts = []
     h.update.mockReset()
     h.approve.mockReset()
+    h.assign.mockReset()
+    h.release.mockReset()
+    h.issue.mockReset()
   })
-  it('يعرض المرفقات ويسند الفني بحساب مرجعي', () => {
+  it('يعرض المرفقات والسجل، وحوار التحديث يحمل الحقول المعنونة ويحفظ كلفة الخدمة والتشخيص', () => {
     render(<Page />)
     fireEvent.click(screen.getByText('التفاصيل والسجل الكامل'))
     expect(screen.getByText('صورة المحرك.jpg')).toBeInTheDocument()
@@ -133,12 +153,62 @@ describe('تفاصيل الصيانة متعددة الأيام', () => {
     expect(screen.getByText('تسجيل العطل وإرسال الآلية')).toBeInTheDocument()
     fireEvent.click(screen.getByText('إغلاق'))
     fireEvent.click(screen.getByText('إضافة تحديث جديد'))
-    fireEvent.change(screen.getByTestId('maintenance-technician'), { target: { value: 't2' } })
+    // حقول معنونة (لا مربعات أرقام غامضة)
+    expect(screen.getByText('نسبة الإنجاز (%)')).toBeInTheDocument()
+    expect(screen.getByText('كلفة خدمة/أجور خارجية')).toBeInTheDocument()
+    expect(screen.getByText('كلفة القطع (تلقائية من المخزن)')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('maintenance-service-cost'), { target: { value: '15000' } })
+    fireEvent.change(screen.getByTestId('maintenance-diagnosis'), { target: { value: 'تلف المضخة' } })
     fireEvent.click(screen.getByText('حفظ كتحديث جديد'))
     expect(h.update).toHaveBeenCalledWith(
-      expect.objectContaining({ caseId: 'c1', technicianId: 't2' }),
+      expect.objectContaining({ caseId: 'c1', actualCost: 15000, diagnosis: 'تلف المضخة' }),
       expect.any(Object),
     )
+  })
+  it('00156: الفنيون من الهيكل — تعيين فني ثانٍ وإنهاء عمل فني، مجمّعين بالتخصص', () => {
+    render(<Page />)
+    fireEvent.click(screen.getByText('إضافة تحديث جديد'))
+    expect(screen.getByTestId('case-tech-e2')).toHaveTextContent('كريم الميكانيكي · ميكانيك')
+    const picker = screen.getByTestId('technician-picker') as HTMLSelectElement
+    // الفني المعيَّن لا يظهر في قائمة الإضافة؛ الباقي مجمّع بالتخصص
+    expect([...picker.options].map((o) => o.value)).toEqual(['', 'e1'])
+    expect(picker.querySelector('optgroup')?.label).toBe('كهرباء')
+    fireEvent.change(picker, { target: { value: 'e1' } })
+    fireEvent.click(screen.getByTestId('assign-technician'))
+    expect(h.assign).toHaveBeenCalledWith({ caseId: 'c1', employeeId: 'e1' }, expect.any(Object))
+    fireEvent.click(screen.getByLabelText('إنهاء عمل كريم الميكانيكي'))
+    expect(h.release).toHaveBeenCalledWith({ caseId: 'c1', employeeId: 'e2' }, expect.any(Object))
+  })
+  it('00156: صرف قطعة من المخزن داخل التحديث بتركيب فوري وكلفة تلقائية', () => {
+    h.parts = [{ id: 'p1', part_name: 'مضخة', quantity: 1, unit: 'قطعة', unit_cost: 25000, part_status: 'installed' }]
+    render(<Page />)
+    fireEvent.click(screen.getByText('إضافة تحديث جديد'))
+    expect(screen.getByTestId('maintenance-parts-cost')).toHaveTextContent('٢٥٬٠٠٠')
+    fireEvent.change(screen.getByTestId('issue-inventory-item'), { target: { value: 'i1' } })
+    fireEvent.change(screen.getByLabelText('كمية الصرف'), { target: { value: '2' } })
+    expect(screen.getByText(/الكلفة المتوقعة: ٥٠٬٠٠٠/)).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('issue-part'))
+    expect(h.issue).toHaveBeenCalledWith({ caseId: 'c1', itemId: 'i1', quantity: 2, installNow: true }, expect.any(Object))
+  })
+  it('00156: اختيار «جاهزة» بلا فني أو بقطعة غير مركّبة يعطّل الحفظ ويسرد النواقص', () => {
+    h.caseTechs = []
+    h.parts = [{ id: 'p1', part_name: 'مضخة', quantity: 1, unit: 'قطعة', unit_cost: 25000, part_status: 'issued' }]
+    render(<Page />)
+    fireEvent.click(screen.getByText('إضافة تحديث جديد'))
+    fireEvent.change(screen.getByTestId('maintenance-status'), { target: { value: 'ready' } })
+    fireEvent.change(screen.getByTestId('maintenance-progress'), { target: { value: '100' } })
+    expect(screen.getByTestId('ready-blockers')).toHaveTextContent('تعيين فني، تأكيد تركيب القطع المصروفة')
+    fireEvent.click(screen.getByText('حفظ كتحديث جديد'))
+    expect(h.update).not.toHaveBeenCalled()
+  })
+  it('00156: بطاقة الحالة تعرض الفنيين والقطع والأوقات والكلف', () => {
+    h.rows = [{ ...base, parts_summary: 'مضخة ×1 قطعة', parts_actual_cost: 25000, service_cost: 5000, actual_cost: 30000 }]
+    render(<Page />)
+    const card = screen.getByTestId('case-summary-c1')
+    expect(card).toHaveTextContent('فني (ميكانيك)')
+    expect(card).toHaveTextContent('مضخة ×1 قطعة')
+    expect(card).toHaveTextContent('1 س 0 د / 2 س 10 د')
+    expect(card).toHaveTextContent('٢٥٬٠٠٠ + ٥٬٠٠٠ = ٣٠٬٠٠٠')
   })
   it('يطلب اعتماد الجاهزية قبل إظهار أزرار المغادرة', () => {
     h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1', diagnosis: 'تلف خرطوم', work_notes: 'استُبدل' }]
@@ -149,9 +219,9 @@ describe('تفاصيل الصيانة متعددة الأيام', () => {
     expect(h.approve).toHaveBeenCalledWith({ caseId: 'c1' })
   })
   it('00155: جاهزة بلا تشخيص/ملاحظات → يعطّل الاعتماد ويُظهر النواقص ويُبقي «إضافة تحديث» متاحاً', () => {
-    h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1', diagnosis: null, work_notes: null }]
+    h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1', diagnosis: null, work_notes: null, technician_count: 0, assigned_technician: null }]
     render(<Page />)
-    expect(screen.getByTestId('readiness-missing-c1')).toHaveTextContent('التشخيص (وصف العطل)، ملاحظات العمل المنجز')
+    expect(screen.getByTestId('readiness-missing-c1')).toHaveTextContent('التشخيص (وصف العطل)، ملاحظات العمل المنجز، تعيين فني واحد على الأقل')
     expect(screen.getByTestId('approve-readiness-c1')).toBeDisabled()
     fireEvent.click(screen.getByTestId('approve-readiness-c1'))
     expect(h.approve).not.toHaveBeenCalled()
