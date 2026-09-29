@@ -11,7 +11,7 @@ export default function ContractorTeamPage() {
   const [name, setName] = useState(''), [phone, setPhone] = useState('')
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null), [reason, setReason] = useState('')
   if (me.isLoading) return <LoadingSpinner />
-  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="راجع غرفة العمليات" />
+  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="راجع التطوير المركزية" />
   const m = me.data
   const submit = (e: React.FormEvent) => {
     e.preventDefault()

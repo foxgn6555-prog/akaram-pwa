@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ContractorAssignmentCard } from './ContractorAssignmentCard'
 import { useNavigate, useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -409,6 +410,8 @@ export default function UserDetail() {
         </div>
       </div>
       {/*__PART4__*/}
+
+      {hasRole('employee') && userId && <ContractorAssignmentCard userId={userId} />}
 
       {hasRole('central_garage_officer') && (
         <section

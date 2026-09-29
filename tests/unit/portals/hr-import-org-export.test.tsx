@@ -119,7 +119,7 @@ describe('الهيكل التنظيمي', () => {
     fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'ops-2' } })
     fireEvent.change(screen.getByTestId('org-manager'), { target: { value: 'e1' } })
     fireEvent.click(screen.getByTestId('org-save'))
-    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true, isJobTitle: false, drivesVehicles: false, maintenanceSpecialty: null, isContractorTitle: false }))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'القاطع الثاني', code: 'ops-2', parentId: 'a', managerId: 'e1', isActive: true, isJobTitle: false, drivesVehicles: false, maintenanceSpecialty: null }))
   })
   it('التعديل يحمّل بيانات القسم، والتعطيل يطلب تأكيداً ويرسل isActive=false', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -156,7 +156,7 @@ describe('الهيكل التنظيمي', () => {
     fireEvent.change(screen.getByTestId('org-code'), { target: { value: 'T-LOADER' } })
     fireEvent.click(screen.getByTestId('org-drives'))
     fireEvent.click(screen.getByTestId('org-save'))
-    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'سائق شفل', code: 'T-LOADER', parentId: 'a', managerId: null, isActive: true, isJobTitle: true, drivesVehicles: true, maintenanceSpecialty: null, isContractorTitle: false }))
+    await waitFor(() => expect(h.saveDept).toHaveBeenCalledWith({ id: null, name: 'سائق شفل', code: 'T-LOADER', parentId: 'a', managerId: null, isActive: true, isJobTitle: true, drivesVehicles: true, maintenanceSpecialty: null }))
   })
   it('00156: خانة «تخصص صيانة» على المسمى — شارة على العقدة وإرسال التخصص عند الحفظ', async () => {
     h.depts = [

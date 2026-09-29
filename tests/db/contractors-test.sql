@@ -1,31 +1,30 @@
--- اختبار المتعهدين (00158): تعيين من غرفة العمليات، فريق المتعهد، حضور المتعهد (موقع/سلفي/صورة) ثم حضور العمال،
--- عزل البيانات، شبكة الشهر، وملخص فريق مسؤول القسم. مستقل — كل الفحوص assert.
+-- اختبار المتعهدين (00158→00159): حساب متعهد من التطوير المركزية مُسند إلى مسؤول قسم (المنطقة/القاطع/الشفت من ملفه)،
+-- فريق المتعهد، حضور المتعهد (موقع/سلفي/صورة) ثم حضور العمال، عزل البيانات، شبكة الشهر، وملخص فريق مسؤول القسم. مستقل.
 set client_min_messages = notice;
 insert into auth.users (id, email) values
-  ('c7000000-0000-0000-0000-000000000001', 'ops-c@t.iq'),
+  ('c7000000-0000-0000-0000-000000000001', 'it-c@t.iq'),
   ('c7000000-0000-0000-0000-000000000002', 'cont1@t.iq'),
   ('c7000000-0000-0000-0000-000000000003', 'cont2@t.iq'),
   ('c7000000-0000-0000-0000-000000000004', 'mgr-c@t.iq'),
-  ('c7000000-0000-0000-0000-000000000005', 'garage-c@t.iq')
+  ('c7000000-0000-0000-0000-000000000005', 'ops-c@t.iq'),
+  ('c7000000-0000-0000-0000-000000000007', 'mgr-c2@t.iq'),
+  ('c7000000-0000-0000-0000-000000000008', 'plain@t.iq')
 on conflict (id) do nothing;
 insert into public.user_roles (user_id, role) values
-  ('c7000000-0000-0000-0000-000000000001', 'ops_room'),
+  ('c7000000-0000-0000-0000-000000000001', 'it_admin'),
   ('c7000000-0000-0000-0000-000000000002', 'employee'),
   ('c7000000-0000-0000-0000-000000000003', 'employee'),
   ('c7000000-0000-0000-0000-000000000004', 'department_manager'),
-  ('c7000000-0000-0000-0000-000000000005', 'central_garage_officer')
+  ('c7000000-0000-0000-0000-000000000005', 'ops_room'),
+  ('c7000000-0000-0000-0000-000000000007', 'department_manager'),
+  ('c7000000-0000-0000-0000-000000000008', 'hr_officer')
 on conflict do nothing;
-insert into public.manager_profiles (user_id, shift, sectors) values ('c7000000-0000-0000-0000-000000000004', 'morning', '{1,2}') on conflict do nothing;
-insert into public.garage_user_profiles (user_id, parent_sector) values ('c7000000-0000-0000-0000-000000000005', 'karrada') on conflict do nothing;
-insert into public.departments (id, name, code, parent_id, is_job_title) values
-  ('c700d000-0000-0000-0000-000000000001', 'قسم المتعهدين (اختبار)', 'CT-DEPT', null, false) on conflict (id) do nothing;
-insert into public.departments (id, name, code, parent_id, is_job_title, is_contractor_title) values
-  ('c700d000-0000-0000-0000-000000000002', 'متعهد', 'CT-T1', 'c700d000-0000-0000-0000-000000000001', true, true),
-  ('c700d000-0000-0000-0000-000000000003', 'كاتب', 'CT-T2', 'c700d000-0000-0000-0000-000000000001', true, false) on conflict (id) do nothing;
-insert into public.employees (id, user_id, employee_number, full_name, hire_date, job_title_id, phone) values
-  ('c7000000-0000-0000-0000-0000000000e1', 'c7000000-0000-0000-0000-000000000002', 'CT-1', 'متعهد أرخيته', '2024-01-01', 'c700d000-0000-0000-0000-000000000002', '0770'),
-  ('c7000000-0000-0000-0000-0000000000e2', 'c7000000-0000-0000-0000-000000000003', 'CT-2', 'متعهد الرياض', '2024-01-01', 'c700d000-0000-0000-0000-000000000002', null),
-  ('c7000000-0000-0000-0000-0000000000e3', null, 'CT-3', 'كاتب عادي', '2024-01-01', 'c700d000-0000-0000-0000-000000000003', null)
+-- مسؤول 1: منطقتان (1,2) صباحي؛ مسؤول 2: منطقة واحدة (5) مسائي
+insert into public.manager_profiles (user_id, shift, sectors) values
+  ('c7000000-0000-0000-0000-000000000004', 'morning', '{1,2}'), ('c7000000-0000-0000-0000-000000000007', 'evening', '{5}') on conflict do nothing;
+insert into public.employees (id, user_id, employee_number, full_name, hire_date, phone) values
+  ('c7000000-0000-0000-0000-0000000000e1', 'c7000000-0000-0000-0000-000000000002', 'CT-1', 'متعهد أرخيته', '2024-01-01', '0770'),
+  ('c7000000-0000-0000-0000-0000000000e4', 'c7000000-0000-0000-0000-000000000004', 'CT-M', 'مسؤول الكرادة', '2024-01-01', null)
 on conflict (employee_number) do nothing;
 create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false) $$;
 create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
@@ -36,24 +35,39 @@ begin
   if msg not like '%' || p_code || '%' then raise exception 'WRONG_ERROR for %: got [%] wanted [%]', p_sql, msg, p_code; end if;
 end $$;
 
--- ═══ C1 · الخانة على المسمى + التعيين من غرفة العمليات فقط ═══
+-- ═══ C1 · الإسناد من التطوير المركزية فقط: مسؤول القسم → منطقة من مناطقه → الشفت من المسؤول ═══
 do $$
-declare ops uuid := 'c7000000-0000-0000-0000-000000000001'; n int; p public.contractor_profiles;
+declare it uuid := 'c7000000-0000-0000-0000-000000000001'; n int; p public.contractor_profiles; r record;
 begin
-  perform pg_temp.expect_error($q$ update public.departments set is_contractor_title = true where id = 'c700d000-0000-0000-0000-000000000001' $q$, 'departments_contractor_requires_title');
+  perform pg_temp.as_user('c7000000-0000-0000-0000-000000000005');   -- غرفة العمليات: ترى الخيارات لكن لا تُسند
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000004', 1::smallint) $q$, 'CONTRACTOR_FORBIDDEN');
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000002');
-  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-0000000000e1', 1::smallint) $q$, 'CONTRACTOR_FORBIDDEN');
   perform pg_temp.expect_error($q$ select * from public.contractor_me() $q$, 'CONTRACTOR_NOT_ASSIGNED');
-  perform pg_temp.as_user(ops);
-  select count(*) into n from public.contractor_candidates(null) where employee_number like 'CT-%';
-  if n <> 2 then raise exception 'candidates should be the 2 contractor-title employees, got %', n; end if;
-  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-0000000000e3', 1::smallint) $q$, 'CONTRACTOR_NOT_CONTRACTOR_TITLE');
-  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-0000000000e1', 99::smallint) $q$, 'CONTRACTOR_SECTOR_INVALID');
-  p := public.contractor_assign('c7000000-0000-0000-0000-0000000000e1', 1::smallint, 'morning', 'أرخيته');
-  if p.sector_id <> 1 or not p.is_active then raise exception 'assign failed'; end if;
-  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-0000000000e2', 1::smallint) $q$, 'CONTRACTOR_SECTOR_TAKEN');
-  p := public.contractor_assign('c7000000-0000-0000-0000-0000000000e2', 2::smallint);
-  select count(*) into n from public.contractor_audit_log where action = 'assign'; if n < 2 then raise exception 'audit assign missing'; end if;
+  perform pg_temp.as_user(it);
+  select count(*) into n from public.contractor_manager_options() where user_id in ('c7000000-0000-0000-0000-000000000004','c7000000-0000-0000-0000-000000000007');
+  if n <> 2 then raise exception 'manager options should list both managers, got %', n; end if;
+  select * into r from public.contractor_manager_options() o where o.user_id = 'c7000000-0000-0000-0000-000000000004';
+  if r.full_name <> 'مسؤول الكرادة' or jsonb_array_length(r.areas) <> 2 then raise exception 'manager option wrong: %', r; end if;
+  -- ليس مسؤول قسم
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000008', 1::smallint) $q$, 'CONTRACTOR_MANAGER_INVALID');
+  -- الحساب ليس بدور employee (بوابة المتعهد)
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000008', 'c7000000-0000-0000-0000-000000000004', 1::smallint) $q$, 'CONTRACTOR_ROLE_REQUIRED');
+  -- المسؤول له منطقتان → يجب اختيار واحدة، ومن مناطقه فقط
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000004') $q$, 'CONTRACTOR_SECTOR_REQUIRED');
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000004', 5::smallint) $q$, 'CONTRACTOR_SECTOR_NOT_MANAGERS');
+  p := public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000004', 1::smallint, 'أرخيته');
+  if p.sector_id <> 1 or p.shift <> 'morning' or not p.is_active then raise exception 'assign failed: %', p; end if;
+  -- منطقة واحدة = متعهد واحد
+  perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000003', 'c7000000-0000-0000-0000-000000000004', 1::smallint) $q$, 'CONTRACTOR_SECTOR_TAKEN');
+  -- المسؤول 2 له منطقة واحدة → تُشتق تلقائياً مع شفته
+  p := public.contractor_assign('c7000000-0000-0000-0000-000000000003', 'c7000000-0000-0000-0000-000000000007');
+  if p.sector_id <> 5 or p.shift <> 'evening' then raise exception 'auto sector/shift failed: %', p; end if;
+  -- نقله إلى المسؤول 1 منطقة 2
+  p := public.contractor_assign('c7000000-0000-0000-0000-000000000003', 'c7000000-0000-0000-0000-000000000004', 2::smallint);
+  if p.sector_id <> 2 or p.shift <> 'morning' then raise exception 'reassign failed'; end if;
+  select * into r from public.contractor_profile_for_user('c7000000-0000-0000-0000-000000000003');
+  if r.manager_name <> 'مسؤول الكرادة' or r.area_name <> 'الرياض' then raise exception 'profile_for_user wrong: %', r; end if;
+  select count(*) into n from public.contractor_audit_log where action = 'assign'; if n < 3 then raise exception 'audit assign missing'; end if;
   raise notice 'C1 ok';
 end $$;
 
@@ -81,7 +95,7 @@ end $$;
 
 -- ═══ C3 · حضور المتعهد قبل العمال؛ الموقع والصورتان إلزامية؛ داخل/خارج الزون؛ مرة واحدة يومياً ═══
 do $$
-declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; ops uuid := 'c7000000-0000-0000-0000-000000000001'; wid uuid; c public.contractor_checkins; n int; me record;
+declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; ops uuid := 'c7000000-0000-0000-0000-000000000005'; wid uuid; c public.contractor_checkins; n int; me record;
 begin
   perform pg_temp.as_user(c1);
   select id into wid from public.contractor_my_workers() limit 1;
@@ -111,7 +125,7 @@ begin
   perform public.contractor_mark_attendance(wid, 'absent');
   select * into me from public.contractor_me();
   if me.today_present <> 1 or me.today_absent <> 1 or me.today_unmarked <> 0 or not me.checked_in_today then raise exception 'today counters wrong: %', me; end if;
-  select count(*) into n from public.contractor_worker_attendance where contractor_employee_id = 'c7000000-0000-0000-0000-0000000000e1' and log_date = app.baghdad_today();
+  select count(*) into n from public.contractor_worker_attendance where contractor_user_id = 'c7000000-0000-0000-0000-000000000002' and log_date = app.baghdad_today();
   if n <> 2 then raise exception 'one row per worker per day expected, got %', n; end if;
   -- شبكة الشهر
   select count(*) into n from public.contractor_month_grid() g where (g.days ->> extract(day from app.baghdad_today())::int::text) is not null;
@@ -131,27 +145,16 @@ begin
   if r.in_zone is not false or r.vehicles_now <> 0 then raise exception 'summary area2 wrong: %', r; end if;
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000002');
   perform pg_temp.expect_error($q$ select * from public.manager_team_summary() $q$, 'MANAGER_FORBIDDEN');
-  -- إلغاء تعيين بسبب
+  -- مسؤول آخر لا يرى متعهدي غيره
+  perform pg_temp.as_user('c7000000-0000-0000-0000-000000000007');
+  select count(*) into n from public.manager_team_summary() t where t.contractor_name is not null; if n <> 0 then raise exception 'manager2 should see no contractors'; end if;
+  -- إلغاء الإسناد بسبب (التطوير المركزية)
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000001');
-  perform pg_temp.expect_error($q$ select public.contractor_unassign('c7000000-0000-0000-0000-0000000000e2', '') $q$, 'CONTRACTOR_REASON_REQUIRED');
-  perform public.contractor_unassign('c7000000-0000-0000-0000-0000000000e2', 'انتهاء العقد');
+  perform pg_temp.expect_error($q$ select public.contractor_unassign('c7000000-0000-0000-0000-000000000003', '') $q$, 'CONTRACTOR_REASON_REQUIRED');
+  perform public.contractor_unassign('c7000000-0000-0000-0000-000000000003', 'انتهاء العقد');
   perform pg_temp.as_user(mgr);
   select * into r from public.manager_team_summary() t where t.sector_id = 2;
   if r.contractor_name is not null then raise exception 'unassigned contractor should disappear'; end if;
   raise notice 'C4 ok';
 end $$;
 
--- ═══ C5 · HR: حفظ مسمى بخانة «متعهد» يظهر في العرض ويغذّي قائمة المرشحين ═══
-do $$
-declare hr uuid := 'c7000000-0000-0000-0000-000000000006'; tid uuid; n int;
-begin
-  insert into auth.users (id, email) values (hr, 'hr-c@t.iq') on conflict do nothing;
-  insert into public.user_roles (user_id, role) values (hr, 'hr_officer') on conflict do nothing;
-  perform pg_temp.as_user(hr);
-  tid := public.hr_department_save(null, 'متعهد نظافة', 'CT-T9', 'c700d000-0000-0000-0000-000000000001', true, null, true, false, null, true);
-  select count(*) into n from public.hr_departments_overview() o where o.id = tid and o.is_contractor_title; if n <> 1 then raise exception 'overview should flag contractor title'; end if;
-  -- ليست مسمى → الخانة تُهمل
-  tid := public.hr_department_save(null, 'قسم فرعي', 'CT-D9', 'c700d000-0000-0000-0000-000000000001', true, null, false, false, null, true);
-  select count(*) into n from public.departments d where d.id = tid and d.is_contractor_title; if n <> 0 then raise exception 'non-title must not be contractor'; end if;
-  raise notice 'C5 ok';
-end $$;

@@ -9,14 +9,14 @@ import { EmptyState } from '@components/feedback/EmptyState'
 export default function ContractorDashboard() {
   const me = useContractorMe(), grid = useContractorMonthGrid()
   if (me.isLoading) return <LoadingSpinner />
-  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="تطلب غرفة العمليات ربط حسابك بمنطقتك — بعدها تظهر وحدات الفريق والحضور" />
+  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="تسند التطوير المركزية حسابك إلى مسؤول قسم فتُشتق منطقتك تلقائياً — بعدها تظهر وحدات الفريق والحضور" />
   const m = me.data, month = monthKey(), nDays = daysInMonth(month), today = Number(m.today.slice(8, 10))
   return (
     <div className="space-y-4" data-testid="contractor-dashboard">
       <header className="rounded-2xl border bg-white p-4 shadow-sm">
         <h1 className="text-xl font-black">{m.full_name}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          متعهد منطقة <b data-testid="my-area">{m.area_name}</b> · {PARENT_AR[m.parent_sector] ?? m.parent_sector} · شفت {SHIFT_AR[m.shift] ?? m.shift}
+          متعهد منطقة <b data-testid="my-area">{m.area_name}</b> · {PARENT_AR[m.parent_sector] ?? m.parent_sector} · شفت {SHIFT_AR[m.shift] ?? m.shift} · مسؤول القسم: <b data-testid="my-manager">{m.manager_name}</b>
         </p>
       </header>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

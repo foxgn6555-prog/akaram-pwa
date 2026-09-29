@@ -50,6 +50,9 @@ export const createSuperAdminSchema = z
     manager_sectors: z.array(z.number().int().min(1).max(8)).max(8).optional(),
     /** القاطع المرتبط بحساب الكراج المركزي */
     garage_parent_sector: z.enum(['karrada', 'zaafaraniya']).optional(),
+    /** 00158: حساب المتعهد (role = employee) — مسؤول القسم المسؤول عنه ومنطقته (من مناطق المسؤول) */
+    contractor_manager_id: z.string().optional().or(z.literal('')),
+    contractor_sector_id: z.number().int().min(1).max(8).optional().nullable(),
   })
   // تحقق شرطي: مسؤول القسم يلزمه شفت + منطقة واحدة على الأقل
   .superRefine((val, ctx) => {
@@ -59,6 +62,9 @@ export const createSuperAdminSchema = z
         path: ['garage_parent_sector'],
         message: 'اختر قاطع الكراج: الكرادة أو الزعفرانية',
       })
+    }
+    if (val.role === 'employee' && !val.contractor_manager_id) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['contractor_manager_id'], message: 'اختر مسؤول القسم المسؤول عن هذا المتعهد' })
     }
     if (val.role !== 'department_manager') return
     if (!val.manager_shift) {

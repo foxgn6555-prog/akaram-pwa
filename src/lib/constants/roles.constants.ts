@@ -44,7 +44,7 @@ export const ROLE_PRIORITY: readonly Role[] = [
 
 /** التسميات العربية للأدوار — للشارات والقوائم */
 export const ROLE_LABELS: Readonly<Record<Role, string>> = {
-  employee: 'موظف',
+  employee: 'متعهد',
   hr_officer: 'موارد بشرية',
   department_manager: 'مسؤول قسم',
   finance_officer: 'مالية',

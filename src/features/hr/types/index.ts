@@ -368,8 +368,6 @@ export interface HrDepartment {
   drives_vehicles: boolean
   /** 00156: تخصص صيانة (المسمى فني) أو null */
   maintenance_specialty?: string | null
-  /** 00158: مسمى «متعهد» — موظفوه مرشحون لتعيين متعهدي المناطق من غرفة العمليات */
-  is_contractor_title?: boolean
 }
 
 /** 00153: مسمى وظيفي للاختيار (hr_job_titles) */

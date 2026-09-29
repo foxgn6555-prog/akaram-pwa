@@ -75,6 +75,13 @@ vi.mock('@features/auth/hooks/useAuth', () => ({
 vi.mock('@features/departments', () => ({
   useDepartments: () => ({ data: [{ id: 'd1', name: 'تقنية المعلومات' }] }),
 }))
+vi.mock('@features/contractors/hooks', () => ({
+  useContractorProfileForUser: () => ({ data: null }),
+  useContractorManagerOptions: () => ({ data: [] }),
+  useAssignContractor: () => ({ mutate: vi.fn(), isPending: false }),
+  useUnassignContractor: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
 vi.mock('@features/sector', () => ({
   useManagerProfileForUser: () => ({
     data: { user_id: 'u1', shift: 'evening', sectors: [3] },

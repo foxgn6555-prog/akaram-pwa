@@ -7,9 +7,16 @@ const VALID = {
   password: 'Passw0rd1',
   full_name: 'علي حسن محمد',
   role: 'employee',
+  contractor_manager_id: '11111111-1111-4111-8111-111111111111',
 }
 
 describe('create-user.schema', () => {
+  it('دور متعهد (employee) يلزم اختيار مسؤول القسم', () => {
+    const r = createSuperAdminSchema.safeParse({ ...VALID, contractor_manager_id: '' })
+    expect(r.success).toBe(false)
+    expect(createSuperAdminSchema.safeParse({ ...VALID, role: 'hr_officer', contractor_manager_id: '' }).success).toBe(true)
+  })
+
   it('يقبل بيانات صحيحة كاملة', () => {
     expect(createSuperAdminSchema.safeParse(VALID).success).toBe(true)
   })

@@ -42,6 +42,15 @@ vi.mock('@features/sector', () => ({
   SHIFT_LABELS: { morning: 'الشفت الصباحي', evening: 'الشفت المسائي', night: 'الشفت الليلي' },
 }))
 
+vi.mock('@features/contractors/hooks', () => ({
+  useContractorManagerOptions: () => ({
+    data: [
+      { user_id: 'm1', full_name: 'مسؤول الكرادة', shift: 'morning', sectors: [1, 2], contractors: 0, areas: [{ id: 1, name: 'أرخيته', parent_sector: 'karrada', taken_by: null }, { id: 2, name: 'الرياض', parent_sector: 'karrada', taken_by: 'متعهد آخر' }] },
+      { user_id: 'm2', full_name: 'مسؤول الزعفرانية', shift: 'evening', sectors: [5], contractors: 0, areas: [{ id: 5, name: 'السندباد', parent_sector: 'zaafaraniya', taken_by: null }] },
+    ],
+  }),
+}))
+
 import CreateUser from '@portals/it/pages/UserManagement/CreateUser'
 
 function renderPage() {
@@ -66,20 +75,33 @@ describe('CreateUser — إنشاء مستخدم', () => {
     mockMutateAsync.mockResolvedValue({ user_id: 'uid-1' })
   })
 
-  it('يرسل الحمولة الصحيحة عند اكتمال البيانات', async () => {
+  it('حساب متعهد (الدور الافتراضي): يلزم مسؤول قسم؛ مسؤول بمنطقة واحدة → المنطقة تلقائياً وتُرسل في الحمولة', async () => {
     renderPage()
     await FILL()
+    expect(screen.getByTestId('contractor-assignment')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('create-submit'))
-
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0))
+    expect(mockMutateAsync).not.toHaveBeenCalled()
+    await userEvent.selectOptions(screen.getByTestId('contractor-manager'), 'm2')
+    expect(screen.getByTestId('contractor-area-auto')).toHaveTextContent('السندباد')
+    await userEvent.click(screen.getByTestId('create-submit'))
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: 'new@akram.iq',
-          role: 'employee',
-          employee_number: 'EMP-099',
-        }),
+        expect.objectContaining({ email: 'new@akram.iq', role: 'employee', employee_number: 'EMP-099', contractor_manager_id: 'm2', contractor_sector_id: 5 }),
       )
     })
+  })
+
+  it('مسؤول بأكثر من منطقة: يجب اختيار منطقة، والمنطقة المشغولة بمتعهد معطلة', async () => {
+    renderPage()
+    await FILL()
+    await userEvent.selectOptions(screen.getByTestId('contractor-manager'), 'm1')
+    expect(screen.getByTestId('contractor-area-2')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(mockMutateAsync).not.toHaveBeenCalled())
+    await userEvent.click(screen.getByTestId('contractor-area-1'))
+    await userEvent.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ contractor_manager_id: 'm1', contractor_sector_id: 1 })))
   })
 
   it('يرفض كلمة مرور بلا أرقام — بلا اتصال', async () => {
@@ -197,6 +219,7 @@ describe('CreateUser — إنشاء مستخدم', () => {
     mockMutateAsync.mockRejectedValueOnce(new Error('EMAIL_TAKEN'))
     renderPage()
     await FILL()
+    await userEvent.selectOptions(screen.getByTestId('contractor-manager'), 'm2')
     await userEvent.click(screen.getByTestId('create-submit'))
 
     await waitFor(() => {

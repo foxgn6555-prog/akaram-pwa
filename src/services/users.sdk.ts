@@ -40,6 +40,9 @@ export interface CreateUserInput {
   manager_shift?: 'morning' | 'evening' | 'night'
   manager_sectors?: number[]
   garage_parent_sector?: 'karrada' | 'zaafaraniya'
+  /** 00158: حساب متعهد — مسؤول القسم المسؤول ومنطقته (اختيارية إن كان للمسؤول منطقة واحدة) */
+  contractor_manager_id?: string
+  contractor_sector_id?: number | null
 }
 
 /** تعديل بيانات الموظف المرتبط بمستخدم (ينشئ السجل إن لم يوجد) */
@@ -172,6 +175,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   MANAGER_SECTORS_REQUIRED: 'اختر منطقة واحدة على الأقل من قاطع الكرادة أو الزعفرانية',
   MANAGER_PROFILE_FAILED: 'فشل إنشاء ملف مسؤول القسم — رُجّع الإنشاء، حاول مجدداً',
   GARAGE_PARENT_SECTOR_REQUIRED: 'اختر قاطع الكراج: الكرادة أو الزعفرانية',
+  CONTRACTOR_MANAGER_REQUIRED: 'اختر مسؤول القسم المسؤول عن المتعهد',
+  CONTRACTOR_MANAGER_INVALID: 'المستخدم المختار ليس مسؤول قسم له مناطق',
+  CONTRACTOR_SECTOR_REQUIRED: 'لمسؤول القسم أكثر من منطقة — اختر منطقة المتعهد',
+  CONTRACTOR_SECTOR_NOT_MANAGERS: 'المنطقة ليست من مناطق مسؤول القسم',
+  CONTRACTOR_SECTOR_TAKEN: 'لهذه المنطقة متعهد نشط بالفعل',
+  CONTRACTOR_PROFILE_FAILED: 'أُنشئ الحساب لكن تعذّر إسناد المتعهد — أعد المحاولة',
   GARAGE_PROFILE_FAILED: 'فشل ربط حساب الكراج بالقاطع — رُجّع الإنشاء، حاول مجدداً',
   BAD_DEPARTMENT: 'القسم المحدد غير معروف',
   JOB_TITLE_TOO_LONG: 'المسمى الوظيفي طويل جداً (100 حرف كحد أقصى)',

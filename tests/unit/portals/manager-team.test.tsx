@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@features/contractors/hooks', () => ({
   useManagerTeamSummary: () => ({
     data: [
-      { sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', contractor_employee_id: 'e1', contractor_name: 'متعهد أرخيته', contractor_phone: '0770', workers_count: 12, today_present: 10, today_absent: 2, contractor_checked_in: true, contractor_checkin_at: '2026-09-29T04:00:00Z', in_zone: true, vehicles_now: 1,
+      { sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', contractor_user_id: 'e1', contractor_name: 'متعهد أرخيته', contractor_phone: '0770', workers_count: 12, today_present: 10, today_absent: 2, contractor_checked_in: true, contractor_checkin_at: '2026-09-29T04:00:00Z', in_zone: true, vehicles_now: 1,
         vehicles: [{ id: 'd1', db_number: 'DB-13', vehicle_name: 'هيونداي', driver_name: 'علي', shift: 'morning', arrived_at: '2026-09-29T04:30:00Z', trip_status: 'at_site' }] },
-      { sector_id: 2, area_name: 'الرياض', parent_sector: 'karrada', contractor_employee_id: null, contractor_name: null, contractor_phone: null, workers_count: 0, today_present: 0, today_absent: 0, contractor_checked_in: false, contractor_checkin_at: null, in_zone: null, vehicles_now: 0, vehicles: [] },
+      { sector_id: 2, area_name: 'الرياض', parent_sector: 'karrada', contractor_user_id: null, contractor_name: null, contractor_phone: null, workers_count: 0, today_present: 0, today_absent: 0, contractor_checked_in: false, contractor_checkin_at: null, in_zone: null, vehicles_now: 0, vehicles: [] },
     ],
     isLoading: false,
   }),

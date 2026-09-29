@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { contractors, type AttendanceStatus, type CheckinInput, type Shift } from '@sdk/contractors.sdk'
+import { contractors, type AttendanceStatus, type CheckinInput } from '@sdk/contractors.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 
@@ -22,9 +22,10 @@ export const useRemoveWorker = () => useAction((x: { workerId: string; reason?: 
 export const useContractorCheckin = () => useAction((x: CheckinInput) => contractors.checkin(x), 'سُجّل حضورك — يمكنك الآن تسجيل حضور العمال')
 export const useMarkAttendance = () => useAction((x: { workerId: string; status: AttendanceStatus; date?: string }) => contractors.markAttendance(x.workerId, x.status, x.date), 'تم الحفظ')
 export const useMarkAll = () => useAction((x: { status: AttendanceStatus; date?: string }) => contractors.markAll(x.status, x.date), 'تم تعليم جميع العمال')
-// غرفة العمليات
-export const useContractorCandidates = (search?: string) => useQuery({ queryKey: [...ROOT, 'candidates', search ?? ''], queryFn: () => contractors.candidates(search) })
-export const useAssignContractor = () => useAction((x: { employeeId: string; sectorId: number; shift?: Shift; notes?: string }) => contractors.assign(x.employeeId, x.sectorId, x.shift, x.notes), 'عُيّن المتعهد على المنطقة')
-export const useUnassignContractor = () => useAction((x: { employeeId: string; reason: string }) => contractors.unassign(x.employeeId, x.reason), 'أُلغي تعيين المتعهد')
+// التطوير المركزية
+export const useContractorManagerOptions = (enabled = true) => useQuery({ queryKey: [...ROOT, 'manager-options'], queryFn: () => contractors.managerOptions(), enabled })
+export const useContractorProfileForUser = (userId: string | undefined) => useQuery({ queryKey: [...ROOT, 'profile', userId], queryFn: () => contractors.profileForUser(userId as string), enabled: Boolean(userId) })
+export const useAssignContractor = () => useAction((x: { userId: string; managerUserId: string; sectorId?: number | null; notes?: string }) => contractors.assign(x.userId, x.managerUserId, x.sectorId, x.notes), 'أُسند المتعهد إلى مسؤول القسم ومنطقته')
+export const useUnassignContractor = () => useAction((x: { userId: string; reason: string }) => contractors.unassign(x.userId, x.reason), 'أُلغي إسناد المتعهد')
 // مسؤول القسم
 export const useManagerTeamSummary = () => useQuery({ queryKey: [...ROOT, 'manager-team'], queryFn: () => contractors.managerTeamSummary(), refetchInterval: 60_000 })

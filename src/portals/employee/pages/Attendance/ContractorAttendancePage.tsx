@@ -56,7 +56,7 @@ export default function ContractorAttendancePage() {
   const { geo, error: geoError, busy, locate } = useGeolocation()
   const [selfie, setSelfie] = useState<File | null>(null), [team, setTeam] = useState<File | null>(null)
   if (me.isLoading) return <LoadingSpinner />
-  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="راجع غرفة العمليات" />
+  if (!me.data) return <EmptyState title="لم تُعيَّن بعد متعهداً على منطقة" hint="راجع التطوير المركزية" />
   const m = me.data
   const canSubmit = Boolean(geo && selfie && team) && !checkin.isPending
   const submit = () => {

@@ -6,7 +6,7 @@ const h = vi.hoisted(() => ({
   me: {} as Record<string, unknown>, workers: [] as Record<string, unknown>[],
 }))
 const baseMe = {
-  employee_id: 'e1', full_name: 'متعهد أرخيته', employee_number: 'CT-1', sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', shift: 'morning',
+  user_id: 'u1', full_name: 'متعهد أرخيته', manager_user_id: 'm1', manager_name: 'مسؤول الكرادة', sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', shift: 'morning',
   workers_count: 2, today: '2026-09-29', checked_in_today: false, checkin_at: null, in_zone: null, selfie_path: null, team_photo_path: null,
   today_present: 0, today_absent: 0, today_unmarked: 2, month_present: 20, month_absent: 3, zone_defined: true,
 }
@@ -41,6 +41,7 @@ describe('بوابة المتعهد (00158)', () => {
   it('الرئيسية: هويتي ومنطقتي، عدّادات اليوم، تنبيه عدم تسجيل الحضور، وشبكة الشهر', () => {
     wrap(<Dashboard />)
     expect(screen.getByTestId('my-area')).toHaveTextContent('أرخيته')
+    expect(screen.getByTestId('my-manager')).toHaveTextContent('مسؤول الكرادة')
     expect(screen.getByTestId('stat-workers')).toHaveTextContent('2')
     expect(screen.getByTestId('stat-unmarked')).toHaveTextContent('2')
     expect(screen.getByTestId('checkin-status')).toHaveTextContent('لم تسجّل حضورك اليوم بعد')

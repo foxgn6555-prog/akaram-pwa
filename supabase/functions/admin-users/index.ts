@@ -127,6 +127,11 @@ async function createUser(
   const isManager = role === 'department_manager'
   const isGarageOfficer = role === 'central_garage_officer'
   const garageParentSector = String(body.garage_parent_sector ?? '')
+  // 00158: حساب المتعهد (role = employee) يُسند إلى مسؤول قسم؛ المنطقة من مناطقه (تلقائية إن كانت واحدة)
+  const isContractor = role === 'employee'
+  const contractorManagerId = body.contractor_manager_id ? String(body.contractor_manager_id) : ''
+  const contractorSectorRaw = Number(body.contractor_sector_id)
+  const contractorSectorId = Number.isInteger(contractorSectorRaw) && contractorSectorRaw >= 1 && contractorSectorRaw <= 8 ? contractorSectorRaw : null
 
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
   if (password.length < 8 || !/[A-Za-z\u0600-\u06FF]/.test(password) || !/[0-9]/.test(password))
@@ -143,6 +148,20 @@ async function createUser(
 
   if (isGarageOfficer && !['karrada', 'zaafaraniya'].includes(garageParentSector)) {
     return json({ error: 'GARAGE_PARENT_SECTOR_REQUIRED' }, 400)
+  }
+  let contractorSector: number | null = contractorSectorId
+  if (isContractor) {
+    if (!UUID_RE.test(contractorManagerId)) return json({ error: 'CONTRACTOR_MANAGER_REQUIRED' }, 400)
+    const { data: mp } = await admin.from('manager_profiles').select('sectors').eq('user_id', contractorManagerId).maybeSingle()
+    const sectors: number[] = (mp?.sectors as number[] | undefined) ?? []
+    if (!mp || sectors.length === 0) return json({ error: 'CONTRACTOR_MANAGER_INVALID' }, 400)
+    if (contractorSector === null) {
+      if (sectors.length !== 1) return json({ error: 'CONTRACTOR_SECTOR_REQUIRED' }, 400)
+      contractorSector = sectors[0]
+    }
+    if (!sectors.includes(contractorSector)) return json({ error: 'CONTRACTOR_SECTOR_NOT_MANAGERS' }, 400)
+    const { data: taken } = await admin.from('contractor_profiles').select('user_id').eq('sector_id', contractorSector).eq('is_active', true).maybeSingle()
+    if (taken) return json({ error: 'CONTRACTOR_SECTOR_TAKEN' }, 409)
   }
 
   // تحقق مسؤول القسم قبل أي إنشاء — شفت صالح ومنطقة واحدة حتى جميع المناطق الثماني
@@ -242,6 +261,21 @@ async function createUser(
     }
   }
 
+  if (isContractor) {
+    // المنطقة/الشفت يُتحقق منهما ويُشتقان أيضاً في trigger app.contractor_profile_validate
+    const { error: contractorError } = await admin.from('contractor_profiles').insert({
+      user_id: userId,
+      manager_user_id: contractorManagerId,
+      sector_id: contractorSector,
+      assigned_by: callerId,
+    })
+    if (contractorError) {
+      await admin.auth.admin.deleteUser(userId)
+      return json({ error: 'CONTRACTOR_PROFILE_FAILED', detail: contractorError.message }, 500)
+    }
+    await admin.from('contractor_audit_log').insert({ actor_id: callerId, action: 'assign', contractor_user_id: userId, sector_id: contractorSector, after_data: { manager_user_id: contractorManagerId, sector_id: contractorSector } })
+  }
+
   if (isGarageOfficer) {
     const { error: garageProfileError } = await admin.from('garage_user_profiles').insert({
       user_id: userId,
@@ -257,6 +291,7 @@ async function createUser(
     email,
     role,
     ...(isGarageOfficer ? { garage_parent_sector: garageParentSector } : {}),
+    ...(isContractor ? { contractor_manager_id: contractorManagerId, contractor_sector_id: contractorSector } : {}),
   })
   return json({ user_id: userId, email, role }, 200)
 }

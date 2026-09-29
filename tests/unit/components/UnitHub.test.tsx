@@ -67,7 +67,7 @@ describe('صفحة وحدة إدارة المستخدمين (Hub)', () => {
     const stats = screen.getByTestId('um-stats')
     expect(stats).toHaveTextContent('3')   // إجمالي
     expect(stats).toHaveTextContent('1')   // بلا أدوار
-    expect(screen.getByTestId('um-roles')).toHaveTextContent('موظف')
+    expect(screen.getByTestId('um-roles')).toHaveTextContent('متعهد')
     expect(screen.getByTestId('um-roles')).toHaveTextContent('موارد بشرية')
     expect(screen.getByTestId('um-recent')).toHaveTextContent('أحمد')
   })

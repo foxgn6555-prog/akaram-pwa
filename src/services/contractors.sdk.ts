@@ -4,7 +4,7 @@ import { sdkGuard, supabase } from './client'
 export type Shift = 'morning' | 'evening' | 'night'
 export type AttendanceStatus = 'present' | 'absent'
 export interface ContractorMe {
-  employee_id: string; full_name: string; employee_number: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift
+  user_id: string; full_name: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift
   workers_count: number; today: string; checked_in_today: boolean; checkin_at: string | null; in_zone: boolean | null
   selfie_path: string | null; team_photo_path: string | null
   today_present: number; today_absent: number; today_unmarked: number; month_present: number; month_absent: number; zone_defined: boolean
@@ -14,12 +14,15 @@ export interface ContractorWorker {
   status: AttendanceStatus | null; marked_at: string | null; month_present: number; month_absent: number
 }
 export interface ContractorMonthRow { worker_id: string; full_name: string; days: Record<string, AttendanceStatus>; present_days: number; absent_days: number }
-export interface ContractorCandidate {
-  employee_id: string; full_name: string; employee_number: string; job_title: string; phone: string | null; employment_status: string
-  sector_id: number | null; area_name: string | null; is_active: boolean
+export interface ContractorManagerOption {
+  user_id: string; full_name: string; shift: Shift; sectors: number[]; contractors: number
+  areas: { id: number; name: string; parent_sector: string; taken_by: string | null }[]
+}
+export interface ContractorProfileInfo {
+  user_id: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift; is_active: boolean; workers_count: number; assigned_at: string
 }
 export interface ManagerTeamSummary {
-  sector_id: number; area_name: string; parent_sector: string; contractor_employee_id: string | null; contractor_name: string | null; contractor_phone: string | null
+  sector_id: number; area_name: string; parent_sector: string; contractor_user_id: string | null; contractor_name: string | null; contractor_phone: string | null
   workers_count: number; today_present: number; today_absent: number; contractor_checked_in: boolean; contractor_checkin_at: string | null; in_zone: boolean | null
   vehicles_now: number
   vehicles: { id: string; db_number: string; vehicle_name: string; driver_name: string; shift: Shift; arrived_at: string; trip_status: string }[]
@@ -74,15 +77,19 @@ export const contractors = {
     if (res.error) throw new Error(res.error.message)
     return res.data.signedUrl
   },
-  // ── غرفة العمليات ──
-  async candidates(search?: string): Promise<ContractorCandidate[]> {
-    return ((await sdkGuard(supabase.rpc('contractor_candidates', { p_search: search?.trim() || null }))) as ContractorCandidate[] | null) ?? []
+  // ── التطوير المركزية: إسناد حساب المتعهد إلى مسؤول قسم ──
+  async managerOptions(): Promise<ContractorManagerOption[]> {
+    return ((await sdkGuard(supabase.rpc('contractor_manager_options'))) as ContractorManagerOption[] | null) ?? []
   },
-  async assign(employeeId: string, sectorId: number, shift: Shift = 'morning', notes?: string): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_assign', { p_employee_id: employeeId, p_sector_id: sectorId, p_shift: shift, p_notes: notes?.trim() || null }))
+  async profileForUser(userId: string): Promise<ContractorProfileInfo | null> {
+    const rows = (await sdkGuard(supabase.rpc('contractor_profile_for_user', { p_user_id: userId }))) as ContractorProfileInfo[] | null
+    return rows?.[0] ?? null
   },
-  async unassign(employeeId: string, reason: string): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_unassign', { p_employee_id: employeeId, p_reason: reason.trim() }))
+  async assign(userId: string, managerUserId: string, sectorId?: number | null, notes?: string): Promise<void> {
+    await sdkGuard(supabase.rpc('contractor_assign', { p_user_id: userId, p_manager_user_id: managerUserId, p_sector_id: sectorId ?? null, p_notes: notes?.trim() || null }))
+  },
+  async unassign(userId: string, reason: string): Promise<void> {
+    await sdkGuard(supabase.rpc('contractor_unassign', { p_user_id: userId, p_reason: reason.trim() }))
   },
   // ── مسؤول القسم ──
   async managerTeamSummary(): Promise<ManagerTeamSummary[]> {

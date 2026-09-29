@@ -102,7 +102,7 @@ describe('عقود مسؤول القسم', () => {
       expect(r.success).toBe(true)
     })
     it('لا يطلب الإسناد للأدوار الأخرى', () => {
-      const r = createSuperAdminSchema.safeParse({ ...validUser, role: 'employee' })
+      const r = createSuperAdminSchema.safeParse({ ...validUser, role: 'hr_officer' })
       expect(r.success).toBe(true)
     })
   })

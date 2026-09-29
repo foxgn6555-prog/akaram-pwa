@@ -12,6 +12,8 @@ import {
 import { useDepartments } from '@features/departments'
 import { useSectors, SHIFT_LABELS } from '@features/sector'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
+import { useContractorManagerOptions } from '@features/contractors/hooks'
+import { PARENT_AR } from '@features/contractors/format'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 
@@ -30,6 +32,7 @@ export default function CreateUser() {
     handleSubmit,
     watch,
     setValue,
+    setError,
     trigger,
     formState: { errors, isSubmitting },
   } = useForm<CreateUserFormInput>({
@@ -42,6 +45,8 @@ export default function CreateUser() {
       manager_shift: 'morning',
       manager_sectors: [],
       garage_parent_sector: undefined,
+      contractor_manager_id: '',
+      contractor_sector_id: null,
     },
   })
 
@@ -49,6 +54,12 @@ export default function CreateUser() {
   const isHighPrivilege = selectedRole === 'super_admin' || selectedRole === 'it_admin'
   const isManager = selectedRole === 'department_manager'
   const isGarageOfficer = selectedRole === 'central_garage_officer'
+  const isContractor = selectedRole === 'employee'
+  const managerOptions = useContractorManagerOptions(isContractor)
+  const contractorManagerId = watch('contractor_manager_id') ?? ''
+  const contractorSectorId = watch('contractor_sector_id') ?? null
+  const chosenManager = (managerOptions.data ?? []).find((m) => m.user_id === contractorManagerId)
+  const chosenManagerAreas = chosenManager?.areas ?? []
 
   const updateManagerAreas = (next: number[]): void => {
     const normalized = [...new Set(next)].sort((a, b) => a - b)
@@ -91,6 +102,10 @@ export default function CreateUser() {
   ]
 
   const onSubmit = async (data: CreateUserFormInput): Promise<void> => {
+    if (data.role === 'employee' && chosenManagerAreas.length > 1 && !data.contractor_sector_id) {
+      setError('contractor_sector_id', { message: 'اختر منطقة المتعهد' })
+      return
+    }
     try {
       await create.mutateAsync({
         email: data.email,
@@ -105,6 +120,9 @@ export default function CreateUser() {
           : {}),
         ...(data.role === 'central_garage_officer'
           ? { garage_parent_sector: data.garage_parent_sector }
+          : {}),
+        ...(data.role === 'employee'
+          ? { contractor_manager_id: data.contractor_manager_id || undefined, contractor_sector_id: data.contractor_sector_id ?? (chosenManagerAreas.length === 1 ? chosenManagerAreas[0]?.id : null) }
           : {}),
       })
       navigate('/it/user-management')
@@ -238,6 +256,47 @@ export default function CreateUser() {
                 <option value="zaafaraniya">كراج قاطع الزعفرانية</option>
               </select>
             </Field>
+          </fieldset>
+        )}
+
+        {/* 00158: حساب المتعهد → مسؤول القسم المسؤول → المنطقة من مناطقه (القاطع والشفت يُشتقان تلقائياً) */}
+        {isContractor && (
+          <fieldset data-testid="contractor-assignment" className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+            <legend className="px-1 text-xs font-semibold text-emerald-800">إسناد المتعهد إلى مسؤول القسم (مطلوب)</legend>
+            <Field label="مسؤول القسم المسؤول" htmlFor="cu-contractor-manager" error={errors.contractor_manager_id?.message}
+              hint="القاطع والمنطقة والشفت تُشتق من ملف مسؤول القسم تلقائياً؛ منطقة واحدة = متعهد واحد.">
+              <select id="cu-contractor-manager" data-testid="contractor-manager" className={inputClass(!!errors.contractor_manager_id)}
+                value={contractorManagerId}
+                onChange={(e) => { setValue('contractor_manager_id', e.target.value); setValue('contractor_sector_id', null); void trigger('contractor_manager_id') }}>
+                <option value="">اختر مسؤول القسم</option>
+                {(managerOptions.data ?? []).map((m) => (
+                  <option key={m.user_id} value={m.user_id}>{m.full_name} — {SHIFT_LABELS[m.shift]} — {m.areas.map((a) => a.name).join('، ')}</option>
+                ))}
+              </select>
+            </Field>
+            {chosenManager && (
+              <div className="mt-3" data-testid="contractor-area">
+                <p className="text-xs font-semibold text-slate-700">منطقة المتعهد</p>
+                {chosenManagerAreas.length === 1 ? (
+                  <p className="mt-1 rounded-lg bg-white px-3 py-2 text-sm" data-testid="contractor-area-auto">
+                    {chosenManagerAreas[0]?.name} · {PARENT_AR[chosenManagerAreas[0]?.parent_sector ?? ''] ?? ''} (تلقائياً — منطقة المسؤول الوحيدة)
+                    {chosenManagerAreas[0]?.taken_by && <span className="mr-2 text-xs font-bold text-rose-700">— لها متعهد نشط: {chosenManagerAreas[0]?.taken_by}</span>}
+                  </p>
+                ) : (
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {chosenManagerAreas.map((a) => (
+                      <button key={a.id} type="button" data-testid={`contractor-area-${a.id}`} disabled={Boolean(a.taken_by)}
+                        onClick={() => { setValue('contractor_sector_id', a.id); void trigger('contractor_sector_id') }}
+                        className={clsx('rounded-full border px-3 py-1 text-xs font-bold disabled:opacity-40', contractorSectorId === a.id ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white')}
+                        title={a.taken_by ? `لها متعهد نشط: ${a.taken_by}` : undefined}>
+                        {a.name} · {PARENT_AR[a.parent_sector] ?? a.parent_sector}{a.taken_by ? ' (مشغولة)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {chosenManagerAreas.length > 1 && !contractorSectorId && <p className="mt-1 text-xs text-amber-700" role="alert">للمسؤول أكثر من منطقة — اختر منطقة المتعهد</p>}
+              </div>
+            )}
           </fieldset>
         )}
 
