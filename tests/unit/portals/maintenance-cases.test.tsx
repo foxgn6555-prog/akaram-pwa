@@ -38,7 +38,9 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
   useMaintenanceEvents: () => ({ data: [{ event_key: 'k', event_type: 'case', title: 'تسجيل العطل وإرسال الآلية', details: null, happened_at: '2026-09-09T08:00:00Z', progress: null }], isLoading: false, refetch: vi.fn() }),
   useMaintenanceTimeline: () => ({ data: { case: {}, updates: [], parts: [{ id: 'p1', part_name: 'مضخة', quantity: 1, unit: 'قطعة', unit_cost: 25000, part_status: 'installed' }], attachments: [{ id: 'a1', original_name: 'صورة.jpg', caption: null, mime_type: 'image/jpeg', size_bytes: 1000, signedUrl: 's' }], legs: [] }, refetch: vi.fn() }),
 }))
-import Page from '@portals/maintenance/pages/VehicleCases/MaintenanceCasesPage'
+import { MemoryRouter } from 'react-router'
+import RawPage from '@portals/maintenance/pages/VehicleCases/MaintenanceCasesPage'
+const Page = () => (<MemoryRouter><RawPage /></MemoryRouter>)
 
 describe('الصيانة المبسّطة (00157): وصول → تشخيص وإصلاح → إنهاء → إرسال', () => {
   beforeEach(() => {
@@ -118,5 +120,14 @@ describe('الصيانة المبسّطة (00157): وصول → تشخيص وإ�
     expect(screen.getByText('صورة.jpg')).toBeInTheDocument()
     expect(screen.getByText(/مضخة · 1 قطعة/)).toBeInTheDocument()
     expect(screen.queryByText('صرف للحالة')).toBeNull()
+  })
+  it('المكتملة (استلمها الكراج/الموقع) تختفي من الحالات وتبقى في الأرشيف مع إشعار ورابط', () => {
+    h.rows = [base, { ...base, case_id: 'c9', status: 'closed_at_garage', completed_at: '2026-09-09T12:00:00Z', readiness_approved_at: '2026-09-09T10:00:00Z' }]
+    render(<Page />)
+    expect(screen.getByTestId('case-c1')).toBeInTheDocument()
+    expect(screen.queryByTestId('case-c9')).toBeNull()
+    expect(screen.getByTestId('archived-note')).toHaveTextContent('1 حالة اكتملت هذا اليوم')
+    expect(screen.getByRole('link', { name: 'فتح الأرشيف' })).toHaveAttribute('href', '/maintenance/archive')
+    expect(screen.getByText('1 مفتوحة · 0 في الأرشيف')).toBeInTheDocument()
   })
 })

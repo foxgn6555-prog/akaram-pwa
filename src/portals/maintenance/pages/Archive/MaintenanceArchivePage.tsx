@@ -1,5 +1,7 @@
 import { Fragment, useState } from 'react'
-import { Archive, CalendarRange, Download, Search } from 'lucide-react'
+import { Archive, CalendarRange, Download, History, Search } from 'lucide-react'
+import { MaintenanceCaseHistoryDialog } from '@features/vehicle-operations/components/MaintenanceCaseHistoryDialog'
+import type { MaintenanceArchiveEntry } from '@sdk/vehicle-operations.sdk'
 import { useMaintenanceArchive } from '@features/vehicle-operations/hooks'
 import { money } from '@features/vehicle-operations/purchase-schemas'
 import { archiveSummary, exportMaintenanceArchive, finalLabels, priorityLabels } from '@features/vehicle-operations/export-archive'
@@ -15,6 +17,7 @@ export default function MaintenanceArchivePage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [history, setHistory] = useState<MaintenanceArchiveEntry | null>(null)
   const [exporting, setExporting] = useState(false)
   const q = useMaintenanceArchive(search, from, to)
   const rows = q.data ?? []
@@ -125,6 +128,14 @@ export default function MaintenanceArchivePage() {
                   </td>
                   <td className="px-3 py-3">
                     <button
+                      data-testid={`archive-history-${r.case_id}`}
+                      onClick={() => setHistory(r)}
+                      className="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white"
+                    >
+                      <History size={12} />
+                      السجل والمرفقات
+                    </button>
+                    <button
                       data-testid={`archive-expand-${r.case_id}`}
                       onClick={() => setExpanded(expanded === r.case_id ? null : r.case_id)}
                       className="whitespace-nowrap rounded-lg border px-2 py-1 text-[11px] font-bold"
@@ -163,6 +174,7 @@ export default function MaintenanceArchivePage() {
           </tbody>
         </table>
       </div>
+      {history && <MaintenanceCaseHistoryDialog item={history} close={() => setHistory(null)} allowUpload={false} />}
     </section>
   )
 }
