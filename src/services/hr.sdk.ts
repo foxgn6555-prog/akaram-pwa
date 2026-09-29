@@ -259,11 +259,12 @@ export const hr = {
     return rpc<ImportResult>('hr_employees_import', { p_rows: rows, p_dry_run: dryRun })
   },
   listDepartments() { return rpc<HrDepartment[]>('hr_departments_overview', {}) },
-  saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null; isJobTitle?: boolean; drivesVehicles?: boolean; maintenanceSpecialty?: string | null }) {
+  saveDepartment(v: { id?: string | null; name: string; code: string; parentId?: string | null; isActive?: boolean; managerId?: string | null; isJobTitle?: boolean; drivesVehicles?: boolean; maintenanceSpecialty?: string | null; isContractorTitle?: boolean }) {
     return rpc<string>('hr_department_save', {
       p_id: v.id ?? null, p_name: v.name, p_code: v.code, p_parent: v.parentId || null, p_is_active: v.isActive ?? true, p_manager: v.managerId || null,
       p_is_job_title: v.isJobTitle ?? false, p_drives_vehicles: (v.isJobTitle ?? false) && (v.drivesVehicles ?? false),
       p_maintenance_specialty: (v.isJobTitle ?? false) ? v.maintenanceSpecialty || null : null,
+      p_is_contractor_title: (v.isJobTitle ?? false) && (v.isContractorTitle ?? false),
     })
   },
   /** 00153: المسميات الوظيفية من الهيكل (للاختيار في التوظيف/ملف الموظف/الاستيراد) */

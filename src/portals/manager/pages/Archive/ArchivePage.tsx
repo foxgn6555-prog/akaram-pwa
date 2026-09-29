@@ -5,20 +5,18 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import {
-  useSupplies, useBreakdowns, usePhotos, useWorkers, useVehicles,
+  useSupplies, useBreakdowns, usePhotos,
 } from '@features/sector'
 import { sectorPhotos } from '@sdk/sector.sdk'
 import { Icon } from '@components/ui/Icon/Icon'
 import { EmptyState } from '@components/feedback/EmptyState'
 
-type TabKey = 'supplies' | 'breakdowns' | 'photos' | 'workers' | 'vehicles'
+type TabKey = 'supplies' | 'breakdowns' | 'photos'
 
-const TABS: { key: TabKey; label: string; icon: 'send' | 'alert-triangle' | 'photo' | 'users' | 'truck' }[] = [
+const TABS: { key: TabKey; label: string; icon: 'send' | 'alert-triangle' | 'photo' }[] = [
   { key: 'supplies', label: 'كتب المستلزمات', icon: 'send' },
   { key: 'breakdowns', label: 'بلاغات الأعطال', icon: 'alert-triangle' },
   { key: 'photos', label: 'الصور', icon: 'photo' },
-  { key: 'workers', label: 'العمال', icon: 'users' },
-  { key: 'vehicles', label: 'الآليات', icon: 'truck' },
 ]
 
 export default function ArchivePage() {
@@ -26,8 +24,6 @@ export default function ArchivePage() {
   const supplies = useSupplies('archived')
   const breakdowns = useBreakdowns('archived')
   const photos = usePhotos('archived')
-  const workers = useWorkers(false)
-  const vehicles = useVehicles(false)
 
   return (
     <div className="space-y-5" data-testid="archive-page">
@@ -50,8 +46,6 @@ export default function ArchivePage() {
         {tab === 'supplies' && <SuppliesArch data={supplies.data ?? []} loading={supplies.isLoading} />}
         {tab === 'breakdowns' && <BreakdownsArch data={breakdowns.data ?? []} loading={breakdowns.isLoading} />}
         {tab === 'photos' && <PhotosArch data={photos.data ?? []} loading={photos.isLoading} />}
-        {tab === 'workers' && <WorkersArch data={workers.data ?? []} loading={workers.isLoading} />}
-        {tab === 'vehicles' && <VehiclesArch data={vehicles.data ?? []} loading={vehicles.isLoading} />}
       </div>
     </div>
   )
@@ -147,36 +141,3 @@ function ArchPhoto({ path, caption }: { path: string; caption: string | null }) 
   )
 }
 
-function WorkersArch({ data, loading }: { data: ReturnType<typeof useWorkers>['data']; loading: boolean }) {
-  return (
-    <ArchWrap loading={loading} count={data?.length ?? 0} emptyTitle="لا عمال مؤرشفون">
-      <ul className="divide-y divide-slate-50">
-        {data?.map((w) => (
-          <li key={w.id} className="flex items-center gap-3 px-2 py-2.5 text-sm">
-            <Icon name="users" size={16} className="text-slate-400" />
-            <span className="font-medium">{w.full_name}</span>
-            <span className="text-xs text-slate-500">{w.job_title ?? ''}</span>
-            <span className="ms-auto text-xs text-slate-400">{(w.archived_at ?? w.created_at ?? '').slice(0, 10)}</span>
-          </li>
-        ))}
-      </ul>
-    </ArchWrap>
-  )
-}
-
-function VehiclesArch({ data, loading }: { data: ReturnType<typeof useVehicles>['data']; loading: boolean }) {
-  return (
-    <ArchWrap loading={loading} count={data?.length ?? 0} emptyTitle="لا آليات مؤرشفة">
-      <ul className="divide-y divide-slate-50">
-        {data?.map((v) => (
-          <li key={v.id} className="flex items-center gap-3 px-2 py-2.5 text-sm">
-            <Icon name="truck" size={16} className="text-slate-400" />
-            <span className="font-bold text-brand-700 dir-ltr">{v.db_number}</span>
-            <span className="text-xs text-slate-500">{v.vehicle_type ?? ''}</span>
-            <span className="ms-auto text-xs text-slate-400">{(v.archived_at ?? v.created_at ?? '').slice(0, 10)}</span>
-          </li>
-        ))}
-      </ul>
-    </ArchWrap>
-  )
-}

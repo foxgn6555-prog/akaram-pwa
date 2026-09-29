@@ -20,26 +20,27 @@ function renderAt(path: string, portal: 'employee' | 'hr' | 'it' = 'employee') {
 }
 
 describe('Sidebar — وحدات البوابات', () => {
-  it('بوابة الموظف تعرض وحداتها ولا تعرض وحدات الإدارات', () => {
+  it('بوابة المتعهد تعرض وحداتها الثلاث فقط ولا تعرض وحدات الإدارات', () => {
     renderAt('/employee')
-    expect(screen.getByText('طلباتي')).toBeInTheDocument()
-    expect(screen.getByText('رواتبي')).toBeInTheDocument()
-    expect(screen.getByText('وثائقي')).toBeInTheDocument()
+    expect(screen.getByText('فريقي')).toBeInTheDocument()
+    expect(screen.getByText('حضورية العمال')).toBeInTheDocument()
+    expect(screen.queryByText('طلباتي')).not.toBeInTheDocument()
+    expect(screen.queryByText('رواتبي')).not.toBeInTheDocument()
     expect(screen.queryByText('الموظفون')).not.toBeInTheDocument()
     expect(screen.queryByText('الميزانية')).not.toBeInTheDocument()
   })
 
-  it('بوابة HR تعرض وحدات الإدارة ولا تعرض وحدات الموظف', () => {
+  it('بوابة HR تعرض وحدات الإدارة ولا تعرض وحدات المتعهد', () => {
     renderAt('/hr', 'hr')
     expect(screen.getByText('الموظفون')).toBeInTheDocument()
     expect(screen.getByText('الحضور والانصراف')).toBeInTheDocument()
-    expect(screen.queryByText('طلباتي')).not.toBeInTheDocument()
+    expect(screen.queryByText('فريقي')).not.toBeInTheDocument()
   })
 
   it('يوسم العنصر النشط بـ aria-current حسب المسار', () => {
-    renderAt('/employee/requests')
+    renderAt('/employee/attendance')
     const active = screen.getByRole('button', { current: 'page' })
-    expect(active).toHaveTextContent('طلباتي')
+    expect(active).toHaveTextContent('حضورية العمال')
   })
 
   it('يعرض شعار جزيرة الأكرام', () => {
@@ -109,7 +110,7 @@ describe('Sidebar — فصل وضعي الدسكتوب والموبايل', () =
         <Sidebar portal="employee" variant="mobile" onNavigate={onNavigate} />
       </MemoryRouter>,
     )
-    await user.click(screen.getByText('طلباتي'))
+    await user.click(screen.getByText('فريقي'))
     expect(onNavigate).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,6 +1,8 @@
 {
   "nav": {
     "dashboard": "الرئيسية",
+    "contractor_team": "فريقي",
+    "contractor_attendance": "حضورية العمال",
     "profile": "ملفي الشخصي",
     "my_requests": "طلباتي",
     "new_request": "طلب جديد",

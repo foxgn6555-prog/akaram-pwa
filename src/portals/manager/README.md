@@ -16,9 +16,8 @@ manager/
 | الصفحة | المسار | الملف | الحالة |
 |--------|--------|-------|--------|
 | الرئيسية | /manager | pages/Dashboard/ManagerDashboard.tsx | قيد التطوير |
-| فريقي | /manager/team | pages/Team/TeamOverview.tsx | قيد التطوير |
+| فريقي | /manager/team | pages/Team/TeamPage.tsx | 00158: متعهد المنطقة + عدد العمال + آليات تعمل الآن (عرض فقط) |
 | الاعتمادات | /manager/approvals | pages/Approvals/PendingApprovals.tsx | قيد التطوير |
-| الحضور | /manager/attendance | pages/Attendance/ManagerAttendance.tsx | قيد التطوير |
 | تقارير القسم | /manager/reports | pages/Reports/DepartmentReports.tsx | قيد التطوير |
 
 ## القواعد

@@ -18,8 +18,8 @@ import { field } from '../../components/hr-format'
 import { ExportButton } from '../../components/ExportButton'
 
 import { MAINTENANCE_SPECIALTIES, specialtyLabel } from '@sdk/vehicle-operations.sdk'
-type Draft = { id: string | null; name: string; code: string; parentId: string; managerId: string; isActive: boolean; isJobTitle: boolean; drivesVehicles: boolean; maintenanceSpecialty: string }
-const empty = (parentId = '', isJobTitle = false): Draft => ({ id: null, name: '', code: '', parentId, managerId: '', isActive: true, isJobTitle, drivesVehicles: false, maintenanceSpecialty: '' })
+type Draft = { id: string | null; name: string; code: string; parentId: string; managerId: string; isActive: boolean; isJobTitle: boolean; drivesVehicles: boolean; maintenanceSpecialty: string; isContractorTitle: boolean }
+const empty = (parentId = '', isJobTitle = false): Draft => ({ id: null, name: '', code: '', parentId, managerId: '', isActive: true, isJobTitle, drivesVehicles: false, maintenanceSpecialty: '', isContractorTitle: false })
 
 export default function OrgStructure() {
   const { data: depts = [], isLoading } = useHrDepartments()
@@ -49,14 +49,14 @@ export default function OrgStructure() {
     if (!draft.code.trim()) { setErr('رمز القسم مطلوب (حروف/أرقام لاتينية مثل OPS-1)'); return }
     if (draft.isJobTitle && !draft.parentId) { setErr('المسمى الوظيفي يجب أن يتفرع من قسم أب'); return }
     setErr(null)
-    try { await save.mutateAsync({ id: draft.id, name: draft.name.trim(), code: draft.code.trim(), parentId: draft.parentId || null, managerId: draft.managerId || null, isActive: draft.isActive, isJobTitle: draft.isJobTitle, drivesVehicles: draft.isJobTitle && draft.drivesVehicles, maintenanceSpecialty: draft.isJobTitle ? draft.maintenanceSpecialty || null : null }); setDraft(null) } catch { /* toast in hook */ }
+    try { await save.mutateAsync({ id: draft.id, name: draft.name.trim(), code: draft.code.trim(), parentId: draft.parentId || null, managerId: draft.managerId || null, isActive: draft.isActive, isJobTitle: draft.isJobTitle, drivesVehicles: draft.isJobTitle && draft.drivesVehicles, maintenanceSpecialty: draft.isJobTitle ? draft.maintenanceSpecialty || null : null, isContractorTitle: draft.isJobTitle && draft.isContractorTitle }); setDraft(null) } catch { /* toast in hook */ }
   }
   const deactivate = async (d: HrDepartment) => {
     if (!window.confirm(`تعطيل قسم «${d.name}»؟ لن يظهر في القوائم ولا يمكن إسناد موظفين إليه.`)) return
-    try { await save.mutateAsync({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id, managerId: d.manager_id, isActive: false, isJobTitle: d.is_job_title, drivesVehicles: d.drives_vehicles, maintenanceSpecialty: d.maintenance_specialty ?? null }) } catch { /* toast */ }
+    try { await save.mutateAsync({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id, managerId: d.manager_id, isActive: false, isJobTitle: d.is_job_title, drivesVehicles: d.drives_vehicles, maintenanceSpecialty: d.maintenance_specialty ?? null, isContractorTitle: Boolean(d.is_contractor_title) }) } catch { /* toast */ }
   }
-  const reactivate = async (d: HrDepartment) => { try { await save.mutateAsync({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id, managerId: d.manager_id, isActive: true, isJobTitle: d.is_job_title, drivesVehicles: d.drives_vehicles, maintenanceSpecialty: d.maintenance_specialty ?? null }) } catch { /* toast */ } }
-  const edit = (d: HrDepartment) => setDraft({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id ?? '', managerId: d.manager_id ?? '', isActive: d.is_active, isJobTitle: Boolean(d.is_job_title), drivesVehicles: Boolean(d.drives_vehicles), maintenanceSpecialty: d.maintenance_specialty ?? '' })
+  const reactivate = async (d: HrDepartment) => { try { await save.mutateAsync({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id, managerId: d.manager_id, isActive: true, isJobTitle: d.is_job_title, drivesVehicles: d.drives_vehicles, maintenanceSpecialty: d.maintenance_specialty ?? null, isContractorTitle: Boolean(d.is_contractor_title) }) } catch { /* toast */ } }
+  const edit = (d: HrDepartment) => setDraft({ id: d.id, name: d.name, code: d.code, parentId: d.parent_id ?? '', managerId: d.manager_id ?? '', isActive: d.is_active, isJobTitle: Boolean(d.is_job_title), drivesVehicles: Boolean(d.drives_vehicles), maintenanceSpecialty: d.maintenance_specialty ?? '', isContractorTitle: Boolean(d.is_contractor_title) })
   // المسمى الوظيفي لا يكون أباً لأي عقدة
   const parentOptions = depts.filter((d) => d.is_active && d.id !== draft?.id && !d.is_job_title)
   const titles = depts.filter((d) => d.is_job_title && d.is_active)
@@ -71,7 +71,7 @@ export default function OrgStructure() {
             title: 'الهيكل التنظيمي', sheetName: 'الأقسام', fileName: 'الهيكل-التنظيمي.xlsx', rows: tree,
             columns: [
               { key: 'path', header: 'المسار', width: 40, value: (t) => t.path }, { key: 'code', header: 'الرمز', width: 12, value: (t) => t.d.code, align: 'center' },
-              { key: 'kind', header: 'النوع', width: 14, value: (t) => (t.d.is_job_title ? (t.d.drives_vehicles ? 'مسمى — يقود آليات' : t.d.maintenance_specialty ? `مسمى — فني ${specialtyLabel(t.d.maintenance_specialty)}` : 'مسمى وظيفي') : 'قسم'), align: 'center' },
+              { key: 'kind', header: 'النوع', width: 14, value: (t) => (t.d.is_job_title ? (t.d.drives_vehicles ? 'مسمى — يقود آليات' : t.d.maintenance_specialty ? `مسمى — فني ${specialtyLabel(t.d.maintenance_specialty)}` : t.d.is_contractor_title ? 'مسمى — متعهد' : 'مسمى وظيفي') : 'قسم'), align: 'center' },
               { key: 'manager', header: 'المدير', width: 22, value: (t) => t.d.manager_name }, { key: 'active', header: 'موظفون نشطون', width: 12, value: (t) => t.d.employees_active, align: 'center' },
               { key: 'subtree', header: 'مع الفروع', width: 12, value: (t) => t.d.employees_active + subtreeCount(t.d.id), align: 'center' }, { key: 'status', header: 'الحالة', width: 10, value: (t) => (t.d.is_active ? 'نشط' : 'معطّل'), align: 'center' },
             ],
@@ -103,7 +103,8 @@ export default function OrgStructure() {
           <div className="mt-3 flex flex-wrap gap-4 text-xs font-bold">
             <label className="flex items-center gap-2"><input type="checkbox" checked={draft.isJobTitle} disabled={!draft.parentId} onChange={(e) => setDraft({ ...draft, isJobTitle: e.target.checked, drivesVehicles: e.target.checked && draft.drivesVehicles, managerId: e.target.checked ? '' : draft.managerId })} data-testid="org-is-title" /> مسمى وظيفي (لا قسم){!draft.parentId && <span className="font-normal text-slate-400">— يتطلب قسماً أباً</span>}</label>
             {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-2 py-1 text-amber-900"><input type="checkbox" checked={draft.drivesVehicles} onChange={(e) => setDraft({ ...draft, drivesVehicles: e.target.checked })} data-testid="org-drives" /> 🚛 يقود آليات الشركة (يظهر موظفوه لغرفة العمليات كسائقين)</label>}
-            {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-indigo-50 px-2 py-1 text-indigo-900">🔧 تخصص صيانة
+            {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-emerald-50 px-2 py-1 text-emerald-900"><input type="checkbox" checked={draft.isContractorTitle} onChange={(e) => setDraft({ ...draft, isContractorTitle: e.target.checked })} data-testid="org-contractor" /> 👷 متعهد عمال (يظهر موظفوه لغرفة العمليات لتعيينهم متعهدي مناطق)</label>}
+            {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-indigo-50 px-1 py-1 text-indigo-900">🔧 تخصص صيانة
               <select className={field} value={draft.maintenanceSpecialty} onChange={(e) => setDraft({ ...draft, maintenanceSpecialty: e.target.value })} data-testid="org-maintenance-specialty">
                 <option value="">ليس فني صيانة</option>
                 {MAINTENANCE_SPECIALTIES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -131,6 +132,7 @@ export default function OrgStructure() {
                   <td className="p-2"><span style={{ paddingInlineStart: `${depth * 1.25}rem` }} className="inline-flex flex-wrap items-center gap-1 font-semibold">{depth > 0 && <span className="text-slate-300">↳</span>}{d.name}
                     {d.is_job_title && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700" data-testid={`org-title-badge-${d.code}`}>مسمى وظيفي</span>}
                     {d.drives_vehicles && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800" data-testid={`org-drives-badge-${d.code}`}>🚛 يقود آليات</span>}
+                    {d.is_contractor_title && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800" data-testid={`org-contractor-badge-${d.code}`}>👷 متعهد</span>}
                     {d.maintenance_specialty && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-800" data-testid={`org-tech-badge-${d.code}`}>🔧 فني {specialtyLabel(d.maintenance_specialty)}</span>}
                   </span></td>
                   <td className="p-2 text-center font-mono text-xs" dir="ltr">{d.code}</td>

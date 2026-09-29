@@ -44,8 +44,8 @@ describe('Header — بحث الموبايل', () => {
   })
 
   it('يعرض عنوان الصفحة الفرعية لا عنوان البوابة الأب', () => {
-    renderHeader('/employee/requests')
-    expect(screen.getByRole('heading', { name: 'طلباتي' })).toBeInTheDocument()
+    renderHeader('/employee/attendance')
+    expect(screen.getByRole('heading', { name: 'حضورية العمال' })).toBeInTheDocument()
   })
 
   it('النقر يفتح لوحة بحث بعرض كامل', async () => {
@@ -65,9 +65,9 @@ describe('Header — بحث الموبايل', () => {
     await user.click(screen.getByTestId('header-search-toggle'))
     const panel = await screen.findByTestId('mobile-search-panel')
     const input = panel.querySelector('input') as HTMLInputElement
-    await user.type(input, 'طلبات')
-    // صفحة "طلباتي" تظهر ضمن النتائج
-    expect(panel).toHaveTextContent('طلباتي')
+    await user.type(input, 'حضور')
+    // صفحة "حضورية العمال" تظهر ضمن النتائج
+    expect(panel).toHaveTextContent('حضورية العمال')
   })
 
   it('زر Escape يغلق اللوحة', async () => {

@@ -34,13 +34,17 @@ beforeEach(() => {
 })
 
 describe('MobileBottomNav — الاختصارات', () => {
-  it('بوابة الموظف: يعرض 4 اختصارات سريعة (أول الوحدات)', () => {
+  it('بوابة المتعهد: يعرض وحداتها الثلاث كاختصارات (الرئيسية، فريقي، حضورية العمال)', () => {
     renderAt('/employee')
-    // الوحدات: الرئيسية، ملفي، طلباتي، رواتبي (الأولى في الصفحة الرئيسية)
     expect(screen.getByTestId('bottom-nav-home')).toBeInTheDocument()
-    expect(screen.getByTestId('bottom-nav-profile')).toBeInTheDocument()
-    expect(screen.getByTestId('bottom-nav-requests')).toBeInTheDocument()
-    expect(screen.getByTestId('bottom-nav-payslips')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-team')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-attendance')).toBeInTheDocument()
+  })
+  it('بوابة HR: يعرض 4 اختصارات سريعة فقط (أول الوحدات)', () => {
+    renderAt('/hr', 'hr' as never)
+    expect(screen.getByTestId('bottom-nav-home')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-employees')).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^bottom-nav-/).filter((el) => el.dataset.testid !== 'bottom-nav-more')).toHaveLength(4)
   })
 
   it('البوابة العامة بلا وحدات → لا يعرض الشريط', () => {
@@ -56,14 +60,14 @@ describe('MobileBottomNav — الاختصارات', () => {
 })
 
 describe('MobileBottomNav — زر المزيد', () => {
-  it('بوابة الموظف (6 وحدات) تعرض زر المزيد', () => {
+  it('بوابة المتعهد (3 وحدات) لا تحتاج زر المزيد؛ بوابة HR (أكثر من 4) تعرضه', () => {
     renderAt('/employee')
-    expect(screen.getByTestId('bottom-nav-more')).toBeInTheDocument()
+    expect(screen.queryByTestId('bottom-nav-more')).not.toBeInTheDocument()
   })
 
   it('زر المزيد يفتح درج الموبايل في المتجر', async () => {
     const user = userEvent.setup()
-    renderAt('/employee')
+    renderAt('/hr', 'hr' as never)
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
     await user.click(screen.getByTestId('bottom-nav-more'))
     expect(useUiStore.getState().mobileNavOpen).toBe(true)
@@ -74,9 +78,9 @@ describe('MobileBottomNav — التنقل والحالة النشطة', () => {
   it('النقر على اختصار ينقل لمساره', async () => {
     const user = userEvent.setup()
     renderAt('/employee')
-    await user.click(screen.getByTestId('bottom-nav-requests'))
+    await user.click(screen.getByTestId('bottom-nav-team'))
     // الرابط ينقل — لا تعطل هنا؛ نتحقق من عدم رمي خطأ وأن العنصر زر تفاعلي
-    expect(screen.getByTestId('bottom-nav-requests')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-team')).toBeInTheDocument()
   })
 
   it('الصفحة الرئيسية موسومة aria-current=page على مسار البوابة', () => {
@@ -85,9 +89,9 @@ describe('MobileBottomNav — التنقل والحالة النشطة', () => {
     expect(home).toHaveAttribute('aria-current', 'page')
   })
 
-  it('عنصر الطلبات يصبح نشطاً داخل صفحة الطلبات', () => {
-    renderAt('/employee/requests')
-    const requests = screen.getByTestId('bottom-nav-requests')
-    expect(requests).toHaveAttribute('aria-current', 'page')
+  it('عنصر الحضورية يصبح نشطاً داخل صفحتها', () => {
+    renderAt('/employee/attendance')
+    const att = screen.getByTestId('bottom-nav-attendance')
+    expect(att).toHaveAttribute('aria-current', 'page')
   })
 })

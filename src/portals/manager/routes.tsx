@@ -3,7 +3,6 @@ import type { RouteObject } from 'react-router'
 import ManagerDashboard from './pages/Dashboard/ManagerDashboard'
 import TeamPage from './pages/Team/TeamPage'
 import NewRequestPage from './pages/Request/NewRequestPage'
-import AttendancePage from './pages/Attendance/AttendancePage'
 import BreakdownPage from './pages/Breakdown/BreakdownPage'
 import PhotosPage from './pages/Photos/PhotosPage'
 import ArchivePage from './pages/Archive/ArchivePage'
@@ -19,7 +18,6 @@ export const customRoutes: RouteObject[] = [
   { path: '', element: <ManagerDashboard /> },
   { path: 'team', element: <TeamPage /> },
   { path: 'request', element: <NewRequestPage /> },
-  { path: 'attendance', element: <AttendancePage /> },
   { path: 'leaves', element: <TeamLeavesPage /> },
   { path: 'breakdown', element: <BreakdownPage /> },
   { path: 'vehicle-trips', element: <VehicleTripsPage /> },

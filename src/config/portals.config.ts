@@ -37,8 +37,8 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
     themeClass: 'portal-public',
   },
   [PORTALS.EMPLOYEE]: {
-    label: 'بوابة الموظف',
-    icon: 'user',
+    label: 'بوابة المتعهد',
+    icon: 'users',
     colorVar: '--portal-employee',
     themeClass: 'portal-employee',
   },
@@ -145,14 +145,11 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
 export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.PUBLIC]: [],
 
-  // بوابة الموظف
+  // بوابة المتعهد (00158): ثلاث وحدات فقط
   [PORTALS.EMPLOYEE]: [
     { path: '/employee', labelKey: 'nav.dashboard', icon: 'home' },
-    { path: '/employee/profile', labelKey: 'nav.profile', icon: 'user' },
-    { path: '/employee/requests', labelKey: 'nav.my_requests', icon: 'file-text' },
-    { path: '/employee/payslips', labelKey: 'nav.my_payslips', icon: 'wallet' },
-    { path: '/employee/documents', labelKey: 'nav.my_documents', icon: 'folder' },
-    { path: '/employee/my-assets', labelKey: 'nav.my_assets', icon: 'box' },
+    { path: '/employee/team', labelKey: 'nav.contractor_team', icon: 'users' },
+    { path: '/employee/attendance', labelKey: 'nav.contractor_attendance', icon: 'check-square' },
   ],
 
   // بوابة الموارد البشرية
@@ -172,7 +169,6 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager', labelKey: 'nav.dashboard', icon: 'home' },
     { path: '/manager/team', labelKey: 'nav.team', icon: 'users' },
     { path: '/manager/request', labelKey: 'nav.mgr_request', icon: 'send' },
-    { path: '/manager/attendance', labelKey: 'nav.mgr_attendance', icon: 'calendar' },
     { path: '/manager/leaves', labelKey: 'nav.mgr_leaves', icon: 'clipboard' },
     { path: '/manager/breakdown', labelKey: 'nav.mgr_breakdown', icon: 'alert-triangle' },
     { path: '/manager/vehicle-trips', labelKey: 'nav.mgr_vehicle_trips', icon: 'truck' },

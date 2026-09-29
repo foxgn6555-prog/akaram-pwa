@@ -1,17 +1,11 @@
-/** مسارات بوابة الموظف — كل صفحة ملف مستقل داخل هذا المجلد */
+/** مسارات بوابة المتعهد (00158) — الرئيسية، فريقي، حضورية العمال */
 import type { RouteObject } from 'react-router'
-import EmployeeDashboard from './pages/Dashboard/EmployeeDashboard'
-import MyProfile from './pages/Profile/MyProfile'
-import MyRequests from './pages/Requests/MyRequests'
-import MyPayslips from './pages/Payroll/MyPayslips'
-import MyDocuments from './pages/Documents/MyDocuments'
-import MyAssets from './pages/Assets/MyAssets'
+import ContractorDashboard from './pages/Dashboard/ContractorDashboard'
+import ContractorTeamPage from './pages/Team/ContractorTeamPage'
+import ContractorAttendancePage from './pages/Attendance/ContractorAttendancePage'
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <EmployeeDashboard /> },
-  { path: 'profile', element: <MyProfile /> },
-  { path: 'requests', element: <MyRequests /> },
-  { path: 'payslips', element: <MyPayslips /> },
-  { path: 'documents', element: <MyDocuments /> },
-  { path: 'my-assets', element: <MyAssets /> },
+  { path: '', element: <ContractorDashboard /> },
+  { path: 'team', element: <ContractorTeamPage /> },
+  { path: 'attendance', element: <ContractorAttendancePage /> },
 ]
