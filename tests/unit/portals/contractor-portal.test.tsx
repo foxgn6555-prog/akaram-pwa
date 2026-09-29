@@ -89,6 +89,26 @@ describe('بوابة المتعهد (00158)', () => {
     expect(h.checkin).toHaveBeenCalledWith({ latitude: 33.3, longitude: 44.4, accuracy: 7, selfie, teamPhoto: team }, expect.any(Object))
   })
 
+  it('عند توفر getUserMedia: زر «التقاط الصورة» يفتح الكاميرا داخل التطبيق (أمامية للسلفي، خلفية للعمال) وليس اختيار ملف', async () => {
+    const gum = vi.fn((_c: MediaStreamConstraints) => Promise.resolve({ getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream))
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: gum } })
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: () => Promise.resolve() })
+    try {
+      wrap(<Attendance />)
+      await waitFor(() => expect(screen.getByTestId('geo-text')).toHaveTextContent('تم التقاط الموقع'))
+      expect(screen.queryByTestId('selfie-input')).toBeNull()
+      fireEvent.click(screen.getByTestId('selfie-input-open'))
+      await waitFor(() => expect(gum).toHaveBeenCalled())
+      expect(JSON.stringify(gum.mock.calls[0]?.[0])).toContain('"facingMode":{"exact":"user"}')
+      fireEvent.click(screen.getByTestId('selfie-input-camera-close'))
+      fireEvent.click(screen.getByTestId('team-input-open'))
+      await waitFor(() => expect(gum).toHaveBeenCalledTimes(2))
+      expect(JSON.stringify(gum.mock.calls[1]?.[0])).toContain('"facingMode":{"exact":"environment"}')
+    } finally {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined })
+    }
+  })
+
   it('رفض إذن الموقع يظهر رسالة واضحة وزر إعادة المحاولة، ويبقى الزر معطلاً', async () => {
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_ok: unknown, err: (e: { code: number }) => void) => err({ code: 1 }) } })
     wrap(<Attendance />)

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Camera, CheckCircle2, MapPin, RefreshCw, UserCheck, UserX, Users } from 'lucide-react'
 import { useContractorCheckin, useContractorMe, useContractorPhotoUrl, useContractorWorkers, useMarkAll, useMarkAttendance } from '@features/contractors/hooks'
 import { timeAr, zoneLabel } from '@features/contractors/format'
+import { CameraCapture, cameraSupported } from '@features/contractors/components/CameraCapture'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 
@@ -29,6 +30,8 @@ function useGeolocation() {
 function PhotoStep({ n, title, hint, file, onFile, facing, testId }: { n: number; title: string; hint: string; file: File | null; onFile: (f: File | null) => void; facing: 'user' | 'environment'; testId: string }) {
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview) }, [preview])
+  const [open, setOpen] = useState(false)
+  const live = cameraSupported()
   return (
     <div className={`rounded-2xl border p-3 ${file ? 'border-emerald-200 bg-emerald-50' : 'bg-white'}`} data-testid={`${testId}-step`}>
       <div className="flex items-center justify-between">
@@ -36,10 +39,17 @@ function PhotoStep({ n, title, hint, file, onFile, facing, testId }: { n: number
         {file && <CheckCircle2 size={18} className="text-emerald-600" />}
       </div>
       <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
-      <label className="mt-2 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-700">
-        <Camera size={16} />{file ? 'إعادة التقاط' : 'التقاط الصورة'}
-        <input data-testid={testId} type="file" accept="image/*" capture={facing} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-      </label>
+      {live ? (
+        <button type="button" onClick={() => setOpen(true)} data-testid={`${testId}-open`} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-700">
+          <Camera size={16} />{file ? 'إعادة التقاط' : 'التقاط الصورة'}
+        </button>
+      ) : (
+        <label className="mt-2 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-700">
+          <Camera size={16} />{file ? 'إعادة التقاط' : 'التقاط الصورة'}
+          <input data-testid={testId} type="file" accept="image/*" capture={facing} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+        </label>
+      )}
+      {open && <CameraCapture facing={facing} title={title} testId={testId} onCapture={onFile} onClose={() => setOpen(false)} />}
       {preview && <img src={preview} alt={title} className="mt-2 max-h-40 w-full rounded-xl object-cover" />}
     </div>
   )
