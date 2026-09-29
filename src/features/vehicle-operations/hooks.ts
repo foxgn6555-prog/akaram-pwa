@@ -162,6 +162,11 @@ export const useMaintenanceReleaseTechnician = () =>
       vehicleOperations.maintenanceReleaseTechnician(x.caseId, x.employeeId, x.notes),
     'تم إنهاء عمل الفني على الحالة',
   )
+export const useMaintenanceCompleteCase = () =>
+  useAction(
+    (x: Parameters<typeof vehicleOperations.maintenanceCompleteCase>[0]) => vehicleOperations.maintenanceCompleteCase(x),
+    'تم إنهاء الصيانة — الآلية جاهزة للإرسال',
+  )
 export const useMaintenanceIssueAndInstall = () =>
   useAction(
     (x: { caseId: string; itemId: string; quantity: number; installNow: boolean; notes?: string }) =>

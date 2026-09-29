@@ -155,3 +155,6 @@ node scripts/db-migrations-test.mjs tests/db/trip-lifecycle-test.sql
 - `maintenance_assign_technician` / `maintenance_release_technician` (فني أو أكثر لكل حالة، جدول `vehicle_maintenance_case_technicians`)؛ أكواد: `MAINTENANCE_TECHNICIAN_NOT_TECHNICIAN_TITLE`، `MAINTENANCE_TECHNICIAN_ALREADY_ASSIGNED`، `MAINTENANCE_READY_REQUIRES_TECHNICIAN`.
 - `operational_maintenance_report` (غرفة العمليات) و`maintenance_archive_list` و`maintenance_cases_for_day`: الآلية/السائق/المنطقة/الفنيون/المرحلة/انتظار الوصول/وقت الصيانة/القطع/الكلف (قطع+خدمة=فعلية)/التحديثات/التصحيح — كلها مُتحقَّق منها بالقيم.
 - التسلسل الزمني يضم أحداث `technician`.
+
+## 00157 — إنهاء الصيانة بخطوة واحدة (ضمن `trip-lifecycle-test.sql` L14)
+`maintenance_complete_case(case, diagnosis, work_notes, technician_ids[], parts jsonb, service_cost)`: يعيّن الفنيين، يصرف المواد من المخزن ويركّبها (الكلفة تلقائية بسعر المخزن)، يضبط الحالة جاهزة ومعتمدة ويغلق المراحل تلقائياً. الاختبار يتحقق من الكلف (قطع 60000 + أجور 15000 = 75000)، خصم المخزن، الأكواد (فني/تشخيص/رصيد غير كافٍ/معتمدة مسبقاً).

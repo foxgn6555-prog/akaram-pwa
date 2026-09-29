@@ -607,6 +607,28 @@ export const vehicleOperations = {
       }),
     )
   },
+  /** (00157) إنهاء الصيانة بخطوة واحدة: فنيون + قطع من المخزن + تشخيص/أعمال + أجور خارجية اختيارية */
+  async maintenanceCompleteCase(input: {
+    caseId: string
+    diagnosis: string
+    workNotes: string
+    technicianIds: string[]
+    parts: { itemId: string; quantity: number }[]
+    serviceCost?: number
+    notes?: string
+  }) {
+    return await sdkGuard(
+      supabase.rpc('maintenance_complete_case', {
+        p_case_id: input.caseId,
+        p_diagnosis: input.diagnosis.trim(),
+        p_work_notes: input.workNotes.trim(),
+        p_technician_ids: input.technicianIds,
+        p_parts: input.parts.map((p) => ({ item_id: p.itemId, quantity: p.quantity })),
+        p_service_cost: input.serviceCost ?? 0,
+        p_notes: input.notes?.trim() || null,
+      }),
+    )
+  },
   /** (00156) صرف من المخزن مع تركيب فوري اختياري — الكلفة من المخزن تلقائياً */
   async maintenanceIssueAndInstall(
     caseId: string,

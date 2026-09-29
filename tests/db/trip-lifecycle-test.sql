@@ -557,11 +557,24 @@ begin
   c := public.sector_send_vehicle_to_maintenance(d.id, 'عطل فرامل', 'critical', 'لا استجابة');
   perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000004');
   c := public.maintenance_confirm_arrival(c.id, 'وصلت');
-  c := public.maintenance_advance_stage(c.id, 'تلف أسطوانة الفرامل');
-  c := public.maintenance_advance_stage(c.id, null, 'استُبدلت الأسطوانة');
-  perform public.maintenance_assign_technician(c.id, 'c0c00000-0000-0000-0000-0000000000f1');
-  perform public.maintenance_update_case(c.id, 'ready', 100, null, 'جاهزة بعد الفحص');
-  c := public.maintenance_approve_readiness(c.id, 'معتمدة');
+  -- (00157) الإنهاء بخطوة واحدة: فنيون + قطع من المخزن + تشخيص/أعمال + أجور خارجية
+  declare inv public.maintenance_inventory_items; cyl uuid;
+  begin
+    inv := public.maintenance_inventory_create('LC-CYL', 'أسطوانة فرامل', 'قطعة', 1);
+    cyl := inv.id;
+    perform public.maintenance_inventory_receive(cyl, 4, 30000, 'شراء اختباري');
+    perform pg_temp.expect_error(format('select public.maintenance_complete_case(%L, %L, %L, %L::uuid[])', c.id, 'تلف أسطوانة', 'استبدال', '{}'), 'MAINTENANCE_READY_REQUIRES_TECHNICIAN');
+    perform pg_temp.expect_error(format('select public.maintenance_complete_case(%L, %L, %L, %L::uuid[])', c.id, '', 'استبدال', '{c0c00000-0000-0000-0000-0000000000f1}'), 'MAINTENANCE_READY_REQUIRES_DIAGNOSIS');
+    perform pg_temp.expect_error(format('select public.maintenance_complete_case(%L, %L, %L, %L::uuid[], %L::jsonb)', c.id, 'تلف', 'استبدال', '{c0c00000-0000-0000-0000-0000000000f1}', format('[{"item_id":"%s","quantity":9}]', cyl)), 'MAINTENANCE_INVENTORY_INSUFFICIENT');
+    c := public.maintenance_complete_case(c.id, 'تلف أسطوانة الفرامل', 'استُبدلت الأسطوانة واختُبرت الفرامل', array['c0c00000-0000-0000-0000-0000000000f1']::uuid[], format('[{"item_id":"%s","quantity":2}]', cyl)::jsonb, 15000);
+    assert c.status = 'ready' and c.readiness_approved_at is not null and c.progress = 100, 'L14: الإنهاء بخطوة واحدة → جاهزة ومعتمدة';
+    assert c.parts_actual_cost = 60000 and c.service_cost = 15000 and c.actual_cost = 75000, format('L14: الكلف تلقائية (قطع %s خدمة %s فعلية %s)', c.parts_actual_cost, c.service_cost, c.actual_cost);
+    assert (select current_quantity from public.maintenance_inventory_items where id = cyl) = 2, 'L14: المخزن خُصم';
+    assert (select count(*) from public.vehicle_maintenance_parts where case_id = c.id and part_status = 'installed') = 1, 'L14: القطعة مركّبة';
+    assert c.assigned_technician = 'فني الدورة (هيدروليك)', 'L14: الفني معيَّن';
+    assert (select count(*) from public.vehicle_maintenance_stages where case_id = c.id and status = 'completed') = 4 and (select status from public.vehicle_maintenance_stages where case_id = c.id and stage_key = 'handover') = 'active', 'L14: المراحل أُغلقت تلقائياً';
+    perform pg_temp.expect_error(format('select public.maintenance_complete_case(%L, %L, %L, %L::uuid[])', c.id, 'x', 'y', '{c0c00000-0000-0000-0000-0000000000f1}'), 'MAINTENANCE_READINESS_ALREADY_APPROVED');
+  end;
   -- الكراج لا يستلم آلية ما زالت داخل الصيانة (خلل مكتشف: كان يمرّ عندما لا مسؤول قسم على الانطلاقية)
   perform pg_temp.as_user('c0c00000-0000-0000-0000-000000000001');
   perform pg_temp.expect_error(format('select public.garage_record_return(%L::uuid)', d.id), 'GARAGE_VEHICLE_NOT_SENT_BACK');

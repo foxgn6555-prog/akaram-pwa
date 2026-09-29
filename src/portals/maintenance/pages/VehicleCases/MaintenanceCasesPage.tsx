@@ -1,756 +1,255 @@
-import { useState } from 'react'
-import { CalendarDays, History, Paperclip, ShieldCheck, Wrench } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CalendarDays, CheckCircle2, History, Package, Paperclip, Timer, UserCog, Wrench } from 'lucide-react'
 import {
-  useMaintenanceAdvanceStage,
-  useMaintenanceApproveReadiness,
-  useMaintenanceAssignTechnician,
-  useMaintenanceCaseStages,
-  useMaintenanceCaseTechnicians,
+  useMaintenanceCompleteCase,
   useMaintenanceConfirmArrival,
   useMaintenanceDays,
   useMaintenanceDispatch,
   useMaintenanceEvents,
   useMaintenanceForDay,
-  useMaintenanceInstallPart,
   useMaintenanceInventory,
-  useMaintenanceIssueAndInstall,
-  useMaintenanceIssueInventory,
-  useMaintenanceReleaseTechnician,
-  useMaintenanceReturnPart,
   useMaintenanceTechnicianOptions,
   useMaintenanceTimeline,
-  useMaintenanceUpdate,
   useMaintenanceUploadAttachment,
 } from '@features/vehicle-operations/hooks'
-import { MAINTENANCE_STAGES, money, stageLabel } from '@features/vehicle-operations/purchase-schemas'
-import type { MaintenanceCase, MaintenanceStage } from '@sdk/vehicle-operations.sdk'
-import { UserCog, Package } from 'lucide-react'
-import { readinessMissing } from '@features/vehicle-operations/readiness'
-const priorityLabels: Record<string, string> = { low: 'منخفضة', normal: 'عادية', high: 'عالية', urgent: 'عاجلة', critical: 'حرجة' }
-const minutesText = (m: number | null | undefined) =>
-  m === null || m === undefined ? '—' : m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`
+import { money } from '@features/vehicle-operations/purchase-schemas'
+import type { MaintenanceCase } from '@sdk/vehicle-operations.sdk'
+
 const labels: Record<string, string> = {
   to_maintenance: 'في الطريق إلى الصيانة',
-  at_maintenance: 'داخل الصيانة',
-  diagnosing: 'قيد التشخيص',
-  waiting_parts: 'بانتظار قطع الغيار',
-  in_repair: 'قيد الإصلاح',
-  paused: 'متوقفة مؤقتاً',
-  ready: 'جاهزة للمغادرة',
+  at_maintenance: 'قيد التشخيص والإصلاح',
+  diagnosing: 'قيد التشخيص والإصلاح',
+  waiting_parts: 'قيد التشخيص والإصلاح',
+  in_repair: 'قيد التشخيص والإصلاح',
+  paused: 'قيد التشخيص والإصلاح',
+  ready: 'جاهزة للإرسال',
   to_work: 'في الطريق إلى العمل',
   to_garage: 'في الطريق إلى الكراج',
   returned_to_work: 'عادت إلى العمل',
-  closed_at_garage: 'أغلقت في الكراج',
+  closed_at_garage: 'أُغلقت في الكراج',
 }
-const today = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
+const priorityLabels: Record<string, string> = { low: 'منخفضة', normal: 'عادية', high: 'عالية', urgent: 'عاجلة', critical: 'حرجة' }
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone: 'Asia/Baghdad',
-  }).format(new Date(x))
+  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
+const minutesText = (m: number | null | undefined) =>
+  m === null || m === undefined ? '—' : m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`
+/** الحالة داخل الورشة قبل الإنهاء (وقت الصيانة يعدّ تلقائياً) */
+const inWorkshop = (c: MaintenanceCase) => Boolean(c.arrived_at) && !c.readiness_approved_at && !c.completed_at && c.status !== 'to_maintenance'
+
+/** عدّاد حي: الدقائق منذ الوصول حتى الآن (أو حتى مغادرة الصيانة) */
+function useElapsed(from: string | null, until: string | null) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (until) return
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [until])
+  if (!from) return null
+  const end = until ? new Date(until).getTime() : now
+  return Math.max(0, Math.round((end - new Date(from).getTime()) / 60000))
+}
+
 export default function MaintenanceCasesPage() {
   const [day, setDay] = useState(today()),
-    [edit, setEdit] = useState<MaintenanceCase | null>(null),
-    [detail, setDetail] = useState<MaintenanceCase | null>(null),
-    [advancing, setAdvancing] = useState<MaintenanceCase | null>(null)
+    [finishing, setFinishing] = useState<MaintenanceCase | null>(null),
+    [detail, setDetail] = useState<MaintenanceCase | null>(null)
   const days = useMaintenanceDays(),
     q = useMaintenanceForDay(day),
     arrival = useMaintenanceConfirmArrival(),
-    approve = useMaintenanceApproveReadiness(),
     dispatch = useMaintenanceDispatch()
   return (
     <section dir="rtl" className="space-y-5">
       <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-rose-800 p-6 text-white">
         <p className="flex gap-2 text-xs">
           <Wrench size={16} />
-          متابعة متعددة الأيام دون فقدان التحديثات
+          وصول → تشخيص وإصلاح (الوقت يُحسب تلقائياً) → إنهاء الصيانة → إرسال
         </p>
         <h1 className="mt-2 text-2xl font-black">حالات صيانة الآليات</h1>
-        <p className="mt-1 text-sm text-rose-100">
-          وقت التوقف مستمر حتى عودة الآلية للعمل أو وصولها إلى الكراج.
-        </p>
       </header>
       <section className="rounded-2xl border bg-white p-4">
         <div className="mb-3 flex items-center gap-2">
           <CalendarDays className="size-5 text-rose-700" />
           <b>مجلدات أيام الصيانة</b>
-          <input
-            type="date"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-            className="mr-auto h-9 rounded-xl border px-2"
-          />
+          <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="mr-auto h-9 rounded-xl border px-2" />
         </div>
         <div className="flex gap-2 overflow-x-auto">
           {(days.data ?? []).map((x) => (
-            <button
-              key={x.case_day}
-              onClick={() => setDay(x.case_day)}
-              className={`min-w-40 rounded-xl border p-3 text-xs ${day === x.case_day ? 'border-rose-600 bg-rose-50' : ''}`}
-            >
+            <button key={x.case_day} onClick={() => setDay(x.case_day)} className={`min-w-40 rounded-xl border p-3 text-xs ${day === x.case_day ? 'border-rose-600 bg-rose-50' : ''}`}>
               <b>{x.case_day}</b>
-              <span className="mt-1 block">
-                {x.total_count} حالة · {x.open_count} مفتوحة
-              </span>
+              <span className="mt-1 block">{x.total_count} حالة · {x.open_count} مفتوحة</span>
             </button>
           ))}
         </div>
       </section>
       <div className="grid gap-4 lg:grid-cols-2">
         {(q.data ?? []).map((c) => (
-          <article key={c.case_id} className="rounded-3xl border bg-white p-5 shadow-sm">
-            <div className="flex justify-between">
-              <div>
-                <b className="rounded-lg bg-slate-900 px-2 py-1 text-xs text-white">
-                  DB {c.db_number}
-                </b>
-                <h2 className="mt-3 font-black">{c.vehicle_name}</h2>
-                <p className="text-xs text-slate-500">
-                  {c.driver_name} · {c.area_name} · {c.manager_name}
-                </p>
-              </div>
-              <span className="h-fit rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700">
-                {labels[c.status] ?? c.status}
-              </span>
-            </div>
-            <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-slate-50 p-3 text-xs" data-testid={`case-summary-${c.case_id}`}>
-              <dt className="text-slate-500">العطل</dt><dd className="font-bold">{c.fault_type}</dd>
-              <dt className="text-slate-500">الأولوية</dt><dd className="font-bold">{priorityLabels[c.priority] ?? c.priority}</dd>
-              <dt className="text-slate-500">الفنيون</dt><dd className="font-bold">{c.technicians ?? c.assigned_technician ?? 'لم يُعيَّن بعد'}</dd>
-              <dt className="text-slate-500">القطع</dt><dd className="font-bold">{c.parts_summary ?? 'لا قطع مصروفة'}</dd>
-              <dt className="text-slate-500">البلاغ / الوصول</dt><dd className="font-bold">{dt(c.reported_at)} / {c.arrived_at ? dt(c.arrived_at) : '—'}</dd>
-              <dt className="text-slate-500">انتظار الوصول / وقت الصيانة</dt><dd className="font-bold">{minutesText(c.wait_minutes)} / {minutesText(c.maintenance_minutes)}</dd>
-              <dt className="text-slate-500">الموعد المتوقع</dt><dd className="font-bold">{c.expected_completion_at ? dt(c.expected_completion_at) : '—'}</dd>
-              <dt className="text-slate-500">الكلفة (قطع + خدمة)</dt><dd className="font-bold">{money(c.parts_actual_cost ?? 0)} + {money(c.service_cost ?? 0)} = {money(c.actual_cost ?? 0)} د.ع</dd>
-              {c.diagnosis && (<><dt className="text-slate-500">التشخيص</dt><dd className="font-bold">{c.diagnosis}</dd></>)}
-              {c.delay_reason && (<><dt className="text-slate-500">سبب التأخير</dt><dd className="font-bold text-amber-800">{c.delay_reason}</dd></>)}
-            </dl>
-            <div className="mt-3 h-2 overflow-hidden rounded bg-slate-100">
-              <i className="block h-full bg-emerald-600" style={{ width: `${c.progress}%` }} />
-            </div>
-            <p className="mt-1 text-xs text-slate-500">نسبة الإنجاز {c.progress}%</p>
-            <div className="mt-4">
-              <CaseStageStrip item={c} />
-            </div>
-            <button
-              onClick={() => setDetail(c)}
-              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border font-bold"
-            >
-              <History size={15} />
-              التفاصيل والسجل الكامل
-            </button>
-            {c.status === 'to_maintenance' && (
-              <button
-                onClick={() => arrival.mutate({ caseId: c.case_id })}
-                className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white"
-              >
-                تأكيد وصول الآلية إلى الصيانة
-              </button>
-            )}
-            {(['at_maintenance', 'diagnosing', 'waiting_parts', 'in_repair', 'paused'].includes(
-              c.status,
-            ) ||
-              (c.status === 'ready' && !c.readiness_approved_at)) && (
-              <button
-                onClick={() => setEdit(c)}
-                className="mt-3 h-11 w-full rounded-xl bg-rose-700 font-black text-white"
-              >
-                إضافة تحديث جديد
-              </button>
-            )}
-            {c.stage_key === 'diagnosis' && (
-              <button
-                data-testid={`advance-stage-${c.case_id}`}
-                onClick={() => setAdvancing(c)}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 text-xs font-black text-white"
-              >
-                <History size={15} />
-                إكمال مرحلة التشخيص (كتابة العطل)
-              </button>
-            )}
-            {c.stage_key === 'repair' && (
-              <button
-                data-testid={`advance-stage-${c.case_id}`}
-                onClick={() => setAdvancing(c)}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 text-xs font-black text-white"
-              >
-                <History size={15} />
-                إكمال مرحلة الإصلاح والانتقال إلى الفحص
-              </button>
-            )}
-            {c.stage_key === 'inspection' && c.status !== 'ready' && (
-              <p className="mt-3 rounded-xl bg-indigo-50 p-3 text-[11px] font-bold text-indigo-800">
-                المرحلة الحالية: الفحص — حدّث الحالة إلى «جاهزة للمغادرة» بالإنجاز 100% ثم اعتمد الجاهزية.
-              </p>
-            )}
-            {c.status === 'ready' && !c.readiness_approved_at && (() => {
-              const missing = readinessMissing(c)
-              return (
-                <>
-                  {missing.length > 0 && (
-                    <p
-                      data-testid={`readiness-missing-${c.case_id}`}
-                      className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] font-bold text-amber-800"
-                    >
-                      لا يمكن اعتماد الجاهزية قبل استكمال: {missing.join('، ')} — استخدم «إضافة تحديث جديد».
-                    </p>
-                  )}
-                  <button
-                    data-testid={`approve-readiness-${c.case_id}`}
-                    disabled={missing.length > 0 || approve.isPending}
-                    onClick={() => approve.mutate({ caseId: c.case_id })}
-                    className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ShieldCheck size={16} />
-                    اعتماد جاهزية الآلية للمغادرة
-                  </button>
-                </>
-              )
-            })()}
-            {c.status === 'ready' && c.readiness_approved_at && (
-              <>
-                <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
-                  تم اعتماد الجاهزية {dt(c.readiness_approved_at)}
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => dispatch.mutate({ caseId: c.case_id, destination: 'work_site' })}
-                    className="h-11 rounded-xl bg-cyan-700 text-xs font-black text-white"
-                  >
-                    إعادتها إلى موقع العمل
-                  </button>
-                  <button
-                    onClick={() => dispatch.mutate({ caseId: c.case_id, destination: 'garage' })}
-                    className="h-11 rounded-xl bg-slate-800 text-xs font-black text-white"
-                  >
-                    إرسالها إلى الكراج
-                  </button>
-                </div>
-              </>
-            )}
-          </article>
+          <CaseCard key={c.case_id} c={c} onArrival={() => arrival.mutate({ caseId: c.case_id })} onFinish={() => setFinishing(c)} onDetail={() => setDetail(c)} onDispatch={(destination) => dispatch.mutate({ caseId: c.case_id, destination })} />
         ))}
       </div>
-      {!(q.data ?? []).length && (
-        <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">
-          لا توجد حالات في هذا اليوم.
-        </p>
-      )}
-      {edit && <UpdateDialog item={edit} close={() => setEdit(null)} />}{' '}
-      {detail && <DetailsDialog item={detail} close={() => setDetail(null)} />}{' '}
-      {advancing && <AdvanceStageDialog item={advancing} close={() => setAdvancing(null)} />}
+      {!(q.data ?? []).length && <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">لا توجد حالات في هذا اليوم.</p>}
+      {finishing && <FinishDialog item={finishing} close={() => setFinishing(null)} />}
+      {detail && <DetailsDialog item={detail} close={() => setDetail(null)} />}
     </section>
   )
 }
 
-/** شريط المراحل الخمس (مختصر) — يظهر داخل بطاقة الحالة */
-function CaseStageStrip({ item }: { item: MaintenanceCase }) {
-  const allDone = !item.stage_key && (item.stage_no ?? 0) === 0
+function CaseCard({ c, onArrival, onFinish, onDetail, onDispatch }: { c: MaintenanceCase; onArrival: () => void; onFinish: () => void; onDetail: () => void; onDispatch: (d: 'work_site' | 'garage') => void }) {
+  const elapsed = useElapsed(c.arrived_at, c.departed_maintenance_at ?? c.completed_at)
+  const done = Boolean(c.readiness_approved_at)
   return (
-    <div className="rounded-2xl border bg-slate-50 p-3">
-      <p className="mb-2 text-[11px] font-black text-slate-600">
-        مراحل الصيانة الخمس —{' '}
-        <b className="text-indigo-700">
-          {item.completed_at
-            ? 'اكتملت جميع المراحل — الحالة مغلقة'
-            : allDone
-              ? 'اكتملت جميع المراحل — الآلية في الطريق'
-              : `المرحلة الحالية: ${stageLabel(item.stage_key) || 'الاستلام'}`}
-        </b>
-      </p>
-      <ol className="grid grid-cols-5 gap-1">
-        {MAINTENANCE_STAGES.map((stage) => {
-          const no = item.stage_no || 1
-          const state =
-            item.completed_at || allDone
-              ? 'completed'
-              : stage.no < no
-                ? 'completed'
-                : stage.no === no
-                  ? 'active'
-                  : 'pending'
-          return (
-            <li key={stage.key} className="flex flex-col items-center gap-1 text-center">
-              <span
-                className={`grid size-7 place-items-center rounded-full text-[11px] font-black ${
-                  state === 'completed'
-                    ? 'bg-emerald-600 text-white'
-                    : state === 'active'
-                      ? 'bg-indigo-700 text-white ring-4 ring-indigo-100'
-                      : 'bg-slate-200 text-slate-500'
-                }`}
-              >
-                {state === 'completed' ? '✓' : stage.no}
-              </span>
-              <span
-                className={`text-[9px] leading-3 ${
-                  state === 'active' ? 'font-black text-indigo-800' : 'text-slate-500'
-                }`}
-              >
-                {stage.label}
-              </span>
-            </li>
-          )
-        })}
-      </ol>
-    </div>
-  )
-}
-
-/** مربع حوار تدرّج المرحلة: التشخيص إلزامي في المرحلة الثانية */
-function AdvanceStageDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
-  const advance = useMaintenanceAdvanceStage()
-  const needsDiagnosis = item.stage_key === 'diagnosis'
-  const [diagnosis, setDiagnosis] = useState(item.diagnosis ?? '')
-  const [notes, setNotes] = useState('')
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          advance.mutate(
-            { caseId: item.case_id, diagnosis: needsDiagnosis ? diagnosis : undefined, notes },
-            { onSuccess: close },
-          )
-        }}
-        className="w-full max-w-lg rounded-3xl bg-white p-6"
-      >
-        <h2 className="text-lg font-black">
-          {needsDiagnosis ? 'تشخيص العطل — المرحلة 2 من 5' : 'إكمال مرحلة الإصلاح — المرحلة 3 من 5'}
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          {needsDiagnosis
-            ? 'لا يمكن بدء أي إصلاح قبل كتابة تشخيص العطل (5 أحرف على الأقل).'
-            : 'بعد الإكمال تنتقل الحالة إلى مرحلة الفحص واعتماد الجاهزية.'}
-        </p>
-        <textarea
-          data-testid="stage-diagnosis"
-          required={needsDiagnosis}
-          value={diagnosis}
-          onChange={(e) => setDiagnosis(e.target.value)}
-          className="mt-4 w-full rounded-xl border p-3 text-sm"
-          rows={4}
-          placeholder={
-            needsDiagnosis
-              ? 'اكتب تشخيص العطل: السبب، الأجزاء المتأثرة، ما يلزم الإصلاح'
-              : 'ملاحظات على أعمال الإصلاح (اختياري)'
-          }
-        />
-        {!needsDiagnosis && (
-          <input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="mt-3 h-11 w-full rounded-xl border px-3 text-sm"
-            placeholder="ملاحظات إضافية (اختياري)"
-          />
-        )}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" onClick={close} className="h-11 rounded-xl border">
-            إلغاء
-          </button>
-          <button
-            disabled={advance.isPending}
-            className="h-11 rounded-xl bg-indigo-700 font-black text-white disabled:opacity-40"
-          >
-            {advance.isPending ? 'جارٍ الحفظ…' : needsDiagnosis ? 'اعتماد التشخيص والبدء بالإصلاح' : 'الانتقال إلى مرحلة الفحص'}
-          </button>
+    <article className="rounded-3xl border bg-white p-5 shadow-sm" data-testid={`case-${c.case_id}`}>
+      <div className="flex justify-between">
+        <div>
+          <b className="rounded-lg bg-slate-900 px-2 py-1 text-xs text-white">DB {c.db_number}</b>
+          <h2 className="mt-3 font-black">{c.vehicle_name}</h2>
+          <p className="text-xs text-slate-500">{c.driver_name} · {c.area_name} · {c.manager_name}</p>
         </div>
-      </form>
-    </div>
+        <span className={`h-fit rounded-full px-3 py-1 text-xs font-black ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{labels[c.status] ?? c.status}</span>
+      </div>
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl bg-slate-50 p-3 text-xs" data-testid={`case-summary-${c.case_id}`}>
+        <dt className="text-slate-500">العطل</dt><dd className="font-bold">{c.fault_type} · {priorityLabels[c.priority] ?? c.priority}</dd>
+        <dt className="text-slate-500">البلاغ</dt><dd className="font-bold">{dt(c.reported_at)}</dd>
+        <dt className="text-slate-500">الوصول</dt><dd className="font-bold">{c.arrived_at ? dt(c.arrived_at) : 'لم تصل بعد'}</dd>
+        {c.arrived_at && (<><dt className="flex items-center gap-1 text-slate-500"><Timer size={12} />وقت الصيانة</dt><dd className="font-black text-rose-800" data-testid={`elapsed-${c.case_id}`}>{minutesText(elapsed)}{!done && ' (مستمر)'}</dd></>)}
+        {(c.technicians || c.assigned_technician) && (<><dt className="text-slate-500">الفنيون</dt><dd className="font-bold">{c.technicians ?? c.assigned_technician}</dd></>)}
+        {c.parts_summary && (<><dt className="text-slate-500">القطع</dt><dd className="font-bold">{c.parts_summary}</dd></>)}
+        {c.diagnosis && (<><dt className="text-slate-500">التشخيص</dt><dd className="font-bold">{c.diagnosis}</dd></>)}
+        {c.work_notes && (<><dt className="text-slate-500">الأعمال</dt><dd className="font-bold">{c.work_notes}</dd></>)}
+        {done && (<><dt className="text-slate-500">الكلفة</dt><dd className="font-bold">قطع {money(c.parts_actual_cost ?? 0)}{Number(c.service_cost) > 0 ? ` + أجور ${money(c.service_cost)}` : ''} = {money(c.actual_cost ?? 0)} د.ع</dd></>)}
+      </dl>
+      <button onClick={onDetail} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border font-bold">
+        <History size={15} />
+        السجل والمرفقات
+      </button>
+      {c.status === 'to_maintenance' && (
+        <button onClick={onArrival} className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white">تأكيد وصول الآلية إلى الصيانة</button>
+      )}
+      {inWorkshop(c) && (
+        <button data-testid={`finish-${c.case_id}`} onClick={onFinish} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-700 font-black text-white">
+          <CheckCircle2 size={16} />
+          إنهاء الصيانة وإدخال البيانات
+        </button>
+      )}
+      {c.status === 'ready' && done && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={() => onDispatch('work_site')} className="h-11 rounded-xl bg-cyan-700 text-xs font-black text-white">إعادتها إلى موقع العمل</button>
+          <button onClick={() => onDispatch('garage')} className="h-11 rounded-xl bg-slate-800 text-xs font-black text-white">إرسالها إلى الكراج</button>
+        </div>
+      )}
+    </article>
   )
 }
 
-/** تفاصيل مراحل الحالة داخل السجل الكامل */
-function StagesSection({ caseId }: { caseId: string }) {
-  const stages = useMaintenanceCaseStages(caseId)
-  const rows: MaintenanceStage[] = stages.data ?? []
-  if (!rows.length) return null
-  return (
-    <section className="mt-5 rounded-2xl border p-4">
-      <h3 className="flex items-center gap-2 font-black">
-        <History size={16} />
-        مراحل الصيانة الخمس
-      </h3>
-      <div className="mt-3 space-y-2">
-        {rows.map((stage) => (
-          <div
-            key={stage.id}
-            className={`flex items-center justify-between rounded-xl p-3 text-xs ${
-              stage.status === 'completed'
-                ? 'bg-emerald-50'
-                : stage.status === 'active'
-                  ? 'bg-indigo-50 ring-1 ring-indigo-200'
-                  : 'bg-slate-50'
-            }`}
-          >
-            <b>
-              {stage.stage_no}. {MAINTENANCE_STAGES.find((s) => s.key === stage.stage_key)?.label}
-            </b>
-            <span>
-              {stage.status === 'completed'
-                ? `مكتملة ${stage.completed_at ? dt(stage.completed_at) : ''}`
-                : stage.status === 'active'
-                  ? 'قيد التنفيذ الآن'
-                  : 'لم تبدأ'}
-              {stage.notes && <i className="mr-2 block text-[10px] not-italic text-slate-500">{stage.notes}</i>}
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-function UpdateDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
-  const update = useMaintenanceUpdate()
-  const [status, setStatus] = useState(item.status === 'at_maintenance' ? 'diagnosing' : item.status),
-    [progress, setProgress] = useState(item.progress),
+/** نموذج الإنهاء الواحد: الفنيون + القطع من المخزن + التشخيص والأعمال + أجور خارجية (اختياري) */
+function FinishDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
+  const complete = useMaintenanceCompleteCase(),
+    options = useMaintenanceTechnicianOptions(),
+    inventory = useMaintenanceInventory()
+  const [techIds, setTechIds] = useState<string[]>([]),
+    [parts, setParts] = useState<{ itemId: string; quantity: number }[]>([]),
     [diagnosis, setDiagnosis] = useState(item.diagnosis ?? ''),
     [workNotes, setWorkNotes] = useState(item.work_notes ?? ''),
-    [partsNotes, setPartsNotes] = useState(item.parts_notes ?? ''),
-    [estimatedCost, setEstimatedCost] = useState<number | ''>(item.estimated_cost ?? ''),
-    [serviceCost, setServiceCost] = useState<number | ''>(item.service_cost ?? ''),
-    [delayReason, setDelayReason] = useState(item.delay_reason ?? ''),
-    [expectedAt, setExpectedAt] = useState('')
-  const techs = useMaintenanceCaseTechnicians(item.case_id),
-    timeline = useMaintenanceTimeline(item.case_id)
-  const activeTechs = (techs.data ?? []).filter((t) => t.active)
-  const parts = timeline.data?.parts ?? []
-  const partsCost = parts
-    .filter((p) => p.part_status !== 'returned')
-    .reduce((sum, p) => sum + Number(p.quantity) * Number(p.unit_cost ?? 0), 0)
-  const readyBlockers = [
-    progress !== 100 ? 'نسبة الإنجاز 100%' : null,
+    [serviceCost, setServiceCost] = useState<number | ''>('')
+  const stock = new Map((inventory.data ?? []).map((s) => [s.id, s]))
+  const partsCost = parts.reduce((sum, p) => sum + p.quantity * (stock.get(p.itemId)?.average_unit_cost ?? 0), 0)
+  const grouped = new Map<string, NonNullable<typeof options.data>>()
+  for (const o of options.data ?? []) grouped.set(o.specialty_label, [...(grouped.get(o.specialty_label) ?? []), o])
+  const missing = [
+    techIds.length === 0 ? 'اختيار فني' : null,
     !diagnosis.trim() ? 'التشخيص' : null,
     !workNotes.trim() ? 'الأعمال المنفذة' : null,
-    activeTechs.length === 0 && !techs.isLoading ? 'تعيين فني' : null,
-    parts.some((p) => p.part_status === 'issued') ? 'تأكيد تركيب القطع المصروفة' : null,
+    parts.some((p) => !p.itemId || p.quantity <= 0) ? 'إكمال سطور القطع' : null,
   ].filter(Boolean) as string[]
-  const blocked = status === 'ready' && readyBlockers.length > 0
-  const field = 'h-11 w-full rounded-xl border px-3 text-sm'
-  const label = 'block text-[11px] font-bold text-slate-600'
+  const toggleTech = (id: string) => setTechIds((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2 sm:p-4">
       <form
-        data-testid="maintenance-update-form"
+        data-testid="finish-form"
         onSubmit={(e) => {
           e.preventDefault()
-          if (blocked) return
-          update.mutate(
-            {
-              caseId: item.case_id,
-              status,
-              progress,
-              diagnosis,
-              workNotes,
-              partsNotes,
-              estimatedCost: estimatedCost === '' ? undefined : Number(estimatedCost),
-              actualCost: serviceCost === '' ? undefined : Number(serviceCost),
-              delayReason,
-              expectedAt,
-            },
+          if (missing.length) return
+          complete.mutate(
+            { caseId: item.case_id, diagnosis, workNotes, technicianIds: techIds, parts: parts.filter((p) => p.itemId), serviceCost: serviceCost === '' ? 0 : Number(serviceCost) },
             { onSuccess: close },
           )
         }}
-        className="max-h-[94vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-6"
+        className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-5 sm:p-6"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-black">تحديث جديد · DB {item.db_number}</h2>
-            <p className="text-xs text-slate-500">
-              {item.vehicle_name} · {item.fault_type} · يُحفظ كسجل جديد ولا يُحذف التحديث السابق.
-            </p>
+            <h2 className="text-xl font-black">إنهاء الصيانة · DB {item.db_number}</h2>
+            <p className="text-xs text-slate-500">{item.vehicle_name} · {item.fault_type}</p>
           </div>
-          <button type="button" onClick={close} className="rounded-lg border px-3 py-1 text-xs">
-            إغلاق
-          </button>
+          <button type="button" onClick={close} className="rounded-lg border px-3 py-1 text-xs">إغلاق</button>
         </div>
 
-        {/* ── 1) الحالة والإنجاز ── */}
-        <fieldset className="mt-4 rounded-2xl border p-4">
-          <legend className="px-2 text-xs font-black text-rose-700">١ · الحالة والتقدم</legend>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className={label}>
-              حالة الصيانة
-              <select data-testid="maintenance-status" value={status} onChange={(e) => setStatus(e.target.value)} className={`${field} mt-1`}>
-                <option value="diagnosing">قيد التشخيص</option>
-                <option value="waiting_parts">بانتظار القطع</option>
-                <option value="in_repair">قيد الإصلاح</option>
-                <option value="paused">متوقفة مؤقتاً</option>
-                <option value="ready">جاهزة للمغادرة</option>
-              </select>
-            </label>
-            <label className={label}>
-              نسبة الإنجاز (%)
-              <input data-testid="maintenance-progress" type="number" min="0" max="100" value={progress} onChange={(e) => setProgress(Number(e.target.value))} className={`${field} mt-1`} />
-            </label>
-            <label className={label}>
-              الموعد المتوقع للإنجاز
-              <input type="datetime-local" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} className={`${field} mt-1`} />
-              {item.expected_completion_at && !expectedAt && (
-                <span className="mt-1 block text-[10px] text-slate-400">الحالي: {dt(item.expected_completion_at)}</span>
-              )}
-            </label>
-          </div>
-        </fieldset>
-
-        {/* ── 2) الفنيون ── */}
-        <TechniciansSection caseId={item.case_id} />
-
-        {/* ── 3) التشخيص والأعمال ── */}
-        <fieldset className="mt-4 rounded-2xl border p-4">
-          <legend className="px-2 text-xs font-black text-rose-700">٣ · التشخيص والأعمال المنفذة</legend>
-          <div className="grid gap-3">
-            <label className={label}>
-              التشخيص (وصف العطل) <span className="text-rose-600">*عند الجاهزية</span>
-              <textarea data-testid="maintenance-diagnosis" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className="mt-1 min-h-20 w-full rounded-xl border p-3 text-sm" placeholder="مثال: تلف خرطوم الهيدروليك الرئيسي وتسرب زيت" />
-            </label>
-            <label className={label}>
-              الأعمال المنفذة <span className="text-rose-600">*عند الجاهزية</span>
-              <textarea data-testid="maintenance-work-notes" value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} className="mt-1 min-h-20 w-full rounded-xl border p-3 text-sm" placeholder="مثال: استبدال الخرطوم وتعبئة الزيت واختبار الضغط" />
-            </label>
-            <label className={label}>
-              سبب التأخير إن وُجد
-              <textarea value={delayReason} onChange={(e) => setDelayReason(e.target.value)} className="mt-1 min-h-14 w-full rounded-xl border p-3 text-sm" placeholder="مثال: بانتظار وصول القطعة من المورد" />
-            </label>
-          </div>
-        </fieldset>
-
-        {/* ── 4) القطع من المخزن ── */}
-        <PartsSection caseId={item.case_id} parts={parts} onChanged={() => void timeline.refetch()} />
-        <label className={`${label} mt-3`}>
-          ملاحظات القطع
-          <textarea value={partsNotes} onChange={(e) => setPartsNotes(e.target.value)} className="mt-1 min-h-14 w-full rounded-xl border p-3 text-sm" placeholder="مثال: القطعة مستعملة/بديلة، أو طلب شراء مفتوح" />
-        </label>
-
-        {/* ── 5) الكلف ── */}
-        <fieldset className="mt-4 rounded-2xl border p-4">
-          <legend className="px-2 text-xs font-black text-rose-700">٥ · الكلف (د.ع)</legend>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className={label}>
-              الكلفة التقديرية
-              <input data-testid="maintenance-estimated-cost" type="number" min="0" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value === '' ? '' : Number(e.target.value))} className={`${field} mt-1`} placeholder="اختياري" />
-            </label>
-            <label className={label}>
-              كلفة خدمة/أجور خارجية
-              <input data-testid="maintenance-service-cost" type="number" min="0" value={serviceCost} onChange={(e) => setServiceCost(e.target.value === '' ? '' : Number(e.target.value))} className={`${field} mt-1`} placeholder="0 إن لم توجد" />
-            </label>
-            <div className="rounded-xl bg-slate-900 p-3 text-xs text-white">
-              <span className="block text-slate-300">كلفة القطع (تلقائية من المخزن)</span>
-              <b className="text-base" data-testid="maintenance-parts-cost">{money(partsCost)}</b>
-              <span className="mt-1 block text-slate-300">
-                الإجمالي الفعلي = {money(partsCost + Number(serviceCost || 0))}
-              </span>
+        <h3 className="mt-5 flex items-center gap-1 text-sm font-black"><UserCog size={15} />الفنيون الذين عملوا على الآلية</h3>
+        {[...grouped.entries()].map(([spec, list]) => (
+          <div key={spec} className="mt-2">
+            <span className="text-[11px] font-bold text-slate-500">{spec}</span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {list.map((o) => (
+                <label key={o.employee_id} className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-bold ${techIds.includes(o.employee_id) ? 'border-indigo-700 bg-indigo-700 text-white' : 'bg-white'}`}>
+                  <input type="checkbox" className="sr-only" data-testid={`tech-${o.employee_id}`} checked={techIds.includes(o.employee_id)} onChange={() => toggleTech(o.employee_id)} />
+                  {o.full_name}
+                </label>
+              ))}
             </div>
           </div>
-        </fieldset>
-
-        {blocked && (
-          <p data-testid="ready-blockers" className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800">
-            لإعلان الجاهزية أكمل: {readyBlockers.join('، ')}
-          </p>
+        ))}
+        {!options.isLoading && !(options.data ?? []).length && (
+          <p className="mt-2 text-xs text-amber-700">لا يوجد فنيون بعد — يُضبط «تخصص صيانة» على المسمى الوظيفي في الهيكل التنظيمي (HR) ثم يُوظَّف الفنيون عليه.</p>
         )}
+
+        <h3 className="mt-5 flex items-center gap-1 text-sm font-black"><Package size={15} />المواد المستخدمة من المخزن</h3>
+        <div className="mt-2 space-y-2">
+          {parts.map((p, i) => (
+            <div key={i} className="grid grid-cols-[1fr_90px_auto] gap-2">
+              <select data-testid={`part-item-${i}`} value={p.itemId} onChange={(e) => setParts((s) => s.map((x, k) => (k === i ? { ...x, itemId: e.target.value } : x)))} className="h-10 rounded-xl border px-2 text-sm">
+                <option value="">اختر مادة…</option>
+                {(inventory.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id} disabled={s.current_quantity <= 0}>{s.item_name} — متاح {s.current_quantity} {s.unit}</option>
+                ))}
+              </select>
+              <input data-testid={`part-qty-${i}`} type="number" min="0.001" step="0.001" value={p.quantity} onChange={(e) => setParts((s) => s.map((x, k) => (k === i ? { ...x, quantity: Number(e.target.value) } : x)))} className="h-10 rounded-xl border px-2 text-sm" aria-label="الكمية" />
+              <button type="button" onClick={() => setParts((s) => s.filter((_, k) => k !== i))} className="h-10 rounded-xl border px-3 text-xs">حذف</button>
+            </div>
+          ))}
+          <button type="button" data-testid="add-part" onClick={() => setParts((s) => [...s, { itemId: '', quantity: 1 }])} className="h-10 rounded-xl border border-dashed px-4 text-xs font-bold">+ إضافة مادة</button>
+        </div>
+
+        <label className="mt-5 block text-xs font-bold text-slate-600">
+          التشخيص (وصف العطل)
+          <textarea data-testid="finish-diagnosis" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className="mt-1 min-h-16 w-full rounded-xl border p-3 text-sm" />
+        </label>
+        <label className="mt-3 block text-xs font-bold text-slate-600">
+          الأعمال المنفذة
+          <textarea data-testid="finish-work-notes" value={workNotes} onChange={(e) => setWorkNotes(e.target.value)} className="mt-1 min-h-16 w-full rounded-xl border p-3 text-sm" />
+        </label>
+        <label className="mt-3 block text-xs font-bold text-slate-600">
+          أجور خارجية (اختياري، د.ع)
+          <input data-testid="finish-service-cost" type="number" min="0" value={serviceCost} onChange={(e) => setServiceCost(e.target.value === '' ? '' : Number(e.target.value))} className="mt-1 h-10 w-full rounded-xl border px-3 text-sm" placeholder="0" />
+        </label>
+        <p className="mt-3 rounded-xl bg-slate-900 p-3 text-xs text-white" data-testid="finish-cost">
+          كلفة المواد (تلقائية من المخزن): <b>{money(partsCost)}</b>{Number(serviceCost) > 0 ? <> + أجور <b>{money(Number(serviceCost))}</b></> : null} = <b>{money(partsCost + Number(serviceCost || 0))} د.ع</b>
+        </p>
+        {missing.length > 0 && <p data-testid="finish-missing" className="mt-3 text-xs font-bold text-amber-800">المطلوب: {missing.join('، ')}</p>}
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" onClick={close} className="h-11 rounded-xl border">
-            إلغاء
-          </button>
-          <button disabled={blocked || update.isPending} className="h-11 rounded-xl bg-rose-700 font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
-            حفظ كتحديث جديد
-          </button>
+          <button type="button" onClick={close} className="h-11 rounded-xl border">إلغاء</button>
+          <button disabled={missing.length > 0 || complete.isPending} className="h-11 rounded-xl bg-rose-700 font-black text-white disabled:opacity-50">إنهاء الصيانة</button>
         </div>
       </form>
     </div>
-  )
-}
-
-/** تعيين فني أو أكثر من الهيكل التنظيمي (مسمى بتخصص صيانة) — التغيير فوري */
-function TechniciansSection({ caseId }: { caseId: string }) {
-  const options = useMaintenanceTechnicianOptions(),
-    techs = useMaintenanceCaseTechnicians(caseId),
-    assign = useMaintenanceAssignTechnician(),
-    release = useMaintenanceReleaseTechnician()
-  const [employeeId, setEmployeeId] = useState('')
-  const active = (techs.data ?? []).filter((t) => t.active)
-  const activeIds = new Set(active.map((t) => t.employee_id))
-  const grouped = new Map<string, NonNullable<typeof options.data>>()
-  for (const o of options.data ?? []) {
-    if (activeIds.has(o.employee_id)) continue
-    grouped.set(o.specialty_label, [...(grouped.get(o.specialty_label) ?? []), o])
-  }
-  return (
-    <fieldset className="mt-4 rounded-2xl border p-4" data-testid="technicians-section">
-      <legend className="flex items-center gap-1 px-2 text-xs font-black text-rose-700">
-        <UserCog size={14} />
-        ٢ · الفنيون العاملون على الآلية
-      </legend>
-      <div className="flex flex-wrap gap-2">
-        {active.map((t) => (
-          <span key={t.id} data-testid={`case-tech-${t.employee_id}`} className="flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-900">
-            {t.technician_name} · {t.specialty_label}
-            <button
-              type="button"
-              aria-label={`إنهاء عمل ${t.technician_name}`}
-              onClick={() => release.mutate({ caseId, employeeId: t.employee_id }, { onSuccess: () => void techs.refetch() })}
-              className="rounded-full bg-white px-2 text-rose-700"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        {!active.length && !techs.isLoading && (
-          <span className="text-xs text-amber-700">لم يُعيَّن فني بعد — الجاهزية تتطلب فنياً واحداً على الأقل.</span>
-        )}
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-        <select data-testid="technician-picker" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="h-11 rounded-xl border px-3 text-sm">
-          <option value="">اختر فنياً لإضافته…</option>
-          {[...grouped.entries()].map(([spec, list]) => (
-            <optgroup key={spec} label={spec}>
-              {list.map((o) => (
-                <option key={o.employee_id} value={o.employee_id}>
-                  {o.full_name} — {o.job_title}
-                  {o.open_cases ? ` (${o.open_cases} حالة مفتوحة)` : ''}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button
-          type="button"
-          data-testid="assign-technician"
-          disabled={!employeeId || assign.isPending}
-          onClick={() =>
-            assign.mutate(
-              { caseId, employeeId },
-              {
-                onSuccess: () => {
-                  setEmployeeId('')
-                  void techs.refetch()
-                },
-              },
-            )
-          }
-          className="h-11 rounded-xl bg-indigo-700 px-4 text-xs font-black text-white disabled:opacity-40"
-        >
-          إضافة الفني
-        </button>
-      </div>
-      {!options.isLoading && !(options.data ?? []).length && (
-        <p className="mt-2 text-[11px] text-slate-500">
-          لا يوجد موظفون بمسمى «فني صيانة». يُضبط التخصص على المسمى الوظيفي من الهيكل التنظيمي (بوابة الموارد البشرية) ثم يُوظَّف الفني عليه.
-        </p>
-      )}
-    </fieldset>
-  )
-}
-
-/** صرف القطع من المخزن أثناء التحديث — الكلفة بسعر المخزن تلقائياً، تركيب فوري افتراضياً */
-function PartsSection({
-  caseId,
-  parts,
-  onChanged,
-}: {
-  caseId: string
-  parts: NonNullable<ReturnType<typeof useMaintenanceTimeline>['data']>['parts']
-  onChanged: () => void
-}) {
-  const inventory = useMaintenanceInventory(),
-    issue = useMaintenanceIssueAndInstall(),
-    install = useMaintenanceInstallPart(),
-    returnPart = useMaintenanceReturnPart()
-  const [itemId, setItemId] = useState(''),
-    [quantity, setQuantity] = useState(1),
-    [installNow, setInstallNow] = useState(true)
-  const stock = (inventory.data ?? []).find((s) => s.id === itemId)
-  return (
-    <fieldset className="mt-4 rounded-2xl border p-4" data-testid="parts-section">
-      <legend className="flex items-center gap-1 px-2 text-xs font-black text-rose-700">
-        <Package size={14} />
-        ٤ · القطع المستخدمة (من المخزن)
-      </legend>
-      <div className="space-y-1">
-        {parts.map((p) => (
-          <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 p-2 text-xs">
-            <span>
-              {p.part_name} × {p.quantity} {p.unit} · {money(Number(p.unit_cost ?? 0))} د.ع/وحدة ={' '}
-              <b>{money(Number(p.quantity) * Number(p.unit_cost ?? 0))}</b>
-            </span>
-            <span className="flex items-center gap-2">
-              <b className={p.part_status === 'issued' ? 'text-amber-800' : p.part_status === 'installed' ? 'text-emerald-800' : 'text-slate-500'}>
-                {p.part_status === 'issued' ? 'مصروفة — بانتظار التركيب' : p.part_status === 'installed' ? 'مركّبة' : 'أُعيدت للمخزن'}
-              </b>
-              {p.part_status === 'issued' && (
-                <>
-                  <button type="button" data-testid={`install-part-${p.id}`} onClick={() => install.mutate({ partId: p.id }, { onSuccess: onChanged })} className="rounded-lg bg-emerald-700 px-2 py-1 font-bold text-white">
-                    تأكيد التركيب
-                  </button>
-                  <button type="button" onClick={() => returnPart.mutate({ partId: p.id }, { onSuccess: onChanged })} className="rounded-lg border px-2 py-1 font-bold">
-                    إعادة للمخزن
-                  </button>
-                </>
-              )}
-            </span>
-          </div>
-        ))}
-        {!parts.length && <p className="text-xs text-slate-500">لم تُصرف قطع بعد.</p>}
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_110px_auto_auto]">
-        <select data-testid="issue-inventory-item" value={itemId} onChange={(e) => setItemId(e.target.value)} className="h-11 rounded-xl border px-2 text-sm">
-          <option value="">اختر قطعة من المخزن…</option>
-          {(inventory.data ?? []).map((s) => (
-            <option key={s.id} value={s.id} disabled={s.current_quantity <= 0}>
-              {s.item_name} — متاح {s.current_quantity} {s.unit} · {money(s.average_unit_cost)} د.ع
-            </option>
-          ))}
-        </select>
-        <input aria-label="كمية الصرف" type="number" min="0.001" step="0.001" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="h-11 rounded-xl border px-2 text-sm" />
-        <label className="flex h-11 items-center gap-2 rounded-xl border px-3 text-xs font-bold">
-          <input type="checkbox" checked={installNow} onChange={(e) => setInstallNow(e.target.checked)} />
-          تركيب فوري
-        </label>
-        <button
-          type="button"
-          data-testid="issue-part"
-          disabled={!itemId || quantity <= 0 || issue.isPending}
-          onClick={() =>
-            issue.mutate(
-              { caseId, itemId, quantity, installNow },
-              {
-                onSuccess: () => {
-                  setItemId('')
-                  setQuantity(1)
-                  onChanged()
-                },
-              },
-            )
-          }
-          className="h-11 rounded-xl bg-amber-600 px-4 text-xs font-black text-white disabled:opacity-40"
-        >
-          صرف للحالة
-        </button>
-      </div>
-      {stock && (
-        <p className="mt-1 text-[11px] text-slate-500">
-          الكلفة المتوقعة: {money(quantity * stock.average_unit_cost)} د.ع (سعر المخزن المرجّح من أوامر الشراء)
-        </p>
-      )}
-    </fieldset>
   )
 }
 
 function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
   const q = useMaintenanceTimeline(item.case_id),
     events = useMaintenanceEvents(item.case_id),
-    inventory = useMaintenanceInventory(),
-    issue = useMaintenanceIssueInventory(),
-    install = useMaintenanceInstallPart(),
-    returnPart = useMaintenanceReturnPart(),
     upload = useMaintenanceUploadAttachment()
   const [file, setFile] = useState<File | null>(null),
-    [caption, setCaption] = useState(''),
-    [inventoryId, setInventoryId] = useState(''),
-    [quantity, setQuantity] = useState(1)
+    [caption, setCaption] = useState('')
   const refresh = () => {
     void q.refetch()
     void events.refetch()
@@ -801,7 +300,6 @@ function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => vo
             <p className="py-4 text-center text-xs text-slate-400">لا توجد أحداث مسجلة.</p>
           )}
         </section>
-        <StagesSection caseId={item.case_id} />
         <h3 className="mt-5 flex items-center gap-2 font-black">
           <Paperclip size={16} />
           الصور والمرفقات
@@ -875,7 +373,7 @@ function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => vo
             </div>
           ))}
         </div>
-        <h3 className="mt-5 font-black">قطع الغيار المصروفة</h3>
+        <h3 className="mt-5 font-black">القطع المستخدمة</h3>
         <div className="mt-2 space-y-2">
           {(q.data?.parts ?? []).map((p) => (
             <div key={p.id} className="rounded-xl bg-amber-50 p-3 text-xs">
@@ -892,71 +390,9 @@ function DetailsDialog({ item, close }: { item: MaintenanceCase; close: () => vo
                       : 'أعيدت للمخزون'}
                 </b>
               </div>
-              {p.part_status === 'issued' && (
-                <div className="mt-2 flex gap-2">
-                  <button
-                    data-testid={`install-part-${p.id}`}
-                    onClick={() => install.mutate({ partId: p.id }, { onSuccess: refresh })}
-                    className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white"
-                  >
-                    تأكيد التركيب
-                  </button>
-                  <button
-                    onClick={() => returnPart.mutate({ partId: p.id }, { onSuccess: refresh })}
-                    className="rounded-lg border px-3 py-2 font-bold"
-                  >
-                    إعادة للمخزون
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            issue.mutate(
-              { caseId: item.case_id, itemId: inventoryId, quantity },
-              {
-                onSuccess: () => {
-                  setInventoryId('')
-                  refresh()
-                },
-              },
-            )
-          }}
-          className="mt-3 grid gap-2 sm:grid-cols-3"
-        >
-          <select
-            data-testid="issue-inventory-item"
-            required
-            value={inventoryId}
-            onChange={(e) => setInventoryId(e.target.value)}
-            className="h-10 rounded-xl border px-2"
-          >
-            <option value="">اختر قطعة من المخزون</option>
-            {(inventory.data ?? []).map((stock) => (
-              <option key={stock.id} value={stock.id} disabled={stock.current_quantity <= 0}>
-                {stock.item_name} — المتاح {stock.current_quantity} {stock.unit}
-              </option>
-            ))}
-          </select>
-          <input
-            aria-label="كمية الصرف"
-            type="number"
-            min="0.001"
-            step="0.001"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-            className="h-10 rounded-xl border px-2"
-          />
-          <button
-            disabled={!inventoryId}
-            className="h-10 rounded-xl bg-amber-600 font-black text-white disabled:opacity-40"
-          >
-            صرف للحالة
-          </button>
-        </form>
         <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-3 text-xs text-white">
           <span>
             كلفة القطع: <b>{item.parts_actual_cost.toLocaleString('ar-IQ')}</b>
