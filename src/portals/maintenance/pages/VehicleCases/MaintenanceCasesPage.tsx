@@ -135,9 +135,10 @@ export default function MaintenanceCasesPage() {
                 تأكيد وصول الآلية إلى الصيانة
               </button>
             )}
-            {['at_maintenance', 'diagnosing', 'waiting_parts', 'in_repair', 'paused'].includes(
+            {(['at_maintenance', 'diagnosing', 'waiting_parts', 'in_repair', 'paused'].includes(
               c.status,
-            ) && (
+            ) ||
+              (c.status === 'ready' && !c.readiness_approved_at)) && (
               <button
                 onClick={() => setEdit(c)}
                 className="mt-3 h-11 w-full rounded-xl bg-rose-700 font-black text-white"
@@ -170,16 +171,34 @@ export default function MaintenanceCasesPage() {
                 المرحلة الحالية: الفحص — حدّث الحالة إلى «جاهزة للمغادرة» بالإنجاز 100% ثم اعتمد الجاهزية.
               </p>
             )}
-            {c.status === 'ready' && !c.readiness_approved_at && (
-              <button
-                data-testid={`approve-readiness-${c.case_id}`}
-                onClick={() => approve.mutate({ caseId: c.case_id })}
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white"
-              >
-                <ShieldCheck size={16} />
-                اعتماد جاهزية الآلية للمغادرة
-              </button>
-            )}
+            {c.status === 'ready' && !c.readiness_approved_at && (() => {
+              const missing = [
+                c.progress !== 100 ? 'نسبة الإنجاز 100%' : null,
+                !c.diagnosis ? 'التشخيص (وصف العطل)' : null,
+                !c.work_notes ? 'ملاحظات العمل المنجز' : null,
+              ].filter(Boolean) as string[]
+              return (
+                <>
+                  {missing.length > 0 && (
+                    <p
+                      data-testid={`readiness-missing-${c.case_id}`}
+                      className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] font-bold text-amber-800"
+                    >
+                      لا يمكن اعتماد الجاهزية قبل استكمال: {missing.join('، ')} — استخدم «إضافة تحديث جديد».
+                    </p>
+                  )}
+                  <button
+                    data-testid={`approve-readiness-${c.case_id}`}
+                    disabled={missing.length > 0 || approve.isPending}
+                    onClick={() => approve.mutate({ caseId: c.case_id })}
+                    className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ShieldCheck size={16} />
+                    اعتماد جاهزية الآلية للمغادرة
+                  </button>
+                </>
+              )
+            })()}
             {c.status === 'ready' && c.readiness_approved_at && (
               <>
                 <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">

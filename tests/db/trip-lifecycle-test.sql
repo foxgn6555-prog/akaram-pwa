@@ -241,12 +241,15 @@ begin
   assert c.status = 'in_repair' and c.diagnosis like 'تلف%', 'L5: التشخيص → قيد الإصلاح';
   c := public.maintenance_advance_stage(cid, null, 'استُبدل الخرطوم');
   assert (select status from public.vehicle_maintenance_stages where case_id = cid and stage_key = 'inspection') = 'active', 'L5: مرحلة الفحص نشطة';
-  -- الجاهزية تتطلب 100% + ملاحظات عمل
-  perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', cid), 'MAINTENANCE_READINESS_NOT_APPROVABLE');
+  -- الجاهزية تتطلب 100% + تشخيص + ملاحظات عمل (00155: أكواد واضحة، ولا حالة عالقة)
+  perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', cid), 'MAINTENANCE_READINESS_NOT_READY');
+  perform pg_temp.expect_error(format('select public.maintenance_update_case(%L, %L, 100)', cid, 'ready'), 'MAINTENANCE_READY_REQUIRES_WORK_NOTES');
+  perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', gen_random_uuid()), 'MAINTENANCE_CASE_NOT_OPEN');
   perform public.maintenance_update_case(cid, 'ready', 100, null, 'اكتمل الإصلاح والفحص');
   perform pg_temp.expect_error(format('select public.maintenance_dispatch_vehicle(%L, %L)', cid, 'work_site'), 'MAINTENANCE_READINESS_APPROVAL_REQUIRED');
   c := public.maintenance_approve_readiness(cid, 'جاهزة');
   assert c.readiness_approved_at is not null, 'L5: اعتماد الجاهزية';
+  perform pg_temp.expect_error(format('select public.maintenance_approve_readiness(%L)', cid), 'MAINTENANCE_READINESS_ALREADY_APPROVED');
   c := public.maintenance_dispatch_vehicle(cid, 'work_site', 'عودة للعمل');
   assert c.status = 'to_work' and c.departed_maintenance_at is not null, 'L5: في الطريق للعمل';
   update public.vehicle_maintenance_cases set departed_maintenance_at = now() - interval '40 min' where id = cid;

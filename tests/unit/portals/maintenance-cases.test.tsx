@@ -141,10 +141,27 @@ describe('تفاصيل الصيانة متعددة الأيام', () => {
     )
   })
   it('يطلب اعتماد الجاهزية قبل إظهار أزرار المغادرة', () => {
-    h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1' }]
+    h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1', diagnosis: 'تلف خرطوم', work_notes: 'استُبدل' }]
     render(<Page />)
     expect(screen.queryByText('إعادتها إلى موقع العمل')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('readiness-missing-c1')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('approve-readiness-c1'))
     expect(h.approve).toHaveBeenCalledWith({ caseId: 'c1' })
+  })
+  it('00155: جاهزة بلا تشخيص/ملاحظات → يعطّل الاعتماد ويُظهر النواقص ويُبقي «إضافة تحديث» متاحاً', () => {
+    h.rows = [{ ...base, status: 'ready', progress: 100, ready_declared_by: 't1', diagnosis: null, work_notes: null }]
+    render(<Page />)
+    expect(screen.getByTestId('readiness-missing-c1')).toHaveTextContent('التشخيص (وصف العطل)، ملاحظات العمل المنجز')
+    expect(screen.getByTestId('approve-readiness-c1')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('approve-readiness-c1'))
+    expect(h.approve).not.toHaveBeenCalled()
+    expect(screen.getByText('إضافة تحديث جديد')).toBeInTheDocument()
+  })
+  it('00155: بعد الاعتماد لا يظهر زر التحديث ولا الاعتماد', () => {
+    h.rows = [{ ...base, status: 'ready', progress: 100, diagnosis: 'x', work_notes: 'y', readiness_approved_at: '2026-09-28T08:00:00Z' }]
+    render(<Page />)
+    expect(screen.queryByText('إضافة تحديث جديد')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('approve-readiness-c1')).not.toBeInTheDocument()
+    expect(screen.getByText('إعادتها إلى موقع العمل')).toBeInTheDocument()
   })
 })
