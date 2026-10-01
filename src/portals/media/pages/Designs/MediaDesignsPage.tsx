@@ -44,6 +44,7 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
+import DesignExportMenu from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
   type ReportStyle,
@@ -449,13 +450,16 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
             {preview ? 'إخفاء المعاينة' : 'معاينة التقرير'}
           </button>
           {preview && (
-            <button
-              onClick={() => window.print()}
-              className="no-print flex h-11 items-center gap-2 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
-            >
-              <Printer size={15} />
-              طباعة / تصدير PDF
-            </button>
+            <>
+              <button
+                onClick={() => window.print()}
+                className="no-print flex h-11 items-center gap-2 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
+              >
+                <Printer size={15} />
+                طباعة
+              </button>
+              <DesignExportMenu title={title || data.design.title} />
+            </>
           )}
           {!locked && (
             <>
