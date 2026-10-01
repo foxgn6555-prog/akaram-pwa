@@ -137,3 +137,37 @@ describe('حزمة PowerPoint من الصفحات', () => {
     expect(await zip.file('ppt/presentation.xml')!.async('string')).toContain('slide2.xml'.replace('slide2.xml', 'rId3'))
   })
 })
+
+describe('اللقطة النقطية (PDF/PowerPoint) — لا انزياح ولا قص', () => {
+  it('تمرَّر أبعاد الورقة نفسها وتُصفَّر الهوامش المحسوبة من margin:auto', async () => {
+    const calls: Array<Record<string, unknown>> = []
+    vi.doMock('html-to-image', () => ({
+      toCanvas: vi.fn(async (_n: HTMLElement, o: Record<string, unknown>) => {
+        calls.push(o)
+        return { toDataURL: () => 'data:image/jpeg;base64,AAAA', toBlob: (cb: (b: Blob) => void) => cb(new Blob(['x'])) }
+      }),
+    }))
+    const addImage = vi.fn(); const addPage = vi.fn()
+    vi.doMock('jspdf', () => ({ jsPDF: vi.fn(() => ({ addImage, addPage, setProperties: vi.fn(), output: () => new Blob(['pdf']) })) }))
+    const { exportDesign: realExport } = await vi.importActual<{ exportDesign: (f: 'pdf' | 'pptx' | 'html', t: string) => Promise<void> }>('@features/media/lib/design-export')
+    document.body.innerHTML = '<div id="design-report"><section class="rp-page" style="margin:0 auto">1</section><section class="rp-page">2</section></div>'
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 718 })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 1047 })
+    URL.createObjectURL = vi.fn(() => 'blob:x'); URL.revokeObjectURL = vi.fn()
+    HTMLAnchorElement.prototype.click = vi.fn()
+    await realExport('pdf', 'ت')
+    expect(calls.length).toBe(2)
+    expect(calls[0]).toMatchObject({ width: 718, height: 1047, pixelRatio: 2, style: { margin: '0', boxShadow: 'none', transform: 'none' } })
+    expect(addPage).toHaveBeenCalledTimes(1)
+    // الورقة 190×277مم داخل A4 بهامش 10مم
+    expect(addImage.mock.calls[0]!.slice(2, 6)).toEqual([10, 10, 190, 277])
+  })
+
+  it('HTML: جذر الورقة بلا هوامش والنص العمودي يحتفظ بـ writing-mode', async () => {
+    document.body.innerHTML =
+      '<div id="design-report"><section class="rp-page" style="margin:0 auto"><div style="writing-mode:vertical-rl;transform:rotate(180deg)">قاطع الكرادة</div></section></div>'
+    const html = await flattenPage(reportPages()[0] as HTMLElement)
+    expect(html).toMatch(/^<section style="[^"]*margin:0[^"]*"/)
+    expect(html).toContain('writing-mode:vertical-rl')
+  })
+})

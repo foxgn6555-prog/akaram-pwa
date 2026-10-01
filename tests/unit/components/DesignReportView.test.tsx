@@ -212,3 +212,34 @@ describe('بنية أوراق التقرير', () => {
     expect(extra.summary.rows.length).toBe(2)
   })
 })
+
+describe('الحفظ التلقائي — لا تضيع التعديلات عند تحديث الصفحة', () => {
+  it('تقريب صورة ثم الانتظار يحفظ تلقائياً بلا ضغط زر (مرة واحدة لآخر حالة)', async () => {
+    const onSave = vi.fn(async () => {})
+    render(
+      <DesignReportView
+        {...base}
+        groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]}
+        onSaveReport={onSave}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('تقريب'))
+    fireEvent.click(screen.getByLabelText('تقريب'))
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.getByTestId('report-save').textContent).toContain('يُحفظ تلقائياً')
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1), { timeout: 4000 })
+    const captions = (onSave.mock.calls[0] as unknown as [unknown, Array<{ zoom: number }>])[1]
+    expect(captions[0]!.zoom).toBe(1.5)
+    await vi.waitFor(() => expect(screen.getByTestId('report-save').textContent).toContain('كل التعديلات محفوظة'))
+  })
+
+  it('اسم القاطع العمودي يُدار بعنصر داخلي لا بخلية الجدول (لقطات التصدير)', () => {
+    const { container } = render(
+      <DesignReportView {...base} groups={[{ workType: 'كنس الشوارع', photos: [photo(1)] }]} />,
+    )
+    const td = Array.from(container.querySelectorAll('td')).find((c) => c.querySelector('div[style*="writing-mode"]'))
+    expect(td).toBeTruthy()
+    expect((td as HTMLElement).style.writingMode).toBe('')
+    expect(td!.querySelector('div[style*="writing-mode"]')).toBeTruthy()
+  })
+})

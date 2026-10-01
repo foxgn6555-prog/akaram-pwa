@@ -8,7 +8,7 @@
  *  · كل التعديلات (نصوص/ألوان/ملخص/نمط) تُحفظ في قاعدة البيانات
  * الطباعة: كل .rp-page ورقة A4 مستقلة
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react'
 import '@fontsource/cairo/400.css'
 import '@fontsource/cairo/700.css'
@@ -99,6 +99,8 @@ export interface DesignReportData {
     extra: { summary: ReportSummary; colors: ReportColors; style: ReportStyle },
   ) => Promise<void>
 }
+
+export const AUTOSAVE_DELAY_MS = 1500
 
 const AR_MONTHS = [
   'كانون الثاني',
@@ -324,6 +326,24 @@ export default function DesignReportView({
       setSaving(false)
     }
   }
+
+  /* حفظ تلقائي: أي تعديل (نص/لون/قالب/تكبير صورة/قص) يُحفظ بعد ثانية ونصف من آخر تغيير،
+     فلا يضيع شيء عند تحديث الصفحة أو إغلاقها — زر «حفظ التعديلات» يبقى للحفظ الفوري. */
+  const saveRef = useRef(save)
+  saveRef.current = save
+  useEffect(() => {
+    if (!dirty || !editable) return
+    const t = window.setTimeout(() => void saveRef.current(), AUTOSAVE_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [dirty, editable, sheetTexts, captions, fits, sum, cols, sty])
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   const barStyle = {
     background: `linear-gradient(${cols.barFrom}, ${cols.barTo})`,
@@ -564,7 +584,7 @@ export default function DesignReportView({
               disabled={saving || !dirty}
               className="w-full rounded-xl bg-cyan-700 py-2 text-sm font-black text-white disabled:opacity-40"
             >
-              {saving ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}
+              {saving ? 'جارٍ الحفظ…' : dirty ? 'حفظ التعديلات (يُحفظ تلقائياً)' : 'كل التعديلات محفوظة'}
             </button>
           </aside>
         )}
@@ -683,18 +703,19 @@ export default function DesignReportView({
                         </span>
                       </td>
                       {i === 0 && (
-                        <td
-                          rowSpan={sum.rows.length}
-                          className="text-center align-middle font-bold text-sky-900"
-                          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                        >
-                          <EditableText
-                            label="اسم القاطع"
-                            value={sum.sectorName}
-                            onCommit={editable ? (v) => patchSum({ sectorName: v }) : undefined}
-                            className="font-bold"
-                            inputClassName="rp-sum-in font-bold"
-                          />
+                        <td rowSpan={sum.rows.length} className="text-center align-middle font-bold text-sky-900">
+                          {/* التدوير على عنصر داخلي لا على الخلية: تحويلات <td> تُرسم معكوسة في لقطات SVG (التصدير) */}
+                          <div className="grid size-full place-items-center">
+                            <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                              <EditableText
+                                label="اسم القاطع"
+                                value={sum.sectorName}
+                                onCommit={editable ? (v) => patchSum({ sectorName: v }) : undefined}
+                                className="font-bold"
+                                inputClassName="rp-sum-in font-bold"
+                              />
+                            </div>
+                          </div>
                         </td>
                       )}
                       <td className="text-center">{r.t}</td>

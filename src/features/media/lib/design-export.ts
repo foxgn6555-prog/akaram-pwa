@@ -47,7 +47,7 @@ export interface CapturedPage {
 }
 
 /** مستند HTML مستقل من الصفحات الملتقطة — يُطبع ورقة/صفحة بلا رؤوس متصفح */
-export function buildStandaloneHtml(title: string, pages: CapturedPage[], fontFamily = 'Cairo, Tajawal, Arial, sans-serif'): string {
+export function buildStandaloneHtml(title: string, pages: CapturedPage[], fontFamily = "Cairo, Tajawal, 'Segoe UI', Tahoma, Arial, sans-serif"): string {
   const body = pages.map((p) => `<section class="xp-page">${p.html}</section>`).join('\n')
   return `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -102,7 +102,7 @@ const STYLE_PROPS = [
   'margin', 'padding', 'border', 'border-radius', 'border-collapse', 'border-spacing', 'box-sizing', 'box-shadow', 'outline',
   'background', 'background-color', 'background-image', 'background-size', 'background-position', 'background-repeat', 'background-clip',
   'color', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-align', 'text-decoration',
-  'text-transform', 'text-shadow', 'white-space', 'word-break', 'overflow-wrap', 'direction', 'unicode-bidi', 'vertical-align',
+  'text-transform', 'text-shadow', 'writing-mode', 'text-orientation', 'white-space', 'word-break', 'overflow-wrap', 'direction', 'unicode-bidi', 'vertical-align',
   'flex', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis', 'justify-content', 'justify-items', 'align-items', 'align-content', 'align-self', 'gap', 'row-gap', 'column-gap',
   'grid-template-columns', 'grid-template-rows', 'grid-template-areas', 'grid-column', 'grid-row', 'grid-auto-flow', 'place-items', 'place-content',
   'object-fit', 'object-position', 'overflow', 'z-index', 'transform', 'transform-origin', 'aspect-ratio', 'table-layout', 'visibility', 'cursor',
@@ -130,6 +130,7 @@ export async function flattenPage(page: HTMLElement): Promise<string> {
       if (v && v !== 'normal' && v !== 'none' && v !== 'auto' && v !== '0px') decl.push(`${prop}:${v}`)
       else if (v && (prop === 'display' || prop === 'position' || prop === 'width' || prop === 'height')) decl.push(`${prop}:${v}`)
     }
+    if (i === 0) decl.push('margin:0', 'box-shadow:none')
     dst.setAttribute('style', decl.join(';'))
     dst.removeAttribute('class')
     dst.removeAttribute('contenteditable')
@@ -195,10 +196,15 @@ async function rasterizePage(page: HTMLElement, scale = 2): Promise<HTMLCanvasEl
   const inlined = await inlineImages(page)
   try {
     return await toCanvas(page, {
+      width: page.offsetWidth,
+      height: page.offsetHeight,
       pixelRatio: scale,
       backgroundColor: '#ffffff',
       cacheBust: false,
       skipFonts: false,
+      // الورقة على الشاشة موسَّطة بـ margin:auto؛ القيمة المحسوبة (بالبكسل) تُنسخ إلى النسخة
+      // الملتقطة فتنزاح الورقة وتُقص — نصفّر الهوامش والظل والتحويلات في اللقطة
+      style: { margin: '0', boxShadow: 'none', transform: 'none', left: '0', top: '0' },
       filter: (node) => !(node instanceof Element && (node.classList.contains('no-print') || node.tagName === 'INPUT')),
     })
   } finally {
