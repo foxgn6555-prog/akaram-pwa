@@ -30,13 +30,16 @@ export interface FieldOpsSectorManager { user_id: string; full_name: string; pho
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
 
 export type ApprovalStep = { kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }
-export type ApprovalRequestType = 'leave' | 'time_permit'
+export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies'
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null }
+export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
   task_id: string; request_kind: ApprovalRequestType; request_id: string; step_no: number; total_steps: number; step_label: string
   requester_user_id: string; requester_name: string; requester_role: string; requester_role_label: string; area_name: string | null; parent_sector: string | null
   type_name: string; start_date: string; end_date: string; start_time: string | null; end_time: string | null; days: number; minutes: number; notes: string | null; attachment_path: string | null; created_at: string
   previous_steps: { step_no: number; label: string; status: string; decided_by: string | null; decided_at: string | null; note: string | null }[]
+  /** 00162: طلب مستلزمات — المواد المطلوبة ورقم الكتاب */
+  items: SupplyItem[] | null; ref_no: string | null
 }
 export interface ApprovalTimelineRow { step_no: number; step_label: string; status: 'waiting' | 'pending' | 'approved' | 'rejected' | 'skipped'; approvers: { user_id: string; name: string }[]; decided_by_name: string | null; decided_at: string | null; note: string | null }
 
@@ -67,5 +70,6 @@ export const approvals = {
   deleteChain: async (id: string) => sdkGuard(supabase.rpc('approval_chain_delete', { p_id: id })),
   myTasks: async () => (await sdkGuard(supabase.rpc('approval_my_tasks'))) as ApprovalTask[],
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
-  decide: async (leaveId: string, approve: boolean, note?: string | null) => sdkGuard(supabase.rpc('hr_leave_decide', { p_leave: leaveId, p_approve: approve, p_note: note ?? null })),
+  /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */
+  decide: async (kind: ApprovalRequestType, requestId: string, approve: boolean, note?: string | null) => sdkGuard(supabase.rpc('approval_decide_request', { p_kind: kind, p_request: requestId, p_approve: approve, p_note: note ?? null })),
 }

@@ -16,6 +16,7 @@ const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))
 const DataAnalysisPage = lazy(() => import('./pages/DataAnalysis/DataAnalysisPage'))
 const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
+const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" /> })))   // 00162: طلبات الموافقة (خطوات «حساب محدد» في السلاسل)
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -29,4 +30,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'station-folders', element: s(<StationFoldersPage />) },
   { path: 'data-analysis', element: s(<DataAnalysisPage />) },
   { path: 'sector-supplies', element: s(<SectorSupplies />) },
+  { path: 'approvals', element: s(<ApprovalTasks />) },
 ]

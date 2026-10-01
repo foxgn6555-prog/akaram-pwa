@@ -340,6 +340,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/executive/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'send' },
+    { path: '/executive/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
@@ -349,6 +350,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'bar-chart' },
+    { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
@@ -367,6 +369,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/gps', labelKey: 'nav.ops_gps_data', icon: 'map-pin' },
     { path: '/ops-room/gbs-containers', labelKey: 'nav.ops_gbs_containers', icon: 'box' },
     { path: '/ops-room/attendance', labelKey: 'nav.ops_attendance', icon: 'check-square' },
+    { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
   ],
 
   // ═══ وحدة الكشوفات ═══

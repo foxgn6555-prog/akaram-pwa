@@ -32,4 +32,4 @@ export const useDeleteApprovalChain = () => useAction((id: string) => approvals.
 export const useMyApprovalTasks = () => useQuery({ queryKey: [...ROOT, 'tasks'], queryFn: () => approvals.myTasks(), refetchInterval: 60_000 })
 export const useApprovalTimeline = (kind: ApprovalRequestType | undefined, requestId: string | undefined) =>
   useQuery({ queryKey: [...ROOT, 'timeline', kind, requestId], queryFn: () => approvals.timeline(kind as ApprovalRequestType, requestId as string), enabled: Boolean(kind && requestId) })
-export const useDecideApproval = () => useAction((x: { leaveId: string; approve: boolean; note?: string | null }) => approvals.decide(x.leaveId, x.approve, x.note), 'تم تسجيل قرارك')
+export const useDecideApproval = () => useAction((x: { kind: ApprovalRequestType; requestId: string; approve: boolean; note?: string | null }) => approvals.decide(x.kind, x.requestId, x.approve, x.note), 'تم تسجيل قرارك')

@@ -106,6 +106,8 @@
     "garage_maintenance_coordination": "تنسيق حركات الصيانة",
     "ops_gbs_containers": "GBS الحاويات",
     "ops_attendance": "الحضوريات",
+    "ops_store": "المخزن",
+    "approval_tasks": "طلبات الموافقة",
     "mgr_gbs_containers": "حاويات GBS",
     "mgr_support": "طلبات الدعم",
     "hr_recruitment": "التوظيف وإنهاء الخدمات",

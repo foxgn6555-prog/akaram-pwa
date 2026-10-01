@@ -66,7 +66,7 @@ export interface SupplyRequest {
   notes: string | null
   signed: boolean
   ref_no: string | null
-  status: 'draft' | 'submitted_to_deputy' | 'archived'
+  status: 'draft' | 'submitted_to_deputy' | 'in_approval' | 'archived'   // in_approval: 00162 طلب من المخزن يمر بسلسلة الموافقات
   submitted_at: string | null
   archived_at: string | null
   archive_reason: string | null

@@ -8,6 +8,7 @@ const StationDaily = lazy(() => import('./pages/StationDaily/StationDailyReportP
 const Gps = lazy(() => import('./pages/Gps/GpsDataPage'))
 const GbsContainers = lazy(() => import('./pages/Gbs/GbsContainersPage'))
 const OpsAttendance = lazy(() => import('./pages/Attendance/OpsAttendancePage'))
+const OpsStore = lazy(() => import('./pages/Store/OpsStorePage'))
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
     default: () => <module.default managementMode />,
@@ -36,4 +37,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'gps', element: load(<Gps />) },
   { path: 'gbs-containers', element: load(<GbsContainers />) },
   { path: 'attendance', element: load(<OpsAttendance />) },
+  { path: 'store', element: load(<OpsStore />) },
 ]

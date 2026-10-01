@@ -15,7 +15,7 @@ const team = [{
 const task = {
   task_id: 't1', request_kind: 'leave', request_id: 'L1', step_no: 2, total_steps: 3, step_label: 'مسؤول قاطع (حسب التسلسل)', requester_user_id: 'c1', requester_name: 'متعهد أرخيته', requester_role: 'employee', requester_role_label: 'متعهد',
   area_name: 'أرخيته', parent_sector: 'الكرادة', type_name: 'إجازة اعتيادية', start_date: '2026-10-10', end_date: '2026-10-12', start_time: null, end_time: null, days: 3, minutes: 0, notes: 'ظرف عائلي', attachment_path: null, created_at: '2026-10-01T06:00:00Z',
-  previous_steps: [{ step_no: 1, label: 'مسؤول قسم (حسب التسلسل)', status: 'approved', decided_by: 'مسؤول قسم الكرادة', decided_at: '2026-10-01T07:00:00Z', note: null }],
+  previous_steps: [{ step_no: 1, label: 'مسؤول قسم (حسب التسلسل)', status: 'approved', decided_by: 'مسؤول قسم الكرادة', decided_at: '2026-10-01T07:00:00Z', note: null }], items: null, ref_no: null,
 }
 const reports = {
   from: '2026-09-02', to: '2026-10-01', days: 30, totals: { present: 300, absent: 50, presence_proofs: 55, out_of_zone: 3, trips: 120, manager_leaves: 1 },
@@ -68,14 +68,14 @@ describe('بوابة مسؤول القاطع (00160)', () => {
     expect(screen.getByTestId('reject-confirm-L1')).toBeDisabled()
     fireEvent.change(screen.getByTestId('reject-reason-L1'), { target: { value: 'ضغط عمل' } })
     fireEvent.click(screen.getByTestId('reject-confirm-L1'))
-    expect(h.decide).toHaveBeenCalledWith({ leaveId: 'L1', approve: false, note: 'ضغط عمل' }, expect.any(Object))
+    expect(h.decide).toHaveBeenCalledWith({ kind: 'leave', requestId: 'L1', approve: false, note: 'ضغط عمل' }, expect.any(Object))
     fireEvent.click(screen.getByTestId('path-L1'))
     await waitFor(() => expect(screen.getByTestId('path-list-L1')).toHaveTextContent('3. معاون المدير — بانتظار دوره'))
   })
   it('طلبات فريقي: الموافقة تستدعي القرار بلا سبب؛ وبلا مهام تظهر حالة فارغة', () => {
     wrap(<Requests />)
     fireEvent.click(screen.getByTestId('approve-L1'))
-    expect(h.decide).toHaveBeenCalledWith({ leaveId: 'L1', approve: true })
+    expect(h.decide).toHaveBeenCalledWith({ kind: 'leave', requestId: 'L1', approve: true })
     h.tasks = []
     wrap(<Requests />)
     expect(screen.getByTestId('sm-requests-empty')).toBeInTheDocument()
