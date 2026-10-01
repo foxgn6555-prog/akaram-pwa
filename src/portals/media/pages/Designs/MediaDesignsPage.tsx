@@ -24,6 +24,7 @@ import {
   periodRange,
   type PeriodType,
   type SectorParent,
+  designGroupLabel,
 } from '@features/media/constants'
 import {
   useAddDesignPhotos,
@@ -670,7 +671,7 @@ function AddPhotosDialog({
             onAdd(
               (photos.data ?? [])
                 .filter((p) => selected.has(p.id))
-                .map((p) => ({ photoId: p.id, workType: ticket?.work_type ?? 'عام', caption: p.caption ?? '' })),
+                .map((p) => ({ photoId: p.id, workType: ticket ? designGroupLabel(ticket) : 'عام', caption: p.caption ?? '' })),
             )
           }
           className="h-11 rounded-xl bg-emerald-700 text-sm font-black text-white disabled:opacity-40"

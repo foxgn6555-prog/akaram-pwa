@@ -129,3 +129,28 @@ export const submissionModeTitleField: Record<MediaMode, { label: string; placeh
   campaign: { label: 'اسم الحملة', placeholder: 'مثال: حملة نظافة الشوارع' },
   school: { label: 'اسم المدرسة', placeholder: 'مثال: مدرسة الكرادة الابتدائية' },
 }
+
+/* ═══ 00164: تفاصيل الحملة + تقرير غرفة العمليات ═══ */
+export type VehicleKind = 'tipper' | 'tanker' | 'compactor' | 'loader' | 'sweeper'
+export const VEHICLE_KINDS: Array<{ key: VehicleKind; label: string }> = [
+  { key: 'tipper', label: 'قلاب' },
+  { key: 'tanker', label: 'تنكر' },
+  { key: 'compactor', label: 'كابسة' },
+  { key: 'loader', label: 'شفل' },
+  { key: 'sweeper', label: 'كناسة' },
+]
+export const VEHICLE_COL: Record<VehicleKind, 'veh_tipper' | 'veh_tanker' | 'veh_compactor' | 'veh_loader' | 'veh_sweeper'> = {
+  tipper: 'veh_tipper', tanker: 'veh_tanker', compactor: 'veh_compactor', loader: 'veh_loader', sweeper: 'veh_sweeper',
+}
+/** اسم التقرير الموحّد + العنوان الفرعي حسب النوع */
+export const CAMPAIGN_REPORT_TITLE = 'تقرير متابعة وتوثيق حملات التنظيف والخدمات'
+export const CAMPAIGN_REPORT_SUBTITLE: Record<MediaMode, string> = { campaign: 'الحملات', school: 'حملات المدارس', street: 'تنظيف الشوارع' }
+/** تسميات الأعمدة التي تتغير حسب النوع (الباقي ثابت) */
+export const CAMPAIGN_FIELD_LABEL: Record<MediaMode, { title: string; location: string; date: string }> = {
+  campaign: { title: 'اسم الحملة', location: 'موقع الحملة', date: 'تاريخ تنفيذ الحملة' },
+  school: { title: 'اسم المدرسة', location: 'موقع المدرسة', date: 'تاريخ التنفيذ' },
+  street: { title: 'اسم الشارع', location: 'الموقع / أقرب نقطة دالة', date: 'تاريخ التنظيف' },
+}
+/** اسم المجموعة في التصميم: للشارع اسم الشارع نفسه (لا «عام»)، ولغيره نوع العمل ثم العنوان */
+export const designGroupLabel = (t: { mode: string; title: string; work_type: string | null }) =>
+  t.mode === 'street' ? t.title : (t.work_type?.trim() || t.title)

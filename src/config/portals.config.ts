@@ -376,6 +376,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/gbs-containers', labelKey: 'nav.ops_gbs_containers', icon: 'box' },
     { path: '/ops-room/attendance', labelKey: 'nav.ops_attendance', icon: 'check-square' },
     { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
+    { path: '/ops-room/campaigns', labelKey: 'nav.ops_campaigns', icon: 'camera' },
   ],
 
   // ═══ وحدة الكشوفات ═══

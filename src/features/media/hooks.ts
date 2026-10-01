@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mediaService,
+  type CampaignDetails,
   type MediaDesign,
   type MediaDesignTemplate,
   type MediaSubmission,
@@ -27,6 +28,12 @@ const ERROR_MAP: Record<string, string> = {
   MEDIA_DESIGN_LOCKED: 'التصميم مكتمل ومقفل — لا يمكن تعديله',
   MEDIA_DESIGN_NOT_COMPLETABLE: 'لا يمكن إكمال التصميم بدون صور',
   MEDIA_DESIGN_NOT_DELETABLE: 'لا يمكن حذف تصميم مكتمل',
+  MEDIA_COUNT_INVALID: 'الأعداد (مراقبون/عمال/آليات) يجب أن تكون أرقاماً صحيحة غير سالبة',
+  MEDIA_EXEC_DATE_INVALID: 'تاريخ تنفيذ الحملة لا يمكن أن يكون في المستقبل',
+  MEDIA_MERGE_MIN_TWO: 'اختر تذكرتين على الأقل للدمج',
+  MEDIA_MERGE_NOT_ACTIVE: 'إحدى التذاكر مؤرشفة أو دُمجت سابقاً',
+  MEDIA_MERGE_DIFFERENT_SECTORS: 'لا يمكن دمج تذاكر من قاطعين مختلفين',
+  OPS_ROOM_FORBIDDEN: 'هذه الصفحة لغرفة العمليات فقط',
 }
 
 const friendly = (e: unknown): string => {
@@ -54,10 +61,10 @@ const useMediaAction = <TArgs extends unknown[], TResult>(
 }
 
 /* ── تذاكر مسؤول القسم ── */
-export const useMySubmissions = () =>
+export const useMySubmissions = (from: string | null = null, to: string | null = null, mode: string | null = null) =>
   useQuery({
-    queryKey: ['media', 'my-submissions'],
-    queryFn: () => mediaService.mySubmissions(),
+    queryKey: ['media', 'my-submissions', from ?? '', to ?? '', mode ?? ''],
+    queryFn: () => mediaService.mySubmissions(from, to, mode),
   })
 
 export const useSendPhotos = () =>
@@ -68,7 +75,8 @@ export const useSendPhotos = () =>
       work: string | null,
       notes: string,
       photos: Array<{ storagePath: string; caption: string }>,
-    ) => mediaService.sendPhotos(mode, title, work, notes, photos),
+      details: CampaignDetails | null = null,
+    ) => mediaService.sendPhotos(mode, title, work, notes, photos, details),
     'أُرسلت التذكرة إلى بوابة الإعلام',
     ['media', 'my-submissions', 'sector-photos'],
   )
@@ -234,3 +242,16 @@ export const useArchiveMediaTemplate = () =>
   useMediaAction((id: string) => mediaService.archiveTemplate(id), 'أُرشف القالب')
 
 export type { MediaDesign, MediaSubmission, MediaDesignTemplate }
+
+/* ── 00164: دمج التذاكر (الإعلام) + تقرير غرفة العمليات ── */
+export const useMergeSubmissions = () =>
+  useMediaAction(
+    (ids: string[], title: string, workType: string | null, notes: string | null = null) => mediaService.mergeSubmissions(ids, title, workType, notes),
+    'دُمجت التذاكر في تذكرة واحدة',
+  )
+export const useOpsCampaigns = (f: { mode?: string | null; sectorParent?: string | null; sectorId?: number | null; from?: string | null; to?: string | null }) =>
+  useQuery({
+    queryKey: ['media', 'ops-campaigns', f.mode ?? '', f.sectorParent ?? '', f.sectorId ?? '', f.from ?? '', f.to ?? ''],
+    queryFn: () => mediaService.opsCampaignsReport(f),
+    refetchInterval: 60_000,
+  })

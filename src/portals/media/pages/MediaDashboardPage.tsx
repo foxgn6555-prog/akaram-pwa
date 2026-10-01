@@ -34,13 +34,14 @@ import {
   YAxis,
 } from 'recharts'
 import { useDesigns, useMediaTemplates, useSubmissions } from '@features/media/hooks'
-import { baghdadDay } from '@features/media/constants'
+import { baghdadDay, designGroupLabel } from '@features/media/constants'
 
 const PIE_COLORS = ['#0e7490', '#7c3aed', '#059669', '#db2777', '#d97706', '#334155']
 
 type Ticket = {
   id: string
   title: string
+  mode: string
   work_type: string | null
   photo_count: number
   event_date: string | null
@@ -80,7 +81,7 @@ export default function MediaDashboardPage() {
 
     const workMap = new Map<string, number>()
     for (const t of all)
-      workMap.set(t.work_type ?? 'عام', (workMap.get(t.work_type ?? 'عام') ?? 0) + t.photo_count)
+      workMap.set(designGroupLabel(t), (workMap.get(designGroupLabel(t)) ?? 0) + t.photo_count)
     const byWork = [...workMap.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
@@ -298,7 +299,7 @@ export default function MediaDashboardPage() {
               <li key={t.id} data-testid="recent-item" className="rounded-xl border border-slate-100 bg-slate-50 p-2">
                 <b className="block truncate text-xs text-slate-800">{t.title}</b>
                 <span className="mt-0.5 block text-[10px] text-slate-500">
-                  {t.work_type ?? 'عام'} · {t.photo_count} صورة ·{' '}
+                  {designGroupLabel(t)} · {t.photo_count} صورة ·{' '}
                   {(t.event_date ?? t.created_at).slice(5, 10)}
                 </span>
               </li>

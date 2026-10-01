@@ -9,12 +9,24 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 const h = vi.hoisted(() => ({
   send: vi.fn(),
   upload: vi.fn(),
+  mine: vi.fn(),
 }))
+const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
+const sub = (id: string, exec: string, mode = 'street') => ({
+  id, mode, title: `تذكرة ${id}`, work_type: null, sector_parent: 'karrada', sector_ids: [1], event_date: exec, exec_date: exec, notes: null, photo_count: 2, status: 'submitted',
+  submitted_by: 'u', submitted_by_name: 'م', archived_at: null, archive_reason: null, created_at: `${exec}T06:00:00Z`, location: 'قرب الجامع', supervisors_count: 1, workers_count: 5,
+  veh_tipper: 1, veh_tanker: 0, veh_compactor: 0, veh_loader: 0, veh_sweeper: 2, merged_into: null, merged_count: 0,
+})
 
 vi.mock('@features/media/hooks', () => ({
   useSendPhotos: () => ({ mutateAsync: h.send, isPending: false }),
   useUploadPhotos: () => ({ mutateAsync: h.upload, isPending: false }),
-  useMySubmissions: () => ({ data: [], isLoading: false }),
+  useMySubmissions: (from: string | null, to: string | null, mode: string | null) => {
+    h.mine(from, to, mode)
+    // الخادم يفلتر بالتاريخ — نحاكيه هنا
+    const all = [sub('a', today), sub('b', '2026-09-20'), sub('c', today, 'campaign')]
+    return { data: all.filter((s) => (!from || s.exec_date >= from) && (!to || s.exec_date <= to) && (!mode || s.mode === mode)), isLoading: false }
+  },
 }))
 vi.mock('@sdk/sector.sdk', () => ({
   sector: {
@@ -67,8 +79,58 @@ describe('وحدة إرسال الصور', () => {
       ['street', 'شارع الرشيد', null, '', [
         { storagePath: 'u/a.jpg', caption: '' },
         { storagePath: 'u/b.jpg', caption: '' },
-      ]],
+      ], { location: '', exec_date: today, supervisors: 0, workers: 0, vehicles: { tipper: 0, tanker: 0, compactor: 0, loader: 0, sweeper: 0 } }],
     )
+  })
+
+  it('00164: تفاصيل الحملة (الموقع، تاريخ التنفيذ، المراقبون، العمال، الآليات الخمس) تُرسل مع التذكرة، وتسميات الحقول تتغير حسب النوع', async () => {
+    wrap(<PhotosPage />)
+    expect(screen.getByText('اسم الشارع', { exact: false })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('mode-campaign'))
+    expect(screen.getByText('موقع الحملة')).toBeInTheDocument()
+    expect(screen.getByText('تاريخ تنفيذ الحملة')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('mode-school'))
+    expect(screen.getByText('موقع المدرسة')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('mode-campaign'))
+    fireEvent.change(screen.getByTestId('f-photo-title'), { target: { value: 'حملة تنظيف الكرادة' } })
+    fireEvent.change(screen.getByTestId('f-photo-worktype'), { target: { value: 'غسل الشارع' } })
+    fireEvent.change(screen.getByTestId('f-location'), { target: { value: 'ساحة الفردوس' } })
+    fireEvent.change(screen.getByTestId('f-exec-date'), { target: { value: '2026-09-28' } })
+    fireEvent.change(screen.getByTestId('f-supervisors'), { target: { value: '2' } })
+    fireEvent.change(screen.getByTestId('f-workers'), { target: { value: '15' } })
+    fireEvent.change(screen.getByTestId('f-veh-tanker'), { target: { value: '2' } })
+    fireEvent.change(screen.getByTestId('f-veh-loader'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('f-photo-files'), { target: { files: makeFiles(2) } })
+    fireEvent.click(screen.getByTestId('photo-submit'))
+    await waitFor(() => expect(h.send).toHaveBeenCalled())
+    expect(h.send.mock.calls[0]![0][5]).toEqual({ location: 'ساحة الفردوس', exec_date: '2026-09-28', supervisors: 2, workers: 15, vehicles: { tipper: 0, tanker: 2, compactor: 0, loader: 1, sweeper: 0 } })
+  })
+
+  it('00164: الأعداد غير الرقمية تمنع الإرسال', async () => {
+    wrap(<PhotosPage />)
+    fireEvent.change(screen.getByTestId('f-photo-title'), { target: { value: 'شارع الرشيد' } })
+    fireEvent.change(screen.getByTestId('f-workers'), { target: { value: 'عشرة' } })
+    fireEvent.change(screen.getByTestId('f-photo-files'), { target: { files: makeFiles(1) } })
+    fireEvent.click(screen.getByTestId('photo-submit'))
+    expect(await screen.findByText(/أرقاماً صحيحة/)).toBeInTheDocument()
+    expect(h.upload).not.toHaveBeenCalled()
+  })
+
+  it('00164: «تذكراتي» مفلترة بتاريخ اليوم افتراضياً، وتتغير بالفلتر والنوع', () => {
+    wrap(<PhotosPage />)
+    expect(h.mine).toHaveBeenLastCalledWith(today, today, null)
+    expect(screen.getByTestId('mine-a')).toBeInTheDocument()
+    expect(screen.queryByTestId('mine-b')).toBeNull()
+    expect(screen.getByText('تذكراتي المرسلة (2)')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('اختيار يوم محدد'), { target: { value: '2026-09-20' } })
+    expect(screen.getByTestId('mine-b')).toBeInTheDocument()
+    expect(screen.queryByTestId('mine-a')).toBeNull()
+    fireEvent.click(screen.getByText('كل الأيام'))
+    expect(screen.getByText('تذكراتي المرسلة (3)')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('mine-mode'), { target: { value: 'campaign' } })
+    expect(h.mine).toHaveBeenLastCalledWith(null, null, 'campaign')
+    expect(screen.getByText('تذكراتي المرسلة (1)')).toBeInTheDocument()
+    expect(screen.getByTestId('mine-c')).toHaveTextContent('مراقبون 1 · عمال 5 · آليات 3')
   })
 
   it('الحملة تُظهر أنواع العمل والمدارس تُضيف أنواعها', async () => {

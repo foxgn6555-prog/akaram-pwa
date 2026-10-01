@@ -2,6 +2,8 @@
  * إرسال صور — بوابة مسؤول القسم
  * ثلاث طرق: صورة شارع · حملة · حملة مدارس — حتى 500 صورة
  * القاطع والقسم يُشتقان تلقائياً من حساب المسؤول، والتذكرة تصل بوابة الإعلام
+ * 00164: تفاصيل الحملة (الموقع، تاريخ التنفيذ، المراقبون، العمال، الآليات بأنواعها الخمسة، ملاحظات) تصل غرفة العمليات
+ *        في «تقرير متابعة وتوثيق حملات التنظيف والخدمات»؛ و«تذكراتي» مفلترة بالتاريخ (اليوم افتراضياً).
  */
 import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -12,11 +14,17 @@ import {
   SECTOR_LABEL,
   CUSTOM_WORK_TYPE,
   MAX_PHOTOS,
+  VEHICLE_KINDS,
+  VEHICLE_COL,
+  CAMPAIGN_FIELD_LABEL,
+  baghdadDay,
   type MediaMode,
   type SectorParent,
+  type VehicleKind,
   submissionModeTitleField,
   workTypesForMode,
 } from '@features/media/constants'
+import { DayFilter } from '@portals/media/components/DayFilter'
 import { effectiveWorkType, sendFormSchema } from '@features/media/schemas'
 import { useMySubmissions, useSendPhotos, useUploadPhotos } from '@features/media/hooks'
 import { sector } from '@sdk/sector.sdk'
@@ -33,6 +41,14 @@ export default function PhotosPage() {
   const [workType, setWorkType] = useState('')
   const [customType, setCustomType] = useState('')
   const [notes, setNotes] = useState('')
+  // 00164: تفاصيل الحملة
+  const [location, setLocation] = useState('')
+  const [execDate, setExecDate] = useState(todayBaghdad())
+  const [supervisors, setSupervisors] = useState('0')
+  const [workers, setWorkers] = useState('0')
+  const [vehicles, setVehicles] = useState<Record<VehicleKind, string>>({ tipper: '0', tanker: '0', compactor: '0', loader: '0', sweeper: '0' })
+  const [filterDay, setFilterDay] = useState(baghdadDay())
+  const [filterMode, setFilterMode] = useState<MediaMode | ''>('')
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -41,7 +57,7 @@ export default function PhotosPage() {
 
   const send = useSendPhotos()
   const upload = useUploadPhotos()
-  const mine = useMySubmissions()
+  const mine = useMySubmissions(filterDay || null, filterDay || null, filterMode || null)
   const isBusy = busy || send.isPending || upload.isPending
 
   // اشتقاق القاطع والقسم تلقائياً من حساب المسؤول
@@ -73,6 +89,11 @@ export default function PhotosPage() {
     setWorkType('')
     setCustomType('')
     setNotes('')
+    setLocation('')
+    setExecDate(todayBaghdad())
+    setSupervisors('0')
+    setWorkers('0')
+    setVehicles({ tipper: '0', tanker: '0', compactor: '0', loader: '0', sweeper: '0' })
     clearAll()
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -96,6 +117,15 @@ export default function PhotosPage() {
       setError('حدد نوع العمل (أو اكتب النوع المخصص)')
       return
     }
+    const num = (v: string) => Math.max(0, Math.floor(Number(v) || 0))
+    if ([supervisors, workers, ...Object.values(vehicles)].some((v) => v.trim() !== '' && (!/^\d+$/.test(v.trim()) || Number(v) > 10000))) {
+      setError('الأعداد (المراقبون/العمال/الآليات) يجب أن تكون أرقاماً صحيحة')
+      return
+    }
+    if (!execDate || execDate > todayBaghdad()) {
+      setError('تاريخ التنفيذ مطلوب ولا يكون في المستقبل')
+      return
+    }
     setBusy(true)
     try {
       // 1) رفع الصور إلى التخزين (دفعة متوازية)
@@ -107,6 +137,13 @@ export default function PhotosPage() {
         work,
         notes.trim(),
         paths.map((p) => ({ storagePath: p, caption: '' })),
+        {
+          location: location.trim(),
+          exec_date: execDate,
+          supervisors: num(supervisors),
+          workers: num(workers),
+          vehicles: { tipper: num(vehicles.tipper), tanker: num(vehicles.tanker), compactor: num(vehicles.compactor), loader: num(vehicles.loader), sweeper: num(vehicles.sweeper) },
+        },
       ])
       resetForm()
     } catch {
@@ -118,6 +155,8 @@ export default function PhotosPage() {
 
   const field = submissionModeTitleField[mode]
   const types = workTypesForMode(mode)
+  const labels = CAMPAIGN_FIELD_LABEL[mode]
+  const numInput = 'h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-brand-500'
 
   return (
     <div className="space-y-6" data-testid="photos-page">
@@ -204,6 +243,33 @@ export default function PhotosPage() {
           />
         )}
 
+        {/* 00164: تفاصيل الحملة → غرفة العمليات */}
+        <fieldset className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4" data-testid="campaign-details">
+          <legend className="px-2 text-xs font-black text-emerald-900">تفاصيل {MODE_LABEL[mode]} (تصل غرفة العمليات في تقرير المتابعة)</legend>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-[11px] font-bold text-slate-700">{labels.location}
+              <input data-testid="f-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder={mode === 'street' ? 'مثال: قرب جامع …' : 'مثال: ساحة الفردوس'} className={`mt-1 ${numInput}`} />
+            </label>
+            <label className="text-[11px] font-bold text-slate-700">{labels.date}
+              <input data-testid="f-exec-date" type="date" value={execDate} max={todayBaghdad()} onChange={(e) => setExecDate(e.target.value)} className={`mt-1 ${numInput}`} />
+            </label>
+            <label className="text-[11px] font-bold text-slate-700">عدد المراقبين
+              <input data-testid="f-supervisors" inputMode="numeric" value={supervisors} onChange={(e) => setSupervisors(e.target.value)} className={`mt-1 ${numInput}`} />
+            </label>
+            <label className="text-[11px] font-bold text-slate-700">عدد العمال
+              <input data-testid="f-workers" inputMode="numeric" value={workers} onChange={(e) => setWorkers(e.target.value)} className={`mt-1 ${numInput}`} />
+            </label>
+          </div>
+          <p className="mt-3 text-[11px] font-black text-slate-700">الآليات (اختياري — قد تكون كلها صفراً)</p>
+          <div className="mt-1 grid grid-cols-5 gap-2">
+            {VEHICLE_KINDS.map((v) => (
+              <label key={v.key} className="text-center text-[11px] font-bold text-slate-600">{v.label}
+                <input data-testid={`f-veh-${v.key}`} inputMode="numeric" value={vehicles[v.key]} onChange={(e) => setVehicles((prev) => ({ ...prev, [v.key]: e.target.value }))} className="mt-1 h-10 w-full rounded-xl border border-slate-300 px-2 text-center text-sm outline-none focus:border-brand-500" />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
         <input
           data-testid="f-photo-notes"
           value={notes}
@@ -280,18 +346,25 @@ export default function PhotosPage() {
 
       {/* تذكراتي */}
       <div>
-        <h2 className="mb-3 text-sm font-bold text-slate-700">تذكراتي المرسلة ({(mine.data ?? []).length})</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-bold text-slate-700">تذكراتي المرسلة ({(mine.data ?? []).length})</h2>
+          <DayFilter value={filterDay} onChange={setFilterDay} />
+          <select data-testid="mine-mode" value={filterMode} onChange={(e) => setFilterMode(e.target.value as MediaMode | '')} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[11px] font-bold">
+            <option value="">كل الأنواع</option>
+            {MEDIA_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </div>
         {mine.isLoading ? (
           <LoadingSpinner label="جارٍ الجلب…" />
         ) : (mine.data ?? []).length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
             <ImagePlus className="mx-auto mb-2 text-slate-300" size={28} />
-            لم ترسل أي تذكرة بعد
+            {filterDay ? `لا تذاكر بتاريخ ${filterDay}` : 'لم ترسل أي تذكرة بعد'}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(mine.data ?? []).map((s) => (
-              <article key={s.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <article key={s.id} data-testid={`mine-${s.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">
                     {MODE_LABEL[s.mode as MediaMode] ?? s.mode}
@@ -309,7 +382,11 @@ export default function PhotosPage() {
                   {s.work_type ? `النوع: ${s.work_type}` : 'دون نوع عمل'} · {s.photo_count} صورة
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  {s.sector_parent === 'karrada' ? SECTOR_LABEL.karrada : SECTOR_LABEL.zaafaraniya} · {s.event_date}
+                  {s.sector_parent === 'karrada' ? SECTOR_LABEL.karrada : SECTOR_LABEL.zaafaraniya} · تنفيذ {s.exec_date ?? s.event_date}
+                  {s.location ? ` · ${s.location}` : ''}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  مراقبون {s.supervisors_count} · عمال {s.workers_count} · آليات {VEHICLE_KINDS.map((v) => s[VEHICLE_COL[v.key]]).reduce((a, b) => a + (b ?? 0), 0)}
                 </p>
               </article>
             ))}

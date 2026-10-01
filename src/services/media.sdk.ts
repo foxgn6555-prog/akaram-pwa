@@ -20,6 +20,34 @@ export interface MediaSubmission {
   archived_at: string | null
   archive_reason: string | null
   created_at: string
+  /** 00164: تفاصيل الحملة */
+  location: string | null
+  exec_date: string | null
+  supervisors_count: number
+  workers_count: number
+  veh_tipper: number
+  veh_tanker: number
+  veh_compactor: number
+  veh_loader: number
+  veh_sweeper: number
+  merged_into: string | null
+  merged_count: number
+}
+
+/** 00164: تفاصيل الحملة المرسلة مع التذكرة (كلها اختيارية؛ الأعداد قد تكون صفراً) */
+export interface CampaignDetails {
+  location?: string
+  exec_date?: string
+  supervisors?: number
+  workers?: number
+  vehicles?: { tipper?: number; tanker?: number; compactor?: number; loader?: number; sweeper?: number }
+}
+
+/** 00164: صف تقرير غرفة العمليات «متابعة وتوثيق حملات التنظيف والخدمات» */
+export interface OpsCampaignRow {
+  id: string; mode: string; title: string; location: string | null; work_type: string | null; sector_parent: string; sector_parent_name: string; sector_ids: number[]; department_names: string | null
+  exec_date: string; event_date: string; supervisors_count: number; workers_count: number; veh_tipper: number; veh_tanker: number; veh_compactor: number; veh_loader: number; veh_sweeper: number
+  photo_count: number; has_photos: boolean; notes: string | null; submitted_by_name: string; status: string; merged_count: number; created_at: string
 }
 
 export interface MediaSubmissionPhoto {
@@ -101,6 +129,7 @@ export const mediaService = {
     workType: string | null,
     notes: string,
     photos: MediaDraftPhoto[],
+    details: CampaignDetails | null = null,
   ): Promise<MediaSubmission> {
     return (await sdkGuard(
       supabase.rpc('media_send_photos', {
@@ -109,24 +138,30 @@ export const mediaService = {
         p_work_type: workType || null,
         p_notes: notes || null,
         p_photos: photos.map((p) => ({ storage_path: p.storagePath, caption: p.caption })),
+        p_details: details ?? {},
       }),
     )) as unknown as MediaSubmission
   },
 
-  /** تذكراتي كمسؤول قسم (قراءة مباشرة عبر RLS — صاحب الرفع) */
-  async mySubmissions(): Promise<MediaSubmission[]> {
-    const { data: authData } = await supabase.auth.getUser()
-    const uid = authData.user?.id
-    if (!uid) return []
-    const rows = await sdkGuard(
-      supabase
-        .from('media_submissions')
-        .select('*')
-        .eq('submitted_by', uid)
-        .order('created_at', { ascending: false })
-        .limit(100),
-    )
-    return ((rows ?? []) as unknown as MediaSubmission[])
+  /** تذكراتي كمسؤول قسم — مفلترة بتاريخ التنفيذ (00164) */
+  async mySubmissions(from: string | null = null, to: string | null = null, mode: string | null = null): Promise<MediaSubmission[]> {
+    return ((await sdkGuard(
+      supabase.rpc('media_my_submissions', { p_from: from, p_to: to, p_mode: mode }),
+    )) ?? []) as unknown as MediaSubmission[]
+  },
+
+  /** 00164: دمج تذاكر عدة (نفس القاطع) في تذكرة واحدة بمسمى واحد */
+  async mergeSubmissions(ids: string[], title: string, workType: string | null, notes: string | null = null): Promise<MediaSubmission> {
+    return (await sdkGuard(
+      supabase.rpc('media_submissions_merge', { p_ids: ids, p_title: title, p_work_type: workType || null, p_notes: notes || null }),
+    )) as unknown as MediaSubmission
+  },
+
+  /** 00164: تقرير غرفة العمليات — متابعة وتوثيق حملات التنظيف والخدمات */
+  async opsCampaignsReport(f: { mode?: string | null; sectorParent?: string | null; sectorId?: number | null; from?: string | null; to?: string | null }): Promise<OpsCampaignRow[]> {
+    return ((await sdkGuard(
+      supabase.rpc('ops_campaigns_report', { p_mode: f.mode ?? null, p_sector_parent: f.sectorParent ?? null, p_sector_id: f.sectorId ?? null, p_from: f.from ?? null, p_to: f.to ?? null }),
+    )) ?? []) as unknown as OpsCampaignRow[]
   },
 
   async listSubmissions(
