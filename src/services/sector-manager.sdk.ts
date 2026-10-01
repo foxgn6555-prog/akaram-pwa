@@ -11,6 +11,7 @@ export interface SectorTeamRow {
   contractors: number; workers: number; present_today: number; absent_today: number; presence_proved: number; out_of_zone: number; vehicles_now: number; on_leave_today: boolean
 }
 export interface SectorDashboard {
+  is_field_ops: boolean; sector_managers: { user_id: string; name: string; parent_names: string[] }[]; parents_detail: ParentSectorDetail[]
   parent_sectors: { code: ParentSector; name: string }[]; areas: number; department_managers: number; contractors: number; areas_without_contractor: number; workers: number
   present_today: number; absent_today: number; presence_proved: number; out_of_zone: number; vehicles_now: number; pending_requests: number; managers_on_leave: number; notices_sent: number
   areas_detail: { id: number; name: string; parent_sector: ParentSector; manager_name: string | null; contractor_name: string | null; checked_in: boolean; in_zone: boolean | null; present: number; absent: number; vehicles_now: number }[]
@@ -22,7 +23,10 @@ export interface SectorReports {
   contractors: { user_id: string; name: string; area: string; parent_sector: ParentSector; manager_name: string; shift: string; workers: number; present: number; absent: number; proof_days: number; out_of_zone_days: number }[]
   managers: { user_id: string; name: string; shift: string; parent_sector: ParentSector; areas: string; contractors: number; present: number; absent: number; trips: number; leave_days: number; permits: number }[]
 }
-export interface NotifyTarget { user_id: string; full_name: string; parent_sector: ParentSector; areas: string; shift: string }
+export interface NotifyTarget { user_id: string; full_name: string; role: 'admin_ops' | 'department_manager'; parent_sector: ParentSector; areas: string; shift: string | null }
+/** 00161: تفصيل قاطع أم واحد (للعمليات الميدانية — مقارنة القاطعين) */
+export interface ParentSectorDetail { code: ParentSector; name: string; sector_managers: string | null; areas: number; department_managers: number; contractors: number; areas_without_contractor: number; present_today: number; absent_today: number; presence_proved: number; out_of_zone: number; vehicles_now: number }
+export interface FieldOpsSectorManager { user_id: string; full_name: string; phone: string | null; parent_sectors: ParentSector[]; parent_names: string[]; department_managers: number; contractors: number; present_today: number; absent_today: number; presence_proved: number; pending_tasks: number; on_leave_today: boolean; has_employee: boolean }
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
 
 export type ApprovalStep = { kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }
@@ -52,6 +56,8 @@ export const sectorManager = {
   notifyTargets: async () => (await sdkGuard(supabase.rpc('sector_manager_notify_targets'))) as NotifyTarget[],
   notify: async (title: string, body: string, targets?: string[]) => (await sdkGuard(supabase.rpc('sector_manager_notify', { p_title: title, p_body: body, p_targets: targets && targets.length ? targets : null }))) as number,
   notices: async () => (await sdkGuard(supabase.rpc('sector_manager_notices'))) as SectorNotice[],
+  /** 00161: العمليات الميدانية — مسؤولو القواطع */
+  fieldOpsSectorManagers: async () => (await sdkGuard(supabase.rpc('field_ops_sector_managers'))) as FieldOpsSectorManager[],
 }
 
 export const approvals = {

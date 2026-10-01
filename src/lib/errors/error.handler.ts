@@ -48,6 +48,7 @@ const APP_ERROR_AR: Record<string, string> = {
   CONTRACTOR_NOT_ASSIGNED: 'حسابك لم يُسنَد بعد إلى مسؤول قسم ومنطقة — راجع التطوير المركزية.',
   // مسؤول القاطع وسلاسل الموافقات (00160)
   PARENT_SECTOR_MANAGER_FORBIDDEN: 'هذه الصفحة لمسؤول القاطع فقط.',
+  FIELD_OPS_FORBIDDEN: 'هذه الصفحة للعمليات الميدانية فقط.',
   SECTOR_MANAGER_NOT_ASSIGNED: 'لم تُسنَد لك قواطع بعد — راجع التطوير المركزية.',
   SECTOR_MANAGER_ROLE_REQUIRED: 'الحساب ليس بدور «مسؤول القاطع».',
   SECTOR_MANAGER_SECTORS_REQUIRED: 'اختر قاطعاً واحداً على الأقل.',

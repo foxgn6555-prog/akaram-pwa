@@ -106,6 +106,22 @@ describe('CreateUser — إنشاء مستخدم', () => {
     await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ role: 'admin_ops', employee_number: 'EMP-099', sector_manager_parent_sectors: ['karrada', 'zaafaraniya'] })))
   })
 
+  it('العمليات الميدانية (00161): يلزم رقم وظيفي ولا يلزم قاطع أو مسؤول قسم', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('البريد الإلكتروني'), 'fo@akram.iq')
+    await user.type(screen.getByLabelText('الاسم الكامل'), 'قائد العمليات الميدانية')
+    await user.type(screen.getByLabelText('كلمة المرور المبدئية'), 'Passw0rd1')
+    await user.selectOptions(screen.getByTestId('create-role'), 'field_ops')
+    expect(screen.queryByTestId('sector-manager-assignment')).toBeNull()
+    await user.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0))
+    expect(mockMutateAsync).not.toHaveBeenCalled()
+    await user.type(screen.getByLabelText('الرقم الوظيفي'), 'EMP-500')
+    await user.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ role: 'field_ops', employee_number: 'EMP-500' })))
+  })
+
   it('مسؤول بأكثر من منطقة: يجب اختيار منطقة، والمنطقة المشغولة بمتعهد معطلة', async () => {
     renderPage()
     await FILL()

@@ -140,6 +140,8 @@ async function createUser(
   if (password.length < 8 || !/[A-Za-z\u0600-\u06FF]/.test(password) || !/[0-9]/.test(password))
     return json({ error: 'WEAK_PASSWORD' }, 400)
   if (!VALID_ROLES.includes(role)) return json({ error: 'BAD_ROLE' }, 400)
+  // 00161: العمليات الميدانية موظف — ربط HR إلزامي (لطلباته وسلاسل الموافقات)
+  if (role === 'field_ops' && !employeeNumber) return json({ error: 'FIELD_OPS_EMPLOYEE_REQUIRED' }, 400)
   if (!fullName) return json({ error: 'NAME_REQUIRED' }, 400)
   if (departmentId && !UUID_RE.test(departmentId)) return json({ error: 'BAD_DEPARTMENT' }, 400)
   if (jobTitle && jobTitle.length > 100) return json({ error: 'JOB_TITLE_TOO_LONG' }, 400)

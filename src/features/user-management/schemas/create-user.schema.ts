@@ -73,6 +73,9 @@ export const createSuperAdminSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['employee_number'], message: 'مسؤول القاطع موظف — أدخل رقمه الوظيفي لربط حسابه بسجل الموارد البشرية' })
       }
     }
+    if (val.role === 'field_ops' && (!val.employee_number || !val.employee_number.trim())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['employee_number'], message: 'العمليات الميدانية موظف — أدخل رقمه الوظيفي لربط حسابه بسجل الموارد البشرية' })
+    }
     if (val.role === 'employee' && !val.contractor_manager_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['contractor_manager_id'], message: 'اختر مسؤول القسم المسؤول عن هذا المتعهد' })
     }

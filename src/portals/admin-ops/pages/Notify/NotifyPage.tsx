@@ -1,4 +1,4 @@
-/** بوابة مسؤول القاطع — التبليغ: رسالة تصل كإشعار داخل التطبيق لمسؤولي أقسامه فقط (الكل أو مختارون) + سجل ما أُرسل. */
+/** التبليغ (مشترك): مسؤول القاطع → مسؤولو أقسامه فقط؛ العمليات الميدانية (00161) → مسؤولو القواطع + مسؤولو الأقسام. إشعار داخل التطبيق + سجل ما أُرسل. */
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Send } from 'lucide-react'
@@ -6,7 +6,7 @@ import { useNotifyTargets, useSectorNotices, useSendSectorNotice } from '@featur
 import { PARENT_AR, SHIFT_AR, dateAr, timeAr } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-export default function NotifyPage() {
+export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean }) {
   const targets = useNotifyTargets(), notices = useSectorNotices(), send = useSendSectorNotice()
   const [title, setTitle] = useState(''), [body, setBody] = useState(''), [sel, setSel] = useState<string[]>([])
   const all = targets.data ?? []
@@ -16,7 +16,7 @@ export default function NotifyPage() {
     <div className="space-y-4 pb-4" data-testid="sm-notify">
       <header>
         <h1 className="text-lg font-black">التبليغ</h1>
-        <p className="text-xs text-slate-600">يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي الأقسام في قواطعك فقط.</p>
+        <p className="text-xs text-slate-600">{fieldOps ? 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي القواطع ومسؤولي الأقسام في كل القواطع.' : 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي الأقسام في قواطعك فقط.'}</p>
       </header>
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
         <label className="text-xs font-bold">العنوان
@@ -30,14 +30,28 @@ export default function NotifyPage() {
             <span className="text-xs font-bold">المستلمون {sel.length === 0 ? '(الكل)' : `(${sel.length} مختار)`}</span>
             {sel.length > 0 && <button type="button" onClick={() => setSel([])} className="text-[11px] font-bold text-indigo-700 underline">إرسال للكل</button>}
           </div>
-          {targets.isLoading ? <LoadingSpinner /> : all.length === 0 ? <p className="mt-2 text-xs text-amber-700" data-testid="notice-no-targets">لا مسؤولي أقسام في قواطعك بعد.</p> : (
-            <div className="mt-2 flex flex-wrap gap-2" data-testid="notice-targets">
-              {all.map((t) => (
-                <button key={t.user_id} type="button" data-testid={`target-${t.user_id}`} aria-pressed={sel.includes(t.user_id)} onClick={() => toggle(t.user_id)}
-                  className={clsx('rounded-xl border px-3 py-1.5 text-right text-xs font-bold', sel.includes(t.user_id) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white')}>
-                  <div>{t.full_name}</div><div className={clsx('text-[10px] font-normal', sel.includes(t.user_id) ? 'text-indigo-100' : 'text-slate-500')}>{PARENT_AR[t.parent_sector]} · {SHIFT_AR[t.shift] ?? t.shift} · {t.areas}</div>
-                </button>
-              ))}
+          {targets.isLoading ? <LoadingSpinner /> : all.length === 0 ? <p className="mt-2 text-xs text-amber-700" data-testid="notice-no-targets">لا مستلمين متاحين بعد.</p> : (
+            <div className="mt-2 space-y-2" data-testid="notice-targets">
+              {([['admin_ops', 'مسؤولو القواطع'], ['department_manager', 'مسؤولو الأقسام']] as const).map(([role, label]) => {
+                const group = all.filter((t) => (t.role ?? 'department_manager') === role)
+                if (group.length === 0) return null
+                return (
+                  <div key={role} data-testid={`targets-${role}`}>
+                    {fieldOps && <div className="mb-1 text-[11px] font-black text-slate-500">{label} ({group.length})</div>}
+                    <div className="flex flex-wrap gap-2">
+                      {group.map((t) => (
+                        <button key={t.user_id} type="button" data-testid={`target-${t.user_id}`} aria-pressed={sel.includes(t.user_id)} onClick={() => toggle(t.user_id)}
+                          className={clsx('rounded-xl border px-3 py-1.5 text-right text-xs font-bold', sel.includes(t.user_id) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white')}>
+                          <div>{t.full_name}</div>
+                          <div className={clsx('text-[10px] font-normal', sel.includes(t.user_id) ? 'text-indigo-100' : 'text-slate-500')}>
+                            {role === 'admin_ops' ? `مسؤول قاطع · ${t.areas}` : `${PARENT_AR[t.parent_sector]} · ${SHIFT_AR[t.shift ?? ''] ?? t.shift ?? ''} · ${t.areas}`}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

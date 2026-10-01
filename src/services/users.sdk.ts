@@ -185,6 +185,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTRACTOR_PROFILE_FAILED: 'أُنشئ الحساب لكن تعذّر إسناد المتعهد — أعد المحاولة',
   SECTOR_MANAGER_SECTORS_REQUIRED: 'اختر قاطعاً واحداً على الأقل لمسؤول القاطع',
   SECTOR_MANAGER_EMPLOYEE_REQUIRED: 'مسؤول القاطع موظف — أدخل رقمه الوظيفي',
+  FIELD_OPS_EMPLOYEE_REQUIRED: 'العمليات الميدانية موظف — أدخل رقمه الوظيفي',
   SECTOR_MANAGER_PROFILE_FAILED: 'أُنشئ الحساب لكن تعذّر حفظ قواطع مسؤول القاطع — أعد المحاولة',
   GARAGE_PROFILE_FAILED: 'فشل ربط حساب الكراج بالقاطع — رُجّع الإنشاء، حاول مجدداً',
   BAD_DEPARTMENT: 'القسم المحدد غير معروف',

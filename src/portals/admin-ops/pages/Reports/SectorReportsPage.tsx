@@ -8,16 +8,24 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const PRESETS = [{ k: 7, l: 'آخر 7 أيام' }, { k: 30, l: 'آخر 30 يوماً' }, { k: 90, l: 'آخر 90 يوماً' }]
 const ago = (n: number) => { const d = new Date(); d.setDate(d.getDate() - (n - 1)); return isoDay(d) }
 
-export default function SectorReportsPage() {
+export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boolean }) {
   const [from, setFrom] = useState(ago(30)), [to, setTo] = useState(isoDay()), [tab, setTab] = useState<'contractors' | 'managers'>('contractors')
+  const [parent, setParent] = useState<'all' | 'karrada' | 'zaafaraniya'>('all')
   const rep = useSectorReports(from, to)
-  const r = rep.data
+  const r = rep.data ? { ...rep.data, contractors: rep.data.contractors.filter((c) => parent === 'all' || c.parent_sector === parent), managers: rep.data.managers.filter((m) => parent === 'all' || m.parent_sector === parent) } : undefined
   return (
     <div className="space-y-4 pb-4" data-testid="sm-reports">
       <header>
         <h1 className="text-lg font-black">التقارير</h1>
-        <p className="text-xs text-slate-600">المتعهدون ومسؤولو الأقسام في قواطعك: حضور، تواجد، خروجات، إجازات.</p>
+        <p className="text-xs text-slate-600">{fieldOps ? 'المتعهدون ومسؤولو الأقسام في كل القواطع' : 'المتعهدون ومسؤولو الأقسام في قواطعك'}: حضور، تواجد، خروجات، إجازات.</p>
       </header>
+      {fieldOps && (
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" data-testid="rep-parent-filter">
+          {([['all', 'كل القواطع'], ['karrada', 'الكرادة'], ['zaafaraniya', 'الزعفرانية']] as const).map(([k, l]) => (
+            <button key={k} type="button" data-testid={`rep-parent-${k}`} onClick={() => setParent(k)} className={`h-9 rounded-lg text-xs font-black ${parent === k ? 'bg-white shadow' : 'text-slate-600'}`}>{l}</button>
+          ))}
+        </div>
+      )}
       <section className="rounded-2xl border bg-white p-3 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {PRESETS.map((p) => <button key={p.k} type="button" data-testid={`preset-${p.k}`} onClick={() => { setFrom(ago(p.k)); setTo(isoDay()) }} className={`rounded-full border px-3 py-1 text-xs font-bold ${from === ago(p.k) && to === isoDay() ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white'}`}>{p.l}</button>)}

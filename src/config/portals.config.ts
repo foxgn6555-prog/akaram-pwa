@@ -287,8 +287,14 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
 
   // ═══ البوابات السبع الجديدة — فارغة (صفحة رئيسية Placeholder فقط،
   //     والوحدات الفعلية تُضاف هنا عند بنائها) ═══
+  // العمليات الميدانية (00161): تعلو مسؤولي القواطع — نطاقها كل القواطع، بلا أي بيانات مالية — 6 وحدات ثابتة
   [PORTALS.FIELD_OPS]: [
     { path: '/field-ops', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/field-ops/requests', labelKey: 'nav.sm_team_requests', icon: 'check-square' },
+    { path: '/field-ops/sectors', labelKey: 'nav.fo_sectors', icon: 'users' },
+    { path: '/field-ops/reports', labelKey: 'nav.sm_reports', icon: 'bar-chart' },
+    { path: '/field-ops/notify', labelKey: 'nav.sm_notify', icon: 'send' },
+    { path: '/field-ops/my-requests', labelKey: 'nav.my_requests', icon: 'calendar' },
   ],
   // مسؤول القاطع (00160): مصمم للهاتف أولاً — 5 وحدات ثابتة
   [PORTALS.ADMIN_OPS]: [

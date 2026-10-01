@@ -21,6 +21,7 @@ export const useSectorManagerMe = () => useQuery({ queryKey: [...ROOT, 'me'], qu
 export const useSectorTeam = () => useQuery({ queryKey: [...ROOT, 'team'], queryFn: () => sectorManager.team(), refetchInterval: 60_000 })
 export const useSectorDashboard = () => useQuery({ queryKey: [...ROOT, 'dashboard'], queryFn: () => sectorManager.dashboard(), refetchInterval: 60_000 })
 export const useSectorReports = (from?: string, to?: string) => useQuery({ queryKey: [...ROOT, 'reports', from ?? '', to ?? ''], queryFn: () => sectorManager.reports(from, to) })
+export const useFieldOpsSectorManagers = () => useQuery({ queryKey: [...ROOT, 'fo-sector-managers'], queryFn: () => sectorManager.fieldOpsSectorManagers(), refetchInterval: 60_000 })
 export const useNotifyTargets = () => useQuery({ queryKey: [...ROOT, 'notify-targets'], queryFn: () => sectorManager.notifyTargets() })
 export const useSectorNotices = () => useQuery({ queryKey: [...ROOT, 'notices'], queryFn: () => sectorManager.notices() })
 export const useSendSectorNotice = () => useAction((x: { title: string; body: string; targets?: string[] }) => sectorManager.notify(x.title, x.body, x.targets), (n) => `أُرسل التبليغ إلى ${n} من مسؤولي الأقسام`)
