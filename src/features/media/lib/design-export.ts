@@ -110,7 +110,7 @@ const STYLE_PROPS = [
 ]
 
 /** يُسقط العناصر الخاصة بالشاشة ويحوّل الأنماط المحسوبة إلى أنماط مضمّنة */
-async function flattenPage(page: HTMLElement): Promise<string> {
+export async function flattenPage(page: HTMLElement): Promise<string> {
   const clone = page.cloneNode(true) as HTMLElement
   const srcNodes = [page, ...Array.from(page.querySelectorAll<HTMLElement>('*'))]
   const dstNodes = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>('*'))]
@@ -119,7 +119,7 @@ async function flattenPage(page: HTMLElement): Promise<string> {
     const src = srcNodes[i]
     const dst = dstNodes[i]
     if (!src || !dst) continue
-    if (src.classList.contains('no-print') || src.tagName === 'STYLE' || src.tagName === 'SCRIPT' || src.tagName === 'BUTTON') {
+    if (src.classList.contains('no-print') || src.tagName === 'STYLE' || src.tagName === 'SCRIPT' || src.tagName === 'INPUT') {
       removable.push(dst)
       continue
     }
@@ -137,6 +137,13 @@ async function flattenPage(page: HTMLElement): Promise<string> {
     for (const a of Array.from(dst.attributes)) if (a.name.startsWith('on')) dst.removeAttribute(a.name)
   }
   removable.forEach((n) => n.remove())
+  // النصوص القابلة للتعديل تُرسم أزراراً على الشاشة — في الملف تصبح نصاً عادياً
+  for (const btn of Array.from(clone.querySelectorAll('button'))) {
+    const span = document.createElement('span')
+    span.setAttribute('style', `${btn.getAttribute('style') ?? ''};cursor:default;outline:none;appearance:none`)
+    while (btn.firstChild) span.appendChild(btn.firstChild)
+    btn.replaceWith(span)
+  }
   // الصور → Base64 حتى يبقى الملف مستقلاً عن الروابط الموقعة المؤقتة
   const imgs = Array.from(clone.querySelectorAll('img'))
   await Promise.all(
@@ -181,17 +188,39 @@ export function downloadBlob(blob: Blob, name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000)
 }
 
-/** يرسم الورقة كصورة PNG بدقة عالية (html2canvas يُحمَّل عند الحاجة فقط) */
+/** يرسم الورقة كصورة PNG بدقة عالية — عبر html-to-image (المتصفح نفسه يرسم، فتُدعم ألوان
+ *  Tailwind v4 (oklch) والخطوط العربية المضمّنة)؛ الصور الموقّعة تُحوَّل Base64 مسبقاً حتى لا تُحجب. */
 async function rasterizePage(page: HTMLElement, scale = 2): Promise<HTMLCanvasElement> {
-  const { default: html2canvas } = await import('html2canvas')
-  return html2canvas(page, {
-    scale,
-    useCORS: true,
-    allowTaint: false,
-    backgroundColor: '#ffffff',
-    logging: false,
-    ignoreElements: (el) => el.classList.contains('no-print') || el.tagName === 'BUTTON',
-  })
+  const { toCanvas } = await import('html-to-image')
+  const inlined = await inlineImages(page)
+  try {
+    return await toCanvas(page, {
+      pixelRatio: scale,
+      backgroundColor: '#ffffff',
+      cacheBust: false,
+      skipFonts: false,
+      filter: (node) => !(node instanceof Element && (node.classList.contains('no-print') || node.tagName === 'INPUT')),
+    })
+  } finally {
+    inlined.forEach(({ img, src }) => img.setAttribute('src', src))
+  }
+}
+
+/** يستبدل مصادر الصور مؤقتاً بـ Base64 ويعيد ما يلزم لاستعادتها */
+async function inlineImages(page: HTMLElement): Promise<Array<{ img: HTMLImageElement; src: string }>> {
+  const imgs = Array.from(page.querySelectorAll('img')).filter((i) => i.src && !i.src.startsWith('data:'))
+  const restored: Array<{ img: HTMLImageElement; src: string }> = []
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.getAttribute('src') ?? ''
+      const data = await toDataUrl(src)
+      if (!data) return
+      restored.push({ img, src })
+      img.setAttribute('src', data)
+      await img.decode().catch(() => undefined)
+    }),
+  )
+  return restored
 }
 
 function canvasToBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {

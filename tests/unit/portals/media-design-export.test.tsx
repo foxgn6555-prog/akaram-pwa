@@ -8,6 +8,7 @@ import {
   pageSlide,
   reportPages,
   SLIDE_EMU,
+  flattenPage,
 } from '@features/media/lib/design-export'
 
 const h = vi.hoisted(() => ({ exportDesign: vi.fn() }))
@@ -57,6 +58,21 @@ describe('design-export — الدوال النقية', () => {
     document.body.innerHTML =
       '<div id="design-report"><section class="rp-page">a</section><section class="rp-page">b</section></div><section class="rp-page">خارج</section>'
     expect(reportPages().map((p) => p.textContent)).toEqual(['a', 'b'])
+  })
+})
+
+describe('flattenPage — التقاط الورقة', () => {
+  it('النصوص القابلة للتعديل (أزرار على الشاشة) تبقى نصاً في الملف، وأدوات الشاشة تُحذف، والصور Base64', async () => {
+    document.body.innerHTML =
+      '<div id="design-report"><section class="rp-page"><button class="rp-editable" style="color:rgb(1,2,3)">تقرير الكرادة</button>' +
+      '<div class="rp-celltools no-print"><button>حذف</button></div><input value="x"/><img src="data:image/png;base64,AAAA"/></section></div>'
+    const html = await flattenPage(reportPages()[0] as HTMLElement)
+    expect(html).toContain('تقرير الكرادة')
+    expect(html).not.toContain('<button')
+    expect(html).not.toContain('<input')
+    expect(html).not.toContain('حذف')
+    expect(html).toContain('data:image/png;base64,AAAA')
+    expect(html).not.toContain('class=')
   })
 })
 

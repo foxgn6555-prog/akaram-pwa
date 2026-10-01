@@ -37,7 +37,8 @@ export default function DesignExportMenu({ title }: { title: string }) {
     try {
       await exportDesign(format, title, (done, total) => setProgress({ done, total }))
     } catch (e) {
-      setError(e instanceof Error && e.message === 'NO_PAGES' ? 'لا توجد أوراق للتصدير — افتح المعاينة أولاً.' : 'تعذّر إنشاء الملف، حاول مرة أخرى.')
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(msg === 'NO_PAGES' ? 'لا توجد أوراق للتصدير — افتح المعاينة أولاً.' : `تعذّر إنشاء الملف (${msg || 'خطأ غير معروف'}) — حاول مرة أخرى.`)
     } finally {
       setBusy(null)
       setProgress(null)
