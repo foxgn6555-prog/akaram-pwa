@@ -327,3 +327,23 @@ revoke all on function public.termination_requests_mine() from public, anon;
 revoke all on function public.approval_my_tasks() from public, anon;
 grant execute on function public.termination_targets(), public.termination_request_create(text, uuid, text, date, text, text), public.termination_request_decide(uuid, boolean, text),
   public.termination_request_cancel(uuid), public.termination_requests_mine(), public.approval_my_tasks() to authenticated;
+
+-- المدير المفوض (super_admin) بوابته /admin لا /executive — روابط الإشعارات تذهب إلى بوابته الفعلية
+create or replace function app.approval_link_for(p_user uuid) returns text language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'super_admin') then '/admin/approvals'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'admin_ops') then '/admin-ops/requests'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'department_manager') then '/manager/leaves'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'field_ops') then '/field-ops/requests'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'deputy_director') then '/deputy/approvals'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'executive_director') then '/executive/approvals'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'hr_officer') then '/hr/leaves'
+    else '/notifications' end $$;
+create or replace function app.procedures_link_for(p_user uuid) returns text language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'super_admin') then '/admin/procedures'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'executive_director') then '/executive/procedures'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'deputy_director') then '/deputy/procedures'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'field_ops') then '/field-ops/procedures'
+    when exists (select 1 from public.user_roles where user_id = p_user and role = 'admin_ops') then '/admin-ops/procedures'
+    else '/notifications' end $$;

@@ -283,6 +283,8 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/admin/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/admin/announcements', labelKey: 'nav.announcements', icon: 'send' },
+    { path: '/admin/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+    { path: '/admin/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
   ],
 
   // ═══ البوابات السبع الجديدة — فارغة (صفحة رئيسية Placeholder فقط،

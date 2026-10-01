@@ -11,13 +11,14 @@ insert into auth.users (id, email) values
   ('ea000000-0000-0000-0000-000000000008', 'dep-t@t.iq'),       -- معاون المدير
   ('ea000000-0000-0000-0000-000000000009', 'exe-t@t.iq'),       -- المدير المفوض
   ('ea000000-0000-0000-0000-00000000000a', 'gar-t@t.iq'),       -- الكراج المركزي
-  ('ea000000-0000-0000-0000-00000000000b', 'sm2-t@t.iq')        -- مسؤول قاطع الزعفرانية
+  ('ea000000-0000-0000-0000-00000000000b', 'sm2-t@t.iq'),       -- مسؤول قاطع الزعفرانية
+  ('ea000000-0000-0000-0000-00000000000c', 'sa-t@t.iq')         -- المدير المفوض (super_admin — بوابة /admin)
 on conflict (id) do nothing;
 insert into public.user_roles (user_id, role) values
   ('ea000000-0000-0000-0000-000000000001', 'it_admin'), ('ea000000-0000-0000-0000-000000000002', 'hr_officer'), ('ea000000-0000-0000-0000-000000000003', 'department_manager'),
   ('ea000000-0000-0000-0000-000000000004', 'admin_ops'), ('ea000000-0000-0000-0000-000000000005', 'field_ops'), ('ea000000-0000-0000-0000-000000000006', 'department_manager'),
   ('ea000000-0000-0000-0000-000000000007', 'employee'), ('ea000000-0000-0000-0000-000000000008', 'deputy_director'), ('ea000000-0000-0000-0000-000000000009', 'executive_director'),
-  ('ea000000-0000-0000-0000-00000000000a', 'central_garage_officer'), ('ea000000-0000-0000-0000-00000000000b', 'admin_ops')
+  ('ea000000-0000-0000-0000-00000000000a', 'central_garage_officer'), ('ea000000-0000-0000-0000-00000000000b', 'admin_ops'), ('ea000000-0000-0000-0000-00000000000c', 'super_admin')
 on conflict do nothing;
 insert into public.manager_profiles (user_id, shift, sectors) values ('ea000000-0000-0000-0000-000000000003', 'morning', '{4}'), ('ea000000-0000-0000-0000-000000000006', 'evening', '{7}') on conflict do nothing;
 insert into public.employees (id, user_id, employee_number, full_name, hire_date, phone, biometric_pin) values
@@ -85,6 +86,11 @@ begin
   perform pg_temp.as_user('ea000000-0000-0000-0000-000000000009');
   select array_agg(full_name order by full_name) into names from public.termination_targets();
   if not ('المعاون' = any(names)) or 'المدير المفوض' = any(names) then raise exception 'exec scope wrong: %', names; end if;
+  -- المدير المفوض (super_admin): الجميع بمن فيهم المدير التنفيذي والمعاون
+  perform pg_temp.as_user('ea000000-0000-0000-0000-00000000000c');
+  select array_agg(full_name order by full_name) into names from public.termination_targets();
+  if not (names @> array['المعاون','المدير المفوض','مسؤول قاطع الكرادة','عامل أول']) then raise exception 'super_admin scope wrong: %', names; end if;
+  if app.approval_link_for('ea000000-0000-0000-0000-00000000000c') <> '/admin/approvals' or app.procedures_link_for('ea000000-0000-0000-0000-00000000000c') <> '/admin/procedures' then raise exception 'admin links'; end if;
   raise notice 'T1 ✅ النطاقات';
 end $$;
 
