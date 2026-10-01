@@ -2,7 +2,10 @@
  * منظومة الإدارة العليا (00146) — الصفحات:
  *   الرئيسية (المفوض/التنفيذي/المعاون/المالية) · التقارير (فلاتر/أقسام/Excel/PDF) · التبليغات (إنشاء/صادر/وارد/إقرار)
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+// تثبيت التاريخ: الفترات الجاهزة («هذا الشهر») تعتمد على اليوم، وفي أول يوم من الشهر تصبح يوماً واحداً
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-29T09:00:00')) })
+afterAll(() => vi.useRealTimers())
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import type { ReactNode } from 'react'

@@ -52,13 +52,15 @@ const geoOk = (lat = 33.3, lng = 44.4) => Object.defineProperty(navigator, 'geol
 describe('بوابة المتعهد (00158)', () => {
   beforeEach(() => { h.me = { ...baseMe }; h.workers = baseWorkers.map((w) => ({ ...w })); h.add.mockReset(); h.remove.mockReset(); h.checkin.mockReset(); h.mark.mockReset(); h.markAll.mockReset(); geoOk() })
 
-  it('الرئيسية: هويتي ومنطقتي، عدّادات اليوم، تنبيه عدم تسجيل الحضور، وشبكة الشهر', () => {
+  it('الرئيسية: هويتي ومنطقتي، عدّادات اليوم، تنبيه عدم إثبات التواجد (وليس حضوراً بديلاً عن البصمة)، وشبكة الشهر', () => {
     wrap(<Dashboard />)
     expect(screen.getByTestId('my-area')).toHaveTextContent('أرخيته')
     expect(screen.getByTestId('my-manager')).toHaveTextContent('مسؤول الكرادة')
     expect(screen.getByTestId('stat-workers')).toHaveTextContent('2')
     expect(screen.getByTestId('stat-unmarked')).toHaveTextContent('2')
-    expect(screen.getByTestId('checkin-status')).toHaveTextContent('لم تسجّل حضورك اليوم بعد')
+    expect(screen.getByTestId('checkin-status')).toHaveTextContent('لم تُثبت تواجدك في موقع عملك اليوم بعد')
+    expect(screen.getByTestId('checkin-status')).toHaveTextContent('حضورك الرسمي يُحتسب بالبصمة')
+    expect(screen.getByTestId('checkin-status')).not.toHaveTextContent('سجّل حضورك')
     expect(screen.getByTestId('grid-w1').querySelectorAll('[title="حاضر"]')).toHaveLength(1)
     expect(screen.getByTestId('grid-w1').querySelectorAll('[title="غائب"]')).toHaveLength(1)
   })
@@ -66,7 +68,7 @@ describe('بوابة المتعهد (00158)', () => {
   it('الرئيسية بعد الحضور: الوقت وحالة النطاق', () => {
     h.me = { ...baseMe, checked_in_today: true, checkin_at: '2026-09-29T04:05:00Z', in_zone: false }
     wrap(<Dashboard />)
-    expect(screen.getByTestId('checkin-status')).toHaveTextContent('سجّلت حضورك اليوم')
+    expect(screen.getByTestId('checkin-status')).toHaveTextContent('أثبتَّ تواجدك في الموقع اليوم')
     expect(screen.getByTestId('checkin-status')).toHaveTextContent('خارج نطاق المنطقة')
   })
 

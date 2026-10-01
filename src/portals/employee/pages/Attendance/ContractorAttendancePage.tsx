@@ -1,7 +1,8 @@
 /**
  * بوابة المتعهد — حضورية العمال.
- * الخطوات بالترتيب: (1) موقعي تلقائياً (2) صورة سلفي (3) صورة العمال → «تسجيل الحضور» → ثم حاضر/غائب أمام كل عامل.
- * الموقع لا يمنع التسجيل لكنه يُقيَّم داخل/خارج نطاق المنطقة لغرفة العمليات.
+ * الخطوات بالترتيب: (1) موقعي تلقائياً (2) صورة سلفي (3) صورة العمال → «إثبات التواجد في الموقع» → ثم حاضر/غائب أمام كل عامل.
+ * إثبات التواجد ليس حضوراً وظيفياً (حضور المتعهد الرسمي بالبصمة) — هو دليل أنه في موقعه وزونه، ويُقيَّم داخل/خارج النطاق لغرفة العمليات.
+ * لا علاقة له بأنظمة البصمة إطلاقاً.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Camera, CheckCircle2, MapPin, RefreshCw, UserCheck, UserX, Users } from 'lucide-react'
@@ -76,7 +77,7 @@ export default function ContractorAttendancePage() {
 
       {!m.checked_in_today ? (
         <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4" data-testid="checkin-form">
-          <h2 className="font-black text-amber-900">أولاً: سجّل حضورك أنت</h2>
+          <h2 className="font-black text-amber-900">أولاً: أثبِت تواجدك في موقع عملك</h2>
           <div className={`rounded-2xl border p-3 ${geo ? 'border-emerald-200 bg-emerald-50' : 'bg-white'}`} data-testid="geo-step">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-black"><span className="flex size-6 items-center justify-center rounded-full bg-slate-900 text-[11px] text-white">1</span><MapPin size={16} />موقعك الحالي</div>
@@ -90,7 +91,7 @@ export default function ContractorAttendancePage() {
           <PhotoStep n={2} title="صورتك (سلفي)" hint="بالكاميرا الأمامية — تُرسل إلى غرفة العمليات" file={selfie} onFile={setSelfie} facing="user" testId="selfie-input" />
           <PhotoStep n={3} title="صورة العمال" hint="صورة جماعية للعمال الحاضرين في الموقع الآن" file={team} onFile={setTeam} facing="environment" testId="team-input" />
           <button type="button" disabled={!canSubmit} onClick={submit} data-testid="checkin-submit" className="h-12 w-full rounded-xl bg-emerald-600 text-base font-black text-white disabled:opacity-40">
-            {checkin.isPending ? 'جارٍ الإرسال…' : 'تسجيل الحضور'}
+            {checkin.isPending ? 'جارٍ الإرسال…' : 'إثبات التواجد في الموقع'}
           </button>
           {!canSubmit && !checkin.isPending && (
             <p className="text-center text-[11px] font-bold text-amber-800" data-testid="checkin-missing">
@@ -101,7 +102,7 @@ export default function ContractorAttendancePage() {
       ) : (
         <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4" data-testid="checkin-done">
           <div className="flex-1 text-sm">
-            <div className="font-black text-emerald-800">✓ سجّلت حضورك الساعة {timeAr(m.checkin_at)}</div>
+            <div className="font-black text-emerald-800">✓ أثبتَّ تواجدك في الموقع الساعة {timeAr(m.checkin_at)}</div>
             <div className="mt-1 inline-flex items-center gap-1 text-emerald-900"><MapPin size={14} /><span data-testid="zone-label">{zoneLabel(m.in_zone, m.zone_defined)}</span></div>
           </div>
           <div className="flex gap-2"><Photo path={m.selfie_path} label="سلفي" /><Photo path={m.team_photo_path} label="العمال" /></div>
@@ -117,7 +118,7 @@ export default function ContractorAttendancePage() {
             <button type="button" onClick={() => markAll.mutate({ status: 'present' })} data-testid="mark-all-present" className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-800">تعليم الجميع حاضرين</button>
           )}
         </div>
-        {!m.checked_in_today && <p className="mb-2 rounded-xl bg-slate-50 p-2 text-[11px] font-bold text-slate-600" data-testid="locked-note">تسجيل حضور العمال يُفتح بعد تسجيل حضورك أعلاه.</p>}
+        {!m.checked_in_today && <p className="mb-2 rounded-xl bg-slate-50 p-2 text-[11px] font-bold text-slate-600" data-testid="locked-note">تسجيل حضور العمال يُفتح بعد إثبات تواجدك في الموقع أعلاه.</p>}
         {workers.isLoading ? <LoadingSpinner /> : !list.length ? <p className="text-sm text-slate-500">لا عمال في فريقك — أضفهم من «فريقي».</p> : (
           <ul className="divide-y">
             {list.map((w, i) => (

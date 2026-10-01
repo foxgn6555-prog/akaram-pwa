@@ -1,5 +1,7 @@
 import { fireEvent,render,screen } from '@testing-library/react'
-import { beforeEach,describe,expect,it,vi } from 'vitest'
+import { afterAll,beforeAll,beforeEach,describe,expect,it,vi } from 'vitest'
+// تثبيت التاريخ: الفلتر الافتراضي «آخر 30 يوماً» وبيانات العينة في 2026-09
+beforeAll(()=>{vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-09-29T09:00:00'))});afterAll(()=>vi.useRealTimers())
 const h=vi.hoisted(()=>({excel:vi.fn(),print:vi.fn()}));const rows=[{id:'1',ref_no:'K-1',db_number:'DB-1',driver_name:'علي',vehicle_type:'كابسة',contractor_name:'ذاتي',sector:'الكرادة',shift:'morning',log_date:'2026-09-01',violation_type:'delay',penalty_type:'warning',details:'تفاصيل المخالفة الأولى',status:'draft',submitted_at:null,prepared_by_name:'حسن',archived_at:null,archived_by:null,archive_reason:null,created_by:'u',created_at:'x'},{id:'2',ref_no:'K-2',db_number:'DB-2',driver_name:'سعد',vehicle_type:'تنكر',contractor_name:'مؤجر',sector:'الزعفرانية',shift:'evening',log_date:'2026-09-02',violation_type:'absence',penalty_type:'termination',details:'تفاصيل المخالفة الثانية',status:'submitted_to_deputy',submitted_at:'x',prepared_by_name:'حسن',archived_at:null,archived_by:null,archive_reason:null,created_by:'u',created_at:'x'}]
 vi.mock('@features/disclosures',()=>({useDisclosureList:()=>({data:rows,isLoading:false})}));vi.mock('@features/disclosures/lib/export',()=>({toExcel:h.excel,printDisclosureReport:h.print}));vi.mock('@stores/ui.store',()=>({useUiStore:(fn:(s:{addToast:()=>void})=>unknown)=>fn({addToast:vi.fn()})}))
 import DisclosureReportsPage from '@portals/disclosures/pages/Reports/DisclosureReportsPage'

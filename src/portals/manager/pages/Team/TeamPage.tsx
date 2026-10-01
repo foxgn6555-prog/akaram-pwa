@@ -28,7 +28,7 @@ export default function TeamPage() {
                   <div className="text-lg font-black text-cyan-950" data-testid={`contractor-${r.sector_id}`}>{r.contractor_name}</div>
                   {r.contractor_phone && <div className="inline-flex items-center gap-1 text-xs text-cyan-900"><Phone size={11} />{r.contractor_phone}</div>}
                   <div className="mt-1 text-[11px] text-cyan-900">
-                    {r.contractor_checked_in ? <>✓ سجّل حضوره {timeAr(r.contractor_checkin_at)} · {zoneLabel(r.in_zone)}</> : 'لم يسجّل حضوره اليوم بعد'}
+                    {r.contractor_checked_in ? <>✓ أثبت تواجده في الموقع {timeAr(r.contractor_checkin_at)} · {zoneLabel(r.in_zone)}</> : 'لم يُثبت تواجده في الموقع اليوم بعد'}
                   </div>
                 </>
               ) : <div className="text-sm font-bold text-slate-500">لا متعهد معيّن لهذه المنطقة</div>}

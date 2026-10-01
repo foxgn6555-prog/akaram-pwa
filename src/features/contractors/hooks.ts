@@ -19,7 +19,7 @@ export const useContractorPhotoUrl = (path: string | null | undefined) =>
   useQuery({ queryKey: [...ROOT, 'photo', path], queryFn: () => contractors.signedUrl(path as string), enabled: Boolean(path), staleTime: 25 * 60_000 })
 export const useAddWorker = () => useAction((x: { fullName: string; phone?: string | null }) => contractors.addWorker(x.fullName, x.phone), 'أُضيف العامل إلى فريقك')
 export const useRemoveWorker = () => useAction((x: { workerId: string; reason?: string }) => contractors.removeWorker(x.workerId, x.reason), 'أُزيل العامل من الفريق')
-export const useContractorCheckin = () => useAction((x: CheckinInput) => contractors.checkin(x), 'سُجّل حضورك — يمكنك الآن تسجيل حضور العمال')
+export const useContractorCheckin = () => useAction((x: CheckinInput) => contractors.checkin(x), 'تم إثبات تواجدك في الموقع — يمكنك الآن تسجيل حضور العمال')
 export const useMarkAttendance = () => useAction((x: { workerId: string; status: AttendanceStatus; date?: string }) => contractors.markAttendance(x.workerId, x.status, x.date), 'تم الحفظ')
 export const useMarkAll = () => useAction((x: { status: AttendanceStatus; date?: string }) => contractors.markAll(x.status, x.date), 'تم تعليم جميع العمال')
 // التطوير المركزية

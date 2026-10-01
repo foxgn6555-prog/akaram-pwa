@@ -1,4 +1,4 @@
-/** بوابة المتعهد — الرئيسية: من أنا/منطقتي، حالة حضور اليوم، ملخص الفريق، شبكة حضور الشهر */
+/** بوابة المتعهد — الرئيسية: من أنا/منطقتي، حالة إثبات التواجد اليوم، ملخص الفريق، شبكة حضور الشهر */
 import { Link } from 'react-router'
 import { CalendarCheck, Camera, MapPin, UserCheck, UserX, Users } from 'lucide-react'
 import { useContractorMe, useContractorMonthGrid } from '@features/contractors/hooks'
@@ -28,14 +28,14 @@ export default function ContractorDashboard() {
       <section className={`rounded-2xl border p-4 ${m.checked_in_today ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`} data-testid="checkin-status">
         {m.checked_in_today ? (
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="font-black text-emerald-800">✓ سجّلت حضورك اليوم الساعة {timeAr(m.checkin_at)}</span>
+            <span className="font-black text-emerald-800">✓ أثبتَّ تواجدك في الموقع اليوم الساعة {timeAr(m.checkin_at)}</span>
             <span className="inline-flex items-center gap-1 text-emerald-900"><MapPin size={14} />{zoneLabel(m.in_zone, m.zone_defined)}</span>
             <span className="inline-flex items-center gap-1 text-emerald-900"><Camera size={14} />صورتك وصورة العمال محفوظتان</span>
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-bold text-amber-900">لم تسجّل حضورك اليوم بعد — ابدأ بتسجيل حضورك ثم سجّل حضور العمال.</p>
-            <Link to="/employee/attendance" className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-black text-white">تسجيل الحضور الآن</Link>
+            <p className="text-sm font-bold text-amber-900">لم تُثبت تواجدك في موقع عملك اليوم بعد — أثبِت تواجدك (موقع + صور) ثم سجّل حضور العمال. حضورك الرسمي يُحتسب بالبصمة.</p>
+            <Link to="/employee/attendance" className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-black text-white">إثبات التواجد الآن</Link>
           </div>
         )}
       </section>
