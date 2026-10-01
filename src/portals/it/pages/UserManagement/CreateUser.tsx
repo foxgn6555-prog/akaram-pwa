@@ -47,10 +47,13 @@ export default function CreateUser() {
       garage_parent_sector: undefined,
       contractor_manager_id: '',
       contractor_sector_id: null,
+      sector_manager_parent_sectors: [],
     },
   })
 
   const selectedRole = watch('role')
+  const isSectorManager = selectedRole === 'admin_ops'
+  const smParents = watch('sector_manager_parent_sectors') ?? []
   const isHighPrivilege = selectedRole === 'super_admin' || selectedRole === 'it_admin'
   const isManager = selectedRole === 'department_manager'
   const isGarageOfficer = selectedRole === 'central_garage_officer'
@@ -124,6 +127,7 @@ export default function CreateUser() {
         ...(data.role === 'employee'
           ? { contractor_manager_id: data.contractor_manager_id || undefined, contractor_sector_id: data.contractor_sector_id ?? (chosenManagerAreas.length === 1 ? chosenManagerAreas[0]?.id : null) }
           : {}),
+        ...(data.role === 'admin_ops' ? { sector_manager_parent_sectors: data.sector_manager_parent_sectors ?? [] } : {}),
       })
       navigate('/it/user-management')
     } catch {
@@ -297,6 +301,27 @@ export default function CreateUser() {
                 {chosenManagerAreas.length > 1 && !contractorSectorId && <p className="mt-1 text-xs text-amber-700" role="alert">للمسؤول أكثر من منطقة — اختر منطقة المتعهد</p>}
               </div>
             )}
+          </fieldset>
+        )}
+
+        {/* 00160: مسؤول القاطع — القواطع الأم (متعددة) + ربط HR إلزامي */}
+        {isSectorManager && (
+          <fieldset data-testid="sector-manager-assignment" className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+            <legend className="px-1 text-xs font-semibold text-indigo-700">قواطع مسؤول القاطع (مطلوب — يمكن اختيار أكثر من قاطع)</legend>
+            <p className="mb-2 text-[11px] text-slate-600">سيكون مسؤولاً عن مسؤولي الأقسام في القواطع المختارة، وتصله طلباتهم وتقاريرهم. يلزم إدخال الرقم الوظيفي أدناه لربطه بسجل الموارد البشرية (ليتمكن من تقديم طلباته).</p>
+            <div className="flex flex-wrap gap-2">
+              {(['karrada', 'zaafaraniya'] as const).map((ps) => {
+                const on = smParents.includes(ps)
+                return (
+                  <button key={ps} type="button" data-testid={`sm-parent-${ps}`} aria-pressed={on}
+                    onClick={() => { setValue('sector_manager_parent_sectors', on ? smParents.filter((x) => x !== ps) : [...smParents, ps]); void trigger('sector_manager_parent_sectors') }}
+                    className={clsx('rounded-full border px-4 py-1.5 text-sm font-bold', on ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white')}>
+                    {PARENT_AR[ps]}
+                  </button>
+                )
+              })}
+            </div>
+            {errors.sector_manager_parent_sectors && <p className="mt-2 text-xs text-rose-700" role="alert">{errors.sector_manager_parent_sectors.message}</p>}
           </fieldset>
         )}
 

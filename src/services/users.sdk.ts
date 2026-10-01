@@ -43,6 +43,8 @@ export interface CreateUserInput {
   /** 00158: حساب متعهد — مسؤول القسم المسؤول ومنطقته (اختيارية إن كان للمسؤول منطقة واحدة) */
   contractor_manager_id?: string
   contractor_sector_id?: number | null
+  /** 00160: مسؤول القاطع — القواطع الأم */
+  sector_manager_parent_sectors?: Array<'karrada' | 'zaafaraniya'>
 }
 
 /** تعديل بيانات الموظف المرتبط بمستخدم (ينشئ السجل إن لم يوجد) */
@@ -181,6 +183,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   CONTRACTOR_SECTOR_NOT_MANAGERS: 'المنطقة ليست من مناطق مسؤول القسم',
   CONTRACTOR_SECTOR_TAKEN: 'لهذه المنطقة متعهد نشط بالفعل',
   CONTRACTOR_PROFILE_FAILED: 'أُنشئ الحساب لكن تعذّر إسناد المتعهد — أعد المحاولة',
+  SECTOR_MANAGER_SECTORS_REQUIRED: 'اختر قاطعاً واحداً على الأقل لمسؤول القاطع',
+  SECTOR_MANAGER_EMPLOYEE_REQUIRED: 'مسؤول القاطع موظف — أدخل رقمه الوظيفي',
+  SECTOR_MANAGER_PROFILE_FAILED: 'أُنشئ الحساب لكن تعذّر حفظ قواطع مسؤول القاطع — أعد المحاولة',
   GARAGE_PROFILE_FAILED: 'فشل ربط حساب الكراج بالقاطع — رُجّع الإنشاء، حاول مجدداً',
   BAD_DEPARTMENT: 'القسم المحدد غير معروف',
   JOB_TITLE_TOO_LONG: 'المسمى الوظيفي طويل جداً (100 حرف كحد أقصى)',

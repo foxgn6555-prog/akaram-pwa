@@ -1,6 +1,7 @@
 /**
  * بوابة الموظف — «طلباتي» (00144)
- * رصيد الإجازات الحي · طلب إجازة/زمنية يُرسل إلى المدير المباشر · سجل طلباتي مع إلغاء المعلّق أو المعتمد المستقبلي.
+ * رصيد الإجازات الحي · طلب إجازة/زمنية يُرسل حسب سلسلة الموافقات المضبوطة لدورك (00160) أو إلى المدير المباشر إن لم توجد سلسلة
+ * · سجل طلباتي مع إلغاء المعلّق أو المعتمد المستقبلي. تُستخدم في بوابة الموظف وبوابة مسؤول القاطع.
  */
 import { useHrPolicy, useLeaveBalance, useLeaveRequests, useMyEmployee } from '@features/hr'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -19,10 +20,11 @@ export default function MyRequests() {
       <header>
         <h1 className="text-xl font-black">طلباتي</h1>
         <p className="text-xs text-slate-500">{me.full_name} · {me.job_title ?? ''}{me.department_name ? ` · ${me.department_name}` : ''} · المدير المباشر: <b data-testid="my-manager">{me.manager_name ?? 'غير محدد'}</b></p>
+        <p className="mt-1 text-[11px] text-slate-500">يمر طلبك بسلسلة الموافقات المضبوطة لدورك (إن وُجدت)، وإلا يذهب إلى مديرك المباشر.</p>
       </header>
       <BalanceCard balance={balance} isLoading={balLoading} testId="my-balance" />
-      {me.manager_id ? <LeaveRequestForm employeeId={me.id} balance={balance} permitMaxMinutes={policy?.permit_max_minutes} testId="my-form" />
-        : <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="my-no-manager">لا يوجد مدير مباشر مسجّل لك — لا يمكن إرسال طلب حتى تحدده الموارد البشرية</p>}
+      {!me.manager_id && <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="my-no-manager">لا يوجد مدير مباشر مسجّل لك — سيُقبل طلبك فقط إن كانت لدورك سلسلة موافقات مضبوطة من التطوير المركزية.</p>}
+      <LeaveRequestForm employeeId={me.id} balance={balance} permitMaxMinutes={policy?.permit_max_minutes} testId="my-form" />
       <LeaveRequestsTable rows={rows} isLoading={isLoading} mode="employee" showEmployee={false} testId="my-req" />
     </div>
   )

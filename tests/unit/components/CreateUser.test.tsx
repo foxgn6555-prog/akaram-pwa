@@ -92,6 +92,20 @@ describe('CreateUser — إنشاء مستخدم', () => {
     })
   })
 
+  it('مسؤول القاطع: يلزم قاطع واحد على الأقل + رقم وظيفي؛ يمكن اختيار القاطعين معاً', async () => {
+    renderPage()
+    await FILL()
+    await userEvent.selectOptions(screen.getByTestId('create-role'), 'admin_ops')
+    expect(screen.getByTestId('sector-manager-assignment')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0))
+    expect(mockMutateAsync).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByTestId('sm-parent-karrada'))
+    await userEvent.click(screen.getByTestId('sm-parent-zaafaraniya'))
+    await userEvent.click(screen.getByTestId('create-submit'))
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ role: 'admin_ops', employee_number: 'EMP-099', sector_manager_parent_sectors: ['karrada', 'zaafaraniya'] })))
+  })
+
   it('مسؤول بأكثر من منطقة: يجب اختيار منطقة، والمنطقة المشغولة بمتعهد معطلة', async () => {
     renderPage()
     await FILL()

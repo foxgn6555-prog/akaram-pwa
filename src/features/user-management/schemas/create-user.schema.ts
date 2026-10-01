@@ -53,6 +53,8 @@ export const createSuperAdminSchema = z
     /** 00158: حساب المتعهد (role = employee) — مسؤول القسم المسؤول عنه ومنطقته (من مناطق المسؤول) */
     contractor_manager_id: z.string().optional().or(z.literal('')),
     contractor_sector_id: z.number().int().min(1).max(8).optional().nullable(),
+    /** 00160: مسؤول القاطع (role = admin_ops) — القواطع الأم المسؤول عنها (متعددة) */
+    sector_manager_parent_sectors: z.array(z.enum(['karrada', 'zaafaraniya'])).optional(),
   })
   // تحقق شرطي: مسؤول القسم يلزمه شفت + منطقة واحدة على الأقل
   .superRefine((val, ctx) => {
@@ -62,6 +64,14 @@ export const createSuperAdminSchema = z
         path: ['garage_parent_sector'],
         message: 'اختر قاطع الكراج: الكرادة أو الزعفرانية',
       })
+    }
+    if (val.role === 'admin_ops') {
+      if (!val.sector_manager_parent_sectors || val.sector_manager_parent_sectors.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sector_manager_parent_sectors'], message: 'اختر قاطعاً واحداً على الأقل لمسؤول القاطع' })
+      }
+      if (!val.employee_number || !val.employee_number.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['employee_number'], message: 'مسؤول القاطع موظف — أدخل رقمه الوظيفي لربط حسابه بسجل الموارد البشرية' })
+      }
     }
     if (val.role === 'employee' && !val.contractor_manager_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['contractor_manager_id'], message: 'اختر مسؤول القسم المسؤول عن هذا المتعهد' })

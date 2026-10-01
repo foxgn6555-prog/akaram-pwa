@@ -74,7 +74,8 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(21) // 19 + وارد التبليغات وتفصيله (00146)
+    expect(itPaths).toHaveLength(22) // 19 + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160)
+    expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('database/tables/:tableName')
     expect(itPaths).toContain('central-garage-approvals')
     expect(itPaths).toContain('flowbridge')

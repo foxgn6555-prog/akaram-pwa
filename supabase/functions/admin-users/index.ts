@@ -132,6 +132,9 @@ async function createUser(
   const contractorManagerId = body.contractor_manager_id ? String(body.contractor_manager_id) : ''
   const contractorSectorRaw = Number(body.contractor_sector_id)
   const contractorSectorId = Number.isInteger(contractorSectorRaw) && contractorSectorRaw >= 1 && contractorSectorRaw <= 8 ? contractorSectorRaw : null
+  // 00160: مسؤول القاطع (role = admin_ops) — القواطع الأم (متعددة) + ربط HR إلزامي
+  const isSectorManager = role === 'admin_ops'
+  const smParents = Array.isArray(body.sector_manager_parent_sectors) ? (body.sector_manager_parent_sectors as unknown[]).map(String) : []
 
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
   if (password.length < 8 || !/[A-Za-z\u0600-\u06FF]/.test(password) || !/[0-9]/.test(password))
@@ -148,6 +151,10 @@ async function createUser(
 
   if (isGarageOfficer && !['karrada', 'zaafaraniya'].includes(garageParentSector)) {
     return json({ error: 'GARAGE_PARENT_SECTOR_REQUIRED' }, 400)
+  }
+  if (isSectorManager) {
+    if (smParents.length === 0 || smParents.some((p) => !['karrada', 'zaafaraniya'].includes(p))) return json({ error: 'SECTOR_MANAGER_SECTORS_REQUIRED' }, 400)
+    if (!employeeNumber) return json({ error: 'SECTOR_MANAGER_EMPLOYEE_REQUIRED' }, 400)
   }
   let contractorSector: number | null = contractorSectorId
   if (isContractor) {
@@ -276,6 +283,14 @@ async function createUser(
     await admin.from('contractor_audit_log').insert({ actor_id: callerId, action: 'assign', contractor_user_id: userId, sector_id: contractorSector, after_data: { manager_user_id: contractorManagerId, sector_id: contractorSector } })
   }
 
+  if (isSectorManager) {
+    const { error: smError } = await admin.from('sector_manager_profiles').insert({ user_id: userId, parent_sectors: [...new Set(smParents)].sort(), created_by: callerId })
+    if (smError) {
+      await admin.auth.admin.deleteUser(userId)
+      return json({ error: 'SECTOR_MANAGER_PROFILE_FAILED', detail: smError.message }, 500)
+    }
+  }
+
   if (isGarageOfficer) {
     const { error: garageProfileError } = await admin.from('garage_user_profiles').insert({
       user_id: userId,
@@ -292,6 +307,7 @@ async function createUser(
     role,
     ...(isGarageOfficer ? { garage_parent_sector: garageParentSector } : {}),
     ...(isContractor ? { contractor_manager_id: contractorManagerId, contractor_sector_id: contractorSector } : {}),
+    ...(isSectorManager ? { sector_manager_parent_sectors: smParents } : {}),
   })
   return json({ user_id: userId, email, role }, 200)
 }

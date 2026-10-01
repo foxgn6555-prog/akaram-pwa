@@ -80,7 +80,7 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
     themeClass: 'portal-field-ops',
   },
   [PORTALS.ADMIN_OPS]: {
-    label: 'العمليات الإدارية',
+    label: 'مسؤول القاطع',
     icon: 'clipboard',
     colorVar: '--portal-admin-ops',
     themeClass: 'portal-admin-ops',
@@ -208,6 +208,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/it/user-management/list', labelKey: 'nav.users_list', icon: 'users' },
         { path: '/it/user-management/create', labelKey: 'nav.create_user', icon: 'user-plus' },
+        { path: '/it/user-management/approval-chains', labelKey: 'nav.approval_chains', icon: 'flow' },
         // الهيكل التنظيمي (الأقسام) يُدار حصراً من بوابة الموارد البشرية /hr/org — لا نسخة هنا لتفادي التداخل
       ],
     },
@@ -289,8 +290,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.FIELD_OPS]: [
     { path: '/field-ops', labelKey: 'nav.dashboard', icon: 'home', exact: true },
   ],
+  // مسؤول القاطع (00160): مصمم للهاتف أولاً — 5 وحدات ثابتة
   [PORTALS.ADMIN_OPS]: [
     { path: '/admin-ops', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/admin-ops/requests', labelKey: 'nav.sm_team_requests', icon: 'check-square' },
+    { path: '/admin-ops/reports', labelKey: 'nav.sm_reports', icon: 'bar-chart' },
+    { path: '/admin-ops/notify', labelKey: 'nav.sm_notify', icon: 'send' },
+    { path: '/admin-ops/my-requests', labelKey: 'nav.my_requests', icon: 'calendar' },
   ],
   [PORTALS.MAINTENANCE]: [
     { path: '/maintenance', labelKey: 'nav.dashboard', icon: 'home', exact: true },

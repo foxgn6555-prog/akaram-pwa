@@ -51,7 +51,7 @@ export const ROLE_LABELS: Readonly<Record<Role, string>> = {
   it_admin: 'تقنية معلومات',
   super_admin: 'مدير مفوض',
   field_ops: 'عمليات ميدانية',
-  admin_ops: 'عمليات إدارية',
+  admin_ops: 'مسؤول القاطع',
   maintenance: 'صيانة',
   transfer_station: 'محطة تحويلية',
   executive_director: 'مدير تنفيذي',

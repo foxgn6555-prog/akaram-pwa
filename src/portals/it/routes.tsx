@@ -12,6 +12,7 @@ const ITDashboard = lazy(() => import('@portals/it/pages/Dashboard/ITDashboard')
 const UserManagementHub = lazy(() => import('@portals/it/pages/UserManagement/UserManagementHub'))
 const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'))
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
+const ApprovalChainsPage = lazy(() => import('@portals/it/pages/ApprovalChains/ApprovalChainsPage'))
 const UserDetail = lazy(() => import('@portals/it/pages/UserManagement/UserDetail'))
 const DatabaseHub = lazy(() => import('@portals/it/pages/Database/DatabaseHub'))
 const DatabaseOverview = lazy(() => import('@portals/it/pages/Database/DatabaseOverview'))
@@ -48,6 +49,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management', element: s(<UserManagementHub />) },
   { path: 'user-management/list', element: s(<UsersList />) },
   { path: 'user-management/create', element: s(<CreateUser />) },
+  { path: 'user-management/approval-chains', element: s(<ApprovalChainsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },
 
   // ── وحدة قاعدة البيانات ──

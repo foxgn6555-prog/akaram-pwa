@@ -111,7 +111,11 @@
     "hr_recruitment": "التوظيف وإنهاء الخدمات",
     "hr_leaves": "الإجازات والزمنيات",
     "hr_biometric_ledger": "دفتر البصمة",
-    "hr_org": "الهيكل التنظيمي"
+    "hr_org": "الهيكل التنظيمي",
+    "sm_team_requests": "طلبات فريقي",
+    "sm_reports": "التقارير",
+    "sm_notify": "التبليغ",
+    "approval_chains": "سلاسل الموافقات"
   },
   "sections": {
     "main": "القائمة الرئيسية",

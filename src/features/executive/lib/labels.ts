@@ -18,7 +18,7 @@ export const label = (k: string | null | undefined): string => (k ? STATUS_LABEL
 export const ROLE_AR: Record<string, string> = {
   super_admin: 'المدير المفوض', executive_director: 'المدير التنفيذي', deputy_director: 'معاون المدير المفوض', finance_officer: 'الشؤون المالية',
   hr_officer: 'الموارد البشرية', it_admin: 'التطوير المركزية', ops_room: 'غرفة العمليات', department_manager: 'مسؤولو الأقسام', employee: 'الموظفون',
-  field_ops: 'العمليات الميدانية', admin_ops: 'العمليات الإدارية', maintenance: 'الصيانة', transfer_station: 'المحطة التحويلية',
+  field_ops: 'العمليات الميدانية', admin_ops: 'مسؤول القاطع', maintenance: 'الصيانة', transfer_station: 'المحطة التحويلية',
   disclosures_officer: 'وحدة الكشوفات', complaints_officer: 'الشكاوى', media_officer: 'الإعلام', central_garage_officer: 'الكراج المركزي',
 }
 

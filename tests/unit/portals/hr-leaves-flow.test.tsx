@@ -178,10 +178,10 @@ describe('بوابة الموظف — طلباتي', () => {
     fireEvent.click(screen.getByTestId('my-req-cancel-r2'))
     await waitFor(() => expect(h.cancel).toHaveBeenCalledWith({ id: 'r2', reason: 'تغيّرت الخطة' }))
   })
-  it('بلا مدير مباشر: تنبيه بدل النموذج', () => {
+  it('بلا مدير مباشر: تنبيه مع بقاء النموذج (سلسلة الموافقات قد تغني عن المدير)', () => {
     h.me = { ...h.me!, manager_id: null, manager_name: null }
     render(<MyRequests />)
-    expect(screen.getByTestId('my-no-manager')).toBeInTheDocument(); expect(screen.queryByTestId('my-form')).toBeNull()
+    expect(screen.getByTestId('my-no-manager')).toBeInTheDocument(); expect(screen.getByTestId('my-form')).toBeInTheDocument()   // 00160: النموذج يبقى — السلسلة قد تغني عن المدير المباشر
   })
 })
 
