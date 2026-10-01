@@ -243,3 +243,40 @@ describe('الحفظ التلقائي — لا تضيع التعديلات عن�
     expect(td!.querySelector('div[style*="writing-mode"]')).toBeTruthy()
   })
 })
+
+describe('أنواع التقرير: يومي / أسبوعي', () => {
+  it('اليومي يكتب اسم اليوم وتاريخه تلقائياً: «يوم الخميس» — 2026\\10\\1', () => {
+    const { container } = render(
+      <DesignReportView {...base} periodType="daily" periodStart="2026-10-01" periodEnd="2026-10-01" groups={[{ workType: 'كنس', photos: [photo(1)] }]} />,
+    )
+    const text = container.querySelector('.rp-summary')!.textContent!
+    expect(text).toContain('يوم الخميس')
+    expect(text).toContain('2026\\10\\1')
+    expect(text).toContain('التقرير اليومي المصور')
+    expect(text).not.toContain('التاريخ من')
+  })
+
+  it('الأسبوعي يكتب «التقرير الأسبوعي» مع المدى من السبت إلى الجمعة', () => {
+    const { container } = render(
+      <DesignReportView {...base} periodType="weekly" periodStart="2026-09-26" periodEnd="2026-10-02" groups={[{ workType: 'كنس', photos: [photo(1)] }]} />,
+    )
+    const text = container.querySelector('.rp-summary')!.textContent!
+    expect(text).toContain('التقرير الأسبوعي')
+    expect(text).toContain('من 26 أيلول 2026 الى 2 تشرين الأول 2026')
+  })
+
+  it('تغيير النوع بعد الفتح يحدّث سطر التاريخ تلقائياً ويُحفظ', async () => {
+    const onSave = vi.fn(async () => {})
+    const groups = [{ workType: 'كنس', photos: [photo(1)] }]
+    const { container, rerender } = render(
+      <DesignReportView {...base} periodType="first_half" periodStart="2026-10-01" periodEnd="2026-10-14" groups={groups} onSaveReport={onSave} />,
+    )
+    expect(container.querySelector('.rp-summary')!.textContent).toContain('التاريخ من')
+    rerender(<DesignReportView {...base} periodType="daily" periodStart="2026-10-01" periodEnd="2026-10-01" groups={groups} onSaveReport={onSave} />)
+    expect(container.querySelector('.rp-summary')!.textContent).toContain('يوم الخميس')
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 4000 })
+    const extra = (onSave.mock.calls[0] as unknown as [unknown, unknown, { summary: ReportSummary }])[2]
+    expect(extra.summary.dateLabel).toBe('يوم الخميس')
+    expect(extra.summary.dateValue).toBe('2026\\10\\1')
+  })
+})

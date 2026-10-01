@@ -57,5 +57,5 @@ export const designTitleSchema = z
   .min(2, 'العنوان قصير جداً')
   .max(300, 'العنوان طويل جداً')
 
-export const periodTypeSchema = z.enum(['first_half', 'second_half', 'monthly'])
+export const periodTypeSchema = z.enum(['daily', 'weekly', 'first_half', 'second_half', 'monthly'])
 export type { PeriodType }

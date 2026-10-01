@@ -494,8 +494,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
               title={title || data.design.title}
               sector={sector}
               periodType={periodType}
-              periodStart={data.design.period_start}
-              periodEnd={data.design.period_end}
+              periodStart={periodType === data.design.period_type ? data.design.period_start : periodRange(periodType).start}
+              periodEnd={periodType === data.design.period_type ? data.design.period_end : periodRange(periodType).end}
               coverUrl={coverUrl}
               sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
               summary={(data.design.summary as unknown as ReportSummary | null) ?? null}

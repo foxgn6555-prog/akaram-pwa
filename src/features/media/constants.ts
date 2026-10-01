@@ -4,7 +4,7 @@
 
 export type MediaMode = 'street' | 'campaign' | 'school'
 export type SectorParent = 'karrada' | 'zaafaraniya'
-export type PeriodType = 'first_half' | 'second_half' | 'monthly'
+export type PeriodType = 'daily' | 'weekly' | 'first_half' | 'second_half' | 'monthly'
 
 export const MEDIA_MODES: Array<{ value: MediaMode; label: string; hint: string }> = [
   { value: 'street', label: 'صورة شارع', hint: 'اسم الشارع فقط — القاطع والقسم تلقائياً من حسابك' },
@@ -47,12 +47,16 @@ export const workTypesForMode = (mode: MediaMode): string[] =>
 export const CUSTOM_WORK_TYPE = 'مخصص'
 
 export const PERIODS: Array<{ value: PeriodType; label: string; hint: string }> = [
+  { value: 'daily', label: 'تقرير يومي', hint: 'اليوم نفسه — يُكتب اسم اليوم وتاريخه تلقائياً' },
+  { value: 'weekly', label: 'تقرير أسبوعي', hint: 'السبت → الجمعة من الأسبوع الحالي' },
   { value: 'first_half', label: 'النصف الأول (1–14)', hint: 'الدورة الأولى من الشهر' },
   { value: 'second_half', label: 'النصف الثاني (15–آخر يوم)', hint: 'الدورة الثانية من الشهر' },
   { value: 'monthly', label: 'شهري كامل', hint: 'الشهر كاملاً' },
 ]
 
 export const PERIOD_LABEL: Record<PeriodType, string> = {
+  daily: 'يومي',
+  weekly: 'أسبوعي',
   first_half: 'النصف الأول',
   second_half: 'النصف الثاني',
   monthly: 'شهري كامل',
@@ -80,6 +84,17 @@ export function periodRange(type: PeriodType, ref: Date = new Date()): { start: 
     copy.setDate(day)
     return copy
   }
+  if (type === 'daily') return { start: iso(ref), end: iso(ref) }
+  if (type === 'weekly') {
+    // أسبوع العمل العراقي: السبت → الجمعة (بتقويم بغداد)
+    const dow = new Date(`${iso(ref)}T12:00:00`).getDay() // 0 أحد … 6 سبت
+    const sinceSat = (dow + 1) % 7
+    const sat = new Date(`${iso(ref)}T12:00:00`)
+    sat.setDate(sat.getDate() - sinceSat)
+    const fri = new Date(sat)
+    fri.setDate(sat.getDate() + 6)
+    return { start: iso(sat), end: iso(fri) }
+  }
   if (type === 'first_half') return { start: iso(first), end: iso(withDay(first, 14)) }
   if (type === 'second_half') return { start: iso(withDay(first, 15)), end: iso(endMonth) }
   return { start: iso(first), end: iso(endMonth) }
@@ -94,15 +109,29 @@ export function autoPeriodType(ref: Date = new Date()): PeriodType {
 /** عنوان تقرير مقترح: «التقرير المصور — قاطع الكرادة (1–14 أيلول 2026)» */
 export function suggestedDesignTitle(sector: SectorParent, type: PeriodType, ref: Date = new Date()): string {
   const { start, end } = periodRange(type, ref)
-  const s = new Date(start)
-  const e = new Date(end)
+  const s = new Date(`${start}T12:00:00`)
+  const e = new Date(`${end}T12:00:00`)
   const monthName = AR_MONTHS[s.getMonth()]
   const year = s.getFullYear()
   const range =
     type === 'monthly'
       ? `شهر ${monthName} ${year}`
-      : `${s.getDate()}–${e.getDate()} ${monthName} ${year}`
-  return `التقرير المصور — ${SECTOR_LABEL[sector]} (${range})`
+      : type === 'daily'
+        ? `${AR_WEEKDAYS[s.getDay()]} ${s.getDate()} ${monthName} ${year}`
+        : `${s.getDate()}–${e.getDate()} ${monthName} ${year}`
+  const kind = type === 'daily' ? 'التقرير اليومي المصور' : type === 'weekly' ? 'التقرير الأسبوعي المصور' : 'التقرير المصور'
+  return `${kind} — ${SECTOR_LABEL[sector]} (${range})`
+}
+
+export const AR_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+
+/** «يوم الخميس» من تاريخ ISO (YYYY-MM-DD) */
+export const arWeekday = (iso: string): string => `يوم ${AR_WEEKDAYS[new Date(`${iso}T12:00:00`).getDay()]}`
+
+/** تاريخ بصيغة التقرير اليومي: 2026\10\1 */
+export const slashDate = (iso: string): string => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${y}\\${m}\\${d}`
 }
 
 export const designStatusLabel = (status: string): string =>

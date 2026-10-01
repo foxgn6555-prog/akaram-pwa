@@ -22,7 +22,9 @@ import '@fontsource/noto-kufi-arabic/700.css'
 import {
   PERIOD_LABEL,
   SECTOR_LABEL,
+  arWeekday,
   periodRange,
+  slashDate,
   type PeriodType,
   type SectorParent,
 } from '@features/media/constants'
@@ -134,21 +136,43 @@ const chunk4 = <T,>(arr: T[]): T[][] => {
   return out
 }
 
-function buildDefaultSummary(d: DesignReportData): ReportSummary {
+/** سطور الملخص المرتبطة بنوع التقرير — تُحدَّث تلقائياً عند تغيير النوع/الفترة */
+export function periodSummaryFields(d: Pick<DesignReportData, 'sector' | 'periodType' | 'periodStart' | 'periodEnd'>): Pick<ReportSummary, 'reportLine' | 'subjectValue' | 'dateLabel' | 'dateValue'> {
   const sector = d.sector ?? 'karrada'
   const period = d.periodType ?? 'first_half'
   const range = periodRange(period)
   const start = d.periodStart || range.start
   const end = d.periodEnd || range.end
+  if (period === 'daily')
+    return {
+      reportLine: `التقرير اليومي المصور / ${SECTOR_LABEL[sector]}`,
+      subjectValue: `التقرير اليومي المصور للفعاليات المنجزة في قطاع ${SECTOR_LABEL[sector]}`,
+      dateLabel: arWeekday(start),
+      dateValue: slashDate(start),
+    }
+  if (period === 'weekly')
+    return {
+      reportLine: `التقرير الأسبوعي المصور / ${SECTOR_LABEL[sector]}`,
+      subjectValue: `التقرير الأسبوعي المصور للفعاليات المنجزة في قطاع ${SECTOR_LABEL[sector]}`,
+      dateLabel: 'التقرير الأسبوعي',
+      dateValue: `من ${arDate(start)} الى ${arDate(end)}`,
+    }
   return {
-    companyName: 'شركة جزيرة الاكارم وفيرست ترايد',
     reportLine: `التقرير المصور ${PERIOD_LABEL[period]} / ${SECTOR_LABEL[sector]}`,
-    orgLabel: 'الجهة المنظمة للتقرير',
-    orgValue: 'شركة جزيرة الاكارم وفيرست ترايد',
-    subjectLabel: 'موضوع التقرير',
     subjectValue: `التقرير المصور للفعاليات اليومية المصورة لقطاع ${SECTOR_LABEL[sector]}`,
     dateLabel: 'التاريخ من',
     dateValue: `من ${arDate(start)} الى ${arDate(end)}`,
+  }
+}
+
+function buildDefaultSummary(d: DesignReportData): ReportSummary {
+  const sector = d.sector ?? 'karrada'
+  return {
+    companyName: 'شركة جزيرة الاكارم وفيرست ترايد',
+    orgLabel: 'الجهة المنظمة للتقرير',
+    orgValue: 'شركة جزيرة الاكارم وفيرست ترايد',
+    subjectLabel: 'موضوع التقرير',
+    ...periodSummaryFields(d),
     sectorName: SECTOR_LABEL[sector],
     rows: d.groups.map((g, i) => ({ t: String(i + 1), work: g.workType })),
     footer: 'الجهة المتصرفة لجنة الإشراف والمراقبة والتقييم في أمانة بغداد',
@@ -326,6 +350,17 @@ export default function DesignReportView({
       setSaving(false)
     }
   }
+
+  /* تغيير نوع التقرير/فترته بعد الإنشاء يحدّث سطور التاريخ والعنوان تلقائياً (يومي ← «يوم الخميس» + التاريخ) */
+  const periodKey = `${periodProps.periodType ?? ''}|${periodProps.periodStart ?? ''}|${periodProps.periodEnd ?? ''}|${periodProps.sector ?? ''}`
+  const periodKeyRef = useRef(periodKey)
+  useEffect(() => {
+    if (periodKeyRef.current === periodKey) return
+    periodKeyRef.current = periodKey
+    setSum((s) => ({ ...s, ...periodSummaryFields(periodProps) }))
+    setDirty(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodKey])
 
   /* حفظ تلقائي: أي تعديل (نص/لون/قالب/تكبير صورة/قص) يُحفظ بعد ثانية ونصف من آخر تغيير،
      فلا يضيع شيء عند تحديث الصفحة أو إغلاقها — زر «حفظ التعديلات» يبقى للحفظ الفوري. */
