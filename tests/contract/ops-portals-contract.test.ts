@@ -22,5 +22,5 @@ const check = (portal: string, prefix: string, routes: { path?: string }[], coun
     for (const r of routes) expect(r.path ?? '').not.toMatch(FINANCE_PATH)
   })
 }
-describe('⚓ عقد بوابة مسؤول القاطع', () => check(PORTALS.ADMIN_OPS, '/admin-ops', adminOpsRoutes, 5, ['nav.dashboard', 'nav.sm_team_requests', 'nav.sm_reports', 'nav.sm_notify', 'nav.my_requests']))
-describe('⚓ عقد بوابة العمليات الميدانية', () => check(PORTALS.FIELD_OPS, '/field-ops', fieldOpsRoutes, 6, ['nav.dashboard', 'nav.sm_team_requests', 'nav.fo_sectors', 'nav.sm_reports', 'nav.sm_notify', 'nav.my_requests']))
+describe('⚓ عقد بوابة مسؤول القاطع', () => check(PORTALS.ADMIN_OPS, '/admin-ops', adminOpsRoutes, 6, ['nav.dashboard', 'nav.sm_team_requests', 'nav.sm_reports', 'nav.sm_notify', 'nav.procedures', 'nav.my_requests']))
+describe('⚓ عقد بوابة العمليات الميدانية', () => check(PORTALS.FIELD_OPS, '/field-ops', fieldOpsRoutes, 7, ['nav.dashboard', 'nav.sm_team_requests', 'nav.fo_sectors', 'nav.sm_reports', 'nav.sm_notify', 'nav.procedures', 'nav.my_requests']))

@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const ExecutiveHome = lazy(() => import('./pages/ExecutiveHome'))
 const ExecutiveReports = lazy(() => import('./pages/ExecutiveReports'))
 const ExecutiveAnnouncements = lazy(() => import('./pages/ExecutiveAnnouncements'))
+const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage'))   // 00163: الإجراءات (إنهاء الخدمة)
 const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" /> })))   // 00162: طلبات الموافقة
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
@@ -15,4 +16,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'reports', element: s(<ExecutiveReports />) },
   { path: 'announcements', element: s(<ExecutiveAnnouncements />) },
   { path: 'approvals', element: s(<ApprovalTasks />) },
+  { path: 'procedures', element: s(<ProceduresPage />) },
 ]

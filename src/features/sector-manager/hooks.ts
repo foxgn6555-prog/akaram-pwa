@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { approvals, sectorManager, type ApprovalRequestType, type ApprovalStep, type ParentSector } from '@sdk/sector-manager.sdk'
+import { approvals, procedures, sectorManager, type TerminationType, type ApprovalRequestType, type ApprovalStep, type ParentSector } from '@sdk/sector-manager.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 
@@ -33,3 +33,8 @@ export const useMyApprovalTasks = () => useQuery({ queryKey: [...ROOT, 'tasks'],
 export const useApprovalTimeline = (kind: ApprovalRequestType | undefined, requestId: string | undefined) =>
   useQuery({ queryKey: [...ROOT, 'timeline', kind, requestId], queryFn: () => approvals.timeline(kind as ApprovalRequestType, requestId as string), enabled: Boolean(kind && requestId) })
 export const useDecideApproval = () => useAction((x: { kind: ApprovalRequestType; requestId: string; approve: boolean; note?: string | null }) => approvals.decide(x.kind, x.requestId, x.approve, x.note), 'تم تسجيل قرارك')
+// 00163: الإجراءات (إنهاء الخدمة)
+export const useTerminationTargets = () => useQuery({ queryKey: [...ROOT, 'termination-targets'], queryFn: () => procedures.targets() })
+export const useMyTerminationRequests = () => useQuery({ queryKey: [...ROOT, 'termination-mine'], queryFn: () => procedures.mine(), refetchInterval: 60_000 })
+export const useCreateTerminationRequest = () => useAction((x: { targetKind: 'employee' | 'worker'; targetId: string; type: TerminationType; lastDay: string; reason: string }) => procedures.create(x), 'أُرسل طلب إنهاء الخدمة إلى سلسلة الموافقات')
+export const useCancelTerminationRequest = () => useAction((id: string) => procedures.cancel(id), 'سُحب الطلب')

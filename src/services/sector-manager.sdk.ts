@@ -30,7 +30,7 @@ export interface FieldOpsSectorManager { user_id: string; full_name: string; pho
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
 
 export type ApprovalStep = { kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }
-export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies'
+export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination'
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
@@ -40,6 +40,16 @@ export interface ApprovalTask {
   previous_steps: { step_no: number; label: string; status: string; decided_by: string | null; decided_at: string | null; note: string | null }[]
   /** 00162: طلب مستلزمات — المواد المطلوبة ورقم الكتاب */
   items: SupplyItem[] | null; ref_no: string | null
+  /** 00163: طلب إنهاء خدمة — تفاصيل الهدف */
+  details: TerminationTaskDetails | null
+}
+export type TerminationType = 'resignation' | 'dismissal' | 'contract_end' | 'retirement' | 'death'
+export const TERMINATION_TYPE_AR: Record<TerminationType, string> = { resignation: 'استقالة', dismissal: 'فصل', contract_end: 'انتهاء عقد', retirement: 'تقاعد', death: 'وفاة' }
+export interface TerminationTaskDetails { target_name: string; target_label: string; target_kind: 'employee' | 'worker'; type: TerminationType; type_label: string; last_day: string }
+export interface TerminationTarget { target_kind: 'employee' | 'worker'; employee_id: string | null; worker_id: string | null; user_id: string | null; full_name: string; label: string; scope: string; employee_number: string | null }
+export interface TerminationRequest {
+  id: string; target_kind: 'employee' | 'worker'; target_name: string; target_label: string; termination_type: TerminationType; termination_type_label: string; last_day: string; reason: string
+  status: 'pending' | 'executed' | 'rejected' | 'cancelled'; current_step: string | null; chain_id: string | null; created_at: string; decided_at: string | null; executed_at: string | null
 }
 export interface ApprovalTimelineRow { step_no: number; step_label: string; status: 'waiting' | 'pending' | 'approved' | 'rejected' | 'skipped'; approvers: { user_id: string; name: string }[]; decided_by_name: string | null; decided_at: string | null; note: string | null }
 
@@ -72,4 +82,13 @@ export const approvals = {
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
   /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */
   decide: async (kind: ApprovalRequestType, requestId: string, approve: boolean, note?: string | null) => sdkGuard(supabase.rpc('approval_decide_request', { p_kind: kind, p_request: requestId, p_approve: approve, p_note: note ?? null })),
+}
+
+/** 00163: وحدة «الإجراءات» — طلبات إنهاء الخدمة بنطاقات متدرجة عبر سلاسل الموافقات. لا بيانات مالية. */
+export const procedures = {
+  targets: async () => (await sdkGuard(supabase.rpc('termination_targets'))) as TerminationTarget[],
+  create: async (x: { targetKind: 'employee' | 'worker'; targetId: string; type: TerminationType; lastDay: string; reason: string; attachment?: string | null }) =>
+    (await sdkGuard(supabase.rpc('termination_request_create', { p_target_kind: x.targetKind, p_target_id: x.targetId, p_type: x.type, p_last_day: x.lastDay, p_reason: x.reason, p_attachment: x.attachment ?? null }))) as string,
+  mine: async () => (await sdkGuard(supabase.rpc('termination_requests_mine'))) as TerminationRequest[],
+  cancel: async (id: string) => sdkGuard(supabase.rpc('termination_request_cancel', { p_id: id })),
 }

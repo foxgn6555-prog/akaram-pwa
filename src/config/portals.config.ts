@@ -294,6 +294,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/field-ops/sectors', labelKey: 'nav.fo_sectors', icon: 'users' },
     { path: '/field-ops/reports', labelKey: 'nav.sm_reports', icon: 'bar-chart' },
     { path: '/field-ops/notify', labelKey: 'nav.sm_notify', icon: 'send' },
+    { path: '/field-ops/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
     { path: '/field-ops/my-requests', labelKey: 'nav.my_requests', icon: 'calendar' },
   ],
   // مسؤول القاطع (00160): مصمم للهاتف أولاً — 5 وحدات ثابتة
@@ -302,6 +303,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin-ops/requests', labelKey: 'nav.sm_team_requests', icon: 'check-square' },
     { path: '/admin-ops/reports', labelKey: 'nav.sm_reports', icon: 'bar-chart' },
     { path: '/admin-ops/notify', labelKey: 'nav.sm_notify', icon: 'send' },
+    { path: '/admin-ops/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
     { path: '/admin-ops/my-requests', labelKey: 'nav.my_requests', icon: 'calendar' },
   ],
   [PORTALS.MAINTENANCE]: [
@@ -341,6 +343,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'send' },
     { path: '/executive/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+    { path: '/executive/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
   ],
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
@@ -351,6 +354,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'bar-chart' },
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+    { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
