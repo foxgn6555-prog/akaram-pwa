@@ -10,6 +10,7 @@ const GbsContainers = lazy(() => import('./pages/Gbs/GbsContainersPage'))
 const OpsAttendance = lazy(() => import('./pages/Attendance/OpsAttendancePage'))
 const OpsStore = lazy(() => import('./pages/Store/OpsStorePage'))
 const OpsCampaigns = lazy(() => import('./pages/Campaigns/OpsCampaignsPage'))   // 00164: متابعة الحملات
+const OpsCitizenComplaints = lazy(() => import('./pages/CitizenComplaints/OpsCitizenComplaintsPage'))   // 00168: استقبال الشكاوى
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
     default: () => <module.default managementMode />,
@@ -40,4 +41,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'attendance', element: load(<OpsAttendance />) },
   { path: 'store', element: load(<OpsStore />) },
   { path: 'campaigns', element: load(<OpsCampaigns />) },
+  { path: 'citizen-complaints', element: load(<OpsCitizenComplaints />) },
 ]

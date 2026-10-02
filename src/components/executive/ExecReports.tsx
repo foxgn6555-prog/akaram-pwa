@@ -12,6 +12,7 @@ import {
   useExecFilterOptions, useExecOverview, type ExecFilters, type ExecOverview, type ExecPortalKind, type ExecScope, type PeriodPreset, type SectionKey,
 } from '@features/executive'
 import { HealthGauge, InsightList, MiniTable, Panel, Stepper } from './exec-ui'
+import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
 import { OpsKpiGrid, UnitScoreCards } from './ExecHome'
 import { BudgetPanel, ComplaintsPanel, DisclosuresPanel, FinanceBriefPanel, FleetPanel, PayrollPanel, SectorsPanel, SpendPanel, StationPanel, SuppliesPanel, SupportPanel, WorkforcePanel } from './ExecPanels'
 
@@ -154,6 +155,7 @@ function SectionBody({ k, o, p, insights, compare, kind }: { k: SectionKey; o: E
     case 'spend': return <SpendPanel o={o} p={p} />
     case 'workforce_cost': return <WorkforcePanel o={o} costFocus />
     case 'sectors': return <SectorsPanel o={o} />
+    case 'citizen': return <CitizenReportPanel from={o.period.from} to={o.period.to} />
     case 'complaints': return <ComplaintsPanel o={o} />
     case 'fleet': return <FleetPanel o={o} />
     case 'station': return <StationPanel o={o} />

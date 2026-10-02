@@ -30,6 +30,7 @@ const LoginPage = lazy(() => import('@portals/public/pages/Login/LoginPage'))
 const ForgotPassword = lazy(() => import('@portals/public/pages/ForgotPassword/ForgotPassword'))
 const ResetPassword = lazy(() => import('@portals/public/pages/ResetPassword/ResetPassword'))
 const ForbiddenPage = lazy(() => import('@portals/public/pages/Forbidden/ForbiddenPage'))
+const CitizenPortalPage = lazy(() => import('@portals/public/pages/Citizen/CitizenPortalPage'))
 
 // ── Portals shells ──
 const EmployeePortal = lazy(() => import('@portals/employee/EmployeePortal'))
@@ -152,4 +153,5 @@ export const PUBLIC_ROUTES = [
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/reset-password', component: ResetPassword },
   { path: '/403', component: ForbiddenPage },
+  { path: '/citizen', component: CitizenPortalPage },   // 00168: صفحة المواطن العامة (شكاوى + دعم مباشر)
 ] as const

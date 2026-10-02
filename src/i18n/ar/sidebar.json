@@ -107,6 +107,8 @@
     "ops_attendance": "الحضوريات",
     "ops_store": "المخزن",
     "ops_campaigns": "متابعة الحملات",
+    "ops_citizen_complaints": "استقبال الشكاوى",
+    "mgr_citizen_complaints": "شكاوى المواطنين",
     "approval_tasks": "طلبات الموافقة",
     "mgr_gbs_containers": "حاويات GBS",
     "mgr_support": "طلبات الدعم",

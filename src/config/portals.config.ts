@@ -175,6 +175,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/support', labelKey: 'nav.mgr_support', icon: 'send' },
     { path: '/manager/gbs-containers', labelKey: 'nav.mgr_gbs_containers', icon: 'box' },
     { path: '/manager/complaints', labelKey: 'nav.mgr_complaints', icon: 'clipboard' },
+    { path: '/manager/citizen-complaints', labelKey: 'nav.mgr_citizen_complaints', icon: 'life-buoy' },
     { path: '/manager/photos', labelKey: 'nav.mgr_photos', icon: 'photo' },
     { path: '/manager/archive', labelKey: 'nav.mgr_archive', icon: 'archive-box' },
   ],
@@ -375,6 +376,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/attendance', labelKey: 'nav.ops_attendance', icon: 'check-square' },
     { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
     { path: '/ops-room/campaigns', labelKey: 'nav.ops_campaigns', icon: 'camera' },
+    { path: '/ops-room/citizen-complaints', labelKey: 'nav.ops_citizen_complaints', icon: 'life-buoy' },
   ],
 
   // ═══ وحدة الكشوفات ═══

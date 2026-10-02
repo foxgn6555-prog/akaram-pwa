@@ -47,12 +47,12 @@ export function buildDecisions(o: ExecOverview): Decision[] {
   return list.slice(0, 8)
 }
 
-export type SectionKey = 'insights' | 'summary' | 'scorecards' | 'kpis' | 'complaints' | 'fleet' | 'station' | 'workforce' | 'sectors' | 'disclosures' | 'supplies' | 'finance' | 'support' | 'payroll' | 'budget' | 'spend' | 'workforce_cost'
+export type SectionKey = 'insights' | 'summary' | 'scorecards' | 'kpis' | 'complaints' | 'fleet' | 'station' | 'workforce' | 'sectors' | 'disclosures' | 'supplies' | 'finance' | 'support' | 'payroll' | 'budget' | 'spend' | 'workforce_cost' | 'citizen'
 /** أقسام التقرير لكل بوابة — المالية أقسام مالية فقط */
 export const REPORT_SECTIONS: Record<ExecPortalKind, Array<{ key: SectionKey; label: string }>> = {
   admin: [
     { key: 'insights', label: 'قراءة تحليلية' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'scorecards', label: 'بطاقات الوحدات' }, { key: 'complaints', label: 'الشكاوى' }, { key: 'fleet', label: 'الأسطول والصيانة' },
-    { key: 'station', label: 'المحطة التحويلية' }, { key: 'workforce', label: 'القوى العاملة' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'finance', label: 'المالية' }, { key: 'support', label: 'الإعلام والتجهيز' },
+    { key: 'station', label: 'المحطة التحويلية' }, { key: 'workforce', label: 'القوى العاملة' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'finance', label: 'المالية' }, { key: 'support', label: 'الإعلام والتجهيز' }, { key: 'citizen', label: 'شكاوى المواطنين والدعم' },
   ],
   executive: [
     { key: 'insights', label: 'قراءة تحليلية' }, { key: 'kpis', label: 'مؤشرات التشغيل' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'complaints', label: 'الشكاوى' }, { key: 'fleet', label: 'الأسطول والصيانة' },
@@ -60,7 +60,7 @@ export const REPORT_SECTIONS: Record<ExecPortalKind, Array<{ key: SectionKey; la
   ],
   deputy: [
     { key: 'insights', label: 'قراءة الميدان' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'station', label: 'المحطة التحويلية' },
-    { key: 'complaints', label: 'الشكاوى' }, { key: 'supplies', label: 'التجهيز' }, { key: 'fleet', label: 'الأسطول' }, { key: 'workforce', label: 'الحضور' },
+    { key: 'complaints', label: 'الشكاوى' }, { key: 'citizen', label: 'شكاوى المواطنين والدعم' }, { key: 'supplies', label: 'التجهيز' }, { key: 'fleet', label: 'الأسطول' }, { key: 'workforce', label: 'الحضور' },
   ],
   finance: [
     { key: 'insights', label: 'قراءة مالية' }, { key: 'summary', label: 'جدول المؤشرات المالية' }, { key: 'payroll', label: 'الرواتب' }, { key: 'budget', label: 'الموازنة' }, { key: 'spend', label: 'الإنفاق التشغيلي' }, { key: 'workforce_cost', label: 'أثر الحضور على الرواتب' },
@@ -99,5 +99,5 @@ export const REPORT_TYPES = [
 export const SECTION_HINTS: Record<SectionKey, string> = {
   insights: 'جمل جاهزة تشرح ما حدث ولماذا', summary: 'كل المؤشرات في جدول مقارن', scorecards: 'بطاقة موجزة لكل وحدة', kpis: 'الأرقام التشغيلية الست', complaints: 'الاتجاه والحالة والأنواع', fleet: 'الانطلاقات والشفتات والصيانة',
   station: 'الأطنان والمخالفات والأكثر مخالفة', workforce: 'الحضور والغياب والأقسام', sectors: 'الشكاوى مقابل الانطلاقات لكل قاطع', disclosures: 'المخالفات الميدانية والمتعهدون', supplies: 'طلبات التجهيز وحالتها', finance: 'إجماليات الرواتب والإنفاق',
-  support: 'الإعلام وحاويات GBS', payroll: 'المقترح والاستقطاعات والصافي والأشهر', budget: 'الصرف من المخصص لكل بند', spend: 'المشتريات وكلفة الصيانة', workforce_cost: 'الغياب والنقص وأيام الاستقطاع',
+  support: 'الإعلام وحاويات GBS', payroll: 'المقترح والاستقطاعات والصافي والأشهر', budget: 'الصرف من المخصص لكل بند', spend: 'المشتريات وكلفة الصيانة', workforce_cost: 'الغياب والنقص وأيام الاستقطاع', citizen: 'شكاوى الصفحة العامة والدعم الفني المباشر',
 }

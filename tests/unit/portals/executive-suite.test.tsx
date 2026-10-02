@@ -30,6 +30,8 @@ vi.mock('@features/executive/hooks/useExecutive', () => ({
 }))
 vi.mock('@features/executive/lib/execExcel', async (orig) => ({ ...(await orig<Record<string, unknown>>()), downloadExecWorkbook: h.download }))
 vi.mock('@features/disclosures', () => ({ useDisclosureList: () => ({ data: [{ status: 'submitted_to_deputy' }, { status: 'draft' }] }) }))
+// 00168: قسم شكاوى المواطنين يجلب بياناته بنفسه — يُعزل هنا
+vi.mock('@components/citizen/CitizenReportPanel', () => ({ CitizenReportPanel: ({ from, to }: { from: string; to: string }) => <div data-testid="citizen-report">{from}→{to}</div> }))
 
 import { ExecHome } from '@components/executive/ExecHome'
 import { ExecReports } from '@components/executive/ExecReports'
@@ -196,14 +198,14 @@ describe('التقارير — معالج من ثلاث خطوات', () => {
     expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '2')
     expect(screen.getByTestId('step-1')).toHaveAttribute('data-state', 'done')
     const items = within(screen.getByTestId('section-toggles')).getAllByRole('listitem')
-    expect(items).toHaveLength(11)
+    expect(items).toHaveLength(12)   // 00168: + شكاوى المواطنين والدعم
     expect(items[0]).toHaveTextContent('1. قراءة تحليلية'); expect(items[0]).toHaveTextContent('جمل جاهزة')
     fireEvent.click(screen.getByTestId('sec-finance'))
-    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('10 قسم')
+    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('11 قسم')
     fireEvent.click(screen.getByTestId('next-step'))
     expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '3')
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري')
-    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(10)
+    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(11)
     expect(screen.getByTestId('rep-sec-insights')).toHaveTextContent('1قراءة تحليلية')
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('الفترة السابقة')
     expect(screen.getByTestId('scorecards')).toBeInTheDocument()
