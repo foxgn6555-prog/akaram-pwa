@@ -68,6 +68,8 @@ export interface BuildReportOptions {
   orientation?: 'portrait' | 'landscape'
   /** أوراق بيانات إضافية بنفس القالب (ملخص/تفاصيل) تُضاف بعد الورقة الرئيسية وقبل الرسوم */
   extraSheets?: ExtraDataSheet[]
+  /** تأجيل التنزيل: يُعيد المصنف دون حفظ (للمعالجة اللاحقة ثم saveWorkbook) */
+  deferSave?: boolean
 }
 export interface ExtraDataSheet {
   sheetName: string
@@ -296,12 +298,12 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
   }
 
   // ── تنزيل المتصفح ──
-  await saveWorkbook(wb, opts.fileName)
+  if (!opts.deferSave) await saveWorkbook(wb, opts.fileName)
   return wb
 }
 
 /** حفظ وتنزيل — يستخدم writeBuffer ثم Blob (متصفح). يفشل بهدوء في بيئة الاختبار. */
-async function saveWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
+export async function saveWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
   const buffer = await wb.xlsx.writeBuffer()
   // بيئات بلا DOM أو بلا createObjectURL (jsdom/node): نكتفي ببناء المصنف
   if (typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return

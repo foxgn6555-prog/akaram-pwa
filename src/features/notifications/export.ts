@@ -32,7 +32,7 @@ export async function exportPushDeliveries(rows: PushDeliveryRow[]) {
     sheet = workbook.addWorksheet('مراقبة Web Push', {
       views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }],
     })
-  workbook.creator = 'منصة الأكرم — التطوير المركزي'
+  workbook.creator = 'شركة جزيرة الأكارم — التطوير المركزي'
   workbook.created = new Date()
   sheet.mergeCells('A1:L1')
   sheet.getCell('A1').value = 'تقرير مراقبة تسليم إشعارات Web Push'

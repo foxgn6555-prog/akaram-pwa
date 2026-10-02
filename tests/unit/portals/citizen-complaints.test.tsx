@@ -17,8 +17,11 @@ const h = vi.hoisted(() => ({
   opsAssign: vi.fn(async () => ({})),
   setStatus: vi.fn(async () => ({})),
   opsQueue: vi.fn(async () => [] as unknown[]),
-  opsMessages: vi.fn(async () => ({ id: 's1', status: 'waiting', citizen_name: 'علي', phone: '0770', messages: [] })),
+  opsMessages: vi.fn(async () => ({ id: 's1', status: 'waiting', citizen_name: 'علي', phone: '0770', messages: [] as unknown[] }) as unknown),
   opsAccept: vi.fn(async () => ({})),
+  photoUrls: vi.fn(async (paths: string[]) => Object.fromEntries(paths.map((p) => [p, `https://signed/${p}`]))),
+  opsChatDays: vi.fn(async () => [] as unknown[]),
+  opsChatHistory: vi.fn(async (_day: string) => [] as unknown[]),
   mineMgr: vi.fn(async () => [] as unknown[]),
   report: vi.fn(async () => ({
     period: { from: '2026-10-01', to: '2026-10-02', days: 2 },
@@ -36,7 +39,8 @@ vi.mock('@sdk/citizen.sdk', async (importOriginal) => {
       signIn: h.signIn, submitComplaint: h.submit, uploadPhoto: h.upload, myComplaints: h.mine, rateComplaint: vi.fn(),
       chatRequest: h.chatRequest, chatState: h.chatState, chatSend: h.chatSend, chatClose: vi.fn(async () => undefined), chatRate: vi.fn(),
       opsList: h.opsList, opsManagers: async () => [{ user_id: 'm1', full_name: 'مسؤول الكرادة', department_name: 'الكرادة' }], opsAssign: h.opsAssign, setStatus: h.setStatus, addNote: vi.fn(),
-      photoUrls: async () => ({}), opsQueue: h.opsQueue, opsAccept: h.opsAccept, opsMessages: h.opsMessages, opsSend: vi.fn(), opsClose: vi.fn(), opsSaveSettings: vi.fn(),
+      photoUrls: h.photoUrls, opsQueue: h.opsQueue, opsAccept: h.opsAccept, opsMessages: h.opsMessages, opsSend: vi.fn(), opsClose: vi.fn(), opsSaveSettings: vi.fn(),
+      opsChatDays: h.opsChatDays, opsChatHistory: h.opsChatHistory,
       mine: h.mineMgr, report: h.report,
     },
     compressImage: async (f: File) => f,
@@ -138,6 +142,49 @@ describe('صفحة المواطن العامة /citizen', () => {
     fireEvent.click(screen.getByTestId('chat-send'))
     await waitFor(() => expect(h.chatSend).toHaveBeenCalledWith('tok-1', 'الحاوية ممتلئة'))
   })
+  it('00169 · المحادثة: زر كاميرا (capture) وزر معرض → ضغط ورفع داخل مجلد الرمز ثم إرسال بمرفق؛ الصور تُعرض بروابط موقّعة؛ روادع لقطة الشاشة', async () => {
+    localStorage.setItem(CITIZEN_SESSION_KEY, JSON.stringify({ token: 'tok-1', full_name: 'علي', phone: '07701234567' }))
+    h.chatState.mockResolvedValue({ id: 's1', status: 'active', queue_position: null, agent_name: 'موظف', rating: null, messages: [
+      { id: 1, sender: 'system', body: 'تم استلام طلبك', at: '2026-10-02T10:00:00Z' },
+      { id: 2, sender: 'citizen', body: '📷 صورة', attachment: 'tok-1/chat-1.jpg', at: '2026-10-02T10:01:00Z' },
+    ] })
+    wrap(<CitizenPortalPage />, '/citizen?v=support')
+    const win = await screen.findByTestId('chat-window')
+    expect(screen.getByTestId('chat-camera')).toHaveAttribute('capture', 'environment')
+    expect(screen.getByTestId('chat-camera')).toHaveAttribute('accept', 'image/*')
+    expect(screen.getByTestId('chat-gallery')).not.toHaveAttribute('capture')
+    expect(screen.getByTestId('chat-camera-btn')).toBeInTheDocument(); expect(screen.getByTestId('chat-gallery-btn')).toBeInTheDocument()
+    // الصورة المرفقة تُعرض برابط موقّع ولا يظهر نص «📷 صورة» المكرر
+    const img = await screen.findByTestId('chat-image')
+    expect(img).toHaveAttribute('src', 'https://signed/tok-1/chat-1.jpg')
+    expect(screen.queryByText('📷 صورة')).not.toBeInTheDocument()
+    // التقاط صورة → رفع إلى مجلد الرمز → إرسال بمرفق
+    const file = new File(['x'], 'cam.jpg', { type: 'image/jpeg' })
+    fireEvent.change(screen.getByTestId('chat-camera'), { target: { files: [file] } })
+    await waitFor(() => expect(h.upload).toHaveBeenCalledWith('tok-1', file, expect.any(Number)))
+    await waitFor(() => expect(h.chatSend).toHaveBeenCalledWith('tok-1', '', expect.stringMatching(/^tok-1\//)))
+    // روادع لقطة الشاشة: تمويه عند فقدان التركيز، اعتراض PrintScreen مع إشعار، منع النسخ والقائمة السياقية
+    expect(screen.getByTestId('chat-guard-hint')).toHaveTextContent('لقطات الشاشة غير مسموحة')
+    expect(win).toHaveAttribute('data-blurred', '0')
+    fireEvent.blur(window)
+    await waitFor(() => expect(screen.getByTestId('chat-window')).toHaveAttribute('data-blurred', '1'))
+    fireEvent.focus(window)
+    await waitFor(() => expect(screen.getByTestId('chat-window')).toHaveAttribute('data-blurred', '0'))
+    fireEvent.keyDown(window, { key: 'PrintScreen', code: 'PrintScreen' })
+    expect(await screen.findByTestId('chat-guard-notice')).toHaveTextContent('لقطات الشاشة غير مسموحة')
+    expect(screen.getByTestId('chat-window')).toHaveAttribute('data-blurred', '1')
+    const ev = new Event('contextmenu', { bubbles: true, cancelable: true }); screen.getByTestId('chat-window').dispatchEvent(ev); expect(ev.defaultPrevented).toBe(true)
+    const cp = new Event('copy', { bubbles: true, cancelable: true }); screen.getByTestId('chat-window').dispatchEvent(cp); expect(cp.defaultPrevented).toBe(true)
+    // لا علامة مائية
+    expect(screen.queryByTestId('chat-watermark')).not.toBeInTheDocument()
+  })
+  it('00169 · نموذج الشكوى: زر التقاط بالكاميرا منفصل عن زر المعرض', async () => {
+    localStorage.setItem(CITIZEN_SESSION_KEY, JSON.stringify({ token: 'tok-1', full_name: 'علي', phone: '07701234567' }))
+    wrap(<CitizenPortalPage />, '/citizen?v=complaint')
+    expect(await screen.findByTestId('cc-camera')).toHaveAttribute('capture', 'environment')
+    expect(screen.getByTestId('cc-files')).toHaveAttribute('multiple')
+    expect(screen.getByTestId('cc-camera-btn')).toHaveTextContent('التقاط'); expect(screen.getByTestId('cc-gallery-btn')).toHaveTextContent('من المعرض')
+  })
 })
 
 describe('غرفة العمليات — استقبال الشكاوى', () => {
@@ -182,6 +229,37 @@ describe('غرفة العمليات — استقبال الشكاوى', () => {
     await waitFor(() => expect(h.opsAccept).toHaveBeenCalledWith('s1'))
   })
 
+  it('00169 · أرشيف المحادثات: تبويب في غرفة العمليات فقط؛ الأيام بعددها؛ اختيار يوم يعرض محادثاته (الموظف/الانتظار/التقييم) ثم نص المحادثة بصورها', async () => {
+    h.opsChatDays.mockResolvedValue([{ day: '2026-10-02', count: 2, closed: 2, avg_rating: 4.5 }, { day: '2026-10-01', count: 1, closed: 1, avg_rating: null }])
+    h.opsChatHistory.mockImplementation(async (day: string) => day === '2026-10-01'
+      ? [{ id: 's9', status: 'closed', citizen_name: 'سارة', phone: '0771', requested_at: '2026-10-01T08:00:00Z', accepted_at: '2026-10-01T08:02:00Z', closed_at: '2026-10-01T08:30:00Z', closed_by: 'agent', agent_name: 'موظف أ', rating: 3, rating_note: null, wait_minutes: 2, duration_minutes: 30, messages: 4, attachments: 1 }]
+      : day !== '2026-10-02' ? []
+      : [{ id: 's1', status: 'closed', citizen_name: 'علي', phone: '0770', requested_at: '2026-10-02T10:00:00Z', accepted_at: null, closed_at: '2026-10-02T10:05:00Z', closed_by: 'citizen', agent_name: null, rating: null, rating_note: null, wait_minutes: null, duration_minutes: 5, messages: 1, attachments: 0 },
+         { id: 's2', status: 'closed', citizen_name: 'حسن', phone: '0772', requested_at: '2026-10-02T11:00:00Z', accepted_at: '2026-10-02T11:01:00Z', closed_at: '2026-10-02T11:20:00Z', closed_by: 'agent', agent_name: 'موظف ب', rating: 5, rating_note: 'ممتاز', wait_minutes: 1, duration_minutes: 20, messages: 6, attachments: 0 }])
+    h.opsMessages.mockResolvedValue({ id: 's9', status: 'closed', citizen_name: 'سارة', phone: '0771', agent_name: 'موظف أ', rating: 3, requested_at: '2026-10-01T08:00:00Z', messages: [{ id: 1, sender: 'citizen', body: '📷 صورة', attachment: 'tk/chat-1.jpg', at: '2026-10-01T08:00:00Z' }, { id: 2, sender: 'agent', body: 'استلمنا', at: '2026-10-01T08:03:00Z' }] })
+    wrap(<OpsCitizenComplaintsPage />, '/ops-room/citizen-complaints?tab=archive')
+    expect(screen.getByTestId('tab-archive')).toHaveTextContent('أرشيف المحادثات')
+    const days = await screen.findAllByTestId('archive-day')
+    expect(days).toHaveLength(2); expect(days[0]).toHaveTextContent('2'); expect(days[0]).toHaveTextContent('4.5')
+    // أحدث يوم محدد تلقائياً: محادثتاه
+    await waitFor(() => expect(screen.getAllByTestId('archive-row')).toHaveLength(2))
+    expect(screen.getByTestId('archive-table')).toHaveTextContent('موظف ب'); expect(screen.getByTestId('archive-table')).toHaveTextContent('مغلقة (المواطن)')
+    // اختيار يوم آخر من القائمة
+    fireEvent.click(days[1]!)
+    await waitFor(() => expect(h.opsChatHistory).toHaveBeenCalledWith('2026-10-01'))
+    await waitFor(() => expect(screen.getAllByTestId('archive-row')).toHaveLength(1))
+    expect(screen.getByTestId('archive-table')).toHaveTextContent('سارة')
+    fireEvent.click(screen.getByTestId('archive-row'))
+    const tr = await screen.findByTestId('archive-transcript')
+    expect(tr).toHaveTextContent('الموظف: موظف أ'); expect(tr).toHaveTextContent('استلمنا')
+    expect(await within(tr).findByTestId('ops-chat-image')).toHaveAttribute('src', 'https://signed/tk/chat-1.jpg')
+    // اختيار يوم عبر حقل التاريخ
+    fireEvent.change(screen.getByTestId('archive-date'), { target: { value: '2026-09-15' } })
+    await waitFor(() => expect(h.opsChatHistory).toHaveBeenCalledWith('2026-09-15'))
+    expect(await screen.findByTestId('archive-empty')).toBeInTheDocument()
+    // الأرشيف ليس في بوابة المدير المفوض/المعاون (غرفة العمليات فقط)
+    expect(PORTAL_UNITS[PORTALS.OPS_ROOM].some((u) => u.path === '/ops-room/citizen-complaints')).toBe(true)
+  })
   it('إعدادات الصفحة: رابط النشر /citizen', async () => {
     wrap(<OpsCitizenComplaintsPage />, '/ops-room/citizen-complaints?tab=settings')
     await waitFor(() => expect(screen.getByTestId('public-url')).toHaveTextContent('/citizen'))

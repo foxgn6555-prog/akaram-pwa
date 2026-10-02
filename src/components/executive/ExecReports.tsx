@@ -8,10 +8,10 @@ import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { Icon } from '@components/ui/Icon/Icon'
 import {
-  buildExecSheets, buildInsights, downloadExecWorkbook, healthScore, insightsFor, label, periodLabel, PORTAL_TITLES, presetRange, REPORT_SECTIONS, REPORT_TYPES, reportKindLabel, scopeOf, SECTION_HINTS,
-  useExecFilterOptions, useExecOverview, type ExecFilters, type ExecOverview, type ExecPortalKind, type ExecScope, type PeriodPreset, type SectionKey,
+  buildDecisions, buildExecSheets, buildInsights, downloadExecWorkbook, fmtNum, healthScore, insightsFor, label, periodLabel, PORTAL_TITLES, presetRange, REPORT_SECTIONS, REPORT_TYPES, reportKindLabel, scopeOf, SECTION_HINTS,
+  useExecFilterOptions, useExecOverview, type Decision, type ExecFilters, type ExecOverview, type ExecPortalKind, type ExecScope, type Insight, type PeriodPreset, type SectionKey,
 } from '@features/executive'
-import { HealthGauge, InsightList, MiniTable, Panel, Stepper } from './exec-ui'
+import { DecisionItem, HealthGauge, InsightList, MiniTable, Panel, Stepper } from './exec-ui'
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
 import { OpsKpiGrid, UnitScoreCards } from './ExecHome'
 import { BudgetPanel, ComplaintsPanel, DisclosuresPanel, FinanceBriefPanel, FleetPanel, PayrollPanel, SectorsPanel, SpendPanel, StationPanel, SuppliesPanel, SupportPanel, WorkforcePanel } from './ExecPanels'
@@ -20,18 +20,25 @@ const STEPS = ['نوع التقرير والفترة', 'الأقسام', 'معا
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-2 text-xs'
 
 const PRINT_CSS = `
+#exec-report table { border-collapse: collapse; width: 100%; }
+#exec-report table th, #exec-report table td { border: 1px solid #cbd5e1; padding: 4px 6px; }
+#exec-report table thead th { background: #0f172a; color: #fff; font-weight: 800; }
+#exec-report table tbody tr:nth-child(even) td { background: #f8fafc; }
 @media print {
   @page { size: A4; margin: 0; }
   html, body { background: #fff !important; }
   body * { visibility: hidden; }
   #exec-report, #exec-report * { visibility: visible; }
   #exec-report { position: absolute; inset: 0; width: 100%; padding: 14mm 12mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .exec-panel, .exec-kpi, .exec-chart { break-inside: avoid; }
-  .exec-cover { break-after: page; min-height: 260mm; display: flex; flex-direction: column; justify-content: center; }
-  .exec-section { break-before: page; }
+  #exec-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .exec-panel, .exec-kpi, .exec-chart, .exec-brief-card, table tr { break-inside: avoid; }
+  .exec-cover { break-after: page; min-height: 262mm; display: flex; flex-direction: column; justify-content: space-between; border-radius: 0 !important; box-shadow: none !important; }
+  .exec-brief, .exec-section, .exec-sign { break-before: page; }
+  .exec-section { padding-top: 0 !important; }
+  .exec-page-foot { position: fixed; bottom: 6mm; left: 12mm; right: 12mm; font-size: 9px; color: #64748b; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 2mm; }
 }`
 
-export function ExecReports({ kind, orgName = 'منصة الأكرم' }: { kind: ExecPortalKind; orgName?: string }) {
+export function ExecReports({ kind, orgName = 'شركة جزيرة الأكارم' }: { kind: ExecPortalKind; orgName?: string }) {
   const sectionsDef = REPORT_SECTIONS[kind]
   const [step, setStep] = useState(0)
   const [filters, setFilters] = useState<ExecFilters>(() => ({ preset: 'month', ...presetRange('month'), sector: null, shift: null }))
@@ -49,7 +56,7 @@ export function ExecReports({ kind, orgName = 'منصة الأكرم' }: { kind:
   const setPreset = (p: PeriodPreset) => setFilters(p === 'custom' ? { ...filters, preset: p } : { ...filters, preset: p, ...presetRange(p) })
 
   const fileBase = `${reportKindLabel(filters.from, filters.to)}${kind === 'finance' ? ' مالي' : ''} ${filters.from}${filters.from !== filters.to ? ` إلى ${filters.to}` : ''}`
-  const exportExcel = async () => { if (!data) return; setExporting(true); try { await downloadExecWorkbook(data, allInsights, prev, `${fileBase}.xlsx`, scopeOf(kind)) } finally { setExporting(false) } }
+  const exportExcel = async () => { if (!data) return; setExporting(true); try { await downloadExecWorkbook(data, allInsights, prev, `${fileBase}.xlsx`, scopeOf(kind), PORTAL_TITLES[kind].who) } finally { setExporting(false) } }
   const printPdf = () => { const t = document.title; document.title = fileBase; window.print(); document.title = t }
 
   const groups = new Map<string, NonNullable<typeof options>['sectors']>()
@@ -122,19 +129,29 @@ export function ExecReports({ kind, orgName = 'منصة الأكرم' }: { kind:
           </div>
           {isLoading && <LoadingSpinner />}
           {data && (
-            <div id="exec-report" className="space-y-4">
-              <Cover o={data} orgName={orgName} kind={kind} sections={chosen.map((s) => s.label)} />
+            <div id="exec-report" className="exec-formal space-y-4">
+              <Cover o={data} orgName={orgName} kind={kind} sections={chosen.map((s) => s.label)} compare={compare} />
+              <Brief o={data} p={prev} insights={insights} kind={kind} />
               <ol className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm print:break-after-page" data-testid="rep-toc">
                 <p className="mb-2 text-sm font-black">المحتويات</p>
+                <li className="flex justify-between border-b border-dotted border-slate-200 py-1"><span>الموجز التنفيذي</span><span className="text-slate-400">المؤشرات الرئيسة · أبرز النتائج · ما يحتاج قراراً</span></li>
                 {chosen.map((s, i) => <li key={s.key} className="flex justify-between border-b border-dotted border-slate-200 py-1"><span>{i + 1}. {s.label}</span><span className="text-slate-400">{SECTION_HINTS[s.key]}</span></li>)}
+                <li className="flex justify-between py-1"><span>المصادقات</span><span className="text-slate-400">إعداد · تدقيق · اعتماد</span></li>
               </ol>
               {chosen.map((s, i) => (
-                <section key={s.key} className="exec-section space-y-3" data-testid={`rep-sec-${s.key}`}>
-                  <h2 className="flex items-center gap-2 text-sm font-black text-slate-800"><span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-900 text-xs text-white">{i + 1}</span>{s.label}</h2>
+                <section key={s.key} className="exec-section space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" data-testid={`rep-sec-${s.key}`}>
+                  <header className="border-b-2 border-slate-900 pb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">القسم {i + 1} من {chosen.length}</p>
+                    <h2 className="flex items-center gap-2 text-base font-black text-slate-900"><span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-900 text-xs text-white">{i + 1}</span>{s.label}</h2>
+                    <p className="text-[11px] text-slate-500">{SECTION_HINTS[s.key]}</p>
+                  </header>
                   <SectionBody k={s.key} o={data} p={prev} insights={insights} compare={compare} kind={kind} />
+                  <SectionReading k={s.key} insights={insights} />
                 </section>
               ))}
-              <p className="text-center text-[10px] text-slate-400">أُنشئ آلياً من {orgName} · {new Date(data.period.generated_at).toLocaleString('ar-IQ')} · الأرقام صافية من سجلات المنصة</p>
+              <Signatures kind={kind} orgName={orgName} />
+              <p className="text-center text-[10px] text-slate-400">أُنشئ آلياً من منصة {orgName} · {new Date(data.period.generated_at).toLocaleString('ar-IQ')} · الأرقام صافية من سجلات المنصة</p>
+              <div className="exec-page-foot hidden print:flex"><span>{orgName} — {reportKindLabel(data.period.from, data.period.to)}{kind === 'finance' ? ' (مالي)' : ''}</span><span>{periodLabel(data.period.from, data.period.to)} · سرّي — للاستعمال الداخلي</span></div>
             </div>
           )}
           <Nav onPrev={() => setStep(1)} />
@@ -183,19 +200,115 @@ function Nav({ onPrev, onNext, nextDisabled, nextLabel = 'التالي' }: { onP
   )
 }
 
-function Cover({ o, orgName, kind, sections }: { o: ExecOverview; orgName: string; kind: ExecPortalKind; sections: string[] }) {
+/** الغلاف — ظاهر على الشاشة وفي الطباعة: شعار + الجهة + نوع التقرير + الفترة + بطاقة التعريف */
+function Cover({ o, orgName, kind, sections, compare }: { o: ExecOverview; orgName: string; kind: ExecPortalKind; sections: string[]; compare: boolean }) {
+  const title = `${reportKindLabel(o.period.from, o.period.to)}${kind === 'finance' ? ' — مالي' : ''}`
   return (
-    <div className="exec-cover hidden rounded-3xl bg-slate-900 p-10 text-white print:block" data-testid="rep-cover">
-      <p className="text-sm text-slate-300">{orgName}</p>
-      <h1 className="mt-6 text-4xl font-black">{reportKindLabel(o.period.from, o.period.to)}{kind === 'finance' ? ' — مالي' : ''}</h1>
-      <p className="mt-2 text-lg text-slate-200">{periodLabel(o.period.from, o.period.to)}</p>
-      {(o.period.sector || o.period.shift) && <p className="mt-1 text-sm text-slate-300">{o.period.sector ? `قاطع ${o.period.sector}` : ''}{o.period.sector && o.period.shift ? ' · ' : ''}{o.period.shift ? `شفت ${label(o.period.shift)}` : ''}</p>}
-      <div className="mt-10 grid grid-cols-2 gap-4 text-sm">
-        <div><p className="text-slate-400">أُعدّ لـ</p><p className="font-bold">{PORTAL_TITLES[kind].who}</p></div>
-        <div><p className="text-slate-400">تاريخ الإصدار</p><p className="font-bold">{new Date().toLocaleDateString('ar-IQ')}</p></div>
-        <div className="col-span-2"><p className="text-slate-400">الأقسام</p><p className="font-bold">{sections.join(' · ')}</p></div>
+    <div className="exec-cover rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10" data-testid="rep-cover">
+      <div className="flex items-center justify-between border-b-4 border-slate-900 pb-4">
+        <div><p className="text-lg font-black text-slate-900">{orgName}</p><p className="text-xs text-slate-500">{PORTAL_TITLES[kind].who} — تقرير دوري</p></div>
+        <img src="/icons/logo.png" alt="" className="h-14 w-14 rounded-xl object-contain" />
       </div>
+      <div className="py-10 text-center sm:py-16">
+        <p className="text-xs font-bold tracking-widest text-amber-600">تقرير رسمي</p>
+        <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-5xl" data-testid="rep-cover-title">{title}</h1>
+        <p className="mt-3 text-base font-bold text-slate-700 sm:text-xl">{periodLabel(o.period.from, o.period.to)}</p>
+        {(o.period.sector || o.period.shift) && <p className="mt-1 text-sm text-slate-500">{o.period.sector ? `قاطع ${o.period.sector}` : ''}{o.period.sector && o.period.shift ? ' · ' : ''}{o.period.shift ? `شفت ${label(o.period.shift)}` : ''}</p>}
+      </div>
+      <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-xs sm:grid-cols-4">
+        <div><dt className="text-slate-500">أُعدّ لـ</dt><dd className="font-black text-slate-800">{PORTAL_TITLES[kind].who}</dd></div>
+        <div><dt className="text-slate-500">تاريخ الإصدار</dt><dd className="font-black text-slate-800">{new Date().toLocaleDateString('ar-IQ')}</dd></div>
+        <div><dt className="text-slate-500">المقارنة</dt><dd className="font-black text-slate-800">{compare ? 'مع الفترة السابقة المكافئة' : 'بلا مقارنة'}</dd></div>
+        <div><dt className="text-slate-500">عدد الأقسام</dt><dd className="font-black text-slate-800">{sections.length}</dd></div>
+        <div className="col-span-2 sm:col-span-4"><dt className="text-slate-500">الأقسام</dt><dd className="font-bold text-slate-700">{sections.join(' · ')}</dd></div>
+      </dl>
+      <p className="mt-4 text-center text-[10px] text-slate-400">سرّي — للاستعمال الداخلي · الأرقام مستخرجة آلياً من سجلات المنصة بتاريخ {new Date(o.period.generated_at).toLocaleString('ar-IQ')}</p>
     </div>
+  )
+}
+
+const BAD_IF_UP = /شكاو|غياب|مخالف|كشوف|صيانة|كلفة|استقطاع|إنهاء|مشتريات|إنفاق/
+/** الموجز التنفيذي — صفحة واحدة: ٨ مؤشرات كبيرة بالتغيّر، أبرز ٥ نتائج، ما يحتاج قراراً */
+function Brief({ o, p, insights, kind }: { o: ExecOverview; p: ExecOverview | null; insights: Insight[]; kind: ExecPortalKind }) {
+  const sheet = buildExecSheets(o, [], p, scopeOf(kind))[0]!
+  const kpis = sheet.rows.slice(0, 8)
+  const decisions: Decision[] = kind === 'finance' ? buildDecisions(o).filter((d) => d.icon === 'wallet') : buildDecisions(o)
+  const health = healthScore(o)
+  return (
+    <section className="exec-brief space-y-3 rounded-2xl border-2 border-slate-900 bg-white p-3 shadow-sm sm:p-4" data-testid="rep-brief">
+      <header className="flex items-start justify-between gap-3 border-b-2 border-slate-900 pb-2">
+        <div><p className="text-[10px] font-bold tracking-wide text-slate-500">صفحة القرار</p><h2 className="text-base font-black text-slate-900">الموجز التنفيذي</h2><p className="text-[11px] text-slate-500">ما يلزم معرفته في دقيقة واحدة — التفاصيل في الأقسام المرقّمة</p></div>
+        {kind !== 'finance' && <HealthGauge {...health} compact />}
+      </header>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="rep-brief-kpis">
+        {kpis.map((r) => {
+          const name = String(r[0]); const cur = Number(r[1] ?? 0); const prevV = p ? Number(r[2] ?? 0) : null
+          const pctV = prevV === null ? null : prevV === 0 ? (cur ? null : 0) : Math.round(((cur - prevV) / prevV) * 100)
+          const good = pctV === null || pctV === 0 ? null : BAD_IF_UP.test(name) ? pctV < 0 : pctV > 0
+          return (
+            <div key={name} className="exec-brief-card rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="truncate text-[11px] font-bold text-slate-600">{name}</p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{fmtNum(cur, 1)}</p>
+              {p && <p className={clsx('mt-0.5 text-[11px] font-bold tabular-nums', good === null ? 'text-slate-400' : good ? 'text-emerald-700' : 'text-red-700')}>{pctV === null ? 'لا مقارنة' : pctV === 0 ? 'ثابت' : `${pctV > 0 ? '▲' : '▼'} ${Math.abs(pctV)}٪`} <span className="font-normal text-slate-400">· السابق {fmtNum(prevV ?? 0, 1)}</span></p>}
+            </div>
+          )
+        })}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 p-3">
+          <p className="mb-2 text-xs font-black text-slate-800">أبرز النتائج</p>
+          <InsightList items={insights} limit={5} testId="rep-brief-findings" />
+        </div>
+        <div className="rounded-xl border border-slate-200 p-3" data-testid="rep-brief-decisions">
+          <p className="mb-2 text-xs font-black text-slate-800">ما يحتاج قراراً</p>
+          {decisions.length ? <ul className="space-y-1.5">{decisions.map((d) => <li key={d.text}><DecisionItem {...d} /></li>)}</ul> : <p className="text-xs text-slate-400">لا توجد بنود معلّقة تحتاج قراراً في هذه الفترة.</p>}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const SECTION_DOMAIN: Partial<Record<SectionKey, string[]>> = {
+  complaints: ['الشكاوى'], fleet: ['الأسطول', 'الصيانة'], station: ['المحطة التحويلية', 'المحطة'], workforce: ['الموارد البشرية', 'الحضور'], workforce_cost: ['الموارد البشرية', 'المالية'],
+  disclosures: ['الكشوفات'], supplies: ['التجهيز', 'الإعلام'], finance: ['المالية'], payroll: ['المالية'], budget: ['المالية'], spend: ['المالية'], sectors: ['الأسطول', 'الشكاوى'],
+}
+/** «القراءة» المكتوبة أسفل كل قسم: استنتاجات الوحدة نفسها بصيغة نص رسمي */
+function SectionReading({ k, insights }: { k: SectionKey; insights: Insight[] }) {
+  const domains = SECTION_DOMAIN[k]
+  if (!domains) return null
+  const list = insights.filter((i) => domains.includes(i.domain)).slice(0, 4)
+  if (!list.length) return null
+  return (
+    <div className="rounded-xl border-r-4 border-slate-900 bg-slate-50 p-3 text-xs leading-6 text-slate-700" data-testid={`rep-reading-${k}`}>
+      <p className="mb-1 font-black text-slate-900">القراءة</p>
+      <p>{list.map((i) => i.text.replace(/[.。]?$/, '')).join('؛ ')}.</p>
+    </div>
+  )
+}
+
+const SIGNERS: Record<ExecPortalKind, Array<[string, string]>> = {
+  admin: [['أعدّه', 'مدير غرفة العمليات'], ['دقّقه', 'المدير التنفيذي'], ['اعتمده', 'المدير المفوض']],
+  executive: [['أعدّه', 'مدير غرفة العمليات'], ['دقّقه', 'معاون المدير المفوض'], ['اعتمده', 'المدير التنفيذي']],
+  deputy: [['أعدّه', 'مدير غرفة العمليات'], ['دقّقه', 'مسؤول القواطع'], ['اعتمده', 'معاون المدير المفوض']],
+  finance: [['أعدّه', 'محاسب الرواتب'], ['دقّقه', 'مدير الشؤون المالية'], ['اعتمده', 'المدير المفوض']],
+}
+function Signatures({ kind, orgName }: { kind: ExecPortalKind; orgName: string }) {
+  return (
+    <section className="exec-sign rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="rep-signatures">
+      <header className="border-b-2 border-slate-900 pb-2"><h2 className="text-base font-black text-slate-900">المصادقات</h2><p className="text-[11px] text-slate-500">{orgName} — يُوقَّع بعد المراجعة ويُحفظ مع نسخة التقرير</p></header>
+      <div className="mt-6 grid grid-cols-3 gap-4 text-center text-xs">
+        {SIGNERS[kind].map(([role, who]) => (
+          <div key={role} className="space-y-10">
+            <div><p className="font-black text-slate-800">{role}</p><p className="text-slate-500">{who}</p></div>
+            <div className="border-t border-slate-400 pt-1 text-[10px] text-slate-400">الاسم والتوقيع · التاريخ</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 grid grid-cols-2 gap-3 text-[11px] text-slate-600 sm:grid-cols-3">
+        <p>ملاحظات المراجعة: <span className="inline-block w-full border-b border-dotted border-slate-300" /></p>
+        <p className="col-span-2 border-b border-dotted border-slate-300" />
+      </div>
+    </section>
   )
 }
 

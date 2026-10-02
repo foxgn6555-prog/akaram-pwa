@@ -6,18 +6,18 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import clsx from 'clsx'
-import { Check, Copy, ExternalLink, Headset, Images, Link2, MapPin, MessageSquareText, Phone, Printer, Search, Send, Settings2, UserCheck, X } from 'lucide-react'
+import { Archive, Check, Copy, ExternalLink, Headset, Images, Link2, MapPin, MessageSquareText, Phone, Printer, Search, Send, Settings2, Star, UserCheck, X } from 'lucide-react'
 import {
   CITIZEN_STATUS_LABEL, CITIZEN_STATUS_ORDER, useAddCitizenNote, useAssignCitizenComplaint, useCitizenInfo, useCitizenManagers, useCitizenPhotoUrls, useCitizenPublicUrl, useCitizenQueue,
-  useOpsChatActions, useOpsChatSession, useOpsCitizenComplaints, useSaveCitizenSettings, useSetCitizenStatus, type CitizenComplaint, type CitizenStatus,
+  useOpsChatActions, useOpsChatDays, useOpsChatHistory, useOpsChatSession, useOpsCitizenComplaints, useSaveCitizenSettings, useSetCitizenStatus, type CitizenChat, type CitizenComplaint, type CitizenStatus,
 } from '@features/citizen'
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
 import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-type Tab = 'complaints' | 'support' | 'report' | 'settings'
+type Tab = 'complaints' | 'support' | 'archive' | 'report' | 'settings'
 const TABS: Array<{ key: Tab; label: string; icon: typeof Headset }> = [
-  { key: 'complaints', label: 'شكاوى المواطنين', icon: MessageSquareText }, { key: 'support', label: 'الدعم الفني المباشر', icon: Headset },
+  { key: 'complaints', label: 'شكاوى المواطنين', icon: MessageSquareText }, { key: 'support', label: 'الدعم الفني المباشر', icon: Headset }, { key: 'archive', label: 'أرشيف المحادثات', icon: Archive },
   { key: 'report', label: 'التقرير', icon: Printer }, { key: 'settings', label: 'صفحة المواطن', icon: Settings2 },
 ]
 export const STATUS_TONE: Record<CitizenStatus, string> = {
@@ -46,6 +46,7 @@ export default function OpsCitizenComplaintsPage() {
       </nav>
       {tab === 'complaints' && <ComplaintsTab selectedId={params.get('c')} onSelect={(id) => setParams((p) => { if (id) p.set('c', id); else p.delete('c'); return p })} />}
       {tab === 'support' && <SupportTab />}
+      {tab === 'archive' && <ArchiveTab />}
       {tab === 'report' && <ReportTab />}
       {tab === 'settings' && <SettingsTab />}
     </section>
@@ -195,13 +196,7 @@ function SupportTab() {
               </div>
             </div>
             <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
-              {chat.messages.map((m) => (
-                <div key={m.id} className={clsx('flex', m.sender === 'agent' ? 'justify-start' : m.sender === 'citizen' ? 'justify-end' : 'justify-center')}>
-                  <div className={clsx('max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6', m.sender === 'agent' ? 'bg-sky-700 text-white' : m.sender === 'citizen' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900')}>
-                    <p className="whitespace-pre-wrap">{m.body}</p><p className={clsx('mt-1 text-[10px]', m.sender === 'agent' ? 'text-sky-100' : 'text-slate-400')}>{new Date(m.at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                </div>
-              ))}
+              <ChatMessages chat={chat} />
               <div ref={endRef} />
             </div>
             {chat.status !== 'closed' && (
@@ -217,7 +212,100 @@ function SupportTab() {
   )
 }
 
-// ═══════════════ ③ التقرير ═══════════════
+/** فقاعات المحادثة (مشتركة بين الدعم الحيّ والأرشيف) — تعرض صور المواطن بروابط موقّعة */
+function ChatMessages({ chat }: { chat: CitizenChat }) {
+  const paths = chat.messages.map((m) => m.attachment).filter((p): p is string => !!p)
+  const { data: urls } = useCitizenPhotoUrls(paths)
+  return (
+    <>
+      {chat.messages.map((m) => (
+        <div key={m.id} className={clsx('flex', m.sender === 'agent' ? 'justify-start' : m.sender === 'citizen' ? 'justify-end' : 'justify-center')}>
+          <div className={clsx('max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6', m.sender === 'agent' ? 'bg-sky-700 text-white' : m.sender === 'citizen' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900')}>
+            {m.attachment && (urls?.[m.attachment]
+              ? <a href={urls[m.attachment]} target="_blank" rel="noreferrer"><img src={urls[m.attachment]} alt="صورة من المواطن" className="mb-1 max-h-64 rounded-xl object-cover" data-testid="ops-chat-image" /></a>
+              : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-100 text-[10px] text-slate-500">جارٍ تحميل الصورة…</div>)}
+            {m.body !== '📷 صورة' && <p className="whitespace-pre-wrap">{m.body}</p>}
+            <p className={clsx('mt-1 text-[10px]', m.sender === 'agent' ? 'text-sky-100' : 'text-slate-400')}>{new Date(m.at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+// ═══════════════ ③ أرشيف المحادثات — حسب اليوم ═══════════════
+function ArchiveTab() {
+  const { data: days = [], isLoading } = useOpsChatDays()
+  const [day, setDay] = useState<string | null>(null)
+  const [sid, setSid] = useState<string | null>(null)
+  const current = day ?? days[0]?.day ?? null
+  const { data: items = [], isFetching } = useOpsChatHistory(current)
+  const { data: chat } = useOpsChatSession(sid)
+  const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('ar-IQ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const mins = (n: number | null) => (n === null ? '—' : n < 60 ? `${n} د` : `${Math.floor(n / 60)} س ${n % 60} د`)
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(240px,0.7fr)_1.6fr]" data-testid="chat-archive">
+      <div className="space-y-2">
+        <label className="block rounded-2xl bg-white p-3 ring-1 ring-slate-200 text-xs font-bold">اختر يوماً
+          <input type="date" value={current ?? ''} max={baghdadDay()} onChange={(e) => { setDay(e.target.value || null); setSid(null) }} className="mt-1 w-full rounded-xl border border-slate-200 px-2 py-2 text-xs" data-testid="archive-date" />
+        </label>
+        <h2 className="px-1 text-xs font-black text-slate-600">الأيام التي فيها محادثات</h2>
+        {isLoading && <LoadingSpinner />}
+        {!isLoading && !days.length && <div className="rounded-3xl border border-dashed bg-white p-6 text-center text-xs text-slate-500">لا توجد محادثات مؤرشفة بعد</div>}
+        <ul className="max-h-[60vh] space-y-1 overflow-y-auto" data-testid="archive-days">
+          {days.map((d) => (
+            <li key={d.day}>
+              <button type="button" onClick={() => { setDay(d.day); setSid(null) }} className={clsx('flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-right text-xs ring-1', current === d.day ? 'ring-2 ring-sky-500' : 'ring-slate-200')} data-testid="archive-day">
+                <span><b>{dayLabel(d.day)}</b><span className="block text-[10px] text-slate-400" dir="ltr">{d.day}</span></span>
+                <span className="text-left"><span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black text-white">{d.count}</span>{d.avg_rating !== null && <span className="mt-0.5 flex items-center justify-end gap-0.5 text-[10px] text-amber-600"><Star size={10} className="fill-amber-400" />{d.avg_rating}</span>}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="space-y-3">
+        {current && (
+          <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-black">محادثات {dayLabel(current)}</h2><span className="text-xs text-slate-500">{items.length} محادثة{isFetching ? ' · تحديث…' : ''}</span></div>
+            {!items.length && !isFetching && <p className="mt-3 rounded-xl border border-dashed p-4 text-center text-xs text-slate-500" data-testid="archive-empty">لا توجد محادثات في هذا اليوم</p>}
+            {items.length > 0 && (
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full text-xs" data-testid="archive-table">
+                  <thead><tr className="bg-slate-50 text-right text-[11px] text-slate-500"><th className="p-2">المواطن</th><th className="p-2">الوقت</th><th className="p-2">الموظف</th><th className="p-2">انتظار</th><th className="p-2">المدة</th><th className="p-2">رسائل</th><th className="p-2">التقييم</th><th className="p-2">الحالة</th></tr></thead>
+                  <tbody>
+                    {items.map((it) => (
+                      <tr key={it.id} onClick={() => setSid(it.id)} className={clsx('cursor-pointer border-t border-slate-100 hover:bg-sky-50', sid === it.id && 'bg-sky-50')} data-testid="archive-row">
+                        <td className="p-2"><b>{it.citizen_name}</b><span className="block text-[10px] text-slate-400" dir="ltr">{it.phone}</span></td>
+                        <td className="p-2 tabular-nums">{new Date(it.requested_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="p-2">{it.agent_name ?? '—'}</td>
+                        <td className="p-2">{mins(it.wait_minutes)}</td>
+                        <td className="p-2">{mins(it.duration_minutes)}</td>
+                        <td className="p-2">{it.messages}{it.attachments ? <span className="mr-1 inline-flex items-center gap-0.5 text-[10px] text-slate-500"><Images size={10} />{it.attachments}</span> : null}</td>
+                        <td className="p-2">{it.rating ? <span className="inline-flex items-center gap-0.5 text-amber-600"><Star size={11} className="fill-amber-400" />{it.rating}</span> : '—'}</td>
+                        <td className="p-2"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', it.status === 'closed' ? 'bg-slate-100 text-slate-600' : it.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700')}>{it.status === 'closed' ? `مغلقة${it.closed_by === 'citizen' ? ' (المواطن)' : it.closed_by === 'agent' ? ' (الموظف)' : ''}` : it.status === 'active' ? 'جارية' : 'بانتظار'}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        {sid && chat && (
+          <div className="flex max-h-[60vh] flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-slate-200" data-testid="archive-transcript">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div><p className="text-sm font-black">{chat.citizen_name}</p><p className="text-[11px] text-slate-500">{chat.agent_name ? `الموظف: ${chat.agent_name}` : 'لم تُستلم'} · {fmt(chat.requested_at)}{chat.rating ? ` · تقييم ${chat.rating}/5${chat.rating_note ? ` — ${chat.rating_note}` : ''}` : ''}</p></div>
+              <button type="button" onClick={() => setSid(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="إغلاق"><X size={16} /></button>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4"><ChatMessages chat={chat} /></div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════ ④ التقرير ═══════════════
 function ReportTab() {
   const today = baghdadDay()
   const [from, setFrom] = useState(`${today.slice(0, 7)}-01`); const [to, setTo] = useState(today)
@@ -233,7 +321,7 @@ function ReportTab() {
   )
 }
 
-// ═══════════════ ④ إعدادات الصفحة ═══════════════
+// ═══════════════ ⑤ إعدادات الصفحة ═══════════════
 function SettingsTab() {
   const { data: info } = useCitizenInfo(); const save = useSaveCitizenSettings(); const url = useCitizenPublicUrl()
   const [about, setAbout] = useState(''); const [hours, setHours] = useState(''); const [address, setAddress] = useState(''); const [orgName, setOrgName] = useState('')

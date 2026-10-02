@@ -195,4 +195,31 @@ do $$ begin
   raise notice 'T6 OK';
 end $$;
 
+
+
+-- ═══ T7 (00169) · صورة في المحادثة داخل مجلد الرمز فقط + أرشيف الأيام/اليوم ═══
+select auth.set_test_user(null);
+do $$ declare t uuid := current_setting('test.cc_token')::uuid; s jsonb; begin
+  s := public.citizen_chat_request(t);
+  begin perform public.citizen_chat_send(t, '', 'other/x.jpg'); raise exception 'should fail';
+  exception when others then if sqlerrm <> 'CITIZEN_PHOTO_PATH_INVALID' then raise; end if; end;
+  begin perform public.citizen_chat_send(t, '', null); raise exception 'should fail';
+  exception when others then if sqlerrm <> 'CITIZEN_MESSAGE_INVALID' then raise; end if; end;
+  perform public.citizen_chat_send(t, '', t::text || '/chat-1.jpg');
+  s := public.citizen_chat_state(t, 0);
+  if (s -> 'messages' -> -1 ->> 'attachment') <> t::text || '/chat-1.jpg' or (s -> 'messages' -> -1 ->> 'body') <> '📷 صورة' then raise exception 'T7: attachment: %', s -> 'messages' -> -1; end if;
+  perform public.citizen_chat_close(t);
+  raise notice 'T7a OK';
+end $$;
+select auth.set_test_user('ca000000-0000-0000-0000-000000000001');
+do $$ declare d jsonb := public.ops_citizen_chat_days(); hday jsonb; begin
+  if jsonb_array_length(d) <> 1 or (d -> 0 ->> 'count')::int <> 3 or (d -> 0 ->> 'closed')::int <> 3 then raise exception 'T7: days: %', d; end if;
+  hday := public.ops_citizen_chat_history((d -> 0 ->> 'day')::date);
+  if jsonb_array_length(hday) <> 3
+     or (select sum((x ->> 'attachments')::int) from jsonb_array_elements(hday) x) <> 1
+     or not exists (select 1 from jsonb_array_elements(hday) x where (x ->> 'rating')::int = 4 and x ->> 'agent_name' = 'موظف غرفة العمليات' and (x ->> 'wait_minutes') is not null)
+  then raise exception 'T7: history: %', hday; end if;
+  if jsonb_array_length(public.ops_citizen_chat_history(current_date - 400)) <> 0 then raise exception 'T7: empty day'; end if;
+  raise notice 'T7 OK';
+end $$;
 select 'CITIZEN COMPLAINTS TESTS PASSED' as result;

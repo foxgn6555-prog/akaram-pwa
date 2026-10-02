@@ -19,10 +19,15 @@ export interface CitizenComplaint {
   hold_reason: string | null; resolution_note: string | null; resolved_at: string | null; citizen_rating: number | null; created_at: string; updated_at: string
   photos: Array<{ id: string; path: string }>; events: CitizenEvent[]
 }
-export interface CitizenChatMessage { id: number; sender: 'citizen' | 'agent' | 'system'; body: string; at: string }
+export interface CitizenChatMessage { id: number; sender: 'citizen' | 'agent' | 'system'; body: string; at: string; attachment?: string | null }
+export interface CitizenChatDay { day: string; count: number; closed: number; avg_rating: number | null }
+export interface CitizenChatHistoryItem {
+  id: string; status: 'waiting' | 'active' | 'closed'; citizen_name: string; phone: string; requested_at: string; accepted_at: string | null; closed_at: string | null
+  closed_by: 'citizen' | 'agent' | 'system' | null; agent_name: string | null; rating: number | null; rating_note: string | null; wait_minutes: number | null; duration_minutes: number | null; messages: number; attachments: number
+}
 export interface CitizenChat {
   id: string; status: 'waiting' | 'active' | 'closed'; agent_name: string | null; requested_at: string; accepted_at: string | null; closed_at: string | null
-  closed_by: 'citizen' | 'agent' | 'system' | null; rating: number | null; queue_position: number | null; messages: CitizenChatMessage[]; citizen_name?: string; phone?: string
+  closed_by: 'citizen' | 'agent' | 'system' | null; rating: number | null; rating_note?: string | null; queue_position: number | null; messages: CitizenChatMessage[]; citizen_name?: string; phone?: string
 }
 export interface CitizenQueueItem {
   id: string; status: 'waiting' | 'active' | 'closed'; citizen_name: string; phone: string; requested_at: string; accepted_at: string | null
@@ -54,11 +59,11 @@ const ERRORS: Record<string, string> = {
   CITIZEN_DAILY_LIMIT: 'وصلت الحد الأقصى للشكاوى اليوم (5) — يمكنك المتابعة غداً أو التحدث مع الدعم',
   CITIZEN_PHOTOS_LIMIT: 'الحد الأقصى 5 صور',
   CITIZEN_LOCATION_INVALID: 'الموقع غير صالح',
-  CITIZEN_PHOTO_PATH_INVALID: 'تعذر ربط الصور بالشكوى — أعد المحاولة',
+  CITIZEN_PHOTO_PATH_INVALID: 'تعذّر ربط الصورة — أعد المحاولة',
   CITIZEN_SESSION_INVALID: 'انتهت جلستك — أدخل اسمك ورقم هاتفك مجدداً',
   CITIZEN_RATING_INVALID: 'التقييم من 1 إلى 5 نجوم',
   CITIZEN_COMPLAINT_NOT_RATABLE: 'يمكن تقييم الشكوى بعد معالجتها فقط',
-  CITIZEN_MESSAGE_INVALID: 'اكتب رسالة (حتى 2000 حرف)',
+  CITIZEN_MESSAGE_INVALID: 'اكتب رسالة أو أرفق صورة (حتى 2000 حرف)',
   CITIZEN_CHAT_CLOSED: 'المحادثة مغلقة — اطلب محادثة جديدة',
   CITIZEN_RATE_LIMIT: 'رسائل كثيرة خلال وقت قصير — انتظر قليلاً',
   CITIZEN_CHAT_NOT_RATABLE: 'يمكن تقييم المحادثة بعد انتهائها',
@@ -105,7 +110,8 @@ export const citizen = {
   },
   chatRequest(token: string) { return rpc<CitizenChat>('citizen_chat_request', { p_token: token }) },
   chatState(token: string, after = 0) { return rpcMaybe<CitizenChat>('citizen_chat_state', { p_token: token, p_after: after }) },
-  chatSend(token: string, body: string) { return rpc<number>('citizen_chat_send', { p_token: token, p_body: body }) },
+  /** رسالة نصية و/أو صورة (مسار داخل مجلد الرمز — رُفعت عبر uploadPhoto) */
+  chatSend(token: string, body: string, attachment?: string | null) { return rpc<number>('citizen_chat_send', { p_token: token, p_body: body, p_attachment: attachment ?? null }) },
   chatClose(token: string) { return sdkVoid(supabase.rpc('citizen_chat_close', { p_token: token } as never)) },
   chatRate(token: string, sessionId: string, stars: number, note?: string) {
     return sdkVoid(supabase.rpc('citizen_chat_rate', { p_token: token, p_session: sessionId, p_stars: stars, p_note: note ?? null } as never))
@@ -131,6 +137,9 @@ export const citizen = {
   opsMessages(sessionId: string, after = 0) { return rpc<CitizenChat>('ops_citizen_chat_messages', { p_session: sessionId, p_after: after }) },
   opsSend(sessionId: string, body: string) { return rpc<number>('ops_citizen_chat_send', { p_session: sessionId, p_body: body }) },
   opsClose(sessionId: string) { return sdkVoid(supabase.rpc('ops_citizen_chat_close', { p_session: sessionId } as never)) },
+  /** أرشيف المحادثات: الأيام (بعددها وتقييمها) ثم محادثات يوم محدد */
+  opsChatDays(limit = 90) { return rpc<CitizenChatDay[]>('ops_citizen_chat_days', { p_limit: limit }) },
+  opsChatHistory(day: string) { return rpc<CitizenChatHistoryItem[]>('ops_citizen_chat_history', { p_day: day }) },
   opsSaveSettings(v: { about: string; phones: Array<{ label: string; number: string }>; hours: string; address?: string | null; orgName?: string | null }) {
     return rpc<CitizenPortalInfo>('ops_citizen_settings_save', { p_about: v.about, p_phones: v.phones, p_hours: v.hours, p_address: v.address ?? null, p_org_name: v.orgName ?? null })
   },

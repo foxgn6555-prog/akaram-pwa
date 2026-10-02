@@ -117,3 +117,33 @@ describe('منطق البوابات', () => {
     expect(quiet).toEqual([])
   })
 })
+
+describe('buildExecWorkbook — المصنف الاحترافي (00169)', () => {
+  it('غلاف أولاً ثم المؤشرات والاستنتاجات وورقة لكل وحدة، وتلوين التغيّر مقارنة بالفترة السابقة', async () => {
+    const { buildExecWorkbook } = await import('@features/executive/lib/execExcel')
+    const cur = sample(); const prev = sample()
+    cur.complaints.total = prev.complaints.total + 5
+    const wb = await buildExecWorkbook(cur, buildInsights(cur, prev), prev, 'شركة جزيرة الأكارم', 'all', 'x.xlsx')
+    type Ordered = { orderNo: number }
+    const ordered = [...wb.worksheets].sort((a, b) => (a as unknown as Ordered).orderNo - (b as unknown as Ordered).orderNo).map((w) => w.name)
+    expect(ordered[0]).toBe('الغلاف')
+    expect(ordered.slice(1, 3)).toEqual(['المؤشرات', 'الاستنتاجات'])
+    expect(ordered).toEqual(expect.arrayContaining(['الشكاوى', 'الأسطول والصيانة', 'المحطة التحويلية', 'الموارد البشرية', 'المالية', 'السلاسل اليومية']))
+    const cover = wb.getWorksheet('الغلاف')!
+    expect(String(cover.getCell(3, 2).value)).toBe('شركة جزيرة الأكارم')
+    expect(String(cover.getCell(8, 2).value)).toBe(periodLabel(cur.period.from, cur.period.to))
+    const kpi = wb.getWorksheet('المؤشرات')!
+    expect(String(kpi.getCell(5, 2).value)).toBe('المؤشر')
+    const change = kpi.getCell(6, 5) // الشكاوى الواردة: زادت ⇒ أحمر
+    expect(String(change.value)).toMatch(/▲/)
+    expect((change.font as { color?: { argb?: string } }).color?.argb).toBe('FFB91C1C')
+    expect(wb.getWorksheet('المؤشرات')!.pageSetup.paperSize).toBe(9)
+  })
+  it('النطاق المالي: أوراق مالية فقط ولا تحتوي الشكاوى', async () => {
+    const { buildExecWorkbook } = await import('@features/executive/lib/execExcel')
+    const wb = await buildExecWorkbook(sample(), [], null, 'شركة جزيرة الأكارم', 'finance', 'f.xlsx')
+    const names = wb.worksheets.map((w) => w.name)
+    expect(names).toEqual(expect.arrayContaining(['الغلاف', 'المؤشرات', 'الرواتب', 'الموازنة', 'الإنفاق']))
+    expect(names).not.toContain('الشكاوى')
+  })
+})

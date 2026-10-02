@@ -14,7 +14,7 @@ const thin = (): Partial<Borders> => { const s = { style: 'thin' as const, color
 
 export async function buildWorkbook<T>(spec: ExportSpec<T>): Promise<Workbook> {
   const ExcelJS = await import('exceljs')
-  const wb = new ExcelJS.Workbook(); wb.creator = 'منصة الأكرم — الموارد البشرية'; wb.created = new Date()
+  const wb = new ExcelJS.Workbook(); wb.creator = 'شركة جزيرة الأكارم — الموارد البشرية'; wb.created = new Date()
   const ws = wb.addWorksheet(spec.sheetName.slice(0, 31), { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
   fillHeader(ws, spec)
   spec.rows.forEach((r, i) => {
@@ -188,7 +188,7 @@ const MARITAL_IN_RAW: Record<string, string> = { اعزب: 'single', أعزب: '
 
 export async function buildImportTemplate(ctx: { departments: string[]; branches: string[]; shifts: string[] }) {
   const ExcelJS = await import('exceljs')
-  const wb = new ExcelJS.Workbook(); wb.creator = 'منصة الأكرم — الموارد البشرية'
+  const wb = new ExcelJS.Workbook(); wb.creator = 'شركة جزيرة الأكارم — الموارد البشرية'
   const ws = wb.addWorksheet('الموظفون', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }] })
   const head = ws.addRow(IMPORT_COLUMNS.map((c) => c.header + (c.required ? ' *' : '')))
   head.eachCell((c, i) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: IMPORT_COLUMNS[i - 1]?.required ? 'FFB91C1C' : HEAD_FILL } }; c.alignment = { horizontal: 'center' }; c.border = thin() })

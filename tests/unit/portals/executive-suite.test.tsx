@@ -205,7 +205,7 @@ describe('التقارير — معالج من ثلاث خطوات', () => {
     fireEvent.click(screen.getByTestId('next-step'))
     expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '3')
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري')
-    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(11)
+    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(13) // الموجز + ١١ قسماً + المصادقات
     expect(screen.getByTestId('rep-sec-insights')).toHaveTextContent('1قراءة تحليلية')
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('الفترة السابقة')
     expect(screen.getByTestId('scorecards')).toBeInTheDocument()
@@ -255,7 +255,14 @@ describe('التقارير — معالج من ثلاث خطوات', () => {
     const css = document.querySelector('style')!.textContent!
     expect(css).toContain('@page { size: A4; margin: 0; }')
     expect(css).toContain('print-color-adjust: exact')
-    expect(css).toContain('.exec-section { break-before: page; }')
+    expect(css).toContain('.exec-brief, .exec-section, .exec-sign { break-before: page; }')
+    // 00169 — التخطيط «الاثنان معاً»: غلاف ظاهر على الشاشة، موجز تنفيذي (٨ مؤشرات + أبرز النتائج + ما يحتاج قراراً)، أقسام مرقّمة بقراءة مكتوبة، ثم صفحة المصادقات
+    expect(screen.getByTestId('rep-cover')).not.toHaveClass('hidden')
+    expect(screen.getByTestId('rep-cover')).toHaveTextContent('شركة جزيرة الأكارم')
+    expect(screen.getByTestId('rep-brief-kpis').children).toHaveLength(8)
+    expect(screen.getByTestId('rep-brief-decisions')).toBeInTheDocument()
+    expect(within(screen.getByTestId('rep-signatures')).getByText('اعتمده')).toBeInTheDocument()
+    expect(within(screen.getByTestId('rep-signatures')).getByText('المدير التنفيذي')).toBeInTheDocument()
     print.mockRestore()
   })
 })

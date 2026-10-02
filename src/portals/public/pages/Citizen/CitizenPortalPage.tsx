@@ -3,17 +3,19 @@
  *   · دخول مبسّط: الاسم + رقم الهاتف (يُحفظ على الجهاز).
  *   · تقديم شكوى: اسم ثلاثي، تفاصيل، الموقع (GPS)، صور اختيارية (حتى 5، تُضغط قبل الرفع).
  *   · شكاواي: الحالة (جديدة/قيد المعالجة/معلقة/تمت المعالجة) + خط زمني + تقييم بعد المعالجة.
- *   · الدعم الفني: طلب محادثة → انتظار → محادثة حيّة → إغلاق → تقييم بالنجوم (اختياري).
+ *   · الدعم الفني: طلب محادثة → انتظار → محادثة حيّة (نص + صورة من المعرض أو الكاميرا مباشرة) → إغلاق → تقييم بالنجوم (اختياري).
+ *   · لقطات الشاشة في المحادثة: روادع (تمويه عند فقدان التركيز، اعتراض PrintScreen، منع النسخ/الطباعة) — بلا علامة مائية.
  *   · نبذة وأرقام التواصل (تُحرَّر من غرفة العمليات).
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Camera, CheckCircle2, ChevronRight, Clock, Headset, Info, Loader2, LocateFixed, LogOut, MapPin, MessageSquareText, Phone, Send, Star, Trash2, X,
+  Camera, CheckCircle2, ChevronRight, Clock, Headset, ImagePlus, Info, Loader2, LocateFixed, LogOut, MapPin, MessageSquareText, Phone, Send, ShieldOff, Star, Trash2, X,
 } from 'lucide-react'
+import { SCREEN_GUARD_PRINT_CSS, useScreenGuard } from '@features/citizen/screen-guard'
 import {
-  CITIZEN_STATUS_LABEL, citizen, citizenErrorMessage, citizenKeys, compressImage, useCitizenChat, useCitizenInfo, useCitizenSession, useMyComplaints,
+  CITIZEN_STATUS_LABEL, citizen, citizenErrorMessage, citizenKeys, compressImage, useCitizenChat, useCitizenInfo, useCitizenPhotoUrls, useCitizenSession, useMyComplaints,
   type CitizenComplaint, type CitizenStatus,
 } from '@features/citizen'
 
@@ -141,7 +143,7 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
   const [fullName, setFullName] = useState(defaultName); const [details, setDetails] = useState(''); const [address, setAddress] = useState('')
   const [pos, setPos] = useState<{ lat: number; lng: number; acc?: number } | null>(null); const [locating, setLocating] = useState(false); const [locError, setLocError] = useState('')
   const [files, setFiles] = useState<Array<{ file: File; url: string }>>([]); const [error, setError] = useState(''); const [done, setDone] = useState<CitizenComplaint | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null); const camRef = useRef<HTMLInputElement>(null)
   useEffect(() => () => files.forEach((f) => URL.revokeObjectURL(f.url)), [files])
 
   function locate() {
@@ -201,6 +203,10 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
           const picked = Array.from(e.target.files ?? []).slice(0, 5 - files.length)
           setFiles((old) => [...old, ...picked.map((file) => ({ file, url: URL.createObjectURL(file) }))]); e.target.value = ''
         }} data-testid="cc-files" />
+        <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => {
+          const picked = Array.from(e.target.files ?? []).slice(0, 5 - files.length)
+          setFiles((old) => [...old, ...picked.map((file) => ({ file, url: URL.createObjectURL(file) }))]); e.target.value = ''
+        }} data-testid="cc-camera" />
         <div className="flex flex-wrap gap-2">
           {files.map((f, i) => (
             <div key={f.url} className="relative h-20 w-20 overflow-hidden rounded-xl ring-1 ring-slate-200">
@@ -209,7 +215,10 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
             </div>
           ))}
           {files.length < 5 && (
-            <button type="button" onClick={() => fileRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-slate-500 hover:border-[#0e6ab3] hover:text-[#0e6ab3]"><Camera size={22} /></button>
+            <>
+              <button type="button" onClick={() => camRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0e6ab3] hover:text-[#0e6ab3]" data-testid="cc-camera-btn"><Camera size={22} />التقاط</button>
+              <button type="button" onClick={() => fileRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0e6ab3] hover:text-[#0e6ab3]" data-testid="cc-gallery-btn"><ImagePlus size={22} />من المعرض</button>
+            </>
           )}
         </div>
       </Field>
@@ -276,18 +285,29 @@ function Support({ token }: { token: string }) {
   const qc = useQueryClient()
   const { data: chat, isLoading } = useCitizenChat(token, true)
   const [text, setText] = useState(''); const [note, setNote] = useState(''); const [rated, setRated] = useState(0)
-  const endRef = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null); const guardRef = useRef<HTMLDivElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null); const cameraRef = useRef<HTMLInputElement>(null)
   const inv = () => void qc.invalidateQueries({ queryKey: citizenKeys.chat(token) })
   const request = useMutation({ mutationFn: () => citizen.chatRequest(token), onSuccess: inv })
   const send = useMutation({ mutationFn: (b: string) => citizen.chatSend(token, b), onSuccess: () => { setText(''); inv() } })
+  /** صورة من المعرض أو الكاميرا: ضغط → رفع داخل مجلد الرمز → رسالة بمرفق (مع النص المكتوب إن وُجد) */
+  const sendPhoto = useMutation({
+    mutationFn: async (file: File) => { const path = await citizen.uploadPhoto(token, await compressImage(file), Date.now() % 1000); return citizen.chatSend(token, text.trim(), path) },
+    onSuccess: () => { setText(''); inv() },
+  })
+  const onPick = (e: ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) sendPhoto.mutate(f) }
+  const attachPaths = (chat?.messages ?? []).map((m) => m.attachment).filter((p): p is string => !!p)
+  const { data: urls } = useCitizenPhotoUrls(attachPaths)
   const close = useMutation({ mutationFn: () => citizen.chatClose(token), onSuccess: inv })
   const rate = useMutation({ mutationFn: (v: { stars: number; note: string }) => citizen.chatRate(token, chat!.id, v.stars, v.note), onSuccess: inv })
   const msgCount = chat?.messages.length ?? 0
   useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end' }) }, [msgCount])
-  const open = chat && chat.status !== 'closed'
+  const open = !!chat && chat.status !== 'closed'
+  const guard = useScreenGuard(guardRef, open)
 
   return (
     <section className="space-y-4" data-testid="citizen-support">
+      <style>{SCREEN_GUARD_PRINT_CSS}</style>
       <h1 className="text-xl font-black text-[#0b4f8a]">الدعم الفني المباشر</h1>
       {isLoading && <div className="h-32 animate-pulse rounded-3xl bg-white" />}
       {!isLoading && !open && (
@@ -310,7 +330,8 @@ function Support({ token }: { token: string }) {
         </div>
       )}
       {open && chat && (
-        <div className="flex h-[70vh] flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200" data-testid="chat-window">
+        <div ref={guardRef} data-screen-guard className={`relative flex h-[70vh] select-none flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 transition ${guard.blurred ? 'blur-md' : ''}`} data-testid="chat-window" data-blurred={guard.blurred ? '1' : '0'} style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as CSSProperties}>
+          {guard.notice && <p role="alert" className="absolute inset-x-3 top-14 z-10 flex items-center gap-2 rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-bold text-white shadow" data-testid="chat-guard-notice"><ShieldOff size={14} /> {guard.notice}</p>}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-black">
               <span className={`h-2.5 w-2.5 rounded-full ${chat.status === 'active' ? 'bg-emerald-500' : 'animate-pulse bg-amber-400'}`} />
@@ -322,7 +343,10 @@ function Support({ token }: { token: string }) {
             {chat.messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'citizen' ? 'justify-start' : msg.sender === 'agent' ? 'justify-end' : 'justify-center'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm ${msg.sender === 'citizen' ? 'bg-[#0b4f8a] text-white' : msg.sender === 'agent' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900 ring-1 ring-amber-200'}`}>
-                  <p className="whitespace-pre-wrap">{msg.body}</p>
+                  {msg.attachment && (urls?.[msg.attachment]
+                    ? <img src={urls[msg.attachment]} alt="صورة مرفقة" className="mb-1 max-h-60 w-full rounded-xl object-cover" draggable={false} data-testid="chat-image" />
+                    : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-200/60 text-[10px] text-slate-500" data-testid="chat-image-loading">جارٍ تحميل الصورة…</div>)}
+                  {msg.body !== '📷 صورة' && <p className="whitespace-pre-wrap">{msg.body}</p>}
                   <p className={`mt-1 text-[10px] ${msg.sender === 'citizen' ? 'text-blue-100' : 'text-slate-400'}`}>{new Date(msg.at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
@@ -330,12 +354,19 @@ function Support({ token }: { token: string }) {
             <div ref={endRef} />
           </div>
           <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (text.trim()) send.mutate(text.trim()) }} className="flex items-center gap-2 border-t border-slate-100 p-3">
+            <input ref={galleryRef} type="file" accept="image/*" hidden onChange={onPick} data-testid="chat-gallery" />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={onPick} data-testid="chat-camera" />
+            <button type="button" onClick={() => cameraRef.current?.click()} disabled={sendPhoto.isPending} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-300 text-[#0b4f8a] disabled:opacity-50" aria-label="التقاط صورة بالكاميرا" title="التقاط صورة" data-testid="chat-camera-btn">{sendPhoto.isPending ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}</button>
+            <button type="button" onClick={() => galleryRef.current?.click()} disabled={sendPhoto.isPending} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-300 text-[#0b4f8a] disabled:opacity-50" aria-label="إرسال صورة من المعرض" title="صورة من المعرض" data-testid="chat-gallery-btn"><ImagePlus size={18} /></button>
             <input value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="اكتب رسالتك…" className="flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#0e6ab3]" data-testid="chat-input" />
             <button type="submit" disabled={!text.trim() || send.isPending} className="grid h-11 w-11 place-items-center rounded-xl bg-[#0b4f8a] text-white disabled:opacity-50" aria-label="إرسال" data-testid="chat-send"><Send size={18} /></button>
           </form>
           {send.isError && <p role="alert" className="px-4 pb-2 text-xs font-bold text-red-700">{citizenErrorMessage(send.error)}</p>}
+          {sendPhoto.isError && <p role="alert" className="px-4 pb-2 text-xs font-bold text-red-700">{citizenErrorMessage(sendPhoto.error)}</p>}
         </div>
       )}
+      {open && <p className="flex items-center gap-1 text-[11px] text-slate-500" data-testid="chat-guard-hint"><ShieldOff size={12} /> لقطات الشاشة غير مسموحة في هذه المحادثة — تُموَّه المحادثة عند محاولة التقاطها.</p>}
+      <div data-screen-guard-print className="hidden text-center text-sm font-bold text-slate-700">المحادثة سرّية ولا تُطبع.</div>
     </section>
   )
 }

@@ -34,7 +34,7 @@ export async function exportGpsTrips(
 ) {
   const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'منصة الأكرم — غرفة العمليات'
+  workbook.creator = 'شركة جزيرة الأكارم — غرفة العمليات'
   workbook.created = new Date()
   const sheet = workbook.addWorksheet('الانطلاقيات والمسارات', {
     views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }],
@@ -547,7 +547,7 @@ export async function exportGpsAlerts(
 ) {
   const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'منصة الأكرم — غرفة العمليات'
+  workbook.creator = 'شركة جزيرة الأكارم — غرفة العمليات'
   const sheet = workbook.addWorksheet('تنبيهات GPS', {
     views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }],
   })

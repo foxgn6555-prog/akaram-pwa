@@ -9,7 +9,7 @@ export function payrollFileName(month: string) { return `كشف-الرواتب-$
 export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[]) {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'منصة الأكرم — الشؤون المالية'; wb.created = new Date()
+  wb.creator = 'شركة جزيرة الأكارم — الشؤون المالية'; wb.created = new Date()
   const ws = wb.addWorksheet(`رواتب ${month.slice(0, 7)}`, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
   const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد', 'أيام العمل', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة', 'دقائق التأخير', 'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'استقطاع تلقائي (مبلغ)', 'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات']
   const approved = rows[0]?.export_status === 'approved'

@@ -11,6 +11,8 @@ export const citizenKeys = {
   info: () => [...citizenKeys.all, 'info'] as const,
   mine: (token: string) => [...citizenKeys.all, 'mine', token] as const,
   chat: (token: string) => [...citizenKeys.all, 'chat', token] as const,
+  chatDays: () => [...citizenKeys.all, 'chat-days'] as const,
+  chatDay: (day: string) => [...citizenKeys.all, 'chat-day', day] as const,
   opsList: (f: unknown) => [...citizenKeys.all, 'ops-list', f] as const,
   managers: () => [...citizenKeys.all, 'managers'] as const,
   queue: () => [...citizenKeys.all, 'queue'] as const,
@@ -89,6 +91,10 @@ export function useOpsChatActions() {
   const send = useMutation({ mutationFn: (v: { id: string; body: string }) => citizen.opsSend(v.id, v.body), onSuccess: inv, onError: t.err })
   const close = useMutation({ mutationFn: (id: string) => citizen.opsClose(id), onSuccess: () => { inv(); t.ok('أُغلقت المحادثة') }, onError: t.err })
   return { accept, send, close }
+}
+export function useOpsChatDays() { return useQuery({ queryKey: citizenKeys.chatDays(), queryFn: () => citizen.opsChatDays(), staleTime: 60_000 }) }
+export function useOpsChatHistory(day: string | null) {
+  return useQuery({ queryKey: citizenKeys.chatDay(day ?? ''), queryFn: () => citizen.opsChatHistory(day as string), enabled: !!day, staleTime: 60_000 })
 }
 export function useSaveCitizenSettings() {
   const inv = useInvalidateCitizen(); const t = useToast()

@@ -2,7 +2,7 @@
  * تصدير التقرير التنفيذي إلى Excel متعدد الأوراق (RTL): غلاف + استنتاجات + ورقة لكل وحدة + السلاسل اليومية.
  * الأرقام صافية؛ لا أعمدة فردية للرواتب (تبقى في بوابة المالية).
  */
-import type { Workbook, Worksheet } from 'exceljs'
+import type { Workbook } from 'exceljs'
 import type { ExecOverview, NamedCount, KeyedCount } from '../types'
 import type { Insight } from './insights'
 import { attendanceRate } from './insights'
@@ -97,45 +97,97 @@ function mergeSeries(o: ExecOverview): Array<Array<string | number | null>> {
   return [...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([d, x]) => [d, x.c, x.f, x.t, x.p, x.ab, x.l])
 }
 
-export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, orgName = 'منصة الأكرم', scope: ExecScope = 'all'): Promise<Workbook> {
-  const ExcelJS = await import('exceljs')
-  const wb = new ExcelJS.Workbook(); wb.creator = `${orgName} — الإدارة العليا`; wb.created = new Date()
+/**
+ * المصنف الاحترافي (موحّد مع بقية المنظومة عبر buildExcelReport):
+ *   ورقة «الغلاف» بالشعار والفترة والجهة · «المؤشرات» بمقارنة الفترة السابقة وتلوين التغيّر · «الاستنتاجات»
+ *   · ورقة لكل وحدة بجداول منسّقة (عناوين فرعية ملوّنة) · «الحركة اليومية» · أوراق رسوم بيانية (صور) · إعداد طباعة A4.
+ */
+export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, orgName = 'شركة جزيرة الأكارم', scope: ExecScope = 'all', fileName = 'report.xlsx', who = 'الإدارة العليا'): Promise<Workbook> {
+  const { buildExcelReport, saveWorkbook, BRAND } = await import('@lib/export/excel-report')
   const sheets = buildExecSheets(o, insights, prev, scope)
-  for (const s of sheets) {
-    const ws = wb.addWorksheet(s.name.slice(0, 31), { views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }], pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
-    head(ws, s, o)
-    s.rows.forEach((r, i) => {
-      const row = ws.addRow(r)
-      const isSection = typeof r[0] === 'string' && r[0].startsWith('—')
-      row.eachCell({ includeEmpty: true }, (cell, col) => {
-        cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'right' : 'center', wrapText: true }
-        cell.border = { bottom: { style: 'hair', color: { argb: 'FFCBD5E1' } } }
-        if (isSection) { cell.font = { bold: true, color: { argb: 'FF1E3A8A' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } } }
-        else if (i % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
-        if (typeof cell.value === 'number') cell.numFmt = Number.isInteger(cell.value) ? '#,##0' : '#,##0.0'
-      })
-    })
-    ws.getColumn(1).width = s.name === 'الاستنتاجات' ? 18 : 34
-    for (let c = 2; c <= s.columns.length; c++) ws.getColumn(c).width = s.name === 'الاستنتاجات' && c === 2 ? 90 : 18
+  const [summary, conclusions, ...units] = sheets
+  const title = `${reportKindLabel(o.period.from, o.period.to)}${scope === 'finance' ? ' — مالي' : ''}`
+  const meta = `${periodLabel(o.period.from, o.period.to)}${o.period.sector ? ' · قاطع ' + o.period.sector : ''}${o.period.shift ? ' · شفت ' + (STATUS_LABELS[o.period.shift] ?? o.period.shift) : ''} · أُعدّ لـ ${who} · ${new Date().toLocaleDateString('ar-IQ')}`
+  const toRows = (sh: ExecSheet) => sh.rows.map((r) => Object.fromEntries(sh.columns.map((_c, i) => [`c${i}`, r[i] ?? ''])))
+  const cols = (sh: ExecSheet, widths?: number[]) => sh.columns.map((c, i) => ({ header: c, key: `c${i}`, width: widths?.[i] ?? (i === 0 ? 36 : 18), align: i === 0 ? ('right' as const) : ('center' as const), numFmt: i === 0 ? undefined : '#,##0.##', wrap: i === 0 }))
+  const sumCols = summary!.columns.map((c, i) => ({ header: c, key: `c${i}`, width: i === 0 ? 38 : 18, align: i === 0 ? ('right' as const) : ('center' as const), numFmt: i === 0 || i === 3 ? undefined : '#,##0.##' }))
+  const unitOf = (name: string) => name === 'الشكاوى' ? 'الشكاوى' : /أسطول|آلي|صيانة/.test(name) ? 'الأسطول' : /محطة|أطنان|مخالفات نقص/.test(name) ? 'المحطة التحويلية' : /حضور|غياب|ملاك/.test(name) ? 'الموارد البشرية' : /كشوف/.test(name) ? 'الكشوفات' : /د\.ع|مشتريات|رواتب|موازنة/.test(name) ? 'المالية' : /إعلام|تجهيز/.test(name) ? 'الإعلام والتجهيز' : 'عام'
+  const summaryRows = summary!.rows.map((r) => ({ unit: unitOf(String(r[0])), ...Object.fromEntries(summary!.columns.map((_c, i) => [`c${i}`, r[i] ?? ''])) }))
+  const toneOf = (t: Insight['tone']) => (t === 'good' ? 'إيجابي' : t === 'bad' ? 'سلبي' : t === 'warn' ? 'يحتاج انتباهاً' : 'محايد')
+
+  const charts = scope === 'finance'
+    ? [
+        { title: 'الموازنة حسب البند', kind: 'bar' as const, valueLabel: 'د.ع', data: o.finance.budget.by_category.slice(0, 12).map((b) => ({ label: b.name, value: Number(b.spent) })) },
+        { title: 'الرواتب الشهرية', kind: 'bar' as const, valueLabel: 'د.ع', data: o.finance.payroll_months.slice(0, 12).map((m) => ({ label: m.month.slice(0, 7), value: Number(m.total) })) },
+      ]
+    : [
+        { title: 'الشكاوى حسب القطاع', kind: 'bar' as const, valueLabel: 'شكوى', data: o.complaints.by_sector.map((s) => ({ label: STATUS_LABELS[s.name] ?? s.name, value: s.count })) },
+        { title: 'الشكاوى حسب الحالة', kind: 'donut' as const, valueLabel: 'شكوى', data: o.complaints.by_status.map((s) => ({ label: STATUS_LABELS[s.key] ?? s.key, value: s.count })) },
+        { title: 'الانطلاقات حسب القاطع', kind: 'bar' as const, valueLabel: 'انطلاقة', data: o.fleet.by_sector.map((s) => ({ label: s.name, value: s.count })) },
+        { title: 'الأطنان حسب نوع الآلية', kind: 'bar' as const, valueLabel: 'طن', data: o.station.by_kind.map((s) => ({ label: s.name, value: Number(s.tons ?? 0) })) },
+        { title: 'توزيع الحضور', kind: 'donut' as const, valueLabel: 'يوم', data: [['حاضر', o.workforce.attendance.present], ['متأخر', o.workforce.attendance.late], ['غائب', o.workforce.attendance.absent], ['إجازة/زمنية', o.workforce.attendance.leave]].map(([l, v]) => ({ label: String(l), value: Number(v) })) },
+        { title: 'الحركة اليومية — شكاوى', kind: 'bar' as const, valueLabel: 'شكوى', data: o.complaints.series.slice(-31).map((s) => ({ label: s.d.slice(5), value: s.count })) },
+      ]
+
+  const wb = await buildExcelReport({
+    sheetName: 'المؤشرات', company: orgName, companySub: `${who} — تقرير دوري`, title, meta, fileName,
+    columns: [{ header: 'الوحدة', key: 'unit', width: 16, align: 'center' }, ...sumCols], rows: summaryRows, orientation: 'portrait',
+    extraSheets: [
+      { sheetName: 'الاستنتاجات', title: conclusions!.title, meta, columns: [{ header: '#', key: '#', width: 5 }, { header: 'الوحدة', key: 'c0', width: 16, align: 'center' }, { header: 'الاستنتاج', key: 'c1', width: 90, wrap: true, align: 'right' }, { header: 'الاتجاه', key: 'c2', width: 16, align: 'center' }], rows: insights.map((i, n) => ({ '#': n + 1, c0: i.domain, c1: i.text, c2: toneOf(i.tone) })) },
+      ...units.map((sh) => ({ sheetName: sh.name, title: sh.title, meta, columns: cols(sh, sh.name === 'السلاسل اليومية' ? [14, 12, 12, 12, 12, 12, 12] : undefined), rows: toRows(sh), orientation: (sh.columns.length > 4 ? 'landscape' : 'portrait') as 'landscape' | 'portrait' })),
+    ],
+    charts: charts.filter((c) => c.data.some((d) => d.value > 0)),
+    deferSave: true,
+  })
+
+  // ── تلوين التغيّر في ورقة المؤشرات + تمييز العناوين الفرعية (— … —) في أوراق الوحدات ──
+  const main = wb.worksheets[0]
+  if (main && prev) {
+    const changeCol = 1 + summary!.columns.length // عمود «التغيّر» (بعد عمود الوحدة)
+    for (let r = 6; r < 6 + summaryRows.length; r++) {
+      const cell = main.getCell(r, changeCol); const v = String(cell.value ?? '')
+      const n = Number.parseInt(v.replace(/[^\d-]/g, ''), 10)
+      if (!v || Number.isNaN(n) || n === 0) continue
+      const name = String(main.getCell(r, 2).value ?? '')
+      const increaseIsBad = /شكاو|غياب|مخالف|كشوف|صيانة|كلفة|استقطاع|إنهاء|مشتريات|إنفاق/.test(name)
+      const good = increaseIsBad ? n < 0 : n > 0
+      cell.font = { name: 'Segoe UI', bold: true, size: 10.5, color: { argb: good ? 'FF047857' : 'FFB91C1C' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: good ? 'FFD1FAE5' : 'FFFEE2E2' } }
+      cell.value = `${n > 0 ? '▲' : '▼'} ${v.replace(/^[-+]/, '').trim()}`
+    }
   }
+  for (const ws of wb.worksheets.slice(2, 2 + units.length)) {
+    ws.eachRow((row, idx) => {
+      if (idx < 6) return
+      const first = row.getCell(1); const t = String(first.value ?? '')
+      if (!t.startsWith('—')) return
+      first.value = t.replace(/—/g, '').trim()
+      ws.mergeCells(idx, 1, idx, ws.columnCount)
+      first.font = { name: 'Segoe UI', bold: true, size: 11, color: { argb: `FF${BRAND.white}` } }
+      first.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.primary}` } }
+      first.alignment = { horizontal: 'center', vertical: 'middle' }
+    })
+  }
+
+  // ── ورقة الغلاف (تُنقل إلى الأول) ──
+  const cover = wb.addWorksheet('الغلاف', { views: [{ rightToLeft: true, showGridLines: false }], pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true } })
+  cover.getColumn(1).width = 4; cover.getColumn(2).width = 60; cover.getColumn(3).width = 4
+  const put = (r: number, text: string, size: number, bold = false, color = BRAND.ink, h = 22) => { const c = cover.getCell(r, 2); c.value = text; c.font = { name: 'Segoe UI', size, bold, color: { argb: `FF${color}` } }; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cover.getRow(r).height = h }
+  put(3, orgName, 22, true, BRAND.primary, 36)
+  put(4, `${who} — تقرير دوري`, 12, false, BRAND.muted)
+  put(7, title, 26, true, BRAND.dark, 44)
+  put(8, periodLabel(o.period.from, o.period.to), 14, false, BRAND.ink, 26)
+  put(10, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-IQ')}`, 11, false, BRAND.muted)
+  put(11, `الأوراق: ${wb.worksheets.filter((w) => w !== cover).map((w) => w.name).join(' · ')}`, 10, false, BRAND.muted, 40)
+  put(13, 'الأرقام صافية من سجلات المنصة — تُقرأ ورقة «المؤشرات» أولاً ثم الاستنتاجات ثم تفاصيل كل وحدة.', 10, false, BRAND.muted, 30)
+  for (let r = 2; r <= 14; r++) cover.getCell(r, 2).border = r === 2 ? { top: { style: 'medium', color: { argb: `FF${BRAND.gold}` } } } : r === 14 ? { bottom: { style: 'medium', color: { argb: `FF${BRAND.gold}` } } } : {}
+  type Ordered = { orderNo: number }
+  ;(cover as unknown as Ordered).orderNo = -1
+  wb.worksheets.forEach((w, i) => { if (w !== cover) (w as unknown as Ordered).orderNo = i + 1 })
+  await saveWorkbook(wb, fileName)
   return wb
 }
 
-function head(ws: Worksheet, s: ExecSheet, o: ExecOverview) {
-  const n = s.columns.length
-  ws.mergeCells(1, 1, 1, n)
-  ws.getCell('A1').value = s.title; ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
-  ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 26
-  ws.mergeCells(2, 1, 2, n)
-  ws.getCell('A2').value = `${periodLabel(o.period.from, o.period.to)}${o.period.sector ? ' · قاطع ' + o.period.sector : ''}${o.period.shift ? ' · شفت ' + (STATUS_LABELS[o.period.shift] ?? o.period.shift) : ''} · أُنشئ ${new Date().toLocaleString('ar-IQ')}`
-  ws.getCell('A2').font = { size: 9, color: { argb: 'FF475569' } }; ws.getCell('A2').alignment = { horizontal: 'center' }
-  const hr = ws.getRow(3); hr.values = s.columns
-  hr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', vertical: 'middle' } })
-}
-
-export async function downloadExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, fileName: string, scope: ExecScope = 'all') {
-  const wb = await buildExecWorkbook(o, insights, prev, undefined, scope)
-  const buf = await wb.xlsx.writeBuffer()
-  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url)
+export async function downloadExecWorkbook(o: ExecOverview, insights: Insight[], prev: ExecOverview | null, fileName: string, scope: ExecScope = 'all', who = 'الإدارة العليا') {
+  return buildExecWorkbook(o, insights, prev, 'شركة جزيرة الأكارم', scope, fileName, who)
 }
