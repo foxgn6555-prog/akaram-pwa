@@ -252,7 +252,8 @@ export const notifications = {
     }) => void,
   ) => {
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      // لاحقة فريدة: إعادة التركيب (StrictMode/تنقل سريع) قبل اكتمال removeChannel تُعيد القناة القديمة المشترَكة
+      .channel(`notifications:${userId}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
@@ -260,7 +261,7 @@ export const notifications = {
       )
       .subscribe()
     return () => {
-      void supabase.removeChannel(channel)
+      void channel.unsubscribe().then(() => supabase.removeChannel(channel)).catch(() => undefined)
     }
   },
 }

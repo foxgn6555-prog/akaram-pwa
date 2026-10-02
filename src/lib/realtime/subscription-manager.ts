@@ -19,7 +19,8 @@ export class SubscriptionManagerImpl {
       return this.channels.get(channelName) as Unsubscribe
     }
 
-    const channel = setup(supabase.channel(channelName))
+    // اسم القناة الفعلي فريد: نفس الاسم المنطقي بعد إلغاء سابق لم يكتمل بعد يُرجع القناة القديمة المشترَكة
+    const channel = setup(supabase.channel(`${channelName}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`))
 
     channel.subscribe((status) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -28,8 +29,8 @@ export class SubscriptionManagerImpl {
     })
 
     const unsubscribe: Unsubscribe = () => {
-      void supabase.removeChannel(channel)
       this.channels.delete(channelName)
+      void channel.unsubscribe().then(() => supabase.removeChannel(channel)).catch(() => undefined)
     }
     this.channels.set(channelName, unsubscribe)
     return unsubscribe

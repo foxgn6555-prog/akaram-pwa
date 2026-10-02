@@ -144,14 +144,23 @@ export const system = {
     return sdkGuard(supabase.rpc('console_stats', args)) as Promise<ConsoleStats>
   },
 
-  /** بث حي: أي إدراج/تحديث في app_errors (RLS: IT فقط يستقبل الصفوف) */
+  /**
+   * بث حي: أي إدراج/تحديث في app_errors (RLS: IT فقط يستقبل الصفوف).
+   * اسم القناة فريد لكل اشتراك: StrictMode/التنقل السريع يعيد التركيب قبل أن يكتمل removeChannel،
+   * وإعادة استعمال الاسم نفسه تُرجع القناة القديمة المشترَكة → «cannot add postgres_changes after subscribe()».
+   * لا يرمي أبداً — فشل البث لا يُسقط الصفحة (الاستطلاع كل 10 ثوانٍ يبقى احتياطاً).
+   */
   consoleSubscribe(onChange: () => void): () => void {
-    const channel = supabase
-      .channel('console:app_errors')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_errors' }, onChange)
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
+    try {
+      const channel = supabase
+        .channel(`console:app_errors:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_errors' }, onChange)
+        .subscribe()
+      return () => {
+        void channel.unsubscribe().then(() => supabase.removeChannel(channel)).catch(() => undefined)
+      }
+    } catch {
+      return () => undefined
     }
   },
 

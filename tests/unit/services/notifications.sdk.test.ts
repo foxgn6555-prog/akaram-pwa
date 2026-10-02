@@ -23,6 +23,7 @@ describe('Notifications SDK', () => {
     h.on.mockReset()
     h.subscribe.mockReset()
     h.on.mockReturnValue({ subscribe: h.subscribe })
+    h.subscribe.mockReturnValue({ unsubscribe: () => Promise.resolve('ok') })
     h.invoke.mockReset()
     h.invoke.mockResolvedValue({ data: { ok: true }, error: null })
   })
@@ -130,7 +131,7 @@ describe('Notifications SDK', () => {
       }),
     )
   })
-  it('يشترك في تغييرات إشعارات المستخدم نفسه', () => {
+  it('يشترك في تغييرات إشعارات المستخدم نفسه', async () => {
     const cb = vi.fn(),
       off = notifications.subscribe('u1', cb)
     expect(h.on).toHaveBeenCalledWith(
@@ -139,6 +140,6 @@ describe('Notifications SDK', () => {
       cb,
     )
     off()
-    expect(h.remove).toHaveBeenCalled()
+    await vi.waitFor(() => expect(h.remove).toHaveBeenCalled())
   })
 })
