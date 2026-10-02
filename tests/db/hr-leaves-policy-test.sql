@@ -153,6 +153,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
 begin
   -- بصمات
   insert into public.biometric_punches (device_serial, pin, employee_id, punched_at, method) values
+    ('T', '1', e, (m + time '08:00')::timestamp at time zone '+03:00'::interval, 'manual'), ('T', '1', e, (m + time '16:00')::timestamp at time zone '+03:00'::interval, 'manual'),  -- اليوم 0 حاضر (00167: المحفّز يحتسب اليوم السابق للبصمة أيضاً)
     ('T', '1', e, (m + 1 + time '08:10')::timestamp at time zone '+03:00'::interval, 'manual'), ('T', '1', e, (m + 1 + time '16:00')::timestamp at time zone '+03:00'::interval, 'manual'),  -- نقص 10 → ضمن السماحية
     ('T', '1', e, (m + 2 + time '08:30')::timestamp at time zone '+03:00'::interval, 'manual'), ('T', '1', e, (m + 2 + time '16:00')::timestamp at time zone '+03:00'::interval, 'manual'),  -- نقص 30 → 60 دقيقة
     ('T', '1', e, (m + 3 + time '08:30')::timestamp at time zone '+03:00'::interval, 'manual'), ('T', '1', e, (m + 3 + time '16:30')::timestamp at time zone '+03:00'::interval, 'manual'),  -- تأخر عوّضه بالبقاء → 0

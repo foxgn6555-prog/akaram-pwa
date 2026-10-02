@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   if (!body.device_id) return json({ error: 'BIO_DEVICE_REQUIRED' }, 400)
 
   const { data: device, error: devErr } = await admin
-    .from('biometric_devices').select('id, serial_number, name, mode, config, is_active').eq('id', body.device_id).maybeSingle()
+    .from('biometric_devices').select('id, serial_number, name, mode, config, is_active, timezone_offset').eq('id', body.device_id).maybeSingle()
   if (devErr) return json({ error: errText(devErr) }, 500)
   if (!device) return json({ error: 'BIO_DEVICE_NOT_FOUND' }, 404)
   if (!device.is_active) return json({ error: 'BIO_DEVICE_INACTIVE' }, 409)
@@ -68,7 +68,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const config = validateConfig(device.mode, device.config)
+    // منطقة الجهاز المسجلة هي الافتراضي للأوقات بلا منطقة (كانت تُعتبر UTC → إزاحة 3 ساعات)
+    const rawConfig = { ...((device.config ?? {}) as Record<string, unknown>) }
+    if (!rawConfig.timezone_offset && device.timezone_offset) rawConfig.timezone_offset = device.timezone_offset
+    const config = validateConfig(device.mode, rawConfig)
     const { fromIso, toIso } = resolveWindow(body.from, body.to)
     const request = buildPullRequest(device.mode, config, fromIso, toIso)
 

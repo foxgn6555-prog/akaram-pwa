@@ -13,7 +13,7 @@
  * التحول: biometric_ingest (00026) — يحوّل السطور لسجلات حضور حقيقية.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildOptionsResponse } from '../_shared/adms-protocol.ts'
+import { buildOptionsResponse, toStamp } from '../_shared/adms-protocol.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -31,7 +31,11 @@ Deno.serve(async (req: Request) => {
     // منطقة الجهاز من تسجيله (00140) — TimeZone الخاطئ يزيح كل الأوقات
     const { data: dev } = await admin
       .from('biometric_devices').select('timezone_offset').eq('serial_number', sn).maybeSingle()
-    return admsResponse(buildOptionsResponse({ sn, timezoneOffset: dev?.timezone_offset ?? '+03:00' }))
+    // استئناف من آخر بصمة مستلَمة (00167) — بدل ATTLOGStamp=0 الذي يجعل الجهاز يعيد إرسال ذاكرته كلها عند كل تسجيل
+    const { data: last } = await admin.rpc('biometric_last_stamp', { p_sn: sn })
+    return admsResponse(buildOptionsResponse({
+      sn, timezoneOffset: dev?.timezone_offset ?? '+03:00', attlogStamp: toStamp(typeof last === 'string' ? last : null),
+    }))
   }
 
   // ═══ ② نبض القلب ═══
