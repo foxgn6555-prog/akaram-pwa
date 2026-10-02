@@ -32,7 +32,7 @@ describe('بنية البوابة التقنية v2', () => {
       'nav.notification_policies',
       'nav.updates',
       'nav.archive',
-      'nav.flowbridge',
+      'nav.console',
     ])
   })
 
@@ -78,6 +78,6 @@ describe('بنية البوابة التقنية v2', () => {
     expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('database/tables/:tableName')
     expect(itPaths).toContain('central-garage-approvals')
-    expect(itPaths).toContain('flowbridge')
+    expect(itPaths).toContain('console')
   })
 })

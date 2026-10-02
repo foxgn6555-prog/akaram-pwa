@@ -168,9 +168,9 @@ export function periodSummaryFields(d: Pick<DesignReportData, 'sector' | 'period
 function buildDefaultSummary(d: DesignReportData): ReportSummary {
   const sector = d.sector ?? 'karrada'
   return {
-    companyName: 'شركة جزيرة الاكارم وفيرست ترايد',
+    companyName: 'شركة جزيرة الأكارم وفيرست ترايد',
     orgLabel: 'الجهة المنظمة للتقرير',
-    orgValue: 'شركة جزيرة الاكارم وفيرست ترايد',
+    orgValue: 'شركة جزيرة الأكارم وفيرست ترايد',
     subjectLabel: 'موضوع التقرير',
     ...periodSummaryFields(d),
     sectorName: SECTOR_LABEL[sector],

@@ -35,7 +35,7 @@ const input = (overrides: Partial<ComposeInput> = {}): ComposeInput => ({
   reportTitle: 'التقرير اليومي الجامع للشكاوى',
   coverTitle: 'تقرير معالجة التلكؤات ليوم',
   authorityLine: authorityLineFor({}, 'karrada'),
-  contractorLine: 'تحالف شركات جزيرة الأكرام وفيرست ترايد',
+  contractorLine: 'تحالف شركات جزيرة الأكارم وفيرست ترايد',
   reportDate: '2026-09-18',
   sectorLabel: 'قاطع الكرادة',
   scopeLabel: 'تقرير يومي جامع',

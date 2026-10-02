@@ -28,9 +28,9 @@ export function supplyBookHtml(
   return `
   <div class="doc">
     <div class="masthead">
-      <img src="${logoUrl()}" alt="شعار جزيرة الأكرام" />
+      <img src="${logoUrl()}" alt="شعار جزيرة الأكارم" />
       <div class="org">
-        <div class="name">شركة جزيرة الأكرام</div>
+        <div class="name">شركة جزيرة الأكارم</div>
         <div class="sub">شركة البلدية — نظام مسؤولي القواطع</div>
       </div>
       <div class="docbadge">كتاب رسمي</div>
@@ -84,7 +84,7 @@ export function supplyBookHtml(
         <div class="sign-line">التوقيع والختم</div>
       </div>
     </div>
-    <p class="foot">وُلِّد آلياً من نظام بلدية جزيرة الأكرام</p>
+    <p class="foot">وُلِّد آلياً من نظام بلدية جزيرة الأكارم</p>
   </div>`
 }
 

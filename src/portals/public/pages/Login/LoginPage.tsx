@@ -1,8 +1,8 @@
 /**
  * ════════════════════════════════════════════════════════════════
- * LoginPage — صفحة تسجيل الدخول (جزيرة الأكرام)
+ * LoginPage — صفحة تسجيل الدخول (جزيرة الأكارم)
  * مبنية على قالب Kyvzon (LoginBackground + LoginForm + useLoginSecurity)
- * مكيَّف: شعار الأكرام · ألوان العلامة · Supabase Auth الحقيقي · PKCE
+ * مكيَّف: شعار الأكارم · ألوان العلامة · Supabase Auth الحقيقي · PKCE
  * ════════════════════════════════════════════════════════════════
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -121,18 +121,18 @@ export default function LoginPage() {
         <div className="relative bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
-          {/* الرأس — شعار جزيرة الأكرام */}
+          {/* الرأس — شعار جزيرة الأكارم */}
           <div className="px-5 pt-8 pb-6 text-center sm:px-8 sm:pt-10 sm:pb-7">
             <div className="inline-flex items-center justify-center w-20 h-20 mb-3 sm:w-24 sm:h-24 sm:mb-4">
               <img
                 src="/icons/logo.png"
-                alt="شعار جزيرة الأكرام"
+                alt="شعار جزيرة الأكارم"
                 width={96}
                 height={96}
                 className="w-20 h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,95,141,0.6)] sm:w-24 sm:h-24"
               />
             </div>
-            <h1 className="text-xl font-black text-white mb-1 sm:text-2xl">جزيرة الأكرام</h1>
+            <h1 className="text-xl font-black text-white mb-1 sm:text-2xl">جزيرة الأكارم</h1>
             <p className="text-[#7fc0df]/80 text-xs font-medium sm:text-sm">
               النظام الإلكتروني لإدارة شركة البلدية
             </p>

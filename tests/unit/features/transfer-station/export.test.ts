@@ -51,7 +51,7 @@ describe('toExcel — تقرير exceljs احترافي', () => {
 
     // اسم الشركة في الصف المدموج + عنوان التقرير
     const brand = String(ws!.getCell('B1').value ?? '')
-    expect(brand).toContain('شركة جزيرة الأكرام')
+    expect(brand).toContain('شركة جزيرة الأكارم')
     const title = String(ws!.getCell('A3').value ?? '')
     expect(title).toContain('سجل الأوزان')
 

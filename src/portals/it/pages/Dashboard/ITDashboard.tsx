@@ -170,7 +170,7 @@ export default function ITDashboard() {
         <StatCard icon="user" label="بلا أدوار" value={fmtNum(noRoleCount)}
                   tone={noRoleCount > 0 ? '#f59e0b' : '#10b981'} onClick={() => navigate('/it/user-management/list')} />
         <StatCard icon="alert-triangle" label="أخطاء مفتوحة" value={fmtNum(openErrorsCount)}
-                  tone={openErrorsCount > 0 ? '#ef4444' : '#10b981'} onClick={() => navigate('/it/database/errors')} />
+                  tone={openErrorsCount > 0 ? '#ef4444' : '#10b981'} onClick={() => navigate('/it/console')} />
         <StatCard icon="layout-grid" label="الفروع النشطة" value={`${fmtNum(activeBranches)} / ${fmtNum(branches?.length ?? 0)}`}
                   onClick={() => navigate('/it/branches')} />
         <StatCard icon="fingerprint" label="أجهزة البصمة" value={`${fmtNum(activeDevices)} / ${fmtNum(devices?.length ?? 0)}`}
@@ -291,7 +291,7 @@ export default function ITDashboard() {
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="recent-errors">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-700">آخر الأخطاء المفتوحة</h2>
-          <button onClick={() => navigate('/it/database/errors')}
+          <button onClick={() => navigate('/it/console')}
                   className="text-xs font-bold text-brand-700 hover:underline">
             عرض الكل ←
           </button>
@@ -320,7 +320,7 @@ export default function ITDashboard() {
         <QuickAction icon="layout-grid" title="فروع الشركة" onClick={() => navigate('/it/branches')} />
         <QuickAction icon="shield" title="مصفوفة الصلاحيات" onClick={() => navigate('/it/permissions')} />
         <QuickAction icon="database" title="قاعدة البيانات" onClick={() => navigate('/it/database')} />
-        <QuickAction icon="activity" title="أخطاء التطبيق" hint={`${openErrorsCount} مفتوح`} onClick={() => navigate('/it/database/errors')} />
+        <QuickAction icon="activity" title="أخطاء التطبيق" hint={`${openErrorsCount} مفتوح`} onClick={() => navigate('/it/console')} />
         <QuickAction icon="wifi-off" title="التكاملات" onClick={() => navigate('/it/integrations')} />
         <QuickAction icon="refresh" title="التحديثات والمراقبة" onClick={() => navigate('/it/updates')} />
         <QuickAction icon="folder" title="الأرشيف" hint={`${fmtNum(archivedTotal)} سجل`} onClick={() => navigate('/it/archive')} />

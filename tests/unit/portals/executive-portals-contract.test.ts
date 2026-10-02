@@ -18,7 +18,7 @@ import { customRoutes as financeRoutes } from '@portals/finance/routes'
 import sidebar from '@/i18n/ar/sidebar.json'
 
 const paths = (routes: RouteObject[]) => new Set(routes.flatMap((r) => (r.path !== undefined ? [r.path] : [])))
-const TECH = ['portals', 'roles', 'settings', 'audit-logs', 'backup', 'database', 'permissions', 'integrations', 'updates', 'flowbridge']
+const TECH = ['portals', 'roles', 'settings', 'audit-logs', 'backup', 'database', 'permissions', 'integrations', 'updates', 'console']
 
 describe('بوابات الإدارة العليا', () => {
   const cases = [

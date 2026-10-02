@@ -77,10 +77,10 @@ export async function toExcel(
 
   return buildExcelReport({
     sheetName: 'دفتر الأوزان',
-    company: 'شركة جزيرة الأكرام',
+    company: 'شركة جزيرة الأكارم',
     companySub: 'المحطة التحويلية — سجل الأوزان الداخل',
     title: sheetTitle(date, shift),
-    meta: `تاريخ التصدير: ${today}   •   عدد السجلات: ${records.length}   •   إجمالي الصافي: ${totalNet.toFixed(2)} طن   •   وُلِّد آلياً من نظام بلدية جزيرة الأكرام`,
+    meta: `تاريخ التصدير: ${today}   •   عدد السجلات: ${records.length}   •   إجمالي الصافي: ${totalNet.toFixed(2)} طن   •   وُلِّد آلياً من نظام بلدية جزيرة الأكارم`,
     columns: COLUMNS,
     rows,
     fileName: `سجل-الأوزان-${SHIFT_LABELS[shift]}-${date}.xlsx`,
@@ -173,9 +173,9 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
 </head>
 <body>
   <div class="masthead">
-    <img src="${logoUrl()}" alt="شعار جزيرة الأكرام" />
+    <img src="${logoUrl()}" alt="شعار جزيرة الأكارم" />
     <div class="org">
-      <div class="name">شركة جزيرة الأكرام</div>
+      <div class="name">شركة جزيرة الأكارم</div>
       <div class="sub">المحطة التحويلية — سجل الأوزان الداخل</div>
     </div>
     <div style="width:46px"></div>
@@ -203,7 +203,7 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
     <span>توقيع مسؤول المحطة: ______________</span>
     <span>التدقيق (غرفة العمليات): ______________</span>
   </div>
-  <p class="foot">وُلِّد آلياً من نظام بلدية جزيرة الأكرام — ${new Date().toLocaleString('ar')}</p>
+  <p class="foot">وُلِّد آلياً من نظام بلدية جزيرة الأكارم — ${new Date().toLocaleString('ar')}</p>
   <p class="noprint" style="margin-top:14px;text-align:center">
     <button onclick="window.print()" style="padding:10px 26px;font-size:15px;cursor:pointer;border:none;border-radius:8px;background:#005f8d;color:#fff">
       طباعة / حفظ كـ PDF

@@ -10,7 +10,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 /** صفحة وحدة قاعدة البيانات — روابط صفحاتها + تقاريرها المجمعة */
 const PAGES: readonly HubPageLink[] = [
   { path: '/it/database/tables', label: 'الجداول والأعمدة', hint: 'استعراض الجداول وبنيتها', icon: 'list' },
-  { path: '/it/database/errors', label: 'أخطاء التطبيق', hint: 'سجل الأخطاء وحلّها', icon: 'activity' },
+  { path: '/it/console', label: 'Console — رصد الأخطاء', hint: 'الأخطاء والتنبيهات الحية من كل البوابات', icon: 'activity' },
 ]
 
 export default function DatabaseHub() {
@@ -42,7 +42,7 @@ export default function DatabaseHub() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-500">أحدث الأخطاء المفتوحة</h3>
-            <button onClick={() => navigate('/it/database/errors')}
+            <button onClick={() => navigate('/it/console')}
                     className="text-[11px] text-brand-600 hover:underline">عرض الكل ←</button>
           </div>
           {openErrors && openErrors.length > 0 ? (

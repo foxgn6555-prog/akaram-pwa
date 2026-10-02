@@ -1,15 +1,15 @@
 /**
  * LoginBackground — خلفية متحركة (Aurora + شبكة)
- * مُكيَّف من Kyvzon بألوان جزيرة الأكرام (أزرق مؤسسي #005f8d)
+ * مُكيَّف من Kyvzon بألوان جزيرة الأكارم (أزرق مؤسسي #005f8d)
  */
 
 export default function LoginBackground() {
   return (
     <>
-      {/* الخلفية المتدرجة الأساسية — أزرق الأكرام */}
+      {/* الخلفية المتدرجة الأساسية — أزرق الأكارم */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#003d5c] to-slate-900" />
 
-      {/* كرات Aurora الضوئية المتحركة — ألوان الأكرام */}
+      {/* كرات Aurora الضوئية المتحركة — ألوان الأكارم */}
       <div
         className="login-aurora-blob"
         style={{

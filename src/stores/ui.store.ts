@@ -22,7 +22,7 @@ interface UiState {
   mobileNavOpen: boolean
   theme: 'light' | 'dark'
   toasts: Toast[]
-  /** صفحات تحتاج ملء الشاشة الكامل (بلا padding/max-width) — مثل تضمين FlowBridge */
+  /** صفحات تحتاج ملء الشاشة الكامل (بلا padding/max-width) */
   contentFullBleed: boolean
   toggleSidebarCollapsed: () => void
   setSidebarCollapsed: (collapsed: boolean) => void

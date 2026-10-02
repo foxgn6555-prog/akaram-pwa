@@ -1,5 +1,5 @@
 /**
- * اختبار LoginPage — جزيرة الأكرام (قالب Kyvzon)
+ * اختبار LoginPage — جزيرة الأكارم (قالب Kyvzon)
  * يغطي: الهوية · التحقق Zod · التوجيه حسب الدور · الأمان · عدم تسرّب الرسائل
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -40,7 +40,7 @@ function renderPage() {
   )
 }
 
-describe('LoginPage — جزيرة الأكرام (قالب Kyvzon)', () => {
+describe('LoginPage — جزيرة الأكارم (قالب Kyvzon)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
@@ -48,10 +48,10 @@ describe('LoginPage — جزيرة الأكرام (قالب Kyvzon)', () => {
     mockMutateAsync.mockReset()
   })
 
-  it('يعرض هوية جزيرة الأكرام + الشعار + حقول الدخول', () => {
+  it('يعرض هوية جزيرة الأكارم + الشعار + حقول الدخول', () => {
     renderPage()
-    expect(screen.getByText('جزيرة الأكرام')).toBeInTheDocument()
-    expect(screen.getByAltText('شعار جزيرة الأكرام')).toBeInTheDocument()
+    expect(screen.getByText('جزيرة الأكارم')).toBeInTheDocument()
+    expect(screen.getByAltText('شعار جزيرة الأكارم')).toBeInTheDocument()
     expect(emailInput()).toBeInTheDocument()
     expect(passwordInput()).toBeInTheDocument()
     expect(submitBtn()).toBeInTheDocument()

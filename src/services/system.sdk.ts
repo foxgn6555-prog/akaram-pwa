@@ -1,11 +1,10 @@
 /**
  * SDK النظام (البوابة التقنية — وحدة قاعدة البيانات)
  *  · dbStats/dbOverview: مراقبة الجداول والصحة (RPC آمنة)
- *  · reportError: تبلّغ الأخطاء من العميل (سجل app_errors)
+ *  · consoleReport/consoleFeed/consoleStats/consoleResolve: وحدة Console (رصد الأخطاء الحي)
  *  · errorLogs/resolveError: شاشة أخطاء التطبيق
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import { logger } from '@lib/monitoring/logger'
 
 export interface DbStat {
   table_name: string
@@ -36,6 +35,35 @@ export interface AppErrorRow {
   context: Record<string, unknown>
   resolved: boolean
   created_at: string
+  /** Console (00166) */
+  level: 'error' | 'warn'
+  source: string
+  portal: string
+  kind: string
+  fingerprint: string | null
+  occurrences: number
+  last_seen_at: string
+  resolved_at: string | null
+  resolution_note: string | null
+}
+
+export interface ConsoleFeedFilters {
+  level?: 'error' | 'warn' | null
+  portal?: string | null
+  kind?: string | null
+  resolved?: boolean | null
+  since?: string | null
+  q?: string | null
+  limit?: number
+}
+
+export interface ConsoleStats {
+  open_errors: number
+  open_warnings: number
+  resolved: number
+  affected_users: number
+  by_portal: Record<string, number>
+  by_kind: Record<string, number>
 }
 
 export interface ErrorLogFilters {
@@ -81,51 +109,53 @@ export const system = {
   },
 
   /**
-   * تبلّغ خطأ من العميل إلى سجل app_errors.
-   * آمن الفشل تماماً: يبتلع أخطاءه، يتحقق من الاتصال، ومحدود المعدل.
+   * Console · إرسال دفعة أحداث (أي مستخدم مصادق). آمن الفشل تماماً: لا يرمي أبداً.
+   * التحديد والتجميع يحدثان في الخادم (console_report) وفي الراصد (capture.ts).
    */
-  async reportError(entry: {
-    message: string
-    stack?: string | null
-    context?: Record<string, unknown>
-    errorType?: AppErrorRow['error_type']
-  }): Promise<void> {
+  async consoleReport(events: unknown[]): Promise<number> {
     try {
-      if (!navigator.onLine || !reportLimiter.allow(entry.message)) return
-
+      if (!events.length) return 0
       const { data: sessionData } = await supabase.auth.getSession()
-
-      await supabase.from('app_errors').insert({
-        error_type: entry.errorType ?? 'runtime',
-        message: entry.message.slice(0, 500),
-        stack: entry.stack?.slice(0, 2000) ?? null,
-        url: window.location.href,
-        user_agent: navigator.userAgent.slice(0, 200),
-        user_id: sessionData.session?.user.id ?? null,
-        context: entry.context ?? {},
-      })
+      if (!sessionData.session) return 0
+      const { data, error } = await supabase.rpc('console_report', { p_events: events })
+      if (error) return 0
+      return typeof data === 'number' ? data : 0
     } catch {
-      // صمت متعمد — التبلّغ لا يجب أن يكسر التطبيق أو يولّد حلقة أخطاء
+      return 0
     }
   },
-}
 
-/** حد معدل التبلّغ: 20/جلسة + منع تكرار نفس الرسالة خلال 30 ثانية */
-const reportLimiter = {
-  sent: 0,
-  lastByMessage: new Map<string, number>(),
-  MAX_PER_SESSION: 20,
-  DEDUPE_WINDOW_MS: 30_000,
+  async consoleFeed(f: ConsoleFeedFilters = {}): Promise<AppErrorRow[]> {
+    return sdkGuard(
+      supabase.rpc('console_feed', {
+        p_level: f.level ?? null,
+        p_portal: f.portal ?? null,
+        p_kind: f.kind ?? null,
+        p_resolved: f.resolved === undefined ? false : f.resolved,
+        p_since: f.since ?? null,
+        p_q: f.q ?? null,
+        p_limit: f.limit ?? 200,
+      }),
+    ) as Promise<AppErrorRow[]>
+  },
 
-  allow(message: string): boolean {
-    if (this.sent >= this.MAX_PER_SESSION) {
-      logger.warn('reportError: تجاوز حد التبلّغ لهذه الجلسة')
-      return false
+  async consoleStats(since?: string): Promise<ConsoleStats> {
+    const args = since ? { p_since: since } : {}
+    return sdkGuard(supabase.rpc('console_stats', args)) as Promise<ConsoleStats>
+  },
+
+  /** بث حي: أي إدراج/تحديث في app_errors (RLS: IT فقط يستقبل الصفوف) */
+  consoleSubscribe(onChange: () => void): () => void {
+    const channel = supabase
+      .channel('console:app_errors')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_errors' }, onChange)
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
     }
-    const last = this.lastByMessage.get(message)
-    if (last && Date.now() - last < this.DEDUPE_WINDOW_MS) return false
-    this.lastByMessage.set(message, Date.now())
-    this.sent += 1
-    return true
+  },
+
+  async consoleResolve(id: number, resolved: boolean, note?: string | null): Promise<AppErrorRow> {
+    return sdkGuard(supabase.rpc('console_resolve', { p_id: id, p_resolved: resolved, p_note: note ?? null })) as Promise<AppErrorRow>
   },
 }

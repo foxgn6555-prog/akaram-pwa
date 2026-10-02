@@ -97,7 +97,7 @@ export const auth = {
     return auth.buildSessionUser(data.session.user.id, data.session.user.email ?? null)
   },
 
-  /** رمز الوصول الحالي (JWT) — لتمرير هوية المستخدم لتضمينات محمية (مثل FlowBridge) */
+  /** رمز الوصول الحالي (JWT) — لتمرير هوية المستخدم لتضمينات محمية */
   async getAccessToken(): Promise<string | null> {
     const { data } = await supabase.auth.getSession()
     return data.session?.access_token ?? null

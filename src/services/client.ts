@@ -7,6 +7,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { supabaseConfig } from '@config/supabase.config'
+import { emitSdkError } from '@lib/console/bus'
 import { SDKError } from '@lib/errors/SDKError'
 
 export const supabase: SupabaseClient = createClient(
@@ -40,9 +41,12 @@ export async function sdkMaybe<T>(
     if (result.error) throw new SDKError(result.error.message, result.error.code ?? 'UNKNOWN', result.error)
     return result.data
   } catch (error) {
-    if (error instanceof SDKError) throw error
-    if (error instanceof TypeError) throw new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error)
-    throw new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error)
+    if (error instanceof SDKError) {
+      emitSdkError({ message: error.message, code: error.code, error })
+      throw error
+    }
+    if (error instanceof TypeError) throw emitted(new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error))
+    throw emitted(new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error))
   }
 }
 
@@ -70,11 +74,14 @@ export async function sdkGuard<T>(
     }
     return data as T
   } catch (error) {
-    if (error instanceof SDKError) throw error
-    if (error instanceof TypeError) {
-      throw new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error)
+    if (error instanceof SDKError) {
+      emitSdkError({ message: error.message, code: error.code, error })
+      throw error
     }
-    throw new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error)
+    if (error instanceof TypeError) {
+      throw emitted(new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error))
+    }
+    throw emitted(new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error))
   }
 }
 
@@ -91,10 +98,18 @@ export async function sdkVoid(
       throw new SDKError(result.error.message, result.error.code ?? 'UNKNOWN', result.error)
     }
   } catch (error) {
-    if (error instanceof SDKError) throw error
-    if (error instanceof TypeError) {
-      throw new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error)
+    if (error instanceof SDKError) {
+      emitSdkError({ message: error.message, code: error.code, error })
+      throw error
     }
-    throw new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error)
+    if (error instanceof TypeError) {
+      throw emitted(new SDKError('تعذر الاتصال بالخادم — تحقق من الشبكة', 'NETWORK', error))
+    }
+    throw emitted(new SDKError('خطأ غير متوقع في طبقة الخدمات', 'UNKNOWN', error))
   }
+}
+/** ينشر الخطأ إلى راصد Console ثم يعيده كما هو */
+function emitted(e: SDKError): SDKError {
+  emitSdkError({ message: e.message, code: e.code, error: e })
+  return e
 }

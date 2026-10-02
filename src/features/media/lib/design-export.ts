@@ -269,7 +269,7 @@ export async function exportDesign(format: DesignExportFormat, title: string, on
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 10, 10, 190, 277, undefined, 'FAST')
       onProgress?.(i + 1, pages.length)
     }
-    pdf.setProperties({ title, creator: 'شركة جزيرة الأكرام' })
+    pdf.setProperties({ title, creator: 'شركة جزيرة الأكارم' })
     downloadBlob(pdf.output('blob'), name)
     return
   }

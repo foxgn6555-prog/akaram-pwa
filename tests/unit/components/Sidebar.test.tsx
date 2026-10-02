@@ -43,9 +43,9 @@ describe('Sidebar — وحدات البوابات', () => {
     expect(active).toHaveTextContent('حضورية العمال')
   })
 
-  it('يعرض شعار جزيرة الأكرام', () => {
+  it('يعرض شعار جزيرة الأكارم', () => {
     renderAt('/employee')
-    expect(screen.getByAltText('جزيرة الأكرام')).toBeInTheDocument()
+    expect(screen.getByAltText('جزيرة الأكارم')).toBeInTheDocument()
   })
 })
 

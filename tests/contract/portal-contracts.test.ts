@@ -26,7 +26,7 @@ describe('⚓ عقد البوابة التقنية', () => {
       'nav.notification_policies',
       'nav.updates',
       'nav.archive',
-      'nav.flowbridge',
+      'nav.console',
     ])
   })
 
@@ -48,7 +48,8 @@ describe('⚓ عقد البوابة التقنية', () => {
             (u.children ?? []).map((c) => c.path.replace('/it/', '')),
           ),
         )
-        .concat(['user-management/:userId', 'database/tables/:tableName']),
+        // database/errors: تحويل قديم إلى /it/console (الروابط المحفوظة) — ليس صفحة
+        .concat(['user-management/:userId', 'database/tables/:tableName', 'database/errors']),
     )
     for (const route of allRoutes) {
       expect(sidebarPaths.has(route), `مسار يتيم: ${route}`).toBe(true)

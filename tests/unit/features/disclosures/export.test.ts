@@ -24,7 +24,7 @@ describe('disclosureHtml — بناء النموذج', () => {
     const html = disclosureHtml(d)
     expect(html).toContain('88120')
     expect(html).toContain('سائق مخالف')
-    expect(html).toContain('شركة جزيرة الأكرام')
+    expect(html).toContain('شركة جزيرة الأكارم')
     expect(html).toContain('معاون المدير المفوض')
     expect(html).toContain('تفاصيل الكشف')
     expect(html).toContain('اسم منظم الكشف')
@@ -55,7 +55,7 @@ describe('toExcel — تقرير exceljs احترافي', () => {
     expect(ws).toBeTruthy()
 
     // اسم الشركة + العنوان
-    expect(String(ws!.getCell('B1').value ?? '')).toContain('شركة جزيرة الأكرام')
+    expect(String(ws!.getCell('B1').value ?? '')).toContain('شركة جزيرة الأكارم')
     expect(String(ws!.getCell('A3').value ?? '')).toContain('سجل الكشوفات')
 
     // رؤوس الأعمدة صف 5 — DB واسم السائق ونوع المخالفة

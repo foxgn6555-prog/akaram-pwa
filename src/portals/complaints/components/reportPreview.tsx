@@ -25,10 +25,10 @@ export function ReportCoverPreview({ layout, title, accent, sector, reportDate }
     <div className="flex items-center gap-3">
       <img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain sm:size-16" />
       <img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain sm:size-20" />
-      <img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain sm:size-20" />
+      <img src="/icons/logo.png" alt="شعار جزيرة الأكارم" className="size-14 object-contain sm:size-20" />
     </div>
     <p className="mt-3 text-[9px] font-bold sm:text-xs">{authorityLineFor(layout, sector)}</p>
-    <p className="mt-1 text-[8px] font-bold sm:text-[11px]">{String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد')}</p>
+    <p className="mt-1 text-[8px] font-bold sm:text-[11px]">{String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكارم وفيرست ترايد')}</p>
     <h3 className="mt-4 max-w-2xl text-base font-black sm:text-2xl" style={{ color: accent }}>{String(layout.title ?? title)}</h3>
     <p className="mt-2 max-w-2xl text-[9px] font-bold text-slate-700 sm:text-sm">{title}</p>
     <p className="mt-2 text-[10px] font-bold sm:text-sm">{coverDateLine(sector, reportDate)}</p>

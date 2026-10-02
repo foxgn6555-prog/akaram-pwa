@@ -7,7 +7,7 @@ test.describe('أخطاء JavaScript في المتصفح',()=>{
   page.on('console',message=>{if(message.type()==='error')errors.push(`console.error: ${message.text()}`)})
   const response=await page.goto('/login',{waitUntil:'networkidle'})
   expect(response?.ok()).toBeTruthy()
-  await expect(page.getByAltText('شعار جزيرة الأكرام')).toBeVisible()
+  await expect(page.getByAltText('شعار جزيرة الأكارم')).toBeVisible()
   await page.getByTestId('login-submit').click()
   await expect(page.getByRole('alert')).toBeVisible()
   expect(errors).toEqual([])

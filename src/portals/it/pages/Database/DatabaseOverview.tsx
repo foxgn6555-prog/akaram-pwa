@@ -40,7 +40,7 @@ export default function DatabaseOverview() {
             <Icon name="refresh" size={15} />
             {isRefetching ? 'جارٍ التحديث…' : 'تحديث'}
           </Button>
-          <Button onClick={() => navigate('/it/database/errors')} data-testid="goto-errors">
+          <Button onClick={() => navigate('/it/console')} data-testid="goto-errors">
             <Icon name="activity" size={15} />
             أخطاء التطبيق {openErrors > 0 && `(${openErrors})`}
           </Button>

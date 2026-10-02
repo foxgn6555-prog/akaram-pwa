@@ -11,9 +11,9 @@ export const pwaConfig: Partial<VitePWAOptions> = {
   registerType: 'autoUpdate',
   includeAssets: ['offline.html', 'robots.txt'],
   manifest: {
-    name: 'جزيرة الأكرام — النظام الإلكتروني',
-    short_name: 'الأكرام',
-    description: 'جزيرة الأكرام — نظام إدارة شركة البلدية: الموظفون، الطلبات، الرواتب، الحضور',
+    name: 'جزيرة الأكارم — النظام الإلكتروني',
+    short_name: 'الأكارم',
+    description: 'جزيرة الأكارم — نظام إدارة شركة البلدية: الموظفون، الطلبات، الرواتب، الحضور',
     lang: 'ar',
     dir: 'rtl',
     theme_color: '#005f8d',

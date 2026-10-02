@@ -1,6 +1,6 @@
 /**
  * LoginForm — الحقول + تنبيه القفل + رسائل الخطأ/النجاح
- * مُكيَّف من Kyvzon: نفس البنية البصرية بألوان الأكرام
+ * مُكيَّف من Kyvzon: نفس البنية البصرية بألوان الأكارم
  * لا يعرف شيئاً عن Supabase — يستقبل كل شيء عبر props
  */
 import { Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowRight } from 'lucide-react'

@@ -189,7 +189,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   useEffect(() => {
     if (!preview) return
     const prev = document.title
-    document.title = `جزيرة الاكرام — تقرير ${title || (data?.design.title ?? '')}`
+    document.title = `جزيرة الأكارم — تقرير ${title || (data?.design.title ?? '')}`
     return () => {
       document.title = prev
     }

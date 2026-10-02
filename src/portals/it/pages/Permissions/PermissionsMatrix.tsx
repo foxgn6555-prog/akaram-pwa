@@ -21,12 +21,11 @@ const PAGE_CATALOG: Array<{ key: string; label: string; portal: string }> = [
   { key: 'it.users.create',    label: 'إنشاء مستخدم',        portal: 'it' },
   { key: 'it.users.departments', label: 'الهيكل التنظيمي',   portal: 'it' },
   { key: 'it.db.tables',       label: 'الجداول',             portal: 'it' },
-  { key: 'it.db.errors',       label: 'أخطاء التطبيق',       portal: 'it' },
+  { key: 'it.console',         label: 'Console — رصد الأخطاء', portal: 'it' },
   { key: 'it.branches',        label: 'فروع الشركة',         portal: 'it' },
   { key: 'it.permissions',     label: 'مصفوفة الصلاحيات',    portal: 'it' },
   { key: 'it.integrations.biometric', label: 'أجهزة البصمة', portal: 'it' },
   { key: 'it.integrations.gps',       label: 'تتبع الشاحنات', portal: 'it' },
-  { key: 'it.flowbridge',             label: 'مصمم التدفقات', portal: 'it' },
   // Employee
   { key: 'employee.dashboard', label: 'لوحة الموظف',         portal: 'employee' },
   { key: 'employee.requests',  label: 'طلباتي',              portal: 'employee' },

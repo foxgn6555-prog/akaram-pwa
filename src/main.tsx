@@ -2,7 +2,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { initMonitoring } from '@lib/monitoring/sentry'
-import { onErrorReport } from '@lib/monitoring/logger'
+import { installConsoleCapture } from '@lib/console/capture'
 import { system } from '@sdk/system.sdk'
 import { reloadOnce } from '@lib/router/lazy'
 import App from './App'
@@ -13,14 +13,8 @@ initMonitoring()
 // قطعة قديمة بعد نشر جديد أو إعادة تحسين اعتماديات Vite: إعادة تحميل واحدة بدل شاشة خطأ ميتة
 window.addEventListener('vite:preloadError', (e) => { if (reloadOnce('preload')) e.preventDefault() })
 
-// تبلّغ الأخطاء إلى وحدة قاعدة البيانات — آمن الفشل ومحدود المعدل
-onErrorReport((error, context) => {
-  void system.reportError({
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : null,
-    context,
-  })
-})
+// Console (التطوير المركزية): رصد حي لكل أخطاء وتنبيهات المنصة من كل البوابات — آمن الفشل ومحدود المعدل
+installConsoleCapture({ send: (events) => system.consoleReport(events) })
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>

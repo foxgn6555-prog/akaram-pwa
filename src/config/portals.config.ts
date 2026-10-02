@@ -218,7 +218,6 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'database',
       children: [
         { path: '/it/database/tables', labelKey: 'nav.tables', icon: 'list' },
-        { path: '/it/database/errors', labelKey: 'nav.errors_log', icon: 'activity' },
       ],
     },
     // ── الوحدات الجديدة (الجولة 4) ──
@@ -270,10 +269,9 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       ],
     },
     {
-      // الجولة 5 — مصمم التدفقات (FlowBridge): عرض بصري حي لتكاملات المنظومة
-      path: '/it/flowbridge',
-      labelKey: 'nav.flowbridge',
-      icon: 'flow',
+      path: '/it/console',
+      labelKey: 'nav.console',
+      icon: 'activity',
       exact: true,
     },
   ],

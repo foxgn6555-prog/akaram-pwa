@@ -41,7 +41,9 @@ describe('Sidebar IT — وحدتا البوابة التقنية', () => {
   it('صفحات وحدة قاعدة البيانات تظهر عند نشاطها بدل الأخرى', () => {
     renderAt('/it/database')
     expect(screen.getByText('الجداول والأعمدة')).toBeInTheDocument()
-    expect(screen.getByText('أخطاء التطبيق')).toBeInTheDocument()
+    // أخطاء التطبيق انتقلت إلى وحدة Console المستقلة (00166) — لم تعد صفحة فرعية لقاعدة البيانات
+    expect(screen.queryByText('أخطاء التطبيق')).not.toBeInTheDocument()
+    expect(screen.getByText('Console — رصد الأخطاء')).toBeInTheDocument()
     expect(screen.queryByText('إنشاء مستخدم')).not.toBeInTheDocument()
   })
 

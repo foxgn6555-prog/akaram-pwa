@@ -169,7 +169,7 @@ describe('ITDashboard v3 — اللوحة الحية للبوابة', () => {
     await user.click(screen.getByTestId('quick-user-plus'))
     expect(mockNavigate).toHaveBeenCalledWith('/it/user-management/create')
     await user.click(screen.getByTestId('quick-activity'))
-    expect(mockNavigate).toHaveBeenCalledWith('/it/database/errors')
+    expect(mockNavigate).toHaveBeenCalledWith('/it/console')
     await user.click(screen.getByTestId('quick-database'))
     expect(mockNavigate).toHaveBeenCalledWith('/it/database')
   })

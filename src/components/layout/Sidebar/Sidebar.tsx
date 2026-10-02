@@ -1,5 +1,5 @@
 /**
- * الشريط الجانبي — بأسلوب Kyvzon (أقسام منظمة · شعار · ألوان الأكرام)
+ * الشريط الجانبي — بأسلوب Kyvzon (أقسام منظمة · شعار · ألوان الأكارم)
  * كل بوابة تعرض وحداتها فقط · زر طي · خروج · RTL
  *
  * التجاوب:
@@ -108,10 +108,10 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
         'flex h-16 shrink-0 items-center gap-3 border-b border-slate-100',
         collapsed ? 'flex-col justify-center px-2' : 'px-4',
       )}>
-        <img src="/icons/logo-128.png" alt="جزيرة الأكرام" className="size-10 shrink-0 rounded-xl" />
+        <img src="/icons/logo-128.png" alt="جزيرة الأكارم" className="size-10 shrink-0 rounded-xl" />
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-brand-700">جزيرة الأكرام</p>
+            <p className="truncate text-sm font-bold text-brand-700">جزيرة الأكارم</p>
             <p className="truncate text-[11px] text-slate-500">{theme.label}</p>
           </div>
         )}
@@ -182,7 +182,7 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
       {/* تذييل */}
       <div className="border-t border-slate-100 px-4 py-3">
         {!collapsed ? (
-          <p className="text-center text-[10px] text-slate-400">جزيرة الأكرام · نظام داخلي</p>
+          <p className="text-center text-[10px] text-slate-400">جزيرة الأكارم · نظام داخلي</p>
         ) : (
           <div className="flex justify-center">
             <img src="/icons/logo-128.png" alt="" className="size-6 opacity-40" />

@@ -33,7 +33,7 @@ const emptyForm: Form = {
   name: '', description: '', sector: '', accent: '#d269c8',
   coverTitle: 'تقرير معالجة التلكؤات ليوم',
   authorityLine: 'أمانة بغداد / دائرة بلدية الكرادة',
-  contractorLine: 'تحالف شركات جزيرة الأكرام وفيرست ترايد',
+  contractorLine: 'تحالف شركات جزيرة الأكارم وفيرست ترايد',
   beforeLabel: 'صورة التلكؤ', afterLabel: 'صورة المعالجة',
   isDefault: false, isActive: true,
 }
@@ -139,7 +139,7 @@ export default function TemplatesPage() {
       accent: value(item.layout, 'accent', '#d269c8'),
       coverTitle: value(item.layout, 'title', 'تقرير معالجة التلكؤات ليوم'),
       authorityLine: value(item.layout, 'authorityLine', 'أمانة بغداد / دائرة بلدية الكرادة'),
-      contractorLine: value(item.layout, 'contractorLine', 'تحالف شركات جزيرة الأكرام وفيرست ترايد'),
+      contractorLine: value(item.layout, 'contractorLine', 'تحالف شركات جزيرة الأكارم وفيرست ترايد'),
       beforeLabel: value(item.layout, 'beforeLabel', 'صورة التلكؤ'),
       afterLabel: value(item.layout, 'afterLabel', 'صورة المعالجة'),
       isDefault: item.isDefault, isActive: item.isActive,
@@ -278,5 +278,5 @@ function ExistingReportNotice({ report }: { report: ComplaintReport }) {
 function TemplatePreview({ form }: { form: Form }) {
   const authority = form.sector === 'zaafaraniya' && form.authorityLine === 'أمانة بغداد / دائرة بلدية الكرادة'
     ? 'أمانة بغداد / دائرة بلدية الزعفرانية' : form.authorityLine
-  return <div className="mt-4 rounded-[2rem] border-4 bg-white p-5 text-center" style={{ borderColor: form.accent }}><div className="mx-auto flex items-center justify-center gap-2"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain" /><img src="/icons/logo.png" alt="شعار جزيرة الأكرام" className="size-14 object-contain" /></div><p className="mt-3 text-xs font-bold">{authority}</p><p className="mt-1 text-xs font-bold">{form.contractorLine}</p><div className="mt-3 text-lg font-black" style={{ color: form.accent }}>{form.coverTitle}</div><div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs"><div className="rounded-lg bg-slate-100 p-8">{form.afterLabel}</div><div className="rounded-lg bg-slate-100 p-8">{form.beforeLabel}</div></div></div>
+  return <div className="mt-4 rounded-[2rem] border-4 bg-white p-5 text-center" style={{ borderColor: form.accent }}><div className="mx-auto flex items-center justify-center gap-2"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain" /><img src="/icons/logo.png" alt="شعار جزيرة الأكارم" className="size-14 object-contain" /></div><p className="mt-3 text-xs font-bold">{authority}</p><p className="mt-1 text-xs font-bold">{form.contractorLine}</p><div className="mt-3 text-lg font-black" style={{ color: form.accent }}>{form.coverTitle}</div><div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs"><div className="rounded-lg bg-slate-100 p-8">{form.afterLabel}</div><div className="rounded-lg bg-slate-100 p-8">{form.beforeLabel}</div></div></div>
 }

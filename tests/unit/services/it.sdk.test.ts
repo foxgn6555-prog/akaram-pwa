@@ -164,10 +164,23 @@ describe('system.sdk', () => {
     expect(rpcMock).toHaveBeenCalledWith('db_overview')
   })
 
-  it('reportError آمن الفشل — لا يرمي حتى مع خطأ شبكة', async () => {
+  it('consoleReport آمن الفشل — بلا جلسة يعيد 0 ولا يستدعي الخادم', async () => {
     rpcMock.mockRejectedValue(new TypeError('Failed to fetch'))
-    await expect(
-      system.reportError({ message: 'boom' }),
-    ).resolves.toBeUndefined()
+    await expect(system.consoleReport([{ message: 'boom' }])).resolves.toBe(0)
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it('consoleFeed يستدعي console_feed بالمعاملات الكاملة (الافتراضي: غير المحلولة)', async () => {
+    rpcMock.mockResolvedValueOnce({ data: [], error: null })
+    await system.consoleFeed({ portal: 'media', q: 'x' })
+    expect(rpcMock).toHaveBeenCalledWith('console_feed', {
+      p_level: null, p_portal: 'media', p_kind: null, p_resolved: false, p_since: null, p_q: 'x', p_limit: 200,
+    })
+  })
+
+  it('consoleResolve يستدعي console_resolve ويمرر الملاحظة', async () => {
+    rpcMock.mockResolvedValueOnce({ data: { id: 7, resolved: true }, error: null })
+    await system.consoleResolve(7, true, 'أُصلح')
+    expect(rpcMock).toHaveBeenCalledWith('console_resolve', { p_id: 7, p_resolved: true, p_note: 'أُصلح' })
   })
 })

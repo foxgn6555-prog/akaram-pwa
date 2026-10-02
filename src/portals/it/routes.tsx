@@ -5,7 +5,7 @@
  */
 import { lazy } from '@lib/router/lazy'
 import { Suspense, type ReactNode } from 'react'
-import type { RouteObject } from 'react-router'
+import { Navigate, type RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const ITDashboard = lazy(() => import('@portals/it/pages/Dashboard/ITDashboard'))
@@ -17,7 +17,7 @@ const UserDetail = lazy(() => import('@portals/it/pages/UserManagement/UserDetai
 const DatabaseHub = lazy(() => import('@portals/it/pages/Database/DatabaseHub'))
 const DatabaseOverview = lazy(() => import('@portals/it/pages/Database/DatabaseOverview'))
 const TableDetailPage = lazy(() => import('@portals/it/pages/Database/TableDetailPage'))
-const ErrorLogs = lazy(() => import('@portals/it/pages/Database/ErrorLogs'))
+const ConsolePage = lazy(() => import('@portals/it/pages/Console/ConsolePage'))
 
 // ── الوحدات الجديدة (الجولة 4) ──
 const BranchesPage = lazy(() => import('@portals/it/pages/Branches/BranchesPage'))
@@ -34,8 +34,6 @@ const NotificationPolicyControlPage = lazy(
   () => import('@portals/it/pages/Notifications/NotificationPolicyControlPage'),
 )
 
-// ── مصمم التدفقات (FlowBridge) — جولة 5 ──
-const FlowBridgePage = lazy(() => import('@portals/it/pages/FlowBridge/FlowBridgePage'))
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -56,7 +54,11 @@ export const customRoutes: RouteObject[] = [
   { path: 'database', element: s(<DatabaseHub />) },
   { path: 'database/tables', element: s(<DatabaseOverview />) },
   { path: 'database/tables/:tableName', element: s(<TableDetailPage />) },
-  { path: 'database/errors', element: s(<ErrorLogs />) },
+  // أخطاء التطبيق انتقلت إلى وحدة Console — نُبقي المسار القديم كتحويل حتى لا تنكسر الروابط المحفوظة
+  { path: 'database/errors', element: <Navigate to="/it/console" replace /> },
+
+  // ── وحدة Console — رصد الأخطاء الحي لكل البوابات ──
+  { path: 'console', element: s(<ConsolePage />) },
 
   // ── وحدة الفروع ──
   { path: 'branches', element: s(<BranchesPage />) },
@@ -78,6 +80,4 @@ export const customRoutes: RouteObject[] = [
   { path: 'archive', element: s(<ArchivePage />) },
   { path: 'central-garage-approvals', element: s(<CentralGarageApprovalsPage />) },
 
-  // ── وحدة مصمم التدفقات (FlowBridge) ──
-  { path: 'flowbridge', element: s(<FlowBridgePage />) },
 ]

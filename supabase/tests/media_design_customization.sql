@@ -86,7 +86,7 @@ begin
   -- ملخص صفحة الجدول والألوان يُحفظان على التصميم
   perform public.media_design_report_save(
     d.id, null, null,
-    jsonb_build_object('companyName', 'شركة جزيرة الاكارم وفيرست ترايد', 'dateValue', 'من 1 الى 14 اب 2026',
+    jsonb_build_object('companyName', 'شركة جزيرة الأكارم وفيرست ترايد', 'dateValue', 'من 1 الى 14 اب 2026',
                        'rows', jsonb_build_array(jsonb_build_object('t', '1', 'work', 'كنس الشوارع'))),
     jsonb_build_object('barFrom', '#ffffff', 'barTo', '#000000', 'border', '#123456', 'barText', '#111111'));
   if (select summary->>'dateValue' from public.media_designs where id = d.id) <> 'من 1 الى 14 اب 2026' then

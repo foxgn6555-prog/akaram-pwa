@@ -48,7 +48,7 @@ export interface ChartSheet {
 
 export interface BuildReportOptions {
   sheetName: string
-  /** اسم الشركة — الافتراضي «شركة جزيرة الأكرام» */
+  /** اسم الشركة — الافتراضي «شركة جزيرة الأكارم» */
   company?: string
   /** السطر التعريفي تحت الاسم (القسم/الوحدة) */
   companySub?: string
@@ -165,7 +165,7 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
   const brandStart = logo ? 'C1' : 'A1'
   ws.mergeCells(`${brandStart}:${lastCol}1`)
   const titleBrand = ws.getCell(brandStart)
-  titleBrand.value = spec.company ?? 'شركة جزيرة الأكرام'
+  titleBrand.value = spec.company ?? 'شركة جزيرة الأكارم'
   titleBrand.font = { name: 'Segoe UI', bold: true, size: 18, color: { argb: `FF${BRAND.primary}` } }
   titleBrand.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 }
 
@@ -259,7 +259,7 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
   }
   ws.views = [{ ...RTL_VIEW, state: 'frozen', ySplit: headerRowIdx }]
   ws.headerFooter = {
-    oddHeader: '&Cشركة جزيرة الأكرام',
+    oddHeader: '&Cشركة جزيرة الأكارم',
     oddFooter: `&Lوُلّد آلياً — ${new Date().toLocaleDateString('ar')}&Cصفحة &P من &N`,
   }
 
@@ -270,7 +270,7 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
  */
 export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'نظام بلدية جزيرة الأكرام'
+  wb.creator = 'نظام بلدية جزيرة الأكارم'
   wb.created = new Date()
 
   const usedNames = new Set<string>()

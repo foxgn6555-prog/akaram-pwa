@@ -148,7 +148,7 @@ export default function OpsCampaignsPage() {
         <div className="mb-3 flex items-center gap-3 border-b-4 border-[#005F8D] pb-3">
           <img src="/icons/logo.png" alt="شعار الشركة" className="size-14 object-contain" />
           <div className="flex-1">
-            <p className="text-[11px] font-bold text-slate-500">شركة جزيرة الأكرام — غرفة العمليات</p>
+            <p className="text-[11px] font-bold text-slate-500">شركة جزيرة الأكارم — غرفة العمليات</p>
             <h2 className="text-base font-black text-[#0B4261]">{CAMPAIGN_REPORT_TITLE}</h2>
             <p className="text-xs font-bold text-emerald-800" data-testid="camp-subtitle">{CAMPAIGN_REPORT_SUBTITLE[mode]} · {scopeLabel} · {rangeLabel}</p>
           </div>

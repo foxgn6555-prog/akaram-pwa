@@ -10,10 +10,10 @@ test.describe('Auth & RBAC', () => {
     await expect(page).toHaveURL(/.*login.*/)
   })
 
-  test('صفحة الدخول تعرض شعار جزيرة الأكرام', async ({ page }) => {
+  test('صفحة الدخول تعرض شعار جزيرة الأكارم', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByAltText('شعار جزيرة الأكرام')).toBeVisible()
-    await expect(page.getByText('جزيرة الأكرام')).toBeVisible()
+    await expect(page.getByAltText('شعار جزيرة الأكارم')).toBeVisible()
+    await expect(page.getByText('جزيرة الأكارم')).toBeVisible()
   })
 
   test('حقول فارغة → رسائل تحقق', async ({ page }) => {

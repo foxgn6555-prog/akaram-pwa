@@ -613,7 +613,7 @@ export const complaints = {
       reportTitle: report.title,
       coverTitle: String(layout.title ?? report.title ?? 'تقرير معالجة التلكؤات'),
       authorityLine: authorityLineFor(layout, report.sector),
-      contractorLine: String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكرام وفيرست ترايد'),
+      contractorLine: String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكارم وفيرست ترايد'),
       reportDate: report.reportDate,
       sectorLabel: report.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية',
       scopeLabel: report.scope === 'email' ? 'تقرير بريد مستقل' : 'تقرير يومي جامع',

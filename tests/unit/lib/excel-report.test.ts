@@ -14,7 +14,7 @@ vi.mock('@lib/export/chart-image', () => ({
 function callReport(opts?: { totalRow?: Record<string, unknown>; rows?: Record<string, unknown>[] }) {
   return buildExcelReport({
     sheetName: 'ورقة',
-    company: 'شركة جزيرة الأكرام',
+    company: 'شركة جزيرة الأكارم',
     companySub: 'وحدة اختبارية',
     title: 'تقرير اختباري',
     meta: 'تاريخ التصدير: 2026-09-02',
@@ -48,7 +48,7 @@ describe('buildExcelReport', () => {
     const wb = await callReport()
     const ws = wb.getWorksheet('ورقة')
     expect(ws).toBeTruthy()
-    expect(String(ws!.getCell('B1').value)).toContain('شركة جزيرة الأكرام')
+    expect(String(ws!.getCell('B1').value)).toContain('شركة جزيرة الأكارم')
     expect(String(ws!.getCell('A2').value)).toContain('وحدة اختبارية')
     expect(String(ws!.getCell('A3').value)).toContain('تقرير اختباري')
   })
@@ -100,7 +100,7 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
   it('ينقّي اسم الورقة الرئيسية من المحارف الممنوعة (\\ / * ? : [ ])', async () => {
     const wb = await buildExcelReport({
       sheetName: 'حالة الكشوفات (مسودة / مرفوعة)',
-      company: 'شركة جزيرة الأكرام',
+      company: 'شركة جزيرة الأكارم',
       title: 'تقرير اختباري',
       columns: [{ header: 'ت', key: '#', width: 5 }],
       rows: [{ '#': 1 }],
@@ -116,7 +116,7 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
     const long = 'عنوان طويل جداً '.repeat(4) // > 31 حرفاً مع محارف ممنوعة
     const wb = await buildExcelReport({
       sheetName: long,
-      company: 'شركة جزيرة الأكرام',
+      company: 'شركة جزيرة الأكارم',
       title: 'تقرير اختباري',
       columns: [{ header: 'ت', key: '#', width: 5 }],
       rows: [],
@@ -126,7 +126,7 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
 
     const wb2 = await buildExcelReport({
       sheetName: '***',
-      company: 'شركة جزيرة الأكرام',
+      company: 'شركة جزيرة الأكارم',
       title: 'تقرير اختباري',
       columns: [{ header: 'ت', key: '#', width: 5 }],
       rows: [],
@@ -138,7 +138,7 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
   it('ينقّي أسماء أوراق الرسوم البيانية ويضمن تفرّدها', async () => {
     const wb = await buildExcelReport({
       sheetName: 'الكشوفات',
-      company: 'شركة جزيرة الأكرام',
+      company: 'شركة جزيرة الأكارم',
       title: 'تقرير اختباري',
       columns: [{ header: 'ت', key: '#', width: 5 }],
       rows: [{ '#': 1 }],

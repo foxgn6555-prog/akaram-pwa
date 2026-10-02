@@ -10,10 +10,10 @@ const EMPLOYEE_EMAIL = process.env.E2E_EMPLOYEE_EMAIL
 const EMPLOYEE_PASSWORD = process.env.E2E_EMPLOYEE_PASSWORD
 
 test.describe('تسجيل الدخول', () => {
-  test('صفحة الدخول تعرض هوية جزيرة الأكرام', async ({ page }) => {
+  test('صفحة الدخول تعرض هوية جزيرة الأكارم', async ({ page }) => {
     await page.goto('/login')
-    await expect(page).toHaveTitle(/جزيرة الأكرام/)
-    await expect(page.getByAltText('شعار جزيرة الأكرام')).toBeVisible()
+    await expect(page).toHaveTitle(/جزيرة الأكارم/)
+    await expect(page.getByAltText('شعار جزيرة الأكارم')).toBeVisible()
     await expect(page.getByTestId('login-submit')).toBeVisible()
   })
 

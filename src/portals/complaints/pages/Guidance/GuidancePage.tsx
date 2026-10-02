@@ -23,7 +23,7 @@ export default function GuidancePage() {
   return <section className="space-y-6" dir="rtl">
     <header className="rounded-3xl bg-gradient-to-l from-rose-900 via-slate-950 to-sky-950 p-7 text-white">
       <div className="no-print flex flex-wrap items-center justify-between gap-3"><Link to="/complaints" className="inline-flex items-center gap-2 text-sm text-rose-100"><ArrowRight size={17} />العودة إلى الرئيسية</Link><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-900"><Printer size={17} />طباعة الدليل / حفظ PDF</button></div>
-      <p className="hidden text-xs font-bold text-rose-100 print:block">جزيرة الأكرام · بوابة الشكاوى</p>
+      <p className="hidden text-xs font-bold text-rose-100 print:block">جزيرة الأكارم · بوابة الشكاوى</p>
       <h1 className="mt-5 text-3xl font-black">دليل موظف الشكاوى</h1>
       <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-200">مرجع عملي من وصول البريد إلى اعتماد التقرير وتسليمه، مع نقاط رقابة تمنع الخلط والتكرار والاعتماد الناقص.</p>
     </header>
