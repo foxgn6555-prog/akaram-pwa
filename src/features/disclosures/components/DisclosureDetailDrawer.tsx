@@ -17,11 +17,13 @@ export interface DisclosureDetailDrawerProps {
   /** وضع غرفة العمليات: يُظهر تعديل/رفع/إلغاء */
   opsMode?: boolean
   onEdit?: (d: DisclosureV2) => void
-  /** زر إضافي (طباعة…) */
+  /** طباعة نموذج الكشف الرسمي */
+  onPrint?: (d: DisclosureV2) => void
+  /** زر إضافي */
   extraActions?: (d: DisclosureV2) => React.ReactNode
 }
 
-export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, extraActions }: DisclosureDetailDrawerProps) {
+export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, onPrint, extraActions }: DisclosureDetailDrawerProps) {
   const q = useDisclosureDetail(id)
   const { submit, decide, cancel } = useDisclosureActions()
   const d = q.data
@@ -50,6 +52,7 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, e
             </div>
             {d ? <p className="truncate text-xs text-slate-500">{d.type_label} · {d.target_label}</p> : null}
           </div>
+          {d && onPrint ? <button type="button" onClick={() => onPrint(d)} className={btnGhost} data-testid="disc-print">طباعة</button> : null}
           <button type="button" onClick={onClose} className={btnGhost} aria-label="إغلاق" data-testid="disc-drawer-close">✕</button>
         </header>
 

@@ -4,7 +4,7 @@
  */
 import { lazy } from '@lib/router/lazy'
 import { Suspense } from 'react'
-import { createBrowserRouter, redirect, Outlet, Navigate } from 'react-router'
+import { createBrowserRouter, redirect, Navigate } from 'react-router'
 import { PUBLIC_ROUTES, PORTAL_ROUTES } from './routes.config'
 import { authGuard } from './guards/auth.guard'
 import { portalGuard } from './guards/portal.guard'
@@ -45,8 +45,8 @@ export const router = createBrowserRouter([
     element: (
       <ErrorBoundary>
         <Suspense fallback={<LoadingSpinner fullScreen />}>
+          {/* القوقعة (AppShell) تحتوي Outlet الصفحات بنفسها — لا Outlet ثانٍ هنا وإلا تُرسم كل صفحة مرتين (نسخة خفية أسفل الشاشة) */}
           <p.shell />
-          <Outlet />
         </Suspense>
       </ErrorBoundary>
     ),

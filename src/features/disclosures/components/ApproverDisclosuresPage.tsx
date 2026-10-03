@@ -6,10 +6,12 @@
  */
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { DISCLOSURE_STATUS_LABEL, type DisclosureStatusV2 } from '@sdk/disclosures-unit.sdk'
 import { useDisclosureInbox, useDisclosureTypes, useDisclosuresList } from '../unit'
 import { DisclosureTable } from './shared'
-import { fmtIqd, inputCls } from './ui'
+import { fmtIqd } from './ui'
+import { DisclosureFilters } from './DisclosureFilters'
+import { EMPTY_FILTERS, applyClientFilters, toServerFilter, type UiFilters } from '../lib/filters'
+import { printDisclosureForm, printDisclosuresReport } from '../lib/export-v2'
 import { DisclosureDetailDrawer } from './DisclosureDetailDrawer'
 
 type Tab = 'inbox' | 'history' | 'cancelled'
@@ -18,11 +20,12 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
   const [tab, setTab] = useState<Tab>('inbox')
   const [openId, setOpenId] = useState<string | null>(null)
   const inbox = useDisclosureInbox()
-  const [q, setQ] = useState(''); const [type, setType] = useState(''); const [status, setStatus] = useState<'' | DisclosureStatusV2>(''); const [month, setMonth] = useState('')
+  const [f, setF] = useState<UiFilters>({ ...EMPTY_FILTERS })
   const types = useDisclosureTypes()
-  const history = useDisclosuresList({ scope: 'all', q: q || null, type: type || null, month: month || null }, tab === 'history' ? 20_000 : false)
+  const history = useDisclosuresList({ scope: 'all', ...toServerFilter(f) }, tab === 'history' ? 20_000 : false)
   const cancelled = useDisclosuresList({ scope: 'cancelled' }, tab === 'cancelled' ? 20_000 : false)
-  const historyRows = useMemo(() => (history.data ?? []).filter((d) => d.status !== 'draft' && (!status || d.status === status)), [history.data, status])
+  const historyBase = useMemo(() => (history.data ?? []).filter((d) => d.status !== 'draft'), [history.data])
+  const historyRows = useMemo(() => applyClientFilters(historyBase, f), [historyBase, f])
   const inboxAmount = useMemo(() => (inbox.data ?? []).reduce((a, d) => a + (d.amount ?? 0), 0), [inbox.data])
 
   return (
@@ -42,6 +45,9 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
         ))}
       </nav>
 
+      {tab === 'inbox' && (inbox.data?.length ?? 0) > 0 && (
+        <div className="flex justify-end"><button type="button" className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" data-testid="print-inbox" onClick={() => printDisclosuresReport(inbox.data ?? [], { title: `وارد الكشوفات — ${title}`, scopeLabel: 'بانتظار قراري' })}>طباعة الوارد</button></div>
+      )}
       {tab === 'inbox' && (
         inbox.isLoading ? <div className="p-6 text-center text-sm text-slate-500">جارٍ جلب الوارد…</div>
           : <DisclosureTable rows={inbox.data ?? []} onOpen={(d) => setOpenId(d.id)} testId="inbox" emptyText="لا كشوفات بانتظار قرارك"
@@ -49,18 +55,13 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
       )}
       {tab === 'history' && (
         <div className="space-y-3">
-          <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-4">
-            <input className={inputCls} placeholder="بحث…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="filter-q" />
-            <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}><option value="">كل الأنواع</option>{(types.data ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
-            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as '' | DisclosureStatusV2)} data-testid="filter-status"><option value="">كل الحالات</option>{(['pending', 'returned', 'approved', 'cancelled'] as const).map((s) => <option key={s} value={s}>{DISCLOSURE_STATUS_LABEL[s]}</option>)}</select>
-            <input type="month" className={inputCls} value={month} onChange={(e) => setMonth(e.target.value)} dir="ltr" />
-          </div>
+          <DisclosureFilters value={f} onChange={setF} types={types.data ?? []} rows={historyBase} filtered={historyRows} statuses={['pending', 'returned', 'approved', 'cancelled']} loading={history.isLoading} exportCtx={{ title: `سجل الكشوفات — ${title}`, scopeLabel: 'كل الكشوفات' }} />
           <DisclosureTable rows={historyRows} onOpen={(d) => setOpenId(d.id)} testId="history" />
         </div>
       )}
       {tab === 'cancelled' && <DisclosureTable rows={cancelled.data ?? []} onOpen={(d) => setOpenId(d.id)} testId="cancelled" emptyText="لا كشوفات ملغاة" />}
 
-      <DisclosureDetailDrawer id={openId} onClose={() => setOpenId(null)} />
+      <DisclosureDetailDrawer id={openId} onClose={() => setOpenId(null)} onPrint={printDisclosureForm} />
     </div>
   )
 }

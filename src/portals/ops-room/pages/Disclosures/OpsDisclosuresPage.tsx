@@ -6,8 +6,10 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import clsx from 'clsx'
-import type { DisclosureScope, DisclosureV2 } from '@sdk/disclosures-unit.sdk'
-import { DISCLOSURE_STATUS_LABEL } from '@sdk/disclosures-unit.sdk'
+import type { DisclosureScope, DisclosureStatusV2, DisclosureV2 } from '@sdk/disclosures-unit.sdk'
+import { DisclosureFilters } from '@features/disclosures/components/DisclosureFilters'
+import { EMPTY_FILTERS, applyClientFilters, toServerFilter, type UiFilters } from '@features/disclosures/lib/filters'
+import { printDisclosureForm } from '@features/disclosures/lib/export-v2'
 import { useDisclosureStats, useDisclosureTypes, useDisclosuresList } from '@features/disclosures/unit'
 import { DisclosureTable } from '@features/disclosures/components/shared'
 import { fmtIqd, inputCls } from '@features/disclosures/components/ui'
@@ -63,26 +65,22 @@ export default function OpsDisclosuresPage() {
         </div>
       )}
 
-      <DisclosureDetailDrawer id={openId} onClose={() => setOpenId(null)} opsMode onEdit={(d) => { setOpenId(null); setEditing(d); setTab('new') }} />
+      <DisclosureDetailDrawer id={openId} onClose={() => setOpenId(null)} opsMode onEdit={(d) => { setOpenId(null); setEditing(d); setTab('new') }} onPrint={printDisclosureForm} />
     </div>
   )
 }
 
 function ListTab({ scope, onOpen, testId, emptyText, archive }: { scope: DisclosureScope; onOpen: (id: string) => void; testId: string; emptyText?: string; archive?: boolean }) {
-  const [q, setQ] = useState(''); const [type, setType] = useState(''); const [status, setStatus] = useState(''); const [month, setMonth] = useState(archive ? thisMonth() : '')
+  const [f, setF] = useState<UiFilters>({ ...EMPTY_FILTERS, month: archive ? thisMonth() : '' })
   const types = useDisclosureTypes()
-  const list = useDisclosuresList({ scope, q: q || null, type: type || null, month: month || null })
-  const rows = useMemo(() => (list.data ?? []).filter((d) => !status || d.status === status), [list.data, status])
-  const statuses = scope === 'active' ? ['draft', 'pending', 'returned'] : scope === 'archive' ? ['approved', 'cancelled'] : []
+  const list = useDisclosuresList({ scope, ...toServerFilter(f) })
+  const rows = useMemo(() => applyClientFilters(list.data ?? [], f), [list.data, f])
+  const statuses: DisclosureStatusV2[] = scope === 'active' ? ['draft', 'pending', 'returned'] : scope === 'archive' ? ['approved', 'cancelled'] : []
+  const scopeLabel = scope === 'active' ? 'الكشوفات النشطة' : scope === 'returned' ? 'المُعادة للتصحيح' : 'الأرشيف (معتمدة/ملغاة)'
   return (
     <div className="space-y-3">
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-4" data-testid={`${testId}-filters`}>
-        <input className={inputCls} placeholder="بحث: رقم الكشف / DB / اسم…" value={q} onChange={(e) => setQ(e.target.value)} data-testid="filter-q" />
-        <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)} data-testid="filter-type"><option value="">كل الأنواع</option>{(types.data ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
-        {statuses.length > 0 ? <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value)} data-testid="filter-status"><option value="">كل الحالات</option>{statuses.map((s) => <option key={s} value={s}>{DISCLOSURE_STATUS_LABEL[s as keyof typeof DISCLOSURE_STATUS_LABEL]}</option>)}</select> : <span />}
-        <input type="month" className={inputCls} value={month} onChange={(e) => setMonth(e.target.value)} data-testid="filter-month" dir="ltr" />
-      </div>
-      <div className="text-xs text-slate-500">{list.isLoading ? 'جارٍ التحميل…' : `${rows.length} كشف`}</div>
+      <DisclosureFilters value={f} onChange={setF} types={types.data ?? []} rows={list.data ?? []} filtered={rows} statuses={statuses} loading={list.isLoading} testId={`${testId}-filters`}
+        exportCtx={{ title: `سجل الكشوفات — ${scopeLabel}`, scopeLabel }} />
       <DisclosureTable rows={rows} onOpen={(d) => onOpen(d.id)} testId={testId} emptyText={emptyText} />
     </div>
   )
