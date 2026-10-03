@@ -7,7 +7,6 @@ export {
   useUpdateDisclosure,
   useArchiveDisclosure,
   useRestoreDisclosure,
-  useSubmitDisclosure,
 } from './hooks/useDisclosures'
 export { disclosureSchema, archiveReasonSchema } from './schemas/disclosure.schema'
 export type { DisclosureFormInput, ArchiveReasonInput } from './schemas/disclosure.schema'

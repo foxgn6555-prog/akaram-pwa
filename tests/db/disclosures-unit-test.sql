@@ -203,3 +203,9 @@ do $$ begin
 end $$;
 
 select 'DISCLOSURES UNIT TESTS PASSED' as result;
+
+-- T9 (00171): لا ازدواج في disclosure_submit — نسخة uuid فقط
+do $$ begin
+  if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'disclosure_submit') <> 1 then raise exception 'T9 disclosure_submit overloads'; end if;
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'app' and p.proname = 'disclosure_submit') then raise exception 'T9 app.disclosure_submit still exists'; end if;
+end $$;

@@ -106,9 +106,6 @@ export const disclosures = {
     await sdkVoid(supabase.rpc('disclosure_restore', { p_id: id }))
   },
 
-  async submit(id: string): Promise<void> {
-    await sdkVoid(supabase.rpc('disclosure_submit', { p_id: id }))
-  },
 
   async summary(): Promise<DisclosureSummary> {
     const res = await supabase.rpc('disclosure_summary')

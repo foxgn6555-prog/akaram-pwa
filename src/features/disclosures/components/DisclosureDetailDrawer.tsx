@@ -5,6 +5,7 @@
  *  · إجراءات غرفة العمليات: تعديل (مسودة/مُعاد) · رفع · إلغاء بسبب
  */
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import { EVENT_LABEL, type DisclosureV2 } from '@sdk/disclosures-unit.sdk'
 import { useDisclosureActions, useDisclosureDetail } from '../unit'
@@ -41,8 +42,9 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
   const amountBad = amountNum != null && (!Number.isFinite(amountNum) || amountNum < 0)
   const busy = submit.isPending || decide.isPending || cancel.isPending
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-start bg-slate-900/40" onClick={onClose} data-testid="disc-drawer">
+  // Portal إلى body: عمود المحتوى في AppShell سياق تراصّ (z-0) فيبقى أي fixed داخله تحت الشريط الجانبي (z-30)
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex justify-start bg-slate-900/40" onClick={onClose} data-testid="disc-drawer" dir="rtl">
       <aside className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl" onClick={(e) => e.stopPropagation()} dir="rtl">
         <header className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
           <div className="min-w-0 flex-1">
@@ -191,7 +193,8 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

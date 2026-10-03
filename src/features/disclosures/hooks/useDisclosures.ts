@@ -103,16 +103,3 @@ export function useUpdateDisclosure() {
 }
 
 /** رفع الكشف لمعاون المدير المفوض */
-export function useSubmitDisclosure() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (id: string) => disclosures.submit(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: disclosuresKeys.all })
-      addToast({ type: 'success', message: 'تم رفع الكشف إلى معاون المدير المفوض' })
-    },
-    onError: (e) =>
-      addToast({ type: 'error', message: handleAppError(e, { scope: 'submitDisclosure' }).message }),
-  })
-}
