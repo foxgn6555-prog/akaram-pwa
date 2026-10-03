@@ -76,6 +76,9 @@ export const router = createBrowserRouter([
     },
   },
 
+  // بوابة الكشوفات القديمة أُلغيت (00170) → وحدة الكشوفات داخل غرفة العمليات
+  { path: '/disclosures/*', loader: () => redirect('/ops-room/disclosures') },
+
   // 403 — دخول بوابة غير مصرح بها
   {
     path: '/403',

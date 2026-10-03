@@ -1,12 +1,12 @@
 /** معاون المدير المفوض — الرئيسية: شريط الوارد العاجل (كشوفات بانتظار الاعتماد) + ملخص الشركة المحلَّل */
 import { Link } from 'react-router'
-import { useDisclosureList } from '@features/disclosures'
+import { useDisclosureInbox } from '@features/disclosures/unit'
 import { Icon } from '@components/ui/Icon/Icon'
 import { ExecHome } from '@components/executive/ExecHome'
 
 export default function DeputyHome() {
-  const list = useDisclosureList()
-  const incoming = (list.data ?? []).filter((d) => d.status === 'submitted_to_deputy').length
+  const inbox = useDisclosureInbox()
+  const incoming = inbox.data?.length ?? 0
   return (
     <div className="space-y-4" data-testid="deputy-dashboard">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="deputy-tiles">

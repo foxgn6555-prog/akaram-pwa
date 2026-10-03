@@ -48,8 +48,8 @@ insert into public.ts_visit_weighing_steps (visit_leg_id, weight_tons, destinati
   ('b1b10000-0000-0000-0000-000000000002', 4.0,  'press', 'compactor_medium', now() - interval '2 day', true, 2.0),
   ('b1b10000-0000-0000-0000-000000000003', 9.0,  'press', 'compactor_large',  now() - interval '30 day', false, null);
 insert into public.disclosures (ref_no, db_number, driver_name, details, sector, shift, log_date, violation_type, status, contractor_name) values
-  ('D-1', 'DB-1', 'سائق 1', 'تفاصيل', 'karrada', 'morning', current_date - 1, 'delay', 'submitted_to_deputy', 'مقاول أ'),
-  ('D-2', 'DB-2', 'سائق 2', 'تفاصيل', 'zaafaraniya', 'evening', current_date - 2, 'absence', 'submitted_to_deputy', 'مقاول ب');
+  ('D-1', 'DB-1', 'سائق 1', 'تفاصيل', 'karrada', 'morning', current_date - 1, 'delay', 'pending', 'مقاول أ'),
+  ('D-2', 'DB-2', 'سائق 2', 'تفاصيل', 'zaafaraniya', 'evening', current_date - 2, 'absence', 'pending', 'مقاول ب');
 -- أيام حضور حقيقية: يُترك للمحرك (trigger) حساب النقص والاستقطاع من أوقات الشفت المتوقعة
 insert into public.hr_attendance_days (employee_id, work_date, status, is_rest_day, expected_in, expected_out, check_in, check_out, worked_minutes) values
   ('ffff0000-0000-0000-0000-000000000006', current_date - 1, 'present', false, (current_date - 1) + time '08:00', (current_date - 1) + time '16:00', (current_date - 1) + time '08:00', (current_date - 1) + time '16:00', 480),

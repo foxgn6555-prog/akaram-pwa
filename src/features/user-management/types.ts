@@ -16,7 +16,6 @@ export const ASSIGNABLE_ROLES: readonly Role[] = [
   'executive_director',
   'deputy_director',
   'ops_room',
-  'disclosures_officer',
   'complaints_officer',
   'media_officer',
   'central_garage_officer',

@@ -7,7 +7,7 @@ export const STATUS_LABELS: Record<string, string> = {
   // القطاعات الأم والشفتات
   karrada: 'الكرادة', zaafaraniya: 'الزعفرانية', morning: 'صباحي', evening: 'مسائي', night: 'ليلي',
   // الكشوفات
-  delay: 'تأخر', absence: 'غياب', collection: 'جباية', evasion: 'تهرّب', draft: 'مسودة', submitted_to_deputy: 'مرفوع للمعاون',
+  delay: 'تأخر', absence: 'غياب', collection: 'جباية', evasion: 'تهرّب', draft: 'مسودة', returned: 'مُعاد للتصحيح', cancelled: 'ملغى', submitted_to_deputy: 'مرفوع للمعاون',
   // الرواتب
   exported: 'مُصدَّر (بانتظار المالية)', approved: 'معتمد', superseded: 'مستبدل',
   // التجهيز / GBS
@@ -19,7 +19,7 @@ export const ROLE_AR: Record<string, string> = {
   super_admin: 'المدير المفوض', executive_director: 'المدير التنفيذي', deputy_director: 'معاون المدير المفوض', finance_officer: 'الشؤون المالية',
   hr_officer: 'الموارد البشرية', it_admin: 'التطوير المركزية', ops_room: 'غرفة العمليات', department_manager: 'مسؤولو الأقسام', employee: 'الموظفون',
   field_ops: 'العمليات الميدانية', admin_ops: 'مسؤول القاطع', maintenance: 'الصيانة', transfer_station: 'المحطة التحويلية',
-  disclosures_officer: 'وحدة الكشوفات', complaints_officer: 'الشكاوى', media_officer: 'الإعلام', central_garage_officer: 'الكراج المركزي',
+  complaints_officer: 'الشكاوى', media_officer: 'الإعلام', central_garage_officer: 'الكراج المركزي',
 }
 
 export const PRIORITY_AR = { normal: 'عادي', important: 'مهم', urgent: 'عاجل' } as const

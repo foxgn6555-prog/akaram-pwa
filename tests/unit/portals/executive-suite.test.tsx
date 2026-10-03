@@ -29,7 +29,7 @@ vi.mock('@features/executive/hooks/useExecutive', () => ({
   usePublishAnnouncement: () => mut(h.publish), useAckAnnouncement: () => mut(h.ack), useArchiveAnnouncement: () => mut(h.archive),
 }))
 vi.mock('@features/executive/lib/execExcel', async (orig) => ({ ...(await orig<Record<string, unknown>>()), downloadExecWorkbook: h.download }))
-vi.mock('@features/disclosures', () => ({ useDisclosureList: () => ({ data: [{ status: 'submitted_to_deputy' }, { status: 'draft' }] }) }))
+vi.mock('@features/disclosures/unit', () => ({ useDisclosureInbox: () => ({ data: [{ id: 'd1', status: 'pending' }] }) }))
 // 00168: قسم شكاوى المواطنين يجلب بياناته بنفسه — يُعزل هنا
 vi.mock('@components/citizen/CitizenReportPanel', () => ({ CitizenReportPanel: ({ from, to }: { from: string; to: string }) => <div data-testid="citizen-report">{from}→{to}</div> }))
 

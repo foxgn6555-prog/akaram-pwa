@@ -115,12 +115,6 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
     colorVar: '--portal-ops-room',
     themeClass: 'portal-ops-room',
   },
-  [PORTALS.DISCLOSURES]: {
-    label: 'وحدة الكشوفات',
-    icon: 'file-text',
-    colorVar: '--portal-disclosures',
-    themeClass: 'portal-disclosures',
-  },
   [PORTALS.COMPLAINTS]: {
     label: 'بوابة الشكاوى',
     icon: 'clipboard',
@@ -210,6 +204,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/user-management/list', labelKey: 'nav.users_list', icon: 'users' },
         { path: '/it/user-management/create', labelKey: 'nav.create_user', icon: 'user-plus' },
         { path: '/it/user-management/approval-chains', labelKey: 'nav.approval_chains', icon: 'flow' },
+        { path: '/it/user-management/disclosure-types', labelKey: 'nav.disclosure_types', icon: 'file-text' },
         // الهيكل التنظيمي (الأقسام) يُدار حصراً من بوابة الموارد البشرية /hr/org — لا نسخة هنا لتفادي التداخل
       ],
     },
@@ -284,6 +279,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin/announcements', labelKey: 'nav.announcements', icon: 'send' },
     { path: '/admin/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/admin/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
+    { path: '/admin/disclosures', labelKey: 'nav.admin_disclosures', icon: 'file-text' },
   ],
 
   // ═══ البوابات السبع الجديدة — فارغة (صفحة رئيسية Placeholder فقط،
@@ -377,6 +373,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
     { path: '/ops-room/campaigns', labelKey: 'nav.ops_campaigns', icon: 'camera' },
     { path: '/ops-room/citizen-complaints', labelKey: 'nav.ops_citizen_complaints', icon: 'life-buoy' },
+    { path: '/ops-room/disclosures', labelKey: 'nav.ops_disclosures', icon: 'file-text' },
   ],
 
   // ═══ وحدة الكشوفات ═══
@@ -515,19 +512,6 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/central-garage/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
   ],
 
-  [PORTALS.DISCLOSURES]: [
-    { path: '/disclosures', labelKey: 'nav.dashboard', icon: 'home', exact: true },
-    {
-      path: '/disclosures/statements',
-      labelKey: 'nav.disc_statements',
-      icon: 'file-text',
-      children: [
-        { path: '/disclosures/statements/new', labelKey: 'nav.disc_new', icon: 'clipboard' },
-      ],
-    },
-    { path: '/disclosures/reports', labelKey: 'nav.disc_reports', icon: 'bar-chart' },
-    { path: '/disclosures/archive', labelKey: 'nav.disc_archive', icon: 'archive-box' },
-  ],
 }
 
 export const portalsConfig = {

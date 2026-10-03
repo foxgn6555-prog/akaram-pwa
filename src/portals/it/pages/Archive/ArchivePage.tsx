@@ -187,7 +187,7 @@ export default function ArchivePage() {
                 {discList.map((d) => (
                   <tr key={d.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
                     <td className="px-4 py-2.5 font-medium">{d.driver_name}</td>
-                    <td className="px-4 py-2.5">{VIOLATION_LABELS[d.violation_type]}</td>
+                    <td className="px-4 py-2.5">{VIOLATION_LABELS[d.violation_type] ?? d.violation_type}</td>
                     <td className="px-4 py-2.5">{d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '—'}</td>
                     <td className="px-4 py-2.5 text-xs text-red-600/80">
                       {d.archive_reason ?? <span className="text-slate-300">—</span>}

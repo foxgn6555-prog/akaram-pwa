@@ -15,6 +15,7 @@ import type { PortalId } from '@lib/constants/portals.constants'
 import { useUiStore } from '@stores/ui.store'
 import { useResponsive } from '@lib/utils/useResponsive'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
+import { useVisibleUnits } from '@features/portal-visibility'
 
 export interface MobileBottomNavProps {
   portal: PortalId
@@ -29,7 +30,7 @@ export function MobileBottomNav({ portal }: MobileBottomNavProps) {
   const navigate = useNavigate()
   const setMobileNav = useUiStore((s) => s.setMobileNav)
   const { isMobile } = useResponsive()
-  const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
+  const units = useVisibleUnits(portal, (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[])
 
   // يُعرض على الموبايل فقط — إخفاء برمجي (وليس CSS فقط) لقارئات الشاشة والاختبارات
   if (!isMobile || units.length === 0) return null

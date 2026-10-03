@@ -23,6 +23,7 @@ import { useUiStore } from '@stores/ui.store'
 import { Icon } from '@components/ui/Icon/Icon'
 import { NotificationBell } from './NotificationBell'
 import { UserMenu } from './UserMenu'
+import { useVisibleUnits } from '@features/portal-visibility'
 
 export interface HeaderProps {
   portal: PortalId
@@ -49,7 +50,7 @@ export function Header({ portal }: HeaderProps) {
   const { data: session } = useAuth()
   const logout = useLogout()
   const theme = portalThemes[portal]
-  const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
+  const units = useVisibleUnits(portal, (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[])
   const setMobileNav = useUiStore((s) => s.setMobileNav)
 
   // ── البحث السريع ──

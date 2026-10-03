@@ -20,7 +20,6 @@ import { customRoutes as transferStationRoutes } from '@portals/transfer-station
 import { customRoutes as executiveRoutes } from '@portals/executive/routes'
 import { customRoutes as deputyRoutes } from '@portals/deputy/routes'
 import { customRoutes as opsRoomRoutes } from '@portals/ops-room/routes'
-import { customRoutes as disclosuresRoutes } from '@portals/disclosures/routes'
 import { customRoutes as complaintsRoutes } from '@portals/complaints/routes'
 import { customRoutes as mediaRoutes } from '@portals/media/routes'
 import { customRoutes as centralGarageRoutes } from '@portals/central-garage/routes'
@@ -46,7 +45,6 @@ const TransferStationPortal = lazy(() => import('@portals/transfer-station/Trans
 const ExecutivePortal = lazy(() => import('@portals/executive/ExecutivePortal'))
 const DeputyPortal = lazy(() => import('@portals/deputy/DeputyPortal'))
 const OpsRoomPortal = lazy(() => import('@portals/ops-room/OpsRoomPortal'))
-const DisclosuresPortal = lazy(() => import('@portals/disclosures/DisclosuresPortal'))
 const ComplaintsPortal = lazy(() => import('@portals/complaints/ComplaintsPortal'))
 const MediaPortal = lazy(() => import('@portals/media/MediaPortal'))
 const CentralGaragePortal = lazy(() => import('@portals/central-garage/CentralGaragePortal'))
@@ -125,11 +123,6 @@ export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
     portal: PORTALS.OPS_ROOM, path: '/ops-room', shell: OpsRoomPortal,
     allowedRoles: ['ops_room', 'super_admin'],
     children: buildPortalRoutes(PORTALS.OPS_ROOM, opsRoomRoutes),
-  },
-  {
-    portal: PORTALS.DISCLOSURES, path: '/disclosures', shell: DisclosuresPortal,
-    allowedRoles: ['disclosures_officer', 'super_admin'],
-    children: buildPortalRoutes(PORTALS.DISCLOSURES, disclosuresRoutes),
   },
   {
     portal: PORTALS.COMPLAINTS, path: '/complaints', shell: ComplaintsPortal,

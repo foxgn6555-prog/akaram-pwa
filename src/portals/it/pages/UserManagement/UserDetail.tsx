@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ContractorAssignmentCard } from './ContractorAssignmentCard'
 import { SectorManagerCard } from './SectorManagerCard'
+import { OpsUnitsCard } from './OpsUnitsCard'
 import { useNavigate, useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -414,6 +415,7 @@ export default function UserDetail() {
 
       {hasRole('employee') && userId && <ContractorAssignmentCard userId={userId} />}
       {hasRole('admin_ops') && userId && <SectorManagerCard userId={userId} />}
+      {hasRole('ops_room') && userId && <OpsUnitsCard userId={userId} />}
 
       {hasRole('central_garage_officer') && (
         <section

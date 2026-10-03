@@ -15,6 +15,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { portalThemes, PORTAL_UNITS, type SidebarUnit } from '@config/portals.config'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { SidebarItem } from './SidebarItem'
+import { useVisibleUnits } from '@features/portal-visibility'
 
 export interface SidebarProps {
   portal: PortalId
@@ -40,7 +41,7 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
   const setMobileNav = useUiStore((s) => s.setMobileNav)
   const logout = useLogout()
   const theme = portalThemes[portal]
-  const units = (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[]
+  const units = useVisibleUnits(portal, (PORTAL_UNITS[portal] ?? []) as readonly SidebarUnit[])
 
   const isActive = (path: string): boolean =>
     path === `/${portal}`

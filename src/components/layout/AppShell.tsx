@@ -22,6 +22,7 @@ import { OfflineBanner } from '@components/feedback/OfflineBanner'
 import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
 import { Header } from '@components/layout/Header/Header'
+import { loadMyHiddenUnits } from '@features/portal-visibility'
 
 export interface AppShellProps {
   portal: PortalId
@@ -36,6 +37,9 @@ export function AppShell({ portal }: AppShellProps) {
   const setMobileNav = useUiStore((s) => s.setMobileNav)
   const fullBleed = useUiStore((s) => s.contentFullBleed)
   const theme = portalThemes[portal]
+
+  // وحدات مخفية لهذا الحساب (تحددها التطوير المركزية) — تحميل مرة واحدة
+  useEffect(() => { void loadMyHiddenUnits() }, [])
 
   // الموبايل: الدرج مغلق افتراضياً — ويُغلق تلقائياً عند تجاوز حد الدسكتوب
   useEffect(() => {

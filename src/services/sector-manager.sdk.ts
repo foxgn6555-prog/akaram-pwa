@@ -30,7 +30,7 @@ export interface FieldOpsSectorManager { user_id: string; full_name: string; pho
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
 
 export type ApprovalStep = { kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }
-export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination'
+export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure'
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {

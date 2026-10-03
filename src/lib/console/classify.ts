@@ -318,7 +318,6 @@ const PORTAL_AR: Record<PortalId, string> = {
   executive: 'المدير التنفيذي',
   deputy: 'معاون المدير المفوض',
   'ops-room': 'غرفة العمليات',
-  disclosures: 'وحدة الكشوفات',
   complaints: 'بوابة الشكاوى',
   media: 'بوابة الإعلام',
   'central-garage': 'الكراج المركزي',
