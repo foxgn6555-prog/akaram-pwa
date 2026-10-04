@@ -33,6 +33,11 @@ export async function probeAdmsEndpoint(base: string, fetchImpl: typeof fetch = 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (/abort/i.test(msg)) return { status: 'fail', detail: 'انتهت المهلة (10 ثوانٍ) — العنوان لا يستجيب' }
-    return { status: 'fail', detail: 'تعذّر الوصول من المتصفح (DNS/الشهادة/CORS) — إن كان الجهاز نفسه يتصل فتجاهل هذا البند، وإلا راجع العنوان' }
+    // سياسة CSP في index.html تسمح بـ *.deno.net / *.deno.dev / *.workers.dev فقط — نطاق آخر يُحجب من المتصفح لا من الشبكة
+    let host = ''
+    try { host = new URL(base).hostname } catch { /* تجاهل */ }
+    const allowed = /(\.deno\.net|\.deno\.dev|\.workers\.dev|\.supabase\.co)$/i.test(host)
+    if (!allowed) return { status: 'warn', detail: `المتصفح يمنع الاتصال بـ ${host} بسبب سياسة أمان المحتوى (CSP) في المنصة — هذا لا يؤثر على الجهاز. لتفعيل الاختبار أضف النطاق إلى connect-src في index.html` }
+    return { status: 'fail', detail: 'تعذّر الوصول من المتصفح (DNS/الشهادة/CORS/إضافة حجب) — افتح الرابط في تبويب جديد: إن ظهر «GET OPTION FROM» فالشبكة سليمة وتجاهل هذا البند' }
   }
 }

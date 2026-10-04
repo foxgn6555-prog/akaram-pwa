@@ -48,7 +48,8 @@ describe('probeAdmsEndpoint', () => {
     expect(String((f.mock.calls[0] as unknown[])[0])).toMatch(/^https:\/\/x\.y\/iclock\/cdata\?SN=PLATFORM-TEST&options=all/)
     expect((await probeAdmsEndpoint('https://x.y', (() => resp('OK')) as never)).detail).toMatch(/مسار \/iclock لا يصل/)
     expect((await probeAdmsEndpoint('https://x.y', (() => resp('nope', 404)) as never)).status).toBe('fail')
-    expect((await probeAdmsEndpoint('https://x.y', (() => Promise.reject(new TypeError('Failed to fetch'))) as never)).status).toBe('fail')
+    expect((await probeAdmsEndpoint('https://x.y', (() => Promise.reject(new TypeError('Failed to fetch'))) as never))).toMatchObject({ status: 'warn', detail: expect.stringContaining('CSP') })
+    expect((await probeAdmsEndpoint('https://a.akaram.deno.net', (() => Promise.reject(new TypeError('Failed to fetch'))) as never)).status).toBe('fail')
   })
 })
 
