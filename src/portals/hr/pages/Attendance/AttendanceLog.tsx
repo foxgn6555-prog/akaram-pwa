@@ -16,6 +16,7 @@ import clsx from 'clsx'
 import { StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, isoDay, STATUS_STYLES } from '../../components/hr-format'
 import { ExportButton } from '../../components/ExportButton'
+import { UnmatchedPunchesPanel } from '../../components/UnmatchedPunchesPanel'
 import { attendanceSpec, exportToExcel } from '@features/hr/lib/hrExcel'
 
 export default function AttendanceLog() {
@@ -67,7 +68,9 @@ export default function AttendanceLog() {
         ))}
       </div>
 
-      {isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات حضور في هذا النطاق" hint="اضغط «إعادة الاحتساب من البصمات» بعد وصول بصمات جديدة" /> : (
+      <UnmatchedPunchesPanel from={from} to={to} />
+
+      {isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات حضور في هذا النطاق" hint="الحضور يُحتسب للموظفين المربوطين برقم بصمة فقط — اربط أرقام البصمة بالموظفين من دفتر البصمة، ثم اضغط «إعادة الاحتساب من البصمات» إن لزم" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm" data-testid="att-table">
             <thead className="bg-slate-50 text-xs text-slate-600">

@@ -11,7 +11,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 const h = vi.hoisted(() => ({
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
   employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
-  notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown,
+  notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
   edit: vi.fn(async () => undefined), reset: vi.fn(async () => undefined), addDed: vi.fn(async () => 'd'), exportMonth: vi.fn(async () => 'x'),
   adjust: vi.fn(async () => undefined), approve: vi.fn(async () => undefined), setSalary: vi.fn(async () => undefined), update: vi.fn(async () => undefined),
 }))
@@ -36,6 +36,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
+vi.mock('@features/integrations', () => ({ useBiometricPunches: (f: unknown) => { h.unmatchedFilters = f; return { data: h.unmatched, isLoading: false } } }))
 vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null } }))
 
 import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
@@ -50,7 +51,7 @@ const emp = { id: 'e1', employee_number: 'E100', full_name: 'أحمد علي ح�
 const day = { id: 'r1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'فرع بغداد', work_date: '2026-09-05', shift_name: 'صباحي', expected_in: '2026-09-05T05:00:00Z', expected_out: '2026-09-05T13:00:00Z', check_in: '2026-09-05T05:40:00Z', check_out: '2026-09-05T13:00:00Z', late_minutes: 25, early_minutes: 0, worked_minutes: 440, is_rest_day: false, status: 'late', source: 'auto', edit_reason: null }
 const sheetRow = { row_id: 'pr1', export_id: 'x1', export_version: 1, export_status: 'exported', exported_at: '2026-10-01T08:00:00Z', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'بغداد', job_title: 'سائق', contract_type: 'monthly', pay_type: 'monthly', working_days: 26, days_present: 24, days_late: 3, days_absent: 1, days_incomplete: 0, days_leave: 1, late_minutes: 70, early_minutes: 0, ops_deduction_amount: 25000, ops_deduction_days: 0, ops_deduction_reasons: 'تأخر متكرر', base_salary: 800000, daily_rate: 0, allowances_total: 100000, fixed_deductions_total: 20000, proposed_net: 855000, final_net: null, finance_note: null }
 
-beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; vi.clearAllMocks() })
+beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; vi.clearAllMocks() })
 
 describe('HR — بيانات الموظفين', () => {
   it('تعرض الموظف بشارة راتب «بانتظار المالية» بلا أي رقم، مع الفلاتر الخمسة ورابط الملف', () => {
@@ -98,7 +99,7 @@ describe('HR — بيانات الموظفين', () => {
 
 describe('HR — الحضور والانصراف (قراءة فقط)', () => {
   it('تعرض الصف بدقائق التأخير والحالة بلا أي زر تعديل، وتمرر الفلاتر إلى RPC', () => {
-    render(<AttendanceLog />)
+    render(<MemoryRouter><AttendanceLog /></MemoryRouter>)
     const row = screen.getByTestId('att-row-E100-2026-09-05')
     expect(row).toHaveTextContent('25د'); expect(within(row).getByTestId('att-status')).toHaveAttribute('data-status', 'late')
     expect(within(row).queryByText('تعديل')).toBeNull()
@@ -106,6 +107,28 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
     expect(h.attendanceFilters).toMatchObject({ departmentId: 'd2' })
     fireEvent.click(screen.getByTestId('att-stat-absent'))
     expect(h.attendanceFilters).toMatchObject({ status: 'absent' })
+  })
+  it('البصمات غير المطابقة تظهر في لوحة خاصة (يوم × PIN) حتى بلا سجلات حضور، مع عدّاد ورابط الربط', () => {
+    h.attendance = []
+    h.unmatched = [
+      { id: 'u1', device_serial: 'SFAA1', pin: '373', employee_id: null, punched_at: '2026-10-04T15:03:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: null },
+      { id: 'u2', device_serial: 'SFAA1', pin: '373', employee_id: null, punched_at: '2026-10-04T15:40:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: 'كريم' },
+      { id: 'u3', device_serial: 'SFAA1', pin: '12', employee_id: null, punched_at: '2026-10-03T05:00:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: null },
+    ]
+    render(<MemoryRouter><AttendanceLog /></MemoryRouter>)
+    expect(h.unmatchedFilters).toMatchObject({ unmatchedOnly: true })
+    expect(screen.getByTestId('unmatched-count')).toHaveTextContent('3')
+    expect(screen.queryByTestId('unmatched-table')).toBeNull()
+    fireEvent.click(screen.getByTestId('unmatched-toggle'))
+    const rows = screen.getAllByTestId(/^unmatched-row-/)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('373'); expect(rows[0]).toHaveTextContent('كريم'); expect(rows[0]).toHaveTextContent('2')
+    expect(within(rows[0]!).getByTestId('unmatched-link-373')).toHaveAttribute('href', '/hr/biometric')
+    expect(screen.getByText('لا سجلات حضور في هذا النطاق')).toBeInTheDocument()
+  })
+  it('لا تظهر لوحة غير المطابقة عندما لا توجد بصمات غير مطابقة', () => {
+    render(<MemoryRouter><AttendanceLog /></MemoryRouter>)
+    expect(screen.queryByTestId('unmatched-panel')).toBeNull()
   })
   it('اللوحة تعرض البطاقات الحية (ملاك/تعيينات/إنهاءات/حضور اليوم/رواتب معلقة/بصمات غير مطابقة)', () => {
     h.dashboard = { employees_active: 40, employees_terminated: 3, hired_this_month: 2, terminated_this_month: 1, by_department: [{ name: 'النقل', count: 30 }], by_branch: [{ name: 'بغداد', count: 40 }], today: { present: 30, late: 5, absent: 3, incomplete: 2, leave: 0 }, leaves_today: 1, salary_pending: 4, unmatched_punches: 7, shifts: [{ name: 'صباحي', count: 40 }] }
@@ -117,8 +140,13 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
 })
 
 describe('غرفة العمليات — الحضوريات', () => {
+  it('لوحة غير المطابقة تظهر في حضوريات غرفة العمليات أيضاً', () => {
+    h.unmatched = [{ id: 'u1', device_serial: 'SFAA1', pin: '373', employee_id: null, punched_at: '2026-10-04T15:03:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: null }]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    expect(screen.getByTestId('unmatched-count')).toHaveTextContent('1')
+  })
   it('التعديل يرفض بلا سبب ثم يرسل employeeId/date/الحالة/السبب', async () => {
-    render(<OpsAttendancePage />)
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
     fireEvent.click(screen.getByTestId('e-save'))
     expect(screen.getByTestId('e-error')).toBeInTheDocument(); expect(h.edit).not.toHaveBeenCalled()
@@ -128,7 +156,7 @@ describe('غرفة العمليات — الحضوريات', () => {
     await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'present', reason: 'تأكيد من مسؤول القسم' })))
   })
   it('الاستقطاع اليدوي بالأيام يرسل days والمبلغ صفراً مع السبب', async () => {
-    render(<OpsAttendancePage />)
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-deduct-E100'))
     fireEvent.change(screen.getByTestId('d-value'), { target: { value: '2' } })
     fireEvent.change(screen.getByTestId('d-reason'), { target: { value: 'غياب بلا عذر' } })
@@ -136,19 +164,19 @@ describe('غرفة العمليات — الحضوريات', () => {
     await waitFor(() => expect(h.addDed).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', amount: 0, days: 2, reason: 'غياب بلا عذر' })))
   })
   it('سجل التدقيق يعرض السبب والفرق قبل/بعد', () => {
-    render(<OpsAttendancePage />)
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-audit-E100-2026-09-05'))
     expect(screen.getByTestId('audit-list')).toHaveTextContent('عطل جهاز'); expect(screen.getByTestId('audit-list')).toHaveTextContent('status: absent → present')
   })
   it('تصدير الشهر يطلب تأكيداً ويستدعي ops_month_export؛ وبعد اعتماد المالية يُقفل الزر والتعديل', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const { unmount } = render(<OpsAttendancePage />)
+    const { unmount } = render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-export-month'))
     await waitFor(() => expect(h.exportMonth).toHaveBeenCalledTimes(1))
     unmount()
     const month = new Date(); const m = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
     h.exports = [{ id: 'x', period_month: m, version: 2, status: 'approved', rows_count: 40, exported_at: '2026-10-01T00:00:00Z', approved_at: '2026-10-02T00:00:00Z' }]
-    render(<OpsAttendancePage />)
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.getByTestId('ops-export-month')).toBeDisabled(); expect(screen.getByTestId('ops-export-month')).toHaveTextContent('مقفل')
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).toBeDisabled()
   })

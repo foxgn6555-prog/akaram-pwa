@@ -1,6 +1,7 @@
 /** 00144 واجهات: سياسة IT (شرائح + حفظ) · طلباتي (رصيد + طلب) · إجازات فريقي (موافقة/رفض المدير المباشر) · HR (أرصدة + نيابة) · غرفة العمليات (استقطاع مقترح + إلغاء بسبب) · المالية (عمود تلقائي) */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 
 const h = vi.hoisted(() => ({
   policy: null as Record<string, unknown> | null,
@@ -40,6 +41,7 @@ const mut = (fn: (...a: never[]) => unknown) => ({ mutate: (v: never, opts?: { o
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null }] }) }))
 vi.mock('@sdk/hr.sdk', () => ({ hr: { uploadLeaveAttachment: vi.fn(async () => 'e2/leave-1.pdf'), signedUrl: vi.fn(async () => 'https://x') }, hrErrorMessage: (e: unknown) => String(e) }))
+vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useHrPolicy: () => ({ data: h.policy, isLoading: false }),
   useSetHrPolicy: () => mut(h.setPolicy),
@@ -252,7 +254,7 @@ describe('بوابة HR — الإجازات والزمنيات', () => {
 
 describe('غرفة العمليات — الاستقطاع المقترح', () => {
   it('أعمدة النقص/الإضافي/المقترح + ملخص + إلغاء بسبب إلزامي', async () => {
-    render(<OpsAttendancePage />)
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.getByTestId('ops-shortfall-E2-2026-09-02')).toHaveTextContent('30د')
     expect(screen.getByTestId('ops-proposed-E2-2026-09-02')).toHaveTextContent('1س 0د')
     expect(screen.getByTestId('ops-proposed-E2-2026-09-03')).toHaveTextContent('مُلغى: إجازة شفهية موثقة')

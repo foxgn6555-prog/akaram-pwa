@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
 }))
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'بغداد' }] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null }] }) }))
+vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useHrShifts: () => ({ data: [{ id: 's1', name: 'صباحي', start_time: '08:00', end_time: '16:00', grace_minutes: 15, work_days: [0, 1, 2, 3, 4], is_active: true }] }),
   useImportEmployees: () => ({ mutateAsync: async (v: { rows: unknown[]; dryRun: boolean }) => { h.importCalls.push(v); const r = h.importResult as { rows: unknown[] }; return { ...r, dry_run: v.dryRun } }, isPending: false }),
@@ -189,7 +190,7 @@ describe('تصدير Excel من HR', () => {
     expect(spec.filters).toContainEqual(['بحث', 'أحمد']); expect(spec.rows).toHaveLength(1)
   })
   it('الحضور: التصدير يحمل نطاق التاريخ والحالة المختارة', async () => {
-    render(<AttendanceLog />)
+    render(<MemoryRouter><AttendanceLog /></MemoryRouter>)
     fireEvent.change(screen.getByTestId('att-from'), { target: { value: '2026-09-01' } }); fireEvent.change(screen.getByTestId('att-to'), { target: { value: '2026-09-30' } })
     fireEvent.click(screen.getByTestId('att-stat-late'))
     fireEvent.click(screen.getByTestId('att-export'))

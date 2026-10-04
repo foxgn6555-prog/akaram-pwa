@@ -1,11 +1,13 @@
 /** بوابة الموارد البشرية · دفتر البصمة: الفلاتر + الإحصاءات + غير المطابَقين + الربط + اشتقاق الحضور */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import userEvent from '@testing-library/user-event'
 
 const mockPunches = vi.fn()
 const mockLink = vi.fn()
 const mockDerive = vi.fn()
+const mockEmployees = vi.fn()
 const lastFilters: { value?: unknown } = {}
 
 vi.mock('@features/integrations', async () => {
@@ -21,12 +23,11 @@ vi.mock('@features/integrations', async () => {
     useDeriveAttendance: () => ({ mutate: mockDerive, isPending: false }),
   }
 })
-vi.mock('@features/employees', () => ({
-  useEmployees: () => ({ data: [
-    { id: 'e1', full_name: 'أحمد علي', employee_number: '7001' },
-    { id: 'e2', full_name: 'سارة حسن', employee_number: '7002' },
-  ] }),
-}))
+vi.mock('@features/employees', () => ({ useEmployees: () => mockEmployees() }))
+const EMPLOYEES = [
+  { id: 'e1', full_name: 'أحمد علي', employee_number: '7001' },
+  { id: 'e2', full_name: 'سارة حسن', employee_number: '7002' },
+]
 
 import BiometricLedger from '@portals/hr/pages/Biometric/BiometricLedger'
 
@@ -47,10 +48,11 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPunches.mockReturnValue({ data: PUNCHES, isLoading: false })
+    mockEmployees.mockReturnValue({ data: EMPLOYEES })
   })
 
   it('يعرض الإحصاءات المشتقة من البصمات المعروضة', () => {
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     expect(screen.getByTestId('ledger-stat-total')).toHaveTextContent('5')
     expect(screen.getByTestId('ledger-stat-people')).toHaveTextContent('4')
     expect(screen.getByTestId('ledger-stat-in')).toHaveTextContent('3')
@@ -59,7 +61,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
   })
 
   it('يعرض كل بصمة بالاتجاه والموظف والطريقة ويميّز غير المطابَق', () => {
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     const table = screen.getByTestId('ledger-table')
     expect(within(table).getByTestId('punch-row-p1')).toHaveTextContent('دخول')
     expect(within(table).getByTestId('punch-row-p1')).toHaveTextContent('أحمد علي')
@@ -73,7 +75,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('الفلاتر تُمرَّر إلى الاستعلام (اليوم افتراضياً، PIN، المصدر، غير المطابَقين فقط)', async () => {
     const user = userEvent.setup()
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     const today = new Date().toISOString().slice(0, 10)
     expect(lastFilters.value).toMatchObject({ from: today, to: today, pin: null, deviceId: null, unmatchedOnly: false })
     await user.type(screen.getByTestId('ledger-pin'), '7001')
@@ -84,7 +86,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('ربط PIN غير مطابَق بموظف يستدعي الربط بالقيم الصحيحة', async () => {
     const user = userEvent.setup()
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     await user.click(screen.getByTestId('punch-link-p3'))
     const form = screen.getByTestId('link-form-9999')
     expect(within(form).getByTestId('link-save')).toBeDisabled()
@@ -95,7 +97,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('اشتقاق الحضور يستدعي الدالة بالتاريخ المختار', async () => {
     const user = userEvent.setup()
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     const date = screen.getByTestId('derive-date') as HTMLInputElement
     await user.clear(date)
     await user.type(date, '2026-09-20')
@@ -105,7 +107,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('اسم المستخدم كما سجّله الجهاز (OPERLOG) يظهر لغير المطابَق ويُقترح في نموذج الربط', async () => {
     const user = userEvent.setup()
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     const row = screen.getByTestId('punch-unmatched-p5')
     expect(row).toHaveTextContent('غير مطابَق · سارة حسن')
     expect(row).toHaveTextContent('اسمه على الجهاز')
@@ -117,7 +119,22 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
 
   it('حالة فارغة عند غياب البصمات', () => {
     mockPunches.mockReturnValue({ data: [], isLoading: false })
-    render(<BiometricLedger />)
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     expect(screen.getByText('لا بصمات في هذا النطاق')).toBeInTheDocument()
+  })
+
+  it('عند عدم وجود موظفين في النظام يظهر تنبيه واضح مع رابط إضافة الموظف بدل قائمة فارغة صامتة', async () => {
+    mockEmployees.mockReturnValue({ data: [] })
+    const user = userEvent.setup()
+    render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
+    await user.click(screen.getByTestId('punch-link-p3'))
+    const form = screen.getByTestId('link-form-9999')
+    // الاسم من الجهاز يُقترح في البحث → رسالة «لا موظف بهذا الاسم»؛ بعد مسح البحث → «لا يوجد موظفون» مع رابط الإضافة
+    expect(within(form).getByTestId('link-no-employees')).toHaveTextContent('لا موظف بهذا الاسم')
+    await user.clear(within(form).getByTestId('link-search'))
+    const hint = within(form).getByTestId('link-no-employees')
+    expect(hint).toHaveTextContent('لا يوجد موظفون مسجّلون بعد')
+    expect(within(hint).getByRole('link')).toHaveAttribute('href', '/hr/employees')
+    expect(within(form).getByTestId('link-save')).toBeDisabled()
   })
 })

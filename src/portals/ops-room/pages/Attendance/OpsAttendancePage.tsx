@@ -18,6 +18,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
+import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
 
 type Mode = 'day' | 'month'
 const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح' }
@@ -49,7 +50,8 @@ export default function OpsAttendancePage() {
   const locked = monthExport?.status === 'approved'
   const proposedTotals = useMemo(() => rows.reduce((a, r) => {
     if (r.deduction_waived) { a.waived += 1; return a }
-    a.minutes += r.proposed_deduction_minutes; a.days += r.proposed_deduction_days; if (r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0) a.count += 1; return a
+    const m = r.proposed_deduction_minutes ?? 0, d = r.proposed_deduction_days ?? 0
+    a.minutes += m; a.days += d; if (m > 0 || d > 0) a.count += 1; return a
   }, { minutes: 0, days: 0, count: 0, waived: 0 }), [rows])
   const toggleWaive = async (r: AttendanceDay) => {
     const reason = window.prompt(r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):')
@@ -106,6 +108,7 @@ export default function OpsAttendancePage() {
         {([['rows', 'سجلات الحضور'], ['deductions', 'الاستقطاعات اليدوية'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
       </nav>
 
+      {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
       {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-sm" data-testid="ops-table">

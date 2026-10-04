@@ -10,6 +10,7 @@ import {
   BIOMETRIC_MODE_LABELS, useBiometricPunches, useDeriveAttendance, useDevices, useLinkBiometricPin,
 } from '@features/integrations'
 import type { BiometricPunch } from '@features/integrations'
+import { Link } from 'react-router'
 import { useEmployees } from '@features/employees'
 import { formatDateTime } from '@lib/utils/date.utils'
 import { Button } from '@components/ui'
@@ -192,6 +193,12 @@ function LinkPinForm({ pin, deviceName, onDone }: { pin: string; deviceName?: st
         <option value="">— اختر الموظف —</option>
         {candidates?.map((e) => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_number})</option>)}
       </select>
+      {candidates && candidates.length === 0 && (
+        <span className="text-[11px] text-rose-700" data-testid="link-no-employees">
+          {search ? 'لا موظف بهذا الاسم — جرّب جزءاً من الاسم أو امسح البحث.' : 'لا يوجد موظفون مسجّلون بعد — '}
+          {!search && <Link to="/hr/employees" className="font-semibold underline">أضف الموظف من «الموظفون» أولاً</Link>}
+        </span>
+      )}
       <Button size="sm" disabled={!employeeId} isLoading={link.isPending} data-testid="link-save"
         onClick={() => link.mutate({ pin, employeeId }, { onSuccess: onDone })}>
         ربط
