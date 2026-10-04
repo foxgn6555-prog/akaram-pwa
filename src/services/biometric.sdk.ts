@@ -7,10 +7,10 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
   BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
-  BiometricPunch, BiometricPunchFilters, BiometricTestResult,
+  BiometricPunch, BiometricPunchFilters, BiometricTestResult, BiometricDiagnostics,
 } from '@features/integrations/types'
 
-const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config, timezone_offset, bridge_key_prefix, bridge_last_seen_at, bridge_last_error'
+const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_active, last_seen_at, firmware, mode, config, timezone_offset, bridge_key_prefix, bridge_last_seen_at, bridge_last_error, last_registered_at, last_heartbeat_at, heartbeat_count, public_url'
 
 /** رسائل عربية ثابتة لرموز الخطأ المرمّزة (قاعدة البيانات + Edge Function + المزوّدون) */
 export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
@@ -76,13 +76,18 @@ async function invokePull<T>(body: Record<string, unknown>): Promise<T> {
 export const biometric = {
   // ─────────── تقني (IT) ───────────
   /** تحديث نمط/تهيئة/اسم المصدر */
-  async updateDevice(id: string, patch: { name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string }) {
+  async updateDevice(id: string, patch: { name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string; public_url?: string | null }) {
     return sdkGuard(
       supabase.from('biometric_devices').update(patch as never).eq('id', id).select(DEVICE_COLUMNS).single(),
     )
   },
 
   /** 00141 · توليد/تدوير مفتاح وكيل الجسر — يُعاد المفتاح الصريح مرة واحدة فقط */
+  /** تشخيص اتصال جهاز ADMS (00173) */
+  async diagnostics(deviceId: string): Promise<BiometricDiagnostics> {
+    return (await sdkGuard(supabase.rpc('biometric_device_diagnostics', { p_device_id: deviceId } as never))) as BiometricDiagnostics
+  },
+
   /** طلب أسماء مستخدمي الجهاز (ADMS): يُرسل أمر DATA QUERY USERINFO في أول نبضة قادمة (00172) */
   async requestDeviceUsers(deviceId: string): Promise<void> {
     await sdkGuard(supabase.rpc('biometric_request_users', { p_device_id: deviceId } as never))

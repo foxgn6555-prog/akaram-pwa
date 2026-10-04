@@ -178,7 +178,7 @@ export const hr = {
   // ─────────── الإجازات والزمنيات (عرض المعتمد) ───────────
   async listLeaves(f: { from: string; to: string; approvedOnly?: boolean; employeeId?: string | null } ): Promise<HrLeave[]> {
     let q = supabase.from('hr_leaves')
-      .select('*, employees(full_name, employee_number, department_id)')
+      .select('*, employees!hr_leaves_employee_id_fkey(full_name, employee_number, department_id)')  // علاقتان (employee_id + manager_id) → تحديد المفتاح وإلا PGRST201
       .lte('start_date', f.to).gte('end_date', f.from)
       .order('start_date', { ascending: false })
     if (f.approvedOnly !== false) q = q.eq('status', 'approved')

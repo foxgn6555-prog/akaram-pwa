@@ -16,6 +16,11 @@ export interface BiometricDevice {
   bridge_key_prefix: string | null
   bridge_last_seen_at: string | null
   bridge_last_error: string | null
+  /** 00173 · تشخيص ADMS */
+  last_registered_at?: string | null
+  last_heartbeat_at?: string | null
+  heartbeat_count?: number
+  public_url?: string | null
 }
 
 export interface CreateDeviceInput {
@@ -184,4 +189,17 @@ export interface CreateVehicleInput {
   branch_id?: string
   gps_provider_id?: string
   device_unique_id?: string
+}
+
+/** 00173 · نتيجة تشخيص جهاز ADMS */
+export type DiagStatus = 'ok' | 'warn' | 'fail'
+export interface BiometricDiagCheck { key: string; label: string; status: DiagStatus; at?: string | null; count?: number; count_24h?: number; last_punch_at?: string | null; pending?: boolean; hint?: string | null }
+export interface BiometricDiagEvent { at: string; endpoint: string | null; status: string; payload: Record<string, unknown>; error: string | null }
+export interface BiometricDiagnostics {
+  device_id: string; serial_number: string; name: string; mode: BiometricMode; is_active: boolean
+  public_url: string | null; timezone_offset: string | null
+  last_seen_at: string | null; last_registered_at: string | null; last_heartbeat_at: string | null; heartbeat_count: number
+  last_punch_at: string | null; last_received_at: string | null; punches_total: number; punches_24h: number
+  unmatched_pins: number; users_named: number; users_query_pending: boolean
+  checks: BiometricDiagCheck[]; events: BiometricDiagEvent[]; server_time: string
 }

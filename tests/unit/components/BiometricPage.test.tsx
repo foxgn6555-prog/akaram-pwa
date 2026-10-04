@@ -28,6 +28,7 @@ vi.mock('@features/integrations', async () => {
     useCreateDevice: () => ({ mutateAsync: mockCreate, isPending: false }),
     useToggleDevice: () => ({ mutate: mockToggle, isPending: false }),
     useRequestDeviceUsers: () => ({ mutate: mockRequestUsers, isPending: false }),
+    useBiometricDiagnostics: () => ({ data: undefined, isLoading: true, error: null, refetch: vi.fn(), isFetching: false }),
     useBiometricPulls: () => mockPulls(),
     useUpdateBiometricDevice: () => ({ mutateAsync: mockUpdate, isPending: false }),
     useTestBiometricSource: () => ({ mutate: mockTest, isPending: false }),
@@ -332,5 +333,17 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     expect(mockRequestUsers).toHaveBeenCalledWith(expect.any(String), expect.anything())
     const other = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') !== 'adms_push')
     if (other) expect(within(other).queryByTestId(/^device-request-users-/)).toBeNull()
+  })
+
+  it('زر «تشخيص الاتصال» يظهر لجهاز ADMS فقط ويفتح لوحة التشخيص', async () => {
+    const user = userEvent.setup()
+    render(<BiometricPage />)
+    const adms = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') === 'adms_push')!
+    expect(within(adms).queryByTestId(/^adms-diag-/)).toBeNull()
+    await user.click(within(adms).getByTestId(/^device-diag-/))
+    expect(within(adms).getByTestId(/^adms-diag-/)).toBeInTheDocument()
+    expect(within(adms).getByTestId('diag-run-probes')).toBeInTheDocument()
+    const other = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') !== 'adms_push')
+    if (other) expect(within(other).queryByTestId(/^device-diag-/)).toBeNull()
   })
 })

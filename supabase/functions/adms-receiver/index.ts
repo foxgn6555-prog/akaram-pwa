@@ -19,7 +19,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
 
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': '*' }
+
 Deno.serve(async (req: Request) => {
+  // فحص من المتصفح (بوابة التطوير → تشخيص الاتصال) — الأجهزة لا ترسل OPTIONS
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS })
   const url = new URL(req.url)
   // داخل Supabase يصل المسار كـ /adms-receiver/iclock/... (بلا /functions/v1) — كان التطبيع القديم يفشل فيُرد "OK" عاماً ولا يُسجَّل الجهاز أبداً
   const path = normalizeAdmsPath(url.pathname)
@@ -27,11 +31,16 @@ Deno.serve(async (req: Request) => {
 
   // ═══ ① التسجيل الأولي ═══
   if (req.method === 'GET' && path.startsWith('/iclock/cdata') && url.searchParams.get('options')) {
-    const { error } = await admin.rpc('biometric_touch', { p_sn: sn })
+    const { error } = await admin.rpc('biometric_touch', { p_sn: sn, p_kind: 'register' })
     if (error) console.error('touch failed:', error.message)
     // منطقة الجهاز من تسجيله (00140) — TimeZone الخاطئ يزيح كل الأوقات
     const { data: dev } = await admin
       .from('biometric_devices').select('timezone_offset').eq('serial_number', sn).maybeSingle()
+    // حدث التسجيل في سجل التكامل (00173) — اختبار المنصة من المتصفح يستخدم SN يبدأ بـ PLATFORM-TEST ولا يُسجَّل
+    if (!sn.startsWith('PLATFORM-TEST')) {
+      const { error: logErr } = await admin.rpc('biometric_log_register', { p_sn: sn, p_known: !!dev })
+      if (logErr) console.error('log_register failed:', logErr.message)
+    }
     // استئناف من آخر بصمة مستلَمة (00167) — بدل ATTLOGStamp=0 الذي يجعل الجهاز يعيد إرسال ذاكرته كلها عند كل تسجيل
     const { data: last } = await admin.rpc('biometric_last_stamp', { p_sn: sn })
     return admsResponse(buildOptionsResponse({
@@ -41,7 +50,7 @@ Deno.serve(async (req: Request) => {
 
   // ═══ ② نبض القلب ═══
   if (req.method === 'GET' && path.startsWith('/iclock/getrequest')) {
-    const { error } = await admin.rpc('biometric_touch', { p_sn: sn })
+    const { error } = await admin.rpc('biometric_touch', { p_sn: sn, p_kind: 'heartbeat' })
     if (error) console.error('touch failed:', error.message)
     // طابور الأوامر (00172): حالياً أمر واحد — جلب أسماء المستخدمين عند الحاجة
     const { data: cmd, error: cmdErr } = await admin.rpc('biometric_command_next', { p_sn: sn })
@@ -81,12 +90,12 @@ Deno.serve(async (req: Request) => {
   }
 
   console.warn('adms: unhandled', req.method, path, sn)
-  return new Response('OK', { status: 200 })
+  return new Response('OK', { status: 200, headers: CORS })
 })
 
 function admsResponse(body: string): Response {
   return new Response(body, {
     status: 200,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', ...CORS },
   })
 }

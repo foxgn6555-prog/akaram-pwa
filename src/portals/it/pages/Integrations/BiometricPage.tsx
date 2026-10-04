@@ -24,12 +24,14 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { SourceConfigFields } from './biometric/SourceConfigFields'
 import { BridgePanel } from './biometric/BridgePanel'
+import { AdmsDiagnosticsPanel } from './biometric/AdmsDiagnosticsPanel'
 import { cleanConfig, MODE_HINTS, validateConfigLocally } from './biometric/source-config.utils'
 
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
 const label = 'mb-1.5 block text-sm font-medium'
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? 'https://YOUR-PROJECT.supabase.co'
+const ADMS_URL = `${SUPABASE_URL}/functions/v1/adms-receiver`
 const TZ_RE = /^[+-](0[0-9]|1[0-4]):[0-5][0-9]$/
 const TZ_OPTIONS = ['+03:00', '+02:00', '+04:00', '+04:30', '+05:00', '+05:30', '+01:00', '+00:00', '-05:00']
 
@@ -189,6 +191,7 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
   const test = useTestBiometricSource()
   const requestUsers = useRequestDeviceUsers()
   const [usersRequested, setUsersRequested] = useState(false)
+  const [diag, setDiag] = useState(false)
   const pull = usePullBiometric()
   const [editing, setEditing] = useState(false)
   const [mode, setMode] = useState<BiometricMode>(d.mode)
@@ -297,9 +300,16 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
       <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-2.5">
         <span className="text-[11px] text-slate-400">
           {d.last_seen_at ? `آخر اتصال: ${formatRelative(d.last_seen_at)}` : 'لم يتصل بعد'}
+          {d.mode === 'adms_push' && d.last_heartbeat_at ? ` · آخر نبضة: ${formatRelative(d.last_heartbeat_at)}` : ''}
           {branchName && ` · ${branchName}`}
         </span>
         <div className="flex gap-3">
+          {d.mode === 'adms_push' && d.is_active && (
+            <button type="button" onClick={() => setDiag((v) => !v)} data-testid={`device-diag-${d.serial_number}`}
+              className={clsx('text-[11px] font-semibold hover:underline', diag ? 'text-slate-500' : 'text-brand-700')}>
+              {diag ? 'إغلاق التشخيص' : 'تشخيص الاتصال'}
+            </button>
+          )}
           {d.mode === 'adms_push' && d.is_active && (
             <button type="button" disabled={requestUsers.isPending} data-testid={`device-request-users-${d.serial_number}`}
               onClick={() => requestUsers.mutate(d.id, { onSuccess: () => setUsersRequested(true) })}
@@ -318,6 +328,7 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           </button>
         </div>
       </div>
+      {diag && d.mode === 'adms_push' && <AdmsDiagnosticsPanel device={d} functionUrl={ADMS_URL} />}
     </div>
   )
 }

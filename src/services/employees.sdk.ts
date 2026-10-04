@@ -13,7 +13,7 @@ import type {
 } from '@features/employees/types'
 
 const SELECT_WITH_DEPT =
-  '*, department:departments(id, name, code)' as const
+  '*, department:departments!employees_department_id_fkey(id, name, code)' as const  // تحديد المفتاح: للموظف علاقتان مع departments (القسم + المسمى الوظيفي 00153) وبدونه يفشل PostgREST بـ PGRST201
 
 export const employees = {
   async list(filters: EmployeeFilters = {}): Promise<Employee[]> {

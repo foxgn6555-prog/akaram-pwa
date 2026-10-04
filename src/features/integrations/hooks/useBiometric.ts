@@ -45,10 +45,19 @@ export function useUpdateBiometricDevice() {
   const invalidate = useInvalidateBiometric()
   const addToast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (v: { id: string; name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string }) =>
-      biometric.updateDevice(v.id, { name: v.name, mode: v.mode, config: v.config, location_hint: v.location_hint, timezone_offset: v.timezone_offset }),
+    mutationFn: (v: { id: string; name?: string; mode?: BiometricMode; config?: BiometricDeviceConfig; location_hint?: string | null; timezone_offset?: string; public_url?: string | null }) =>
+      biometric.updateDevice(v.id, { name: v.name, mode: v.mode, config: v.config, location_hint: v.location_hint, timezone_offset: v.timezone_offset, public_url: v.public_url }),
     onSuccess: () => { invalidate(); addToast({ type: 'success', message: 'حُفظت إعدادات المصدر' }) },
     onError: (e) => addToast({ type: 'error', message: biometricErrorMessage(e) }),
+  })
+}
+
+export function useBiometricDiagnostics(deviceId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [...integrationsKeys.all, 'bio-diagnostics', deviceId ?? ''] as const,
+    queryFn: () => biometric.diagnostics(deviceId!),
+    enabled: enabled && !!deviceId,
+    refetchInterval: 10_000,
   })
 }
 

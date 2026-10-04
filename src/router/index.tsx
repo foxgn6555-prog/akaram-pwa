@@ -3,6 +3,7 @@
  * التسلسل: authGuard (جلسة) → portalGuard (بوابة) → صفحات البوابة.
  */
 import { lazy } from '@lib/router/lazy'
+import { RouteHydrateFallback } from './RouteHydrateFallback'
 import { Suspense } from 'react'
 import { createBrowserRouter, redirect, Navigate } from 'react-router'
 import { PUBLIC_ROUTES, PORTAL_ROUTES } from './routes.config'
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
   // ── الجذر: موجّه ذكي حسب الجلسة ──
   {
     path: '/',
+    HydrateFallback: RouteHydrateFallback,
     loader: async () => {
       const { authenticated, session } = await authGuard()
       if (!authenticated) return redirect('/login')
@@ -50,6 +52,7 @@ export const router = createBrowserRouter([
         </Suspense>
       </ErrorBoundary>
     ),
+    HydrateFallback: RouteHydrateFallback,
     loader: async () => {
       const { authenticated, session } = await authGuard()
       if (!authenticated) return redirect('/login')
@@ -67,6 +70,7 @@ export const router = createBrowserRouter([
   // رابط الإشعار العام للتبليغ → يعاد توجيهه إلى وارد بوابة المستخدم الأساسية
   {
     path: '/announcements/:announcementId?',
+    HydrateFallback: RouteHydrateFallback,
     loader: async ({ params }) => {
       const { authenticated, session } = await authGuard()
       if (!authenticated) return redirect('/login')
@@ -77,7 +81,7 @@ export const router = createBrowserRouter([
   },
 
   // بوابة الكشوفات القديمة أُلغيت (00170) → وحدة الكشوفات داخل غرفة العمليات
-  { path: '/disclosures/*', loader: () => redirect('/ops-room/disclosures') },
+  { path: '/disclosures/*', HydrateFallback: RouteHydrateFallback, loader: () => redirect('/ops-room/disclosures') },
 
   // 403 — دخول بوابة غير مصرح بها
   {
