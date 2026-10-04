@@ -13,7 +13,7 @@
  * التحول: biometric_ingest (00026) — يحوّل السطور لسجلات حضور حقيقية.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildOptionsResponse, toStamp } from '../_shared/adms-protocol.ts'
+import { buildOptionsResponse, normalizeAdmsPath, toStamp } from '../_shared/adms-protocol.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -21,7 +21,8 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession:
 
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url)
-  const path = url.pathname.replace(/\/functions\/v1\/adms-receiver\/?/, '/')
+  // داخل Supabase يصل المسار كـ /adms-receiver/iclock/... (بلا /functions/v1) — كان التطبيع القديم يفشل فيُرد "OK" عاماً ولا يُسجَّل الجهاز أبداً
+  const path = normalizeAdmsPath(url.pathname)
   const sn = url.searchParams.get('SN') ?? ''
 
   // ═══ ① التسجيل الأولي ═══
@@ -74,6 +75,7 @@ Deno.serve(async (req: Request) => {
     return admsResponse('OK')
   }
 
+  console.warn('adms: unhandled', req.method, path, sn)
   return new Response('OK', { status: 200 })
 })
 

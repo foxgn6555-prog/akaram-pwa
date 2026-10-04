@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeAdmsPath,
   buildOptionsResponse, parseAttlog, parseAttlogLine, parseOperlogUser, toAdmsTimeZone, toStamp,
 } from '../../../supabase/functions/_shared/adms-protocol'
 
@@ -74,5 +75,15 @@ describe('ADMS · ختم الاستئناف', () => {
     expect(toStamp('2026-09-24 08:00:00')).toBe('2026-09-24 08:00:00')
     expect(toStamp('bad')).toBe('0')
     expect(toStamp(null)).toBe('0')
+  })
+})
+
+describe('normalizeAdmsPath — مسار الجهاز أياً كان التوجيه', () => {
+  it('Supabase يحذف /functions/v1 → يبقى /adms-receiver/iclock/… ويجب أن يُطبَّع إلى /iclock/…', () => {
+    expect(normalizeAdmsPath('/adms-receiver/iclock/cdata')).toBe('/iclock/cdata')
+    expect(normalizeAdmsPath('/functions/v1/adms-receiver/iclock/getrequest')).toBe('/iclock/getrequest')
+    expect(normalizeAdmsPath('/iclock/devicecmd')).toBe('/iclock/devicecmd')
+    expect(normalizeAdmsPath('/adms-receiver')).toBe('/')
+    expect(normalizeAdmsPath('/adms-receiverx/iclock/cdata')).toBe('/adms-receiverx/iclock/cdata')
   })
 })

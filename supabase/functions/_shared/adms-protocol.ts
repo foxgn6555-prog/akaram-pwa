@@ -125,3 +125,13 @@ export function parseOperlogUser(line: string): OperlogUser | null {
 export function toStamp(lastLocalTime?: string | null): string {
   return lastLocalTime && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(lastLocalTime) ? lastLocalTime : '0'
 }
+
+/**
+ * تطبيع مسار الطلب إلى ما يرسله الجهاز (/iclock/...) أياً كان شكل التوجيه:
+ *  · داخل Supabase يصل المسار بلا /functions/v1 → "/adms-receiver/iclock/cdata"
+ *  · من بروكسي/نطاق مخصص قد يصل "/iclock/cdata" مباشرة أو مع البادئة الكاملة
+ */
+export function normalizeAdmsPath(pathname: string): string {
+  const p = pathname.replace(/^\/(functions\/v1\/)?adms-receiver(?=\/|$)/, '')
+  return p === '' ? '/' : p
+}
