@@ -5,7 +5,7 @@
  *   ① التسجيل:  GET  /iclock/cdata?SN={sn}&options=all&pushver=...
  *      ردنا:     GET OPTION FROM: {sn}\nATTLOGStamp=0\nOPERLOGStamp=0\nRealtime=1\n
  *                ServerVer=3.0.1\nDelay=5\nTransFlag=111111111111
- *   ② النبض:    GET  /iclock/getrequest?SN={sn}   →  "OK" (أو أمر من طابور الأوامر)
+ *   ② النبض:    GET  /iclock/getrequest?SN={sn}   →  "OK" أو أمر مثل C:{id}:DATA QUERY USERINFO (00172)
  *   ③ الدفع:    POST /iclock/cdata?SN={sn}&table=ATTLOG   (نص: PIN date time status verify)
  *   ④ التأكيد:  POST /iclock/devicecmd?SN={sn}&ID={n}     →  "OK"
  *
@@ -41,14 +41,19 @@ Deno.serve(async (req: Request) => {
 
   // ═══ ② نبض القلب ═══
   if (req.method === 'GET' && path.startsWith('/iclock/getrequest')) {
-    await admin.rpc('biometric_touch', { p_sn: sn })
-    // طابور الأوامر: مستقبلاً نقرأ device_commands ونعيد أمراً معلقاً
-    return admsResponse('OK')
+    const { error } = await admin.rpc('biometric_touch', { p_sn: sn })
+    if (error) console.error('touch failed:', error.message)
+    // طابور الأوامر (00172): حالياً أمر واحد — جلب أسماء المستخدمين عند الحاجة
+    const { data: cmd, error: cmdErr } = await admin.rpc('biometric_command_next', { p_sn: sn })
+    if (cmdErr) console.error('command_next failed:', cmdErr.message)
+    return admsResponse(typeof cmd === 'string' && cmd ? cmd : 'OK')
   }
 
   // ═══ ③ دفع بيانات (ATTLOG/OPERLOG/...) ═══
   if (req.method === 'POST' && path.startsWith('/iclock/cdata')) {
-    const table = url.searchParams.get('table') ?? 'ATTLOG'
+    // بعض البرامج الثابتة ترسل نتيجة DATA QUERY USERINFO بجدول USERINFO — نفس صيغة سطور USER في OPERLOG
+    const rawTable = (url.searchParams.get('table') ?? 'ATTLOG').toUpperCase()
+    const table = rawTable === 'USERINFO' ? 'OPERLOG' : rawTable
     const raw = await req.text()
 
     if (!sn) return admsResponse('ERROR')

@@ -83,6 +83,11 @@ export const biometric = {
   },
 
   /** 00141 · توليد/تدوير مفتاح وكيل الجسر — يُعاد المفتاح الصريح مرة واحدة فقط */
+  /** طلب أسماء مستخدمي الجهاز (ADMS): يُرسل أمر DATA QUERY USERINFO في أول نبضة قادمة (00172) */
+  async requestDeviceUsers(deviceId: string): Promise<void> {
+    await sdkGuard(supabase.rpc('biometric_request_users', { p_device_id: deviceId } as never))
+  },
+
   async rotateBridgeKey(deviceId: string): Promise<string> {
     return (await sdkGuard(supabase.rpc('biometric_bridge_rotate_key', { p_device_id: deviceId } as never))) as string
   },

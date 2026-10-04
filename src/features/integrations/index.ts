@@ -3,7 +3,7 @@ export {
   useIntegrationLogs, useCreateDevice, useToggleDevice, useCreateProvider, useCreateVehicle,
 } from './hooks/useIntegrations'
 export {
-  useBiometricPulls, useBiometricPunches, useUpdateBiometricDevice, useTestBiometricSource, useRotateBridgeKey,
+  useBiometricPulls, useBiometricPunches, useUpdateBiometricDevice, useTestBiometricSource, useRotateBridgeKey, useRequestDeviceUsers,
   usePullBiometric, useImportBiometricPunches, useProcessBiometricPushes, useLinkBiometricPin, useDeriveAttendance, useBiometricDeviceUsers,
 } from './hooks/useBiometric'
 export { BIOMETRIC_MODES, BIOMETRIC_MODE_LABELS, BIOMETRIC_PASSIVE_MODES } from './types'

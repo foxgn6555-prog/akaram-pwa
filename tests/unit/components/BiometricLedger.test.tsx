@@ -23,10 +23,11 @@ vi.mock('@features/integrations', async () => {
     useDeriveAttendance: () => ({ mutate: mockDerive, isPending: false }),
   }
 })
-vi.mock('@features/employees', () => ({ useEmployees: () => mockEmployees() }))
+vi.mock('@features/hr', () => ({ useHrEmployees: (f: unknown) => { lastEmployeeFilters.value = f; return mockEmployees() } }))
+const lastEmployeeFilters: { value?: unknown } = {}
 const EMPLOYEES = [
-  { id: 'e1', full_name: 'أحمد علي', employee_number: '7001' },
-  { id: 'e2', full_name: 'سارة حسن', employee_number: '7002' },
+  { id: 'e1', full_name: 'أحمد علي', employee_number: '7001', biometric_pin: '7001' },
+  { id: 'e2', full_name: 'سارة حسن', employee_number: '7002', biometric_pin: null },
 ]
 
 import BiometricLedger from '@portals/hr/pages/Biometric/BiometricLedger'
@@ -48,7 +49,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPunches.mockReturnValue({ data: PUNCHES, isLoading: false })
-    mockEmployees.mockReturnValue({ data: EMPLOYEES })
+    mockEmployees.mockReturnValue({ data: EMPLOYEES, isLoading: false, error: null })
   })
 
   it('يعرض الإحصاءات المشتقة من البصمات المعروضة', () => {
@@ -90,6 +91,8 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
     await user.click(screen.getByTestId('punch-link-p3'))
     const form = screen.getByTestId('link-form-9999')
     expect(within(form).getByTestId('link-save')).toBeDisabled()
+    expect(lastEmployeeFilters.value).toMatchObject({ status: 'active' })
+    expect(within(form).getByTestId('link-employee')).toHaveTextContent('له رقم بصمة 7001')
     await user.selectOptions(within(form).getByTestId('link-employee'), 'e2')
     await user.click(within(form).getByTestId('link-save'))
     expect(mockLink).toHaveBeenCalledWith({ pin: '9999', employeeId: 'e2' }, expect.anything())
@@ -124,7 +127,7 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
   })
 
   it('عند عدم وجود موظفين في النظام يظهر تنبيه واضح مع رابط إضافة الموظف بدل قائمة فارغة صامتة', async () => {
-    mockEmployees.mockReturnValue({ data: [] })
+    mockEmployees.mockReturnValue({ data: [], isLoading: false, error: null })
     const user = userEvent.setup()
     render(<MemoryRouter><BiometricLedger /></MemoryRouter>)
     await user.click(screen.getByTestId('punch-link-p3'))

@@ -11,7 +11,7 @@ import {
 } from '@features/integrations'
 import type { BiometricPunch } from '@features/integrations'
 import { Link } from 'react-router'
-import { useEmployees } from '@features/employees'
+import { useHrEmployees } from '@features/hr'
 import { formatDateTime } from '@lib/utils/date.utils'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -181,7 +181,9 @@ function LinkPinForm({ pin, deviceName, onDone }: { pin: string; deviceName?: st
   // اقتراح: ابدأ البحث بالاسم كما سجّله الجهاز (إن وُجد)
   const [search, setSearch] = useState(deviceName ?? '')
   const [employeeId, setEmployeeId] = useState('')
-  const { data: candidates } = useEmployees({ search: search || undefined, limit: 20 })
+  // قائمة HR الرسمية (hr_employees_list) — القائمة القديمة من جدول employees كانت تفشل بصمت لبعض الأدوار فلا يظهر أي موظف
+  const { data: hrEmployees, isLoading: loadingEmployees, error: employeesError } = useHrEmployees({ search: search || undefined, status: 'active' })
+  const candidates = hrEmployees?.slice(0, 50)
   const link = useLinkBiometricPin()
   return (
     <div className="flex flex-wrap items-end gap-2" data-testid={`link-form-${pin}`}>
@@ -191,9 +193,10 @@ function LinkPinForm({ pin, deviceName, onDone }: { pin: string; deviceName?: st
       <select className="h-9 min-w-48 rounded-lg border border-slate-300 bg-white px-2 text-xs" value={employeeId}
         onChange={(e) => setEmployeeId(e.target.value)} data-testid="link-employee">
         <option value="">— اختر الموظف —</option>
-        {candidates?.map((e) => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_number})</option>)}
+        {candidates?.map((e) => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_number}){e.biometric_pin ? ` — له رقم بصمة ${e.biometric_pin}` : ''}</option>)}
       </select>
-      {candidates && candidates.length === 0 && (
+      {employeesError && <span className="text-[11px] text-rose-700" data-testid="link-employees-error">تعذّر تحميل الموظفين: {(employeesError as Error).message}</span>}
+      {!loadingEmployees && !employeesError && candidates && candidates.length === 0 && (
         <span className="text-[11px] text-rose-700" data-testid="link-no-employees">
           {search ? 'لا موظف بهذا الاسم — جرّب جزءاً من الاسم أو امسح البحث.' : 'لا يوجد موظفون مسجّلون بعد — '}
           {!search && <Link to="/hr/employees" className="font-semibold underline">أضف الموظف من «الموظفون» أولاً</Link>}

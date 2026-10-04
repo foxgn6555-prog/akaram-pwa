@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 
 const mockCreate = vi.fn()
 const mockToggle = vi.fn()
+const mockRequestUsers = vi.fn()
 const mockDevices = vi.fn()
 const mockPulls = vi.fn()
 const mockUpdate = vi.fn()
@@ -26,6 +27,7 @@ vi.mock('@features/integrations', async () => {
     useDevices: () => mockDevices(),
     useCreateDevice: () => ({ mutateAsync: mockCreate, isPending: false }),
     useToggleDevice: () => ({ mutate: mockToggle, isPending: false }),
+    useRequestDeviceUsers: () => ({ mutate: mockRequestUsers, isPending: false }),
     useBiometricPulls: () => mockPulls(),
     useUpdateBiometricDevice: () => ({ mutateAsync: mockUpdate, isPending: false }),
     useTestBiometricSource: () => ({ mutate: mockTest, isPending: false }),
@@ -319,5 +321,16 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     render(<BiometricPage />)
     await user.click(screen.getByTestId('device-toggle-ZK-001'))
     expect(mockToggle).toHaveBeenCalledWith({ id: 'd1', active: false })
+  })
+
+  it('زر «جلب أسماء المستخدمين» يظهر لجهاز ADMS فقط ويستدعي الطلب بمعرّف الجهاز', async () => {
+    const user = userEvent.setup()
+    render(<BiometricPage />)
+    const adms = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') === 'adms_push')!
+    const btn = within(adms).getByTestId(/^device-request-users-/)
+    await user.click(btn)
+    expect(mockRequestUsers).toHaveBeenCalledWith(expect.any(String), expect.anything())
+    const other = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') !== 'adms_push')
+    if (other) expect(within(other).queryByTestId(/^device-request-users-/)).toBeNull()
   })
 })

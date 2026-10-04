@@ -11,7 +11,7 @@ import { useBranches } from '@features/branches'
 import {
   BIOMETRIC_MODES, BIOMETRIC_MODE_LABELS, BIOMETRIC_PASSIVE_MODES,
   useBiometricPulls, useCreateDevice, useDevices, useProcessBiometricPushes, usePullBiometric,
-  useTestBiometricSource, useToggleDevice, useUpdateBiometricDevice,
+  useRequestDeviceUsers, useTestBiometricSource, useToggleDevice, useUpdateBiometricDevice,
 } from '@features/integrations'
 import type { BiometricDevice, BiometricDeviceConfig, BiometricMode, BiometricTestResult } from '@features/integrations'
 import { integrations } from '@sdk/integrations.sdk'
@@ -187,6 +187,8 @@ export default function BiometricPage() {
 function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevice; branchName?: string; onToggle: () => void }) {
   const update = useUpdateBiometricDevice()
   const test = useTestBiometricSource()
+  const requestUsers = useRequestDeviceUsers()
+  const [usersRequested, setUsersRequested] = useState(false)
   const pull = usePullBiometric()
   const [editing, setEditing] = useState(false)
   const [mode, setMode] = useState<BiometricMode>(d.mode)
@@ -298,6 +300,14 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           {branchName && ` · ${branchName}`}
         </span>
         <div className="flex gap-3">
+          {d.mode === 'adms_push' && d.is_active && (
+            <button type="button" disabled={requestUsers.isPending} data-testid={`device-request-users-${d.serial_number}`}
+              onClick={() => requestUsers.mutate(d.id, { onSuccess: () => setUsersRequested(true) })}
+              className="text-[11px] font-semibold text-brand-700 hover:underline disabled:opacity-50"
+              title="يطلب من الجهاز إرسال أسماء المستخدمين (PIN ↔ الاسم) في أول نبضة قادمة — لتسهيل الربط في دفتر البصمة">
+              {usersRequested ? '✓ سيُرسل الجهاز الأسماء خلال دقيقة' : 'جلب أسماء المستخدمين'}
+            </button>
+          )}
           <button type="button" onClick={() => setEditing((v) => !v)} data-testid={`device-edit-${d.serial_number}`}
             className="text-[11px] font-semibold text-brand-700 hover:underline">
             {editing ? 'إغلاق التعديل' : 'الإعدادات'}

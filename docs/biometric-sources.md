@@ -69,3 +69,10 @@ BIO_PIN_INVALID · BIO_EMPLOYEE_NOT_FOUND · BIO_DATE_INVALID`
 ## الاختبارات
 - SQL: `hr_biometric_sources.sql` (11 كتلة) + `biometric_device_timezone.sql` (9 كتل: منطقة الجهاز/TAB/OPERLOG/منتصف الليل/الدفعات المتراكمة).
 - Vitest: `biometric-providers` 18 · `adms-protocol` 11 · `BiometricPage` 16 · `BiometricLedger` 6 · `biometric.sdk` 6 · `hr-units` 4.
+
+
+## ملاحظات تشغيل (00172)
+- **وسيط Cloudflare Worker**: أجهزة ZKTeco تتجاهل مسار URL وترسل إلى جذر المضيف `/iclock/*`، وSupabase لا يخدم الجذر. لذا يُنشر Worker (مثل `akaram-bio.<حساب>.workers.dev`) يمرّر الطلب كما هو إلى `https://<ref>.supabase.co/functions/v1/adms-receiver` + المسار + الاستعلام. على الجهاز: Domain ON، العنوان = اسم مضيف الـ Worker فقط، المنفذ 443، HTTPS ON.
+- **داخل Supabase يصل المسار بلا `/functions/v1`** (`/adms-receiver/iclock/...`) — المستقبل يطبّعه عبر `normalizeAdmsPath`.
+- **«آخر اتصال»** تتحدث من نبضة `getrequest` (كل `Delay=10` ثانية) عبر `public.biometric_touch` (غلاف لـ `app.biometric_touch`)، ومن كل دفعة بيانات. «متصل» = نبضة خلال آخر دقيقتين.
+- **أسماء المستخدمين**: الجهاز لا يرسلها تلقائياً؛ يُرسل له `C:<id>:DATA QUERY USERINFO` في نبضة (تلقائياً عند التسجيل الأول وعند وجود PIN بلا اسم كل 12 ساعة، أو يدوياً من بطاقة الجهاز «جلب أسماء المستخدمين»). يرد الجهاز بسطور `USER PIN=…\tName=…` (جدول OPERLOG أو USERINFO) فتُحفظ في `biometric_device_users` وتظهر في دفتر البصمة ولوحة «بصمات بلا موظف».

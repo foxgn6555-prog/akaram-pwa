@@ -52,6 +52,14 @@ export function useUpdateBiometricDevice() {
   })
 }
 
+export function useRequestDeviceUsers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (deviceId: string) => biometric.requestDeviceUsers(deviceId),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: integrationsKeys.devices() }) },
+  })
+}
+
 export function useRotateBridgeKey() {
   const qc = useQueryClient()
   return useMutation({
