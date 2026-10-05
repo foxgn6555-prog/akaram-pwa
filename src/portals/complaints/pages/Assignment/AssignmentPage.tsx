@@ -88,7 +88,7 @@ export default function AssignmentPage() {
             </label>
             <button type="button" aria-label={`فتح مجلد ${folder.referenceNo}`} onClick={() => setExpanded(open ? null : folder.complaintId)} className="flex min-w-0 flex-1 items-center gap-3 text-right">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700"><Inbox size={21} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-emerald-700">{folder.referenceNo}</span><strong className="block truncate text-base text-slate-900">{folder.name}</strong><span className="mt-1 block text-xs text-slate-500">{folder.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} · {new Date(folder.receivedAt).toLocaleDateString('ar-IQ')}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-emerald-700">{folder.referenceNo}</span><strong className="block truncate text-base text-slate-900">{folder.name}</strong><span className="mt-1 block text-xs text-slate-500">{folder.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} · {new Date(folder.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</span></span>
               <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">{selectedCount}/{folder.items.length} محددة</span>
               {open ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
             </button>

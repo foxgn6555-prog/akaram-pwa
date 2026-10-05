@@ -3,7 +3,7 @@ import { BellRing, CheckCheck, MapPin, ShieldAlert, Trash2, Wrench } from 'lucid
 import type { AppNotification } from '@sdk/notifications.sdk'
 const icons = { maintenance: Wrench, gps: MapPin, security: ShieldAlert } as const
 const dt = (v: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',

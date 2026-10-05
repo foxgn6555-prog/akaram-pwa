@@ -10,7 +10,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { AUDIENCE_AR, PRIORITY_AR, ROLE_AR, fmtInt, useAckAnnouncement, useAnnouncement, useAnnouncementFeed, type Announcement } from '@features/executive'
 
 const PRIO_STYLE = { normal: 'bg-slate-100 text-slate-600', important: 'bg-amber-100 text-amber-800', urgent: 'bg-red-100 text-red-800' } as const
-const when = (iso: string) => new Date(iso).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' })
+const when = (iso: string) => new Date(iso).toLocaleString('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' })
 
 export function AnnouncementCard({ a, mode, onOpen, onArchive }: { a: Announcement; mode: 'inbox' | 'sent'; onOpen?: () => void; onArchive?: () => void }) {
   const [expanded, setExpanded] = useState(false)

@@ -26,7 +26,7 @@ const statusLabel = {
   unknown: 'حالة غير معروفة',
 }
 const time = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'Asia/Baghdad',

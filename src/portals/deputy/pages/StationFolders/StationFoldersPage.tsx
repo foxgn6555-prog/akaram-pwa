@@ -11,7 +11,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 const num = (v: unknown): number => Number(v ?? 0)
 
 const dayLabel = (day: string) =>
-  new Date(`${day}T12:00:00+03:00`).toLocaleDateString('ar-IQ', {
+  new Date(`${day}T12:00:00+03:00`).toLocaleDateString('ar-IQ-u-nu-latn', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -20,7 +20,7 @@ const dayLabel = (day: string) =>
 
 const timeLabel = (iso: string | null) =>
   iso
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'short',
         timeZone: 'Asia/Baghdad',

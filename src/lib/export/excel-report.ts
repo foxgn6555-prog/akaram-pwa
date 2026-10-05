@@ -262,7 +262,7 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
   ws.views = [{ ...RTL_VIEW, state: 'frozen', ySplit: headerRowIdx }]
   ws.headerFooter = {
     oddHeader: '&Cشركة جزيرة الأكارم',
-    oddFooter: `&Lوُلّد آلياً — ${new Date().toLocaleDateString('ar')}&Cصفحة &P من &N`,
+    oddFooter: `&Lوُلّد آلياً — ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}&Cصفحة &P من &N`,
   }
 
 }

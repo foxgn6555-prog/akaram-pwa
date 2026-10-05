@@ -30,7 +30,7 @@ export default function InboxPage({sector}:{sector:ComplaintSector}){
   {data.map(row=><button type="button" key={row.id} onClick={()=>{setActiveId(row.id);setSelected([]);setMediaPage(1);setMediaView('remaining');setMessage('')}} aria-pressed={activeId===row.id} className={`grid w-full min-w-0 gap-2 border-t px-4 py-4 text-right text-sm transition-colors sm:grid-cols-[1fr_1.4fr_.8fr_.6fr] sm:items-center sm:gap-3 sm:py-3 ${activeId===row.id?'bg-blue-50 ring-1 ring-inset ring-blue-200':'hover:bg-slate-50'}`}>
     <span className="min-w-0"><span className="mb-1 block text-[10px] font-bold text-slate-400 sm:hidden">المرسل</span><span className="block truncate font-bold sm:font-normal">{row.senderName||row.senderEmail}</span></span>
     <span className="min-w-0"><span className="mb-1 block text-[10px] font-bold text-slate-400 sm:hidden">الموضوع</span><span className="block break-words font-bold sm:truncate sm:font-normal">{row.subject||'دون موضوع'}</span></span>
-    <span><span className="me-1 text-[10px] font-bold text-slate-400 sm:hidden">الوصول:</span><time>{new Date(row.receivedAt).toLocaleString('ar-IQ')}</time></span>
+    <span><span className="me-1 text-[10px] font-bold text-slate-400 sm:hidden">الوصول:</span><time>{new Date(row.receivedAt).toLocaleString('ar-IQ-u-nu-latn')}</time></span>
     <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold sm:bg-transparent sm:p-0 sm:text-sm sm:font-normal">{row.attachmentCount} ملف</span>
   </button>)}
  </div>

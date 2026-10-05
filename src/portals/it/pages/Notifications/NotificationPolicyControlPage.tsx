@@ -187,7 +187,7 @@ export default function NotificationPolicyControlPage() {
             {pushMetrics.data?.map((bucket) => {
               const max = Math.max(1, ...pushMetrics.data.map((item) => item.total))
               return (
-                <div key={bucket.bucket_start} className="group flex min-w-3 flex-1 flex-col items-center justify-end gap-1" title={`${new Date(bucket.bucket_start).toLocaleTimeString('ar-IQ')} · نجاح ${bucket.success_rate}% · تفاعل ${bucket.interaction_rate}% · محاولات ${bucket.average_attempts}`}>
+                <div key={bucket.bucket_start} className="group flex min-w-3 flex-1 flex-col items-center justify-end gap-1" title={`${new Date(bucket.bucket_start).toLocaleTimeString('ar-IQ-u-nu-latn')} · نجاح ${bucket.success_rate}% · تفاعل ${bucket.interaction_rate}% · محاولات ${bucket.average_attempts}`}>
                   <div className="relative flex h-28 w-full items-end overflow-hidden rounded-t bg-slate-100">
                     <i className="block w-full bg-indigo-500" style={{ height: `${(bucket.sent / max) * 100}%` }} />
                     {bucket.failed > 0 && <i className="absolute bottom-0 left-0 w-full bg-rose-500/80" style={{ height: `${(bucket.failed / max) * 100}%` }} />}
@@ -297,7 +297,7 @@ export default function NotificationPolicyControlPage() {
                   <td className="p-3">{row.attempts}</td>
                   <td className="p-3">{row.last_http_status ?? '—'}</td>
                   <td className="p-3">
-                    {row.sent_at ? new Date(row.sent_at).toLocaleString('ar-IQ') : '—'}
+                    {row.sent_at ? new Date(row.sent_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}
                   </td>
                   <td className="p-3">{row.clicked_at ? 'تم الفتح' : 'لم يفتح'}</td>
                   <td className="p-3">

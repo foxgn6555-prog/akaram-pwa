@@ -23,7 +23,7 @@ const TABS: Array<{ key: Tab; label: string; icon: typeof Headset }> = [
 export const STATUS_TONE: Record<CitizenStatus, string> = {
   new: 'bg-sky-100 text-sky-800', in_progress: 'bg-amber-100 text-amber-900', on_hold: 'bg-slate-200 text-slate-800', resolved: 'bg-emerald-100 text-emerald-800',
 }
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '—')
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : '—')
 const ageHours = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 36e5))
 
 export default function OpsCitizenComplaintsPage() {
@@ -225,7 +225,7 @@ function ChatMessages({ chat }: { chat: CitizenChat }) {
               ? <a href={urls[m.attachment]} target="_blank" rel="noreferrer"><img src={urls[m.attachment]} alt="صورة من المواطن" className="mb-1 max-h-64 rounded-xl object-cover" data-testid="ops-chat-image" /></a>
               : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-100 text-[10px] text-slate-500">جارٍ تحميل الصورة…</div>)}
             {m.body !== '📷 صورة' && <p className="whitespace-pre-wrap">{m.body}</p>}
-            <p className={clsx('mt-1 text-[10px]', m.sender === 'agent' ? 'text-sky-100' : 'text-slate-400')}>{new Date(m.at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p className={clsx('mt-1 text-[10px]', m.sender === 'agent' ? 'text-sky-100' : 'text-slate-400')}>{new Date(m.at).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
       ))}
@@ -241,7 +241,7 @@ function ArchiveTab() {
   const current = day ?? days[0]?.day ?? null
   const { data: items = [], isFetching } = useOpsChatHistory(current)
   const { data: chat } = useOpsChatSession(sid)
-  const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('ar-IQ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('ar-IQ-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const mins = (n: number | null) => (n === null ? '—' : n < 60 ? `${n} د` : `${Math.floor(n / 60)} س ${n % 60} د`)
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(240px,0.7fr)_1.6fr]" data-testid="chat-archive">
@@ -276,7 +276,7 @@ function ArchiveTab() {
                     {items.map((it) => (
                       <tr key={it.id} onClick={() => setSid(it.id)} className={clsx('cursor-pointer border-t border-slate-100 hover:bg-sky-50', sid === it.id && 'bg-sky-50')} data-testid="archive-row">
                         <td className="p-2"><b>{it.citizen_name}</b><span className="block text-[10px] text-slate-400" dir="ltr">{it.phone}</span></td>
-                        <td className="p-2 tabular-nums">{new Date(it.requested_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="p-2 tabular-nums">{new Date(it.requested_at).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="p-2">{it.agent_name ?? '—'}</td>
                         <td className="p-2">{mins(it.wait_minutes)}</td>
                         <td className="p-2">{mins(it.duration_minutes)}</td>

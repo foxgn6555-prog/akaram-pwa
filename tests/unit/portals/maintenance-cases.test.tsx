@@ -79,8 +79,8 @@ describe('الصيانة المبسّطة (00157): وصول → تشخيص وإ�
     fireEvent.change(screen.getByTestId('finish-work-notes'), { target: { value: 'استبدال وتعبئة زيت' } })
     fireEvent.change(screen.getByTestId('finish-service-cost'), { target: { value: '10000' } })
     // 25000 + 4×5000 = 45000 مواد + 10000 أجور = 55000
-    expect(screen.getByTestId('finish-cost')).toHaveTextContent('٤٥٬٠٠٠')
-    expect(screen.getByTestId('finish-cost')).toHaveTextContent('٥٥٬٠٠٠')
+    expect(screen.getByTestId('finish-cost')).toHaveTextContent('45,000')
+    expect(screen.getByTestId('finish-cost')).toHaveTextContent('55,000')
     expect(screen.queryByTestId('finish-missing')).toBeNull()
     fireEvent.click(screen.getByText('إنهاء الصيانة', { selector: 'button' }))
     expect(h.complete).toHaveBeenCalledWith(
@@ -106,7 +106,7 @@ describe('الصيانة المبسّطة (00157): وصول → تشخيص وإ�
     const card = screen.getByTestId('case-summary-c1')
     expect(card).toHaveTextContent('حسن (كهرباء)، كريم (ميكانيك)')
     expect(card).toHaveTextContent('مضخة ×1 قطعة')
-    expect(card).toHaveTextContent('قطع ٢٥٬٠٠٠ + أجور ١٠٬٠٠٠ = ٣٥٬٠٠٠')
+    expect(card).toHaveTextContent('قطع 25,000 + أجور 10,000 = 35,000')
     expect(screen.queryByTestId('finish-c1')).toBeNull()
     fireEvent.click(screen.getByText('إعادتها إلى موقع العمل'))
     expect(h.dispatch).toHaveBeenCalledWith({ caseId: 'c1', destination: 'work_site' })

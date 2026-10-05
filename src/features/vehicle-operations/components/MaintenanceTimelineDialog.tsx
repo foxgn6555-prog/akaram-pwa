@@ -2,7 +2,7 @@ import { Download, History, X } from 'lucide-react'
 import { useMaintenanceEvents } from '../hooks'
 
 const dt = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'short',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',

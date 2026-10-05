@@ -16,7 +16,7 @@ import {
 import type { MaintenancePurchaseOrder } from '@sdk/vehicle-operations.sdk'
 
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'short',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',
@@ -348,7 +348,7 @@ function PurchaseDetailDialog({ orderId, close }: { orderId: string; close: () =
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  {row.quantity.toLocaleString('ar-IQ')} {row.unit}
+                  {row.quantity.toLocaleString('ar-IQ-u-nu-latn')} {row.unit}
                 </td>
                 <td className="px-3 py-2">{money(row.unit_price)}</td>
                 <td className="px-3 py-2 font-black text-emerald-800">{money(row.line_total)}</td>

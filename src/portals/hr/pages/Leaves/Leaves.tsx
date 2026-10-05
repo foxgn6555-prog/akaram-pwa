@@ -140,7 +140,7 @@ function BalancesTab() {
                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">التاريخ</th><th className="p-2">الحركة</th><th className="p-2">الأيام</th><th className="p-2 text-start">البيان</th></tr></thead>
                 <tbody>{ledger.length === 0 ? <tr><td colSpan={4} className="p-3 text-center text-slate-400">لا حركات</td></tr> : ledger.map((l) => (
                   <tr key={l.id} className="border-t border-slate-100" data-testid={`ledger-${l.kind}`}>
-                    <td className="p-2 text-center">{new Date(l.created_at).toLocaleDateString('ar-IQ')}</td>
+                    <td className="p-2 text-center">{new Date(l.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
                     <td className="p-2 text-center">{LEDGER_LABELS[l.kind] ?? l.kind}</td>
                     <td className={clsx('p-2 text-center font-bold tabular-nums', Number(l.days) < 0 ? 'text-red-700' : 'text-emerald-700')}>{Number(l.days) > 0 ? '+' : ''}{Number(l.days)}</td>
                     <td className="p-2">{l.note}</td>

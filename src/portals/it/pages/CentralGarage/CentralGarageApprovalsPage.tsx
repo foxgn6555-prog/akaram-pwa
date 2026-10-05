@@ -81,7 +81,7 @@ export default function CentralGarageApprovalsPage() {
                     <p className="text-[11px] text-slate-400">سبب الطلب</p>
                     <p className="mt-1 text-sm font-bold text-slate-700">{request.reason}</p>
                   </div>
-                  <p className="mt-3 text-[11px] text-slate-400">أُرسل: {new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(request.requestedAt))}</p>
+                  <p className="mt-3 text-[11px] text-slate-400">أُرسل: {new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(request.requestedAt))}</p>
                   {tank && tank.currentQuantity !== request.requestedQuantity && <p className="mt-3 rounded-xl bg-red-50 p-2 text-xs font-bold text-red-700">تغير الرصيد بعد الطلب؛ سيمنع الخادم الموافقة القديمة.</p>}
                   <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button data-testid={`approve-zero-${request.id}`} onClick={() => setDecision({ request, approved: true })} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-xs font-black text-white"><CheckCircle2 size={16} />موافقة</button>
@@ -119,7 +119,7 @@ function UnassignedTanks({ tanks, isLoading }: { tanks: GarageTank[]; isLoading:
           const selected = selections[tank.id] ?? 'karrada'
           return (
             <article key={tank.id} className="rounded-2xl border border-orange-200 bg-white p-4" data-testid={`unassigned-tank-${tank.id}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-black text-slate-900">{tank.tankName}</h3><p className="text-xs text-slate-500">{tank.currentQuantity.toLocaleString('ar-IQ')} {garageUnitLabel(tank.unit)}</p></div><Link2 className="text-orange-600" size={20} /></div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-black text-slate-900">{tank.tankName}</h3><p className="text-xs text-slate-500">{tank.currentQuantity.toLocaleString('ar-IQ-u-nu-latn')} {garageUnitLabel(tank.unit)}</p></div><Link2 className="text-orange-600" size={20} /></div>
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                 <label className="sr-only" htmlFor={`tank-sector-${tank.id}`}>كراج الخزان {tank.tankName}</label>
                 <select id={`tank-sector-${tank.id}`} data-testid={`tank-sector-${tank.id}`} value={selected} onChange={(event) => setSelections((current) => ({ ...current, [tank.id]: event.target.value as ParentSector }))} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold">

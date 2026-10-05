@@ -19,7 +19,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 const dt = (v: string | null) =>
   v
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'short',
         timeZone: 'Asia/Baghdad',
@@ -263,7 +263,7 @@ function DailyFolders({
   onSelect: (day: string) => void
 }) {
   const label = (d: string) =>
-    new Intl.DateTimeFormat('ar-IQ', {
+    new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
       weekday: 'short',
       day: 'numeric',
       month: 'long',

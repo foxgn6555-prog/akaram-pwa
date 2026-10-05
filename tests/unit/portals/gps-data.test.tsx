@@ -394,7 +394,7 @@ describe('بيانات LVN GPS', () => {
       'رفض في بيانات المصدر',
     )
     expect(screen.getByRole('region', { name: 'سلسلة اكتمال نافذة المسار' })).toHaveTextContent(
-      '١٢٠',
+      '120',
     )
     fireEvent.click(screen.getByRole('button', { name: 'ملف تحقيق Excel' }))
     await waitFor(() =>

@@ -12,7 +12,7 @@ import { DISCLOSURE_STATUS_LABEL, EVENT_LABEL, PENALTY_LABEL, SHIFT_LABEL, type 
 export const COMPANY = 'شركة جزيرة الأكارم'
 const esc = (s: unknown): string => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const num = (n: number | null | undefined) => (n == null ? '—' : new Intl.NumberFormat('en-US').format(n))
-const dt = (s: string | null | undefined) => (s ? new Date(s).toLocaleString('ar-IQ', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')
+const dt = (s: string | null | undefined) => (s ? new Date(s).toLocaleString('ar-IQ-u-nu-latn', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')
 const d10 = (s: string | null | undefined) => (s ? s.slice(0, 10) : '—')
 const pen = (k: string | null) => (k ? PENALTY_LABEL[k as keyof typeof PENALTY_LABEL] ?? k : '—')
 const sh = (k: string | null) => (k ? SHIFT_LABEL[k] ?? k : '—')
@@ -119,7 +119,7 @@ export function buildReportHtml(list: DisclosureV2[], ctx: ExportContext = {}): 
   const maxT = Math.max(1, ...s.byType.map((x) => x.count))
   const bars = (arr: { key: string; count: number; amount: number }[], label: (k: string) => string = (k) => k, max = maxT) => arr.slice(0, 8).map((x) => `<div class="bar"><span>${esc(label(x.key))}</span><div class="track"><div class="fill" style="width:${(x.count / max) * 100}%"></div></div><b>${x.count}${x.amount ? ` · ${num(x.amount)}` : ''}</b></div>`).join('') || '<div style="color:#94a3b8">لا بيانات</div>'
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${PRINT_CSS}</style></head><body><main class="sheet">
-<header class="head"><img src="${logoUrl()}" alt=""><div><h1>${COMPANY}</h1><div class="sub">غرفة العمليات — وحدة الكشوفات · ${esc(title)}</div></div><div class="meta">${ctx.scopeLabel ? `النطاق: ${esc(ctx.scopeLabel)}<br>` : ''}تاريخ الإصدار: ${new Date().toLocaleString('ar-IQ')}<br>${ctx.preparedBy ? `أصدره: ${esc(ctx.preparedBy)}` : ''}</div></header>
+<header class="head"><img src="${logoUrl()}" alt=""><div><h1>${COMPANY}</h1><div class="sub">غرفة العمليات — وحدة الكشوفات · ${esc(title)}</div></div><div class="meta">${ctx.scopeLabel ? `النطاق: ${esc(ctx.scopeLabel)}<br>` : ''}تاريخ الإصدار: ${new Date().toLocaleString('ar-IQ-u-nu-latn')}<br>${ctx.preparedBy ? `أصدره: ${esc(ctx.preparedBy)}` : ''}</div></header>
 ${ctx.filtersSummary?.length ? `<div class="filters">${ctx.filtersSummary.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</div>` : ''}
 <section class="cards"><div class="card">إجمالي الكشوفات<b>${s.total}</b></div><div class="card a">قيد الموافقة<b>${s.pending}</b></div><div class="card r">مُعادة<b>${s.returned}</b></div><div class="card g">معتمدة<b>${s.approved}</b></div><div class="card">مجموع المبالغ (د.ع)<b>${num(s.amountAll)}</b></div><div class="card g">مبالغ معتمدة (د.ع)<b>${num(s.amountApproved)}</b></div></section>
 <section class="grid"><div class="box"><h2>حسب نوع الكشف</h2>${bars(s.byType)}</div><div class="box"><h2>حسب الحالة</h2>${bars(s.byStatus, (k) => st(k as DisclosureStatusV2), Math.max(1, ...s.byStatus.map((x) => x.count)))}</div><div class="box"><h2>حسب مُعدّ الكشف</h2>${bars(s.byPreparer, (k) => k, Math.max(1, ...s.byPreparer.map((x) => x.count)))}</div></section>
@@ -165,7 +165,7 @@ export function buildFormHtml(d: DisclosureV2): string {
 ${steps ? `<section class="sec"><h3>مسار الموافقة</h3><div class="steps">${steps}</div></section>` : ''}
 ${events ? `<section class="sec"><h3>سجل الأحداث</h3><table><thead><tr><th>الوقت</th><th>الفاعل</th><th>الحدث</th><th>ملاحظة</th></tr></thead><tbody>${events}</tbody></table></section>` : ''}
 <section class="sign"><div><b>مُعدّ الكشف</b><small>${esc(d.prepared_by_name ?? '')}</small></div><div><b>معاون المدير المفوض</b><small>${esc((d.timeline ?? []).find((s) => s.step_no === 1)?.decided_by ?? '')}</small></div><div><b>المدير المفوض</b><small>${esc(d.approved_by_name ?? '')}</small></div></section>
-<footer class="footer"><span>وثيقة إلكترونية صادرة من نظام ${COMPANY}</span><span>${esc(d.ref_no ?? '')} · طُبعت ${new Date().toLocaleString('ar-IQ')}</span></footer></main>
+<footer class="footer"><span>وثيقة إلكترونية صادرة من نظام ${COMPANY}</span><span>${esc(d.ref_no ?? '')} · طُبعت ${new Date().toLocaleString('ar-IQ-u-nu-latn')}</span></footer></main>
 <script>addEventListener('load',()=>setTimeout(()=>print(),350))</script></body></html>`
 }
 export function printDisclosureForm(d: DisclosureV2): void { openWin(buildFormHtml(d), 860, 1000) }

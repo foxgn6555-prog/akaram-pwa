@@ -99,7 +99,7 @@ const ZoneMapEditor = lazy(() => import('./ZoneMapEditor'))
 const LandmarkMapPicker = lazy(() => import('./LandmarkMapPicker'))
 const fmt = (v: string | null) =>
   v
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'short',
         timeZone: 'Asia/Baghdad',
@@ -107,7 +107,7 @@ const fmt = (v: string | null) =>
     : 'غير متوفر'
 const shortTime = (v: string | null) =>
   v
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         hour: '2-digit',
         minute: '2-digit',
         timeZone: 'Asia/Baghdad',
@@ -118,7 +118,7 @@ const baghdadDay = (offset = 0) =>
     new Date(Date.now() + offset * 86400000),
   )
 const speed = (row: GpsDevice) =>
-  `${new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 1 }).format(row.speed ?? 0)} ${row.speed_unit === 'mph' ? 'ميل/س' : 'كم/س'}`
+  `${new Intl.NumberFormat('ar-IQ-u-nu-latn', { maximumFractionDigits: 1 }).format(row.speed ?? 0)} ${row.speed_unit === 'mph' ? 'ميل/س' : 'كم/س'}`
 type View = 'operations' | 'trips' | 'fleet' | 'zones' | 'integration'
 
 export default function GpsDataPage() {
@@ -1195,7 +1195,7 @@ function TripsWorkspace({
                         )}
                       </td>
                       <td className="p-4">
-                        <b>{trip.gps_points.toLocaleString('ar-IQ')} نقطة</b>
+                        <b>{trip.gps_points.toLocaleString('ar-IQ-u-nu-latn')} نقطة</b>
                         <small className="block text-slate-400">
                           {shortTime(trip.first_fix)} — {shortTime(trip.last_fix)}
                         </small>
@@ -2807,7 +2807,7 @@ function PipelineMetric({
     <div className="rounded-xl border bg-white p-3">
       <small className="text-[9px] font-bold text-slate-500">{label}</small>
       <div className="mt-1 flex items-end justify-between">
-        <b className="text-xl">{value.toLocaleString('ar-IQ')}</b>
+        <b className="text-xl">{value.toLocaleString('ar-IQ-u-nu-latn')}</b>
         <span className="text-[10px] font-black text-slate-500">{safe}٪</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">

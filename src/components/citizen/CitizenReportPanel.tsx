@@ -3,7 +3,7 @@ import { useCitizenReport } from '@features/citizen'
 import { Kpi, MiniTable, Panel } from '@components/executive/exec-ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-const n = (v: number | null | undefined, unit = '') => (v == null ? '—' : `${Number(v).toLocaleString('ar-IQ')}${unit}`)
+const n = (v: number | null | undefined, unit = '') => (v == null ? '—' : `${Number(v).toLocaleString('ar-IQ-u-nu-latn')}${unit}`)
 
 export function CitizenReportPanel({ from, to }: { from: string; to: string }) {
   const { data: r, isLoading, error } = useCitizenReport(from, to)
@@ -14,7 +14,7 @@ export function CitizenReportPanel({ from, to }: { from: string; to: string }) {
   const resolvedPct = c.total ? Math.round((c.resolved / c.total) * 100) : 0
   return (
     <div className="space-y-3" data-testid="citizen-report">
-      <Panel title="شكاوى المواطنين (الصفحة العامة)" subtitle={`${from} → ${to} · ${c.total.toLocaleString('ar-IQ')} شكوى`} icon="clipboard" tone="blue" testId="citizen-report-complaints">
+      <Panel title="شكاوى المواطنين (الصفحة العامة)" subtitle={`${from} → ${to} · ${c.total.toLocaleString('ar-IQ-u-nu-latn')} شكوى`} icon="clipboard" tone="blue" testId="citizen-report-complaints">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Kpi title="إجمالي الشكاوى" value={n(c.total)} icon="clipboard" />
           <Kpi title="تمت المعالجة" value={n(c.resolved)} hint={`${resolvedPct}% من الإجمالي`} tone="emerald" icon="check" />
@@ -35,7 +35,7 @@ export function CitizenReportPanel({ from, to }: { from: string; to: string }) {
         </div>
         <p className="mt-3 text-[11px] text-slate-500">رضا المواطنين عن المعالجة: {c.avg_rating != null ? `${c.avg_rating} / 5 (${c.rated} تقييم)` : 'لا تقييمات بعد'} · {c.with_location} شكوى بموقع GPS · {c.with_photos} بصور</p>
       </Panel>
-      <Panel title="الدعم الفني المباشر" subtitle={`${s.sessions.toLocaleString('ar-IQ')} محادثة`} icon="life-buoy" tone="amber" testId="citizen-report-support">
+      <Panel title="الدعم الفني المباشر" subtitle={`${s.sessions.toLocaleString('ar-IQ-u-nu-latn')} محادثة`} icon="life-buoy" tone="amber" testId="citizen-report-support">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Kpi title="المحادثات" value={n(s.sessions)} icon="users" />
           <Kpi title="أُجيبت" value={n(s.answered)} tone="emerald" icon="check" />

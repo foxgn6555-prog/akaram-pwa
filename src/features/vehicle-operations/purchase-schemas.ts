@@ -62,4 +62,4 @@ export function purchaseOrderTotal(items: Array<{ quantity: number; unit_price: 
 }
 
 /** تنسيق المبالغ بالدينار العراقي */
-export const money = (value: number): string => new Intl.NumberFormat('ar-IQ').format(value)
+export const money = (value: number): string => new Intl.NumberFormat('ar-IQ-u-nu-latn').format(value)

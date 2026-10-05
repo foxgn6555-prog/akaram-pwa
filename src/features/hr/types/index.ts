@@ -205,6 +205,14 @@ export interface AttendanceAudit {
   created_at: string
 }
 
+/** صف سجل التدقيق بأسماء (hr_attendance_audit_list) */
+export interface AttendanceAuditRow extends AttendanceAudit {
+  employee_number: string
+  full_name: string
+  department_name: string | null
+  actor_name: string | null
+}
+
 export interface MonthExport {
   id: string
   period_month: string

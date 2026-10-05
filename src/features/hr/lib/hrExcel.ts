@@ -35,7 +35,7 @@ function fillHeader<T>(ws: Worksheet, spec: ExportSpec<T>) {
   ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 28
   ws.mergeCells(2, 1, 2, n)
   const filters = (spec.filters ?? []).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' · ')
-  ws.getCell('A2').value = `${filters || 'بلا فلاتر'} · ${spec.rows.length} سجلاً · أُنشئ ${new Date().toLocaleString('ar-IQ')}`
+  ws.getCell('A2').value = `${filters || 'بلا فلاتر'} · ${spec.rows.length} سجلاً · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')}`
   ws.getCell('A2').font = { size: 10, color: { argb: 'FF475569' } }; ws.getCell('A2').alignment = { horizontal: 'center' }
   ws.getRow(3).height = 6
   const hr = ws.getRow(4); hr.values = ['ت', ...spec.columns.map((c) => c.header)]
@@ -94,7 +94,7 @@ export function employeesSpec(rows: EmpAny[], columnKeys: string[], filters: Arr
 }
 
 // ─── الحضور ───
-const fmtT = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', hour12: false }) : '')
+const fmtT = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' }) : '')
 export function attendanceSpec(rows: AttendanceDayRow[], filters: Array<[string, string]>): ExportSpec<AttendanceDayRow> {
   return {
     title: 'سجل الحضور والانصراف', sheetName: 'الحضور', fileName: `الحضور-${filters.find(([k]) => k === 'من')?.[1] ?? today()}.xlsx`, rows, filters,

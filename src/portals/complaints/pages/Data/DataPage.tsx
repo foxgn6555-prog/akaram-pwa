@@ -45,7 +45,7 @@ function baghdadDateKey(value: string | null | undefined): string {
 function folderDateLabel(key: string): string {
   if (key === 'unknown') return 'تاريخ غير محدد'
   const date = new Date(`${key}T12:00:00+03:00`)
-  return new Intl.DateTimeFormat('ar-IQ', {
+  return new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     timeZone: 'Asia/Baghdad', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   }).format(date)
 }
@@ -53,7 +53,7 @@ function folderDateLabel(key: string): string {
 function shortDateLabel(key: string): string {
   if (key === 'unknown') return 'غير محدد'
   const date = new Date(`${key}T12:00:00+03:00`)
-  return new Intl.DateTimeFormat('ar-IQ', {
+  return new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(date)
 }

@@ -5,7 +5,7 @@ import type { SupportRequest } from '@features/sector'
 import { SUPPORT_STATUS_LABEL } from '@features/sector/supportMeta'
 
 const dt = (v: string | null) =>
-  v ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v)) : '—'
+  v ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v)) : '—'
 
 export function SupportRequestsPanel({ requests }: { requests: SupportRequest[] }) {
   const cancel = useCancelSupportRequest()

@@ -145,7 +145,7 @@ export const baghdadDay = (offset = 0) => {
 
 /** عرض التاريخ بالعربية (تقويم بغداد) */
 export const fmtDayAr = (iso: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

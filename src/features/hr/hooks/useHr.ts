@@ -153,6 +153,9 @@ export function useDeleteDeduction() {
     onError: t.err,
   })
 }
+export function useAttendanceAuditNamed(f: Parameters<typeof hr.listAuditNamed>[0] = {}) {
+  return useQuery({ queryKey: [...hrKeys.audit(f), 'named'], queryFn: () => hr.listAuditNamed(f) })
+}
 export function useAttendanceAudit(f: Parameters<typeof hr.listAudit>[0] = {}) {
   return useQuery({ queryKey: hrKeys.audit(f), queryFn: () => hr.listAudit(f) })
 }

@@ -2,7 +2,7 @@ import type { MaintenanceEvent } from '@sdk/vehicle-operations.sdk'
 import { buildExcelReport } from '@lib/export/excel-report'
 
 const dt = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'short',
     timeStyle: 'medium',
     timeZone: 'Asia/Baghdad',

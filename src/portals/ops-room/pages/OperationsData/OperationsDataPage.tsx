@@ -54,7 +54,7 @@ const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const dateTime = (value: unknown) =>
   value
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'short',
         timeZone: 'Asia/Baghdad',

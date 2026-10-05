@@ -32,7 +32,7 @@ export default function DatabaseOverview() {
         <div>
           <h1 id="db-title" className="text-lg font-bold">قاعدة البيانات — نظرة عامة</h1>
           <p className="text-sm text-slate-500" dir="ltr">
-            PostgreSQL {overview.version} · بدء الخدمة: {overview.started_at ? new Date(overview.started_at).toLocaleString('ar') : '—'}
+            PostgreSQL {overview.version} · بدء الخدمة: {overview.started_at ? new Date(overview.started_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}
           </p>
         </div>
         <div className="flex gap-2">

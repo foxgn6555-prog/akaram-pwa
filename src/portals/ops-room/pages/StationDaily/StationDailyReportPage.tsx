@@ -11,7 +11,7 @@ import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const time = (value: unknown) =>
-  value ? new Intl.DateTimeFormat('ar-IQ', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(String(value))) : '—'
+  value ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(String(value))) : '—'
 const num = (value: unknown) => Number(value ?? 0)
 
 const PARENT_LABELS: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }

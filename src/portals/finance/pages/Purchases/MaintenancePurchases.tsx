@@ -4,7 +4,7 @@ import { useMaintenancePurchasesFinance } from '@features/vehicle-operations/hoo
 import { money, partCategoryLabel } from '@features/vehicle-operations/purchase-schemas'
 
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
 
 export default function FinanceMaintenancePurchases() {
   const [search, setSearch] = useState('')
@@ -129,7 +129,7 @@ export default function FinanceMaintenancePurchases() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  {row.quantity.toLocaleString('ar-IQ')} {row.unit}
+                  {row.quantity.toLocaleString('ar-IQ-u-nu-latn')} {row.unit}
                 </td>
                 <td className="px-4 py-3">{money(row.unit_price)}</td>
                 <td className="px-4 py-3 font-black text-emerald-800">{money(row.line_total)}</td>

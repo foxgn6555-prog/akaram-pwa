@@ -150,7 +150,7 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
                 </section>
               ))}
               <Signatures kind={kind} orgName={orgName} />
-              <p className="text-center text-[10px] text-slate-400">أُنشئ آلياً من منصة {orgName} · {new Date(data.period.generated_at).toLocaleString('ar-IQ')} · الأرقام صافية من سجلات المنصة</p>
+              <p className="text-center text-[10px] text-slate-400">أُنشئ آلياً من منصة {orgName} · {new Date(data.period.generated_at).toLocaleString('ar-IQ-u-nu-latn')} · الأرقام صافية من سجلات المنصة</p>
               <div className="exec-page-foot hidden print:flex"><span>{orgName} — {reportKindLabel(data.period.from, data.period.to)}{kind === 'finance' ? ' (مالي)' : ''}</span><span>{periodLabel(data.period.from, data.period.to)} · سرّي — للاستعمال الداخلي</span></div>
             </div>
           )}
@@ -217,12 +217,12 @@ function Cover({ o, orgName, kind, sections, compare }: { o: ExecOverview; orgNa
       </div>
       <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-xs sm:grid-cols-4">
         <div><dt className="text-slate-500">أُعدّ لـ</dt><dd className="font-black text-slate-800">{PORTAL_TITLES[kind].who}</dd></div>
-        <div><dt className="text-slate-500">تاريخ الإصدار</dt><dd className="font-black text-slate-800">{new Date().toLocaleDateString('ar-IQ')}</dd></div>
+        <div><dt className="text-slate-500">تاريخ الإصدار</dt><dd className="font-black text-slate-800">{new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</dd></div>
         <div><dt className="text-slate-500">المقارنة</dt><dd className="font-black text-slate-800">{compare ? 'مع الفترة السابقة المكافئة' : 'بلا مقارنة'}</dd></div>
         <div><dt className="text-slate-500">عدد الأقسام</dt><dd className="font-black text-slate-800">{sections.length}</dd></div>
         <div className="col-span-2 sm:col-span-4"><dt className="text-slate-500">الأقسام</dt><dd className="font-bold text-slate-700">{sections.join(' · ')}</dd></div>
       </dl>
-      <p className="mt-4 text-center text-[10px] text-slate-400">سرّي — للاستعمال الداخلي · الأرقام مستخرجة آلياً من سجلات المنصة بتاريخ {new Date(o.period.generated_at).toLocaleString('ar-IQ')}</p>
+      <p className="mt-4 text-center text-[10px] text-slate-400">سرّي — للاستعمال الداخلي · الأرقام مستخرجة آلياً من سجلات المنصة بتاريخ {new Date(o.period.generated_at).toLocaleString('ar-IQ-u-nu-latn')}</p>
     </div>
   )
 }

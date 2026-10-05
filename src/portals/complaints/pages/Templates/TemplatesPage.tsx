@@ -194,7 +194,7 @@ export default function TemplatesPage() {
         <label className="mt-3 block text-sm font-bold">رسالة البريد
           <select aria-label="اختر البريد" value={messageId} onChange={event => { setMessageId(event.target.value); setEmailTemplateId(''); setNotice(null) }} className="mt-2 w-full rounded-xl border bg-white p-3">
             <option value="">اختر رسالة واردة</option>
-            {messages.map(message => <option key={message.id} value={message.id}>{message.subject || 'دون موضوع'} — {message.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — {new Date(message.receivedAt).toLocaleDateString('ar-IQ')}</option>)}
+            {messages.map(message => <option key={message.id} value={message.id}>{message.subject || 'دون موضوع'} — {message.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — {new Date(message.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</option>)}
           </select>
         </label>
         <TemplatePicker templates={emailTemplates} value={emailTemplateId} onChange={setEmailTemplateId} disabled={!selectedMessage} suggested={bestTemplate(templates, selectedMessage?.sector)} />

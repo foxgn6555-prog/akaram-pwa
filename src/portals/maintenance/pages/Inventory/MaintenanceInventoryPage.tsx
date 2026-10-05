@@ -67,7 +67,7 @@ export default function MaintenanceInventoryPage() {
                 )}
               </div>
               <p className="mt-2 text-2xl font-black text-amber-800">
-                {t.quantity.toLocaleString('ar-IQ')}
+                {t.quantity.toLocaleString('ar-IQ-u-nu-latn')}
                 <span className="mr-1 text-[10px] font-bold text-slate-500">وحدة متوفرة</span>
               </p>
               <p className="mt-1 text-[11px] text-slate-500">{t.items} صنف مسجل</p>
@@ -145,10 +145,10 @@ export default function MaintenanceInventoryPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{item.unit}</td>
                   <td className="px-4 py-3 text-lg font-black text-amber-800">
-                    {item.current_quantity.toLocaleString('ar-IQ')}
+                    {item.current_quantity.toLocaleString('ar-IQ-u-nu-latn')}
                   </td>
                   <td className="px-4 py-3">{money(item.average_unit_cost)}</td>
-                  <td className="px-4 py-3 text-slate-600">{item.low_stock_threshold.toLocaleString('ar-IQ')}</td>
+                  <td className="px-4 py-3 text-slate-600">{item.low_stock_threshold.toLocaleString('ar-IQ-u-nu-latn')}</td>
                   <td className="px-4 py-3">
                     {low ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[11px] font-black text-red-700">
@@ -282,7 +282,7 @@ function ReceiveDialog({ item, close }: { item: MaintenanceInventoryItem; close:
       >
         <p className="rounded-xl bg-amber-50 p-3 text-xs">
           القسم: <b>{partCategoryLabel(item.part_category)}</b> · المتوفر حالياً:{' '}
-          <b>{item.current_quantity.toLocaleString('ar-IQ')} {item.unit}</b>
+          <b>{item.current_quantity.toLocaleString('ar-IQ-u-nu-latn')} {item.unit}</b>
         </p>
         <input
           aria-label="الكمية المستلمة"

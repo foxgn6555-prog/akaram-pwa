@@ -326,8 +326,8 @@ function EventRow({
             <Meta k="الرابط" v={row.url ?? '—'} mono />
             <Meta k="المستخدم" v={row.user_id ?? 'غير مسجّل'} mono />
             <Meta k="المتصفح" v={row.user_agent ?? '—'} />
-            <Meta k="أول ظهور" v={new Date(row.created_at).toLocaleString('ar-IQ')} />
-            <Meta k="آخر ظهور" v={new Date(row.last_seen_at ?? row.created_at).toLocaleString('ar-IQ')} />
+            <Meta k="أول ظهور" v={new Date(row.created_at).toLocaleString('ar-IQ-u-nu-latn')} />
+            <Meta k="آخر ظهور" v={new Date(row.last_seen_at ?? row.created_at).toLocaleString('ar-IQ-u-nu-latn')} />
             <Meta k="التكرار" v={String(row.occurrences)} />
             <Meta k="البصمة" v={row.fingerprint ?? '—'} mono />
           </dl>

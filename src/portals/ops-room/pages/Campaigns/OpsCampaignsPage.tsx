@@ -29,7 +29,7 @@ const MODES: Array<{ key: MediaMode; label: string; icon: typeof Sparkles }> = [
 ]
 const firstOfMonth = () => `${baghdadDay().slice(0, 7)}-01`
 const vehTotal = (r: OpsCampaignRow) => VEHICLE_KINDS.reduce((s, v) => s + (r[VEHICLE_COL[v.key]] ?? 0), 0)
-const fmtDay = (d: string) => new Intl.DateTimeFormat('ar-IQ', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Baghdad' }).format(new Date(d))
+const fmtDay = (d: string) => new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Baghdad' }).format(new Date(d))
 
 export default function OpsCampaignsPage() {
   const [mode, setMode] = useState<MediaMode>('campaign')

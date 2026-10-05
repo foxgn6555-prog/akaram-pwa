@@ -128,7 +128,7 @@ export default function ITDashboard() {
     حجم: Math.round(s.total_bytes / 1024),
   }))
   const connData = (connHistory ?? []).map((h) => ({
-    time: new Date(h.at).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' }),
+    time: new Date(h.at).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' }),
     latency: h.ms,
   }))
 

@@ -42,7 +42,7 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
   // ── الورقة 1: الشبكة الشهرية ──
   const ws = wb.addWorksheet('غير المطابقين', { views: [{ rightToLeft: true, state: 'frozen', xSplit: fixed.length, ySplit: 5 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } })
   const filters = [`الفترة: ${meta.from} → ${meta.to}`, `الفرع: ${meta.branchLabel}`, meta.search ? `بحث: ${meta.search}` : ''].filter(Boolean).join(' · ')
-  header(ws, 'الأشخاص غير المطابقين — سجل الحضور اليومي من أجهزة البصمة', `${filters} · ${rows.length} شخصاً · أُنشئ ${new Date().toLocaleString('ar-IQ')}`, colCount)
+  header(ws, 'الأشخاص غير المطابقين — سجل الحضور اليومي من أجهزة البصمة', `${filters} · ${rows.length} شخصاً · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')}`, colCount)
   // صفّان للترويسة: اليوم (رقم) + اسم اليوم
   const h1 = ws.getRow(4); const h2 = ws.getRow(5)
   h1.values = [...fixed, ...days.map((d) => String(Number(d.slice(8, 10)))), ...totals]

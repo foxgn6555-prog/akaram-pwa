@@ -38,7 +38,7 @@ import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
 
 export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
   const [workType, setWorkType] = useState('')

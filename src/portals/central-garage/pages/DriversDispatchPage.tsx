@@ -19,7 +19,7 @@ const inputClass =
   'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 const shiftLabels = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' } as const
 const clock = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'Asia/Baghdad',
@@ -494,7 +494,7 @@ function GarageDailyFolders({
   onSelect: (day: string) => void
 }) {
   const label = (d: string) =>
-    new Intl.DateTimeFormat('ar-IQ', {
+    new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
       weekday: 'short',
       day: 'numeric',
       month: 'long',

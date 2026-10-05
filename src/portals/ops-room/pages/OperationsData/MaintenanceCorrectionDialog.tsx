@@ -107,7 +107,7 @@ export function MaintenanceCorrectionDialog({ target, onClose }: { target: Maint
             كلفة الخدمة (بلا قطع)
             <input data-testid="mc-service" type="number" min={0} step="0.01" value={form.serviceCost} onChange={set('serviceCost')} className="mt-1 h-11 w-full rounded-xl border px-3 text-sm" />
             <span className="mt-1 block text-[10px] font-bold text-slate-400" data-testid="mc-projected">
-              الكلفة الفعلية بعد التصحيح = {projectedActual.toLocaleString('ar-IQ')} (خدمة + قطع {(target.partsActualCost ?? 0).toLocaleString('ar-IQ')})
+              الكلفة الفعلية بعد التصحيح = {projectedActual.toLocaleString('ar-IQ-u-nu-latn')} (خدمة + قطع {(target.partsActualCost ?? 0).toLocaleString('ar-IQ-u-nu-latn')})
             </span>
           </label>
           <label className="text-xs font-black text-slate-600 md:col-span-2">

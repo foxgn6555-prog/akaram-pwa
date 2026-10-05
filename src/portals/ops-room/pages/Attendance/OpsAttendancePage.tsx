@@ -54,7 +54,7 @@ export default function OpsAttendancePage() {
     a.minutes += m; a.days += d; if (m > 0 || d > 0) a.count += 1; return a
   }, { minutes: 0, days: 0, count: 0, waived: 0 }), [rows])
   const toggleWaive = async (r: AttendanceDay) => {
-    const reason = window.prompt(r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):')
+    const reason = window.prompt((r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):') + '\nسيتم تبليغ وحدة التطوير المركزية بهذا الإجراء.')
     if (!reason || reason.trim().length < 3) return
     try { await waive.mutateAsync({ employeeId: r.employee_id, date: r.work_date, waive: !r.deduction_waived, reason: reason.trim() }) } catch { /* toast in hook */ }
   }
@@ -177,10 +177,11 @@ function Overlay({ title, onClose, children, testId }: { title: string; onClose:
 function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }) {
   const edit = useEditAttendance(); const reset = useResetAttendance()
   const [err, setErr] = useState<string | null>(null)
-  const toLocal = (ts: string | null) => ts ? new Date(ts).toTimeString().slice(0, 5) : ''
+  // الأوقات تُعرض وتُحفظ بتوقيت بغداد (+03:00 ثابت بلا توقيت صيفي) مهما كان توقيت جهاز المدقّق
+  const toLocal = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' }) : ''
   const [cin, setCin] = useState(toLocal(row.check_in)); const [cout, setCout] = useState(toLocal(row.check_out))
   const [st, setSt] = useState<AttendanceStatus>(row.status); const [reason, setReason] = useState('')
-  const compose = (hm: string, dayOffset = 0) => { if (!hm) return null; const d = new Date(`${row.work_date}T${hm}:00`); d.setDate(d.getDate() + dayOffset); return d.toISOString() }
+  const compose = (hm: string, dayOffset = 0) => { if (!hm) return null; const d = new Date(`${row.work_date}T${hm}:00+03:00`); d.setUTCDate(d.getUTCDate() + dayOffset); return d.toISOString() }
   const overnight = !!cin && !!cout && cout < cin
   const save = async () => {
     if (reason.trim().length < 3) { setErr('السبب إلزامي (3 أحرف على الأقل)'); return }
@@ -203,6 +204,10 @@ function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }
         <Field id="e-status" label="الحالة *" hint="التأخير/الخروج المبكر يُحسبان من الأوقات؛ حاضر/غائب/إجازة تصفّرهما"><select id="e-status" className={field} value={st} onChange={(e) => setSt(e.target.value as AttendanceStatus)} data-testid="e-status">{EDITABLE.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select></Field>
         <div className="sm:col-span-2"><Field id="e-reason" label="سبب التعديل *"><textarea id="e-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: بصمة الخروج لم تُسجَّل بسبب عطل الجهاز — تم التأكد من مسؤول القسم" data-testid="e-reason" /></Field></div>
       </div>
+      <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice">
+        <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب).</span>
+      </p>
       {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="e-error">{err}</p>}
       <div className="mt-3 flex flex-wrap justify-between gap-2">
         <Button size="sm" variant="ghost" onClick={() => void doReset()} isLoading={reset.isPending} data-testid="e-reset">إعادة الاحتساب من البصمات</Button>
@@ -224,7 +229,7 @@ function AuditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void 
         <ol className="max-h-80 space-y-2 overflow-y-auto text-xs" data-testid="audit-list">
           {log.map((a) => (
             <li key={a.id} className="rounded-xl bg-slate-50 p-2">
-              <div className="flex justify-between"><span className="font-bold">{AUDIT_LABELS[a.action] ?? a.action}</span><span className="text-slate-500">{new Date(a.created_at).toLocaleString('ar-IQ')}</span></div>
+              <div className="flex justify-between"><span className="font-bold">{AUDIT_LABELS[a.action] ?? a.action}</span><span className="text-slate-500">{new Date(a.created_at).toLocaleString('ar-IQ-u-nu-latn')}</span></div>
               <p className="text-slate-600">{a.reason}</p><p className="text-[10px] text-slate-400" dir="ltr">{a.actor ? `actor ${a.actor.slice(0, 8)}` : ''}</p>
               <ul className="mt-1 text-[11px] text-slate-500" dir="ltr">{diff(a.before, a.after).map((d) => <li key={d}>{d}</li>)}</ul>
             </li>
@@ -251,6 +256,10 @@ function DeductPanel({ row, month, onClose }: { row: AttendanceDay; month: strin
         <Field id="d-value" label={kind === 'days' ? 'عدد الأيام' : 'المبلغ'}><input id="d-value" type="number" min={0} step={kind === 'days' ? 0.5 : 250} className={field} value={value} onChange={(e) => setValue(e.target.value)} data-testid="d-value" /></Field>
         <div className="sm:col-span-2"><Field id="d-reason" label="السبب *"><textarea id="d-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="d-reason" /></Field></div>
       </div>
+      <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice-ded">
+        <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب).</span>
+      </p>
       {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="d-error">{err}</p>}
       <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={add.isPending} data-testid="d-save">تسجيل الاستقطاع</Button></div>
     </Overlay>
@@ -272,7 +281,7 @@ function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) 
               <td className="p-2 text-center text-xs">{d.days > 0 ? 'أيام' : 'مبلغ'}</td>
               <td className="p-2 text-center font-bold tabular-nums">{d.days > 0 ? `${d.days} يوم` : fmtMoney(d.amount)}</td>
               <td className="p-2 text-xs">{d.reason}</td>
-                            <td className="p-2 text-center text-xs">{new Date(d.created_at).toLocaleDateString('ar-IQ')}</td>
+                            <td className="p-2 text-center text-xs">{new Date(d.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
               <td className="p-2 text-center">{!locked && <button type="button" className="text-[11px] text-red-600 hover:underline" onClick={async () => { const reason = window.prompt('سبب حذف الاستقطاع:'); if (!reason || reason.trim().length < 3) return; try { await del.mutateAsync({ id: d.id, reason: reason.trim() }) } catch { /* toast in hook */ } }} data-testid={`ded-del-${d.id}`}>حذف</button>}</td>
             </tr>))}</tbody>
         </table>
@@ -294,8 +303,8 @@ function ExportsPanel() {
             <tr key={x.id} className="border-t border-slate-100 text-center text-xs" data-testid={`exp-row-${x.period_month}-${x.version}`}>
               <td className="p-2 font-bold">{x.period_month.slice(0, 7)}</td><td className="p-2">v{x.version}</td><td className="p-2">{x.rows_count}</td>
               <td className="p-2"><span className={clsx('rounded-full px-2 py-0.5 font-bold', x.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : x.status === 'exported' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500')}>{label[x.status] ?? x.status}</span></td>
-              <td className="p-2">{new Date(x.exported_at).toLocaleString('ar-IQ')}</td>
-              <td className="p-2">{x.approved_at ? new Date(x.approved_at).toLocaleString('ar-IQ') : '—'}</td>
+              <td className="p-2">{new Date(x.exported_at).toLocaleString('ar-IQ-u-nu-latn')}</td>
+              <td className="p-2">{x.approved_at ? new Date(x.approved_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}</td>
             </tr>))}</tbody>
         </table>
       )}

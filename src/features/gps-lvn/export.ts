@@ -14,7 +14,7 @@ import type {
 
 const date = (value: string | null) =>
   value
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'medium',
         timeZone: 'Asia/Baghdad',

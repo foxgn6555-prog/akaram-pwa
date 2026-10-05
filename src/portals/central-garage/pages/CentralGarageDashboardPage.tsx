@@ -9,8 +9,8 @@ const fuelLabels: Record<GarageFuelType, string> = { gas_oil: 'الكاز', hydr
 const shiftLabels = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' } as const
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 const monthAgo = () => { const date = new Date(`${today()}T12:00:00+03:00`); date.setDate(date.getDate() - 29); return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date) }
-const number = (value: number) => new Intl.NumberFormat('ar-IQ', { maximumFractionDigits: 1 }).format(value)
-const dateTime = (value: string) => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
+const number = (value: number) => new Intl.NumberFormat('ar-IQ-u-nu-latn', { maximumFractionDigits: 1 }).format(value)
+const dateTime = (value: string) => new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
 
 function StatCard({ title, value, hint, icon: Icon, tone }: { title: string; value: number; hint: string; icon: typeof Gauge; tone: string }) {
   return <article className={`rounded-3xl border p-5 shadow-sm ${tone}`}>

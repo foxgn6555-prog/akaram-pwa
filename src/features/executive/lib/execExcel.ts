@@ -107,7 +107,7 @@ export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], pr
   const sheets = buildExecSheets(o, insights, prev, scope)
   const [summary, conclusions, ...units] = sheets
   const title = `${reportKindLabel(o.period.from, o.period.to)}${scope === 'finance' ? ' — مالي' : ''}`
-  const meta = `${periodLabel(o.period.from, o.period.to)}${o.period.sector ? ' · قاطع ' + o.period.sector : ''}${o.period.shift ? ' · شفت ' + (STATUS_LABELS[o.period.shift] ?? o.period.shift) : ''} · أُعدّ لـ ${who} · ${new Date().toLocaleDateString('ar-IQ')}`
+  const meta = `${periodLabel(o.period.from, o.period.to)}${o.period.sector ? ' · قاطع ' + o.period.sector : ''}${o.period.shift ? ' · شفت ' + (STATUS_LABELS[o.period.shift] ?? o.period.shift) : ''} · أُعدّ لـ ${who} · ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}`
   const toRows = (sh: ExecSheet) => sh.rows.map((r) => Object.fromEntries(sh.columns.map((_c, i) => [`c${i}`, r[i] ?? ''])))
   const cols = (sh: ExecSheet, widths?: number[]) => sh.columns.map((c, i) => ({ header: c, key: `c${i}`, width: widths?.[i] ?? (i === 0 ? 36 : 18), align: i === 0 ? ('right' as const) : ('center' as const), numFmt: i === 0 ? undefined : '#,##0.##', wrap: i === 0 }))
   const sumCols = summary!.columns.map((c, i) => ({ header: c, key: `c${i}`, width: i === 0 ? 38 : 18, align: i === 0 ? ('right' as const) : ('center' as const), numFmt: i === 0 || i === 3 ? undefined : '#,##0.##' }))
@@ -177,7 +177,7 @@ export async function buildExecWorkbook(o: ExecOverview, insights: Insight[], pr
   put(4, `${who} — تقرير دوري`, 12, false, BRAND.muted)
   put(7, title, 26, true, BRAND.dark, 44)
   put(8, periodLabel(o.period.from, o.period.to), 14, false, BRAND.ink, 26)
-  put(10, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-IQ')}`, 11, false, BRAND.muted)
+  put(10, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}`, 11, false, BRAND.muted)
   put(11, `الأوراق: ${wb.worksheets.filter((w) => w !== cover).map((w) => w.name).join(' · ')}`, 10, false, BRAND.muted, 40)
   put(13, 'الأرقام صافية من سجلات المنصة — تُقرأ ورقة «المؤشرات» أولاً ثم الاستنتاجات ثم تفاصيل كل وحدة.', 10, false, BRAND.muted, 30)
   for (let r = 2; r <= 14; r++) cover.getCell(r, 2).border = r === 2 ? { top: { style: 'medium', color: { argb: `FF${BRAND.gold}` } } } : r === 14 ? { bottom: { style: 'medium', color: { argb: `FF${BRAND.gold}` } } } : {}

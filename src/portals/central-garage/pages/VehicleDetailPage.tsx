@@ -32,7 +32,7 @@ import { AssignmentDialog } from '../components/AssignmentDialog'
 import { EditVehicleDialog } from '../components/EditVehicleDialog'
 
 const arDate = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',

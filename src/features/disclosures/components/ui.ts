@@ -6,7 +6,7 @@ export const fmtDate = (s: string | null | undefined): string => (s ? s.slice(0,
 export const fmtDateTime = (s: string | null | undefined): string => {
   if (!s) return '—'
   const d = new Date(s); if (Number.isNaN(d.getTime())) return s
-  return d.toLocaleString('ar-IQ', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString('ar-IQ-u-nu-latn', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 export const fmtMonth = (s: string | null | undefined): string => (s ? s.slice(0, 7) : '—')
 

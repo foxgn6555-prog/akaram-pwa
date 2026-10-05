@@ -188,6 +188,27 @@ describe('غرفة العمليات — الحضوريات', () => {
     fireEvent.click(screen.getByTestId('e-save'))
     await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'present', reason: 'تأكيد من مسؤول القسم' })))
   })
+  it('00178: تنبيه تبليغ التطوير المركزية يظهر في لوحتي التعديل والاستقطاع', () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
+    expect(screen.getByTestId('it-notify-notice')).toHaveTextContent('سيتم تبليغ وحدة التطوير المركزية')
+  })
+  it('00178: أوقات التعديل تُعرض وتُحفظ بتوقيت بغداد بأرقام إنكليزية مهما كان توقيت المتصفح', async () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
+    // 05:40Z = 08:40 بغداد
+    expect((screen.getByTestId('e-in') as HTMLInputElement).value).toBe('08:40')
+    fireEvent.change(screen.getByTestId('e-out'), { target: { value: '15:52' } })
+    fireEvent.change(screen.getByTestId('e-reason'), { target: { value: 'بصمة الخروج لم تُسجَّل' } })
+    fireEvent.click(screen.getByTestId('e-save'))
+    await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ checkIn: '2026-09-05T05:40:00.000Z', checkOut: '2026-09-05T12:52:00.000Z' })))
+  })
+  it('00178: الجدول يعرض الأوقات بأرقام إنكليزية (لا ٠-٩)', () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    const row = screen.getByTestId('ops-edit-E100-2026-09-05').closest('tr') as HTMLElement
+    expect(row.textContent).toMatch(/08:40/)
+    expect(row.textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
   it('الاستقطاع اليدوي بالأيام يرسل days والمبلغ صفراً مع السبب', async () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-deduct-E100'))

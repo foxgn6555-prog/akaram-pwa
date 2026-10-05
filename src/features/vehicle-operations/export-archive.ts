@@ -3,7 +3,7 @@ import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 
 const dt = (value: string | null | undefined) =>
   value
-    ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
     : '—'
 const minutes = (m: number | null | undefined) =>
   m === null || m === undefined ? '—' : m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`
@@ -123,7 +123,7 @@ export async function exportMaintenanceArchive(
   filters: { search?: string; from?: string; to?: string },
 ) {
   const s = archiveSummary(rows)
-  const money = (v: number) => new Intl.NumberFormat('ar-IQ').format(v)
+  const money = (v: number) => new Intl.NumberFormat('ar-IQ-u-nu-latn').format(v)
   const summaryRows = [
     { metric: 'عدد الحالات المكتملة', value: s.count },
     { metric: 'إجمالي الكلفة الفعلية (د.ع)', value: money(s.totalCost) },

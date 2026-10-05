@@ -1,6 +1,6 @@
 import { sdkGuard, supabase } from './client'
 export type NotificationCategory =
-  'system' | 'departure' | 'maintenance' | 'garage' | 'station' | 'gps' | 'complaints' | 'security'
+  'system' | 'departure' | 'maintenance' | 'garage' | 'station' | 'gps' | 'complaints' | 'security' | 'hr'
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical'
 export interface AppNotification {
   id: string

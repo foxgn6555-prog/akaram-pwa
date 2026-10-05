@@ -9,6 +9,7 @@ const categoryLabels: Record<PushDeliveryRow['category'], string> = {
   gps: 'نظام تحديد المواقع',
   complaints: 'الشكاوى',
   security: 'الأمان',
+  hr: 'الموارد البشرية والحضور',
 }
 const statusLabels: Record<PushDeliveryRow['status'], string> = {
   pending: 'بانتظار الإرسال',
@@ -19,7 +20,7 @@ const statusLabels: Record<PushDeliveryRow['status'], string> = {
 }
 const date = (value: string | null) =>
   value
-    ? new Intl.DateTimeFormat('ar-IQ', {
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
         dateStyle: 'short',
         timeStyle: 'medium',
         timeZone: 'Asia/Baghdad',

@@ -103,7 +103,7 @@ export default function CarrierPage() {
           <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
             وقت الخروج <span className="font-normal text-slate-400">(تلقائي)</span>
             <div className="flex h-11 items-center rounded-xl border border-dashed border-brand-200 bg-brand-50/60 px-3 text-sm font-bold text-brand-700 dir-ltr">
-              {new Date().toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
+              {new Date().toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </label>
           <div className="flex items-end">

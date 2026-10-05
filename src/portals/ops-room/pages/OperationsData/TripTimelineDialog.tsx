@@ -8,7 +8,7 @@ import { useOpsDepartureTimeline } from '@features/vehicle-operations/hooks'
 import type { TripTimelineEvent } from '@sdk/vehicle-operations.sdk'
 
 const dt = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(
     new Date(value),
   )
 const gap = (m: number) => (m <= 0 ? '' : m < 60 ? `+${m} د` : `+${Math.floor(m / 60)} س ${m % 60} د`)

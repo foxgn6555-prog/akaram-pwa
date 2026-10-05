@@ -8,7 +8,7 @@ const labels: Record<string, string> = {
   returned_to_work: 'عادت إلى العمل', closed_at_garage: 'أُغلقت في الكراج',
 }
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
 
 export interface CaseHistoryTarget {
   case_id: string
@@ -155,7 +155,7 @@ export function MaintenanceCaseHistoryDialog({ item, close, allowUpload = true }
               <div className="flex justify-between">
                 <span>
                   {p.part_name} · {p.quantity} {p.unit} ·{' '}
-                  {(p.unit_cost ?? 0).toLocaleString('ar-IQ')}
+                  {(p.unit_cost ?? 0).toLocaleString('ar-IQ-u-nu-latn')}
                 </span>
                 <b>
                   {p.part_status === 'issued'
@@ -170,10 +170,10 @@ export function MaintenanceCaseHistoryDialog({ item, close, allowUpload = true }
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-3 text-xs text-white">
           <span>
-            كلفة القطع: <b>{item.parts_actual_cost.toLocaleString('ar-IQ')}</b>
+            كلفة القطع: <b>{item.parts_actual_cost.toLocaleString('ar-IQ-u-nu-latn')}</b>
           </span>
           <span>
-            الكلفة الفعلية الإجمالية: <b>{(item.actual_cost ?? 0).toLocaleString('ar-IQ')}</b>
+            الكلفة الفعلية الإجمالية: <b>{(item.actual_cost ?? 0).toLocaleString('ar-IQ-u-nu-latn')}</b>
           </span>
         </div>
       </div>

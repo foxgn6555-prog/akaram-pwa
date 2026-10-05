@@ -15,7 +15,7 @@ import {
 import type { GarageMaintenanceCoordination } from '@sdk/vehicle-operations.sdk'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
 const dt = (v: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',

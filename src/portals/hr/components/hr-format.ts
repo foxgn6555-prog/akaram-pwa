@@ -8,7 +8,7 @@ export const STATUS_STYLES: Record<AttendanceStatus, string> = {
   absent: 'bg-red-50 text-red-700', incomplete: 'bg-violet-50 text-violet-700', leave: 'bg-sky-50 text-sky-700', time_permit: 'bg-teal-50 text-teal-700',
 }
 export const fmtTime = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—'
+  iso ? new Date(iso).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' }) : '—'
 export const fmtMinutes = (m: number) => (m <= 0 ? '—' : m >= 60 ? `${Math.floor(m / 60)}س ${m % 60}د` : `${m}د`)
 export const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n))
 export const monthStart = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`

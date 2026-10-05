@@ -7,7 +7,7 @@ import { money } from '@features/vehicle-operations/purchase-schemas'
 import { archiveSummary, exportMaintenanceArchive, finalLabels, priorityLabels } from '@features/vehicle-operations/export-archive'
 
 const dt = (x: string | null | undefined) =>
-  x ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
+  x ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
 
 const minutes = (m: number | null | undefined) =>
   m === null || m === undefined ? '—' : m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`

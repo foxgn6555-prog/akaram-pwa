@@ -19,7 +19,7 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: approved ? 'FF065F46' : 'FF1E3A8A' } }
   ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 30
   ws.mergeCells(2, 1, 2, headers.length)
-  ws.getCell('A2').value = `الإصدار ${rows[0]?.export_version ?? '-'} · صُدّر من غرفة العمليات في ${rows[0] ? new Date(rows[0].exported_at).toLocaleString('ar-IQ') : '-'} · أُنشئ ${new Date().toLocaleString('ar-IQ')} · العملة: دينار عراقي`
+  ws.getCell('A2').value = `الإصدار ${rows[0]?.export_version ?? '-'} · صُدّر من غرفة العمليات في ${rows[0] ? new Date(rows[0].exported_at).toLocaleString('ar-IQ-u-nu-latn') : '-'} · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')} · العملة: دينار عراقي`
   ws.getCell('A2').alignment = { horizontal: 'center' }; ws.getCell('A2').font = { size: 10, color: { argb: 'FF475569' } }
   ws.getRow(3).height = 6
   const hr = ws.getRow(4); hr.values = headers

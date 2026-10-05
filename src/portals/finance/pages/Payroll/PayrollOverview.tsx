@@ -77,7 +77,7 @@ function SheetTab() {
           <StatCard title="بلا ملف راتب" value={missing} tone={missing ? 'red' : 'slate'} hint={missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
         </div>
       )}
-      {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}</p>}
+      {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}</p>}
 
       {isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -193,7 +193,7 @@ function SalaryFormInner({ employeeId, name, defaultType, profile }: { employeeI
   }
   return (
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="salary-form">
-      <div className="flex items-center justify-between"><h3 className="text-sm font-bold">ملف راتب: {name}</h3>{profile?.status === 'defined' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">مُعرَّف منذ {profile.set_at ? new Date(profile.set_at).toLocaleDateString('ar-IQ') : ''}</span>}</div>
+      <div className="flex items-center justify-between"><h3 className="text-sm font-bold">ملف راتب: {name}</h3>{profile?.status === 'defined' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">مُعرَّف منذ {profile.set_at ? new Date(profile.set_at).toLocaleDateString('ar-IQ-u-nu-latn') : ''}</span>}</div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id="sf-type" label="نوع التعاقد"><select id="sf-type" className={field} value={payType} onChange={(e) => setPayType(e.target.value as ContractType)} data-testid="sf-type"><option value="monthly">شهري</option><option value="daily">أجر يومي</option></select></Field>
         {payType === 'monthly'
@@ -244,7 +244,7 @@ function NoticesTab({ onDefine }: { onDefine: () => void }) {
             <p className="text-sm font-bold">{n.kind === 'salary_pending' ? 'راتب بانتظار التعريف' : 'تسوية نهاية خدمة'} — {n.employees?.full_name}</p>
             <p className="text-[11px] text-slate-600">{n.employees?.employee_number} · {n.employees ? CONTRACT_LABELS[n.employees.contract_type] : ''}
               {n.kind === 'termination_settlement' && <> · {TERMINATION_LABELS[(n.payload.type as TerminationType) ?? 'resignation'] ?? ''} · آخر يوم {String(n.payload.last_day ?? '')} · {String(n.payload.reason ?? '')}</>}
-              · {new Date(n.created_at).toLocaleDateString('ar-IQ')}</p>
+              · {new Date(n.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</p>
           </div>
           <div className="flex gap-2">
             {n.kind === 'salary_pending' && <Button size="sm" onClick={onDefine}>تعريف الراتب</Button>}

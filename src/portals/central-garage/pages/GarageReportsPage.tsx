@@ -11,8 +11,8 @@ const fuelLabels:Record<GarageFuelType,string>={gas_oil:'الكاز',hydraulic:'
 const movementLabels:Record<GarageMovementType,string>={stock_in:'إضافة مخزون',vehicle_fill:'تعبئة آلية',approved_reset:'تصفير معتمد'}
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
 const monthAgo=()=>{const d=new Date(`${today()}T12:00:00+03:00`);d.setDate(d.getDate()-29);return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
-const num=(value:number)=>new Intl.NumberFormat('ar-IQ',{maximumFractionDigits:3}).format(value)
-const arDate=(value:string)=>new Intl.DateTimeFormat('ar-IQ',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(value))
+const num=(value:number)=>new Intl.NumberFormat('ar-IQ-u-nu-latn',{maximumFractionDigits:3}).format(value)
+const arDate=(value:string)=>new Intl.DateTimeFormat('ar-IQ-u-nu-latn',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(value))
 const inputClass='h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 
 export default function GarageReportsPage(){

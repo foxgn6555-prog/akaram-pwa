@@ -9,7 +9,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 const arDate = (value: string) =>
-  new Intl.DateTimeFormat('ar-IQ', {
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Baghdad',

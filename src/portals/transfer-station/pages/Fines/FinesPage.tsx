@@ -11,7 +11,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dateTime = (value: string | null) =>
   value
-    ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(value))
     : '—'
 
 export default function FinesPage() {

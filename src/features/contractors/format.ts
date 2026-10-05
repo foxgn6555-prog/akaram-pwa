@@ -2,9 +2,9 @@
 export const SHIFT_AR: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
 export const PARENT_AR: Record<string, string> = { karrada: 'قاطع الكرادة', zaafaraniya: 'قاطع الزعفرانية' }
 export const timeAr = (x: string | null | undefined) =>
-  x ? new Intl.DateTimeFormat('ar-IQ', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
+  x ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
 export const dateAr = (x: string | null | undefined) =>
-  x ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'medium', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
+  x ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
 export const zoneLabel = (inZone: boolean | null | undefined, defined = true) =>
   !defined || inZone === null || inZone === undefined ? 'لا نطاق محدد للمنطقة' : inZone ? 'داخل نطاق المنطقة' : 'خارج نطاق المنطقة'
 export const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`

@@ -7,7 +7,7 @@ import { MODE_LABEL, PERIOD_LABEL, SECTOR_LABEL, type MediaMode, type PeriodType
 import { useDesigns, useSubmissions } from '@features/media/hooks'
 
 const dt = (x: string) =>
-  new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
+  new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
 
 export default function MediaArchivePage() {
   const archived = useSubmissions(null, 'archived')

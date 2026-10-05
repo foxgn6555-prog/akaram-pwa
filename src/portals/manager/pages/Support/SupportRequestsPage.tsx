@@ -19,7 +19,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (v: string | null) =>
   v
-    ? new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v))
+    ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v))
     : '—'
 const END_KIND: Record<NonNullable<SupportAssignment['end_kind']>, string> = {
   released: 'أنهاه المستفيد',

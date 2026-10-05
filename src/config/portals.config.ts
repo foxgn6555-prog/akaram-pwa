@@ -236,6 +236,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       children: [
         { path: '/it/integrations/biometric', labelKey: 'nav.biometric', icon: 'fingerprint' },
         { path: '/it/integrations/biometric/unmatched', labelKey: 'nav.hr_unmatched_people', icon: 'alert-triangle' },
+        { path: '/it/integrations/biometric/attendance-audit', labelKey: 'nav.hr_attendance_audit', icon: 'clipboard' },
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
       ],

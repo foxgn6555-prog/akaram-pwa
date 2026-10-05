@@ -24,7 +24,7 @@ const VIEWS: View[] = ['home', 'complaint', 'mine', 'support', 'about']
 const STATUS_TONE: Record<CitizenStatus, string> = {
   new: 'bg-sky-100 text-sky-800 ring-sky-200', in_progress: 'bg-amber-100 text-amber-900 ring-amber-200', on_hold: 'bg-slate-200 text-slate-800 ring-slate-300', resolved: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
 }
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' }) : '')
+const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 export default function CitizenPortalPage() {
   const [params, setParams] = useSearchParams()
@@ -347,7 +347,7 @@ function Support({ token }: { token: string }) {
                     ? <img src={urls[msg.attachment]} alt="صورة مرفقة" className="mb-1 max-h-60 w-full rounded-xl object-cover" draggable={false} data-testid="chat-image" />
                     : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-200/60 text-[10px] text-slate-500" data-testid="chat-image-loading">جارٍ تحميل الصورة…</div>)}
                   {msg.body !== '📷 صورة' && <p className="whitespace-pre-wrap">{msg.body}</p>}
-                  <p className={`mt-1 text-[10px] ${msg.sender === 'citizen' ? 'text-blue-100' : 'text-slate-400'}`}>{new Date(msg.at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className={`mt-1 text-[10px] ${msg.sender === 'citizen' ? 'text-blue-100' : 'text-slate-400'}`}>{new Date(msg.at).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
             ))}
