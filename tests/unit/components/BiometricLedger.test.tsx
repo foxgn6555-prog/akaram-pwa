@@ -140,4 +140,9 @@ describe('BiometricLedger — دفتر البصمة (HR)', () => {
     expect(within(hint).getByRole('link')).toHaveAttribute('href', '/hr/employees')
     expect(within(form).getByTestId('link-save')).toBeDisabled()
   })
+
+  it('00175: الوصول بـ ?pin= من وحدة غير المطابقين يعبّئ فلتر PIN مسبقاً', () => {
+    render(<MemoryRouter initialEntries={['/hr/biometric?pin=901']}><BiometricLedger /></MemoryRouter>)
+    expect(screen.getByTestId('ledger-pin')).toHaveValue('901')
+  })
 })

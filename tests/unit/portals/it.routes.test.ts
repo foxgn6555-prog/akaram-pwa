@@ -74,8 +74,9 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(23) // 19 + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)
+    expect(itPaths).toHaveLength(24) // 20 (00175: غير المطابقين للقراءة) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)
     expect(itPaths).toContain('user-management/approval-chains')
+    expect(itPaths).toContain('integrations/biometric/unmatched')
     expect(itPaths).toContain('database/tables/:tableName')
     expect(itPaths).toContain('central-garage-approvals')
     expect(itPaths).toContain('console')

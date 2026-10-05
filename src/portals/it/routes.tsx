@@ -24,6 +24,7 @@ const ConsolePage = lazy(() => import('@portals/it/pages/Console/ConsolePage'))
 const BranchesPage = lazy(() => import('@portals/it/pages/Branches/BranchesPage'))
 const PermissionsMatrix = lazy(() => import('@portals/it/pages/Permissions/PermissionsMatrix'))
 const BiometricPage = lazy(() => import('@portals/it/pages/Integrations/BiometricPage'))
+const UnmatchedPeoplePage = lazy(() => import('@portals/hr/pages/Biometric/UnmatchedPeoplePage'))
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
 const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
@@ -71,6 +72,7 @@ export const customRoutes: RouteObject[] = [
   // ── وحدة التكاملات ──
   { path: 'integrations', element: s(<BiometricPage />) },
   { path: 'integrations/biometric', element: s(<BiometricPage />) },
+  { path: 'integrations/biometric/unmatched', element: s(<UnmatchedPeoplePage readOnly />) },
   { path: 'integrations/gps', element: s(<GpsPage />) },
   { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },
 

@@ -201,3 +201,12 @@ export function useRemoveAdmsEndpoint() {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-endpoints'] }) },
   })
 }
+
+export function useUnmatchedReport(f: { from: string; to: string; branchId?: string | null; search?: string | null }, enabled = true) {
+  return useQuery({
+    queryKey: [...integrationsKeys.all, 'bio-unmatched-report', f.from, f.to, f.branchId ?? '', f.search ?? ''] as const,
+    queryFn: () => biometric.unmatchedReport(f),
+    enabled: enabled && !!f.from && !!f.to && f.from <= f.to,
+    staleTime: 30_000,
+  })
+}

@@ -6,6 +6,7 @@ import EmployeesList from './pages/Employees/EmployeesList'
 import EmployeeDetail from './pages/Employees/EmployeeDetail'
 import AttendanceLog from './pages/Attendance/AttendanceLog'
 import BiometricLedger from './pages/Biometric/BiometricLedger'
+import UnmatchedPeoplePage from './pages/Biometric/UnmatchedPeoplePage'
 import Leaves from './pages/Leaves/Leaves'
 import OrgStructure from './pages/Org/OrgStructure'
 
@@ -17,5 +18,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'attendance', element: <AttendanceLog /> },
   { path: 'leaves', element: <Leaves /> },
   { path: 'biometric', element: <BiometricLedger /> },
+  { path: 'biometric/unmatched', element: <UnmatchedPeoplePage /> },
   { path: 'org', element: <OrgStructure /> },
 ]

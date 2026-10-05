@@ -6,7 +6,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
-  BiometricAdmsEndpoint, BiometricCommand, BiometricUnregisteredDevice,
+  BiometricAdmsEndpoint, BiometricCommand, BiometricUnregisteredDevice, UnmatchedPersonRow,
   BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
   BiometricPunch, BiometricPunchFilters, BiometricTestResult, BiometricDiagnostics,
 } from '@features/integrations/types'
@@ -127,6 +127,11 @@ export const biometric = {
   },
   async removeEndpoint(id: string): Promise<void> {
     await sdkVoid(supabase.from('biometric_adms_endpoints').delete().eq('id', id))
+  },
+
+  /** 00175 · تقرير الأشخاص غير المطابقين (يوم بيوم) لفترة ≤ 62 يوماً */
+  async unmatchedReport(f: { from: string; to: string; branchId?: string | null; search?: string | null }): Promise<UnmatchedPersonRow[]> {
+    return ((await sdkGuard(supabase.rpc('biometric_unmatched_report', { p_from: f.from, p_to: f.to, p_branch_id: f.branchId ?? null, p_search: f.search ?? null } as never))) ?? []) as UnmatchedPersonRow[]
   },
 
   async rotateBridgeKey(deviceId: string): Promise<string> {

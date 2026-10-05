@@ -235,6 +235,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'wifi-off',
       children: [
         { path: '/it/integrations/biometric', labelKey: 'nav.biometric', icon: 'fingerprint' },
+        { path: '/it/integrations/biometric/unmatched', labelKey: 'nav.hr_unmatched_people', icon: 'alert-triangle' },
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
       ],

@@ -101,12 +101,12 @@ select 'biometric-diagnostics ok' as result;
 
 -- ═══ 00174: طابور الأوامر العام — سحب فترة، إرسال موظف، تأكيد الجهاز، المهلة، الاكتشاف، العناوين ═══
 reset role; select set_config('auth.user_id','', false);
--- تنظيف الطابور من اختبارات 00172
-update public.biometric_device_commands set status = 'done' where device_serial = 'BT-DEV-1' and status in ('queued', 'sent');
 insert into public.employees (id, employee_number, full_name, hire_date, biometric_pin) values
   ('bb000000-0000-0000-0000-0000000000c5', 'BT-E5', 'أحمد علي حسين كاظم الربيعي', '2024-01-01', '555'),
   ('bb000000-0000-0000-0000-0000000000c6', 'BT-E6', 'موظف بلا رقم', '2024-01-01', null)
 on conflict (employee_number) do nothing;
+-- تنظيف الطابور من اختبارات 00172 ومن الإرسال التلقائي (00175) حتى نختبر الترتيب بدقة
+update public.biometric_device_commands set status = 'done' where device_serial = 'BT-DEV-1' and status in ('queued', 'sent');
 
 set role authenticated;
 select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
@@ -125,7 +125,7 @@ do $$ declare v_id bigint; v_cmd text; n int; begin
 
   -- ② إرسال موظف: سطر USERINFO صحيح؛ بلا PIN → خطأ واضح
   n := public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5');
-  if n <> 1 then raise exception 'FAIL: عدد الأجهزة المستهدفة % ', n; end if;
+  if n < 1 or n <> (select count(*) from public.biometric_devices where is_active and mode = 'adms_push') then raise exception 'FAIL: عدد الأجهزة المستهدفة % ', n; end if;
   select command into v_cmd from public.biometric_device_commands where device_serial = 'BT-DEV-1' and kind = 'update_user' order by id desc limit 1;
   -- الاسم يُقصّ إلى 24 بايت (حدّ حقل Name في الجهاز) على حدود الأحرف: «أحمد علي حسين كاظم الربيعي» → «أحمد علي حسين»
   if v_cmd not like E'DATA UPDATE USERINFO PIN=555\tName=أحمد علي حسين\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000' then raise exception 'FAIL: سطر USERINFO: %', v_cmd; end if;

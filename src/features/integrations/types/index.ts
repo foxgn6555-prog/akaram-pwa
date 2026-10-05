@@ -231,3 +231,24 @@ export const BIOMETRIC_COMMAND_STATUS_LABELS: Record<BiometricCommandStatus, str
 }
 export interface BiometricUnregisteredDevice { serial_number: string; first_seen: string; last_seen: string; attempts: number }
 export interface BiometricAdmsEndpoint { id: string; label: string; host: string; note: string | null; sort_order: number; is_active: boolean }
+
+// ─── 00175: وحدة «الأشخاص غير المطابقين» ───
+export type UnmatchedDayStatus = 'present' | 'missing' | 'absent'
+export interface UnmatchedDay { d: string; status: UnmatchedDayStatus; n: number; minutes: number; first: string | null; last: string | null }
+export interface UnmatchedPersonRow {
+  pin: string
+  person_name: string | null
+  device_serial: string
+  device_name: string
+  branch_id: string | null
+  branch_name: string | null
+  days: UnmatchedDay[]
+  present_days: number
+  missing_days: number
+  absent_days: number
+  total_minutes: number
+  first_seen: string
+  last_seen: string
+}
+export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب' }
+export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ' }

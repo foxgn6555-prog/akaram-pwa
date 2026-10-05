@@ -10,7 +10,7 @@ import {
   BIOMETRIC_MODE_LABELS, useBiometricPunches, useDeriveAttendance, useDevices, useLinkBiometricPin,
 } from '@features/integrations'
 import type { BiometricPunch } from '@features/integrations'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useHrEmployees } from '@features/hr'
 import { formatDateTime } from '@lib/utils/date.utils'
 import { Button } from '@components/ui'
@@ -27,7 +27,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 export default function BiometricLedger() {
   const [from, setFrom] = useState(today())
   const [to, setTo] = useState(today())
-  const [pin, setPin] = useState('')
+  const [params] = useSearchParams()
+  const [pin, setPin] = useState(params.get('pin') ?? '') // 00175: الوصول من وحدة غير المطابقين بـ ?pin=
   const [deviceId, setDeviceId] = useState('')
   const [unmatchedOnly, setUnmatchedOnly] = useState(false)
   const [deriveDate, setDeriveDate] = useState(today())
@@ -54,6 +55,10 @@ export default function BiometricLedger() {
         <div>
           <h1 id="ledger-title" className="text-lg font-bold">دفتر البصمة</h1>
           <p className="text-sm text-slate-500">كل البصمات الواصلة من جميع المصادر — المطابقة والربط واشتقاق الحضور تتم هنا.</p>
+          <Link to="/hr/biometric/unmatched" data-testid="ledger-unmatched-link"
+                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100">
+            <Icon name="alert-triangle" size={13} /> وحدة الأشخاص غير المطابقين (سجل يومي + تصدير)
+          </Link>
         </div>
         <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="derive-panel">
           <label className="text-[11px] text-slate-600">اشتقاق حضور يوم
