@@ -205,6 +205,30 @@ export interface AttendanceAudit {
   created_at: string
 }
 
+/** يوم من أيام الموظف في الشهر (hr_employee_month_days) — لتفاصيل كشف المالية */
+export interface EmployeeMonthDay {
+  work_date: string
+  shift_name: string | null
+  expected_in: string | null
+  expected_out: string | null
+  check_in: string | null
+  check_out: string | null
+  late_minutes: number
+  early_minutes: number
+  worked_minutes: number
+  is_rest_day: boolean
+  status: AttendanceStatus
+  source: 'auto' | 'manual'
+  edit_reason: string | null
+  permit_minutes: number
+  shortfall_minutes: number
+  overtime_minutes: number
+  proposed_deduction_minutes: number
+  proposed_deduction_days: number
+  deduction_waived: boolean
+  waive_reason: string | null
+}
+
 /** صف سجل التدقيق بأسماء (hr_attendance_audit_list) */
 export interface AttendanceAuditRow extends AttendanceAudit {
   employee_number: string
@@ -413,6 +437,10 @@ export interface HrPolicy {
   alert_shortfall_minutes_per_month: number
   alert_absent_days_per_month: number
   alert_balance_low_days: number
+  /** 00179: محرك البصمة */
+  punch_window_hours?: number
+  auto_evaluate_enabled?: boolean
+  evaluate_lookback_days?: number
 }
 export interface LeaveType {
   id: string

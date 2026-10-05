@@ -101,7 +101,8 @@ select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; e uuid := 'bbbb0000-0000-0000-0000-000000000022'; n int; s record; begin
   perform public.hr_attendance_evaluate(m + 1, m + 10, e);
   select count(*) into n from public.hr_attendance_days where employee_id = e; assert n = 0, 'no attendance rows for non-biometric';
-  select count(*) into n from app.hr_month_summary(m) where employee_id = e; assert n = 0, 'no summary row';
+  -- 00179: الموظف بلا بصمة يظهر في ملخص الشهر (ليستلم راتبه) بصفوف صفرية بلا استقطاع
+  select * into s from app.hr_month_summary(m) where employee_id = e; assert s.employee_id is not null and s.working_days = 0 and s.auto_days = 0 and s.ded_amount = 0, 'summary row zeros: ' || coalesce(row_to_json(s)::text, 'none');
   raise notice 'E4a ✅ بلا بصمة: لا غياب وهمي ولا استقطاع';
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000022');

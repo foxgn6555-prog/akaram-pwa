@@ -153,6 +153,9 @@ export function useDeleteDeduction() {
     onError: t.err,
   })
 }
+export function useEmployeeMonthDays(employeeId: string | null, month: string) {
+  return useQuery({ queryKey: ['hr', 'month-days', employeeId, month], queryFn: () => hr.employeeMonthDays(employeeId as string, month), enabled: !!employeeId })
+}
 export function useAttendanceAuditNamed(f: Parameters<typeof hr.listAuditNamed>[0] = {}) {
   return useQuery({ queryKey: [...hrKeys.audit(f), 'named'], queryFn: () => hr.listAuditNamed(f) })
 }

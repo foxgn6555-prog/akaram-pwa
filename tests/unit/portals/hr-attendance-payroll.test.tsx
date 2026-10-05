@@ -10,7 +10,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 
 const h = vi.hoisted(() => ({
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
-  employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
+  days: [] as unknown[], employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
   edit: vi.fn(async () => undefined), reset: vi.fn(async () => undefined), addDed: vi.fn(async () => 'd'), exportMonth: vi.fn(async () => 'x'),
   adjust: vi.fn(async () => undefined), approve: vi.fn(async () => undefined), setSalary: vi.fn(async () => undefined), update: vi.fn(async () => undefined),
@@ -33,7 +33,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
   useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
-  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
+  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useEmployeeMonthDays: () => ({ data: h.days ?? [], isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
 const pushEmp = vi.fn()
@@ -252,6 +252,20 @@ describe('المالية — الرواتب', () => {
     fireEvent.click(screen.getByTestId('ps-approve'))
     await waitFor(() => expect(h.approve).toHaveBeenCalledWith('x1'))
   })
+  it('00179: الكشف مجمّع حسب القسم مع مجاميع فرعية مرتبة، و«الأيام» تفتح تفاصيل الموظف بتوقيت بغداد', () => {
+    h.sheet = [sheetRow, { ...sheetRow, row_id: 'pr2', employee_id: 'e2', employee_number: 'E200', full_name: 'باسم كريم', department_name: 'الورشة', proposed_net: 500000 }, { ...sheetRow, row_id: 'pr3', employee_id: 'e3', employee_number: 'E300', full_name: 'آدم سعد', department_name: 'النقل', proposed_net: 600000 }]
+    h.days = [{ work_date: '2026-09-05', shift_name: 'صباحي', check_in: '2026-09-05T05:40:00Z', check_out: '2026-09-05T13:00:00Z', late_minutes: 25, early_minutes: 0, worked_minutes: 440, is_rest_day: false, status: 'late', source: 'manual', edit_reason: 'عطل جهاز', permit_minutes: 0, shortfall_minutes: 40, overtime_minutes: 0, proposed_deduction_minutes: 120, proposed_deduction_days: 0, deduction_waived: false, waive_reason: null }]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    const groups = screen.getAllByTestId(/^ps-group-/)
+    expect(groups.map((g) => g.getAttribute('data-testid'))).toEqual(['ps-group-النقل', 'ps-group-الورشة'])
+    const rowsInNaql = screen.getAllByTestId(/^ps-row-/).map((r) => r.getAttribute('data-testid'))
+    expect(rowsInNaql.indexOf('ps-row-E300')).toBeLessThan(rowsInNaql.indexOf('ps-row-E100')) // آدم قبل أحمد داخل القسم
+    expect(screen.getByTestId('ps-subtotal-النقل')).toHaveTextContent('1,455,000')
+    fireEvent.click(screen.getByTestId('ps-days-E100'))
+    const d = screen.getByTestId('ps-day-2026-09-05')
+    expect(d).toHaveTextContent('08:40'); expect(d).toHaveTextContent('16:00'); expect(d).toHaveTextContent('متأخر'); expect(d).toHaveTextContent('تعديل يدوي: عطل جهاز'); expect(d).toHaveTextContent('2س 0د')
+    expect(d.textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
   it('ملف الراتب: الشهري يتطلب أساسياً، واليومي يرسل daily وأصفاراً للأساسي مع المخصصات', async () => {
     render(<PayrollOverview />)
     fireEvent.click(screen.getByTestId('ftab-profiles'))
@@ -282,5 +296,8 @@ describe('المالية — الرواتب', () => {
     expect((ws.getRow(7).getCell(25).value as { formula: string }).formula).toBe('SUM(Y5:Y6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
+    // 00179: ورقة ملخص الأقسام
+    const ds = wb.getWorksheet('ملخص الأقسام')!
+    expect(ds).toBeTruthy(); expect(ds.getRow(2).getCell(1).value).toBe('القسم'); expect(ds.getRow(3).getCell(1).value).toBe('النقل')
   })
 })

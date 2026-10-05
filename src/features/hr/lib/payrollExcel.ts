@@ -4,6 +4,19 @@ import type { PayrollSheetRow } from '../types'
 
 const CONTRACT: Record<string, string> = { monthly: 'شهري', daily: 'أجر يومي' }
 
+export interface DeptGroup { name: string; rows: PayrollSheetRow[]; present: number; absent: number; ops: number; auto: number; proposed: number; final: number }
+/** تجميع صفوف الكشف حسب القسم (بترتيب الاسم، «بلا قسم» آخراً) مع مجاميع فرعية */
+export function groupByDepartment(rows: PayrollSheetRow[]): DeptGroup[] {
+  const map = new Map<string, PayrollSheetRow[]>()
+  for (const r of rows) { const k = r.department_name ?? 'بلا قسم'; map.set(k, [...(map.get(k) ?? []), r]) }
+  const names = [...map.keys()].sort((a, b) => (a === 'بلا قسم' ? 1 : b === 'بلا قسم' ? -1 : a.localeCompare(b, 'ar')))
+  return names.map((name) => {
+    const g = (map.get(name) ?? []).slice().sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? '', 'ar'))
+    const sum = (f: (r: PayrollSheetRow) => number) => g.reduce((s, r) => s + (f(r) || 0), 0)
+    return { name, rows: g, present: sum((r) => r.days_present), absent: sum((r) => r.days_absent), ops: sum((r) => r.ops_deduction_amount), auto: sum((r) => r.auto_deduction_amount ?? 0), proposed: sum((r) => r.proposed_net ?? 0), final: sum((r) => r.final_net ?? r.proposed_net ?? 0) }
+  })
+}
+
 export function payrollFileName(month: string) { return `كشف-الرواتب-${month.slice(0, 7)}.xlsx` }
 
 export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[]) {
@@ -42,6 +55,18 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   const widths = [5, 12, 26, 16, 14, 16, 10, 8, 7, 7, 7, 7, 7, 9, 13, 11, 12, 13, 13, 11, 10, 10, 13, 14, 14, 24, 34]
   widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
   ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
+
+  // ورقة 2: ملخص الأقسام — عدد الموظفين، حاضر/غائب، استقطاعات، صافي مقترح/معتمد
+  const ds = wb.addWorksheet('ملخص الأقسام', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }] })
+  const dh = ['القسم', 'عدد الموظفين', 'أيام حاضر', 'أيام غائب', 'استقطاع العمليات', 'استقطاع تلقائي', 'الصافي المقترح', 'الصافي المعتمد']
+  ds.mergeCells(1, 1, 1, dh.length); ds.getCell('A1').value = `ملخص الأقسام — ${month.slice(0, 7)}`; ds.getCell('A1').font = { bold: true, size: 14 }; ds.getCell('A1').alignment = { horizontal: 'center' }
+  const dhr = ds.getRow(2); dhr.values = dh
+  dhr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center' }; c.border = thin() })
+  const groups = groupByDepartment(rows)
+  groups.forEach((g) => { const r = ds.addRow([g.name, g.rows.length, g.present, g.absent, g.ops, g.auto, g.proposed, g.final]); r.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col === 1 ? 'right' : 'center' }; if (col >= 5) c.numFmt = '#,##0' }) })
+  const dt = ds.addRow(['الإجمالي', rows.length, groups.reduce((s, g) => s + g.present, 0), groups.reduce((s, g) => s + g.absent, 0), groups.reduce((s, g) => s + g.ops, 0), groups.reduce((s, g) => s + g.auto, 0), groups.reduce((s, g) => s + g.proposed, 0), groups.reduce((s, g) => s + g.final, 0)])
+  dt.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin(); if (col >= 5) c.numFmt = '#,##0' })
+  ;[22, 12, 10, 10, 16, 16, 16, 16].forEach((w, i) => { ds.getColumn(i + 1).width = w })
   return wb
 }
 

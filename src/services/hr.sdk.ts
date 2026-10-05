@@ -6,7 +6,7 @@
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
-  AttendanceAudit, AttendanceAuditRow, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
+  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
@@ -224,6 +224,10 @@ export const hr = {
     if (f.from) q = q.gte('work_date', f.from)
     if (f.to) q = q.lte('work_date', f.to)
     return (await sdkGuard(q)) as AttendanceAudit[]
+  },
+  /** أيام موظف في شهر — لتفاصيل كشف المالية (المالية/العمليات/HR/التطوير) */
+  employeeMonthDays(employeeId: string, month: string) {
+    return rpc<EmployeeMonthDay[]>('hr_employee_month_days', { p_employee: employeeId, p_month: month })
   },
   /** سجل التدقيق بأسماء الموظف والمدقّق — لكل الجهات المخولة (غرفة العمليات/HR/المالية/التطوير المركزية) */
   listAuditNamed(f: { from?: string | null; to?: string | null; employeeId?: string | null; limit?: number } = {}) {

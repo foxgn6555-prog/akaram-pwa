@@ -123,6 +123,16 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     expect(sent.permits_per_leave_day).toBe(4); expect(sent.alert_late_days_per_month).toBe(2)
     expect((sent.deduction_tiers as unknown[]).length).toBe(5)
   })
+  it('00179: قسم محرك البصمة — نافذة الالتقاط والاحتساب التلقائي يُرسلان ضمن السياسة', async () => {
+    render(<HrPolicyPage />)
+    await screen.findByTestId('p-window')
+    fireEvent.change(screen.getByTestId('p-window'), { target: { value: '3' } })
+    fireEvent.change(screen.getByTestId('p-auto'), { target: { value: 'false' } })
+    fireEvent.click(screen.getByTestId('policy-save'))
+    await waitFor(() => expect(h.setPolicy).toHaveBeenCalled())
+    const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
+    expect(sent.punch_window_hours).toBe(3); expect(sent.auto_evaluate_enabled).toBe(false)
+  })
   it('أنواع الإجازات: الجدول + إنشاء نوع غير مدفوع بأيام استقطاع', () => {
     render(<HrPolicyPage />)
     expect(screen.getByTestId('lt-row-unpaid')).toHaveTextContent('تُستقطع')

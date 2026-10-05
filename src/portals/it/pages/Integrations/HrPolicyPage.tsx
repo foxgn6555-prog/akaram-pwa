@@ -50,6 +50,11 @@ export default function HrPolicyPage() {
         </div>
       </header>
 
+      <Section title="محرك البصمة والاحتساب التلقائي" hint="نافذة الالتقاط: البصمات التي تقع قبل بداية الدوام أو بعد نهايته بأكثر من هذه الساعات لا تُنسب لذلك اليوم. إيقاف الاحتساب التلقائي يُبقي زر «احتساب» اليدوي في HR وغرفة العمليات.">
+        <L label="نافذة التقاط البصمات حول الدوام (ساعات، 1–12)"><input type="number" min={1} max={12} className={field} value={draft.punch_window_hours ?? 4} onChange={(e) => set('punch_window_hours', Number(e.target.value))} data-testid="p-window" /></L>
+        <L label="الاحتساب التلقائي (عند وصول البصمة + الاحتساب اليومي)"><select className={field} value={String(draft.auto_evaluate_enabled ?? true)} onChange={(e) => set('auto_evaluate_enabled', e.target.value === 'true')} data-testid="p-auto"><option value="true">مفعّل</option><option value="false">متوقف (احتساب يدوي فقط)</option></select></L>
+        <L label="الاحتساب اليومي يعيد احتساب آخر (أيام، 1–31)"><input type="number" min={1} max={31} className={field} value={draft.evaluate_lookback_days ?? 2} onChange={(e) => set('evaluate_lookback_days', Number(e.target.value))} data-testid="p-lookback" /></L>
+      </Section>
       <Section title="رصيد الإجازات" hint="المنحة السنوية الافتراضية لكل موظف (تستطيع HR تعديلها لكل موظف على حدة)">
         <L label="الرصيد السنوي الافتراضي (يوم)"><input type="number" min={0} max={365} className={field} value={draft.annual_leave_days_default} onChange={(e) => set('annual_leave_days_default', NUM(e.target.value))} data-testid="p-annual" /></L>
         <L label="نمط الاستحقاق">
