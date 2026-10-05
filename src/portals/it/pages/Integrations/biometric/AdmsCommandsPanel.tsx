@@ -10,7 +10,7 @@ import clsx from 'clsx'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 import { formatRelative } from '@lib/utils/date.utils'
-import { BIOMETRIC_COMMAND_LABELS, BIOMETRIC_COMMAND_STATUS_LABELS, useBiometricCommands, usePushAllEmployees, useQueryAttlog } from '@features/integrations'
+import { BIOMETRIC_COMMAND_LABELS, BIOMETRIC_COMMAND_STATUS_LABELS, useBiometricCommands, usePushAllEmployees, useQueryAttlog, useSetDeviceAdmin } from '@features/integrations'
 import type { BiometricCommandStatus, BiometricDevice } from '@features/integrations'
 import { BIOMETRIC_ERROR_MESSAGES } from '@sdk/biometric.sdk'
 
@@ -44,6 +44,8 @@ export function AdmsCommandsPanel({ device: d, online }: { device: BiometricDevi
   const [showLog, setShowLog] = useState(false)
   const query = useQueryAttlog()
   const pushAll = usePushAllEmployees()
+  const setAdmin = useSetDeviceAdmin()
+  const [adminPin, setAdminPin] = useState('')
   const cmds = useBiometricCommands(d.id, showLog)
 
   const run = (kind: 'pull' | 'push') => {
@@ -95,6 +97,18 @@ export function AdmsCommandsPanel({ device: d, online }: { device: BiometricDevi
         <button type="button" className="text-[11px] font-semibold text-brand-700 hover:underline" onClick={() => setShowLog((v) => !v)} data-testid={`adms-cmd-log-${d.serial_number}`}>
           {showLog ? 'إخفاء سجل الأوامر' : 'سجل الأوامر'}
         </button>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]" data-testid={`adms-admin-${d.serial_number}`}>
+        <span className="text-slate-600">تعيين مسؤول على الجهاز (لاستعادة الدخول إلى قائمته عند «رفض الوصول»):</span>
+        <input dir="ltr" className="h-8 w-24 rounded-lg border border-slate-300 bg-white px-2 text-xs" placeholder="PIN" value={adminPin}
+          onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, ''))} data-testid="adms-admin-pin" />
+        <Button size="sm" variant="secondary" disabled={!/^[0-9]{1,9}$/.test(adminPin)} isLoading={setAdmin.isPending} data-testid={`adms-admin-set-${d.serial_number}`}
+          onClick={() => { setMsg(null); setAdmin.mutate({ deviceId: d.id, pin: adminPin }, {
+            onSuccess: () => setMsg({ ok: true, text: `سيُرفع المستخدم ${adminPin} إلى مسؤول أعلى على الجهاز عند اتصاله — بعدها ادخل القائمة ببصمته/وجهه` }),
+            onError: (e) => setMsg({ ok: false, text: errorText(e) }),
+          }) }}>
+          تعيين مسؤولاً
+        </Button>
       </div>
       {msg && (
         <p role="status" data-testid="adms-cmd-msg" className={clsx('mt-2 rounded-lg px-3 py-2 text-[11px]', msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700')}>

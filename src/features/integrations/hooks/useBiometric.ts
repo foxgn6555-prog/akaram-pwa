@@ -168,7 +168,7 @@ export function useQueryAttlog() {
   return useCommandMutation((v: { deviceId: string; from: string; to: string }) => biometric.queryAttlog(v.deviceId, v.from, v.to))
 }
 export function usePushEmployeeToDevices() {
-  return useCommandMutation((v: { employeeId: string; deviceId?: string | null }) => biometric.pushEmployee(v.employeeId, v.deviceId ?? null))
+  return useCommandMutation((v: { employeeId: string; deviceIds?: string[] | null }) => biometric.pushEmployee(v.employeeId, v.deviceIds ?? null))
 }
 export function usePushAllEmployees() {
   return useCommandMutation((deviceId: string) => biometric.pushAllEmployees(deviceId))
@@ -209,4 +209,7 @@ export function useUnmatchedReport(f: { from: string; to: string; branchId?: str
     enabled: enabled && !!f.from && !!f.to && f.from <= f.to,
     staleTime: 30_000,
   })
+}
+export function useSetDeviceAdmin() {
+  return useCommandMutation((v: { deviceId: string; pin: string; name?: string | null }) => biometric.setDeviceAdmin(v.deviceId, v.pin, v.name))
 }

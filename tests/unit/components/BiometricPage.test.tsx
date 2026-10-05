@@ -20,6 +20,7 @@ const mockEndpoints = vi.fn()
 const mockAddEndpoint = vi.fn()
 const mockRemoveEndpoint = vi.fn()
 const mockCommands = vi.fn()
+const mockSetAdmin = vi.fn()
 
 vi.mock('@features/branches', () => ({
   useBranches: () => ({ data: [{ id: 'b1', name: 'المركز' }], isLoading: false }),
@@ -36,6 +37,7 @@ vi.mock('@features/integrations', async () => {
     useBiometricCommands: () => mockCommands(),
     useQueryAttlog: () => ({ mutate: mockQueryAttlog, isPending: false }),
     usePushAllEmployees: () => ({ mutate: mockPushAll, isPending: false }),
+    useSetDeviceAdmin: () => ({ mutate: mockSetAdmin, isPending: false }),
     useUnregisteredDevices: () => mockUnregistered(),
     useAdmsEndpoints: () => mockEndpoints(),
     useAddAdmsEndpoint: () => ({ mutateAsync: mockAddEndpoint, isPending: false }),
@@ -454,5 +456,17 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     expect(screen.getByTestId('device-form')).toBeInTheDocument()
     expect(screen.getByTestId('device-sn')).toHaveValue('SFAA253400777')
     expect(screen.getByTestId('device-mode')).toHaveValue('adms_push')
+  })
+
+  it('00176: «تعيين مسؤولاً» يقبل PIN رقمياً فقط ويستدعي الرفع بمعرّف الجهاز', async () => {
+    render(<BiometricPage />)
+    const panel = within(screen.getByTestId('adms-admin-ZK-001'))
+    expect(panel.getByTestId('adms-admin-set-ZK-001')).toBeDisabled()
+    await userEvent.type(panel.getByTestId('adms-admin-pin'), '1a')
+    expect(panel.getByTestId('adms-admin-pin')).toHaveValue('1')
+    await userEvent.click(panel.getByTestId('adms-admin-set-ZK-001'))
+    expect(mockSetAdmin).toHaveBeenCalledWith({ deviceId: 'd1', pin: '1' }, expect.anything())
+    mockSetAdmin.mock.calls[0]![1].onSuccess(9)
+    await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent('مسؤول أعلى'))
   })
 })

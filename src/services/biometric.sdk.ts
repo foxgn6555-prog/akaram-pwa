@@ -99,9 +99,13 @@ export const biometric = {
   async queryAttlog(deviceId: string, fromIso: string, toIso: string): Promise<number> {
     return (await sdkGuard(supabase.rpc('biometric_query_attlog', { p_device_id: deviceId, p_from: fromIso, p_to: toIso } as never))) as number
   },
-  /** إرسال موظف (PIN + الاسم) إلى جهاز محدد أو كل أجهزة ADMS النشطة — يعيد عدد الأجهزة */
-  async pushEmployee(employeeId: string, deviceId: string | null = null): Promise<number> {
-    return (await sdkGuard(supabase.rpc('biometric_push_employee', { p_employee_id: employeeId, p_device_id: deviceId } as never))) as number
+  /** إرسال موظف (PIN + الاسم) إلى أجهزة مختارة (null = أجهزة فرع الموظف) — يعيد عدد الأجهزة */
+  async pushEmployee(employeeId: string, deviceIds: string[] | null = null): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_push_employee', { p_employee_id: employeeId, p_device_ids: deviceIds } as never))) as number
+  },
+  /** 00176 · رفع مستخدم إلى مسؤول على الجهاز (Pri=14) لاستعادة الدخول إلى قائمته */
+  async setDeviceAdmin(deviceId: string, pin: string, name?: string | null): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_set_device_admin', { p_device_id: deviceId, p_pin: pin, p_name: name ?? null } as never))) as number
   },
   /** مزامنة كل الموظفين النشطين (ذوي رقم بصمة) إلى جهاز — يعيد عدد الموظفين */
   async pushAllEmployees(deviceId: string): Promise<number> {

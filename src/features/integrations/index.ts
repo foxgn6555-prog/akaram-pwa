@@ -6,7 +6,7 @@ export {
   useBiometricPulls, useBiometricPunches, useUpdateBiometricDevice, useTestBiometricSource, useRotateBridgeKey, useRequestDeviceUsers, useBiometricDiagnostics,
   usePullBiometric, useImportBiometricPunches, useProcessBiometricPushes, useLinkBiometricPin, useDeriveAttendance, useBiometricDeviceUsers,
   useBiometricCommands, useQueryAttlog, usePushEmployeeToDevices, usePushAllEmployees, useDeleteDeviceUser, useUnregisteredDevices,
-  useAdmsEndpoints, useAddAdmsEndpoint, useRemoveAdmsEndpoint, useUnmatchedReport,
+  useAdmsEndpoints, useAddAdmsEndpoint, useRemoveAdmsEndpoint, useUnmatchedReport, useSetDeviceAdmin,
 } from './hooks/useBiometric'
 export { BIOMETRIC_MODES, BIOMETRIC_MODE_LABELS, BIOMETRIC_PASSIVE_MODES, BIOMETRIC_COMMAND_LABELS, BIOMETRIC_COMMAND_STATUS_LABELS, UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from './types'
 export type {

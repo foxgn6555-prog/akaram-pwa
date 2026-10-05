@@ -60,7 +60,7 @@ exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end
 reset role; select set_config('auth.user_id','', false);
 
 -- ③ عند ربط PIN بموظف يختفي من غير المطابقين
-insert into public.employees (id, employee_number, full_name, hire_date, biometric_pin) values ('bb000000-0000-0000-0000-0000000000e9', 'UM-E9', 'كريم جاسم محمد', '2024-01-01', '901') on conflict (employee_number) do nothing;
+insert into public.employees (id, employee_number, full_name, hire_date, biometric_pin, branch_id) values ('bb000000-0000-0000-0000-0000000000e9', 'UM-E9', 'كريم جاسم محمد', '2024-01-01', '901', 'cb000000-0000-0000-0000-000000000001') on conflict (employee_number) do nothing;
 set role authenticated;
 select set_config('auth.user_id','b8000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
 do $$ declare n int; begin
@@ -69,10 +69,20 @@ do $$ declare n int; begin
 end $$;
 reset role; select set_config('auth.user_id','', false);
 
--- ④ الإرسال التلقائي: إضافة الموظف أعلاه أدرجت أمر USERINFO لكل جهاز ADMS نشط (جهازان هنا على الأقل)
+-- ④ الإرسال التلقائي (00176): إضافة الموظف أعلاه (فرع الكرخ) أدرجت أمر USERINFO لجهاز فرعه فقط — لا لجهاز الرصافة
 do $$ declare n int; begin
-  select count(*) into n from public.biometric_device_commands where kind = 'update_user' and payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000e9' and (payload->>'auto')::boolean and device_serial in ('UM-DEV-1', 'UM-DEV-2');
-  if n <> 2 then raise exception 'FAIL: الإرسال التلقائي أدرج % أمراً (المتوقع 2)', n; end if;
+  select count(*) into n from public.biometric_device_commands where kind = 'update_user' and payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000e9' and (payload->>'auto')::boolean and device_serial = 'UM-DEV-1';
+  if n <> 1 then raise exception 'FAIL: الإرسال التلقائي لجهاز الفرع أدرج % أمراً (المتوقع 1)', n; end if;
+  select count(*) into n from public.biometric_device_commands where payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000e9' and device_serial = 'UM-DEV-2';
+  if n <> 0 then raise exception 'FAIL: أُرسل إلى جهاز فرع آخر'; end if;
+  -- نقل الموظف إلى فرع الرصافة → يُرسل إلى جهازها
+  update public.employees set branch_id = 'cb000000-0000-0000-0000-000000000002' where id = 'bb000000-0000-0000-0000-0000000000e9';
+  select count(*) into n from public.biometric_device_commands where payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000e9' and device_serial = 'UM-DEV-2';
+  if n <> 1 then raise exception 'FAIL: نقل الفرع لم يُرسل إلى جهاز الفرع الجديد'; end if;
+  -- موظف بلا فرع → لا إرسال تلقائي
+  insert into public.employees (id, employee_number, full_name, hire_date, biometric_pin) values ('bb000000-0000-0000-0000-0000000000eb', 'UM-EB', 'بلا فرع', '2024-01-01', '903');
+  select count(*) into n from public.biometric_device_commands where payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000eb';
+  if n <> 0 then raise exception 'FAIL: موظف بلا فرع أُرسل تلقائياً'; end if;
   -- تغيير الاسم → أمر جديد؛ تغيير حقل آخر → لا أمر
   update public.employees set full_name = 'كريم جاسم محمد علي' where id = 'bb000000-0000-0000-0000-0000000000e9';
   update public.biometric_device_commands set status = 'done' where payload->>'employee_id' = 'bb000000-0000-0000-0000-0000000000e9';

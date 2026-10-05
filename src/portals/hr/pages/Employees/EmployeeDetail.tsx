@@ -17,7 +17,7 @@ import { DocumentsPanel } from '../../components/DocumentsPanel'
 import { ExportButton } from '../../components/ExportButton'
 import { buildEmployeeProfileWorkbook, downloadWorkbook } from '@features/hr/lib/hrExcel'
 import { hr } from '@sdk/hr.sdk'
-import { usePushEmployeeToDevices } from '@features/integrations'
+import { useDevices, usePushEmployeeToDevices } from '@features/integrations'
 import { Field, MonthPicker, StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, hhmm, isoDay, monthStart } from '../../components/hr-format'
 
@@ -48,7 +48,7 @@ export default function EmployeeDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <PushToDevicesButton employeeId={e.id} pin={e.biometric_pin} terminated={e.employment_status === 'terminated'} />
+          <PushToDevicesButton employeeId={e.id} pin={e.biometric_pin} branchId={e.branch_id} terminated={e.employment_status === 'terminated'} />
           <ExportButton label="تصدير الملف Excel" testId="emp-profile-export" onExport={async () => {
             const [assignments, shifts, attendance] = await Promise.all([hr.listAssignments(e.id), hr.listShifts(true), hr.listAttendance({ from: monthStart(), to: isoDay(), search: e.employee_number })])
             await downloadWorkbook(await buildEmployeeProfileWorkbook(e, assignments, shifts, attendance.filter((r) => r.employee_id === e.id)), `ملف-${e.employee_number}.xlsx`)
@@ -254,22 +254,55 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
   )
 }
 
-/** 00174 · إرسال الموظف (رقم البصمة + الاسم) إلى كل أجهزة ADMS النشطة — يُنفَّذ عند اتصال الجهاز */
-function PushToDevicesButton({ employeeId, pin, terminated }: { employeeId: string; pin: string | null; terminated: boolean }) {
+/** 00174/00176 · إرسال الموظف (رقم البصمة + الاسم) إلى أجهزة يختارها المستخدم — أجهزة فرعه محددة افتراضياً */
+function PushToDevicesButton({ employeeId, pin, branchId, terminated }: { employeeId: string; pin: string | null; branchId: string | null; terminated: boolean }) {
   const push = usePushEmployeeToDevices()
+  const { data: devices } = useDevices()
+  const [open, setOpen] = useState(false)
+  const [picked, setPicked] = useState<string[] | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   if (terminated) return null
   const numeric = !!pin && /^[0-9]{1,9}$/.test(pin)
+  const adms = (devices ?? []).filter((d) => d.is_active && d.mode === 'adms_push')
+  const selected = picked ?? adms.filter((d) => d.branch_id && d.branch_id === branchId).map((d) => d.id)
+  const toggle = (id: string) => setPicked(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
   return (
     <span className="relative">
-      <Button size="sm" variant="secondary" data-testid="emp-push-devices" isLoading={push.isPending} disabled={!numeric}
-        title={numeric ? 'يرسل الاسم ورقم البصمة إلى أجهزة البصمة (ZKTeco) — ثم يُسجَّل الوجه/الإصبع على الجهاز' : 'حدّد «رقم البصمة» (أرقام فقط) في بيانات الموظف أولاً'}
-        onClick={() => push.mutate({ employeeId }, {
-          onSuccess: (n) => setMsg(n === 0 ? 'لا أجهزة ADMS نشطة مسجّلة لدى تقنية المعلومات' : `أُرسل إلى ${n} جهاز — سيظهر على الجهاز عند اتصاله`),
-          onError: () => setMsg('تعذر الإرسال'),
-        })}>
+      <Button size="sm" variant="secondary" data-testid="emp-push-devices" disabled={!numeric}
+        title={numeric ? 'اختر أجهزة البصمة التي يُرسل إليها الاسم ورقم البصمة' : 'حدّد «رقم البصمة» (أرقام فقط) في بيانات الموظف أولاً'}
+        onClick={() => { setMsg(null); setOpen((v) => !v) }}>
         إرسال إلى أجهزة البصمة
       </Button>
+      {open && (
+        <div className="absolute end-0 top-full z-20 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 text-start shadow-lg" data-testid="emp-push-picker">
+          <p className="mb-2 text-xs font-bold text-slate-700">اختر الأجهزة ({selected.length})</p>
+          {adms.length === 0 && <p className="text-[11px] text-slate-500">لا أجهزة ADMS نشطة مسجّلة لدى تقنية المعلومات</p>}
+          <ul className="max-h-48 space-y-1 overflow-y-auto">
+            {adms.map((d) => (
+              <li key={d.id}>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-xs hover:bg-slate-50">
+                  <input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} data-testid={`emp-push-dev-${d.serial_number}`} />
+                  <span className="font-semibold">{d.name}</span>
+                  <span className="text-[10px] text-slate-400" dir="ltr">{d.serial_number}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button type="button" className="text-[11px] text-slate-500 hover:underline" onClick={() => setPicked(adms.map((d) => d.id))}>تحديد الكل</button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>إلغاء</Button>
+              <Button size="sm" isLoading={push.isPending} disabled={selected.length === 0} data-testid="emp-push-confirm"
+                onClick={() => push.mutate({ employeeId, deviceIds: selected }, {
+                  onSuccess: (n) => { setOpen(false); setMsg(`أُرسل إلى ${n} جهاز — سيظهر على الجهاز عند اتصاله`) },
+                  onError: () => setMsg('تعذر الإرسال'),
+                })}>
+                إرسال
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {msg && <span role="status" data-testid="emp-push-msg" className="absolute end-0 top-full mt-1 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-white">{msg}</span>}
     </span>
   )

@@ -83,3 +83,8 @@ BIO_PIN_INVALID · BIO_EMPLOYEE_NOT_FOUND · BIO_DATE_INVALID`
 - `biometric_unmatched_report(from, to, branch?, search?)` (≤ 62 يوماً): صف لكل (جهاز، PIN) بلا موظف؛ `days[]` بتوقيت الجهاز: present (بصمتان+، دقائق = آخر − أول) / missing (واحدة) / absent (لا شيء، حتى اليوم فقط، كل الأيام أيام عمل).
 - الصفحة: HR `/hr/biometric/unmatched` (رابط من دفتر البصمة + «ربط بموظف» → `?pin=`) و IT `/it/integrations/biometric/unmatched` (قراءة). تصدير Excel: ورقة شبكة (صف/شخص، عمود/يوم ملوّن، مجاميع) + ورقة تفاصيل يومية.
 - محفّز `trg_employee_biometric_autopush`: إضافة موظف برقم بصمة رقمي أو تغيير رقمه/اسمه → أمر USERINFO تلقائي لكل أجهزة ADMS النشطة (لا شيء للمنتهية خدمتهم أو بلا رقم).
+
+## 00176 — الإرسال إلى أجهزة مختارة وحماية مسؤول الجهاز
+- `biometric_push_employee(employee, device_ids uuid[] | null)`: null = أجهزة فرع الموظف؛ الواجهة تعرض قائمة اختيار (أجهزة الفرع محددة افتراضياً). المحفّز التلقائي → أجهزة فرع الموظف فقط (بلا فرع → لا شيء).
+- سطر USERINFO يحافظ على `Pri`/`Card` المعروفين من `biometric_device_users` ولا يرسل `Passwd=` (حتى لا تُسقط صلاحية/كلمة مرور مسؤول الجهاز إذا تطابق رقمه مع رقم موظف).
+- `biometric_set_device_admin(device, pin, name?)` (IT): يرفع المستخدم إلى Pri=14 لاستعادة الدخول إلى قائمة الجهاز عند «رفض الوصول».

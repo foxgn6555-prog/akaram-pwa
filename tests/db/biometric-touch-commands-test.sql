@@ -124,12 +124,16 @@ do $$ declare v_id bigint; v_cmd text; n int; begin
   exception when others then if sqlerrm not like '%BIO_RANGE_TOO_WIDE%' then raise; end if; end;
 
   -- ② إرسال موظف: سطر USERINFO صحيح؛ بلا PIN → خطأ واضح
+  -- 00176: الإرسال إلى أجهزة مختارة فقط؛ بلا اختيار وبلا فرع للموظف → لا شيء
   n := public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5');
-  if n < 1 or n <> (select count(*) from public.biometric_devices where is_active and mode = 'adms_push') then raise exception 'FAIL: عدد الأجهزة المستهدفة % ', n; end if;
+  if n <> 0 then raise exception 'FAIL: موظف بلا فرع أُرسل إلى % جهاز دون اختيار', n; end if;
+  n := public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5', array['dd000000-0000-0000-0000-0000000000c1']::uuid[]);
+  if n <> 1 then raise exception 'FAIL: عدد الأجهزة المستهدفة % ', n; end if;
   select command into v_cmd from public.biometric_device_commands where device_serial = 'BT-DEV-1' and kind = 'update_user' order by id desc limit 1;
-  -- الاسم يُقصّ إلى 24 بايت (حدّ حقل Name في الجهاز) على حدود الأحرف: «أحمد علي حسين كاظم الربيعي» → «أحمد علي حسين»
-  if v_cmd not like E'DATA UPDATE USERINFO PIN=555\tName=أحمد علي حسين\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000' then raise exception 'FAIL: سطر USERINFO: %', v_cmd; end if;
-  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c6'); raise exception 'FAIL: قبل موظفاً بلا رقم بصمة';
+  -- الاسم يُقصّ إلى 24 بايت (حدّ حقل Name في الجهاز) على حدود الأحرف: «أحمد علي حسين كاظم الربيعي» → «أحمد علي حسين»؛ بلا Passwd= حتى لا تُمسح كلمة مرور قائمة
+  if v_cmd not like E'DATA UPDATE USERINFO PIN=555\tName=أحمد علي حسين\tPri=0\tCard=\tGrp=1\tTZ=0000000100000000' then raise exception 'FAIL: سطر USERINFO: %', v_cmd; end if;
+
+  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c6', array['dd000000-0000-0000-0000-0000000000c1']::uuid[]); raise exception 'FAIL: قبل موظفاً بلا رقم بصمة';
   exception when others then if sqlerrm not like '%BIO_PIN_REQUIRED%' then raise; end if; end;
   -- حذف مستخدم
   perform public.biometric_delete_device_user('dd000000-0000-0000-0000-0000000000c1', '555');
@@ -147,7 +151,7 @@ select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000e', false);
 do $$ declare n int; begin
   select count(*) into n from public.biometric_commands_list('dd000000-0000-0000-0000-0000000000c1', 50);
   if n <> 0 then raise exception 'FAIL: موظف عادي رأى الأوامر'; end if;
-  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5'); raise exception 'FAIL: موظف عادي أرسل أمراً';
+  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5', array['dd000000-0000-0000-0000-0000000000c1']::uuid[]); raise exception 'FAIL: موظف عادي أرسل أمراً';
   exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if; end;
 end $$;
 reset role; select set_config('auth.user_id','', false);
@@ -210,5 +214,30 @@ do $$ declare n int; begin
   begin insert into public.biometric_adms_endpoints (label, host) values ('x', 'x.example'); raise exception 'FAIL: HR أضاف عنواناً';
   exception when others then if sqlerrm like 'FAIL:%' then raise; end if; end;
 end $$;
+reset role; select set_config('auth.user_id','', false);
+-- 00176: مستخدم معروف على الجهاز بصلاحية مسؤول وبطاقة → الإرسال يحافظ على صلاحيته وبطاقته (لا يُسقط مسؤول الجهاز)
+reset role; select set_config('auth.user_id','', false);
+insert into public.biometric_device_users (device_serial, pin, name, card, privilege) values ('BT-DEV-1', '555', 'x', '12345', 14) on conflict (device_serial, pin) do update set privilege = 14, card = '12345';
+set role authenticated;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
+do $$ declare v_cmd text; begin
+  perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5', array['dd000000-0000-0000-0000-0000000000c1']::uuid[]);
+  select command into v_cmd from public.biometric_device_commands where device_serial = 'BT-DEV-1' and kind = 'update_user' order by id desc limit 1;
+  if v_cmd not like E'%\tPri=14\tCard=12345\t%' then raise exception 'FAIL: صلاحية المسؤول لم تُحفظ: %', v_cmd; end if;
+end $$;
+reset role; select set_config('auth.user_id','', false);
+delete from public.biometric_device_users where device_serial = 'BT-DEV-1' and pin = '555';
+-- 00176: تعيين مسؤول على الجهاز (IT فقط) → Pri=14
+set role authenticated;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000b', false); select set_config('auth.role','authenticated', false);
+do $$ declare v_id bigint; v_cmd text; begin
+  v_id := public.biometric_set_device_admin('dd000000-0000-0000-0000-0000000000c1', '1', 'المدير');
+  select command into v_cmd from public.biometric_device_commands where id = v_id;
+  if v_cmd <> E'DATA UPDATE USERINFO PIN=1\tName=المدير\tPri=14\tCard=\tGrp=1\tTZ=0000000100000000' then raise exception 'FAIL: أمر المسؤول: %', v_cmd; end if;
+end $$;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false);
+do $$ begin
+  perform public.biometric_set_device_admin('dd000000-0000-0000-0000-0000000000c1', '1'); raise exception 'FAIL: HR عيّن مسؤولاً على الجهاز';
+exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if; end $$;
 reset role; select set_config('auth.user_id','', false);
 select 'biometric-commands-00174 ok' as result;

@@ -40,6 +40,11 @@ const pushEmp = vi.fn()
 vi.mock('@features/integrations', () => ({
   useBiometricPunches: (f: unknown) => { h.unmatchedFilters = f; return { data: h.unmatched, isLoading: false } },
   usePushEmployeeToDevices: () => ({ mutate: pushEmp, isPending: false }),
+  useDevices: () => ({ data: [
+    { id: 'dv1', serial_number: 'ZK-A', name: 'بصمة بغداد', branch_id: 'b1', is_active: true, mode: 'adms_push' },
+    { id: 'dv2', serial_number: 'ZK-B', name: 'بصمة البصرة', branch_id: 'b2', is_active: true, mode: 'adms_push' },
+    { id: 'dv3', serial_number: 'LAN-1', name: 'شبكة', branch_id: 'b1', is_active: true, mode: 'lan_pull' },
+  ], isLoading: false }),
 }))
 vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null } }))
 
@@ -85,7 +90,14 @@ describe('HR — بيانات الموظفين', () => {
     const btn = screen.getByTestId('emp-push-devices')
     expect(btn).not.toBeDisabled()
     fireEvent.click(btn)
-    expect(pushEmp).toHaveBeenCalledWith({ employeeId: 'e1' }, expect.anything())
+    // 00176: قائمة اختيار الأجهزة — أجهزة فرع الموظف (b1) محددة افتراضياً، وأجهزة غير ADMS لا تظهر
+    expect(screen.getByTestId('emp-push-picker')).toBeInTheDocument()
+    expect(screen.getByTestId('emp-push-dev-ZK-A')).toBeChecked()
+    expect(screen.getByTestId('emp-push-dev-ZK-B')).not.toBeChecked()
+    expect(screen.queryByTestId('emp-push-dev-LAN-1')).toBeNull()
+    fireEvent.click(screen.getByTestId('emp-push-dev-ZK-B'))
+    fireEvent.click(screen.getByTestId('emp-push-confirm'))
+    expect(pushEmp).toHaveBeenCalledWith({ employeeId: 'e1', deviceIds: ['dv1', 'dv2'] }, expect.anything())
     pushEmp.mock.calls[0]![1].onSuccess(2)
     await waitFor(() => expect(screen.getByTestId('emp-push-msg')).toHaveTextContent('أُرسل إلى 2 جهاز'))
     unmount()
