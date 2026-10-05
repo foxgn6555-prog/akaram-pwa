@@ -21,4 +21,5 @@ export const useStoreAdjust = () => useAction((x: { itemId: string; newQty: numb
 export const useSupplyRequests = (scope: SupplyScope = 'open') => useQuery({ queryKey: [...ROOT, 'requests', scope], queryFn: () => opsStore.requests(scope), refetchInterval: 60_000 })
 export const useCreateSupplyRequest = () => useAction((x: { items: { item_id: string; qty: number }[]; notes?: string | null }) => opsStore.createRequest(x.items, x.notes), 'أُرسل طلب المستلزمات')
 export const useDeliverSupply = () => useAction((x: { id: string; receiverName: string; items?: { item_id: string; delivered_qty: number }[] | null; note?: string | null }) => opsStore.deliver(x.id, x.receiverName, x.items, x.note), 'تم التسليم وأُنقص المخزن')
+export const useMarkSupplyReady = () => useAction((x: { id: string; note?: string | null }) => opsStore.markReady(x.id, x.note), 'أُعلن الطلب جاهزاً للتسليم وبُلّغ مسؤول القسم')
 export const useCancelSupply = () => useAction((x: { id: string; reason: string }) => opsStore.cancel(x.id, x.reason), 'أُلغي الطلب')

@@ -3,25 +3,25 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { AlertTriangle, ClipboardList, History, Package, PackageCheck, Plus } from 'lucide-react'
-import { useCancelSupply, useDeliverSupply, useSaveStoreItem, useStoreAdjust, useStoreItems, useStoreMovements, useStoreReceive, useSupplyRequests } from '@features/ops-store/hooks'
+import { useCancelSupply, useDeliverSupply, useMarkSupplyReady, useSaveStoreItem, useStoreAdjust, useStoreItems, useStoreMovements, useStoreReceive, useSupplyRequests } from '@features/ops-store/hooks'
 import type { StoreItem, SupplyRequestRow } from '@sdk/ops-store.sdk'
 import { useApprovalTimeline } from '@features/sector-manager/hooks'
 import { STATUS_AR, dateAr, timeAr } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-export const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'جاهز للتسليم', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
+export const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'موافَق عليه — غير جاهز للتسليم', ready: 'جاهز للتسليم', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
 const SHIFT: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
 type Tab = 'ready' | 'items' | 'movements' | 'done'
 
 export default function OpsStorePage() {
   const [tab, setTab] = useState<Tab>('ready')
   const ready = useSupplyRequests('open')
-  const readyCount = (ready.data ?? []).filter((r) => r.approval_status === 'approved').length
+  const readyCount = (ready.data ?? []).filter((r) => r.approval_status === 'approved' || r.approval_status === 'ready').length
   return (
     <div className="space-y-4 pb-4" data-testid="ops-store">
       <header>
         <h1 className="text-lg font-black">المخزن</h1>
-        <p className="text-xs text-slate-600">طلبات مستلزمات القواطع بعد اكتمال موافقاتها تبقى هنا معلّقة حتى يستلمها أحد، وعندها يُنقص المخزن.</p>
+        <p className="text-xs text-slate-600">طلبات مستلزمات القواطع: بعد اكتمال موافقاتها تبقى «غير جاهزة» حتى تعلنوا جاهزيتها (فيُبلَّغ مسؤول القسم)، ثم تُسلَّم فيُنقص المخزن.</p>
       </header>
       <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
         {([['ready', 'للتسليم', readyCount], ['items', 'المواد', null], ['movements', 'الحركات', null], ['done', 'المنجزة', null]] as const).map(([k, l, n]) => (
@@ -47,12 +47,14 @@ function ReadyTab() {
 }
 
 function RequestCard({ r }: { r: SupplyRequestRow }) {
-  const deliver = useDeliverSupply(), cancel = useCancelSupply()
-  const [mode, setMode] = useState<'idle' | 'deliver' | 'cancel' | 'path'>('idle')
+  const deliver = useDeliverSupply(), cancel = useCancelSupply(), markReady = useMarkSupplyReady()
+  const [mode, setMode] = useState<'idle' | 'deliver' | 'cancel' | 'path' | 'ready'>('idle')
+  const [readyNote, setReadyNote] = useState('')
   const [receiver, setReceiver] = useState(''), [note, setNote] = useState(''), [reason, setReason] = useState('')
   const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(r.items.map((i) => [i.item_id, String(i.qty)])))
   const timeline = useApprovalTimeline(mode === 'path' ? 'supplies' : undefined, mode === 'path' ? r.id : undefined)
-  const ready = r.approval_status === 'approved'
+  const ready = r.approval_status === 'ready'
+  const approved = r.approval_status === 'approved'
   const qtyValid = r.items.every((i) => { const v = Number(qty[i.item_id]); return Number.isFinite(v) && v >= 0 && v <= i.qty })
   return (
     <li className={clsx('rounded-2xl border bg-white p-4 shadow-sm', ready && 'border-emerald-300')} data-testid={`supply-${r.id}`}>
@@ -61,8 +63,8 @@ function RequestCard({ r }: { r: SupplyRequestRow }) {
           <div className="text-sm font-black">{r.manager_name} <span className="text-[11px] font-normal text-slate-500">· {SHIFT[r.shift] ?? r.shift}</span></div>
           <div className="text-[11px] text-slate-500">{[r.parent_sector, r.areas].filter(Boolean).join(' · ')} · {r.ref_no}</div>
         </div>
-        <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', ready ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')} data-testid={`supply-status-${r.id}`}>
-          {SUPPLY_STATUS_AR[r.approval_status]}{!ready && r.current_step ? ` · ${r.current_step}` : ''}
+        <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', ready ? 'bg-emerald-100 text-emerald-800' : approved ? 'bg-orange-100 text-orange-800' : 'bg-amber-100 text-amber-800')} data-testid={`supply-status-${r.id}`}>
+          {SUPPLY_STATUS_AR[r.approval_status]}{r.approval_status === 'pending' && r.current_step ? ` · ${r.current_step}` : ''}
         </span>
       </div>
       <ul className="mt-3 divide-y rounded-xl border text-sm" data-testid={`supply-items-${r.id}`}>
@@ -79,13 +81,27 @@ function RequestCard({ r }: { r: SupplyRequestRow }) {
         ))}
       </ul>
       {r.notes && <div className="mt-1 text-xs text-slate-600">«{r.notes}»</div>}
-      <div className="mt-1 text-[11px] text-slate-500">قُدّم {dateAr(r.created_at)} {timeAr(r.created_at)}{r.decided_at ? ` · اكتملت الموافقات ${dateAr(r.decided_at)}` : ''}</div>
+      <div className="mt-1 text-[11px] text-slate-500">قُدّم {dateAr(r.created_at)} {timeAr(r.created_at)}{r.decided_at ? ` · اكتملت الموافقات ${dateAr(r.decided_at)}` : ''}{r.ready_at ? ` · جُهّز ${dateAr(r.ready_at)} (${r.ready_by_name ?? ''})` : ''}</div>
 
       {mode === 'idle' && (
         <div className="mt-3 flex flex-wrap gap-2">
+          {approved && <button type="button" data-testid={`mark-ready-${r.id}`} onClick={() => setMode('ready')} className="flex h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-sky-600 text-sm font-black text-white"><Package size={16} /> إعلان الجاهزية للتسليم</button>}
+          {r.approval_status === 'pending' && <span className="flex h-11 flex-1 items-center justify-center rounded-xl bg-amber-50 text-xs font-bold text-amber-800" data-testid={`ready-blocked-${r.id}`}>لا يمكن التجهيز — موافقات معلّقة ({r.pending_steps})</span>}
           {ready && <button type="button" data-testid={`deliver-${r.id}`} onClick={() => setMode('deliver')} className="flex h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-600 text-sm font-black text-white"><PackageCheck size={16} /> تسليم</button>}
           <button type="button" data-testid={`cancel-${r.id}`} onClick={() => setMode('cancel')} className="h-11 rounded-xl border border-rose-300 bg-rose-50 px-4 text-sm font-bold text-rose-800">إلغاء</button>
           <button type="button" data-testid={`path-${r.id}`} onClick={() => setMode('path')} className="h-11 rounded-xl border px-4 text-sm font-bold">المسار</button>
+        </div>
+      )}
+      {mode === 'ready' && (
+        <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+          <p className="text-xs font-bold text-sky-900">سيُبلَّغ مسؤول القسم فوراً بأن طلبه جاهز للتسليم في غرفة العمليات.</p>
+          <label className="mt-2 block text-xs font-bold">ملاحظة للمسؤول (اختياري)
+            <input data-testid={`ready-note-${r.id}`} value={readyNote} onChange={(e) => setReadyNote(e.target.value)} className="mt-1 h-10 w-full rounded-xl border px-3 text-sm font-normal" placeholder="مثال: جاهز عند باب المخزن من الساعة 8" />
+          </label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" data-testid={`ready-confirm-${r.id}`} disabled={markReady.isPending} onClick={() => markReady.mutate({ id: r.id, note: readyNote.trim() || null }, { onSuccess: () => setMode('idle') })} className="h-10 rounded-xl bg-sky-700 text-sm font-black text-white disabled:opacity-40">تأكيد الجاهزية وتبليغ المسؤول</button>
+            <button type="button" onClick={() => setMode('idle')} className="h-10 rounded-xl border bg-white text-sm font-bold">رجوع</button>
+          </div>
         </div>
       )}
       {mode === 'deliver' && (
@@ -156,7 +172,7 @@ function ItemsTab() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-black"><Package size={14} className="inline" /> {it.name} {!it.is_active && <span className="text-[10px] text-slate-500">(موقوفة)</span>}</div>
-                  <div className="text-[11px] text-slate-500">الوحدة: {it.unit} · الحد الأدنى {it.min_qty}{it.reserved > 0 ? ` · محجوز لطلبات جاهزة: ${it.reserved}` : ''}</div>
+                  <div className="text-[11px] text-slate-500">الوحدة: {it.unit} · الحد الأدنى {it.min_qty}{it.reserved > 0 ? ` · محجوز لطلبات موافَق عليها: ${it.reserved}` : ''}</div>
                 </div>
                 <div className="text-left">
                   <div className={clsx('text-xl font-black', it.low_stock ? 'text-rose-700' : 'text-slate-900')} data-testid={`item-qty-${it.id}`}>{it.qty_on_hand}</div>

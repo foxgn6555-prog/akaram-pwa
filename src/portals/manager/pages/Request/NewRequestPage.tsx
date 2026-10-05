@@ -18,8 +18,8 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'جاهز للتسليم في غرفة العمليات', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
-const STATUS_CLS: Record<string, string> = { pending: 'bg-amber-100 text-amber-800', approved: 'bg-sky-100 text-sky-800', delivered: 'bg-emerald-100 text-emerald-800', rejected: 'bg-rose-100 text-rose-800', cancelled: 'bg-slate-200 text-slate-700' }
+const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'غير جاهز للتسليم — بانتظار تجهيز غرفة العمليات', ready: 'جاهز للتسليم في غرفة العمليات', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
+const STATUS_CLS: Record<string, string> = { pending: 'bg-amber-100 text-amber-800', approved: 'bg-orange-100 text-orange-800', ready: 'bg-sky-100 text-sky-800', delivered: 'bg-emerald-100 text-emerald-800', rejected: 'bg-rose-100 text-rose-800', cancelled: 'bg-slate-200 text-slate-700' }
 
 export default function NewRequestPage() {
   const navigate = useNavigate()
@@ -129,6 +129,7 @@ function MyRequest({ r, book, sectorNames }: { r: SupplyRequestRow; book?: Suppl
         <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', STATUS_CLS[r.approval_status])} data-testid={`my-supply-status-${r.id}`}>{SUPPLY_STATUS_AR[r.approval_status]}{r.approval_status === 'pending' && r.current_step ? ` · عند: ${r.current_step}` : ''}</span>
       </div>
       <div className="mt-1 text-slate-800">{r.items.map((i) => `${i.name} × ${i.qty} ${i.unit}${i.delivered_qty !== null && i.delivered_qty !== i.qty ? ` (سُلّم ${i.delivered_qty})` : ''}`).join('، ')}</div>
+      {r.approval_status === 'ready' && <div className="text-[11px] text-sky-700">جُهّز {dateAr(r.ready_at)}{r.ready_note ? ` · ${r.ready_note}` : ''} — راجع غرفة العمليات لاستلامه</div>}
       {r.approval_status === 'delivered' && <div className="text-[11px] text-slate-500">استلمها {r.receiver_name} · {dateAr(r.delivered_at)}</div>}
       {r.cancel_reason && <div className="text-[11px] text-rose-700">سبب الإلغاء: {r.cancel_reason}</div>}
       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const h = vi.hoisted(() => ({ deliver: vi.fn(), cancel: vi.fn(), save: vi.fn(), receive: vi.fn(), adjust: vi.fn(), create: vi.fn(), decide: vi.fn(), scope: '' as string }))
+const h = vi.hoisted(() => ({ markReady: vi.fn(), deliver: vi.fn(), cancel: vi.fn(), save: vi.fn(), receive: vi.fn(), adjust: vi.fn(), create: vi.fn(), decide: vi.fn(), scope: '' as string }))
 const items = [
   { id: 'i-bags', name: 'أكياس نفايات 50 لتر', unit: 'كيس', qty_on_hand: 485, min_qty: 100, is_active: true, low_stock: false, reserved: 20, updated_at: 'x' },
   { id: 'i-brooms', name: 'مكانس', unit: 'قطعة', qty_on_hand: 3, min_qty: 5, is_active: true, low_stock: true, reserved: 0, updated_at: 'x' },
@@ -10,7 +10,7 @@ const items = [
 const req = (id: string, status: string, extra: Record<string, unknown> = {}) => ({
   id, ref_no: `كتاب/مستلزمات/2026/000${id.slice(-1)}`, manager_id: 'm1', manager_name: 'مسؤول قسم 4', shift: 'morning', areas: 'الجادرية', parent_sector: 'الكرادة',
   items: [{ item_id: 'i-bags', name: 'أكياس نفايات 50 لتر', unit: 'كيس', qty: 20, delivered_qty: null }, { item_id: 'i-brooms', name: 'مكانس', unit: 'قطعة', qty: 3, delivered_qty: null }],
-  notes: null, approval_status: status, current_step: status === 'pending' ? 'مسؤول قاطع (حسب التسلسل)' : null, created_at: '2026-10-01T06:00:00Z', decided_at: null, delivered_at: null, receiver_name: null, delivery_note: null, cancel_reason: null, delivered_by_name: null, ...extra,
+  notes: null, approval_status: status, current_step: status === 'pending' ? 'مسؤول قاطع (حسب التسلسل)' : null, created_at: '2026-10-01T06:00:00Z', decided_at: null, delivered_at: null, receiver_name: null, delivery_note: null, cancel_reason: null, delivered_by_name: null, ready_at: null, ready_by_name: null, ready_note: null, pending_steps: status === 'pending' ? 1 : 0, ...extra,
 })
 vi.mock('@features/ops-store/hooks', () => ({
   useStoreItems: () => ({ data: items, isLoading: false }),
@@ -18,9 +18,10 @@ vi.mock('@features/ops-store/hooks', () => ({
   useSaveStoreItem: () => ({ mutate: h.save, isPending: false }),
   useStoreReceive: () => ({ mutate: h.receive, isPending: false }),
   useStoreAdjust: () => ({ mutate: h.adjust, isPending: false }),
-  useSupplyRequests: (scope: string) => ({ data: scope === 'done' ? [req('r9', 'delivered', { receiver_name: 'سائق', delivered_at: 'x', delivered_by_name: 'غرفة' })] : [req('r1', 'approved'), req('r2', 'pending')], isLoading: false }),
+  useSupplyRequests: (scope: string) => ({ data: scope === 'done' ? [req('r9', 'delivered', { receiver_name: 'سائق', delivered_at: 'x', delivered_by_name: 'غرفة' })] : [req('r1', 'ready', { ready_at: '2026-10-01T07:00:00Z', ready_by_name: 'غرفة' }), req('r2', 'pending'), req('r3', 'approved')], isLoading: false }),
   useCreateSupplyRequest: () => ({ mutate: h.create, isPending: false }),
   useDeliverSupply: () => ({ mutate: h.deliver, isPending: false }),
+  useMarkSupplyReady: () => ({ mutate: h.markReady, isPending: false }),
   useCancelSupply: () => ({ mutate: h.cancel, isPending: false }),
 }))
 vi.mock('@features/sector-manager/hooks', () => ({
@@ -47,9 +48,17 @@ describe('المخزن (غرفة العمليات) — 00162', () => {
   beforeEach(() => vi.clearAllMocks())
   it('للتسليم: الجاهز يظهر بزر تسليم، وقيد الموافقة بلا زر؛ التسليم يتطلب اسم المستلم وكميات ≤ المطلوب ثم يُرسل الكميات', () => {
     wrap(<OpsStorePage />)
-    expect(screen.getByTestId('store-tab-ready')).toHaveTextContent('1')
+    expect(screen.getByTestId('store-tab-ready')).toHaveTextContent('2')
     expect(screen.getByTestId('supply-status-r1')).toHaveTextContent('جاهز للتسليم'); expect(screen.getByTestId('supply-status-r2')).toHaveTextContent('قيد الموافقة · مسؤول قاطع')
     expect(screen.queryByTestId('deliver-r2')).toBeNull()
+    // الموافَق عليه غير جاهز: بلا زر تسليم، له زر إعلان الجاهزية؛ قيد الموافقة: التجهيز ممنوع
+    expect(screen.getByTestId('supply-status-r3')).toHaveTextContent('غير جاهز للتسليم'); expect(screen.queryByTestId('deliver-r3')).toBeNull()
+    expect(screen.getByTestId('ready-blocked-r2')).toHaveTextContent('موافقات معلّقة (1)'); expect(screen.queryByTestId('mark-ready-r2')).toBeNull()
+    fireEvent.click(screen.getByTestId('mark-ready-r3'))
+    expect(screen.getByText(/سيُبلَّغ مسؤول القسم فوراً/)).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('ready-note-r3'), { target: { value: 'عند الباب' } })
+    fireEvent.click(screen.getByTestId('ready-confirm-r3'))
+    expect(h.markReady).toHaveBeenCalledWith({ id: 'r3', note: 'عند الباب' }, expect.any(Object))
     fireEvent.click(screen.getByTestId('deliver-r1'))
     expect(screen.getByTestId('deliver-confirm-r1')).toBeDisabled()
     fireEvent.change(screen.getByTestId('receiver-r1'), { target: { value: 'سائق المنطقة 4' } })
@@ -70,7 +79,7 @@ describe('المخزن (غرفة العمليات) — 00162', () => {
   it('المواد: إضافة مادة، إدخال كمية، تسوية بسبب إلزامي، تنبيه دون الحد الأدنى والمحجوز', () => {
     wrap(<OpsStorePage />)
     fireEvent.click(screen.getByTestId('store-tab-items'))
-    expect(screen.getByTestId('item-i-brooms')).toHaveTextContent('دون الحد الأدنى'); expect(screen.getByTestId('item-i-bags')).toHaveTextContent('محجوز لطلبات جاهزة: 20')
+    expect(screen.getByTestId('item-i-brooms')).toHaveTextContent('دون الحد الأدنى'); expect(screen.getByTestId('item-i-bags')).toHaveTextContent('محجوز لطلبات موافَق عليها: 20')
     fireEvent.change(screen.getByTestId('item-name'), { target: { value: 'قفازات' } }); fireEvent.change(screen.getByTestId('item-unit'), { target: { value: 'زوج' } }); fireEvent.change(screen.getByTestId('item-min'), { target: { value: '50' } })
     fireEvent.click(screen.getByTestId('item-save'))
     expect(h.save).toHaveBeenCalledWith({ name: 'قفازات', unit: 'زوج', minQty: 50 }, expect.any(Object))
@@ -103,6 +112,7 @@ describe('طلب مستلزمات مسؤول القسم — من القائمة'
     fireEvent.click(screen.getByTestId('supply-send'))
     await waitFor(() => expect(h.create).toHaveBeenCalledWith({ items: [{ item_id: 'i-bags', qty: 30 }], notes: 'للجادرية' }, expect.any(Object)))
     expect(screen.getByTestId('my-supply-status-r1')).toHaveTextContent('جاهز للتسليم في غرفة العمليات')
+    expect(screen.getByTestId('my-supply-status-r3')).toHaveTextContent('غير جاهز للتسليم — بانتظار تجهيز غرفة العمليات')
     expect(screen.getByTestId('my-supply-status-r2')).toHaveTextContent('قيد الموافقة · عند: مسؤول قاطع')
     noFinance()
   })

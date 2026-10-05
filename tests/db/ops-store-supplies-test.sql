@@ -64,11 +64,12 @@ begin
   rid := public.supply_request_create(format('[{"item_id":"%s","qty":20},{"item_id":"%s","qty":3}]', bags, brooms)::jsonb, 'للمنطقة 4');
   select * into r from public.sector_supply_requests where id = rid;
   if r.approval_status <> 'approved' or r.supply_type not like 'أكياس نفايات 50 لتر × 20 كيس%' or r.quantity <> 23 or r.ref_no not like 'كتاب/مستلزمات/%' then raise exception 'request wrong: %', r; end if;
-  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key = 'supply_ready:' || rid::text || ':da000000-0000-0000-0000-000000000002';
+  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key like 'supply:%:' || rid::text || ':da000000-0000-0000-0000-000000000002';
   if n <> 1 then raise exception 'ops room should be notified'; end if;
   select count(*) into n from public.supply_requests_list('open') l where l.id = rid; if n <> 1 then raise exception 'manager should see own request'; end if;
   -- غرفة العمليات: الطلب جاهز للتسليم، والمحجوز ظاهر على المادة
   perform pg_temp.as_user('da000000-0000-0000-0000-000000000002');
+  perform public.supply_request_mark_ready(rid);
   select * into r from public.supply_requests_list('ready') l where l.id = rid;
   if r.manager_name <> 'مسؤول قسم 4' or r.areas is null or jsonb_array_length(r.items) <> 2 then raise exception 'ops list wrong: %', r; end if;
   select * into r from public.ops_store_items_list() i where i.id = bags; if r.reserved <> 20 then raise exception 'reserved %', r.reserved; end if;
@@ -101,7 +102,7 @@ begin
   rid := public.supply_request_create(format('[{"item_id":"%s","qty":50}]', bags)::jsonb);
   select * into r from public.sector_supply_requests where id = rid;
   if r.approval_status <> 'pending' or r.chain_id is null or r.status <> 'in_approval' then raise exception 'chained request wrong: %', r; end if;
-  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key like 'supply_ready:' || rid::text || '%'; if n <> 0 then raise exception 'ops must not be notified before approval'; end if;
+  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key like 'supply:%' || rid::text || '%' and title like 'اكتملت%'; if n <> 0 then raise exception 'ops must not be notified of completion before approval'; end if;
   -- مسؤول القاطع يرى المهمة بالمواد
   perform pg_temp.as_user('da000000-0000-0000-0000-000000000004');
   select * into t from public.approval_my_tasks() where request_id = rid;
@@ -121,7 +122,7 @@ begin
   perform public.approval_decide_request('supplies', rid, true);
   select * into r from public.sector_supply_requests where id = rid;
   if r.approval_status <> 'approved' then raise exception 'should be approved after last step'; end if;
-  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key like 'supply_ready:' || rid::text || '%'; if n <> 1 then raise exception 'ops should be notified after final approval'; end if;
+  select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000002' and dedupe_key like 'supply:%' || rid::text || '%' and title like 'اكتملت%'; if n <> 1 then raise exception 'ops should be notified after final approval'; end if;
   select count(*) into n from public.notifications where user_id = 'da000000-0000-0000-0000-000000000003' and dedupe_key = 'supply_approved:' || rid::text; if n <> 1 then raise exception 'manager should be notified of approval'; end if;
   -- المسار مرئي للطالب ولغرفة العمليات
   perform pg_temp.as_user('da000000-0000-0000-0000-000000000003');
