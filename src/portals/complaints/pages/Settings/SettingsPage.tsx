@@ -111,6 +111,7 @@ function IssueTypesCard({setting}:{setting?:ComplaintSetting}){
 const SETTING_LABELS: Record<string,{title:string;description:string;fields:Record<string,string>}>={
   mailgun:{title:'حدود البريد والمرفقات',description:'إعدادات تشغيلية عامة فقط؛ المفتاح السري والنطاق يبقيان في أسرار الخادم.',fields:{provider:'مزود البريد',maxAttachmentMb:'الحد الأقصى للمرفقات (MB)'}},
   report:{title:'سياسة التقارير والأرشفة',description:'حدد محتوى التقرير اليومي ووقت أرشفة التقرير بعد الإرسال.',fields:{includeAllDailyItems:'تضمين جميع عناصر اليوم',archiveAfterDelivery:'الأرشفة تلقائياً بعد تأكيد التسليم'}},
+  database:{title:'قاعدة بيانات الشكاوى',description:'جدول السجل الشهري: الشكوى المستلمة قبل حدّ الشفت تُعدّ «الصباحية» وبعده «المسائية»؛ وتُعدّ «منجزة» إذا اعتُمدت خلال المهلة بالساعات وإلا «منجز متأخر/متأخر».',fields:{shiftCutoff:'حدّ الشفت الصباحي/المسائي (HH:MM)',lateHours:'مهلة الإنجاز (ساعات)'}},
   'reports.cc':{title:'نسخ التقارير الإضافية',description:'التحكم في إرسال نسخة إضافية مع التقارير.',fields:{enabled:'تفعيل النسخة الإضافية'}},
 }
 function titleFor(key:string){return SETTING_LABELS[key]?.title??key.replaceAll(/[._-]+/g,' ')}

@@ -8,6 +8,7 @@ import ComplaintDetailPage from './pages/Processing/ComplaintDetailPage'
 import TemplatesPage from './pages/Templates/TemplatesPage'
 import ReportEditorPage from './pages/Templates/ReportEditorPage'
 import DataPage from './pages/Data/DataPage'
+import DatabasePage from './pages/Database/DatabasePage'
 import SettingsPage from './pages/Settings/SettingsPage'
 import ArchivePage from './pages/Archive/ArchivePage'
 import SupportPage from './pages/Support/SupportPage'
@@ -23,6 +24,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'templates', element: <TemplatesPage /> },
   { path: 'reports/:id', element: <ReportEditorPage /> },
   { path: 'data', element: <DataPage /> },
+  { path: 'database', element: <DatabasePage /> },
   { path: 'pages-contact-settings', element: <SettingsPage /> },
   { path: 'archive', element: <ArchivePage /> },
   { path: 'technical-support', element: <SupportPage /> },

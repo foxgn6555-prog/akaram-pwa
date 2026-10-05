@@ -166,6 +166,10 @@ export function useRequestComplaintDeletion(){const qc=useQueryClient();return u
 export function useDecideComplaintDeletion(){const qc=useQueryClient();return useMutation({mutationFn:({requestId,approved,note}:{requestId:string;approved:boolean;note?:string})=>complaints.decideDeletion(requestId,approved,note),onSettled:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
 export function useRetryComplaintDeletion(){const qc=useQueryClient();return useMutation({mutationFn:({requestId,note}:{requestId:string;note?:string})=>complaints.retryDeletion(requestId,note),onSettled:()=>qc.invalidateQueries({queryKey:complaintsKeys.all})})}
 
+/** قاعدة بيانات الشكاوى — السجل الشهري (00180) */
+export function useComplaintDatabase(from: string, to: string, sector: ComplaintSector | null) {
+  return useQuery({ queryKey: [...complaintsKeys.all, 'database', from, to, sector ?? 'all'], queryFn: () => complaints.databaseRows(from, to, sector), enabled: !!from && !!to })
+}
 export function useComplaintSettings() {
   return useQuery({ queryKey: complaintsKeys.settings(), queryFn: () => complaints.settings() })
 }

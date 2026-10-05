@@ -412,6 +412,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       exact: true,
     },
     { path: '/complaints/data', labelKey: 'nav.complaints_data', icon: 'database', exact: true },
+    { path: '/complaints/database', labelKey: 'nav.complaints_database', icon: 'clipboard', exact: true },
     {
       path: '/complaints/pages-contact-settings',
       labelKey: 'nav.complaints_pages_contact',

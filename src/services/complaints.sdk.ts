@@ -30,6 +30,7 @@ import type {
   ComplaintItemDetail,
   ComplaintStatusEvent,
   ComplaintSetting,
+  ComplaintDatabaseRow,
   ComplaintArchiveFolder,
   ComplaintDeletionRequest,
   SendComplaintEmailInput,
@@ -488,6 +489,12 @@ export const complaints = {
   async requestPermanentDeletion(folderId:string,reason:string):Promise<string>{return String(await sdkGuard(supabase.rpc('complaint_request_permanent_deletion',{p_folder_id:folderId,p_reason:reason})))},
   async decideDeletion(requestId:string,approved:boolean,note?:string):Promise<void>{await sdkVoid(supabase.rpc('complaint_decide_deletion',{p_request_id:requestId,p_approved:approved,p_note:note?.trim()||null}));if(approved)await sdkGuard(supabase.functions.invoke('complaint-permanent-delete',{body:{requestId}}))},
   async retryDeletion(requestId:string,note?:string):Promise<void>{await sdkVoid(supabase.rpc('complaint_retry_permanent_deletion',{p_request_id:requestId,p_note:note?.trim()||null}));await sdkGuard(supabase.functions.invoke('complaint-permanent-delete',{body:{requestId}}))},
+
+  /** قاعدة بيانات الشكاوى — صف لكل عنصر بالأعمدة الأربعة عشر (00180) */
+  async databaseRows(from: string, to: string, sector: ComplaintSector | null): Promise<ComplaintDatabaseRow[]> {
+    const rows = (await sdkGuard(supabase.rpc('complaint_database_rows', { p_from: from, p_to: to, p_sector: sector } as never))) as unknown
+    return (rows as ComplaintDatabaseRow[] | null) ?? []
+  },
 
   async settings(): Promise<ComplaintSetting[]> {
     const rows = await sdkGuard(supabase.from('complaint_settings').select('key,value,description').order('key')

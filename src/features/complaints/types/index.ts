@@ -238,3 +238,29 @@ export interface ComplaintReport {
   scope: 'email' | 'daily'
   inboxMessageId: string | null
 }
+
+/** صف «قاعدة بيانات الشكاوى» (complaint_database_rows) — بصيغة السجل الشهري المعتمد */
+export interface ComplaintDatabaseRow {
+  item_id: string
+  complaint_id: string
+  reference_no: string
+  ticket_name: string
+  received_at: string
+  received_date: string
+  received_time: string
+  sender_name: string
+  municipal_center: string | null
+  sector: string
+  shift: string
+  neighborhood: string | null
+  street: string | null
+  delay_type: string | null
+  source: string
+  handler_name: string | null
+  item_status: ComplaintItemStatus
+  completion: 'منجز' | 'منجز متأخر' | 'متأخر' | 'قيد المعالجة'
+  hours_to_complete: number | null
+  attachments: string
+  attachments_count: number
+  ack_confirmed: boolean
+}
