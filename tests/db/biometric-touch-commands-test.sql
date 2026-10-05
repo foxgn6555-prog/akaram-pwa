@@ -240,4 +240,32 @@ do $$ begin
   perform public.biometric_set_device_admin('dd000000-0000-0000-0000-0000000000c1', '1'); raise exception 'FAIL: HR عيّن مسؤولاً على الجهاز';
 exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if; end $$;
 reset role; select set_config('auth.user_id','', false);
+-- 00177: إلغاء أمر معلّق فقط
+set role authenticated;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
+do $$ declare v_id bigint; st text; v_sent bigint; begin
+  v_id := public.biometric_query_attlog('dd000000-0000-0000-0000-0000000000c1', '2026-08-01T00:00:00Z', '2026-08-10T00:00:00Z');
+  perform public.biometric_command_cancel(v_id);
+  select status into st from public.biometric_device_commands where id = v_id;
+  if st <> 'cancelled' then raise exception 'FAIL: الإلغاء لم يُطبَّق %', st; end if;
+  begin perform public.biometric_command_cancel(v_id); raise exception 'FAIL: أُلغي أمر ملغى';
+  exception when others then if sqlerrm not like '%BIO_COMMAND_NOT_CANCELLABLE%' then raise; end if; end;
+  begin perform public.biometric_command_cancel(999999); raise exception 'FAIL: أُلغي أمر غير موجود';
+  exception when others then if sqlerrm not like '%BIO_COMMAND_NOT_FOUND%' then raise; end if; end;
+end $$;
+reset role; select set_config('auth.user_id','', false);
+do $$ declare v_id bigint; n int; begin
+  -- الأمر الملغى لا يُسلَّم للجهاز
+  select count(*) into n from public.biometric_device_commands where device_serial = 'BT-DEV-1' and status = 'queued';
+  while public.biometric_command_next('BT-DEV-1') is not null loop n := n - 1; end loop;
+  if n < 0 then raise exception 'FAIL: سُلّم أمر ملغى'; end if;
+  -- أمر مُرسل لا يُلغى
+  insert into public.biometric_device_commands (device_serial, kind, command, status, sent_at) values ('BT-DEV-1', 'custom', 'X', 'sent', now()) returning id into v_id;
+  set role authenticated;
+  perform set_config('auth.user_id','b7000000-0000-0000-0000-00000000000b', false); perform set_config('auth.role','authenticated', false);
+  begin perform public.biometric_command_cancel(v_id); raise exception 'FAIL: أُلغي أمر مُرسل';
+  exception when others then if sqlerrm not like '%BIO_COMMAND_NOT_CANCELLABLE%' then raise; end if; end;
+  reset role;
+end $$;
+select set_config('auth.user_id','', false);
 select 'biometric-commands-00174 ok' as result;

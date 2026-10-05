@@ -21,6 +21,7 @@ const mockAddEndpoint = vi.fn()
 const mockRemoveEndpoint = vi.fn()
 const mockCommands = vi.fn()
 const mockSetAdmin = vi.fn()
+const mockCancel = vi.fn()
 
 vi.mock('@features/branches', () => ({
   useBranches: () => ({ data: [{ id: 'b1', name: 'المركز' }], isLoading: false }),
@@ -38,6 +39,7 @@ vi.mock('@features/integrations', async () => {
     useQueryAttlog: () => ({ mutate: mockQueryAttlog, isPending: false }),
     usePushAllEmployees: () => ({ mutate: mockPushAll, isPending: false }),
     useSetDeviceAdmin: () => ({ mutate: mockSetAdmin, isPending: false }),
+    useCancelCommand: () => ({ mutate: mockCancel, isPending: false }),
     useUnregisteredDevices: () => mockUnregistered(),
     useAdmsEndpoints: () => mockEndpoints(),
     useAddAdmsEndpoint: () => ({ mutateAsync: mockAddEndpoint, isPending: false }),
@@ -414,6 +416,10 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     expect(list.getByText('نُفّذ')).toBeInTheDocument()
     expect(list.getByText('بانتظار اتصال الجهاز')).toBeInTheDocument()
     expect(list.getByText('مدير التقنية')).toBeInTheDocument()
+    // 00177: «إيقاف» يظهر للأوامر المعلّقة فقط ويستدعي الإلغاء بمعرّف الأمر
+    expect(list.queryByTestId('adms-cmd-cancel-7')).toBeNull()
+    await userEvent.click(list.getByTestId('adms-cmd-cancel-8'))
+    expect(mockCancel).toHaveBeenCalledWith(8, expect.anything())
     await userEvent.click(panel.getByTestId('adms-pull-ZK-001'))
     mockQueryAttlog.mock.calls[0]![1].onError({ code: 'BIO_RANGE_TOO_WIDE' })
     await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent('92 يوماً'))

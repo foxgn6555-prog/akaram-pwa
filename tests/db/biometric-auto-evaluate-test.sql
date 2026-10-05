@@ -83,7 +83,8 @@ begin
   if n <> 2 then raise exception 'T3: ingest %', n; end if;
   select * into a from public.hr_attendance_days where employee_id = e and work_date = d;
   if not found then raise exception 'T3: night day missing'; end if;
-  if a.status <> 'early_leave' or a.worked_minutes <> 465 or a.late_minutes <> 0 or a.early_minutes <> 10 then
+  -- 00177: خروج قبل 10 دقائق ضمن السماح → «حاضر» مع حفظ الدقائق (كان يُصنَّف خروجاً مبكراً)
+  if a.status <> 'present' or a.worked_minutes <> 465 or a.late_minutes <> 0 or a.early_minutes <> 10 then
     raise exception 'T3: night wrong: % worked=% late=% early=%', a.status, a.worked_minutes, a.late_minutes, a.early_minutes;
   end if;
   if a.check_in <> (d::text || ' 19:05:00+00')::timestamptz or a.check_out <> ((d + 1)::text || ' 02:50:00+00')::timestamptz then raise exception 'T3: in/out wrong'; end if;

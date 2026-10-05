@@ -206,7 +206,7 @@ export interface BiometricDiagnostics {
 
 // ─── 00174: أوامر الأجهزة، الاكتشاف، عناوين الخوادم ───
 export type BiometricCommandKind = 'query_userinfo' | 'query_attlog' | 'update_user' | 'delete_user' | 'custom'
-export type BiometricCommandStatus = 'queued' | 'sent' | 'done' | 'failed'
+export type BiometricCommandStatus = 'queued' | 'sent' | 'done' | 'failed' | 'cancelled'
 export interface BiometricCommand {
   id: number
   kind: BiometricCommandKind
@@ -227,7 +227,7 @@ export const BIOMETRIC_COMMAND_LABELS: Record<BiometricCommandKind, string> = {
   custom: 'أمر مخصص',
 }
 export const BIOMETRIC_COMMAND_STATUS_LABELS: Record<BiometricCommandStatus, string> = {
-  queued: 'بانتظار اتصال الجهاز', sent: 'أُرسل للجهاز', done: 'نُفّذ', failed: 'فشل',
+  queued: 'بانتظار اتصال الجهاز', sent: 'أُرسل للجهاز', done: 'نُفّذ', failed: 'فشل', cancelled: 'أُلغي',
 }
 export interface BiometricUnregisteredDevice { serial_number: string; first_seen: string; last_seen: string; attempts: number }
 export interface BiometricAdmsEndpoint { id: string; label: string; host: string; note: string | null; sort_order: number; is_active: boolean }

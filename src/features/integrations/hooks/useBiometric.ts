@@ -213,3 +213,13 @@ export function useUnmatchedReport(f: { from: string; to: string; branchId?: str
 export function useSetDeviceAdmin() {
   return useCommandMutation((v: { deviceId: string; pin: string; name?: string | null }) => biometric.setDeviceAdmin(v.deviceId, v.pin, v.name))
 }
+export function useCancelCommand() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => biometric.cancelCommand(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-commands'] })
+      void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-pulls'] })
+    },
+  })
+}

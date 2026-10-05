@@ -10,13 +10,13 @@ import clsx from 'clsx'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 import { formatRelative } from '@lib/utils/date.utils'
-import { BIOMETRIC_COMMAND_LABELS, BIOMETRIC_COMMAND_STATUS_LABELS, useBiometricCommands, usePushAllEmployees, useQueryAttlog, useSetDeviceAdmin } from '@features/integrations'
+import { BIOMETRIC_COMMAND_LABELS, BIOMETRIC_COMMAND_STATUS_LABELS, useBiometricCommands, usePushAllEmployees, useQueryAttlog, useSetDeviceAdmin, useCancelCommand } from '@features/integrations'
 import type { BiometricCommandStatus, BiometricDevice } from '@features/integrations'
 import { BIOMETRIC_ERROR_MESSAGES } from '@sdk/biometric.sdk'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const STATUS_CLS: Record<BiometricCommandStatus, string> = {
-  queued: 'bg-amber-50 text-amber-700', sent: 'bg-sky-50 text-sky-700', done: 'bg-emerald-50 text-emerald-700', failed: 'bg-red-50 text-red-700',
+  queued: 'bg-amber-50 text-amber-700', sent: 'bg-sky-50 text-sky-700', done: 'bg-emerald-50 text-emerald-700', failed: 'bg-red-50 text-red-700', cancelled: 'bg-slate-100 text-slate-500',
 }
 
 function monthRange(offset: number): [string, string] {
@@ -34,6 +34,8 @@ function errorText(e: unknown): string {
     BIO_DEVICE_INACTIVE: 'الجهاز معطّل',
     BIO_MODE_NOT_ADMS: 'هذا الأمر لأجهزة ADMS فقط',
     BIO_FORBIDDEN: 'غير مصرّح',
+    BIO_COMMAND_NOT_CANCELLABLE: 'لا يمكن إيقاف الأمر — الجهاز استلمه بالفعل',
+    BIO_COMMAND_NOT_FOUND: 'الأمر غير موجود',
   } as Record<string, string>)[code] ?? (code || 'تعذر تنفيذ الطلب')
 }
 
@@ -45,6 +47,7 @@ export function AdmsCommandsPanel({ device: d, online }: { device: BiometricDevi
   const query = useQueryAttlog()
   const pushAll = usePushAllEmployees()
   const setAdmin = useSetDeviceAdmin()
+  const cancel = useCancelCommand()
   const [adminPin, setAdminPin] = useState('')
   const cmds = useBiometricCommands(d.id, showLog)
 
@@ -129,6 +132,13 @@ export function AdmsCommandsPanel({ device: d, online }: { device: BiometricDevi
                 {c.created_by_name && <span>{c.created_by_name}</span>}
                 <span>{formatRelative(c.acked_at ?? c.sent_at ?? c.created_at)}</span>
                 <span className={clsx('rounded-full px-2 py-0.5 font-bold', STATUS_CLS[c.status])} title={c.note ?? undefined}>{BIOMETRIC_COMMAND_STATUS_LABELS[c.status]}</span>
+                {c.status === 'queued' && (
+                  <button type="button" className="font-semibold text-red-600 hover:underline disabled:opacity-50" disabled={cancel.isPending} data-testid={`adms-cmd-cancel-${c.id}`}
+                    title="إلغاء الأمر قبل أن يستلمه الجهاز"
+                    onClick={() => cancel.mutate(c.id, { onError: (e) => setMsg({ ok: false, text: errorText(e) }) })}>
+                    إيقاف
+                  </button>
+                )}
               </span>
             </li>
           ))}

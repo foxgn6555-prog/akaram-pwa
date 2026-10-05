@@ -114,6 +114,10 @@ export const biometric = {
   async deleteDeviceUser(deviceId: string, pin: string): Promise<number> {
     return (await sdkGuard(supabase.rpc('biometric_delete_device_user', { p_device_id: deviceId, p_pin: pin } as never))) as number
   },
+  /** 00177 · إلغاء أمر لم يُسلَّم للجهاز بعد */
+  async cancelCommand(id: number): Promise<void> {
+    await sdkGuard(supabase.rpc('biometric_command_cancel', { p_id: id } as never))
+  },
   async commands(deviceId: string, limit = 30): Promise<BiometricCommand[]> {
     return ((await sdkGuard(supabase.rpc('biometric_commands_list', { p_device_id: deviceId, p_limit: limit } as never))) ?? []) as BiometricCommand[]
   },

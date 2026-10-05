@@ -188,7 +188,9 @@ select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000c');
 do $$ declare r record; a record; m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; b jsonb; begin
   for r in select id from public.hr_leaves where employee_id = e and status = 'pending' loop perform public.hr_leave_decide(r.id, true); end loop;
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 5;
-  assert a.status = 'time_permit' and a.permit_minutes = 60 and a.shortfall_minutes = 0 and a.proposed_deduction_minutes = 0, 'D5 paid permit covers: ' || row_to_json(a)::text;
+  -- 00177: الزمنية 09:00→10:00 تغطي ساعتها فقط؛ الموظف دخل 10:00 أي تأخر 08:00→09:00 خارجها = 60 − سماح 15 = 45 دقيقة تأخير (الحالة «متأخر»)،
+  -- لكن لا نقص ولا استقطاع لأنه عوّض بالبقاء حتى 17:00 (420 عمل + 60 زمنية = 480)
+  assert a.status = 'late' and a.late_minutes = 45 and a.permit_minutes = 60 and a.shortfall_minutes = 0 and a.proposed_deduction_minutes = 0, 'D5 paid permit covers: ' || row_to_json(a)::text;
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 7;
   assert a.permit_minutes = 0 and a.shortfall_minutes = 120 and a.proposed_deduction_days = 0.5, 'D7 unpaid permit deducts: ' || row_to_json(a)::text;
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 8;
@@ -213,7 +215,8 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; n int; a record; begin
   select * into a from public.hr_alerts where employee_id = e and period_month = m and kind = 'late_repeat';
-  assert a.id is not null and a.value = 2, 'late alert raised (D2, D3): ' || coalesce(row_to_json(a)::text, 'none');
+  -- 00177: D5 (دخول 10:00 بزمنية 09→10) يُحتسب تأخيراً حقيقياً أيضاً → 3 أيام
+  assert a.id is not null and a.value = 3, 'late alert raised (D2, D3, D5): ' || coalesce(row_to_json(a)::text, 'none');
   select count(*) into n from public.hr_alerts_list(m) where kind = 'late_repeat'; assert n = 1, 'alert listed';
   select count(*) into n from public.notifications where user_id = 'aaaa0000-0000-0000-0000-00000000000c' and dedupe_key like 'hr_alert:late:%'; assert n = 1, 'manager notified of alert';
   perform public.hr_alert_ack(a.id);
