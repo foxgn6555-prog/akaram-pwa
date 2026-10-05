@@ -13,7 +13,7 @@
  * التحول: biometric_ingest (00026) — يحوّل السطور لسجلات حضور حقيقية.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { buildOptionsResponse, normalizeAdmsPath, toStamp } from '../_shared/adms-protocol.ts'
+import { buildOptionsResponse, normalizeAdmsPath, parseDeviceCmdAcks, toStamp } from '../_shared/adms-protocol.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -58,11 +58,11 @@ Deno.serve(async (req: Request) => {
     return admsResponse(typeof cmd === 'string' && cmd ? cmd : 'OK')
   }
 
-  // ═══ ③ دفع بيانات (ATTLOG/OPERLOG/...) ═══
-  if (req.method === 'POST' && path.startsWith('/iclock/cdata')) {
+  // ═══ ③ دفع بيانات (ATTLOG/OPERLOG/...) — ومنها نتائج أوامر DATA QUERY (00174) التي تصل عبر /iclock/querydata?type=… ═══
+  if (req.method === 'POST' && (path.startsWith('/iclock/cdata') || path.startsWith('/iclock/querydata'))) {
     // بعض البرامج الثابتة ترسل نتيجة DATA QUERY USERINFO بجدول USERINFO — نفس صيغة سطور USER في OPERLOG
-    const rawTable = (url.searchParams.get('table') ?? 'ATTLOG').toUpperCase()
-    const table = rawTable === 'USERINFO' ? 'OPERLOG' : rawTable
+    const rawTable = (url.searchParams.get('table') ?? url.searchParams.get('type') ?? 'ATTLOG').toUpperCase()
+    const table = rawTable === 'USERINFO' || rawTable === 'USER' ? 'OPERLOG' : rawTable
     const raw = await req.text()
 
     if (!sn) return admsResponse('ERROR')
@@ -84,8 +84,13 @@ Deno.serve(async (req: Request) => {
     return admsResponse('OK')
   }
 
-  // ═══ ④ تأكيد تنفيذ أمر ═══
+  // ═══ ④ تأكيد تنفيذ أمر (00174): الجسم «ID=12&Return=0&CMD=DATA» (قد يحوي عدة أسطر) ═══
   if (req.method === 'POST' && path.startsWith('/iclock/devicecmd')) {
+    const raw = await req.text()
+    for (const ack of parseDeviceCmdAcks(raw)) {
+      const { error } = await admin.rpc('biometric_command_ack', { p_sn: sn, p_id: ack.id, p_return: ack.ret, p_cmd: ack.cmd })
+      if (error) console.error('command_ack failed:', error.message)
+    }
     return admsResponse('OK')
   }
 

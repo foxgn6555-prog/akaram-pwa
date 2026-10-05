@@ -144,3 +144,60 @@ export function useDeriveAttendance() {
     onError: (e) => addToast({ type: 'error', message: biometricErrorMessage(e) }),
   })
 }
+
+// ─── 00174 ───
+export function useBiometricCommands(deviceId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [...integrationsKeys.all, 'bio-commands', deviceId ?? ''] as const,
+    queryFn: () => biometric.commands(deviceId!),
+    enabled: enabled && !!deviceId,
+    refetchInterval: 10_000,
+  })
+}
+function useCommandMutation<TVars>(fn: (v: TVars) => Promise<number>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-commands'] })
+      void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-pulls'] })
+    },
+  })
+}
+export function useQueryAttlog() {
+  return useCommandMutation((v: { deviceId: string; from: string; to: string }) => biometric.queryAttlog(v.deviceId, v.from, v.to))
+}
+export function usePushEmployeeToDevices() {
+  return useCommandMutation((v: { employeeId: string; deviceId?: string | null }) => biometric.pushEmployee(v.employeeId, v.deviceId ?? null))
+}
+export function usePushAllEmployees() {
+  return useCommandMutation((deviceId: string) => biometric.pushAllEmployees(deviceId))
+}
+export function useDeleteDeviceUser() {
+  return useCommandMutation((v: { deviceId: string; pin: string }) => biometric.deleteDeviceUser(v.deviceId, v.pin))
+}
+export function useUnregisteredDevices(enabled = true) {
+  return useQuery({
+    queryKey: [...integrationsKeys.all, 'bio-unregistered'] as const,
+    queryFn: () => biometric.unregisteredDevices(),
+    enabled,
+    refetchInterval: 30_000,
+  })
+}
+export function useAdmsEndpoints() {
+  return useQuery({ queryKey: [...integrationsKeys.all, 'bio-endpoints'] as const, queryFn: () => biometric.endpoints() })
+}
+export function useAddAdmsEndpoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { label: string; host: string; note?: string | null }) => biometric.addEndpoint(input),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-endpoints'] }) },
+  })
+}
+export function useRemoveAdmsEndpoint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => biometric.removeEndpoint(id),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...integrationsKeys.all, 'bio-endpoints'] }) },
+  })
+}

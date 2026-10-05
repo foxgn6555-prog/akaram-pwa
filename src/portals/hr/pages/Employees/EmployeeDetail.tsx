@@ -17,6 +17,7 @@ import { DocumentsPanel } from '../../components/DocumentsPanel'
 import { ExportButton } from '../../components/ExportButton'
 import { buildEmployeeProfileWorkbook, downloadWorkbook } from '@features/hr/lib/hrExcel'
 import { hr } from '@sdk/hr.sdk'
+import { usePushEmployeeToDevices } from '@features/integrations'
 import { Field, MonthPicker, StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, hhmm, isoDay, monthStart } from '../../components/hr-format'
 
@@ -47,6 +48,7 @@ export default function EmployeeDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <PushToDevicesButton employeeId={e.id} pin={e.biometric_pin} terminated={e.employment_status === 'terminated'} />
           <ExportButton label="تصدير الملف Excel" testId="emp-profile-export" onExport={async () => {
             const [assignments, shifts, attendance] = await Promise.all([hr.listAssignments(e.id), hr.listShifts(true), hr.listAttendance({ from: monthStart(), to: isoDay(), search: e.employee_number })])
             await downloadWorkbook(await buildEmployeeProfileWorkbook(e, assignments, shifts, attendance.filter((r) => r.employee_id === e.id)), `ملف-${e.employee_number}.xlsx`)
@@ -249,5 +251,26 @@ function LeavesTab({ employeeId }: { employeeId: string }) {
         {leaves.length === 0 && <li className="py-4 text-center text-xs text-slate-400">لا إجازات معتمدة</li>}
       </ul>
     </section>
+  )
+}
+
+/** 00174 · إرسال الموظف (رقم البصمة + الاسم) إلى كل أجهزة ADMS النشطة — يُنفَّذ عند اتصال الجهاز */
+function PushToDevicesButton({ employeeId, pin, terminated }: { employeeId: string; pin: string | null; terminated: boolean }) {
+  const push = usePushEmployeeToDevices()
+  const [msg, setMsg] = useState<string | null>(null)
+  if (terminated) return null
+  const numeric = !!pin && /^[0-9]{1,9}$/.test(pin)
+  return (
+    <span className="relative">
+      <Button size="sm" variant="secondary" data-testid="emp-push-devices" isLoading={push.isPending} disabled={!numeric}
+        title={numeric ? 'يرسل الاسم ورقم البصمة إلى أجهزة البصمة (ZKTeco) — ثم يُسجَّل الوجه/الإصبع على الجهاز' : 'حدّد «رقم البصمة» (أرقام فقط) في بيانات الموظف أولاً'}
+        onClick={() => push.mutate({ employeeId }, {
+          onSuccess: (n) => setMsg(n === 0 ? 'لا أجهزة ADMS نشطة مسجّلة لدى تقنية المعلومات' : `أُرسل إلى ${n} جهاز — سيظهر على الجهاز عند اتصاله`),
+          onError: () => setMsg('تعذر الإرسال'),
+        })}>
+        إرسال إلى أجهزة البصمة
+      </Button>
+      {msg && <span role="status" data-testid="emp-push-msg" className="absolute end-0 top-full mt-1 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-white">{msg}</span>}
+    </span>
   )
 }

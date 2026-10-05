@@ -6,6 +6,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
+  BiometricAdmsEndpoint, BiometricCommand, BiometricUnregisteredDevice,
   BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
   BiometricPunch, BiometricPunchFilters, BiometricTestResult, BiometricDiagnostics,
 } from '@features/integrations/types'
@@ -91,6 +92,41 @@ export const biometric = {
   /** طلب أسماء مستخدمي الجهاز (ADMS): يُرسل أمر DATA QUERY USERINFO في أول نبضة قادمة (00172) */
   async requestDeviceUsers(deviceId: string): Promise<void> {
     await sdkGuard(supabase.rpc('biometric_request_users', { p_device_id: deviceId } as never))
+  },
+
+  // ─────────── 00174 · أوامر الجهاز (ADMS) ───────────
+  /** سحب بصمات فترة من ذاكرة الجهاز: DATA QUERY ATTLOG — يُنفَّذ في أول نبضة قادمة */
+  async queryAttlog(deviceId: string, fromIso: string, toIso: string): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_query_attlog', { p_device_id: deviceId, p_from: fromIso, p_to: toIso } as never))) as number
+  },
+  /** إرسال موظف (PIN + الاسم) إلى جهاز محدد أو كل أجهزة ADMS النشطة — يعيد عدد الأجهزة */
+  async pushEmployee(employeeId: string, deviceId: string | null = null): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_push_employee', { p_employee_id: employeeId, p_device_id: deviceId } as never))) as number
+  },
+  /** مزامنة كل الموظفين النشطين (ذوي رقم بصمة) إلى جهاز — يعيد عدد الموظفين */
+  async pushAllEmployees(deviceId: string): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_push_all_employees', { p_device_id: deviceId } as never))) as number
+  },
+  async deleteDeviceUser(deviceId: string, pin: string): Promise<number> {
+    return (await sdkGuard(supabase.rpc('biometric_delete_device_user', { p_device_id: deviceId, p_pin: pin } as never))) as number
+  },
+  async commands(deviceId: string, limit = 30): Promise<BiometricCommand[]> {
+    return ((await sdkGuard(supabase.rpc('biometric_commands_list', { p_device_id: deviceId, p_limit: limit } as never))) ?? []) as BiometricCommand[]
+  },
+  /** أجهزة اتصلت بعنواننا ولم تُسجَّل (آخر 30 يوماً) */
+  async unregisteredDevices(): Promise<BiometricUnregisteredDevice[]> {
+    return ((await sdkGuard(supabase.rpc('biometric_unregistered_devices' as never))) ?? []) as BiometricUnregisteredDevice[]
+  },
+  /** عناوين الخوادم/الوسطاء التي يديرها IT وتُعرض للفنيين */
+  async endpoints(): Promise<BiometricAdmsEndpoint[]> {
+    return ((await sdkGuard(supabase.from('biometric_adms_endpoints').select('id, label, host, note, sort_order, is_active').order('sort_order').order('created_at'))) ?? []) as BiometricAdmsEndpoint[]
+  },
+  async addEndpoint(input: { label: string; host: string; note?: string | null }): Promise<BiometricAdmsEndpoint> {
+    const host = input.host.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+    return (await sdkGuard(supabase.from('biometric_adms_endpoints').insert({ label: input.label.trim(), host, note: input.note ?? null } as never).select('id, label, host, note, sort_order, is_active').single())) as BiometricAdmsEndpoint
+  },
+  async removeEndpoint(id: string): Promise<void> {
+    await sdkVoid(supabase.from('biometric_adms_endpoints').delete().eq('id', id))
   },
 
   async rotateBridgeKey(deviceId: string): Promise<string> {

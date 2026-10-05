@@ -203,3 +203,31 @@ export interface BiometricDiagnostics {
   unmatched_pins: number; users_named: number; users_query_pending: boolean
   checks: BiometricDiagCheck[]; events: BiometricDiagEvent[]; server_time: string
 }
+
+// ─── 00174: أوامر الأجهزة، الاكتشاف، عناوين الخوادم ───
+export type BiometricCommandKind = 'query_userinfo' | 'query_attlog' | 'update_user' | 'delete_user' | 'custom'
+export type BiometricCommandStatus = 'queued' | 'sent' | 'done' | 'failed'
+export interface BiometricCommand {
+  id: number
+  kind: BiometricCommandKind
+  command: string
+  status: BiometricCommandStatus
+  return_code: number | null
+  note: string | null
+  created_at: string
+  sent_at: string | null
+  acked_at: string | null
+  created_by_name: string | null
+}
+export const BIOMETRIC_COMMAND_LABELS: Record<BiometricCommandKind, string> = {
+  query_userinfo: 'جلب أسماء المستخدمين',
+  query_attlog: 'سحب بصمات فترة',
+  update_user: 'إرسال موظف إلى الجهاز',
+  delete_user: 'حذف مستخدم من الجهاز',
+  custom: 'أمر مخصص',
+}
+export const BIOMETRIC_COMMAND_STATUS_LABELS: Record<BiometricCommandStatus, string> = {
+  queued: 'بانتظار اتصال الجهاز', sent: 'أُرسل للجهاز', done: 'نُفّذ', failed: 'فشل',
+}
+export interface BiometricUnregisteredDevice { serial_number: string; first_seen: string; last_seen: string; attempts: number }
+export interface BiometricAdmsEndpoint { id: string; label: string; host: string; note: string | null; sort_order: number; is_active: boolean }

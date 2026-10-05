@@ -135,3 +135,23 @@ export function normalizeAdmsPath(pathname: string): string {
   const p = pathname.replace(/^\/(functions\/v1\/)?adms-receiver(?=\/|$)/, '')
   return p === '' ? '/' : p
 }
+
+/** تأكيدات تنفيذ الأوامر من الجهاز (POST /iclock/devicecmd): «ID=12&Return=0&CMD=DATA» — سطر لكل أمر */
+export interface DeviceCmdAck { id: number; ret: number; cmd: string | null }
+export function parseDeviceCmdAcks(body: string): DeviceCmdAck[] {
+  const out: DeviceCmdAck[] = []
+  for (const line of body.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t) continue
+    const kv = new Map<string, string>()
+    for (const part of t.split('&')) {
+      const i = part.indexOf('=')
+      if (i > 0) kv.set(part.slice(0, i).trim().toUpperCase(), part.slice(i + 1).trim())
+    }
+    const id = Number(kv.get('ID'))
+    if (!Number.isInteger(id) || id <= 0) continue
+    const ret = Number(kv.get('RETURN') ?? '0')
+    out.push({ id, ret: Number.isFinite(ret) ? ret : -1, cmd: kv.get('CMD') ?? null })
+  }
+  return out
+}

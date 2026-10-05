@@ -41,13 +41,16 @@ do $$ declare c text; begin
 end $$;
 
 -- ⑤ طلب يدوي: IT فقط
-insert into auth.users (id, email) values ('b7000000-0000-0000-0000-00000000000b', 'it-bt@t.iq'), ('b7000000-0000-0000-0000-00000000000a', 'hr-bt@t.iq') on conflict (id) do nothing;
-insert into public.user_roles (user_id, role) values ('b7000000-0000-0000-0000-00000000000b', 'it_admin'), ('b7000000-0000-0000-0000-00000000000a', 'hr_officer') on conflict do nothing;
+insert into auth.users (id, email) values ('b7000000-0000-0000-0000-00000000000b', 'it-bt@t.iq'), ('b7000000-0000-0000-0000-00000000000a', 'hr-bt@t.iq'), ('b7000000-0000-0000-0000-00000000000e', 'emp-bt@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('b7000000-0000-0000-0000-00000000000b', 'it_admin'), ('b7000000-0000-0000-0000-00000000000a', 'hr_officer'), ('b7000000-0000-0000-0000-00000000000e', 'employee') on conflict do nothing;
 set role authenticated;
 select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
+-- 00174: HR يستطيع أيضاً طلب الأسماء (وحدة السحب مشتركة)؛ الموظف العادي لا
+select public.biometric_request_users('dd000000-0000-0000-0000-0000000000c1');
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000e', false);
 do $$ begin
   perform public.biometric_request_users('dd000000-0000-0000-0000-0000000000c1');
-  raise exception 'FAIL: HR استطاع طلب الأسماء';
+  raise exception 'FAIL: موظف عادي استطاع طلب الأسماء';
 exception when others then
   if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if;
 end $$;
@@ -94,3 +97,118 @@ do $$ declare d record; j jsonb; begin
   exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if; end;
 end $$;
 select 'biometric-diagnostics ok' as result;
+
+
+-- ═══ 00174: طابور الأوامر العام — سحب فترة، إرسال موظف، تأكيد الجهاز، المهلة، الاكتشاف، العناوين ═══
+reset role; select set_config('auth.user_id','', false);
+-- تنظيف الطابور من اختبارات 00172
+update public.biometric_device_commands set status = 'done' where device_serial = 'BT-DEV-1' and status in ('queued', 'sent');
+insert into public.employees (id, employee_number, full_name, hire_date, biometric_pin) values
+  ('bb000000-0000-0000-0000-0000000000c5', 'BT-E5', 'أحمد علي حسين كاظم الربيعي', '2024-01-01', '555'),
+  ('bb000000-0000-0000-0000-0000000000c6', 'BT-E6', 'موظف بلا رقم', '2024-01-01', null)
+on conflict (employee_number) do nothing;
+
+set role authenticated;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false); select set_config('auth.role','authenticated', false);
+do $$ declare v_id bigint; v_cmd text; n int; begin
+  -- ① سحب فترة: الأمر بتوقيت الجهاز (+03:00) وبصيغة ADMS
+  v_id := public.biometric_query_attlog('dd000000-0000-0000-0000-0000000000c1', '2026-09-01T00:00:00Z', '2026-09-30T20:59:59Z');
+  select command into v_cmd from public.biometric_device_commands where id = v_id;
+  if v_cmd <> E'DATA QUERY ATTLOG StartTime=2026-09-01 03:00:00\tEndTime=2026-09-30 23:59:59' then raise exception 'FAIL: أمر السحب: %', v_cmd; end if;
+  -- نفس الطلب مرتين → لا تكرار
+  if public.biometric_query_attlog('dd000000-0000-0000-0000-0000000000c1', '2026-09-01T00:00:00Z', '2026-09-30T20:59:59Z') <> v_id then raise exception 'FAIL: تكرار أمر معلّق'; end if;
+  -- فترة خاطئة / واسعة
+  begin perform public.biometric_query_attlog('dd000000-0000-0000-0000-0000000000c1', '2026-09-30', '2026-09-01'); raise exception 'FAIL: قبل فترة معكوسة';
+  exception when others then if sqlerrm not like '%BIO_RANGE_INVALID%' then raise; end if; end;
+  begin perform public.biometric_query_attlog('dd000000-0000-0000-0000-0000000000c1', '2026-01-01', '2026-09-01'); raise exception 'FAIL: قبل فترة > 92 يوماً';
+  exception when others then if sqlerrm not like '%BIO_RANGE_TOO_WIDE%' then raise; end if; end;
+
+  -- ② إرسال موظف: سطر USERINFO صحيح؛ بلا PIN → خطأ واضح
+  n := public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5');
+  if n <> 1 then raise exception 'FAIL: عدد الأجهزة المستهدفة % ', n; end if;
+  select command into v_cmd from public.biometric_device_commands where device_serial = 'BT-DEV-1' and kind = 'update_user' order by id desc limit 1;
+  -- الاسم يُقصّ إلى 24 بايت (حدّ حقل Name في الجهاز) على حدود الأحرف: «أحمد علي حسين كاظم الربيعي» → «أحمد علي حسين»
+  if v_cmd not like E'DATA UPDATE USERINFO PIN=555\tName=أحمد علي حسين\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000' then raise exception 'FAIL: سطر USERINFO: %', v_cmd; end if;
+  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c6'); raise exception 'FAIL: قبل موظفاً بلا رقم بصمة';
+  exception when others then if sqlerrm not like '%BIO_PIN_REQUIRED%' then raise; end if; end;
+  -- حذف مستخدم
+  perform public.biometric_delete_device_user('dd000000-0000-0000-0000-0000000000c1', '555');
+  -- قائمة الأوامر تُرى
+  select count(*) into n from public.biometric_commands_list('dd000000-0000-0000-0000-0000000000c1', 50);
+  if n < 3 then raise exception 'FAIL: قائمة الأوامر % ', n; end if;
+end $$;
+-- IT يرى طلب السحب في سجل العمليات
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000b', false);
+do $$ begin
+  if not exists (select 1 from public.biometric_pulls where device_id = 'dd000000-0000-0000-0000-0000000000c1' and mode = 'adms_query') then raise exception 'FAIL: لم يُسجَّل طلب السحب في سجل العمليات'; end if;
+end $$;
+-- موظف عادي لا يرى القائمة ولا يرسل
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000e', false);
+do $$ declare n int; begin
+  select count(*) into n from public.biometric_commands_list('dd000000-0000-0000-0000-0000000000c1', 50);
+  if n <> 0 then raise exception 'FAIL: موظف عادي رأى الأوامر'; end if;
+  begin perform public.biometric_push_employee('bb000000-0000-0000-0000-0000000000c5'); raise exception 'FAIL: موظف عادي أرسل أمراً';
+  exception when others then if sqlerrm not like '%BIO_FORBIDDEN%' then raise; end if; end;
+end $$;
+reset role; select set_config('auth.user_id','', false);
+
+-- ③ تسليم الأوامر بالترتيب وتأكيدها من الجهاز
+do $$ declare c1 text; c2 text; v_id bigint; st text; begin
+  c1 := public.biometric_command_next('BT-DEV-1');
+  if c1 not like 'C:%:DATA QUERY ATTLOG%' then raise exception 'FAIL: أول أمر مُسلَّم ليس السحب: %', c1; end if;
+  v_id := split_part(c1, ':', 2)::bigint;
+  select status into st from public.biometric_device_commands where id = v_id;
+  if st <> 'sent' then raise exception 'FAIL: الحالة بعد التسليم %', st; end if;
+  perform public.biometric_command_ack('BT-DEV-1', v_id, 0, 'DATA');
+  select status into st from public.biometric_device_commands where id = v_id;
+  if st <> 'done' then raise exception 'FAIL: الحالة بعد التأكيد %', st; end if;
+  c2 := public.biometric_command_next('BT-DEV-1');
+  if c2 not like 'C:%:DATA UPDATE USERINFO PIN=555%' then raise exception 'FAIL: الأمر الثاني: %', c2; end if;
+  v_id := split_part(c2, ':', 2)::bigint;
+  perform public.biometric_command_ack('BT-DEV-1', v_id, -1, 'DATA');
+  select status into st from public.biometric_device_commands where id = v_id;
+  if st <> 'failed' then raise exception 'FAIL: رفض الجهاز لم يُسجَّل كفشل %', st; end if;
+  -- تأكيد بـ SN مختلف لا يؤثر
+  perform public.biometric_command_next('BT-DEV-1'); -- يسلّم DELETE
+  select id into v_id from public.biometric_device_commands where device_serial = 'BT-DEV-1' and status = 'sent' order by id desc limit 1;
+  perform public.biometric_command_ack('OTHER-SN', v_id, 0, 'DATA');
+  select status into st from public.biometric_device_commands where id = v_id;
+  if st <> 'sent' then raise exception 'FAIL: تأكيد من جهاز آخر غيّر الحالة'; end if;
+  -- المهلة: أمر مُرسل منذ 31 دقيقة بلا تأكيد → فاشل عند النبضة التالية
+  update public.biometric_device_commands set sent_at = now() - interval '31 minutes' where id = v_id;
+  perform public.biometric_command_next('BT-DEV-1');
+  select status, note into st, c1 from public.biometric_device_commands where id = v_id;
+  if st <> 'failed' or c1 <> 'TIMEOUT_NO_ACK' then raise exception 'FAIL: المهلة لم تُطبَّق % %', st, c1; end if;
+end $$;
+
+-- ④ اكتمال طلب السحب عند وصول بصمات adms
+do $$ declare r record; n int; begin
+  insert into public.biometric_punches (device_serial, device_id, pin, punched_at, direction, method)
+  values ('BT-DEV-1', 'dd000000-0000-0000-0000-0000000000c1', '555', '2026-09-10T05:00:00Z', 'in', 'adms_push');
+  select * into r from public.biometric_pulls where device_id = 'dd000000-0000-0000-0000-0000000000c1' and mode = 'adms_query' order by started_at desc limit 1;
+  if r.status <> 'success' or r.inserted <> 1 or r.finished_at is null then raise exception 'FAIL: سجل السحب لم يكتمل: % %', r.status, r.inserted; end if;
+  if (select count(*) from public.biometric_pulls where device_id = 'dd000000-0000-0000-0000-0000000000c1' and mode = 'adms_query') <> 1 then raise exception 'FAIL: تكرر سجل السحب'; end if;
+end $$;
+
+-- ⑤ اكتشاف الأجهزة غير المسجّلة
+select public.biometric_log_register('NEW-BRANCH-9', false);
+select public.biometric_log_register('NEW-BRANCH-9', false);
+select public.biometric_log_register('BT-DEV-1', true);
+set role authenticated;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000b', false); select set_config('auth.role','authenticated', false);
+do $$ declare r record; n int; begin
+  select * into r from public.biometric_unregistered_devices() where serial_number = 'NEW-BRANCH-9';
+  if r.serial_number is null or r.attempts <> 2 then raise exception 'FAIL: الاكتشاف: %', r; end if;
+  if exists (select 1 from public.biometric_unregistered_devices() where serial_number = 'BT-DEV-1') then raise exception 'FAIL: جهاز مسجّل ظهر كغير مسجّل'; end if;
+  -- ⑥ عناوين الخوادم: IT يضيف، HR يقرأ فقط
+  insert into public.biometric_adms_endpoints (label, host, sort_order) values ('وسيط Cloudflare', 'akaram-bio.example.workers.dev', 1);
+  select count(*) into n from public.biometric_adms_endpoints; if n <> 1 then raise exception 'FAIL: IT لم يستطع إضافة عنوان'; end if;
+end $$;
+select set_config('auth.user_id','b7000000-0000-0000-0000-00000000000a', false);
+do $$ declare n int; begin
+  select count(*) into n from public.biometric_adms_endpoints; if n <> 1 then raise exception 'FAIL: HR لا يرى العناوين'; end if;
+  begin insert into public.biometric_adms_endpoints (label, host) values ('x', 'x.example'); raise exception 'FAIL: HR أضاف عنواناً';
+  exception when others then if sqlerrm like 'FAIL:%' then raise; end if; end;
+end $$;
+reset role; select set_config('auth.user_id','', false);
+select 'biometric-commands-00174 ok' as result;

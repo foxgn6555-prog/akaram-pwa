@@ -13,6 +13,13 @@ const mockTest = vi.fn()
 const mockPull = vi.fn()
 const mockProcess = vi.fn()
 const mockRotate = vi.fn()
+const mockQueryAttlog = vi.fn()
+const mockPushAll = vi.fn()
+const mockUnregistered = vi.fn()
+const mockEndpoints = vi.fn()
+const mockAddEndpoint = vi.fn()
+const mockRemoveEndpoint = vi.fn()
+const mockCommands = vi.fn()
 
 vi.mock('@features/branches', () => ({
   useBranches: () => ({ data: [{ id: 'b1', name: 'المركز' }], isLoading: false }),
@@ -24,6 +31,15 @@ vi.mock('@features/integrations', async () => {
     BIOMETRIC_MODES: types.BIOMETRIC_MODES,
     BIOMETRIC_MODE_LABELS: types.BIOMETRIC_MODE_LABELS,
     BIOMETRIC_PASSIVE_MODES: types.BIOMETRIC_PASSIVE_MODES,
+    BIOMETRIC_COMMAND_LABELS: types.BIOMETRIC_COMMAND_LABELS,
+    BIOMETRIC_COMMAND_STATUS_LABELS: types.BIOMETRIC_COMMAND_STATUS_LABELS,
+    useBiometricCommands: () => mockCommands(),
+    useQueryAttlog: () => ({ mutate: mockQueryAttlog, isPending: false }),
+    usePushAllEmployees: () => ({ mutate: mockPushAll, isPending: false }),
+    useUnregisteredDevices: () => mockUnregistered(),
+    useAdmsEndpoints: () => mockEndpoints(),
+    useAddAdmsEndpoint: () => ({ mutateAsync: mockAddEndpoint, isPending: false }),
+    useRemoveAdmsEndpoint: () => ({ mutate: mockRemoveEndpoint, isPending: false }),
     useDevices: () => mockDevices(),
     useCreateDevice: () => ({ mutateAsync: mockCreate, isPending: false }),
     useToggleDevice: () => ({ mutate: mockToggle, isPending: false }),
@@ -70,6 +86,10 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     mockUpdate.mockResolvedValue({})
     mockDevices.mockReturnValue({ data: DEVICES, isLoading: false })
     mockPulls.mockReturnValue({ data: PULLS, isLoading: false })
+    mockUnregistered.mockReturnValue({ data: [], isLoading: false })
+    mockEndpoints.mockReturnValue({ data: [{ id: 'e1', label: 'وسيط Deno', host: 'crimson-opossum-7736.akaram.deno.net', note: null, sort_order: 0, is_active: true }], isLoading: false })
+    mockCommands.mockReturnValue({ data: [], isLoading: false })
+    mockAddEndpoint.mockResolvedValue({})
   })
 
   it('يعرض رابط ADMS الجاهز للنسخ', () => {
@@ -345,5 +365,94 @@ describe('BiometricPage — أجهزة البصمة ومصادرها (IT)', () =
     expect(within(adms).getByTestId('diag-run-probes')).toBeInTheDocument()
     const other = screen.getAllByTestId(/^source-card-/).find((c) => c.getAttribute('data-mode') !== 'adms_push')
     if (other) expect(within(other).queryByTestId(/^device-diag-/)).toBeNull()
+  })
+
+  // ─── 00174: أوامر الجهاز، الاكتشاف، العناوين ───
+  it('00174: لوحة الأوامر تظهر لجهاز ADMS النشط فقط؛ «سحب بصمات الفترة» يرسل النافذة بمعرّف الجهاز', async () => {
+    render(<BiometricPage />)
+    expect(screen.getByTestId('adms-commands-ZK-001')).toBeInTheDocument()
+    expect(screen.queryByTestId('adms-commands-API-01')).not.toBeInTheDocument()
+    const panel = within(screen.getByTestId('adms-commands-ZK-001'))
+    await userEvent.click(panel.getByTestId('adms-range-الشهر السابق'))
+    await userEvent.click(panel.getByTestId('adms-pull-ZK-001'))
+    expect(mockQueryAttlog).toHaveBeenCalledTimes(1)
+    const args = mockQueryAttlog.mock.calls[0]![0]
+    expect(args.deviceId).toBe('d1')
+    expect(args.from).toMatch(/^\d{4}-\d{2}-01T00:00:00\.000Z$/)
+    expect(args.to).toMatch(/T23:59:59\.999Z$/)
+    expect(args.from < args.to).toBe(true)
+    // رسالة النجاح تشرح أن الأمر يُنفَّذ عند اتصال الجهاز
+    mockQueryAttlog.mock.calls[0]![1].onSuccess(1)
+    await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent(/أُرسل طلب السحب/))
+  })
+
+  it('00174: «مزامنة الموظفين إلى الجهاز» تستدعي الإرسال وتعرض العدد؛ وتوضّح عند الصفر سبب غياب الموظفين', async () => {
+    render(<BiometricPage />)
+    const panel = within(screen.getByTestId('adms-commands-ZK-001'))
+    await userEvent.click(panel.getByTestId('adms-push-all-ZK-001'))
+    expect(mockPushAll).toHaveBeenCalledWith('d1', expect.anything())
+    mockPushAll.mock.calls[0]![1].onSuccess(12)
+    await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent('أُدرج 12 موظفاً'))
+    mockPushAll.mock.calls[0]![1].onSuccess(0)
+    await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent(/رقم البصمة/))
+  })
+
+  it('00174: سجل الأوامر يعرض النوع والحالة وتفاصيل الأمر وخطأ الفترة الواسعة يُترجم', async () => {
+    mockCommands.mockReturnValue({ data: [
+      { id: 7, kind: 'query_attlog', command: 'DATA QUERY ATTLOG StartTime=2026-09-01 00:00:00\tEndTime=2026-09-30 23:59:59', status: 'done', return_code: 0, note: null, created_at: '2026-10-01T08:00:00Z', sent_at: '2026-10-01T08:00:01Z', acked_at: '2026-10-01T08:00:02Z', created_by_name: 'مدير التقنية' },
+      { id: 8, kind: 'update_user', command: 'DATA UPDATE USERINFO PIN=555\tName=أحمد علي\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000', status: 'queued', return_code: null, note: null, created_at: '2026-10-01T08:05:00Z', sent_at: null, acked_at: null, created_by_name: null },
+    ], isLoading: false })
+    render(<BiometricPage />)
+    const panel = within(screen.getByTestId('adms-commands-ZK-001'))
+    await userEvent.click(panel.getByTestId('adms-cmd-log-ZK-001'))
+    const list = within(screen.getByTestId('adms-cmd-list'))
+    expect(list.getByText('سحب بصمات فترة')).toBeInTheDocument()
+    expect(list.getByText('2026-09-01 → 2026-09-30')).toBeInTheDocument()
+    expect(list.getByText('555 · أحمد علي')).toBeInTheDocument()
+    expect(list.getByText('نُفّذ')).toBeInTheDocument()
+    expect(list.getByText('بانتظار اتصال الجهاز')).toBeInTheDocument()
+    expect(list.getByText('مدير التقنية')).toBeInTheDocument()
+    await userEvent.click(panel.getByTestId('adms-pull-ZK-001'))
+    mockQueryAttlog.mock.calls[0]![1].onError({ code: 'BIO_RANGE_TOO_WIDE' })
+    await waitFor(() => expect(screen.getByTestId('adms-cmd-msg')).toHaveTextContent('92 يوماً'))
+  })
+
+  it('00174: الإرشادات تعرض الدالة المباشرة والعناوين الوسيطة المعتمدة ويمكن لـ IT إضافة عنوان (يُنظَّف من https:// والشرطة الأخيرة)', async () => {
+    render(<BiometricPage />)
+    const box = within(screen.getByTestId('adms-endpoints'))
+    expect(box.getByTestId('adms-url')).toHaveTextContent('https://proj.supabase.co/functions/v1/adms-receiver')
+    expect(box.getByTestId('adms-endpoint-crimson-opossum-7736.akaram.deno.net')).toHaveTextContent('وسيط Deno')
+    await userEvent.click(box.getByTestId('adms-endpoint-add'))
+    await userEvent.type(box.getByTestId('adms-endpoint-label'), 'وسيط Cloudflare')
+    await userEvent.type(box.getByTestId('adms-endpoint-host'), 'https://akaram-bio.foxgn6555.workers.dev/')
+    await userEvent.click(box.getByTestId('adms-endpoint-save'))
+    await waitFor(() => expect(mockAddEndpoint).toHaveBeenCalledWith({ label: 'وسيط Cloudflare', host: 'akaram-bio.foxgn6555.workers.dev' }))
+    await userEvent.click(box.getByTestId('adms-endpoint-remove-crimson-opossum-7736.akaram.deno.net'))
+    expect(mockRemoveEndpoint).toHaveBeenCalledWith('e1')
+  })
+
+  it('00174: عنوان غير صالح يُرفض محلياً', async () => {
+    render(<BiometricPage />)
+    const box = within(screen.getByTestId('adms-endpoints'))
+    await userEvent.click(box.getByTestId('adms-endpoint-add'))
+    await userEvent.type(box.getByTestId('adms-endpoint-label'), 'x')
+    await userEvent.type(box.getByTestId('adms-endpoint-host'), 'not a host!')
+    await userEvent.click(box.getByTestId('adms-endpoint-save'))
+    expect(await box.findByRole('alert')).toBeInTheDocument()
+    expect(mockAddEndpoint).not.toHaveBeenCalled()
+  })
+
+  it('00174: الأجهزة غير المسجّلة تظهر مع «تسجيل الجهاز» الذي يفتح النموذج بالرقم التسلسلي ونمط ADMS؛ وتختفي اللوحة عند غيابها', async () => {
+    const { unmount } = render(<BiometricPage />)
+    expect(screen.queryByTestId('unregistered-devices')).not.toBeInTheDocument()
+    unmount()
+    mockUnregistered.mockReturnValue({ data: [{ serial_number: 'SFAA253400777', first_seen: '2026-10-04T10:00:00Z', last_seen: new Date().toISOString(), attempts: 40 }], isLoading: false })
+    render(<BiometricPage />)
+    const panel = within(screen.getByTestId('unregistered-devices'))
+    expect(panel.getByTestId('unregistered-SFAA253400777')).toHaveTextContent('40 محاولة')
+    await userEvent.click(panel.getByTestId('register-unregistered-SFAA253400777'))
+    expect(screen.getByTestId('device-form')).toBeInTheDocument()
+    expect(screen.getByTestId('device-sn')).toHaveValue('SFAA253400777')
+    expect(screen.getByTestId('device-mode')).toHaveValue('adms_push')
   })
 })

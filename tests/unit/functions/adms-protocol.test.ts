@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  normalizeAdmsPath,
+  parseDeviceCmdAcks, normalizeAdmsPath,
   buildOptionsResponse, parseAttlog, parseAttlogLine, parseOperlogUser, toAdmsTimeZone, toStamp,
 } from '../../../supabase/functions/_shared/adms-protocol'
 
@@ -85,5 +85,14 @@ describe('normalizeAdmsPath — مسار الجهاز أياً كان التوج
     expect(normalizeAdmsPath('/iclock/devicecmd')).toBe('/iclock/devicecmd')
     expect(normalizeAdmsPath('/adms-receiver')).toBe('/')
     expect(normalizeAdmsPath('/adms-receiverx/iclock/cdata')).toBe('/adms-receiverx/iclock/cdata')
+  })
+
+  it('parseDeviceCmdAcks: يحلّل سطراً أو أكثر ويتجاهل غير الصالح', () => {
+    expect(parseDeviceCmdAcks('ID=12&Return=0&CMD=DATA')).toEqual([{ id: 12, ret: 0, cmd: 'DATA' }])
+    expect(parseDeviceCmdAcks('ID=13&Return=-1&CMD=DATA\r\nID=14&Return=0&CMD=DATA\n\nfoo')).toEqual([
+      { id: 13, ret: -1, cmd: 'DATA' }, { id: 14, ret: 0, cmd: 'DATA' },
+    ])
+    expect(parseDeviceCmdAcks('')).toEqual([])
+    expect(parseDeviceCmdAcks('ID=abc&Return=0')).toEqual([])
   })
 })

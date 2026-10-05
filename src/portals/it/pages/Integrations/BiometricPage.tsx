@@ -25,6 +25,8 @@ import clsx from 'clsx'
 import { SourceConfigFields } from './biometric/SourceConfigFields'
 import { BridgePanel } from './biometric/BridgePanel'
 import { AdmsDiagnosticsPanel } from './biometric/AdmsDiagnosticsPanel'
+import { AdmsCommandsPanel } from './biometric/AdmsCommandsPanel'
+import { AdmsEndpointsList, UnregisteredDevicesPanel } from './biometric/AdmsDiscoveryPanel'
 import { cleanConfig, MODE_HINTS, validateConfigLocally } from './biometric/source-config.utils'
 
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
@@ -105,15 +107,16 @@ export default function BiometricPage() {
         </h2>
         <ol className="space-y-1.5 text-xs leading-5 text-brand-900">
           <li>① سجّل الجهاز هنا برقمه التسلسلي (SN) بنمط «جهاز ZKTeco (دفع ADMS)»</li>
-          <li>② في إعدادات الجهاز: Cloud Server URL ← الصق:</li>
+          <li>② في الجهاز: إعدادات الاتصال ← إعدادات سيرفر السحابية ← فعّل «اسم النطاق» والصق أحد العناوين، المنفذ 443، HTTPS مفعّل، البروكسي معطّل</li>
         </ol>
-        <code data-testid="adms-url" dir="ltr" className="mt-2 block overflow-x-auto rounded-lg bg-white px-3 py-2 text-[11px] text-brand-700">
-          {admsUrl}
-        </code>
+        <AdmsEndpointsList functionUrl={admsUrl} />
         <p className="mt-1.5 text-[11px] text-brand-700">
-          ③ الجهاز سيتصل تلقائياً وتصل بصماته فوراً إلى دفتر الموارد البشرية — «آخر اتصال» يتحدث عند نجاح الربط
+          ③ الجهاز سيتصل تلقائياً وتصل بصماته فوراً إلى دفتر الموارد البشرية — «آخر اتصال» يتحدث عند نجاح الربط.
+          ④ من بطاقة الجهاز يمكنك سحب بصمات أي فترة من ذاكرته (حتى لو اتصل آخر الشهر فقط) ومزامنة الموظفين إليه.
         </p>
       </div>
+
+      <UnregisteredDevicesPanel onRegister={(serial) => { setMode('adms_push'); setConfig({}); setSn(serial); setName(''); setFormOpen(true); window.scrollTo?.({ top: 0, behavior: 'smooth' }) }} />
 
       {formOpen && (
         <form onSubmit={(e) => void submit(e)} noValidate data-testid="device-form"
@@ -328,6 +331,7 @@ function SourceCard({ device: d, branchName, onToggle }: { device: BiometricDevi
           </button>
         </div>
       </div>
+      {d.mode === 'adms_push' && d.is_active && !editing && <AdmsCommandsPanel device={d} online={online} />}
       {diag && d.mode === 'adms_push' && <AdmsDiagnosticsPanel device={d} functionUrl={ADMS_URL} />}
     </div>
   )

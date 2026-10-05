@@ -36,7 +36,11 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
-vi.mock('@features/integrations', () => ({ useBiometricPunches: (f: unknown) => { h.unmatchedFilters = f; return { data: h.unmatched, isLoading: false } } }))
+const pushEmp = vi.fn()
+vi.mock('@features/integrations', () => ({
+  useBiometricPunches: (f: unknown) => { h.unmatchedFilters = f; return { data: h.unmatched, isLoading: false } },
+  usePushEmployeeToDevices: () => ({ mutate: pushEmp, isPending: false }),
+}))
 vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null } }))
 
 import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
@@ -75,6 +79,23 @@ describe('HR — بيانات الموظفين', () => {
     expect(screen.getByTestId('shift-hist-2026-09-01')).toHaveTextContent('الحالي')
     fireEvent.click(screen.getByTestId('etab-docs'))
     for (const t of ['photo', 'national_id_front', 'national_id_back', 'residence_front', 'residence_back', 'other']) expect(screen.getByTestId(`doc-slot-${t}`)).toBeInTheDocument()
+  })
+  it('00174: «إرسال إلى أجهزة البصمة» يرسل الموظف بمعرّفه ويعرض عدد الأجهزة؛ معطّل بلا رقم بصمة رقمي؛ مخفي للمنتهية خدمته', async () => {
+    const { unmount } = render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)
+    const btn = screen.getByTestId('emp-push-devices')
+    expect(btn).not.toBeDisabled()
+    fireEvent.click(btn)
+    expect(pushEmp).toHaveBeenCalledWith({ employeeId: 'e1' }, expect.anything())
+    pushEmp.mock.calls[0]![1].onSuccess(2)
+    await waitFor(() => expect(screen.getByTestId('emp-push-msg')).toHaveTextContent('أُرسل إلى 2 جهاز'))
+    unmount()
+    h.employees = [{ ...emp, biometric_pin: 'AB-1' }]
+    const r2 = render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)
+    expect(screen.getByTestId('emp-push-devices')).toBeDisabled()
+    r2.unmount()
+    h.employees = [{ ...emp, employment_status: 'terminated' }]
+    render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)
+    expect(screen.queryByTestId('emp-push-devices')).toBeNull()
   })
   it('00153: المسمى يُختار من الهيكل (لا نص حر)، «بلا مسمى» يظهر تحذيراً، والحفظ يرسل job_title_id والقسم يُشتق', async () => {
     h.titles = [{ id: 't1', name: 'سائق كابسة', code: 'T1', department_id: 'd1', department_name: 'قسم الآليات', drives_vehicles: true, is_active: true, employees_active: 0 }]
