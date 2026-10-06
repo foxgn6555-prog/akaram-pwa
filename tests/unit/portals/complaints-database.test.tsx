@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router'
 import type { ComplaintDatabaseRow } from '@features/complaints/types'
 import { DATABASE_COLUMNS, buildComplaintDatabaseWorkbook, databaseCell, databaseFileName } from '@features/complaints/lib/database-excel'
 
-const base: ComplaintDatabaseRow = { item_id: 'i1', complaint_id: 'c1', reference_no: 'CMP-1', ticket_name: 'CMP-1-1', received_at: '2026-02-05T06:24:00Z', received_date: '2026-02-05', received_time: '09:24', sender_name: 'لجنة الاشراف', municipal_center: 'الرياض', sector: 'الكرادة', shift: 'الصباحية', neighborhood: '908', street: '5', delay_type: 'تراكم النفايات', source: 'البريد الإلكتروني', handler_name: 'مهدي قاسم', item_status: 'approved', completion: 'منجز', hours_to_complete: 5, attachments: 'صورة عدد 1', attachments_count: 1, ack_confirmed: true }
+const base: ComplaintDatabaseRow = { item_id: 'i1', complaint_id: 'c1', reference_no: 'CMP-1', ticket_name: 'CMP-1-1', received_at: '2026-02-05T06:24:00Z', received_date: '2026-02-05', received_time: '09:24', sender_name: 'لجنة الاشراف', municipal_center: 'الرياض', sector: 'الكرادة', shift: 'الصباحية', neighborhood: '908', street: '5', delay_type: 'تراكم النفايات', source: 'البريد الإلكتروني', handler_name: 'مهدي قاسم', item_status: 'approved', completion: 'منجز', hours_to_complete: 5, attachments: 'صور', attachments_count: 1, ack_confirmed: true }
 const rows: ComplaintDatabaseRow[] = [
   base,
   { ...base, item_id: 'i2', street: 'شارع مأمون', handler_name: null, completion: 'متأخر', hours_to_complete: null, attachments: 'بلا مرفقات', attachments_count: 0, ack_confirmed: false, item_status: 'under_review' },
@@ -27,7 +27,7 @@ describe('قاعدة بيانات الشكاوى', () => {
     const table = screen.getByTestId('db-table')
     expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(DATABASE_COLUMNS.map((c) => c.header))
     const r1 = screen.getByTestId('db-row-i1')
-    for (const v of ['2026-02-05', '09:24', 'لجنة الاشراف', 'الرياض', 'الكرادة', 'الصباحية', '908', '5', 'تراكم النفايات', 'البريد الإلكتروني', 'مهدي قاسم', 'منجز', 'صورة عدد 1', 'نعم']) expect(r1).toHaveTextContent(v)
+    for (const v of ['2026-02-05', '09:24', 'لجنة الاشراف', 'الرياض', 'الكرادة', 'الصباحية', '908', '5', 'تراكم النفايات', 'البريد الإلكتروني', 'مهدي قاسم', 'منجز', 'صور', 'نعم']) expect(r1).toHaveTextContent(v)
     expect(screen.getByTestId('db-row-i2')).toHaveTextContent('متأخر'); expect(screen.getByTestId('db-row-i2')).toHaveTextContent('لا')
     expect(screen.getByTestId('db-k-total')).toHaveTextContent('3'); expect(screen.getByTestId('db-k-done')).toHaveTextContent('1'); expect(screen.getByTestId('db-k-late')).toHaveTextContent('1'); expect(screen.getByTestId('db-k-acked')).toHaveTextContent('2')
     expect(table.textContent).not.toMatch(/[\u0660-\u0669]/)

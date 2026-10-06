@@ -9,6 +9,7 @@ insert into public.user_roles (user_id, role) values
 on conflict do nothing;
 insert into public.employees (id, user_id, employee_number, full_name, hire_date) values
   ('cd000000-0000-0000-0000-0000000000e1', 'cd000000-0000-0000-0000-00000000000b', 'CD-MGR', 'مهدي قاسم', '2024-01-01') on conflict (employee_number) do nothing;
+insert into public.manager_profiles (user_id, shift, sectors) values ('cd000000-0000-0000-0000-00000000000b', 'morning', array[3]::smallint[]) on conflict (user_id) do update set sectors = excluded.sectors;
 insert into public.complaint_inbox_messages (id, internet_message_id, sender_email, sender_name, source_sector, received_at, import_status) values
   ('cd000000-0000-0000-0000-0000000000a1', '<cd-1@t>', 'ishraf@baghdad.iq', 'لجنة الاشراف', 'karrada', '2026-02-05 06:24:00+00', 'imported') on conflict (id) do nothing;
 -- شكوى صباحية (09:24 بغداد) ببريد، عنصران: الأول منجز خلال 5 ساعات، الثاني قيد المعالجة قديم → متأخر
@@ -39,13 +40,13 @@ do $$ declare r record; n int; begin
   select count(*) into n from public.complaint_database_rows('2026-02-01', '2026-02-28', null);
   assert n = 3, 'C1 rows: ' || n;
   select * into r from public.complaint_database_rows('2026-02-01', '2026-02-28', 'karrada') where item_id = 'cd000000-0000-0000-0000-00000000001a';
-  assert r.received_date = '2026-02-05' and r.received_time = '09:24' and r.sender_name = 'لجنة الاشراف' and r.municipal_center = 'الرياض' and r.sector = 'الكرادة'
+  assert r.received_date = '2026-02-05' and r.received_time = '09:24' and r.sender_name = 'لجنة الاشراف' and r.municipal_center = 'الواثق' and r.sector = 'الكرادة'
      and r.shift = 'الصباحية' and r.neighborhood = '908' and r.street = '5' and r.delay_type = 'تراكم النفايات' and r.source = 'البريد الإلكتروني'
-     and r.handler_name = 'مهدي قاسم' and r.completion = 'منجز' and r.hours_to_complete = 5.0 and r.attachments = 'صورة عدد 2' and r.ack_confirmed, 'C1 row1: ' || row_to_json(r)::text;
+     and r.handler_name = 'مهدي قاسم' and r.completion = 'منجز' and r.hours_to_complete = 5.0 and r.attachments = 'صور' and r.ack_confirmed, 'C1 row1: ' || row_to_json(r)::text;
   select * into r from public.complaint_database_rows('2026-02-01', '2026-02-28', 'karrada') where item_id = 'cd000000-0000-0000-0000-00000000001b';
-  assert r.completion = 'متأخر' and r.handler_name is null and r.attachments = 'بلا مرفقات' and not r.ack_confirmed and r.street = 'شارع مأمون', 'C1 row2: ' || row_to_json(r)::text;
+  assert r.completion = 'متأخر' and r.handler_name is null and r.municipal_center = 'الرياض' and r.attachments = 'بلا مرفقات' and not r.ack_confirmed and r.street = 'شارع مأمون', 'C1 row2: ' || row_to_json(r)::text;
   select * into r from public.complaint_database_rows('2026-02-01', '2026-02-28', 'zaafaraniya');
-  assert r.shift = 'المسائية' and r.source = 'إدخال يدوي' and r.sender_name = 'إدخال يدوي' and r.completion = 'منجز متأخر' and r.hours_to_complete = 30.0 and r.street = 'قرب الجامع' and r.sector = 'الزعفرانية', 'C1 row3: ' || row_to_json(r)::text;
+  assert r.shift = 'المسائية' and r.source = 'إدخال يدوي' and r.sender_name = 'لجنة الاشراف' and r.completion = 'منجز متأخر' and r.hours_to_complete = 30.0 and r.street = 'قرب الجامع' and r.sector = 'الزعفرانية', 'C1 row3: ' || row_to_json(r)::text;
   raise notice 'C1 ✅ الأعمدة الأربعة عشر مشتقة بدقة';
 end $$;
 
