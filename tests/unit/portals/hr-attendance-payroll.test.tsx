@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
   days: [] as unknown[], employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
+  exportStatus: null as unknown, monthDeductions: [] as unknown[],
   edit: vi.fn(async () => undefined), reset: vi.fn(async () => undefined), addDed: vi.fn(async () => 'd'), exportMonth: vi.fn(async () => 'x'),
   adjust: vi.fn(async () => undefined), approve: vi.fn(async () => undefined), setSalary: vi.fn(async () => undefined), update: vi.fn(async () => undefined),
 }))
@@ -33,6 +34,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
   useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
+  useMonthExportStatus: () => ({ data: h.exportStatus }), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useEmployeeMonthDays: () => ({ data: h.days ?? [], isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
@@ -46,7 +48,7 @@ vi.mock('@features/integrations', () => ({
     { id: 'dv3', serial_number: 'LAN-1', name: 'شبكة', branch_id: 'b1', is_active: true, mode: 'lan_pull' },
   ], isLoading: false }),
 }))
-vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null } }))
+vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null, listDeductions: async () => [] } }))
 
 import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
 import EmployeeDetail from '@portals/hr/pages/Employees/EmployeeDetail'
@@ -60,7 +62,7 @@ const emp = { id: 'e1', employee_number: 'E100', full_name: 'أحمد علي ح�
 const day = { id: 'r1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'فرع بغداد', work_date: '2026-09-05', shift_name: 'صباحي', expected_in: '2026-09-05T05:00:00Z', expected_out: '2026-09-05T13:00:00Z', check_in: '2026-09-05T05:40:00Z', check_out: '2026-09-05T13:00:00Z', late_minutes: 25, early_minutes: 0, worked_minutes: 440, is_rest_day: false, status: 'late', source: 'auto', edit_reason: null }
 const sheetRow = { row_id: 'pr1', export_id: 'x1', export_version: 1, export_status: 'exported', exported_at: '2026-10-01T08:00:00Z', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'بغداد', job_title: 'سائق', contract_type: 'monthly', pay_type: 'monthly', working_days: 26, days_present: 24, days_late: 3, days_absent: 1, days_incomplete: 0, days_leave: 1, late_minutes: 70, early_minutes: 0, ops_deduction_amount: 25000, ops_deduction_days: 0, ops_deduction_reasons: 'تأخر متكرر', base_salary: 800000, daily_rate: 0, allowances_total: 100000, fixed_deductions_total: 20000, proposed_net: 855000, final_net: null, finance_note: null }
 
-beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; vi.clearAllMocks() })
+beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; h.exportStatus = null; h.monthDeductions = []; vi.clearAllMocks() })
 
 describe('HR — بيانات الموظفين', () => {
   it('تعرض الموظف بشارة راتب «بانتظار المالية» بلا أي رقم، مع الفلاتر الخمسة ورابط الملف', () => {
@@ -250,7 +252,7 @@ describe('المالية — الرواتب', () => {
     fireEvent.click(screen.getByTestId('adj-save'))
     await waitFor(() => expect(h.adjust).toHaveBeenCalledWith({ rowId: 'pr1', finalNet: 900000, note: 'مكافأة أداء' }))
     fireEvent.click(screen.getByTestId('ps-approve'))
-    await waitFor(() => expect(h.approve).toHaveBeenCalledWith('x1'))
+    await waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: false }))
   })
   it('00179: الكشف مجمّع حسب القسم مع مجاميع فرعية مرتبة، و«الأيام» تفتح تفاصيل الموظف بتوقيت بغداد', () => {
     h.sheet = [sheetRow, { ...sheetRow, row_id: 'pr2', employee_id: 'e2', employee_number: 'E200', full_name: 'باسم كريم', department_name: 'الورشة', proposed_net: 500000 }, { ...sheetRow, row_id: 'pr3', employee_id: 'e3', employee_number: 'E300', full_name: 'آدم سعد', department_name: 'النقل', proposed_net: 600000 }]
@@ -299,5 +301,68 @@ describe('المالية — الرواتب', () => {
     // 00179: ورقة ملخص الأقسام
     const ds = wb.getWorksheet('ملخص الأقسام')!
     expect(ds).toBeTruthy(); expect(ds.getRow(2).getCell(1).value).toBe('القسم'); expect(ds.getRow(3).getCell(1).value).toBe('النقل')
+  })
+})
+
+describe('00185 — سلامة سلسلة الكشوفات → الحضورية → المالية', () => {
+  const stale = { export_id: 'x1', version: 1, status: 'exported', exported_at: '2026-10-01T08:00:00Z', changes_after: 3, deductions_after: 2, disclosure_deductions_after: 1, needs_reexport: true }
+  it('الحضوريات: لافتة «يلزم إعادة التصدير» بزر فوري، واستقطاع الكشف المعتمد بلا زر حذف ومع رابط للكشف', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    h.exportStatus = stale
+    h.deductions = [
+      { id: 'dd1', employee_id: 'e1', period_month: '2026-09-01', amount: 7000, days: 0, reason: 'كشف ك/2026/0003 — غياب (2026-09-05)', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: 'disc-1', employees: { full_name: 'أحمد', employee_number: 'E100' }, disclosure: { ref_no: 'ك/2026/0003' } },
+      { id: 'dd2', employee_id: 'e1', period_month: '2026-09-01', amount: 1000, days: 0, reason: 'يدوي', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: null, employees: { full_name: 'أحمد', employee_number: 'E100' }, disclosure: null },
+    ]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    const banner = screen.getByTestId('ops-reexport-banner')
+    expect(banner).toHaveTextContent('3 تغييرات'); expect(banner).toHaveTextContent('2 استقطاعات'); expect(banner).toHaveTextContent('1 من كشوفات معتمدة')
+    expect(banner.textContent).not.toMatch(/[\u0660-\u0669]/)
+    fireEvent.click(screen.getByTestId('ops-reexport-now'))
+    await waitFor(() => expect(h.exportMonth).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByTestId('panel-deductions'))
+    expect(screen.getByTestId('ded-locked-dd1')).toHaveTextContent('من كشف معتمد')
+    expect(screen.queryByTestId('ded-del-dd1')).toBeNull()
+    expect(screen.getByTestId('ded-src-dd1')).toHaveAttribute('href', '/ops-room/disclosures?tab=archive&id=disc-1')
+    expect(screen.getByTestId('ded-del-dd2')).toBeInTheDocument()
+  })
+  it('الحضوريات: لا لافتة عندما لا تغييرات بعد التصدير', () => {
+    h.exportStatus = { ...stale, changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false }
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    expect(screen.queryByTestId('ops-reexport-banner')).toBeNull()
+  })
+  it('المالية: لافتة الكشف القديم، والاعتماد يطلب تأكيداً إضافياً ويمرّر force=true؛ ورفض التأكيد يمنع الاعتماد', async () => {
+    h.exportStatus = stale
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { unmount } = render(<PayrollOverview />)
+    expect(screen.getByTestId('ps-stale-banner')).toHaveTextContent('3 تغييرات')
+    fireEvent.click(screen.getByTestId('ps-approve'))
+    expect(confirm.mock.calls[0]![0]).toMatch(/غير مشمولة/)
+    expect(h.approve).not.toHaveBeenCalled()
+    unmount()
+    confirm.mockReturnValue(true)
+    render(<PayrollOverview />)
+    fireEvent.click(screen.getByTestId('ps-approve'))
+    await waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: true }))
+  })
+  it('المالية: تفاصيل الموظف تعرض استقطاعات غرفة العمليات مع مرجع الكشف المعتمد', () => {
+    h.monthDeductions = [{ id: 'md1', amount: 7000, days: 0, reason: 'كشف ك/2026/0003 — غياب', created_at: '2026-10-02T09:00:00Z', created_by_name: 'المدير المفوض', source_disclosure_id: 'disc-1', disclosure_ref: 'ك/2026/0003', disclosure_type: 'غياب', disclosure_date: '2026-09-05' }]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-E100'))
+    const item = screen.getByTestId('ps-ded-item-md1')
+    expect(item).toHaveTextContent('7,000'); expect(item).toHaveTextContent('كشف ك/2026/0003 · غياب · 2026-09-05'); expect(item).toHaveTextContent('المدير المفوض')
+  })
+  it('Excel: ورقة «تفاصيل الاستقطاعات» تميّز استقطاع الكشف المعتمد عن اليدوي وتجمع المبالغ', async () => {
+    const deds = [
+      { id: 'dd1', employee_id: 'e1', period_month: '2026-09-01', amount: 7000, days: 0, reason: 'كشف', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: 'disc-1', employees: { full_name: 'أحمد', employee_number: 'E100' }, disclosure: { ref_no: 'ك/2026/0003' } },
+      { id: 'dd2', employee_id: 'e2', period_month: '2026-09-01', amount: 1000, days: 0, reason: 'يدوي', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: null, employees: { full_name: 'باسم', employee_number: 'E050' }, disclosure: null },
+    ]
+    const wb = await buildPayrollWorkbook('2026-09-01', [sheetRow as never], deds as never)
+    const xs = wb.getWorksheet('تفاصيل الاستقطاعات')!
+    expect(xs).toBeTruthy()
+    expect(xs.getRow(3).getCell(2).value).toBe('E050'); expect(xs.getRow(3).getCell(8).value).toBe('يدوي (غرفة العمليات)')
+    expect(xs.getRow(4).getCell(2).value).toBe('E100'); expect(xs.getRow(4).getCell(8).value).toBe('كشف معتمد'); expect(xs.getRow(4).getCell(9).value).toBe('ك/2026/0003')
+    expect((xs.getRow(5).getCell(5).value as { formula: string }).formula).toBe('SUM(E3:E4)')
+    const wb2 = await buildPayrollWorkbook('2026-09-01', [sheetRow as never])
+    expect(wb2.getWorksheet('تفاصيل الاستقطاعات')).toBeUndefined()
   })
 })

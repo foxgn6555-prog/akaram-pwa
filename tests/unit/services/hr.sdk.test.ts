@@ -86,7 +86,8 @@ describe('hr.sdk — المالية', () => {
   it('كشف الشهر عبر finance_payroll_sheet، التعديل بسبب، الاعتماد بمعرّف التصدير', async () => {
     await hr.payrollSheet('2026-09-01'); expect(h.rpc).toHaveBeenCalledWith('finance_payroll_sheet', { p_month: '2026-09-01' })
     await hr.adjustPayroll('r', 750000, 'مكافأة'); expect(h.rpc).toHaveBeenCalledWith('finance_payroll_adjust', { p_row: 'r', p_final_net: 750000, p_note: 'مكافأة' })
-    await hr.approvePayroll('x'); expect(h.rpc).toHaveBeenCalledWith('finance_payroll_approve', { p_export: 'x' })
+    await hr.approvePayroll('x'); expect(h.rpc).toHaveBeenCalledWith('finance_payroll_approve', { p_export: 'x', p_force: false })
+    await hr.approvePayroll('x', true); expect(h.rpc).toHaveBeenCalledWith('finance_payroll_approve', { p_export: 'x', p_force: true })
   })
   it('تعريف الراتب عبر finance_salary_set بنوع الأجر والمخصصات والاستقطاعات', async () => {
     await hr.setSalary({ employeeId: 'e', payType: 'daily', base: 0, daily: 25000, allowances: { نقل: 50000 }, fixedDeductions: {}, notes: '' })

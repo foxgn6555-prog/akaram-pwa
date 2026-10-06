@@ -33,6 +33,8 @@ export interface DisclosureV2 {
   return_reason: string | null; returned_by_name: string | null; returned_at: string | null
   approved_by_name: string | null; approved_at: string | null; cancelled_by_name: string | null; cancelled_at: string | null; cancel_reason: string | null
   deduction_posted: boolean; deduction_month: string | null; deduction_note: string | null
+  /** 00185 — حالة الاستقطاع في سلسلة المالية */
+  deduction_state?: 'awaiting_export' | 'exported' | 'approved' | 'missing' | null
   created_at: string; updated_at: string
   events?: DisclosureEvent[]; timeline?: DisclosureStep[]
 }

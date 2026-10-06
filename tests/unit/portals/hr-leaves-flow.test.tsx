@@ -65,7 +65,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }),
   useEvaluateAttendance: () => ({ mutate: vi.fn(), isPending: false }),
   useExportMonth: () => mut(vi.fn()),
-  useMonthExports: () => ({ data: [] }),
+  useMonthExports: () => ({ data: [] }), useMonthExportStatus: () => ({ data: null }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }),
   useEditAttendance: () => mut(vi.fn()), useResetAttendance: () => mut(vi.fn()), useAttendanceAudit: () => ({ data: [] }),
   useDeductions: () => ({ data: [] }), useAddDeduction: () => mut(vi.fn()), useDeleteDeduction: () => mut(vi.fn()),
   useWaiveDeduction: () => mut(h.waive),

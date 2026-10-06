@@ -190,7 +190,36 @@ export interface AttendanceDeduction {
   days: number
   reason: string
   created_at: string
+  /** 00170/00185 — استقطاع ناتج عن كشف معتمد (لا يُحذف من الحضوريات) */
+  source_disclosure_id?: string | null
   employees?: { full_name: string; employee_number: string } | null
+  disclosure?: { ref_no: string | null } | null
+}
+
+/** 00185 — حالة آخر تصدير للشهر والتغييرات بعده */
+export interface MonthExportStatus {
+  export_id: string | null
+  version?: number
+  status: 'exported' | 'approved' | null
+  exported_at?: string
+  changes_after: number
+  deductions_after: number
+  disclosure_deductions_after: number
+  needs_reexport: boolean
+}
+
+/** 00185 — تفاصيل استقطاعات موظف في شهر (مع مرجع الكشف) */
+export interface EmployeeMonthDeduction {
+  id: string
+  amount: number
+  days: number
+  reason: string
+  created_at: string
+  created_by_name: string | null
+  source_disclosure_id: string | null
+  disclosure_ref: string | null
+  disclosure_type: string | null
+  disclosure_date: string | null
 }
 
 export interface AttendanceAudit {

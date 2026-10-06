@@ -24,6 +24,15 @@ export interface DisclosureDetailDrawerProps {
   extraActions?: (d: DisclosureV2) => React.ReactNode
 }
 
+/** 00185 — حالة استقطاع الكشف في سلسلة المالية */
+const DEDUCTION_STATE_LABEL: Record<string, string> = {
+  awaiting_export: 'بانتظار إعادة تصدير الشهر من غرفة العمليات — لم يصل بعد إلى كشف المالية',
+  exported: 'ضمن كشف المالية الحالي — بانتظار اعتماد المالية',
+  approved: 'اعتمدته المالية — مقتطع من الراتب',
+  missing: 'تنبيه: سجل الاستقطاع غير موجود — راجع التطوير المركزية',
+}
+const DEDUCTION_STATE_CLS: Record<string, string> = { awaiting_export: 'bg-amber-100 text-amber-900', exported: 'bg-sky-100 text-sky-900', approved: 'bg-emerald-100 text-emerald-900', missing: 'bg-rose-100 text-rose-900' }
+
 export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, onPrint, extraActions }: DisclosureDetailDrawerProps) {
   const q = useDisclosureDetail(id)
   const { submit, decide, cancel } = useDisclosureActions()
@@ -75,7 +84,8 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
                   <div className="font-black">معتمد نهائياً · {d.approved_by_name ?? '—'} · {fmtDateTime(d.approved_at)}</div>
                   {d.amount != null && d.amount > 0 ? (
                     d.deduction_posted
-                      ? <div className="mt-1">أُضيف استقطاع <b>{fmtIqd(d.amount)}</b> إلى حضورية الموظف لشهر <b dir="ltr">{fmtMonth(d.deduction_month)}</b>{d.deduction_note ? <span className="block text-xs">{d.deduction_note}</span> : null}</div>
+                      ? <div className="mt-1">أُضيف استقطاع <b>{fmtIqd(d.amount)}</b> إلى حضورية الموظف لشهر <b dir="ltr">{fmtMonth(d.deduction_month)}</b>{d.deduction_note ? <span className="block text-xs">{d.deduction_note}</span> : null}
+                          {d.deduction_state && <span className={clsx('mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold', DEDUCTION_STATE_CLS[d.deduction_state])} data-testid="disc-deduction-state">{DEDUCTION_STATE_LABEL[d.deduction_state]}</span>}</div>
                       : <div className="mt-1">المبلغ <b>{fmtIqd(d.amount)}</b> مسجَّل فقط — {d.deduction_note ?? 'الهدف غير مرتبط بسجل موظف في الموارد البشرية'}</div>
                   ) : <div className="mt-1">بدون مبلغ مالي.</div>}
                 </div>

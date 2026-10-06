@@ -5,9 +5,10 @@
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
 import { Fragment, useMemo, useState } from 'react'
-import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useFinanceNotices, useHrEmployees, useMarkNoticeDone, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
+import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useHrEmployees, useMarkNoticeDone, useMonthExportStatus, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
 import type { ContractType, PayrollSheetRow, TerminationType } from '@features/hr'
 import { downloadPayrollExcel, groupByDepartment, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
+import { hr as hrSdk } from '@sdk/hr.sdk'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -41,6 +42,7 @@ function SheetTab() {
   const [month, setMonth] = useState(monthStart())
   const [search, setSearch] = useState('')
   const { data: rows = [], isLoading } = usePayrollSheet(month)
+  const { data: exportStatus } = useMonthExportStatus(month)
   const approve = useApprovePayroll()
   const [editing, setEditing] = useState<PayrollSheetRow | null>(null)
   const [details, setDetails] = useState<PayrollSheetRow | null>(null)
@@ -55,10 +57,18 @@ function SheetTab() {
   const doApprove = async () => {
     if (!head) return
     if (missing > 0 && !window.confirm(`${missing} موظفاً بلا ملف راتب مُعرَّف — سيُعتمد صافيهم صفراً. متابعة؟`)) return
+    const stale = !!exportStatus?.needs_reexport
+    if (stale && !window.confirm(`تنبيه: حدثت ${exportStatus?.changes_after ?? 0} تغييرات في الحضورية بعد هذا التصدير${(exportStatus?.disclosure_deductions_after ?? 0) > 0 ? ` (منها ${exportStatus?.disclosure_deductions_after} استقطاعات كشوفات معتمدة)` : ''} وهي غير مشمولة في هذا الكشف.\nالأفضل الطلب من غرفة العمليات إعادة التصدير. هل تريد الاعتماد رغم ذلك؟`)) return
     if (!window.confirm('اعتماد الكشف يقفل الشهر نهائياً ولا يمكن لغرفة العمليات إعادة تصديره. تأكيد الاعتماد؟')) return
-    try { await approve.mutateAsync(head.export_id) } catch { /* toast in hook */ }
+    try { await approve.mutateAsync({ exportId: head.export_id, force: stale }) } catch { /* toast in hook */ }
   }
-  const doExport = async () => { setExporting(true); try { await downloadPayrollExcel(month, rows) } finally { setExporting(false) } }
+  const doExport = async () => {
+    setExporting(true)
+    try {
+      const deductions = await hrSdk.listDeductions(month).catch(() => [])
+      await downloadPayrollExcel(month, rows, deductions)
+    } finally { setExporting(false) }
+  }
 
   return (
     <div className="space-y-3" data-testid="sheet-tab">
@@ -80,6 +90,12 @@ function SheetTab() {
           <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="amber" testId="ps-ops" />
           <StatCard title="استقطاع تلقائي (نقص/غياب)" value={fmtMoney(totals.auto)} tone="red" hint="محسوب من الشرائح بعد تدقيق غرفة العمليات" testId="ps-auto" />
           <StatCard title="بلا ملف راتب" value={missing} tone={missing ? 'red' : 'slate'} hint={missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
+        </div>
+      )}
+      {head && !approved && exportStatus?.needs_reexport && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ps-stale-banner">
+          <span className="text-base">⚠</span>
+          <span><b>هذا الكشف قديم:</b> حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.</span>
         </div>
       )}
       {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}</p>}
@@ -138,11 +154,27 @@ function SheetTab() {
 /** تفاصيل أيام الموظف للشهر — شفافية الكشف للمالية (قراءة فقط) */
 function DaysPanel({ row, month, onClose }: { row: PayrollSheetRow; month: string; onClose: () => void }) {
   const { data: days = [], isLoading } = useEmployeeMonthDays(row.employee_id, month)
+  const { data: deductions = [] } = useEmployeeMonthDeductions(row.employee_id, month)
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-2 sm:items-center" role="dialog" aria-modal="true" data-testid="ps-days-panel">
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white p-4 shadow-xl">
         <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold">أيام {row.full_name} — {month.slice(0, 7)}</h3><Button size="sm" variant="secondary" onClick={onClose}>إغلاق</Button></div>
         <p className="mb-2 text-[11px] text-slate-500">المصدر: محرك الحضور بعد تدقيق غرفة العمليات · الأوقات بتوقيت بغداد · الأيام المعدّلة يدوياً مُعلَّمة مع سببها</p>
+        {deductions.length > 0 && (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/60 p-2" data-testid="ps-deductions-list">
+            <p className="mb-1 text-[11px] font-bold text-amber-900">استقطاعات غرفة العمليات لهذا الشهر ({deductions.length})</p>
+            <ul className="space-y-1 text-[11px]">
+              {deductions.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center gap-2" data-testid={`ps-ded-item-${d.id}`}>
+                  <span className="font-bold tabular-nums text-amber-800">{d.days > 0 ? `${d.days} يوم` : fmtMoney(d.amount)}</span>
+                  <span className="text-slate-700">{d.reason}</span>
+                  {d.disclosure_ref && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">كشف {d.disclosure_ref}{d.disclosure_type ? ` · ${d.disclosure_type}` : ''}{d.disclosure_date ? ` · ${d.disclosure_date}` : ''}</span>}
+                  <span className="ms-auto text-slate-400">{d.created_by_name ?? ''} · {new Date(d.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {isLoading ? <LoadingSpinner /> : days.length === 0 ? <p className="text-xs text-slate-400" data-testid="ps-days-empty">لا أيام حضور مسجّلة لهذا الموظف في الشهر (بلا بصمة أو لم يُحتسب بعد)</p> : (
           <div className="overflow-auto rounded-xl border border-slate-200">
             <table className="w-full text-xs" data-testid="ps-days-table">

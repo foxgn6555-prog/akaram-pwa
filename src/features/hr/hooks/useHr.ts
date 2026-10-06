@@ -172,7 +172,7 @@ export function useExportMonth() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
     mutationFn: (month: string) => hr.exportMonth(month),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'exports'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('صُدّرت بيانات الشهر إلى بوابة المالية') },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'exports'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'export-status'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('صُدّرت بيانات الشهر إلى بوابة المالية') },
     onError: t.err,
   })
 }
@@ -189,10 +189,18 @@ export function useAdjustPayroll() {
     onError: t.err,
   })
 }
+/** 00185 — حالة آخر تصدير للشهر (التغييرات بعده) */
+export function useMonthExportStatus(month: string) {
+  return useQuery({ queryKey: [...hrKeys.all, 'export-status', month], queryFn: () => hr.monthExportStatus(month), enabled: !!month })
+}
+/** 00185 — استقطاعات موظف في شهر مع مرجع الكشف */
+export function useEmployeeMonthDeductions(employeeId: string | null, month: string) {
+  return useQuery({ queryKey: ['hr', 'month-deductions', employeeId, month], queryFn: () => hr.employeeMonthDeductions(employeeId as string, month), enabled: !!employeeId })
+}
 export function useApprovePayroll() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
-    mutationFn: (exportId: string) => hr.approvePayroll(exportId),
+    mutationFn: (v: string | { exportId: string; force?: boolean }) => typeof v === 'string' ? hr.approvePayroll(v) : hr.approvePayroll(v.exportId, v.force ?? false),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('اعتُمدت رواتب الشهر وأُقفل') },
     onError: t.err,
   })

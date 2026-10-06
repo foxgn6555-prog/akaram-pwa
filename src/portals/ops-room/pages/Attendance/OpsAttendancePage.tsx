@@ -8,7 +8,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useExportMonth, useMonthExports, useResetAttendance, useWaiveDeduction,
+  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useExportMonth, useMonthExportStatus, useMonthExports, useResetAttendance, useWaiveDeduction,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { Button } from '@components/ui'
@@ -46,6 +46,7 @@ export default function OpsAttendancePage() {
   const exportMonth = useExportMonth()
   const { data: exports = [] } = useMonthExports()
   const monthExport = exports.find((x) => x.period_month === month)
+  const { data: exportStatus } = useMonthExportStatus(month)
   const counts = useMemo(() => Object.fromEntries(ATTENDANCE_STATUS_ORDER.map((s) => [s, rows.filter((r) => r.status === s).length])) as Record<AttendanceStatus, number>, [rows])
   const locked = monthExport?.status === 'approved'
   const proposedTotals = useMemo(() => rows.reduce((a, r) => {
@@ -77,6 +78,13 @@ export default function OpsAttendancePage() {
         </div>
       </header>
 
+      {exportStatus?.needs_reexport && !locked && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ops-reexport-banner">
+          <Icon name="alert-triangle" size={16} />
+          <span><b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.</span>
+          <Button size="sm" className="ms-auto" isLoading={exportMonth.isPending} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>
+        </div>
+      )}
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="ops-filters">
         <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
           <button type="button" onClick={() => setMode('day')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
@@ -105,7 +113,7 @@ export default function OpsAttendancePage() {
       </div>
 
       <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-        {([['rows', 'سجلات الحضور'], ['deductions', 'الاستقطاعات اليدوية'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
+        {([['rows', 'سجلات الحضور'], ['deductions', 'الاستقطاعات'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
       </nav>
 
       {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
@@ -271,7 +279,7 @@ function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) 
   if (isLoading) return <LoadingSpinner />
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="deductions-panel">
-      <div className="flex items-center justify-between p-3"><h3 className="text-sm font-bold">الاستقطاعات اليدوية — {month.slice(0, 7)}</h3><span className="text-xs text-slate-500">{rows.length} استقطاعاً</span></div>
+      <div className="flex items-center justify-between p-3"><h3 className="text-sm font-bold">الاستقطاعات (يدوية + كشوفات معتمدة) — {month.slice(0, 7)}</h3><span className="text-xs text-slate-500">{rows.length} استقطاعاً</span></div>
       {rows.length === 0 ? <p className="p-6 text-center text-xs text-slate-400">لا استقطاعات لهذا الشهر — تُضاف من زر «استقطاع» بجانب أي صف حضور</p> : (
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-600"><tr><th className="p-2 text-start">الموظف</th><th className="p-2">النوع</th><th className="p-2">القيمة</th><th className="p-2 text-start">السبب</th><th className="p-2">التاريخ</th><th className="p-2"></th></tr></thead>
@@ -280,9 +288,9 @@ function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) 
               <td className="p-2"><p className="font-semibold">{d.employees?.full_name ?? '—'}</p><p className="text-[11px] text-slate-500">{d.employees?.employee_number}</p></td>
               <td className="p-2 text-center text-xs">{d.days > 0 ? 'أيام' : 'مبلغ'}</td>
               <td className="p-2 text-center font-bold tabular-nums">{d.days > 0 ? `${d.days} يوم` : fmtMoney(d.amount)}</td>
-              <td className="p-2 text-xs">{d.reason}</td>
-                            <td className="p-2 text-center text-xs">{new Date(d.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
-              <td className="p-2 text-center">{!locked && <button type="button" className="text-[11px] text-red-600 hover:underline" onClick={async () => { const reason = window.prompt('سبب حذف الاستقطاع:'); if (!reason || reason.trim().length < 3) return; try { await del.mutateAsync({ id: d.id, reason: reason.trim() }) } catch { /* toast in hook */ } }} data-testid={`ded-del-${d.id}`}>حذف</button>}</td>
+              <td className="p-2 text-xs">{d.reason}{d.source_disclosure_id && <a href={`/ops-room/disclosures?tab=archive&id=${d.source_disclosure_id}`} className="ms-1 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800 hover:bg-violet-200" data-testid={`ded-src-${d.id}`}>كشف {d.disclosure?.ref_no ?? ''}</a>}</td>
+              <td className="p-2 text-center text-xs">{new Date(d.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
+              <td className="p-2 text-center">{d.source_disclosure_id ? <span className="text-[10px] text-slate-400" title="استقطاع ناتج عن كشف معتمد — يُدار من وحدة الكشوفات" data-testid={`ded-locked-${d.id}`}>من كشف معتمد</span> : !locked && <button type="button" className="text-[11px] text-red-600 hover:underline" onClick={async () => { const reason = window.prompt('سبب حذف الاستقطاع:'); if (!reason || reason.trim().length < 3) return; try { await del.mutateAsync({ id: d.id, reason: reason.trim() }) } catch { /* toast in hook */ } }} data-testid={`ded-del-${d.id}`}>حذف</button>}</td>
             </tr>))}</tbody>
         </table>
       )}

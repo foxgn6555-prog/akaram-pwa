@@ -199,6 +199,15 @@ describe('المعاون والمدير المفوض — الوارد والقر
     const b = await screen.findByTestId('disc-approved-banner')
     expect(b).toHaveTextContent('أُضيف استقطاع'); expect(b).toHaveTextContent('2026-09')
   })
+  it('00185: الكشف المعتمد يعرض حالة استقطاعه في سلسلة المالية (بانتظار إعادة التصدير / في كشف المالية / معتمد)', async () => {
+    for (const [state, text] of [['awaiting_export', 'بانتظار إعادة تصدير الشهر'], ['exported', 'ضمن كشف المالية الحالي'], ['approved', 'اعتمدته المالية']] as const) {
+      h.get.mockResolvedValue({ ...base, status: 'approved', can_decide: false, deduction_posted: true, deduction_month: '2026-09-01', deduction_state: state, approved_by_name: 'المدير المفوض', approved_at: '2026-10-03T10:00:00Z' })
+      const { unmount } = wrap(<AdminDisclosures />, '/admin/disclosures')
+      fireEvent.click((await screen.findAllByTestId('decide-d1'))[0] as HTMLElement)
+      expect(await screen.findByTestId('disc-deduction-state')).toHaveTextContent(text)
+      unmount()
+    }
+  })
 })
 
 describe('التطوير المركزية — أنواع الكشوفات وإخفاء وحدات غرفة العمليات', () => {

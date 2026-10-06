@@ -10,6 +10,7 @@ import type {
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
+  MonthExportStatus, EmployeeMonthDeduction,
 } from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
@@ -34,6 +35,8 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_TIMES_INVALID: 'وقت الخروج يجب أن يكون بعد الدخول',
   HR_DEDUCTION_INVALID: 'الخصم يحتاج مبلغاً أو أياماً',
   HR_EXPORT_NOT_EDITABLE: 'هذا الكشف لم يعد قابلاً للتعديل (مُعتمد أو مُستبدل)',
+  HR_EXPORT_STALE: 'حدثت تغييرات في الحضورية بعد هذا التصدير — اطلب من غرفة العمليات إعادة التصدير أو أكّد الاعتماد صراحةً',
+  HR_DEDUCTION_FROM_DISCLOSURE: 'هذا الاستقطاع ناتج عن كشف معتمد — يُدار من وحدة الكشوفات ولا يُحذف من هنا',
   HR_SALARY_MISSING: 'يوجد موظفون بلا راتب نهائي — عرّف رواتبهم أو أدخل مبلغاً نهائياً قبل الاعتماد',
   HR_AMOUNT_INVALID: 'المبلغ غير صالح',
   HR_PAY_TYPE_INVALID: 'نوع الأجر غير صالح',
@@ -208,7 +211,7 @@ export const hr = {
     return sdkVoid(supabase.rpc('ops_attendance_reset', { p_employee: employeeId, p_date: date, p_reason: reason } as never))
   },
   async listDeductions(month: string, employeeId?: string | null): Promise<AttendanceDeduction[]> {
-    let q = supabase.from('hr_attendance_deductions').select('*, employees(full_name, employee_number)').eq('period_month', month).order('created_at', { ascending: false })
+    let q = supabase.from('hr_attendance_deductions').select('*, employees(full_name, employee_number), disclosure:disclosures!hr_attendance_deductions_source_disclosure_id_fkey(ref_no)').eq('period_month', month).order('created_at', { ascending: false })
     if (employeeId) q = q.eq('employee_id', employeeId)
     return (await sdkGuard(q)) as AttendanceDeduction[]
   },
@@ -246,7 +249,13 @@ export const hr = {
   adjustPayroll(rowId: string, finalNet: number, note: string) {
     return sdkVoid(supabase.rpc('finance_payroll_adjust', { p_row: rowId, p_final_net: finalNet, p_note: note } as never))
   },
-  approvePayroll(exportId: string) { return sdkVoid(supabase.rpc('finance_payroll_approve', { p_export: exportId } as never)) },
+  approvePayroll(exportId: string, force = false) { return sdkVoid(supabase.rpc('finance_payroll_approve', { p_export: exportId, p_force: force } as never)) },
+  /** 00185 — حالة آخر تصدير للشهر والتغييرات بعده (العمليات/المالية/HR/التطوير) */
+  monthExportStatus(month: string) { return rpc<MonthExportStatus>('hr_month_export_status', { p_month: month }) },
+  /** 00185 — استقطاعات موظف في شهر مع مرجع الكشف */
+  employeeMonthDeductions(employeeId: string, month: string) {
+    return rpc<EmployeeMonthDeduction[]>('hr_employee_month_deductions', { p_employee: employeeId, p_month: month })
+  },
   async getSalaryProfile(employeeId: string): Promise<SalaryProfile | null> {
     const rows = (await sdkGuard(supabase.from('employee_salary_profiles').select('*').eq('employee_id', employeeId))) as SalaryProfile[]
     return rows[0] ?? null

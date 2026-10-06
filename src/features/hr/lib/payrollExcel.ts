@@ -1,6 +1,6 @@
 /** تصدير كشف الرواتب الشهري (المالية) إلى Excel احترافي — RTL، ترويسة، مجاميع، تنسيق أرقام */
 import type { Borders } from 'exceljs'
-import type { PayrollSheetRow } from '../types'
+import type { AttendanceDeduction, PayrollSheetRow } from '../types'
 
 const CONTRACT: Record<string, string> = { monthly: 'شهري', daily: 'أجر يومي' }
 
@@ -40,7 +40,7 @@ export const MONEY_COLS = [17, 18, 19, 20, 21, 22, 24, 29, 30, 31, 32]
 
 export function payrollFileName(month: string) { return `كشف-الرواتب-${month.slice(0, 7)}.xlsx` }
 
-export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[]) {
+export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = []) {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook()
   wb.creator = 'شركة جزيرة الأكارم — الشؤون المالية'; wb.created = new Date()
@@ -98,11 +98,28 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   const dt = ds.addRow(['الإجمالي', rows.length, gsum((g) => g.present), gsum((g) => g.absent), gsum((g) => g.gross), gsum((g) => g.ops), gsum((g) => g.auto), gsum((g) => g.deductions), gsum((g) => g.proposed), gsum((g) => g.final)])
   dt.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin(); if (col >= 5) c.numFmt = '#,##0' })
   ;[22, 12, 10, 10, 16, 16, 16, 16, 16, 16].forEach((w, i) => { ds.getColumn(i + 1).width = w })
+
+  // ورقة 3 (00185): تفاصيل استقطاعات غرفة العمليات — صف لكل استقطاع مع مرجع الكشف المعتمد إن وُجد
+  if (deductions.length > 0) {
+    const xs = wb.addWorksheet('تفاصيل الاستقطاعات', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }] })
+    const xh = ['ت', 'الرقم الوظيفي', 'الموظف', 'النوع', 'المبلغ', 'الأيام', 'السبب', 'المصدر', 'رقم الكشف', 'التاريخ']
+    xs.mergeCells(1, 1, 1, xh.length); xs.getCell('A1').value = `استقطاعات غرفة العمليات — ${month.slice(0, 7)} (يدوية + كشوفات معتمدة)`; xs.getCell('A1').font = { bold: true, size: 14 }; xs.getCell('A1').alignment = { horizontal: 'center' }
+    const xhr = xs.getRow(2); xhr.values = xh
+    xhr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center' }; c.border = thin() })
+    const sorted = deductions.slice().sort((a, b) => employeeSortKey(a.employees?.employee_number).localeCompare(employeeSortKey(b.employees?.employee_number)) || a.created_at.localeCompare(b.created_at))
+    sorted.forEach((d, i) => {
+      const r = xs.addRow([i + 1, d.employees?.employee_number ?? '', d.employees?.full_name ?? '', d.days > 0 ? 'أيام' : 'مبلغ', d.amount, d.days, d.reason, d.source_disclosure_id ? 'كشف معتمد' : 'يدوي (غرفة العمليات)', d.disclosure?.ref_no ?? '', d.created_at.slice(0, 10)])
+      r.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col === 3 || col === 7 ? 'right' : 'center', wrapText: col === 7 }; if (col === 5) c.numFmt = '#,##0' })
+    })
+    const xt = xs.addRow(['', '', 'الإجمالي', '', deductions.length ? { formula: `SUM(E3:E${2 + deductions.length})`, result: 0 } : 0, deductions.length ? { formula: `SUM(F3:F${2 + deductions.length})`, result: 0 } : 0])
+    xt.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin(); if (col === 5) c.numFmt = '#,##0' })
+    ;[5, 12, 26, 8, 13, 8, 40, 16, 14, 12].forEach((w, i) => { xs.getColumn(i + 1).width = w })
+  }
   return wb
 }
 
-export async function downloadPayrollExcel(month: string, rows: PayrollSheetRow[]) {
-  const wb = await buildPayrollWorkbook(month, rows)
+export async function downloadPayrollExcel(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = []) {
+  const wb = await buildPayrollWorkbook(month, rows, deductions)
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = payrollFileName(month); a.click(); URL.revokeObjectURL(url)
