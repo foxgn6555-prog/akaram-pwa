@@ -259,7 +259,7 @@ describe('المالية — الرواتب', () => {
     const groups = screen.getAllByTestId(/^ps-group-/)
     expect(groups.map((g) => g.getAttribute('data-testid'))).toEqual(['ps-group-النقل', 'ps-group-الورشة'])
     const rowsInNaql = screen.getAllByTestId(/^ps-row-/).map((r) => r.getAttribute('data-testid'))
-    expect(rowsInNaql.indexOf('ps-row-E300')).toBeLessThan(rowsInNaql.indexOf('ps-row-E100')) // آدم قبل أحمد داخل القسم
+    expect(rowsInNaql.indexOf('ps-row-E100')).toBeLessThan(rowsInNaql.indexOf('ps-row-E300')) // 00184: داخل القسم بالرقم الوظيفي (E100 قبل E300) لا بالاسم
     expect(screen.getByTestId('ps-subtotal-النقل')).toHaveTextContent('1,455,000')
     fireEvent.click(screen.getByTestId('ps-days-E100'))
     const d = screen.getByTestId('ps-day-2026-09-05')
@@ -291,9 +291,9 @@ describe('المالية — الرواتب', () => {
     expect(ws.views[0]).toMatchObject({ rightToLeft: true })
     expect(String(ws.getCell('A1').value)).toContain('مسودة')
     expect(ws.getRow(4).getCell(3).value).toBe('الاسم')
-    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(24).value).toBe(855000)
-    expect(ws.getRow(6).getCell(25).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
-    expect((ws.getRow(7).getCell(25).value as { formula: string }).formula).toBe('SUM(Y5:Y6)')
+    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(31).value).toBe(855000)
+    expect(ws.getRow(6).getCell(32).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
+    expect((ws.getRow(7).getCell(32).value as { formula: string }).formula).toBe('SUM(AF5:AF6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
     // 00179: ورقة ملخص الأقسام

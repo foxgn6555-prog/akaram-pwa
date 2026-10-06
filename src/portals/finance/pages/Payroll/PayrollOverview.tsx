@@ -7,7 +7,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useFinanceNotices, useHrEmployees, useMarkNoticeDone, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
 import type { ContractType, PayrollSheetRow, TerminationType } from '@features/hr'
-import { downloadPayrollExcel, groupByDepartment } from '@features/hr/lib/payrollExcel'
+import { downloadPayrollExcel, groupByDepartment, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -50,7 +50,7 @@ function SheetTab() {
   const head = rows[0]
   const approved = head?.export_status === 'approved'
   const missing = rows.filter((r) => r.pay_type == null).length
-  const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount, 0), auto: rows.reduce((s, r) => s + (r.auto_deduction_amount ?? 0), 0) }), [rows])
+  const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), 0), auto: rows.reduce((s, r) => s + (r.auto_deduction_amount ?? 0), 0), gross: rows.reduce((s, r) => s + rowGross(r), 0), deductions: rows.reduce((s, r) => s + rowDeductions(r), 0) }), [rows])
 
   const doApprove = async () => {
     if (!head) return
@@ -71,8 +71,10 @@ function SheetTab() {
         </div>
       </div>
       {head && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8">
           <StatCard title="الموظفون في الكشف" value={rows.length} testId="ps-count" />
+          <StatCard title="الإجمالي قبل الاستقطاع" value={fmtMoney(totals.gross)} tone="slate" hint="الأساسي + المخصصات (اليومي: الأيام المدفوعة × أجر اليوم)" testId="ps-gross" />
+          <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint="ثابتة + عمليات + تلقائي" testId="ps-deductions" />
           <StatCard title="إجمالي الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" testId="ps-proposed" />
           <StatCard title="إجمالي الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" testId="ps-final" />
           <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="amber" testId="ps-ops" />
@@ -86,24 +88,26 @@ function SheetTab() {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table">
             <thead className="bg-slate-50 text-slate-600">
-              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2">أيام العمل</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2">إجازة</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
+              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2">أيام العمل</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2" title="مدفوعة / غير مدفوعة">إجازة م/غ</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">الإجمالي</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">إجمالي الاستقطاعات</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
             </thead>
             <tbody>
               {groups.map((g) => (
                 <Fragment key={g.name}>
                   <tr className="bg-slate-100/80" data-testid={`ps-group-${g.name}`}>
-                    <td className="p-2 text-xs font-black text-slate-700" colSpan={16}>{g.name} <span className="font-normal text-slate-500">· {g.rows.length} موظفاً</span></td>
+                    <td className="p-2 text-xs font-black text-slate-700" colSpan={18}>{g.name} <span className="font-normal text-slate-500">· {g.rows.length} موظفاً</span></td>
                   </tr>
                   {g.rows.map((r) => (
                     <tr key={r.row_id} className={clsx('border-t border-slate-100', r.pay_type == null && 'bg-amber-50/50')} data-testid={`ps-row-${r.employee_number}`}>
                       <td className="p-2"><p className="text-sm font-semibold">{r.full_name}</p><p className="text-[10px] text-slate-500">{r.employee_number}{r.job_title ? ` · ${r.job_title}` : ''}</p></td>
                       <td className="p-2 text-center">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
-                      <td className="p-2 text-center tabular-nums">{r.working_days}</td><td className="p-2 text-center font-bold tabular-nums text-emerald-700">{r.days_present}</td><td className="p-2 text-center tabular-nums text-red-700">{r.days_absent}</td><td className="p-2 text-center tabular-nums">{r.days_leave}</td><td className="p-2 text-center tabular-nums">{r.days_incomplete}</td><td className="p-2 text-center tabular-nums">{r.late_minutes}</td>
-                      <td className="p-2 text-center tabular-nums">{r.pay_type === 'daily' ? fmtMoney(r.daily_rate) : fmtMoney(r.base_salary)}</td>
+                      <td className="p-2 text-center tabular-nums">{r.working_days}</td><td className="p-2 text-center font-bold tabular-nums text-emerald-700">{r.days_present}</td><td className="p-2 text-center tabular-nums text-red-700">{r.days_absent}</td><td className="p-2 text-center tabular-nums" data-testid={`ps-leave-${r.employee_number}`}>{r.days_leave_paid ?? r.days_leave}{(r.days_leave_unpaid ?? 0) > 0 && <span className="text-red-700"> / {r.days_leave_unpaid}</span>}</td><td className="p-2 text-center tabular-nums">{r.days_incomplete}</td><td className="p-2 text-center tabular-nums">{r.late_minutes}</td>
+                      <td className="p-2 text-center tabular-nums">{r.pay_type === 'daily' ? <>{fmtMoney(r.daily_rate)}<span className="block text-[10px] text-slate-500">× {r.payable_days ?? r.days_present + (r.days_leave_paid ?? 0)} يوم مدفوع</span></> : fmtMoney(r.base_salary)}</td>
                       <td className="p-2 text-center tabular-nums">{fmtMoney(r.allowances_total)}</td>
+                      <td className="p-2 text-center font-bold tabular-nums" data-testid={`ps-gross-${r.employee_number}`}>{r.pay_type == null ? '—' : fmtMoney(rowGross(r))}</td>
                       <td className="p-2 text-center tabular-nums">{fmtMoney(r.fixed_deductions_total)}</td>
-                      <td className="p-2 text-center tabular-nums text-amber-700" title={r.ops_deduction_reasons ?? ''}>{fmtMoney(r.ops_deduction_amount)}{r.ops_deduction_days > 0 && <span className="block text-[10px]">+ {r.ops_deduction_days} يوم</span>}{r.ops_deduction_reasons && <span className="block max-w-[10rem] truncate text-[10px] font-normal text-slate-500">{r.ops_deduction_reasons}</span>}</td>
-                      <td className="p-2 text-center tabular-nums text-red-700" data-testid={`ps-auto-${r.employee_number}`}>{fmtMoney(r.auto_deduction_amount ?? 0)}{(r.auto_deduction_days > 0 || r.auto_deduction_minutes > 0) && <span className="block text-[10px]">{r.auto_deduction_days > 0 ? `${r.auto_deduction_days} يوم` : ''}{r.auto_deduction_days > 0 && r.auto_deduction_minutes > 0 ? ' + ' : ''}{r.auto_deduction_minutes > 0 ? `${r.auto_deduction_minutes} د` : ''}</span>}</td>
+                      <td className="p-2 text-center tabular-nums text-amber-700" title={r.ops_deduction_reasons ?? ''}>{fmtMoney(r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0))}{r.ops_deduction_days > 0 && <span className="block text-[10px]">منها {r.ops_deduction_days} يوم{r.ops_deduction_days_amount != null ? ` = ${fmtMoney(r.ops_deduction_days_amount)}` : ''}</span>}{r.ops_deduction_reasons && <span className="block max-w-[10rem] truncate text-[10px] font-normal text-slate-500">{r.ops_deduction_reasons}</span>}</td>
+                      <td className="p-2 text-center tabular-nums text-red-700" data-testid={`ps-auto-${r.employee_number}`}>{fmtMoney(r.auto_deduction_amount ?? 0)}{(r.auto_deduction_days > 0 || r.auto_deduction_minutes > 0) && <span className="block text-[10px]">{r.auto_deduction_days > 0 ? `${r.auto_deduction_days} يوم` : ''}{r.auto_deduction_days > 0 && r.auto_deduction_minutes > 0 ? ' + ' : ''}{r.auto_deduction_minutes > 0 ? `${r.auto_deduction_minutes} د` : ''}</span>}{r.pay_type === 'daily' && (r.auto_absence_days ?? 0) > 0 && <span className="block text-[10px] font-normal text-slate-500">أيام الغياب غير مدفوعة أصلاً — لا تُخصم مرتين</span>}</td>
+                      <td className="p-2 text-center font-bold tabular-nums text-red-700" data-testid={`ps-ded-${r.employee_number}`}>{r.pay_type == null ? '—' : fmtMoney(rowDeductions(r))}</td>
                       <td className="p-2 text-center font-bold tabular-nums">{fmtMoney(r.proposed_net)}</td>
                       <td className={clsx('p-2 text-center font-black tabular-nums', r.final_net != null && r.final_net !== r.proposed_net && 'text-amber-700')} title={r.finance_note ?? ''}>{fmtMoney(r.final_net ?? r.proposed_net)}{r.finance_note && <span className="block max-w-[8rem] truncate text-[10px] font-normal text-slate-500">{r.finance_note}</span>}</td>
                       <td className="whitespace-nowrap p-2 text-center">
@@ -114,8 +118,9 @@ function SheetTab() {
                   ))}
                   <tr className="border-t border-slate-200 bg-slate-50 text-[11px] font-bold" data-testid={`ps-subtotal-${g.name}`}>
                     <td className="p-2" colSpan={3}>مجموع {g.name}</td>
-                    <td className="p-2 text-center tabular-nums text-emerald-700">{g.present}</td><td className="p-2 text-center tabular-nums text-red-700">{g.absent}</td><td className="p-2" colSpan={6}></td>
-                    <td className="p-2 text-center tabular-nums text-amber-700">{fmtMoney(g.ops)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.auto)}</td>
+                    <td className="p-2 text-center tabular-nums text-emerald-700">{g.present}</td><td className="p-2 text-center tabular-nums text-red-700">{g.absent}</td><td className="p-2" colSpan={5}></td>
+                    <td className="p-2 text-center tabular-nums">{fmtMoney(g.gross)}</td><td className="p-2"></td>
+                    <td className="p-2 text-center tabular-nums text-amber-700">{fmtMoney(g.ops)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.auto)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.deductions)}</td>
                     <td className="p-2 text-center tabular-nums">{fmtMoney(g.proposed)}</td><td className="p-2 text-center tabular-nums">{fmtMoney(g.final)}</td><td></td>
                   </tr>
                 </Fragment>

@@ -271,10 +271,20 @@ export interface OpsExportRow {
   auto_deduction_days: number
   overtime_minutes: number
   shortfall_minutes: number
+  /** 00184 — تفصيل الإجازات وأيام الاستقطاع التلقائي حسب مصدرها */
+  days_leave_paid?: number
+  days_leave_unpaid?: number
+  auto_absence_days?: number
+  auto_shortfall_days?: number
 }
 
 export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_amount: number
+  /** 00184 — مبلغ أيام استقطاع العمليات، الأيام المدفوعة (يومي)، الإجمالي قبل الاستقطاع، إجمالي الاستقطاعات */
+  ops_deduction_days_amount?: number | null
+  payable_days?: number | null
+  gross_amount?: number | null
+  deductions_total?: number | null
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
