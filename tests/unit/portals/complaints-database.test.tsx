@@ -27,7 +27,7 @@ describe('قاعدة بيانات الشكاوى', () => {
     const table = screen.getByTestId('db-table')
     expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(DATABASE_COLUMNS.map((c) => c.header))
     const r1 = screen.getByTestId('db-row-i1')
-    expect(screen.getByTestId('db-sheet-banner')).toHaveTextContent('قاعدة بيانات الشكاوى'); expect(screen.getByTestId('db-sheet-banner').querySelectorAll('img')).toHaveLength(2)
+    expect(screen.getByTestId('db-sheet-banner')).toHaveTextContent('قاعدة بيانات الشكاوى'); expect(screen.getByTestId('db-sheet-banner').querySelectorAll('img')).toHaveLength(3); expect(screen.getByAltText('شعار شركة جزيرة الأكارم')).toHaveAttribute('src', '/icons/logo.png')
     for (const v of ['2026-02-05', '09:24', 'لجنة الاشراف', 'الرياض', 'الكرادة', 'الصباحية', '908', '5', 'تراكم النفايات', 'البريد الإلكتروني', 'مهدي قاسم', 'منجز', 'صور', 'نعم']) expect(r1).toHaveTextContent(v)
     expect(screen.getByTestId('db-row-i2')).toHaveTextContent('متأخر'); expect(screen.getByTestId('db-row-i2')).toHaveTextContent('لا')
     expect(screen.getByTestId('db-k-total')).toHaveTextContent('3'); expect(screen.getByTestId('db-k-done')).toHaveTextContent('1'); expect(screen.getByTestId('db-k-late')).toHaveTextContent('1'); expect(screen.getByTestId('db-k-acked')).toHaveTextContent('2')

@@ -60,9 +60,10 @@ export async function buildComplaintDatabaseWorkbook(rows: ComplaintDatabaseRow[
   title.value = 'قاعدة بيانات الشكاوى'
   title.font = { name: 'Arial', bold: true, size: 26, color: { argb: 'FF9ACD32' } }
   title.alignment = { horizontal: 'center', vertical: 'middle' }
-  const [logoA, logoB] = await Promise.all([loadLogo('/icons/alliance.png'), loadLogo('/icons/baghdad-municipality.png')])
-  if (logoA) ws.addImage(wb.addImage({ buffer: logoA, extension: 'png' }), { tl: { col: 0.2, row: 0.1 }, ext: { width: 56, height: 56 } })
-  if (logoB) ws.addImage(wb.addImage({ buffer: logoB, extension: 'png' }), { tl: { col: 1.1, row: 0.1 }, ext: { width: 56, height: 56 } })
+  const [logoCompany, logoA, logoB] = await Promise.all([loadLogo('/icons/logo.png'), loadLogo('/icons/alliance.png'), loadLogo('/icons/baghdad-municipality.png')])
+  if (logoCompany) ws.addImage(wb.addImage({ buffer: logoCompany, extension: 'png' }), { tl: { col: 0.2, row: 0.1 }, ext: { width: 56, height: 56 } })
+  if (logoA) ws.addImage(wb.addImage({ buffer: logoA, extension: 'png' }), { tl: { col: 1.1, row: 0.1 }, ext: { width: 56, height: 56 } })
+  if (logoB) ws.addImage(wb.addImage({ buffer: logoB, extension: 'png' }), { tl: { col: 2.0, row: 0.1 }, ext: { width: 56, height: 56 } })
   // صف 2: الترويسة الخضراء
   const hr = ws.getRow(2)
   hr.values = DATABASE_COLUMNS.map((c) => c.header)
