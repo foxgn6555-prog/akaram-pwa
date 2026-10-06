@@ -94,14 +94,14 @@ export default function BudgetOverview() {
         <h2 className="text-sm font-black text-slate-800">سجل الحركات</h2>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} />
-          <div className="flex flex-wrap items-end gap-2">
-            <select className={clsx(field, 'w-44')} value={kind} onChange={(e) => setKind(e.target.value as TreasuryKind | '')} data-testid="tr-filter-kind" aria-label="النوع">
+          <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <select className={clsx(field, 'w-full sm:w-44')} value={kind} onChange={(e) => setKind(e.target.value as TreasuryKind | '')} data-testid="tr-filter-kind" aria-label="النوع">
               <option value="">كل الأنواع</option>{(Object.keys(TREASURY_KIND_LABEL) as TreasuryKind[]).map((k) => <option key={k} value={k}>{TREASURY_KIND_LABEL[k]}</option>)}
             </select>
-            <select className={clsx(field, 'w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="tr-filter-status" aria-label="الحالة">
+            <select className={clsx(field, 'w-full sm:w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="tr-filter-status" aria-label="الحالة">
               <option value="">كل الحالات</option><option value="pending">معلّقة</option><option value="confirmed">مؤكَّدة</option><option value="cancelled">ملغاة</option>
             </select>
-            <input className={clsx(field, 'w-44')} placeholder="بحث: رقم / موظف / تفاصيل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="tr-search" />
+            <input className={clsx(field, 'w-full sm:w-44')} placeholder="بحث: رقم / موظف / تفاصيل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="tr-search" />
             <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} data-testid="tr-excel"
               onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `القاصة ${range.from || ''} → ${range.to || ''}`, sub: 'الشؤون المالية — القاصة', fileName: `القاصة-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
           </div>

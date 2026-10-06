@@ -81,14 +81,14 @@ export default function ExecReceivablesPage() {
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} />
-          <div className="flex flex-wrap items-end gap-2">
-            <select className={clsx(field, 'w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="rc-filter-status" aria-label="الحالة">
+          <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <select className={clsx(field, 'w-full sm:w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="rc-filter-status" aria-label="الحالة">
               <option value="">كل الحالات</option><option value="pending">بانتظار المالية</option><option value="confirmed">مؤكَّدة</option><option value="cancelled">ملغاة</option>
             </select>
-            <select className={clsx(field, 'w-48')} value={typeId} onChange={(e) => setTypeId(e.target.value)} data-testid="rc-filter-type" aria-label="اسم الحركة">
+            <select className={clsx(field, 'w-full sm:w-48')} value={typeId} onChange={(e) => setTypeId(e.target.value)} data-testid="rc-filter-type" aria-label="اسم الحركة">
               <option value="">كل الأنواع</option>{(types.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <input className={clsx(field, 'w-44')} placeholder="بحث: رقم الحركة / تفاصيل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="rc-search" />
+            <input className={clsx(field, 'w-full sm:w-44')} placeholder="بحث: رقم الحركة / تفاصيل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="rc-search" />
             <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} data-testid="rc-excel"
               onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `مستحقات الشركة ${range.from || ''} → ${range.to || ''}`, sub: 'المدير التنفيذي — مستحقات الشركة', fileName: `مستحقات-الشركة-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
           </div>

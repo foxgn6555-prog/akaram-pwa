@@ -56,8 +56,8 @@ export default function ExecGpsPaymentsPage() {
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} />
-          <div className="flex flex-wrap items-end gap-2">
-            <select className={clsx(field, 'w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="gps-filter-status" aria-label="الحالة">
+          <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <select className={clsx(field, 'w-full sm:w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="gps-filter-status" aria-label="الحالة">
               <option value="">كل الحالات</option><option value="pending">بانتظار الدفع</option><option value="confirmed">مدفوعة</option><option value="cancelled">ملغاة</option>
             </select>
             <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} data-testid="gps-excel"

@@ -291,6 +291,27 @@ export default function DesignReportView({
   const allPaths = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.path)), [groups])
   const urls = useSignedPhotoUrls(allPaths).data ?? {}
 
+  // ملاءمة الأوراق لعرض الشاشة (الهاتف): الورقة A4 ثابتة القياس وتُصغَّر بصرياً بـ transform
+  // دون المساس بالطباعة أو التصدير (كلاهما يقرأ الورقة بقياسها الحقيقي)
+  const fitRef = useRef<HTMLDivElement>(null)
+  const pagesRef = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState({ scale: 1, height: 0 })
+  useEffect(() => {
+    const wrap = fitRef.current
+    const pages = pagesRef.current
+    if (!wrap || !pages || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const natural = pages.offsetWidth || 1
+      const scale = Math.min(1, wrap.clientWidth / natural)
+      setFit((f) => (Math.abs(f.scale - scale) < 0.002 && f.height === Math.round(pages.offsetHeight * scale) ? f : { scale, height: Math.round(pages.offsetHeight * scale) }))
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    ro.observe(pages)
+    measure()
+    return () => ro.disconnect()
+  }, [])
+
   const [sheetTexts, setSheetTexts] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
     for (const g of groups) init[g.workType] = sheets?.[g.workType] ?? g.workType
@@ -397,7 +418,9 @@ export default function DesignReportView({
         @media (min-width: 1024px) {
           .rp-panel { width: 290px; flex-shrink: 0; position: sticky; top: 8px; }
         }
-        .rp-pages { min-width: 0; flex: 1; }
+        .rp-fit { min-width: 0; flex: 1; overflow: hidden; }
+        .rp-pages { width: 190mm; margin: 0 auto; transform-origin: top right; }
+        .rp-fit[data-scaled='true'] .rp-pages { margin: 0; margin-inline-start: auto; }
         .rp-page {
           position: relative;
           width: 190mm;
@@ -500,6 +523,8 @@ export default function DesignReportView({
           }
           [data-rp-preview] { padding: 0 !important; border: 0 !important; background: none !important; }
           .rp-workspace { display: block !important; }
+          .rp-fit { height: auto !important; overflow: visible !important; }
+          .rp-pages { transform: none !important; width: auto !important; margin: 0 !important; }
           body * { visibility: hidden; }
           #design-report, #design-report * { visibility: visible; }
           #design-report { position: absolute; top: 0; inset-inline: 0; width: 100%; height: auto; }
@@ -624,7 +649,8 @@ export default function DesignReportView({
           </aside>
         )}
 
-        <div className="rp-pages">
+        <div ref={fitRef} className="rp-fit" data-scaled={fit.scale < 1 ? 'true' : 'false'} data-testid="rp-fit" style={fit.scale < 1 ? { height: fit.height } : undefined}>
+        <div ref={pagesRef} className="rp-pages" style={fit.scale < 1 ? { transform: `scale(${fit.scale})` } : undefined}>
           {/* الورقة 1: الغلاف اليدوي كما هو */}
           <section className="rp-page">
             {coverUrl ? (
@@ -897,6 +923,7 @@ export default function DesignReportView({
               ))}
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>

@@ -29,13 +29,13 @@ export function DateRangeFilter({ value, onChange, testId = 'tr-range' }: { valu
     { k: 'all', label: 'الكل', v: { from: '', to: '' } },
   ]
   return (
-    <div className="flex flex-wrap items-end gap-2" data-testid={testId}>
-      <label className="text-xs font-semibold text-slate-600">من<input type="date" className={clsx(field, 'mt-1 w-40')} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} data-testid={`${testId}-from`} /></label>
-      <label className="text-xs font-semibold text-slate-600">إلى<input type="date" className={clsx(field, 'mt-1 w-40')} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} data-testid={`${testId}-to`} /></label>
-      <div className="flex flex-wrap gap-1">
+    <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap" data-testid={testId}>
+      <label className="text-xs font-semibold text-slate-600">من<input type="date" className={clsx(field, 'mt-1 w-full sm:w-40')} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} data-testid={`${testId}-from`} /></label>
+      <label className="text-xs font-semibold text-slate-600">إلى<input type="date" className={clsx(field, 'mt-1 w-full sm:w-40')} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} data-testid={`${testId}-to`} /></label>
+      <div className="col-span-2 flex flex-wrap gap-1">
         {presets.map((p) => (
           <button key={p.k} type="button" onClick={() => onChange(p.v)} data-testid={`${testId}-${p.k}`}
-            className={clsx('h-9 rounded-lg border px-2.5 text-xs font-bold', value.from === p.v.from && value.to === p.v.to ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700')}>{p.label}</button>
+            className={clsx('h-9 flex-1 rounded-lg border px-2.5 text-xs font-bold sm:flex-none', value.from === p.v.from && value.to === p.v.to ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700')}>{p.label}</button>
         ))}
       </div>
     </div>

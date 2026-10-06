@@ -43,14 +43,14 @@ export default function ExecEventsPage() {
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} testId="ev-range" />
-          <div className="flex flex-wrap items-end gap-2">
-            <select className={clsx(field, 'w-40')} value={sector} onChange={(e) => setSector(e.target.value as SectorParent | '')} data-testid="ev-filter-sector" aria-label="القاطع">
+          <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <select className={clsx(field, 'w-full sm:w-40')} value={sector} onChange={(e) => setSector(e.target.value as SectorParent | '')} data-testid="ev-filter-sector" aria-label="القاطع">
               <option value="">كل القواطع</option>{(Object.keys(SECTOR_LABEL) as SectorParent[]).map((k) => <option key={k} value={k}>{SECTOR_LABEL[k]}</option>)}
             </select>
-            <select className={clsx(field, 'w-40')} value={period} onChange={(e) => setPeriod(e.target.value as PeriodType | '')} data-testid="ev-filter-period" aria-label="نوع الفعالية">
+            <select className={clsx(field, 'w-full sm:w-40')} value={period} onChange={(e) => setPeriod(e.target.value as PeriodType | '')} data-testid="ev-filter-period" aria-label="نوع الفعالية">
               <option value="">كل الأنواع</option>{(Object.keys(PERIOD_LABEL) as PeriodType[]).map((k) => <option key={k} value={k}>{PERIOD_LABEL[k]}</option>)}
             </select>
-            <input className={clsx(field, 'w-44')} placeholder="بحث: عنوان / نوع عمل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ev-search" />
+            <input className={clsx(field, 'w-full sm:w-44')} placeholder="بحث: عنوان / نوع عمل" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ev-search" />
           </div>
         </div>
         <p className="text-xs text-slate-500" data-testid="ev-count">{rows.length} فعالية</p>
@@ -114,11 +114,11 @@ export function ExecDesignViewer({ designId, close }: { designId: string; close:
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100" dir="rtl" data-testid="exec-design-viewer" data-rp-overlay>
-      <div className="no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-slate-300 bg-white/95 px-3 py-2 backdrop-blur sm:px-4">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-black text-slate-800 sm:text-base">{title || 'الفعالية'}</h2>
+      <div className="no-print sticky top-0 z-10 flex items-center gap-1.5 border-b border-slate-300 bg-white/95 px-2 py-2 backdrop-blur sm:gap-2 sm:px-4">
+        <h2 className="min-w-0 flex-1 truncate text-xs font-black text-slate-800 sm:text-base" title={title}>{title || 'الفعالية'}</h2>
         {data && (
           <>
-            <button onClick={() => window.print()} className="flex h-10 items-center gap-1 rounded-xl bg-cyan-700 px-3 text-sm font-black text-white" data-testid="exec-design-print">طباعة</button>
+            <button onClick={() => window.print()} className="flex h-9 items-center gap-1 rounded-xl bg-cyan-700 px-3 text-xs font-black text-white sm:h-10 sm:text-sm" data-testid="exec-design-print">طباعة</button>
             <DesignExportMenu title={title} />
           </>
         )}
@@ -127,7 +127,7 @@ export function ExecDesignViewer({ designId, close }: { designId: string; close:
       {detail.isLoading || !data ? (
         <div className="grid h-[60vh] place-items-center"><LoadingSpinner label="جارٍ فتح الفعالية…" /></div>
       ) : (
-        <div data-rp-preview className="p-2 sm:p-4">
+        <div data-rp-preview className="p-1.5 sm:p-4">
           <DesignReportView
             title={title}
             sector={data.design.sector_parent as SectorParent}

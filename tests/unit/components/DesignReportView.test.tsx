@@ -5,7 +5,7 @@
  *  · ورقة نص وسطية قبل صور كل نوع عمل
  *  · كل 4 صور بصفحة 2×2 بعبارات وأبعاد وألوان قابلة للتعديل تُحفظ عبر onSaveReport
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@features/media/hooks', () => ({
@@ -278,5 +278,37 @@ describe('أنواع التقرير: يومي / أسبوعي', () => {
     const extra = (onSave.mock.calls[0] as unknown as [unknown, unknown, { summary: ReportSummary }])[2]
     expect(extra.summary.dateLabel).toBe('يوم الخميس')
     expect(extra.summary.dateValue).toBe('2026\\10\\1')
+  })
+})
+
+describe('ملاءمة الأوراق لعرض الهاتف (00189)', () => {
+  it('عندما تكون الحاوية أضيق من الورقة تُصغَّر الأوراق بـ scale ويُضبط ارتفاع الغلاف؛ وعلى الشاشة الواسعة لا تحويل', async () => {
+    let cb: (() => void) | null = null
+    const RO = vi.fn(function (this: unknown, fn: () => void) { cb = fn; return { observe: vi.fn(), disconnect: vi.fn() } })
+    vi.stubGlobal('ResizeObserver', RO)
+    const ow = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')
+    const oh = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    const cw = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return (this as HTMLElement).classList.contains('rp-pages') ? 718 : 0 } })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get() { return (this as HTMLElement).classList.contains('rp-pages') ? 2000 : 0 } })
+    let wrapWidth = 359
+    Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get() { return (this as Element).classList.contains('rp-fit') ? wrapWidth : 0 } })
+    try {
+      const { container } = render(<DesignReportView {...base} groups={[{ workType: 'كنس', photos: [photo(1)] }]} />)
+      const fit = screen.getByTestId('rp-fit')
+      const pages = container.querySelector<HTMLElement>('.rp-pages')!
+      expect(fit.getAttribute('data-scaled')).toBe('true')
+      expect(pages.style.transform).toBe('scale(0.5)')
+      expect(fit.style.height).toBe('1000px')
+      wrapWidth = 1200
+      await act(async () => { cb!() })
+      expect(fit.getAttribute('data-scaled')).toBe('false')
+      expect(pages.style.transform).toBe('')
+    } finally {
+      if (ow) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', ow)
+      if (oh) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', oh)
+      if (cw) Object.defineProperty(Element.prototype, 'clientWidth', cw)
+      vi.unstubAllGlobals()
+    }
   })
 })

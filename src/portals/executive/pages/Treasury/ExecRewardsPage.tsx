@@ -52,14 +52,14 @@ export default function ExecRewardsPage() {
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} />
-          <div className="flex flex-wrap items-end gap-2">
-            <select className={clsx(field, 'w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="rw-filter-status" aria-label="الحالة">
+          <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <select className={clsx(field, 'w-full sm:w-40')} value={status} onChange={(e) => setStatus(e.target.value as TreasuryStatus | '')} data-testid="rw-filter-status" aria-label="الحالة">
               <option value="">كل الحالات</option><option value="pending">بانتظار التسليم</option><option value="confirmed">مسلَّمة / مسجَّلة</option><option value="cancelled">ملغاة</option>
             </select>
-            <select className={clsx(field, 'w-40')} value={rtype} onChange={(e) => setRtype(e.target.value as RewardType | '')} data-testid="rw-filter-type" aria-label="نوع المكافأة">
+            <select className={clsx(field, 'w-full sm:w-40')} value={rtype} onChange={(e) => setRtype(e.target.value as RewardType | '')} data-testid="rw-filter-type" aria-label="نوع المكافأة">
               <option value="">كل الأنواع</option>{REWARD_TYPES.map((k) => <option key={k} value={k}>{REWARD_TYPE_LABEL[k]}</option>)}
             </select>
-            <input className={clsx(field, 'w-44')} placeholder="بحث: موظف / رقم حركة" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="rw-search" />
+            <input className={clsx(field, 'w-full sm:w-44')} placeholder="بحث: موظف / رقم حركة" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="rw-search" />
             <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} data-testid="rw-excel"
               onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `المكافآت ${range.from || ''} → ${range.to || ''}`, sub: 'المدير التنفيذي — المكافآت', fileName: `المكافآت-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
           </div>
