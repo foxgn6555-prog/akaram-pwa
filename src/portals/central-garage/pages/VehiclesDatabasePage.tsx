@@ -2,6 +2,8 @@ import { useDeferredValue, useEffect, useState } from 'react'
 import {
   CarFront,
   ChevronLeft,
+  DatabaseBackup,
+  FileSpreadsheet,
   ChevronRight,
   Filter,
   ImagePlus,
@@ -11,6 +13,7 @@ import {
 } from 'lucide-react'
 import {
   useCreateGarageVehicle,
+  useFleetExport,
   useGarageAreas,
   useGarageVehicles,
 } from '@features/central-garage/hooks'
@@ -23,6 +26,7 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { VehicleCard } from '../components/VehicleCard'
+import { FleetImportDialog } from '../components/FleetImportDialog'
 import { DriverPicker } from '../components/DriverPicker'
 
 const inputClass =
@@ -58,6 +62,8 @@ export default function VehiclesDatabasePage({
   const [shift, setShift] = useState('')
   const [page, setPage] = useState(1)
   const [open, setOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const fleetExport = useFleetExport()
   useEffect(() => setPage(1), [deferredSearch, sectorId, shift])
   const areas = useGarageAreas()
   const vehicles = useGarageVehicles({
@@ -82,14 +88,22 @@ export default function VehiclesDatabasePage({
           </p>
         </div>
         {managementMode && (
-          <button
-            data-testid="open-add-vehicle"
-            onClick={() => setOpen(true)}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-cyan-900 shadow"
-          >
-            <Plus size={18} />
-            إضافة آلية
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              data-testid="open-add-vehicle"
+              onClick={() => setOpen(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-cyan-900 shadow"
+            >
+              <Plus size={18} />
+              إضافة آلية
+            </button>
+            <button data-testid="fleet-export" onClick={() => fleetExport.mutate(false)} disabled={fleetExport.isPending} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white disabled:opacity-50">
+              <FileSpreadsheet size={16} />{fleetExport.isPending ? 'جارٍ التصدير…' : 'تصدير Excel'}
+            </button>
+            <button data-testid="fleet-import-open" onClick={() => setImportOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white">
+              <DatabaseBackup size={16} />استرداد من Excel
+            </button>
+          </div>
         )}
       </header>
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px_180px_auto]">
@@ -198,6 +212,7 @@ export default function VehiclesDatabasePage({
           </button>
         </nav>
       )}
+      {managementMode && importOpen && <FleetImportDialog onClose={() => setImportOpen(false)} />}
       {managementMode && open && (
         <AddVehicleDialog areas={areas.data ?? []} onClose={() => setOpen(false)} />
       )}

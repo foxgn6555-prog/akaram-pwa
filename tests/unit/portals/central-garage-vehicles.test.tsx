@@ -95,6 +95,8 @@ vi.mock('@features/central-garage/hooks', () => ({
   useRestoreGarageVehicle: () => ({ mutate: h.restoreMutate, isPending: false, isError: false }),
   useAssignGarageDriver: () => ({ mutate: h.assignMutate, isPending: false }),
   useArchiveGarageVehicle: () => ({ mutate: h.archiveMutate, isPending: false }),
+  useFleetExport: () => ({ mutate: vi.fn(), isPending: false }),
+  useFleetImport: () => ({ mutate: vi.fn(), isPending: false }),
   useGarageVehicle: (id: string) => {
     h.vehicleIdParam(id)
     return { data: h.vehicle, isLoading: false, isError: false }

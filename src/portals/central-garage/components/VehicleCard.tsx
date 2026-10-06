@@ -1,4 +1,4 @@
-import { MapPin, Moon, Sun, Sunrise, UserRound } from 'lucide-react'
+import { CarFront, MapPin, Moon, Sun, Sunrise, UserRound } from 'lucide-react'
 import { Link } from 'react-router'
 import type { GarageVehicle } from '@features/central-garage/types'
 import {
@@ -30,11 +30,18 @@ export function VehicleCard({
     >
       <Link to={`${basePath}/${vehicle.id}`} className="block">
         <div className="relative h-40 overflow-hidden bg-slate-100">
-          <img
-            src={vehicle.imageUrl}
-            alt={`صورة ${vehicle.vehicleName}`}
-            className="size-full object-cover transition duration-300 group-hover:scale-105"
-          />
+          {vehicle.imageUrl && !vehicle.imagePath.startsWith('import/') ? (
+            <img
+              src={vehicle.imageUrl}
+              alt={`صورة ${vehicle.vehicleName}`}
+              className="size-full object-cover transition duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex size-full flex-col items-center justify-center gap-1 bg-gradient-to-b from-slate-100 to-slate-200 text-slate-500" data-testid={`vehicle-no-photo-${vehicle.id}`}>
+              <CarFront size={34} />
+              <span className="text-[11px] font-bold">بلا صورة — أضفها من صفحة الآلية</span>
+            </div>
+          )}
           <span className="absolute end-3 top-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-black text-white backdrop-blur">
             DB {vehicle.dbNumber}
           </span>

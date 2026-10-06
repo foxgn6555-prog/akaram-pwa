@@ -7,6 +7,7 @@ import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import type { GarageReportFilter } from './reports'
 import type { GarageFuelUnit } from './fuel-units'
+import { buildFleetWorkbook, downloadWorkbook, type FleetImportRow } from './fleet-excel'
 import type {
   CreateGarageVehicleInput,
   GarageDashboardFilter,
@@ -135,6 +136,31 @@ export function useCreateGarageVehicle() {
       void qc.invalidateQueries({ queryKey: centralGarageKeys.dashboard() })
       addToast({ type: 'success', message: 'تمت إضافة الآلية بنجاح' })
     },
+    onError,
+  })
+}
+/** 00182: استيراد الآليات من Excel (محاكاة أو تنفيذ) */
+export function useFleetImport() {
+  const qc = useQueryClient()
+  const onError = useGarageMutationError('fleetImport')
+  return useMutation({
+    mutationFn: (x: { rows: FleetImportRow[]; dryRun: boolean; updateExisting: boolean }) => centralGarage.fleetImport(x.rows, x.dryRun, x.updateExisting),
+    onSuccess: (_r, x) => { if (!x.dryRun) { void qc.invalidateQueries({ queryKey: centralGarageKeys.vehicles() }); void qc.invalidateQueries({ queryKey: centralGarageKeys.dashboard() }) } },
+    onError,
+  })
+}
+/** 00182: تصدير قاعدة بيانات الآليات إلى Excel (الملف نفسه قالب الاستيراد) */
+export function useFleetExport() {
+  const addToast = useUiStore((state) => state.addToast)
+  const onError = useGarageMutationError('fleetExport')
+  return useMutation({
+    mutationFn: async (template: boolean) => {
+      const rows = template ? [] : await centralGarage.fleetExport()
+      const wb = await buildFleetWorkbook(rows, { template })
+      await downloadWorkbook(wb, template ? 'قالب-قاعدة-بيانات-الآليات.xlsx' : `قاعدة-بيانات-الآليات-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      return rows.length
+    },
+    onSuccess: (n, template) => addToast({ type: 'success', message: template ? 'نُزّل قالب الاستيراد' : `صُدّرت ${n} آلية` }),
     onError,
   })
 }

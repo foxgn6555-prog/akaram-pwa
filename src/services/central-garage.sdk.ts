@@ -4,6 +4,7 @@ import { SDKError } from '@lib/errors/SDKError'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { GarageReportFilter, GarageReportResult } from '@features/central-garage/reports'
 import type { GarageFuelUnit } from '@features/central-garage/fuel-units'
+import type { FleetExportRow, FleetImportResult, FleetImportRow } from '@features/central-garage/fleet-excel'
 import type {
   CreateGarageVehicleInput,
   FleetDriverOption,
@@ -213,6 +214,12 @@ export const centralGarage = {
     }))
   },
 
+  /** 00182: كل الآليات للتصدير (غرفة العمليات) */
+  async fleetExport(): Promise<FleetExportRow[]> { return ((await sdkGuard(supabase.rpc('fleet_vehicles_export' as never))) ?? []) as unknown as FleetExportRow[] },
+  /** 00182: استرداد/استيراد من Excel — dryRun للمعاينة */
+  async fleetImport(rows: FleetImportRow[], dryRun: boolean, updateExisting: boolean): Promise<FleetImportResult> {
+    return (await sdkGuard(supabase.rpc('fleet_vehicles_import' as never, { p_rows: rows, p_dry_run: dryRun, p_update_existing: updateExisting } as never))) as unknown as FleetImportResult
+  },
   async vehicles(filter: GarageVehicleFilter = {}): Promise<GarageVehiclePage> {
     const pageSize = Math.min(100, Math.max(12, Math.trunc(filter.pageSize ?? 48)))
     const page = Math.max(1, Math.trunc(filter.page ?? 1))
