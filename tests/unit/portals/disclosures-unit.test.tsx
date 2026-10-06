@@ -31,11 +31,18 @@ const h = vi.hoisted(() => ({
   save: vi.fn(async (_id: string | null, _input: Record<string, unknown>) => ({}) as unknown), submit: vi.fn(async (_id: string) => ({}) as unknown), decide: vi.fn(async (_id: string, _approve: boolean, _note?: string | null, _amount?: number | null) => ({}) as unknown), cancel: vi.fn(async (_id: string, _reason: string) => ({}) as unknown),
   get: vi.fn(async () => ({}) as unknown), list: vi.fn(async () => [] as unknown[]), inbox: vi.fn(async () => [] as unknown[]),
   stats: vi.fn(async () => ({ month: '2026-10-01', total: 2, by_status: { pending: 1, returned: 1 }, by_type: [{ key: 'speeding', label: 'سرعة زائدة', count: 2 }], by_preparer: [{ name: 'موظف العمليات', count: 2 }], amount_approved: 0, amount_pending: 5000, deductions_posted: 0, inbox: 0, months: [] })),
+  report: vi.fn(async (_f: Record<string, unknown>) => ({ from: '2026-10-01', to: '2026-10-31', totals: { count: 4, pending: 1, returned: 0, approved: 2, cancelled: 1, amount_approved: 25000, amount_pending: 5000, employees: 1, vehicles: 2, avg_decision_hours: 6.5 },
+    by_type: [{ key: 'speeding', label: 'سرعة زائدة', count: 3, approved: 2, amount: 25000 }, { key: 'delay', label: 'تأخر عن الدوام', count: 1, approved: 0, amount: 0 }], by_penalty: [{ key: 'warning', count: 4 }], by_target: { vehicle: 3, employee: 1 },
+    by_sector: [{ sector: 'الزعفرانية 1', count: 4, approved: 2, amount: 25000 }], by_shift: { evening: 4 }, by_preparer: [{ name: 'موظف العمليات', count: 4, returned: 1 }],
+    by_month: [{ month: '2026-10', count: 4, approved: 2, amount: 25000 }], top_employees: [{ employee_id: 'e2', name: 'سارة محمد', employee_number: 'EMP-2', department: 'المالية', count: 1, approved: 1, amount: 10000 }],
+    top_vehicles: [{ db_number: 'DB-101', driver_name: 'كريم جبار', contractor_name: null, count: 3, approved: 1, amount: 15000 }],
+    deductions: { with_amount: 2, posted: 1, awaiting_export: 1, exported: 0, approved_by_finance: 0, missing: 0, not_linked: 1, amount_posted: 10000 },
+    rows: [{ id: 'd1', ref_no: 'DS-1', log_date: '2026-10-03', target_kind: 'vehicle', db_number: 'DB-101', driver_name: 'كريم جبار', employee_number: null, department_name: null, sector: 'الزعفرانية 1', shift: 'evening', violation_type: 'speeding', penalty_type: 'warning', status: 'approved', amount: 15000, prepared_by_name: 'موظف العمليات', deduction_state: 'awaiting_export', approved_at: '2026-10-04T08:00:00Z' }] }) as unknown),
   myHidden: vi.fn(async () => ({}) as Record<string, string[]>), hiddenGet: vi.fn(async () => [] as string[]), hiddenSet: vi.fn(async (_u: string, _p: string, paths: string[]) => paths),
 }))
 vi.mock('@sdk/disclosures-unit.sdk', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
-  return { ...actual, disclosuresUnit: { types: h.types, saveType: h.saveType, vehicles: h.vehicles, employees: h.employees, save: h.save, submit: h.submit, decide: h.decide, cancel: h.cancel, get: h.get, list: h.list, inbox: h.inbox, stats: h.stats, myHiddenUnits: h.myHidden, hiddenUnitsGet: h.hiddenGet, hiddenUnitsSet: h.hiddenSet } }
+  return { ...actual, disclosuresUnit: { types: h.types, saveType: h.saveType, vehicles: h.vehicles, employees: h.employees, save: h.save, submit: h.submit, decide: h.decide, cancel: h.cancel, get: h.get, list: h.list, inbox: h.inbox, stats: h.stats, report: h.report, myHiddenUnits: h.myHidden, hiddenUnitsGet: h.hiddenGet, hiddenUnitsSet: h.hiddenSet } }
 })
 vi.mock('@features/auth/hooks/useAuth', () => ({ useAuth: () => ({ data: { id: 'u1', roles: ['ops_room'], full_name: 'موظف' } }), useLogout: () => ({ mutate: vi.fn() }) }))
 
@@ -264,5 +271,30 @@ describe('عقود 00170 — لا بوابة كشوفات مستقلة، الو�
     expect(opsRoutes.map((r) => r.path)).toContain('disclosures')
     expect(itRoutes.map((r) => r.path)).toContain('user-management/disclosure-types')
     expect(PORTAL_UNITS[PORTALS.ADMIN].map((u) => u.path)).toContain('/admin/disclosures')
+  })
+})
+
+describe('00188 — تقرير الكشوفات (الجولة B)', () => {
+  it('غرفة العمليات: تبويب «التقارير» يعرض المؤشرات والتوزيعات والمكرِّرين وسلسلة الاستقطاع، والفلاتر تُرسل إلى RPC', async () => {
+    wrap(<OpsDisclosuresPage />)
+    fireEvent.click(screen.getByTestId('tab-report'))
+    await screen.findByTestId('rep-body')
+    expect(screen.getByTestId('rep-k-count')).toHaveTextContent('4'); expect(screen.getByTestId('rep-k-approved')).toHaveTextContent('2'); expect(screen.getByTestId('rep-k-amount')).toHaveTextContent('25,000'); expect(screen.getByTestId('rep-k-hours')).toHaveTextContent('6.5')
+    expect(screen.getByTestId('rep-by-type')).toHaveTextContent('سرعة زائدة'); expect(screen.getByTestId('rep-by-sector')).toHaveTextContent('الزعفرانية 1')
+    expect(screen.getByTestId('rep-top-employees')).toHaveTextContent('سارة محمد'); expect(screen.getByTestId('rep-top-vehicles')).toHaveTextContent('DB-101')
+    expect(screen.getByTestId('rep-deductions')).toHaveTextContent('بلا استقطاع مرتبط')
+    expect(screen.getByTestId('rep-body').textContent).not.toMatch(/[\u0660-\u0669]/)
+    const first = h.report.mock.calls[0]![0] as { from: string; to: string; type: string | null }
+    expect(first.from).toMatch(/^\d{4}-\d{2}-01$/); expect(first.type).toBeNull()
+    fireEvent.change(screen.getByTestId('rep-type'), { target: { value: 'speeding' } })
+    fireEvent.change(screen.getByTestId('rep-from'), { target: { value: '2026-01-01' } })
+    await waitFor(() => expect(h.report.mock.calls.some((c) => (c[0] as { type: string | null; from: string }).type === 'speeding' && (c[0] as { from: string }).from === '2026-01-01')).toBe(true))
+    expect(screen.getByTestId('rep-excel')).toBeEnabled(); expect(screen.getByTestId('rep-print')).toBeEnabled()
+  })
+  it('المعاون والمدير المفوض: تبويب التقارير متاح أيضاً', async () => {
+    wrap(<IncomingStatements />, '/deputy/statements')
+    fireEvent.click(await screen.findByTestId('tab-report'))
+    await screen.findByTestId('approver-report')
+    expect(await screen.findByTestId('rep-k-count')).toHaveTextContent('4')
   })
 })

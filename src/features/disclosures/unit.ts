@@ -10,6 +10,7 @@ export const unitKeys = {
   detail: (id: string) => [...unitKeys.all, 'detail', id] as const,
   inbox: () => [...unitKeys.all, 'inbox'] as const,
   stats: (m: string | null) => [...unitKeys.all, 'stats', m ?? ''] as const,
+  report: (f: { from: string; to: string; type?: string | null; sector?: string | null }) => [...unitKeys.all, 'report', f] as const,
   vehicles: (q: string) => [...unitKeys.all, 'vehicles', q] as const,
   employees: (q: string) => [...unitKeys.all, 'employees', q] as const,
   hidden: (u: string, p: string) => ['hidden-units', u, p] as const,
@@ -33,6 +34,7 @@ export function useDisclosuresList(f: DisclosureListFilter, refetchInterval: num
 }
 export function useDisclosureDetail(id: string | null) { return useQuery({ queryKey: unitKeys.detail(id ?? ''), queryFn: () => disclosuresUnit.get(id as string), enabled: !!id }) }
 export function useDisclosureInbox(enabled = true) { return useQuery({ queryKey: unitKeys.inbox(), queryFn: disclosuresUnit.inbox, enabled, refetchInterval: enabled ? 15_000 : false }) }
+export function useDisclosureReport(f: { from: string; to: string; type?: string | null; sector?: string | null }, enabled = true) { return useQuery({ queryKey: unitKeys.report(f), queryFn: () => disclosuresUnit.report(f), enabled: enabled && !!f.from && !!f.to, staleTime: 30_000, placeholderData: (prev) => prev }) }
 export function useDisclosureStats(month: string | null) { return useQuery({ queryKey: unitKeys.stats(month), queryFn: () => disclosuresUnit.stats(month), refetchInterval: 30_000 }) }
 
 export function useDisclosureActions() {

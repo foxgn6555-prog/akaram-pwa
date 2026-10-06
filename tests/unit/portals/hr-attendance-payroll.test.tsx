@@ -435,6 +435,17 @@ describe('00187 — الشهر الجزئي بالنسبة والتناسب (س�
     expect(screen.getByTestId('ps-formula')).toHaveTextContent('الأساسي 500,000 (شهر مكتمل)')
     expect(screen.getByTestId('ps-auto-capped')).toBeInTheDocument()
   })
+  it('00188: المعادلة تُعلن أن الاستقطاع التلقائي متوقف / بمبالغ ثابتة / أيامه مقيّدة بالسقف', () => {
+    h.sheet = [{ ...(partial as object), auto_deduction_basis: 'disabled', auto_deduction_amount: 0, deductions_total: 0, proposed_net: 83333.33 } as never]
+    const { unmount } = render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000002'))
+    expect(screen.getByTestId('ps-auto-disabled')).toBeInTheDocument()
+    unmount()
+    h.sheet = [{ ...(partial as object), auto_deduction_basis: 'fixed', auto_deduction_days_capped: true } as never]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000002'))
+    expect(screen.getByTestId('ps-auto-fixed')).toBeInTheDocument(); expect(screen.getByTestId('ps-auto-days-capped')).toBeInTheDocument()
+  })
   it('Excel: أعمدة «الفترة المشمولة / أيام مشمولة ÷ أيام الشهر / أجر اليوم» في آخر الورقة دون إزاحة الأعمدة القديمة', async () => {
     const wb = await buildPayrollWorkbook('2026-10-01', [partial])
     const ws = wb.worksheets[0]!

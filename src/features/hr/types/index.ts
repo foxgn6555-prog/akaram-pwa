@@ -329,6 +329,9 @@ export interface PayrollSheetRow extends OpsExportRow {
   day_rate?: number | null
   proration_ratio?: number | null
   auto_deduction_capped?: boolean
+  /** 00188 — أساس مبلغ الاستقطاع التلقائي (salary | fixed | disabled) وهل قُيّدت أيامه بالسقف الشهري */
+  auto_deduction_basis?: 'salary' | 'fixed' | 'disabled' | null
+  auto_deduction_days_capped?: boolean
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
@@ -500,6 +503,15 @@ export interface HrPolicy {
   prorate_partial_month?: boolean
   prorate_allowances?: boolean
   auto_deduction_cap_ratio?: number
+  /** 00188: تحكم الاستقطاع التلقائي */
+  auto_deduction_enabled?: boolean
+  deduct_absence_enabled?: boolean
+  deduct_shortfall_enabled?: boolean
+  deduct_unpaid_leave_enabled?: boolean
+  auto_deduction_amount_mode?: 'salary' | 'fixed'
+  fixed_absent_day_amount?: number
+  fixed_shortfall_minute_amount?: number
+  max_auto_deduction_days_per_month?: number
 }
 export interface LeaveType {
   id: string

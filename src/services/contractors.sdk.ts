@@ -40,7 +40,25 @@ async function uploadPhoto(file: File, kind: 'selfie' | 'team'): Promise<string>
   return path
 }
 
+/** 00188 — كشف أجور عمال المتعهدين (المالية فقط) */
+export type ContractorWageMode = 'monthly' | 'daily'
+export interface ContractorWageRow {
+  contractor_user_id: string; contractor_name: string; sector_id: number; area_name: string; parent_sector: string
+  worker_id: string; full_name: string; phone: string | null; is_active: boolean
+  present_days: number; absent_days: number; marked_days: number; contractor_checkins: number
+  wage_mode: ContractorWageMode; monthly_wage: number; daily_wage: number; payable: number | null; note: string | null; set_by_name: string | null; set_at: string | null
+}
 export const contractors = {
+  // ── المالية: أجور عمال المتعهدين ──
+  async wagesSheet(month: string): Promise<ContractorWageRow[]> {
+    return ((await sdkGuard(supabase.rpc('finance_contractor_wages_sheet', { p_month: `${month.slice(0, 7)}-01` }))) as ContractorWageRow[] | null) ?? []
+  },
+  async setWage(x: { workerId: string; month: string; mode: ContractorWageMode; amount: number; note?: string | null }): Promise<unknown> {
+    return sdkGuard(supabase.rpc('finance_contractor_wage_set', { p_worker: x.workerId, p_month: `${x.month.slice(0, 7)}-01`, p_mode: x.mode, p_amount: x.amount, p_note: x.note ?? null }))
+  },
+  async copyPreviousWages(month: string): Promise<number> {
+    return ((await sdkGuard(supabase.rpc('finance_contractor_wages_copy_previous', { p_month: `${month.slice(0, 7)}-01` }))) as number | null) ?? 0
+  },
   // ── بوابة المتعهد ──
   async me(): Promise<ContractorMe | null> {
     const rows = (await sdkGuard(supabase.rpc('contractor_me'))) as ContractorMe[] | null

@@ -13,8 +13,9 @@ import { DisclosureFilters } from './DisclosureFilters'
 import { EMPTY_FILTERS, applyClientFilters, toServerFilter, type UiFilters } from '../lib/filters'
 import { printDisclosureForm, printDisclosuresReport } from '../lib/export-v2'
 import { DisclosureDetailDrawer } from './DisclosureDetailDrawer'
+import { DisclosureReportTab } from './DisclosureReportTab'
 
-type Tab = 'inbox' | 'history' | 'cancelled'
+type Tab = 'inbox' | 'history' | 'cancelled' | 'report'
 
 export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-disclosures' }: { title: string; subtitle: string; testId?: string }) {
   const [tab, setTab] = useState<Tab>('inbox')
@@ -40,7 +41,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
         <div className="rounded-2xl border border-slate-200 bg-white p-3 col-span-2 sm:col-span-1"><div className="text-[11px] font-bold text-slate-500">ملاحظة</div><div className="text-xs text-slate-600">حدّد المبلغ (أو اتركه فارغاً) ثم اعتمد، أو أعد الكشف لغرفة العمليات مع السبب.</div></div>
       </div>
       <nav className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1" role="tablist">
-        {([['inbox', `الوارد (${inbox.data?.length ?? 0})`], ['history', 'السجل'], ['cancelled', 'الملغاة']] as const).map(([k, l]) => (
+        {([['inbox', `الوارد (${inbox.data?.length ?? 0})`], ['history', 'السجل'], ['cancelled', 'الملغاة'], ['report', 'التقارير']] as const).map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} data-testid={`tab-${k}`} onClick={() => setTab(k)} className={clsx('h-9 rounded-xl px-3 text-xs font-black', tab === k ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50')}>{l}</button>
         ))}
       </nav>
@@ -53,6 +54,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
           : <DisclosureTable rows={inbox.data ?? []} onOpen={(d) => setOpenId(d.id)} testId="inbox" emptyText="لا كشوفات بانتظار قرارك"
               extra={(d) => <button type="button" className="h-8 rounded-lg bg-brand-600 px-3 text-xs font-black text-white" data-testid={`decide-${d.id}`} onClick={() => setOpenId(d.id)}>قرار</button>} />
       )}
+      {tab === 'report' && <DisclosureReportTab testId="approver-report" />}
       {tab === 'history' && (
         <div className="space-y-3">
           <DisclosureFilters value={f} onChange={setF} types={types.data ?? []} rows={historyBase} filtered={historyRows} statuses={['pending', 'returned', 'approved', 'cancelled']} loading={history.isLoading} exportCtx={{ title: `سجل الكشوفات — ${title}`, scopeLabel: 'كل الكشوفات' }} />

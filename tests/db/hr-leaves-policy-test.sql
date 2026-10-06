@@ -231,9 +231,9 @@ select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; x uuid; r record; b jsonb; begin
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = e;
-  -- أجر اليوم 48000 · أجر الدقيقة 100 · مقترح: 0 دقيقة + 2.5 يوم = 120000
-  assert r.auto_deduction_minutes = 0 and r.auto_deduction_days = 2.5 and r.auto_deduction_amount = 120000, 'auto amount: ' || row_to_json(r)::text;
-  assert r.proposed_net = 1440000 - 120000, 'proposed net: ' || r.proposed_net;
+  -- أجر اليوم 48000 · أجر الدقيقة 100 · مقترح: 0 دقيقة + 1.5 يوم (نقص 0.5 + إجازة غير مدفوعة 1) + أيام الغياب (منذ 00186 يُحتسب الشهر كاملاً عند التصدير)
+  assert r.auto_deduction_minutes = 0 and r.auto_deduction_days = 1.5 + r.days_absent and r.auto_deduction_amount = 48000 * (1.5 + r.days_absent), 'auto amount: ' || row_to_json(r)::text;
+  assert r.proposed_net = 1440000 - 48000 * (1.5 + r.days_absent), 'proposed net: ' || r.proposed_net;
   assert r.overtime_minutes = 90, 'overtime carried';
   -- رصيد الإضافي: 90/480 = 0.188 يوم، idempotent
   b := public.hr_leave_balance(e, extract(year from m)::int);
@@ -246,7 +246,7 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000f');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; r record; begin
   select * into r from public.finance_payroll_sheet(m) where employee_id = 'bbbb0000-0000-0000-0000-00000000000d';
-  assert r.auto_deduction_amount = 120000 and r.shortfall_minutes > 0, 'finance sheet columns: ' || row_to_json(r)::text;
+  assert r.auto_deduction_amount = 48000 * (1.5 + r.days_absent) and r.shortfall_minutes > 0, 'finance sheet columns: ' || row_to_json(r)::text;
   raise notice 'T13 ✅ كشف المالية يحمل أعمدة الاستقطاع التلقائي';
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');

@@ -6,12 +6,14 @@ import PayrollOverview from './pages/Payroll/PayrollOverview'
 import FinancialReports from './pages/Reports/FinancialReports'
 import FinanceAnnouncements from './pages/Announcements/FinanceAnnouncements'
 import MaintenancePurchases from './pages/Purchases/MaintenancePurchases'
+import ContractorWagesPage from './pages/Contractors/ContractorWagesPage'
 
 export const customRoutes: RouteObject[] = [
   { path: '', element: <FinanceDashboard /> },
   { path: 'budget', element: <BudgetOverview /> },
   { path: 'purchases', element: <MaintenancePurchases /> },
   { path: 'payroll', element: <PayrollOverview /> },
+  { path: 'contractor-wages', element: <ContractorWagesPage /> },
   { path: 'reports', element: <FinancialReports /> },
   { path: 'announcements', element: <FinanceAnnouncements /> },
 ]

@@ -69,6 +69,8 @@ const ERRORS: Record<string, string> = {
   DISCLOSURE_DETAILS_REQUIRED: 'اكتب تفاصيل الكشف (5 أحرف على الأقل)',
   DISCLOSURE_DATE_INVALID: 'تاريخ المخالفة غير صالح (لا يكون مستقبلياً)',
   DISCLOSURE_AMOUNT_INVALID: 'المبلغ غير صالح',
+  DISCLOSURE_RANGE_INVALID: 'مدى التاريخ غير صالح (النهاية قبل البداية)',
+  DISCLOSURE_RANGE_TOO_WIDE: 'مدى التاريخ أوسع من سنة — ضيّقه',
   DISCLOSURE_AMOUNT_OUT_OF_RANGE: 'المبلغ خارج الحدّين الأدنى/الأقصى المحددين لهذا النوع من بوابة التطوير المركزية',
   DISCLOSURE_AMOUNT_RANGE_INVALID: 'حدود المبلغ غير صالحة (الأقصى أقل من الأدنى أو المبلغ الافتراضي خارجهما)',
   DISCLOSURE_VEHICLE_REQUIRED: 'اختر الآلية من قاعدة الآليات',
@@ -87,6 +89,21 @@ const ERRORS: Record<string, string> = {
   APPROVAL_NO_APPROVER: 'لا يوجد مُعتمِد (معاون/مدير مفوض) — راجع التطوير المركزية',
   HR_MONTH_LOCKED: 'كل الأشهر القادمة مقفلة من المالية — تعذّر تسجيل الاستقطاع',
   IT_FORBIDDEN: 'هذه الصلاحية للتطوير المركزية فقط',
+}
+export interface DisclosureReport {
+  from: string; to: string
+  totals: { count: number; pending: number; returned: number; approved: number; cancelled: number; amount_approved: number; amount_pending: number; employees: number; vehicles: number; avg_decision_hours: number }
+  by_type: { key: string; label: string; count: number; approved: number; amount: number }[]
+  by_penalty: { key: string; count: number }[]
+  by_target: Record<string, number>
+  by_sector: { sector: string; count: number; approved: number; amount: number }[]
+  by_shift: Record<string, number>
+  by_preparer: { name: string; count: number; returned: number }[]
+  by_month: { month: string; count: number; approved: number; amount: number }[]
+  top_employees: { employee_id: string; name: string; employee_number: string | null; department: string | null; count: number; approved: number; amount: number }[]
+  top_vehicles: { db_number: string; driver_name: string | null; contractor_name: string | null; count: number; approved: number; amount: number }[]
+  deductions: { with_amount: number; posted: number; awaiting_export: number; exported: number; approved_by_finance: number; missing: number; not_linked: number; amount_posted: number }
+  rows: { id: string; ref_no: string | null; log_date: string; target_kind: DisclosureTargetKind; db_number: string; driver_name: string; employee_number: string | null; department_name: string | null; sector: string | null; shift: string | null; violation_type: string; penalty_type: string | null; status: DisclosureStatusV2; amount: number | null; prepared_by_name: string | null; deduction_state: string | null; approved_at: string | null }[]
 }
 export function disclosureErrorMessage(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
@@ -112,6 +129,8 @@ export const disclosuresUnit = {
     return rpc<DisclosureV2[]>('disclosures_list', { p_scope: f.scope ?? 'active', p_from: f.from ?? null, p_to: f.to ?? null, p_type: f.type || null, p_q: f.q?.trim() || null, p_month: f.month ? `${f.month.slice(0, 7)}-01` : null, p_limit: f.limit ?? 500 })
   },
   inbox() { return rpc<DisclosureV2[]>('disclosure_inbox', {}) },
+  /** 00188 — تقرير شامل بمدى تاريخ (أنواع/قواطع/مكرِّرون/سلسلة الاستقطاع) */
+  report(f: { from: string; to: string; type?: string | null; sector?: string | null }) { return rpc<DisclosureReport>('disclosure_report', { p_from: f.from, p_to: f.to, p_type: f.type ?? null, p_sector: f.sector ?? null }) },
   stats(month?: string | null) { return rpc<DisclosureStats>('disclosure_stats', { p_month: month ? `${month.slice(0, 7)}-01` : null }) },
   // إخفاء الوحدات
   myHiddenUnits() { return rpc<Record<string, string[]>>('my_hidden_units', {}) },

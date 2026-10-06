@@ -179,6 +179,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/finance/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
+    { path: '/finance/contractor-wages', labelKey: 'nav.contractor_wages', icon: 'users' },
     { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
     { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },

@@ -15,12 +15,13 @@ import { DisclosureTable } from '@features/disclosures/components/shared'
 import { fmtIqd, inputCls } from '@features/disclosures/components/ui'
 import { DisclosureDetailDrawer } from '@features/disclosures/components/DisclosureDetailDrawer'
 import { DisclosureForm } from '@features/disclosures/components/DisclosureForm'
+import { DisclosureReportTab } from '@features/disclosures/components/DisclosureReportTab'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
 
-type Tab = 'dashboard' | 'list' | 'new' | 'returned' | 'archive'
+type Tab = 'dashboard' | 'list' | 'new' | 'returned' | 'archive' | 'report'
 const TABS: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'dashboard', label: 'اللوحة', icon: 'bar-chart' }, { key: 'list', label: 'الكشوفات', icon: 'file-text' }, { key: 'new', label: 'كشف جديد', icon: 'clipboard' },
-  { key: 'returned', label: 'المُعادة', icon: 'alert-triangle' }, { key: 'archive', label: 'الأرشيف', icon: 'archive-box' },
+  { key: 'returned', label: 'المُعادة', icon: 'alert-triangle' }, { key: 'archive', label: 'الأرشيف', icon: 'archive-box' }, { key: 'report', label: 'التقارير', icon: 'pie-chart' },
 ]
 const thisMonth = () => new Date().toISOString().slice(0, 7)
 
@@ -57,6 +58,7 @@ export default function OpsDisclosuresPage() {
       {tab === 'list' && <ListTab scope="active" onOpen={setOpenId} testId="list-active" />}
       {tab === 'returned' && <ListTab scope="returned" onOpen={setOpenId} testId="list-returned" emptyText="لا توجد كشوفات مُعادة — ممتاز" />}
       {tab === 'archive' && <ListTab scope="archive" onOpen={setOpenId} testId="list-archive" archive />}
+      {tab === 'report' && <DisclosureReportTab />}
       {tab === 'new' && (
         <div className="max-w-4xl">
           <h2 className="mb-2 text-sm font-black text-slate-700">{editing ? `تعديل الكشف ${editing.ref_no ?? ''}` : 'كشف جديد'}</h2>

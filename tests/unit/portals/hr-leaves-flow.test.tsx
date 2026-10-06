@@ -145,6 +145,23 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
     expect(sent.salary_day_basis).toBe('calendar_days'); expect(sent.prorate_partial_month).toBe(false); expect(sent.prorate_allowances).toBe(false); expect(sent.auto_deduction_cap_ratio).toBe(0.4)
   })
+  it('00188: قسم الاستقطاع التلقائي — إيقاف كلي، مفاتيح المكونات، المبالغ الثابتة تظهر عند اختيارها، وسقف الأيام', async () => {
+    render(<HrPolicyPage />)
+    await screen.findByTestId('p-auto-ded')
+    expect(screen.queryByTestId('p-fixed-day')).toBeNull()
+    fireEvent.change(screen.getByTestId('p-ded-mode'), { target: { value: 'fixed' } })
+    fireEvent.change(screen.getByTestId('p-fixed-day'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByTestId('p-fixed-minute'), { target: { value: '50' } })
+    fireEvent.change(screen.getByTestId('p-ded-shortfall'), { target: { value: 'false' } })
+    fireEvent.change(screen.getByTestId('p-max-days'), { target: { value: '10' } })
+    fireEvent.change(screen.getByTestId('p-auto-ded'), { target: { value: 'false' } })
+    expect(screen.getByTestId('p-ded-absence')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('policy-save'))
+    await waitFor(() => expect(h.setPolicy).toHaveBeenCalled())
+    const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
+    expect(sent.auto_deduction_enabled).toBe(false); expect(sent.deduct_shortfall_enabled).toBe(false); expect(sent.auto_deduction_amount_mode).toBe('fixed')
+    expect(sent.fixed_absent_day_amount).toBe(5000); expect(sent.fixed_shortfall_minute_amount).toBe(50); expect(sent.max_auto_deduction_days_per_month).toBe(10)
+  })
   it('أنواع الإجازات: الجدول + إنشاء نوع غير مدفوع بأيام استقطاع', () => {
     render(<HrPolicyPage />)
     expect(screen.getByTestId('lt-row-unpaid')).toHaveTextContent('تُستقطع')
