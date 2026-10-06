@@ -51,7 +51,7 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
     'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الإجمالي',
     'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع العمليات (مبلغ الأيام)',
     'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'منها أيام غياب/إجازة غير مدفوعة', 'منها أيام شرائح النقص', 'استقطاع تلقائي (مبلغ)', 'إجمالي الاستقطاعات',
-    'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات']
+    'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات', 'الفترة المشمولة', 'أيام مشمولة / أيام الشهر', 'أجر اليوم المحتسب']
   const approved = rows[0]?.export_status === 'approved'
   ws.mergeCells(1, 1, 1, headers.length)
   ws.getCell('A1').value = `كشف رواتب شهر ${month.slice(0, 7)} — ${approved ? 'معتمد ومقفل' : 'مسودة قبل الاعتماد'}`
@@ -72,8 +72,10 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
       r.base_salary ?? 0, r.daily_rate ?? 0, r.allowances_total ?? 0, rowGross(r),
       r.fixed_deductions_total ?? 0, r.ops_deduction_amount, r.ops_deduction_days, r.ops_deduction_days_amount ?? 0,
       r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_absence_days ?? 0, r.auto_shortfall_days ?? 0, r.auto_deduction_amount ?? 0, rowDeductions(r),
-      r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? ''])
-    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col >= 35 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 35 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+      r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? '',
+      r.period_from && r.period_to ? `${r.period_from} → ${r.period_to}` : '', r.covered_days != null && r.days_in_month != null ? `${r.covered_days} / ${r.days_in_month}` : '', r.day_rate ?? (r.pay_type === 'daily' ? r.daily_rate ?? 0 : Math.round(((r.base_salary ?? 0) / 30) * 100) / 100)])
+    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col === 35 || col === 36 ? 'right' : 'center', vertical: 'middle', wrapText: col === 35 || col === 36 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    row.getCell(39).numFmt = '#,##0.##'
     row.getCell(22).font = { bold: true }; row.getCell(32).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(34).font = { bold: true }
     if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(34).font = { bold: true, color: { argb: 'FFB45309' } }
     if (r.pay_type == null) row.getCell(33).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
@@ -83,7 +85,7 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   const tot = ws.addRow(['', '', 'الإجمالي'])
   ;[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, ...MONEY_COLS].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MONEY_COLS.includes(col)) tot.getCell(col).numFmt = '#,##0' })
   tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
-  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 8, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34]
+  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 8, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34, 24, 12, 12]
   widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
   ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
 

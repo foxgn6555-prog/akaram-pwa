@@ -321,6 +321,14 @@ export interface PayrollSheetRow extends OpsExportRow {
   scheduled_days?: number
   unevaluated_days?: number
   shift_minutes?: number
+  /** 00187 — الفترة المشمولة بالتصدير وأجر اليوم ونسبة التناسب (1 = شهر مكتمل) وهل قُيّد الاستقطاع التلقائي بالسقف */
+  period_from?: string | null
+  period_to?: string | null
+  covered_days?: number | null
+  days_in_month?: number | null
+  day_rate?: number | null
+  proration_ratio?: number | null
+  auto_deduction_capped?: boolean
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
@@ -487,6 +495,11 @@ export interface HrPolicy {
   punch_window_hours?: number
   auto_evaluate_enabled?: boolean
   evaluate_lookback_days?: number
+  /** 00187: احتساب الراتب الشهري */
+  salary_day_basis?: 'fixed_30' | 'calendar_days'
+  prorate_partial_month?: boolean
+  prorate_allowances?: boolean
+  auto_deduction_cap_ratio?: number
 }
 export interface LeaveType {
   id: string

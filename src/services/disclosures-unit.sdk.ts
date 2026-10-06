@@ -11,6 +11,7 @@ export type PenaltyKey = 'warning' | 'reprimand' | 'termination'
 
 export interface DisclosureType {
   key: string; label: string; description: string | null; allowed_penalties: PenaltyKey[]; default_amount: number | null
+  min_amount?: number | null; max_amount?: number | null
   is_active: boolean; sort_order: number; updated_at: string; updated_by_name: string | null; used: number
 }
 export interface VehicleOption {
@@ -68,6 +69,8 @@ const ERRORS: Record<string, string> = {
   DISCLOSURE_DETAILS_REQUIRED: 'اكتب تفاصيل الكشف (5 أحرف على الأقل)',
   DISCLOSURE_DATE_INVALID: 'تاريخ المخالفة غير صالح (لا يكون مستقبلياً)',
   DISCLOSURE_AMOUNT_INVALID: 'المبلغ غير صالح',
+  DISCLOSURE_AMOUNT_OUT_OF_RANGE: 'المبلغ خارج الحدّين الأدنى/الأقصى المحددين لهذا النوع من بوابة التطوير المركزية',
+  DISCLOSURE_AMOUNT_RANGE_INVALID: 'حدود المبلغ غير صالحة (الأقصى أقل من الأدنى أو المبلغ الافتراضي خارجهما)',
   DISCLOSURE_VEHICLE_REQUIRED: 'اختر الآلية من قاعدة الآليات',
   DISCLOSURE_VEHICLE_NOT_FOUND: 'الآلية غير موجودة أو مؤرشفة',
   DISCLOSURE_EMPLOYEE_REQUIRED: 'اختر الموظف من النظام',
@@ -95,8 +98,8 @@ const rpc = <T,>(fn: string, args: Record<string, unknown>) => sdkGuard(supabase
 
 export const disclosuresUnit = {
   types() { return rpc<DisclosureType[]>('disclosure_types_list', {}) },
-  saveType(t: { key: string; label: string; description?: string | null; allowed_penalties: PenaltyKey[]; default_amount?: number | null; is_active: boolean; sort_order: number }) {
-    return rpc<DisclosureType[]>('disclosure_type_save', { p_key: t.key, p_label: t.label, p_description: t.description ?? null, p_allowed_penalties: t.allowed_penalties, p_default_amount: t.default_amount ?? null, p_is_active: t.is_active, p_sort_order: t.sort_order })
+  saveType(t: { key: string; label: string; description?: string | null; allowed_penalties: PenaltyKey[]; default_amount?: number | null; is_active: boolean; sort_order: number; min_amount?: number | null; max_amount?: number | null }) {
+    return rpc<DisclosureType[]>('disclosure_type_save', { p_key: t.key, p_label: t.label, p_description: t.description ?? null, p_allowed_penalties: t.allowed_penalties, p_default_amount: t.default_amount ?? null, p_is_active: t.is_active, p_sort_order: t.sort_order, p_min_amount: t.min_amount ?? null, p_max_amount: t.max_amount ?? null })
   },
   vehicles(q: string) { return rpc<VehicleOption[]>('disclosure_vehicle_lookup', { p_q: q.trim() || null, p_limit: 20 }) },
   employees(q: string) { return rpc<EmployeeOption[]>('disclosure_employee_lookup', { p_q: q.trim() || null, p_limit: 20 }) },

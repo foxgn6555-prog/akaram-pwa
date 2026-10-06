@@ -10,9 +10,9 @@ import { Field } from '@features/disclosures/components/shared'
 import { btnGhost, btnPrimary, inputCls } from '@features/disclosures/components/ui'
 
 const PENALTIES = Object.keys(PENALTY_LABEL) as PenaltyKey[]
-interface Draft { key: string; label: string; description: string; allowed_penalties: PenaltyKey[]; default_amount: string; is_active: boolean; sort_order: number }
-const empty = (n: number): Draft => ({ key: '', label: '', description: '', allowed_penalties: ['warning', 'reprimand'], default_amount: '', is_active: true, sort_order: n })
-const fromType = (t: DisclosureType): Draft => ({ key: t.key, label: t.label, description: t.description ?? '', allowed_penalties: t.allowed_penalties, default_amount: t.default_amount != null ? String(t.default_amount) : '', is_active: t.is_active, sort_order: t.sort_order })
+interface Draft { key: string; label: string; description: string; allowed_penalties: PenaltyKey[]; default_amount: string; min_amount: string; max_amount: string; is_active: boolean; sort_order: number }
+const empty = (n: number): Draft => ({ key: '', label: '', description: '', allowed_penalties: ['warning', 'reprimand'], default_amount: '', min_amount: '', max_amount: '', is_active: true, sort_order: n })
+const fromType = (t: DisclosureType): Draft => ({ key: t.key, label: t.label, description: t.description ?? '', allowed_penalties: t.allowed_penalties, default_amount: t.default_amount != null ? String(t.default_amount) : '', min_amount: t.min_amount != null ? String(t.min_amount) : '', max_amount: t.max_amount != null ? String(t.max_amount) : '', is_active: t.is_active, sort_order: t.sort_order })
 
 export default function DisclosureTypesPage() {
   const types = useDisclosureTypes(); const save = useSaveDisclosureType()
@@ -22,7 +22,7 @@ export default function DisclosureTypesPage() {
   const keyOk = /^[a-z][a-z0-9_]{1,39}$/.test(draft?.key ?? '')
   const submit = () => {
     if (!draft || !keyOk || !draft.label.trim()) return
-    save.mutate({ key: draft.key, label: draft.label.trim(), description: draft.description.trim() || null, allowed_penalties: draft.allowed_penalties, default_amount: draft.default_amount.trim() === '' ? null : Number(draft.default_amount), is_active: draft.is_active, sort_order: draft.sort_order }, { onSuccess: () => setDraft(null) })
+    save.mutate({ key: draft.key, label: draft.label.trim(), description: draft.description.trim() || null, allowed_penalties: draft.allowed_penalties, default_amount: draft.default_amount.trim() === '' ? null : Number(draft.default_amount), min_amount: draft.min_amount.trim() === '' ? null : Number(draft.min_amount), max_amount: draft.max_amount.trim() === '' ? null : Number(draft.max_amount), is_active: draft.is_active, sort_order: draft.sort_order }, { onSuccess: () => setDraft(null) })
   }
   return (
     <div className="space-y-4" data-testid="disclosure-types-page">
@@ -37,6 +37,8 @@ export default function DisclosureTypesPage() {
           <Field label="الاسم الظاهر"><input className={inputCls} value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} data-testid="type-label" /></Field>
           <div className="sm:col-span-2"><Field label="وصف/إرشاد (اختياري)"><input className={inputCls} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} data-testid="type-desc" /></Field></div>
           <Field label="المبلغ الافتراضي (د.ع — اختياري)"><input className={inputCls} dir="ltr" inputMode="numeric" value={draft.default_amount} onChange={(e) => setDraft({ ...draft, default_amount: e.target.value.replace(/[^\d.]/g, '') })} data-testid="type-amount" /></Field>
+          <Field label="الحد الأدنى للمبلغ (د.ع — اختياري)"><input className={inputCls} dir="ltr" inputMode="numeric" value={draft.min_amount} onChange={(e) => setDraft({ ...draft, min_amount: e.target.value.replace(/[^\d.]/g, '') })} data-testid="type-min-amount" /></Field>
+          <Field label="الحد الأقصى للمبلغ (د.ع — اختياري؛ أي مبلغ يحدده المعاون أو المدير خارج الحدين يُرفض)"><input className={inputCls} dir="ltr" inputMode="numeric" value={draft.max_amount} onChange={(e) => setDraft({ ...draft, max_amount: e.target.value.replace(/[^\d.]/g, '') })} data-testid="type-max-amount" /></Field>
           <Field label="الترتيب"><input className={inputCls} dir="ltr" type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) || 0 })} /></Field>
           <div>
             <span className="mb-1 block text-xs font-bold text-slate-600">العقوبات المسموحة</span>
@@ -60,12 +62,12 @@ export default function DisclosureTypesPage() {
                 <td className="px-3 py-2 font-bold">{t.label}{t.description ? <span className="block text-[11px] font-normal text-slate-500">{t.description}</span> : null}</td>
                 <td className="px-3 py-2 font-mono text-xs" dir="ltr">{t.key}</td>
                 <td className="px-3 py-2 text-xs">{t.allowed_penalties.map((p) => PENALTY_LABEL[p]).join('، ') || '—'}</td>
-                <td className="px-3 py-2 text-xs tabular-nums">{t.default_amount ?? '—'}</td>
+                <td className="px-3 py-2 text-xs tabular-nums">{t.default_amount ?? '—'}{(t.min_amount != null || t.max_amount != null) && <span className="block text-[10px] text-slate-500" data-testid={`type-bounds-${t.key}`}>الحدود: {t.min_amount ?? 0} – {t.max_amount ?? '∞'}</span>}</td>
                 <td className="px-3 py-2 text-xs tabular-nums">{t.used}</td>
                 <td className="px-3 py-2"><span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-black', t.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{t.is_active ? 'فعّال' : 'معطّل'}</span></td>
                 <td className="px-3 py-2 text-left"><div className="flex justify-end gap-1">
                   <button type="button" className="h-8 rounded-lg border px-2 text-xs font-bold" data-testid={`type-edit-${t.key}`} onClick={() => { setIsNew(false); setDraft(fromType(t)) }}>تعديل</button>
-                  <button type="button" className="h-8 rounded-lg border px-2 text-xs font-bold" data-testid={`type-toggle-${t.key}`} disabled={save.isPending} onClick={() => save.mutate({ key: t.key, label: t.label, description: t.description, allowed_penalties: t.allowed_penalties, default_amount: t.default_amount, is_active: !t.is_active, sort_order: t.sort_order })}>{t.is_active ? 'تعطيل' : 'تفعيل'}</button>
+                  <button type="button" className="h-8 rounded-lg border px-2 text-xs font-bold" data-testid={`type-toggle-${t.key}`} disabled={save.isPending} onClick={() => save.mutate({ key: t.key, label: t.label, description: t.description, allowed_penalties: t.allowed_penalties, default_amount: t.default_amount, min_amount: t.min_amount, max_amount: t.max_amount, is_active: !t.is_active, sort_order: t.sort_order })}>{t.is_active ? 'تعطيل' : 'تفعيل'}</button>
                 </div></td>
               </tr>
             ))}

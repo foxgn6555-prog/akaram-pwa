@@ -406,3 +406,44 @@ describe('00186 — اكتمال دورة الرواتب (سيناريو الم�
     expect(ws.getRow(5).getCell(i('الصافي المقترح')).value).toBe(90000)
   })
 })
+
+describe('00187 — الشهر الجزئي بالنسبة والتناسب (سيناريو المستخدم: راتب 500,000 · تصدير بعد 5 أيام)', () => {
+  const partial = { ...sheetRow, row_id: 'pp', employee_id: 'ep', employee_number: 'F-0000000002', full_name: 'مرتضى جزيرة', pay_type: 'monthly', base_salary: 500000, allowances_total: 0, fixed_deductions_total: 0,
+    working_days: 5, scheduled_days: 5, unevaluated_days: 0, days_present: 2, days_absent: 3, days_late: 0, days_incomplete: 0, days_leave: 0, days_leave_paid: 0, days_leave_unpaid: 0, late_minutes: 0, shift_minutes: 480,
+    ops_deduction_amount: 0, ops_deduction_days: 0, ops_deduction_days_amount: 0, auto_deduction_minutes: 0, auto_deduction_days: 3, auto_absence_days: 3, auto_shortfall_days: 0, auto_deduction_amount: 50000,
+    period_from: '2026-10-01', period_to: '2026-10-05', covered_days: 5, days_in_month: 31, day_rate: 16666.6667, proration_ratio: 0.166667, auto_deduction_capped: false,
+    gross_amount: 83333.33, deductions_total: 50000, proposed_net: 33333.33, final_net: null } as never
+  it('المالية: شارة «مشمول 5/31» والمعادلة تُظهر الفترة المشمولة × أجر اليوم = 83,333 والصافي 33,333', () => {
+    h.sheet = [partial]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-days-count-F-0000000002')).toHaveTextContent('مشمول 5/31')
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000002'))
+    const f = screen.getByTestId('ps-formula')
+    expect(f).toHaveTextContent('500,000 ÷ 30 = 16,666.67')
+    expect(f).toHaveTextContent('الفترة المشمولة 5 من 31 يوم (2026-10-01 → 2026-10-05) × أجر اليوم 16,666.67 = 83,333.33')
+    expect(screen.getByTestId('ps-prorated')).toBeInTheDocument()
+    expect(f).toHaveTextContent('= 83,333'); expect(f).toHaveTextContent('− 50,000 = 33,333')
+    expect(screen.queryByTestId('ps-auto-capped')).toBeNull()
+    expect(f.textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
+  it('المالية: الشهر المكتمل لا يُظهر شارة التناسب؛ والاستقطاع المقيّد بالسقف يُعلَّم', () => {
+    h.sheet = [{ ...(partial as object), covered_days: 31, proration_ratio: 1, gross_amount: 500000, auto_deduction_capped: true, auto_deduction_amount: 25000, deductions_total: 25000, proposed_net: 475000 } as never]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-days-count-F-0000000002')).not.toHaveTextContent('مشمول')
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000002'))
+    expect(screen.queryByTestId('ps-prorated')).toBeNull()
+    expect(screen.getByTestId('ps-formula')).toHaveTextContent('الأساسي 500,000 (شهر مكتمل)')
+    expect(screen.getByTestId('ps-auto-capped')).toBeInTheDocument()
+  })
+  it('Excel: أعمدة «الفترة المشمولة / أيام مشمولة ÷ أيام الشهر / أجر اليوم» في آخر الورقة دون إزاحة الأعمدة القديمة', async () => {
+    const wb = await buildPayrollWorkbook('2026-10-01', [partial])
+    const ws = wb.worksheets[0]!
+    const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
+    const i = (h2: string) => headers.indexOf(h2) + 1
+    expect(i('الصافي المعتمد')).toBe(34)
+    expect(ws.getRow(5).getCell(i('الفترة المشمولة')).value).toBe('2026-10-01 → 2026-10-05')
+    expect(ws.getRow(5).getCell(i('أيام مشمولة / أيام الشهر')).value).toBe('5 / 31')
+    expect(ws.getRow(5).getCell(i('أجر اليوم المحتسب')).value).toBe(16666.6667)
+    expect(ws.getRow(5).getCell(i('الإجمالي')).value).toBe(83333.33)
+  })
+})

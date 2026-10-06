@@ -133,6 +133,18 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
     expect(sent.punch_window_hours).toBe(3); expect(sent.auto_evaluate_enabled).toBe(false)
   })
+  it('00187: قسم احتساب الراتب الشهري — أساس أجر اليوم، التناسب، سقف الاستقطاع التلقائي (نسبة مئوية → كسر)', async () => {
+    render(<HrPolicyPage />)
+    await screen.findByTestId('p-day-basis')
+    fireEvent.change(screen.getByTestId('p-day-basis'), { target: { value: 'calendar_days' } })
+    fireEvent.change(screen.getByTestId('p-prorate'), { target: { value: 'false' } })
+    fireEvent.change(screen.getByTestId('p-prorate-allow'), { target: { value: 'false' } })
+    fireEvent.change(screen.getByTestId('p-auto-cap'), { target: { value: '40' } })
+    fireEvent.click(screen.getByTestId('policy-save'))
+    await waitFor(() => expect(h.setPolicy).toHaveBeenCalled())
+    const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
+    expect(sent.salary_day_basis).toBe('calendar_days'); expect(sent.prorate_partial_month).toBe(false); expect(sent.prorate_allowances).toBe(false); expect(sent.auto_deduction_cap_ratio).toBe(0.4)
+  })
   it('أنواع الإجازات: الجدول + إنشاء نوع غير مدفوع بأيام استقطاع', () => {
     render(<HrPolicyPage />)
     expect(screen.getByTestId('lt-row-unpaid')).toHaveTextContent('تُستقطع')

@@ -24,7 +24,7 @@ function useInvalidate() { const qc = useQueryClient(); return () => { void qc.i
 export function useDisclosureTypes() { return useQuery({ queryKey: unitKeys.types(), queryFn: disclosuresUnit.types, staleTime: 5 * 60_000 }) }
 export function useSaveDisclosureType() {
   const inv = useInvalidate(); const t = useToast()
-  return useMutation({ mutationFn: (v: { key: string; label: string; description?: string | null; allowed_penalties: PenaltyKey[]; default_amount?: number | null; is_active: boolean; sort_order: number }) => disclosuresUnit.saveType(v), onSuccess: () => { inv(); t.ok('حُفظ نوع الكشف') }, onError: t.err })
+  return useMutation({ mutationFn: (v: { key: string; label: string; description?: string | null; allowed_penalties: PenaltyKey[]; default_amount?: number | null; is_active: boolean; sort_order: number; min_amount?: number | null; max_amount?: number | null }) => disclosuresUnit.saveType(v), onSuccess: () => { inv(); t.ok('حُفظ نوع الكشف') }, onError: t.err })
 }
 export function useVehicleLookup(q: string, enabled = true) { return useQuery({ queryKey: unitKeys.vehicles(q), queryFn: () => disclosuresUnit.vehicles(q), enabled, staleTime: 60_000 }) }
 export function useEmployeeLookup(q: string, enabled = true) { return useQuery({ queryKey: unitKeys.employees(q), queryFn: () => disclosuresUnit.employees(q), enabled, staleTime: 60_000 }) }
