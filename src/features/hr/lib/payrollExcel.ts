@@ -36,7 +36,7 @@ export function groupByDepartment(rows: PayrollSheetRow[]): DeptGroup[] {
 }
 
 /** أعمدة المبالغ (تنسيق #,##0 ومجاميع) — بترقيم أعمدة الورقة الأولى */
-export const MONEY_COLS = [17, 18, 19, 20, 21, 22, 24, 29, 30, 31, 32]
+export const MONEY_COLS = [19, 20, 21, 22, 23, 24, 26, 31, 32, 33, 34]
 
 export function payrollFileName(month: string) { return `كشف-الرواتب-${month.slice(0, 7)}.xlsx` }
 
@@ -47,7 +47,7 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   const ws = wb.addWorksheet(`رواتب ${month.slice(0, 7)}`, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
   // ترتيب الأعمدة: هوية ← أيام ← أساس الراتب ← الإجمالي ← الاستقطاعات بالتفصيل ← إجمالي الاستقطاعات ← الصافي
   const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد',
-    'أيام العمل', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة مدفوعة', 'إجازة غير مدفوعة', 'دقائق التأخير', 'الأيام المدفوعة',
+    'أيام مجدولة', 'أيام محتسبة', 'غير محتسب', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة مدفوعة', 'إجازة غير مدفوعة', 'دقائق التأخير', 'الأيام المدفوعة',
     'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الإجمالي',
     'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع العمليات (مبلغ الأيام)',
     'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'منها أيام غياب/إجازة غير مدفوعة', 'منها أيام شرائح النقص', 'استقطاع تلقائي (مبلغ)', 'إجمالي الاستقطاعات',
@@ -68,21 +68,22 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
   rows.forEach((r, i) => {
     const paidLeave = r.days_leave_paid ?? r.days_leave, unpaidLeave = r.days_leave_unpaid ?? 0
     const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
-      r.working_days, r.days_present, r.days_late, r.days_absent, r.days_incomplete, paidLeave, unpaidLeave, r.late_minutes, r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + paidLeave) : '',
+      r.scheduled_days ?? r.working_days, r.working_days, r.unevaluated_days ?? 0, r.days_present, r.days_late, r.days_absent, r.days_incomplete, paidLeave, unpaidLeave, r.late_minutes, r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + paidLeave) : '',
       r.base_salary ?? 0, r.daily_rate ?? 0, r.allowances_total ?? 0, rowGross(r),
       r.fixed_deductions_total ?? 0, r.ops_deduction_amount, r.ops_deduction_days, r.ops_deduction_days_amount ?? 0,
       r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_absence_days ?? 0, r.auto_shortfall_days ?? 0, r.auto_deduction_amount ?? 0, rowDeductions(r),
       r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? ''])
-    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col >= 33 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 33 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
-    row.getCell(20).font = { bold: true }; row.getCell(30).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(32).font = { bold: true }
-    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(32).font = { bold: true, color: { argb: 'FFB45309' } }
-    if (r.pay_type == null) row.getCell(31).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col >= 35 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 35 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    row.getCell(22).font = { bold: true }; row.getCell(32).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(34).font = { bold: true }
+    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(34).font = { bold: true, color: { argb: 'FFB45309' } }
+    if (r.pay_type == null) row.getCell(33).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+    if ((r.unevaluated_days ?? 0) > 0) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
   })
   const first = 5, last = 4 + rows.length
   const tot = ws.addRow(['', '', 'الإجمالي'])
-  ;[8, 9, 10, 11, 12, 13, 14, 15, ...MONEY_COLS].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MONEY_COLS.includes(col)) tot.getCell(col).numFmt = '#,##0' })
+  ;[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, ...MONEY_COLS].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MONEY_COLS.includes(col)) tot.getCell(col).numFmt = '#,##0' })
   tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
-  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34]
+  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 8, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34]
   widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
   ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
 

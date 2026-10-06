@@ -189,6 +189,15 @@ export function useAdjustPayroll() {
     onError: t.err,
   })
 }
+/** 00186 — احتساب الشهر كاملاً */
+export function useEvaluateMonth() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (month: string) => hr.evaluateMonth(month),
+    onSuccess: (n) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(`اكتمل احتساب الشهر — ${n} يوم/موظف`) },
+    onError: t.err,
+  })
+}
 /** 00185 — حالة آخر تصدير للشهر (التغييرات بعده) */
 export function useMonthExportStatus(month: string) {
   return useQuery({ queryKey: [...hrKeys.all, 'export-status', month], queryFn: () => hr.monthExportStatus(month), enabled: !!month })

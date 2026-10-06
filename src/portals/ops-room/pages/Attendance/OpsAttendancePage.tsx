@@ -8,7 +8,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useExportMonth, useMonthExportStatus, useMonthExports, useResetAttendance, useWaiveDeduction,
+  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useMonthExportStatus, useMonthExports, useResetAttendance, useWaiveDeduction,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { Button } from '@components/ui'
@@ -47,6 +47,7 @@ export default function OpsAttendancePage() {
   const { data: exports = [] } = useMonthExports()
   const monthExport = exports.find((x) => x.period_month === month)
   const { data: exportStatus } = useMonthExportStatus(month)
+  const evaluateMonth = useEvaluateMonth()
   const counts = useMemo(() => Object.fromEntries(ATTENDANCE_STATUS_ORDER.map((s) => [s, rows.filter((r) => r.status === s).length])) as Record<AttendanceStatus, number>, [rows])
   const locked = monthExport?.status === 'approved'
   const proposedTotals = useMemo(() => rows.reduce((a, r) => {
@@ -62,7 +63,7 @@ export default function OpsAttendancePage() {
 
   const doExport = async () => {
     if (locked) return
-    if (!window.confirm(monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة. متابعة؟' : 'سيُنشأ ملف شهري مقفل يُرسل إلى المالية. متابعة؟')) return
+    if (!window.confirm((monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة.' : 'سيُنشأ ملف شهري يُرسل إلى المالية.') + '\nسيُحتسب الشهر كاملاً أولاً (كل الأيام الماضية بلا بصمة تُسجَّل غياباً). متابعة؟')) return
     try { await exportMonth.mutateAsync(month) } catch { /* toast in hook */ }
   }
 
@@ -78,6 +79,13 @@ export default function OpsAttendancePage() {
         </div>
       </header>
 
+      {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ops-unevaluated-banner">
+          <Icon name="alert-triangle" size={16} />
+          <span><b>{exportStatus!.unevaluated_days} يوم عمل غير محتسب</b> لدى {exportStatus!.unevaluated_employees} موظف في شهر {month.slice(0, 7)} — أيام بلا بصمة لم يُحتسب غيابها بعد، وبدون احتسابها يُدفع الراتب كأنها حضور. (التصدير للمالية يحتسبها تلقائياً.)</span>
+          <Button size="sm" variant="secondary" className="ms-auto" isLoading={evaluateMonth.isPending} onClick={() => evaluateMonth.mutate(month)} data-testid="ops-evaluate-month">احتساب الشهر كاملاً الآن</Button>
+        </div>
+      )}
       {exportStatus?.needs_reexport && !locked && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ops-reexport-banner">
           <Icon name="alert-triangle" size={16} />

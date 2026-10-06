@@ -199,6 +199,8 @@ export const hr = {
   evaluateAttendance(from: string, to: string, employeeId?: string | null) {
     return rpc<number>('hr_attendance_evaluate', { p_from: from, p_to: to, p_employee: employeeId ?? null })
   },
+  /** 00186 — احتساب كل أيام الشهر (حتى أمس) لكل الموظفين أصحاب البصمة */
+  evaluateMonth(month: string) { return rpc<number>('hr_attendance_evaluate_month', { p_month: month }) },
   dashboard() { return rpc<HrDashboardStats | null>('hr_dashboard_stats', {}) },
 
   // ─────────── غرفة العمليات: التدقيق ───────────

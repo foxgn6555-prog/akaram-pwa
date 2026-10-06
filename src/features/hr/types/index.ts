@@ -206,6 +206,9 @@ export interface MonthExportStatus {
   deductions_after: number
   disclosure_deductions_after: number
   needs_reexport: boolean
+  /** 00186 — أيام مجدولة ماضية بلا احتساب (الشهر الحالي/غير المعتمد) */
+  unevaluated_days?: number
+  unevaluated_employees?: number
 }
 
 /** 00185 — تفاصيل استقطاعات موظف في شهر (مع مرجع الكشف) */
@@ -314,6 +317,10 @@ export interface PayrollSheetRow extends OpsExportRow {
   payable_days?: number | null
   gross_amount?: number | null
   deductions_total?: number | null
+  /** 00186 — الأيام المجدولة في الشهر، وغير المحتسبة منها (يجب أن تكون 0 بعد التصدير)، ودقائق الشفت لمعادلة الدقيقة */
+  scheduled_days?: number
+  unevaluated_days?: number
+  shift_minutes?: number
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'

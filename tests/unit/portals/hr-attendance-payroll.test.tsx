@@ -14,7 +14,7 @@ const h = vi.hoisted(() => ({
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
   exportStatus: null as unknown, monthDeductions: [] as unknown[],
   edit: vi.fn(async () => undefined), reset: vi.fn(async () => undefined), addDed: vi.fn(async () => 'd'), exportMonth: vi.fn(async () => 'x'),
-  adjust: vi.fn(async () => undefined), approve: vi.fn(async () => undefined), setSalary: vi.fn(async () => undefined), update: vi.fn(async () => undefined),
+  adjust: vi.fn(async () => undefined), approve: vi.fn(async () => undefined), evaluateMonth: vi.fn(async () => 30), setSalary: vi.fn(async () => undefined), update: vi.fn(async () => undefined),
 }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 
@@ -34,7 +34,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
   useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
-  useMonthExportStatus: () => ({ data: h.exportStatus }), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }),
+  useMonthExportStatus: () => ({ data: h.exportStatus }), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }), useEvaluateMonth: () => mut(h.evaluateMonth),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), useEmployeeMonthDays: () => ({ data: h.days ?? [], isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
@@ -293,9 +293,9 @@ describe('المالية — الرواتب', () => {
     expect(ws.views[0]).toMatchObject({ rightToLeft: true })
     expect(String(ws.getCell('A1').value)).toContain('مسودة')
     expect(ws.getRow(4).getCell(3).value).toBe('الاسم')
-    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(31).value).toBe(855000)
-    expect(ws.getRow(6).getCell(32).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
-    expect((ws.getRow(7).getCell(32).value as { formula: string }).formula).toBe('SUM(AF5:AF6)')
+    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(33).value).toBe(855000)
+    expect(ws.getRow(6).getCell(34).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
+    expect((ws.getRow(7).getCell(34).value as { formula: string }).formula).toBe('SUM(AH5:AH6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
     // 00179: ورقة ملخص الأقسام
@@ -364,5 +364,45 @@ describe('00185 — سلامة سلسلة الكشوفات → الحضورية 
     expect((xs.getRow(5).getCell(5).value as { formula: string }).formula).toBe('SUM(E3:E4)')
     const wb2 = await buildPayrollWorkbook('2026-09-01', [sheetRow as never])
     expect(wb2.getWorksheet('تفاصيل الاستقطاعات')).toBeUndefined()
+  })
+})
+
+describe('00186 — اكتمال دورة الرواتب (سيناريو المستخدم: راتب 100,000 · حاضر 3 · صافٍ 90,000)', () => {
+  const krar = { ...sheetRow, row_id: 'pk', employee_id: 'ek', employee_number: 'F-0000000001', full_name: 'كرار يوسف عبدعلي', department_name: 'الأشغال والخدمات', pay_type: 'monthly', base_salary: 100000, allowances_total: 0, fixed_deductions_total: 0,
+    working_days: 5, days_present: 3, days_absent: 0, days_incomplete: 2, days_leave: 0, late_minutes: 1403, ops_deduction_amount: 0, ops_deduction_days: 0, auto_deduction_minutes: 0, auto_deduction_days: 3, auto_absence_days: 0, auto_shortfall_days: 3, auto_deduction_amount: 10000,
+    gross_amount: 100000, deductions_total: 10000, proposed_net: 90000, final_net: null, scheduled_days: 30, unevaluated_days: 25, shift_minutes: 480 }
+  it('المالية: الكشف غير المكتمل يُعلَّم بوضوح (25 يوم غير محتسب) ولافتة تحذير، والمعادلة تشرح الأرقام', () => {
+    h.sheet = [krar]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-unevaluated-banner')).toHaveTextContent('25 يوم عمل غير محتسب')
+    expect(screen.getByTestId('ps-days-count-F-0000000001')).toHaveTextContent('30 / 5'); expect(screen.getByTestId('ps-days-count-F-0000000001')).toHaveTextContent('25 غير محتسب')
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000001'))
+    const f = screen.getByTestId('ps-formula')
+    expect(f).toHaveTextContent('100,000 ÷ 30 = 3,333.33'); expect(f).toHaveTextContent('3 يوم'); expect(f).toHaveTextContent('= 90,000'); expect(f).toHaveTextContent('غير نهائي: 25 يوم غير محتسب')
+    expect(f.textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
+  it('المالية: الكشف المكتمل بعد إعادة التصدير — لا تحذير، غياب 25، والصافي الحقيقي', () => {
+    h.sheet = [{ ...krar, working_days: 30, days_absent: 25, unevaluated_days: 0, auto_deduction_days: 28, auto_absence_days: 25, auto_deduction_amount: 93333.33, deductions_total: 93333.33, proposed_net: 6666.67 }]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.queryByTestId('ps-unevaluated-banner')).toBeNull()
+    expect(screen.getByTestId('ps-days-count-F-0000000001')).toHaveTextContent('30 / 30')
+    expect(screen.getByTestId('ps-row-F-0000000001')).toHaveTextContent('6,667')
+  })
+  it('الحضوريات: لافتة الأيام غير المحتسبة بزر «احتساب الشهر كاملاً»', async () => {
+    h.exportStatus = { export_id: null, status: null, changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false, unevaluated_days: 25, unevaluated_employees: 1 }
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    const b = screen.getByTestId('ops-unevaluated-banner')
+    expect(b).toHaveTextContent('25 يوم عمل غير محتسب'); expect(b).toHaveTextContent('1 موظف')
+    fireEvent.click(screen.getByTestId('ops-evaluate-month'))
+    await waitFor(() => expect(h.evaluateMonth).toHaveBeenCalledTimes(1))
+  })
+  it('Excel: أعمدة «أيام مجدولة / محتسبة / غير محتسب» وتظليل غير المحتسب', async () => {
+    const wb = await buildPayrollWorkbook('2026-09-01', [krar as never])
+    const ws = wb.worksheets[0]!
+    const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
+    const i = (h2: string) => headers.indexOf(h2) + 1
+    expect(ws.getRow(5).getCell(i('أيام مجدولة')).value).toBe(30); expect(ws.getRow(5).getCell(i('أيام محتسبة')).value).toBe(5); expect(ws.getRow(5).getCell(i('غير محتسب')).value).toBe(25)
+    expect(ws.getRow(5).getCell(i('غير محتسب')).fill).toMatchObject({ fgColor: { argb: 'FFFEE2E2' } })
+    expect(ws.getRow(5).getCell(i('الصافي المقترح')).value).toBe(90000)
   })
 })

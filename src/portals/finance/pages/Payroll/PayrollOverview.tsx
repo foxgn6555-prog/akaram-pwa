@@ -52,6 +52,7 @@ function SheetTab() {
   const head = rows[0]
   const approved = head?.export_status === 'approved'
   const missing = rows.filter((r) => r.pay_type == null).length
+  const unevaluated = rows.reduce((s, r) => s + (r.unevaluated_days ?? 0), 0)
   const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), 0), auto: rows.reduce((s, r) => s + (r.auto_deduction_amount ?? 0), 0), gross: rows.reduce((s, r) => s + rowGross(r), 0), deductions: rows.reduce((s, r) => s + rowDeductions(r), 0) }), [rows])
 
   const doApprove = async () => {
@@ -92,6 +93,11 @@ function SheetTab() {
           <StatCard title="بلا ملف راتب" value={missing} tone={missing ? 'red' : 'slate'} hint={missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
         </div>
       )}
+      {head && !approved && unevaluated > 0 && (
+        <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ps-unevaluated-banner">
+          <b>تحذير:</b> هذا الكشف يحتوي {unevaluated} يوم عمل غير محتسب (أيام بلا بصمة لم يُسجَّل غيابها) — الصافي فيه أعلى من الصحيح. اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» (التصدير يحتسب الشهر كاملاً تلقائياً).
+        </div>
+      )}
       {head && !approved && exportStatus?.needs_reexport && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ps-stale-banner">
           <span className="text-base">⚠</span>
@@ -104,7 +110,7 @@ function SheetTab() {
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table">
             <thead className="bg-slate-50 text-slate-600">
-              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2">أيام العمل</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2" title="مدفوعة / غير مدفوعة">إجازة م/غ</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">الإجمالي</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">إجمالي الاستقطاعات</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
+              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2" title="الأيام المجدولة في الشهر / المحتسبة منها">مجدول / محتسب</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2" title="مدفوعة / غير مدفوعة">إجازة م/غ</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">الإجمالي</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">إجمالي الاستقطاعات</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
             </thead>
             <tbody>
               {groups.map((g) => (
@@ -116,7 +122,7 @@ function SheetTab() {
                     <tr key={r.row_id} className={clsx('border-t border-slate-100', r.pay_type == null && 'bg-amber-50/50')} data-testid={`ps-row-${r.employee_number}`}>
                       <td className="p-2"><p className="text-sm font-semibold">{r.full_name}</p><p className="text-[10px] text-slate-500">{r.employee_number}{r.job_title ? ` · ${r.job_title}` : ''}</p></td>
                       <td className="p-2 text-center">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
-                      <td className="p-2 text-center tabular-nums">{r.working_days}</td><td className="p-2 text-center font-bold tabular-nums text-emerald-700">{r.days_present}</td><td className="p-2 text-center tabular-nums text-red-700">{r.days_absent}</td><td className="p-2 text-center tabular-nums" data-testid={`ps-leave-${r.employee_number}`}>{r.days_leave_paid ?? r.days_leave}{(r.days_leave_unpaid ?? 0) > 0 && <span className="text-red-700"> / {r.days_leave_unpaid}</span>}</td><td className="p-2 text-center tabular-nums">{r.days_incomplete}</td><td className="p-2 text-center tabular-nums">{r.late_minutes}</td>
+                      <td className="p-2 text-center tabular-nums" data-testid={`ps-days-count-${r.employee_number}`}>{r.scheduled_days != null ? `${r.scheduled_days} / ${r.working_days}` : r.working_days}{(r.unevaluated_days ?? 0) > 0 && <span className="block rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-700" title="أيام مجدولة بلا احتساب — اطلب من غرفة العمليات إعادة التصدير">{r.unevaluated_days} غير محتسب</span>}</td><td className="p-2 text-center font-bold tabular-nums text-emerald-700">{r.days_present}</td><td className="p-2 text-center tabular-nums text-red-700">{r.days_absent}</td><td className="p-2 text-center tabular-nums" data-testid={`ps-leave-${r.employee_number}`}>{r.days_leave_paid ?? r.days_leave}{(r.days_leave_unpaid ?? 0) > 0 && <span className="text-red-700"> / {r.days_leave_unpaid}</span>}</td><td className="p-2 text-center tabular-nums">{r.days_incomplete}</td><td className="p-2 text-center tabular-nums">{r.late_minutes}</td>
                       <td className="p-2 text-center tabular-nums">{r.pay_type === 'daily' ? <>{fmtMoney(r.daily_rate)}<span className="block text-[10px] text-slate-500">× {r.payable_days ?? r.days_present + (r.days_leave_paid ?? 0)} يوم مدفوع</span></> : fmtMoney(r.base_salary)}</td>
                       <td className="p-2 text-center tabular-nums">{fmtMoney(r.allowances_total)}</td>
                       <td className="p-2 text-center font-bold tabular-nums" data-testid={`ps-gross-${r.employee_number}`}>{r.pay_type == null ? '—' : fmtMoney(rowGross(r))}</td>
@@ -151,6 +157,26 @@ function SheetTab() {
   )
 }
 
+/** 00186 — كيف حُسب الصافي؟ معادلة مكتوبة بالأرقام حتى يراجعها المحاسب */
+function FormulaBox({ row: r }: { row: PayrollSheetRow }) {
+  const daily = r.pay_type === 'daily'
+  const dayRate = daily ? (r.daily_rate ?? 0) : Math.round(((r.base_salary ?? 0) / 30) * 10000) / 10000
+  const minuteRate = Math.round((dayRate / Math.max(r.shift_minutes ?? 480, 1)) * 10000) / 10000
+  const payable = r.payable_days ?? r.days_present + (r.days_leave_paid ?? 0)
+  const autoDays = daily ? (r.auto_shortfall_days ?? 0) : (r.auto_deduction_days ?? 0)
+  const gross = rowGross(r), ded = rowDeductions(r)
+  const dec = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  return (
+    <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[11px] leading-5 text-slate-700" data-testid="ps-formula">
+      <p className="font-bold text-slate-800">كيف حُسب الصافي؟</p>
+      <p>أجر اليوم = {daily ? `أجر اليوم ${fmtMoney(dayRate)}` : `${fmtMoney(r.base_salary)} ÷ 30 = ${dec(dayRate)}`} · أجر الدقيقة = {dec(dayRate)} ÷ {r.shift_minutes ?? 480} دقيقة = {dec(minuteRate)}</p>
+      <p>الإجمالي = {daily ? `${payable} يوم مدفوع (حاضر ${r.days_present} + إجازة مدفوعة ${r.days_leave_paid ?? 0}) × ${fmtMoney(r.daily_rate)}` : `الأساسي ${fmtMoney(r.base_salary)}`} + مخصصات {fmtMoney(r.allowances_total)} = <b>{fmtMoney(gross)}</b></p>
+      <p>الاستقطاعات = ثابتة {fmtMoney(r.fixed_deductions_total)} + عمليات {fmtMoney(r.ops_deduction_amount)}{r.ops_deduction_days > 0 ? ` + ${r.ops_deduction_days} يوم عمليات (${fmtMoney(r.ops_deduction_days_amount ?? r.ops_deduction_days * dayRate)})` : ''} + تلقائي ({r.auto_deduction_minutes ?? 0} دقيقة{autoDays > 0 ? ` + ${autoDays} يوم` : ''}{daily && (r.auto_absence_days ?? 0) > 0 ? ` — أيام الغياب ${r.auto_absence_days} غير مدفوعة أصلاً فلا تُخصم` : ''}) = {fmtMoney(r.auto_deduction_amount)} ⇒ <b>{fmtMoney(ded)}</b></p>
+      <p>الصافي المقترح = {fmtMoney(gross)} − {fmtMoney(ded)} = <b>{fmtMoney(r.proposed_net)}</b>{(r.unevaluated_days ?? 0) > 0 && <span className="ms-1 font-bold text-rose-700">(غير نهائي: {r.unevaluated_days} يوم غير محتسب)</span>}</p>
+    </div>
+  )
+}
+
 /** تفاصيل أيام الموظف للشهر — شفافية الكشف للمالية (قراءة فقط) */
 function DaysPanel({ row, month, onClose }: { row: PayrollSheetRow; month: string; onClose: () => void }) {
   const { data: days = [], isLoading } = useEmployeeMonthDays(row.employee_id, month)
@@ -160,6 +186,7 @@ function DaysPanel({ row, month, onClose }: { row: PayrollSheetRow; month: strin
       <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white p-4 shadow-xl">
         <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold">أيام {row.full_name} — {month.slice(0, 7)}</h3><Button size="sm" variant="secondary" onClick={onClose}>إغلاق</Button></div>
         <p className="mb-2 text-[11px] text-slate-500">المصدر: محرك الحضور بعد تدقيق غرفة العمليات · الأوقات بتوقيت بغداد · الأيام المعدّلة يدوياً مُعلَّمة مع سببها</p>
+        {row.pay_type && <FormulaBox row={row} />}
         {deductions.length > 0 && (
           <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/60 p-2" data-testid="ps-deductions-list">
             <p className="mb-1 text-[11px] font-bold text-amber-900">استقطاعات غرفة العمليات لهذا الشهر ({deductions.length})</p>
