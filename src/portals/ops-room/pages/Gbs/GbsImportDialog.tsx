@@ -3,6 +3,7 @@
  * ① اختيار الملف → ② معاينة بمحاكاة من قاعدة البيانات (بلا كتابة) → ③ تنفيذ
  */
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useGbsExport, useGbsImport } from '@features/gbs/hooks'
@@ -27,8 +28,8 @@ export function GbsImportDialog({ onClose }: { onClose: () => void }) {
     try { setParsed(await parseGbsFile(f)) } catch { setParsed(null); setParseError('تعذر قراءة الملف — تأكد أنه ملف Excel (.xlsx)') }
   }
   const result = done ?? preview
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-4" role="dialog" aria-modal="true" data-testid="gbs-import-dialog">
+  return createPortal(
+    <div className="fixed inset-0 z-[2300] flex items-end justify-center bg-slate-950/70 sm:items-center sm:p-4" role="dialog" aria-modal="true" data-testid="gbs-import-dialog">
       <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" dir="rtl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div><h2 className="text-lg font-black">استرداد الحاويات من Excel</h2><p className="text-xs text-slate-500">إلزامي: الموقع/الوصف، الإحداثيات، المنطقة · الرمز الموجود يُحدَّث · لا يُكتب شيء قبل تأكيدك</p></div>
@@ -90,5 +91,5 @@ export function GbsImportDialog({ onClose }: { onClose: () => void }) {
         </footer>
       </div>
     </div>
-  )
+  , document.body)
 }

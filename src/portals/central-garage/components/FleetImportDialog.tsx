@@ -3,6 +3,7 @@
  * ① اختيار الملف (أي Excel؛ رقم DB والمنطقة إلزاميان) → ② معاينة بمحاكاة من قاعدة البيانات (بلا كتابة) → ③ تنفيذ
  */
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useFleetExport, useFleetImport } from '@features/central-garage/hooks'
@@ -29,8 +30,8 @@ export function FleetImportDialog({ onClose }: { onClose: () => void }) {
   const runImport = () => { if (parsed) imp.mutate({ rows: parsed.rows, dryRun: false, updateExisting }, { onSuccess: setDone }) }
   const result = done ?? preview
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" data-testid="fleet-import-dialog">
+  return createPortal(
+    <div className="fixed inset-0 z-[2300] flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" data-testid="fleet-import-dialog">
       <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" dir="rtl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div><h2 className="text-lg font-black">استرداد قاعدة بيانات الآليات من Excel</h2><p className="text-xs text-slate-500">رقم DB والمنطقة إلزاميان فقط · الموجود يُحدَّث بحسب رقم DB · لا يُكتب شيء قبل تأكيدك</p></div>
@@ -91,5 +92,5 @@ export function FleetImportDialog({ onClose }: { onClose: () => void }) {
         </footer>
       </div>
     </div>
-  )
+  , document.body)
 }
