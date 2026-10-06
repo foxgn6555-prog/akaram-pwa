@@ -55,6 +55,8 @@ vi.mock('@features/gbs/hooks', () => ({
     return { data: h.containers, isLoading: false }
   },
   useGbsZones: () => ({ data: h.zones, isLoading: false }),
+  useGbsExport: () => ({ mutate: vi.fn(), isPending: false }),
+  useGbsImport: () => ({ mutate: vi.fn(), isPending: false }),
   useGbsUpdates: (state: string) => {
     h.updatesArg = state
     return { data: h.updates, isLoading: false }
@@ -283,5 +285,10 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     h.containers = [container({ pendingCount: 2 })]
     render(<GbsContainersPage />)
     expect(screen.getByTestId('gbs-list-item-c1').textContent).toContain('2 طلب')
+  })
+  it('00183: أزرار تصدير Excel واسترداد من Excel في رأس الصفحة', () => {
+    render(<GbsContainersPage />)
+    expect(screen.getByTestId('gbs-export')).toHaveTextContent('تصدير Excel')
+    expect(screen.getByTestId('gbs-import-open')).toHaveTextContent('استرداد من Excel')
   })
 })

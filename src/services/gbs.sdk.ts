@@ -2,6 +2,7 @@
  * SDK وحدة GBS الحاويات (00136) — كل لمسات Supabase حصراً هنا (قانون SDK).
  * غرفة العمليات: إدارة كاملة + اعتماد الطلبات. مسؤول القسم: طلبات تحديث فقط.
  */
+import type { GbsExportRow, GbsImportResult, GbsImportRow } from '@features/gbs/gbs-excel'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
@@ -87,6 +88,13 @@ export const gbs = {
     )
     const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown>)
     return { id: String(row.id), code: String(row.code) }
+  },
+
+  /** 00183: تصدير كل الحاويات (غرفة العمليات) */
+  async exportAll(): Promise<GbsExportRow[]> { return ((await sdkGuard(supabase.rpc('gbs_containers_export' as never))) ?? []) as unknown as GbsExportRow[] },
+  /** 00183: استرداد/استيراد من Excel — dryRun للمعاينة */
+  async importRows(rows: GbsImportRow[], dryRun: boolean, updateExisting: boolean): Promise<GbsImportResult> {
+    return (await sdkGuard(supabase.rpc('gbs_containers_import' as never, { p_rows: rows, p_dry_run: dryRun, p_update_existing: updateExisting } as never))) as unknown as GbsImportResult
   },
 
   /** حذف حاوية — غرفة العمليات فقط */

@@ -54,6 +54,8 @@ const APP_ERROR_AR: Record<string, string> = {
   STORE_ITEM_NOT_FOUND: 'المادة غير موجودة.',
   STORE_QTY_INVALID: 'الكمية غير صالحة.',
   STORE_REASON_REQUIRED: 'السبب إلزامي (3 أحرف على الأقل).',
+  GBS_IMPORT_EMPTY: 'ملف الحاويات بلا صفوف.',
+  GBS_IMPORT_TOO_LARGE: 'ملف الحاويات أكبر من 5000 صف — قسّمه.',
   FLEET_IMPORT_EMPTY: 'ملف الاستيراد بلا صفوف.',
   FLEET_IMPORT_TOO_LARGE: 'ملف الاستيراد أكبر من 3000 صف — قسّمه.',
   SUPPLY_MANAGER_ONLY: 'طلب المستلزمات لمسؤول القسم فقط.',

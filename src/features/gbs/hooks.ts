@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { gbs } from '@sdk/gbs.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
+import { buildGbsWorkbook, downloadWorkbook, type GbsImportRow } from './gbs-excel'
 import type {
   GbsContainerSaveInput,
   GbsContainerStatus,
@@ -88,6 +89,31 @@ export function useGbsSaveContainer() {
         message: vars.id ? 'تم تحديث بيانات الحاوية' : 'تمت إضافة الحاوية إلى الخريطة',
       })
     },
+    onError,
+  })
+}
+
+/** 00183: استيراد الحاويات من Excel (محاكاة أو تنفيذ) */
+export function useGbsImport() {
+  const qc = useQueryClient()
+  const onError = useGbsError('gbsImport')
+  return useMutation({
+    mutationFn: (x: { rows: GbsImportRow[]; dryRun: boolean; updateExisting: boolean }) => gbs.importRows(x.rows, x.dryRun, x.updateExisting),
+    onSuccess: (_r, x) => { if (!x.dryRun) void qc.invalidateQueries({ queryKey: ['gbs'] }) },
+    onError,
+  })
+}
+/** 00183: تصدير الحاويات إلى Excel (الملف نفسه قالب الاستيراد) */
+export function useGbsExport() {
+  const addToast = useUiStore((state) => state.addToast)
+  const onError = useGbsError('gbsExport')
+  return useMutation({
+    mutationFn: async (template: boolean) => {
+      const rows = template ? [] : await gbs.exportAll()
+      await downloadWorkbook(await buildGbsWorkbook(rows, { template }), template ? 'قالب-حاويات-GBS.xlsx' : `حاويات-GBS-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      return rows.length
+    },
+    onSuccess: (n, template) => addToast({ type: 'success', message: template ? 'نُزّل قالب الاستيراد' : `صُدّرت ${n} حاوية` }),
     onError,
   })
 }

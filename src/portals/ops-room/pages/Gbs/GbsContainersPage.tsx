@@ -7,9 +7,11 @@ import GbsMap from '@features/gbs/GbsMap'
 import SignedPhoto from '@features/gbs/SignedPhoto'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
 import { GBS_PARENT_LABELS, GBS_SECTOR_OPTIONS } from '@features/gbs/sectorOptions'
+import { GbsImportDialog } from './GbsImportDialog'
 import {
   useGbsContainers,
   useGbsDeleteContainer,
+  useGbsExport,
   useGbsReviewUpdate,
   useGbsSaveContainer,
   useGbsUpdates,
@@ -51,6 +53,8 @@ export default function GbsContainersPage() {
   const [queueState, setQueueState] = useState<GbsUpdateState>('pending')
   const [reviewNote, setReviewNote] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const gbsExport = useGbsExport()
 
   const containers = useGbsContainers(
     search || null,
@@ -142,15 +146,24 @@ export default function GbsContainersPage() {
             العمليات فقط.
           </p>
         </div>
-        <button
-          type="button"
-          data-testid="gbs-add-container"
-          onClick={() => setDraft(emptyDraft())}
-          className="h-11 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
-        >
-          إضافة حاوية
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="gbs-add-container"
+            onClick={() => setDraft(emptyDraft())}
+            className="h-11 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
+          >
+            إضافة حاوية
+          </button>
+          <button type="button" data-testid="gbs-export" onClick={() => gbsExport.mutate(false)} disabled={gbsExport.isPending} className="h-11 rounded-xl border px-4 text-sm font-bold disabled:opacity-50">
+            {gbsExport.isPending ? 'جارٍ التصدير…' : 'تصدير Excel'}
+          </button>
+          <button type="button" data-testid="gbs-import-open" onClick={() => setImportOpen(true)} className="h-11 rounded-xl border px-4 text-sm font-bold">
+            استرداد من Excel
+          </button>
+        </div>
       </header>
+      {importOpen && <GbsImportDialog onClose={() => setImportOpen(false)} />}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {GBS_STATUS_ORDER.map((key) => (
