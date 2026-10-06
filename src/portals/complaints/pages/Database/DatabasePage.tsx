@@ -73,6 +73,15 @@ export default function DatabasePage() {
         : shown.length === 0 ? <ComplaintEmpty icon={Download} title="لا شكاوى في هذه الفترة" description="غيّر الشهر أو القاطع أو حالة الإنجاز. تظهر هنا كل الشكاوى المستلمة بعد فرزها." />
         : (
           <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+            {/* ترويسة الجدول بشعاري الشركة — مطابقة لملف Excel المعتمد */}
+            <div className="flex items-center justify-center gap-4 border-b border-slate-200 bg-white px-4 py-3" data-testid="db-sheet-banner">
+              <img src="/icons/alliance.png" alt="شركة جزيرة الأكارم" className="h-12 w-12 object-contain sm:h-14 sm:w-14" />
+              <img src="/icons/baghdad-municipality.png" alt="أمانة بغداد" className="h-12 w-12 object-contain sm:h-14 sm:w-14" />
+              <div className="text-center">
+                <h2 className="text-xl font-black text-sky-700 sm:text-2xl">قاعدة بيانات الشكاوى</h2>
+                <p className="text-[11px] font-bold text-slate-500">شركة جزيرة الأكارم · {sectorLabel} · {from} → {to}</p>
+              </div>
+            </div>
             <table className="w-full min-w-[1200px] text-xs" data-testid="db-table">
               <thead>
                 <tr className="bg-[#C6E0A5] text-slate-800">{DATABASE_COLUMNS.map((c) => <th key={c.key} className="border border-slate-300 px-2 py-3 text-center font-black">{c.header}</th>)}</tr>
