@@ -27,7 +27,7 @@ describe('Sidebar — وحدات البوابات', () => {
     expect(screen.queryByText('طلباتي')).not.toBeInTheDocument()
     expect(screen.queryByText('رواتبي')).not.toBeInTheDocument()
     expect(screen.queryByText('الموظفون')).not.toBeInTheDocument()
-    expect(screen.queryByText('الميزانية')).not.toBeInTheDocument()
+    expect(screen.queryByText('القاصة')).not.toBeInTheDocument()
   })
 
   it('بوابة HR تعرض وحدات الإدارة ولا تعرض وحدات المتعهد', () => {

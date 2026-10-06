@@ -37,7 +37,7 @@ const PAGE_CATALOG: Array<{ key: string; label: string; portal: string }> = [
   // Manager
   { key: 'manager.approvals',  label: 'الاعتمادات',          portal: 'manager' },
   // Finance
-  { key: 'finance.budget',     label: 'الميزانية',           portal: 'finance' },
+  { key: 'finance.budget',     label: 'القاصة',              portal: 'finance' },
   // Admin
   { key: 'admin.audit',        label: 'سجل التدقيق',         portal: 'admin' },
 ]

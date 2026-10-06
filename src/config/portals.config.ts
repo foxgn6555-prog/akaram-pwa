@@ -344,6 +344,10 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'send' },
     { path: '/executive/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/executive/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
+    { path: '/executive/receivables', labelKey: 'nav.exec_receivables', icon: 'wallet' },
+    { path: '/executive/rewards', labelKey: 'nav.exec_rewards', icon: 'check-square' },
+    { path: '/executive/gps-payments', labelKey: 'nav.exec_gps_payments', icon: 'map-pin' },
+    { path: '/executive/events', labelKey: 'nav.exec_events', icon: 'photo' },
   ],
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },

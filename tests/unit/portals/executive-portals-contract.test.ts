@@ -67,6 +67,15 @@ describe('بوابات الإدارة العليا', () => {
     expect(p).not.toContain('/finance/audit-report')
   })
 
+  it('00189: المدير التنفيذي يملك وحدات القاصة الأربع، و«الميزانية» صارت «القاصة» في المالية', () => {
+    const p = PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)
+    expect(p).toEqual(expect.arrayContaining(['/executive/receivables', '/executive/rewards', '/executive/gps-payments', '/executive/events']))
+    const nav = sidebar.nav as Record<string, string>
+    expect([nav.exec_receivables, nav.exec_rewards, nav.exec_gps_payments, nav.exec_events]).toEqual(['مستحقات الشركة', 'المكافآت', 'تسديد مستحقات GPS', 'فعاليات الشركة'])
+    expect(nav.budget).toBe('القاصة')
+    expect(PORTAL_UNITS[PORTALS.FINANCE].find((u) => u.path === '/finance/budget')!.labelKey).toBe('nav.budget')
+  })
+
   it('وارد التبليغات موجود في كل البوابات بلا استثناء (يستهدفه رابط الإشعار)', () => {
     for (const portal of Object.values(PORTALS)) {
       if (portal === PORTALS.PUBLIC) continue
