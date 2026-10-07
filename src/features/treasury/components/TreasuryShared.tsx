@@ -43,7 +43,7 @@ export function DateRangeFilter({ value, onChange, testId = 'tr-range' }: { valu
 }
 
 const STATUS_TONE: Record<TreasuryStatus, string> = { pending: 'bg-amber-100 text-amber-800 border-amber-300', confirmed: 'bg-emerald-100 text-emerald-800 border-emerald-300', cancelled: 'bg-slate-100 text-slate-600 border-slate-300' }
-const KIND_TONE: Record<TreasuryKind, string> = { receipt: 'text-emerald-700', reward: 'text-violet-700', gps_payment: 'text-sky-700' }
+const KIND_TONE: Record<TreasuryKind, string> = { receipt: 'text-emerald-700', reward: 'text-violet-700', gps_payment: 'text-sky-700', advance: 'text-amber-700', advance_repayment: 'text-emerald-700' }
 
 export function StatusPill({ status, needsFinance = true }: { status: TreasuryStatus; needsFinance?: boolean }) {
   const label = status === 'pending' && !needsFinance ? 'مسجَّلة' : status === 'confirmed' && !needsFinance ? 'مسجَّلة' : TREASURY_STATUS_LABEL[status]

@@ -28,6 +28,7 @@ const UnmatchedPeoplePage = lazy(() => import('@portals/hr/pages/Biometric/Unmat
 const AttendanceAuditPage = lazy(() => import('@portals/it/pages/Integrations/biometric/AttendanceAuditPage'))
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
 const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
+const AdvanceTypesPage = lazy(() => import('@portals/it/pages/Integrations/AdvanceTypesPage'))   // 00191: السلف — الأنواع والسياسة
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 const CentralGarageApprovalsPage = lazy(
@@ -77,6 +78,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'integrations/biometric/attendance-audit', element: s(<AttendanceAuditPage />) },
   { path: 'integrations/gps', element: s(<GpsPage />) },
   { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },
+  { path: 'integrations/advances', element: s(<AdvanceTypesPage />) },
 
   // ── وحدة التحديثات والمراقبة ──
   { path: 'updates', element: s(<UpdatesPage />) },

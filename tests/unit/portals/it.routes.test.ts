@@ -74,8 +74,9 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(25) // 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)
+    expect(itPaths).toHaveLength(26) // 00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)
     expect(itPaths).toContain('user-management/approval-chains')
+    expect(itPaths).toContain('integrations/advances')
     expect(itPaths).toContain('integrations/biometric/unmatched')
     expect(itPaths).toContain('integrations/biometric/attendance-audit')
     expect(itPaths).toContain('database/tables/:tableName')

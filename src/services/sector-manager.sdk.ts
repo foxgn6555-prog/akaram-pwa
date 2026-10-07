@@ -30,7 +30,7 @@ export interface FieldOpsSectorManager { user_id: string; full_name: string; pho
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
 
 export type ApprovalStep = { kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }
-export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure'
+export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance'
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
@@ -40,8 +40,12 @@ export interface ApprovalTask {
   previous_steps: { step_no: number; label: string; status: string; decided_by: string | null; decided_at: string | null; note: string | null }[]
   /** 00162: طلب مستلزمات — المواد المطلوبة ورقم الكتاب */
   items: SupplyItem[] | null; ref_no: string | null
-  /** 00163: طلب إنهاء خدمة — تفاصيل الهدف */
-  details: TerminationTaskDetails | null
+  /** 00163: طلب إنهاء خدمة — تفاصيل الهدف · 00191: طلب سلفة — الموظف والمبلغ وطريقة التسديد */
+  details: TerminationTaskDetails | AdvanceTaskDetails | null
+}
+export interface AdvanceTaskDetails {
+  employee_name: string; employee_number: string | null; type_name: string; amount: number; requested_amount: number
+  method: 'equal' | 'fixed' | 'percent' | 'single'; method_label: string; installments: number | null; monthly_amount: number | null; percent: number | null; estimated_installment: number | null
 }
 export type TerminationType = 'resignation' | 'dismissal' | 'contract_end' | 'retirement' | 'death'
 export const TERMINATION_TYPE_AR: Record<TerminationType, string> = { resignation: 'استقالة', dismissal: 'فصل', contract_end: 'انتهاء عقد', retirement: 'تقاعد', death: 'وفاة' }

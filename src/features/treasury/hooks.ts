@@ -24,13 +24,13 @@ export const useEmployeeLookup = (q: string, enabled = true) =>
 export const useCompletedDesigns = (f: { from?: string | null; to?: string | null; sector?: string | null; periodType?: string | null }) =>
   useQuery({ queryKey: [...TREASURY_ROOT, 'events', f], queryFn: () => treasury.completedDesigns(f), placeholderData: (prev) => prev })
 
-const RECORD_MSG: Record<TreasuryKind, string> = {
+const RECORD_MSG: Partial<Record<TreasuryKind, string>> = {
   receipt: 'سُجّل الاستلام وأُبلغت الشؤون المالية — يبقى المبلغ مجمّداً حتى تأكيدها',
   reward: 'سُجّلت المكافأة',
   gps_payment: 'سُجّل تسديد GPS وأُبلغت الشؤون المالية',
 }
 export const useTreasuryRecord = () =>
   useAction((x: { kind: TreasuryKind; amount?: number | null; typeId?: string | null; employeeId?: string | null; rewardType?: RewardType | null; details?: string | null }) => treasury.record(x),
-    (r) => (r.kind === 'reward' ? (r.needs_finance ? 'سُجّلت المكافأة وأُبلغت الشؤون المالية لتسليمها' : 'سُجّلت المكافأة وأُبلغ الموظف') : RECORD_MSG[r.kind]))
+    (r) => (r.kind === 'reward' ? (r.needs_finance ? 'سُجّلت المكافأة وأُبلغت الشؤون المالية لتسليمها' : 'سُجّلت المكافأة وأُبلغ الموظف') : (RECORD_MSG[r.kind] ?? 'سُجّلت الحركة')))
 export const useTreasuryConfirm = () => useAction((x: { id: string; note?: string | null }) => treasury.confirm(x.id, x.note), 'تم التأكيد وأُبلغ المدير التنفيذي')
 export const useTreasuryCancel = () => useAction((x: { id: string; reason: string }) => treasury.cancel(x.id, x.reason), 'أُلغيت الحركة')

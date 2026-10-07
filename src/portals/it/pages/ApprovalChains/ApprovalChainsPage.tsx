@@ -24,7 +24,7 @@ const HIERARCHY_ROLES: { role: string; label: string; hint: string }[] = [
   { role: 'executive_director', label: 'المدير التنفيذي', hint: 'أي حساب بهذا الدور' },
   { role: 'super_admin', label: 'المدير المفوض', hint: 'أي حساب بهذا الدور' },
 ]
-const TYPES: { key: ApprovalRequestType; label: string }[] = [{ key: 'leave', label: 'إجازة' }, { key: 'time_permit', label: 'زمنية (إذن وقتي)' }, { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)' }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)' }, { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)' }]
+const TYPES: { key: ApprovalRequestType; label: string }[] = [{ key: 'leave', label: 'إجازة' }, { key: 'time_permit', label: 'زمنية (إذن وقتي)' }, { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)' }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)' }, { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)' }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)' }]
 const roleLabel = (r: string) => (ROLE_LABELS as Record<string, string>)[r] ?? r
 
 export default function ApprovalChainsPage() {

@@ -332,6 +332,8 @@ export interface PayrollSheetRow extends OpsExportRow {
   /** 00188 — أساس مبلغ الاستقطاع التلقائي (salary | fixed | disabled) وهل قُيّدت أيامه بالسقف الشهري */
   auto_deduction_basis?: 'salary' | 'fixed' | 'disabled' | null
   auto_deduction_days_capped?: boolean
+  /** 00191 — قسط السلفة المستقطع تلقائياً هذا الشهر (ضمن إجمالي الاستقطاعات) */
+  advance_installment?: number | null
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
@@ -475,6 +477,9 @@ export interface HrJobTitle {
 // ─────────── 00144: السياسة والإجازات والأرصدة ───────────
 export interface DeductionTier { from: number; to: number | null; minutes?: number | null; day_fraction?: number | null }
 export interface HrPolicy {
+  /** 00191 — سياسة السلف: أقصى نسبة للقسط الشهري من الراتب (0.1–1) وهل تُمنع سلفة جديدة ما دامت سلفة مفتوحة */
+  advance_max_installment_ratio?: number
+  advance_block_if_open?: boolean
   annual_leave_days_default: number
   balance_mode: 'annual_upfront' | 'monthly_accrual'
   carry_over: boolean

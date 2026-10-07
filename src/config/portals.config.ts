@@ -180,6 +180,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
     { path: '/finance/contractor-wages', labelKey: 'nav.contractor_wages', icon: 'users' },
+    { path: '/finance/advances', labelKey: 'nav.finance_advances', icon: 'wallet' },
     { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
     { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },
@@ -240,6 +241,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/integrations/biometric/attendance-audit', labelKey: 'nav.hr_attendance_audit', icon: 'clipboard' },
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
+        { path: '/it/integrations/advances', labelKey: 'nav.it_advances', icon: 'wallet' },
       ],
     },
     {
@@ -381,6 +383,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/campaigns', labelKey: 'nav.ops_campaigns', icon: 'camera' },
     { path: '/ops-room/citizen-complaints', labelKey: 'nav.ops_citizen_complaints', icon: 'life-buoy' },
     { path: '/ops-room/disclosures', labelKey: 'nav.ops_disclosures', icon: 'file-text' },
+    { path: '/ops-room/advances', labelKey: 'nav.ops_advances', icon: 'wallet' },
   ],
 
   // ═══ وحدة الكشوفات ═══
