@@ -71,7 +71,8 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
   -- اليومي: أيام مدفوعة = حاضر 2 + إجازة مدفوعة 1 = 3 × 25000 = 75000؛ الغياب/غير المدفوعة لا تُخصم مرة ثانية
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PF-9';
   assert r.payable_days = 3 and r.gross_amount = 75000 and r.deductions_total = 0 and r.auto_deduction_amount = 0 and r.proposed_net = 75000, 'S2 daily: ' || row_to_json(r)::text;
-  assert r.days_leave_paid = 1 and r.days_leave_unpaid = 1 and r.auto_absence_days = 2 and r.auto_deduction_days = 2, 'S2 daily breakdown: ' || row_to_json(r)::text;
+  assert r.days_leave_paid = 1 and r.days_leave_unpaid = 1 and r.auto_absence_days = 2 and r.auto_deduction_days = 0 and r.auto_deduction_amount = 0, -- 00192: اليومي لا تُحسب أيام غيابه كأيام استقطاع (غير مدفوعة أصلاً)
+     'S2 daily breakdown: ' || row_to_json(r)::text;
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PF-2';
   assert r.proposed_net = 20000 and r.gross_amount = 20000, 'S2 daily one day: ' || row_to_json(r)::text;
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PF-1';
