@@ -1,16 +1,19 @@
 /**
- * غرفة العمليات — وحدة «الحضوريات»
- * تدقيق حضور كل الأقسام: فلاتر فرع→قسم (بشجرته)→يوم/شهر→حالة→بحث · تعديل أي صف (دخول/خروج/حالة) بسبب إلزامي + سجل تدقيق كامل
- * · استقطاعات يدوية شهرية لكل موظف (مبلغ أو أيام + سبب) · «تصدير بيانات الشهر» لقطة مقفلة إلى المالية (يُعاد التصدير حتى اعتماد الراتب).
+ * غرفة العمليات — وحدة «الحضوريات» بمرحلتين (00193)
+ *   المرحلة 1 «التدقيق التفصيلي»: سجلات اليوم/الشهر + شبكة الشهر بالأوقات (موظف × أيام) · تعديل أي صف بسبب إلزامي + سجل تدقيق
+ *     · استقطاعات يدوية · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
+ *   المرحلة 2 «الكشف المعتمد»: بعد الاعتماد فقط — كل يوم حاضر/غائب/مجاز + ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة)
+ *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى المالية» (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
  */
 import { useMemo, useState } from 'react'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useMonthExportStatus, useMonthExports, useResetAttendance, useWaiveDeduction,
+  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance, useWaiveDeduction,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
+import { buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, downloadWorkbook, fmtHM } from '@features/hr/lib/attendanceExcel'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -19,12 +22,14 @@ import clsx from 'clsx'
 import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
 import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
+import { GridLegend, MonthGrid, StageBar, type Stage } from './AttendanceStages'
 
 type Mode = 'day' | 'month'
-const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح' }
+const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', confirm: 'اعتماد حضورية الشهر', reopen: 'إعادة فتح الحضورية', auto_blocked: 'تغيير تلقائي مُعلَّق بعد الاعتماد' }
 const EDITABLE: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 
 export default function OpsAttendancePage() {
+  const [stage, setStage] = useState<Stage>('detailed')
   const [mode, setMode] = useState<Mode>('day')
   const [day, setDay] = useState(isoDay())
   const [month, setMonth] = useState(monthStart())
@@ -35,13 +40,22 @@ export default function OpsAttendancePage() {
   const [editing, setEditing] = useState<AttendanceDay | null>(null)
   const [auditFor, setAuditFor] = useState<AttendanceDay | null>(null)
   const [deductFor, setDeductFor] = useState<AttendanceDay | null>(null)
-  const [panel, setPanel] = useState<'rows' | 'deductions' | 'exports'>('rows')
+  const [panel, setPanel] = useState<'rows' | 'grid' | 'deductions' | 'exports'>('rows')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [busyExcel, setBusyExcel] = useState(false)
   const waive = useWaiveDeduction()
 
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
   const range = useMemo(() => mode === 'day' ? { from: day, to: day } : { from: month, to: isoDay(new Date(new Date(month).getFullYear(), new Date(month).getMonth() + 1, 0)) }, [mode, day, month])
   const { data: rows = [], isLoading } = useAttendance({ ...range, branchId: branchId || null, departmentId: departmentId || null, status: status || null, search })
+  const gridFilters = useMemo(() => ({ month, branchId: branchId || null, departmentId: departmentId || null, search: search || null }), [month, branchId, departmentId, search])
+  const needGrid = stage === 'approved' || panel === 'grid' || confirmOpen
+  const { data: grid = [], isLoading: gridLoading } = useAttendanceGrid(gridFilters, needGrid)
+  const { data: conf } = useAttendanceConfirmation(month)
+  const confirmMonth = useConfirmAttendanceMonth()
+  const reopenMonth = useReopenAttendanceMonth()
   const evaluate = useEvaluateAttendance()
   const exportMonth = useExportMonth()
   const { data: exports = [] } = useMonthExports()
@@ -49,133 +63,285 @@ export default function OpsAttendancePage() {
   const { data: exportStatus } = useMonthExportStatus(month)
   const evaluateMonth = useEvaluateMonth()
   const counts = useMemo(() => Object.fromEntries(ATTENDANCE_STATUS_ORDER.map((s) => [s, rows.filter((r) => r.status === s).length])) as Record<AttendanceStatus, number>, [rows])
-  const locked = monthExport?.status === 'approved'
+  const locked = monthExport?.status === 'approved' || !!conf?.locked
+  const confirmed = !!conf?.confirmed && !locked
+  /** التعديل مقفل بعد اعتماد المالية، أو بعد اعتماد الحضورية (حتى إعادة الفتح) */
+  const frozen = locked || confirmed
   const proposedTotals = useMemo(() => rows.reduce((a, r) => {
     if (r.deduction_waived) { a.waived += 1; return a }
     const m = r.proposed_deduction_minutes ?? 0, d = r.proposed_deduction_days ?? 0
     a.minutes += m; a.days += d; if (m > 0 || d > 0) a.count += 1; return a
   }, { minutes: 0, days: 0, count: 0, waived: 0 }), [rows])
+  const gridTotals = useMemo(() => grid.reduce((a, r) => { a.emp += 1; a.present += r.present_days + r.late_days + r.early_days + r.incomplete_days; a.absent += r.absent_days; a.leave += r.leave_days; a.minutes += r.worked_minutes; a.incomplete += r.incomplete_days; a.unevaluated += r.unevaluated_days; a.manual += r.days.filter((c) => c.src === 'manual').length; return a }, { emp: 0, present: 0, absent: 0, leave: 0, minutes: 0, incomplete: 0, unevaluated: 0, manual: 0 }), [grid])
   const toggleWaive = async (r: AttendanceDay) => {
     const reason = window.prompt((r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):') + '\nسيتم تبليغ وحدة التطوير المركزية بهذا الإجراء.')
     if (!reason || reason.trim().length < 3) return
     try { await waive.mutateAsync({ employeeId: r.employee_id, date: r.work_date, waive: !r.deduction_waived, reason: reason.trim() }) } catch { /* toast in hook */ }
   }
-
+  const branchLabel = branches.find((b) => b.id === branchId)?.name ?? 'كل الفروع'
+  const departmentLabel = departments.find((d) => d.id === departmentId)?.name ?? 'كل الأقسام'
   const doExport = async () => {
-    if (locked) return
-    if (!window.confirm((monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة.' : 'سيُنشأ ملف شهري يُرسل إلى المالية.') + '\nسيُحتسب الشهر كاملاً أولاً (كل الأيام الماضية بلا بصمة تُسجَّل غياباً). متابعة؟')) return
+    if (locked || !conf?.can_export) return
+    if (!window.confirm((monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة.' : 'سيُنشأ ملف شهري يُرسل إلى المالية من الكشف المعتمد.') + '\nمتابعة؟')) return
     try { await exportMonth.mutateAsync(month) } catch { /* toast in hook */ }
+  }
+  const doExcel = async (kind: Stage) => {
+    if (!grid.length) return
+    setBusyExcel(true)
+    try {
+      const meta = { month, branchLabel, departmentLabel, search: search || undefined, confirmedBy: conf?.confirmed_by_name, confirmedAt: conf?.confirmed_at }
+      const wb = kind === 'detailed' ? await buildAttendanceDetailedWorkbook(grid, meta) : await buildAttendanceApprovedWorkbook(grid, meta)
+      await downloadWorkbook(wb, `${kind === 'detailed' ? 'الحضوريات-التفصيلية' : 'كشف-الحضورية-المعتمد'}-${month.slice(0, 7)}.xlsx`)
+    } finally { setBusyExcel(false) }
+  }
+  const doConfirm = async () => {
+    try { await confirmMonth.mutateAsync(month); setConfirmOpen(false); setStage('approved') } catch { /* toast in hook */ }
   }
 
   return (
     <div className="space-y-4" data-testid="ops-attendance">
       <header className="flex flex-wrap items-end justify-between gap-2">
-        <div><h1 className="text-xl font-black">الحضوريات</h1><p className="text-xs text-slate-500">تدقيق حضور كل الأقسام · كل تعديل يتطلب سبباً ويُسجَّل باسم المدقق</p></div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" isLoading={evaluate.isPending} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
-          <Button size="sm" isLoading={exportMonth.isPending} disabled={locked} onClick={() => void doExport()} data-testid="ops-export-month" title={locked ? 'الشهر مقفل بعد اعتماد المالية' : ''}>
-            {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر' : 'تصدير بيانات الشهر إلى المالية'}
-          </Button>
+        <div><h1 className="text-xl font-black">الحضوريات</h1><p className="text-xs text-slate-500">مرحلتان: تدقيق تفصيلي بالأوقات → اعتماد الشهر → كشف معتمد (حاضر/غائب/مجاز) → تصدير للمالية · كل تعديل بسبب ويُسجَّل باسم المدقق</p></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
+          {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
         </div>
       </header>
 
-      {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ops-unevaluated-banner">
-          <Icon name="alert-triangle" size={16} />
-          <span><b>{exportStatus!.unevaluated_days} يوم عمل غير محتسب</b> لدى {exportStatus!.unevaluated_employees} موظف في شهر {month.slice(0, 7)} — أيام بلا بصمة لم يُحتسب غيابها بعد، وبدون احتسابها يُدفع الراتب كأنها حضور. (التصدير للمالية يحتسبها تلقائياً.)</span>
-          <Button size="sm" variant="secondary" className="ms-auto" isLoading={evaluateMonth.isPending} onClick={() => evaluateMonth.mutate(month)} data-testid="ops-evaluate-month">احتساب الشهر كاملاً الآن</Button>
-        </div>
-      )}
-      {exportStatus?.needs_reexport && !locked && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ops-reexport-banner">
-          <Icon name="alert-triangle" size={16} />
-          <span><b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.</span>
-          <Button size="sm" className="ms-auto" isLoading={exportMonth.isPending} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>
-        </div>
-      )}
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="ops-filters">
-        <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
-          <button type="button" onClick={() => setMode('day')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
-          <button type="button" onClick={() => setMode('month')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
-        </div>
-        {mode === 'day' ? <input type="date" className={field} value={day} onChange={(e) => setDay(e.target.value)} data-testid="ops-day" /> : <MonthPicker value={month} onChange={setMonth} />}
-        <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
-        <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
-        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
-      </div>
+      <StageBar conf={conf} stage={stage} onStage={setStage} />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        {ATTENDANCE_STATUS_ORDER.map((s) => (
-          <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('text-start', status === s && 'rounded-2xl ring-2 ring-brand-400')} data-testid={`ops-stat-${s}`}>
-            <StatCard title={ATTENDANCE_STATUS_LABELS[s]} value={counts[s]} tone={s === 'absent' ? 'red' : s === 'late' ? 'amber' : s === 'present' ? 'emerald' : s === 'incomplete' ? 'violet' : 'sky'} />
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
-        <StatCard title="أيام حضور بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
-        <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
-        <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
-        <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
-      </div>
-
-      <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-        {([['rows', 'سجلات الحضور'], ['deductions', 'الاستقطاعات'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
+      <nav className="flex gap-1 rounded-2xl bg-slate-100 p-1 text-xs font-bold" aria-label="المرحلة">
+        <button type="button" onClick={() => setStage('detailed')} className={clsx('flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2', stage === 'detailed' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid="stage-detailed">١ · التدقيق التفصيلي</button>
+        <button type="button" onClick={() => setStage('approved')} className={clsx('flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2', stage === 'approved' ? 'bg-white text-emerald-700 shadow' : 'text-slate-600')} data-testid="stage-approved">
+          {!conf?.confirmed && !locked && <Icon name="lock" size={12} />} ٢ · الكشف المعتمد
+        </button>
       </nav>
 
-      {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
-      {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm" data-testid="ops-table">
-            <thead className="bg-slate-50 text-xs text-slate-600">
-              <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">نقص</th><th className="p-2">إضافي</th><th className="p-2">استقطاع مقترح</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className={clsx('border-t border-slate-100', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
-                  <td className="p-2 text-xs">{r.work_date}<span className="block text-[10px] text-slate-400">{WEEKDAYS_AR[new Date(r.work_date).getDay()]}</span></td>
-                  <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}</p></td>
-                  <td className="p-2 text-xs">{r.department_name ?? '—'}<span className="block text-[10px] text-slate-400">{r.branch_name ?? ''}</span></td>
-                  <td className="p-2 text-center text-xs">{r.shift_name ?? '—'}<span className="block text-[10px] text-slate-400" dir="ltr">{r.expected_in ? `${fmtTime(r.expected_in)}–${fmtTime(r.expected_out)}` : ''}</span></td>
-                  <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_in)}</td>
-                  <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
-                  <td className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
-                  <td className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
-                  <td className={clsx('p-2 text-center text-xs tabular-nums', r.shortfall_minutes > 0 && 'font-bold text-red-700')} title={r.permit_minutes > 0 ? `زمنية معتمدة ${fmtMinutes(r.permit_minutes)}` : ''} data-testid={`ops-shortfall-${r.employee_number}-${r.work_date}`}>{fmtMinutes(r.shortfall_minutes)}{r.permit_minutes > 0 && <span className="block text-[10px] text-violet-600">زمنية {fmtMinutes(r.permit_minutes)}</span>}</td>
-                  <td className={clsx('p-2 text-center text-xs tabular-nums', r.overtime_minutes > 0 && 'font-bold text-emerald-700')}>{fmtMinutes(r.overtime_minutes)}</td>
-                  <td className="p-2 text-center text-xs" data-testid={`ops-proposed-${r.employee_number}-${r.work_date}`}>
-                    {r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0 ? (
-                      <div>
-                        <span className={clsx('font-bold', r.deduction_waived ? 'text-slate-400 line-through' : 'text-red-700')}>{proposedLabel(r)}</span>
-                        {r.deduction_reason && <span className="block max-w-[10rem] truncate text-[10px] text-slate-500" title={r.deduction_reason}>{r.deduction_reason}</span>}
-                        {r.deduction_waived && <span className="block text-[10px] font-bold text-emerald-700" title={r.waive_reason ?? ''}>مُلغى: {r.waive_reason}</span>}
-                        {!locked && <button type="button" className="mt-0.5 text-[10px] font-bold text-brand-700 hover:underline" onClick={() => void toggleWaive(r)} data-testid={`ops-waive-${r.employee_number}-${r.work_date}`}>{r.deduction_waived ? 'إعادة الاستقطاع' : 'إلغاء بسبب'}</button>}
-                      </div>
-                    ) : '—'}
-                  </td>
-                  <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
-                  <td className="p-2">
-                    <div className="flex justify-center gap-1">
-                      <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700" onClick={() => setEditing(r)} disabled={locked} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
-                      <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setDeductFor(r)} disabled={locked} data-testid={`ops-deduct-${r.employee_number}`}>استقطاع</button>
-                      <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>السجل</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      {stage === 'detailed' && (
+        <>
+          {confirmed && (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900" role="status" data-testid="att-confirmed-banner">
+              <Icon name="check" size={16} />
+              <span><b>حضورية {month.slice(0, 7)} معتمدة</b> بواسطة {conf?.confirmed_by_name ?? '—'} في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'} — التعديل مقفل؛ لإجراء أي تعديل أعد فتح الشهر بسبب من «الكشف المعتمد».</span>
+              <Button size="sm" variant="secondary" className="ms-auto" onClick={() => setStage('approved')} data-testid="att-go-approved">فتح الكشف المعتمد</Button>
+            </div>
+          )}
+          {conf?.status === 'reopened' && !locked && (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="att-reopened-banner">
+              <Icon name="alert-triangle" size={16} />
+              <span><b>الشهر مُعاد فتحه</b> بواسطة {conf.reopened_by_name ?? '—'} — السبب: {conf.reopen_reason} · أكمل التعديلات ثم أعد الاعتماد.</span>
+            </div>
+          )}
+          {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ops-unevaluated-banner">
+              <Icon name="alert-triangle" size={16} />
+              <span><b>{exportStatus!.unevaluated_days} يوم عمل غير محتسب</b> لدى {exportStatus!.unevaluated_employees} موظف في شهر {month.slice(0, 7)} — أيام بلا بصمة لم يُحتسب غيابها بعد. (اعتماد الشهر يحتسبها تلقائياً.)</span>
+              <Button size="sm" variant="secondary" className="ms-auto" isLoading={evaluateMonth.isPending} onClick={() => evaluateMonth.mutate(month)} data-testid="ops-evaluate-month">احتساب الشهر كاملاً الآن</Button>
+            </div>
+          )}
+          <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="ops-filters">
+            <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
+              <button type="button" onClick={() => setMode('day')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
+              <button type="button" onClick={() => setMode('month')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
+            </div>
+            {mode === 'day' ? <input type="date" className={field} value={day} onChange={(e) => setDay(e.target.value)} data-testid="ops-day" /> : <MonthPicker value={month} onChange={setMonth} />}
+            <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+            <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
+            <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
+            <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
+          </div>
 
-      {panel === 'deductions' && <DeductionsPanel month={month} locked={locked} />}
-      {panel === 'exports' && <ExportsPanel />}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {ATTENDANCE_STATUS_ORDER.map((s) => (
+              <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('text-start', status === s && 'rounded-2xl ring-2 ring-brand-400')} data-testid={`ops-stat-${s}`}>
+                <StatCard title={ATTENDANCE_STATUS_LABELS[s]} value={counts[s]} tone={s === 'absent' ? 'red' : s === 'late' ? 'amber' : s === 'present' ? 'emerald' : s === 'incomplete' ? 'violet' : 'sky'} />
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
+            <StatCard title="أيام حضور بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
+            <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
+            <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
+            <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
+              {([['rows', 'سجلات الحضور'], ['grid', 'شبكة الشهر (الأوقات)'], ['deductions', 'الاستقطاعات'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
+            </nav>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" isLoading={evaluate.isPending} disabled={frozen} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
+              <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length && !needGrid} onClick={() => { setPanel('grid'); void doExcel('detailed') }} data-testid="att-excel-detailed"><Icon name="file-spreadsheet" size={14} /> Excel تفصيلي (ورقة لكل قسم)</Button>
+              {!locked && (
+                <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : ''}>
+                  <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
+          {panel === 'grid' && (gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين ببصمة في هذا النطاق" hint="وسّع الفلاتر" /> : (
+            <div className="space-y-2">
+              <GridLegend mode="detailed" />
+              <MonthGrid rows={grid} mode="detailed" />
+            </div>
+          ))}
+          {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-sm" data-testid="ops-table">
+                <thead className="bg-slate-50 text-xs text-slate-600">
+                  <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">نقص</th><th className="p-2">إضافي</th><th className="p-2">استقطاع مقترح</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className={clsx('border-t border-slate-100', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
+                      <td className="p-2 text-xs">{r.work_date}<span className="block text-[10px] text-slate-400">{WEEKDAYS_AR[new Date(r.work_date).getDay()]}</span></td>
+                      <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}</p></td>
+                      <td className="p-2 text-xs">{r.department_name ?? '—'}<span className="block text-[10px] text-slate-400">{r.branch_name ?? ''}</span></td>
+                      <td className="p-2 text-center text-xs">{r.shift_name ?? '—'}<span className="block text-[10px] text-slate-400" dir="ltr">{r.expected_in ? `${fmtTime(r.expected_in)}–${fmtTime(r.expected_out)}` : ''}</span></td>
+                      <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_in)}</td>
+                      <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
+                      <td className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
+                      <td className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
+                      <td className={clsx('p-2 text-center text-xs tabular-nums', r.shortfall_minutes > 0 && 'font-bold text-red-700')} title={r.permit_minutes > 0 ? `زمنية معتمدة ${fmtMinutes(r.permit_minutes)}` : ''} data-testid={`ops-shortfall-${r.employee_number}-${r.work_date}`}>{fmtMinutes(r.shortfall_minutes)}{r.permit_minutes > 0 && <span className="block text-[10px] text-violet-600">زمنية {fmtMinutes(r.permit_minutes)}</span>}</td>
+                      <td className={clsx('p-2 text-center text-xs tabular-nums', r.overtime_minutes > 0 && 'font-bold text-emerald-700')}>{fmtMinutes(r.overtime_minutes)}</td>
+                      <td className="p-2 text-center text-xs" data-testid={`ops-proposed-${r.employee_number}-${r.work_date}`}>
+                        {r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0 ? (
+                          <div>
+                            <span className={clsx('font-bold', r.deduction_waived ? 'text-slate-400 line-through' : 'text-red-700')}>{proposedLabel(r)}</span>
+                            {r.deduction_reason && <span className="block max-w-[10rem] truncate text-[10px] text-slate-500" title={r.deduction_reason}>{r.deduction_reason}</span>}
+                            {r.deduction_waived && <span className="block text-[10px] font-bold text-emerald-700" title={r.waive_reason ?? ''}>مُلغى: {r.waive_reason}</span>}
+                            {!frozen && <button type="button" className="mt-0.5 text-[10px] font-bold text-brand-700 hover:underline" onClick={() => void toggleWaive(r)} data-testid={`ops-waive-${r.employee_number}-${r.work_date}`}>{r.deduction_waived ? 'إعادة الاستقطاع' : 'إلغاء بسبب'}</button>}
+                          </div>
+                        ) : '—'}
+                      </td>
+                      <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
+                      <td className="p-2">
+                        <div className="flex justify-center gap-1">
+                          <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
+                          <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-40" onClick={() => setDeductFor(r)} disabled={frozen} data-testid={`ops-deduct-${r.employee_number}`}>استقطاع</button>
+                          <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>سجل</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          {panel === 'deductions' && <DeductionsPanel month={month} locked={frozen} />}
+          {panel === 'exports' && <ExportsPanel />}
+        </>
+      )}
+
+      {stage === 'approved' && (
+        !conf?.confirmed && !locked ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center" data-testid="att-approved-locked">
+            <Icon name="lock" size={28} className="mx-auto text-slate-300" />
+            <h2 className="mt-2 text-base font-black">الكشف المعتمد غير متاح بعد</h2>
+            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">أكمل التدقيق التفصيلي لشهر {month.slice(0, 7)} ثم اضغط «اعتماد حضورية الشهر». بعدها يظهر هنا الكشف النهائي (حاضر / غائب / مجاز) ويُفتح التصدير إلى المالية.</p>
+            <Button size="sm" className="mt-3" onClick={() => setStage('detailed')} data-testid="att-back-detailed">العودة إلى التدقيق التفصيلي</Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900" data-testid="att-approved-banner">
+              <Icon name="check" size={16} />
+              <span><b>كشف {month.slice(0, 7)} المعتمد</b> — اعتمده {conf?.confirmed_by_name ?? '—'} في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}{(conf?.confirm_count ?? 0) > 1 ? ` (الاعتماد رقم ${conf?.confirm_count})` : ''} · {conf?.employees ?? grid.length} موظفاً</span>
+              {!locked && <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setReopenOpen(true)} data-testid="att-reopen-open">إعادة فتح الشهر بسبب</Button>}
+            </div>
+            {(conf?.pending_auto ?? 0) > 0 && !locked && (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="att-pending-banner">
+                <Icon name="alert-triangle" size={16} />
+                <span><b>{conf!.pending_auto} يوم</b> وصلته تغييرات تلقائية بعد الاعتماد (بصمات متأخرة / إجازات اعتُمدت لاحقاً) ولم تُطبَّق: {conf!.pending_days.slice(0, 4).map((p) => `${p.full_name} ${p.work_date.slice(5)}`).join('، ')}{conf!.pending_days.length > 4 ? ' …' : ''} — التصدير للمالية متوقف حتى إعادة الاعتماد.</span>
+                <Button size="sm" className="ms-auto" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-reconfirm">إعادة الاعتماد (تطبيق التغييرات)</Button>
+              </div>
+            )}
+            {(conf?.deductions_after ?? 0) > 0 && !locked && (
+              <p className="rounded-2xl border border-violet-200 bg-violet-50 p-2 text-[11px] text-violet-900" data-testid="att-deductions-after">وصل {conf!.deductions_after} استقطاع من كشوفات معتمدة بعد الاعتماد — سيُضمَّن في التصدير للمالية تلقائياً.</p>
+            )}
+            {exportStatus?.needs_reexport && !locked && (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ops-reexport-banner">
+                <Icon name="alert-triangle" size={16} />
+                <span><b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.</span>
+                <Button size="sm" className="ms-auto" isLoading={exportMonth.isPending} disabled={!conf?.can_export} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>
+              </div>
+            )}
+            <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3" data-testid="att-approved-filters">
+              <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="app-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+              <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="app-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
+              <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="app-search" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" data-testid="att-approved-stats">
+              <StatCard title="الموظفون" value={gridTotals.emp} tone="slate" testId="app-emp" />
+              <StatCard title="أيام الحضور" value={gridTotals.present} tone="emerald" testId="app-present" />
+              <StatCard title="أيام الغياب" value={gridTotals.absent} tone="red" testId="app-absent" />
+              <StatCard title="أيام الإجازة" value={gridTotals.leave} tone="sky" testId="app-leave" />
+              <StatCard title="ساعات العمل" value={fmtHM(gridTotals.minutes)} tone="violet" testId="app-hours" />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <GridLegend mode="approved" />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length} onClick={() => void doExcel('approved')} data-testid="att-excel-approved"><Icon name="file-spreadsheet" size={14} /> Excel الكشف المعتمد (ورقة لكل قسم)</Button>
+                <Button size="sm" isLoading={exportMonth.isPending} disabled={locked || !conf?.can_export} onClick={() => void doExport()} data-testid="ops-export-month" title={locked ? 'الشهر مقفل بعد اعتماد المالية' : !conf?.can_export ? 'أعد الاعتماد أولاً' : ''}>
+                  <Icon name="send" size={14} /> {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر إلى المالية' : 'تصدير بيانات الشهر إلى المالية'}
+                </Button>
+              </div>
+            </div>
+            {gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين في هذا النطاق" hint="وسّع الفلاتر" /> : <MonthGrid rows={grid} mode="approved" />}
+          </>
+        )
+      )}
 
       {editing && <EditPanel row={editing} onClose={() => setEditing(null)} />}
       {auditFor && <AuditPanel row={auditFor} onClose={() => setAuditFor(null)} />}
       {deductFor && <DeductPanel row={deductFor} month={month} onClose={() => setDeductFor(null)} />}
+      {confirmOpen && (
+        <Overlay title={`اعتماد حضورية ${month.slice(0, 7)}`} onClose={() => setConfirmOpen(false)} testId="att-confirm-dialog">
+          {gridLoading ? <LoadingSpinner /> : (
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600">سيُحتسب الشهر كاملاً أولاً (كل الأيام الماضية بلا بصمة تُسجَّل غياباً)، ثم يُقفل التعديل التفصيلي ويُفتح «الكشف المعتمد» والتصدير إلى المالية. أي تعديل لاحق يحتاج إعادة فتح بسبب يُبلَّغ به التطوير المركزية.</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <StatCard title="الموظفون" value={gridTotals.emp} testId="cf-emp" />
+                <StatCard title="أيام حضور" value={gridTotals.present} tone="emerald" testId="cf-present" />
+                <StatCard title="أيام غياب" value={gridTotals.absent} tone="red" testId="cf-absent" />
+                <StatCard title="أيام إجازة" value={gridTotals.leave} tone="sky" testId="cf-leave" />
+              </div>
+              {(gridTotals.incomplete > 0 || gridTotals.unevaluated > 0) && (
+                <ul className="list-inside list-disc rounded-xl border border-amber-200 bg-amber-50 p-2 text-amber-900" data-testid="cf-warnings">
+                  {gridTotals.incomplete > 0 && <li><b>{gridTotals.incomplete}</b> بصمة ناقصة غير محسومة — ستظهر في الكشف المعتمد «حاضر» (راجعها من شبكة الشهر إن لزم).</li>}
+                  {gridTotals.unevaluated > 0 && <li><b>{gridTotals.unevaluated}</b> يوم غير محتسب — سيُحتسب الآن عند الاعتماد.</li>}
+                </ul>
+              )}
+              {gridTotals.manual > 0 && <p className="text-slate-500">{gridTotals.manual} يوم عدّلته غرفة العمليات بسبب موثّق.</p>}
+              <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)}>إلغاء</Button><Button size="sm" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-confirm-save">اعتماد الشهر</Button></div>
+            </div>
+          )}
+        </Overlay>
+      )}
+      {reopenOpen && <ReopenPanel month={month} onClose={() => setReopenOpen(false)} onDone={() => { setReopenOpen(false); setStage('detailed') }} reopen={reopenMonth} />}
     </div>
+  )
+}
+
+function ReopenPanel({ month, onClose, onDone, reopen }: { month: string; onClose: () => void; onDone: () => void; reopen: ReturnType<typeof useReopenAttendanceMonth> }) {
+  const [reason, setReason] = useState(''); const [err, setErr] = useState<string | null>(null)
+  const save = async () => {
+    if (reason.trim().length < 3) { setErr('السبب إلزامي (3 أحرف على الأقل)'); return }
+    setErr(null)
+    try { await reopen.mutateAsync({ month, reason: reason.trim() }); onDone() } catch { /* toast in hook */ }
+  }
+  return (
+    <Overlay title={`إعادة فتح حضورية ${month.slice(0, 7)}`} onClose={onClose} testId="att-reopen-dialog">
+      <Field id="ro-reason" label="سبب إعادة الفتح *"><textarea id="ro-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: وصلت بصمة خروج متأخرة ليوم 12 — تصحيح قبل التصدير" data-testid="ro-reason" /></Field>
+      <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice-reopen">
+        <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب). التغييرات التلقائية المعلّقة ستُطبَّق، ثم يلزم اعتماد الشهر من جديد قبل التصدير.</span>
+      </p>
+      {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="ro-error">{err}</p>}
+      <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={reopen.isPending} data-testid="ro-save">إعادة الفتح</Button></div>
+    </Overlay>
   )
 }
 

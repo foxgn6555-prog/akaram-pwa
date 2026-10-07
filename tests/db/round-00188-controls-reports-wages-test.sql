@@ -1,6 +1,8 @@
 -- 00188 · (أ) تحكم الاستقطاع التلقائي · (ب) تقرير الكشوفات · (ج) أجور عمال المتعهدين (بادئة ad)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
+update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('ad000000-0000-0000-0000-00000000000b', 'ad-ops@t.iq'), ('ad000000-0000-0000-0000-00000000000c', 'ad-fin@t.iq'), ('ad000000-0000-0000-0000-00000000000d', 'ad-it@t.iq'),
   ('ad000000-0000-0000-0000-00000000000e', 'ad-adm@t.iq'), ('ad000000-0000-0000-0000-00000000000f', 'ad-dep@t.iq'), ('ad000000-0000-0000-0000-000000000011', 'ad-cont@t.iq'), ('ad000000-0000-0000-0000-000000000012', 'ad-mgr@t.iq')

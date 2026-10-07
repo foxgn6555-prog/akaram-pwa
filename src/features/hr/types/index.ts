@@ -211,6 +211,76 @@ export interface MonthExportStatus {
   unevaluated_employees?: number
 }
 
+/** 00193 — خلية يوم في شبكة الشهر (غرفة العمليات) */
+export type AttendanceGridStatus = AttendanceStatus | 'pending' | 'future' | 'none' | 'rest'
+export interface AttendanceGridCell {
+  d: string
+  s: AttendanceGridStatus
+  rest: boolean
+  src: 'auto' | 'manual' | null
+  in: string | null
+  out: string | null
+  w: number
+  late: number
+  early: number
+  short: number
+  ot: number
+  permit: number
+  pm: number
+  pd: number
+  waived: boolean
+  note: string | null
+}
+export interface AttendanceGridRow {
+  employee_id: string
+  employee_number: string
+  full_name: string
+  job_title: string | null
+  department_id: string | null
+  department_name: string | null
+  branch_name: string | null
+  contract_type: string | null
+  days: AttendanceGridCell[]
+  present_days: number
+  late_days: number
+  early_days: number
+  incomplete_days: number
+  absent_days: number
+  leave_days: number
+  rest_days: number
+  unevaluated_days: number
+  worked_minutes: number
+  late_minutes: number
+  early_minutes: number
+  shortfall_minutes: number
+  overtime_minutes: number
+  permit_minutes: number
+  proposed_minutes: number
+  proposed_days: number
+}
+/** 00193 — حالة اعتماد حضورية الشهر (المرحلة 1 → 2) */
+export interface AttendanceConfirmation {
+  month: string
+  status: 'open' | 'confirmed' | 'reopened'
+  confirmed: boolean
+  confirmed_at: string | null
+  confirmed_by_name: string | null
+  confirm_count: number
+  reopened_at: string | null
+  reopened_by_name: string | null
+  reopen_reason: string | null
+  pending_auto: number
+  pending_days: Array<{ employee_id: string; full_name: string; work_date: string; would_be: string | null }>
+  deductions_after: number
+  unevaluated_days: number
+  employees: number
+  locked: boolean
+  required: boolean
+  export: MonthExportStatus
+  snapshot: Record<string, number>
+  can_export: boolean
+}
+
 /** 00185 — تفاصيل استقطاعات موظف في شهر (مع مرجع الكشف) */
 export interface EmployeeMonthDeduction {
   id: string
@@ -229,7 +299,7 @@ export interface AttendanceAudit {
   id: string
   employee_id: string
   work_date: string
-  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto' | 'waive' | 'unwaive'
+  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto' | 'waive' | 'unwaive' | 'confirm' | 'reopen' | 'auto_blocked'
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
   reason: string
@@ -517,6 +587,8 @@ export interface HrPolicy {
   fixed_absent_day_amount?: number
   fixed_shortfall_minute_amount?: number
   max_auto_deduction_days_per_month?: number
+  /** 00193 — لا تصدير للمالية قبل اعتماد حضورية الشهر في غرفة العمليات */
+  require_attendance_confirmation?: boolean
 }
 export interface LeaveType {
   id: string

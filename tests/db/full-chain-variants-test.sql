@@ -103,6 +103,7 @@ update public.advances set start_month = current_setting('test.fv_m')::date wher
 -- ═══ S5 · التصدير: اليومي يُدفع له أيام الحضور فقط ولا يُخصم غيابه؛ الشهري بسقف 3 أيام ومبالغ ثابتة؛ الأقساط بحسب الطريقة ═══
 select auth.set_test_user('fd000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fv_m')::date; x uuid; d record; r record; dim int := extract(day from (m + interval '1 month' - interval '1 day'))::int; auto_days numeric; begin
+  perform public.ops_attendance_confirm(m);   -- 00193: اعتماد الحضورية قبل التصدير
   x := public.ops_month_export(m);
   perform set_config('test.fv_export', x::text, false);
   -- اليومي
@@ -146,6 +147,7 @@ end $$;
 -- ═══ S7 · الشهر الحالي الجزئي: الشهري يُتناسب حتى أمس؛ القسط الثابت يستمر؛ قسط النسبة يُحسب من إجمالي الشهر الجديد ═══
 select auth.set_test_user('fd000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; d record; cov int := greatest(0, current_date - m); begin
+  perform public.ops_attendance_confirm(m);
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fd000000-0000-0000-0000-0000000000e9';
   assert r.covered_days = cov, 'S7 covered ' || r.covered_days || ' vs ' || cov;

@@ -1,6 +1,8 @@
 -- 00179 · إعدادات محرك البصمة (نافذة الالتقاط/الاحتساب التلقائي) + اكتمال كشف المالية + تفاصيل الأيام (بادئة es)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
+update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('e5000000-0000-0000-0000-00000000000a', 'es-it@t.iq'), ('e5000000-0000-0000-0000-00000000000b', 'es-ops@t.iq'),
   ('e5000000-0000-0000-0000-00000000000c', 'es-fin@t.iq'), ('e5000000-0000-0000-0000-00000000000d', 'es-emp@t.iq')

@@ -65,7 +65,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }),
   useEvaluateAttendance: () => ({ mutate: vi.fn(), isPending: false }),
   useExportMonth: () => mut(vi.fn()),
-  useMonthExports: () => ({ data: [] }), useMonthExportStatus: () => ({ data: null }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }), useEvaluateMonth: () => ({ mutate: () => undefined, isPending: false }),
+  useMonthExports: () => ({ data: [] }), useMonthExportStatus: () => ({ data: null }), useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: [], isLoading: false }), useConfirmAttendanceMonth: () => mut(vi.fn()), useReopenAttendanceMonth: () => mut(vi.fn()), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }), useEvaluateMonth: () => ({ mutate: () => undefined, isPending: false }),
   useEditAttendance: () => mut(vi.fn()), useResetAttendance: () => mut(vi.fn()), useAttendanceAudit: () => ({ data: [] }),
   useDeductions: () => ({ data: [] }), useAddDeduction: () => mut(vi.fn()), useDeleteDeduction: () => mut(vi.fn()),
   useWaiveDeduction: () => mut(h.waive),
@@ -154,6 +154,7 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     fireEvent.change(screen.getByTestId('p-fixed-minute'), { target: { value: '50' } })
     fireEvent.change(screen.getByTestId('p-ded-shortfall'), { target: { value: 'false' } })
     fireEvent.change(screen.getByTestId('p-max-days'), { target: { value: '10' } })
+    fireEvent.change(screen.getByTestId('p-require-confirm'), { target: { value: 'false' } })   // 00193
     fireEvent.change(screen.getByTestId('p-auto-ded'), { target: { value: 'false' } })
     expect(screen.getByTestId('p-ded-absence')).toBeDisabled()
     fireEvent.click(screen.getByTestId('policy-save'))
@@ -161,6 +162,7 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
     expect(sent.auto_deduction_enabled).toBe(false); expect(sent.deduct_shortfall_enabled).toBe(false); expect(sent.auto_deduction_amount_mode).toBe('fixed')
     expect(sent.fixed_absent_day_amount).toBe(5000); expect(sent.fixed_shortfall_minute_amount).toBe(50); expect(sent.max_auto_deduction_days_per_month).toBe(10)
+    expect(sent.require_attendance_confirmation).toBe(false)
   })
   it('أنواع الإجازات: الجدول + إنشاء نوع غير مدفوع بأيام استقطاع', () => {
     render(<HrPolicyPage />)

@@ -148,7 +148,12 @@ update public.advances set start_month = current_setting('test.fx_m')::date wher
 -- ═══ S7 · تصدير الشهر من غرفة العمليات: كل رقم يُشتق من مصدره ═══
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; e uuid := 'fe000000-0000-0000-0000-0000000000e6';
-        exp_auto_min int; exp_auto_days numeric; day_rate numeric; min_rate numeric; exp_auto_amt numeric; exp_ded numeric; n_days int; begin
+        exp_auto_min int; exp_auto_days numeric; day_rate numeric; min_rate numeric; exp_auto_amt numeric; exp_ded numeric; n_days int; ok boolean := false; cf jsonb; begin
+  -- 00193: الترتيب إلزامي — لا تصدير قبل «اعتماد حضورية الشهر» (المرحلة 1 → 2)
+  begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
+  assert ok, 'S7 export blocked before confirmation';
+  cf := public.ops_attendance_confirm(m);
+  assert (cf ->> 'confirmed')::boolean and (cf ->> 'can_export')::boolean and (cf ->> 'unevaluated_days')::int = 0, 'S7 confirmed: ' || cf::text;
   x := public.ops_month_export(m);
   perform set_config('test.fx_export', x::text, false);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = e;
@@ -194,8 +199,16 @@ end $$;
 
 -- ═══ S9 · تغيير بعد التصدير (زمنية جديدة تُعتمد) ⇒ «يلزم إعادة التصدير»؛ المالية لا تعتمد بلا تأكيد؛ إعادة التصدير تُحدّث الأرقام ═══
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
-do $$ declare m date := current_setting('test.fx_m')::date; begin
+do $$ declare m date := current_setting('test.fx_m')::date; ok boolean := false; cf jsonb; begin
   update public.hr_month_exports set exported_at = exported_at - interval '1 minute' where id = current_setting('test.fx_export')::uuid;
+  -- بعد الاعتماد: أي تعديل يدوي ممنوع حتى إعادة الفتح بسبب
+  begin perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
+  assert ok, 'S9 manual deduction blocked while confirmed';
+  ok := false; begin perform public.ops_attendance_reopen(m, ''); exception when others then ok := sqlerrm = 'HR_REASON_REQUIRED'; end;
+  assert ok, 'S9 reopen needs reason';
+  cf := public.ops_attendance_reopen(m, 'غرامة وصلت بعد الاعتماد');
+  assert cf ->> 'status' = 'reopened' and not (cf ->> 'can_export')::boolean, 'S9 reopened: ' || cf::text;
+  assert exists (select 1 from public.notifications where user_id = 'fe000000-0000-0000-0000-000000000008' and title like 'إعادة فتح حضورية%'), 'S9 IT notified of reopen';
   perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة');
 end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000007');
@@ -206,7 +219,11 @@ do $$ declare m date := current_setting('test.fx_m')::date; st jsonb; ok boolean
   assert ok, 'S9 stale approve blocked';
 end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
-do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; begin
+do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; ok boolean := false; begin
+  begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
+  assert ok, 'S9 export blocked while reopened';
+  perform public.ops_attendance_confirm(m);
+  assert (public.ops_attendance_confirmation(m) ->> 'confirm_count')::int = 2, 'S9 confirm_count 2';
   x := public.ops_month_export(m);
   perform set_config('test.fx_export', x::text, false);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
@@ -237,6 +254,8 @@ do $$ declare m date := current_setting('test.fx_m')::date; ok boolean; n int; e
   ok := false; begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 export blocked';
   ok := false; begin perform public.ops_attendance_edit(e, m + 3, (m + 3)::text::timestamp at time zone 'Asia/Baghdad' + interval '8 hour', (m + 3)::text::timestamp at time zone 'Asia/Baghdad' + interval '16 hour', 'present', 'تصحيح'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 edit blocked';
   ok := false; begin perform public.ops_deduction_add(e, m, 1000, 0, 'متأخر'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 deduction blocked';
+  ok := false; begin perform public.ops_attendance_reopen(m, 'محاولة'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 reopen blocked after lock';
+  ok := false; begin perform public.ops_attendance_confirm(m); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 confirm blocked after lock';
   select status into before_status from public.hr_attendance_days where employee_id = e and work_date = m + 9;
   n := public.biometric_ingest('FX-DEV-1', '8101' || E'\t' || (m + 9)::text || ' 08:00:00' || E'\t' || '0' || E'\n' || '8101' || E'\t' || (m + 9)::text || ' 16:00:00' || E'\t' || '1', 'ATTLOG');
   assert n = 2, 'S11 punches stored';
@@ -261,6 +280,7 @@ end $$;
 -- ═══ S12 · الشهر التالي (الحالي): بلا بصمات الصافي صفر ⇒ القسط يُؤجَّل (لا يُستقطع من لا شيء)؛ بعد إجازة مدفوعة يظهر القسط الثاني والكشف المرحَّل؛ لا سلفة ثانية ═══
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; begin
+  perform public.ops_attendance_confirm(m);
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.ops_deduction_amount = 4000 and r.ops_deduction_reasons like '%كشف%', 'S12a carried disclosure: ' || r.ops_deduction_amount;
@@ -281,7 +301,18 @@ end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000005');
 select public.hr_leave_decide(current_setting('test.fx_l3')::uuid, true, null);
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
-do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; ok boolean := false; t uuid; begin
+do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; ok boolean := false; t uuid; cf jsonb; begin
+  -- الإجازة اعتُمدت بعد اعتماد الحضورية ⇒ أيامها مُعلَّقة (لم تُطبَّق صامتةً) والتصدير ممنوع حتى إعادة الفتح ثم الاعتماد
+  cf := public.ops_attendance_confirmation(m);
+  if current_date > m then
+    assert (cf ->> 'pending_auto')::int > 0 and not (cf ->> 'can_export')::boolean, 'S12 pending auto after confirmation: ' || cf::text;
+    assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'absent', 'S12 day untouched while confirmed';
+    begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
+    assert ok, 'S12 export blocked with pending auto changes';
+    perform public.ops_attendance_reopen(m, 'إجازة رسمية اعتُمدت بعد الاعتماد');
+    assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'leave', 'S12 reopen applies pending leave';
+  end if;
+  perform public.ops_attendance_confirm(m);
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.days_absent = 0 and r.auto_deduction_amount = 0, 'S12 leave covers month: ' || row_to_json(r)::text;
@@ -289,7 +320,7 @@ do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r recor
   assert r.ops_deduction_amount = 4000 and r.ops_deduction_reasons like '%كشف%', 'S12 carried disclosure: ' || r.ops_deduction_amount;
   assert r.deductions_total = 10000 + 4000 + 100000 and r.proposed_net = r.gross_amount - r.deductions_total, 'S12 totals: ' || r.deductions_total || '/' || r.proposed_net;
   select id into t from public.advance_types where name = 'سلفة طارئة';
-  begin perform public.advance_request_create('fe000000-0000-0000-0000-0000000000e6', t, 50000, 'single'); exception when others then ok := sqlerrm = 'ADVANCE_ALREADY_OPEN'; end;
+  ok := false; begin perform public.advance_request_create('fe000000-0000-0000-0000-0000000000e6', t, 50000, 'single'); exception when others then ok := sqlerrm = 'ADVANCE_ALREADY_OPEN'; end;
   assert ok, 'S12 second advance blocked while open';
   raise notice 'S12 ✅ الشهر التالي: القسط الثاني + الكشف المرحَّل';
 end $$;

@@ -1,3 +1,5 @@
+-- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
+update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 -- اختبار وظيفي لـ 00144: السياسة · أنواع الإجازات · الرصيد · الطلبات والموافقة · نقص الدقائق والاستقطاع المقترح · الإضافي · التنبيهات · التصدير
 -- التشغيل: بعد تطبيق كل الميجريشنات على قاعدة الاختبار (انظر README) — كل الفحوص assert وتفشل عند أول خطأ.
 set client_min_messages = notice;

@@ -177,6 +177,30 @@ export function useExportMonth() {
   })
 }
 
+// ── 00193: الحضوريات بمرحلتين ──
+export function useAttendanceGrid(f: { month: string; branchId?: string | null; departmentId?: string | null; search?: string | null }, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.all, 'grid', f], queryFn: () => hr.monthGrid(f), enabled: enabled && !!f.month })
+}
+export function useAttendanceConfirmation(month: string) {
+  return useQuery({ queryKey: [...hrKeys.all, 'confirmation', month], queryFn: () => hr.attendanceConfirmation(month), enabled: !!month })
+}
+export function useConfirmAttendanceMonth() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (month: string) => hr.confirmAttendanceMonth(month),
+    onSuccess: (c) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(c.confirm_count > 1 ? 'أُعيد اعتماد حضورية الشهر' : 'اعتُمدت حضورية الشهر — انتقل إلى الكشف المعتمد') },
+    onError: t.err,
+  })
+}
+export function useReopenAttendanceMonth() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { month: string; reason: string }) => hr.reopenAttendanceMonth(v.month, v.reason),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُعيد فتح حضورية الشهر — بُلّغت وحدة التطوير المركزية') },
+    onError: t.err,
+  })
+}
+
 // ── المالية ──
 export function usePayrollSheet(month: string) {
   return useQuery({ queryKey: hrKeys.payrollSheet(month), queryFn: () => hr.payrollSheet(month), enabled: !!month })

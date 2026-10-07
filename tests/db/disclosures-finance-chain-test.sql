@@ -1,6 +1,8 @@
 -- 00185 · الكشوفات (الجولة A): سلامة سلسلة كشف معتمد → استقطاع → كشف المالية (بادئة fc)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
+update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('fc000000-0000-0000-0000-000000000001', 'fc-ops@t.iq'), ('fc000000-0000-0000-0000-000000000003', 'fc-dep@t.iq'),
   ('fc000000-0000-0000-0000-000000000004', 'fc-adm@t.iq'), ('fc000000-0000-0000-0000-000000000007', 'fc-fin@t.iq')

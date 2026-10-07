@@ -1,6 +1,8 @@
 -- 00191 · السلف: طلب من غرفة العمليات → سلسلة موافقات (افتراضية: معاون ثم مدير مفوض) → تسليم المالية من القاصة → قسط تلقائي في كشف الرواتب → تسجيل القسط عند الاعتماد (بادئة ad)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
+update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('ad000000-0000-0000-0000-000000000001', 'ad-ops@t.iq'), ('ad000000-0000-0000-0000-000000000003', 'ad-dep@t.iq'),
   ('ad000000-0000-0000-0000-000000000004', 'ad-adm@t.iq'), ('ad000000-0000-0000-0000-000000000007', 'ad-fin@t.iq'), ('ad000000-0000-0000-0000-000000000008', 'ad-it@t.iq')

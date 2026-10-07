@@ -10,7 +10,7 @@ import type {
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
-  MonthExportStatus, EmployeeMonthDeduction,
+  MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
@@ -30,6 +30,9 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_REASON_REQUIRED: 'السبب مطلوب',
   HR_MONTH_LOCKED: 'هذا الشهر مقفول — اعتمدت المالية رواتبه ولا يمكن تعديله',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
+  HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
+  HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
+  HR_ATTENDANCE_UNEVALUATED: 'توجد أيام غير محتسبة — أعد المحاولة بعد اكتمال الاحتساب',
   HR_RANGE_INVALID: 'النطاق غير صالح (حتى 62 يوماً)',
   HR_STATUS_INVALID: 'حالة الحضور غير صالحة',
   HR_TIMES_INVALID: 'وقت الخروج يجب أن يكون بعد الدخول',
@@ -244,6 +247,14 @@ export const hr = {
     return (await sdkGuard(q)) as MonthExport[]
   },
   exportMonth(month: string) { return rpc<string>('ops_month_export', { p_month: month }) },
+  /** 00193 — شبكة الشهر (موظف × أيام) للمرحلتين */
+  monthGrid(f: { month: string; branchId?: string | null; departmentId?: string | null; search?: string | null }) {
+    return rpc<AttendanceGridRow[]>('ops_attendance_month_grid', { p_month: f.month, p_branch: f.branchId || null, p_department: f.departmentId || null, p_search: f.search?.trim() || null })
+  },
+  /** 00193 — حالة اعتماد حضورية الشهر / اعتماد / إعادة فتح بسبب */
+  attendanceConfirmation(month: string) { return rpc<AttendanceConfirmation>('ops_attendance_confirmation', { p_month: month }) },
+  confirmAttendanceMonth(month: string) { return rpc<AttendanceConfirmation>('ops_attendance_confirm', { p_month: month }) },
+  reopenAttendanceMonth(month: string, reason: string) { return rpc<AttendanceConfirmation>('ops_attendance_reopen', { p_month: month, p_reason: reason }) },
   exportRows(exportId: string) { return rpc<OpsExportRow[]>('ops_month_export_rows', { p_export: exportId }) },
 
   // ─────────── المالية ───────────
