@@ -5,9 +5,11 @@
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
 import { Fragment, useMemo, useState } from 'react'
-import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useHrEmployees, useMarkNoticeDone, useMonthExportStatus, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
-import type { ContractType, PayrollSheetRow, TerminationType } from '@features/hr'
-import { downloadPayrollExcel, groupByDepartment, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
+import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useHrEmployees, useMarkNoticeDone, useMonthExportStatus, usePayrollReconcile, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
+import type { ContractType, PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
+import { downloadPayrollExcel, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
+import { applyFilters, branchOptions, DEFAULT_FILTERS, departmentOptions, explainRow, groupByBranchDept, RECONCILE_ISSUE_LABELS, reconcileSummary, sheetTotals, SORT_LABELS, sortRows, totalsConsistent } from '@features/hr/lib/payrollSheetModel'
+import type { ProfileFilter, SheetFilters, SortKey } from '@features/hr/lib/payrollSheetModel'
 import { hr as hrSdk } from '@sdk/hr.sdk'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -38,59 +40,106 @@ export default function PayrollOverview() {
 }
 
 // ── كشف الشهر ──
+const FILTER_SELECT = 'rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs'
 function SheetTab() {
   const [month, setMonth] = useState(monthStart())
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<SheetFilters>(DEFAULT_FILTERS)
+  const [view, setView] = useState<'sheet' | 'verify'>('sheet')
   const { data: rows = [], isLoading } = usePayrollSheet(month)
   const { data: exportStatus } = useMonthExportStatus(month)
+  const { data: reconcile = [], isLoading: reconcileLoading } = usePayrollReconcile(month, rows.length > 0)
   const approve = useApprovePayroll()
   const [editing, setEditing] = useState<PayrollSheetRow | null>(null)
   const [details, setDetails] = useState<PayrollSheetRow | null>(null)
   const [exporting, setExporting] = useState(false)
-  const shown = useMemo(() => rows.filter((r) => !search || (r.full_name ?? '').includes(search) || (r.employee_number ?? '').includes(search) || (r.department_name ?? '').includes(search)), [rows, search])
-  const groups = useMemo(() => groupByDepartment(shown), [shown])
+  const setF = <K extends keyof SheetFilters>(k: K, v: SheetFilters[K]) => setFilters((f) => (k === 'branch' ? { ...f, branch: v as string, department: '' } : { ...f, [k]: v }))
+  const branches = useMemo(() => branchOptions(rows), [rows])
+  const departments = useMemo(() => departmentOptions(rows, filters.branch), [rows, filters.branch])
+  const shown = useMemo(() => sortRows(applyFilters(rows, filters), filters.sort, filters.dir), [rows, filters])
+  const groups = useMemo(() => groupByBranchDept(shown), [shown])
+  const multiBranch = groups.length > 1
   const head = rows[0]
   const approved = head?.export_status === 'approved'
-  const missing = rows.filter((r) => r.pay_type == null).length
-  const unevaluated = rows.reduce((s, r) => s + (r.unevaluated_days ?? 0), 0)
-  const totals = useMemo(() => ({ proposed: rows.reduce((s, r) => s + (r.proposed_net ?? 0), 0), final: rows.reduce((s, r) => s + (r.final_net ?? r.proposed_net ?? 0), 0), ops: rows.reduce((s, r) => s + r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), 0), auto: rows.reduce((s, r) => s + (r.auto_deduction_amount ?? 0), 0), gross: rows.reduce((s, r) => s + rowGross(r), 0), deductions: rows.reduce((s, r) => s + rowDeductions(r), 0) }), [rows])
+  const totalsAll = useMemo(() => sheetTotals(rows), [rows])
+  const totals = useMemo(() => sheetTotals(shown), [shown])
+  const filtered = shown.length !== rows.length
+  const missingRows = useMemo(() => rows.filter((r) => r.pay_type == null), [rows])
+  const missing = missingRows.length
+  const unevaluated = totalsAll.unevaluated
+  const rc = useMemo(() => reconcileSummary(reconcile), [reconcile])
+  const consistent = totalsConsistent(totalsAll, rows.length)
+  const activeFilters = (filters.branch ? 1 : 0) + (filters.department ? 1 : 0) + (filters.contract ? 1 : 0) + (filters.profile !== 'all' ? 1 : 0) + (filters.search ? 1 : 0)
+  const filtersLabel = [filters.branch && `الفرع: ${filters.branch}`, filters.department && `القسم: ${filters.department}`, filters.contract && `التعاقد: ${CONTRACT_LABELS[filters.contract]}`, filters.profile !== 'all' && `الحالة: ${PROFILE_LABELS[filters.profile]}`, filters.search && `بحث: ${filters.search}`, filters.sort !== 'default' && `ترتيب: ${SORT_LABELS[filters.sort]} ${filters.dir === 'desc' ? '↓' : '↑'}`].filter(Boolean).join(' · ')
+  const blockReason = !head ? 'لا كشف' : approved ? '' : missing > 0 ? `${missing} موظفاً بلا ملف راتب — لا يمكن الاعتماد قبل تعريف رواتبهم (أو إنهاء خدمتهم)` : !rc.canApprove ? `${rc.money} صف غير متطابق حسابياً — راجع «التحقق الحسابي»` : !consistent ? 'مجاميع الكشف غير متسقة (الإجمالي − الاستقطاعات ≠ الصافي)' : ''
 
   const doApprove = async () => {
-    if (!head) return
-    if (missing > 0 && !window.confirm(`${missing} موظفاً بلا ملف راتب مُعرَّف — سيُعتمد صافيهم صفراً. متابعة؟`)) return
+    if (!head || blockReason) return
     const stale = !!exportStatus?.needs_reexport
     if (stale && !window.confirm(`تنبيه: حدثت ${exportStatus?.changes_after ?? 0} تغييرات في الحضورية بعد هذا التصدير${(exportStatus?.disclosure_deductions_after ?? 0) > 0 ? ` (منها ${exportStatus?.disclosure_deductions_after} استقطاعات كشوفات معتمدة)` : ''} وهي غير مشمولة في هذا الكشف.\nالأفضل الطلب من غرفة العمليات إعادة التصدير. هل تريد الاعتماد رغم ذلك؟`)) return
-    if (!window.confirm('اعتماد الكشف يقفل الشهر نهائياً ولا يمكن لغرفة العمليات إعادة تصديره. تأكيد الاعتماد؟')) return
+    if (unevaluated > 0 && !window.confirm(`الكشف يحتوي ${unevaluated} يوم عمل غير محتسب — الصافي فيه أعلى من الصحيح. اعتماد رغم ذلك؟`)) return
+    if (!window.confirm(`اعتماد الكشف يقفل الشهر نهائياً ولا يمكن لغرفة العمليات إعادة تصديره.\n${totalsAll.count} موظفاً · إجمالي الصافي المعتمد ${fmtMoney(totalsAll.final)} د.ع.\nتأكيد الاعتماد؟`)) return
     try { await approve.mutateAsync({ exportId: head.export_id, force: stale }) } catch { /* toast in hook */ }
   }
   const doExport = async () => {
     setExporting(true)
     try {
       const deductions = await hrSdk.listDeductions(month).catch(() => [])
-      await downloadPayrollExcel(month, rows, deductions)
+      const shownIds = new Set(shown.map((r) => r.employee_id))
+      await downloadPayrollExcel(month, shown, filtered ? deductions.filter((d) => shownIds.has(d.employee_id)) : deductions, { filtersLabel: filtered || filters.sort !== 'default' ? filtersLabel : undefined, reconcile: filtered ? reconcile.filter((r) => shownIds.has(r.employee_id)) : reconcile })
     } finally { setExporting(false) }
   }
+  const toggleSort = (k: SortKey) => setFilters((f) => (f.sort === k ? { ...f, dir: f.dir === 'asc' ? 'desc' : 'asc' } : { ...f, sort: k, dir: k === 'name' || k === 'number' || k === 'department' || k === 'default' ? 'asc' : 'desc' }))
+  const Th = ({ k, label, title, className }: { k?: SortKey; label: string; title?: string; className?: string }) => (
+    <th className={clsx('p-2', className)} title={title} aria-sort={k && filters.sort === k ? (filters.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+      {k ? <button type="button" className={clsx('inline-flex items-center gap-0.5 whitespace-nowrap', filters.sort === k && 'text-brand-700')} onClick={() => toggleSort(k)} data-testid={`ps-sort-${k}`}>{label}{filters.sort === k && <span aria-hidden>{filters.dir === 'asc' ? '▲' : '▼'}</span>}</button> : label}
+    </th>
+  )
 
   return (
     <div className="space-y-3" data-testid="sheet-tab">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <MonthPicker value={month} onChange={setMonth} />
-        <input className={clsx(field, 'max-w-xs')} placeholder="بحث: اسم / رقم / قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ps-search" />
-        <div className="ms-auto flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => void doExport()} isLoading={exporting} disabled={rows.length === 0} data-testid="ps-excel">تصدير Excel</Button>
-          <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending} disabled={!head || approved} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
+      <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthPicker value={month} onChange={setMonth} />
+          <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
+            <button type="button" className={clsx('rounded-lg px-3 py-1', view === 'sheet' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} onClick={() => setView('sheet')} data-testid="ps-view-sheet">الكشف</button>
+            <button type="button" className={clsx('rounded-lg px-3 py-1', view === 'verify' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} onClick={() => setView('verify')} data-testid="ps-view-verify">
+              التحقق الحسابي {reconcile.length > 0 && <span className={clsx('ms-1 rounded-full px-1.5 text-[10px]', rc.money > 0 ? 'bg-red-100 text-red-700' : rc.attendance > 0 || rc.missing > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700')} data-testid="ps-verify-badge">{rc.money > 0 ? `✗ ${rc.money}` : rc.attendance + rc.missing > 0 ? `⚠ ${rc.attendance + rc.missing}` : '✓'}</span>}
+            </button>
+          </div>
+          <div className="ms-auto flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => void doExport()} isLoading={exporting} disabled={shown.length === 0} data-testid="ps-excel">تصدير Excel{filtered ? ` (${shown.length})` : ''}</Button>
+            <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending} disabled={!head || approved || !!blockReason} title={blockReason || undefined} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
+          </div>
         </div>
+        {head && (
+          <div className="flex flex-wrap items-end gap-2" data-testid="ps-filters">
+            <label className="text-[11px] font-semibold text-slate-600">الفرع<select className={clsx(FILTER_SELECT, 'block min-w-[9rem]')} value={filters.branch} onChange={(e) => setF('branch', e.target.value)} data-testid="ps-f-branch"><option value="">كل الفروع ({branches.length})</option>{branches.map((b) => <option key={b} value={b}>{b}</option>)}</select></label>
+            <label className="text-[11px] font-semibold text-slate-600">القسم{filters.branch ? ` (أقسام ${filters.branch})` : ''}<select className={clsx(FILTER_SELECT, 'block min-w-[9rem]')} value={filters.department} onChange={(e) => setF('department', e.target.value)} data-testid="ps-f-dept"><option value="">كل الأقسام ({departments.length})</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
+            <label className="text-[11px] font-semibold text-slate-600">التعاقد<select className={clsx(FILTER_SELECT, 'block')} value={filters.contract} onChange={(e) => setF('contract', e.target.value as SheetFilters['contract'])} data-testid="ps-f-contract"><option value="">الكل</option><option value="monthly">شهري</option><option value="daily">أجر يومي</option></select></label>
+            <label className="text-[11px] font-semibold text-slate-600">الحالة<select className={clsx(FILTER_SELECT, 'block')} value={filters.profile} onChange={(e) => setF('profile', e.target.value as ProfileFilter)} data-testid="ps-f-profile">{(Object.keys(PROFILE_LABELS) as ProfileFilter[]).map((k) => <option key={k} value={k}>{PROFILE_LABELS[k]}</option>)}</select></label>
+            <label className="text-[11px] font-semibold text-slate-600">الترتيب<span className="flex gap-1"><select className={clsx(FILTER_SELECT, 'block')} value={filters.sort} onChange={(e) => setF('sort', e.target.value as SortKey)} data-testid="ps-f-sort">{(Object.keys(SORT_LABELS) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABELS[k]}</option>)}</select><button type="button" className={clsx(FILTER_SELECT, 'font-bold')} onClick={() => setF('dir', filters.dir === 'asc' ? 'desc' : 'asc')} title={filters.dir === 'asc' ? 'تصاعدي' : 'تنازلي'} data-testid="ps-f-dir">{filters.dir === 'asc' ? '▲' : '▼'}</button></span></label>
+            <input className={clsx(field, 'max-w-xs')} placeholder="بحث: اسم / رقم / قسم / فرع / عنوان" value={filters.search} onChange={(e) => setF('search', e.target.value)} data-testid="ps-search" />
+            {activeFilters > 0 && <button type="button" className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700" onClick={() => setFilters(DEFAULT_FILTERS)} data-testid="ps-f-reset">إعادة الضبط ({activeFilters})</button>}
+            <span className="ms-auto text-[11px] text-slate-500" data-testid="ps-shown">{filtered ? `يُعرض ${shown.length} من ${rows.length}` : `${rows.length} موظفاً`}</span>
+          </div>
+        )}
       </div>
       {head && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8">
-          <StatCard title="الموظفون في الكشف" value={rows.length} testId="ps-count" />
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>
+          <StatCard title={filtered ? 'الموظفون (حسب الفلتر)' : 'الموظفون في الكشف'} value={totals.count} hint={filtered ? `من أصل ${rows.length}` : undefined} testId="ps-count" />
           <StatCard title="الإجمالي قبل الاستقطاع" value={fmtMoney(totals.gross)} tone="slate" hint="الأساسي + المخصصات (اليومي: الأيام المدفوعة × أجر اليوم)" testId="ps-gross" />
-          <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint="ثابتة + عمليات + تلقائي" testId="ps-deductions" />
-          <StatCard title="إجمالي الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" testId="ps-proposed" />
-          <StatCard title="إجمالي الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" testId="ps-final" />
+          <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint={`ثابتة ${fmtMoney(totals.fixed)} · عمليات ${fmtMoney(totals.ops)} · تلقائي ${fmtMoney(totals.auto)} · سلف ${fmtMoney(totals.advance)}`} testId="ps-deductions" />
+          <StatCard title="إجمالي الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" hint={`= ${fmtMoney(totals.gross)} − ${fmtMoney(totals.deductions)}`} testId="ps-proposed" />
+          <StatCard title="إجمالي الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" hint={totals.adjusted ? `${totals.adjusted} صف معدَّل يدوياً` : 'مطابق للمقترح'} testId="ps-final" />
           <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="amber" testId="ps-ops" />
           <StatCard title="استقطاع تلقائي (نقص/غياب)" value={fmtMoney(totals.auto)} tone="red" hint="محسوب من الشرائح بعد تدقيق غرفة العمليات" testId="ps-auto" />
-          <StatCard title="بلا ملف راتب" value={missing} tone={missing ? 'red' : 'slate'} hint={missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
+          <StatCard title="بلا ملف راتب" value={totals.missing} tone={totals.missing ? 'red' : 'slate'} hint={totals.missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
+        </div>
+      )}
+      {head && !approved && missing > 0 && (
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-3 text-xs text-red-900" role="status" data-testid="ps-missing-banner">
+          <b>الاعتماد موقوف:</b> {missing} موظفاً بلا ملف راتب — <span className="font-semibold">{missingRows.slice(0, 6).map((r) => `${r.full_name} (${r.employee_number})`).join('، ')}{missing > 6 ? ` و${missing - 6} آخرين` : ''}</span>. عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب من غرفة العمليات إعادة التصدير.
+          <button type="button" className="ms-2 rounded-lg bg-white px-2 py-0.5 font-bold text-red-800 ring-1 ring-red-300" onClick={() => setF('profile', 'missing')} data-testid="ps-missing-filter">عرضهم فقط</button>
         </div>
       )}
       {head && !approved && unevaluated > 0 && (
@@ -104,21 +153,35 @@ function SheetTab() {
           <span><b>هذا الكشف قديم:</b> حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.</span>
         </div>
       )}
-      {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}</p>}
+      {head && !approved && rc.money > 0 && (
+        <div className="rounded-2xl border border-red-400 bg-red-50 p-3 text-xs text-red-900" role="alert" data-testid="ps-reconcile-banner">
+          <b>خلل حسابي:</b> {rc.money} صف في الكشف أرقامه لا تطابق مكوّناته — الاعتماد ممنوع. افتح «التحقق الحسابي» لمعرفة الصفوف، واطلب إعادة التصدير من غرفة العمليات، وأبلغ التطوير المركزية إن تكرر.
+        </div>
+      )}
+      {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}{reconcile.length > 0 && <> · <span className={clsx('font-bold', rc.money === 0 ? 'text-emerald-700' : 'text-red-700')} data-testid="ps-consistency">{rc.money === 0 ? `✓ التحقق الحسابي: ${rc.total} صف متطابق` : `✗ ${rc.money} صف غير متطابق`}</span></>}</p>}
 
-      {isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات" /> : (
+      {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات" /> : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table">
             <thead className="bg-slate-50 text-slate-600">
-              <tr><th className="p-2 text-start">الموظف</th><th className="p-2">التعاقد</th><th className="p-2" title="الأيام المجدولة في الشهر / المحتسبة منها">مجدول / محتسب</th><th className="p-2">حاضر</th><th className="p-2">غائب</th><th className="p-2" title="مدفوعة / غير مدفوعة">إجازة م/غ</th><th className="p-2">ناقص</th><th className="p-2">تأخير (د)</th><th className="p-2">الأساسي / اليومي</th><th className="p-2">مخصصات</th><th className="p-2">الإجمالي</th><th className="p-2">استقطاعات ثابتة</th><th className="p-2">استقطاع العمليات</th><th className="p-2">استقطاع تلقائي</th><th className="p-2">قسط السلفة</th><th className="p-2">إجمالي الاستقطاعات</th><th className="p-2">الصافي المقترح</th><th className="p-2">الصافي المعتمد</th><th className="p-2"></th></tr>
+              <tr><Th k="name" label="الموظف" className="text-start" /><Th label="التعاقد" /><Th label="مجدول / محتسب" title="الأيام المجدولة في الشهر / المحتسبة منها" /><Th k="present" label="حاضر" /><Th k="absent" label="غائب" /><Th label="إجازة م/غ" title="مدفوعة / غير مدفوعة" /><Th label="ناقص" /><Th k="late_minutes" label="تأخير (د)" /><Th label="الأساسي / اليومي" /><Th label="مخصصات" /><Th k="gross" label="الإجمالي" /><Th label="استقطاعات ثابتة" /><Th k="ops" label="استقطاع العمليات" /><Th k="auto" label="استقطاع تلقائي" /><Th k="advance" label="قسط السلفة" /><Th k="deductions" label="إجمالي الاستقطاعات" /><Th label="الصافي المقترح" /><Th k="net" label="الصافي المعتمد" /><Th label="" /></tr>
             </thead>
             <tbody>
-              {groups.map((g) => (
-                <Fragment key={g.name}>
-                  <tr className="bg-slate-100/80" data-testid={`ps-group-${g.name}`}>
-                    <td className="p-2 text-xs font-black text-slate-700" colSpan={19}>{g.name} <span className="font-normal text-slate-500">· {g.rows.length} موظفاً</span></td>
-                  </tr>
-                  {g.rows.map((r) => (
+              {groups.map((b) => (
+                <Fragment key={b.branch}>
+                  {multiBranch && (
+                    <tr className="bg-sky-50" data-testid={`ps-branch-${b.branch}`}>
+                      <td className="p-2 text-xs font-black text-sky-900" colSpan={10}>🏢 {b.branch} <span className="font-normal text-sky-700">· {b.rows.length} موظفاً · {b.departments.length} قسماً</span></td>
+                      <td className="p-2 text-center font-bold tabular-nums text-sky-900">{fmtMoney(b.totals.gross)}</td><td colSpan={4}></td>
+                      <td className="p-2 text-center font-bold tabular-nums text-red-700">{fmtMoney(b.totals.deductions)}</td><td className="p-2 text-center font-bold tabular-nums">{fmtMoney(b.totals.proposed)}</td><td className="p-2 text-center font-black tabular-nums">{fmtMoney(b.totals.final)}</td><td></td>
+                    </tr>
+                  )}
+                  {b.departments.map((g) => (
+                    <Fragment key={`${b.branch}/${g.name}`}>
+                      <tr className="bg-slate-100/80" data-testid={`ps-group-${g.name}`}>
+                        <td className="p-2 text-xs font-black text-slate-700" colSpan={19}>{g.name} <span className="font-normal text-slate-500">· {g.rows.length} موظفاً{g.totals.missing ? ` · ${g.totals.missing} بلا ملف راتب` : ''}</span></td>
+                      </tr>
+                      {g.rows.map((r) => (
                     <tr key={r.row_id} className={clsx('border-t border-slate-100', r.pay_type == null && 'bg-amber-50/50')} data-testid={`ps-row-${r.employee_number}`}>
                       <td className="p-2"><p className="text-sm font-semibold">{r.full_name}</p><p className="text-[10px] text-slate-500">{r.employee_number}{r.job_title ? ` · ${r.job_title}` : ''}</p></td>
                       <td className="p-2 text-center">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
@@ -138,22 +201,79 @@ function SheetTab() {
                         {!approved && <button type="button" className="ms-1 rounded-lg bg-brand-50 px-2 py-1 font-bold text-brand-700" onClick={() => setEditing(r)} data-testid={`ps-edit-${r.employee_number}`}>تعديل</button>}
                       </td>
                     </tr>
+                      ))}
+                      <tr className="border-t border-slate-200 bg-slate-50 text-[11px] font-bold" data-testid={`ps-subtotal-${g.name}`}>
+                        <td className="p-2" colSpan={3}>مجموع {g.name}</td>
+                        <td className="p-2 text-center tabular-nums text-emerald-700">{g.totals.present}</td><td className="p-2 text-center tabular-nums text-red-700">{g.totals.absent}</td><td className="p-2" colSpan={5}></td>
+                        <td className="p-2 text-center tabular-nums">{fmtMoney(g.totals.gross)}</td><td className="p-2 text-center tabular-nums">{fmtMoney(g.totals.fixed)}</td>
+                        <td className="p-2 text-center tabular-nums text-amber-700">{fmtMoney(g.totals.ops)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.totals.auto)}</td><td className="p-2 text-center tabular-nums text-amber-800">{fmtMoney(g.totals.advance)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.totals.deductions)}</td>
+                        <td className="p-2 text-center tabular-nums">{fmtMoney(g.totals.proposed)}</td><td className="p-2 text-center tabular-nums">{fmtMoney(g.totals.final)}</td><td></td>
+                      </tr>
+                    </Fragment>
                   ))}
-                  <tr className="border-t border-slate-200 bg-slate-50 text-[11px] font-bold" data-testid={`ps-subtotal-${g.name}`}>
-                    <td className="p-2" colSpan={3}>مجموع {g.name}</td>
-                    <td className="p-2 text-center tabular-nums text-emerald-700">{g.present}</td><td className="p-2 text-center tabular-nums text-red-700">{g.absent}</td><td className="p-2" colSpan={5}></td>
-                    <td className="p-2 text-center tabular-nums">{fmtMoney(g.gross)}</td><td className="p-2"></td>
-                    <td className="p-2 text-center tabular-nums text-amber-700">{fmtMoney(g.ops)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.auto)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(g.deductions)}</td>
-                    <td className="p-2 text-center tabular-nums">{fmtMoney(g.proposed)}</td><td className="p-2 text-center tabular-nums">{fmtMoney(g.final)}</td><td></td>
-                  </tr>
                 </Fragment>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-300 bg-slate-100 text-xs font-black" data-testid="ps-grand-total">
+                <td className="p-2" colSpan={3}>الإجمالي العام{filtered ? ' (حسب الفلتر)' : ''} · {totals.count} موظفاً</td>
+                <td className="p-2 text-center tabular-nums text-emerald-700">{totals.present}</td><td className="p-2 text-center tabular-nums text-red-700">{totals.absent}</td><td className="p-2" colSpan={5}></td>
+                <td className="p-2 text-center tabular-nums">{fmtMoney(totals.gross)}</td><td className="p-2 text-center tabular-nums">{fmtMoney(totals.fixed)}</td>
+                <td className="p-2 text-center tabular-nums text-amber-700">{fmtMoney(totals.ops)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(totals.auto)}</td><td className="p-2 text-center tabular-nums text-amber-800">{fmtMoney(totals.advance)}</td><td className="p-2 text-center tabular-nums text-red-700">{fmtMoney(totals.deductions)}</td>
+                <td className="p-2 text-center tabular-nums">{fmtMoney(totals.proposed)}</td><td className="p-2 text-center tabular-nums text-emerald-800">{fmtMoney(totals.final)}</td><td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
       {editing && <AdjustPanel row={editing} onClose={() => setEditing(null)} />}
       {details && <DaysPanel row={details} month={month} onClose={() => setDetails(null)} />}
+    </div>
+  )
+}
+
+const PROFILE_LABELS: Record<ProfileFilter, string> = { all: 'كل الموظفين', defined: 'ملف راتب مُعرَّف', missing: 'بلا ملف راتب', adjusted: 'صافٍ معدَّل يدوياً', flagged: 'يحتاج انتباهاً' }
+
+/** 00194 — لوحة التحقق الحسابي: كل صف مُعاد احتسابه من مكوّناته + مطابقة الحضورية الحية، مع شرح المعادلة */
+function VerifyPanel({ rows, loading, filteredIds }: { rows: PayrollReconcileRow[]; loading: boolean; filteredIds: Set<string> | null }) {
+  const [only, setOnly] = useState<'all' | 'issues'>('all')
+  const list = useMemo(() => rows.filter((r) => (!filteredIds || filteredIds.has(r.employee_id)) && (only === 'all' || !r.ok)), [rows, filteredIds, only])
+  const sum = reconcileSummary(rows)
+  if (loading) return <LoadingSpinner />
+  if (rows.length === 0) return <EmptyState title="لا كشف للتحقق منه" hint="يظهر التحقق بعد تصدير غرفة العمليات" />
+  return (
+    <div className="space-y-3" data-testid="ps-verify">
+      <div className={clsx('rounded-2xl border p-3 text-xs', sum.money > 0 ? 'border-red-300 bg-red-50 text-red-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900')} data-testid="ps-verify-summary">
+        <p className="text-sm font-black">{sum.money === 0 ? '✓ كل أرقام الكشف متطابقة حسابياً' : `✗ ${sum.money} صف غير متطابق حسابياً — الاعتماد ممنوع`}</p>
+        <p className="mt-1">{sum.total} صف · متطابق كلياً {sum.ok} · فروق حضورية بعد التصدير {sum.attendance} · بلا ملف راتب {sum.missing}</p>
+        <p className="mt-1 text-[11px] opacity-80">كيف نتحقق؟ لكل موظف: الإجمالي = الأساسي (أو أجر اليوم × الأيام المدفوعة) + المخصصات · الاستقطاعات = الثابتة + العمليات + أيام العمليات + التلقائي + قسط السلفة · الصافي = الإجمالي − الاستقطاعات (لا يقل عن صفر). ثم نقارن الحضورية الحية واستقطاعات العمليات الحالية بما صُدّر.</p>
+      </div>
+      <div className="flex gap-1 rounded-xl bg-slate-100 p-0.5 text-xs font-bold w-fit">
+        <button type="button" className={clsx('rounded-lg px-3 py-1', only === 'all' ? 'bg-white shadow' : 'text-slate-600')} onClick={() => setOnly('all')} data-testid="ps-verify-all">الكل ({rows.length})</button>
+        <button type="button" className={clsx('rounded-lg px-3 py-1', only === 'issues' ? 'bg-white shadow' : 'text-slate-600')} onClick={() => setOnly('issues')} data-testid="ps-verify-issues">بملاحظات ({rows.filter((r) => !r.ok).length})</button>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full text-xs" data-testid="ps-verify-table">
+          <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2 text-start">الموظف</th><th className="p-2">الإجمالي<br /><span className="font-normal">مخزَّن / محسوب</span></th><th className="p-2">الاستقطاعات<br /><span className="font-normal">مخزَّنة / محسوبة</span></th><th className="p-2">الصافي<br /><span className="font-normal">مخزَّن / محسوب</span></th><th className="p-2">الحضورية الحية<br /><span className="font-normal">حاضر / غائب / إجازة</span></th><th className="p-2">النتيجة</th><th className="p-2 text-start">الملاحظات والمعادلة</th></tr></thead>
+          <tbody>
+            {list.map((r) => {
+              const pair = (a: number | null, b: number | null) => <span className={clsx('tabular-nums', a != null && b != null && Math.round(a * 100) !== Math.round(b * 100) && 'font-black text-red-700')}>{fmtMoney(a)} / {fmtMoney(b)}</span>
+              return (
+                <tr key={r.row_id} className={clsx('border-t border-slate-100', !r.money_ok && 'bg-red-50/60', r.money_ok && !r.ok && 'bg-amber-50/40')} data-testid={`ps-verify-row-${r.employee_number}`} data-ok={String(r.ok)} data-money-ok={String(r.money_ok)}>
+                  <td className="p-2"><p className="text-sm font-semibold">{r.full_name}</p><p className="text-[10px] text-slate-500">{r.employee_number} · {r.branch_name ?? 'بلا فرع'} / {r.department_name ?? 'بلا قسم'}</p></td>
+                  <td className="p-2 text-center">{pair(r.gross_stored, r.gross_expected)}</td>
+                  <td className="p-2 text-center">{pair(r.deductions_stored, r.deductions_expected)}</td>
+                  <td className="p-2 text-center">{pair(r.net_stored, r.net_expected)}{r.final_net != null && r.final_net !== r.net_stored && <span className="block text-[10px] text-amber-700">معتمد {fmtMoney(r.final_net)}</span>}</td>
+                  <td className="p-2 text-center tabular-nums"><span className={clsx(r.issues.includes('ATTENDANCE_CHANGED') && 'font-black text-amber-700')}>{r.live.present ?? '—'} / {r.live.absent ?? '—'} / {r.live.leave ?? '—'}</span><span className="block text-[10px] text-slate-500">في الكشف {String(r.components.present ?? '—')} / {String(r.components.absent ?? '—')} / {String(r.components.leave ?? '—')}</span></td>
+                  <td className="p-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', r.ok ? 'bg-emerald-100 text-emerald-800' : r.money_ok ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800')}>{r.ok ? '✓ متطابق' : r.money_ok ? '⚠ تنبيه' : '✗ غير متطابق'}</span></td>
+                  <td className="max-w-[28rem] p-2 text-[11px] leading-5">{r.issues.length > 0 && <p className="font-bold text-slate-800">{r.issues.map((k) => RECONCILE_ISSUE_LABELS[k] ?? k).join(' · ')}</p>}<p className="text-slate-600">{explainRow(r)}</p></td>
+                </tr>
+              )
+            })}
+            {list.length === 0 && <tr><td className="p-6 text-center text-slate-400" colSpan={7}>لا صفوف</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

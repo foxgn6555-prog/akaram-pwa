@@ -71,7 +71,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useWaiveDeduction: () => mut(h.waive),
   useExportRows: () => ({ data: [] }),
   // المالية
-  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }),
+  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: [], isLoading: false }),
   useAdjustPayroll: () => mut(vi.fn()), useApprovePayroll: () => mut(vi.fn()), useSalaryProfile: () => ({ data: null }), useSetSalary: () => mut(vi.fn()),
   useFinanceNotices: () => ({ data: [] }), useMarkNoticeDone: () => mut(vi.fn()),
 }))

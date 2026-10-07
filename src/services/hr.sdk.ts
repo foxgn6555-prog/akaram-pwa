@@ -7,7 +7,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
-  FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow,
+  FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
@@ -42,6 +42,8 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_DEDUCTION_FROM_DISCLOSURE: 'هذا الاستقطاع ناتج عن كشف معتمد — يُدار من وحدة الكشوفات ولا يُحذف من هنا',
   HR_SALARY_MISSING: 'يوجد موظفون بلا راتب نهائي — عرّف رواتبهم أو أدخل مبلغاً نهائياً قبل الاعتماد',
   HR_AMOUNT_INVALID: 'المبلغ غير صالح',
+  HR_FINAL_ABOVE_GROSS: 'الصافي المعتمد لا يمكن أن يتجاوز الإجمالي قبل الاستقطاع',
+  HR_PAYROLL_RECONCILE_MISMATCH: 'الكشف يحتوي صفوفاً أرقامها غير متطابقة حسابياً — راجع تبويب «التحقق الحسابي» واطلب إعادة التصدير',
   HR_PAY_TYPE_INVALID: 'نوع الأجر غير صالح',
   HR_TERMINATION_TYPE_INVALID: 'نوع الإنهاء غير صالح',
   HR_ALREADY_TERMINATED: 'خدمة هذا الموظف منتهية أصلاً',
@@ -259,6 +261,8 @@ export const hr = {
 
   // ─────────── المالية ───────────
   payrollSheet(month: string) { return rpc<PayrollSheetRow[]>('finance_payroll_sheet', { p_month: month }) },
+  /** 00194 — التحقق الحسابي: كل صف مُعاد احتسابه من مكوّناته + مطابقة الحضورية الحية */
+  payrollReconcile(month: string) { return rpc<PayrollReconcileRow[]>('finance_payroll_reconcile', { p_month: month }) },
   adjustPayroll(rowId: string, finalNet: number, note: string) {
     return sdkVoid(supabase.rpc('finance_payroll_adjust', { p_row: rowId, p_final_net: finalNet, p_note: note } as never))
   },

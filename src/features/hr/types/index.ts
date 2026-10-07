@@ -419,6 +419,31 @@ export interface PayrollSheetRow extends OpsExportRow {
   finance_note: string | null
 }
 
+/** 00194 — صف التحقق الحسابي لكشف الرواتب (المالية) */
+export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED'
+export interface PayrollReconcileRow {
+  row_id: string
+  employee_id: string
+  employee_number: string | null
+  full_name: string | null
+  department_name: string | null
+  branch_name: string | null
+  pay_type: ContractType | null
+  gross_stored: number | null
+  gross_expected: number | null
+  deductions_stored: number | null
+  deductions_expected: number | null
+  net_stored: number | null
+  net_expected: number | null
+  final_net: number | null
+  components: Record<string, number | string | null>
+  live: Record<string, number | null>
+  issues: PayrollReconcileIssue[]
+  money_ok: boolean
+  attendance_ok: boolean
+  ok: boolean
+}
+
 export interface SalaryProfile {
   employee_id: string
   status: 'pending' | 'defined'

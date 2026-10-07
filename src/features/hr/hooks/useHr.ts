@@ -205,6 +205,10 @@ export function useReopenAttendanceMonth() {
 export function usePayrollSheet(month: string) {
   return useQuery({ queryKey: hrKeys.payrollSheet(month), queryFn: () => hr.payrollSheet(month), enabled: !!month })
 }
+/** 00194 */
+export function usePayrollReconcile(month: string, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.payrollSheet(month), 'reconcile'], queryFn: () => hr.payrollReconcile(month), enabled: !!month && enabled })
+}
 export function useAdjustPayroll() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({

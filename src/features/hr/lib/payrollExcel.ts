@@ -1,6 +1,10 @@
 /** تصدير كشف الرواتب الشهري (المالية) إلى Excel احترافي — RTL، ترويسة، مجاميع، تنسيق أرقام */
-import type { Borders } from 'exceljs'
-import type { AttendanceDeduction, PayrollSheetRow } from '../types'
+import type { Borders, Worksheet } from 'exceljs'
+import type { AttendanceDeduction, PayrollReconcileRow, PayrollSheetRow } from '../types'
+import { explainRow, groupByBranchDept, RECONCILE_ISSUE_LABELS, reconcileSummary, rowFlags, sheetTotals } from './payrollSheetModel'
+
+/** 00194 — خيارات التصدير: تسمية الفلاتر المطبّقة، صفوف التحقق الحسابي، ورقة لكل فرع */
+export interface PayrollExcelOptions { filtersLabel?: string; reconcile?: PayrollReconcileRow[]; branchSheets?: boolean }
 
 const CONTRACT: Record<string, string> = { monthly: 'شهري', daily: 'أجر يومي' }
 
@@ -40,54 +44,17 @@ export const MONEY_COLS = [19, 20, 21, 22, 23, 24, 26, 31, 32, 33, 34, 40]
 
 export function payrollFileName(month: string) { return `كشف-الرواتب-${month.slice(0, 7)}.xlsx` }
 
-export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = []) {
+export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = [], opts: PayrollExcelOptions = {}) {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook()
   wb.creator = 'شركة جزيرة الأكارم — الشؤون المالية'; wb.created = new Date()
-  const ws = wb.addWorksheet(`رواتب ${month.slice(0, 7)}`, { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
-  // ترتيب الأعمدة: هوية ← أيام ← أساس الراتب ← الإجمالي ← الاستقطاعات بالتفصيل ← إجمالي الاستقطاعات ← الصافي
-  const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد',
-    'أيام مجدولة', 'أيام محتسبة', 'غير محتسب', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة مدفوعة', 'إجازة غير مدفوعة', 'دقائق التأخير', 'الأيام المدفوعة',
-    'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الإجمالي',
-    'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع العمليات (مبلغ الأيام)',
-    'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'منها أيام غياب/إجازة غير مدفوعة', 'منها أيام شرائح النقص', 'استقطاع تلقائي (مبلغ)', 'إجمالي الاستقطاعات',
-    'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات', 'الفترة المشمولة', 'أيام مشمولة / أيام الشهر', 'أجر اليوم المحتسب', 'قسط السلفة']
   const approved = rows[0]?.export_status === 'approved'
-  ws.mergeCells(1, 1, 1, headers.length)
-  ws.getCell('A1').value = `كشف رواتب شهر ${month.slice(0, 7)} — ${approved ? 'معتمد ومقفل' : 'مسودة قبل الاعتماد'}`
-  ws.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } }
-  ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: approved ? 'FF065F46' : 'FF1E3A8A' } }
-  ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 30
-  ws.mergeCells(2, 1, 2, headers.length)
-  ws.getCell('A2').value = `الإصدار ${rows[0]?.export_version ?? '-'} · صُدّر من غرفة العمليات في ${rows[0] ? new Date(rows[0].exported_at).toLocaleString('ar-IQ-u-nu-latn') : '-'} · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')} · العملة: دينار عراقي`
-  ws.getCell('A2').alignment = { horizontal: 'center' }; ws.getCell('A2').font = { size: 10, color: { argb: 'FF475569' } }
-  ws.getRow(3).height = 6
-  const hr = ws.getRow(4); hr.values = headers
-  hr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thin() })
-  hr.height = 32
-  rows.forEach((r, i) => {
-    const paidLeave = r.days_leave_paid ?? r.days_leave, unpaidLeave = r.days_leave_unpaid ?? 0
-    const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
-      r.scheduled_days ?? r.working_days, r.working_days, r.unevaluated_days ?? 0, r.days_present, r.days_late, r.days_absent, r.days_incomplete, paidLeave, unpaidLeave, r.late_minutes, r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + paidLeave) : '',
-      r.base_salary ?? 0, r.daily_rate ?? 0, r.allowances_total ?? 0, rowGross(r),
-      r.fixed_deductions_total ?? 0, r.ops_deduction_amount, r.ops_deduction_days, r.ops_deduction_days_amount ?? 0,
-      r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_absence_days ?? 0, r.auto_shortfall_days ?? 0, r.auto_deduction_amount ?? 0, rowDeductions(r),
-      r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? '',
-      r.period_from && r.period_to ? `${r.period_from} → ${r.period_to}` : '', r.covered_days != null && r.days_in_month != null ? `${r.covered_days} / ${r.days_in_month}` : '', r.day_rate ?? (r.pay_type === 'daily' ? r.daily_rate ?? 0 : Math.round(((r.base_salary ?? 0) / 30) * 100) / 100), r.advance_installment ?? 0])
-    row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col === 35 || col === 36 ? 'right' : 'center', vertical: 'middle', wrapText: col === 35 || col === 36 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
-    row.getCell(39).numFmt = '#,##0.##'
-    row.getCell(22).font = { bold: true }; row.getCell(32).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(34).font = { bold: true }
-    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(34).font = { bold: true, color: { argb: 'FFB45309' } }
-    if (r.pay_type == null) row.getCell(33).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
-    if ((r.unevaluated_days ?? 0) > 0) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+  const ws = wb.addWorksheet(`رواتب ${month.slice(0, 7)}`, { views: [{ rightToLeft: true, state: 'frozen', xSplit: 3, ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
+  writePayrollTable(ws, rows, {
+    title: `كشف رواتب شهر ${month.slice(0, 7)} — ${approved ? 'معتمد ومقفل' : 'مسودة قبل الاعتماد'}`,
+    subtitle: `الإصدار ${rows[0]?.export_version ?? '-'} · صُدّر من غرفة العمليات في ${rows[0] ? new Date(rows[0].exported_at).toLocaleString('ar-IQ-u-nu-latn') : '-'} · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')} · العملة: دينار عراقي${opts.filtersLabel ? ` · ${opts.filtersLabel}` : ''}`,
+    approved,
   })
-  const first = 5, last = 4 + rows.length
-  const tot = ws.addRow(['', '', 'الإجمالي'])
-  ;[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, ...MONEY_COLS].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MONEY_COLS.includes(col)) tot.getCell(col).numFmt = '#,##0' })
-  tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
-  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 8, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34, 24, 12, 12, 13]
-  widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
-  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
 
   // ورقة 2: ملخص الأقسام — عدد الموظفين، حاضر/غائب، استقطاعات، صافي مقترح/معتمد
   const ds = wb.addWorksheet('ملخص الأقسام', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }] })
@@ -118,11 +85,112 @@ export async function buildPayrollWorkbook(month: string, rows: PayrollSheetRow[
     xt.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin(); if (col === 5) c.numFmt = '#,##0' })
     ;[5, 12, 26, 8, 13, 8, 40, 16, 14, 12].forEach((w, i) => { xs.getColumn(i + 1).width = w })
   }
+
+  // 00194 · ورقة «ملخص الفروع»: فرع ← أقسامه، مع مجاميع كل مستوى وعدد بلا ملف راتب
+  const bs = wb.addWorksheet('ملخص الفروع', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }] })
+  const bh = ['الفرع / القسم', 'عدد الموظفين', 'بلا ملف راتب', 'أيام حاضر', 'أيام غائب', 'الإجمالي', 'ثابتة', 'استقطاع العمليات', 'استقطاع تلقائي', 'أقساط السلف', 'إجمالي الاستقطاعات', 'الصافي المقترح', 'الصافي المعتمد']
+  bs.mergeCells(1, 1, 1, bh.length); bs.getCell('A1').value = `ملخص الفروع والأقسام — ${month.slice(0, 7)}`; bs.getCell('A1').font = { bold: true, size: 14 }; bs.getCell('A1').alignment = { horizontal: 'center' }
+  const bhr = bs.getRow(2); bhr.values = bh
+  bhr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', wrapText: true }; c.border = thin() })
+  const tRow = (label: string, t: ReturnType<typeof sheetTotals>) => [label, t.count, t.missing, t.present, t.absent, t.gross, t.fixed, t.ops, t.auto, t.advance, t.deductions, t.proposed, t.final]
+  const branches = groupByBranchDept(rows)
+  branches.forEach((b) => {
+    const br = bs.addRow(tRow(b.branch, b.totals)); br.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } }; c.border = thin(); c.alignment = { horizontal: col === 1 ? 'right' : 'center' }; if (col >= 6) c.numFmt = '#,##0' })
+    b.departments.forEach((d) => { const dr = bs.addRow(tRow(`    ${d.name}`, d.totals)); dr.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col === 1 ? 'right' : 'center' }; if (col >= 6) c.numFmt = '#,##0' }) })
+  })
+  const all = sheetTotals(rows)
+  const bt = bs.addRow(tRow('الإجمالي العام', all)); bt.eachCell((c, col) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin(); if (col >= 6) c.numFmt = '#,##0' })
+  ;[28, 12, 12, 10, 10, 16, 14, 16, 16, 14, 18, 16, 16].forEach((w, i) => { bs.getColumn(i + 1).width = w })
+
+  // 00194 · ورقة لكل فرع (عند أكثر من فرع) بنفس أعمدة الكشف الرئيسي
+  if (opts.branchSheets !== false && branches.length > 1) {
+    branches.forEach((b) => {
+      const name = `فرع · ${b.branch}`.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31)
+      const bws = wb.addWorksheet(name, { views: [{ rightToLeft: true, state: 'frozen', xSplit: 3, ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
+      writePayrollTable(bws, b.rows, { title: `كشف رواتب ${month.slice(0, 7)} — ${b.branch}`, subtitle: `${b.rows.length} موظفاً · ${b.departments.length} قسماً`, approved })
+    })
+  }
+
+  // 00194 · ورقة «التحقق الحسابي»: القيم المخزَّنة مقابل المُعاد احتسابها + المخالفات + شرح المعادلة
+  if (opts.reconcile && opts.reconcile.length > 0) {
+    const rc = opts.reconcile; const sum = reconcileSummary(rc)
+    const vs = wb.addWorksheet('التحقق الحسابي', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 3 }] })
+    const vh = ['ت', 'الرقم الوظيفي', 'الاسم', 'الفرع', 'القسم', 'الإجمالي (مخزَّن)', 'الإجمالي (محسوب)', 'الاستقطاعات (مخزَّنة)', 'الاستقطاعات (محسوبة)', 'الصافي (مخزَّن)', 'الصافي (محسوب)', 'الصافي المعتمد', 'فرق الصافي', 'النتيجة', 'الملاحظات', 'شرح المعادلة']
+    vs.mergeCells(1, 1, 1, vh.length); vs.getCell('A1').value = `التحقق الحسابي لكشف ${month.slice(0, 7)} — ${sum.money === 0 ? 'كل الأرقام متطابقة ✓' : `${sum.money} صف غير متطابق ✗`}`
+    vs.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }; vs.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sum.money === 0 ? 'FF065F46' : 'FFB91C1C' } }; vs.getCell('A1').alignment = { horizontal: 'center' }
+    vs.mergeCells(2, 1, 2, vh.length); vs.getCell('A2').value = `${sum.total} صف · متطابق كلياً ${sum.ok} · مخالفات مالية ${sum.money} · فروق حضورية بعد التصدير ${sum.attendance} · بلا ملف راتب ${sum.missing}`; vs.getCell('A2').alignment = { horizontal: 'center' }
+    const vhr = vs.getRow(3); vhr.values = vh
+    vhr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', wrapText: true }; c.border = thin() })
+    rc.forEach((r, i) => {
+      const diff = r.net_expected != null && r.net_stored != null ? Math.round((r.net_stored - r.net_expected) * 100) / 100 : null
+      const row = vs.addRow([i + 1, r.employee_number ?? '', r.full_name ?? '', r.branch_name ?? '', r.department_name ?? '', r.gross_stored ?? '', r.gross_expected ?? '', r.deductions_stored ?? '', r.deductions_expected ?? '', r.net_stored ?? '', r.net_expected ?? '', r.final_net ?? '', diff ?? '',
+        r.ok ? '✓ متطابق' : r.money_ok ? '⚠ تنبيه' : '✗ غير متطابق', r.issues.map((k) => RECONCILE_ISSUE_LABELS[k] ?? k).join(' · '), explainRow(r)])
+      row.eachCell((c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 5 || col >= 15 ? 'right' : 'center', vertical: 'middle', wrapText: col >= 15 }; if (col >= 6 && col <= 13) c.numFmt = '#,##0.##' })
+      row.getCell(14).font = { bold: true, color: { argb: r.ok ? 'FF065F46' : r.money_ok ? 'FFB45309' : 'FFB91C1C' } }
+      if (!r.money_ok) row.getCell(14).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+    })
+    ;[5, 12, 24, 14, 16, 14, 14, 14, 14, 14, 14, 14, 10, 14, 36, 90].forEach((w, i) => { vs.getColumn(i + 1).width = w })
+  }
   return wb
 }
 
-export async function downloadPayrollExcel(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = []) {
-  const wb = await buildPayrollWorkbook(month, rows, deductions)
+interface TableMeta { title: string; subtitle: string; approved: boolean }
+/** الجدول الرئيسي للكشف (يُستعمل للورقة الأولى ولأوراق الفروع): ترويسة، صف لكل موظف، عمود تحقق بمعادلة Excel، مجاميع بمعادلات */
+function writePayrollTable(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMeta) {
+  // ترتيب الأعمدة: هوية ← أيام ← أساس الراتب ← الإجمالي ← الاستقطاعات بالتفصيل ← إجمالي الاستقطاعات ← الصافي ← (00194) تحقق + ملاحظات التدقيق
+  const headers = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد',
+    'أيام مجدولة', 'أيام محتسبة', 'غير محتسب', 'حاضر', 'متأخر', 'غائب', 'ناقص', 'إجازة مدفوعة', 'إجازة غير مدفوعة', 'دقائق التأخير', 'الأيام المدفوعة',
+    'الراتب الأساسي', 'أجر اليوم', 'المخصصات', 'الإجمالي',
+    'الاستقطاعات الثابتة', 'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع العمليات (مبلغ الأيام)',
+    'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'منها أيام غياب/إجازة غير مدفوعة', 'منها أيام شرائح النقص', 'استقطاع تلقائي (مبلغ)', 'إجمالي الاستقطاعات',
+    'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'أسباب استقطاعات العمليات', 'الفترة المشمولة', 'أيام مشمولة / أيام الشهر', 'أجر اليوم المحتسب', 'قسط السلفة',
+    'تحقق الصافي', 'ملاحظات التدقيق']
+  const { approved } = meta
+  ws.mergeCells(1, 1, 1, headers.length)
+  ws.getCell('A1').value = meta.title
+  ws.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } }
+  ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: approved ? 'FF065F46' : 'FF1E3A8A' } }
+  ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }; ws.getRow(1).height = 30
+  ws.mergeCells(2, 1, 2, headers.length)
+  ws.getCell('A2').value = meta.subtitle
+  ws.getCell('A2').alignment = { horizontal: 'center' }; ws.getCell('A2').font = { size: 10, color: { argb: 'FF475569' } }
+  ws.getRow(3).height = 6
+  const hr = ws.getRow(4); hr.values = headers
+  hr.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.border = thin() })
+  hr.height = 32
+  rows.forEach((r, i) => {
+    const paidLeave = r.days_leave_paid ?? r.days_leave, unpaidLeave = r.days_leave_unpaid ?? 0
+    const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
+      r.scheduled_days ?? r.working_days, r.working_days, r.unevaluated_days ?? 0, r.days_present, r.days_late, r.days_absent, r.days_incomplete, paidLeave, unpaidLeave, r.late_minutes, r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + paidLeave) : '',
+      r.base_salary ?? 0, r.daily_rate ?? 0, r.allowances_total ?? 0, rowGross(r),
+      r.fixed_deductions_total ?? 0, r.ops_deduction_amount, r.ops_deduction_days, r.ops_deduction_days_amount ?? 0,
+      r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_absence_days ?? 0, r.auto_shortfall_days ?? 0, r.auto_deduction_amount ?? 0, rowDeductions(r),
+      r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', r.ops_deduction_reasons ?? '',
+      r.period_from && r.period_to ? `${r.period_from} → ${r.period_to}` : '', r.covered_days != null && r.days_in_month != null ? `${r.covered_days} / ${r.days_in_month}` : '', r.day_rate ?? (r.pay_type === 'daily' ? r.daily_rate ?? 0 : Math.round(((r.base_salary ?? 0) / 30) * 100) / 100), r.advance_installment ?? 0,
+      '', rowFlags(r).join(' · ')])
+    const n = row.number
+    // تحقق بمعادلة حية داخل Excel: الصافي المقترح = max(0, الإجمالي − إجمالي الاستقطاعات) — يبقى صحيحاً حتى لو عدّل المحاسب الخلايا
+    row.getCell(41).value = r.pay_type == null ? 'بلا راتب' : { formula: `IF(ABS(MAX(0,V${n}-AF${n})-AG${n})<=1,"✓","✗")`, result: '✓' }
+    row.eachCell({ includeEmpty: true }, (c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col === 35 || col === 36 || col === 42 ? 'right' : 'center', vertical: 'middle', wrapText: col === 35 || col === 36 || col === 42 }; if (MONEY_COLS.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    row.getCell(39).numFmt = '#,##0.##'
+    row.getCell(22).font = { bold: true }; row.getCell(32).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(34).font = { bold: true }
+    if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(34).font = { bold: true, color: { argb: 'FFB45309' } }
+    if (r.pay_type == null) row.getCell(33).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+    if ((r.unevaluated_days ?? 0) > 0) row.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+    if (rowFlags(r).length) row.getCell(42).font = { color: { argb: 'FFB45309' } }
+  })
+  const first = 5, last = 4 + rows.length
+  const tot = ws.addRow(['', '', 'الإجمالي'])
+  ;[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, ...MONEY_COLS].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MONEY_COLS.includes(col)) tot.getCell(col).numFmt = '#,##0' })
+  tot.getCell(41).value = rows.length ? { formula: `IF(COUNTIF(AO${first}:AO${last},"✗")=0,"✓ كل الصفوف متطابقة",COUNTIF(AO${first}:AO${last},"✗")&" صف غير متطابق")`, result: '✓' } : ''
+  tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
+  const widths = [5, 12, 26, 16, 14, 16, 10, 8, 8, 8, 7, 7, 7, 7, 9, 9, 9, 9, 13, 11, 12, 14, 13, 13, 11, 13, 10, 10, 11, 10, 13, 14, 14, 14, 24, 34, 24, 12, 12, 13, 12, 30]
+  widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
+  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
+}
+
+export async function downloadPayrollExcel(month: string, rows: PayrollSheetRow[], deductions: AttendanceDeduction[] = [], opts: PayrollExcelOptions = {}) {
+  const wb = await buildPayrollWorkbook(month, rows, deductions, opts)
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = payrollFileName(month); a.click(); URL.revokeObjectURL(url)
