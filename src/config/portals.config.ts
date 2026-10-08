@@ -241,6 +241,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/integrations/biometric/attendance-audit', labelKey: 'nav.hr_attendance_audit', icon: 'clipboard' },
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
+        { path: '/it/integrations/auto-deductions', labelKey: 'nav.it_auto_deductions', icon: 'clipboard' },
         { path: '/it/integrations/advances', labelKey: 'nav.it_advances', icon: 'wallet' },
       ],
     },

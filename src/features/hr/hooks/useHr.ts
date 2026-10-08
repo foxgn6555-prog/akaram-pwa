@@ -390,3 +390,46 @@ export function useLeavesDashboard() {
 export function useMyEmployee() {
   return useQuery({ queryKey: hrKeys.me(), queryFn: hr.myEmployee, staleTime: 5 * 60_000 })
 }
+
+// ─── 00195: وحدة الاستقطاعات التلقائية (التطوير المركزية) ───
+const DED = [...hrKeys.all, 'deduction-rules'] as const
+const invalidateDeductionUnit = (qc: ReturnType<typeof useQueryClient>) => {
+  void qc.invalidateQueries({ queryKey: DED })
+  for (const k of ['policy', 'attendance', 'attendance-grid', 'month-days', 'month-deductions']) void qc.invalidateQueries({ queryKey: [...hrKeys.all, k] })
+}
+export function useDeductionRules() {
+  return useQuery({ queryKey: [...DED, 'rules'], queryFn: hr.deductionRules, staleTime: 30_000 })
+}
+export function useSaveDeductionRule() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.saveDeductionRule, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('حُفظت القاعدة وأُعيد احتساب الشهر الجاري') }, onError: t.err })
+}
+export function useDeleteDeductionRule() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.deleteDeductionRule, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('حُذفت القاعدة — موظفوها عادوا إلى القاعدة الأعم') }, onError: t.err })
+}
+export function useSetDeductionTargets() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: Parameters<typeof hr.setDeductionTargets>) => hr.setDeductionTargets(...v), onSuccess: () => { invalidateDeductionUnit(qc); t.ok('حُفظ نطاق القاعدة') }, onError: t.err })
+}
+export function useDeductionExemptions() {
+  return useQuery({ queryKey: [...DED, 'exemptions'], queryFn: hr.deductionExemptions, staleTime: 30_000 })
+}
+export function useAddDeductionExemption() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.addDeductionExemption, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('أُضيف الاستثناء') }, onError: t.err })
+}
+export function useRemoveDeductionExemption() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.removeDeductionExemption, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('أُلغي الاستثناء') }, onError: t.err })
+}
+export function useDeductionEmployees(f: Parameters<typeof hr.deductionEmployees>[0] = {}, enabled = true) {
+  return useQuery({ queryKey: [...DED, 'employees', f], queryFn: () => hr.deductionEmployees(f), enabled, staleTime: 15_000 })
+}
+export function useSimulateDeduction() {
+  const t = useToast()
+  return useMutation({ mutationFn: hr.simulateDeduction, onError: t.err })
+}
+export function useDeductionAudit(limit = 200) {
+  return useQuery({ queryKey: [...DED, 'audit', limit], queryFn: () => hr.deductionAudit(limit), staleTime: 15_000 })
+}

@@ -401,6 +401,8 @@ export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_capped?: boolean
   /** 00188 — أساس مبلغ الاستقطاع التلقائي (salary | fixed | disabled) وهل قُيّدت أيامه بالسقف الشهري */
   auto_deduction_basis?: 'salary' | 'fixed' | 'disabled' | null
+  /** 00195: اسم قاعدة الاستقطاع التلقائي التي طُبّقت على الموظف («مستثنى» إن كان مستثنى) */
+  auto_deduction_rule?: string | null
   auto_deduction_days_capped?: boolean
   /** 00191 — قسط السلفة المستقطع تلقائياً هذا الشهر (ضمن إجمالي الاستقطاعات) */
   advance_installment?: number | null
@@ -722,3 +724,30 @@ export interface MyEmployee {
   has_biometric: boolean
   reports_count: number
 }
+
+/** 00195 — وحدة الاستقطاعات التلقائية (التطوير المركزية) */
+export type DeductionRuleSettings = Pick<HrPolicy, 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
+export type DeductionTargetType = 'branch' | 'department' | 'employee'
+export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
+export interface DeductionRule {
+  id: string
+  name: string
+  description: string | null
+  is_default: boolean
+  is_active: boolean
+  settings: DeductionRuleSettings
+  updated_at: string
+  targets: DeductionRuleTarget[]
+  employees_count: number
+}
+export interface DeductionExemption {
+  id: string; target_type: DeductionTargetType; target_id: string; name: string | null; reason: string; from_date: string; to_date: string | null; created_at: string; active: boolean
+}
+export type DeductionRuleSource = 'exempt' | 'employee' | 'department' | 'branch' | 'default'
+export interface DeductionEmployeeRow {
+  employee_id: string; employee_number: string; full_name: string; job_title: string | null; department_id: string | null; department_name: string | null; branch_id: string | null; branch_name: string | null; contract_type: string | null
+  rule_id: string | null; rule_name: string | null; source: DeductionRuleSource; exempt: boolean; exempt_reason: string | null; exempt_until: string | null; enabled: boolean; amount_mode: 'salary' | 'fixed'
+  month_minutes: number; month_days: number; month_absent: number; month_shortfall: number; month_waived: number
+}
+export interface DeductionSimulation { enabled: boolean; minutes: number; days: number; shortfall_days: number; absent_days: number; incomplete_days: number; amount_mode: 'salary' | 'fixed'; day_rate: number; minute_rate: number; amount: number }
+export interface DeductionAuditRow { id: number; action: 'rule_save' | 'rule_delete' | 'target_set' | 'exemption_add' | 'exemption_remove'; rule_id: string | null; rule_name: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; actor: string | null; actor_name: string | null; created_at: string }

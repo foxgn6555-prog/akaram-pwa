@@ -1,15 +1,15 @@
 /**
  * بوابة التطوير المركزية — «سياسة الحضور والإجازات» (00144)
  * كل الأرقام والمعادلات قابلة للتخصيص من هنا: الرصيد السنوي الافتراضي ونمط الاستحقاق والترحيل · الزمنيات (كم زمنية = يوم، الحد الأقصى، السقف الشهري)
- * · السماحية وشرائح الاستقطاع حسب نقص الدقائق اليومي · الغياب والبصمة الناقصة · الدوام الإضافي → رصيد · عتبات التنبيه · أنواع الإجازات والزمنيات.
+ * · الدوام الإضافي → رصيد · عتبات التنبيه · أنواع الإجازات والزمنيات. (00195: كل إعدادات الاستقطاع التلقائي في وحدة «الاستقطاعات التلقائية» المستقلة.)
  */
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
+import { Link } from 'react-router'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useHrPolicy, useLeaveTypes, useSaveLeaveType, useSetHrPolicy } from '@features/hr'
-import type { DeductionTier, HrPolicy, LeaveType } from '@features/hr'
-import { applyTiers, validateTiers } from '@features/hr/lib/policy'
+import type { HrPolicy, LeaveType } from '@features/hr'
 import { field, fmtMinutes } from '@portals/hr/components/hr-format'
 
 type Draft = HrPolicy
@@ -20,25 +20,9 @@ export default function HrPolicyPage() {
   const save = useSetHrPolicy()
   const [draft, setDraft] = useState<Draft | null>(null)
   useEffect(() => { if (policy && !draft) setDraft(policy) }, [policy, draft])
-  const tiersError = useMemo(() => (draft ? validateTiers(draft.deduction_tiers) : null), [draft])
   const dirty = useMemo(() => !!draft && !!policy && JSON.stringify(draft) !== JSON.stringify(policy), [draft, policy])
-  const [sample, setSample] = useState(30)
   if (isLoading || !draft) return <LoadingSpinner />
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
-  const setTier = (i: number, patch: Partial<DeductionTier>) => set('deduction_tiers', draft.deduction_tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)))
-  const addTier = () => {
-    const last = draft.deduction_tiers[draft.deduction_tiers.length - 1]
-    const closedTo = last ? (last.to ?? last.from + 30) : 0
-    const tiers = draft.deduction_tiers.map((t, i) => (i === draft.deduction_tiers.length - 1 ? { ...t, to: closedTo } : t))
-    set('deduction_tiers', [...tiers, { from: closedTo + 1, to: null, minutes: null, day_fraction: 1 }])
-  }
-  const removeTier = (i: number) => {
-    const tiers = draft.deduction_tiers.filter((_t, j) => j !== i)
-    const last = tiers[tiers.length - 1]
-    if (last) tiers[tiers.length - 1] = { ...last, to: null }
-    set('deduction_tiers', tiers)
-  }
-  const preview = applyTiers(draft.deduction_tiers, sample)
 
   return (
     <div className="space-y-4" data-testid="hr-policy-page">
@@ -46,7 +30,7 @@ export default function HrPolicyPage() {
         <div><h1 className="text-xl font-black">سياسة الحضور والإجازات</h1><p className="text-xs text-slate-500">كل الأرقام والمعادلات هنا تُطبَّق فوراً على احتساب الحضور والأرصدة في بوابات HR وغرفة العمليات والموظف</p></div>
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" disabled={!dirty} onClick={() => setDraft(policy ?? null)} data-testid="policy-reset">تراجع</Button>
-          <Button size="sm" disabled={!dirty || !!tiersError} isLoading={save.isPending} onClick={() => save.mutate(draft)} data-testid="policy-save">حفظ السياسة</Button>
+          <Button size="sm" disabled={!dirty} isLoading={save.isPending} onClick={() => save.mutate(draft)} data-testid="policy-save">حفظ السياسة</Button>
         </div>
       </header>
 
@@ -72,53 +56,15 @@ export default function HrPolicyPage() {
         <L label="السقف الشهري لعدد الزمنيات (فارغ = بلا سقف)"><input type="number" min={0} className={field} value={draft.permits_max_per_month ?? ''} onChange={(e) => set('permits_max_per_month', e.target.value === '' ? null : NUM(e.target.value))} data-testid="p-permits-month" /></L>
       </Section>
 
-      <Section title="الحضور: نقص الدقائق والاستقطاع المقترح" hint="المقياس = دقائق الشفت − الدقائق المنجزة فعلاً − الزمنيات المدفوعة المعتمدة. التأخر الذي يعوّضه الموظف بالبقاء بعد الدوام لا يُستقطع. الاستقطاع مقترح فقط: غرفة العمليات تعتمده أو تلغيه بسبب قبل وصوله للمالية.">
-        <L label="السماحية اليومية الافتراضية (دقيقة)"><input type="number" min={0} max={180} className={field} value={draft.grace_minutes_default} onChange={(e) => set('grace_minutes_default', NUM(e.target.value))} data-testid="p-grace" /></L>
-        <L label="استقطاع يوم الغياب بلا إجازة (يوم)"><input type="number" min={0} max={3} step={0.5} className={field} value={draft.absent_day_deduction_days} onChange={(e) => set('absent_day_deduction_days', NUM(e.target.value))} data-testid="p-absent" /></L>
-        <L label="البصمة الناقصة (دخول أو خروج فقط)"><select className={field} value={String(draft.incomplete_punch_as_absent)} onChange={(e) => set('incomplete_punch_as_absent', e.target.value === 'true')} data-testid="p-incomplete"><option value="false">لا تُستقطع (تُدقَّق يدوياً)</option><option value="true">تُعامل كغياب</option></select></L>
-        <div className="sm:col-span-2 lg:col-span-4">
-          <p className="mb-1 text-xs font-bold text-slate-700">شرائح الاستقطاع حسب نقص الدقائق اليومي</p>
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full text-xs" data-testid="tiers-table">
-              <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">من دقيقة</th><th className="p-2">إلى دقيقة</th><th className="p-2">استقطاع (دقائق)</th><th className="p-2">أو كسر يوم</th><th className="p-2"></th></tr></thead>
-              <tbody>{draft.deduction_tiers.map((t, i) => (
-                <tr key={i} className="border-t border-slate-100" data-testid={`tier-${i}`}>
-                  <td className="p-1"><input type="number" className={field} value={t.from} onChange={(e) => setTier(i, { from: NUM(e.target.value) })} data-testid={`tier-${i}-from`} /></td>
-                  <td className="p-1"><input type="number" className={field} value={t.to ?? ''} placeholder={i === draft.deduction_tiers.length - 1 ? 'مفتوح' : ''} onChange={(e) => setTier(i, { to: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`tier-${i}-to`} /></td>
-                  <td className="p-1"><input type="number" min={0} className={field} value={t.minutes ?? ''} onChange={(e) => setTier(i, { minutes: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`tier-${i}-minutes`} /></td>
-                  <td className="p-1"><input type="number" min={0} max={3} step={0.25} className={field} value={t.day_fraction ?? ''} onChange={(e) => setTier(i, { day_fraction: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`tier-${i}-days`} /></td>
-                  <td className="p-1 text-center"><button type="button" className="text-red-600 hover:underline" onClick={() => removeTier(i)} data-testid={`tier-${i}-remove`}>حذف</button></td>
-                </tr>))}</tbody>
-            </table>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="secondary" onClick={addTier} data-testid="tier-add">+ شريحة</Button>
-            {tiersError ? <span className="text-xs font-bold text-red-600" data-testid="tiers-error">{tiersError}</span> : <span className="text-xs text-emerald-700">الشرائح صالحة</span>}
-            <label className="ms-auto flex items-center gap-2 text-xs">معاينة: نقص <input type="number" min={0} className={clsx(field, 'w-20')} value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="tier-sample" /> دقيقة ⇒ <b data-testid="tier-preview">{preview.minutes > 0 ? fmtMinutes(preview.minutes) : preview.days > 0 ? `${preview.days} يوم` : 'لا استقطاع'}</b></label>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="الاستقطاع التلقائي — التشغيل والمبالغ" hint="يُحتسب الحضور والغياب والنقص دائماً ويظهر في غرفة العمليات وHR والمالية؛ هذه المفاتيح تتحكم فقط فيما يُقترح استقطاعه ومقداره. أي تغيير هنا يُعيد احتساب الشهر الجاري فوراً، والتصدير يعيد احتساب الشهر كاملاً بالقواعد الحالية.">
-        <L label="الاستقطاع التلقائي"><select className={field} value={String(draft.auto_deduction_enabled ?? true)} onChange={(e) => set('auto_deduction_enabled', e.target.value === 'true')} data-testid="p-auto-ded"><option value="true">مُفعَّل</option><option value="false">متوقف — لا يُقترح أي استقطاع تلقائي</option></select></L>
-        <L label="استقطاع الغياب بلا إجازة"><select className={field} disabled={draft.auto_deduction_enabled === false} value={String(draft.deduct_absence_enabled ?? true)} onChange={(e) => set('deduct_absence_enabled', e.target.value === 'true')} data-testid="p-ded-absence"><option value="true">مُفعَّل</option><option value="false">متوقف</option></select></L>
-        <L label="استقطاع نقص الدقائق (الشرائح أدناه)"><select className={field} disabled={draft.auto_deduction_enabled === false} value={String(draft.deduct_shortfall_enabled ?? true)} onChange={(e) => set('deduct_shortfall_enabled', e.target.value === 'true')} data-testid="p-ded-shortfall"><option value="true">مُفعَّل</option><option value="false">متوقف</option></select></L>
-        <L label="استقطاع الإجازات غير المدفوعة"><select className={field} disabled={draft.auto_deduction_enabled === false} value={String(draft.deduct_unpaid_leave_enabled ?? true)} onChange={(e) => set('deduct_unpaid_leave_enabled', e.target.value === 'true')} data-testid="p-ded-unpaid"><option value="true">مُفعَّل</option><option value="false">متوقف</option></select></L>
-        <L label="أساس مبلغ الاستقطاع"><select className={field} disabled={draft.auto_deduction_enabled === false} value={draft.auto_deduction_amount_mode ?? 'salary'} onChange={(e) => set('auto_deduction_amount_mode', e.target.value as 'salary' | 'fixed')} data-testid="p-ded-mode"><option value="salary">من الراتب: أجر اليوم وأجر الدقيقة لكل موظف</option><option value="fixed">مبالغ ثابتة بالدينار لجميع الموظفين</option></select></L>
-        {(draft.auto_deduction_amount_mode ?? 'salary') === 'fixed' && (
-          <>
-            <L label="مبلغ ثابت لكل يوم استقطاع (د.ع)"><input type="number" min={0} step={250} className={field} dir="ltr" value={draft.fixed_absent_day_amount ?? 0} onChange={(e) => set('fixed_absent_day_amount', Math.max(0, Number(e.target.value)))} data-testid="p-fixed-day" /></L>
-            <L label="مبلغ ثابت لكل دقيقة نقص (د.ع)"><input type="number" min={0} step={10} className={field} dir="ltr" value={draft.fixed_shortfall_minute_amount ?? 0} onChange={(e) => set('fixed_shortfall_minute_amount', Math.max(0, Number(e.target.value)))} data-testid="p-fixed-minute" /></L>
-          </>
-        )}
-        <L label="سقف أيام الاستقطاع التلقائي في الشهر (0 = بلا سقف)"><input type="number" min={0} max={31} step={0.5} className={field} dir="ltr" value={draft.max_auto_deduction_days_per_month ?? 0} onChange={(e) => set('max_auto_deduction_days_per_month', Math.min(31, Math.max(0, Number(e.target.value))))} data-testid="p-max-days" /></L>
-      </Section>
+      <section className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-900" data-testid="deductions-moved">
+        <h2 className="text-sm font-black">الاستقطاعات التلقائية انتقلت إلى وحدة مستقلة</h2>
+        <p className="mt-1">السماحية وشرائح نقص الدقائق والغياب والبصمة الناقصة وأساس المبلغ (من الراتب أو ثابت) والسقوف والاستثناءات وتفعيل القواعد على فروع/أقسام/موظفين — كلها تُدار الآن من <Link to="/it/integrations/auto-deductions" className="font-bold underline" data-testid="deductions-link">وحدة «الاستقطاعات التلقائية»</Link> بقواعد متعددة. لا يوجد تكرار لهذه الإعدادات هنا.</p>
+      </section>
       <Section title="احتساب الراتب الشهري (المالية تعتمد هذه القواعد)" hint="الفترة المشمولة بالتصدير = من أول الشهر (أو تاريخ التعيين) إلى آخر يوم مكتمل (أمس إن كان الشهر جارياً، أو تاريخ إنهاء الخدمة). مع التناسب: الموظف يستحق أجر الأيام المشمولة فقط (مثال: راتب 500,000 وتصدير بعد 5 أيام ⇒ الإجمالي 83,333 وليس 500,000). الشهر المكتمل = الراتب كاملاً دائماً.">
         <L label="اعتماد الحضورية قبل التصدير للمالية (غرفة العمليات بمرحلتين)"><select className={field} value={String(draft.require_attendance_confirmation ?? true)} onChange={(e) => set('require_attendance_confirmation', e.target.value === 'true')} data-testid="p-require-confirm"><option value="true">إلزامي: تدقيق تفصيلي → اعتماد الشهر → كشف معتمد → تصدير</option><option value="false">غير إلزامي: التصدير متاح مباشرة (لا يُنصح)</option></select></L>
         <L label="أجر اليوم للراتب الشهري"><select className={field} value={draft.salary_day_basis ?? 'fixed_30'} onChange={(e) => set('salary_day_basis', e.target.value as 'fixed_30' | 'calendar_days')} data-testid="p-day-basis"><option value="fixed_30">الأساسي ÷ 30 (ثابت)</option><option value="calendar_days">الأساسي ÷ أيام الشهر الفعلية (28–31)</option></select></L>
         <L label="الشهر الجزئي (تصدير مبكر / تعيين أو إنهاء خلال الشهر)"><select className={field} value={String(draft.prorate_partial_month ?? true)} onChange={(e) => set('prorate_partial_month', e.target.value === 'true')} data-testid="p-prorate"><option value="true">بالنسبة والتناسب: أجر اليوم × الأيام المشمولة</option><option value="false">الراتب كاملاً ثم تُخصم الاستقطاعات</option></select></L>
         <L label="المخصصات في الشهر الجزئي"><select className={field} value={String(draft.prorate_allowances ?? true)} onChange={(e) => set('prorate_allowances', e.target.value === 'true')} data-testid="p-prorate-allow"><option value="true">متناسبة مع الأيام المشمولة</option><option value="false">كاملة</option></select></L>
-        <L label="سقف الاستقطاع التلقائي (% من الإجمالي المستحق، 100 = بلا سقف)"><input type="number" min={0} max={100} step={5} className={field} value={Math.round((draft.auto_deduction_cap_ratio ?? 1) * 100)} onChange={(e) => set('auto_deduction_cap_ratio', Math.min(100, Math.max(0, Number(e.target.value))) / 100)} data-testid="p-auto-cap" /></L>
       </Section>
       <Section title="الدوام الإضافي → رصيد إجازات" hint="يُحتسب الإضافي بعد نهاية الشفت فقط وبعد تغطية أي نقص في اليوم نفسه، ويُضاف إلى الرصيد عند تصدير الشهر">
         <L label="تفعيل"><select className={field} value={String(draft.overtime_enabled)} onChange={(e) => set('overtime_enabled', e.target.value === 'true')} data-testid="p-ot"><option value="true">مفعّل</option><option value="false">معطّل</option></select></L>

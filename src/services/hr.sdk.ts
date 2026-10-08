@@ -9,7 +9,7 @@ import type {
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
-  HrPolicy, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
+  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
@@ -45,6 +45,9 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_FINAL_ABOVE_GROSS: 'الصافي المعتمد لا يمكن أن يتجاوز الإجمالي قبل الاستقطاع',
   HR_PAYROLL_RECONCILE_MISMATCH: 'الكشف يحتوي صفوفاً أرقامها غير متطابقة حسابياً — راجع تبويب «التحقق الحسابي» واطلب إعادة التصدير',
   HR_PAY_TYPE_INVALID: 'نوع الأجر غير صالح',
+  HR_RULE_INVALID: 'بيانات القاعدة غير صالحة (الاسم مطلوب والإعدادات ضمن الحدود)',
+  HR_RULE_DEFAULT_REQUIRED: 'القاعدة الافتراضية لا تُحذف ولا تُعطَّل',
+  HR_RULE_DEFAULT_NO_TARGETS: 'القاعدة الافتراضية تُطبَّق تلقائياً على من لا قاعدة له — لا تحتاج نطاقاً',
   HR_TERMINATION_TYPE_INVALID: 'نوع الإنهاء غير صالح',
   HR_ALREADY_TERMINATED: 'خدمة هذا الموظف منتهية أصلاً',
   HR_DATE_INVALID: 'تاريخ غير صالح (الصيغة المطلوبة YYYY-MM-DD)',
@@ -304,6 +307,23 @@ export const hr = {
   listJobTitles(includeInactive = false) { return rpc<HrJobTitle[]>('hr_job_titles', { p_include_inactive: includeInactive }) },
   // ─────────── 00144: السياسة · أنواع الإجازات · الأرصدة · الطلبات · التنبيهات ───────────
   policy() { return rpc<HrPolicy>('hr_policy_get', {}) },
+  // ─────────── 00195: وحدة الاستقطاعات التلقائية (التطوير المركزية) ───────────
+  deductionRules() { return rpc<DeductionRule[]>('it_deduction_rules', {}) },
+  saveDeductionRule(v: { id?: string | null; name: string; description?: string | null; is_active?: boolean; settings: Partial<DeductionRuleSettings> }) { return rpc<string>('it_deduction_rule_save', { p: v }) },
+  deleteDeductionRule(id: string) { return sdkVoid(supabase.rpc('it_deduction_rule_delete', { p_id: id } as never)) },
+  setDeductionTargets(ruleId: string, targets: { target_type: DeductionTargetType; target_id: string }[]) { return rpc<number>('it_deduction_targets_set', { p_rule: ruleId, p_targets: targets }) },
+  deductionExemptions() { return rpc<DeductionExemption[]>('it_deduction_exemptions', {}) },
+  addDeductionExemption(v: { target_type: DeductionTargetType; target_id: string; reason: string; from_date?: string | null; to_date?: string | null }) {
+    return rpc<string>('it_deduction_exemption_add', { p_type: v.target_type, p_target: v.target_id, p_reason: v.reason, p_from: v.from_date || null, p_to: v.to_date || null })
+  },
+  removeDeductionExemption(id: string) { return sdkVoid(supabase.rpc('it_deduction_exemption_remove', { p_id: id } as never)) },
+  deductionEmployees(f: { month?: string | null; branchId?: string | null; departmentId?: string | null; search?: string | null } = {}) {
+    return rpc<DeductionEmployeeRow[]>('it_deduction_employees', { p_month: f.month || null, p_branch: f.branchId || null, p_department: f.departmentId || null, p_search: f.search?.trim() || null })
+  },
+  simulateDeduction(v: { settings: Partial<DeductionRuleSettings> | null; shortfall: number; shiftMinutes?: number; baseSalary?: number; absentDays?: number; incompleteDays?: number }) {
+    return rpc<DeductionSimulation>('it_deduction_simulate', { p_settings: v.settings, p_shortfall: v.shortfall, p_shift_minutes: v.shiftMinutes ?? 480, p_base_salary: v.baseSalary ?? 0, p_absent_days: v.absentDays ?? 0, p_incomplete_days: v.incompleteDays ?? 0 })
+  },
+  deductionAudit(limit = 200) { return rpc<DeductionAuditRow[]>('it_deduction_audit', { p_limit: limit }) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
     let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')

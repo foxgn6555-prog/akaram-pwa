@@ -1,6 +1,6 @@
 /** 00184 — كشف المالية: الإجمالي/إجمالي الاستقطاعات، الإجازة المدفوعة، الأجر اليومي، الترتيب الطبيعي، أعمدة Excel */
 import { describe, expect, it } from 'vitest'
-import { buildPayrollWorkbook, employeeSortKey, groupByDepartment, MONEY_COLS, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
+import { buildPayrollWorkbook, employeeSortKey, groupByDepartment, MAIN_COL, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
 import type { PayrollSheetRow } from '@features/hr'
 
 const base = {
@@ -37,21 +37,28 @@ describe('00184 · كشف المالية', () => {
   })
   it('Excel: أعمدة الإجازة المدفوعة/غير المدفوعة والإجمالي وإجمالي الاستقطاعات بترتيب منطقي، وصف الإجمالي يجمع أعمدة المبالغ', async () => {
     const wb = await buildPayrollWorkbook('2026-09-01', [two, daily, monthly, none])
+    // 00195: الورقة الرئيسية مبسّطة (المالية تحتاج الصافي) — لا أعمدة تأخير/ناقص/مجدول فيها
     const ws = wb.worksheets[0]!
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     const idx = (h: string) => headers.indexOf(h)
-    expect(idx('إجازة مدفوعة')).toBeGreaterThan(idx('غائب')); expect(idx('إجازة غير مدفوعة')).toBe(idx('إجازة مدفوعة') + 1)
-    expect(idx('الإجمالي')).toBeGreaterThan(idx('المخصصات')); expect(idx('الإجمالي')).toBeLessThan(idx('الاستقطاعات الثابتة'))
-    expect(idx('إجمالي الاستقطاعات')).toBeGreaterThan(idx('استقطاع تلقائي (مبلغ)')); expect(idx('الصافي المقترح')).toBe(idx('إجمالي الاستقطاعات') + 1)
-    expect(headers).toContain('استقطاع تلقائي (أيام)')
-    const rowOf = (num: string) => { for (let i = 5; i <= 8; i++) if (ws.getRow(i).getCell(2).value === num) return ws.getRow(i).values as unknown[]; throw new Error(num) }
-    const m = rowOf('PF-10'), d = rowOf('PF-9')
-    expect(m[idx('الإجمالي') + 1]).toBe(960000); expect(m[idx('إجمالي الاستقطاعات') + 1]).toBe(120000); expect(m[idx('استقطاع العمليات (مبلغ الأيام)') + 1]).toBe(30000)
-    expect(m[idx('إجازة مدفوعة') + 1]).toBe(1); expect(m[idx('إجازة غير مدفوعة') + 1]).toBe(1); expect(m[idx('الأيام المدفوعة') + 1]).toBe('')
-    expect(d[idx('الأيام المدفوعة') + 1]).toBe(3); expect(d[idx('الإجمالي') + 1]).toBe(75000); expect(d[idx('منها أيام غياب/إجازة غير مدفوعة') + 1]).toBe(2); expect(d[idx('الصافي المقترح') + 1]).toBe(75000)
+    for (const gone of ['دقائق التأخير', 'ناقص', 'أيام مجدولة', 'استقطاع تلقائي (دقائق)', 'متأخر']) expect(headers).not.toContain(gone)
+    expect(idx('الإجمالي المستحق') + 1).toBe(MAIN_COL.gross); expect(idx('إجمالي الاستقطاعات') + 1).toBe(MAIN_COL.deductions); expect(idx('الصافي المقترح') + 1).toBe(MAIN_COL.proposed); expect(idx('الصافي المعتمد') + 1).toBe(MAIN_COL.final)
+    expect(idx('قاعدة الاستقطاع التلقائي')).toBe(idx('استقطاع تلقائي') + 1)
+    const rowOf = (sheet: typeof ws, num: string) => { for (let i = 5; i <= 8; i++) if (sheet.getRow(i).getCell(2).value === num) return sheet.getRow(i).values as unknown[]; throw new Error(num) }
+    const m = rowOf(ws, 'PF-10'), d = rowOf(ws, 'PF-9')
+    expect(m[MAIN_COL.gross]).toBe(960000); expect(m[MAIN_COL.deductions]).toBe(120000); expect(m[idx('استقطاع غرفة العمليات') + 1]).toBe(30000 + 0)
+    expect(d[idx('الأيام المدفوعة') + 1]).toBe(3); expect(d[MAIN_COL.gross]).toBe(75000); expect(d[MAIN_COL.proposed]).toBe(75000)
     const tot = ws.getRow(9).values as Array<{ formula?: string } | string | number>
-    for (const c of MONEY_COLS) { expect(headers[c - 1]).toBeTruthy(); expect((tot[c] as { formula?: string })?.formula).toMatch(/^SUM\(/) }
-    expect(MONEY_COLS).toContain(idx('الإجمالي') + 1); expect(MONEY_COLS).toContain(idx('إجمالي الاستقطاعات') + 1); expect(MONEY_COLS).toContain(idx('الصافي المعتمد') + 1)
+    for (const c of [MAIN_COL.gross, MAIN_COL.deductions, MAIN_COL.proposed, MAIN_COL.final]) expect((tot[c] as { formula?: string })?.formula).toMatch(/^SUM\(/)
+    // تفاصيل الحضور في ورقة مستقلة بكل الأعمدة القديمة
+    const det = wb.getWorksheet('تفاصيل الحضور')!
+    const dh = (det.getRow(4).values as unknown[]).slice(1) as string[]
+    const di = (h: string) => dh.indexOf(h)
+    expect(di('إجازة مدفوعة')).toBeGreaterThan(di('غائب')); expect(di('إجازة غير مدفوعة')).toBe(di('إجازة مدفوعة') + 1)
+    expect(dh).toContain('استقطاع تلقائي (أيام)'); expect(dh).toContain('دقائق التأخير'); expect(dh).toContain('قاعدة الاستقطاع التلقائي')
+    const dm = rowOf(det, 'PF-10'), dd = rowOf(det, 'PF-9')
+    expect(dm[di('استقطاع العمليات (مبلغ الأيام)') + 1]).toBe(30000); expect(dm[di('إجازة مدفوعة') + 1]).toBe(1); expect(dm[di('إجازة غير مدفوعة') + 1]).toBe(1)
+    expect(dd[di('الأيام المدفوعة') + 1]).toBe(3); expect(dd[di('منها أيام غياب/إجازة غير مدفوعة') + 1]).toBe(2); expect(dd[di('الصافي المقترح') + 1]).toBe(75000)
     const ds = wb.getWorksheet('ملخص الأقسام')!
     expect((ds.getRow(2).values as unknown[]).slice(1)).toContain('إجمالي الاستقطاعات')
   })

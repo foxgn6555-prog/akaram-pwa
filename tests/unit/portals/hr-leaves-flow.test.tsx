@@ -98,33 +98,24 @@ beforeEach(() => {
 })
 
 describe('بوابة التطوير المركزية — سياسة الحضور والإجازات', () => {
-  it('تعرض القيم، تتحقق من الشرائح حيّاً، وتحفظ السياسة كاملة عند الصلاحية', async () => {
-    render(<HrPolicyPage />)
+  it('تعرض القيم وتحفظ السياسة كاملة؛ 00195: لا شرائح ولا إعدادات استقطاع هنا — إشعار ورابط لوحدة «الاستقطاعات التلقائية»', async () => {
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
     expect(screen.getByTestId('p-annual')).toHaveValue(30)
-    expect(screen.getByTestId('tiers-table').querySelectorAll('tbody tr')).toHaveLength(4)
-    // معاينة: نقص 30 → 60 دقيقة
-    fireEvent.change(screen.getByTestId('tier-sample'), { target: { value: '30' } })
-    expect(screen.getByTestId('tier-preview')).toHaveTextContent('1س 0د')
-    // فجوة → خطأ وزر الحفظ معطّل
-    fireEvent.change(screen.getByTestId('tier-1-from'), { target: { value: '17' } })
-    expect(screen.getByTestId('tiers-error')).toHaveTextContent('الدقيقة 16')
-    expect(screen.getByTestId('policy-save')).toBeDisabled()
-    fireEvent.change(screen.getByTestId('tier-1-from'), { target: { value: '16' } })
-    expect(screen.queryByTestId('tiers-error')).toBeNull()
-    // إضافة شريحة تُغلق الأخيرة وتفتح جديدة
-    fireEvent.click(screen.getByTestId('tier-add'))
-    expect(screen.getByTestId('tiers-table').querySelectorAll('tbody tr')).toHaveLength(5)
-    expect(screen.queryByTestId('tiers-error')).toBeNull()
+    expect(screen.queryByTestId('tiers-table')).toBeNull()
+    expect(screen.queryByTestId('p-auto-ded')).toBeNull(); expect(screen.queryByTestId('p-absent')).toBeNull(); expect(screen.queryByTestId('p-grace')).toBeNull(); expect(screen.queryByTestId('p-auto-cap')).toBeNull()
+    expect(screen.getByTestId('deductions-moved')).toHaveTextContent('الاستقطاعات التلقائية')
+    expect(screen.getByTestId('deductions-link')).toHaveAttribute('href', '/it/integrations/auto-deductions')
     fireEvent.change(screen.getByTestId('p-permits-per-day'), { target: { value: '4' } })
     fireEvent.change(screen.getByTestId('p-al-late'), { target: { value: '2' } })
     fireEvent.click(screen.getByTestId('policy-save'))
     await waitFor(() => expect(h.setPolicy).toHaveBeenCalledTimes(1))
     const sent = h.setPolicy.mock.calls[0]![0] as Record<string, unknown>
     expect(sent.permits_per_leave_day).toBe(4); expect(sent.alert_late_days_per_month).toBe(2)
-    expect((sent.deduction_tiers as unknown[]).length).toBe(5)
+    // الشرائح تبقى ضمن كائن السياسة كما جاءت (تتم مزامنتها من القاعدة الافتراضية في الخادم) ولا تُعدَّل من هنا
+    expect((sent.deduction_tiers as unknown[]).length).toBe(4)
   })
   it('00179: قسم محرك البصمة — نافذة الالتقاط والاحتساب التلقائي يُرسلان ضمن السياسة', async () => {
-    render(<HrPolicyPage />)
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
     await screen.findByTestId('p-window')
     fireEvent.change(screen.getByTestId('p-window'), { target: { value: '3' } })
     fireEvent.change(screen.getByTestId('p-auto'), { target: { value: 'false' } })
@@ -133,39 +124,28 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
     expect(sent.punch_window_hours).toBe(3); expect(sent.auto_evaluate_enabled).toBe(false)
   })
-  it('00187: قسم احتساب الراتب الشهري — أساس أجر اليوم، التناسب، سقف الاستقطاع التلقائي (نسبة مئوية → كسر)', async () => {
-    render(<HrPolicyPage />)
+  it('00187: قسم احتساب الراتب الشهري — أساس أجر اليوم والتناسب (سقف الاستقطاع انتقل إلى وحدة الاستقطاعات 00195)', async () => {
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
     await screen.findByTestId('p-day-basis')
     fireEvent.change(screen.getByTestId('p-day-basis'), { target: { value: 'calendar_days' } })
     fireEvent.change(screen.getByTestId('p-prorate'), { target: { value: 'false' } })
     fireEvent.change(screen.getByTestId('p-prorate-allow'), { target: { value: 'false' } })
-    fireEvent.change(screen.getByTestId('p-auto-cap'), { target: { value: '40' } })
     fireEvent.click(screen.getByTestId('policy-save'))
     await waitFor(() => expect(h.setPolicy).toHaveBeenCalled())
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
-    expect(sent.salary_day_basis).toBe('calendar_days'); expect(sent.prorate_partial_month).toBe(false); expect(sent.prorate_allowances).toBe(false); expect(sent.auto_deduction_cap_ratio).toBe(0.4)
+    expect(sent.salary_day_basis).toBe('calendar_days'); expect(sent.prorate_partial_month).toBe(false); expect(sent.prorate_allowances).toBe(false)
   })
-  it('00188: قسم الاستقطاع التلقائي — إيقاف كلي، مفاتيح المكونات، المبالغ الثابتة تظهر عند اختيارها، وسقف الأيام', async () => {
-    render(<HrPolicyPage />)
-    await screen.findByTestId('p-auto-ded')
-    expect(screen.queryByTestId('p-fixed-day')).toBeNull()
-    fireEvent.change(screen.getByTestId('p-ded-mode'), { target: { value: 'fixed' } })
-    fireEvent.change(screen.getByTestId('p-fixed-day'), { target: { value: '5000' } })
-    fireEvent.change(screen.getByTestId('p-fixed-minute'), { target: { value: '50' } })
-    fireEvent.change(screen.getByTestId('p-ded-shortfall'), { target: { value: 'false' } })
-    fireEvent.change(screen.getByTestId('p-max-days'), { target: { value: '10' } })
-    fireEvent.change(screen.getByTestId('p-require-confirm'), { target: { value: 'false' } })   // 00193
-    fireEvent.change(screen.getByTestId('p-auto-ded'), { target: { value: 'false' } })
-    expect(screen.getByTestId('p-ded-absence')).toBeDisabled()
+  it('00193: اعتماد الحضورية قبل التصدير يبقى في السياسة', async () => {
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
+    await screen.findByTestId('p-require-confirm')
+    fireEvent.change(screen.getByTestId('p-require-confirm'), { target: { value: 'false' } })
     fireEvent.click(screen.getByTestId('policy-save'))
     await waitFor(() => expect(h.setPolicy).toHaveBeenCalled())
     const sent = h.setPolicy.mock.calls.at(-1)![0] as Record<string, unknown>
-    expect(sent.auto_deduction_enabled).toBe(false); expect(sent.deduct_shortfall_enabled).toBe(false); expect(sent.auto_deduction_amount_mode).toBe('fixed')
-    expect(sent.fixed_absent_day_amount).toBe(5000); expect(sent.fixed_shortfall_minute_amount).toBe(50); expect(sent.max_auto_deduction_days_per_month).toBe(10)
     expect(sent.require_attendance_confirmation).toBe(false)
   })
   it('أنواع الإجازات: الجدول + إنشاء نوع غير مدفوع بأيام استقطاع', () => {
-    render(<HrPolicyPage />)
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
     expect(screen.getByTestId('lt-row-unpaid')).toHaveTextContent('تُستقطع')
     fireEvent.click(screen.getByTestId('lt-new'))
     expect(screen.getByTestId('lt-save')).toBeDisabled()

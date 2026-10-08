@@ -67,7 +67,10 @@ describe('كشف رواتب المالية (Excel) يحمل أعمدة الاس�
       pay_type: 'monthly', base_salary: 1440000, daily_rate: 0, allowances_total: 0, fixed_deductions_total: 0, proposed_net: 1362000, final_net: 1362000, finance_note: null,
     } as PayrollSheetRow
     const wb = await buildPayrollWorkbook('2026-08-01', [row])
-    const ws = wb.worksheets[0]!
+    const main = (wb.worksheets[0]!.getRow(4).values as unknown[]).slice(1)
+    expect(main).toContain('استقطاع تلقائي'); expect(main).not.toContain('استقطاع تلقائي (دقائق)')   // 00195: الرئيسية مبسّطة
+    expect(wb.worksheets[0]!.getRow(5).getCell(main.indexOf('استقطاع تلقائي') + 1).value).toBe(78000)
+    const ws = wb.getWorksheet('تفاصيل الحضور')!
     const headers = (ws.getRow(4).values as unknown[]).slice(1)
     expect(headers).toContain('استقطاع تلقائي (دقائق)'); expect(headers).toContain('استقطاع تلقائي (أيام)'); expect(headers).toContain('استقطاع تلقائي (مبلغ)')
     const r5 = ws.getRow(5).values as unknown[]

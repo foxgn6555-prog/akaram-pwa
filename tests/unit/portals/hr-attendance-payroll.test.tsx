@@ -302,9 +302,9 @@ describe('المالية — الرواتب', () => {
     expect(ws.views[0]).toMatchObject({ rightToLeft: true })
     expect(String(ws.getCell('A1').value)).toContain('مسودة')
     expect(ws.getRow(4).getCell(3).value).toBe('الاسم')
-    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(33).value).toBe(855000)
-    expect(ws.getRow(6).getCell(34).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
-    expect((ws.getRow(7).getCell(34).value as { formula: string }).formula).toBe('SUM(AH5:AH6)')
+    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(19).value).toBe(855000)   // 00195: الصافي المقترح = العمود 19
+    expect(ws.getRow(6).getCell(20).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
+    expect((ws.getRow(7).getCell(20).value as { formula: string }).formula).toBe('SUM(T5:T6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
     // 00179: ورقة ملخص الأقسام
@@ -413,7 +413,7 @@ describe('00186 — اكتمال دورة الرواتب (سيناريو الم�
   })
   it('Excel: أعمدة «أيام مجدولة / محتسبة / غير محتسب» وتظليل غير المحتسب', async () => {
     const wb = await buildPayrollWorkbook('2026-09-01', [krar as never])
-    const ws = wb.worksheets[0]!
+    const ws = wb.getWorksheet('تفاصيل الحضور')!   // 00195: أعمدة الحضور في ورقة التفاصيل
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     const i = (h2: string) => headers.indexOf(h2) + 1
     expect(ws.getRow(5).getCell(i('أيام مجدولة')).value).toBe(30); expect(ws.getRow(5).getCell(i('أيام محتسبة')).value).toBe(5); expect(ws.getRow(5).getCell(i('غير محتسب')).value).toBe(25)
@@ -463,13 +463,13 @@ describe('00187 — الشهر الجزئي بالنسبة والتناسب (س�
   })
   it('Excel: أعمدة «الفترة المشمولة / أيام مشمولة ÷ أيام الشهر / أجر اليوم» في آخر الورقة دون إزاحة الأعمدة القديمة', async () => {
     const wb = await buildPayrollWorkbook('2026-10-01', [partial])
-    const ws = wb.worksheets[0]!
+    const ws = wb.getWorksheet('تفاصيل الحضور')!   // 00195: أعمدة الحضور في ورقة التفاصيل
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     const i = (h2: string) => headers.indexOf(h2) + 1
-    expect(i('الصافي المعتمد')).toBe(34)
     expect(ws.getRow(5).getCell(i('الفترة المشمولة')).value).toBe('2026-10-01 → 2026-10-05')
     expect(ws.getRow(5).getCell(i('أيام مشمولة / أيام الشهر')).value).toBe('5 / 31')
     expect(ws.getRow(5).getCell(i('أجر اليوم المحتسب')).value).toBe(16666.6667)
-    expect(ws.getRow(5).getCell(i('الإجمالي')).value).toBe(83333.33)
+    const main = wb.worksheets[0]!; const mh = (main.getRow(4).values as unknown[]).slice(1) as string[]
+    expect(main.getRow(5).getCell(mh.indexOf('الإجمالي المستحق') + 1).value).toBe(83333.33)
   })
 })

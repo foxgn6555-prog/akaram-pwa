@@ -10,7 +10,7 @@ import { MemoryRouter } from 'react-router'
 const h = vi.hoisted(() => ({ sheet: [] as unknown[], reconcile: [] as unknown[], approve: vi.fn(async () => undefined), adjust: vi.fn(async () => undefined), exportStatus: null as unknown }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/hr', async (orig) => ({
-  ...(await orig<typeof import('@features/hr')>()),
+  ...(await orig<Record<string, unknown>>()),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: h.reconcile, isLoading: false }), useMonthExportStatus: () => ({ data: h.exportStatus }),
   useApprovePayroll: () => mut(h.approve), useAdjustPayroll: () => mut(h.adjust), useEmployeeMonthDays: () => ({ data: [], isLoading: false }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }),
   useFinanceNotices: () => ({ data: [] }), useHrEmployees: () => ({ data: [], isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined), useSalaryProfile: () => ({ data: null, isLoading: false }), useSetSalary: () => mut(async () => undefined),
@@ -77,6 +77,35 @@ describe('00194 — نموذج الكشف (دوال نقية)', () => {
     expect(explainRow(rc({}))).toBe('الإجمالي: الأساسي 600,000 + مخصصات 0 = 600,000 · الاستقطاعات: ثابتة 0 + عمليات 0 + أيام عمليات 0 + تلقائي 20,000 + قسط سلفة 0 = 20,000 · الصافي = 600,000 − 20,000 = 580,000')
     expect(explainRow(rc({ pay_type: 'daily', components: { daily_rate: 25000, payable_days: 25, allowances: 0, fixed_deductions: 0, ops_amount: 0, ops_days_amount: 0, auto_amount: 0, advance: 0 }, gross_expected: 625000, deductions_expected: 0, net_expected: 625000 }))).toContain('25,000 × 25 يوم مدفوع')
     expect(explainRow(rc({ pay_type: null }))).toContain('بلا ملف راتب')
+  })
+})
+
+describe('00195 — الكشف المبسّط: المالية ترى الصافي؛ تفاصيل الحضور في «التفاصيل» فقط', () => {
+  it('9 أعمدة فقط بلا «دقائق التأخير/ناقص/متأخر»، الاستقطاعات رقم واحد مع تفكيك صغير تحته، واسم قاعدة الاستقطاع في التفاصيل', () => {
+    h.sheet = [row({ ...rows[0]!, auto_deduction_rule: 'صارمة', auto_deduction_basis: 'fixed' }), rows[4]!]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    const ths = [...screen.getByTestId('ps-table').querySelectorAll('thead th')].map((t) => t.textContent?.trim())
+    expect(ths).toEqual(['الموظف', 'التعاقد', 'الأيام', 'غائب', 'الإجمالي المستحق', 'الاستقطاعات', 'الصافي المقترح', 'الصافي المعتمد', ''])
+    expect(screen.getByTestId('ps-table').textContent).not.toMatch(/دقائق التأخير|ناقص|متأخر/)
+    expect(screen.getByTestId('ps-table')).toHaveAttribute('data-layout', 'net-first')
+    expect(screen.getByTestId('ps-days-count-E-2')).toHaveTextContent('24 +1 / 26 / 26')
+    expect(screen.getByTestId('ps-gross-E-2')).toHaveTextContent('600,000'); expect(screen.getByTestId('ps-gross-E-2')).toHaveTextContent('أساسي 600,000')
+    expect(screen.getByTestId('ps-ded-E-2')).toHaveTextContent('20,000'); expect(screen.getByTestId('ps-auto-E-2')).toHaveTextContent('تلقائي 20,000 (1 يوم)'); expect(screen.getByTestId('ps-auto-E-2')).toHaveAttribute('title', 'قاعدة: صارمة')
+    expect(screen.getByTestId('ps-ded-E-5')).toHaveTextContent('70,000'); expect(screen.getByTestId('ps-advance-E-5')).toHaveTextContent('سلفة 50,000')
+    expect(screen.getByTestId('ps-proposed-E-2')).toHaveTextContent('580,000')
+    expect(screen.getByTestId('ps-grand-total')).toHaveTextContent('تلقائي 40,000 · سلف 50,000')
+    expect(screen.getByTestId('ps-table').textContent).not.toMatch(/[\u0660-\u0669]/)
+    fireEvent.click(screen.getByTestId('ps-days-E-2'))
+    expect(screen.getByTestId('ps-auto-rule')).toHaveTextContent('قاعدة «صارمة»'); expect(screen.getByTestId('ps-auto-fixed')).toBeInTheDocument()
+  })
+  it('Excel: الورقة الرئيسية 23 عموداً بقاعدة الاستقطاع، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
+    const wb = await buildPayrollWorkbook('2026-09-01', [row({ ...rows[0]!, auto_deduction_rule: 'صارمة' }), rows[1]!])
+    const ws = wb.worksheets[0]!; const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
+    expect(headers).toHaveLength(23); expect(headers).not.toContain('دقائق التأخير'); expect(ws.getRow(5).getCell(headers.indexOf('قاعدة الاستقطاع التلقائي') + 1).value).toBe('صارمة')
+    expect(ws.getRow(5).getCell(8).value).toBe(25)   // الأيام المدفوعة = حاضر 24 + إجازة مدفوعة 1
+    expect(wb.worksheets[1]!.name).toBe('تفاصيل الحضور')
+    const dh = (wb.worksheets[1]!.getRow(4).values as unknown[]).slice(1) as string[]
+    expect(dh).toContain('دقائق التأخير'); expect(dh).toContain('متأخر'); expect(wb.worksheets[1]!.getRow(5).getCell(dh.indexOf('دقائق التأخير') + 1).value).toBe(30)
   })
 })
 
@@ -160,10 +189,10 @@ describe('00194 — Excel المالي', () => {
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     expect(headers.slice(-2)).toEqual(['تحقق الصافي', 'ملاحظات التدقيق'])
     expect(String(ws.getCell('A2').value)).toContain('الفرع: الكرخ')
-    expect((ws.getRow(5).getCell(41).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,V5-AF5)-AG5)<=1,"✓","✗")')
-    expect(ws.getRow(7).getCell(42).value).toBe('صافٍ معدَّل يدوياً')
-    expect(ws.getRow(10).getCell(41).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(42).value).toBe('بلا ملف راتب')
-    expect(String((ws.getRow(11).getCell(41).value as { formula: string }).formula)).toContain('COUNTIF(AO5:AO10,"✗")')
+    expect((ws.getRow(5).getCell(22).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,L5-R5)-S5)<=1,"✓","✗")')   // 00195: الأعمدة المبسّطة L/R/S
+    expect(ws.getRow(7).getCell(23).value).toBe('صافٍ معدَّل يدوياً')
+    expect(ws.getRow(10).getCell(22).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(23).value).toBe('بلا ملف راتب')
+    expect(String((ws.getRow(11).getCell(22).value as { formula: string }).formula)).toContain('COUNTIF(V5:V10,"✗")')
     expect(ws.views[0]).toMatchObject({ xSplit: 3, ySplit: 4 })
   })
   it('ورقة «ملخص الفروع» هرمية (فرع ثم أقسامه) بمجاميع كل مستوى وإجمالي عام', async () => {
