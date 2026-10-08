@@ -106,11 +106,15 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     expect(screen.getByTestId('deductions-moved')).toHaveTextContent('الاستقطاعات التلقائية')
     expect(screen.getByTestId('deductions-link')).toHaveAttribute('href', '/it/integrations/auto-deductions')
     fireEvent.change(screen.getByTestId('p-permits-per-day'), { target: { value: '4' } })
+    // 00197: الطلب بأثر رجعي من التطوير المركزية
+    expect(screen.getByTestId('p-backdated-enabled')).toHaveValue('true')
+    fireEvent.change(screen.getByTestId('p-backdated-max'), { target: { value: '10' } }); fireEvent.change(screen.getByTestId('p-backdated-alert'), { target: { value: '2' } })
     fireEvent.change(screen.getByTestId('p-al-late'), { target: { value: '2' } })
     fireEvent.click(screen.getByTestId('policy-save'))
     await waitFor(() => expect(h.setPolicy).toHaveBeenCalledTimes(1))
     const sent = h.setPolicy.mock.calls[0]![0] as Record<string, unknown>
     expect(sent.permits_per_leave_day).toBe(4); expect(sent.alert_late_days_per_month).toBe(2)
+    expect(sent.backdated_max_days).toBe(10); expect(sent.backdated_alert_per_month).toBe(2)
     // الشرائح تبقى ضمن كائن السياسة كما جاءت (تتم مزامنتها من القاعدة الافتراضية في الخادم) ولا تُعدَّل من هنا
     expect((sent.deduction_tiers as unknown[]).length).toBe(4)
   })
@@ -172,7 +176,8 @@ describe('بوابة الموظف — طلباتي', () => {
     expect(screen.getByTestId('my-form-summary')).toHaveTextContent('الأيام: 3'); expect(screen.getByTestId('my-form-summary')).toHaveTextContent('تخصم من الرصيد 3 يوم')
     fireEvent.change(screen.getByTestId('my-form-notes'), { target: { value: 'سفر' } })
     fireEvent.click(screen.getByTestId('my-form-submit'))
-    await waitFor(() => expect(h.request).toHaveBeenCalledWith({ employeeId: 'e2', typeId: 'annual', start: '2099-02-01', end: '2099-02-03', startTime: null, endTime: null, notes: 'سفر', attachment: null }))
+    await waitFor(() => expect(h.request).toHaveBeenCalledWith({ employeeId: 'e2', typeId: 'annual', start: '2099-02-01', end: '2099-02-03', startTime: null, endTime: null, notes: 'سفر', attachment: null, backdatedReason: null }))
+    expect(screen.queryByTestId('my-form-backdated')).toBeNull()
   })
   it('الزمنية: تتحقق من الحد الأقصى والوقت، وتخصم ثلث يوم؛ المرضية تتطلب مرفقاً؛ بلا مدير لا نموذج', () => {
     render(<MyRequests />)
@@ -189,6 +194,24 @@ describe('بوابة الموظف — طلباتي', () => {
     expect(screen.getByTestId('my-form-submit')).toBeDisabled()
     fireEvent.change(screen.getByTestId('my-form-type'), { target: { value: 'unpaid' } })
     expect(screen.getByTestId('my-form-summary')).toHaveTextContent('غير مدفوعة — تُستقطع من الراتب')
+  })
+  it('00197: طلب ليوم سابق ⇒ تحذير «بأثر رجعي» + سبب إلزامي + زر مختلف، ويُرسل السبب؛ وطلباتي تعرض الشارة والسبب', async () => {
+    const past = new Date(Date.now() - 2 * 86400000); const iso = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}-${String(past.getDate()).padStart(2, '0')}`
+    h.requests = [REQ({ id: 'r9', is_backdated: true, backdated_reason: 'أبلغت مديري شفهياً', backdated_days: 2, can_decide: false })]
+    render(<MyRequests />)
+    fireEvent.change(screen.getByTestId('my-form-type'), { target: { value: 'annual' } })
+    fireEvent.change(screen.getByTestId('my-form-start'), { target: { value: iso } })
+    fireEvent.change(screen.getByTestId('my-form-end'), { target: { value: iso } })
+    const warn = screen.getByTestId('my-form-backdated')
+    expect(warn).toHaveTextContent('هذا طلب بأثر رجعي'); expect(warn).toHaveTextContent('قبل 2 أيام'); expect(warn).toHaveTextContent('يُصحَّح سجل حضورك')
+    expect(screen.getByTestId('my-form-submit')).toHaveTextContent('إرسال الطلب بأثر رجعي'); expect(screen.getByTestId('my-form-submit')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('my-form-backdated-reason'), { target: { value: 'نعم' } }); expect(screen.getByTestId('my-form-submit')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('my-form-backdated-reason'), { target: { value: 'أبلغت مديري شفهياً ونسيت التسجيل' } }); expect(screen.getByTestId('my-form-submit')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('my-form-submit'))
+    await waitFor(() => expect(h.request).toHaveBeenCalledWith(expect.objectContaining({ start: iso, backdatedReason: 'أبلغت مديري شفهياً ونسيت التسجيل' })))
+    expect(screen.getByTestId('my-req-backdated-r9')).toHaveTextContent('بأثر رجعي · قبل 2 يوم')
+    expect(screen.getByTestId('my-req-row-r9')).toHaveTextContent('سبب التأخر: أبلغت مديري شفهياً')
+    expect(screen.getByTestId('my-form-backdated').textContent).not.toMatch(/[\u0660-\u0669]/)
   })
   it('طلباتي: إلغاء المعلّق بتأكيد، والمعتمد المستقبلي بسبب', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)

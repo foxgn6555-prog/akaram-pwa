@@ -28,7 +28,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')
   assert a.status = 'absent' and a.proposed_deduction_days = 1, 'قبل الإجازة: غياب مقترح: ' || row_to_json(a)::text;
   -- HR تُدخل إجازة اعتيادية للأيام 10..11 نيابةً؛ لا تزال معلّقة → يبقى غياباً
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request(e, t, m + 10, m + 11, null, null, 'نيابة');
+  lid := public.hr_leave_request(e, t, m + 10, m + 11, null, null, 'نيابة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform public.hr_attendance_evaluate(m + 10, m + 11, e);
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 10;
   assert a.status = 'absent', 'طلب معلّق لا يغيّر الغياب: ' || a.status;
@@ -79,9 +79,9 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; e uuid := 'bbbb0000-0000-0000-0000-000000000021'; t uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  perform public.hr_leave_request(e, t, m + 12, m + 12, '08:00', '09:00', 'بلا بصمة');
-  perform public.hr_leave_request(e, t, m + 13, m + 13, '08:00', '09:00', 'بصمة واحدة');
-  perform public.hr_leave_request(e, t, m + 14, m + 14, '08:00', '09:00', 'بصمتان');
+  perform public.hr_leave_request(e, t, m + 12, m + 12, '08:00', '09:00', 'بلا بصمة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
+  perform public.hr_leave_request(e, t, m + 13, m + 13, '08:00', '09:00', 'بصمة واحدة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
+  perform public.hr_leave_request(e, t, m + 14, m + 14, '08:00', '09:00', 'بصمتان', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   insert into public.biometric_punches (device_serial, pin, employee_id, punched_at, method) values
     ('T', '21', e, (m + 13 + time '09:00')::timestamp at time zone '+03:00'::interval, 'manual'),
     ('T', '21', e, (m + 14 + time '09:00')::timestamp at time zone '+03:00'::interval, 'manual'), ('T', '21', e, (m + 14 + time '16:00')::timestamp at time zone '+03:00'::interval, 'manual');
@@ -110,14 +110,14 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000022');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 10; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000022', t, d, d); raise exception 'should fail';
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000022', t, d, d, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_NO_BIOMETRIC', 'self request blocked: ' || sqlerrm; end;
   raise notice 'E4b ✅ بلا بصمة لا يطلب بنفسه';
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 10; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000022', t, d, d, null, null, 'نيابة');
+  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000022', t, d, d, null, null, 'نيابة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   assert (select status from public.hr_leaves where id = lid) = 'pending', 'HR may enter on behalf';
   perform public.hr_leave_cancel(lid, 'تنظيف');
   raise notice 'E4c ✅ HR تُدخل نيابةً عن موظف بلا بصمة';
@@ -127,14 +127,14 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000021');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 12; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t, d, d); raise exception 'should fail';
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t, d, d, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_FORBIDDEN', 'employee cannot request for others: ' || sqlerrm; end;
   raise notice 'E5a ✅ الموظف لا يطلب لغيره';
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000c');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 12; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, 'من المدير');
+  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, 'من المدير', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform public.hr_leave_cancel(lid, 'تنظيف');
   raise notice 'E5b ✅ المدير المباشر يطلب لموظفه';
 end $$;
@@ -143,9 +143,9 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000021');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 15; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'sick';
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d); raise exception 'should fail';
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_ATTACHMENT_REQUIRED', 'sick needs attachment: ' || sqlerrm; end;
-  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, null, 'bbbb0000-0000-0000-0000-000000000021/leave-1.pdf');
+  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, null, 'bbbb0000-0000-0000-0000-000000000021/leave-1.pdf', 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform public.hr_leave_cancel(lid);
   raise notice 'E6a ✅ المرضية بمرفق فقط';
 end $$;
@@ -154,8 +154,8 @@ select public.hr_policy_set('{"permits_max_per_month": 1}');
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000021');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 16; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, '09:00', '10:00');
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d + 1, d + 1, '09:00', '10:00'); raise exception 'should fail';
+  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, '09:00', '10:00', null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d + 1, d + 1, '09:00', '10:00', null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_PERMIT_MONTH_LIMIT', 'monthly permit cap: ' || sqlerrm; end;
   perform public.hr_leave_cancel(lid);
   raise notice 'E6b ✅ السقف الشهري للزمنيات';
@@ -177,13 +177,13 @@ select public.hr_policy_set('{"balance_mode": "annual_upfront"}');
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000021');
 do $$ declare t uuid; d date := (date_trunc('month', current_date) + interval '1 month')::date + 20; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, 'اختبار التصعيد');
+  perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, d, d, null, null, 'اختبار التصعيد', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 -- المدير المباشر (c) يطلب إجازة تشمل اليوم، ومديره الأعلى (boss) يوافق
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000c');
 do $$ declare t uuid; begin
   select id into t from public.hr_leave_types where code = 'official';
-  perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000c', t, current_date, current_date, null, null, 'إيفاد');
+  perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000c', t, current_date, current_date, null, null, 'إيفاد', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-000000000010');
 do $$ declare lid uuid; own uuid; begin
@@ -223,7 +223,7 @@ select public.finance_salary_set('bbbb0000-0000-0000-0000-000000000021', 'monthl
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; t uuid; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, m + 20, m + 20, null, null, 'قبل القفل');
+  perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, m + 20, m + 20, null, null, 'قبل القفل', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; x uuid; begin
@@ -257,7 +257,7 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '3 month')::date; e uuid := 'bbbb0000-0000-0000-0000-000000000021'; t uuid; lid uuid; a record; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request(e, t, m + 3, m + 6, null, null, 'أربعة أيام');
+  lid := public.hr_leave_request(e, t, m + 3, m + 6, null, null, 'أربعة أيام', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform set_config('test.leave_id', lid::text, false);
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000c');
@@ -306,7 +306,8 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '4 month')
   select count(*) into n from public.hr_attendance_days where employee_id = e and work_date > m + 5; assert n = 0, 'no rows after termination';
   select count(*) into n from public.hr_attendance_days where employee_id = e and work_date between m + 1 and m + 5; assert n = 5, 'rows up to termination day';
   select id into t from public.hr_leave_types where code = 'annual';
-  begin perform public.hr_leave_request(e, t, current_date + 30, current_date + 30); raise exception 'should fail';
+  begin perform public.hr_leave_request(e, t, current_date + 30, current_date + 30, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_NOT_FOUND', 'terminated cannot request: ' || sqlerrm; end;
   raise notice 'E12 ✅ المُنهى خدمته خارج الاشتقاق والطلبات';
 end $$;
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

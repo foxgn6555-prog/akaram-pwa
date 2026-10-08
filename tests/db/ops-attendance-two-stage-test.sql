@@ -1,6 +1,7 @@
 -- 00193 — وحدة الحضوريات بمرحلتين: التدقيق التفصيلي → اعتماد الشهر → الكشف المعتمد → التصدير للمالية (بادئة ts)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('fc000000-0000-0000-0000-000000000001', 'ts-ops@t.iq'), ('fc000000-0000-0000-0000-000000000002', 'ts-hr@t.iq'), ('fc000000-0000-0000-0000-000000000004', 'ts-adm@t.iq'),
   ('fc000000-0000-0000-0000-000000000005', 'ts-mgr@t.iq'), ('fc000000-0000-0000-0000-000000000006', 'ts-e1@t.iq'), ('fc000000-0000-0000-0000-000000000007', 'ts-fin@t.iq'),
@@ -45,7 +46,7 @@ end $$;
 select auth.set_test_user('fc000000-0000-0000-0000-000000000006');
 do $$ declare m date := current_setting('test.ts_m')::date; t uuid; l uuid; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  l := public.hr_leave_request('fc000000-0000-0000-0000-0000000000e6', t, m + 4, m + 5, null, null, 'سفر');
+  l := public.hr_leave_request('fc000000-0000-0000-0000-0000000000e6', t, m + 4, m + 5, null, null, 'سفر', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform set_config('test.ts_l1', l::text, false);
 end $$;
 select auth.set_test_user('fc000000-0000-0000-0000-000000000005');

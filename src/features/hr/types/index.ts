@@ -584,6 +584,10 @@ export interface HrPolicy {
   permits_per_leave_day: number
   permit_max_minutes: number
   permits_max_per_month: number | null
+  /** 00197: الطلب بأثر رجعي */
+  backdated_requests_enabled?: boolean
+  backdated_max_days?: number
+  backdated_alert_per_month?: number
   grace_minutes_default: number
   deduction_basis: 'shortfall'
   deduction_tiers: DeductionTier[]
@@ -689,6 +693,10 @@ export interface LeaveRequestRow {
   cancelled_reason: string | null
   created_at: string
   can_decide: boolean
+  /** 00197: طلب بأثر رجعي (ليوم سابق) */
+  is_backdated?: boolean
+  backdated_reason?: string | null
+  backdated_days?: number
 }
 export interface LeaveRequestInput {
   employeeId: string
@@ -699,6 +707,8 @@ export interface LeaveRequestInput {
   endTime?: string | null
   notes?: string | null
   attachment?: string | null
+  /** 00197: سبب الطلب ليوم سابق (إلزامي عندما يكون تاريخ البداية قبل اليوم) */
+  backdatedReason?: string | null
 }
 export interface HrAlert {
   id: string

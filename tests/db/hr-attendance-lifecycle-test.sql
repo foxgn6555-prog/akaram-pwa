@@ -4,6 +4,7 @@
 -- تغيير الشفت بأثر رجعي، حدود التعيين/إنهاء الخدمة، التعديل اليدوي، الشفت الليلي، كشف المالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('1c000000-0000-0000-0000-00000000000a', 'lc-hr@t.iq'), ('1c000000-0000-0000-0000-00000000000b', 'lc-mgr@t.iq'), ('1c000000-0000-0000-0000-00000000000c', 'lc-emp@t.iq')
 on conflict (id) do nothing;
@@ -76,7 +77,7 @@ do $$ declare e uuid := '1c000000-0000-0000-0000-0000000000e1'; today date := ap
   select count(*) into n from public.hr_attendance_days where employee_id = e and work_date = today + 5; assert n = 0, 'L2 الصف الوهمي لم يُزل';
   -- إجازة معتمدة مستقبلية تُكتب «إجازة» فوراً
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request(e, t, today + 3, today + 4, null, null, 'مستقبلية');
+  lid := public.hr_leave_request(e, t, today + 3, today + 4, null, null, 'مستقبلية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b');
   perform public.hr_leave_decide(lid, true, 'موافق');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
@@ -93,12 +94,12 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
   perform public.hr_attendance_evaluate(m + 7, m + 8, e);
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 7; assert a.status = 'absent', 'L3 قبل';
   select id into t from public.hr_leave_types where code = 'unpaid';
-  lid := public.hr_leave_request(e, t, m + 7, m + 7, null, null, 'بدون راتب');
+  lid := public.hr_leave_request(e, t, m + 7, m + 7, null, null, 'بدون راتب', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'موافق'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 7;
   assert a.status = 'leave' and a.proposed_deduction_days = 1 and a.deduction_reason like '%بدون راتب%' and a.shortfall_minutes = 0, 'L3 بدون راتب: ' || row_to_json(a)::text;
   select id into t from public.hr_leave_types where code = 'sick';
-  lid := public.hr_leave_request(e, t, m + 8, m + 8, null, null, 'مرضية', 'docs/x.pdf');
+  lid := public.hr_leave_request(e, t, m + 8, m + 8, null, null, 'مرضية', 'docs/x.pdf', 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'موافق'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 8;
   assert a.status = 'leave' and a.proposed_deduction_days = 0 and a.deduction_reason is null, 'L3 مرضية مدفوعة: ' || row_to_json(a)::text;
@@ -112,25 +113,25 @@ end $$;
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := '1c000000-0000-0000-0000-0000000000e1'; a record; t uuid; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
   -- يوم 10: زمنية 08:00→10:00 ثم حضر 09:50 وخرج 16:00 → زمنية بلا تأخير
-  lid := public.hr_leave_request(e, t, m + 10, m + 10, '08:00', '10:00', 'بداية');
+  lid := public.hr_leave_request(e, t, m + 10, m + 10, '08:00', '10:00', 'بداية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'ok'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   perform pg_temp.lc_punch('7101', m + 10, '09:50'); perform pg_temp.lc_punch('7101', m + 10, '16:00');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 10;
   assert a.status = 'time_permit' and a.late_minutes = 0 and a.permit_minutes = 120 and a.shortfall_minutes = 0 and a.proposed_deduction_days = 0, 'L4 بداية: ' || row_to_json(a)::text;
   -- يوم 11: زمنية 14:00→16:00 (نهاية) وحضر 08:00 وخرج 14:05 → زمنية بلا خروج مبكر
-  lid := public.hr_leave_request(e, t, m + 11, m + 11, '14:00', '16:00', 'نهاية');
+  lid := public.hr_leave_request(e, t, m + 11, m + 11, '14:00', '16:00', 'نهاية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'ok'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   perform pg_temp.lc_punch('7101', m + 11, '08:00'); perform pg_temp.lc_punch('7101', m + 11, '14:05');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 11;
   assert a.status = 'time_permit' and a.early_minutes = 0 and a.shortfall_minutes = 0, 'L4 نهاية: ' || row_to_json(a)::text;
   -- يوم 12: زمنية 11:00→13:00 (منتصف) لكنه تأخر 09:00 وخرج 16:00 → يبقى «متأخر» 45 دقيقة (الزمنية لا تعذر التأخير)
-  lid := public.hr_leave_request(e, t, m + 12, m + 12, '11:00', '13:00', 'منتصف');
+  lid := public.hr_leave_request(e, t, m + 12, m + 12, '11:00', '13:00', 'منتصف', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'ok'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   perform pg_temp.lc_punch('7101', m + 12, '09:00'); perform pg_temp.lc_punch('7101', m + 12, '16:00');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 12;
   assert a.status = 'late' and a.late_minutes = 45 and a.permit_minutes = 120, 'L4 منتصف: ' || row_to_json(a)::text;
   -- يوم 13: زمنية في المنتصف وحضر في وقته → زمنية
-  lid := public.hr_leave_request(e, t, m + 13, m + 13, '11:00', '12:00', 'منتصف2');
+  lid := public.hr_leave_request(e, t, m + 13, m + 13, '11:00', '12:00', 'منتصف2', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'ok'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   perform pg_temp.lc_punch('7101', m + 13, '08:00'); perform pg_temp.lc_punch('7101', m + 13, '16:00');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 13;
@@ -163,7 +164,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
   assert a.status = 'present' and a.worked_minutes = 470 and a.early_minutes = 5, 'L6 ليلي: ' || row_to_json(a)::text;
   select count(*) into n from public.hr_attendance_days where employee_id = e and work_date = m + 19 and status = 'incomplete'; assert n = 0, 'L6 اليوم التالي التقط الخروج كبصمة وحيدة';
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  lid := public.hr_leave_request(e, t, m + 20, m + 20, '04:00', '06:00', 'نهاية ليلي');
+  lid := public.hr_leave_request(e, t, m + 20, m + 20, '04:00', '06:00', 'نهاية ليلي', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform auth.set_test_user('1c000000-0000-0000-0000-00000000000b'); perform public.hr_leave_decide(lid, true, 'ok'); perform auth.set_test_user('1c000000-0000-0000-0000-00000000000a');
   perform pg_temp.lc_punch('7101', m + 20, '22:00'); perform pg_temp.lc_punch('7101', m + 21, '04:02');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 20;

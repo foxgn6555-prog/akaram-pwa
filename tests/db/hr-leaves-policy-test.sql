@@ -89,14 +89,14 @@ begin
   select id into t_annual from public.hr_leave_types where code = 'annual';
   select id into t_permit from public.hr_leave_types where code = 'permit_paid';
   -- زمنية أطول من الحد
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_permit, d1, d1, '09:00', '13:00'); raise exception 'should fail';
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_permit, d1, d1, '09:00', '13:00', null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_PERMIT_TOO_LONG', 'permit max: ' || sqlerrm; end;
-  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_annual, d1, d1 + 1, null, null, 'سفر');
+  lid := public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_annual, d1, d1 + 1, null, null, 'سفر', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   assert (select status from public.hr_leaves where id = lid) = 'pending', 'pending';
   assert (select manager_id from public.hr_leaves where id = lid) = 'bbbb0000-0000-0000-0000-00000000000c', 'manager snapshot';
   select count(*) into n from public.notifications where user_id = 'aaaa0000-0000-0000-0000-00000000000c' and dedupe_key = 'leave_req:' || lid; assert n = 1, 'manager notified';
   -- تداخل
-  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_annual, d1 + 1, d1 + 2); raise exception 'should fail';
+  begin perform public.hr_leave_request('bbbb0000-0000-0000-0000-00000000000d', t_annual, d1 + 1, d1 + 2, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_LEAVE_OVERLAP', 'overlap: ' || sqlerrm; end;
   -- لا يبتّ الموظف بنفسه
   begin perform public.hr_leave_decide(lid, true); raise exception 'should fail';
@@ -180,11 +180,11 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; t uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  perform public.hr_leave_request(e, t, m + 5, m + 5, '09:00', '10:00', 'زمنية');
+  perform public.hr_leave_request(e, t, m + 5, m + 5, '09:00', '10:00', 'زمنية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select id into t from public.hr_leave_types where code = 'permit_unpaid';
-  perform public.hr_leave_request(e, t, m + 7, m + 7, '08:00', '10:00', 'زمنية بلا راتب');
+  perform public.hr_leave_request(e, t, m + 7, m + 7, '08:00', '10:00', 'زمنية بلا راتب', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select id into t from public.hr_leave_types where code = 'unpaid';
-  perform public.hr_leave_request(e, t, m + 8, m + 8, null, null, 'بدون راتب');
+  perform public.hr_leave_request(e, t, m + 8, m + 8, null, null, 'بدون راتب', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000c');
 do $$ declare r record; a record; m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; b jsonb; begin
@@ -257,3 +257,4 @@ do $$ declare d jsonb; begin
   assert (d ->> 'pending')::int = 0 and (d ->> 'open_alerts')::int >= 0, 'dashboard: ' || d::text;
   raise notice 'T14 ✅ لوحة الإجازات';
 end $$;
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

@@ -3,6 +3,7 @@
 -- الهدف: إثبات أن ترتيب العمليات صحيح وأن كل رقم في كشف الرواتب يُشتق من مصدره بلا تضارب بين غرفة العمليات والمالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('fe000000-0000-0000-0000-000000000001', 'fx-ops@t.iq'), ('fe000000-0000-0000-0000-000000000002', 'fx-hr@t.iq'), ('fe000000-0000-0000-0000-000000000003', 'fx-dep@t.iq'),
   ('fe000000-0000-0000-0000-000000000004', 'fx-adm@t.iq'), ('fe000000-0000-0000-0000-000000000005', 'fx-mgr@t.iq'), ('fe000000-0000-0000-0000-000000000006', 'fx-emp@t.iq'),
@@ -67,7 +68,7 @@ end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000006');
 do $$ declare m date := current_setting('test.fx_m')::date; t uuid; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  lid := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 4, m + 4, '14:00', '16:00', 'مراجعة دائرة');
+  lid := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 4, m + 4, '14:00', '16:00', 'مراجعة دائرة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform set_config('test.fx_permit', lid::text, false);
   assert exists (select 1 from public.notifications where user_id = 'fe000000-0000-0000-0000-000000000005' and body like '%14:00–16:00%'), 'S2 manager notified';
 end $$;
@@ -83,9 +84,9 @@ end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000006');
 do $$ declare m date := current_setting('test.fx_m')::date; t uuid; l1 uuid; l2 uuid; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  l1 := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 6, m + 7, null, null, 'سفر');
+  l1 := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 6, m + 7, null, null, 'سفر', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select id into t from public.hr_leave_types where code = 'unpaid';
-  l2 := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 8, m + 8, null, null, 'ظرف خاص');
+  l2 := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m + 8, m + 8, null, null, 'ظرف خاص', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform set_config('test.fx_l1', l1::text, false); perform set_config('test.fx_l2', l2::text, false);
 end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000005');
@@ -291,11 +292,11 @@ end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000006');
 do $$ declare m date := date_trunc('month', current_date)::date; t uuid; l uuid; ok boolean := false; begin
   select id into t from public.hr_leave_types where code = 'annual';
-  begin l := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m, (m + interval '1 month' - interval '1 day')::date, null, null, 'إجازة سنوية');
+  begin l := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m, (m + interval '1 month' - interval '1 day')::date, null, null, 'إجازة سنوية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   exception when others then ok := sqlerrm = 'HR_BALANCE_INSUFFICIENT'; end;
   assert ok, 'S12 annual balance guard';
   select id into t from public.hr_leave_types where code = 'official';
-  l := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m, (m + interval '1 month' - interval '1 day')::date, null, null, 'إيفاد رسمي');
+  l := public.hr_leave_request('fe000000-0000-0000-0000-0000000000e6', t, m, (m + interval '1 month' - interval '1 day')::date, null, null, 'إيفاد رسمي', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform set_config('test.fx_l3', l::text, false);
 end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000005');

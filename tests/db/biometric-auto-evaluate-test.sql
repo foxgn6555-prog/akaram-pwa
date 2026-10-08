@@ -118,7 +118,7 @@ do $$
 declare t uuid; lid uuid; m date := (date_trunc('month', current_date) + interval '2 month')::date;
 begin
   select id into t from public.hr_leave_types where code = 'annual';
-  lid := public.hr_leave_request('bb000000-0000-0000-0000-00000000000d', t, m + 1, m + 2, null, null, 'اختبار إلغاء');
+  lid := public.hr_leave_request('bb000000-0000-0000-0000-00000000000d', t, m + 1, m + 2, null, null, 'اختبار إلغاء', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   if (select chain_id from public.hr_leaves where id = lid) is null then raise exception 'T5: chain not attached'; end if;
   if (select count(*) from public.approval_tasks where request_id = lid and status in ('pending', 'waiting')) <> 2 then raise exception 'T5: expected 2 open tasks'; end if;
   perform public.hr_leave_cancel(lid, 'غيّرت رأيي');
@@ -164,3 +164,4 @@ do $$ begin
   raise notice 'T7b OK';
 end $$;
 select 'BIOMETRIC AUTO-EVALUATE TESTS PASSED' as result;
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

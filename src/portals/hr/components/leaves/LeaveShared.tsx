@@ -48,6 +48,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [notes, setNotes] = useState('')
+  const [backdatedReason, setBackdatedReason] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,7 +63,12 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
     ? (minutes <= 0 ? 'وقت النهاية يجب أن يكون بعد البداية' : maxMin && minutes > maxMin ? `الحد الأقصى للزمنية ${fmtMinutes(maxMin)}` : null)
     : (end < start ? 'تاريخ النهاية قبل البداية' : t.max_days_per_request && days > t.max_days_per_request ? `الحد الأقصى ${t.max_days_per_request} يوم لهذا النوع` : null)
   const attachmentMissing = !!t?.requires_attachment && !file
-  const disabled = !!localError || insufficient || attachmentMissing || request.isPending || uploading
+  // 00197: طلب ليوم سابق ⇒ تحذير + سبب إلزامي (يظهر للمدراء في سلسلة الموافقات)
+  const todayIso = isoDay()
+  const backdatedDays = start < todayIso ? daysBetween(start, todayIso) - 1 : 0
+  const isBackdated = backdatedDays > 0
+  const backdatedMissing = isBackdated && backdatedReason.trim().length < 5
+  const disabled = !!localError || insufficient || attachmentMissing || backdatedMissing || request.isPending || uploading
 
   const submit = async () => {
     if (!employeeId || !t || disabled) return
@@ -70,8 +76,8 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
     try {
       let attachment: string | null = null
       if (file) { setUploading(true); attachment = await hr.uploadLeaveAttachment(employeeId, file); setUploading(false) }
-      await request.mutateAsync({ employeeId, typeId: t.id, start, end: isPermit ? start : end, startTime: isPermit ? startTime : null, endTime: isPermit ? endTime : null, notes, attachment })
-      setNotes(''); setFile(null); onDone?.()
+      await request.mutateAsync({ employeeId, typeId: t.id, start, end: isPermit ? start : end, startTime: isPermit ? startTime : null, endTime: isPermit ? endTime : null, notes, attachment, backdatedReason: isBackdated ? backdatedReason.trim() : null })
+      setNotes(''); setBackdatedReason(''); setFile(null); onDone?.()
     } catch (e) { setUploading(false); setError(e instanceof Error ? e.message : String(e)) }
   }
 
@@ -96,6 +102,16 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
         ) : (
           <label className="text-xs font-semibold text-slate-600">إلى<input type="date" className={clsx(field, 'mt-1')} value={end} min={start} onChange={(e) => setEnd(e.target.value)} data-testid={`${testId}-end`} /></label>
         )}
+        {isBackdated && (
+          <div className="sm:col-span-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" data-testid={`${testId}-backdated`}>
+            <p className="font-black">⚠ هذا طلب بأثر رجعي — ليوم سابق (قبل <span dir="ltr">{backdatedDays}</span> {backdatedDays === 1 ? 'يوم' : 'أيام'})</p>
+            <p className="mt-0.5">سيظهر لكل مدير في سلسلة الموافقات كطلب متأخر مع سببك، وعند الموافقة يُصحَّح سجل حضورك لذلك اليوم تلقائياً (غائب ⇒ إجازة / حاضر (زمنية)) ويُلغى الاستقطاع المقترح.</p>
+            <label className="mt-2 block font-semibold">سبب الطلب المتأخر <span className="text-red-600">(إلزامي)</span>
+              <textarea className={clsx(field, 'mt-1 min-h-16')} value={backdatedReason} onChange={(e) => setBackdatedReason(e.target.value)} placeholder="مثال: أبلغت مديري شفهياً ووافق، ونسيت تسجيل الطلب" data-testid={`${testId}-backdated-reason`} />
+            </label>
+            {backdatedMissing && <p className="mt-1 text-red-600">اكتب سبباً واضحاً (5 أحرف على الأقل)</p>}
+          </div>
+        )}
         <label className="text-xs font-semibold text-slate-600 sm:col-span-2">ملاحظات<input className={clsx(field, 'mt-1')} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="سبب الطلب (اختياري)" data-testid={`${testId}-notes`} /></label>
         {t && (
           <label className="text-xs font-semibold text-slate-600 sm:col-span-2">مرفق {t.requires_attachment ? <span className="text-red-600">(إلزامي لهذا النوع)</span> : '(اختياري)'}
@@ -114,7 +130,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
         </div>
       )}
       {error && <p className="text-xs text-red-600" data-testid={`${testId}-error`}>{error}</p>}
-      <div className="flex justify-end"><Button size="sm" disabled={disabled} isLoading={request.isPending || uploading} onClick={() => void submit()} data-testid={`${testId}-submit`}>إرسال الطلب إلى المدير المباشر</Button></div>
+      <div className="flex justify-end"><Button size="sm" disabled={disabled} isLoading={request.isPending || uploading} onClick={() => void submit()} data-testid={`${testId}-submit`}>{isBackdated ? 'إرسال الطلب بأثر رجعي' : 'إرسال الطلب إلى المدير المباشر'}</Button></div>
     </div>
   )
 }
@@ -145,11 +161,11 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
           return (
             <tr key={r.id} className={clsx('border-t border-slate-100', r.status === 'pending' && 'bg-amber-50/30')} data-testid={`${testId}-row-${r.id}`}>
               {showEmployee && <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</p></td>}
-              <td className="p-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', r.kind === 'leave' ? 'bg-sky-50 text-sky-700' : 'bg-violet-50 text-violet-700')}>{r.type_name ?? (r.kind === 'leave' ? 'إجازة' : 'زمنية')}</span>{r.is_paid === false && <span className="block text-[10px] text-red-600">تُستقطع من الراتب</span>}</td>
+              <td className="p-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', r.kind === 'leave' ? 'bg-sky-50 text-sky-700' : 'bg-violet-50 text-violet-700')}>{r.type_name ?? (r.kind === 'leave' ? 'إجازة' : 'زمنية')}</span>{r.is_paid === false && <span className="block text-[10px] text-red-600">تُستقطع من الراتب</span>}{r.is_backdated && <span className="mt-0.5 block rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800" title={r.backdated_reason ?? ''} data-testid={`${testId}-backdated-${r.id}`}>بأثر رجعي · قبل {r.backdated_days} يوم</span>}</td>
               <td className="p-2 text-center text-xs" dir="ltr">{r.start_date}{r.end_date !== r.start_date ? ` → ${r.end_date}` : ''}{r.start_time && <span className="block text-[10px] text-slate-500">{hhmm(r.start_time)}–{hhmm(r.end_time)}</span>}</td>
               <td className="p-2 text-center text-xs font-bold">{r.kind === 'leave' ? `${Number(r.days)} يوم` : fmtMinutes(r.minutes)}</td>
               <td className="p-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', LEAVE_STATUS_STYLES[r.status])}>{LEAVE_STATUS_LABELS[r.status]}</span></td>
-              <td className="p-2 text-xs text-slate-600">{r.notes && <p>{r.notes}</p>}{r.decision_note && <p className="text-[11px] text-slate-500">قرار: {r.decision_note}</p>}{r.cancelled_reason && <p className="text-[11px] text-slate-500">إلغاء: {r.cancelled_reason}</p>}{r.attachment_path && <AttachmentLink path={r.attachment_path} />}</td>
+              <td className="p-2 text-xs text-slate-600">{r.is_backdated && r.backdated_reason && <p className="text-amber-800"><b>سبب التأخر:</b> {r.backdated_reason}</p>}{r.notes && <p>{r.notes}</p>}{r.decision_note && <p className="text-[11px] text-slate-500">قرار: {r.decision_note}</p>}{r.cancelled_reason && <p className="text-[11px] text-slate-500">إلغاء: {r.cancelled_reason}</p>}{r.attachment_path && <AttachmentLink path={r.attachment_path} />}</td>
               {mode !== 'employee' && <td className="p-2 text-center text-xs">{r.manager_name ?? <span className="text-red-600">غير محدد</span>}</td>}
               <td className="p-2">
                 <div className="flex justify-center gap-1">

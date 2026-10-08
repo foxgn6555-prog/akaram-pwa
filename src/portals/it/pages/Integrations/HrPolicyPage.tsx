@@ -56,6 +56,12 @@ export default function HrPolicyPage() {
         <L label="السقف الشهري لعدد الزمنيات (فارغ = بلا سقف)"><input type="number" min={0} className={field} value={draft.permits_max_per_month ?? ''} onChange={(e) => set('permits_max_per_month', e.target.value === '' ? null : NUM(e.target.value))} data-testid="p-permits-month" /></L>
       </Section>
 
+      <Section title="الطلب بأثر رجعي (ليوم سابق)" hint="موظف غاب بموافقة شفهية ولم يُسجَّل طلبه: يمكنه الطلب لاحقاً بسبب إلزامي، ويظهر لكل مدير في سلسلة الموافقات كطلب متأخر مع السبب والحالة المسجّلة. HR بلا مهلة. عند بلوغ حد التكرار الشهري تُنبَّه الموارد البشرية.">
+        <L label="السماح بالطلب ليوم سابق"><select className={field} value={String(draft.backdated_requests_enabled ?? true)} onChange={(e) => set('backdated_requests_enabled', e.target.value === 'true')} data-testid="p-backdated-enabled"><option value="true">مسموح (بسبب إلزامي وشارة للمدراء)</option><option value="false">موقوف للجميع</option></select></L>
+        <L label="المهلة القصوى للموظف والمدير (يوم إلى الوراء)"><input type="number" min={0} max={365} className={field} disabled={draft.backdated_requests_enabled === false} value={draft.backdated_max_days ?? 7} onChange={(e) => set('backdated_max_days', Math.min(365, Math.max(0, NUM(e.target.value, 7))))} data-testid="p-backdated-max" /></L>
+        <L label="تنبيه HR عند بلوغ عدد الطلبات بأثر رجعي في الشهر"><input type="number" min={1} max={31} className={field} disabled={draft.backdated_requests_enabled === false} value={draft.backdated_alert_per_month ?? 3} onChange={(e) => set('backdated_alert_per_month', Math.min(31, Math.max(1, NUM(e.target.value, 3))))} data-testid="p-backdated-alert" /></L>
+      </Section>
+
       <section className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-900" data-testid="deductions-moved">
         <h2 className="text-sm font-black">الاستقطاعات التلقائية انتقلت إلى وحدة مستقلة</h2>
         <p className="mt-1">السماحية وشرائح نقص الدقائق والغياب والبصمة الناقصة وأساس المبلغ (من الراتب أو ثابت) والسقوف والاستثناءات وتفعيل القواعد على فروع/أقسام/موظفين — كلها تُدار الآن من <Link to="/it/integrations/auto-deductions" className="font-bold underline" data-testid="deductions-link">وحدة «الاستقطاعات التلقائية»</Link> بقواعد متعددة. لا يوجد تكرار لهذه الإعدادات هنا.</p>

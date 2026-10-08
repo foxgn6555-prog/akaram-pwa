@@ -1,6 +1,7 @@
 -- 00196 · طرق احتساب النقص (شرائح/دقيقة بدقيقة/مضاعف/كتل) · المحاكاة التفصيلية · دقة الإجازات والزمنيات المدفوعة (بادئة dm)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('d2000000-0000-0000-0000-000000000001', 'dm-ops@t.iq'), ('d2000000-0000-0000-0000-000000000007', 'dm-fin@t.iq'), ('d2000000-0000-0000-0000-000000000008', 'dm-it@t.iq'),
   ('d2000000-0000-0000-0000-000000000009', 'dm-hr@t.iq'), ('d2000000-0000-0000-0000-000000000004', 'dm-adm@t.iq'), ('d2000000-0000-0000-0000-00000000000a', 'dm-a@t.iq'), ('d2000000-0000-0000-0000-00000000000b', 'dm-b@t.iq')
@@ -68,8 +69,8 @@ select auth.set_test_user('d2000000-0000-0000-0000-000000000009');
 do $$ declare m date := current_setting('test.dm_m')::date; t uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
   update public.hr_policy set settings = settings || '{"permit_max_minutes": 300}'::jsonb where id = 1;
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 2, m + 2, '12:00', '16:00', 'زمنية مدفوعة نصف يوم');   -- 240 د
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 3, m + 3, '15:00', '16:00', 'زمنية مدفوعة ساعة لكنه داوم كاملاً');
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 2, m + 2, '12:00', '16:00', 'زمنية مدفوعة نصف يوم', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');   -- 240 د
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 3, m + 3, '15:00', '16:00', 'زمنية مدفوعة ساعة لكنه داوم كاملاً', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('d2000000-0000-0000-0000-000000000004');
 do $$ declare m date := current_setting('test.dm_m')::date; r record; a record; n int; begin
@@ -92,7 +93,7 @@ end $$;
 select auth.set_test_user('d2000000-0000-0000-0000-000000000009');
 do $$ declare m date := current_setting('test.dm_m')::date; t uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_unpaid';
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 4, m + 4, '12:00', '16:00', 'زمنية غير مدفوعة');
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 4, m + 4, '12:00', '16:00', 'زمنية غير مدفوعة', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('d2000000-0000-0000-0000-000000000004');
 do $$ declare m date := current_setting('test.dm_m')::date; r record; a record; n int; begin
@@ -109,11 +110,11 @@ end $$;
 select auth.set_test_user('d2000000-0000-0000-0000-000000000009');
 do $$ declare m date := current_setting('test.dm_m')::date; t uuid; begin
   select id into t from public.hr_leave_types where code = 'sick';
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 5, m + 5, null, null, 'مرضية', 'https://x/sick.pdf');
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 5, m + 5, null, null, 'مرضية', 'https://x/sick.pdf', 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select id into t from public.hr_leave_types where code = 'annual';
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 6, m + 6, null, null, 'اعتيادية');
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 6, m + 6, null, null, 'اعتيادية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select id into t from public.hr_leave_types where code = 'unpaid';
-  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 7, m + 7, null, null, 'بدون راتب');
+  perform public.hr_leave_request('d2000000-0000-0000-0000-0000000000ea', t, m + 7, m + 7, null, null, 'بدون راتب', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
 select auth.set_test_user('d2000000-0000-0000-0000-000000000004');
 do $$ declare m date := current_setting('test.dm_m')::date; r record; a record; n int; begin

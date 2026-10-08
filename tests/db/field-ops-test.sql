@@ -107,7 +107,7 @@ begin
   perform public.approval_chain_save('employee', 'time_permit', '[{"kind":"hierarchy","role":"admin_ops"},{"kind":"hierarchy","role":"field_ops"}]');
   select id into t_permit from public.hr_leave_types where kind = 'time_permit' and is_active order by sort_order limit 1;
   perform pg_temp.as_user('d9000000-0000-0000-0000-000000000002');
-  lid := public.hr_leave_request('d9000000-0000-0000-0000-0000000000e2', t_permit, current_date + 3, current_date + 3, '09:00', '10:00');
+  lid := public.hr_leave_request('d9000000-0000-0000-0000-0000000000e2', t_permit, current_date + 3, current_date + 3, '09:00', '10:00', null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select status into r from public.approval_tasks where request_id = lid and step_no = 2;
   if r.status <> 'waiting' then raise exception 'field ops step must be waiting (not skipped), got %', r.status; end if;
   -- الميدانية لا تبتّ قبل دور مسؤول القاطع
@@ -126,3 +126,4 @@ begin
   if r.status <> 'approved' or r.approved_by <> 'd9000000-0000-0000-0000-000000000005' then raise exception 'permit should be approved by field ops: %', r; end if;
   raise notice 'F3 ✅ خطوة العمليات الميدانية تُنفَّذ بعد مسؤول القاطع وتُنهي الطلب بالموافقة';
 end $$;
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

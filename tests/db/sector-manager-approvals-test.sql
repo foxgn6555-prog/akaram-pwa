@@ -103,7 +103,7 @@ begin
   select id into t_annual from public.hr_leave_types where code = 'annual';
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000002');
   -- لا مدير مباشر في HR لكن توجد سلسلة → يُقبل الطلب
-  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_annual, current_date + 10, current_date + 11);
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_annual, current_date + 10, current_date + 11, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select count(*) into n from public.approval_tasks where request_id = lid;
   if n <> 4 then raise exception 'should create 4 tasks, got %', n; end if;
   select status into r from public.approval_tasks where request_id = lid and step_no = 3;
@@ -162,7 +162,7 @@ declare lid uuid; t_annual uuid; r record; n int;
 begin
   select id into t_annual from public.hr_leave_types where code = 'annual';
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000002');
-  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_annual, current_date + 20, current_date + 20);
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_annual, current_date + 20, current_date + 20, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000003');
   perform pg_temp.expect_error(format($q$ select public.hr_leave_decide('%s', false) $q$, lid), 'HR_REASON_REQUIRED');
   perform public.hr_leave_decide(lid, false, 'ضغط عمل');
@@ -172,7 +172,7 @@ begin
   if n <> 0 then raise exception 'no waiting tasks after rejection'; end if;
   -- مسؤول القسم يطلب إجازة: سلسلته = معاون المدير مباشرة (ولا يوافق على نفسه)
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000003');
-  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e3', t_annual, current_date + 30, current_date + 30);
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e3', t_annual, current_date + 30, current_date + 30, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   select approvers into r from public.approval_tasks where request_id = lid and step_no = 1;
   if r.approvers <> array['d8000000-0000-0000-0000-000000000006']::uuid[] then raise exception 'dept manager chain wrong: %', r; end if;
   perform pg_temp.expect_error(format($q$ select public.hr_leave_decide('%s', true) $q$, lid), 'HR_FORBIDDEN');
@@ -180,15 +180,15 @@ begin
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000001');
   perform public.approval_chain_save('deputy_director', 'leave', '[{"kind":"account","user_id":"d8000000-0000-0000-0000-000000000006"}]');
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000006');
-  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e6', '%s', current_date + 40, current_date + 40) $q$, t_annual), 'APPROVAL_NO_APPROVER');
+  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e6', '%s', current_date + 40, current_date + 40, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'APPROVAL_NO_APPROVER');
   -- مسؤول القاطع بلا سلسلة وبلا مدير مباشر → HR_NO_MANAGER (السلوك القديم محفوظ)
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000004');
-  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e4', '%s', current_date + 40, current_date + 40) $q$, t_annual), 'HR_NO_MANAGER');
+  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e4', '%s', current_date + 40, current_date + 40, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'HR_NO_MANAGER');
   -- تعطيل السلسلة يعيد المتعهد إلى قاعدة المدير المباشر
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000001');
   perform public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"department_manager"}]', false);
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000002');
-  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', '%s', current_date + 50, current_date + 50) $q$, t_annual), 'HR_NO_MANAGER');
+  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', '%s', current_date + 50, current_date + 50, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'HR_NO_MANAGER');
   raise notice 'S4 ✅ الرفض يُنهي، لا موافقة ذاتية، APPROVAL_NO_APPROVER، وبلا سلسلة يبقى المدير المباشر';
 end $$;
 
@@ -228,3 +228,4 @@ begin
   perform pg_temp.expect_error($q$ select public.sector_manager_dashboard() $q$, 'PARENT_SECTOR_MANAGER_FORBIDDEN');
   raise notice 'S5 ✅ اللوحة والتقارير بلا بيانات مالية + التبليغ لمسؤولي أقسامه فقط';
 end $$;
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

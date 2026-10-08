@@ -86,6 +86,9 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_NO_BIOMETRIC: 'لا يوجد رقم بصمة مسجّل لهذا الموظف — رصيد الإجازات والطلبات لموظفي البصمة (الموارد البشرية تستطيع الإدخال نيابةً)',
   HR_NO_MANAGER: 'لا يوجد مدير مباشر مسجّل لهذا الموظف — اطلب من الموارد البشرية تحديده',
   HR_ATTACHMENT_REQUIRED: 'هذا النوع يتطلب مرفقاً (مثل تقرير طبي)',
+  HR_BACKDATED_DISABLED: 'الطلب ليوم سابق موقوف من التطوير المركزية — راجع الموارد البشرية',
+  HR_BACKDATED_TOO_OLD: 'اليوم المطلوب أقدم من المهلة المسموح بها للطلب بأثر رجعي — راجع الموارد البشرية',
+  HR_BACKDATED_REASON_REQUIRED: 'اكتب سبب الطلب ليوم سابق (5 أحرف على الأقل)',
   HR_PERMIT_TIME_INVALID: 'الزمنية تحتاج يوماً واحداً ووقت بداية ونهاية صحيحين',
   HR_PERMIT_TOO_LONG: 'مدة الزمنية تتجاوز الحد المسموح',
   HR_PERMIT_MONTH_LIMIT: 'بلغت الحد الشهري للزمنيات',
@@ -349,7 +352,7 @@ export const hr = {
   requestLeave(v: LeaveRequestInput) {
     return rpc<string>('hr_leave_request', {
       p_employee: v.employeeId, p_type: v.typeId, p_start: v.start, p_end: v.end, p_start_time: v.startTime || null, p_end_time: v.endTime || null,
-      p_notes: v.notes || null, p_attachment: v.attachment || null,
+      p_notes: v.notes || null, p_attachment: v.attachment || null, p_backdated_reason: v.backdatedReason || null,
     })
   },
   decideLeave(id: string, approve: boolean, note?: string | null) {

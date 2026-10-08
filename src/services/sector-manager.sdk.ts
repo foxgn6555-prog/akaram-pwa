@@ -41,8 +41,10 @@ export interface ApprovalTask {
   /** 00162: طلب مستلزمات — المواد المطلوبة ورقم الكتاب */
   items: SupplyItem[] | null; ref_no: string | null
   /** 00163: طلب إنهاء خدمة — تفاصيل الهدف · 00191: طلب سلفة — الموظف والمبلغ وطريقة التسديد */
-  details: TerminationTaskDetails | AdvanceTaskDetails | null
+  /** 00197: إجازة/زمنية بأثر رجعي */
+  details: TerminationTaskDetails | AdvanceTaskDetails | BackdatedTaskDetails | null
 }
+export interface BackdatedTaskDetails { backdated: true; reason: string; days_late: number; prior_status: string | null; month_count: number; alert_threshold: number }
 export interface AdvanceTaskDetails {
   employee_name: string; employee_number: string | null; type_name: string; amount: number; requested_amount: number
   method: 'equal' | 'fixed' | 'percent' | 'single'; method_label: string; installments: number | null; monthly_amount: number | null; percent: number | null; estimated_installment: number | null

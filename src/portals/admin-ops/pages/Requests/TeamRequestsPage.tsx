@@ -5,7 +5,8 @@ import { CheckCircle2, Clock, Package, UserX, Wallet, XCircle } from 'lucide-rea
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
-import type { AdvanceTaskDetails, ApprovalTask, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { fmtMoney } from '@portals/hr/components/hr-format'
 
@@ -48,6 +49,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance'
   const term = isTermination ? (t.details as TerminationTaskDetails | null) : null
   const adv = isAdvance ? (t.details as AdvanceTaskDetails | null) : null
+  const bd = (t.request_kind === 'leave' || t.request_kind === 'time_permit') && (t.details as BackdatedTaskDetails | null)?.backdated ? (t.details as BackdatedTaskDetails) : null
   const [editAmount, setEditAmount] = useState(false), [amount, setAmount] = useState(''), [inst, setInst] = useState('')
   const pending = d.pending
   const approve = () => d.approve({ amount: isAdvance && editAmount && amount.trim() !== '' ? Number(amount) : null, installments: isAdvance && editAmount && inst.trim() !== '' ? Number(inst) : null })
@@ -104,6 +106,16 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
             {(t.items ?? []).map((it) => <li key={it.item_id} className="flex justify-between rounded-lg bg-white px-2 py-1"><span>{it.name}</span><b>{it.qty} {it.unit}</b></li>)}
           </ul>
         ) : <div className="mt-0.5 flex items-center gap-1 text-slate-700"><Clock size={14} />{period}</div>}
+        {bd && (
+          <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid={`task-backdated-${t.request_id}`}>
+            <div className="font-black">⚠ طلب بأثر رجعي — قُدِّم بعد اليوم بـ <span dir="ltr">{bd.days_late}</span> {bd.days_late === 1 ? 'يوم' : 'أيام'}</div>
+            <div className="mt-0.5">سبب التأخر: «{bd.reason}»</div>
+            <div className="mt-0.5 flex flex-wrap gap-x-3">
+              <span>الحالة المسجّلة لذلك اليوم: <b>{bd.prior_status ? (ATTENDANCE_STATUS_LABELS[bd.prior_status as keyof typeof ATTENDANCE_STATUS_LABELS] ?? bd.prior_status) : 'لا سجل بعد'}</b> ⇐ عند الموافقة تُصحَّح تلقائياً ويُلغى الاستقطاع</span>
+              <span className={bd.month_count >= bd.alert_threshold ? 'font-black text-red-700' : ''} data-testid={`task-backdated-count-${t.request_id}`}>طلبات بأثر رجعي هذا الشهر: <span dir="ltr">{bd.month_count}</span>{bd.month_count >= bd.alert_threshold ? ' — بلغ حد التنبيه' : ''}</span>
+            </div>
+          </div>
+        )}
         {t.notes && <div className="mt-1 text-xs text-slate-600">{isTermination ? 'السبب: ' : ''}«{t.notes}»</div>}
         <div className="mt-1 text-[11px] text-slate-500">قُدّم {timeAr(t.created_at)} · {dateAr(t.created_at)}</div>
       </div>

@@ -1,6 +1,7 @@
 -- 00178 · تعديل غرفة العمليات للحضور: دقة الاحتساب + تبليغ التطوير المركزية + سجل التدقيق بأسماء (بادئة oe)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('0e000000-0000-0000-0000-00000000000a', 'oe-ops@t.iq'), ('0e000000-0000-0000-0000-00000000000b', 'oe-it@t.iq'),
   ('0e000000-0000-0000-0000-00000000000c', 'oe-emp@t.iq'), ('0e000000-0000-0000-0000-00000000000d', 'oe-hr@t.iq')
@@ -47,7 +48,7 @@ end $$;
 select auth.set_test_user('0e000000-0000-0000-0000-00000000000d');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := '0e000000-0000-0000-0000-0000000000e1'; t uuid; lid uuid; begin
   select id into t from public.hr_leave_types where code = 'permit_paid';
-  lid := public.hr_leave_request(e, t, m + 5, m + 5, '08:00', '09:00', 'زمنية صباحية');
+  lid := public.hr_leave_request(e, t, m + 5, m + 5, '08:00', '09:00', 'زمنية صباحية', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
   reset role; perform set_config('auth.user_id', '', false);
   update public.hr_leaves set status = 'approved', decided_at = now() where id = lid;
 end $$;

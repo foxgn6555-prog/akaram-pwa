@@ -37,6 +37,10 @@ vi.mock('@features/sector-manager/hooks', () => ({
     task_id: 'tk1', request_kind: 'advance', request_id: 'a1', step_no: 1, total_steps: 2, step_label: 'معاون المدير', requester_user_id: 'ops', requester_name: 'غرفة العمليات', requester_role: 'ops_room', requester_role_label: 'غرفة العمليات',
     area_name: null, parent_sector: null, type_name: 'سلفة', start_date: null, end_date: null, start_time: null, end_time: null, days: null, minutes: null, notes: 'ظرف عائلي', attachment_path: null, created_at: '2026-10-07T08:00:00Z', previous_steps: [], items: null, ref_no: 'ADV-2026-00007',
     details: { employee_name: 'كرار المقترض', employee_number: 'K-9', type_name: 'سلفة زواج', amount: 300000, requested_amount: 300000, method: 'equal', method_label: 'أقساط شهرية متساوية', installments: 3, monthly_amount: null, percent: null, estimated_installment: 100000 },
+  }, {
+    task_id: 'tk2', request_kind: 'leave', request_id: 'l1', step_no: 1, total_steps: 2, step_label: 'المدير المباشر', requester_user_id: 'u-emp', requester_name: 'سجاد الموظف', requester_role: 'employee', requester_role_label: 'موظف',
+    area_name: null, parent_sector: null, type_name: 'إجازة اعتيادية (مدفوعة)', start_date: '2026-10-05', end_date: '2026-10-05', start_time: null, end_time: null, days: 1, minutes: 0, notes: null, attachment_path: null, created_at: '2026-10-07T08:00:00Z', previous_steps: [], items: null, ref_no: null,
+    details: { backdated: true, reason: 'أبلغت مديري شفهياً ونسيت التسجيل', days_late: 2, prior_status: 'absent', month_count: 3, alert_threshold: 3 },
   }], isLoading: false }),
   useDecideApproval: () => ({ mutate: h.decideGeneric, isPending: false }),
 }))
@@ -113,6 +117,18 @@ describe('غرفة العمليات — طلب سلفة', () => {
     fireEvent.click(screen.getByTestId('adv-cancel-confirm-a1'))
     expect(h.cancel).toHaveBeenCalledWith({ id: 'a1', reason: 'أُدخل خطأً' }, expect.anything())
     expect(screen.getByTestId('ops-advances').textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
+})
+
+describe('المعتمِد — بطاقة الإجازة بأثر رجعي في طلبات الموافقة (00197)', () => {
+  it('تعرض شارة بأثر رجعي + السبب + الحالة المسجّلة (غائب) + عدّاد الشهر مع بلوغ حد التنبيه', () => {
+    r(<TeamRequestsPage />)
+    const b = screen.getByTestId('task-backdated-l1')
+    expect(b).toHaveTextContent('طلب بأثر رجعي'); expect(b).toHaveTextContent('قُدِّم بعد اليوم بـ 2 أيام'); expect(b).toHaveTextContent('سبب التأخر: «أبلغت مديري شفهياً ونسيت التسجيل»')
+    expect(b).toHaveTextContent('الحالة المسجّلة لذلك اليوم: غائب'); expect(b).toHaveTextContent('يُلغى الاستقطاع')
+    expect(screen.getByTestId('task-backdated-count-l1')).toHaveTextContent('طلبات بأثر رجعي هذا الشهر: 3 — بلغ حد التنبيه')
+    expect(screen.queryByTestId('task-backdated-a1')).toBeNull()
+    expect(b.textContent).not.toMatch(/[\u0660-\u0669]/)
   })
 })
 
