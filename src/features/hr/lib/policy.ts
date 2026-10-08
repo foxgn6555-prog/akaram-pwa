@@ -1,5 +1,5 @@
 /** منطق شرائح الاستقطاع (مشترك بين صفحة السياسة والاختبارات) */
-import type { DeductionTier } from '../types'
+import type { DeductionTier, ShortfallMethod } from '../types'
 
 /** تحقق محلي للشرائح مطابق لتحقق الخادم: متتالية من 1 بلا فجوات، آخرها مفتوح، لكل شريحة دقائق أو كسر يوم */
 export function validateTiers(tiers: DeductionTier[]): string | null {
@@ -23,3 +23,24 @@ export function applyTiers(tiers: DeductionTier[], shortfall: number): { minutes
   return { minutes: t?.minutes ?? 0, days: t?.day_fraction ?? 0 }
 }
 
+
+/** 00196: احتساب نقص اليوم بأي طريقة (مطابق لـ app.hr_shortfall_for_rule) — السماحية يطبّقها المستدعي */
+export interface ShortfallRule { shortfall_method?: ShortfallMethod; shortfall_multiplier?: number; shortfall_block_minutes?: number; deduction_tiers: DeductionTier[] }
+export function applyShortfall(rule: ShortfallRule, shortfall: number, shiftMinutes = 480): { minutes: number; days: number; note: string } {
+  const method = rule.shortfall_method ?? 'tiers'
+  if (shortfall <= 0) return { minutes: 0, days: 0, note: '' }
+  if (method === 'tiers') return { ...applyTiers(rule.deduction_tiers, shortfall), note: 'شريحة النقص المطابقة' }
+  const mult = rule.shortfall_multiplier ?? 1
+  const block = Math.max(1, rule.shortfall_block_minutes ?? 30)
+  const raw = method === 'blocks' ? Math.ceil(shortfall / block) * block : shortfall
+  let minutes = Math.ceil(raw * (method === 'actual' ? 1 : mult))
+  let note = method === 'actual' ? 'دقيقة بدقيقة' : method === 'multiplier' ? `دقيقة بدقيقة × ${mult}` : `تقريب لأعلى إلى كتل ${block} د${mult !== 1 ? ` × ${mult}` : ''}`
+  if (minutes >= Math.max(1, shiftMinutes)) { minutes = 0; note += ' (بلغ سقف اليوم الكامل)'; return { minutes, days: 1, note } }
+  return { minutes, days: 0, note }
+}
+export const SHORTFALL_METHOD_LABEL: Record<ShortfallMethod, string> = {
+  tiers: 'شرائح: نقص من..إلى ⇒ دقائق محددة أو كسر يوم',
+  actual: 'دقيقة بدقيقة: يُستقطع نفس عدد دقائق النقص',
+  multiplier: 'دقيقة بدقيقة × مضاعف (مثلاً ×2)',
+  blocks: 'كتل زمنية: يُقرَّب النقص لأعلى إلى أقرب كتلة (مثلاً 30 د) ثم × المضاعف',
+}

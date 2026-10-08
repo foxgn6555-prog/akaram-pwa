@@ -426,6 +426,10 @@ export function useRemoveDeductionExemption() {
 export function useDeductionEmployees(f: Parameters<typeof hr.deductionEmployees>[0] = {}, enabled = true) {
   return useQuery({ queryKey: [...DED, 'employees', f], queryFn: () => hr.deductionEmployees(f), enabled, staleTime: 15_000 })
 }
+export function useSimulateDeductionV2() {
+  const t = useToast()
+  return useMutation({ mutationFn: hr.simulateDeductionV2, onError: t.err })
+}
 export function useSimulateDeduction() {
   const t = useToast()
   return useMutation({ mutationFn: hr.simulateDeduction, onError: t.err })

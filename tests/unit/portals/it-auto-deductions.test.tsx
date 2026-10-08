@@ -28,7 +28,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useSaveDeductionRule: () => mut(h.saveRule), useDeleteDeductionRule: () => mut(h.deleteRule), useSetDeductionTargets: () => mut(h.setTargets),
   useDeductionExemptions: () => ({ data: h.exemptions, isLoading: false }), useAddDeductionExemption: () => mut(h.addExempt), useRemoveDeductionExemption: () => mut(h.removeExempt),
   useDeductionEmployees: () => ({ data: h.employees, isLoading: false }),
-  useSimulateDeduction: () => mut(h.simulate), useDeductionAudit: () => ({ data: [{ id: 1, action: 'rule_save', rule_id: 'strict', rule_name: 'صارمة', before: null, after: { name: 'صارمة' }, actor: 'u1', actor_name: 'مدير التطوير', created_at: '2026-10-01T10:00:00Z' }] }),
+  useSimulateDeductionV2: () => mut(h.simulate), useDeductionAudit: () => ({ data: [{ id: 1, action: 'rule_save', rule_id: 'strict', rule_name: 'صارمة', before: null, after: { name: 'صارمة' }, actor: 'u1', actor_name: 'مدير التطوير', created_at: '2026-10-01T10:00:00Z' }] }),
   useHrDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null, is_active: true, is_job_title: false }, { id: 'jt1', name: 'سائق', parent_id: 'd1', is_active: true, is_job_title: true }, { id: 'd2', name: 'الإدارة', parent_id: null, is_active: true, is_job_title: false }] }),
   useHrEmployees: () => ({ data: [{ id: 'e1', employee_number: 'E1', full_name: 'أحمد' }, { id: 'e2', employee_number: 'E2', full_name: 'سارة' }] }),
 }))
@@ -49,7 +49,11 @@ const open = () => render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
 beforeEach(() => {
   h.rules = RULES(); h.exemptions = []; h.employees = [EMP({}), EMP({ employee_id: 'e2', employee_number: 'E2', full_name: 'سارة', job_title: null, department_id: 'd2', department_name: 'الإدارة', rule_id: null, rule_name: 'مستثنى', source: 'exempt', exempt: true, exempt_reason: 'ظرف صحي', exempt_until: '2026-12-31', enabled: false, amount_mode: 'salary' })]
   for (const f of [h.saveRule, h.deleteRule, h.setTargets, h.addExempt, h.removeExempt, h.simulate]) f.mockReset()
-  h.simulate.mockReturnValue({ enabled: true, minutes: 0, days: 1.5, shortfall_days: 0.5, absent_days: 1, incomplete_days: 0, amount_mode: 'fixed', day_rate: 20000, minute_rate: 41.6667, amount: 7500 })
+  h.simulate.mockReturnValue({ enabled: true, method: 'tiers', amount_mode: 'fixed', status: 'time_permit', missing_minutes: 60, covered_minutes: 60, shortfall_minutes: 0, grace_minutes: 5,
+    minutes: 0, shortfall_days: 0, absent_days: 1, incomplete_days: 0, unpaid_leave_days: 0.5, paid_leave_days: 3, days: 1.5, day_rate: 20000, minute_rate: 41.6667,
+    amount_shortfall: 0, amount_absence: 5000, amount_incomplete: 0, amount_unpaid_leave: 2500, amount: 7500, capped: false,
+    steps: [{ key: 'rates', title: 'أساس المبلغ: مبالغ ثابتة', text: 'كل يوم 5000' }, { key: 'shortfall', title: 'نقص الدقائق في اليوم', text: 'الزمنية المدفوعة المعتمدة تغطي 60 د' }, { key: 'method', title: 'لا نقص', text: 'الزمنية المدفوعة غطّت كل الدقائق الناقصة ⇒ الحالة «حاضر (زمنية)» ولا استقطاع.' }, { key: 'days', title: 'الأيام', text: 'إجازة مدفوعة 3 يوم ⇒ لا استقطاع' }, { key: 'amount', title: 'المبلغ المقترح', text: '= 7500 د.ع' }],
+    ladder: [{ shortfall: 5, minutes: 0, days: 0, amount: 0, within_grace: true }, { shortfall: 20, minutes: 30, days: 0, amount: 3000, within_grace: false }, { shortfall: 240, minutes: 0, days: 0.5, amount: 2500, within_grace: false }] })
   vi.spyOn(window, 'confirm').mockReturnValue(true)
 })
 
@@ -96,6 +100,19 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
     expect(screen.getByTestId('r-tiers-table').querySelectorAll('tbody tr')).toHaveLength(6)
     fireEvent.change(screen.getByTestId('r-sample'), { target: { value: '10' } }); expect(screen.getByTestId('r-preview')).toHaveTextContent('ضمن السماحية')
     fireEvent.change(screen.getByTestId('r-sample'), { target: { value: '20' } }); expect(screen.getByTestId('r-preview')).toHaveTextContent('30د')
+    // 00196: المعادلة واضحة + معنى كل شريحة بمبلغ تقريبي + طرق أخرى
+    expect(screen.getByTestId('r-formula')).toHaveTextContent('أجر اليوم = مبلغ ثابت 7,500 د.ع'); expect(screen.getByTestId('r-formula')).toHaveTextContent('الإجازة/الزمنية المدفوعة = صفر')
+    expect(screen.getByTestId('r-tier-1-meaning')).toHaveTextContent('نقص 16–30 د ⇒ 30 دقيقة ≈ 3,750 د.ع')
+    expect(screen.getByTestId('r-preview-amount')).toHaveTextContent('3,750')
+    fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'multiplier' } })
+    fireEvent.change(screen.getByTestId('r-multiplier'), { target: { value: '2' } })
+    expect(screen.queryByTestId('r-tiers-table')).toBeNull()
+    fireEvent.change(screen.getByTestId('r-sample'), { target: { value: '40' } }); expect(screen.getByTestId('r-preview')).toHaveTextContent('1س 20د'); expect(screen.getByTestId('r-preview-amount')).toHaveTextContent('دقيقة بدقيقة × 2')
+    fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'blocks' } })
+    fireEvent.change(screen.getByTestId('r-block'), { target: { value: '60' } }); fireEvent.change(screen.getByTestId('r-multiplier'), { target: { value: '1' } })
+    expect(screen.getByTestId('r-preview')).toHaveTextContent('1س 0د'); expect(screen.getByTestId('r-formula')).toHaveTextContent('نقرّب النقص لأعلى إلى أقرب 60 دقيقة')
+    fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'tiers' } })
+    expect(screen.getByTestId('r-tiers-table').querySelectorAll('tbody tr')).toHaveLength(6)
     fireEvent.click(screen.getByTestId('rule-save'))
     await waitFor(() => expect(h.saveRule).toHaveBeenCalledTimes(1))
     const sent = h.saveRule.mock.calls[0]![0] as { id: string | null; name: string; is_active: boolean; settings: Record<string, unknown> }
@@ -183,16 +200,25 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
     expect(h.setTargets.mock.calls[0]![0]).toEqual(['strict', [{ target_type: 'department', target_id: 'd1' }]])
   })
 
-  it('المحاكاة ترسل إعدادات القاعدة المختارة والحالة وتعرض المبلغ بالأرقام اللاتينية', async () => {
+  it('00196: المحاكاة التفصيلية — حالة جاهزة (زمنية مدفوعة) تُرسل كاملة، وتعرض الحالة «حاضر (زمنية)» والخطوات والسلّم والمبلغ بالأرقام اللاتينية', async () => {
     open(); fireEvent.click(screen.getByTestId('ad-tab-simulate'))
     fireEvent.change(screen.getByTestId('sim-rule'), { target: { value: 'strict' } })
-    fireEvent.change(screen.getByTestId('sim-shortfall'), { target: { value: '40' } })
+    fireEvent.click(screen.getByTestId('sim-preset-paid-permit'))
+    expect(screen.getByTestId('sim-early')).toHaveValue(240); expect(screen.getByTestId('sim-paid-permit')).toHaveValue(240); expect(screen.getByTestId('sim-absent')).toHaveValue(0)
     fireEvent.change(screen.getByTestId('sim-salary'), { target: { value: '600000' } })
+    fireEvent.change(screen.getByTestId('sim-paid-leave'), { target: { value: '3' } })
+    fireEvent.change(screen.getByTestId('sim-pay-type'), { target: { value: 'daily' } })
     fireEvent.click(screen.getByTestId('sim-run'))
     await waitFor(() => expect(h.simulate).toHaveBeenCalledTimes(1))
-    const sent = h.simulate.mock.calls[0]![0] as { settings: Record<string, unknown>; shortfall: number; baseSalary: number; absentDays: number }
-    expect(sent.settings.fixed_absent_day_amount).toBe(5000); expect(sent.shortfall).toBe(40); expect(sent.baseSalary).toBe(600000); expect(sent.absentDays).toBe(1)
+    const sent = h.simulate.mock.calls[0]![0] as { settings: Record<string, unknown>; scenario: Record<string, unknown> }
+    expect(sent.settings.fixed_absent_day_amount).toBe(5000)
+    expect(sent.scenario).toMatchObject({ early_minutes: 240, paid_permit_minutes: 240, unpaid_permit_minutes: 0, base_salary: 600000, paid_leave_days: 3, pay_type: 'daily', shift_minutes: 480 })
+    expect(screen.getByTestId('sim-status')).toHaveTextContent('حاضر (زمنية)')
     expect(screen.getByTestId('sim-amount')).toHaveTextContent('7,500 د.ع')
+    expect(screen.getByTestId('sim-steps').querySelectorAll('li')).toHaveLength(5)
+    expect(screen.getByTestId('sim-step-method')).toHaveTextContent('غطّت كل الدقائق الناقصة')
+    expect(screen.getByTestId('sim-ladder-5')).toHaveTextContent('ضمن السماحية'); expect(screen.getByTestId('sim-ladder-20')).toHaveTextContent('30 دقيقة'); expect(screen.getByTestId('sim-ladder-240')).toHaveTextContent('0.5 يوم')
+    expect(screen.getByTestId('sim-result').textContent).not.toMatch(/[\u0660-\u0669]/)
   })
 
   it('السجل يعرض الإجراء بالعربية والقاعدة والفاعل', () => {

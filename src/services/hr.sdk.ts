@@ -9,7 +9,7 @@ import type {
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
-  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
+  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
@@ -319,6 +319,9 @@ export const hr = {
   removeDeductionExemption(id: string) { return sdkVoid(supabase.rpc('it_deduction_exemption_remove', { p_id: id } as never)) },
   deductionEmployees(f: { month?: string | null; branchId?: string | null; departmentId?: string | null; search?: string | null } = {}) {
     return rpc<DeductionEmployeeRow[]>('it_deduction_employees', { p_month: f.month || null, p_branch: f.branchId || null, p_department: f.departmentId || null, p_search: f.search?.trim() || null })
+  },
+  simulateDeductionV2(v: { settings: Partial<DeductionRuleSettings> | null; scenario: Partial<DeductionSimCase> }) {
+    return rpc<DeductionSimulationV2>('it_deduction_simulate_v2', { p_settings: v.settings, p_case: v.scenario })
   },
   simulateDeduction(v: { settings: Partial<DeductionRuleSettings> | null; shortfall: number; shiftMinutes?: number; baseSalary?: number; absentDays?: number; incompleteDays?: number }) {
     return rpc<DeductionSimulation>('it_deduction_simulate', { p_settings: v.settings, p_shortfall: v.shortfall, p_shift_minutes: v.shiftMinutes ?? 480, p_base_salary: v.baseSalary ?? 0, p_absent_days: v.absentDays ?? 0, p_incomplete_days: v.incompleteDays ?? 0 })

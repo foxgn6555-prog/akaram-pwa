@@ -14,10 +14,11 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useBranches } from '@features/branches/hooks/useBranches'
 import {
   useAddDeductionExemption, useDeductionAudit, useDeductionEmployees, useDeductionExemptions, useDeductionRules, useDeleteDeductionRule, useHrDepartments, useHrEmployees,
-  useRemoveDeductionExemption, useSaveDeductionRule, useSetDeductionTargets, useSimulateDeduction,
+  useRemoveDeductionExemption, useSaveDeductionRule, useSetDeductionTargets, useSimulateDeductionV2,
 } from '@features/hr'
-import type { DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimulation, DeductionTargetType, DeductionTier } from '@features/hr'
-import { applyTiers, validateTiers } from '@features/hr/lib/policy'
+import type { DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimCase, DeductionSimulationV2, DeductionTargetType, DeductionTier, ShortfallMethod } from '@features/hr'
+import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
+import { applyShortfall, SHORTFALL_METHOD_LABEL, validateTiers } from '@features/hr/lib/policy'
 import { field, fmtMinutes, fmtMoney, isoDay, monthStart } from '@portals/hr/components/hr-format'
 
 type Tab = 'rules' | 'scope' | 'exemptions' | 'employees' | 'simulate' | 'audit'
@@ -34,12 +35,15 @@ const DEFAULT_RULE_SETTINGS: DeductionRuleSettings = {
   deduction_tiers: [{ from: 1, to: 15, minutes: 0, day_fraction: null }, { from: 16, to: 30, minutes: 30, day_fraction: null }, { from: 31, to: 60, minutes: 60, day_fraction: null }, { from: 61, to: 120, minutes: 120, day_fraction: null }, { from: 121, to: null, minutes: null, day_fraction: 0.5 }],
   auto_deduction_enabled: true, deduct_absence_enabled: true, deduct_shortfall_enabled: true, deduct_unpaid_leave_enabled: true,
   auto_deduction_amount_mode: 'salary', fixed_absent_day_amount: 0, fixed_shortfall_minute_amount: 0, max_auto_deduction_days_per_month: 0, auto_deduction_cap_ratio: 1,
+  shortfall_method: 'tiers', shortfall_multiplier: 1, shortfall_block_minutes: 30,
 }
 const summarize = (s: DeductionRuleSettings) => {
   if (s.auto_deduction_enabled === false) return 'متوقف — لا يُقترح أي استقطاع'
   const parts = [s.auto_deduction_amount_mode === 'fixed' ? `ثابت: ${fmtMoney(s.fixed_absent_day_amount)} د.ع/يوم · ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع/دقيقة` : 'من راتب الموظف (أجر اليوم والدقيقة)']
   parts.push(s.deduct_absence_enabled === false ? 'الغياب: لا يُستقطع' : `الغياب: ${s.absent_day_deduction_days} يوم`)
-  parts.push(s.deduct_shortfall_enabled === false ? 'النقص: لا يُستقطع' : `النقص: ${s.deduction_tiers.length} شرائح بعد ${s.grace_minutes_default} د سماحية`)
+  const m = s.shortfall_method ?? 'tiers'
+  const methodText = m === 'tiers' ? `${s.deduction_tiers.length} شرائح` : m === 'actual' ? 'دقيقة بدقيقة' : m === 'multiplier' ? `دقيقة بدقيقة × ${s.shortfall_multiplier ?? 1}` : `كتل ${s.shortfall_block_minutes ?? 30} د${(s.shortfall_multiplier ?? 1) !== 1 ? ` × ${s.shortfall_multiplier}` : ''}`
+  parts.push(s.deduct_shortfall_enabled === false ? 'النقص: لا يُستقطع' : `النقص: ${methodText} بعد ${s.grace_minutes_default} د سماحية`)
   if (s.incomplete_punch_as_absent) parts.push('البصمة الناقصة = غياب')
   if ((s.max_auto_deduction_days_per_month ?? 0) > 0) parts.push(`سقف ${s.max_auto_deduction_days_per_month} يوم/شهر`)
   if ((s.auto_deduction_cap_ratio ?? 1) < 1) parts.push(`سقف ${Math.round((s.auto_deduction_cap_ratio ?? 1) * 100)}% من الإجمالي`)
@@ -113,6 +117,8 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
   const [isActive, setIsActive] = useState(rule?.is_active ?? true)
   const [s, setS] = useState<DeductionRuleSettings>(rule ? { ...DEFAULT_RULE_SETTINGS, ...rule.settings } : DEFAULT_RULE_SETTINGS)
   const [sample, setSample] = useState(30)
+  const [previewSalary, setPreviewSalary] = useState(600000)
+  const [previewShift, setPreviewShift] = useState(480)
   const tiersError = useMemo(() => validateTiers(s.deduction_tiers), [s.deduction_tiers])
   const set = <K extends keyof DeductionRuleSettings>(k: K, v: DeductionRuleSettings[K]) => setS((d) => ({ ...d, [k]: v }))
   const setTier = (i: number, patch: Partial<DeductionTier>) => set('deduction_tiers', s.deduction_tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)))
@@ -128,7 +134,13 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
     if (last) tiers[tiers.length - 1] = { ...last, to: null }
     set('deduction_tiers', tiers)
   }
-  const preview = applyTiers(s.deduction_tiers, sample)
+  const method = s.shortfall_method ?? 'tiers'
+  const preview = applyShortfall(s, sample, previewShift)
+  const dayRate = previewSalary / 30
+  const minuteRate = dayRate / Math.max(1, previewShift)
+  const fixed = (s.auto_deduction_amount_mode ?? 'salary') === 'fixed'
+  const amountOf = (minutes: number, days: number) => (s.auto_deduction_enabled === false ? 0 : fixed ? (s.fixed_shortfall_minute_amount ?? 0) * minutes + (s.fixed_absent_day_amount ?? 0) * days : minuteRate * minutes + dayRate * days)
+  const describe = (minutes: number, days: number) => (days > 0 ? `${days} يوم` : minutes > 0 ? `${minutes} دقيقة` : 'لا استقطاع')
   const off = s.auto_deduction_enabled === false
   const canSave = name.trim().length > 0 && !tiersError
   return (
@@ -160,19 +172,32 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
         <L label="سقف أيام الاستقطاع في الشهر (0 = بلا سقف)"><input type="number" min={0} max={31} step={0.5} className={field} dir="ltr" disabled={off} value={s.max_auto_deduction_days_per_month ?? 0} onChange={(e) => set('max_auto_deduction_days_per_month', Math.min(31, Math.max(0, NUM(e.target.value))))} data-testid="r-max-days" /></L>
         <L label="سقف الاستقطاع (% من الإجمالي المستحق، 100 = بلا سقف)"><input type="number" min={0} max={100} step={5} className={field} dir="ltr" disabled={off} value={Math.round((s.auto_deduction_cap_ratio ?? 1) * 100)} onChange={(e) => set('auto_deduction_cap_ratio', Math.min(100, Math.max(0, NUM(e.target.value))) / 100)} data-testid="r-cap" /></L>
       </Section>
-      <Section title="نقص الدقائق اليومي (التأخر والخروج المبكر)" hint="المقياس = دقائق الشفت − الدقائق المنجزة فعلاً − الزمنيات المدفوعة المعتمدة. التأخر الذي يعوّضه الموظف بالبقاء بعد الدوام لا يُستقطع. الشرائح متتالية من الدقيقة 1 وآخرها مفتوح.">
-        <L label="استقطاع نقص الدقائق"><select className={field} disabled={off} value={String(s.deduct_shortfall_enabled ?? true)} onChange={(e) => set('deduct_shortfall_enabled', e.target.value === 'true')} data-testid="r-ded-shortfall"><option value="true">مُفعَّل (حسب الشرائح)</option><option value="false">متوقف</option></select></L>
-        <L label="السماحية اليومية (دقيقة) — ما دونها لا يُستقطع"><input type="number" min={0} max={180} className={field} dir="ltr" disabled={off} value={s.grace_minutes_default} onChange={(e) => set('grace_minutes_default', NUM(e.target.value))} data-testid="r-grace" /></L>
+      <Section title="نقص الدقائق اليومي (التأخر والخروج المبكر)" hint="النقص = دقائق الشفت − الدقائق المنجزة فعلاً − الزمنيات المدفوعة المعتمدة. الإجازات المدفوعة (اعتيادية/مرضية/طارئة/مهمة) والزمنيات المدفوعة لا تُستقطع أبداً؛ التأخر الذي يعوّضه الموظف بالبقاء بعد الدوام لا يُستقطع.">
+        <L label="استقطاع نقص الدقائق"><select className={field} disabled={off} value={String(s.deduct_shortfall_enabled ?? true)} onChange={(e) => set('deduct_shortfall_enabled', e.target.value === 'true')} data-testid="r-ded-shortfall"><option value="true">مُفعَّل</option><option value="false">متوقف</option></select></L>
+        <L label="السماحية اليومية (دقيقة) — ما دونها لا يُستقطع"><input type="number" min={0} max={120} className={field} dir="ltr" disabled={off} value={s.grace_minutes_default} onChange={(e) => set('grace_minutes_default', NUM(e.target.value))} data-testid="r-grace" /></L>
+        <L label="طريقة احتساب النقص"><select className={field} disabled={off} value={method} onChange={(e) => set('shortfall_method', e.target.value as ShortfallMethod)} data-testid="r-method">{(Object.keys(SHORTFALL_METHOD_LABEL) as ShortfallMethod[]).map((k) => <option key={k} value={k}>{SHORTFALL_METHOD_LABEL[k]}</option>)}</select></L>
+        {(method === 'multiplier' || method === 'blocks') && <L label="المضاعف (1 = نفس الدقائق، 2 = ضعفها)"><input type="number" min={0.25} max={5} step={0.25} className={field} dir="ltr" disabled={off} value={s.shortfall_multiplier ?? 1} onChange={(e) => set('shortfall_multiplier', Math.min(5, Math.max(0.25, NUM(e.target.value, 1))))} data-testid="r-multiplier" /></L>}
+        {method === 'blocks' && <L label="حجم الكتلة (دقيقة)"><input type="number" min={5} max={240} step={5} className={field} dir="ltr" disabled={off} value={s.shortfall_block_minutes ?? 30} onChange={(e) => set('shortfall_block_minutes', Math.min(240, Math.max(5, NUM(e.target.value, 30))))} data-testid="r-block" /></L>}
+        <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-sky-100 bg-sky-50 p-3 text-[11px] leading-6 text-sky-900" data-testid="r-formula">
+          <div className="font-black">المعادلة بوضوح</div>
+          <div>١. أجر اليوم = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_absent_day_amount)} د.ع` : 'الراتب الأساسي ÷ 30'} · أجر الدقيقة = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع` : 'أجر اليوم ÷ دقائق الشفت'}.</div>
+          <div>٢. نقص اليوم = دقائق الشفت − المنجز − الزمنية المدفوعة. إن كان النقص ≤ {s.grace_minutes_default} دقيقة ⇒ لا استقطاع.</div>
+          <div>٣. وإلا: {method === 'tiers' ? 'نبحث عن الشريحة التي يقع فيها النقص ونستقطع دقائقها أو كسر يومها.' : method === 'actual' ? 'نستقطع نفس عدد دقائق النقص.' : method === 'multiplier' ? `نستقطع دقائق النقص × ${s.shortfall_multiplier ?? 1}.` : `نقرّب النقص لأعلى إلى أقرب ${s.shortfall_block_minutes ?? 30} دقيقة${(s.shortfall_multiplier ?? 1) !== 1 ? ` ثم × ${s.shortfall_multiplier}` : ''}.`} وإذا بلغ الناتج دقائق شفت كامل يُحتسب يوماً واحداً.</div>
+          <div>٤. المبلغ = الدقائق المستقطعة × أجر الدقيقة + الأيام المستقطعة × أجر اليوم. الغياب بلا إجازة = {s.absent_day_deduction_days} يوم لكل يوم؛ الإجازة غير المدفوعة حسب نوعها؛ الإجازة/الزمنية المدفوعة = صفر.</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sky-800">مثال حي بـ: راتب <input type="number" min={0} step={50000} className={clsx(field, 'w-28 py-0.5')} dir="ltr" value={previewSalary} onChange={(e) => setPreviewSalary(NUM(e.target.value))} data-testid="r-preview-salary" /> د.ع وشفت <input type="number" min={60} step={30} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={previewShift} onChange={(e) => setPreviewShift(NUM(e.target.value, 480))} data-testid="r-preview-shift" /> دقيقة ⇒ أجر اليوم <b dir="ltr">{fmtMoney(fixed ? s.fixed_absent_day_amount : dayRate)}</b> · أجر الدقيقة <b dir="ltr">{fixed ? fmtMoney(s.fixed_shortfall_minute_amount) : minuteRate.toFixed(1)}</b> د.ع</div>
+        </div>
+        {method === 'tiers' && (
         <div className="sm:col-span-2 lg:col-span-4">
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full text-xs" data-testid="r-tiers-table">
-              <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">من دقيقة</th><th className="p-2">إلى دقيقة</th><th className="p-2">استقطاع (دقائق)</th><th className="p-2">أو كسر يوم</th><th className="p-2"></th></tr></thead>
+              <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">من دقيقة</th><th className="p-2">إلى دقيقة</th><th className="p-2">استقطاع (دقائق)</th><th className="p-2">أو كسر يوم</th><th className="p-2 text-start">المعنى</th><th className="p-2"></th></tr></thead>
               <tbody>{s.deduction_tiers.map((t, i) => (
                 <tr key={i} className="border-t border-slate-100" data-testid={`r-tier-${i}`}>
                   <td className="p-1"><input type="number" className={field} dir="ltr" value={t.from} onChange={(e) => setTier(i, { from: NUM(e.target.value) })} data-testid={`r-tier-${i}-from`} /></td>
                   <td className="p-1"><input type="number" className={field} dir="ltr" value={t.to ?? ''} placeholder={i === s.deduction_tiers.length - 1 ? 'مفتوح' : ''} onChange={(e) => setTier(i, { to: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`r-tier-${i}-to`} /></td>
                   <td className="p-1"><input type="number" min={0} className={field} dir="ltr" value={t.minutes ?? ''} onChange={(e) => setTier(i, { minutes: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`r-tier-${i}-minutes`} /></td>
                   <td className="p-1"><input type="number" min={0} max={3} step={0.25} className={field} dir="ltr" value={t.day_fraction ?? ''} onChange={(e) => setTier(i, { day_fraction: e.target.value === '' ? null : NUM(e.target.value) })} data-testid={`r-tier-${i}-days`} /></td>
+                  <td className="p-1 text-[11px] text-slate-600" data-testid={`r-tier-${i}-meaning`}>{t.to != null && t.to <= s.grace_minutes_default ? `نقص ${t.from}–${t.to} د: ضمن السماحية ⇒ لا استقطاع` : `نقص ${t.from}–${t.to ?? '∞'} د ⇒ ${describe(t.minutes ?? 0, t.day_fraction ?? 0)}${(t.minutes ?? 0) > 0 || (t.day_fraction ?? 0) > 0 ? ` ≈ ${fmtMoney(Math.round(amountOf(t.minutes ?? 0, t.day_fraction ?? 0)))} د.ع` : ''}`}</td>
                   <td className="p-1 text-center"><button type="button" className="text-red-600 hover:underline" onClick={() => removeTier(i)} data-testid={`r-tier-${i}-remove`}>حذف</button></td>
                 </tr>))}</tbody>
             </table>
@@ -180,8 +205,12 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <Button size="sm" variant="secondary" onClick={addTier} data-testid="r-tier-add">+ شريحة</Button>
             {tiersError ? <span className="text-xs font-bold text-red-600" data-testid="r-tiers-error">{tiersError}</span> : <span className="text-xs text-emerald-700">الشرائح صالحة</span>}
-            <label className="ms-auto flex items-center gap-2 text-xs">معاينة: نقص <input type="number" min={0} className={clsx(field, 'w-20')} dir="ltr" value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="r-sample" /> دقيقة ⇒ <b data-testid="r-preview">{sample <= s.grace_minutes_default ? 'ضمن السماحية' : preview.minutes > 0 ? fmtMinutes(preview.minutes) : preview.days > 0 ? `${preview.days} يوم` : 'لا استقطاع'}</b></label>
           </div>
+        </div>)}
+        <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-2 text-xs">
+          <span>معاينة: نقص</span><input type="number" min={0} className={clsx(field, 'w-20')} dir="ltr" value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="r-sample" /><span>دقيقة ⇒</span>
+          <b data-testid="r-preview">{sample <= s.grace_minutes_default ? 'ضمن السماحية' : preview.minutes > 0 ? fmtMinutes(preview.minutes) : preview.days > 0 ? `${preview.days} يوم` : 'لا استقطاع'}</b>
+          {sample > s.grace_minutes_default && (preview.minutes > 0 || preview.days > 0) && <span className="text-slate-500" data-testid="r-preview-amount">({preview.note}) ≈ <b dir="ltr">{fmtMoney(Math.round(amountOf(preview.minutes, preview.days)))}</b> د.ع</span>}
         </div>
       </Section>
     </div>
@@ -356,30 +385,65 @@ function EmployeesTab({ rules, onExempt }: { rules: DeductionRule[]; onExempt: (
 
 // ───────────────────────── المحاكاة ─────────────────────────
 function SimulateTab({ rules }: { rules: DeductionRule[] }) {
-  const sim = useSimulateDeduction()
+  const sim = useSimulateDeductionV2()
   const [ruleId, setRuleId] = useState(rules.find((r) => r.is_default)?.id ?? '')
-  const [shortfall, setShortfall] = useState(40); const [shift, setShift] = useState(480); const [salary, setSalary] = useState(600000); const [absent, setAbsent] = useState(1); const [incomplete, setIncomplete] = useState(0)
-  const [result, setResult] = useState<DeductionSimulation | null>(null)
+  const [c, setC] = useState<DeductionSimCase>({ shift_minutes: 480, base_salary: 600000, pay_type: 'monthly', late_minutes: 20, early_minutes: 20, paid_permit_minutes: 0, unpaid_permit_minutes: 0, absent_days: 1, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0, leave_deduction_days_per_day: 1 })
+  const [result, setResult] = useState<DeductionSimulationV2 | null>(null)
   const rule = rules.find((r) => r.id === ruleId)
+  const setN = (k: keyof DeductionSimCase) => (e: React.ChangeEvent<HTMLInputElement>) => setC((d) => ({ ...d, [k]: Math.max(0, NUM(e.target.value)) }))
+  const PRESETS: { id: string; label: string; patch: Partial<DeductionSimCase> }[] = [
+    { id: 'late', label: 'تأخر 40 د', patch: { late_minutes: 40, early_minutes: 0, paid_permit_minutes: 0, unpaid_permit_minutes: 0, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0 } },
+    { id: 'paid-permit', label: 'خرج نصف يوم بزمنية مدفوعة', patch: { late_minutes: 0, early_minutes: 240, paid_permit_minutes: 240, unpaid_permit_minutes: 0, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0 } },
+    { id: 'unpaid-permit', label: 'خرج نصف يوم بزمنية غير مدفوعة', patch: { late_minutes: 0, early_minutes: 240, paid_permit_minutes: 0, unpaid_permit_minutes: 240, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0 } },
+    { id: 'sick', label: 'إجازة مرضية 3 أيام', patch: { late_minutes: 0, early_minutes: 0, paid_permit_minutes: 0, unpaid_permit_minutes: 0, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 3 } },
+    { id: 'absent', label: 'غياب يومان + إجازة بلا راتب يوم', patch: { late_minutes: 0, early_minutes: 0, paid_permit_minutes: 0, unpaid_permit_minutes: 0, absent_days: 2, incomplete_days: 0, unpaid_leave_days: 1, paid_leave_days: 0 } },
+  ]
   return (
     <div className="space-y-3" data-testid="ad-simulate">
-      <Section title="محاكاة قاعدة على حالة افتراضية" hint="أدخل حالة شهر: نقص دقائق في يوم واحد، عدد أيام غياب، عدد أيام ببصمة ناقصة، وراتباً أساسياً تقديرياً — لترى ما ستقترحه القاعدة بالدقائق والأيام والمبلغ.">
+      <Section title="محاكاة قاعدة على حالة كاملة" hint="أدخل يوماً واحداً (تأخر، خروج مبكر، زمنية مدفوعة أو غير مدفوعة) وحالة الشهر (غياب، بصمة ناقصة، إجازات) وراتباً تقديرياً — لترى الحالة التي ستظهر في الحضور، وكل خطوة حساب بالعربية، والمبلغ المقترح، وسلّم النقص للقاعدة.">
         <L label="القاعدة"><select className={field} value={ruleId} onChange={(e) => setRuleId(e.target.value)} data-testid="sim-rule">{rules.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></L>
-        <L label="نقص دقائق في اليوم"><input type="number" min={0} className={field} dir="ltr" value={shortfall} onChange={(e) => setShortfall(NUM(e.target.value))} data-testid="sim-shortfall" /></L>
-        <L label="دقائق الشفت"><input type="number" min={60} className={field} dir="ltr" value={shift} onChange={(e) => setShift(NUM(e.target.value, 480))} data-testid="sim-shift" /></L>
-        <L label="الراتب الأساسي (د.ع)"><input type="number" min={0} step={50000} className={field} dir="ltr" value={salary} onChange={(e) => setSalary(NUM(e.target.value))} data-testid="sim-salary" /></L>
-        <L label="أيام غياب بلا إجازة"><input type="number" min={0} className={field} dir="ltr" value={absent} onChange={(e) => setAbsent(NUM(e.target.value))} data-testid="sim-absent" /></L>
-        <L label="أيام ببصمة ناقصة"><input type="number" min={0} className={field} dir="ltr" value={incomplete} onChange={(e) => setIncomplete(NUM(e.target.value))} data-testid="sim-incomplete" /></L>
-        <div className="flex items-end"><Button size="sm" isLoading={sim.isPending} onClick={() => sim.mutate({ settings: rule?.settings ?? null, shortfall, shiftMinutes: shift, baseSalary: salary, absentDays: absent, incompleteDays: incomplete }, { onSuccess: setResult })} data-testid="sim-run">احسب</Button></div>
+        <L label="نوع التعاقد"><select className={field} value={c.pay_type} onChange={(e) => setC((d) => ({ ...d, pay_type: e.target.value as 'monthly' | 'daily' }))} data-testid="sim-pay-type"><option value="monthly">شهري (الراتب ÷ 30)</option><option value="daily">يومي (الأجر = أجر اليوم)</option></select></L>
+        <L label={c.pay_type === 'daily' ? 'أجر اليوم (د.ع)' : 'الراتب الأساسي (د.ع)'}><input type="number" min={0} step={c.pay_type === 'daily' ? 1000 : 50000} className={field} dir="ltr" value={c.base_salary} onChange={setN('base_salary')} data-testid="sim-salary" /></L>
+        <L label="دقائق الشفت"><input type="number" min={60} className={field} dir="ltr" value={c.shift_minutes} onChange={setN('shift_minutes')} data-testid="sim-shift" /></L>
+        <L label="تأخر في الدخول (دقيقة)"><input type="number" min={0} className={field} dir="ltr" value={c.late_minutes} onChange={setN('late_minutes')} data-testid="sim-late" /></L>
+        <L label="خروج مبكر (دقيقة)"><input type="number" min={0} className={field} dir="ltr" value={c.early_minutes} onChange={setN('early_minutes')} data-testid="sim-early" /></L>
+        <L label="زمنية مدفوعة معتمدة (دقيقة)"><input type="number" min={0} className={field} dir="ltr" value={c.paid_permit_minutes} onChange={setN('paid_permit_minutes')} data-testid="sim-paid-permit" /></L>
+        <L label="زمنية غير مدفوعة معتمدة (دقيقة)"><input type="number" min={0} className={field} dir="ltr" value={c.unpaid_permit_minutes} onChange={setN('unpaid_permit_minutes')} data-testid="sim-unpaid-permit" /></L>
+        <L label="أيام غياب بلا إجازة"><input type="number" min={0} className={field} dir="ltr" value={c.absent_days} onChange={setN('absent_days')} data-testid="sim-absent" /></L>
+        <L label="أيام ببصمة ناقصة"><input type="number" min={0} className={field} dir="ltr" value={c.incomplete_days} onChange={setN('incomplete_days')} data-testid="sim-incomplete" /></L>
+        <L label="أيام إجازة مدفوعة (اعتيادية/مرضية/طارئة)"><input type="number" min={0} className={field} dir="ltr" value={c.paid_leave_days} onChange={setN('paid_leave_days')} data-testid="sim-paid-leave" /></L>
+        <L label="أيام إجازة بدون راتب"><input type="number" min={0} className={field} dir="ltr" value={c.unpaid_leave_days} onChange={setN('unpaid_leave_days')} data-testid="sim-unpaid-leave" /></L>
+        <div className="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] text-slate-500">حالات جاهزة:</span>
+          {PRESETS.map((p) => <button key={p.id} type="button" className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] hover:bg-slate-50" onClick={() => setC((d) => ({ ...d, ...p.patch }))} data-testid={`sim-preset-${p.id}`}>{p.label}</button>)}
+          <Button size="sm" className="ms-auto" isLoading={sim.isPending} onClick={() => sim.mutate({ settings: rule?.settings ?? null, scenario: c }, { onSuccess: setResult })} data-testid="sim-run">احسب</Button>
+        </div>
       </Section>
       {result && (
-        <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-3 lg:grid-cols-6" data-testid="sim-result">
-          <Stat label="الحالة" value={result.enabled ? 'مفعّل' : 'متوقف'} />
-          <Stat label="دقائق مقترحة" value={result.minutes > 0 ? fmtMinutes(result.minutes) : '—'} />
-          <Stat label="أيام مقترحة" value={`${result.days}`} hint={`نقص ${result.shortfall_days} + غياب ${result.absent_days} + بصمة ناقصة ${result.incomplete_days}`} />
-          <Stat label="أساس المبلغ" value={result.amount_mode === 'fixed' ? 'ثابت' : 'من الراتب'} />
-          <Stat label="أجر اليوم / الدقيقة" value={`${fmtMoney(result.day_rate)} / ${result.minute_rate}`} />
-          <Stat label="المبلغ المقترح" value={`${fmtMoney(result.amount)} د.ع`} strong testid="sim-amount" />
+        <div className="space-y-3" data-testid="sim-result">
+          <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-xs sm:grid-cols-3 lg:grid-cols-6">
+            <Stat label="الحالة في الحضور" value={ATTENDANCE_STATUS_LABELS[result.status] ?? result.status} testid="sim-status" />
+            <Stat label="النقص المحاسَب عليه" value={result.shortfall_minutes > 0 ? `${result.shortfall_minutes} د` : '—'} hint={`ناقص ${result.missing_minutes} د − زمنية مدفوعة ${result.covered_minutes} د`} testid="sim-shortfall-out" />
+            <Stat label="دقائق مقترحة" value={result.minutes > 0 ? fmtMinutes(result.minutes) : '—'} testid="sim-minutes" />
+            <Stat label="أيام مقترحة" value={`${result.days}`} hint={`نقص ${result.shortfall_days} + غياب ${result.absent_days} + بصمة ناقصة ${result.incomplete_days} + بلا راتب ${result.unpaid_leave_days}`} testid="sim-days" />
+            <Stat label="أجر اليوم / الدقيقة" value={`${fmtMoney(result.day_rate)} / ${result.minute_rate}`} />
+            <Stat label="المبلغ المقترح" value={`${fmtMoney(result.amount)} د.ع${result.capped ? ' (بسقف)' : ''}`} strong testid="sim-amount" />
+          </div>
+          <ol className="space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-xs" data-testid="sim-steps">
+            {result.steps.map((st, i) => <li key={st.key} className="flex gap-2" data-testid={`sim-step-${st.key}`}><span className="shrink-0 font-black text-emerald-700">{i + 1}.</span><span><b>{st.title}:</b> {st.text}</span></li>)}
+          </ol>
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white" data-testid="sim-ladder">
+            <div className="p-3 text-xs font-black">سلّم النقص لهذه القاعدة — كم يُستقطع عند كل قيمة نقص في يوم واحد</div>
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-600"><tr><th className="p-2">نقص (دقيقة)</th><th className="p-2">يُستقطع</th><th className="p-2">المبلغ (د.ع)</th></tr></thead>
+              <tbody>{result.ladder.map((l) => (
+                <tr key={l.shortfall} className="border-t border-slate-100 text-center" data-testid={`sim-ladder-${l.shortfall}`}>
+                  <td className="p-1" dir="ltr">{l.shortfall}</td>
+                  <td className="p-1">{l.within_grace ? 'ضمن السماحية' : l.days > 0 ? `${l.days} يوم` : l.minutes > 0 ? `${l.minutes} دقيقة` : 'لا استقطاع'}</td>
+                  <td className="p-1" dir="ltr">{fmtMoney(l.amount)}</td>
+                </tr>))}</tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

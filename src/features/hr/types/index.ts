@@ -484,7 +484,7 @@ export interface HrDashboardStats {
 }
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
-  present: 'حاضر', late: 'متأخر', early_leave: 'خروج مبكر', absent: 'غائب', incomplete: 'بصمة ناقصة', leave: 'إجازة', time_permit: 'زمنية',
+  present: 'حاضر', late: 'متأخر', early_leave: 'خروج مبكر', absent: 'غائب', incomplete: 'بصمة ناقصة', leave: 'إجازة', time_permit: 'حاضر (زمنية)',
 }
 export const ATTENDANCE_STATUS_ORDER: AttendanceStatus[] = ['late', 'absent', 'incomplete', 'early_leave', 'present', 'leave', 'time_permit']
 export const TERMINATION_LABELS: Record<TerminationType, string> = {
@@ -614,6 +614,10 @@ export interface HrPolicy {
   fixed_absent_day_amount?: number
   fixed_shortfall_minute_amount?: number
   max_auto_deduction_days_per_month?: number
+  /** 00196: طريقة احتساب نقص الدقائق */
+  shortfall_method?: ShortfallMethod
+  shortfall_multiplier?: number
+  shortfall_block_minutes?: number
   /** 00193 — لا تصدير للمالية قبل اعتماد حضورية الشهر في غرفة العمليات */
   require_attendance_confirmation?: boolean
 }
@@ -726,7 +730,8 @@ export interface MyEmployee {
 }
 
 /** 00195 — وحدة الاستقطاعات التلقائية (التطوير المركزية) */
-export type DeductionRuleSettings = Pick<HrPolicy, 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
+export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks'
+export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
 export type DeductionTargetType = 'branch' | 'department' | 'employee'
 export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
 export interface DeductionRule {
@@ -749,5 +754,21 @@ export interface DeductionEmployeeRow {
   rule_id: string | null; rule_name: string | null; source: DeductionRuleSource; exempt: boolean; exempt_reason: string | null; exempt_until: string | null; enabled: boolean; amount_mode: 'salary' | 'fixed'
   month_minutes: number; month_days: number; month_absent: number; month_shortfall: number; month_waived: number
 }
-export interface DeductionSimulation { enabled: boolean; minutes: number; days: number; shortfall_days: number; absent_days: number; incomplete_days: number; amount_mode: 'salary' | 'fixed'; day_rate: number; minute_rate: number; amount: number }
+export interface DeductionSimulation { enabled: boolean; minutes: number; days: number; shortfall_days: number; absent_days: number; incomplete_days: number; amount_mode: 'salary' | 'fixed'; day_rate: number; minute_rate: number; amount: number; method?: ShortfallMethod }
+/** 00196: محاكاة تفصيلية — حالة يوم + حالة شهر ⇒ خطوات شرح + سلّم النقص */
+export interface DeductionSimCase {
+  shift_minutes: number; base_salary: number; pay_type: 'monthly' | 'daily'
+  late_minutes: number; early_minutes: number; paid_permit_minutes: number; unpaid_permit_minutes: number
+  absent_days: number; incomplete_days: number; unpaid_leave_days: number; paid_leave_days: number; leave_deduction_days_per_day: number
+}
+export interface DeductionSimStep { key: 'rates' | 'shortfall' | 'method' | 'days' | 'amount'; title: string; text: string }
+export interface DeductionSimLadderRow { shortfall: number; minutes: number; days: number; amount: number; within_grace: boolean }
+export interface DeductionSimulationV2 {
+  enabled: boolean; method: ShortfallMethod; amount_mode: 'salary' | 'fixed'; status: AttendanceStatus
+  missing_minutes: number; covered_minutes: number; shortfall_minutes: number; grace_minutes: number
+  minutes: number; shortfall_days: number; absent_days: number; incomplete_days: number; unpaid_leave_days: number; paid_leave_days: number; days: number
+  day_rate: number; minute_rate: number
+  amount_shortfall: number; amount_absence: number; amount_incomplete: number; amount_unpaid_leave: number; amount: number; capped: boolean
+  steps: DeductionSimStep[]; ladder: DeductionSimLadderRow[]
+}
 export interface DeductionAuditRow { id: number; action: 'rule_save' | 'rule_delete' | 'target_set' | 'exemption_add' | 'exemption_remove'; rule_id: string | null; rule_name: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; actor: string | null; actor_name: string | null; created_at: string }
