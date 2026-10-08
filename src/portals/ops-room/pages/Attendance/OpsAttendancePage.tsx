@@ -4,6 +4,7 @@
  *     · استقطاعات يدوية · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
  *   المرحلة 2 «الكشف المعتمد»: بعد الاعتماد فقط — كل يوم حاضر/غائب/مجاز + ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة)
  *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى المالية» (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
+ *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
  */
 import { useMemo, useState } from 'react'
 import { useBranches } from '@features/branches'
@@ -22,7 +23,7 @@ import clsx from 'clsx'
 import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
 import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
-import { GridLegend, MonthGrid, StageBar, type Stage } from './AttendanceStages'
+import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
 
 type Mode = 'day' | 'month'
 const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', confirm: 'اعتماد حضورية الشهر', reopen: 'إعادة فتح الحضورية', auto_blocked: 'تغيير تلقائي مُعلَّق بعد الاعتماد' }
@@ -72,6 +73,19 @@ export default function OpsAttendancePage() {
     const m = r.proposed_deduction_minutes ?? 0, d = r.proposed_deduction_days ?? 0
     a.minutes += m; a.days += d; if (m > 0 || d > 0) a.count += 1; return a
   }, { minutes: 0, days: 0, count: 0, waived: 0 }), [rows])
+  /** 00198 — قائمة جاهزية الاعتماد: ما الذي يجب حسمه قبل «اعتماد حضورية الشهر» */
+  const readiness = useMemo(() => {
+    const uneval = exportStatus?.unevaluated_days ?? 0
+    const scope = mode === 'day' ? `في يوم ${day}` : `في شهر ${month.slice(0, 7)}`
+    const items = [
+      { key: 'unevaluated', ok: uneval === 0, label: uneval === 0 ? 'كل الأيام محتسبة' : `${uneval} يوم غير محتسب`, hint: uneval === 0 ? 'لا أيام بلا احتساب في الشهر' : `لدى ${exportStatus?.unevaluated_employees ?? 0} موظف — يُحتسب تلقائياً عند الاعتماد`, go: () => evaluateMonth.mutate(month), goLabel: 'احتسب الآن' },
+      { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — ستُعدّ «حاضر» إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
+      { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — راجعها أو ألغِها بسبب قبل الاعتماد`, go: () => setPanel('deductions'), goLabel: 'المراجعة' },
+      { key: 'scope', ok: mode === 'month', label: mode === 'month' ? 'عرض الشهر كاملاً' : 'العرض الحالي يوم واحد', hint: mode === 'month' ? 'الأرقام أعلاه تغطي الشهر كله' : 'انتقل إلى عرض الشهر للتحقق من كامل الشهر قبل الاعتماد', go: () => setMode('month'), goLabel: 'عرض الشهر' },
+    ]
+    const open = items.filter((i) => !i.ok).length
+    return { items, open, ok: open === 0 }
+  }, [exportStatus, counts, proposedTotals, mode, day, month, evaluateMonth])
   const gridTotals = useMemo(() => grid.reduce((a, r) => { a.emp += 1; a.present += r.present_days + r.late_days + r.early_days + r.incomplete_days; a.absent += r.absent_days; a.leave += r.leave_days; a.minutes += r.worked_minutes; a.incomplete += r.incomplete_days; a.unevaluated += r.unevaluated_days; a.manual += r.days.filter((c) => c.src === 'manual').length; return a }, { emp: 0, present: 0, absent: 0, leave: 0, minutes: 0, incomplete: 0, unevaluated: 0, manual: 0 }), [grid])
   const toggleWaive = async (r: AttendanceDay) => {
     const reason = window.prompt((r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):') + '\nسيتم تبليغ وحدة التطوير المركزية بهذا الإجراء.')
@@ -101,43 +115,40 @@ export default function OpsAttendancePage() {
   return (
     <div className="space-y-4" data-testid="ops-attendance">
       <header className="flex flex-wrap items-end justify-between gap-2">
-        <div><h1 className="text-xl font-black">الحضوريات</h1><p className="text-xs text-slate-500">مرحلتان: تدقيق تفصيلي بالأوقات → اعتماد الشهر → كشف معتمد (حاضر/غائب/مجاز) → تصدير للمالية · كل تعديل بسبب ويُسجَّل باسم المدقق</p></div>
+        <div>
+          <h1 className="text-xl font-black">الحضوريات</h1>
+          <p className="text-xs text-slate-500">تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير للمالية · كل تعديل بسبب موثّق باسم المدقق</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
+          <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
         </div>
       </header>
 
       <StageBar conf={conf} stage={stage} onStage={setStage} />
 
-      <nav className="flex gap-1 rounded-2xl bg-slate-100 p-1 text-xs font-bold" aria-label="المرحلة">
-        <button type="button" onClick={() => setStage('detailed')} className={clsx('flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2', stage === 'detailed' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid="stage-detailed">١ · التدقيق التفصيلي</button>
-        <button type="button" onClick={() => setStage('approved')} className={clsx('flex flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2', stage === 'approved' ? 'bg-white text-emerald-700 shadow' : 'text-slate-600')} data-testid="stage-approved">
-          {!conf?.confirmed && !locked && <Icon name="lock" size={12} />} ٢ · الكشف المعتمد
-        </button>
-      </nav>
-
       {stage === 'detailed' && (
         <>
-          {confirmed && (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900" role="status" data-testid="att-confirmed-banner">
-              <Icon name="check" size={16} />
-              <span><b>حضورية {month.slice(0, 7)} معتمدة</b> بواسطة {conf?.confirmed_by_name ?? '—'} في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'} — التعديل مقفل؛ لإجراء أي تعديل أعد فتح الشهر بسبب من «الكشف المعتمد».</span>
-              <Button size="sm" variant="secondary" className="ms-auto" onClick={() => setStage('approved')} data-testid="att-go-approved">فتح الكشف المعتمد</Button>
-            </div>
-          )}
-          {conf?.status === 'reopened' && !locked && (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="att-reopened-banner">
-              <Icon name="alert-triangle" size={16} />
-              <span><b>الشهر مُعاد فتحه</b> بواسطة {conf.reopened_by_name ?? '—'} — السبب: {conf.reopen_reason} · أكمل التعديلات ثم أعد الاعتماد.</span>
-            </div>
-          )}
-          {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ops-unevaluated-banner">
-              <Icon name="alert-triangle" size={16} />
-              <span><b>{exportStatus!.unevaluated_days} يوم عمل غير محتسب</b> لدى {exportStatus!.unevaluated_employees} موظف في شهر {month.slice(0, 7)} — أيام بلا بصمة لم يُحتسب غيابها بعد. (اعتماد الشهر يحتسبها تلقائياً.)</span>
-              <Button size="sm" variant="secondary" className="ms-auto" isLoading={evaluateMonth.isPending} onClick={() => evaluateMonth.mutate(month)} data-testid="ops-evaluate-month">احتساب الشهر كاملاً الآن</Button>
-            </div>
+          {(confirmed || (conf?.status === 'reopened' && !locked) || ((exportStatus?.unevaluated_days ?? 0) > 0 && !locked) || locked) && (
+            <SectionCard title={`حالة شهر ${month.slice(0, 7)}`} testId="att-month-status">
+              {locked && <StatusLine tone="slate" icon="lock" testId="att-locked-line">اعتمدت المالية كشف هذا الشهر وأُقفل نهائياً — العرض للاطلاع فقط ولا يمكن التعديل أو إعادة الفتح.</StatusLine>}
+              {confirmed && (
+                <StatusLine tone="emerald" icon="check" role="status" testId="att-confirmed-banner" action={<Button size="sm" variant="secondary" onClick={() => setStage('approved')} data-testid="att-go-approved">فتح الكشف المعتمد</Button>}>
+                  <b>حضورية {month.slice(0, 7)} معتمدة</b> بواسطة {conf?.confirmed_by_name ?? '—'} في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'} — التعديل مقفل؛ لأي تعديل أعد فتح الشهر بسبب من «الكشف المعتمد».
+                </StatusLine>
+              )}
+              {conf?.status === 'reopened' && !locked && (
+                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="att-reopened-banner">
+                  <b>الشهر مُعاد فتحه</b> بواسطة {conf.reopened_by_name ?? '—'} — السبب: {conf.reopen_reason} · أكمل التعديلات ثم أعد الاعتماد.
+                </StatusLine>
+              )}
+              {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
+                <StatusLine tone="rose" icon="alert-triangle" role="status" testId="ops-unevaluated-banner" action={<Button size="sm" variant="secondary" isLoading={evaluateMonth.isPending} onClick={() => evaluateMonth.mutate(month)} data-testid="ops-evaluate-month">احتساب الشهر كاملاً الآن</Button>}>
+                  <b>{exportStatus!.unevaluated_days} يوم عمل غير محتسب</b> لدى {exportStatus!.unevaluated_employees} موظف في شهر {month.slice(0, 7)} — أيام بلا بصمة لم يُحتسب غيابها بعد (اعتماد الشهر يحتسبها تلقائياً).
+                </StatusLine>
+              )}
+            </SectionCard>
           )}
           <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="ops-filters">
             <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
@@ -151,30 +162,52 @@ export default function OpsAttendancePage() {
             <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {ATTENDANCE_STATUS_ORDER.map((s) => (
-              <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('text-start', status === s && 'rounded-2xl ring-2 ring-brand-400')} data-testid={`ops-stat-${s}`}>
-                <StatCard title={ATTENDANCE_STATUS_LABELS[s]} value={counts[s]} tone={s === 'absent' ? 'red' : s === 'late' ? 'amber' : s === 'present' ? 'emerald' : s === 'incomplete' ? 'violet' : 'sky'} />
-              </button>
-            ))}
-          </div>
+          <SectionCard title={mode === 'day' ? `توزيع حالات يوم ${day}` : `توزيع حالات شهر ${month.slice(0, 7)}`} badge={<span className="text-[11px] text-slate-500" data-testid="ops-rows-count">{rows.length} سجلاً{status ? ` · مُرشَّح: ${ATTENDANCE_STATUS_LABELS[status]}` : ''}</span>}>
+            <div className="flex flex-wrap gap-1.5" data-testid="ops-status-chips">
+              {ATTENDANCE_STATUS_ORDER.map((s) => {
+                const tone = s === 'absent' ? 'bg-rose-50 text-rose-800 ring-rose-200' : s === 'late' || s === 'early_leave' ? 'bg-amber-50 text-amber-800 ring-amber-200' : s === 'present' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : s === 'incomplete' ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-sky-50 text-sky-800 ring-sky-200'
+                return (
+                  <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition', tone, status === s ? 'ring-2 ring-brand-500' : counts[s] === 0 && 'opacity-50')} data-testid={`ops-stat-${s}`} aria-pressed={status === s}>
+                    <span>{ATTENDANCE_STATUS_LABELS[s]}</span><span className="rounded-full bg-white/80 px-1.5 tabular-nums">{counts[s]}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
+              <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
+              <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
+              <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
+              <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
+            </div>
+          </SectionCard>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
-            <StatCard title="أيام حضور بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
-            <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
-            <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
-            <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
-          </div>
+          {!frozen && (
+            <SectionCard title="جاهزية الاعتماد" testId="att-readiness" badge={<span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', readiness.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')} data-testid="att-readiness-state">{readiness.ok ? '✓ جاهز للاعتماد' : `${readiness.open} نقاط تحتاج مراجعة`}</span>}>
+              <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                {readiness.items.map((it) => (
+                  <li key={it.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] ring-1', it.ok ? 'bg-emerald-50/60 text-emerald-900 ring-emerald-100' : 'bg-amber-50/60 text-amber-900 ring-amber-200')} data-testid={`att-ready-${it.key}`} data-ok={it.ok}>
+                    <span className={clsx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-black', it.ok ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white')}>{it.ok ? '✓' : '!'}</span>
+                    <span className="min-w-0 flex-1"><span className="block font-bold">{it.label}</span><span className="block text-[10px] opacity-80">{it.hint}</span></span>
+                    {!it.ok && it.go && <button type="button" className="shrink-0 rounded-lg bg-white px-2 py-1 font-bold text-amber-900 ring-1 ring-amber-300" onClick={it.go}>{it.goLabel}</button>}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-              {([['rows', 'سجلات الحضور'], ['grid', 'شبكة الشهر (الأوقات)'], ['deductions', 'الاستقطاعات'], ['exports', 'تصديرات الأشهر']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>{l}</button>)}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" data-testid="ops-toolbar">
+            <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
+              {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
+                <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>
+                  {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
+                </button>
+              ))}
             </nav>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" isLoading={evaluate.isPending} disabled={frozen} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
-              <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length && !needGrid} onClick={() => { setPanel('grid'); void doExcel('detailed') }} data-testid="att-excel-detailed"><Icon name="file-spreadsheet" size={14} /> Excel تفصيلي (ورقة لكل قسم)</Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="ghost" isLoading={evaluate.isPending} disabled={frozen} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate" title="إعادة احتساب النطاق الحالي من البصمات"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
+              <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length && !needGrid} onClick={() => { setPanel('grid'); void doExcel('detailed') }} data-testid="att-excel-detailed"><Icon name="file-spreadsheet" size={14} /> Excel تفصيلي</Button>
               {!locked && (
-                <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : ''}>
+                <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
                   <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
                 </Button>
               )}
@@ -246,28 +279,44 @@ export default function OpsAttendancePage() {
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900" data-testid="att-approved-banner">
-              <Icon name="check" size={16} />
-              <span><b>كشف {month.slice(0, 7)} المعتمد</b> — اعتمده {conf?.confirmed_by_name ?? '—'} في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}{(conf?.confirm_count ?? 0) > 1 ? ` (الاعتماد رقم ${conf?.confirm_count})` : ''} · {conf?.employees ?? grid.length} موظفاً</span>
-              {!locked && <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setReopenOpen(true)} data-testid="att-reopen-open">إعادة فتح الشهر بسبب</Button>}
-            </div>
-            {(conf?.pending_auto ?? 0) > 0 && !locked && (
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="att-pending-banner">
-                <Icon name="alert-triangle" size={16} />
-                <span><b>{conf!.pending_auto} يوم</b> وصلته تغييرات تلقائية بعد الاعتماد (بصمات متأخرة / إجازات اعتُمدت لاحقاً) ولم تُطبَّق: {conf!.pending_days.slice(0, 4).map((p) => `${p.full_name} ${p.work_date.slice(5)}`).join('، ')}{conf!.pending_days.length > 4 ? ' …' : ''} — التصدير للمالية متوقف حتى إعادة الاعتماد.</span>
-                <Button size="sm" className="ms-auto" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-reconfirm">إعادة الاعتماد (تطبيق التغييرات)</Button>
+            <SectionCard title={`كشف ${month.slice(0, 7)} المعتمد`} testId="att-approved-status" badge={!locked ? <Button size="sm" variant="ghost" onClick={() => setReopenOpen(true)} data-testid="att-reopen-open">إعادة فتح الشهر بسبب</Button> : undefined}>
+              <StatusLine tone="emerald" icon="check" testId="att-approved-banner">
+                اعتمده <b>{conf?.confirmed_by_name ?? '—'}</b> في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}{(conf?.confirm_count ?? 0) > 1 ? ` (الاعتماد رقم ${conf?.confirm_count})` : ''} · {conf?.employees ?? grid.length} موظفاً
+              </StatusLine>
+              {(conf?.pending_auto ?? 0) > 0 && !locked && (
+                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="att-pending-banner" action={<Button size="sm" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-reconfirm">إعادة الاعتماد (تطبيق التغييرات)</Button>}>
+                  <b>{conf!.pending_auto} يوم</b> وصلته تغييرات تلقائية بعد الاعتماد (بصمات متأخرة / إجازات اعتُمدت لاحقاً) ولم تُطبَّق: {conf!.pending_days.slice(0, 4).map((p) => `${p.full_name} ${p.work_date.slice(5)}`).join('، ')}{conf!.pending_days.length > 4 ? ' …' : ''} — التصدير للمالية متوقف حتى إعادة الاعتماد.
+                </StatusLine>
+              )}
+              {(conf?.deductions_after ?? 0) > 0 && !locked && (
+                <StatusLine tone="violet" testId="att-deductions-after">وصل {conf!.deductions_after} استقطاع من كشوفات معتمدة بعد الاعتماد — سيُضمَّن في التصدير للمالية تلقائياً.</StatusLine>
+              )}
+              {exportStatus?.needs_reexport && !locked && (
+                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="ops-reexport-banner" action={<Button size="sm" isLoading={exportMonth.isPending} disabled={!conf?.can_export} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>}>
+                  <b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.
+                </StatusLine>
+              )}
+            </SectionCard>
+
+            <SectionCard title="التصدير إلى المالية" testId="att-export-card" badge={
+              <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', locked ? 'bg-slate-800 text-white' : monthExport ? (exportStatus?.needs_reexport ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900') : 'bg-slate-100 text-slate-700')} data-testid="att-export-state">
+                {locked ? '🔒 اعتمدته المالية' : monthExport ? (exportStatus?.needs_reexport ? `v${monthExport.version} · يلزم إعادة التصدير` : `v${monthExport.version} · بانتظار اعتماد المالية`) : 'لم يُصدَّر بعد'}
+              </span>}>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="min-w-0 flex-1 text-[11px] text-slate-600">
+                  {locked ? `اعتمدت المالية الإصدار v${monthExport?.version ?? exportStatus?.version ?? 1} وأُقفل الشهر — لا يمكن إعادة التصدير.`
+                    : monthExport ? `آخر تصدير v${monthExport.version} في ${new Date(monthExport.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · ${monthExport.rows_count} موظفاً. إعادة التصدير تستبدل اللقطة لدى المالية ما لم تعتمدها.`
+                    : 'يُرسَل الكشف المعتمد (أيام الحضور/الغياب/الإجازة + الاستقطاعات) إلى وحدة الرواتب في المالية كلقطة مرقّمة.'}
+                  {!locked && !conf?.can_export && <span className="block font-bold text-amber-800">التصدير متوقف: أعد الاعتماد أولاً لتطبيق التغييرات المعلّقة.</span>}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length} onClick={() => void doExcel('approved')} data-testid="att-excel-approved"><Icon name="file-spreadsheet" size={14} /> Excel الكشف المعتمد</Button>
+                  <Button size="sm" isLoading={exportMonth.isPending} disabled={locked || !conf?.can_export} onClick={() => void doExport()} data-testid="ops-export-month" title={locked ? 'الشهر مقفل بعد اعتماد المالية' : !conf?.can_export ? 'أعد الاعتماد أولاً' : ''}>
+                    <Icon name="send" size={14} /> {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر إلى المالية' : 'تصدير بيانات الشهر إلى المالية'}
+                  </Button>
+                </div>
               </div>
-            )}
-            {(conf?.deductions_after ?? 0) > 0 && !locked && (
-              <p className="rounded-2xl border border-violet-200 bg-violet-50 p-2 text-[11px] text-violet-900" data-testid="att-deductions-after">وصل {conf!.deductions_after} استقطاع من كشوفات معتمدة بعد الاعتماد — سيُضمَّن في التصدير للمالية تلقائياً.</p>
-            )}
-            {exportStatus?.needs_reexport && !locked && (
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ops-reexport-banner">
-                <Icon name="alert-triangle" size={16} />
-                <span><b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.</span>
-                <Button size="sm" className="ms-auto" isLoading={exportMonth.isPending} disabled={!conf?.can_export} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>
-              </div>
-            )}
+            </SectionCard>
             <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3" data-testid="att-approved-filters">
               <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="app-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
               <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="app-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
@@ -280,15 +329,7 @@ export default function OpsAttendancePage() {
               <StatCard title="أيام الإجازة" value={gridTotals.leave} tone="sky" testId="app-leave" />
               <StatCard title="ساعات العمل" value={fmtHM(gridTotals.minutes)} tone="violet" testId="app-hours" />
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <GridLegend mode="approved" />
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length} onClick={() => void doExcel('approved')} data-testid="att-excel-approved"><Icon name="file-spreadsheet" size={14} /> Excel الكشف المعتمد (ورقة لكل قسم)</Button>
-                <Button size="sm" isLoading={exportMonth.isPending} disabled={locked || !conf?.can_export} onClick={() => void doExport()} data-testid="ops-export-month" title={locked ? 'الشهر مقفل بعد اعتماد المالية' : !conf?.can_export ? 'أعد الاعتماد أولاً' : ''}>
-                  <Icon name="send" size={14} /> {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر إلى المالية' : 'تصدير بيانات الشهر إلى المالية'}
-                </Button>
-              </div>
-            </div>
+            <GridLegend mode="approved" />
             {gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين في هذا النطاق" hint="وسّع الفلاتر" /> : <MonthGrid rows={grid} mode="approved" />}
           </>
         )

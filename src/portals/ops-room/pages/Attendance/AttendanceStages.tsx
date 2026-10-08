@@ -5,6 +5,7 @@
  *               مجمّعة بالقسم، مع ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة) وتمرير أفقي يناسب الهاتف.
  */
 import { useMemo } from 'react'
+import type React from 'react'
 import clsx from 'clsx'
 import type { AttendanceConfirmation, AttendanceGridCell, AttendanceGridRow } from '@features/hr'
 import { APPROVED_LABEL, approvedKind, DETAIL_LABEL, fmtHM } from '@features/hr/lib/attendanceExcel'
@@ -13,27 +14,86 @@ import { Icon } from '@components/ui/Icon/Icon'
 export type Stage = 'detailed' | 'approved'
 const WEEKDAY_SHORT = ['أحد', 'اثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت']
 
+/** حالة الشهر في سطر واحد (شريحة في رأس الصفحة) */
+function monthState(conf: AttendanceConfirmation | undefined): { key: 'open' | 'reopened' | 'confirmed' | 'exported' | 'locked'; label: string; cls: string } {
+  if (conf?.locked || conf?.export?.status === 'approved') return { key: 'locked', label: 'مقفل باعتماد المالية', cls: 'bg-slate-800 text-white' }
+  if (conf?.export?.status) return { key: 'exported', label: `مُصدَّر للمالية · v${conf.export.version ?? 1} · بانتظار اعتمادها`, cls: 'bg-sky-100 text-sky-900' }
+  if (conf?.confirmed) return { key: 'confirmed', label: 'معتمد من غرفة العمليات · لم يُصدَّر بعد', cls: 'bg-emerald-100 text-emerald-900' }
+  if (conf?.status === 'reopened') return { key: 'reopened', label: 'مُعاد فتحه · بانتظار إعادة الاعتماد', cls: 'bg-amber-100 text-amber-900' }
+  return { key: 'open', label: 'قيد التدقيق', cls: 'bg-slate-100 text-slate-700' }
+}
+
+export function MonthStateChip({ conf }: { conf: AttendanceConfirmation | undefined }) {
+  const st = monthState(conf)
+  return <span className={clsx('inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold', st.cls)} data-testid="att-month-state" data-state={st.key}>{st.key === 'locked' && '🔒 '}{st.label}</span>
+}
+
+/**
+ * شريط المراحل: مرحلتان رئيسيتان (زرّان كبيران = التنقل الوحيد بين الشاشتين) وتحت كل منهما خطواتها الفرعية بحالة حيّة:
+ *   المرحلة ١ «التدقيق التفصيلي»: ① التدقيق بالأوقات → ② اعتماد الشهر
+ *   المرحلة ٢ «الكشف المعتمد»:     ③ الكشف النهائي → ④ التصدير للمالية
+ */
 export function StageBar({ conf, stage, onStage }: { conf: AttendanceConfirmation | undefined; stage: Stage; onStage: (s: Stage) => void }) {
   const confirmed = !!conf?.confirmed
   const exported = !!conf?.export?.status
-  const locked = !!conf?.locked
+  const locked = !!conf?.locked || conf?.export?.status === 'approved'
   const steps = [
-    { n: 1, label: 'التدقيق التفصيلي', hint: 'الأوقات والتعديلات', done: confirmed || locked, active: stage === 'detailed' && !confirmed, go: () => onStage('detailed') },
-    { n: 2, label: 'اعتماد الشهر', hint: conf?.confirmed_at ? `${conf.confirmed_by_name ?? ''} · ${new Date(conf.confirmed_at).toLocaleDateString('ar-IQ-u-nu-latn')}` : 'بعد اكتمال التدقيق', done: confirmed || locked, active: false, go: () => onStage('detailed') },
-    { n: 3, label: 'الكشف المعتمد', hint: 'حاضر / غائب / مجاز', done: exported || locked, active: stage === 'approved' && confirmed, go: () => onStage('approved') },
-    { n: 4, label: 'التصدير للمالية', hint: locked ? 'معتمد ومقفل' : exported ? `إصدار v${conf?.export?.version ?? 1}` : 'بعد الاعتماد', done: exported || locked, active: false, go: () => onStage('approved') },
+    { n: 1, phase: 'detailed' as Stage, label: 'التدقيق بالأوقات', hint: conf?.status === 'reopened' && !confirmed ? `مُعاد فتحه: ${conf.reopen_reason ?? ''}` : 'كل تعديل بسبب موثّق', done: confirmed || locked, active: stage === 'detailed' && !confirmed && !locked },
+    { n: 2, phase: 'detailed' as Stage, label: 'اعتماد الشهر', hint: conf?.confirmed_at ? `${conf.confirmed_by_name ?? ''} · ${new Date(conf.confirmed_at).toLocaleDateString('ar-IQ-u-nu-latn')}` : 'بعد اكتمال التدقيق', done: confirmed || locked, active: false },
+    { n: 3, phase: 'approved' as Stage, label: 'الكشف المعتمد', hint: 'حاضر / غائب / مجاز', done: exported || locked, active: stage === 'approved' && confirmed && !exported && !locked },
+    { n: 4, phase: 'approved' as Stage, label: 'التصدير للمالية', hint: locked ? 'اعتمدته المالية وأُقفل' : exported ? `إصدار v${conf?.export?.version ?? 1} · بانتظار المالية` : 'بعد الاعتماد', done: exported || locked, active: stage === 'approved' && exported && !locked },
+  ]
+  const phases: { key: Stage; n: string; title: string; sub: string; testId: string; locked: boolean }[] = [
+    { key: 'detailed', n: '١', title: 'التدقيق التفصيلي', sub: 'سجلات وأوقات · تعديلات · استقطاعات', testId: 'stage-detailed', locked: false },
+    { key: 'approved', n: '٢', title: 'الكشف المعتمد والتصدير', sub: confirmed || locked ? 'جاهز' : 'يُفتح بعد اعتماد الشهر', testId: 'stage-approved', locked: !confirmed && !locked },
   ]
   return (
-    <ol className="grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-4" data-testid="att-stage-bar" aria-label="مراحل الحضورية">
-      {steps.map((s) => (
-        <li key={s.n}>
-          <button type="button" onClick={s.go} className={clsx('flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-start transition', s.active ? 'bg-brand-600 text-white shadow' : s.done ? 'bg-emerald-50 text-emerald-900' : 'bg-slate-50 text-slate-500')} data-testid={`att-stage-${s.n}`} data-done={s.done} data-active={s.active}>
-            <span className={clsx('grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black', s.active ? 'bg-white/20' : s.done ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600')}>{s.done && !s.active ? '✓' : s.n}</span>
-            <span className="min-w-0"><span className="block truncate text-xs font-black">{s.label}</span><span className={clsx('block truncate text-[10px]', s.active ? 'text-white/80' : 'text-slate-500')}>{s.hint}</span></span>
+    <div className="grid gap-2 sm:grid-cols-2" data-testid="att-stage-bar" role="tablist" aria-label="مراحل الحضورية">
+      {phases.map((p) => {
+        const current = stage === p.key
+        const tone = p.key === 'detailed' ? 'brand' : 'emerald'
+        return (
+          <button key={p.key} type="button" role="tab" aria-selected={current} onClick={() => onStage(p.key)} data-testid={p.testId}
+            className={clsx('rounded-2xl border p-3 text-start shadow-sm transition', current ? (tone === 'brand' ? 'border-brand-500 bg-white ring-2 ring-brand-200' : 'border-emerald-500 bg-white ring-2 ring-emerald-200') : 'border-slate-200 bg-slate-50 hover:bg-white')}>
+            <span className="flex items-center gap-2">
+              <span className={clsx('grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black', current ? (tone === 'brand' ? 'bg-brand-600 text-white' : 'bg-emerald-600 text-white') : 'bg-slate-200 text-slate-600')}>{p.locked ? <Icon name="lock" size={14} /> : p.n}</span>
+              <span className="min-w-0"><span className={clsx('block text-sm font-black', current ? 'text-slate-900' : 'text-slate-600')}>{p.title}</span><span className="block truncate text-[11px] text-slate-500">{p.sub}</span></span>
+            </span>
+            <ol className="mt-2 grid grid-cols-2 gap-1.5">
+              {steps.filter((s) => s.phase === p.key).map((s) => (
+                <li key={s.n} className={clsx('flex items-center gap-1.5 rounded-xl px-2 py-1.5', s.active ? 'bg-brand-600 text-white' : s.done ? 'bg-emerald-50 text-emerald-900' : 'bg-white text-slate-500 ring-1 ring-slate-100')} data-testid={`att-stage-${s.n}`} data-done={s.done} data-active={s.active}>
+                  <span className={clsx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-black', s.active ? 'bg-white/25' : s.done ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600')}>{s.done && !s.active ? '✓' : s.n}</span>
+                  <span className="min-w-0"><span className="block truncate text-[11px] font-black">{s.label}</span><span className={clsx('block truncate text-[10px]', s.active ? 'text-white/80' : 'text-slate-500')}>{s.hint}</span></span>
+                </li>
+              ))}
+            </ol>
           </button>
-        </li>
-      ))}
-    </ol>
+        )
+      })}
+    </div>
+  )
+}
+
+/** سطر حالة موحّد داخل بطاقة «حالة الشهر» (يستبدل اللافتات المتناثرة) */
+export function StatusLine({ tone, icon, children, action, testId, role }: { tone: 'emerald' | 'amber' | 'rose' | 'violet' | 'sky' | 'slate'; icon?: 'check' | 'alert-triangle' | 'lock' | 'send' | 'refresh'; children: React.ReactNode; action?: React.ReactNode; testId?: string; role?: 'status' | 'alert' }) {
+  const t = { emerald: 'border-emerald-200 bg-emerald-50 text-emerald-900', amber: 'border-amber-200 bg-amber-50 text-amber-900', rose: 'border-rose-200 bg-rose-50 text-rose-900', violet: 'border-violet-200 bg-violet-50 text-violet-900', sky: 'border-sky-200 bg-sky-50 text-sky-900', slate: 'border-slate-200 bg-slate-50 text-slate-700' }[tone]
+  const ic = { emerald: 'text-emerald-600', amber: 'text-amber-600', rose: 'text-rose-600', violet: 'text-violet-600', sky: 'text-sky-600', slate: 'text-slate-500' }[tone]
+  return (
+    <div className={clsx('flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-xs', t)} role={role} data-testid={testId}>
+      {icon && <Icon name={icon} size={15} className={clsx('shrink-0', ic)} />}
+      <span className="min-w-0 flex-1">{children}</span>
+      {action && <span className="ms-auto flex shrink-0 flex-wrap gap-1.5">{action}</span>}
+    </div>
+  )
+}
+
+/** بطاقة مجمّعة بعنوان صغير — تُستخدم لحالة الشهر وجاهزية الاعتماد وبطاقة التصدير */
+export function SectionCard({ title, badge, children, testId, className }: { title: string; badge?: React.ReactNode; children: React.ReactNode; testId?: string; className?: string }) {
+  return (
+    <section className={clsx('space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm', className)} data-testid={testId}>
+      <header className="flex items-center justify-between gap-2"><h2 className="text-xs font-black text-slate-700">{title}</h2>{badge}</header>
+      {children}
+    </section>
   )
 }
 

@@ -39,6 +39,33 @@ export default function PayrollOverview() {
   )
 }
 
+// ── 00198 · شريط رحلة الكشف: غرفة العمليات → التصدير → التحقق الحسابي → اعتماد المالية ──
+function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }: { head: PayrollSheetRow; approved: boolean; stale: boolean; rc: ReturnType<typeof reconcileSummary>; hasReconcile: boolean; blockReason: string }) {
+  const exportedAt = new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')
+  const steps: { key: string; label: string; hint: string; state: 'done' | 'warn' | 'bad' | 'active' | 'todo' }[] = [
+    { key: 'ops', label: 'اعتماد غرفة العمليات', hint: 'حضورية الشهر مُدقَّقة ومعتمدة', state: 'done' },
+    { key: 'export', label: `التصدير v${head.export_version}`, hint: stale ? 'تغيّرت الحضورية بعده — يلزم إعادة تصدير' : `مُستلم ${exportedAt}`, state: stale ? 'warn' : 'done' },
+    { key: 'verify', label: 'التحقق الحسابي', hint: !hasReconcile ? 'جارٍ…' : rc.money > 0 ? `${rc.money} صف غير متطابق` : `${rc.total} صف متطابق`, state: !hasReconcile ? 'todo' : rc.money > 0 ? 'bad' : 'done' },
+    { key: 'approve', label: 'اعتماد المالية', hint: approved ? 'معتمد ومقفل' : blockReason ? 'موقوف — راجع الجاهزية' : 'بانتظار الاعتماد', state: approved ? 'done' : blockReason ? 'bad' : 'active' },
+  ]
+  const cls = { done: 'bg-emerald-50 text-emerald-900 ring-emerald-200', warn: 'bg-amber-50 text-amber-900 ring-amber-200', bad: 'bg-red-50 text-red-900 ring-red-200', active: 'bg-brand-600 text-white ring-brand-600', todo: 'bg-slate-50 text-slate-500 ring-slate-200' }
+  const dot = { done: 'bg-emerald-600 text-white', warn: 'bg-amber-500 text-white', bad: 'bg-red-600 text-white', active: 'bg-white/25 text-white', todo: 'bg-slate-200 text-slate-600' }
+  const mark = { done: '✓', warn: '!', bad: '✗', active: '…', todo: '' }
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-pipeline">
+      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {steps.map((s, i) => (
+          <li key={s.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 ring-1', cls[s.state])} data-testid={`ps-step-${s.key}`} data-state={s.state}>
+            <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', dot[s.state])}>{mark[s.state] || i + 1}</span>
+            <span className="min-w-0"><span className="block truncate text-[11px] font-black">{s.label}</span><span className={clsx('block truncate text-[10px]', s.state === 'active' ? 'text-white/80' : 'opacity-80')}>{s.hint}</span></span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {exportedAt} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}{hasReconcile && <> · <span className={clsx('font-bold', rc.money === 0 ? 'text-emerald-700' : 'text-red-700')} data-testid="ps-consistency">{rc.money === 0 ? `✓ التحقق الحسابي: ${rc.total} صف متطابق` : `✗ ${rc.money} صف غير متطابق`}</span></>}</p>
+    </section>
+  )
+}
+
 // ── كشف الشهر ──
 const FILTER_SELECT = 'rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs'
 function SheetTab() {
@@ -125,40 +152,63 @@ function SheetTab() {
         )}
       </div>
       {head && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>
-          <StatCard title={filtered ? 'الموظفون (حسب الفلتر)' : 'الموظفون في الكشف'} value={totals.count} hint={filtered ? `من أصل ${rows.length}` : undefined} testId="ps-count" />
-          <StatCard title="الإجمالي قبل الاستقطاع" value={fmtMoney(totals.gross)} tone="slate" hint="الأساسي + المخصصات (اليومي: الأيام المدفوعة × أجر اليوم)" testId="ps-gross" />
-          <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint={`ثابتة ${fmtMoney(totals.fixed)} · عمليات ${fmtMoney(totals.ops)} · تلقائي ${fmtMoney(totals.auto)} · سلف ${fmtMoney(totals.advance)}`} testId="ps-deductions" />
-          <StatCard title="إجمالي الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" hint={`= ${fmtMoney(totals.gross)} − ${fmtMoney(totals.deductions)}`} testId="ps-proposed" />
-          <StatCard title="إجمالي الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" hint={totals.adjusted ? `${totals.adjusted} صف معدَّل يدوياً` : 'مطابق للمقترح'} testId="ps-final" />
-          <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="amber" testId="ps-ops" />
-          <StatCard title="استقطاع تلقائي (نقص/غياب)" value={fmtMoney(totals.auto)} tone="red" hint="محسوب من الشرائح بعد تدقيق غرفة العمليات" testId="ps-auto" />
-          <StatCard title="بلا ملف راتب" value={totals.missing} tone={totals.missing ? 'red' : 'slate'} hint={totals.missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''} testId="ps-missing" />
-        </div>
+        <PipelineStrip head={head} approved={approved} stale={!!exportStatus?.needs_reexport} rc={rc} hasReconcile={reconcile.length > 0} blockReason={blockReason} />
       )}
-      {head && !approved && missing > 0 && (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-3 text-xs text-red-900" role="status" data-testid="ps-missing-banner">
-          <b>الاعتماد موقوف:</b> {missing} موظفاً بلا ملف راتب — <span className="font-semibold">{missingRows.slice(0, 6).map((r) => `${r.full_name} (${r.employee_number})`).join('، ')}{missing > 6 ? ` و${missing - 6} آخرين` : ''}</span>. عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب من غرفة العمليات إعادة التصدير.
-          <button type="button" className="ms-2 rounded-lg bg-white px-2 py-0.5 font-bold text-red-800 ring-1 ring-red-300" onClick={() => setF('profile', 'missing')} data-testid="ps-missing-filter">عرضهم فقط</button>
-        </div>
+      {head && (
+        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>
+          <header className="flex items-center justify-between gap-2"><h2 className="text-xs font-black text-slate-700">{filtered ? `ملخص الكشف (حسب الفلتر · ${shown.length} من ${rows.length})` : `ملخص كشف ${month.slice(0, 7)}`}</h2><span className="text-[11px] text-slate-500">الصافي = الإجمالي المستحق − إجمالي الاستقطاعات</span></header>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+            <StatCard title={filtered ? 'الموظفون (حسب الفلتر)' : 'الموظفون في الكشف'} value={totals.count} hint={filtered ? `من أصل ${rows.length}` : undefined} testId="ps-count" />
+            <StatCard title="الإجمالي المستحق" value={fmtMoney(totals.gross)} tone="slate" hint="الأساسي + المخصصات (اليومي: الأيام المدفوعة × أجر اليوم)" testId="ps-gross" />
+            <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint={`ثابتة ${fmtMoney(totals.fixed)} · عمليات ${fmtMoney(totals.ops)} · تلقائي ${fmtMoney(totals.auto)} · سلف ${fmtMoney(totals.advance)}`} testId="ps-deductions" />
+            <StatCard title="الصافي المقترح" value={fmtMoney(totals.proposed)} tone="sky" hint={`= ${fmtMoney(totals.gross)} − ${fmtMoney(totals.deductions)}`} testId="ps-proposed" />
+            <StatCard title="الصافي المعتمد" value={fmtMoney(totals.final)} tone="emerald" hint={totals.adjusted ? `${totals.adjusted} صف معدَّل يدوياً` : 'مطابق للمقترح'} testId="ps-final" />
+          </div>
+          <div className="flex flex-wrap gap-1.5 text-[11px]" data-testid="ps-stats-secondary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-bold text-amber-900 ring-1 ring-amber-200" data-testid="ps-ops">استقطاعات غرفة العمليات <b className="tabular-nums">{fmtMoney(totals.ops)}</b></span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 font-bold text-rose-900 ring-1 ring-rose-200" data-testid="ps-auto" title="محسوب من الشرائح بعد تدقيق غرفة العمليات">استقطاع تلقائي (نقص/غياب) <b className="tabular-nums">{fmtMoney(totals.auto)}</b></span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-bold text-amber-900 ring-1 ring-amber-200">أقساط السلف <b className="tabular-nums">{fmtMoney(totals.advance)}</b></span>
+            <span className={clsx('inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-bold ring-1', totals.missing ? 'bg-red-50 text-red-900 ring-red-300' : 'bg-slate-50 text-slate-600 ring-slate-200')} data-testid="ps-missing" title={totals.missing ? 'عرّف رواتبهم من تبويب ملفات الرواتب' : ''}>بلا ملف راتب <b className="tabular-nums">{totals.missing}</b></span>
+          </div>
+        </section>
       )}
-      {head && !approved && unevaluated > 0 && (
-        <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900" role="status" data-testid="ps-unevaluated-banner">
-          <b>تحذير:</b> هذا الكشف يحتوي {unevaluated} يوم عمل غير محتسب (أيام بلا بصمة لم يُسجَّل غيابها) — الصافي فيه أعلى من الصحيح. اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» (التصدير يحتسب الشهر كاملاً تلقائياً).
-        </div>
+      {head && !approved && (
+        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-readiness">
+          <header className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-black text-slate-700">جاهزية الاعتماد</h2>
+            <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', blockReason ? 'bg-red-100 text-red-800' : exportStatus?.needs_reexport || unevaluated > 0 ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800')} data-testid="ps-readiness-state">
+              {blockReason ? 'الاعتماد موقوف' : exportStatus?.needs_reexport || unevaluated > 0 ? 'يمكن الاعتماد مع تحذير' : '✓ جاهز للاعتماد'}
+            </span>
+          </header>
+          {missing > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900" role="status" data-testid="ps-missing-banner">
+              <span className="min-w-0 flex-1"><b>الاعتماد موقوف:</b> {missing} موظفاً بلا ملف راتب — <span className="font-semibold">{missingRows.slice(0, 6).map((r) => `${r.full_name} (${r.employee_number})`).join('، ')}{missing > 6 ? ` و${missing - 6} آخرين` : ''}</span>. عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب من غرفة العمليات إعادة التصدير.</span>
+              <button type="button" className="rounded-lg bg-white px-2 py-0.5 font-bold text-red-800 ring-1 ring-red-300" onClick={() => setF('profile', 'missing')} data-testid="ps-missing-filter">عرضهم فقط</button>
+            </div>
+          )}
+          {rc.money > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900" role="alert" data-testid="ps-reconcile-banner">
+              <span className="min-w-0 flex-1"><b>خلل حسابي:</b> {rc.money} صف في الكشف أرقامه لا تطابق مكوّناته — الاعتماد ممنوع. راجع «التحقق الحسابي» لمعرفة الصفوف، واطلب إعادة التصدير من غرفة العمليات، وأبلغ التطوير المركزية إن تكرر.</span>
+              <button type="button" className="rounded-lg bg-white px-2 py-0.5 font-bold text-red-800 ring-1 ring-red-300" onClick={() => setView('verify')}>فتح التحقق الحسابي</button>
+            </div>
+          )}
+          {unevaluated > 0 && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="status" data-testid="ps-unevaluated-banner">
+              <b>تحذير:</b> هذا الكشف يحتوي {unevaluated} يوم عمل غير محتسب (أيام بلا بصمة لم يُسجَّل غيابها) — الصافي فيه أعلى من الصحيح. اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» (التصدير يحتسب الشهر كاملاً تلقائياً).
+            </div>
+          )}
+          {exportStatus?.needs_reexport && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status" data-testid="ps-stale-banner">
+              <b>هذا الكشف قديم:</b> حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.
+            </div>
+          )}
+          {!blockReason && !exportStatus?.needs_reexport && unevaluated === 0 && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="ps-ready-line">
+              ✓ كل الموظفين لهم ملف راتب · التحقق الحسابي متطابق · لا تغييرات في الحضورية بعد التصدير — يمكنك «اعتماد الكشف وقفل الشهر».
+            </div>
+          )}
+        </section>
       )}
-      {head && !approved && exportStatus?.needs_reexport && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900" role="status" data-testid="ps-stale-banner">
-          <span className="text-base">⚠</span>
-          <span><b>هذا الكشف قديم:</b> حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.</span>
-        </div>
-      )}
-      {head && !approved && rc.money > 0 && (
-        <div className="rounded-2xl border border-red-400 bg-red-50 p-3 text-xs text-red-900" role="alert" data-testid="ps-reconcile-banner">
-          <b>خلل حسابي:</b> {rc.money} صف في الكشف أرقامه لا تطابق مكوّناته — الاعتماد ممنوع. افتح «التحقق الحسابي» لمعرفة الصفوف، واطلب إعادة التصدير من غرفة العمليات، وأبلغ التطوير المركزية إن تكرر.
-        </div>
-      )}
-      {head && <p className="text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}{reconcile.length > 0 && <> · <span className={clsx('font-bold', rc.money === 0 ? 'text-emerald-700' : 'text-red-700')} data-testid="ps-consistency">{rc.money === 0 ? `✓ التحقق الحسابي: ${rc.total} صف متطابق` : `✗ ${rc.money} صف غير متطابق`}</span></>}</p>}
 
       {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات" /> : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
