@@ -178,3 +178,33 @@ describe('00198 — المالية: رحلة الكشف وجاهزية الاع�
     expect(screen.getByTestId('ps-approve')).toBeDisabled()
   })
 })
+
+describe('00199 — المالية: جدول كشف نظيف', () => {
+  const missing = { ...base, row_id: 'r6', employee_id: 'e6', employee_number: 'E-6', full_name: 'علي', department_name: null, pay_type: null, base_salary: null, gross_amount: null, deductions_total: null, proposed_net: null, auto_deduction_amount: 0, auto_deduction_days: 0, days_present: 0, days_absent: 7 }
+  it('من بلا ملف راتب خارج الجدول في بطاقة مستقلة بزر «تعريف الرواتب»؛ المجاميع للمُسعَّرين فقط؛ لا صف فرع ولا مجموع فرعي لقسم بموظف واحد', () => {
+    h.sheet = [base, missing]; h.reconcile = [rcRow]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getAllByTestId(/^ps-row-/).map((r) => r.getAttribute('data-testid'))).toEqual(['ps-row-E-2'])
+    const card = screen.getByTestId('ps-missing-card')
+    expect(within(card).getByTestId('ps-missing-row-E-6')).toHaveTextContent('علي'); expect(within(card).getByTestId('ps-missing-row-E-6')).toHaveTextContent('غائب 7')
+    expect(screen.queryByTestId('ps-group-بلا قسم')).toBeNull()
+    expect(screen.queryByTestId(/^ps-branch-/)).toBeNull()
+    expect(screen.queryByTestId('ps-subtotal-النقل')).toBeNull()
+    expect(screen.getByTestId('ps-grand-total')).toHaveTextContent('1 موظفاً'); expect(screen.getByTestId('ps-grand-total')).toHaveTextContent('+ 1 بلا ملف راتب خارج الجدول')
+    expect(screen.getByTestId('ps-grand-total')).not.toHaveTextContent('سلف 0')
+    fireEvent.click(screen.getByTestId('ps-missing-define'))
+    expect(screen.getByTestId('ftab-profiles')).toHaveClass('bg-white')
+  })
+  it('ترشيح «بلا ملف راتب» صراحةً يعرضهم في الجدول نفسه (سلوك 00194 محفوظ) ويخفي البطاقة', () => {
+    h.sheet = [base, missing]; h.reconcile = [rcRow]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-missing-filter'))
+    expect(screen.getAllByTestId(/^ps-row-/).map((r) => r.getAttribute('data-testid'))).toEqual(['ps-row-E-6'])
+    expect(screen.queryByTestId('ps-missing-card')).toBeNull()
+  })
+  it('الصافي المعتمد المعدَّل يُظهر الفرق بإشارة والملاحظة', () => {
+    h.sheet = [{ ...base, final_net: 550000, finance_note: 'تسوية' }]; h.reconcile = [rcRow]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-row-E-2')).toHaveTextContent('−30,000 · تسوية')
+  })
+})
