@@ -120,7 +120,7 @@ export function groupByBranchDept(rows: PayrollSheetRow[]): BranchGroup[] {
 export const RECONCILE_ISSUE_LABELS: Record<PayrollReconcileIssue, string> = {
   SALARY_MISSING: 'بلا ملف راتب', GROSS_MISMATCH: 'الإجمالي لا يطابق مكوّناته', DEDUCTIONS_MISMATCH: 'الاستقطاعات لا تطابق مكوّناتها', NET_MISMATCH: 'الصافي ≠ الإجمالي − الاستقطاعات',
   FINAL_NEGATIVE: 'صافٍ معتمد سالب', NET_NOT_FLOORED: 'صافٍ غير مُصفَّر رغم تجاوز الاستقطاعات', DAYS_UNCLASSIFIED: 'أيام عمل غير مصنّفة', UNEVALUATED_DAYS: 'أيام غير محتسبة',
-  ATTENDANCE_CHANGED: 'تغيّرت الحضورية بعد التصدير', AUTO_DEDUCTION_CHANGED: 'تغيّر الاستقطاع التلقائي بعد التصدير', OPS_DEDUCTIONS_CHANGED: 'تغيّرت استقطاعات العمليات بعد التصدير',
+  ATTENDANCE_CHANGED: 'تغيّرت الحضورية بعد التصدير', AUTO_DEDUCTION_CHANGED: 'تغيّر الاستقطاع التلقائي بعد التصدير', OPS_DEDUCTIONS_CHANGED: 'تغيّرت استقطاعات العمليات بعد التصدير', PAYABLE_DAYS_CHANGED: 'تغيّرت الأيام المستحقة بعد التصدير',
 }
 export const MONEY_ISSUES: PayrollReconcileIssue[] = ['GROSS_MISMATCH', 'DEDUCTIONS_MISMATCH', 'NET_MISMATCH', 'FINAL_NEGATIVE', 'NET_NOT_FLOORED']
 export function reconcileSummary(rows: PayrollReconcileRow[]) {
@@ -134,6 +134,8 @@ export function explainRow(r: PayrollReconcileRow): string {
   if (r.pay_type == null) return 'بلا ملف راتب — لا يُحتسب صافٍ حتى تعرّفه المالية'
   const gross = r.pay_type === 'daily'
     ? `${money(n('daily_rate'))} × ${money(n('payable_days'))} يوم مدفوع + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`
+    : c.salary_model === 'earned_days'
+      ? `أجر اليوم ${money(n('day_rate'))} (الأساسي ${money(n('base_salary'))} ÷ ${n('days_in_month')}) × ${money(n('payable_days'))} يوم مستحق (حضور + إجازة مدفوعة) + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`
     : Number(c.proration_ratio ?? 1) < 1
       ? `أجر اليوم ${money(n('day_rate'))} × ${n('covered_days')} يوم مشمول من ${n('days_in_month')} (بسقف الأساسي ${money(n('base_salary'))}) + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`
       : `الأساسي ${money(n('base_salary'))} + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`

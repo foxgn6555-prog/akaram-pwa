@@ -149,7 +149,8 @@ function writePayrollTable(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMe
   writeTitle(ws, headers, meta)
   rows.forEach((r, i) => {
     const paidLeave = r.days_leave_paid ?? r.days_leave
-    const paidDays = r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + paidLeave) : r.days_present + paidLeave
+    // 00201: الأيام المستحقة المخزّنة (يومي أو نموذج الأيام المستحقة) وإلا حضور + إجازة مدفوعة
+    const paidDays = r.payable_days ?? r.days_present + paidLeave
     const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
       paidDays, r.days_absent, r.pay_type === 'daily' ? r.daily_rate ?? 0 : r.base_salary ?? 0, r.allowances_total ?? 0, rowGross(r),
       r.fixed_deductions_total ?? 0, r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), r.auto_deduction_amount ?? 0, r.auto_deduction_rule ?? (r.auto_deduction_basis === 'disabled' ? 'متوقف' : ''), r.advance_installment ?? 0, rowDeductions(r),

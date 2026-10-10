@@ -130,6 +130,9 @@ describe('بوابة التطوير المركزية — سياسة الحضور
   })
   it('00187: قسم احتساب الراتب الشهري — أساس أجر اليوم والتناسب (سقف الاستقطاع انتقل إلى وحدة الاستقطاعات 00195)', async () => {
     render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
+    // 00206: أساس أجر اليوم/التناسب يظهران فقط مع النموذج القديم (الأساسي ناقص الغياب)
+    await screen.findByTestId('p-salary-model')
+    fireEvent.change(screen.getByTestId('p-salary-model'), { target: { value: 'full_minus_absence' } })
     await screen.findByTestId('p-day-basis')
     fireEvent.change(screen.getByTestId('p-day-basis'), { target: { value: 'calendar_days' } })
     fireEvent.change(screen.getByTestId('p-prorate'), { target: { value: 'false' } })

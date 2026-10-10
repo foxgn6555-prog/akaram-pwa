@@ -403,6 +403,9 @@ export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_basis?: 'salary' | 'fixed' | 'disabled' | null
   /** 00195: اسم قاعدة الاستقطاع التلقائي التي طُبّقت على الموظف («مستثنى» إن كان مستثنى) */
   auto_deduction_rule?: string | null
+  /** 00201: نموذج الراتب الشهري المُطبَّق في هذا الصف */
+  salary_model?: 'earned_days' | 'full_minus_absence' | 'daily' | null
+  days_rest?: number | null
   auto_deduction_days_capped?: boolean
   /** 00191 — قسط السلفة المستقطع تلقائياً هذا الشهر (ضمن إجمالي الاستقطاعات) */
   advance_installment?: number | null
@@ -422,7 +425,7 @@ export interface PayrollSheetRow extends OpsExportRow {
 }
 
 /** 00194 — صف التحقق الحسابي لكشف الرواتب (المالية) */
-export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED'
+export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED' | 'PAYABLE_DAYS_CHANGED'
 export interface PayrollReconcileRow {
   row_id: string
   employee_id: string
@@ -606,6 +609,9 @@ export interface HrPolicy {
   evaluate_lookback_days?: number
   /** 00187: احتساب الراتب الشهري */
   salary_day_basis?: 'fixed_30' | 'calendar_days'
+  /** 00201: earned_days = أجر اليوم × الأيام المستحقة (افتراضي) · full_minus_absence = الراتب كاملاً ناقص الغياب (قديم) */
+  salary_model?: 'earned_days' | 'full_minus_absence'
+  pay_rest_days?: boolean
   prorate_partial_month?: boolean
   prorate_allowances?: boolean
   auto_deduction_cap_ratio?: number

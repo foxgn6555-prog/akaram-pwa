@@ -1,6 +1,8 @@
 -- 00187 · الراتب الشهري بالنسبة والتناسب + ضوابط السياسة + حدود مبلغ المخالفة (بادئة pr)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values ('fe000000-0000-0000-0000-00000000000b', 'pr-ops@t.iq'), ('fe000000-0000-0000-0000-00000000000c', 'pr-fin@t.iq'), ('fe000000-0000-0000-0000-00000000000d', 'pr-it@t.iq'), ('fe000000-0000-0000-0000-00000000000e', 'pr-adm@t.iq') on conflict (id) do nothing;

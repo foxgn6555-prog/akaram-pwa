@@ -5,12 +5,13 @@
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
 import { Fragment, useMemo, useState } from 'react'
-import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useHrEmployees, useMarkNoticeDone, useMonthExportStatus, usePayrollReconcile, usePayrollSheet, useSalaryProfile, useSetSalary } from '@features/hr'
-import type { ContractType, PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
+import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useMarkNoticeDone, useMonthExportStatus, usePayrollReconcile, usePayrollSheet } from '@features/hr'
+import type { PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
 import { downloadPayrollExcel, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
 import { applyFilters, branchOptions, DEFAULT_FILTERS, departmentOptions, explainRow, groupByBranchDept, RECONCILE_ISSUE_LABELS, reconcileSummary, sheetTotals, SORT_LABELS, sortRows, totalsConsistent } from '@features/hr/lib/payrollSheetModel'
 import type { ProfileFilter, SheetFilters, SortKey } from '@features/hr/lib/payrollSheetModel'
 import { hr as hrSdk } from '@sdk/hr.sdk'
+import { ProfilesTab } from './SalaryProfiles'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -265,7 +266,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
                       </tr>
                       {g.rows.map((r) => {
                         const opsTotal = r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0)
-                        const paidDays = r.pay_type === 'daily' ? (r.payable_days ?? r.days_present + (r.days_leave_paid ?? 0)) : r.days_present + (r.days_leave_paid ?? r.days_leave)
+                        const paidDays = r.payable_days ?? r.days_present + (r.days_leave_paid ?? r.days_leave)
                         const dedParts = r.pay_type == null ? [] : [
                           (r.fixed_deductions_total ?? 0) > 0 && <span key="f">ثابتة {fmtMoney(r.fixed_deductions_total)}</span>,
                           opsTotal > 0 && <span key="o" className="text-amber-700" title={r.ops_deduction_reasons ?? ''}>عمليات {fmtMoney(opsTotal)}</span>,
@@ -281,7 +282,8 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
                             <td className="px-3 py-2 text-center text-[11px] text-slate-600">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
                             <td className="px-3 py-2 text-center tabular-nums" data-testid={`ps-days-count-${r.employee_number}`} title="حاضر (+ إجازة مدفوعة) / المجدولة / أيام الشهر">
                               <span className="font-bold text-emerald-700">{r.days_present}</span>{(r.days_leave_paid ?? r.days_leave) > 0 && <span className="text-sky-700" title="إجازة مدفوعة"> +{r.days_leave_paid ?? r.days_leave}</span>}<span className="text-slate-400"> / {r.scheduled_days != null ? `${r.scheduled_days} / ${r.working_days}` : r.working_days}</span>
-                              {r.covered_days != null && r.days_in_month != null && r.covered_days < r.days_in_month && r.pay_type === 'monthly' && <span className="mx-auto mt-0.5 block w-fit rounded bg-sky-100 px-1 text-[10px] font-bold text-sky-800" title="الراتب الشهري محتسب بالنسبة والتناسب للفترة المشمولة فقط">مشمول {r.covered_days}/{r.days_in_month}</span>}
+                              {r.salary_model === 'earned_days' && r.pay_type === 'monthly' && r.payable_days != null && <span className="mx-auto mt-0.5 block w-fit rounded bg-emerald-100 px-1 text-[10px] font-bold text-emerald-800" title="الأيام المستحقة (حضور + إجازة مدفوعة) من أيام الشهر — الراتب = أجر اليوم × هذه الأيام" data-testid={`ps-payable-${r.employee_number}`}>مستحق {r.payable_days}/{r.days_in_month}</span>}
+                              {r.salary_model !== 'earned_days' && r.covered_days != null && r.days_in_month != null && r.covered_days < r.days_in_month && r.pay_type === 'monthly' && <span className="mx-auto mt-0.5 block w-fit rounded bg-sky-100 px-1 text-[10px] font-bold text-sky-800" title="الراتب الشهري محتسب بالنسبة والتناسب للفترة المشمولة فقط">مشمول {r.covered_days}/{r.days_in_month}</span>}
                               {(r.unevaluated_days ?? 0) > 0 && <span className="mx-auto mt-0.5 block w-fit rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-700" title="أيام مجدولة بلا احتساب — اطلب من غرفة العمليات إعادة التصدير">{r.unevaluated_days} غير محتسب</span>}
                             </td>
                             <td className={clsx('px-3 py-2 text-center tabular-nums', r.days_absent > 0 ? 'font-bold text-red-700' : 'text-slate-400')}>{r.days_absent}{(r.days_leave_unpaid ?? 0) > 0 && <span className="block text-[10px] font-normal text-slate-500" data-testid={`ps-leave-${r.employee_number}`}>+{r.days_leave_unpaid} إجازة غير مدفوعة</span>}</td>
@@ -379,19 +381,20 @@ function FormulaBox({ row: r }: { row: PayrollSheetRow }) {
   const daily = r.pay_type === 'daily'
   const basisDays = r.day_rate != null && r.base_salary ? Math.round((r.base_salary / r.day_rate) * 100) / 100 : 30
   const dayRate = daily ? (r.daily_rate ?? 0) : r.day_rate != null ? Number(r.day_rate) : Math.round(((r.base_salary ?? 0) / 30) * 10000) / 10000
-  const partial = !daily && r.covered_days != null && r.days_in_month != null && r.covered_days < r.days_in_month && (r.proration_ratio ?? 1) < 1
-  const baseDue = partial ? Math.min(r.base_salary ?? 0, Math.round(dayRate * (r.covered_days ?? 0) * 100) / 100) : (r.base_salary ?? 0)
+  const earned = !daily && r.salary_model === 'earned_days'
+  const partial = !daily && !earned && r.covered_days != null && r.days_in_month != null && r.covered_days < r.days_in_month && (r.proration_ratio ?? 1) < 1
+  const baseDue = earned ? Math.min(r.base_salary ?? 0, Math.round(dayRate * (r.payable_days ?? 0) * 100) / 100) : partial ? Math.min(r.base_salary ?? 0, Math.round(dayRate * (r.covered_days ?? 0) * 100) / 100) : (r.base_salary ?? 0)
   const minuteRate = Math.round((dayRate / Math.max(r.shift_minutes ?? 480, 1)) * 10000) / 10000
   const payable = r.payable_days ?? r.days_present + (r.days_leave_paid ?? 0)
-  const autoDays = daily ? (r.auto_shortfall_days ?? 0) : (r.auto_deduction_days ?? 0)
+  const autoDays = daily || earned ? (r.auto_shortfall_days ?? r.auto_deduction_days ?? 0) : (r.auto_deduction_days ?? 0)
   const gross = rowGross(r), ded = rowDeductions(r)
   const dec = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
   return (
     <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-2 text-[11px] leading-5 text-slate-700" data-testid="ps-formula">
       <p className="font-bold text-slate-800">كيف حُسب الصافي؟</p>
       <p>أجر اليوم = {daily ? `أجر اليوم ${fmtMoney(dayRate)}` : `${fmtMoney(r.base_salary)} ÷ ${basisDays} = ${dec(dayRate)}`} · أجر الدقيقة = {dec(dayRate)} ÷ {r.shift_minutes ?? 480} دقيقة = {dec(minuteRate)}</p>
-      <p>الإجمالي = {daily ? `${payable} يوم مدفوع (حاضر ${r.days_present} + إجازة مدفوعة ${r.days_leave_paid ?? 0}) × ${fmtMoney(r.daily_rate)}` : partial ? `الفترة المشمولة ${r.covered_days} من ${r.days_in_month} يوم (${r.period_from} → ${r.period_to}) × أجر اليوم ${dec(dayRate)} = ${dec(baseDue)}` : `الأساسي ${fmtMoney(r.base_salary)} (شهر مكتمل)`} + مخصصات {fmtMoney(r.allowances_total)}{partial ? ' (متناسبة)' : ''} = <b>{fmtMoney(gross)}</b>{partial && <span className="ms-1 rounded bg-sky-100 px-1 font-bold text-sky-800" data-testid="ps-prorated">راتب جزئي بالنسبة والتناسب</span>}</p>
-      <p>الاستقطاعات = ثابتة {fmtMoney(r.fixed_deductions_total)} + عمليات {fmtMoney(r.ops_deduction_amount)}{r.ops_deduction_days > 0 ? ` + ${r.ops_deduction_days} يوم عمليات (${fmtMoney(r.ops_deduction_days_amount ?? r.ops_deduction_days * dayRate)})` : ''} + تلقائي ({r.auto_deduction_minutes ?? 0} دقيقة{autoDays > 0 ? ` + ${autoDays} يوم` : ''}{daily && (r.auto_absence_days ?? 0) > 0 ? ` — أيام الغياب ${r.auto_absence_days} غير مدفوعة أصلاً فلا تُخصم` : ''}) = {fmtMoney(r.auto_deduction_amount)}{(r.advance_installment ?? 0) > 0 && <span data-testid="ps-advance-note"> + قسط سلفة {fmtMoney(r.advance_installment)}</span>}{r.auto_deduction_rule && <span className="ms-1 rounded bg-slate-100 px-1 font-bold text-slate-700" data-testid="ps-auto-rule">قاعدة «{r.auto_deduction_rule}»</span>}{r.auto_deduction_basis === 'disabled' && <span className="ms-1 font-bold text-slate-600" data-testid="ps-auto-disabled">(الاستقطاع التلقائي متوقف لهذا الموظف — وحدة الاستقطاعات التلقائية في التطوير المركزية)</span>}{r.auto_deduction_basis === 'fixed' && <span className="ms-1 text-slate-600" data-testid="ps-auto-fixed">(بمبالغ ثابتة من القاعدة لا من الراتب)</span>}{r.auto_deduction_days_capped && <span className="ms-1 font-bold text-amber-700" data-testid="ps-auto-days-capped">(أيام الاستقطاع مقيّدة بالسقف الشهري)</span>}{r.auto_deduction_capped && <span className="ms-1 font-bold text-amber-700" data-testid="ps-auto-capped">(قُيّد بسقف الاستقطاع التلقائي من سياسة التطوير المركزية)</span>} ⇒ <b>{fmtMoney(ded)}</b></p>
+      <p>الإجمالي = {daily ? `${payable} يوم مدفوع (حاضر ${r.days_present} + إجازة مدفوعة ${r.days_leave_paid ?? 0}) × ${fmtMoney(r.daily_rate)}` : earned ? <span data-testid="ps-earned">{`${payable} يوم مستحق (حاضر ${r.days_present + (r.days_incomplete ?? 0)} + إجازة مدفوعة ${r.days_leave_paid ?? 0}${(r.days_rest ?? 0) > 0 && payable > r.days_present + (r.days_incomplete ?? 0) + (r.days_leave_paid ?? 0) ? ` + راحة ${r.days_rest}` : ''}) من ${r.days_in_month} × أجر اليوم ${dec(dayRate)} = ${dec(baseDue)}`}{(r.days_absent ?? 0) > 0 && <span className="text-slate-500"> — {r.days_absent} يوم غياب غير مدفوع أصلاً فلا يُخصم مرة ثانية</span>}</span> : partial ? `الفترة المشمولة ${r.covered_days} من ${r.days_in_month} يوم (${r.period_from} → ${r.period_to}) × أجر اليوم ${dec(dayRate)} = ${dec(baseDue)}` : `الأساسي ${fmtMoney(r.base_salary)} (شهر مكتمل)`} + مخصصات {fmtMoney(r.allowances_total)}{partial ? ' (متناسبة)' : ''} = <b>{fmtMoney(gross)}</b>{partial && <span className="ms-1 rounded bg-sky-100 px-1 font-bold text-sky-800" data-testid="ps-prorated">راتب جزئي بالنسبة والتناسب</span>}{earned && <span className="ms-1 rounded bg-emerald-100 px-1 font-bold text-emerald-800" data-testid="ps-earned-badge">نموذج الأيام المستحقة</span>}</p>
+      <p>الاستقطاعات = ثابتة {fmtMoney(r.fixed_deductions_total)} + عمليات {fmtMoney(r.ops_deduction_amount)}{r.ops_deduction_days > 0 ? ` + ${r.ops_deduction_days} يوم عمليات (${fmtMoney(r.ops_deduction_days_amount ?? r.ops_deduction_days * dayRate)})` : ''} + تلقائي ({r.auto_deduction_minutes ?? 0} دقيقة{autoDays > 0 ? ` + ${autoDays} يوم` : ''}{(daily || earned) && (r.auto_absence_days ?? 0) > 0 ? ` — أيام الغياب ${r.auto_absence_days} غير مدفوعة أصلاً فلا تُخصم` : ''}) = {fmtMoney(r.auto_deduction_amount)}{(r.advance_installment ?? 0) > 0 && <span data-testid="ps-advance-note"> + قسط سلفة {fmtMoney(r.advance_installment)}</span>}{r.auto_deduction_rule && <span className="ms-1 rounded bg-slate-100 px-1 font-bold text-slate-700" data-testid="ps-auto-rule">قاعدة «{r.auto_deduction_rule}»</span>}{r.auto_deduction_basis === 'disabled' && <span className="ms-1 font-bold text-slate-600" data-testid="ps-auto-disabled">(الاستقطاع التلقائي متوقف لهذا الموظف — وحدة الاستقطاعات التلقائية في التطوير المركزية)</span>}{r.auto_deduction_basis === 'fixed' && <span className="ms-1 text-slate-600" data-testid="ps-auto-fixed">(بمبالغ ثابتة من القاعدة لا من الراتب)</span>}{r.auto_deduction_days_capped && <span className="ms-1 font-bold text-amber-700" data-testid="ps-auto-days-capped">(أيام الاستقطاع مقيّدة بالسقف الشهري)</span>}{r.auto_deduction_capped && <span className="ms-1 font-bold text-amber-700" data-testid="ps-auto-capped">(قُيّد بسقف الاستقطاع التلقائي من سياسة التطوير المركزية)</span>} ⇒ <b>{fmtMoney(ded)}</b></p>
       <p>الصافي المقترح = {fmtMoney(gross)} − {fmtMoney(ded)} = <b>{fmtMoney(r.proposed_net)}</b>{(r.unevaluated_days ?? 0) > 0 && <span className="ms-1 font-bold text-rose-700">(غير نهائي: {r.unevaluated_days} يوم غير محتسب)</span>}</p>
     </div>
   )
@@ -472,101 +475,7 @@ function AdjustPanel({ row, onClose }: { row: PayrollSheetRow; onClose: () => vo
   )
 }
 
-// ── ملفات الرواتب ──
-function ProfilesTab() {
-  const [search, setSearch] = useState(''); const [onlyPending, setOnlyPending] = useState(false)
-  const { data: employees = [], isLoading } = useHrEmployees({ search, status: 'active' })
-  const [sel, setSel] = useState<string | null>(null)
-  const list = employees.filter((e) => !onlyPending || e.salary_status !== 'defined')
-  const selected = employees.find((e) => e.id === sel) ?? null
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]" data-testid="profiles-tab">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 p-3">
-          <input className={clsx(field, 'flex-1')} placeholder="بحث عن موظف" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="pr-search" />
-          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)} data-testid="pr-only-pending" /> بانتظار التعريف فقط</label>
-        </div>
-        {isLoading ? <LoadingSpinner /> : (
-          <ul className="max-h-[32rem] divide-y overflow-y-auto text-sm">
-            {list.map((e) => (
-              <li key={e.id}>
-                <button type="button" onClick={() => setSel(e.id)} className={clsx('flex w-full items-center justify-between px-3 py-2 text-start hover:bg-slate-50', sel === e.id && 'bg-brand-50')} data-testid={`pr-emp-${e.employee_number}`}>
-                  <span><span className="font-semibold">{e.full_name}</span><span className="block text-[11px] text-slate-500">{e.employee_number} · {e.department_name ?? '—'} · {CONTRACT_LABELS[e.contract_type]}</span></span>
-                  <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', e.salary_status === 'defined' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{e.salary_status === 'defined' ? 'مُعرَّف' : 'بانتظار'}</span>
-                </button>
-              </li>
-            ))}
-            {list.length === 0 && <li className="p-6 text-center text-xs text-slate-400">لا موظفون</li>}
-          </ul>
-        )}
-      </div>
-      {selected ? <SalaryForm key={selected.id} employeeId={selected.id} name={selected.full_name} defaultType={selected.contract_type} /> : <EmptyState title="اختر موظفاً لعرض ملف راتبه أو تعريفه" hint="" />}
-    </div>
-  )
-}
-
-type KV = Array<{ k: string; v: string }>
-const toKV = (o: Record<string, number> | undefined): KV => Object.entries(o ?? {}).map(([k, v]) => ({ k, v: String(v) }))
-const fromKV = (kv: KV) => Object.fromEntries(kv.filter((x) => x.k.trim() && Number(x.v) > 0).map((x) => [x.k.trim(), Number(x.v)]))
-
-export function SalaryForm({ employeeId, name, defaultType }: { employeeId: string; name: string; defaultType: ContractType }) {
-  const { data: p, isLoading } = useSalaryProfile(employeeId)
-  if (isLoading) return <LoadingSpinner />
-  return <SalaryFormInner key={p?.set_at ?? 'new'} employeeId={employeeId} name={name} defaultType={p?.pay_type ?? defaultType} profile={p ?? null} />
-}
-function SalaryFormInner({ employeeId, name, defaultType, profile }: { employeeId: string; name: string; defaultType: ContractType; profile: NonNullable<ReturnType<typeof useSalaryProfile>['data']> | null }) {
-  const set = useSetSalary()
-  const [payType, setPayType] = useState<ContractType>(defaultType)
-  const [base, setBase] = useState(String(profile?.base_salary ?? '')); const [daily, setDaily] = useState(String(profile?.daily_rate ?? ''))
-  const [allow, setAllow] = useState<KV>(toKV(profile?.allowances)); const [ded, setDed] = useState<KV>(toKV(profile?.fixed_deductions)); const [notes, setNotes] = useState(profile?.notes ?? '')
-  const [err, setErr] = useState<string | null>(null)
-  const sumA = Object.values(fromKV(allow)).reduce((a, b) => a + b, 0); const sumD = Object.values(fromKV(ded)).reduce((a, b) => a + b, 0)
-  const save = async () => {
-    const b = Number(base) || 0, d = Number(daily) || 0
-    if (payType === 'monthly' && b <= 0) { setErr('الراتب الأساسي مطلوب للتعاقد الشهري'); return }
-    if (payType === 'daily' && d <= 0) { setErr('أجر اليوم مطلوب للأجر اليومي'); return }
-    setErr(null)
-    try { await set.mutateAsync({ employeeId, payType, base: payType === 'monthly' ? b : 0, daily: payType === 'daily' ? d : 0, allowances: fromKV(allow), fixedDeductions: fromKV(ded), notes }) } catch { /* toast */ }
-  }
-  return (
-    <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="salary-form">
-      <div className="flex items-center justify-between"><h3 className="text-sm font-bold">ملف راتب: {name}</h3>{profile?.status === 'defined' && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">مُعرَّف منذ {profile.set_at ? new Date(profile.set_at).toLocaleDateString('ar-IQ-u-nu-latn') : ''}</span>}</div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="sf-type" label="نوع التعاقد"><select id="sf-type" className={field} value={payType} onChange={(e) => setPayType(e.target.value as ContractType)} data-testid="sf-type"><option value="monthly">شهري</option><option value="daily">أجر يومي</option></select></Field>
-        {payType === 'monthly'
-          ? <Field id="sf-base" label="الراتب الأساسي (د.ع) *"><input id="sf-base" type="number" min={0} step={1000} className={field} value={base} onChange={(e) => setBase(e.target.value)} data-testid="sf-base" /></Field>
-          : <Field id="sf-daily" label="أجر اليوم (د.ع) *"><input id="sf-daily" type="number" min={0} step={500} className={field} value={daily} onChange={(e) => setDaily(e.target.value)} data-testid="sf-daily" /></Field>}
-      </div>
-      <KVEditor title="المخصصات" items={allow} onChange={setAllow} total={sumA} testId="sf-allow" placeholder="مثال: نقل، سكن، خطورة" />
-      <KVEditor title="الاستقطاعات الثابتة" items={ded} onChange={setDed} total={sumD} testId="sf-ded" placeholder="مثال: ضمان اجتماعي، سلفة" />
-      <Field id="sf-notes" label="ملاحظات"><input id="sf-notes" className={field} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-      <div className="rounded-xl bg-slate-50 p-3 text-xs" data-testid="sf-preview">
-        {payType === 'monthly'
-          ? <>الصافي الشهري التقديري (قبل استقطاعات العمليات): <b>{fmtMoney((Number(base) || 0) + sumA - sumD)}</b></>
-          : <>مثال: 26 يوم حضور × {fmtMoney(Number(daily) || 0)} + مخصصات − ثابتة = <b>{fmtMoney((Number(daily) || 0) * 26 + sumA - sumD)}</b></>}
-      </div>
-      {err && <p className="text-xs font-bold text-red-600" role="alert" data-testid="sf-error">{err}</p>}
-      <Button size="sm" onClick={() => void save()} isLoading={set.isPending} data-testid="sf-save">{profile?.status === 'defined' ? 'تحديث ملف الراتب' : 'تعريف الراتب'}</Button>
-    </section>
-  )
-}
-function KVEditor({ title, items, onChange, total, testId, placeholder }: { title: string; items: KV; onChange: (v: KV) => void; total: number; testId: string; placeholder: string }) {
-  return (
-    <div data-testid={testId}>
-      <div className="mb-1 flex items-center justify-between"><p className="text-xs font-semibold text-slate-600">{title} <span className="text-slate-400">— الإجمالي {fmtMoney(total)}</span></p><button type="button" className="text-[11px] font-bold text-brand-700" onClick={() => onChange([...items, { k: '', v: '' }])} data-testid={`${testId}-add`}>+ إضافة</button></div>
-      <div className="space-y-1">
-        {items.map((it, i) => (
-          <div key={i} className="flex gap-1">
-            <input className={clsx(field, 'flex-1')} placeholder={placeholder} value={it.k} onChange={(e) => onChange(items.map((x, j) => j === i ? { ...x, k: e.target.value } : x))} data-testid={`${testId}-k-${i}`} />
-            <input type="number" min={0} className={clsx(field, 'w-32')} placeholder="المبلغ" value={it.v} onChange={(e) => onChange(items.map((x, j) => j === i ? { ...x, v: e.target.value } : x))} data-testid={`${testId}-v-${i}`} />
-            <button type="button" className="px-2 text-red-500" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label="حذف">✕</button>
-          </div>
-        ))}
-        {items.length === 0 && <p className="text-[11px] text-slate-400">لا بنود</p>}
-      </div>
-    </div>
-  )
-}
+// ── ملفات الرواتب: SalaryProfiles.tsx (00206) ──
 
 // ── الإشعارات ──
 function NoticesTab({ onDefine }: { onDefine: () => void }) {

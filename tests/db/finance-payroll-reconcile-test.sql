@@ -2,6 +2,8 @@
 -- الاعتماد يرفض أي مخالفة حسابية؛ تعديل المالية محصور بين 0 والإجمالي. (بادئة rc)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('ac000000-0000-0000-0000-000000000001', 'rc-ops@t.iq'), ('ac000000-0000-0000-0000-000000000004', 'rc-adm@t.iq'),
   ('ac000000-0000-0000-0000-000000000006', 'rc-daily@t.iq'), ('ac000000-0000-0000-0000-000000000007', 'rc-fin@t.iq'),

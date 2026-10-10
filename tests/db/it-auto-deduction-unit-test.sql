@@ -2,6 +2,8 @@
 -- يقرآن قاعدة الموظف · المحاكاة · السجل · توافق سياسة HR القديمة. (بادئة dr)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('d1000000-0000-0000-0000-000000000001', 'dr-ops@t.iq'), ('d1000000-0000-0000-0000-000000000004', 'dr-adm@t.iq'), ('d1000000-0000-0000-0000-000000000007', 'dr-fin@t.iq'),
   ('d1000000-0000-0000-0000-000000000008', 'dr-it@t.iq'), ('d1000000-0000-0000-0000-00000000000a', 'dr-a@t.iq'), ('d1000000-0000-0000-0000-00000000000b', 'dr-b@t.iq'), ('d1000000-0000-0000-0000-00000000000c', 'dr-c@t.iq')

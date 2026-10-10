@@ -3,6 +3,8 @@
 -- الهدف: إثبات أن ترتيب العمليات صحيح وأن كل رقم في كشف الرواتب يُشتق من مصدره بلا تضارب بين غرفة العمليات والمالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('fe000000-0000-0000-0000-000000000001', 'fx-ops@t.iq'), ('fe000000-0000-0000-0000-000000000002', 'fx-hr@t.iq'), ('fe000000-0000-0000-0000-000000000003', 'fx-dep@t.iq'),
