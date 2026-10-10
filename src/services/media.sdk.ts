@@ -72,6 +72,8 @@ export interface MediaDesign {
   created_by: string
   created_at: string
   completed_at: string | null
+  /** 00200: الشفت (يظهر على الغلاف الديناميكي) */
+  shift?: 'morning' | 'night' | null
   summary?: Record<string, unknown> | null
   template_colors?: Record<string, string> | null
   template_style?: Record<string, unknown> | null
@@ -98,6 +100,7 @@ export interface MediaCover {
   sector_parent: string | null
   period_type: string | null
   tags: string
+  shift?: 'morning' | 'night' | null
   use_count: number
   status: 'active' | 'archived'
   created_at: string
@@ -444,6 +447,13 @@ export const mediaService = {
   },
   async setCoverStatus(id: string, status: 'active' | 'archived'): Promise<MediaCover> {
     return (await sdkGuard(supabase.rpc('media_cover_set_status', { p_id: id, p_status: status }))) as unknown as MediaCover
+  },
+  async setCoverShift(id: string, shift: 'morning' | 'night' | null): Promise<MediaCover> {
+    return (await sdkGuard(supabase.rpc('media_cover_set_shift', { p_id: id, p_shift: shift }))) as unknown as MediaCover
+  },
+  /** 00200: شفت التصميم (صباحي/ليلي/بلا) */
+  async setDesignShift(id: string, shift: 'morning' | 'night' | null): Promise<MediaDesign> {
+    return (await sdkGuard(supabase.rpc('media_design_set_shift', { p_id: id, p_shift: shift }))) as unknown as MediaDesign
   },
   async touchCover(id: string): Promise<number> {
     return Number((await sdkGuard(supabase.rpc('media_cover_touch', { p_id: id }))) ?? 0)

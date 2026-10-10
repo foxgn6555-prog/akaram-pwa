@@ -267,6 +267,10 @@ export const useUpdateMediaCover = () =>
   useMediaAction((id: string, input: MediaCoverInput) => mediaService.updateCover(id, input), 'حُفظت بيانات الغلاف')
 export const useSetMediaCoverStatus = () =>
   useMediaAction((id: string, status: 'active' | 'archived') => mediaService.setCoverStatus(id, status), 'حُدّثت حالة الغلاف')
+export const useSetMediaCoverShift = () =>
+  useMediaAction((id: string, shift: 'morning' | 'night' | null) => mediaService.setCoverShift(id, shift), 'حُفظ شفت الغلاف')
+export const useSetDesignShift = () =>
+  useMediaAction((id: string, shift: 'morning' | 'night' | null) => mediaService.setDesignShift(id, shift), 'حُفظ الشفت')
 export const useTouchMediaCover = () => useMediaAction((id: string) => mediaService.touchCover(id), 'اختير الغلاف من المكتبة')
 
 export type { MediaDesign, MediaSubmission, MediaDesignTemplate, MediaCover, MediaCoverInput }

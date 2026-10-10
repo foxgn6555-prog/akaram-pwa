@@ -14,6 +14,7 @@ vi.mock('@features/media/hooks', () => ({
   useMediaCovers: () => ({ data: h.covers, isLoading: false }),
   useAddMediaCover: () => ({ mutate: h.add, isPending: false }),
   useSaveCoverToLibrary: () => ({ mutate: h.save, isPending: false }),
+  useSetDesignShift: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateMediaCover: () => ({ mutate: h.update, isPending: false }),
   useSetMediaCoverStatus: () => ({ mutate: h.status, isPending: false }),
   useTouchMediaCover: () => ({ mutate: h.touch, isPending: false }),

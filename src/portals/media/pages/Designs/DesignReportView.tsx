@@ -87,6 +87,8 @@ import {
   type ReportStyle,
 } from './reportTemplates'
 import type { WordDataRef } from './DesignExportMenu'
+import { builtinCoverId, coverTemplateById, type CoverContext } from '@features/media/lib/cover-templates'
+import CoverTemplate from '../../components/CoverTemplate'
 
 export interface DesignReportData {
   title: string
@@ -95,6 +97,9 @@ export interface DesignReportData {
   periodStart?: string
   periodEnd?: string
   coverUrl?: string | null
+  /** 00200: مسار الغلاف (قد يكون قالباً جاهزاً builtin:…) + الشفت لنصوص الغلاف الحيّة */
+  coverPath?: string | null
+  shift?: 'morning' | 'night' | null
   groups: Array<{ workType: string; photos: ReportPhoto[] }>
   /** نص الورقة الوسطية المحفوظ لكل نوع عمل */
   sheets?: Record<string, string>
@@ -303,6 +308,8 @@ function Pick<T extends string>({
 export default function DesignReportView({
   title,
   coverUrl,
+  coverPath,
+  shift,
   groups,
   sheets,
   summary,
@@ -438,6 +445,16 @@ export default function DesignReportView({
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  // 00200: غلاف قالب جاهز بنصوص حيّة
+  const builtinDef = coverTemplateById(builtinCoverId(coverPath))
+  const coverCtx: CoverContext = {
+    periodType: periodProps.periodType ?? 'first_half',
+    sector: periodProps.sector ?? 'karrada',
+    periodStart: periodProps.periodStart ?? '',
+    periodEnd: periodProps.periodEnd ?? '',
+    shift: shift ?? null,
+  }
+
   const barStyle = {
     background: `linear-gradient(${cols.barFrom}, ${cols.barTo})`,
     borderBottom: `1px solid ${cols.border}`,
@@ -450,7 +467,8 @@ export default function DesignReportView({
     if (!wordDataRef) return
     wordDataRef.current = () => ({
       title,
-      coverUrl: coverUrl ?? null,
+      coverUrl: builtinDef ? null : (coverUrl ?? null),
+      coverNode: builtinDef ? () => document.querySelector<HTMLElement>('#design-report [data-cover-template]') : undefined,
       summary: sum,
       theme,
       colors: cols,
@@ -606,8 +624,8 @@ export default function DesignReportView({
             <h3 className="text-sm font-black text-slate-800">لوحة تخصيص التقرير</h3>
 
             <div className="flex flex-wrap gap-1 text-[10px] font-bold">
-              <span className={`rounded-full px-2 py-1 ${coverUrl ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-                {coverUrl ? '✓ الغلاف مرفوع' : '✗ بلا غلاف'}
+              <span className={`rounded-full px-2 py-1 ${coverUrl || builtinDef ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
+                {coverUrl || builtinDef ? '✓ الغلاف جاهز' : '✗ بلا غلاف'}
               </span>
               <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700">{allPaths.length} صورة</span>
               <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{pageCount} ورقة</span>
@@ -712,7 +730,9 @@ export default function DesignReportView({
         <div ref={pagesRef} className="rp-pages" style={fit.scale < 1 ? { transform: `scale(${fit.scale})` } : undefined}>
           {/* الورقة 1: الغلاف اليدوي كما هو */}
           <section className="rp-page">
-            {coverUrl ? (
+            {builtinDef ? (
+              <CoverTemplate def={builtinDef} ctx={coverCtx} className="rp-cover-img" />
+            ) : coverUrl ? (
               <img src={coverUrl} alt="غلاف التقرير" className="rp-cover-img" />
             ) : (
               <div className="rp-sheet-inner" data-style={sty.sheetStyle}>

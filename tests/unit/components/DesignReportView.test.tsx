@@ -124,7 +124,7 @@ describe('بنية أوراق التقرير', () => {
       />,
     )
     // حالة التقرير: غلاف وصور وأوراق
-    expect(screen.getByText('✓ الغلاف مرفوع')).toBeInTheDocument()
+    expect(screen.getByText('✓ الغلاف جاهز')).toBeInTheDocument()
     expect(screen.getByText('4 صورة')).toBeInTheDocument()
     expect(screen.getByText('4 ورقة')).toBeInTheDocument()
     // القالب الافتراضي كلاسيكي ثم فسيفساء

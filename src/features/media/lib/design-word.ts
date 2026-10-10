@@ -50,6 +50,8 @@ export interface WordReportData {
   title: string
   /** رابط الغلاف (أو null ⇒ صفحة عنوان نصية) */
   coverUrl: string | null
+  /** 00200: غلاف قالب جاهز مرسوم في الصفحة — يُلتقط كصورة عند التصدير */
+  coverNode?: () => HTMLElement | null
   summary: WordSummary
   /** ألوان صفوف الجدول الثلاثة (من قالب الملخص) */
   theme: Array<{ bg: string; fg: string }>
@@ -361,10 +363,32 @@ export async function loadWordImages(urls: string[], onProgress?: (done: number,
   return out
 }
 
+export const BUILTIN_COVER_KEY = '__builtin_cover__'
+/** يلتقط عنصر DOM (غلاف القالب الجاهز) كصورة JPEG بدقة ×2 */
+async function captureNode(node: HTMLElement): Promise<WordImage | null> {
+  try {
+    const { toCanvas } = await import('html-to-image')
+    const canvas = await toCanvas(node, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: false, style: { transform: 'none' } })
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    if (!blob) return null
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height, type: 'jpg' }
+  } catch {
+    return null
+  }
+}
+
 /** التصدير الكامل: تحميل الصور ← بناء المستند ← Blob */
 export async function exportDesignWord(d: WordReportData, onProgress?: (done: number, total: number) => void): Promise<Blob> {
   const urls = [d.coverUrl ?? '', d.logos?.company ?? '', d.logos?.baghdad ?? '', ...d.groups.flatMap((g) => g.photos.map((p) => p.url))].filter(Boolean)
   const images = await loadWordImages(urls, onProgress)
+  const node = d.coverNode?.()
+  if (node) {
+    const shot = await captureNode(node)
+    if (shot) {
+      images.set(BUILTIN_COVER_KEY, shot)
+      d = { ...d, coverUrl: BUILTIN_COVER_KEY }
+    }
+  }
   const doc = buildWordDocument(d, images)
   return Packer.toBlob(doc)
 }

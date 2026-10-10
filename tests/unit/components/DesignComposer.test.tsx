@@ -8,6 +8,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 const h = vi.hoisted(() => ({ reorder: vi.fn() }))
 
 vi.mock('@features/media/hooks', () => ({
+  useSetDesignShift: () => ({ mutate: vi.fn(), isPending: false }),
   useDesigns: () => ({ data: [], isLoading: false }),
   useDesignDetail: () => ({
     isLoading: false,

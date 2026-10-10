@@ -41,12 +41,15 @@ import {
   useSubmissionPhotos,
   useUpdateDesign,
   useUploadCover,
+  useSetDesignShift,
 } from '@features/media/hooks'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import type { MediaDesignDetail } from '@sdk/media.sdk'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
 import { PickCoverButton, SaveCoverToLibraryButton } from '../../components/CoverLibrary'
+import DesignCover from '../../components/DesignCover'
+import { SHIFT_LABEL, SHIFT_OPTIONS, isBuiltinCover, type CoverShift } from '@features/media/lib/cover-templates'
 import DesignExportMenu, { type WordDataRef } from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
@@ -58,7 +61,9 @@ export default function MediaDesignsPage() {
   const [params, setParams] = useSearchParams()
   const openId = params.get('open')
   const designs = useDesigns(null)
-  const rows = designs.data ?? []
+  const [shiftFilter, setShiftFilter] = useState<'' | CoverShift>('')
+  const [sectorFilter, setSectorFilter] = useState<'' | SectorParent>('')
+  const rows = (designs.data ?? []).filter((d) => (!shiftFilter || d.shift === shiftFilter) && (!sectorFilter || d.sector_parent === sectorFilter))
 
   return (
     <section dir="rtl" className="space-y-5">
@@ -72,6 +77,21 @@ export default function MediaDesignsPage() {
           الغلاف يُرفع يدوياً (الورقة الأولى) — والتقرير ولوحات الصور تُعبأ من النظام تلقائياً (الورقة الثانية).
         </p>
       </header>
+
+      {/* 00200: ترشيح بالقاطع والشفت */}
+      <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="designs-filters">
+        {([['', 'كل القواطع'], ['karrada', SECTOR_LABEL.karrada], ['zaafaraniya', SECTOR_LABEL.zaafaraniya]] as Array<['' | SectorParent, string]>).map(([v, l]) => (
+          <button key={`s-${v}`} type="button" data-testid={`filter-sector-${v || 'all'}`} onClick={() => setSectorFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${sectorFilter === v ? 'border-fuchsia-700 bg-fuchsia-700 text-white' : 'bg-white text-slate-700'}`}>
+            {l}
+          </button>
+        ))}
+        <span className="mx-1 h-6 w-px bg-slate-300" />
+        {([['', 'كل الشفتات'], ['morning', SHIFT_LABEL.morning], ['night', SHIFT_LABEL.night]] as Array<['' | CoverShift, string]>).map(([v, l]) => (
+          <button key={`sh-${v}`} type="button" data-testid={`filter-shift-${v || 'all'}`} onClick={() => setShiftFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${shiftFilter === v ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white text-slate-700'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {rows.map((d) => (
@@ -91,6 +111,11 @@ export default function MediaDesignsPage() {
               >
                 {d.status === 'completed' ? 'مكتمل' : 'مسودة'}
               </span>
+              {d.shift && (
+                <span className="rounded-full bg-slate-900 px-2 py-1 text-[11px] font-black text-white" data-testid={`design-shift-${d.id}`}>
+                  {SHIFT_LABEL[d.shift]}
+                </span>
+              )}
               <span className="mr-auto text-[11px] text-slate-400">{d.photo_count} صورة</span>
             </div>
             <h3 className="mt-2 text-sm font-black text-slate-800">{d.title}</h3>
@@ -102,7 +127,7 @@ export default function MediaDesignsPage() {
         {!designs.isLoading && rows.length === 0 && (
           <p className="rounded-2xl border bg-white p-10 text-center text-sm text-slate-500 sm:col-span-2">
             <LayoutTemplate className="mx-auto mb-2 text-slate-300" size={30} />
-            لا توجد تصاميم بعد — راجع تذكرة من وحدة القاطع واضغط «إرسال للتصميم».
+            {designs.data?.length ? 'لا توجد تصاميم مطابقة للترشيح الحالي.' : 'لا توجد تصاميم بعد — راجع تذكرة من وحدة القاطع واضغط «إرسال للتصميم».'}
           </p>
         )}
       </div>
@@ -210,8 +235,12 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
   const locked = data.design.status === 'completed'
   const sector = (data.design.sector_parent ?? 'karrada') as SectorParent
 
-  const coverUrls = useSignedPhotoUrls(coverPath ? [coverPath] : [])
-  const coverUrl = coverPath ? coverUrls.data?.[coverPath] : null
+  const coverUrls = useSignedPhotoUrls(coverPath && !isBuiltinCover(coverPath) ? [coverPath] : [])
+  const coverUrl = coverPath && !isBuiltinCover(coverPath) ? coverUrls.data?.[coverPath] : null
+  const [shift, setShift] = useState<CoverShift | null>(initial.design.shift ?? null)
+  const setShiftRpc = useSetDesignShift()
+  const coverCtx = { periodType, sector, periodStart: period.start, periodEnd: period.end, shift }
+  const hasCover = !!coverUrl || isBuiltinCover(coverPath)
 
   // عنوان الوثيقة أثناء المعاينة ليظهر اسم التقرير في ترويسة الطباعة بدل عنوان التطبيق
   useEffect(() => {
@@ -340,7 +369,28 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
             </button>
           </section>
         )}
-        <p className="text-xs text-slate-500">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+          الشفت
+          <select
+            data-testid="composer-shift"
+            value={shift ?? ''}
+            disabled={locked}
+            onChange={(e) => {
+              const v = (e.target.value || null) as CoverShift | null
+              setShift(v)
+              setShiftRpc.mutate([designId, v], { onSuccess: () => detail.refetch() })
+            }}
+            className="h-9 rounded-lg border bg-white px-2 font-bold"
+          >
+            {SHIFT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <span className="font-normal text-slate-400">يظهر على غلاف القالب الجاهز ويُستخدم للترشيح</span>
+        </label>
+                <p className="text-xs text-slate-500">
           {SECTOR_LABEL[sector]} · الدورة:{' '}
           <b data-testid="composer-period-range">
             {period.start === period.end ? period.start : `${period.start} ← ${period.end}`}
@@ -353,7 +403,11 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
         <section className="rounded-2xl border bg-white p-4">
           <h3 className="mb-2 text-sm font-black">الورقة الأولى — الغلاف (من المكتبة أو رفع يدوي)</h3>
           <div className="flex flex-wrap items-center gap-3">
-            {coverUrl ? (
+            {isBuiltinCover(coverPath) ? (
+              <div className="w-24 overflow-hidden rounded-xl border shadow-sm" data-testid="composer-builtin-cover">
+                <DesignCover coverPath={coverPath} ctx={coverCtx} />
+              </div>
+            ) : coverUrl ? (
               <button onClick={() => setLightbox({ url: coverUrl, caption: 'الغلاف' })}>
                 <img src={coverUrl} alt="الغلاف" className="h-24 w-40 rounded-xl object-cover" />
               </button>
@@ -367,6 +421,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 current={coverPath}
                 defaultSector={sector}
                 defaultPeriod={periodType}
+                ctx={coverCtx}
                 onPick={(path) => {
                   setCoverPath(path)
                   update.mutate([designId, { ...meta(), coverPath: path }], { onSuccess: () => detail.refetch() })
@@ -376,7 +431,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
             {!locked && (
               <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-4 text-xs font-bold hover:bg-slate-50">
                 <Upload size={14} />
-                {coverUrl ? 'استبدال الغلاف' : 'رفع الغلاف'}
+                {hasCover ? 'استبدال الغلاف' : 'رفع الغلاف'}
                 <input
                   type="file"
                   accept="image/*"
@@ -385,8 +440,8 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 />
               </label>
             )}
-            {coverPath && <SaveCoverToLibraryButton storagePath={coverPath} defaultTitle={title || data.design.title} defaultSector={sector} defaultPeriod={periodType} />}
-            {!locked && coverUrl && (
+            {coverPath && !isBuiltinCover(coverPath) && <SaveCoverToLibraryButton storagePath={coverPath} defaultTitle={title || data.design.title} defaultSector={sector} defaultPeriod={periodType} />}
+            {!locked && hasCover && (
               <button
                 onClick={() => {
                   setCoverPath(null)
@@ -568,6 +623,8 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
               periodStart={period.start}
               periodEnd={period.end}
               coverUrl={coverUrl}
+              coverPath={coverPath}
+              shift={shift}
               sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
               summary={(data.design.summary as unknown as ReportSummary | null) ?? null}
               colors={(data.design.template_colors as unknown as ReportColors | null) ?? null}

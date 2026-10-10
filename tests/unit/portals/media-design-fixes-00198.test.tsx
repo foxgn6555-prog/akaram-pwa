@@ -28,6 +28,7 @@ vi.mock('@features/media/hooks', () => ({
   useRemoveDesignPhoto: () => ({ mutate: vi.fn(), isPending: false }),
   useRemoveDesignPhotos: () => ({ mutate: h.removeMany, isPending: false }),
   useSaveCoverToLibrary: () => ({ mutate: vi.fn(), isPending: false }),
+  useSetDesignShift: () => ({ mutate: vi.fn(), isPending: false }),
   useMediaCovers: () => ({ data: [], isLoading: false }),
   useAddMediaCover: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateMediaCover: () => ({ mutate: vi.fn(), isPending: false }),

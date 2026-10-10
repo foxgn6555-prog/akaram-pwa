@@ -26,6 +26,8 @@ import type { MediaDesignTemplate } from '@sdk/media.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import { PickCoverButton } from '../../components/CoverLibrary'
+import DesignCover from '../../components/DesignCover'
+import { isBuiltinCover } from '@features/media/lib/cover-templates'
 
 export default function MediaTemplatesPage() {
   const [editorFor, setEditorFor] = useState<MediaDesignTemplate | 'new' | null>(null)
@@ -78,13 +80,14 @@ export default function MediaTemplatesPage() {
 
 function TemplateCard({ template, onEdit }: { template: MediaDesignTemplate; onEdit: () => void }) {
   const archive = useArchiveMediaTemplate()
-  const cover = useSignedPhotoUrls(template.cover_path ? [template.cover_path] : [])
-  const coverUrl = template.cover_path ? cover.data?.[template.cover_path] : null
+  const cover = useSignedPhotoUrls(template.cover_path && !isBuiltinCover(template.cover_path) ? [template.cover_path] : [])
+  const coverUrl = template.cover_path && !isBuiltinCover(template.cover_path) ? cover.data?.[template.cover_path] : null
+  const tplCtx = { periodType: template.period_type as PeriodType, sector: (template.sector_parent as SectorParent) || 'karrada', periodStart: '2026-01-01', periodEnd: '2026-01-01', shift: null }
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="relative h-32 bg-slate-100">
-        {coverUrl ? (
-          <img src={coverUrl} alt={`غلاف ${template.title}`} className="size-full object-cover" />
+        {coverUrl || isBuiltinCover(template.cover_path) ? (
+          <DesignCover coverPath={template.cover_path} coverUrl={coverUrl} ctx={tplCtx} alt={`غلاف ${template.title}`} className="size-full" imgClassName="size-full object-cover" />
         ) : (
           <div className="grid size-full place-items-center text-slate-300">
             <LayoutTemplate size={30} />
@@ -154,8 +157,9 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
   const [coverPath, setCoverPath] = useState<string | null>(template?.cover_path ?? null)
   const [error, setError] = useState('')
 
-  const cover = useSignedPhotoUrls(coverPath ? [coverPath] : [])
-  const coverUrl = coverPath ? cover.data?.[coverPath] : null
+  const cover = useSignedPhotoUrls(coverPath && !isBuiltinCover(coverPath) ? [coverPath] : [])
+  const coverUrl = coverPath && !isBuiltinCover(coverPath) ? cover.data?.[coverPath] : null
+  const editCtx = { periodType: period, sector: (sector as SectorParent) || 'karrada', periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), shift: null }
   const busy = create.isPending || update.isPending || uploadCover.isPending
 
   const toggleType = (w: string) =>
@@ -241,7 +245,7 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
                 <Upload size={14} />
                 {uploadCover.isPending ? 'جارٍ الرفع…' : 'رفع غلاف'}
               </button>
-              <PickCoverButton current={coverPath} defaultSector={(sector as SectorParent) || null} defaultPeriod={period} onPick={(path) => setCoverPath(path)} disabled={busy} />
+              <PickCoverButton current={coverPath} defaultSector={(sector as SectorParent) || null} defaultPeriod={period} ctx={editCtx} onPick={(path) => setCoverPath(path)} disabled={busy} />
               {coverPath && (
                 <button
                   type="button"
@@ -253,9 +257,13 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
                 </button>
               )}
             </div>
-            {coverUrl && (
+            {isBuiltinCover(coverPath) ? (
+              <div className="mt-2 w-20 overflow-hidden rounded-xl border" data-testid="template-builtin-cover">
+                <DesignCover coverPath={coverPath} ctx={editCtx} />
+              </div>
+            ) : coverUrl ? (
               <img src={coverUrl} alt="غلاف القالب" className="mt-2 h-24 rounded-xl border object-cover" />
-            )}
+            ) : null}
           </div>
         </div>
 

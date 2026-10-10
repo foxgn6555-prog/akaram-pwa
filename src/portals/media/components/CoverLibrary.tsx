@@ -19,14 +19,17 @@ import {
   type MediaCoverInput,
 } from '@features/media/hooks'
 import { PERIODS, PERIOD_LABEL, SECTOR_LABEL, type PeriodType, type SectorParent } from '@features/media/constants'
+import { COVER_TEMPLATES, SHIFT_LABEL, builtinCoverPath, rankTemplates, type CoverContext, type CoverShift } from '@features/media/lib/cover-templates'
+import CoverTemplate from './CoverTemplate'
 
 /** ترشيح نقي (مُختبر): القاطع/الفترة «العامة» (null) تظهر دائماً؛ البحث في العنوان والوسوم */
-export function filterCovers(covers: MediaCover[], f: { sector?: string | null; periodType?: string | null; q?: string }): MediaCover[] {
+export function filterCovers(covers: MediaCover[], f: { sector?: string | null; periodType?: string | null; shift?: string | null; q?: string }): MediaCover[] {
   const q = (f.q ?? '').trim()
   return covers.filter(
     (c) =>
       (!f.sector || !c.sector_parent || c.sector_parent === f.sector) &&
       (!f.periodType || !c.period_type || c.period_type === f.periodType) &&
+      (!f.shift || !c.shift || c.shift === f.shift) &&
       (!q || c.title.includes(q) || c.tags.includes(q)),
   )
 }
@@ -107,6 +110,7 @@ export function CoverLibraryDialog({
   defaultSector,
   defaultPeriod,
   current,
+  ctx,
 }: {
   close: () => void
   /** يُستدعى بمسار الغلاف المختار (مع تسجيل الاستخدام) */
@@ -115,8 +119,11 @@ export function CoverLibraryDialog({
   defaultPeriod?: PeriodType | null
   /** المسار الحالي للتصميم/القالب لتمييزه */
   current?: string | null
+  /** 00200: سياق التصميم لمعاينة القوالب الجاهزة بنصوصها الحيّة */
+  ctx?: CoverContext
 }) {
   const [showArchived, setShowArchived] = useState(false)
+  const [shift, setShift] = useState<string>(ctx?.shift ?? '')
   const covers = useMediaCovers(showArchived)
   const [sector, setSector] = useState<string>(defaultSector ?? '')
   const [periodType, setPeriodType] = useState<string>(defaultPeriod ?? '')
@@ -128,7 +135,9 @@ export function CoverLibraryDialog({
   const setStatus = useSetMediaCoverStatus()
   const touch = useTouchMediaCover()
 
-  const list = useMemo(() => filterCovers(covers.data ?? [], { sector, periodType, q }), [covers.data, sector, periodType, q])
+  const list = useMemo(() => filterCovers(covers.data ?? [], { sector, periodType, shift, q }), [covers.data, sector, periodType, shift, q])
+  const previewCtx: CoverContext = ctx ?? { periodType: (periodType as PeriodType) || 'daily', sector: (sector as SectorParent) || 'karrada', periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), shift: (shift as CoverShift) || null }
+  const templates = useMemo(() => rankTemplates(COVER_TEMPLATES, (shift as CoverShift) || null), [shift])
   const urls = useSignedPhotoUrls(list.map((c) => c.storage_path)).data ?? {}
 
   const pick = (c: MediaCover) => {
@@ -170,6 +179,11 @@ export function CoverLibraryDialog({
               </option>
             ))}
           </select>
+          <select value={shift} onChange={(e) => setShift(e.target.value)} className="h-9 rounded-lg border bg-white px-2" data-testid="cover-filter-shift">
+            <option value="">كل الشفتات</option>
+            <option value="morning">{SHIFT_LABEL.morning}</option>
+            <option value="night">{SHIFT_LABEL.night}</option>
+          </select>
           <label className="flex items-center gap-1 font-bold text-slate-600">
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> إظهار المؤرشفة
           </label>
@@ -204,6 +218,43 @@ export function CoverLibraryDialog({
               />
             </div>
           )}
+
+          {/* 00200: القوالب الجاهزة — نصوصها تتغير تلقائياً مع نوع التقرير والبلدية والتاريخ والشفت */}
+          <section className="mb-4" data-testid="builtin-templates">
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-black text-slate-800">
+              قوالب جاهزة (ديناميكية)
+              <span className="rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-bold text-fuchsia-800">{templates.length}</span>
+              <span className="font-normal text-slate-500">— العنوان والبلدية والتاريخ والشفت تُكتب تلقائياً من بيانات التصميم</span>
+            </h3>
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+              {templates.map((t) => {
+                const path = builtinCoverPath(t.id)
+                const isCurrent = current === path
+                return (
+                  <li key={t.id} className={`overflow-hidden rounded-xl border ${isCurrent ? 'border-fuchsia-600 ring-2 ring-fuchsia-200' : 'border-slate-200'}`} data-testid={`template-item-${t.id}`}>
+                    <button
+                      type="button"
+                      disabled={!onPick}
+                      onClick={() => {
+                        onPick?.(path, { id: path, title: t.title, storage_path: path, sector_parent: null, period_type: null, tags: '', use_count: 0, status: 'active', created_at: '', updated_at: '' })
+                        close()
+                      }}
+                      className="block w-full"
+                      aria-label={`اختيار القالب ${t.title}`}
+                      data-testid={`template-pick-${t.id}`}
+                    >
+                      <CoverTemplate def={t} ctx={previewCtx} />
+                    </button>
+                    <p className="truncate p-1.5 text-center text-[10px] font-bold text-slate-700" title={t.title}>
+                      {isCurrent && <Check size={10} className="me-1 inline text-fuchsia-700" />}
+                      {t.title}
+                    </p>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+          <h3 className="mb-2 text-xs font-black text-slate-800">أغلفة مرفوعة (صور ثابتة)</h3>
 
           {covers.isLoading ? (
             <p className="py-10 text-center text-xs text-slate-500">جارٍ تحميل المكتبة…</p>
@@ -266,14 +317,14 @@ export function CoverLibraryDialog({
 }
 
 /** زر فتح المكتبة للاختيار */
-export function PickCoverButton({ onPick, defaultSector, defaultPeriod, current, disabled }: { onPick: (path: string, cover: MediaCover) => void; defaultSector?: SectorParent | null; defaultPeriod?: PeriodType | null; current?: string | null; disabled?: boolean }) {
+export function PickCoverButton({ onPick, defaultSector, defaultPeriod, current, disabled, ctx }: { onPick: (path: string, cover: MediaCover) => void; defaultSector?: SectorParent | null; defaultPeriod?: PeriodType | null; current?: string | null; disabled?: boolean; ctx?: CoverContext }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button type="button" data-testid="open-cover-library" disabled={disabled} onClick={() => setOpen(true)} className="flex h-10 items-center gap-2 rounded-xl border border-fuchsia-300 px-4 text-xs font-bold text-fuchsia-800 hover:bg-fuchsia-50 disabled:opacity-40">
         <Images size={14} /> اختيار من المكتبة
       </button>
-      {open && <CoverLibraryDialog close={() => setOpen(false)} onPick={onPick} defaultSector={defaultSector} defaultPeriod={defaultPeriod} current={current} />}
+      {open && <CoverLibraryDialog close={() => setOpen(false)} onPick={onPick} defaultSector={defaultSector} defaultPeriod={defaultPeriod} current={current} ctx={ctx} />}
     </>
   )
 }
