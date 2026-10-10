@@ -123,6 +123,11 @@ export default function OpsAttendancePage() {
           <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
           <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
+          {stage === 'detailed' && !locked && (
+            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
+              <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -150,19 +155,7 @@ export default function OpsAttendancePage() {
               )}
             </SectionCard>
           )}
-          <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="ops-filters">
-            <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
-              <button type="button" onClick={() => setMode('day')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
-              <button type="button" onClick={() => setMode('month')} className={clsx('flex-1 rounded-lg py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
-            </div>
-            {mode === 'day' ? <input type="date" className={field} value={day} onChange={(e) => setDay(e.target.value)} data-testid="ops-day" /> : <MonthPicker value={month} onChange={setMonth} />}
-            <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-            <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
-            <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
-            <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
-          </div>
-
-          <SectionCard title={mode === 'day' ? `توزيع حالات يوم ${day}` : `توزيع حالات شهر ${month.slice(0, 7)}`} badge={<span className="text-[11px] text-slate-500" data-testid="ops-rows-count">{rows.length} سجلاً{status ? ` · مُرشَّح: ${ATTENDANCE_STATUS_LABELS[status]}` : ''}</span>}>
+          <SectionCard title={mode === 'day' ? `ملخص يوم ${day}` : `ملخص شهر ${month.slice(0, 7)}`} badge={<span className="text-[11px] text-slate-500" data-testid="ops-rows-count">{rows.length} سجلاً{status ? ` · مُرشَّح: ${ATTENDANCE_STATUS_LABELS[status]}` : ''}</span>}>
             <div className="flex flex-wrap gap-1.5" data-testid="ops-status-chips">
               {ATTENDANCE_STATUS_ORDER.map((s) => {
                 const tone = s === 'absent' ? 'bg-rose-50 text-rose-800 ring-rose-200' : s === 'late' || s === 'early_leave' ? 'bg-amber-50 text-amber-800 ring-amber-200' : s === 'present' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : s === 'incomplete' ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-sky-50 text-sky-800 ring-sky-200'
@@ -173,7 +166,7 @@ export default function OpsAttendancePage() {
                 )
               })}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
+            <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
               <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
               <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
               <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
@@ -195,30 +188,43 @@ export default function OpsAttendancePage() {
             </SectionCard>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" data-testid="ops-toolbar">
-            <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
-              {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
-                <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`}>
-                  {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
-                </button>
-              ))}
-            </nav>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="ghost" isLoading={evaluate.isPending} disabled={frozen} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate" title="إعادة احتساب النطاق الحالي من البصمات"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
-              <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length && !needGrid} onClick={() => { setPanel('grid'); void doExcel('detailed') }} data-testid="att-excel-detailed"><Icon name="file-spreadsheet" size={14} /> Excel تفصيلي</Button>
-              {!locked && (
-                <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
-                  <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
-                </Button>
-              )}
+          {/* 00205 — شريط واحد: أقسام التدقيق + الفلاتر + أدوات (بدل شريطين) */}
+          <div className="sticky top-0 z-20 space-y-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur" data-testid="ops-toolbar">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
+                {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
+                  <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
+                    {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
+                  </button>
+                ))}
+              </nav>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="ghost" isLoading={evaluate.isPending} disabled={frozen} onClick={() => evaluate.mutate(range)} data-testid="ops-evaluate" title="إعادة احتساب النطاق الحالي من البصمات"><Icon name="refresh" size={14} /> إعادة الاحتساب</Button>
+                <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length && !needGrid} onClick={() => { setPanel('grid'); void doExcel('detailed') }} data-testid="att-excel-detailed"><Icon name="file-spreadsheet" size={14} /> Excel تفصيلي</Button>
+              </div>
             </div>
+            {(panel === 'rows' || panel === 'grid') && (
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5" data-testid="ops-filters">
+                {panel === 'rows' ? (
+                  <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
+                    <button type="button" onClick={() => setMode('day')} className={clsx('rounded-lg px-3 py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
+                    <button type="button" onClick={() => setMode('month')} className={clsx('rounded-lg px-3 py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
+                    {mode === 'day' ? <input type="date" className={clsx(field, 'h-8 flex-1 py-0')} value={day} onChange={(e) => setDay(e.target.value)} data-testid="ops-day" /> : <span className="flex-1 px-2 text-center text-slate-600" data-testid="ops-month-label">{month.slice(0, 7)}</span>}
+                  </div>
+                ) : <span className="flex items-center rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-600" data-testid="ops-month-label">شهر {month.slice(0, 7)}</span>}
+                <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+                <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
+                {panel === 'rows' ? <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select> : <span />}
+                <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
+              </div>
+            )}
           </div>
 
           {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
           {panel === 'grid' && (gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين ببصمة في هذا النطاق" hint="وسّع الفلاتر" /> : (
             <div className="space-y-2">
               <GridLegend mode="detailed" />
-              <MonthGrid rows={grid} mode="detailed" />
+              <MonthGrid rows={grid} mode="detailed" onCellClick={(r, c) => { setMode('day'); setDay(c.d); setSearch(r.employee_number); setStatus(''); setPanel('rows') }} />
             </div>
           ))}
           {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
