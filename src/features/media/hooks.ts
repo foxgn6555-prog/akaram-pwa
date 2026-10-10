@@ -6,6 +6,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mediaService,
   type CampaignDetails,
+  type MediaCover,
+  type MediaCoverInput,
   type MediaDesign,
   type MediaDesignTemplate,
   type MediaSubmission,
@@ -246,7 +248,28 @@ export const useUpdateMediaTemplate = () =>
 export const useArchiveMediaTemplate = () =>
   useMediaAction((id: string) => mediaService.archiveTemplate(id), 'أُرشف القالب')
 
-export type { MediaDesign, MediaSubmission, MediaDesignTemplate }
+/* ── 00199: مكتبة الغلافات ── */
+export const useMediaCovers = (includeArchived = false) =>
+  useQuery({ queryKey: ['media', 'covers', includeArchived], queryFn: () => mediaService.listCovers(includeArchived) })
+
+export const useAddMediaCover = () =>
+  useMediaAction(
+    async (file: File, input: MediaCoverInput) => {
+      const path = await mediaService.uploadCover(await compressImage(file, 2400, 0.9))
+      return mediaService.addCover(path, input)
+    },
+    'أُضيف الغلاف إلى المكتبة',
+  )
+/** حفظ غلاف موجود (مسار مرفوع مسبقاً) في المكتبة */
+export const useSaveCoverToLibrary = () =>
+  useMediaAction((storagePath: string, input: MediaCoverInput) => mediaService.addCover(storagePath, input), 'حُفظ الغلاف في المكتبة')
+export const useUpdateMediaCover = () =>
+  useMediaAction((id: string, input: MediaCoverInput) => mediaService.updateCover(id, input), 'حُفظت بيانات الغلاف')
+export const useSetMediaCoverStatus = () =>
+  useMediaAction((id: string, status: 'active' | 'archived') => mediaService.setCoverStatus(id, status), 'حُدّثت حالة الغلاف')
+export const useTouchMediaCover = () => useMediaAction((id: string) => mediaService.touchCover(id), 'اختير الغلاف من المكتبة')
+
+export type { MediaDesign, MediaSubmission, MediaDesignTemplate, MediaCover, MediaCoverInput }
 
 /* ── 00164: دمج التذاكر (الإعلام) + تقرير غرفة العمليات ── */
 export const useMergeSubmissions = () =>

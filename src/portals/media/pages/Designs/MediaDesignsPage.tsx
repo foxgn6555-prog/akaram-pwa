@@ -46,6 +46,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import type { MediaDesignDetail } from '@sdk/media.sdk'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
+import { PickCoverButton, SaveCoverToLibraryButton } from '../../components/CoverLibrary'
 import DesignExportMenu, { type WordDataRef } from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
@@ -350,7 +351,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
 
         {/* الغلاف (الورقة الأولى — يدوي) */}
         <section className="rounded-2xl border bg-white p-4">
-          <h3 className="mb-2 text-sm font-black">الورقة الأولى — الغلاف (يُرفع يدوياً)</h3>
+          <h3 className="mb-2 text-sm font-black">الورقة الأولى — الغلاف (من المكتبة أو رفع يدوي)</h3>
           <div className="flex flex-wrap items-center gap-3">
             {coverUrl ? (
               <button onClick={() => setLightbox({ url: coverUrl, caption: 'الغلاف' })}>
@@ -360,6 +361,17 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
               <div className="grid h-24 w-40 place-items-center rounded-xl border border-dashed text-xs text-slate-400">
                 بلا غلاف
               </div>
+            )}
+            {!locked && (
+              <PickCoverButton
+                current={coverPath}
+                defaultSector={sector}
+                defaultPeriod={periodType}
+                onPick={(path) => {
+                  setCoverPath(path)
+                  update.mutate([designId, { ...meta(), coverPath: path }], { onSuccess: () => detail.refetch() })
+                }}
+              />
             )}
             {!locked && (
               <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border px-4 text-xs font-bold hover:bg-slate-50">
@@ -373,6 +385,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 />
               </label>
             )}
+            {coverPath && <SaveCoverToLibraryButton storagePath={coverPath} defaultTitle={title || data.design.title} defaultSector={sector} defaultPeriod={periodType} />}
             {!locked && coverUrl && (
               <button
                 onClick={() => {

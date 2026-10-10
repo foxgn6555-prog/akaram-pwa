@@ -25,6 +25,7 @@ import {
 import type { MediaDesignTemplate } from '@sdk/media.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
+import { PickCoverButton } from '../../components/CoverLibrary'
 
 export default function MediaTemplatesPage() {
   const [editorFor, setEditorFor] = useState<MediaDesignTemplate | 'new' | null>(null)
@@ -240,6 +241,7 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
                 <Upload size={14} />
                 {uploadCover.isPending ? 'جارٍ الرفع…' : 'رفع غلاف'}
               </button>
+              <PickCoverButton current={coverPath} defaultSector={(sector as SectorParent) || null} defaultPeriod={period} onPick={(path) => setCoverPath(path)} disabled={busy} />
               {coverPath && (
                 <button
                   type="button"

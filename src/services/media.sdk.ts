@@ -90,6 +90,26 @@ export interface MediaDesignTemplate {
   updated_at: string
 }
 
+/** 00199 — غلاف في مكتبة الغلافات */
+export interface MediaCover {
+  id: string
+  title: string
+  storage_path: string
+  sector_parent: string | null
+  period_type: string | null
+  tags: string
+  use_count: number
+  status: 'active' | 'archived'
+  created_at: string
+  updated_at: string
+}
+export interface MediaCoverInput {
+  title: string
+  sector: string | null
+  periodType: string | null
+  tags: string
+}
+
 export interface MediaDesignPhoto {
   photo_id: string
   source_photo_id: string | null
@@ -406,6 +426,27 @@ export const mediaService = {
 
   async deleteDesign(id: string): Promise<void> {
     await sdkVoid(supabase.rpc('media_design_delete', { p_id: id }))
+  },
+
+  /* ── 00199: مكتبة الغلافات ── */
+  async listCovers(includeArchived = false): Promise<MediaCover[]> {
+    return ((await sdkGuard(supabase.rpc('media_covers_list', { p_include_archived: includeArchived }))) ?? []) as unknown as MediaCover[]
+  },
+  async addCover(storagePath: string, input: MediaCoverInput): Promise<MediaCover> {
+    return (await sdkGuard(
+      supabase.rpc('media_cover_add', { p_title: input.title, p_storage_path: storagePath, p_sector: input.sector, p_period_type: input.periodType, p_tags: input.tags }),
+    )) as unknown as MediaCover
+  },
+  async updateCover(id: string, input: MediaCoverInput): Promise<MediaCover> {
+    return (await sdkGuard(
+      supabase.rpc('media_cover_update', { p_id: id, p_title: input.title, p_sector: input.sector, p_period_type: input.periodType, p_tags: input.tags }),
+    )) as unknown as MediaCover
+  },
+  async setCoverStatus(id: string, status: 'active' | 'archived'): Promise<MediaCover> {
+    return (await sdkGuard(supabase.rpc('media_cover_set_status', { p_id: id, p_status: status }))) as unknown as MediaCover
+  },
+  async touchCover(id: string): Promise<number> {
+    return Number((await sdkGuard(supabase.rpc('media_cover_touch', { p_id: id }))) ?? 0)
   },
 
   /* ── قوالب التصميم (الهوية البصرية) ── */
