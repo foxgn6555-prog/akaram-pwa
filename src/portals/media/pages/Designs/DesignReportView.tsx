@@ -83,8 +83,10 @@ import {
   SHEET_STYLES,
   SUMMARY_THEMES,
   THEMES,
+  type ReportFont,
   type ReportStyle,
 } from './reportTemplates'
+import type { WordDataRef } from './DesignExportMenu'
 
 export interface DesignReportData {
   title: string
@@ -99,6 +101,8 @@ export interface DesignReportData {
   summary?: ReportSummary | null
   colors?: ReportColors | null
   style?: ReportStyle | null
+  /** 00202: يُسجَّل فيه مزوّد بيانات ملف Word (الحالة الحية للتقرير) لتستخدمه قائمة التصدير */
+  wordDataRef?: WordDataRef
   onSaveReport?: (
     sheets: Array<{ workType: string; text: string }>,
     captions: Array<{ rowId: string; text: string; fit: 'contain' | 'cover'; zoom: number }>,
@@ -126,6 +130,9 @@ const arDate = (iso: string) => {
   const d = new Date(`${iso}T12:00:00`)
   return `${d.getDate()} ${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
+
+/** اسم الخط كما يعرفه Word (بلا بدائل CSS) */
+export const WORD_FONT_NAME: Record<ReportFont, string> = { cairo: 'Cairo', tajawal: 'Tajawal', amiri: 'Amiri', kufi: 'Noto Kufi Arabic' }
 
 const DEFAULT_COLORS: ReportColors = {
   barFrom: '#fbfbfb',
@@ -302,6 +309,7 @@ export default function DesignReportView({
   colors,
   style,
   onSaveReport,
+  wordDataRef,
   ...periodProps
 }: DesignReportData) {
   const allPaths = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.path)), [groups])
@@ -436,6 +444,28 @@ export default function DesignReportView({
     color: cols.barText,
   }
   const cellStyle = { border: `1px solid ${cols.border}` }
+
+  // 00202: بيانات ملف Word من الحالة الحية (النصوص المعدّلة، العبارات، الألوان، الخط) — نفس ما تراه المعاينة
+  useEffect(() => {
+    if (!wordDataRef) return
+    wordDataRef.current = () => ({
+      title,
+      coverUrl: coverUrl ?? null,
+      summary: sum,
+      theme,
+      colors: cols,
+      fontName: WORD_FONT_NAME[sty.font],
+      logos: { company: '/report-assets/logo-company.png', baghdad: '/report-assets/logo-baghdad.png' },
+      groups: groups.map((g) => ({
+        workType: g.workType,
+        sheetText: sheetTexts[g.workType] ?? g.workType,
+        photos: g.photos.filter((p) => urls[p.path]).map((p) => ({ url: urls[p.path]!, caption: captions[p.rowId] ?? p.caption ?? g.workType })),
+      })),
+    })
+    return () => {
+      wordDataRef.current = null
+    }
+  })
 
   return (
     <div id="design-report" dir="rtl" style={{ fontFamily: FONTS[sty.font] }}>

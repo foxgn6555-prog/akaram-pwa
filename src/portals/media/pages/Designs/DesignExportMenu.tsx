@@ -1,19 +1,24 @@
 /**
- * قائمة تصدير التقرير المصور كملف: HTML / PDF / PowerPoint.
+ * قائمة تصدير التقرير المصور كملف: Word (قابل للتعديل) / HTML / PDF / PowerPoint.
  * تلتقط أوراق المعاينة كما هي (مطابقة 100% للطباعة) وتعرض تقدّم المعالجة ورقةً ورقة.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Download, FileCode2, FileText, Presentation, Loader2 } from 'lucide-react'
+import { Download, FileCode2, FileText, FileType2, Presentation, Loader2 } from 'lucide-react'
 import { DESIGN_EXPORT_LABEL, exportDesign, type DesignExportFormat } from '@features/media/lib/design-export'
+import type { WordReportData } from '@features/media/lib/design-word'
 
-const ICONS: Record<DesignExportFormat, typeof FileText> = { html: FileCode2, pdf: FileText, pptx: Presentation }
+const ICONS: Record<DesignExportFormat, typeof FileText> = { docx: FileType2, html: FileCode2, pdf: FileText, pptx: Presentation }
 const HINT: Record<DesignExportFormat, string> = {
+  docx: 'ملف وورد: النصوص والجداول قابلة للتحرير والصور قابلة للاستبدال',
   html: 'ملف مستقل يُفتح في أي متصفح والصور مضمّنة',
   pdf: 'كل ورقة صفحة A4 بدقة عالية',
   pptx: 'كل ورقة شريحة مستقلة',
 }
 
-export default function DesignExportMenu({ title }: { title: string }) {
+/** `wordData` يُعيد بيانات التقرير الحالية لبناء ملف Word (يُسجَّل من معاينة التقرير) */
+export type WordDataRef = { current: (() => WordReportData | null) | null }
+
+export default function DesignExportMenu({ title, wordData }: { title: string; wordData?: WordDataRef }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<DesignExportFormat | null>(null)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -35,7 +40,7 @@ export default function DesignExportMenu({ title }: { title: string }) {
     setBusy(format)
     setProgress(null)
     try {
-      await exportDesign(format, title, (done, total) => setProgress({ done, total }))
+      await exportDesign(format, title, (done, total) => setProgress({ done, total }), () => wordData?.current?.() ?? null)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg === 'NO_PAGES' ? 'لا توجد أوراق للتصدير — افتح المعاينة أولاً.' : `تعذّر إنشاء الملف (${msg || 'خطأ غير معروف'}) — حاول مرة أخرى.`)
@@ -65,7 +70,7 @@ export default function DesignExportMenu({ title }: { title: string }) {
           data-testid="design-export-options"
           className="absolute end-0 z-30 mt-1 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
         >
-          {(['pdf', 'pptx', 'html'] as DesignExportFormat[]).map((f) => {
+          {(['docx', 'pdf', 'pptx', 'html'] as DesignExportFormat[]).map((f) => {
             const I = ICONS[f]
             return (
               <button

@@ -171,3 +171,31 @@ describe('اللقطة النقطية (PDF/PowerPoint) — لا انزياح و�
     expect(html).toContain('writing-mode:vertical-rl')
   })
 })
+
+describe('00202 — Word في قائمة التصدير', () => {
+  beforeEach(() => h.exportDesign.mockReset())
+  it('خيار Word أول القائمة ويمرّر مزوّد بيانات التقرير إلى exportDesign', async () => {
+    h.exportDesign.mockResolvedValue(undefined)
+    const wordData = { current: () => ({ title: 'x' }) as never }
+    render(<DesignExportMenu title="تقرير" wordData={wordData} />)
+    fireEvent.click(screen.getByTestId('design-export-menu'))
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveTextContent('تصدير Word (قابل للتعديل)')
+    expect(items[0]).toHaveTextContent('قابلة للتحرير')
+    fireEvent.click(screen.getByTestId('design-export-docx'))
+    await waitFor(() => expect(h.exportDesign).toHaveBeenCalled())
+    const [fmt, title, , getter] = h.exportDesign.mock.calls[0]! as [string, string, unknown, () => unknown]
+    expect(fmt).toBe('docx')
+    expect(title).toBe('تقرير')
+    expect(getter()).toEqual({ title: 'x' })
+  })
+  it('بلا مزوّد بيانات ⇒ الدالة تعيد null ولا تنهار', async () => {
+    h.exportDesign.mockResolvedValue(undefined)
+    render(<DesignExportMenu title="تقرير" />)
+    fireEvent.click(screen.getByTestId('design-export-menu'))
+    fireEvent.click(screen.getByTestId('design-export-docx'))
+    await waitFor(() => expect(h.exportDesign).toHaveBeenCalled())
+    const getter = h.exportDesign.mock.calls[0]![3] as () => unknown
+    expect(getter()).toBeNull()
+  })
+})

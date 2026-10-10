@@ -12,16 +12,19 @@
  * الدوال النقية (بناء HTML/تسمية الملف/قياسات الشرائح) مفصولة عن الـDOM حتى تُختبر.
  */
 import { buildPptx, type SlidePart } from '@lib/pptx/complaintPptx'
+import type { WordReportData } from './design-word'
 
-export type DesignExportFormat = 'html' | 'pdf' | 'pptx'
+export type DesignExportFormat = 'docx' | 'html' | 'pdf' | 'pptx'
 
 export const DESIGN_EXPORT_LABEL: Record<DesignExportFormat, string> = {
+  docx: 'تصدير Word (قابل للتعديل)',
   html: 'تصدير HTML',
   pdf: 'تصدير PDF',
   pptx: 'تصدير PowerPoint',
 }
 
 export const DESIGN_EXPORT_EXT: Record<DesignExportFormat, string> = {
+  docx: 'docx',
   html: 'html',
   pdf: 'pdf',
   pptx: 'pptx',
@@ -320,10 +323,21 @@ export interface ExportProgress {
 }
 
 /** نقطة الدخول الوحيدة من الواجهة */
-export async function exportDesign(format: DesignExportFormat, title: string, onProgress?: ExportProgress): Promise<void> {
+export async function exportDesign(format: DesignExportFormat, title: string, onProgress?: ExportProgress, wordData?: () => WordReportData | null): Promise<void> {
+  const name = designFileName(title, format)
+
+  if (format === 'docx') {
+    // 00202: Word يُبنى من بيانات التقرير (نصوص حقيقية قابلة للتحرير) لا من لقطات الأوراق
+    const data = wordData?.()
+    if (!data) throw new Error('NO_PAGES')
+    const { exportDesignWord } = await import('./design-word')
+    const blob = await exportDesignWord(data, onProgress)
+    downloadBlob(blob, name)
+    return
+  }
+
   const pages = reportPages()
   if (!pages.length) throw new Error('NO_PAGES')
-  const name = designFileName(title, format)
 
   if (format === 'html') {
     const captured: CapturedPage[] = []

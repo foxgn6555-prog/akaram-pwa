@@ -9,10 +9,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@features/media/hooks', () => ({
-  useSignedPhotoUrls: () => ({ data: {} }),
+  useSignedPhotoUrls: (paths: string[]) => ({ data: Object.fromEntries(paths.map((p) => [p, `url:${p}`])) }),
 }))
 
 import DesignReportView, { type ReportSummary } from '@portals/media/pages/Designs/DesignReportView'
+import type { WordReportData } from '@features/media/lib/design-word'
 
 const photo = (n: number) => ({
   id: `src-${n}`,
@@ -310,5 +311,35 @@ describe('ملاءمة الأوراق لعرض الهاتف (00189)', () => {
       if (cw) Object.defineProperty(Element.prototype, 'clientWidth', cw)
       vi.unstubAllGlobals()
     }
+  })
+})
+
+describe('00202 — مزوّد بيانات Word من المعاينة الحية', () => {
+  it('يُسجَّل في wordDataRef ويعكس النصوص المعدّلة والعبارات والألوان والخط، ويُلغى عند الإغلاق', () => {
+    const ref: { current: (() => WordReportData | null) | null } = { current: null }
+    const { unmount } = render(
+      <DesignReportView
+        {...base}
+        periodType="daily"
+        periodStart="2026-10-07"
+        periodEnd="2026-10-07"
+        sheets={{ 'كنس الشوارع': 'نص الورقة المعدّل' }}
+        groups={[{ workType: 'كنس الشوارع', photos: [photo(1), photo(2)] }]}
+        wordDataRef={ref}
+      />,
+    )
+    const d = ref.current?.()
+    expect(d).toBeTruthy()
+    expect(d!.coverUrl).toBe('blob:cover')
+    expect(d!.fontName).toBe('Cairo')
+    expect(d!.summary.reportLine).toContain('التقرير اليومي المصور')
+    expect(d!.summary.rows.map((r) => r.work)).toEqual(['كنس الشوارع'])
+    expect(d!.groups).toEqual([
+      { workType: 'كنس الشوارع', sheetText: 'نص الورقة المعدّل', photos: [{ url: 'url:p1', caption: 'صورة 1' }, { url: 'url:p2', caption: 'صورة 2' }] },
+    ])
+    expect(d!.theme).toHaveLength(3)
+    expect(d!.logos?.company).toBe('/report-assets/logo-company.png')
+    unmount()
+    expect(ref.current).toBeNull()
   })
 })

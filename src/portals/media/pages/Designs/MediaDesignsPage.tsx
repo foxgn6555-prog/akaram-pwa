@@ -3,7 +3,7 @@
  * مصمّم بملء الشاشة: غلاف يدوي، صور حسب نوع العمل مع سحب وإفلات
  * (إعادة ترتيب ونقل بين الأنواع)، وفتح الصور بعرض كبير، ومعاينة التقرير وطباعته
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
 import {
@@ -46,7 +46,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import type { MediaDesignDetail } from '@sdk/media.sdk'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
-import DesignExportMenu from './DesignExportMenu'
+import DesignExportMenu, { type WordDataRef } from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
   type ReportStyle,
@@ -182,6 +182,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
   const removePhotos = useRemoveDesignPhotos()
   const addPhotos = useAddDesignPhotos()
   const uploadCover = useUploadCover()
+  const wordRef: WordDataRef = useRef<WordDataRef["current"]>(null)
   const deleteDesign = useDeleteDesign()
   const saveReport = useSaveDesignReport(designId)
   const reorder = useReorderDesignPhotos(designId)
@@ -515,7 +516,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 <Printer size={15} />
                 طباعة
               </button>
-              <DesignExportMenu title={title || data.design.title} />
+              <DesignExportMenu title={title || data.design.title} wordData={wordRef} />
             </>
           )}
           {!locked && (
@@ -571,6 +572,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 })),
               }))}
               onSaveReport={(sh, caps, extra) => saveReport.mutateAsync([sh, caps, extra])}
+              wordDataRef={wordRef}
             />
           </div>
         )}
