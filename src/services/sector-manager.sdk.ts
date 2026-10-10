@@ -1,5 +1,5 @@
 /** SDK مسؤول القاطع (00160) + سلاسل الموافقات. لا بيانات مالية هنا إطلاقاً. */
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 
 export type ParentSector = 'karrada' | 'zaafaraniya'
 export interface SectorManagerOption { parent_sector: ParentSector; name: string; areas: number; department_managers: number; sector_managers: { user_id: string; name: string }[] }
@@ -83,11 +83,11 @@ export const approvals = {
   chains: async () => (await sdkGuard(supabase.rpc('approval_chains_list'))) as ApprovalChain[],
   saveChain: async (requesterRole: string, requestType: ApprovalRequestType, steps: ApprovalStep[], active = true) =>
     (await sdkGuard(supabase.rpc('approval_chain_save', { p_requester_role: requesterRole, p_request_type: requestType, p_steps: steps.map((s) => (s.kind === 'hierarchy' ? { kind: 'hierarchy', role: s.role } : { kind: 'account', user_id: s.user_id })), p_active: active }))) as string,
-  deleteChain: async (id: string) => sdkGuard(supabase.rpc('approval_chain_delete', { p_id: id })),
+  deleteChain: async (id: string) => sdkVoid(supabase.rpc('approval_chain_delete', { p_id: id })),
   myTasks: async () => (await sdkGuard(supabase.rpc('approval_my_tasks'))) as ApprovalTask[],
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
   /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */
-  decide: async (kind: ApprovalRequestType, requestId: string, approve: boolean, note?: string | null) => sdkGuard(supabase.rpc('approval_decide_request', { p_kind: kind, p_request: requestId, p_approve: approve, p_note: note ?? null })),
+  decide: async (kind: ApprovalRequestType, requestId: string, approve: boolean, note?: string | null) => sdkVoid(supabase.rpc('approval_decide_request', { p_kind: kind, p_request: requestId, p_approve: approve, p_note: note ?? null })),
 }
 
 /** 00163: وحدة «الإجراءات» — طلبات إنهاء الخدمة بنطاقات متدرجة عبر سلاسل الموافقات. لا بيانات مالية. */
@@ -96,5 +96,5 @@ export const procedures = {
   create: async (x: { targetKind: 'employee' | 'worker'; targetId: string; type: TerminationType; lastDay: string; reason: string; attachment?: string | null }) =>
     (await sdkGuard(supabase.rpc('termination_request_create', { p_target_kind: x.targetKind, p_target_id: x.targetId, p_type: x.type, p_last_day: x.lastDay, p_reason: x.reason, p_attachment: x.attachment ?? null }))) as string,
   mine: async () => (await sdkGuard(supabase.rpc('termination_requests_mine'))) as TerminationRequest[],
-  cancel: async (id: string) => sdkGuard(supabase.rpc('termination_request_cancel', { p_id: id })),
+  cancel: async (id: string) => sdkVoid(supabase.rpc('termination_request_cancel', { p_id: id })),
 }

@@ -1,4 +1,4 @@
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 
 export type GpsOnline = 'online' | 'offline' | 'unknown'
 export type GpsOperational = 'moving' | 'idle' | 'parked' | 'unknown'
@@ -528,7 +528,7 @@ export const gpsLvn = {
       }),
     )) as unknown as string,
   archiveMapLandmark: async (id: string) => {
-    await sdkGuard(supabase.rpc('gps_map_landmark_archive', { p_id: id }))
+    await sdkVoid(supabase.rpc('gps_map_landmark_archive', { p_id: id }))
   },
   liveMap: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_live_map'))) ?? []) as unknown as GpsLiveDevice[],
@@ -536,10 +536,10 @@ export const gpsLvn = {
     ((await sdkGuard(supabase.rpc('gps_lvn_open_alerts', { p_limit: 100 }))) ??
       []) as unknown as GpsOperationalAlert[],
   acknowledgeAlert: async (alertId: string) => {
-    await sdkGuard(supabase.rpc('gps_alert_acknowledge', { p_alert_id: alertId }))
+    await sdkVoid(supabase.rpc('gps_alert_acknowledge', { p_alert_id: alertId }))
   },
   resolveAlert: async (alertId: string, note: string) => {
-    await sdkGuard(supabase.rpc('gps_alert_resolve', { p_alert_id: alertId, p_note: note.trim() }))
+    await sdkVoid(supabase.rpc('gps_alert_resolve', { p_alert_id: alertId, p_note: note.trim() }))
   },
   zoneEvents: async (from: string, to: string, page = 1, pageSize = 100) =>
     ((await sdkGuard(
@@ -570,24 +570,23 @@ export const gpsLvn = {
     )) as unknown as string,
   /** 00154: ربط أي زون نشط بمنطقة تشغيلية (أو فكّه بـ null) */
   setGeofenceSector: async (id: string, sectorId: number | null) => {
-    await sdkGuard(supabase.rpc('gps_geofence_set_sector', { p_id: id, p_sector_id: sectorId }))
+    await sdkVoid(supabase.rpc('gps_geofence_set_sector', { p_id: id, p_sector_id: sectorId }))
   },
   routeDeviationSettings: async () => {
     const rows = ((await sdkGuard(supabase.rpc('gps_route_deviation_settings_get'))) ?? []) as unknown as GpsRouteDeviationSettings[]
     return rows[0] ?? { grace_minutes: 3, updated_at: '' }
   },
   saveRouteDeviationSettings: async (graceMinutes: number) => {
-    await sdkGuard(supabase.rpc('gps_route_deviation_settings_save', { p_grace_minutes: graceMinutes }))
+    await sdkVoid(supabase.rpc('gps_route_deviation_settings_save', { p_grace_minutes: graceMinutes }))
   },
   archivePlatformGeofence: async (id: string) => {
-    await sdkGuard(supabase.rpc('gps_platform_geofence_archive', { p_id: id }))
+    await sdkVoid(supabase.rpc('gps_platform_geofence_archive', { p_id: id }))
   },
   alertNotificationPolicies: async () =>
     ((await sdkGuard(supabase.rpc('gps_alert_notification_policies_list'))) ??
       []) as unknown as GpsAlertNotificationPolicy[],
   saveAlertNotificationPolicy: async (policy: Omit<GpsAlertNotificationPolicy, 'updated_at'>) => {
-    await sdkGuard(
-      supabase.rpc('gps_alert_notification_policy_save', {
+    await sdkVoid(supabase.rpc('gps_alert_notification_policy_save', {
         p_alert_type: policy.alert_type,
         p_enabled: policy.enabled,
         p_priority: policy.priority,
@@ -725,16 +724,14 @@ export const gpsLvn = {
     ((await sdkGuard(supabase.rpc('gps_lvn_geofences', { p_vehicle_id: vehicleId }))) ??
       []) as unknown as GpsGeofence[],
   assignGeofence: async (vehicleId: string, geofenceId: string) => {
-    await sdkGuard(
-      supabase.rpc('gps_assign_vehicle_geofence', {
+    await sdkVoid(supabase.rpc('gps_assign_vehicle_geofence', {
         p_vehicle_id: vehicleId,
         p_geofence_id: geofenceId,
       }),
     )
   },
   unassignGeofence: async (vehicleId: string, geofenceId: string) => {
-    await sdkGuard(
-      supabase.rpc('gps_unassign_vehicle_geofence', {
+    await sdkVoid(supabase.rpc('gps_unassign_vehicle_geofence', {
         p_vehicle_id: vehicleId,
         p_geofence_id: geofenceId,
       }),
@@ -745,8 +742,7 @@ export const gpsLvn = {
       supabase.rpc('gps_lvn_binding_candidates', { p_search: search.trim() || null }),
     )) ?? []) as unknown as GpsBindingCandidate[],
   bind: async (deviceId: string, vehicleId: string, notes?: string) => {
-    await sdkGuard(
-      supabase.rpc('gps_lvn_bind_vehicle', {
+    await sdkVoid(supabase.rpc('gps_lvn_bind_vehicle', {
         p_device_id: deviceId,
         p_garage_vehicle_id: vehicleId,
         p_notes: notes?.trim() || null,
@@ -754,7 +750,7 @@ export const gpsLvn = {
     )
   },
   unbind: async (deviceId: string) => {
-    await sdkGuard(supabase.rpc('gps_lvn_unbind_vehicle', { p_device_id: deviceId }))
+    await sdkVoid(supabase.rpc('gps_lvn_unbind_vehicle', { p_device_id: deviceId }))
   },
   sync: async (action: 'test' | 'full' | 'incremental') => {
     const { data, error } = await supabase.functions.invoke<GpsSyncResult>('lvn-gps-sync', {

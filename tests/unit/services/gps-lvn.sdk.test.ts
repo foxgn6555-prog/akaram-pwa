@@ -7,6 +7,10 @@ vi.mock('@sdk/client', () => ({
     if (result.error) throw new Error(result.error.message)
     return result.data
   },
+  sdkVoid: async (value: Promise<{ error: null | { message: string } }>) => {
+    const result = await value
+    if (result.error) throw new Error(result.error.message)
+  },
 }))
 import { gpsLvn } from '@sdk/gps-lvn.sdk'
 describe('LVN GPS SDK', () => {

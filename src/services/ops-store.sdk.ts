@@ -1,5 +1,5 @@
 /** 00162 · مخزن غرفة العمليات + طلبات مستلزمات القواطع (بلا أي بيانات مالية) */
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 import type { SupplyItem } from '@sdk/sector-manager.sdk'
 
 export interface StoreItem { id: string; name: string; unit: string; qty_on_hand: number; min_qty: number; is_active: boolean; low_stock: boolean; reserved: number; updated_at: string }
@@ -22,7 +22,7 @@ export const opsStore = {
   requests: async (scope: SupplyScope = 'open') => (await sdkGuard(supabase.rpc('supply_requests_list', { p_scope: scope }))) as SupplyRequestRow[],
   createRequest: async (items: { item_id: string; qty: number }[], notes?: string | null) => (await sdkGuard(supabase.rpc('supply_request_create', { p_items: items, p_notes: notes ?? null }))) as string,
   deliver: async (id: string, receiverName: string, items?: { item_id: string; delivered_qty: number }[] | null, note?: string | null) =>
-    sdkGuard(supabase.rpc('supply_request_deliver', { p_id: id, p_receiver_name: receiverName, p_items: items ?? null, p_note: note ?? null })),
-  markReady: async (id: string, note?: string | null) => sdkGuard(supabase.rpc('supply_request_mark_ready', { p_id: id, p_note: note ?? null } as never)),
-  cancel: async (id: string, reason: string) => sdkGuard(supabase.rpc('supply_request_cancel', { p_id: id, p_reason: reason })),
+    sdkVoid(supabase.rpc('supply_request_deliver', { p_id: id, p_receiver_name: receiverName, p_items: items ?? null, p_note: note ?? null })),
+  markReady: async (id: string, note?: string | null) => sdkVoid(supabase.rpc('supply_request_mark_ready', { p_id: id, p_note: note ?? null } as never)),
+  cancel: async (id: string, reason: string) => sdkVoid(supabase.rpc('supply_request_cancel', { p_id: id, p_reason: reason })),
 }

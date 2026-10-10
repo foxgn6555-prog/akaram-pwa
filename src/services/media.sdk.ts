@@ -2,7 +2,7 @@
  * SDK — بوابة الإعلام: تذاكر الصور والتصاميم
  * القاعدة: كل وصول للبيانات عبر @sdk (بما فيه Supabase Storage)
  */
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 
 export interface MediaSubmission {
   id: string
@@ -322,8 +322,7 @@ export const mediaService = {
     }>,
     extra?: { summary?: unknown; colors?: unknown; style?: unknown },
   ): Promise<void> {
-    await sdkGuard(
-      supabase.rpc('media_design_report_save', {
+    await sdkVoid(supabase.rpc('media_design_report_save', {
         p_id: id,
         p_sheets: sheets.map((s) => ({ work_type: s.workType, text: s.text })),
         p_captions: captions.map((c) => ({
@@ -343,8 +342,7 @@ export const mediaService = {
     id: string,
     items: Array<{ rowId: string; workType: string; sortOrder: number }>,
   ): Promise<void> {
-    await sdkGuard(
-      supabase.rpc('media_design_photos_reorder', {
+    await sdkVoid(supabase.rpc('media_design_photos_reorder', {
         p_id: id,
         p_items: items.map((i) => ({
           row_id: i.rowId,
@@ -407,7 +405,7 @@ export const mediaService = {
   },
 
   async deleteDesign(id: string): Promise<void> {
-    await sdkGuard(supabase.rpc('media_design_delete', { p_id: id }))
+    await sdkVoid(supabase.rpc('media_design_delete', { p_id: id }))
   },
 
   /* ── قوالب التصميم (الهوية البصرية) ── */

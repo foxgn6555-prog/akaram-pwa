@@ -14,6 +14,7 @@ vi.mock('@sdk/client', () => ({
     functions: { invoke: h.invoke },
   },
   sdkGuard: async (v: Promise<{ data: unknown; error: null }>) => (await v).data,
+  sdkVoid: async (v: Promise<{ error: null }>) => { await v },
 }))
 import { notifications } from '@sdk/notifications.sdk'
 describe('Notifications SDK', () => {

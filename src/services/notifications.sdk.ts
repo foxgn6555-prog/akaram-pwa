@@ -1,4 +1,4 @@
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 export type NotificationCategory =
   'system' | 'departure' | 'maintenance' | 'garage' | 'station' | 'gps' | 'complaints' | 'security' | 'hr'
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical'
@@ -108,12 +108,12 @@ export const notifications = {
     )) ?? []) as unknown as AppNotification[],
   unreadCount: async () => Number((await sdkGuard(supabase.rpc('notification_unread_count'))) ?? 0),
   markRead: async (id: string) => {
-    await sdkGuard(supabase.rpc('notification_mark_read', { p_id: id }))
+    await sdkVoid(supabase.rpc('notification_mark_read', { p_id: id }))
   },
   markAllRead: async () =>
     Number((await sdkGuard(supabase.rpc('notification_mark_all_read'))) ?? 0),
   dismiss: async (id: string) => {
-    await sdkGuard(supabase.rpc('notification_dismiss', { p_id: id }))
+    await sdkVoid(supabase.rpc('notification_dismiss', { p_id: id }))
   },
   preferences: async () =>
     (await sdkGuard(
@@ -151,7 +151,7 @@ export const notifications = {
       }),
     )) as unknown as string,
   deleteWorkflowPolicy: async (id: string) => {
-    await sdkGuard(supabase.rpc('notification_workflow_policy_delete', { p_id: id }))
+    await sdkVoid(supabase.rpc('notification_workflow_policy_delete', { p_id: id }))
   },
   registerPush: async (input: {
     endpoint: string
@@ -174,7 +174,7 @@ export const notifications = {
       }),
     )) as unknown as string,
   unregisterPush: async (endpoint: string) => {
-    await sdkGuard(supabase.rpc('notification_unregister_push', { p_endpoint: endpoint }))
+    await sdkVoid(supabase.rpc('notification_unregister_push', { p_endpoint: endpoint }))
   },
   pushDevices: async () =>
     ((await sdkGuard(supabase.rpc('notification_push_devices'))) ?? []) as unknown as PushDevice[],

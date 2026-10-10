@@ -1,5 +1,5 @@
 /** SDK المتعهدين (00158): بوابة المتعهد + تعيين غرفة العمليات + ملخص فريق مسؤول القسم */
-import { sdkGuard, supabase } from './client'
+import { sdkGuard, sdkVoid, supabase } from './client'
 
 export type Shift = 'morning' | 'evening' | 'night'
 export type AttendanceStatus = 'present' | 'absent'
@@ -71,7 +71,7 @@ export const contractors = {
     await sdkGuard(supabase.rpc('contractor_add_worker', { p_full_name: fullName.trim(), p_phone: phone?.trim() || null }))
   },
   async removeWorker(workerId: string, reason?: string): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_remove_worker', { p_worker_id: workerId, p_reason: reason?.trim() || null }))
+    await sdkVoid(supabase.rpc('contractor_remove_worker', { p_worker_id: workerId, p_reason: reason?.trim() || null }))
   },
   async checkin(input: CheckinInput): Promise<void> {
     const [selfiePath, teamPath] = await Promise.all([uploadPhoto(input.selfie, 'selfie'), uploadPhoto(input.teamPhoto, 'team')])
@@ -107,7 +107,7 @@ export const contractors = {
     await sdkGuard(supabase.rpc('contractor_assign', { p_user_id: userId, p_manager_user_id: managerUserId, p_sector_id: sectorId ?? null, p_notes: notes?.trim() || null }))
   },
   async unassign(userId: string, reason: string): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_unassign', { p_user_id: userId, p_reason: reason.trim() }))
+    await sdkVoid(supabase.rpc('contractor_unassign', { p_user_id: userId, p_reason: reason.trim() }))
   },
   // ── مسؤول القسم ──
   async managerTeamSummary(): Promise<ManagerTeamSummary[]> {

@@ -91,7 +91,7 @@ export const biometric = {
 
   /** طلب أسماء مستخدمي الجهاز (ADMS): يُرسل أمر DATA QUERY USERINFO في أول نبضة قادمة (00172) */
   async requestDeviceUsers(deviceId: string): Promise<void> {
-    await sdkGuard(supabase.rpc('biometric_request_users', { p_device_id: deviceId } as never))
+    await sdkVoid(supabase.rpc('biometric_request_users', { p_device_id: deviceId } as never))
   },
 
   // ─────────── 00174 · أوامر الجهاز (ADMS) ───────────
@@ -116,7 +116,7 @@ export const biometric = {
   },
   /** 00177 · إلغاء أمر لم يُسلَّم للجهاز بعد */
   async cancelCommand(id: number): Promise<void> {
-    await sdkGuard(supabase.rpc('biometric_command_cancel', { p_id: id } as never))
+    await sdkVoid(supabase.rpc('biometric_command_cancel', { p_id: id } as never))
   },
   async commands(deviceId: string, limit = 30): Promise<BiometricCommand[]> {
     return ((await sdkGuard(supabase.rpc('biometric_commands_list', { p_device_id: deviceId, p_limit: limit } as never))) ?? []) as BiometricCommand[]

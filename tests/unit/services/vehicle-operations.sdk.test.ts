@@ -7,6 +7,10 @@ vi.mock('@sdk/client', () => ({
     if (r.error) throw new Error(r.error.message)
     return r.data
   },
+  sdkVoid: async (value: Promise<{ error: null | { message: string } }>) => {
+    const result = await value
+    if (result.error) throw new Error(result.error.message)
+  },
 }))
 import { vehicleOperations } from '@sdk/vehicle-operations.sdk'
 describe('SDK تفاصيل الصيانة', () => {
