@@ -1,6 +1,7 @@
 /**
  * Hooks — بوابة الإعلام: تذاكر الصور والتصاميم
  */
+import { compressImage, compressImages } from './lib/image-compress'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   mediaService,
@@ -152,13 +153,14 @@ export const useCreateDesign = () =>
       title: string,
       coverPath: string | null,
       photos: Array<{ photoId: string; workType: string; caption: string }>,
-    ) => mediaService.createDesign(sectorParent, periodType, title, coverPath, photos),
+      refDay: string | null = null,
+    ) => mediaService.createDesign(sectorParent, periodType, title, coverPath, photos, refDay),
     'أُنشئ التصميم بالصور المحددة',
   )
 
 export const useUpdateDesign = () =>
   useMediaAction(
-    (id: string, meta: { title: string; periodType: string; coverPath: string | null }) =>
+    (id: string, meta: { title: string; periodType: string; coverPath: string | null; refDay?: string | null }) =>
       mediaService.updateDesign(id, meta),
     'حُفظ التصميم',
   )
@@ -172,6 +174,9 @@ export const useAddDesignPhotos = () =>
 
 export const useRemoveDesignPhoto = () =>
   useMediaAction((id: string) => mediaService.removeDesignPhoto(id), 'حُذفت الصورة من التصميم')
+
+export const useRemoveDesignPhotos = () =>
+  useMediaAction((ids: string[]) => mediaService.removeDesignPhotos(ids), 'حُذفت الصور من التصميم')
 
 export const useCompleteDesign = () =>
   useMediaAction((id: string) => mediaService.completeDesign(id), 'اكتمل التصميم وأُغلق للتعديل')
@@ -200,13 +205,13 @@ export const useReorderDesignPhotos = (designId: string) =>
 
 export const useUploadCover = () =>
   useMediaAction(
-    (file: File) => mediaService.uploadCover(file),
+    async (file: File) => mediaService.uploadCover(await compressImage(file, 2400, 0.9)),
     'رُفع غلاف التصميم',
   )
 
 export const useUploadPhotos = () =>
   useMediaAction(
-    (files: File[]) => mediaService.uploadPhotos(files),
+    async (files: File[]) => mediaService.uploadPhotos(await compressImages(files)),
     'رُفعت الصور إلى التخزين',
   )
 

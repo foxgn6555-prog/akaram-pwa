@@ -143,6 +143,15 @@ export const baghdadDay = (offset = 0) => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(d)
 }
 
+/** يوم التذكرة الفعلي YYYY-MM-DD: تاريخ التنفيذ ← تاريخ الحدث ← يوم الإنشاء محوَّلاً إلى توقيت بغداد
+ *  (كان يُقتطع من الطابع الزمني UTC فتُنسب تذاكر ما بعد منتصف الليل إلى اليوم السابق). */
+export const ticketDay = (t: { exec_date?: string | null; event_date?: string | null; created_at?: string | null }): string => {
+  const d = t.exec_date || t.event_date
+  if (d) return d.slice(0, 10)
+  if (!t.created_at) return baghdadDay()
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date(t.created_at))
+}
+
 /** عرض التاريخ بالعربية (تقويم بغداد) */
 export const fmtDayAr = (iso: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -183,3 +192,12 @@ export const CAMPAIGN_FIELD_LABEL: Record<MediaMode, { title: string; location: 
 /** اسم المجموعة في التصميم: للشارع اسم الشارع نفسه (لا «عام»)، ولغيره نوع العمل ثم العنوان */
 export const designGroupLabel = (t: { mode: string; title: string; work_type: string | null }) =>
   t.mode === 'street' ? t.title : (t.work_type?.trim() || t.title)
+
+/** المسودة التي يقع فيها اليوم المرجعي (نفس النوع، الحالة مسودة، period_start ≤ يوم ≤ period_end) — أحدثها أولاً */
+export function findDraftForDay<T extends { id: string; period_type: string; status: string; period_start: string; period_end: string; created_at?: string }>(
+  designs: T[], periodType: PeriodType, day: string,
+): T | undefined {
+  return designs
+    .filter((d) => d.status === 'draft' && d.period_type === periodType && d.period_start <= day && day <= d.period_end)
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))[0]
+}

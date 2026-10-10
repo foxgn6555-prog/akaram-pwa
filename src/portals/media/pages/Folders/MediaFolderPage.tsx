@@ -8,7 +8,7 @@ import { MODE_LABEL, SECTOR_LABEL, WORK_TYPES, type MediaMode, type SectorParent
 import { useSubmissionPhotos, useSubmissions } from '@features/media/hooks'
 import PhotoGrid from '../../components/PhotoGrid'
 import { DayFilter } from '../../components/DayFilter'
-import { baghdadDay } from '@features/media/constants'
+import { baghdadDay, ticketDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (x: string) =>
@@ -19,7 +19,7 @@ export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
   const [day, setDay] = useState('')
   const tickets = useSubmissions(sector, 'all', workType || null)
   const rows = (tickets.data ?? []).filter(
-    (t) => !day || (t.event_date ?? t.created_at).slice(0, 10) === day,
+    (t) => !day || ticketDay(t) === day,
   )
   const photoTotal = rows.reduce((sum, t) => sum + t.photo_count, 0)
   const dist = WORK_TYPES.map((w) => ({ w, c: rows.filter((t) => t.work_type === w).length }))
@@ -61,7 +61,7 @@ export default function MediaFolderPage({ sector }: { sector: SectorParent }) {
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{rows.length} تذكرة</span>
           <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-800">{photoTotal} صورة</span>
           <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-800">
-            {rows.filter((t) => (t.event_date ?? t.created_at).slice(0, 10) === baghdadDay()).length} تذكرة اليوم
+            {rows.filter((t) => ticketDay(t) === baghdadDay()).length} تذكرة اليوم
           </span>
         </div>
       </div>

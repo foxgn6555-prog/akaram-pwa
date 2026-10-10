@@ -37,6 +37,7 @@ vi.mock('@features/media/hooks', () => ({
   useUpdateDesign: () => ({ mutate: vi.fn(), isPending: false }),
   useCompleteDesign: () => ({ mutate: vi.fn(), isPending: false }),
   useRemoveDesignPhoto: () => ({ mutate: vi.fn(), isPending: false }),
+  useRemoveDesignPhotos: () => ({ mutate: vi.fn(), isPending: false }),
   useAddDesignPhotos: () => ({ mutate: vi.fn(), isPending: false }),
   useUploadCover: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteDesign: () => ({ mutate: vi.fn(), isPending: false }),

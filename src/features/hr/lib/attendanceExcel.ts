@@ -42,7 +42,7 @@ export function detailCellText(c: AttendanceGridCell): string {
 }
 
 const safeSheetName = (name: string, used: Set<string>) => {
-  let base = name.replace(/[\\/*?:[\]]/g, ' ').trim().slice(0, 28) || 'قسم'
+  const base = name.replace(/[\\/*?:[\]]/g, ' ').trim().slice(0, 28) || 'قسم'
   let n = base; let i = 2
   while (used.has(n)) { n = `${base} (${i++})` }
   used.add(n); return n

@@ -34,7 +34,7 @@ import {
 } from '@features/media/hooks'
 import PhotoGrid from '../../components/PhotoGrid'
 import { DayFilter } from '../../components/DayFilter'
-import { baghdadDay } from '@features/media/constants'
+import { baghdadDay, findDraftForDay, ticketDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const dt = (x: string) =>
@@ -53,7 +53,7 @@ export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
   const needle = q.trim().toLowerCase()
   const rows = (tickets.data ?? []).filter(
     (t) =>
-      (!day || (t.exec_date ?? t.event_date ?? t.created_at).slice(0, 10) === day) &&
+      (!day || ticketDay(t) === day) &&
       (!mode || t.mode === mode) &&
       (!needle || t.title.toLowerCase().includes(needle) || (t.location ?? '').toLowerCase().includes(needle) || t.submitted_by_name.toLowerCase().includes(needle)),
   )
@@ -131,7 +131,7 @@ export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
           <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">{rows.length} تذكرة</span>
           <span className="rounded-full bg-cyan-50 px-3 py-1.5 text-cyan-800">{photoTotal} صورة</span>
           <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-800">
-            {rows.filter((t) => (t.event_date ?? t.created_at).slice(0, 10) === baghdadDay()).length} تذكرة اليوم
+            {rows.filter((t) => ticketDay(t) === baghdadDay()).length} تذكرة اليوم
           </span>
         </div>
       </div>
@@ -304,25 +304,28 @@ function TicketDialog({
       workType: designGroupLabel(ticket),
       caption: captionEdit[p.id] ?? p.caption ?? '',
     }))
-    // يوجد تصميم لنفس الدورة؟ أضِف إليه، وإلا أنشئ جديداً
-    const existing = (designs.data ?? []).find(
-      (d) => d.period_type === period && d.status === 'draft',
-    )
+    // يوم العمل الفعلي للتذكرة هو مرجع التقرير (لا «اليوم» ولا UTC)
+    const tpl = sectorTemplates.find((t) => t.id === templateId)
+    const effPeriod = tpl?.period_type ? (tpl.period_type as PeriodType) : period
+    const refDay = ticket ? ticketDay(ticket) : baghdadDay()
+    // يوجد مسودة لنفس النوع ونفس الفترة التي يقع فيها يوم التذكرة؟ أضِف إليها، وإلا أنشئ جديدة
+    // (كان يُضاف إلى أي مسودة من النوع نفسه ولو كانت ليوم سابق — فيظهر التقرير بتاريخ قديم)
+    const existing = findDraftForDay(designs.data ?? [], effPeriod, refDay)
     try {
       let designId = existing?.id
       if (existing) {
         const d = await addDesignPhotos.mutateAsync([existing.id, payload])
         designId = d.id
       } else {
-        const tpl = sectorTemplates.find((t) => t.id === templateId)
         const d = await createDesign.mutateAsync([
           sector,
-          tpl?.period_type ? (tpl.period_type as PeriodType) : period,
+          effPeriod,
           tpl?.title?.trim()
             ? tpl.title.trim()
-            : `${SECTOR_LABEL[sector]} — تصميم ${PERIODS.find((p) => p.value === period)?.label ?? ''}`,
+            : `${SECTOR_LABEL[sector]} — تصميم ${PERIODS.find((p) => p.value === effPeriod)?.label ?? ''}`,
           tpl?.cover_path ?? null,
           payload,
+          refDay,
         ])
         designId = d.id
       }

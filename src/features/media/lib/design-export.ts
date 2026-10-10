@@ -7,6 +7,7 @@
  *            تُفتح في أي متصفح وتُطبع بنفس فواصل الصفحات.
  *  · PDF   → كل ورقة تُحوَّل إلى صورة عالية الدقة ثم تُوضع على صفحة A4 عمودية.
  *  · PPTX  → كل ورقة شريحة مستقلة بقياس A4 (نفس الباني المستخدم لتقارير الشكاوى).
+ *  00198: الصور تُصغَّر إلى 1600 بكسل وتُخزَّن مؤقتاً، مهلة لكل صورة/ورقة مع محاولة أخف، وشرائح JPEG — لا تعليق على الصور الكبيرة.
  *
  * الدوال النقية (بناء HTML/تسمية الملف/قياسات الشرائح) مفصولة عن الـDOM حتى تُختبر.
  */
@@ -151,27 +152,90 @@ export async function flattenPage(page: HTMLElement): Promise<string> {
     imgs.map(async (img) => {
       const src = img.getAttribute('src')
       if (!src || src.startsWith('data:')) return
-      const data = await toDataUrl(src)
+      const data = await toDataUrl(src, 2000)
       if (data) img.setAttribute('src', data)
     }),
   )
   return clone.outerHTML
 }
 
-async function toDataUrl(url: string): Promise<string | null> {
+/** مهلة جلب صورة واحدة — بعدها نتجاوزها بدل تعليق التصدير كله */
+export const IMAGE_FETCH_TIMEOUT_MS = 20_000
+/** أقصى ضلع للصور المضمّنة في الملف: الورقة تُرسم بدقة ×2 فلا حاجة لأكثر من ذلك */
+export const EMBED_MAX_EDGE = 1600
+
+const dataUrlCache = new Map<string, Promise<string | null>>()
+
+/** يجلب الصورة (بمهلة) ويصغّرها إلى EMBED_MAX_EDGE ويعيدها JPEG Base64 — مع تخزين مؤقت لكل رابط (الغلاف/الشعارات تتكرر في كل ورقة) */
+async function toDataUrl(url: string, maxEdge = EMBED_MAX_EDGE): Promise<string | null> {
+  const key = `${maxEdge}|${url}`
+  const hit = dataUrlCache.get(key)
+  if (hit) return hit
+  const job = (async () => {
+    try {
+      const ctrl = new AbortController()
+      const timer = window.setTimeout(() => ctrl.abort(), IMAGE_FETCH_TIMEOUT_MS)
+      let blob: Blob
+      try {
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit', signal: ctrl.signal })
+        if (!res.ok) return null
+        blob = await res.blob()
+      } finally {
+        window.clearTimeout(timer)
+      }
+      const shrunk = await shrinkBlob(blob, maxEdge)
+      return await blobToDataUrl(shrunk ?? blob)
+    } catch {
+      return null
+    }
+  })()
+  dataUrlCache.set(key, job)
+  return job
+}
+
+/** يصغّر الصورة النقطية إلى ضلع أقصى ويعيدها JPEG؛ null إن لم يلزم أو تعذّر (نستخدم الأصل عندها) */
+async function shrinkBlob(blob: Blob, maxEdge: number): Promise<Blob | null> {
+  if (typeof createImageBitmap !== 'function' || !blob.type.startsWith('image/') || blob.type === 'image/svg+xml' || blob.type === 'image/gif') return null
+  let bmp: ImageBitmap | null = null
   try {
-    const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
-    if (!res.ok) return null
-    const blob = await res.blob()
-    return await new Promise<string>((resolve, reject) => {
-      const fr = new FileReader()
-      fr.onload = () => resolve(String(fr.result))
-      fr.onerror = () => reject(fr.error)
-      fr.readAsDataURL(blob)
-    })
+    bmp = await createImageBitmap(blob)
+    const edge = Math.max(bmp.width, bmp.height)
+    if (edge <= maxEdge && blob.size < 600 * 1024) return null
+    const k = Math.min(1, maxEdge / edge)
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bmp.width * k))
+    canvas.height = Math.max(1, Math.round(bmp.height * k))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86))
   } catch {
     return null
+  } finally {
+    bmp?.close?.()
   }
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const fr = new FileReader()
+    fr.onload = () => resolve(String(fr.result))
+    fr.onerror = () => reject(fr.error)
+    fr.readAsDataURL(blob)
+  })
+}
+
+/** يترك المتصفح يرسم شريط التقدّم بين الأوراق */
+const nextFrame = () => new Promise<void>((r) => window.setTimeout(r, 0))
+
+/** وعد بمهلة — لتعليق html-to-image على ورقة ثقيلة بدل تجميد التصدير كله */
+function withTimeout<T>(p: Promise<T>, ms: number, tag: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error(tag)), ms)
+    p.then((v) => { window.clearTimeout(t); resolve(v) }, (e) => { window.clearTimeout(t); reject(e) })
+  })
 }
 
 export function reportPages(root: ParentNode = document): HTMLElement[] {
@@ -191,22 +255,29 @@ export function downloadBlob(blob: Blob, name: string) {
 
 /** يرسم الورقة كصورة PNG بدقة عالية — عبر html-to-image (المتصفح نفسه يرسم، فتُدعم ألوان
  *  Tailwind v4 (oklch) والخطوط العربية المضمّنة)؛ الصور الموقّعة تُحوَّل Base64 مسبقاً حتى لا تُحجب. */
+export const PAGE_RENDER_TIMEOUT_MS = 45_000
 async function rasterizePage(page: HTMLElement, scale = 2): Promise<HTMLCanvasElement> {
   const { toCanvas } = await import('html-to-image')
   const inlined = await inlineImages(page)
+  const opts = (pixelRatio: number, skipFonts: boolean) => ({
+    width: page.offsetWidth,
+    height: page.offsetHeight,
+    pixelRatio,
+    backgroundColor: '#ffffff',
+    cacheBust: false,
+    skipFonts,
+    // الورقة على الشاشة موسَّطة بـ margin:auto؛ القيمة المحسوبة (بالبكسل) تُنسخ إلى النسخة
+    // الملتقطة فتنزاح الورقة وتُقص — نصفّر الهوامش والظل والتحويلات في اللقطة
+    style: { margin: '0', boxShadow: 'none', transform: 'none', left: '0', top: '0' },
+    filter: (node: Node) => !(node instanceof Element && (node.classList.contains('no-print') || node.tagName === 'INPUT')),
+  })
   try {
-    return await toCanvas(page, {
-      width: page.offsetWidth,
-      height: page.offsetHeight,
-      pixelRatio: scale,
-      backgroundColor: '#ffffff',
-      cacheBust: false,
-      skipFonts: false,
-      // الورقة على الشاشة موسَّطة بـ margin:auto؛ القيمة المحسوبة (بالبكسل) تُنسخ إلى النسخة
-      // الملتقطة فتنزاح الورقة وتُقص — نصفّر الهوامش والظل والتحويلات في اللقطة
-      style: { margin: '0', boxShadow: 'none', transform: 'none', left: '0', top: '0' },
-      filter: (node) => !(node instanceof Element && (node.classList.contains('no-print') || node.tagName === 'INPUT')),
-    })
+    try {
+      return await withTimeout(toCanvas(page, opts(scale, false)), PAGE_RENDER_TIMEOUT_MS, 'PAGE_RENDER_TIMEOUT')
+    } catch {
+      // محاولة ثانية أخف: بلا تضمين خطوط وبدقة أقل — تنجح حيث تعلق الأولى على الأجهزة الضعيفة
+      return await withTimeout(toCanvas(page, opts(Math.min(scale, 1.5), true)), PAGE_RENDER_TIMEOUT_MS, 'PAGE_RENDER_TIMEOUT')
+    }
   } finally {
     inlined.forEach(({ img, src }) => img.setAttribute('src', src))
   }
@@ -229,13 +300,19 @@ async function inlineImages(page: HTMLElement): Promise<Array<{ img: HTMLImageEl
   return restored
 }
 
-function canvasToBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+function canvasToBytes(canvas: HTMLCanvasElement, type: 'image/png' | 'image/jpeg' = 'image/jpeg', quality = 0.92): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(async (blob) => {
       if (!blob) return reject(new Error('CANVAS_EMPTY'))
       resolve(new Uint8Array(await blob.arrayBuffer()))
-    }, 'image/png')
+    }, type, quality)
   })
+}
+
+/** رسالة عربية واضحة عند فشل ورقة بعينها */
+function pageError(i: number, e: unknown): Error {
+  const m = e instanceof Error ? e.message : String(e)
+  return new Error(m === 'PAGE_RENDER_TIMEOUT' ? `الورقة ${i + 1} استغرقت وقتاً طويلاً — صغّر الصور أو أعد المحاولة` : `تعذّر رسم الورقة ${i + 1}: ${m}`)
 }
 
 export interface ExportProgress {
@@ -251,6 +328,7 @@ export async function exportDesign(format: DesignExportFormat, title: string, on
   if (format === 'html') {
     const captured: CapturedPage[] = []
     for (let i = 0; i < pages.length; i++) {
+      await nextFrame()
       captured.push({ html: await flattenPage(pages[i] as HTMLElement) })
       onProgress?.(i + 1, pages.length)
     }
@@ -263,7 +341,9 @@ export async function exportDesign(format: DesignExportFormat, title: string, on
     const { jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await rasterizePage(pages[i] as HTMLElement)
+      await nextFrame()
+      let canvas: HTMLCanvasElement
+      try { canvas = await rasterizePage(pages[i] as HTMLElement) } catch (e) { throw pageError(i, e) }
       if (i > 0) pdf.addPage('a4', 'portrait')
       // الورقة المعروضة 190×277مم داخل A4 بهامش 10مم — نضعها في موضعها الطبيعي
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 10, 10, 190, 277, undefined, 'FAST')
@@ -278,9 +358,11 @@ export async function exportDesign(format: DesignExportFormat, title: string, on
   const { default: JSZip } = await import('jszip')
   const slides: SlidePart[] = []
   for (let i = 0; i < pages.length; i++) {
-    const canvas = await rasterizePage(pages[i] as HTMLElement)
-    const bytes = await canvasToBytes(canvas)
-    const pngName = `page${i + 1}.png`
+    await nextFrame()
+    let canvas: HTMLCanvasElement
+    try { canvas = await rasterizePage(pages[i] as HTMLElement) } catch (e) { throw pageError(i, e) }
+    const bytes = await canvasToBytes(canvas, 'image/jpeg', 0.92)
+    const pngName = `page${i + 1}.jpg`
     const slide = pageSlide(i, pngName)
     slide.images.push({ name: pngName, bytes })
     slides.push(slide)

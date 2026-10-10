@@ -34,7 +34,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useDesigns, useMediaTemplates, useSubmissions } from '@features/media/hooks'
-import { baghdadDay, designGroupLabel } from '@features/media/constants'
+import { baghdadDay, designGroupLabel, ticketDay } from '@features/media/constants'
 
 const PIE_COLORS = ['#0e7490', '#7c3aed', '#059669', '#db2777', '#d97706', '#334155']
 
@@ -62,7 +62,7 @@ export default function MediaDashboardPage() {
     const active = all.filter((t) => t.status !== 'archived')
     const archived = all.filter((t) => t.status === 'archived')
     const today = baghdadDay()
-    const dayOf = (t: Ticket) => (t.event_date ?? t.created_at).slice(0, 10)
+    const dayOf = (t: Ticket) => ticketDay(t)
 
     const days = Array.from({ length: 14 }, (_, i) => {
       const day = baghdadDay(i - 13)

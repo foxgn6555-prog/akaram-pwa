@@ -43,6 +43,10 @@ export interface ReportPhoto {
 export interface ReportSummaryRow {
   t: string
   work: string
+  /** نوع العمل الأصلي الذي أُنشئ منه الصف (للمزامنة مع فقرات التصميم) */
+  src?: string
+  /** صف أضافه المستخدم يدوياً — لا يُحذف تلقائياً */
+  manual?: boolean
 }
 export interface ReportSummary {
   companyName: string
@@ -165,6 +169,18 @@ export function periodSummaryFields(d: Pick<DesignReportData, 'sector' | 'period
   }
 }
 
+/** 00198 — مزامنة جدول «الفقرات المنجزة» مع فقرات التصميم الحالية:
+ *  فقرة جديدة (تذكرة أُضيفت بعد إنشاء الجدول) تُلحق تلقائياً، وفقرة أُزيلت من التصميم يُحذف صفها (ما لم يكن صفاً كتبه المستخدم يدوياً)،
+ *  مع الحفاظ على النصوص التي عدّلها المستخدم وإعادة الترقيم. */
+export function syncSummaryRows(rows: ReportSummaryRow[], groups: Array<{ workType: string }>): ReportSummaryRow[] {
+  const present = new Set(groups.map((g) => g.workType))
+  // صفوف قديمة (بلا src) لا نعرف أصلها ⇒ تبقى؛ صف مرتبط بفقرة (src) يُحذف إن زالت فقرته ما لم يكن يدوياً
+  const kept = rows.filter((r) => r.manual === true || r.src == null || present.has(r.src))
+  const have = new Set(kept.map((r) => r.src ?? r.work))
+  const added = groups.filter((g) => !have.has(g.workType)).map((g) => ({ t: '', work: g.workType, src: g.workType }))
+  return [...kept, ...added].map((r, i) => ({ ...r, t: String(i + 1) }))
+}
+
 function buildDefaultSummary(d: DesignReportData): ReportSummary {
   const sector = d.sector ?? 'karrada'
   return {
@@ -174,7 +190,7 @@ function buildDefaultSummary(d: DesignReportData): ReportSummary {
     subjectLabel: 'موضوع التقرير',
     ...periodSummaryFields(d),
     sectorName: SECTOR_LABEL[sector],
-    rows: d.groups.map((g, i) => ({ t: String(i + 1), work: g.workType })),
+    rows: d.groups.map((g, i) => ({ t: String(i + 1), work: g.workType, src: g.workType })),
     footer: 'الجهة المتصرفة لجنة الإشراف والمراقبة والتقييم في أمانة بغداد',
   }
 }
@@ -371,6 +387,19 @@ export default function DesignReportView({
       setSaving(false)
     }
   }
+
+  /* فقرات التصميم تغيّرت (أُضيفت تذكرة / حُذفت فقرة) ⇒ جدول الفقرات يتبعها تلقائياً */
+  const groupsKey = groups.map((g) => g.workType).join('|')
+  useEffect(() => {
+    setSum((s) => {
+      const next = syncSummaryRows(s.rows, groups)
+      const same = next.length === s.rows.length && next.every((r, i) => r.work === s.rows[i]?.work && r.t === s.rows[i]?.t)
+      if (same) return s
+      if (editable) setDirty(true)
+      return { ...s, rows: next }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupsKey])
 
   /* تغيير نوع التقرير/فترته بعد الإنشاء يحدّث سطور التاريخ والعنوان تلقائياً (يومي ← «يوم الخميس» + التاريخ) */
   const periodKey = `${periodProps.periodType ?? ''}|${periodProps.periodStart ?? ''}|${periodProps.periodEnd ?? ''}|${periodProps.sector ?? ''}`
@@ -789,7 +818,7 @@ export default function DesignReportView({
                   type="button"
                   className="no-print mt-1 self-start rounded-lg border px-2 py-1 text-[10px] font-bold text-sky-800"
                   onClick={() =>
-                    patchSum({ rows: [...sum.rows, { t: String(sum.rows.length + 1), work: 'فقرة جديدة' }] })
+                    patchSum({ rows: [...sum.rows, { t: String(sum.rows.length + 1), work: 'فقرة جديدة', manual: true }] })
                   }
                 >
                   + إضافة فقرة

@@ -4,6 +4,7 @@
  * (إعادة ترتيب ونقل بين الأنواع)، وفتح الصور بعرض كبير، ومعاينة التقرير وطباعته
  */
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
 import {
   Eye,
@@ -17,7 +18,6 @@ import {
   X,
 } from 'lucide-react'
 import {
-  autoPeriodType,
   PERIODS,
   PERIOD_LABEL,
   SECTOR_LABEL,
@@ -33,6 +33,7 @@ import {
   useDesignDetail,
   useDesigns,
   useRemoveDesignPhoto,
+  useRemoveDesignPhotos,
   useReorderDesignPhotos,
   useSaveDesignReport,
   useSignedPhotoUrls,
@@ -42,6 +43,7 @@ import {
   useUploadCover,
 } from '@features/media/hooks'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import type { MediaDesignDetail } from '@sdk/media.sdk'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
 import DesignExportMenu from './DesignExportMenu'
@@ -157,30 +159,54 @@ function applyMove(
   return stripped
 }
 
+/** 00198 — يُحمِّل التصميم أولاً ثم يفتح المحرر بحالته الحقيقية (النوع/الغلاف/العنوان)؛
+ *  قبل ذلك كان المحرر يُهيّئ حالته والبيانات لم تصل بعد، فيظهر «نصف شهري» بلا غلاف مهما كان القالب. */
 function DesignComposer({ designId, close }: { designId: string; close: () => void }) {
+  const detail = useDesignDetail(designId)
+  if (detail.isLoading || !detail.data) {
+    return createPortal(
+      <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-100" dir="rtl">
+        <LoadingSpinner label="جارٍ فتح التصميم…" />
+      </div>,
+      document.body,
+    )
+  }
+  return <DesignComposerEditor key={designId} designId={designId} initial={detail.data} close={close} />
+}
+
+function DesignComposerEditor({ designId, initial, close }: { designId: string; initial: MediaDesignDetail; close: () => void }) {
   const detail = useDesignDetail(designId)
   const update = useUpdateDesign()
   const complete = useCompleteDesign()
   const removePhoto = useRemoveDesignPhoto()
+  const removePhotos = useRemoveDesignPhotos()
   const addPhotos = useAddDesignPhotos()
   const uploadCover = useUploadCover()
   const deleteDesign = useDeleteDesign()
   const saveReport = useSaveDesignReport(designId)
   const reorder = useReorderDesignPhotos(designId)
 
-  const data = detail.data
-  const [title, setTitle] = useState(data?.design.title ?? '')
-  const [periodType, setPeriodType] = useState<PeriodType>(
-    (data?.design.period_type as PeriodType) ?? autoPeriodType(),
-  )
+  const data = detail.data ?? initial
+  const [title, setTitle] = useState(initial.design.title)
+  const [periodType, setPeriodType] = useState<PeriodType>(initial.design.period_type as PeriodType)
+  /** يوم التقرير المرجعي (لليومي: اليوم نفسه؛ لغيره: يوم داخل الفترة) — مثبّت على التصميم ولا ينزلق مع الأيام */
+  const [refDay, setRefDay] = useState<string>(initial.design.period_start)
   const [preview, setPreview] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
-  const [coverPath, setCoverPath] = useState<string | null>(data?.design.cover_image_path ?? null)
+  const [coverPath, setCoverPath] = useState<string | null>(initial.design.cover_image_path)
   const [dragRow, setDragRow] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ url: string; caption: string | null } | null>(null)
 
-  const locked = data?.design.status === 'completed'
-  const sector = (data?.design.sector_parent ?? 'karrada') as SectorParent
+  /** الفترة المعروضة: ما حفظه الخادم إن طابق الاختيار الحالي، وإلا احتساب محلي من اليوم المرجعي */
+  const period = useMemo(() => {
+    if (periodType === data.design.period_type && refDay === data.design.period_start)
+      return { start: data.design.period_start, end: data.design.period_end }
+    return periodRange(periodType, new Date(`${refDay}T12:00:00`))
+  }, [periodType, refDay, data.design.period_type, data.design.period_start, data.design.period_end])
+  const periodDirty = periodType !== data.design.period_type || period.start !== data.design.period_start
+
+  const locked = data.design.status === 'completed'
+  const sector = (data.design.sector_parent ?? 'karrada') as SectorParent
 
   const coverUrls = useSignedPhotoUrls(coverPath ? [coverPath] : [])
   const coverUrl = coverPath ? coverUrls.data?.[coverPath] : null
@@ -189,15 +215,15 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
   useEffect(() => {
     if (!preview) return
     const prev = document.title
-    document.title = `جزيرة الأكارم — تقرير ${title || (data?.design.title ?? '')}`
+    document.title = `جزيرة الأكارم — تقرير ${title || data.design.title}`
     return () => {
       document.title = prev
     }
-  }, [preview, title, data?.design.title])
+  }, [preview, title, data.design.title])
 
   const groups = useMemo<ThumbGroup[]>(() => {
     const map = new Map<string, ThumbPhoto[]>()
-    for (const p of data?.photos ?? []) {
+    for (const p of data.photos) {
       const arr = map.get(p.work_type) ?? []
       arr.push({
         id: p.photo_id,
@@ -211,27 +237,25 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
       map.set(p.work_type, arr)
     }
     return [...map.entries()].map(([workType, photos]) => ({ workType, photos }))
-  }, [data?.photos])
+  }, [data.photos])
 
-  if (detail.isLoading || !data) {
-    return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-100" dir="rtl">
-        <LoadingSpinner label="جارٍ فتح التصميم…" />
-      </div>
-    )
-  }
-
+  const meta = () => ({ title, periodType, coverPath, refDay: periodDirty ? refDay : null })
   const save = () =>
-    update.mutate([designId, { title, periodType, coverPath }], {
+    update.mutate([designId, meta()], {
       onSuccess: () => detail.refetch(),
     })
+  const removeMany = (ids: string[], label: string) => {
+    if (!ids.length) return
+    if (!window.confirm(`حذف ${ids.length} صورة ${label} من هذا التصميم؟\nلا تُحذف الصور من التذاكر الأصلية.`)) return
+    removePhotos.mutate([ids], { onSuccess: () => detail.refetch() })
+  }
 
   const onCover = (file: File | null) => {
     if (!file) return
     uploadCover.mutate([file], {
       onSuccess: (path) => {
         setCoverPath(path)
-        update.mutate([designId, { title, periodType, coverPath: path }])
+        update.mutate([designId, { ...meta(), coverPath: path }], { onSuccess: () => detail.refetch() })
       },
     })
   }
@@ -254,9 +278,10 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
     )
   }
 
-  return (
+  // يُرسم في body حتى يعلو الشريط الجانبي (z-30) وقائمة الهاتف — كان يُرسم داخل عمود المحتوى (z-0) فيغطيه الشريط
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-100"
+      className="fixed inset-0 z-[80] overflow-y-auto bg-slate-100"
       dir="rtl"
       data-testid="composer-fullscreen"
       data-rp-overlay
@@ -280,7 +305,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
 
       <div className="no-print mx-auto max-w-6xl space-y-4 p-4 pb-24">
         {!locked && (
-          <section className="grid gap-2 rounded-2xl border bg-white p-3 sm:grid-cols-[1fr_auto_auto]">
+          <section className="grid gap-2 rounded-2xl border bg-white p-3 sm:grid-cols-[1fr_auto_auto_auto]">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -291,6 +316,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
               value={periodType}
               onChange={(e) => setPeriodType(e.target.value as PeriodType)}
               className="h-11 rounded-xl border bg-white px-3 text-sm"
+              data-testid="composer-period"
             >
               {PERIODS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -298,6 +324,10 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
                 </option>
               ))}
             </select>
+            <label className="flex h-11 items-center gap-2 rounded-xl border bg-white px-3 text-xs font-bold text-slate-600" title={periodType === 'daily' ? 'يوم التقرير' : 'أي يوم داخل الفترة المطلوبة'}>
+              {periodType === 'daily' ? 'يوم التقرير' : 'يوم مرجعي'}
+              <input type="date" value={refDay} onChange={(e) => e.target.value && setRefDay(e.target.value)} className="text-sm font-normal outline-none" data-testid="composer-ref-day" />
+            </label>
             <button
               onClick={save}
               disabled={update.isPending}
@@ -310,9 +340,10 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
         )}
         <p className="text-xs text-slate-500">
           {SECTOR_LABEL[sector]} · الدورة:{' '}
-          <b>
-            {periodRange(periodType).start} ← {periodRange(periodType).end}
-          </b>{' '}
+          <b data-testid="composer-period-range">
+            {period.start === period.end ? period.start : `${period.start} ← ${period.end}`}
+          </b>
+          {periodDirty && <span className="mr-1 font-bold text-amber-700">(غير محفوظ — اضغط حفظ)</span>}{' '}
           · {data.design.photo_count} صورة · {locked ? 'مقفل بعد الإكمال' : 'مسودة قابلة للتعديل'}
         </p>
 
@@ -345,7 +376,7 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
               <button
                 onClick={() => {
                   setCoverPath(null)
-                  update.mutate([designId, { title, periodType, coverPath: null }])
+                  update.mutate([designId, { ...meta(), coverPath: null }], { onSuccess: () => detail.refetch() })
                 }}
                 className="flex h-10 items-center gap-1 rounded-xl border px-3 text-xs font-bold text-red-600"
               >
@@ -361,13 +392,26 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-black">صور التصميم حسب نوع العمل</h3>
             {!locked && (
-              <button
-                onClick={() => setAddOpen(true)}
-                className="mr-auto flex h-9 items-center gap-1 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white"
-              >
-                <ImagePlus size={14} />
-                إضافة صور من تذكرات
-              </button>
+              <div className="mr-auto flex flex-wrap items-center gap-2">
+                {groups.length > 0 && (
+                  <button
+                    onClick={() => removeMany(groups.flatMap((g) => g.photos.map((p) => p.rowId)), '(كل الصور)')}
+                    disabled={removePhotos.isPending}
+                    className="flex h-9 items-center gap-1 rounded-lg border border-red-300 px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-40"
+                    data-testid="remove-all-photos"
+                  >
+                    <Trash2 size={13} />
+                    حذف كل الصور ({data.design.photo_count})
+                  </button>
+                )}
+                <button
+                  onClick={() => setAddOpen(true)}
+                  className="flex h-9 items-center gap-1 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white"
+                >
+                  <ImagePlus size={14} />
+                  إضافة صور من تذكرات
+                </button>
+              </div>
             )}
           </div>
           <div className="space-y-3">
@@ -387,9 +431,22 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
                   dragRow ? 'border-dashed border-emerald-500' : ''
                 }`}
               >
-                <b className="text-xs text-sky-900">
-                  {g.workType} <span className="text-slate-400">({g.photos.length})</span>
-                </b>
+                <div className="flex items-center gap-2">
+                  <b className="text-xs text-sky-900">
+                    {g.workType} <span className="text-slate-400">({g.photos.length})</span>
+                  </b>
+                  {!locked && (
+                    <button
+                      onClick={() => removeMany(g.photos.map((p) => p.rowId), `من فقرة «${g.workType}»`)}
+                      disabled={removePhotos.isPending}
+                      className="mr-auto flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-40"
+                      data-testid={`remove-group-${g.workType}`}
+                    >
+                      <Trash2 size={12} />
+                      حذف صور الفقرة
+                    </button>
+                  )}
+                </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {g.photos.map((p) => (
                     <div
@@ -494,8 +551,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
               title={title || data.design.title}
               sector={sector}
               periodType={periodType}
-              periodStart={periodType === data.design.period_type ? data.design.period_start : periodRange(periodType).start}
-              periodEnd={periodType === data.design.period_type ? data.design.period_end : periodRange(periodType).end}
+              periodStart={period.start}
+              periodEnd={period.end}
               coverUrl={coverUrl}
               sheets={Object.fromEntries((data.sheets ?? []).map((s) => [s.work_type, s.sheet_text]))}
               summary={(data.design.summary as unknown as ReportSummary | null) ?? null}
@@ -559,7 +616,8 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
           close={() => setAddOpen(false)}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   )
 
   function deleteIfConfirmed() {
