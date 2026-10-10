@@ -329,6 +329,8 @@ export interface EmployeeMonthDay {
   proposed_deduction_days: number
   deduction_waived: boolean
   waive_reason: string | null
+  /** 00202: سبب الاستقطاع المقترح أو وسم «يوم غير مدفوع» */
+  deduction_reason?: string | null
 }
 
 /** صف سجل التدقيق بأسماء (hr_attendance_audit_list) */
@@ -776,6 +778,7 @@ export interface DeductionSimCase {
   shift_minutes: number; base_salary: number; pay_type: 'monthly' | 'daily'
   late_minutes: number; early_minutes: number; paid_permit_minutes: number; unpaid_permit_minutes: number
   absent_days: number; incomplete_days: number; unpaid_leave_days: number; paid_leave_days: number; leave_deduction_days_per_day: number
+  /** 00202: الشهر (YYYY-MM-01) لاحتساب أيام الشهر الفعلية — افتراضياً الشهر الحالي */ month?: string
 }
 export interface DeductionSimStep { key: 'rates' | 'shortfall' | 'method' | 'days' | 'amount'; title: string; text: string }
 export interface DeductionSimLadderRow { shortfall: number; minutes: number; days: number; amount: number; within_grace: boolean }
@@ -784,6 +787,7 @@ export interface DeductionSimulationV2 {
   missing_minutes: number; covered_minutes: number; shortfall_minutes: number; grace_minutes: number
   minutes: number; shortfall_days: number; absent_days: number; incomplete_days: number; unpaid_leave_days: number; paid_leave_days: number; days: number
   day_rate: number; minute_rate: number
+  /** 00202 */ salary_model?: 'earned_days' | 'full_minus_absence' | 'daily'; days_in_month?: number; unpaid_days_amount?: number
   amount_shortfall: number; amount_absence: number; amount_incomplete: number; amount_unpaid_leave: number; amount: number; capped: boolean
   steps: DeductionSimStep[]; ladder: DeductionSimLadderRow[]
 }

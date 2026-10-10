@@ -1,6 +1,8 @@
 -- 00197 · طلب إجازة/زمنية بأثر رجعي: شروط (مفعّل/مهلة/سبب/قفل الشهر) · شفافية في سلسلة الموافقات · تصحيح الحضور عند الموافقة · تنبيه HR عند التكرار (بادئة bk)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00202: هذا الاختبار يفترض النموذج القديم (الغياب = يوم استقطاع مقترح)؛ في نموذج «الأيام المستحقة» الافتراضي الغياب يوم غير مدفوع بلا استقطاع (payroll-earned-days-test S7)
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('d3000000-0000-0000-0000-000000000001', 'bk-ops@t.iq'), ('d3000000-0000-0000-0000-000000000004', 'bk-adm@t.iq'), ('d3000000-0000-0000-0000-000000000008', 'bk-it@t.iq'),
   ('d3000000-0000-0000-0000-000000000009', 'bk-hr@t.iq'), ('d3000000-0000-0000-0000-00000000000a', 'bk-emp@t.iq'), ('d3000000-0000-0000-0000-00000000000b', 'bk-mgr@t.iq')

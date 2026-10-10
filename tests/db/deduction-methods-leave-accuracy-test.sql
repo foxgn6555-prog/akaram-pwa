@@ -1,6 +1,8 @@
 -- 00196 · طرق احتساب النقص (شرائح/دقيقة بدقيقة/مضاعف/كتل) · المحاكاة التفصيلية · دقة الإجازات والزمنيات المدفوعة (بادئة dm)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00202: هذا الاختبار يفترض أجر اليوم = الأساسي ÷ 30 (النموذج القديم)؛ النموذج الافتراضي الجديد يُختبر في deduction-simulation-matches-export-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('d2000000-0000-0000-0000-000000000001', 'dm-ops@t.iq'), ('d2000000-0000-0000-0000-000000000007', 'dm-fin@t.iq'), ('d2000000-0000-0000-0000-000000000008', 'dm-it@t.iq'),

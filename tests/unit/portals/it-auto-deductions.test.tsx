@@ -28,7 +28,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useSaveDeductionRule: () => mut(h.saveRule), useDeleteDeductionRule: () => mut(h.deleteRule), useSetDeductionTargets: () => mut(h.setTargets),
   useDeductionExemptions: () => ({ data: h.exemptions, isLoading: false }), useAddDeductionExemption: () => mut(h.addExempt), useRemoveDeductionExemption: () => mut(h.removeExempt),
   useDeductionEmployees: () => ({ data: h.employees, isLoading: false }),
-  useSimulateDeductionV2: () => mut(h.simulate), useDeductionAudit: () => ({ data: [{ id: 1, action: 'rule_save', rule_id: 'strict', rule_name: 'صارمة', before: null, after: { name: 'صارمة' }, actor: 'u1', actor_name: 'مدير التطوير', created_at: '2026-10-01T10:00:00Z' }] }),
+  useSimulateDeductionV2: () => mut(h.simulate), useHrPolicy: () => ({ data: { salary_model: 'earned_days' }, isLoading: false }), useDeductionAudit: () => ({ data: [{ id: 1, action: 'rule_save', rule_id: 'strict', rule_name: 'صارمة', before: null, after: { name: 'صارمة' }, actor: 'u1', actor_name: 'مدير التطوير', created_at: '2026-10-01T10:00:00Z' }] }),
   useHrDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null, is_active: true, is_job_title: false }, { id: 'jt1', name: 'سائق', parent_id: 'd1', is_active: true, is_job_title: true }, { id: 'd2', name: 'الإدارة', parent_id: null, is_active: true, is_job_title: false }] }),
   useHrEmployees: () => ({ data: [{ id: 'e1', employee_number: 'E1', full_name: 'أحمد' }, { id: 'e2', employee_number: 'E2', full_name: 'سارة' }] }),
 }))
@@ -224,5 +224,22 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
   it('السجل يعرض الإجراء بالعربية والقاعدة والفاعل', () => {
     open(); fireEvent.click(screen.getByTestId('ad-tab-audit'))
     expect(screen.getByTestId('audit-row-1')).toHaveTextContent('حفظ قاعدة'); expect(screen.getByTestId('audit-row-1')).toHaveTextContent('صارمة'); expect(screen.getByTestId('audit-row-1')).toHaveTextContent('مدير التطوير')
+  })
+})
+
+describe('00202 — معادلة الصفحة تطابق محرّك التصدير', () => {
+  it('أساس أجر اليوم = أيام الشهر الفعلية (نموذج الأيام المستحقة) والغياب لا يُستقطع؛ المحاكاة تعرض أيام الشهر والأيام غير المدفوعة', async () => {
+    h.simulate.mockReturnValueOnce({ enabled: true, method: 'tiers', amount_mode: 'salary', status: 'absent', missing_minutes: 0, covered_minutes: 0, shortfall_minutes: 0, grace_minutes: 15, minutes: 0, shortfall_days: 0, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0, days: 0,
+      day_rate: 16129.03, minute_rate: 33.6, salary_model: 'earned_days', days_in_month: 31, unpaid_days_amount: 145161.29, amount_shortfall: 0, amount_absence: 0, amount_incomplete: 0, amount_unpaid_leave: 0, amount: 0, capped: false, steps: [{ key: 'rates', title: 'أساس', text: 'x' }], ladder: [] })
+    render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('rule-new'))
+    const dim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+    expect(screen.getByTestId('r-day-basis')).toHaveTextContent(`أيام الشهر الفعلية (هذا الشهر ${dim})`)
+    expect(screen.getByTestId('r-absence-note')).toHaveTextContent('لا تُستقطع بل لا تُدفع أصلاً')
+    fireEvent.click(screen.getByTestId('ad-tab-simulate'))
+    fireEvent.click(screen.getByTestId('sim-run'))
+    expect(await screen.findByTestId('sim-rates')).toHaveTextContent('16,129')
+    expect(screen.getByTestId('sim-rates').parentElement).toHaveTextContent('الأساسي ÷ 31 يوم')
+    expect(screen.getByTestId('sim-unpaid')).toHaveTextContent('145,161')
   })
 })

@@ -1,6 +1,8 @@
 -- 00191 · السلف: طلب من غرفة العمليات → سلسلة موافقات (افتراضية: معاون ثم مدير مفوض) → تسليم المالية من القاصة → قسط تلقائي في كشف الرواتب → تسجيل القسط عند الاعتماد (بادئة ad)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values

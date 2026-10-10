@@ -287,7 +287,8 @@ do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r recor
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.ops_deduction_amount = 4000 and r.ops_deduction_reasons like '%كشف%', 'S12a carried disclosure: ' || r.ops_deduction_amount;
-  assert r.proposed_net = 0 and r.advance_installment = 0, 'S12a zero net ⇒ installment deferred: ' || r.proposed_net || '/' || r.advance_installment;
+  -- 00207: القسط لا يأخذ أكثر مما بقي بعد بقية الاستقطاعات (في النموذج القديم قد يبقى فائض مخصصات صغير يُغطّي جزءاً من القسط؛ لا يُستقطع من لا شيء)
+  assert r.proposed_net >= 0 and r.advance_installment = least(100000, greatest(0, r.gross_amount - (r.deductions_total - r.advance_installment))), 'S12a installment bounded by what remains: ' || r.proposed_net || '/' || r.advance_installment || ' gross=' || r.gross_amount || ' ded=' || r.deductions_total;
   assert (select amount - repaid_total from public.advances where id = current_setting('test.fx_adv')::uuid) = 200000, 'S12a remaining untouched';
 end $$;
 -- الرصيد السنوي لا يكفي لشهر كامل (يُرفض HR_BALANCE_INSUFFICIENT) ⇒ نستخدم إجازة رسمية مدفوعة بلا رصيد تغطي الشهر الحالي كله

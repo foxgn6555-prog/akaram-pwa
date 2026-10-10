@@ -38,6 +38,9 @@ do $$ declare p jsonb; begin
   assert (p ->> 'permits_per_leave_day')::int = 3, 'permits per day 3';
   assert jsonb_array_length(p -> 'deduction_tiers') = 6, 'tiers seeded';
 end $$;
+reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
 do $$ begin
   begin perform public.hr_policy_set('{"annual_leave_days_default": 25}'); raise exception 'should fail';

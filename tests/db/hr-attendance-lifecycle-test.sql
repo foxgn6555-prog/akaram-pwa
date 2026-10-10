@@ -4,6 +4,8 @@
 -- تغيير الشفت بأثر رجعي، حدود التعيين/إنهاء الخدمة، التعديل اليدوي، الشفت الليلي، كشف المالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00202: هذا الاختبار يفترض النموذج القديم (الغياب = يوم استقطاع مقترح)؛ في نموذج «الأيام المستحقة» الافتراضي الغياب يوم غير مدفوع بلا استقطاع (payroll-earned-days-test S7)
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
   ('1c000000-0000-0000-0000-00000000000a', 'lc-hr@t.iq'), ('1c000000-0000-0000-0000-00000000000b', 'lc-mgr@t.iq'), ('1c000000-0000-0000-0000-00000000000c', 'lc-emp@t.iq')

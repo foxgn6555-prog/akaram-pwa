@@ -2,6 +2,8 @@
 -- (مبالغ ثابتة / بصمة ناقصة كغياب / سقف أيام) تُعيد الاحتساب فوراً · سلفة بقسط ثابت وسلفة بنسبة من الإجمالي · تناسب الشهر الجزئي. (بادئة fv)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('fd000000-0000-0000-0000-000000000001', 'fv-ops@t.iq'), ('fd000000-0000-0000-0000-000000000003', 'fv-dep@t.iq'), ('fd000000-0000-0000-0000-000000000004', 'fv-adm@t.iq'),
   ('fd000000-0000-0000-0000-000000000006', 'fv-daily@t.iq'), ('fd000000-0000-0000-0000-000000000007', 'fv-fin@t.iq'), ('fd000000-0000-0000-0000-000000000008', 'fv-it@t.iq'),

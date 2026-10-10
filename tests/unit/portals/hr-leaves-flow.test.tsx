@@ -93,7 +93,7 @@ beforeEach(() => {
   h.policy = POLICY(); h.setPolicy.mockClear(); h.saveType.mockClear(); h.request.mockClear(); h.decide.mockClear(); h.cancel.mockClear(); h.waive.mockClear(); h.setGrant.mockClear(); h.adjust.mockClear()
   h.me = { id: 'e2', full_name: 'سارة', employee_number: 'E2', job_title: 'محاسبة', department_name: 'النقل', manager_id: 'e1', manager_name: 'أحمد', has_biometric: true, reports_count: 0 }
   h.requests = [REQ({})]
-  h.attendance = [ATT({}), ATT({ id: 'a2', work_date: '2026-09-03', shortfall_minutes: 480, status: 'absent', check_in: null, check_out: null, worked_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 1, deduction_reason: 'غياب', deduction_waived: true, waive_reason: 'إجازة شفهية موثقة' }), ATT({ id: 'a3', work_date: '2026-09-04', shortfall_minutes: 0, overtime_minutes: 90, late_minutes: 0, status: 'present', proposed_deduction_minutes: 0, proposed_deduction_days: 0, deduction_reason: null })]
+  h.attendance = [ATT({}), ATT({ id: 'a2', work_date: '2026-09-03', shortfall_minutes: 480, status: 'absent', check_in: null, check_out: null, worked_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 1, deduction_reason: 'غياب', deduction_waived: true, waive_reason: 'إجازة شفهية موثقة' }), ATT({ id: 'a3', work_date: '2026-09-04', shortfall_minutes: 0, overtime_minutes: 90, late_minutes: 0, status: 'present', proposed_deduction_minutes: 0, proposed_deduction_days: 0, deduction_reason: null }), ATT({ id: 'a4', work_date: '2026-09-05', shortfall_minutes: 480, status: 'absent', check_in: null, check_out: null, worked_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 0, deduction_reason: 'غياب بلا إجازة معتمدة — يوم غير مدفوع (لا يدخل الراتب)' })]
   h.sheet = [{ export_id: 'x', export_version: 1, export_status: 'exported', exported_at: '2026-09-01T00:00:00Z', row_id: 'r1', id: 'r1', employee_id: 'e2', employee_number: 'E2', full_name: 'سارة', department_name: 'النقل', branch_name: null, job_title: null, contract_type: 'monthly', working_days: 26, days_present: 24, days_late: 2, days_absent: 1, days_incomplete: 0, days_leave: 1, late_minutes: 30, early_minutes: 0, ops_deduction_amount: 0, ops_deduction_days: 0, ops_deduction_reasons: null, auto_deduction_minutes: 60, auto_deduction_days: 1, auto_deduction_amount: 54000, overtime_minutes: 90, shortfall_minutes: 510, pay_type: 'monthly', base_salary: 1440000, daily_rate: 0, allowances_total: 0, fixed_deductions_total: 0, proposed_net: 1386000, final_net: 1386000, finance_note: null }]
 })
 
@@ -307,6 +307,9 @@ describe('غرفة العمليات — الاستقطاع المقترح', () =
     expect(screen.getByTestId('ops-proposed-E2-2026-09-03')).toHaveTextContent('مُلغى: إجازة شفهية موثقة')
     expect(screen.getByTestId('ops-proposed-count')).toHaveTextContent('1')
     expect(screen.getByTestId('ops-proposed-waived')).toHaveTextContent('1')
+    // 00202: يوم غير مدفوع (نموذج الأيام المستحقة) — لا استقطاع مقترح لكن السبب يُعرض للعلم
+    expect(screen.getByTestId('ops-unpaid-E2-2026-09-05')).toHaveTextContent('غياب بلا إجازة معتمدة — يوم غير مدفوع (لا يدخل الراتب)')
+    expect(screen.getByTestId('ops-proposed-count')).toHaveTextContent('1')
     expect(screen.getByTestId('ops-proposed-days')).toHaveTextContent('0')
     const p = vi.spyOn(window, 'prompt').mockReturnValue('')
     fireEvent.click(screen.getByTestId('ops-waive-E2-2026-09-02'))

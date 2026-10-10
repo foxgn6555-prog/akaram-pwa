@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useBranches } from '@features/branches/hooks/useBranches'
 import {
   useAddDeductionExemption, useDeductionAudit, useDeductionEmployees, useDeductionExemptions, useDeductionRules, useDeleteDeductionRule, useHrDepartments, useHrEmployees,
-  useRemoveDeductionExemption, useSaveDeductionRule, useSetDeductionTargets, useSimulateDeductionV2,
+  useHrPolicy, useRemoveDeductionExemption, useSaveDeductionRule, useSetDeductionTargets, useSimulateDeductionV2,
 } from '@features/hr'
 import type { DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimCase, DeductionSimulationV2, DeductionTargetType, DeductionTier, ShortfallMethod } from '@features/hr'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
@@ -136,7 +136,12 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
   }
   const method = s.shortfall_method ?? 'tiers'
   const preview = applyShortfall(s, sample, previewShift)
-  const dayRate = previewSalary / 30
+  // 00202: نفس أساس أجر اليوم الذي يستعمله التصدير — نموذج الأيام المستحقة: الأساسي ÷ أيام الشهر الحالي الفعلية؛ النموذج القديم: ÷ 30
+  const { data: policy } = useHrPolicy()
+  const earned = (policy?.salary_model ?? 'earned_days') === 'earned_days'
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+  const dayDivisor = earned ? daysInMonth : 30
+  const dayRate = previewSalary / dayDivisor
   const minuteRate = dayRate / Math.max(1, previewShift)
   const fixed = (s.auto_deduction_amount_mode ?? 'salary') === 'fixed'
   const amountOf = (minutes: number, days: number) => (s.auto_deduction_enabled === false ? 0 : fixed ? (s.fixed_shortfall_minute_amount ?? 0) * minutes + (s.fixed_absent_day_amount ?? 0) * days : minuteRate * minutes + dayRate * days)
@@ -180,10 +185,10 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
         {method === 'blocks' && <L label="حجم الكتلة (دقيقة)"><input type="number" min={5} max={240} step={5} className={field} dir="ltr" disabled={off} value={s.shortfall_block_minutes ?? 30} onChange={(e) => set('shortfall_block_minutes', Math.min(240, Math.max(5, NUM(e.target.value, 30))))} data-testid="r-block" /></L>}
         <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-sky-100 bg-sky-50 p-3 text-[11px] leading-6 text-sky-900" data-testid="r-formula">
           <div className="font-black">المعادلة بوضوح</div>
-          <div>١. أجر اليوم = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_absent_day_amount)} د.ع` : 'الراتب الأساسي ÷ 30'} · أجر الدقيقة = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع` : 'أجر اليوم ÷ دقائق الشفت'}.</div>
+          <div>١. أجر اليوم = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_absent_day_amount)} د.ع` : <span data-testid="r-day-basis">{earned ? `الراتب الأساسي ÷ أيام الشهر الفعلية (هذا الشهر ${daysInMonth})` : 'الراتب الأساسي ÷ 30'}</span>} · أجر الدقيقة = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع` : 'أجر اليوم ÷ دقائق الشفت'}.</div>
           <div>٢. نقص اليوم = دقائق الشفت − المنجز − الزمنية المدفوعة. إن كان النقص ≤ {s.grace_minutes_default} دقيقة ⇒ لا استقطاع.</div>
           <div>٣. وإلا: {method === 'tiers' ? 'نبحث عن الشريحة التي يقع فيها النقص ونستقطع دقائقها أو كسر يومها.' : method === 'actual' ? 'نستقطع نفس عدد دقائق النقص.' : method === 'multiplier' ? `نستقطع دقائق النقص × ${s.shortfall_multiplier ?? 1}.` : `نقرّب النقص لأعلى إلى أقرب ${s.shortfall_block_minutes ?? 30} دقيقة${(s.shortfall_multiplier ?? 1) !== 1 ? ` ثم × ${s.shortfall_multiplier}` : ''}.`} وإذا بلغ الناتج دقائق شفت كامل يُحتسب يوماً واحداً.</div>
-          <div>٤. المبلغ = الدقائق المستقطعة × أجر الدقيقة + الأيام المستقطعة × أجر اليوم. الغياب بلا إجازة = {s.absent_day_deduction_days} يوم لكل يوم؛ الإجازة غير المدفوعة حسب نوعها؛ الإجازة/الزمنية المدفوعة = صفر.</div>
+          <div>٤. المبلغ = الدقائق المستقطعة × أجر الدقيقة + الأيام المستقطعة × أجر اليوم. {earned ? <span data-testid="r-absence-note">الغياب بلا إجازة والإجازة غير المدفوعة لا تُستقطع بل لا تُدفع أصلاً (الراتب = أجر اليوم × الأيام المستحقة)؛ الإجازة/الزمنية المدفوعة = صفر.</span> : <>الغياب بلا إجازة = {s.absent_day_deduction_days} يوم لكل يوم؛ الإجازة غير المدفوعة حسب نوعها؛ الإجازة/الزمنية المدفوعة = صفر.</>}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sky-800">مثال حي بـ: راتب <input type="number" min={0} step={50000} className={clsx(field, 'w-28 py-0.5')} dir="ltr" value={previewSalary} onChange={(e) => setPreviewSalary(NUM(e.target.value))} data-testid="r-preview-salary" /> د.ع وشفت <input type="number" min={60} step={30} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={previewShift} onChange={(e) => setPreviewShift(NUM(e.target.value, 480))} data-testid="r-preview-shift" /> دقيقة ⇒ أجر اليوم <b dir="ltr">{fmtMoney(fixed ? s.fixed_absent_day_amount : dayRate)}</b> · أجر الدقيقة <b dir="ltr">{fixed ? fmtMoney(s.fixed_shortfall_minute_amount) : minuteRate.toFixed(1)}</b> د.ع</div>
         </div>
         {method === 'tiers' && (
@@ -426,7 +431,8 @@ function SimulateTab({ rules }: { rules: DeductionRule[] }) {
             <Stat label="النقص المحاسَب عليه" value={result.shortfall_minutes > 0 ? `${result.shortfall_minutes} د` : '—'} hint={`ناقص ${result.missing_minutes} د − زمنية مدفوعة ${result.covered_minutes} د`} testid="sim-shortfall-out" />
             <Stat label="دقائق مقترحة" value={result.minutes > 0 ? fmtMinutes(result.minutes) : '—'} testid="sim-minutes" />
             <Stat label="أيام مقترحة" value={`${result.days}`} hint={`نقص ${result.shortfall_days} + غياب ${result.absent_days} + بصمة ناقصة ${result.incomplete_days} + بلا راتب ${result.unpaid_leave_days}`} testid="sim-days" />
-            <Stat label="أجر اليوم / الدقيقة" value={`${fmtMoney(result.day_rate)} / ${result.minute_rate}`} />
+            <Stat label="أجر اليوم / الدقيقة" value={`${fmtMoney(result.day_rate)} / ${result.minute_rate}`} hint={result.salary_model === 'earned_days' ? `الأساسي ÷ ${result.days_in_month ?? ''} يوم (أيام الشهر الفعلية)` : result.salary_model === 'daily' ? 'أجر يومي' : undefined} testid="sim-rates" />
+            {(result.unpaid_days_amount ?? 0) > 0 && <Stat label="أيام غير مدفوعة (ليست استقطاعاً)" value={fmtMoney(result.unpaid_days_amount)} hint="لا تدخل الراتب أصلاً" testid="sim-unpaid" />}
             <Stat label="المبلغ المقترح" value={`${fmtMoney(result.amount)} د.ع${result.capped ? ' (بسقف)' : ''}`} strong testid="sim-amount" />
           </div>
           <ol className="space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-xs" data-testid="sim-steps">

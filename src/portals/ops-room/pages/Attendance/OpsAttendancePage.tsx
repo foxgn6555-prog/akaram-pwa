@@ -254,6 +254,9 @@ export default function OpsAttendancePage() {
                             {r.deduction_waived && <span className="block text-[10px] font-bold text-emerald-700" title={r.waive_reason ?? ''}>مُلغى: {r.waive_reason}</span>}
                             {!frozen && <button type="button" className="mt-0.5 text-[10px] font-bold text-brand-700 hover:underline" onClick={() => void toggleWaive(r)} data-testid={`ops-waive-${r.employee_number}-${r.work_date}`}>{r.deduction_waived ? 'إعادة الاستقطاع' : 'إلغاء بسبب'}</button>}
                           </div>
+                        ) : r.deduction_reason ? (
+                          // 00202: يوم غير مدفوع (غياب/إجازة غير مدفوعة) في نموذج الأيام المستحقة — لا استقطاع، يُعرض للعلم فقط
+                          <span className="block max-w-[10rem] truncate text-[10px] font-bold text-slate-500" title={r.deduction_reason} data-testid={`ops-unpaid-${r.employee_number}-${r.work_date}`}>{r.deduction_reason}</span>
                         ) : '—'}
                       </td>
                       <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>

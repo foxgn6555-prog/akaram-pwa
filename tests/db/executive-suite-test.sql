@@ -51,6 +51,8 @@ insert into public.disclosures (ref_no, db_number, driver_name, details, sector,
   ('D-1', 'DB-1', 'سائق 1', 'تفاصيل', 'karrada', 'morning', current_date - 1, 'delay', 'pending', 'مقاول أ'),
   ('D-2', 'DB-2', 'سائق 2', 'تفاصيل', 'zaafaraniya', 'evening', current_date - 2, 'absence', 'pending', 'مقاول ب');
 -- أيام حضور حقيقية: يُترك للمحرك (trigger) حساب النقص والاستقطاع من أوقات الشفت المتوقعة
+-- 00202: هذا الاختبار يفترض النموذج القديم (الغياب = يوم استقطاع مقترح)؛ في نموذج «الأيام المستحقة» الافتراضي الغياب يوم غير مدفوع بلا استقطاع (payroll-earned-days-test S7)
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into public.hr_attendance_days (employee_id, work_date, status, is_rest_day, expected_in, expected_out, check_in, check_out, worked_minutes) values
   ('ffff0000-0000-0000-0000-000000000006', current_date - 1, 'present', false, (current_date - 1) + time '08:00', (current_date - 1) + time '16:00', (current_date - 1) + time '08:00', (current_date - 1) + time '16:00', 480),
   ('ffff0000-0000-0000-0000-000000000006', current_date - 2, 'absent',  false, (current_date - 2) + time '08:00', (current_date - 2) + time '16:00', null, null, 0),
@@ -59,6 +61,7 @@ insert into public.maintenance_purchase_orders (order_number, supplier_name, tot
 insert into public.budget_allocations (fiscal_year, department_id, category, allocated_amount, spent_amount) values (extract(year from current_date)::int, 'dddd0000-0000-0000-0000-0000000000a1', 'وقود', 1000000, 400000);
 
 -- ── ① الصلاحية: غير التنفيذيين ممنوعون ──
+reset role; select set_config('auth.user_id','', false);
 select auth.set_test_user('eeee0000-0000-0000-0000-000000000008');
 do $$ begin
   begin perform public.exec_overview(current_date - 7, current_date); raise exception 'should fail';

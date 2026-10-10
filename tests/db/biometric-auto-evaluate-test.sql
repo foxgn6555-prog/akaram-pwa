@@ -55,6 +55,9 @@ begin
 end $$;
 
 -- ═══ T2 · PIN غير مربوط → بصمة غير مطابَقة بلا حضور؛ ربط PIN من HR يعبّئ ويحتسب تلقائياً ═══
+reset role; select set_config('auth.user_id','', false);
+-- 00202: هذا الاختبار يفترض النموذج القديم (الغياب = يوم استقطاع مقترح)؛ في نموذج «الأيام المستحقة» الافتراضي الغياب يوم غير مدفوع بلا استقطاع (payroll-earned-days-test S7)
+update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 select auth.set_test_user('ba000000-0000-0000-0000-00000000000a');
 do $$
 declare m date := (date_trunc('month', current_date) - interval '3 month')::date; d date; a record; n int; e uuid := 'bb000000-0000-0000-0000-00000000000d';

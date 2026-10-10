@@ -99,7 +99,7 @@ do $$ declare m date := current_setting('test.ed_m')::date; x uuid; r record; di
   assert r.days_incomplete = 1 and r.payable_days = 13, 'S3 payable (9+1 ناقصة+1 متأخر+2 مدفوعة): ' || row_to_json(r)::text;
   assert r.gross_amount = round(dr * 13, 2) + round(31000 * round(13::numeric / dim, 6), 2), 'S3 gross ' || r.gross_amount;
   -- خصم التأخير (بالدقائق أو بجزء يوم حسب الشرائح) يبقى؛ أما الغياب (auto_absence_days) فلا يدخل في الخصم إطلاقاً
-  assert r.auto_deduction_amount > 0 and r.auto_deduction_days = r.auto_shortfall_days and r.auto_absence_days > 0, 'S3 lateness still deducted, absence not: ' || row_to_json(r)::text;
+  assert r.auto_deduction_amount > 0 and r.auto_deduction_days = r.auto_shortfall_days and r.days_absent > 0 and r.auto_absence_days = 0, 'S3 lateness still deducted, absence not (00202: لا استقطاع مقترح على الغياب أصلاً): ' || row_to_json(r)::text;
   assert r.auto_deduction_amount = round(r.day_rate * r.auto_shortfall_days + round(r.day_rate / 480, 4) * r.auto_deduction_minutes, 2), 'S3 amount ' || r.auto_deduction_amount;
   assert r.proposed_net = r.gross_amount - r.auto_deduction_amount - 5000, 'S3 net ' || r.proposed_net;
   raise notice 'S3 ✅ 13 يوماً مستحقاً · خصم التأخير % · صافٍ %', r.auto_deduction_amount, r.proposed_net;
@@ -160,3 +160,40 @@ do $$ declare m date := current_setting('test.ed_m')::date; r record; begin
   assert 'PAYABLE_DAYS_CHANGED' = any(r.issues) and r.money_ok and not r.attendance_ok, 'S6b issues ' || array_to_string(r.issues, ',');
   raise notice 'S6 ✅ تدقيق المالية يطابق النموذج ويكشف تغيّر الأيام المستحقة';
 end $$;
+
+-- ═══ 00202 · S7: غرفة العمليات ترى ما ستراه المالية — لا «استقطاع مقترح» على يوم غير مدفوع؛ البصمة الناقصة تحترم قاعدة الموظف ═══
+reset role; select set_config('auth.user_id','', false);
+do $$ declare m date := current_setting('test.ed_m')::date; r record; n int; begin
+  perform app.hr_evaluate_month(m);
+  -- اليوم غير المدفوع هنا = إجازة غير مدفوعة (S4)؛ يُعامل كالغياب: لا استقطاع مقترح والسبب يوضّح أنه غير مدفوع
+  select * into r from public.hr_attendance_days a join public.hr_leaves l on l.employee_id = a.employee_id and l.status = 'approved' and l.kind = 'leave' and a.work_date between l.start_date and l.end_date
+    join public.hr_leave_types t on t.id = l.leave_type_id and not t.is_paid
+    where a.employee_id = 'ed000000-0000-0000-0000-0000000000ea' and a.work_date between m and (m + interval '1 month - 1 day')::date and a.status = 'leave' limit 1;
+  assert r.work_date is not null, 'S7 needs an unpaid leave day';
+  assert r.proposed_deduction_days = 0 and r.proposed_deduction_minutes = 0, 'S7a unpaid day must not carry a proposed deduction: ' || r.proposed_deduction_days;
+  assert r.deduction_reason like '%يوم غير مدفوع%', 'S7a reason marks unpaid day: ' || coalesce(r.deduction_reason, 'null');
+  -- وقبل ذلك (S1–S3) كانت أيام الغياب كذلك: ملخص الشهر لا يحمل أي أيام غياب مستقطعة
+  select auto_days_absence into n from app.hr_month_summary(m) where employee_id = 'ed000000-0000-0000-0000-0000000000ea';
+  assert n = 0, 'S7a month summary absence deduction days = 0: ' || n;
+  raise notice 'S7a ✅ اليوم غير المدفوع بلا استقطاع مقترح (نفس ما في التصدير)';
+end $$;
+-- S7b · قاعدة الموظف تعامل البصمة الناقصة كغياب ⇒ لا تُدفع ولا تُستقطع، والتصدير والتحقق متطابقان
+update public.hr_deduction_rules set settings = settings || '{"incomplete_punch_as_absent": true}'::jsonb where is_default;
+select app.hr_deduction_reevaluate();
+select auth.set_test_user('ed000000-0000-0000-0000-000000000001');
+do $$ declare m date := current_setting('test.ed_m')::date; x uuid; r record; inc int; begin
+  x := public.ops_month_export(m);
+  select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'ED-A';
+  select count(*) into inc from public.hr_attendance_days where employee_id = 'ed000000-0000-0000-0000-0000000000ea' and work_date between m and (m + interval '1 month - 1 day')::date and status = 'incomplete';
+  assert inc > 0 and r.days_incomplete = inc, 'S7b needs incomplete day: ' || inc || '/' || r.days_incomplete;
+  assert r.payable_days = r.days_present + r.days_leave_paid, 'S7b incomplete-as-absent not payable: ' || r.payable_days || ' vs ' || r.days_present || '+' || r.days_leave_paid;
+  assert r.auto_deduction_days = r.auto_shortfall_days, 'S7b no absence deduction';
+  assert r.gross_amount = least(500000, round(r.day_rate * r.payable_days, 2)) + r.allowances_total, 'S7b gross ' || r.gross_amount;
+  assert (select count(*) from public.hr_attendance_days where employee_id = 'ed000000-0000-0000-0000-0000000000ea' and work_date between m and (m + interval '1 month - 1 day')::date and status = 'incomplete' and proposed_deduction_days <> 0) = 0, 'S7b no proposed deduction on incomplete';
+  perform auth.set_test_user('ed000000-0000-0000-0000-000000000007');
+  select * into r from public.finance_payroll_reconcile(m) where employee_number = 'ED-A';
+  assert r.money_ok and r.attendance_ok, 'S7b reconcile ' || array_to_string(r.issues, ',');
+  raise notice 'S7b ✅ البصمة الناقصة كغياب: غير مدفوعة، غير مستقطعة، والتحقق المالي سليم';
+end $$;
+reset role; select set_config('auth.user_id','', false);
+update public.hr_deduction_rules set settings = settings - 'incomplete_punch_as_absent' where is_default;
