@@ -39,8 +39,12 @@ export default function CitizenPortalPage() {
   useEffect(() => { document.title = `${info?.org_name ?? 'شركة جزيرة الأكارم'} — خدمة المواطنين` }, [info?.org_name])
 
   const todayLabel = new Date().toLocaleDateString('ar-IQ-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // #root مقفول (height:100vh; overflow:hidden في globals.css) لأن البوابات تمرّر داخل غلافها —
+  // صفحة المواطن مستقلة فتملك حاوية تمريرها بنفسها، ونعود لأعلى عند تبديل الشاشة.
+  useEffect(() => { scrollRef.current?.scrollTo?.({ top: 0 }) }, [view, session?.token])
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f3f5f8] font-sans text-slate-900">
+    <div ref={scrollRef} dir="rtl" className="h-[100dvh] overflow-y-auto overscroll-contain bg-[#f3f5f8] font-sans text-slate-900" data-testid="citizen-scroll" style={{ WebkitOverflowScrolling: 'touch' } as CSSProperties}>
       {/* شريط رسمي علوي */}
       <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${GOLD}, ${NAVY})` }} />
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
@@ -71,7 +75,7 @@ export default function CitizenPortalPage() {
         )}
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pb-28 pt-5">
+      <main className="mx-auto max-w-3xl px-4 pb-28 pt-5 sm:px-6">
         {!session ? <SignIn onDone={save} orgName={info?.org_name ?? 'شركة جزيرة الأكارم'} /> : (
           <>
             {view !== 'home' && (
@@ -262,12 +266,18 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
       <div className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div>
           <h1 className="text-lg font-black" style={{ color: NAVY }}>تقديم شكوى</h1>
-          <p className="text-xs text-slate-500">أربع خطوات قصيرة — الحقول المعلّمة بـ <span className="text-red-600">*</span> إلزامية</p>
+          <p className="text-xs text-slate-500">أربع خطوات قصيرة — الحقول المعلّمة بـ <span className="text-red-600">*</span> إلزامية، وتحصل على رقم متابعة فور الإرسال</p>
         </div>
-        <ol className="flex items-center gap-1" aria-label="تقدّم النموذج">
-          {[tripleOk, detailsOk, !!pos || !!address.trim(), files.length > 0].map((ok, i) => <li key={i} className={`h-1.5 w-6 rounded-full ${ok ? '' : 'bg-slate-200'}`} style={ok ? { background: GOLD } : undefined} />)}
-        </ol>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-50 ring-1 ring-slate-200"><FileText size={20} style={{ color: NAVY_SOFT }} /></span>
       </div>
+      <ol className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-2 text-center text-[10px] font-bold shadow-sm ring-1 ring-slate-200" aria-label="تقدّم النموذج" data-testid="cc-progress">
+        {([['الاسم', tripleOk], ['التفاصيل', detailsOk], ['الموقع', !!pos || !!address.trim()], ['الصور', files.length > 0]] as const).map(([l, ok], i) => (
+          <li key={l} className="space-y-1">
+            <span className={`block h-1.5 rounded-full ${ok ? '' : 'bg-slate-200'}`} style={ok ? { background: GOLD } : undefined} />
+            <span className={ok ? 'text-slate-800' : 'text-slate-400'}>{i + 1}. {l}</span>
+          </li>
+        ))}
+      </ol>
 
       <Field n={1} label="الاسم الثلاثي" required hint={tripleOk ? undefined : 'الاسم واسم الأب واسم الجد'} ok={tripleOk}>
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} required className="input" placeholder="علي حسين كاظم" data-testid="cc-name" />
@@ -281,7 +291,7 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
           <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60" style={{ background: NAVY_SOFT }} data-testid="cc-locate">
             {locating ? <Loader2 className="animate-spin" size={16} /> : <LocateFixed size={16} />} {pos ? 'تحديث الموقع' : 'تحديد موقعي'}
           </button>
-          {pos && <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200" dir="ltr"><MapPin size={14} />{pos.lat}, {pos.lng}{pos.acc ? ` (±${pos.acc}م)` : ''}</span>}
+          {pos && <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200"><CheckCircle2 size={14} /> تم تحديد الموقع <span dir="ltr" className="font-normal text-emerald-600">({pos.lat}, {pos.lng}{pos.acc ? ` ±${pos.acc}م` : ''})</span></span>}
           {pos && <button type="button" onClick={() => setPos(null)} className="text-xs font-bold text-slate-500 underline">إزالة</button>}
         </div>
         {locError && <p className="mt-2 text-xs font-bold text-red-700">{locError}</p>}
@@ -312,13 +322,13 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
         </div>
       </Field>
       {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100">{error}</p>}
-      <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+      <div className="sticky bottom-[72px] z-10 rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur">
         <button type="submit" disabled={m.isPending || !tripleOk || !detailsOk} className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-base font-black text-white shadow-sm transition hover:brightness-110 disabled:opacity-50" style={{ background: NAVY }} data-testid="cc-submit">
           {m.isPending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} إرسال الشكوى
         </button>
         {(!tripleOk || !detailsOk) && <p className="mt-2 text-center text-[11px] text-slate-500">{!tripleOk ? 'أكمل الاسم الثلاثي' : 'اكتب تفاصيل الشكوى (10 أحرف على الأقل)'} لتفعيل الإرسال</p>}
       </div>
-      <style>{`.input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.75rem;font-size:1rem;outline:none;background:#fff}.input:focus{border-color:#0b4f8a;box-shadow:0 0 0 3px #dbeafe}`}</style>
+      <style>{`.input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.8rem .9rem;font-size:1rem;line-height:1.6;outline:none;background:#fff;transition:border-color .15s,box-shadow .15s}.input::placeholder{color:#94a3b8}.input:hover{border-color:#94a3b8}.input:focus{border-color:#0b4f8a;box-shadow:0 0 0 3px #dbeafe}`}</style>
     </form>
   )
 }

@@ -148,6 +148,17 @@ describe('صفحة المواطن العامة /citizen', () => {
     expect(screen.getByLabelText('مسار التنقل')).toHaveTextContent('الرئيسية/تقديم شكوى')
     expect(screen.getByTestId('cc-submit')).toBeDisabled()
     expect(screen.getByText('اكتب تفاصيل الشكوى (10 أحرف على الأقل) لتفعيل الإرسال')).toBeInTheDocument()
+    expect(screen.getByTestId('cc-progress')).toHaveTextContent('1. الاسم'); expect(screen.getByTestId('cc-progress')).toHaveTextContent('4. الصور')
+  })
+
+  it('00213: الصفحة تملك حاوية تمرير خاصة بها (#root مقفول) وتعود لأعلى عند تبديل الشاشة', async () => {
+    localStorage.setItem(CITIZEN_SESSION_KEY, JSON.stringify({ token: 'tok-1', full_name: 'علي حسين كاظم', phone: '07701234567' }))
+    wrap(<CitizenPortalPage />, '/citizen')
+    const sc = screen.getByTestId('citizen-scroll')
+    expect(sc.className).toMatch(/overflow-y-auto/); expect(sc.className).toMatch(/h-\[100dvh\]/)
+    const spy = vi.fn(); Object.defineProperty(sc, 'scrollTo', { value: spy, configurable: true })
+    fireEvent.click(screen.getByTestId('citizen-card-complaint'))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ top: 0 }))
   })
 
   it('الدعم الفني: زر طلب المحادثة → نافذة انتظار بدورك في الطابور → إرسال رسالة', async () => {
