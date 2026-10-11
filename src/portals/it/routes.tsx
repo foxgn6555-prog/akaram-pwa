@@ -27,6 +27,7 @@ const BiometricPage = lazy(() => import('@portals/it/pages/Integrations/Biometri
 const UnmatchedPeoplePage = lazy(() => import('@portals/hr/pages/Biometric/UnmatchedPeoplePage'))
 const AttendanceAuditPage = lazy(() => import('@portals/it/pages/Integrations/biometric/AttendanceAuditPage'))
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
+const GpsHealthPage = lazy(() => import('@portals/it/pages/Integrations/GpsHealthPage'))   // 00211: سلامة تكامل LVN (منقولة من غرفة العمليات)
 const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
 const AutoDeductionsPage = lazy(() => import('@portals/it/pages/Integrations/AutoDeductionsPage'))   // 00195: الاستقطاعات التلقائية — القواعد والنطاق والاستثناءات
 const AdvanceTypesPage = lazy(() => import('@portals/it/pages/Integrations/AdvanceTypesPage'))   // 00191: السلف — الأنواع والسياسة
@@ -78,6 +79,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'integrations/biometric/unmatched', element: s(<UnmatchedPeoplePage readOnly />) },
   { path: 'integrations/biometric/attendance-audit', element: s(<AttendanceAuditPage />) },
   { path: 'integrations/gps', element: s(<GpsPage />) },
+  { path: 'integrations/gps-health', element: s(<GpsHealthPage />) },
   { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },
   { path: 'integrations/auto-deductions', element: s(<AutoDeductionsPage />) },
   { path: 'integrations/advances', element: s(<AdvanceTypesPage />) },

@@ -278,27 +278,32 @@ describe('بيانات LVN GPS', () => {
     expect(screen.getByLabelText('المدار / الزون')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'المسار' }).length).toBeGreaterThan(0)
   })
-  it('00210: آخر فشل مزامنة يُشرح بالعربية (العنوان/السبب/الإجراء) ويظهر في عمود الخطأ بدل الرمز الخام', () => {
+  it('00211: غرفة العمليات لم تعد تحوي تبويب «سلامة التكامل» (نُقل إلى التطوير المركزية)', () => {
+    render(<GpsDataPage />)
+    expect(screen.queryByRole('button', { name: /سلامة التكامل/ })).toBeNull()
+    expect(screen.queryByText('سجل المزامنة')).toBeNull()
+  })
+  it('00211 + 00210: صفحة سلامة تكامل GPS في بوابة IT — اختبار الاتصال/المزامنة وشرح آخر فشل بالعربية', async () => {
+    const { default: GpsHealthPage } = await import('@portals/it/pages/Integrations/GpsHealthPage')
     h.runs = [
       { id: 'r1', sync_type: 'incremental', status: 'failed', started_at: '2026-10-11T15:21:00Z', finished_at: '2026-10-11T15:21:01Z', pages_count: 0, received_count: 0, inserted_count: 0, updated_count: 0, error_code: 'LVN_LOGIN_REJECTED' },
     ]
-    render(<GpsDataPage />)
-    fireEvent.click(screen.getByRole('button', { name: /سلامة التكامل/ }))
+    render(<GpsHealthPage />)
+    expect(screen.getByTestId('it-gps-health-page')).toBeInTheDocument()
     const box = screen.getByTestId('lvn-error-explain')
     expect(box).toHaveAttribute('data-kind', 'credentials')
     expect(box).toHaveTextContent('شركة GPS رفضت بيانات الدخول')
     expect(box).toHaveTextContent('LVN_API_EMAIL')
     expect(box).toHaveTextContent('LVN_LOGIN_REJECTED')
     expect(screen.getAllByText(/رفضت بيانات الدخول/).length).toBeGreaterThanOrEqual(2)
-    h.runs = []
-  })
-  it('يوفر فحص التكامل والمزامنة والربط', () => {
-    render(<GpsDataPage />)
-    fireEvent.click(screen.getByRole('button', { name: /سلامة التكامل/ }))
     fireEvent.click(screen.getByRole('button', { name: /اختبار الاتصال/ }))
     expect(h.sync).toHaveBeenCalledWith('test')
     fireEvent.click(screen.getByRole('button', { name: /مزامنة الآن/ }))
     expect(h.sync).toHaveBeenCalledWith('full')
+    h.runs = []
+  })
+  it('يوفر الربط من أجهزة الأسطول', () => {
+    render(<GpsDataPage />)
     fireEvent.click(screen.getByRole('button', { name: /أجهزة الأسطول/ }))
     fireEvent.click(screen.getAllByRole('button', { name: 'ربط' })[0]!)
     expect(screen.getByText('ربط الجهاز بآلية')).toBeInTheDocument()
