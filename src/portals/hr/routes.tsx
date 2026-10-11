@@ -1,23 +1,32 @@
 /** مسارات بوابة الموارد البشرية — الوحدات السبع المعتمدة، كل صفحة ملف مستقل */
+
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
-import HRDashboard from './pages/Dashboard/HRDashboard'
-import Recruitment from './pages/Recruitment/Recruitment'
-import EmployeesList from './pages/Employees/EmployeesList'
-import EmployeeDetail from './pages/Employees/EmployeeDetail'
-import AttendanceLog from './pages/Attendance/AttendanceLog'
-import BiometricLedger from './pages/Biometric/BiometricLedger'
-import UnmatchedPeoplePage from './pages/Biometric/UnmatchedPeoplePage'
-import Leaves from './pages/Leaves/Leaves'
-import OrgStructure from './pages/Org/OrgStructure'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+
+const HRDashboard = lazy(() => import('./pages/Dashboard/HRDashboard'))
+const Recruitment = lazy(() => import('./pages/Recruitment/Recruitment'))
+const EmployeesList = lazy(() => import('./pages/Employees/EmployeesList'))
+const EmployeeDetail = lazy(() => import('./pages/Employees/EmployeeDetail'))
+const AttendanceLog = lazy(() => import('./pages/Attendance/AttendanceLog'))
+const BiometricLedger = lazy(() => import('./pages/Biometric/BiometricLedger'))
+const UnmatchedPeoplePage = lazy(() => import('./pages/Biometric/UnmatchedPeoplePage'))
+const Leaves = lazy(() => import('./pages/Leaves/Leaves'))
+const OrgStructure = lazy(() => import('./pages/Org/OrgStructure'))
+
+const s = (node: ReactNode): ReactNode => (
+  <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
+)
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <HRDashboard /> },
-  { path: 'recruitment', element: <Recruitment /> },
-  { path: 'employees', element: <EmployeesList /> },
-  { path: 'employees/:employeeId', element: <EmployeeDetail /> },
-  { path: 'attendance', element: <AttendanceLog /> },
-  { path: 'leaves', element: <Leaves /> },
-  { path: 'biometric', element: <BiometricLedger /> },
-  { path: 'biometric/unmatched', element: <UnmatchedPeoplePage /> },
-  { path: 'org', element: <OrgStructure /> },
+  { path: '', element: s(<HRDashboard />) },
+  { path: 'recruitment', element: s(<Recruitment />) },
+  { path: 'employees', element: s(<EmployeesList />) },
+  { path: 'employees/:employeeId', element: s(<EmployeeDetail />) },
+  { path: 'attendance', element: s(<AttendanceLog />) },
+  { path: 'leaves', element: s(<Leaves />) },
+  { path: 'biometric', element: s(<BiometricLedger />) },
+  { path: 'biometric/unmatched', element: s(<UnmatchedPeoplePage />) },
+  { path: 'org', element: s(<OrgStructure />) },
 ]

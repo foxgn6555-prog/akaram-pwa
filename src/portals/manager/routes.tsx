@@ -1,33 +1,42 @@
 /** مسارات بوابة مسؤول القسم (قواطع/شفتات) — كل صفحة ملف مستقل داخل هذا المجلد */
+
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
-import ManagerDashboard from './pages/Dashboard/ManagerDashboard'
-import TeamPage from './pages/Team/TeamPage'
-import NewRequestPage from './pages/Request/NewRequestPage'
-import BreakdownPage from './pages/Breakdown/BreakdownPage'
-import PhotosPage from './pages/Photos/PhotosPage'
-import ArchivePage from './pages/Archive/ArchivePage'
-import AssignedComplaintsPage from './pages/Complaints/AssignedComplaintsPage'
-import ComplaintTicketPage from './pages/Complaints/ComplaintTicketPage'
-import ComplaintsGuidancePage from './pages/Complaints/ComplaintsGuidancePage'
-import VehicleTripsPage from './pages/VehicleTrips/VehicleTripsPage'
-import GbsContainersPage from './pages/Gbs/GbsContainersPage'
-import TeamLeavesPage from './pages/Leaves/TeamLeavesPage'
-import SupportRequestsPage from './pages/Support/SupportRequestsPage'
-import ManagerCitizenComplaintsPage from './pages/CitizenComplaints/ManagerCitizenComplaintsPage'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+
+const ManagerDashboard = lazy(() => import('./pages/Dashboard/ManagerDashboard'))
+const TeamPage = lazy(() => import('./pages/Team/TeamPage'))
+const NewRequestPage = lazy(() => import('./pages/Request/NewRequestPage'))
+const BreakdownPage = lazy(() => import('./pages/Breakdown/BreakdownPage'))
+const PhotosPage = lazy(() => import('./pages/Photos/PhotosPage'))
+const ArchivePage = lazy(() => import('./pages/Archive/ArchivePage'))
+const AssignedComplaintsPage = lazy(() => import('./pages/Complaints/AssignedComplaintsPage'))
+const ComplaintTicketPage = lazy(() => import('./pages/Complaints/ComplaintTicketPage'))
+const ComplaintsGuidancePage = lazy(() => import('./pages/Complaints/ComplaintsGuidancePage'))
+const VehicleTripsPage = lazy(() => import('./pages/VehicleTrips/VehicleTripsPage'))
+const GbsContainersPage = lazy(() => import('./pages/Gbs/GbsContainersPage'))
+const TeamLeavesPage = lazy(() => import('./pages/Leaves/TeamLeavesPage'))
+const SupportRequestsPage = lazy(() => import('./pages/Support/SupportRequestsPage'))
+const ManagerCitizenComplaintsPage = lazy(() => import('./pages/CitizenComplaints/ManagerCitizenComplaintsPage'))
+
+const s = (node: ReactNode): ReactNode => (
+  <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
+)
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <ManagerDashboard /> },
-  { path: 'team', element: <TeamPage /> },
-  { path: 'request', element: <NewRequestPage /> },
-  { path: 'leaves', element: <TeamLeavesPage /> },
-  { path: 'breakdown', element: <BreakdownPage /> },
-  { path: 'vehicle-trips', element: <VehicleTripsPage /> },
-  { path: 'support', element: <SupportRequestsPage /> },
-  { path: 'gbs-containers', element: <GbsContainersPage /> },
-  { path: 'citizen-complaints', element: <ManagerCitizenComplaintsPage /> },
-  { path: 'complaints', element: <AssignedComplaintsPage /> },
-  { path: 'complaints/:complaintId', element: <ComplaintTicketPage /> },
-  { path: 'complaints-guidance', element: <ComplaintsGuidancePage /> },
-  { path: 'photos', element: <PhotosPage /> },
-  { path: 'archive', element: <ArchivePage /> },
+  { path: '', element: s(<ManagerDashboard />) },
+  { path: 'team', element: s(<TeamPage />) },
+  { path: 'request', element: s(<NewRequestPage />) },
+  { path: 'leaves', element: s(<TeamLeavesPage />) },
+  { path: 'breakdown', element: s(<BreakdownPage />) },
+  { path: 'vehicle-trips', element: s(<VehicleTripsPage />) },
+  { path: 'support', element: s(<SupportRequestsPage />) },
+  { path: 'gbs-containers', element: s(<GbsContainersPage />) },
+  { path: 'citizen-complaints', element: s(<ManagerCitizenComplaintsPage />) },
+  { path: 'complaints', element: s(<AssignedComplaintsPage />) },
+  { path: 'complaints/:complaintId', element: s(<ComplaintTicketPage />) },
+  { path: 'complaints-guidance', element: s(<ComplaintsGuidancePage />) },
+  { path: 'photos', element: s(<PhotosPage />) },
+  { path: 'archive', element: s(<ArchivePage />) },
 ]

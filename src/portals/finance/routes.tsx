@@ -1,21 +1,30 @@
 /** مسارات بوابة الشؤون المالية — كل صفحة ملف مستقل داخل هذا المجلد */
+
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
-import FinanceDashboard from './pages/Dashboard/FinanceDashboard'
-import BudgetOverview from './pages/Budget/BudgetOverview'
-import PayrollOverview from './pages/Payroll/PayrollOverview'
-import FinancialReports from './pages/Reports/FinancialReports'
-import FinanceAnnouncements from './pages/Announcements/FinanceAnnouncements'
-import MaintenancePurchases from './pages/Purchases/MaintenancePurchases'
-import ContractorWagesPage from './pages/Contractors/ContractorWagesPage'
-import FinanceAdvancesPage from './pages/Advances/FinanceAdvancesPage'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+
+const FinanceDashboard = lazy(() => import('./pages/Dashboard/FinanceDashboard'))
+const BudgetOverview = lazy(() => import('./pages/Budget/BudgetOverview'))
+const PayrollOverview = lazy(() => import('./pages/Payroll/PayrollOverview'))
+const FinancialReports = lazy(() => import('./pages/Reports/FinancialReports'))
+const FinanceAnnouncements = lazy(() => import('./pages/Announcements/FinanceAnnouncements'))
+const MaintenancePurchases = lazy(() => import('./pages/Purchases/MaintenancePurchases'))
+const ContractorWagesPage = lazy(() => import('./pages/Contractors/ContractorWagesPage'))
+const FinanceAdvancesPage = lazy(() => import('./pages/Advances/FinanceAdvancesPage'))
+
+const s = (node: ReactNode): ReactNode => (
+  <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
+)
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <FinanceDashboard /> },
-  { path: 'budget', element: <BudgetOverview /> },
-  { path: 'purchases', element: <MaintenancePurchases /> },
-  { path: 'payroll', element: <PayrollOverview /> },
-  { path: 'contractor-wages', element: <ContractorWagesPage /> },
-  { path: 'advances', element: <FinanceAdvancesPage /> },
-  { path: 'reports', element: <FinancialReports /> },
-  { path: 'announcements', element: <FinanceAnnouncements /> },
+  { path: '', element: s(<FinanceDashboard />) },
+  { path: 'budget', element: s(<BudgetOverview />) },
+  { path: 'purchases', element: s(<MaintenancePurchases />) },
+  { path: 'payroll', element: s(<PayrollOverview />) },
+  { path: 'contractor-wages', element: s(<ContractorWagesPage />) },
+  { path: 'advances', element: s(<FinanceAdvancesPage />) },
+  { path: 'reports', element: s(<FinancialReports />) },
+  { path: 'announcements', element: s(<FinanceAnnouncements />) },
 ]

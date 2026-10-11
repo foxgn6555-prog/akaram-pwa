@@ -1,17 +1,26 @@
 /** مسارات بوابة مسؤول القاطع (00160) — الرئيسية، طلبات فريقي، التقارير، التبليغ، الإجراءات (00163)، طلباتي */
+
+import { lazy } from '@lib/router/lazy'
+import { Suspense, type ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
-import SectorManagerDashboard from './pages/Dashboard/SectorManagerDashboard'
-import TeamRequestsPage from './pages/Requests/TeamRequestsPage'
-import SectorReportsPage from './pages/Reports/SectorReportsPage'
-import NotifyPage from './pages/Notify/NotifyPage'
-import ProceduresPage from './pages/Procedures/ProceduresPage'
-import MyRequests from '@portals/employee/pages/Requests/MyRequests'
+import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+
+const SectorManagerDashboard = lazy(() => import('./pages/Dashboard/SectorManagerDashboard'))
+const TeamRequestsPage = lazy(() => import('./pages/Requests/TeamRequestsPage'))
+const SectorReportsPage = lazy(() => import('./pages/Reports/SectorReportsPage'))
+const NotifyPage = lazy(() => import('./pages/Notify/NotifyPage'))
+const ProceduresPage = lazy(() => import('./pages/Procedures/ProceduresPage'))
+const MyRequests = lazy(() => import('@portals/employee/pages/Requests/MyRequests'))
+
+const s = (node: ReactNode): ReactNode => (
+  <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
+)
 
 export const customRoutes: RouteObject[] = [
-  { path: '', element: <SectorManagerDashboard /> },
-  { path: 'requests', element: <TeamRequestsPage /> },
-  { path: 'reports', element: <SectorReportsPage /> },
-  { path: 'notify', element: <NotifyPage /> },
-  { path: 'procedures', element: <ProceduresPage /> },
-  { path: 'my-requests', element: <MyRequests /> },
+  { path: '', element: s(<SectorManagerDashboard />) },
+  { path: 'requests', element: s(<TeamRequestsPage />) },
+  { path: 'reports', element: s(<SectorReportsPage />) },
+  { path: 'notify', element: s(<NotifyPage />) },
+  { path: 'procedures', element: s(<ProceduresPage />) },
+  { path: 'my-requests', element: s(<MyRequests />) },
 ]
