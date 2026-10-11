@@ -186,3 +186,32 @@ describe('المدير التنفيذي — فعاليات الشركة', () => 
     print.mockRestore()
   })
 })
+
+describe('00203 — المكافآت لمعاون المدير المفوض', () => {
+  it('المسار /deputy/rewards موجود في البوابة والشريط الجانبي بنفس تسمية التنفيذي', async () => {
+    const { customRoutes: deputyRoutes } = await import('@portals/deputy/routes')
+    const { PORTAL_UNITS } = await import('@config/portals.config')
+    const { PORTALS } = await import('@lib/constants/portals.constants')
+    expect(deputyRoutes.some((x) => x.path === 'rewards')).toBe(true)
+    const unit = PORTAL_UNITS[PORTALS.DEPUTY].find((u) => u.path === '/deputy/rewards')
+    expect(unit?.labelKey).toBe('nav.exec_rewards')
+  })
+  it('الصفحة نفسها بصفة المعاون: تسجيل مكافأة وإلغاء معلّقة بسبب، وExcel يحمل صفة المعاون', async () => {
+    h.summary = { range: { rewards_count: 1, rewards_cash_confirmed: 0 }, rewards_by_type: { cash: 1 } }
+    h.list = [tx({ id: 'd1', kind: 'reward', employee_name: 'سعد', employee_number: 'DP-4', reward_type: 'cash', amount: 250000, status: 'pending', type_name: null })]
+    r(<ExecRewardsPage actor="deputy" />)
+    expect(screen.getByTestId('exec-rewards-page')).toHaveAttribute('data-actor', 'deputy')
+    expect(screen.getByTestId('rw-stat-count')).toHaveTextContent('1')
+    fireEvent.click(screen.getByTestId('btn-new-reward'))
+    fireEvent.change(screen.getByTestId('emp-picker-input'), { target: { value: 'علي' } })
+    fireEvent.click(await screen.findByTestId('emp-picker-opt-e1'))
+    fireEvent.click(screen.getByTestId('reward-type-gift'))
+    fireEvent.change(screen.getByTestId('reward-details'), { target: { value: 'درع تقدير' } })
+    fireEvent.click(screen.getByTestId('reward-submit'))
+    await waitFor(() => expect(h.record).toHaveBeenCalledWith({ kind: 'reward', employeeId: 'e1', rewardType: 'gift', amount: null, details: 'درع تقدير' }, expect.anything()))
+    fireEvent.click(screen.getByTestId('rw-cancel-d1'))
+    fireEvent.change(screen.getByTestId('reason-input'), { target: { value: 'سُجّلت بالخطأ' } })
+    fireEvent.click(screen.getByTestId('reason-confirm'))
+    await waitFor(() => expect(h.cancel).toHaveBeenCalledWith({ id: 'd1', reason: 'سُجّلت بالخطأ' }, expect.anything()))
+  })
+})

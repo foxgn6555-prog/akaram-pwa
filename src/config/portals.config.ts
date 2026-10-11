@@ -362,6 +362,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'bar-chart' },
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
+    { path: '/deputy/rewards', labelKey: 'nav.exec_rewards', icon: 'check-square' },   // 00203
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },

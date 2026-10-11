@@ -1,5 +1,5 @@
 /**
- * المدير التنفيذي — وحدة «المكافآت» (00189)
+ * المدير التنفيذي — وحدة «المكافآت» (00189) · 00203: الصفحة نفسها لمعاون المدير المفوض (actor="deputy") بنفس الصلاحيات على المكافآت
  *  · مكافأة لموظف من النظام: مبلغ نقدي / هدية / كتاب شكر / إجازة تشجيعية — رقم حركة ومنفّذ تلقائيان
  *  · النقدية والهدية: تُبلَّغ المالية وتضغط «تم التسليم» (النقدية تُخصم من القاصة عند التسليم)
  *  · كتاب الشكر والإجازة التشجيعية: تُسجَّل فوراً ويُبلَّغ الموظف — بلا مرور بالمالية
@@ -17,7 +17,9 @@ import { REWARD_TYPE_LABEL, type EmployeeLookupRow, type RewardType, type Treasu
 const REWARD_TYPES = Object.keys(REWARD_TYPE_LABEL) as RewardType[]
 const NEEDS_FINANCE: Record<RewardType, boolean> = { cash: true, gift: true, thanks_letter: false, incentive_leave: false }
 
-export default function ExecRewardsPage() {
+const ACTOR_LABEL = { executive: 'المدير التنفيذي', deputy: 'معاون المدير المفوض' } as const
+
+export default function ExecRewardsPage({ actor = 'executive' }: { actor?: keyof typeof ACTOR_LABEL } = {}) {
   const [open, setOpen] = useState(false)
   const [range, setRange] = useState<DateRange>(defaultRange())
   const [status, setStatus] = useState<TreasuryStatus | ''>('')
@@ -32,7 +34,7 @@ export default function ExecRewardsPage() {
   const s = summary.data
 
   return (
-    <div className="space-y-4" data-testid="exec-rewards-page">
+    <div className="space-y-4" data-testid="exec-rewards-page" data-actor={actor}>
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-lg font-black text-slate-800">المكافآت</h1>
@@ -61,7 +63,7 @@ export default function ExecRewardsPage() {
             </select>
             <input className={clsx(field, 'w-full sm:w-44')} placeholder="بحث: موظف / رقم حركة" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="rw-search" />
             <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} data-testid="rw-excel"
-              onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `المكافآت ${range.from || ''} → ${range.to || ''}`, sub: 'المدير التنفيذي — المكافآت', fileName: `المكافآت-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
+              onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `المكافآت ${range.from || ''} → ${range.to || ''}`, sub: `${ACTOR_LABEL[actor]} — المكافآت`, fileName: `المكافآت-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
           </div>
         </div>
         <TxList rows={rows} isLoading={list.isLoading} renderActions={(t) => t.status === 'pending' ? <Button variant="ghost" size="sm" className="text-red-700" onClick={() => setCancelId(t.id)} data-testid={`rw-cancel-${t.id}`}>إلغاء</Button> : null} />
