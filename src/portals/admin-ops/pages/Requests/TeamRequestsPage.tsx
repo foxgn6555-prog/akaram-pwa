@@ -9,15 +9,24 @@ import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, Terminatio
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { fmtMoney } from '@portals/hr/components/hr-format'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
-export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string }) {
+const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']]]
+export default function TeamRequestsPage({ title = 'طلبات فريقي', hero = false }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
+  const list = tasks.data ?? []
   return (
     <div className="space-y-4 pb-4" data-testid="sm-requests">
+      {hero ? (
+        <ExecPageHeader icon="check-square" title={title} subtitle="الطلبات التي وصلت إلى دورك في سلسلة الموافقات — الرفض يُنهي الطلب، والموافقة تنقله للخطوة التالية أو تُنفّذه"
+          stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : list.length, tone: list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
+      ) : (
       <header>
         <h1 className="text-lg font-black">{title}</h1>
         <p className="text-xs text-slate-600">الطلبات (إجازات، زمنيات، مستلزمات، إنهاء خدمة، سلف) التي وصلت إلى دورك في سلسلة الموافقات. الرفض يُنهي الطلب، والموافقة تنقله إلى الخطوة التالية أو تعتمده إن كنت الأخير.</p>
       </header>
+      )}
       {tasks.isLoading ? <LoadingSpinner /> : (tasks.data ?? []).length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500" data-testid="sm-requests-empty">لا طلبات بانتظار قرارك الآن.</div>
       ) : (
@@ -60,7 +69,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-black">{t.requester_name} <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">{t.requester_role_label}</span></div>
-          <div className="text-[11px] text-slate-500">{[t.parent_sector, t.area_name].filter(Boolean).join(' · ')}</div>
+          <div className="text-[11px] text-slate-500">{[t.parent_sector ? (PARENT_AR[t.parent_sector] ?? t.parent_sector) : null, t.area_name].filter(Boolean).join(' · ')}</div>
         </div>
         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-800" data-testid={`task-step-${t.request_id}`}>خطوة {t.step_no} من {t.total_steps}</span>
       </div>

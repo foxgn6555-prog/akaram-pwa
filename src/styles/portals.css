@@ -5,7 +5,7 @@
 .portal-manager  { --portal-color: #d97706; --portal-bg: #fffbeb; }
 .portal-finance  { --portal-color: #059669; --portal-bg: #ecfdf5; }
 .portal-it       { --portal-color: #4f46e5; --portal-bg: #eef2ff; }
-.portal-admin    { --portal-color: #dc2626; --portal-bg: #fef2f2; }
+.portal-admin    { --portal-color: #0b3d6b; --portal-bg: #eef4fb; }
 /* ── البوابات السبع الجديدة ── */
 .portal-field-ops        { --portal-color: #0d9488; --portal-bg: #f0fdfa; }
 .portal-admin-ops        { --portal-color: #475569; --portal-bg: #f8fafc; }

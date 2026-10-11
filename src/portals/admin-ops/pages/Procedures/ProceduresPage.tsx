@@ -7,6 +7,7 @@ import { useApprovalTimeline, useCancelTerminationRequest, useCreateTerminationR
 import { STATUS_AR, dateAr, isoDay, timeAr } from '@features/sector-manager/format'
 import { TERMINATION_TYPE_AR, type TerminationRequest, type TerminationTarget, type TerminationType } from '@sdk/sector-manager.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 
 const SCOPE_AR: Record<string, string> = { department_manager: 'مسؤولو الأقسام', contractor: 'المتعهدون', worker: 'عمال المتعهدين', admin_ops: 'مسؤولو القواطع', garage: 'الكراج المركزي', maintenance: 'الصيانة', other: 'موظفون آخرون' }
 const SCOPE_ORDER = ['admin_ops', 'department_manager', 'contractor', 'worker', 'garage', 'maintenance', 'other']
@@ -14,20 +15,32 @@ const REQ_STATUS_AR: Record<TerminationRequest['status'], string> = { pending: '
 const REQ_STATUS_CLS: Record<TerminationRequest['status'], string> = { pending: 'bg-amber-50 text-amber-800', executed: 'bg-emerald-50 text-emerald-800', rejected: 'bg-rose-50 text-rose-800', cancelled: 'bg-slate-100 text-slate-600' }
 const targetId = (t: TerminationTarget) => (t.target_kind === 'worker' ? t.worker_id : t.employee_id) as string
 
-export default function ProceduresPage({ title = 'الإجراءات' }: { title?: string }) {
+export default function ProceduresPage({ title = 'الإجراءات', hero = false }: { title?: string; hero?: boolean }) {
   const [tab, setTab] = useState<'new' | 'mine'>('new')
   const mine = useMyTerminationRequests()
-  const pending = (mine.data ?? []).filter((r) => r.status === 'pending').length
+  const all = mine.data ?? []
+  const pending = all.filter((r) => r.status === 'pending').length
+  const count = (st: TerminationRequest['status']) => all.filter((r) => r.status === st).length
   return (
     <div className="space-y-4 pb-4" data-testid="procedures-page">
-      <header>
-        <h1 className="text-lg font-black">{title}</h1>
-        <p className="text-xs text-slate-600">طلبات إنهاء الخدمة ضمن نطاق صلاحيتك. لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية.</p>
-      </header>
-      <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === 'new'} data-testid="tab-new" onClick={() => setTab('new')} className={`flex-1 rounded-lg py-2 ${tab === 'new' ? 'bg-white shadow' : 'text-slate-600'}`}>طلب إنهاء خدمة</button>
-        <button type="button" role="tab" aria-selected={tab === 'mine'} data-testid="tab-mine" onClick={() => setTab('mine')} className={`flex-1 rounded-lg py-2 ${tab === 'mine' ? 'bg-white shadow' : 'text-slate-600'}`}>طلباتي {pending > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-[10px] text-white">{pending}</span>}</button>
-      </div>
+      {hero ? (
+        <>
+          <ExecPageHeader icon="flow" title={title} subtitle="طلبات إنهاء الخدمة ضمن نطاق صلاحيتك — لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية"
+            stats={[{ label: 'قيد الموافقة', value: mine.isLoading ? '…' : pending, tone: pending ? 'gold' : 'plain' }, { label: 'نُفّذ', value: count('executed'), tone: 'green' }, { label: 'مرفوض', value: count('rejected'), tone: count('rejected') ? 'red' : 'plain' }, { label: 'مسحوب', value: count('cancelled') }]} />
+          <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'new', label: 'طلب إنهاء خدمة', icon: 'user-plus' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }]} />
+        </>
+      ) : (
+        <>
+          <header>
+            <h1 className="text-lg font-black">{title}</h1>
+            <p className="text-xs text-slate-600">طلبات إنهاء الخدمة ضمن نطاق صلاحيتك. لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية.</p>
+          </header>
+          <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'new'} data-testid="tab-new" onClick={() => setTab('new')} className={`flex-1 rounded-lg py-2 ${tab === 'new' ? 'bg-white shadow' : 'text-slate-600'}`}>طلب إنهاء خدمة</button>
+            <button type="button" role="tab" aria-selected={tab === 'mine'} data-testid="tab-mine" onClick={() => setTab('mine')} className={`flex-1 rounded-lg py-2 ${tab === 'mine' ? 'bg-white shadow' : 'text-slate-600'}`}>طلباتي {pending > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[10px] text-amber-800">{pending}</span>}</button>
+          </div>
+        </>
+      )}
       {tab === 'new' ? <NewTermination onDone={() => setTab('mine')} /> : <MyRequests />}
     </div>
   )

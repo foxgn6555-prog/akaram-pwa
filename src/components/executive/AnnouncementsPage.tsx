@@ -11,12 +11,14 @@ import {
   type Announcement, type AnnouncementInput, type AnnouncementPriority, type AudienceKind,
 } from '@features/executive'
 import { AnnouncementCard } from './AnnouncementInbox'
+import { ExecPageHeader, ExecTabBar, HeaderButton } from './ExecPageHeader'
 
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
 const lbl = 'mb-1 block text-xs font-semibold text-slate-600'
 
-export function AnnouncementsPage({ canPublish = true }: { canPublish?: boolean }) {
+export function AnnouncementsPage({ canPublish = true, hero = false }: { canPublish?: boolean; hero?: boolean }) {
   const [tab, setTab] = useState<'compose' | 'sent' | 'inbox'>(canPublish ? 'sent' : 'inbox')
+  if (hero) return <HeroAnnouncements canPublish={canPublish} tab={tab} setTab={setTab} />
   return (
     <div className="space-y-4" data-testid="announcements-page">
       <header className="flex flex-wrap items-end justify-between gap-2">
@@ -28,6 +30,25 @@ export function AnnouncementsPage({ canPublish = true }: { canPublish?: boolean 
         {canPublish && <Tab active={tab === 'sent'} onClick={() => setTab('sent')} id="sent">الصادر</Tab>}
         <Tab active={tab === 'inbox'} onClick={() => setTab('inbox')} id="inbox">الوارد إليّ</Tab>
       </nav>
+      {tab === 'compose' && canPublish && <Compose onDone={() => setTab('sent')} />}
+      {tab === 'sent' && canPublish && <SentList />}
+      {tab === 'inbox' && <InboxList />}
+    </div>
+  )
+}
+/** 00216: النسخة الموحّدة لبوابة المدير المفوض — رأس كحلي/ذهبي بأرقام حيّة وتبويبات بأيقونات */
+function HeroAnnouncements({ canPublish, tab, setTab }: { canPublish: boolean; tab: 'compose' | 'sent' | 'inbox'; setTab: (t: 'compose' | 'sent' | 'inbox') => void }) {
+  const sent = useAnnouncementFeed('sent'), inbox = useAnnouncementFeed('inbox')
+  const list = sent.data ?? [], active = list.filter((a) => !a.archived_at)
+  const pendingAck = active.filter((a) => a.requires_ack && a.ack_count < a.recipients_count).length
+  const unread = (inbox.data ?? []).filter((a) => !a.my_read_at).length
+  return (
+    <div className="space-y-3" data-testid="announcements-page">
+      <ExecPageHeader icon="bell" title="التبليغات" subtitle="منشورات داخلية موجَّهة — تصل كإشعار فوري للمستهدفين مع متابعة القراءة والإقرار"
+        stats={[{ label: 'تبليغات سارية', value: fmtInt(active.length), tone: 'gold' }, { label: 'بانتظار إقرار المستلمين', value: fmtInt(pendingAck), tone: pendingAck ? 'red' : 'green' }, { label: 'وارد لم أقرأه', value: fmtInt(unread), tone: unread ? 'red' : 'plain' }]}
+        actions={canPublish ? <HeaderButton icon="send" onClick={() => setTab('compose')} testId="new-announcement">تبليغ جديد</HeaderButton> : undefined} />
+      <ExecTabBar testId="ann-tabs" value={tab} onChange={setTab}
+        tabs={[...(canPublish ? [{ key: 'compose' as const, label: 'إنشاء', icon: 'edit' as const }, { key: 'sent' as const, label: 'الصادر', icon: 'send' as const, badge: pendingAck }] : []), { key: 'inbox' as const, label: 'الوارد إليّ', icon: 'bell' as const, badge: unread }]} />
       {tab === 'compose' && canPublish && <Compose onDone={() => setTab('sent')} />}
       {tab === 'sent' && canPublish && <SentList />}
       {tab === 'inbox' && <InboxList />}

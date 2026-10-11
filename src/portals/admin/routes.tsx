@@ -14,8 +14,8 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const AdminHome = lazy(() => import('./pages/AdminHome'))
 const AdminReports = lazy(() => import('./pages/AdminReports'))
 const AdminAnnouncements = lazy(() => import('./pages/AdminAnnouncements'))
-const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" /> })))   // 00163: خطوات السلاسل التي تصل المدير المفوض
-const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage'))   // 00163: الإجراءات (إنهاء الخدمة — نطاق المدير المفوض: الجميع)
+const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00163: خطوات السلاسل التي تصل المدير المفوض
+const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة — نطاق المدير المفوض: الجميع)
 const AdminDisclosures = lazy(() => import('./pages/AdminDisclosures'))   // 00170: الكشوفات (اعتماد نهائي + سجل + ملغاة)
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 

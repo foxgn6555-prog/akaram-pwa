@@ -14,10 +14,11 @@ import { EMPTY_FILTERS, applyClientFilters, toServerFilter, type UiFilters } fro
 import { printDisclosureForm, printDisclosuresReport } from '../lib/export-v2'
 import { DisclosureDetailDrawer } from './DisclosureDetailDrawer'
 import { DisclosureReportTab } from './DisclosureReportTab'
+import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 
 type Tab = 'inbox' | 'history' | 'cancelled' | 'report'
 
-export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-disclosures' }: { title: string; subtitle: string; testId?: string }) {
+export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-disclosures', hero = false }: { title: string; subtitle: string; testId?: string; hero?: boolean }) {
   const [tab, setTab] = useState<Tab>('inbox')
   const [openId, setOpenId] = useState<string | null>(null)
   const inbox = useDisclosureInbox()
@@ -31,21 +32,30 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
 
   return (
     <div className="space-y-4" data-testid={testId}>
-      <header>
-        <h1 className="text-lg font-black text-slate-800">{title}</h1>
-        <p className="text-xs text-slate-500">{subtitle}</p>
-      </header>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="approver-tiles">
-        <div className="rounded-2xl bg-amber-50 p-3 text-amber-900"><div className="text-[11px] font-bold">بانتظار قراري</div><div className="text-2xl font-black tabular-nums" data-testid="inbox-count">{inbox.data?.length ?? '…'}</div></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3"><div className="text-[11px] font-bold text-slate-500">مبالغ مقترحة في الوارد</div><div className="text-lg font-black tabular-nums">{fmtIqd(inboxAmount)}</div></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 col-span-2 sm:col-span-1"><div className="text-[11px] font-bold text-slate-500">ملاحظة</div><div className="text-xs text-slate-600">حدّد المبلغ (أو اتركه فارغاً) ثم اعتمد، أو أعد الكشف لغرفة العمليات مع السبب.</div></div>
-      </div>
-      <nav className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1" role="tablist">
-        {([['inbox', `الوارد (${inbox.data?.length ?? 0})`], ['history', 'السجل'], ['cancelled', 'الملغاة'], ['report', 'التقارير']] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} data-testid={`tab-${k}`} onClick={() => setTab(k)} className={clsx('h-9 rounded-xl px-3 text-xs font-black', tab === k ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50')}>{l}</button>
-        ))}
-      </nav>
-
+      {hero ? (
+        <>
+          <ExecPageHeader icon="alert-triangle" title={title} subtitle={subtitle}
+            stats={[{ label: 'بانتظار قراري', value: inbox.data?.length ?? '…', tone: (inbox.data?.length ?? 0) ? 'red' : 'green', testId: 'inbox-count' }, { label: 'مبالغ مقترحة في الوارد', value: fmtIqd(inboxAmount), tone: 'gold' }, { label: 'في السجل', value: historyBase.length || (history.isLoading ? '…' : 0) }, { label: 'ملغاة من العمليات', value: cancelled.data?.length ?? '—' }]} />
+          <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'inbox', label: 'الوارد', icon: 'bell', badge: inbox.data?.length ?? 0 }, { key: 'history', label: 'السجل', icon: 'archive-box' }, { key: 'cancelled', label: 'الملغاة', icon: 'x' }, { key: 'report', label: 'التقارير', icon: 'bar-chart' }]} />
+        </>
+      ) : (
+        <>
+          <header>
+            <h1 className="text-lg font-black text-slate-800">{title}</h1>
+            <p className="text-xs text-slate-500">{subtitle}</p>
+          </header>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="approver-tiles">
+            <div className="rounded-2xl bg-amber-50 p-3 text-amber-900"><div className="text-[11px] font-bold">بانتظار قراري</div><div className="text-2xl font-black tabular-nums" data-testid="inbox-count">{inbox.data?.length ?? '…'}</div></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3"><div className="text-[11px] font-bold text-slate-500">مبالغ مقترحة في الوارد</div><div className="text-lg font-black tabular-nums">{fmtIqd(inboxAmount)}</div></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 col-span-2 sm:col-span-1"><div className="text-[11px] font-bold text-slate-500">ملاحظة</div><div className="text-xs text-slate-600">حدّد المبلغ (أو اتركه فارغاً) ثم اعتمد، أو أعد الكشف لغرفة العمليات مع السبب.</div></div>
+          </div>
+          <nav className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1" role="tablist">
+            {([['inbox', `الوارد (${inbox.data?.length ?? 0})`], ['history', 'السجل'], ['cancelled', 'الملغاة'], ['report', 'التقارير']] as const).map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} data-testid={`tab-${k}`} onClick={() => setTab(k)} className={clsx('h-9 rounded-xl px-3 text-xs font-black', tab === k ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50')}>{l}</button>
+            ))}
+          </nav>
+        </>
+      )}
       {tab === 'inbox' && (inbox.data?.length ?? 0) > 0 && (
         <div className="flex justify-end"><button type="button" className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" data-testid="print-inbox" onClick={() => printDisclosuresReport(inbox.data ?? [], { title: `وارد الكشوفات — ${title}`, scopeLabel: 'بانتظار قراري' })}>طباعة الوارد</button></div>
       )}

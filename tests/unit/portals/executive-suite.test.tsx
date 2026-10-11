@@ -387,3 +387,25 @@ describe('00215 — بوابة المدير المفوض: رأس جديد، شر
     expect(screen.queryByTestId('quick-reports')).toBeNull()
   })
 })
+
+describe('00216 — ترتيب موحّد لكل وحدات بوابة المدير المفوض', () => {
+  it('التبليغات بالرأس الموحّد: أرقام حيّة (سارية/إقرار/غير مقروء)، زر تبليغ جديد، وتبويبات بأيقونات تعمل', () => {
+    h.feedSent = [ann({ id: 's1', is_mine: true, requires_ack: true, ack_count: 5, recipients_count: 60 }), ann({ id: 's2', is_mine: true, archived_at: '2026-09-01T00:00:00Z' })]
+    h.feedInbox = [ann({ id: 'i1' }), ann({ id: 'i2', my_read_at: '2026-09-27T09:00:00Z' })]
+    r(<AnnouncementsPage hero />)
+    const hdr = screen.getByTestId('exec-page-header')
+    expect(hdr).toHaveTextContent('التبليغات')
+    expect(within(screen.getByTestId('exec-page-header-stats')).getAllByRole('definition').map((d) => d.textContent)).toEqual(['1', '1', '1'])
+    expect(within(screen.getByTestId('ann-tabs')).getAllByRole('tab')).toHaveLength(3)
+    fireEvent.click(screen.getByTestId('new-announcement'))
+    expect(screen.getByTestId('tab-compose')).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByTestId('tab-inbox'))
+    expect(screen.getByTestId('inbox-list')).toBeInTheDocument()
+  })
+  it('رأس الوحدة: بلا أرقام ولا روابط لا يعرض شبكة الإحصاءات؛ ومع روابط يعرضها بمساراتها', async () => {
+    const { ExecPageHeader } = await import('@components/executive/ExecPageHeader')
+    r(<ExecPageHeader icon="flow" title="الإجراءات" links={[{ to: '/admin/approvals', label: 'الموافقات', icon: 'check-square' }]} />)
+    expect(screen.queryByTestId('exec-page-header-stats')).toBeNull()
+    expect(within(screen.getByTestId('exec-page-header-links')).getByRole('link')).toHaveAttribute('href', '/admin/approvals')
+  })
+})
