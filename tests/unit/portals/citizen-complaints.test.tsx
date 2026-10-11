@@ -83,7 +83,7 @@ describe('صفحة المواطن العامة /citizen', () => {
     expect(h.signIn).toHaveBeenCalledWith('علي حسين كاظم', '0770 123 4567')
     expect(JSON.parse(localStorage.getItem(CITIZEN_SESSION_KEY) ?? '{}').token).toBe('tok-1')
     for (const v of ['complaint', 'support', 'mine', 'about']) expect(screen.getByTestId(`citizen-card-${v}`)).toBeInTheDocument()
-    expect(screen.getByText('علي حسين كاظم')).toBeInTheDocument()
+    expect(within(screen.getByTestId('citizen-home')).getByText('علي حسين كاظم')).toBeInTheDocument()
   })
 
   it('خطأ الخادم يُعرض بالعربية (هاتف غير صحيح)', async () => {
@@ -127,6 +127,27 @@ describe('صفحة المواطن العامة /citizen', () => {
     expect(screen.getByText('بانتظار آلية')).toBeInTheDocument()
     expect(screen.getByText('رُفعت النفايات')).toBeInTheDocument()
     expect(screen.getAllByTestId('stars')).toHaveLength(1) // التقييم للمنجزة فقط
+    // 00213: تصفية قيد المتابعة / تمت معالجتها
+    fireEvent.click(screen.getByTestId('mine-filter-open'))
+    expect(screen.getAllByTestId('citizen-complaint-card')).toHaveLength(1)
+    expect(screen.getByText('بانتظار آلية')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('mine-filter-resolved'))
+    expect(screen.getAllByTestId('citizen-complaint-card')).toHaveLength(1)
+    expect(screen.getByText('رُفعت النفايات')).toBeInTheDocument()
+  })
+
+  it('00213: الرئيسية الرسمية — ملخص شكاواي (قيد المتابعة/تمت) وخطوات المعالجة ومسار التنقل في الصفحات الفرعية', async () => {
+    localStorage.setItem(CITIZEN_SESSION_KEY, JSON.stringify({ token: 'tok-1', full_name: 'علي حسين كاظم', phone: '07701234567' }))
+    h.mine.mockResolvedValue([COMPLAINT(), COMPLAINT({ id: 'c2', ref_no: 'CC-2026-00002', status: 'resolved', status_label: 'تمت المعالجة' })])
+    wrap(<CitizenPortalPage />, '/citizen')
+    const stats = await screen.findByTestId('citizen-home-stats')
+    expect(stats).toHaveTextContent('1 قيد المتابعة'); expect(stats).toHaveTextContent('1 تمت معالجتها')
+    expect(screen.getByText('كيف تُعالَج شكواك؟')).toBeInTheDocument()
+    expect(screen.getByTestId('citizen-card-mine')).toHaveTextContent('2')
+    fireEvent.click(screen.getByTestId('citizen-card-complaint'))
+    expect(screen.getByLabelText('مسار التنقل')).toHaveTextContent('الرئيسية/تقديم شكوى')
+    expect(screen.getByTestId('cc-submit')).toBeDisabled()
+    expect(screen.getByText('اكتب تفاصيل الشكوى (10 أحرف على الأقل) لتفعيل الإرسال')).toBeInTheDocument()
   })
 
   it('الدعم الفني: زر طلب المحادثة → نافذة انتظار بدورك في الطابور → إرسال رسالة', async () => {

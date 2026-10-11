@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type
 import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Camera, CheckCircle2, ChevronRight, Clock, Headset, ImagePlus, Info, Loader2, LocateFixed, LogOut, MapPin, MessageSquareText, Phone, Send, ShieldOff, Star, Trash2, X,
+  BadgeCheck, Camera, CheckCircle2, ChevronRight, Clock, FileText, Headset, ImagePlus, Info, Landmark, ListChecks, Loader2, LocateFixed, LogOut, MapPin, MessageSquareText, Phone, Send, ShieldCheck, ShieldOff, Star, Trash2, UserRound, X,
 } from 'lucide-react'
 import { SCREEN_GUARD_PRINT_CSS, useScreenGuard } from '@features/citizen/screen-guard'
 import {
@@ -24,6 +24,10 @@ const VIEWS: View[] = ['home', 'complaint', 'mine', 'support', 'about']
 const STATUS_TONE: Record<CitizenStatus, string> = {
   new: 'bg-sky-100 text-sky-800 ring-sky-200', in_progress: 'bg-amber-100 text-amber-900 ring-amber-200', on_hold: 'bg-slate-200 text-slate-800 ring-slate-300', resolved: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
 }
+/** 00213 — هوية رسمية هادئة: كحلي مؤسسي + ذهبي خافت + أبيض */
+const NAVY = '#0b3d6b'
+const NAVY_SOFT = '#0b4f8a'
+const GOLD = '#c9a227'
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ar-IQ-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 export default function CitizenPortalPage() {
@@ -34,44 +38,66 @@ export default function CitizenPortalPage() {
   const { data: info } = useCitizenInfo()
   useEffect(() => { document.title = `${info?.org_name ?? 'شركة جزيرة الأكارم'} — خدمة المواطنين` }, [info?.org_name])
 
+  const todayLabel = new Date().toLocaleDateString('ar-IQ-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   return (
-    <div dir="rtl" className="min-h-screen bg-[radial-gradient(1200px_600px_at_80%_-10%,#fef3c7_0%,transparent_60%),radial-gradient(900px_500px_at_-10%_20%,#dbeafe_0%,transparent_55%),linear-gradient(#f8fafc,#f1f5f9)] font-sans text-slate-900">
-      <header className="sticky top-0 z-20 border-b border-white/60 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <button type="button" onClick={() => go('home')} className="flex items-center gap-3 text-right">
-            <img src="/icons/logo.png" alt="شعار شركة جزيرة الأكارم" className="h-12 w-12 rounded-2xl bg-white object-contain p-1 shadow ring-1 ring-slate-200" />
-            <span>
-              <span className="block text-base font-black leading-tight text-[#0b4f8a]">{info?.org_name ?? 'شركة جزيرة الأكارم'}</span>
-              <span className="block text-[11px] font-bold text-slate-500">خدمة المواطنين · الشكاوى والدعم الفني</span>
+    <div dir="rtl" className="min-h-screen bg-[#f3f5f8] font-sans text-slate-900">
+      {/* شريط رسمي علوي */}
+      <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${GOLD}, ${NAVY})` }} />
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5">
+          <button type="button" onClick={() => go('home')} className="flex min-w-0 items-center gap-3 text-right">
+            <img src="/icons/logo.png" alt="شعار شركة جزيرة الأكارم" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200" />
+            <span className="min-w-0">
+              <span className="block truncate text-base font-black leading-tight" style={{ color: NAVY }}>{info?.org_name ?? 'شركة جزيرة الأكارم'}</span>
+              <span className="block text-[11px] font-bold text-slate-500">بوابة خدمة المواطنين — الشكاوى والدعم الفني</span>
             </span>
           </button>
-          {session && (
-            <button type="button" onClick={() => { void citizen.chatClose(session.token).catch(() => undefined); save(null); go('home') }} className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100" data-testid="citizen-logout">
-              <LogOut size={14} /> خروج
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <img src="/icons/baghdad-municipality.png" alt="أمانة بغداد" className="hidden h-10 w-10 rounded-lg bg-white object-contain p-0.5 ring-1 ring-slate-200 sm:block" />
+            {session && (
+              <button type="button" onClick={() => { void citizen.chatClose(session.token).catch(() => undefined); save(null); go('home') }} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50" data-testid="citizen-logout">
+                <LogOut size={14} /> خروج
+              </button>
+            )}
+          </div>
         </div>
+        {session && (
+          <div className="border-t border-slate-100 bg-slate-50">
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-1.5 text-[11px] font-bold text-slate-600">
+              <span className="inline-flex items-center gap-1.5"><UserRound size={13} style={{ color: NAVY_SOFT }} /> {session.full_name} <span className="text-slate-400">·</span> <span dir="ltr">{session.phone}</span></span>
+              <span className="hidden text-slate-500 sm:inline">{todayLabel}</span>
+            </div>
+          </div>
+        )}
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-5">
-        {!session ? <SignIn onDone={save} /> : (
+      <main className="mx-auto max-w-3xl px-4 pb-28 pt-5">
+        {!session ? <SignIn onDone={save} orgName={info?.org_name ?? 'شركة جزيرة الأكارم'} /> : (
           <>
             {view !== 'home' && (
-              <button type="button" onClick={() => go('home')} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-[#0b4f8a]"><ChevronRight size={16} /> الرئيسية</button>
+              <nav className="mb-3 flex items-center gap-1 text-xs font-bold text-slate-500" aria-label="مسار التنقل">
+                <button type="button" onClick={() => go('home')} className="inline-flex items-center gap-1 hover:underline" style={{ color: NAVY_SOFT }}><ChevronRight size={14} /> الرئيسية</button>
+                <span>/</span>
+                <span className="text-slate-700">{VIEW_TITLE[view]}</span>
+              </nav>
             )}
-            {view === 'home' && <Home name={session.full_name} supportOnline={!!info?.support_online} onGo={go} />}
+            {view === 'home' && <Home name={session.full_name} token={session.token} supportOnline={!!info?.support_online} onGo={go} />}
             {view === 'complaint' && <ComplaintForm token={session.token} defaultName={session.full_name} onDone={() => go('mine')} />}
             {view === 'mine' && <MyComplaints token={session.token} onNew={() => go('complaint')} />}
             {view === 'support' && <Support token={session.token} />}
             {view === 'about' && <About />}
+            <p className="mt-8 text-center text-[11px] leading-5 text-slate-400">
+              قناة رسمية لاستقبال شكاوى المواطنين وملاحظاتهم — {info?.org_name ?? 'شركة جزيرة الأكارم'} · بياناتك تُستخدم لمتابعة طلبك فقط.
+            </p>
           </>
         )}
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur print:hidden">
         <nav className="mx-auto grid max-w-3xl grid-cols-5 text-[11px] font-bold text-slate-500" aria-label="التنقل">
-          {([['home', 'الرئيسية', Info], ['complaint', 'شكوى', Send], ['mine', 'شكاواي', CheckCircle2], ['support', 'الدعم', Headset], ['about', 'تواصل', Phone]] as const).map(([v, label, I]) => (
-            <button key={v} type="button" onClick={() => go(v)} disabled={!session} className={`flex flex-col items-center gap-1 py-2 disabled:opacity-40 ${view === v ? 'text-[#0b4f8a]' : ''}`} aria-current={view === v ? 'page' : undefined}>
+          {([['home', 'الرئيسية', Info], ['complaint', 'شكوى', Send], ['mine', 'شكاواي', ListChecks], ['support', 'الدعم', Headset], ['about', 'تواصل', Phone]] as const).map(([v, label, I]) => (
+            <button key={v} type="button" onClick={() => go(v)} disabled={!session} className="relative flex flex-col items-center gap-1 py-2.5 disabled:opacity-40" style={view === v ? { color: NAVY } : undefined} aria-current={view === v ? 'page' : undefined}>
+              {view === v && <span className="absolute inset-x-5 top-0 h-0.5 rounded-b" style={{ background: GOLD }} />}
               <I size={18} />{label}
             </button>
           ))}
@@ -80,58 +106,106 @@ export default function CitizenPortalPage() {
     </div>
   )
 }
+const VIEW_TITLE: Record<View, string> = { home: 'الرئيسية', complaint: 'تقديم شكوى', mine: 'شكاواي', support: 'الدعم الفني', about: 'عن الشركة والتواصل' }
 
 // ─────────── الدخول ───────────
-function SignIn({ onDone }: { onDone: (s: { token: string; full_name: string; phone: string }) => void }) {
+function SignIn({ onDone, orgName }: { onDone: (s: { token: string; full_name: string; phone: string }) => void; orgName: string }) {
   const [name, setName] = useState(''); const [phone, setPhone] = useState(''); const [error, setError] = useState('')
   const m = useMutation({ mutationFn: () => citizen.signIn(name, phone), onSuccess: onDone, onError: (e) => setError(citizenErrorMessage(e)) })
   return (
-    <section className="mx-auto max-w-md">
-      <div className="rounded-3xl bg-gradient-to-l from-[#0b4f8a] to-[#0e6ab3] p-6 text-white shadow-xl">
-        <img src="/icons/logo.png" alt="" className="mx-auto h-20 w-20 rounded-3xl bg-white object-contain p-2 shadow-lg" />
-        <h1 className="mt-4 text-center text-2xl font-black">أهلاً بك في خدمة المواطنين</h1>
-        <p className="mt-2 text-center text-sm leading-7 text-blue-100">قدّم شكواك أو تحدّث مع فريق الدعم الفني مباشرة. نحتاج اسمك ورقم هاتفك فقط لمتابعة طلباتك.</p>
+    <section className="mx-auto max-w-md space-y-4">
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="p-6 text-center text-white" style={{ background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY_SOFT} 100%)` }}>
+          <div className="mx-auto flex w-fit items-center gap-3">
+            <img src="/icons/logo.png" alt="" className="h-16 w-16 rounded-2xl bg-white object-contain p-1.5 shadow" />
+            <img src="/icons/baghdad-municipality.png" alt="" className="h-16 w-16 rounded-2xl bg-white object-contain p-1.5 shadow" />
+          </div>
+          <p className="mt-4 text-[11px] font-bold tracking-wide text-blue-200">{orgName}</p>
+          <h1 className="mt-1 text-2xl font-black">بوابة خدمة المواطنين</h1>
+          <p className="mt-2 text-sm leading-7 text-blue-100">قدّم شكواك، تابع حالتها، أو تحدّث مع فريق الدعم الفني مباشرة.</p>
+        </div>
+        <form onSubmit={(e: FormEvent) => { e.preventDefault(); setError(''); m.mutate() }} className="space-y-4 p-5" data-testid="citizen-signin">
+          <p className="text-sm font-black text-slate-800">للمتابعة نحتاج بيانات التواصل فقط</p>
+          <label className="block text-sm font-bold text-slate-700">الاسم
+            <input value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={80} autoComplete="name" placeholder="مثال: علي حسين كاظم" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#0b4f8a] focus:ring-2 focus:ring-blue-100" />
+          </label>
+          <label className="block text-sm font-bold text-slate-700">رقم الهاتف
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} required inputMode="tel" dir="ltr" autoComplete="tel" placeholder="07XX XXX XXXX" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-left text-base tracking-widest outline-none focus:border-[#0b4f8a] focus:ring-2 focus:ring-blue-100" />
+          </label>
+          {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100">{error}</p>}
+          <button type="submit" disabled={m.isPending} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-base font-black text-white shadow-sm transition hover:brightness-110 disabled:opacity-60" style={{ background: NAVY }}>
+            {m.isPending ? <Loader2 className="animate-spin" size={18} /> : null} متابعة
+          </button>
+        </form>
       </div>
-      <form onSubmit={(e: FormEvent) => { e.preventDefault(); setError(''); m.mutate() }} className="-mt-4 mx-3 space-y-4 rounded-3xl bg-white p-5 shadow-lg ring-1 ring-slate-200" data-testid="citizen-signin">
-        <label className="block text-sm font-bold">الاسم
-          <input value={name} onChange={(e) => setName(e.target.value)} required minLength={3} maxLength={80} autoComplete="name" placeholder="مثال: علي حسين كاظم" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-[#0e6ab3] focus:ring-2 focus:ring-blue-100" />
-        </label>
-        <label className="block text-sm font-bold">رقم الهاتف
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} required inputMode="tel" dir="ltr" autoComplete="tel" placeholder="07XX XXX XXXX" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-left text-base tracking-widest outline-none focus:border-[#0e6ab3] focus:ring-2 focus:ring-blue-100" />
-        </label>
-        {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</p>}
-        <button type="submit" disabled={m.isPending} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f5b301] py-3 text-base font-black text-slate-900 shadow hover:bg-amber-400 disabled:opacity-60">
-          {m.isPending ? <Loader2 className="animate-spin" size={18} /> : null} متابعة
-        </button>
-        <p className="text-center text-[11px] leading-5 text-slate-500">بياناتك تُستخدم فقط لمتابعة شكواك والتواصل معك بخصوصها.</p>
-      </form>
+      <ul className="grid gap-2 text-xs font-bold text-slate-600 sm:grid-cols-3">
+        {[[BadgeCheck, 'قناة رسمية معتمدة'], [FileText, 'رقم متابعة لكل شكوى'], [ShieldCheck, 'بياناتك محفوظة وسرّية']].map(([I, t]) => {
+          const Icon = I as typeof BadgeCheck
+          return <li key={String(t)} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200"><Icon size={16} style={{ color: GOLD }} /> {String(t)}</li>
+        })}
+      </ul>
     </section>
   )
 }
 
 // ─────────── الرئيسية ───────────
-function Home({ name, supportOnline, onGo }: { name: string; supportOnline: boolean; onGo: (v: View) => void }) {
-  const cards: Array<{ v: View; title: string; desc: string; icon: typeof Send; tone: string }> = [
-    { v: 'complaint', title: 'تقديم شكوى', desc: 'نفايات متراكمة، حاوية تالفة، تأخر رفع، أو أي ملاحظة على الخدمة — مع الموقع والصور.', icon: Send, tone: 'from-[#0b4f8a] to-[#0e6ab3] text-white' },
-    { v: 'support', title: 'الدعم الفني المباشر', desc: supportOnline ? 'فريق الدعم متصل الآن — ابدأ محادثة فورية.' : 'اطلب محادثة وسيرد عليك أحد أعضاء الفريق.', icon: Headset, tone: 'from-[#f5b301] to-amber-400 text-slate-900' },
-    { v: 'mine', title: 'متابعة شكاواي', desc: 'اعرف حالة كل شكوى: جديدة، قيد المعالجة، معلقة، أو تمت المعالجة.', icon: CheckCircle2, tone: 'from-emerald-600 to-emerald-500 text-white' },
-    { v: 'about', title: 'عن الشركة والتواصل', desc: 'نبذة عن شركة جزيرة الأكارم وأرقام التواصل الرسمية وساعات العمل.', icon: Phone, tone: 'from-slate-700 to-slate-600 text-white' },
+function Home({ name, token, supportOnline, onGo }: { name: string; token: string; supportOnline: boolean; onGo: (v: View) => void }) {
+  const { data: mine = [] } = useMyComplaints(token)
+  const openCount = mine.filter((c) => c.status !== 'resolved').length
+  const resolvedCount = mine.length - openCount
+  const cards: Array<{ v: View; title: string; desc: string; icon: typeof Send; primary?: boolean; badge?: string }> = [
+    { v: 'complaint', title: 'تقديم شكوى جديدة', desc: 'نفايات متراكمة، حاوية تالفة، تأخر رفع، أو أي ملاحظة على الخدمة — مع الموقع والصور.', icon: Send, primary: true },
+    { v: 'mine', title: 'متابعة شكاواي', desc: 'حالة كل شكوى: جديدة، قيد المعالجة، معلقة، أو تمت المعالجة — مع سجل المتابعة.', icon: ListChecks, badge: mine.length ? `${mine.length}` : undefined },
+    { v: 'support', title: 'الدعم الفني المباشر', desc: supportOnline ? 'فريق الدعم متصل الآن — ابدأ محادثة فورية.' : 'اطلب محادثة وسيرد عليك أحد أعضاء الفريق.', icon: Headset, badge: supportOnline ? 'متصل الآن' : undefined },
+    { v: 'about', title: 'عن الشركة والتواصل', desc: 'نبذة عن الشركة، أرقام التواصل الرسمية، وساعات العمل.', icon: Landmark },
   ]
   return (
     <section className="space-y-5" data-testid="citizen-home">
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <p className="text-sm text-slate-500">مرحباً</p>
-        <h1 className="text-2xl font-black text-[#0b4f8a]">{name}</h1>
-        <p className="mt-1 text-sm leading-6 text-slate-600">كيف نستطيع خدمتك اليوم؟</p>
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center justify-between gap-3 p-5">
+          <div>
+            <p className="text-xs font-bold text-slate-500">أهلاً بك</p>
+            <h1 className="text-xl font-black" style={{ color: NAVY }}>{name}</h1>
+            <p className="mt-1 text-sm text-slate-600">كيف نستطيع خدمتك اليوم؟</p>
+          </div>
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-50 ring-1 ring-slate-200"><UserRound size={26} style={{ color: NAVY_SOFT }} /></span>
+        </div>
+        {mine.length > 0 && (
+          <div className="grid grid-cols-2 divide-x divide-x-reverse divide-slate-100 border-t border-slate-100 text-center text-xs font-bold text-slate-600" data-testid="citizen-home-stats">
+            <button type="button" onClick={() => onGo('mine')} className="py-3 hover:bg-slate-50"><b className="block text-lg" style={{ color: NAVY }}>{openCount}</b> قيد المتابعة</button>
+            <button type="button" onClick={() => onGo('mine')} className="py-3 hover:bg-slate-50"><b className="block text-lg text-emerald-700">{resolvedCount}</b> تمت معالجتها</button>
+          </div>
+        )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {cards.map(({ v, title, desc, icon: I, tone }) => (
-          <button key={v} type="button" onClick={() => onGo(v)} className={`group rounded-3xl bg-gradient-to-l ${tone} p-5 text-right shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl`} data-testid={`citizen-card-${v}`}>
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/40"><I size={24} /></span>
-            <span className="mt-4 block text-lg font-black">{title}</span>
-            <span className="mt-1 block text-xs leading-6 opacity-90">{desc}</span>
-          </button>
-        ))}
+
+      <div>
+        <h2 className="mb-2 px-1 text-sm font-black text-slate-700">الخدمات</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {cards.map(({ v, title, desc, icon: I, primary, badge }) => (
+            <button key={v} type="button" onClick={() => onGo(v)} className={`group relative flex items-start gap-3 rounded-2xl p-4 text-right shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${primary ? 'text-white ring-transparent' : 'bg-white ring-slate-200'}`} style={primary ? { background: `linear-gradient(160deg, ${NAVY}, ${NAVY_SOFT})` } : undefined} data-testid={`citizen-card-${v}`}>
+              <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${primary ? 'bg-white/15 ring-1 ring-white/30' : 'bg-slate-50 ring-1 ring-slate-200'}`} style={primary ? undefined : { color: NAVY_SOFT }}><I size={22} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="block text-base font-black">{title}</span>
+                  {badge && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${primary ? 'bg-white/20' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'}`}>{badge}</span>}
+                </span>
+                <span className={`mt-1 block text-xs leading-6 ${primary ? 'text-blue-100' : 'text-slate-500'}`}>{desc}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h2 className="text-sm font-black text-slate-700">كيف تُعالَج شكواك؟</h2>
+        <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[['1', 'تقديم الشكوى', 'تكتب التفاصيل وتحدد الموقع وترفق الصور — وتحصل على رقم متابعة فوراً.'], ['2', 'الإحالة والمعالجة', 'غرفة العمليات تُحيلها إلى الجهة المختصة التي تباشر المعالجة ميدانياً.'], ['3', 'الإغلاق والتقييم', 'تصلك نتيجة المعالجة في «شكاواي» ويمكنك تقييم الخدمة.']].map(([n, t, d]) => (
+            <li key={n} className="flex gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white" style={{ background: NAVY }}>{n}</span>
+              <span><b className="block text-xs font-black text-slate-800">{t}</b><span className="block text-[11px] leading-5 text-slate-500">{d}</span></span>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   )
@@ -168,28 +242,43 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
 
   if (done) {
     return (
-      <section className="rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200" data-testid="citizen-complaint-done">
-        <CheckCircle2 className="mx-auto text-emerald-600" size={48} />
-        <h2 className="mt-3 text-xl font-black">تم استلام شكواك</h2>
-        <p className="mt-1 text-sm text-slate-600">رقم المتابعة</p>
-        <p className="text-2xl font-black tracking-wider text-[#0b4f8a]" dir="ltr">{done.ref_no}</p>
-        <p className="mt-3 text-xs leading-6 text-slate-500">سيراجعها فريق غرفة العمليات ويُسندها للجهة المختصة، ويمكنك متابعة حالتها من «شكاواي».</p>
-        <button type="button" onClick={onDone} className="mt-4 rounded-2xl bg-[#0b4f8a] px-5 py-3 text-sm font-black text-white">متابعة شكاواي</button>
+      <section className="overflow-hidden rounded-2xl bg-white text-center shadow-sm ring-1 ring-slate-200" data-testid="citizen-complaint-done">
+        <div className="bg-emerald-50 p-6">
+          <CheckCircle2 className="mx-auto text-emerald-600" size={52} />
+          <h2 className="mt-3 text-xl font-black text-emerald-900">تم استلام شكواك بنجاح</h2>
+        </div>
+        <div className="p-6">
+          <p className="text-xs font-bold text-slate-500">رقم المتابعة — احتفظ به</p>
+          <p className="mt-1 inline-block rounded-xl bg-slate-50 px-5 py-2 text-2xl font-black tracking-wider ring-1 ring-slate-200" style={{ color: NAVY }} dir="ltr">{done.ref_no}</p>
+          <p className="mt-4 text-xs leading-6 text-slate-500">سيراجعها فريق غرفة العمليات ويُحيلها إلى الجهة المختصة، وستظهر كل مستجداتها في «شكاواي».</p>
+          <button type="button" onClick={onDone} className="mt-5 w-full rounded-xl py-3 text-sm font-black text-white" style={{ background: NAVY }}>متابعة شكاواي</button>
+        </div>
       </section>
     )
   }
+  const detailsOk = details.trim().length >= 10
   return (
     <form onSubmit={(e: FormEvent) => { e.preventDefault(); setError(''); m.mutate() }} className="space-y-4" data-testid="citizen-complaint-form">
-      <h1 className="text-xl font-black text-[#0b4f8a]">تقديم شكوى</h1>
-      <Field label="الاسم الثلاثي" hint={tripleOk ? undefined : 'الاسم واسم الأب واسم الجد'}>
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div>
+          <h1 className="text-lg font-black" style={{ color: NAVY }}>تقديم شكوى</h1>
+          <p className="text-xs text-slate-500">أربع خطوات قصيرة — الحقول المعلّمة بـ <span className="text-red-600">*</span> إلزامية</p>
+        </div>
+        <ol className="flex items-center gap-1" aria-label="تقدّم النموذج">
+          {[tripleOk, detailsOk, !!pos || !!address.trim(), files.length > 0].map((ok, i) => <li key={i} className={`h-1.5 w-6 rounded-full ${ok ? '' : 'bg-slate-200'}`} style={ok ? { background: GOLD } : undefined} />)}
+        </ol>
+      </div>
+
+      <Field n={1} label="الاسم الثلاثي" required hint={tripleOk ? undefined : 'الاسم واسم الأب واسم الجد'} ok={tripleOk}>
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} required className="input" placeholder="علي حسين كاظم" data-testid="cc-name" />
       </Field>
-      <Field label="تفاصيل الشكوى">
+      <Field n={2} label="تفاصيل الشكوى" required ok={detailsOk} trailing={<span className={`text-[11px] font-bold ${detailsOk ? 'text-slate-400' : 'text-amber-700'}`} dir="ltr">{details.trim().length}/4000</span>}>
         <textarea value={details} onChange={(e) => setDetails(e.target.value)} required minLength={10} maxLength={4000} rows={5} className="input resize-y" placeholder="اشرح المشكلة: ما هي؟ أين بالضبط؟ منذ متى؟" data-testid="cc-details" />
+        {!detailsOk && <p className="mt-1 text-[11px] text-slate-500">10 أحرف على الأقل</p>}
       </Field>
-      <Field label="الموقع" hint="يساعدنا الوصول بسرعة — اضغط لتحديد موقعك الحالي أو اكتب العنوان">
+      <Field n={3} label="الموقع" hint="يساعدنا الوصول بسرعة — اضغط لتحديد موقعك الحالي أو اكتب العنوان" ok={!!pos || !!address.trim()}>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center gap-2 rounded-xl bg-[#0b4f8a] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60" data-testid="cc-locate">
+          <button type="button" onClick={locate} disabled={locating} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60" style={{ background: NAVY_SOFT }} data-testid="cc-locate">
             {locating ? <Loader2 className="animate-spin" size={16} /> : <LocateFixed size={16} />} {pos ? 'تحديث الموقع' : 'تحديد موقعي'}
           </button>
           {pos && <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200" dir="ltr"><MapPin size={14} />{pos.lat}, {pos.lng}{pos.acc ? ` (±${pos.acc}م)` : ''}</span>}
@@ -198,7 +287,7 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
         {locError && <p className="mt-2 text-xs font-bold text-red-700">{locError}</p>}
         <input value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} className="input mt-2" placeholder="العنوان أو أقرب نقطة دالة (اختياري)" data-testid="cc-address" />
       </Field>
-      <Field label="صور (اختياري — حتى 5)">
+      <Field n={4} label="صور" hint="اختياري — حتى 5 صور، تُضغط تلقائياً قبل الإرسال" ok={files.length > 0} trailing={<span className="text-[11px] font-bold text-slate-400" dir="ltr">{files.length}/5</span>}>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => {
           const picked = Array.from(e.target.files ?? []).slice(0, 5 - files.length)
           setFiles((old) => [...old, ...picked.map((file) => ({ file, url: URL.createObjectURL(file) }))]); e.target.value = ''
@@ -216,52 +305,97 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
           ))}
           {files.length < 5 && (
             <>
-              <button type="button" onClick={() => camRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0e6ab3] hover:text-[#0e6ab3]" data-testid="cc-camera-btn"><Camera size={22} />التقاط</button>
-              <button type="button" onClick={() => fileRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0e6ab3] hover:text-[#0e6ab3]" data-testid="cc-gallery-btn"><ImagePlus size={22} />من المعرض</button>
+              <button type="button" onClick={() => camRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0b4f8a] hover:text-[#0b4f8a]" data-testid="cc-camera-btn"><Camera size={22} />التقاط</button>
+              <button type="button" onClick={() => fileRef.current?.click()} className="grid h-20 w-20 place-items-center rounded-xl border-2 border-dashed border-slate-300 text-xs font-bold text-slate-500 hover:border-[#0b4f8a] hover:text-[#0b4f8a]" data-testid="cc-gallery-btn"><ImagePlus size={22} />من المعرض</button>
             </>
           )}
         </div>
       </Field>
-      {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</p>}
-      <button type="submit" disabled={m.isPending || !tripleOk || details.trim().length < 10} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f5b301] py-3.5 text-base font-black text-slate-900 shadow disabled:opacity-50" data-testid="cc-submit">
-        {m.isPending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} إرسال الشكوى
-      </button>
-      <style>{`.input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.75rem;font-size:1rem;outline:none;background:#fff}.input:focus{border-color:#0e6ab3;box-shadow:0 0 0 3px #dbeafe}`}</style>
+      {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-100">{error}</p>}
+      <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <button type="submit" disabled={m.isPending || !tripleOk || !detailsOk} className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-base font-black text-white shadow-sm transition hover:brightness-110 disabled:opacity-50" style={{ background: NAVY }} data-testid="cc-submit">
+          {m.isPending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />} إرسال الشكوى
+        </button>
+        {(!tripleOk || !detailsOk) && <p className="mt-2 text-center text-[11px] text-slate-500">{!tripleOk ? 'أكمل الاسم الثلاثي' : 'اكتب تفاصيل الشكوى (10 أحرف على الأقل)'} لتفعيل الإرسال</p>}
+      </div>
+      <style>{`.input{width:100%;border-radius:.75rem;border:1px solid #cbd5e1;padding:.75rem;font-size:1rem;outline:none;background:#fff}.input:focus{border-color:#0b4f8a;box-shadow:0 0 0 3px #dbeafe}`}</style>
     </form>
   )
 }
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return <div className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200"><p className="mb-2 text-sm font-black">{label}</p>{children}{hint && <p className="mt-2 text-[11px] text-slate-500">{hint}</p>}</div>
+function Field({ n, label, hint, required, ok, trailing, children }: { n?: number; label: string; hint?: string; required?: boolean; ok?: boolean; trailing?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-sm font-black text-slate-800">
+          {n !== undefined && <span className={`grid h-6 w-6 place-items-center rounded-full text-[11px] font-black ${ok ? 'text-white' : 'bg-slate-100 text-slate-600'}`} style={ok ? { background: NAVY } : undefined}>{ok ? '✓' : n}</span>}
+          {label}{required && <span className="text-red-600">*</span>}
+        </p>
+        {trailing}
+      </div>
+      {children}
+      {hint && <p className="mt-2 text-[11px] text-slate-500">{hint}</p>}
+    </div>
+  )
 }
 
 // ─────────── شكاواي ───────────
 function MyComplaints({ token, onNew }: { token: string; onNew: () => void }) {
   const { data = [], isLoading } = useMyComplaints(token)
   const qc = useQueryClient()
+  const [filter, setFilter] = useState<'all' | 'open' | 'resolved'>('all')
   const rate = useMutation({ mutationFn: (v: { id: string; stars: number }) => citizen.rateComplaint(token, v.id, v.stars), onSuccess: () => void qc.invalidateQueries({ queryKey: citizenKeys.mine(token) }) })
+  const shown = data.filter((c) => filter === 'all' ? true : filter === 'resolved' ? c.status === 'resolved' : c.status !== 'resolved')
+  const openCount = data.filter((c) => c.status !== 'resolved').length
   return (
     <section className="space-y-4" data-testid="citizen-mine">
-      <div className="flex items-center justify-between"><h1 className="text-xl font-black text-[#0b4f8a]">شكاواي</h1><button type="button" onClick={onNew} className="rounded-xl bg-[#0b4f8a] px-3 py-2 text-xs font-bold text-white">+ شكوى جديدة</button></div>
-      {isLoading && <div className="h-32 animate-pulse rounded-3xl bg-white" />}
-      {!isLoading && !data.length && <div className="rounded-3xl bg-white p-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">لا توجد شكاوى بعد.</div>}
-      {data.map((c) => (
-        <article key={c.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200" data-testid="citizen-complaint-card">
-          <div className="flex items-start justify-between gap-3">
-            <div><p className="text-xs font-black tracking-wider text-[#0b4f8a]" dir="ltr">{c.ref_no}</p><p className="text-[11px] text-slate-500">{fmt(c.created_at)}</p></div>
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-black" style={{ color: NAVY }}>شكاواي</h1>
+            <p className="text-xs text-slate-500">{data.length ? `${data.length} شكوى · ${openCount} قيد المتابعة` : 'كل شكاواك ومستجداتها في مكان واحد'}</p>
+          </div>
+          <button type="button" onClick={onNew} className="rounded-xl px-3 py-2 text-xs font-black text-white" style={{ background: NAVY }}>+ شكوى جديدة</button>
+        </div>
+        {data.length > 0 && (
+          <div className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" role="tablist" aria-label="تصفية الشكاوى">
+            {([['all', 'الكل'], ['open', 'قيد المتابعة'], ['resolved', 'تمت معالجتها']] as const).map(([k, l]) => (
+              <button key={k} type="button" role="tab" aria-selected={filter === k} onClick={() => setFilter(k)} className={`flex-1 rounded-lg py-1.5 transition ${filter === k ? 'bg-white shadow-sm' : 'text-slate-500'}`} style={filter === k ? { color: NAVY } : undefined} data-testid={`mine-filter-${k}`}>{l}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      {isLoading && <div className="h-32 animate-pulse rounded-2xl bg-white" />}
+      {!isLoading && !data.length && (
+        <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-slate-200">
+          <FileText className="mx-auto text-slate-300" size={40} />
+          <p className="mt-3 text-sm font-bold text-slate-600">لا توجد شكاوى بعد</p>
+          <p className="mt-1 text-xs text-slate-500">عند تقديم شكوى ستجد هنا رقم متابعتها وحالتها وسجلها.</p>
+        </div>
+      )}
+      {!isLoading && data.length > 0 && !shown.length && <div className="rounded-2xl bg-white p-8 text-center text-sm text-slate-500 ring-1 ring-slate-200">لا توجد شكاوى في هذا التصنيف.</div>}
+      {shown.map((c) => (
+        <article key={c.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200" data-testid="citizen-complaint-card">
+          <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+            <div>
+              <p className="text-xs font-black tracking-wider" style={{ color: NAVY }} dir="ltr">{c.ref_no}</p>
+              <p className="text-[11px] text-slate-500">{fmt(c.created_at)}</p>
+            </div>
             <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${STATUS_TONE[c.status]}`}>{c.status_label}</span>
           </div>
-          <StatusTrack status={c.status} />
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{c.details}</p>
-          {c.status === 'on_hold' && c.hold_reason && <p className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-xs"><b>سبب التعليق:</b> {c.hold_reason}</p>}
-          {c.status === 'resolved' && c.resolution_note && <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800"><b>نتيجة المعالجة:</b> {c.resolution_note}</p>}
-          {c.status === 'resolved' && (
-            <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-600">{c.citizen_rating ? 'تقييمك:' : 'قيّم المعالجة:'}
-              <Stars value={c.citizen_rating ?? 0} onChange={c.citizen_rating ? undefined : (s) => rate.mutate({ id: c.id, stars: s })} />
-            </div>
-          )}
-          <details className="mt-3 text-xs"><summary className="cursor-pointer font-bold text-slate-500">سجل المتابعة ({c.events.length})</summary>
-            <ol className="mt-2 space-y-1 border-r-2 border-slate-200 pr-3">{c.events.map((e, i) => <li key={i} className="text-slate-600"><span className="text-slate-400">{fmt(e.at)}</span> — {e.kind === 'created' ? 'تم استلام الشكوى' : e.kind === 'assigned' ? 'أُحيلت إلى الجهة المختصة' : e.kind === 'status' ? `الحالة: ${e.to_label}` : e.kind === 'rated' ? `تقييمك ${e.note}` : 'متابعة'}{e.kind === 'status' && e.note ? ` — ${e.note}` : ''}</li>)}</ol>
-          </details>
+          <div className="p-4">
+            <StatusTrack status={c.status} />
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{c.details}</p>
+            {c.status === 'on_hold' && c.hold_reason && <p className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-xs"><b>سبب التعليق:</b> {c.hold_reason}</p>}
+            {c.status === 'resolved' && c.resolution_note && <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-100"><b>نتيجة المعالجة:</b> {c.resolution_note}</p>}
+            {c.status === 'resolved' && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50/60 px-3 py-2 text-xs font-bold text-slate-600 ring-1 ring-amber-100">{c.citizen_rating ? 'تقييمك:' : 'قيّم المعالجة:'}
+                <Stars value={c.citizen_rating ?? 0} onChange={c.citizen_rating ? undefined : (s) => rate.mutate({ id: c.id, stars: s })} />
+              </div>
+            )}
+            <details className="mt-3 text-xs"><summary className="cursor-pointer font-bold text-slate-500">سجل المتابعة ({c.events.length})</summary>
+              <ol className="mt-2 space-y-1 border-r-2 pr-3" style={{ borderColor: GOLD }}>{c.events.map((e, i) => <li key={i} className="text-slate-600"><span className="text-slate-400">{fmt(e.at)}</span> — {e.kind === 'created' ? 'تم استلام الشكوى' : e.kind === 'assigned' ? 'أُحيلت إلى الجهة المختصة' : e.kind === 'status' ? `الحالة: ${e.to_label}` : e.kind === 'rated' ? `تقييمك ${e.note}` : 'متابعة'}{e.kind === 'status' && e.note ? ` — ${e.note}` : ''}</li>)}</ol>
+            </details>
+          </div>
         </article>
       ))}
     </section>
@@ -272,7 +406,7 @@ function StatusTrack({ status }: { status: CitizenStatus }) {
   const idx = status === 'on_hold' ? 1 : steps.indexOf(status)
   return (
     <ol className="mt-3 flex items-center gap-1 text-[10px] font-bold">
-      {steps.map((s, i) => <li key={s} className="flex flex-1 items-center gap-1"><span className={`h-2 flex-1 rounded-full ${i <= idx ? (status === 'on_hold' && i === 1 ? 'bg-slate-400' : 'bg-[#0e6ab3]') : 'bg-slate-200'}`} /><span className={i <= idx ? 'text-slate-800' : 'text-slate-400'}>{CITIZEN_STATUS_LABEL[s]}</span></li>)}
+      {steps.map((s, i) => <li key={s} className="flex flex-1 items-center gap-1"><span className={`h-2 flex-1 rounded-full ${i <= idx ? (status === 'on_hold' && i === 1 ? 'bg-slate-400' : 'bg-[#0b4f8a]') : 'bg-slate-200'}`} /><span className={i <= idx ? 'text-slate-800' : 'text-slate-400'}>{CITIZEN_STATUS_LABEL[s]}</span></li>)}
     </ol>
   )
 }
@@ -308,13 +442,16 @@ function Support({ token }: { token: string }) {
   return (
     <section className="space-y-4" data-testid="citizen-support">
       <style>{SCREEN_GUARD_PRINT_CSS}</style>
-      <h1 className="text-xl font-black text-[#0b4f8a]">الدعم الفني المباشر</h1>
-      {isLoading && <div className="h-32 animate-pulse rounded-3xl bg-white" />}
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h1 className="text-lg font-black" style={{ color: NAVY }}>الدعم الفني المباشر</h1>
+        <p className="text-xs text-slate-500">محادثة نصية مع فريق الدعم — يمكنك إرسال صور من الكاميرا أو المعرض</p>
+      </div>
+      {isLoading && <div className="h-32 animate-pulse rounded-2xl bg-white" />}
       {!isLoading && !open && (
-        <div className="rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
-          <Headset className="mx-auto text-[#0b4f8a]" size={44} />
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-50 ring-1 ring-slate-200"><Headset style={{ color: NAVY_SOFT }} size={32} /></span>
           <p className="mt-3 text-sm leading-7 text-slate-600">اضغط لطلب محادثة مع فريق الدعم الفني، وسيرد عليك أحد الأعضاء المتاحين.</p>
-          <button type="button" onClick={() => request.mutate()} disabled={request.isPending} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#f5b301] px-6 py-3 text-base font-black text-slate-900 shadow disabled:opacity-60" data-testid="chat-request">
+          <button type="button" onClick={() => request.mutate()} disabled={request.isPending} className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-base font-black text-white shadow-sm disabled:opacity-60" style={{ background: NAVY }} data-testid="chat-request">
             {request.isPending ? <Loader2 className="animate-spin" size={18} /> : <MessageSquareText size={18} />} طلب المحادثة مع فريق الدعم الفني
           </button>
           {request.isError && <p role="alert" className="mt-2 text-xs font-bold text-red-700">{citizenErrorMessage(request.error)}</p>}
@@ -323,14 +460,14 @@ function Support({ token }: { token: string }) {
               <p className="text-sm font-black">كيف كانت المحادثة الأخيرة؟ <span className="text-xs font-normal text-slate-500">(اختياري)</span></p>
               <div className="mt-2"><Stars value={rated} onChange={setRated} /></div>
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} placeholder="ملاحظة (اختياري)" className="mt-2 w-full rounded-xl border border-slate-300 p-2 text-sm" />
-              <button type="button" disabled={!rated || rate.isPending} onClick={() => rate.mutate({ stars: rated, note })} className="mt-2 rounded-xl bg-[#0b4f8a] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">إرسال التقييم</button>
+              <button type="button" disabled={!rated || rate.isPending} onClick={() => rate.mutate({ stars: rated, note })} className="mt-2 rounded-xl px-4 py-2 text-xs font-bold text-white disabled:opacity-50" style={{ background: NAVY }}>إرسال التقييم</button>
             </div>
           )}
           {chat?.status === 'closed' && chat.rating && <p className="mt-4 text-xs font-bold text-emerald-700">شكراً لتقييمك ({chat.rating}/5)</p>}
         </div>
       )}
       {open && chat && (
-        <div ref={guardRef} data-screen-guard className={`relative flex h-[70vh] select-none flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 transition ${guard.blurred ? 'blur-md' : ''}`} data-testid="chat-window" data-blurred={guard.blurred ? '1' : '0'} style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as CSSProperties}>
+        <div ref={guardRef} data-screen-guard className={`relative flex h-[70vh] select-none flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition ${guard.blurred ? 'blur-md' : ''}`} data-testid="chat-window" data-blurred={guard.blurred ? '1' : '0'} style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as CSSProperties}>
           {guard.notice && <p role="alert" className="absolute inset-x-3 top-14 z-10 flex items-center gap-2 rounded-xl bg-slate-900/90 px-3 py-2 text-xs font-bold text-white shadow" data-testid="chat-guard-notice"><ShieldOff size={14} /> {guard.notice}</p>}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-black">
@@ -342,7 +479,7 @@ function Support({ token }: { token: string }) {
           <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
             {chat.messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'citizen' ? 'justify-start' : msg.sender === 'agent' ? 'justify-end' : 'justify-center'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm ${msg.sender === 'citizen' ? 'bg-[#0b4f8a] text-white' : msg.sender === 'agent' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900 ring-1 ring-amber-200'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm ${msg.sender === 'citizen' ? 'bg-[#0b3d6b] text-white' : msg.sender === 'agent' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900 ring-1 ring-amber-200'}`}>
                   {msg.attachment && (urls?.[msg.attachment]
                     ? <img src={urls[msg.attachment]} alt="صورة مرفقة" className="mb-1 max-h-60 w-full rounded-xl object-cover" draggable={false} data-testid="chat-image" />
                     : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-200/60 text-[10px] text-slate-500" data-testid="chat-image-loading">جارٍ تحميل الصورة…</div>)}
@@ -358,8 +495,8 @@ function Support({ token }: { token: string }) {
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={onPick} data-testid="chat-camera" />
             <button type="button" onClick={() => cameraRef.current?.click()} disabled={sendPhoto.isPending} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-300 text-[#0b4f8a] disabled:opacity-50" aria-label="التقاط صورة بالكاميرا" title="التقاط صورة" data-testid="chat-camera-btn">{sendPhoto.isPending ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}</button>
             <button type="button" onClick={() => galleryRef.current?.click()} disabled={sendPhoto.isPending} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-300 text-[#0b4f8a] disabled:opacity-50" aria-label="إرسال صورة من المعرض" title="صورة من المعرض" data-testid="chat-gallery-btn"><ImagePlus size={18} /></button>
-            <input value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="اكتب رسالتك…" className="flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#0e6ab3]" data-testid="chat-input" />
-            <button type="submit" disabled={!text.trim() || send.isPending} className="grid h-11 w-11 place-items-center rounded-xl bg-[#0b4f8a] text-white disabled:opacity-50" aria-label="إرسال" data-testid="chat-send"><Send size={18} /></button>
+            <input value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="اكتب رسالتك…" className="flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#0b4f8a]" data-testid="chat-input" />
+            <button type="submit" disabled={!text.trim() || send.isPending} className="grid h-11 w-11 place-items-center rounded-xl text-white disabled:opacity-50" style={{ background: NAVY }} aria-label="إرسال" data-testid="chat-send"><Send size={18} /></button>
           </form>
           {send.isError && <p role="alert" className="px-4 pb-2 text-xs font-bold text-red-700">{citizenErrorMessage(send.error)}</p>}
           {sendPhoto.isError && <p role="alert" className="px-4 pb-2 text-xs font-bold text-red-700">{citizenErrorMessage(sendPhoto.error)}</p>}
@@ -376,21 +513,36 @@ function About() {
   const { data: info } = useCitizenInfo()
   return (
     <section className="space-y-4" data-testid="citizen-about">
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-        <div className="bg-gradient-to-l from-[#0b4f8a] to-[#0e6ab3] p-6 text-white">
-          <img src="/icons/logo.png" alt="" className="h-16 w-16 rounded-2xl bg-white object-contain p-1.5" />
-          <h1 className="mt-3 text-2xl font-black">{info?.org_name ?? 'شركة جزيرة الأكارم'}</h1>
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-center gap-4 p-6 text-white" style={{ background: `linear-gradient(160deg, ${NAVY}, ${NAVY_SOFT})` }}>
+          <img src="/icons/logo.png" alt="" className="h-16 w-16 shrink-0 rounded-2xl bg-white object-contain p-1.5" />
+          <div>
+            <p className="text-[11px] font-bold text-blue-200">نبذة تعريفية</p>
+            <h1 className="text-xl font-black">{info?.org_name ?? 'شركة جزيرة الأكارم'}</h1>
+          </div>
         </div>
         <p className="whitespace-pre-wrap p-5 text-sm leading-8 text-slate-700">{info?.about}</p>
       </div>
-      <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <h2 className="flex items-center gap-2 text-base font-black"><Phone size={18} className="text-[#0b4f8a]" /> أرقام التواصل</h2>
+      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 className="flex items-center gap-2 text-base font-black text-slate-800"><Phone size={18} style={{ color: NAVY_SOFT }} /> أرقام التواصل الرسمية</h2>
         {!info?.phones?.length && <p className="mt-2 text-sm text-slate-500">ستُضاف أرقام التواصل قريباً — يمكنك استخدام الدعم الفني المباشر.</p>}
         <ul className="mt-3 divide-y divide-slate-100">
-          {info?.phones?.map((p, i) => <li key={i} className="flex items-center justify-between py-2 text-sm"><span className="font-bold">{p.label}</span><a href={`tel:${p.number}`} dir="ltr" className="font-black text-[#0b4f8a]">{p.number}</a></li>)}
+          {info?.phones?.map((p, i) => (
+            <li key={i} className="flex items-center justify-between py-2.5 text-sm">
+              <span className="font-bold text-slate-700">{p.label}</span>
+              <a href={`tel:${p.number}`} dir="ltr" className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-3 py-1.5 font-black ring-1 ring-slate-200" style={{ color: NAVY }}><Phone size={13} /> {p.number}</a>
+            </li>
+          ))}
         </ul>
-        <p className="mt-3 flex items-center gap-2 text-xs text-slate-600"><Clock size={14} /> {info?.hours}</p>
-        {info?.address && <p className="mt-1 flex items-center gap-2 text-xs text-slate-600"><MapPin size={14} /> {info.address}</p>}
+        <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+          <p className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100"><Clock size={14} style={{ color: GOLD }} /> {info?.hours || 'ساعات العمل تُحدَّث قريباً'}</p>
+          {info?.address && <p className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100"><MapPin size={14} style={{ color: GOLD }} /> {info.address}</p>}
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+        <img src="/icons/logo.png" alt="شركة جزيرة الأكارم" className="h-12 w-12 object-contain" />
+        <img src="/icons/baghdad-municipality.png" alt="أمانة بغداد" className="h-12 w-12 object-contain" />
+        <img src="/icons/alliance.png" alt="" className="h-12 w-12 object-contain" />
       </div>
     </section>
   )
