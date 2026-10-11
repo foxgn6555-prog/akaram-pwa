@@ -22,47 +22,97 @@ const labels = {
   parked: 'متوقفة والمحرك مطفأ',
   unknown: 'غير معروفة',
 }
-function collectPoints(rows: GpsLiveDevice[], landmarks: GpsMapLandmark[]) {
+/**
+ * 00212 — إطار الخريطة الافتراضي:
+ *  1) الزونات أولاً (منطقة العمل الفعلية)، 2) وإلا الآليات/المعالم داخل نطاق العراق فقط.
+ *  إحداثيات شاذة (0,0 أو خارج العراق — أجهزة بلا إشارة GPS) كانت توسّع الإطار ليشمل أفريقيا كلها.
+ *  3) آخر إطار يختاره المستخدم يُحفظ في sessionStorage ويُستعاد بعد تحديث الصفحة.
+ */
+const IRAQ = { minLat: 28.5, maxLat: 38.0, minLng: 38.0, maxLng: 49.5 }
+export const isPlausiblePoint = (lat: number, lng: number) =>
+  Number.isFinite(lat) && Number.isFinite(lng) && !(Math.abs(lat) < 0.01 && Math.abs(lng) < 0.01) &&
+  lat >= IRAQ.minLat && lat <= IRAQ.maxLat && lng >= IRAQ.minLng && lng <= IRAQ.maxLng
+const zonePoint = (pt: GpsMapGeofence['polygon'][number]): [number, number] =>
+  Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng]
+export function collectPoints(rows: GpsLiveDevice[], landmarks: GpsMapLandmark[], zones: GpsMapGeofence[] = []) {
+  const zonePts = zones.flatMap((z) => (z.polygon ?? []).map(zonePoint)).filter(([a, b]) => isPlausiblePoint(a, b))
+  if (zonePts.length) return zonePts
   return [
     ...rows.map((row) => [row.latitude, row.longitude] as [number, number]),
     ...landmarks.map((landmark) => [landmark.latitude, landmark.longitude] as [number, number]),
-  ]
+  ].filter(([a, b]) => isPlausiblePoint(a, b))
+}
+const VIEW_KEY = 'gps-live-map:view'
+type SavedView = { lat: number; lng: number; zoom: number }
+export const readSavedView = (): SavedView | null => {
+  try {
+    const raw = sessionStorage.getItem(VIEW_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw) as SavedView
+    return isPlausiblePoint(v.lat, v.lng) && Number.isFinite(v.zoom) ? v : null
+  } catch {
+    return null
+  }
 }
 // ملاءمة الإطار مرة واحدة فقط عند أول وصول للبيانات — تحدّثات المزامنة
 // اللاحقة لا تحرّك الشاشة؛ المستخدم يستعيدها يدوياً بزر «ملاءمة العرض».
 function Fit({
   rows,
   landmarks,
+  zones,
   fitSignal,
 }: {
   rows: GpsLiveDevice[]
   landmarks: GpsMapLandmark[]
+  zones: GpsMapGeofence[]
   fitSignal: number
 }) {
   const map = useMap()
-  const dataRef = useRef({ rows, landmarks })
-  dataRef.current = { rows, landmarks }
-  const fittedOnce = useRef(false)
+  const dataRef = useRef({ rows, landmarks, zones })
+  dataRef.current = { rows, landmarks, zones }
+  const fittedOnce = useRef(Boolean(readSavedView()))   // إطار محفوظ من قبل ⇒ لا ملاءمة تلقائية
+  const fittedWithZones = useRef(false)
+  const firstFitAt = useRef(0)
   useEffect(() => {
-    if (fittedOnce.current) return
-    const points = collectPoints(rows, landmarks)
+    const hasZones = zones.some((z) => (z.polygon ?? []).length > 0)
+    // الآليات تصل قبل الزونات أحياناً: نسمح بملاءمة ثانية واحدة عند وصول الزونات خلال 15 ثانية من الأولى
+    const zoneRefit = fittedOnce.current && hasZones && !fittedWithZones.current && firstFitAt.current > 0 && Date.now() - firstFitAt.current < 15_000
+    if (fittedOnce.current && !zoneRefit) return
+    const points = collectPoints(rows, landmarks, zones)
     if (!points.length) return
+    if (!fittedOnce.current) firstFitAt.current = Date.now()
     fittedOnce.current = true
+    if (hasZones) fittedWithZones.current = true
     map.fitBounds(L.latLngBounds(points), {
       padding: [30, 30],
       maxZoom: 16,
     })
-  }, [landmarks, map, rows])
+  }, [landmarks, map, rows, zones])
   // زر الملاءمة فقط — تحديثات المزامنة لا تحرّك الخريطة أبداً
   useEffect(() => {
     if (!fitSignal) return
-    const points = collectPoints(dataRef.current.rows, dataRef.current.landmarks)
+    const points = collectPoints(dataRef.current.rows, dataRef.current.landmarks, dataRef.current.zones)
     if (points.length)
       map.fitBounds(L.latLngBounds(points), {
         padding: [30, 30],
         maxZoom: 16,
       })
   }, [fitSignal, map])
+  // حفظ الإطار الحالي عند كل تحريك/تكبير من المستخدم
+  useEffect(() => {
+    const save = () => {
+      const c = map.getCenter()
+      try {
+        sessionStorage.setItem(VIEW_KEY, JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() }))
+      } catch {
+        /* تخزين غير متاح */
+      }
+    }
+    map.on('moveend', save)
+    return () => {
+      map.off('moveend', save)
+    }
+  }, [map])
   return null
 }
 function InvalidateSize({ dep }: { dep: unknown }) {
@@ -101,6 +151,7 @@ export default function GpsLiveMap({
   landmarks: GpsMapLandmark[]
 }) {
   const [tileFailed, setTileFailed] = useState(false)
+  const [saved] = useState(readSavedView)   // 00212: استعادة آخر إطار بعد تحديث الصفحة
   const [fitSignal, setFitSignal] = useState(0)
   const [full, setFull] = useState(false)
   const [layers, setLayers] = useState({ vehicles: true, zones: true, landmarks: true })
@@ -168,8 +219,8 @@ export default function GpsLiveMap({
         </div>
       )}
       <MapContainer
-        center={[33.3152, 44.3661]}
-        zoom={11}
+        center={saved ? [saved.lat, saved.lng] : [33.3152, 44.3661]}
+        zoom={saved?.zoom ?? 11}
         className={full ? 'h-full w-full' : 'h-[65vh] min-h-[460px] w-full'}
       >
         <TileLayer
@@ -251,7 +302,7 @@ export default function GpsLiveMap({
               </Popup>
             </Marker>
           ))}
-        <Fit rows={rows} landmarks={landmarks} fitSignal={fitSignal} />
+        <Fit rows={rows} landmarks={landmarks} zones={zones} fitSignal={fitSignal} />
         <InvalidateSize dep={full} />
       </MapContainer>
     </div>
