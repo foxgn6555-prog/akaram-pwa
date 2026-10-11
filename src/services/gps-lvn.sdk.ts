@@ -756,24 +756,52 @@ export const gpsLvn = {
     const { data, error } = await supabase.functions.invoke<GpsSyncResult>('lvn-gps-sync', {
       body: { action },
     })
-    if (error) throw error
-    if (!data?.ok) throw new Error('LVN_SYNC_FAILED')
+    if (error) throw await toLvnError(error)
+    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_SYNC_FAILED')
     return data
   },
   importDayHistory: async (deviceId: string, day: string) => {
     const { data, error } = await supabase.functions.invoke<GpsSyncResult>('lvn-gps-sync', {
       body: { action: 'history', deviceId, day },
     })
-    if (error) throw error
-    if (!data?.ok) throw new Error('LVN_HISTORY_SYNC_FAILED')
+    if (error) throw await toLvnError(error)
+    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_HISTORY_SYNC_FAILED')
     return data
   },
   importDepartureHistory: async (departureId: string, windowIndex = 0) => {
     const { data, error } = await supabase.functions.invoke<GpsSyncResult>('lvn-gps-sync', {
       body: { action: 'history', departureId, windowIndex },
     })
-    if (error) throw error
-    if (!data?.ok) throw new Error('LVN_HISTORY_SYNC_FAILED')
+    if (error) throw await toLvnError(error)
+    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_HISTORY_SYNC_FAILED')
     return data
   },
+}
+
+/**
+ * 00210 — خطأ مزامنة LVN يحمل رمز الدالة الخادمية (مثل LVN_LOGIN_REJECTED) بدل
+ * «Edge Function returned a non-2xx status code»: FunctionsHttpError يضع الاستجابة
+ * غير المقروءة في error.context، ونقرأ منها { error: 'CODE' }.
+ */
+export class LvnSyncError extends Error {
+  readonly code: string
+  constructor(code: string, cause?: unknown) {
+    super(code)
+    this.name = 'LvnSyncError'
+    this.code = code
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause
+  }
+}
+async function toLvnError(error: unknown): Promise<LvnSyncError> {
+  if (error instanceof LvnSyncError) return error
+  const context = (error as { context?: Response }).context
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = (await context.json()) as { error?: string }
+      if (body?.error) return new LvnSyncError(String(body.error), error)
+    } catch {
+      /* الجسم ليس JSON — نستخدم الرسالة العامة */
+    }
+  }
+  return new LvnSyncError((error as { message?: string })?.message ?? 'LVN_SYNC_FAILED', error)
 }

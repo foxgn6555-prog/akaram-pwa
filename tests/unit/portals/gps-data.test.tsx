@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
+  runs: [] as unknown[],
   sync: vi.fn(),
   bind: vi.fn(),
   unbind: vi.fn(),
@@ -245,7 +246,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   }),
   useGpsDevices: () => ({ data: [device], isLoading: false, isFetching: false }),
   useGpsOptions: () => ({ data: { owners: ['البلدية'], models: ['LVN-X'], drivers: ['أحمد'] } }),
-  useGpsSyncRuns: () => ({ data: [] }),
+  useGpsSyncRuns: () => ({ data: h.runs }),
   useGpsSync: () => ({ mutate: h.sync, isPending: false }),
   useGpsBind: () => ({ mutate: h.bind, isPending: false }),
   useGpsUnbind: () => ({ mutate: h.unbind, isPending: false }),
@@ -276,6 +277,20 @@ describe('بيانات LVN GPS', () => {
     expect(screen.getByLabelText('حالة الانطلاقة')).toBeInTheDocument()
     expect(screen.getByLabelText('المدار / الزون')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'المسار' }).length).toBeGreaterThan(0)
+  })
+  it('00210: آخر فشل مزامنة يُشرح بالعربية (العنوان/السبب/الإجراء) ويظهر في عمود الخطأ بدل الرمز الخام', () => {
+    h.runs = [
+      { id: 'r1', sync_type: 'incremental', status: 'failed', started_at: '2026-10-11T15:21:00Z', finished_at: '2026-10-11T15:21:01Z', pages_count: 0, received_count: 0, inserted_count: 0, updated_count: 0, error_code: 'LVN_LOGIN_REJECTED' },
+    ]
+    render(<GpsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: /سلامة التكامل/ }))
+    const box = screen.getByTestId('lvn-error-explain')
+    expect(box).toHaveAttribute('data-kind', 'credentials')
+    expect(box).toHaveTextContent('شركة GPS رفضت بيانات الدخول')
+    expect(box).toHaveTextContent('LVN_API_EMAIL')
+    expect(box).toHaveTextContent('LVN_LOGIN_REJECTED')
+    expect(screen.getAllByText(/رفضت بيانات الدخول/).length).toBeGreaterThanOrEqual(2)
+    h.runs = []
   })
   it('يوفر فحص التكامل والمزامنة والربط', () => {
     render(<GpsDataPage />)

@@ -90,6 +90,7 @@ import type {
   GpsZoneEvent,
 } from '@sdk/gps-lvn.sdk'
 import { exportGpsAlerts, exportGpsTrips } from '@features/gps-lvn/export'
+import { explainLvnError } from '@features/gps-lvn/lvn-errors'
 import { useUiStore } from '@stores/ui.store'
 import type { ZoneShape } from './ZoneMapEditor'
 import { LandmarkGlyph, landmarkIconLabels } from './LandmarkIcon'
@@ -2661,6 +2662,25 @@ function IntegrationWorkspace({
             <PipelineStep label="قاعدة المسارات" ok={Boolean(dashboard?.last_full_sync_at)} />
           </div>
         </article>
+        {(() => {
+          // 00210: آخر خطأ مزامنة مشروحاً بالعربية — نأخذه من آخر تشغيل فاشل، أو من حالة المزوّد
+          const lastFailed = (runs ?? []).find((r) => r.status === 'failed' && r.error_code)
+          const code = lastFailed?.error_code ?? dashboard?.last_error_code ?? null
+          if (!code) return null
+          const e = explainLvnError(code)
+          const tone = e.kind === 'credentials' ? 'border-rose-300 bg-rose-50' : e.kind === 'busy' ? 'border-amber-200 bg-amber-50' : 'border-orange-200 bg-orange-50'
+          return (
+            <article data-testid="lvn-error-explain" data-kind={e.kind} className={`rounded-[1.75rem] border p-4 text-xs shadow-sm ${tone}`}>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-black text-slate-900">{e.title}</h3>
+                <code className="shrink-0 rounded-lg bg-white/80 px-2 py-0.5 text-[10px] font-bold text-rose-700" dir="ltr">{e.code}</code>
+              </div>
+              <p className="mt-2 leading-5 text-slate-700"><span className="font-black">السبب:</span> {e.cause}</p>
+              <p className="mt-1 leading-5 text-slate-700"><span className="font-black">الإجراء:</span> {e.action}</p>
+              <p className="mt-1 text-[10px] text-slate-500">الجهة المعنية: {e.owner}{lastFailed ? ` · آخر فشل: ${fmt(lastFailed.started_at)}` : ''}</p>
+            </article>
+          )
+        })()}
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={onTest}
@@ -2766,7 +2786,14 @@ function IntegrationWorkspace({
                   <td className="p-3">
                     {run.inserted_count} / {run.updated_count}
                   </td>
-                  <td className="p-3 text-rose-700">{run.error_code ?? '—'}</td>
+                  <td className="p-3 text-rose-700">
+                    {run.error_code ? (
+                      <span title={explainLvnError(run.error_code).cause}>
+                        <span className="font-bold">{explainLvnError(run.error_code).title}</span>
+                        <span className="mr-1 text-[10px] text-slate-500" dir="ltr">({run.error_code})</span>
+                      </span>
+                    ) : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

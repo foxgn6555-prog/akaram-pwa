@@ -252,4 +252,13 @@ describe('LVN GPS SDK', () => {
       body: { action: 'history', departureId: 'trip-1', windowIndex: 2 },
     })
   })
+  it('00210: فشل الدالة الخادمية يُترجَم إلى رمز LVN من جسم الاستجابة بدل رسالة non-2xx', async () => {
+    const body = { error: 'LVN_LOGIN_REJECTED' }
+    h.invoke.mockResolvedValueOnce({ data: null, error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code', context: { json: async () => body } } })
+    await expect(gpsLvn.sync('test')).rejects.toMatchObject({ name: 'LvnSyncError', code: 'LVN_LOGIN_REJECTED', message: 'LVN_LOGIN_REJECTED' })
+    h.invoke.mockResolvedValueOnce({ data: { ok: false, error: 'LVN_FULL_SYNC_REQUIRED' }, error: null })
+    await expect(gpsLvn.sync('incremental')).rejects.toMatchObject({ code: 'LVN_FULL_SYNC_REQUIRED' })
+    h.invoke.mockResolvedValueOnce({ data: null, error: { message: 'Failed to send a request to the Edge Function' } })
+    await expect(gpsLvn.sync('test')).rejects.toMatchObject({ code: 'Failed to send a request to the Edge Function' })
+  })
 })

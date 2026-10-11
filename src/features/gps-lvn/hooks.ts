@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { lvnErrorToast } from './lvn-errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   gpsLvn,
@@ -527,8 +528,10 @@ export function useGpsSync() {
             : `اكتملت المزامنة: ${data.received ?? 0} جهاز مستلم، ${data.inserted ?? 0} جديد`,
       })
     },
-    onError: (error) =>
-      toast({ type: 'error', message: handleAppError(error, { scope: 'gpsLvnSync' }).message }),
+    onError: (error) => {
+      handleAppError(error, { scope: 'gpsLvnSync' })
+      toast({ type: 'error', message: lvnErrorToast((error as { code?: string; message?: string }).code ?? (error as Error).message) })
+    },
   })
 }
 export function useGpsBind() {
