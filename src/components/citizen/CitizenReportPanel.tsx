@@ -9,7 +9,7 @@ export function CitizenReportPanel({ from, to }: { from: string; to: string }) {
   const { data: r, isLoading, error } = useCitizenReport(from, to)
   if (isLoading) return <LoadingSpinner />
   if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">تعذر تحميل تقرير شكاوى المواطنين</p>
-  if (!r) return null
+  if (!r?.complaints || !r.support) return null
   const c = r.complaints; const s = r.support
   const resolvedPct = c.total ? Math.round((c.resolved / c.total) * 100) : 0
   return (

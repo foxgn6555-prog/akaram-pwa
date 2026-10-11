@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
-import { Icon } from '@components/ui/Icon/Icon'
+import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import {
   buildDecisions, buildExecSheets, buildInsights, downloadExecWorkbook, fmtNum, healthScore, insightsFor, label, periodLabel, PORTAL_TITLES, presetRange, REPORT_SECTIONS, REPORT_TYPES, reportKindLabel, scopeOf, SECTION_HINTS,
   useExecFilterOptions, useExecOverview, type Decision, type ExecFilters, type ExecOverview, type ExecPortalKind, type ExecScope, type Insight, type PeriodPreset, type SectionKey,
@@ -59,15 +59,30 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
   const exportExcel = async () => { if (!data) return; setExporting(true); try { await downloadExecWorkbook(data, allInsights, prev, `${fileBase}.xlsx`, scopeOf(kind), PORTAL_TITLES[kind].who) } finally { setExporting(false) } }
   const printPdf = () => { const t = document.title; document.title = fileBase; window.print(); document.title = t }
 
+  /** تقرير بنقرة واحدة: الفترة + كل الأقسام + المعاينة مباشرة */
+  const quick = (p: PeriodPreset) => { setFilters({ ...filters, preset: p, ...presetRange(p) }); setSections(new Set(sectionsDef.map((x) => x.key))); setStep(2) }
+  const QUICK: Array<{ key: PeriodPreset; label: string; icon: IconName }> = [{ key: 'today', label: 'تقرير اليوم', icon: 'calendar' }, { key: 'week', label: 'آخر 7 أيام', icon: 'activity' }, { key: 'month', label: 'هذا الشهر', icon: 'bar-chart' }, { key: 'prev_month', label: 'الشهر الماضي', icon: 'archive-box' }]
+
   const groups = new Map<string, NonNullable<typeof options>['sectors']>()
   for (const s of options?.sectors ?? []) { const g = groups.get(s.parent) ?? []; g.push(s); groups.set(s.parent, g) }
 
   return (
     <div className="space-y-3" data-testid="exec-reports" data-kind={kind} data-step={step + 1}>
       <style>{PRINT_CSS}</style>
-      <header className="print:hidden">
-        <h1 className="text-lg font-black sm:text-xl">{kind === 'finance' ? 'التقارير المالية' : 'التقارير الجاهزة'}</h1>
-        <p className="text-xs text-slate-500">{kind === 'finance' ? 'الرواتب والاستقطاعات والإنفاق والموازنة — بيانات مالية فقط' : 'تقارير الشركة كاملة — بيانات وعمليات فقط، بلا أي شيء تقني'}</p>
+      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#0b3d6b] via-[#0b4f8a] to-[#0a2f52] p-4 text-white shadow-lg print:hidden sm:rounded-3xl sm:p-5" data-testid="reports-header">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-[#c9a227] via-[#f3d06a] to-[#c9a227]" /><div className="pointer-events-none absolute -bottom-20 left-1/4 h-56 w-56 rounded-full bg-[#c9a227]/10" />
+        <div className="relative flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25"><Icon name="file-text" size={22} className="text-[#f3d06a]" /></span>
+          <div className="min-w-0"><h1 className="text-lg font-black sm:text-xl">{kind === 'finance' ? 'التقارير المالية' : 'التقارير الجاهزة'}</h1><p className="text-[11px] text-blue-100/90">{kind === 'finance' ? 'الرواتب والاستقطاعات والإنفاق والموازنة — بيانات مالية فقط' : 'تقرير رسمي كامل بغلاف وموجز تنفيذي — Excel متعدد الأوراق أو PDF ملوّن'}</p></div>
+        </div>
+        {step === 0 && (
+          <div className="relative mt-4">
+            <p className="mb-2 text-[11px] font-bold text-[#f3d06a]">تقرير بنقرة واحدة — كل الأقسام ومقارنة بالفترة السابقة</p>
+            <div className="grid grid-cols-4 gap-2 sm:flex" data-testid="quick-reports">
+              {QUICK.map((q) => <button key={q.key} type="button" onClick={() => quick(q.key)} data-testid={`quick-${q.key}`} className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white/10 px-2 py-2 text-[11px] font-black text-white ring-1 ring-white/25 transition hover:bg-white sm:h-9 sm:flex-row sm:px-3 sm:text-xs hover:text-[#0b3d6b]"><Icon name={q.icon} size={16} className="text-[#c9a227]" /><span className="truncate">{q.label}</span></button>)}
+            </div>
+          </div>
+        )}
       </header>
       <Stepper steps={STEPS} current={step} onGo={setStep} />
 
@@ -120,16 +135,22 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
       {/* ── الخطوة ٣ ── */}
       {step === 2 && (
         <div className="space-y-3" data-testid="wizard-step-3">
-          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between print:hidden" data-testid="export-bar">
+          <div className="sticky top-0 z-10 flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-md backdrop-blur print:hidden sm:flex-row sm:items-center sm:justify-between" data-testid="export-bar">
             <div className="min-w-0 text-xs"><p className="font-black text-slate-800">{fileBase}</p><p className="text-slate-500">{chosen.length} قسم{compare ? ' · مع مقارنة' : ''}{filters.sector ? ` · قاطع ${filters.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p></div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <button type="button" onClick={exportExcel} disabled={!data || exporting} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white shadow hover:bg-emerald-700 disabled:opacity-50" data-testid="export-excel"><Icon name="file-spreadsheet" size={14} />{exporting ? 'جارٍ التصدير…' : 'تنزيل Excel'}</button>
               <button type="button" onClick={printPdf} disabled={!data} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-slate-900 px-4 text-xs font-black text-white shadow hover:bg-slate-800 disabled:opacity-50" data-testid="export-pdf"><Icon name="printer" size={14} />PDF / طباعة</button>
             </div>
           </div>
+          {data && chosen.length > 1 && (
+            <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] print:hidden" aria-label="أقسام التقرير" data-testid="rep-nav">
+              <a href="#rep-brief" className="shrink-0 rounded-full bg-[#0b3d6b] px-3 py-1 text-[11px] font-black text-white">الموجز</a>
+              {chosen.map((s, i) => <a key={s.key} href={`#rep-sec-${s.key}`} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:border-[#0b3d6b]">{i + 1}. {s.label}</a>)}
+            </nav>
+          )}
           {isLoading && <LoadingSpinner />}
           {data && (
-            <div id="exec-report" className="exec-formal space-y-4">
+            <div id="exec-report" className="exec-formal space-y-4 scroll-smooth">
               <Cover o={data} orgName={orgName} kind={kind} sections={chosen.map((s) => s.label)} compare={compare} />
               <Brief o={data} p={prev} insights={insights} kind={kind} />
               <ol className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm print:break-after-page" data-testid="rep-toc">
@@ -139,10 +160,10 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
                 <li className="flex justify-between py-1"><span>المصادقات</span><span className="text-slate-400">إعداد · تدقيق · اعتماد</span></li>
               </ol>
               {chosen.map((s, i) => (
-                <section key={s.key} className="exec-section space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" data-testid={`rep-sec-${s.key}`}>
-                  <header className="border-b-2 border-slate-900 pb-2">
+                <section key={s.key} id={`rep-sec-${s.key}`} className="exec-section scroll-mt-24 space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" data-testid={`rep-sec-${s.key}`}>
+                  <header className="border-b-2 border-[#0b3d6b] pb-2">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">القسم {i + 1} من {chosen.length}</p>
-                    <h2 className="flex items-center gap-2 text-base font-black text-slate-900"><span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-900 text-xs text-white">{i + 1}</span>{s.label}</h2>
+                    <h2 className="flex items-center gap-2 text-base font-black text-slate-900"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#0b3d6b] text-xs text-[#f3d06a]">{i + 1}</span>{s.label}</h2>
                     <p className="text-[11px] text-slate-500">{SECTION_HINTS[s.key]}</p>
                   </header>
                   <SectionBody k={s.key} o={data} p={prev} insights={insights} compare={compare} kind={kind} />
@@ -204,25 +225,32 @@ function Nav({ onPrev, onNext, nextDisabled, nextLabel = 'التالي' }: { onP
 function Cover({ o, orgName, kind, sections, compare }: { o: ExecOverview; orgName: string; kind: ExecPortalKind; sections: string[]; compare: boolean }) {
   const title = `${reportKindLabel(o.period.from, o.period.to)}${kind === 'finance' ? ' — مالي' : ''}`
   return (
-    <div className="exec-cover rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10" data-testid="rep-cover">
-      <div className="flex items-center justify-between border-b-4 border-slate-900 pb-4">
-        <div><p className="text-lg font-black text-slate-900">{orgName}</p><p className="text-xs text-slate-500">{PORTAL_TITLES[kind].who} — تقرير دوري</p></div>
-        <img src="/icons/logo.png" alt="" className="h-14 w-14 rounded-xl object-contain" />
+    <div className="exec-cover overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" data-testid="rep-cover">
+      <div className="relative bg-gradient-to-l from-[#0b3d6b] via-[#0b4f8a] to-[#0a2f52] p-6 text-white sm:p-10">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-l from-[#c9a227] via-[#f3d06a] to-[#c9a227]" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-white/5" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div><p className="text-lg font-black">{orgName}</p><p className="text-xs text-blue-100">{PORTAL_TITLES[kind].who} — تقرير دوري</p></div>
+          <img src="/icons/logo.png" alt="" className="h-14 w-14 rounded-xl bg-white/90 object-contain p-1" />
+        </div>
+        <div className="relative py-10 text-center sm:py-16">
+          <p className="text-xs font-bold tracking-widest text-[#f3d06a]">تقرير رسمي</p>
+          <h1 className="mt-3 text-3xl font-black sm:text-5xl" data-testid="rep-cover-title">{title}</h1>
+          <p className="mt-3 text-base font-bold text-blue-50 sm:text-xl">{periodLabel(o.period.from, o.period.to)}</p>
+          {(o.period.sector || o.period.shift) && <p className="mt-1 text-sm text-blue-100">{o.period.sector ? `قاطع ${o.period.sector}` : ''}{o.period.sector && o.period.shift ? ' · ' : ''}{o.period.shift ? `شفت ${label(o.period.shift)}` : ''}</p>}
+          <span className="mx-auto mt-5 block h-1 w-24 rounded-full bg-[#c9a227]" />
+        </div>
       </div>
-      <div className="py-10 text-center sm:py-16">
-        <p className="text-xs font-bold tracking-widest text-amber-600">تقرير رسمي</p>
-        <h1 className="mt-3 text-3xl font-black text-slate-900 sm:text-5xl" data-testid="rep-cover-title">{title}</h1>
-        <p className="mt-3 text-base font-bold text-slate-700 sm:text-xl">{periodLabel(o.period.from, o.period.to)}</p>
-        {(o.period.sector || o.period.shift) && <p className="mt-1 text-sm text-slate-500">{o.period.sector ? `قاطع ${o.period.sector}` : ''}{o.period.sector && o.period.shift ? ' · ' : ''}{o.period.shift ? `شفت ${label(o.period.shift)}` : ''}</p>}
+      <div className="p-6 sm:p-10">
+        <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-4">
+          <div><dt className="text-slate-500">أُعدّ لـ</dt><dd className="font-black text-slate-800">{PORTAL_TITLES[kind].who}</dd></div>
+          <div><dt className="text-slate-500">تاريخ الإصدار</dt><dd className="font-black text-slate-800">{new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</dd></div>
+          <div><dt className="text-slate-500">المقارنة</dt><dd className="font-black text-slate-800">{compare ? 'مع الفترة السابقة المكافئة' : 'بلا مقارنة'}</dd></div>
+          <div><dt className="text-slate-500">عدد الأقسام</dt><dd className="font-black text-slate-800">{sections.length}</dd></div>
+          <div className="col-span-2 sm:col-span-4"><dt className="text-slate-500">الأقسام</dt><dd className="font-bold text-slate-700">{sections.join(' · ')}</dd></div>
+        </dl>
+        <p className="mt-4 text-center text-[10px] text-slate-400">سرّي — للاستعمال الداخلي · الأرقام مستخرجة آلياً من سجلات المنصة بتاريخ {new Date(o.period.generated_at).toLocaleString('ar-IQ-u-nu-latn')}</p>
       </div>
-      <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-xs sm:grid-cols-4">
-        <div><dt className="text-slate-500">أُعدّ لـ</dt><dd className="font-black text-slate-800">{PORTAL_TITLES[kind].who}</dd></div>
-        <div><dt className="text-slate-500">تاريخ الإصدار</dt><dd className="font-black text-slate-800">{new Date().toLocaleDateString('ar-IQ-u-nu-latn')}</dd></div>
-        <div><dt className="text-slate-500">المقارنة</dt><dd className="font-black text-slate-800">{compare ? 'مع الفترة السابقة المكافئة' : 'بلا مقارنة'}</dd></div>
-        <div><dt className="text-slate-500">عدد الأقسام</dt><dd className="font-black text-slate-800">{sections.length}</dd></div>
-        <div className="col-span-2 sm:col-span-4"><dt className="text-slate-500">الأقسام</dt><dd className="font-bold text-slate-700">{sections.join(' · ')}</dd></div>
-      </dl>
-      <p className="mt-4 text-center text-[10px] text-slate-400">سرّي — للاستعمال الداخلي · الأرقام مستخرجة آلياً من سجلات المنصة بتاريخ {new Date(o.period.generated_at).toLocaleString('ar-IQ-u-nu-latn')}</p>
     </div>
   )
 }
@@ -235,7 +263,7 @@ function Brief({ o, p, insights, kind }: { o: ExecOverview; p: ExecOverview | nu
   const decisions: Decision[] = kind === 'finance' ? buildDecisions(o).filter((d) => d.icon === 'wallet') : buildDecisions(o)
   const health = healthScore(o)
   return (
-    <section className="exec-brief space-y-3 rounded-2xl border-2 border-slate-900 bg-white p-3 shadow-sm sm:p-4" data-testid="rep-brief">
+    <section id="rep-brief" className="exec-brief scroll-mt-24 space-y-3 rounded-2xl border-2 border-[#0b3d6b] bg-white p-3 shadow-sm sm:p-4" data-testid="rep-brief">
       <header className="flex items-start justify-between gap-3 border-b-2 border-slate-900 pb-2">
         <div><p className="text-[10px] font-bold tracking-wide text-slate-500">صفحة القرار</p><h2 className="text-base font-black text-slate-900">الموجز التنفيذي</h2><p className="text-[11px] text-slate-500">ما يلزم معرفته في دقيقة واحدة — التفاصيل في الأقسام المرقّمة</p></div>
         {kind !== 'finance' && <HealthGauge {...health} compact />}

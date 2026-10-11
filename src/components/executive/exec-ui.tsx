@@ -309,16 +309,20 @@ export function Collapsible({ title, children, defaultOpen = false, testId }: { 
 }
 
 /** شريط تبويبات: قابل للتمرير أفقياً على الهاتف، لاصق أسفل رأس الصفحة، يحفظ التبويب في hash الرابط */
-export function Tabs<K extends string>({ tabs, value, onChange, testId = 'tabs' }: { tabs: ReadonlyArray<{ key: K; label: string; badge?: string | number }>; value: K; onChange: (k: K) => void; testId?: string }) {
+export function Tabs<K extends string>({ tabs, value, onChange, testId = 'tabs' }: { tabs: ReadonlyArray<{ key: K; label: string; badge?: string | number; icon?: IconName }>; value: K; onChange: (k: K) => void; testId?: string }) {
   return (
     <div className="sticky top-0 z-10 -mx-1 bg-slate-50/95 px-1 py-1 backdrop-blur print:hidden" data-testid={testId}>
-      <div role="tablist" className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-        {tabs.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={value === t.key} onClick={() => onChange(t.key)} data-testid={`tab-${t.key}`}
-            className={clsx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition', value === t.key ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:bg-slate-100')}>
-            {t.label}{t.badge !== undefined && t.badge !== 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', value === t.key ? 'bg-white/20' : 'bg-slate-100 text-slate-600')}>{t.badge}</span>}
-          </button>
-        ))}
+      <div role="tablist" className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-sm [scrollbar-width:none]">
+        {tabs.map((t) => {
+          const active = value === t.key
+          return (
+            <button key={t.key} type="button" role="tab" aria-selected={active} onClick={() => onChange(t.key)} data-testid={`tab-${t.key}`}
+              className={clsx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition', active ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600 hover:bg-slate-100')}>
+              {t.icon && <Icon name={t.icon} size={14} className={active ? 'text-[#f3d06a]' : 'text-slate-400'} />}
+              {t.label}{t.badge !== undefined && t.badge !== 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', active ? 'bg-[#c9a227] text-slate-900' : 'bg-red-100 text-red-700')}>{t.badge}</span>}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -327,20 +331,28 @@ export function Tabs<K extends string>({ tabs, value, onChange, testId = 'tabs' 
 /** خطوات المعالج */
 export function Stepper({ steps, current, onGo, testId = 'stepper' }: { steps: string[]; current: number; onGo?: (i: number) => void; testId?: string }) {
   return (
-    <ol className="flex items-center gap-1 sm:gap-2 print:hidden" data-testid={testId}>
-      {steps.map((s, i) => {
-        const state = i < current ? 'done' : i === current ? 'current' : 'todo'
-        return (
-          <li key={s} className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-            <button type="button" disabled={i > current || !onGo} onClick={() => onGo?.(i)} data-testid={`step-${i + 1}`} data-state={state}
-              className={clsx('flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-2 py-1.5 text-right sm:px-3', state === 'current' ? 'border-slate-900 bg-slate-900 text-white' : state === 'done' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-400')}>
-              <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', state === 'current' ? 'bg-white text-slate-900' : state === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-100')}>{state === 'done' ? '✓' : i + 1}</span>
-              <span className="truncate text-[11px] font-bold sm:text-xs">{s}</span>
-            </button>
-            {i < steps.length - 1 && <span className="hidden h-px w-4 bg-slate-300 sm:block" />}
-          </li>
-        )
-      })}
-    </ol>
+    <div className="print:hidden" data-testid={testId}>
+      {/* الهاتف: شريط تقدّم مضغوط */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:hidden" data-testid="stepper-compact">
+        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500"><span>الخطوة {current + 1} من {steps.length}</span><span className="text-[#0b3d6b]">{steps[current]}</span></div>
+        <div className="mt-2 flex gap-1">{steps.map((s, i) => <button key={s} type="button" aria-label={s} disabled={i > current || !onGo} onClick={() => onGo?.(i)} className={clsx('h-1.5 flex-1 rounded-full transition', i < current ? 'bg-emerald-500' : i === current ? 'bg-[#0b4f8a]' : 'bg-slate-200')} />)}</div>
+      </div>
+      {/* الشاشات الواسعة */}
+      <ol className="hidden items-center gap-2 sm:flex">
+        {steps.map((s, i) => {
+          const state = i < current ? 'done' : i === current ? 'current' : 'todo'
+          return (
+            <li key={s} className="flex min-w-0 flex-1 items-center gap-2">
+              <button type="button" disabled={i > current || !onGo} onClick={() => onGo?.(i)} data-testid={`step-${i + 1}`} data-state={state}
+                className={clsx('flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-3 py-1.5 text-right', state === 'current' ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white' : state === 'done' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-400')}>
+                <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', state === 'current' ? 'bg-[#c9a227] text-slate-900' : state === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-100')}>{state === 'done' ? '✓' : i + 1}</span>
+                <span className="truncate text-xs font-bold">{s}</span>
+              </button>
+              {i < steps.length - 1 && <span className="h-px w-4 bg-slate-300" />}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }

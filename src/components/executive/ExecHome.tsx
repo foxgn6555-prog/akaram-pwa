@@ -6,17 +6,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
-import { Icon } from '@components/ui/Icon/Icon'
+import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import {
   attendanceRate, buildDecisions, buildInsights, fmtInt, fmtMoney, fmtNum, healthScore, HOME_TABS, insightsFor, insightsForTab, label, pct, periodLabel, PORTAL_TITLES, presetRange,
   useExecFilterOptions, useExecOverview, type ExecFilters, type ExecOverview, type ExecPortalKind, type HomeTab, type HomeTabKey, type Insight,
 } from '@features/executive'
 import { ExecFilterBar } from './ExecFilterBar'
-import { DecisionItem, HealthGauge, InsightList, Kpi, Panel, ScoreCard, SectionTitle, Tabs } from './exec-ui'
+import { DecisionItem, HealthGauge, InsightList, Kpi, Panel, ScoreCard, SectionTitle, Sparkline, Tabs } from './exec-ui'
 import { BudgetPanel, ComplaintsPanel, DisclosuresPanel, FinanceBriefPanel, FleetPanel, PayrollPanel, SectorsPanel, SpendPanel, StationPanel, SuppliesPanel, SupportPanel, WorkforcePanel } from './ExecPanels'
 export type { ExecPortalKind }
 
-export function ExecHome({ kind, basePath }: { kind: ExecPortalKind; basePath: string }) {
+const TAB_ICONS: Record<HomeTabKey, IconName> = {
+  overview: 'layout-grid', complaints: 'clipboard', fleet: 'truck', station: 'scale', workforce: 'users', finance: 'wallet', sectors: 'map-pin', disclosures: 'alert-triangle', supplies: 'box', field: 'map-pin',
+  payroll: 'wallet', budget: 'pie-chart', spend: 'shopping-cart', workforce_cost: 'users',
+}
+/** اختصارات الرأس — تختلف بحسب البوابة (المدير المفوض: الموافقات والكشوفات أيضاً) */
+const QUICK: Record<ExecPortalKind, Array<{ to: string; label: string; icon: IconName; testId?: string }>> = {
+  admin: [{ to: '/reports', label: 'التقارير', icon: 'file-text', testId: 'go-reports' }, { to: '/announcements', label: 'تبليغ جديد', icon: 'send', testId: 'go-announcements' }, { to: '/approvals', label: 'الموافقات', icon: 'check-square' }, { to: '/disclosures', label: 'الكشوفات', icon: 'alert-triangle' }],
+  executive: [{ to: '/reports', label: 'التقارير', icon: 'file-text', testId: 'go-reports' }, { to: '/announcements', label: 'تبليغ جديد', icon: 'send', testId: 'go-announcements' }],
+  deputy: [{ to: '/reports', label: 'التقارير', icon: 'file-text', testId: 'go-reports' }, { to: '/announcements', label: 'تبليغ جديد', icon: 'send', testId: 'go-announcements' }],
+  finance: [{ to: '/reports', label: 'التقارير', icon: 'file-text', testId: 'go-reports' }, { to: '/announcements', label: 'تبليغ جديد', icon: 'send', testId: 'go-announcements' }],
+}
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'صباح الخير' : h < 17 ? 'طاب يومك' : 'مساء الخير' }
+
+export function ExecHome({ kind, basePath, userName }: { kind: ExecPortalKind; basePath: string; userName?: string | null }) {
   const [filters, setFilters] = useState<ExecFilters>(() => ({ preset: 'month', ...presetRange('month'), sector: null, shift: null }))
   const tabs = HOME_TABS[kind]
   const { hash } = useLocation(), navigate = useNavigate()
@@ -32,18 +45,31 @@ export function ExecHome({ kind, basePath }: { kind: ExecPortalKind; basePath: s
 
   return (
     <div className="space-y-3" data-testid="exec-home" data-kind={kind} data-tab={tab}>
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-slate-900 via-slate-800 to-slate-900 p-4 text-white shadow-lg sm:rounded-3xl sm:p-5">
-        <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/5" /><div className="pointer-events-none absolute -bottom-16 right-1/3 h-48 w-48 rounded-full bg-blue-500/10" />
-        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0"><h1 className="text-lg font-black sm:text-xl">{t.title}</h1><p className="mt-1 text-xs text-slate-300">{t.subtitle}</p><p className="mt-2 text-[11px] text-slate-400">{periodLabel(filters.from, filters.to)}{data?.period.sector ? ` · قاطع ${data.period.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p></div>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Link to={`${basePath}/reports`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-slate-900 shadow hover:bg-slate-100" data-testid="go-reports"><Icon name="file-text" size={14} />التقارير الجاهزة</Link>
-            <Link to={`${basePath}/announcements`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/30 hover:bg-white/20" data-testid="go-announcements"><Icon name="send" size={14} />تبليغ جديد</Link>
+      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#0b3d6b] via-[#0b4f8a] to-[#0a2f52] p-4 text-white shadow-lg sm:rounded-3xl sm:p-5" data-testid="exec-header">
+        <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-white/5" /><div className="pointer-events-none absolute -bottom-20 right-1/4 h-56 w-56 rounded-full bg-[#c9a227]/10" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-l from-[#c9a227] via-[#f3d06a] to-[#c9a227]" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <img src="/icons/logo.png" alt="" className="h-12 w-12 shrink-0 rounded-2xl bg-white/90 object-contain p-1 shadow sm:h-14 sm:w-14" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-[#f3d06a]">{greeting()}{userName ? `، ${userName}` : ''}</p>
+              <h1 className="truncate text-lg font-black sm:text-xl">{t.title}</h1>
+              <p className="mt-0.5 line-clamp-2 text-[11px] text-blue-100/90">{t.subtitle}</p>
+              <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-blue-50 ring-1 ring-white/20"><Icon name="calendar" size={11} />{periodLabel(filters.from, filters.to)}{data?.period.sector ? ` · قاطع ${data.period.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p>
+            </div>
           </div>
+          {data && kind !== 'finance' && <div className="w-fit shrink-0 rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/20 [&_p]:!text-white [&_.text-slate-500]:!text-blue-100 [&_text]:!fill-white"><HealthGauge score={healthScore(data).score} label={healthScore(data).label} compact /></div>}
         </div>
+        <nav className={`relative mt-4 grid gap-2 ${QUICK[kind].length > 2 ? 'grid-cols-4' : 'grid-cols-2'} sm:flex`} aria-label="اختصارات" data-testid="exec-quick">
+          {QUICK[kind].map((q, i) => (
+            <Link key={q.to} to={`${basePath}${q.to}`} data-testid={q.testId} className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-black transition sm:h-9 sm:flex-row sm:px-3 sm:text-xs ${i === 0 ? 'bg-white text-[#0b3d6b] shadow hover:bg-blue-50' : 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20'}`}>
+              <Icon name={q.icon} size={16} className={i === 0 ? 'text-[#c9a227]' : 'text-[#f3d06a]'} /><span className="truncate">{q.label}</span>
+            </Link>
+          ))}
+        </nav>
       </header>
 
-      <Tabs tabs={tabs.map((x) => ({ key: x.key, label: x.label, badge: data && x.key !== 'overview' ? insightsForTab(x, insights).filter((i) => i.tone === 'bad' || i.tone === 'warn').length || undefined : undefined }))} value={tab} onChange={setTab} testId="home-tabs" />
+      <Tabs tabs={tabs.map((x) => ({ key: x.key, label: x.label, icon: TAB_ICONS[x.key], badge: data && x.key !== 'overview' ? insightsForTab(x, insights).filter((i) => i.tone === 'bad' || i.tone === 'warn').length || undefined : undefined }))} value={tab} onChange={setTab} testId="home-tabs" />
 
       <ExecFilterBar value={filters} onChange={setFilters} options={options} onRefresh={refetch} isFetching={isFetching} compact />
 
@@ -66,18 +92,49 @@ function Overview({ kind, o, p, insights, onOpen }: { kind: ExecPortalKind; o: E
   const h = healthScore(o)
   return (
     <>
+      {kind !== 'finance' && <HeroStrip o={o} p={p} onOpen={onOpen} />}
       {decisions.length > 0 && (
         <section data-testid="decisions">
           <SectionTitle hint="أرقام حيّة الآن">يحتاج قرارك أو انتباهك</SectionTitle>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">{decisions.map((d) => <DecisionItem key={d.text} {...d} />)}</div>
         </section>
       )}
-      <Panel title="أهم ما في الفترة" subtitle="أربع نتائج فقط — التفاصيل في تبويب كل وحدة" icon="activity" testId="panel-insights" action={kind === 'finance' ? undefined : <HealthGauge score={h.score} label={h.label} compact />}>
+      <Panel title="أهم ما في الفترة" subtitle="أربع نتائج فقط — التفاصيل في تبويب كل وحدة" icon="activity" testId="panel-insights" action={kind === 'finance' ? undefined : <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">الأداء العام {h.score}</span>}>
         <InsightList items={top} />
       </Panel>
       <SectionTitle hint="اضغط بطاقة لفتح تبويبها">{kind === 'finance' ? 'الأرقام المالية' : 'الوحدات'}</SectionTitle>
       {kind === 'finance' ? <FinanceCards o={o} p={p} onOpen={onOpen} /> : <UnitCards kind={kind} o={o} p={p} onOpen={onOpen} />}
     </>
+  )
+}
+/** شريط الأرقام الأربعة الكبيرة — ينزلق أفقياً على الهاتف، شبكة على الشاشات الواسعة */
+function HeroStrip({ o, p, onOpen }: { o: ExecOverview; p: ExecOverview | null; onOpen: (k: HomeTabKey) => void }) {
+  const a = o.workforce.attendance, rate = attendanceRate(a), prate = p ? attendanceRate(p.workforce.attendance) : null
+  const items: Array<{ k: HomeTabKey; title: string; value: string | number; unit?: string; delta: number | null; up: boolean; icon: IconName; color: string; spark: number[] }> = [
+    { k: 'complaints', title: 'الشكاوى', value: fmtInt(o.complaints.total), unit: `${fmtInt(o.complaints.open)} قيد المعالجة`, delta: pct(o.complaints.total, p?.complaints.total ?? 0), up: false, icon: 'clipboard', color: '#dc2626', spark: o.complaints.series.map((s) => s.count) },
+    { k: 'fleet', title: 'انطلاقات الآليات', value: fmtInt(o.fleet.departures), unit: `${fmtInt(o.fleet.open_now)} في الميدان الآن`, delta: pct(o.fleet.departures, p?.fleet.departures ?? 0), up: true, icon: 'truck', color: '#2563eb', spark: o.fleet.series.map((s) => s.count) },
+    { k: 'station', title: 'أطنان المحطة', value: fmtNum(o.station.tons), unit: `${fmtInt(o.station.violations)} مخالفة`, delta: pct(o.station.tons, p?.station.tons ?? 0), up: true, icon: 'scale', color: '#059669', spark: o.station.series.map((s) => Number(s.tons)) },
+    { k: 'workforce', title: 'نسبة الحضور', value: rate === null ? '—' : `${rate}٪`, unit: `${fmtInt(a.absent)} غياب · ${fmtInt(a.late)} تأخير`, delta: rate !== null && prate !== null ? rate - prate : null, up: true, icon: 'users', color: '#0891b2', spark: o.workforce.attendance_series.map((s) => s.present) },
+  ]
+  return (
+    <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 xl:grid-cols-4" data-testid="hero-strip">
+      {items.map((it) => {
+        const good = it.delta === null || it.delta === 0 ? null : it.up ? it.delta > 0 : it.delta < 0
+        return (
+          <button key={it.k} type="button" onClick={() => onOpen(it.k)} data-testid={`hero-${it.k}`} className="relative w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 text-right shadow-sm transition hover:-translate-y-0.5 sm:w-auto">
+            <span className="absolute inset-y-0 right-0 w-1.5" style={{ background: it.color }} />
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0"><p className="text-[11px] font-bold text-slate-500">{it.title}</p><p className="mt-0.5 text-2xl font-black tabular-nums text-slate-900">{it.value}</p><p className="truncate text-[10px] text-slate-500">{it.unit}</p></div>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${it.color}1a`, color: it.color }}><Icon name={it.icon} size={18} /></span>
+            </div>
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <span className={`text-[11px] font-black tabular-nums ${good === null ? 'text-slate-400' : good ? 'text-emerald-700' : 'text-red-700'}`}>{it.delta === null ? 'لا مقارنة' : it.delta === 0 ? 'ثابت' : `${it.delta > 0 ? '▲' : '▼'} ${Math.abs(Math.round(it.delta))}${it.k === 'workforce' ? ' نقطة' : '٪'}`}</span>
+              <span className="w-24"><Sparkline values={it.spark} color={it.color} /></span>
+            </div>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 const rank = (i: Insight) => (i.tone === 'bad' ? 0 : i.tone === 'warn' ? 1 : i.tone === 'good' ? 2 : 3)
