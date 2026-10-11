@@ -167,21 +167,21 @@ export function Sparkline({ values, color, height = 28 }: { values: number[]; co
 }
 
 /** اتجاه زمني (مساحة) لسلسلة واحدة أو أكثر — المحاور نصية HTML فتبقى مقروءة على أي عرض */
-export function TrendArea({ data, keys, height = 150, testId }: { data: ReadonlyArray<Record<string, string | number>>; keys: Array<{ key: string; name: string; color?: string }>; height?: number; testId?: string }) {
+export function TrendArea({ data, keys, height = 150, testId, aggregate = 'sum', unit = '' }: { data: ReadonlyArray<Record<string, string | number>>; keys: Array<{ key: string; name: string; color?: string }>; height?: number; testId?: string; aggregate?: 'sum' | 'avg'; unit?: string }) {
   if (!data.length) return <Empty />
   const H = 100
   const vals = (k: string) => data.map((d) => Number(d[k] ?? 0))
   const max = Math.max(1, ...keys.flatMap((k) => vals(k.key)))
   const x = (i: number) => (data.length === 1 ? W / 2 : (i / (data.length - 1)) * W)
   const y = (v: number) => H - (v / max) * H
-  const totals = keys.map((k) => vals(k.key).reduce((s, v) => s + v, 0))
+  const totals = keys.map((k) => { const v = vals(k.key); const sum = v.reduce((s, x) => s + x, 0); return aggregate === 'avg' && v.length ? sum / v.length : sum })
   const peakIdx = vals(keys[0]!.key).reduce((b, v, i, a) => (v > (a[b] ?? 0) ? i : b), 0)
   const ticks = data.length <= 4 ? data.map((_, i) => i) : [0, Math.floor((data.length - 1) / 3), Math.floor(((data.length - 1) * 2) / 3), data.length - 1]
   return (
     <div data-testid={testId} className="exec-chart w-full min-w-0" data-points={data.length}>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px]">
-        <span className="flex flex-wrap gap-x-3">{keys.map((k, i) => <span key={k.key} className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm" style={{ background: k.color ?? PALETTE[i] }} />{k.name}: <b className="tabular-nums">{fmtNum(totals[i], 1)}</b></span>)}</span>
-        <span className="text-slate-400">الذروة {fmtNum(max, 1)} يوم {shortDay(String(data[peakIdx]!.d))}</span>
+        <span className="flex flex-wrap gap-x-3">{keys.map((k, i) => <span key={k.key} className="flex items-center gap-1"><span className="h-2 w-3 rounded-sm" style={{ background: k.color ?? PALETTE[i] }} />{aggregate === 'avg' ? `متوسط ${k.name}` : k.name}: <b className="tabular-nums">{fmtNum(totals[i], 1)}{unit}</b></span>)}</span>
+        <span className="text-slate-400">الذروة {fmtNum(max, 1)}{unit} يوم {shortDay(String(data[peakIdx]!.d))}</span>
       </div>
       <div className="relative" style={{ height }}>
         <span className="absolute left-0 top-0 rounded bg-white/80 px-1 text-[10px] tabular-nums text-slate-400">{fmtNum(max, 0)}</span>

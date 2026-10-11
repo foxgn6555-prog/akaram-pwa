@@ -58,7 +58,7 @@ export function ExecHome({ kind, basePath, userName }: { kind: ExecPortalKind; b
               <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-blue-50 ring-1 ring-white/20"><Icon name="calendar" size={11} />{periodLabel(filters.from, filters.to)}{data?.period.sector ? ` · قاطع ${data.period.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p>
             </div>
           </div>
-          {data && kind !== 'finance' && <div className="w-fit shrink-0 rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/20 [&_p]:!text-white [&_.text-slate-500]:!text-blue-100 [&_text]:!fill-white"><HealthGauge score={healthScore(data).score} label={healthScore(data).label} compact /></div>}
+          {data && kind !== 'finance' && (() => { const h = healthScore(data); return h.basis ? <div className="w-fit shrink-0 rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/20 [&_p]:!text-white [&_.text-slate-500]:!text-blue-100 [&_text]:!fill-white"><HealthGauge score={h.score} label={h.label} compact /></div> : <span className="w-fit rounded-xl bg-white/10 px-3 py-2 text-[11px] font-bold text-blue-100 ring-1 ring-white/20" data-testid="health-na">مؤشر الأداء: لا بيانات كافية بعد</span> })()}
         </div>
         <nav className={`relative mt-4 grid gap-2 ${QUICK[kind].length > 2 ? 'grid-cols-4' : 'grid-cols-2'} sm:flex`} aria-label="اختصارات" data-testid="exec-quick">
           {QUICK[kind].map((q, i) => (
@@ -99,7 +99,7 @@ function Overview({ kind, o, p, insights, onOpen }: { kind: ExecPortalKind; o: E
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">{decisions.map((d) => <DecisionItem key={d.text} {...d} />)}</div>
         </section>
       )}
-      <Panel title="أهم ما في الفترة" subtitle="أربع نتائج فقط — التفاصيل في تبويب كل وحدة" icon="activity" testId="panel-insights" action={kind === 'finance' ? undefined : <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">الأداء العام {h.score}</span>}>
+      <Panel title="أهم ما في الفترة" subtitle="أربع نتائج فقط — التفاصيل في تبويب كل وحدة" icon="activity" testId="panel-insights" action={kind === 'finance' || !h.basis ? undefined : <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">الأداء العام {h.score}</span>}>
         <InsightList items={top} />
       </Panel>
       <SectionTitle hint="اضغط بطاقة لفتح تبويبها">{kind === 'finance' ? 'الأرقام المالية' : 'الوحدات'}</SectionTitle>

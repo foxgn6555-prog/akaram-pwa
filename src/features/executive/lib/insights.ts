@@ -54,7 +54,7 @@ export function buildInsights(cur: ExecOverview, prev: ExecOverview | null): Ins
   // الأسطول
   {
     const c = cur.fleet.departures, p = P((o) => o.fleet.departures, 0), d = pct(c, p)
-    out.push({ id: 'fleet', domain: 'الأسطول', delta: d ?? undefined, tone: tone(d, true),
+    out.push({ id: 'fleet', domain: 'الأسطول', delta: d ?? undefined, tone: c === 0 ? 'neutral' : tone(d, true),
       text: c === 0 ? 'لم تُسجَّل انطلاقات للآليات خلال الفترة.' : `نُفّذت ${fmtInt(c)} انطلاقة${deltaText(d)}، بمتوسط ${fmtNum(cur.fleet.avg_hours)} ساعة للرحلة${cur.fleet.open_now ? `، و${fmtInt(cur.fleet.open_now)} آلية في الميدان الآن` : ''}.` })
     const m = cur.fleet.maintenance, pm = P((o) => o.fleet.maintenance.opened, 0), dm = pct(m.opened, pm)
     if (m.opened || m.open_now) out.push({ id: 'maint', domain: 'الصيانة', delta: dm ?? undefined, tone: tone(dm, false),
@@ -64,7 +64,7 @@ export function buildInsights(cur: ExecOverview, prev: ExecOverview | null): Ins
   // المحطة
   {
     const c = cur.station.tons, p = P((o) => o.station.tons, 0), d = pct(c, p)
-    out.push({ id: 'station', domain: 'المحطة التحويلية', delta: d ?? undefined, tone: tone(d, true),
+    out.push({ id: 'station', domain: 'المحطة التحويلية', delta: d ?? undefined, tone: cur.station.weighings === 0 ? 'neutral' : tone(d, true),
       text: cur.station.weighings === 0 ? 'لا عمليات وزن في المحطة التحويلية خلال الفترة.' : `تم وزن ${fmtNum(c)} طن عبر ${fmtInt(cur.station.weighings)} عملية${deltaText(d)}.` })
     if (cur.station.violations) {
       const vr = Math.round((cur.station.violations / Math.max(1, cur.station.weighings)) * 100)
@@ -105,14 +105,18 @@ export function buildInsights(cur: ExecOverview, prev: ExecOverview | null): Ins
   return out
 }
 
-/** درجة صحة عامة 0..100 من مؤشرات رئيسية (للعرض الرمزي فقط) */
-export function healthScore(o: ExecOverview): { score: number; label: string } {
-  let score = 100
+/**
+ * درجة صحة عامة 0..100 من المؤشرات المتوفرة فقط (حضور · إنجاز الشكاوى · مخالفات المحطة · الصيانة).
+ * `basis` = عدد المؤشرات التي دخلت في الحساب؛ صفر يعني «لا بيانات كافية» ولا يجوز عرض «ممتاز» حينها.
+ */
+export function healthScore(o: ExecOverview): { score: number; label: string; basis: number } {
+  let score = 100, basis = 0
   const rate = attendanceRate(o.workforce.attendance)
-  if (rate !== null) score -= Math.max(0, 90 - rate) * 1.2
-  if (o.complaints.total) score -= Math.max(0, 70 - Math.round((o.complaints.resolved / o.complaints.total) * 100)) * 0.4
-  if (o.station.weighings) score -= Math.min(20, Math.round((o.station.violations / o.station.weighings) * 100))
-  if (o.fleet.maintenance.open_now) score -= Math.min(15, o.fleet.maintenance.open_now * 1.5)
+  if (rate !== null) { basis++; score -= Math.max(0, 90 - rate) * 1.2 }
+  if (o.complaints.total) { basis++; score -= Math.max(0, 70 - Math.round((o.complaints.resolved / o.complaints.total) * 100)) * 0.4 }
+  if (o.station.weighings) { basis++; score -= Math.min(20, Math.round((o.station.violations / o.station.weighings) * 100)) }
+  if (o.fleet.departures || o.fleet.maintenance.open_now) { basis++; score -= Math.min(15, o.fleet.maintenance.open_now * 1.5) }
   score = Math.max(0, Math.min(100, Math.round(score)))
-  return { score, label: score >= 85 ? 'ممتاز' : score >= 70 ? 'جيد' : score >= 50 ? 'يحتاج متابعة' : 'حرج' }
+  if (!basis) return { score: 0, label: 'لا بيانات كافية', basis }
+  return { score, label: score >= 85 ? 'ممتاز' : score >= 70 ? 'جيد' : score >= 50 ? 'يحتاج متابعة' : 'حرج', basis }
 }

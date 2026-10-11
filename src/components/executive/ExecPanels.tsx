@@ -1,6 +1,6 @@
 /** لوحات الوحدات (مشتركة بين الرئيسية والتقارير) — كل لوحة تجيب عن سؤال عمل واحد برسم + أرقام نصية */
 import { attendanceRate, fmtHours, fmtInt, fmtMoney, fmtNum, label, pct, type ExecOverview } from '@features/executive'
-import { BarsH, Donut, Kpi, MiniTable, Panel, Progress, StackedBars, TrendArea, PALETTE } from './exec-ui'
+import { BarsH, Donut, Kpi, MiniTable, Panel, Progress, TrendArea, PALETTE } from './exec-ui'
 
 const grid2 = 'mt-3 grid gap-3 sm:grid-cols-2'
 
@@ -60,10 +60,18 @@ export function WorkforcePanel({ o, costFocus = false }: { o: ExecOverview; cost
           <Kpi title="ساعات الإضافي" value={fmtHours(a.overtime_minutes)} tone="emerald" />
         </div>
       ) : (
-        <StackedBars data={o.workforce.attendance_series} keys={[{ key: 'present', name: 'حاضر', color: '#059669' }, { key: 'late', name: 'متأخر', color: '#d97706' }, { key: 'absent', name: 'غائب', color: '#dc2626' }]} />
+        <>
+          <p className="mb-1 text-[11px] font-bold text-slate-500">نسبة الحضور اليومية (حاضر + متأخر من إجمالي المسجّلين)</p>
+          <TrendArea data={o.workforce.attendance_series.map((s) => { const t = s.present + s.late + s.absent; return { d: s.d, rate: t ? Math.round(((s.present + s.late) / t) * 100) : 0 } })} keys={[{ key: 'rate', name: 'نسبة الحضور', color: '#0891b2' }]} aggregate="avg" unit="٪" height={120} testId="attendance-rate-trend" />
+          <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
+            <div className="rounded-lg bg-emerald-50 py-1.5 text-emerald-800"><b className="text-base tabular-nums">{fmtInt(a.present)}</b><br />يوم حضور</div>
+            <div className="rounded-lg bg-amber-50 py-1.5 text-amber-800"><b className="text-base tabular-nums">{fmtInt(a.late)}</b><br />يوم تأخير</div>
+            <div className="rounded-lg bg-red-50 py-1.5 text-red-800"><b className="text-base tabular-nums">{fmtInt(a.absent)}</b><br />يوم غياب</div>
+          </div>
+        </>
       )}
       <div className={grid2}>
-        <div><p className="mb-1 text-[11px] font-bold text-slate-500">توزيع أيام الحضور</p><Donut data={[{ name: 'حاضر', value: a.present }, { name: 'متأخر', value: a.late }, { name: 'غائب', value: a.absent }, { name: 'بصمة ناقصة', value: a.incomplete }, { name: 'إجازة/زمنية', value: a.leave }].filter((x) => x.value)} /></div>
+        <div><p className="mb-1 text-[11px] font-bold text-slate-500">توزيع سجلات الحضور (موظف × يوم)</p><Donut data={[{ name: 'حاضر', value: a.present }, { name: 'متأخر', value: a.late }, { name: 'غائب', value: a.absent }, { name: 'بصمة ناقصة', value: a.incomplete }, { name: 'إجازة/زمنية', value: a.leave }].filter((x) => x.value)} /></div>
         <div><p className="mb-1 text-[11px] font-bold text-slate-500">الملاك حسب القسم</p><BarsH data={o.workforce.by_department} color={PALETTE[5]} limit={6} format={(v) => fmtInt(v)} /></div>
       </div>
     </Panel>

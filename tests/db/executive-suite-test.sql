@@ -85,6 +85,8 @@ do $$ declare o jsonb; begin
   assert (o -> 'fleet' ->> 'avg_hours')::numeric = 7.0, 'avg trip hours 7.0';
   assert (o -> 'station' ->> 'weighings')::int = 2 and (o -> 'station' ->> 'tons')::numeric = 16.5 and (o -> 'station' ->> 'violations')::int = 1 and (o -> 'station' ->> 'deficit_tons')::numeric = 2.0, 'station: ' || (o -> 'station')::text;
   assert (o -> 'disclosures' ->> 'total')::int = 2, 'disclosures 2';
+  /* 00204: أنواع المخالفات بالعربية من disclosure_types لا بالمفتاح التقني */
+  assert (select bool_and(x ->> 'name' in ('تأخير', 'غياب')) from jsonb_array_elements(o -> 'disclosures' -> 'by_violation') x), 'violation labels arabic: ' || (o -> 'disclosures' -> 'by_violation')::text;
   assert (o -> 'workforce' -> 'attendance' ->> 'present')::int = 1 and (o -> 'workforce' -> 'attendance' ->> 'absent')::int = 1 and (o -> 'workforce' -> 'attendance' ->> 'late')::int = 1, 'attendance split';
   assert (o -> 'workforce' -> 'attendance' ->> 'deduction_days')::numeric >= 1 and (o -> 'workforce' -> 'attendance' ->> 'shortfall_minutes')::int >= 480, 'absence → ≥1 day deduction & ≥480 shortfall: ' || (o -> 'workforce' -> 'attendance')::text;
   assert (o -> 'workforce' ->> 'hired')::int >= 1, 'hired in window';

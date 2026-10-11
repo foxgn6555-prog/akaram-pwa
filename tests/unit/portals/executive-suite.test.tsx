@@ -136,11 +136,12 @@ describe('الرسوم — SVG/CSS خالصة ومتجاوبة', () => {
     expect(fleet.querySelector('svg text')?.textContent).toBe('300')
     expect(fleet).toHaveTextContent('صباحي300 (100٪)')
   })
-  it('المكدّس اليومي: أعمدة CSS بارتفاعات نسبية ومجاميع نصية', () => {
+  it('00217 — الحضور: منحنى نسبة الحضور اليومية (متوسط ٪) بدل المكدّس، مع عدّادات حضور/تأخير/غياب نصية', () => {
     r(<ExecHome kind="executive" basePath="/executive" />, '/executive#workforce')
     const wf = screen.getByTestId('panel-workforce')
-    expect(wf).toHaveTextContent('حاضر: 90'); expect(wf).toHaveTextContent('غائب: 5')
-    expect((wf.querySelector('.exec-chart div[title] div') as HTMLElement).style.height).toBe('90%')
+    expect(within(wf).getByTestId('attendance-rate-trend')).toHaveTextContent('متوسط نسبة الحضور')
+    expect(within(wf).getByTestId('attendance-rate-trend').textContent).toMatch(/٪/)
+    expect(wf).toHaveTextContent('يوم حضور'); expect(wf).toHaveTextContent('يوم غياب')
   })
   it('حالة فارغة نصية بدل رسم فارغ', () => {
     h.overview = sample({ complaints: { total: 0, open: 0, resolved: 0, by_status: [], by_sector: [], by_type: [], series: [] } })
@@ -259,7 +260,7 @@ describe('التقارير — معالج من ثلاث خطوات', () => {
     // 00169 — التخطيط «الاثنان معاً»: غلاف ظاهر على الشاشة، موجز تنفيذي (٨ مؤشرات + أبرز النتائج + ما يحتاج قراراً)، أقسام مرقّمة بقراءة مكتوبة، ثم صفحة المصادقات
     expect(screen.getByTestId('rep-cover')).not.toHaveClass('hidden')
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('شركة جزيرة الأكارم')
-    expect(screen.getByTestId('rep-brief-kpis').children).toHaveLength(8)
+    expect(screen.getByTestId('rep-brief-kpis').children).toHaveLength(6)
     expect(screen.getByTestId('rep-brief-decisions')).toBeInTheDocument()
     expect(within(screen.getByTestId('rep-signatures')).getByText('اعتمده')).toBeInTheDocument()
     expect(within(screen.getByTestId('rep-signatures')).getByText('المدير التنفيذي')).toBeInTheDocument()
@@ -407,5 +408,38 @@ describe('00216 — ترتيب موحّد لكل وحدات بوابة المد�
     r(<ExecPageHeader icon="flow" title="الإجراءات" links={[{ to: '/admin/approvals', label: 'الموافقات', icon: 'check-square' }]} />)
     expect(screen.queryByTestId('exec-page-header-stats')).toBeNull()
     expect(within(screen.getByTestId('exec-page-header-links')).getByRole('link')).toHaveAttribute('href', '/admin/approvals')
+  })
+})
+
+describe('00217 — وثيقة التقرير الرسمية', () => {
+  it('الموجز: ستة مؤشرات بحكم واضح، خلاصة مرقّمة، جدول قرارات بجهة مسؤولة؛ وجدول المؤشرات مجمّع بعناوين وحدات', () => {
+    r(<ExecReports kind="admin" />); toStep3()
+    const kpis = screen.getByTestId('rep-brief-kpis')
+    expect(kpis.children).toHaveLength(6)
+    expect(kpis).toHaveTextContent('الشكاوى الواردة'); expect(kpis).toHaveTextContent('▲ 100٪ · تراجع')   // الشكاوى 100 مقابل 50 سابقاً
+    expect(within(screen.getByTestId('rep-brief-findings')).getAllByRole('listitem').length).toBeLessThanOrEqual(5)
+    expect(within(screen.getByTestId('rep-brief-decisions')).getAllByTestId('decision-row')[0]).toHaveTextContent('المدراء المباشرون')
+    const table = screen.getByTestId('rep-summary')
+    expect(table).toHaveTextContent('الأسطول والصيانة'); expect(table).toHaveTextContent('الحكم')
+    expect(table.querySelectorAll('[data-verdict]').length).toBeGreaterThan(5)
+  })
+  it('بلا نشاط: لا «ممتاز» ولا رسوم فارغة — مؤشر الأداء «لا بيانات كافية»، الأقسام الخاملة تُخفى افتراضياً ويمكن إظهارها، وجدول المؤشرات يطوي الوحدة الخاملة في سطر', () => {
+    const base = sample()
+    h.overview = sample({
+      complaints: { total: 0, open: 0, resolved: 0, by_status: [], by_sector: [], by_type: [], series: [] },
+      station: { ...base.station, weighings: 0, tons: 0, violations: 0, deficit_tons: 0, series: [], by_kind: [], top_violators: [] },
+      fleet: { ...base.fleet, departures: 0, open_now: 0, series: [], maintenance: { ...base.fleet.maintenance, opened: 0, open_now: 0 } },
+      workforce: { ...base.workforce, attendance: { ...base.workforce.attendance, present: 0, late: 0, absent: 0, incomplete: 0 } },
+    })
+    h.previous = h.overview
+    r(<ExecReports kind="admin" />); toStep3()
+    expect(screen.getByTestId('health-na')).toBeInTheDocument()
+    expect(screen.queryByTestId('health-gauge')).toBeNull()
+    expect(screen.queryByTestId('rep-sec-complaints')).toBeNull()
+    expect(screen.getByTestId('hide-idle')).toHaveTextContent('الشكاوى')
+    fireEvent.click(within(screen.getByTestId('hide-idle')).getByRole('checkbox'))
+    expect(within(screen.getByTestId('rep-sec-complaints')).getByTestId('no-activity')).toBeInTheDocument()
+    expect(screen.getAllByTestId('group-idle').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('rep-figs-complaints')).toHaveTextContent('الواردة')
   })
 })

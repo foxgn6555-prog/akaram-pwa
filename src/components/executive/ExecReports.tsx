@@ -8,10 +8,11 @@ import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import {
-  buildDecisions, buildExecSheets, buildInsights, downloadExecWorkbook, fmtNum, healthScore, insightsFor, label, periodLabel, PORTAL_TITLES, presetRange, REPORT_SECTIONS, REPORT_TYPES, reportKindLabel, scopeOf, SECTION_HINTS,
-  useExecFilterOptions, useExecOverview, type Decision, type ExecFilters, type ExecOverview, type ExecPortalKind, type ExecScope, type Insight, type PeriodPreset, type SectionKey,
+  buildInsights, downloadExecWorkbook, healthScore, insightsFor, label, periodLabel, PORTAL_TITLES, presetRange, REPORT_SECTIONS, REPORT_TYPES, reportKindLabel, scopeOf, SECTION_HINTS,
+  useExecFilterOptions, useExecOverview, type ExecFilters, type ExecOverview, type ExecPortalKind, type Insight, type PeriodPreset, type SectionKey,
 } from '@features/executive'
-import { DecisionItem, HealthGauge, InsightList, MiniTable, Panel, Stepper } from './exec-ui'
+import { HealthGauge, InsightList, Panel, Stepper } from './exec-ui'
+import { Brief, IndicatorsTable, NAVY, NoActivity, SectionFigures, sectionFigures, sectionHasData } from './ExecReportDoc'
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
 import { OpsKpiGrid, UnitScoreCards } from './ExecHome'
 import { BudgetPanel, ComplaintsPanel, DisclosuresPanel, FinanceBriefPanel, FleetPanel, PayrollPanel, SectorsPanel, SpendPanel, StationPanel, SuppliesPanel, SupportPanel, WorkforcePanel } from './ExecPanels'
@@ -45,6 +46,7 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
   const [sections, setSections] = useState<Set<SectionKey>>(() => new Set(sectionsDef.map((s) => s.key)))
   const [compare, setCompare] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [hideIdle, setHideIdle] = useState(true)   // 00217: الأقسام بلا نشاط لا تُطبع افتراضياً
   const { data: options } = useExecFilterOptions()
   const { data, previous, isLoading } = useExecOverview(filters, compare)
   const allInsights = useMemo(() => (data ? buildInsights(data, compare ? previous : null) : []), [data, previous, compare])
@@ -53,6 +55,8 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
   const toggle = (k: SectionKey) => setSections((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n })
   const on = (k: SectionKey) => sections.has(k)
   const chosen = sectionsDef.filter((s) => on(s.key))
+  const idleKeys = data ? chosen.filter((s) => !sectionHasData(s.key, data)).map((s) => s.key) : []
+  const visible = hideIdle ? chosen.filter((s) => !idleKeys.includes(s.key)) : chosen
   const setPreset = (p: PeriodPreset) => setFilters(p === 'custom' ? { ...filters, preset: p } : { ...filters, preset: p, ...presetRange(p) })
 
   const fileBase = `${reportKindLabel(filters.from, filters.to)}${kind === 'finance' ? ' مالي' : ''} ${filters.from}${filters.from !== filters.to ? ` إلى ${filters.to}` : ''}`
@@ -136,38 +140,43 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
       {step === 2 && (
         <div className="space-y-3" data-testid="wizard-step-3">
           <div className="sticky top-0 z-10 flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-md backdrop-blur print:hidden sm:flex-row sm:items-center sm:justify-between" data-testid="export-bar">
-            <div className="min-w-0 text-xs"><p className="font-black text-slate-800">{fileBase}</p><p className="text-slate-500">{chosen.length} قسم{compare ? ' · مع مقارنة' : ''}{filters.sector ? ` · قاطع ${filters.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p></div>
+            <div className="min-w-0 text-xs"><p className="font-black text-slate-800">{fileBase}</p><p className="text-slate-500">{visible.length} قسم{idleKeys.length && hideIdle ? ` (أُخفي ${idleKeys.length} بلا نشاط)` : ''}{compare ? ' · مع مقارنة' : ''}{filters.sector ? ` · قاطع ${filters.sector}` : ''}{filters.shift ? ` · شفت ${label(filters.shift)}` : ''}</p></div>
             <div className="grid grid-cols-2 gap-2 sm:flex">
               <button type="button" onClick={exportExcel} disabled={!data || exporting} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white shadow hover:bg-emerald-700 disabled:opacity-50" data-testid="export-excel"><Icon name="file-spreadsheet" size={14} />{exporting ? 'جارٍ التصدير…' : 'تنزيل Excel'}</button>
               <button type="button" onClick={printPdf} disabled={!data} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-slate-900 px-4 text-xs font-black text-white shadow hover:bg-slate-800 disabled:opacity-50" data-testid="export-pdf"><Icon name="printer" size={14} />PDF / طباعة</button>
             </div>
           </div>
-          {data && chosen.length > 1 && (
+          {data && idleKeys.length > 0 && (
+            <label className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-900 print:hidden" data-testid="hide-idle"><input type="checkbox" checked={hideIdle} onChange={(e) => setHideIdle(e.target.checked)} />إخفاء الأقسام التي لا نشاط فيها خلال الفترة ({idleKeys.length}: {chosen.filter((s) => idleKeys.includes(s.key)).map((s) => s.label).join('، ')})</label>
+          )}
+          {data && visible.length > 1 && (
             <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] print:hidden" aria-label="أقسام التقرير" data-testid="rep-nav">
               <a href="#rep-brief" className="shrink-0 rounded-full bg-[#0b3d6b] px-3 py-1 text-[11px] font-black text-white">الموجز</a>
-              {chosen.map((s, i) => <a key={s.key} href={`#rep-sec-${s.key}`} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:border-[#0b3d6b]">{i + 1}. {s.label}</a>)}
+              {visible.map((s, i) => <a key={s.key} href={`#rep-sec-${s.key}`} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-700 hover:border-[#0b3d6b]">{i + 1}. {s.label}</a>)}
             </nav>
           )}
           {isLoading && <LoadingSpinner />}
           {data && (
             <div id="exec-report" className="exec-formal space-y-4 scroll-smooth">
-              <Cover o={data} orgName={orgName} kind={kind} sections={chosen.map((s) => s.label)} compare={compare} />
+              <Cover o={data} orgName={orgName} kind={kind} sections={visible.map((s) => s.label)} compare={compare} />
               <Brief o={data} p={prev} insights={insights} kind={kind} />
               <ol className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm print:break-after-page" data-testid="rep-toc">
                 <p className="mb-2 text-sm font-black">المحتويات</p>
                 <li className="flex justify-between border-b border-dotted border-slate-200 py-1"><span>الموجز التنفيذي</span><span className="text-slate-400">المؤشرات الرئيسة · أبرز النتائج · ما يحتاج قراراً</span></li>
-                {chosen.map((s, i) => <li key={s.key} className="flex justify-between border-b border-dotted border-slate-200 py-1"><span>{i + 1}. {s.label}</span><span className="text-slate-400">{SECTION_HINTS[s.key]}</span></li>)}
+                {visible.map((s, i) => <li key={s.key} className="flex justify-between border-b border-dotted border-slate-200 py-1"><span>{i + 1}. {s.label}</span><span className="text-slate-400">{SECTION_HINTS[s.key]}</span></li>)}
                 <li className="flex justify-between py-1"><span>المصادقات</span><span className="text-slate-400">إعداد · تدقيق · اعتماد</span></li>
               </ol>
-              {chosen.map((s, i) => (
+              {visible.map((s, i) => (
                 <section key={s.key} id={`rep-sec-${s.key}`} className="exec-section scroll-mt-24 space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" data-testid={`rep-sec-${s.key}`}>
-                  <header className="border-b-2 border-[#0b3d6b] pb-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">القسم {i + 1} من {chosen.length}</p>
+                  <header className="flex items-end justify-between gap-3 border-b-2 pb-2" style={{ borderColor: NAVY }}>
+                    <div>
                     <h2 className="flex items-center gap-2 text-base font-black text-slate-900"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#0b3d6b] text-xs text-[#f3d06a]">{i + 1}</span>{s.label}</h2>
                     <p className="text-[11px] text-slate-500">{SECTION_HINTS[s.key]}</p>
+                    </div>
+                    <p className="shrink-0 text-[10px] font-bold tracking-wide text-slate-400">القسم {i + 1} / {visible.length}</p>
                   </header>
-                  <SectionBody k={s.key} o={data} p={prev} insights={insights} compare={compare} kind={kind} />
-                  <SectionReading k={s.key} insights={insights} />
+                  {(() => { const figs = sectionFigures(s.key, data); return figs ? <SectionFigures figs={figs} testId={`rep-figs-${s.key}`} /> : null })()}
+                  {sectionHasData(s.key, data) ? <><SectionBody k={s.key} o={data} p={prev} insights={insights} compare={compare} kind={kind} /><SectionReading k={s.key} insights={insights} /></> : <NoActivity what={s.label} />}
                 </section>
               ))}
               <Signatures kind={kind} orgName={orgName} />
@@ -184,9 +193,9 @@ export function ExecReports({ kind, orgName = 'شركة جزيرة الأكار�
 
 function SectionBody({ k, o, p, insights, compare, kind }: { k: SectionKey; o: ExecOverview; p: ExecOverview | null; insights: ReturnType<typeof buildInsights>; compare: boolean; kind: ExecPortalKind }) {
   switch (k) {
-    case 'insights': return <Panel title={kind === 'finance' ? 'قراءة مالية للفترة' : 'قراءة تحليلية للفترة'} subtitle={compare ? 'مقارنةً بالفترة السابقة المكافئة' : 'بلا مقارنة'} icon="activity" testId="rep-insights" action={kind === 'finance' ? undefined : <HealthGauge {...healthScore(o)} compact />}><InsightList items={insights} /></Panel>
+    case 'insights': { const h = healthScore(o); return <Panel title={kind === 'finance' ? 'قراءة مالية للفترة' : 'قراءة تحليلية للفترة'} subtitle={compare ? 'مقارنةً بالفترة السابقة المكافئة' : 'بلا مقارنة'} icon="activity" testId="rep-insights" action={kind === 'finance' || !h.basis ? undefined : <HealthGauge score={h.score} label={h.label} compact />}><InsightList items={insights} /></Panel> }
     case 'kpis': return <OpsKpiGrid o={o} p={p} />
-    case 'summary': return <SummaryTable o={o} p={p} scope={scopeOf(kind)} />
+    case 'summary': return <Panel title={scopeOf(kind) === 'finance' ? 'جدول المؤشرات المالية' : 'جدول المؤشرات'} subtitle={p ? 'الحالية مقابل السابقة مع حكم واضح لكل مؤشر' : 'قيم الفترة'} icon="bar-chart"><IndicatorsTable o={o} p={p} kind={kind} /></Panel>
     case 'scorecards': return <UnitScoreCards o={o} p={p} />
     case 'payroll': return <PayrollPanel o={o} p={p} />
     case 'budget': return <BudgetPanel o={o} />
@@ -255,47 +264,6 @@ function Cover({ o, orgName, kind, sections, compare }: { o: ExecOverview; orgNa
   )
 }
 
-const BAD_IF_UP = /شكاو|غياب|مخالف|كشوف|صيانة|كلفة|استقطاع|إنهاء|مشتريات|إنفاق/
-/** الموجز التنفيذي — صفحة واحدة: ٨ مؤشرات كبيرة بالتغيّر، أبرز ٥ نتائج، ما يحتاج قراراً */
-function Brief({ o, p, insights, kind }: { o: ExecOverview; p: ExecOverview | null; insights: Insight[]; kind: ExecPortalKind }) {
-  const sheet = buildExecSheets(o, [], p, scopeOf(kind))[0]!
-  const kpis = sheet.rows.slice(0, 8)
-  const decisions: Decision[] = kind === 'finance' ? buildDecisions(o).filter((d) => d.icon === 'wallet') : buildDecisions(o)
-  const health = healthScore(o)
-  return (
-    <section id="rep-brief" className="exec-brief scroll-mt-24 space-y-3 rounded-2xl border-2 border-[#0b3d6b] bg-white p-3 shadow-sm sm:p-4" data-testid="rep-brief">
-      <header className="flex items-start justify-between gap-3 border-b-2 border-slate-900 pb-2">
-        <div><p className="text-[10px] font-bold tracking-wide text-slate-500">صفحة القرار</p><h2 className="text-base font-black text-slate-900">الموجز التنفيذي</h2><p className="text-[11px] text-slate-500">ما يلزم معرفته في دقيقة واحدة — التفاصيل في الأقسام المرقّمة</p></div>
-        {kind !== 'finance' && <HealthGauge {...health} compact />}
-      </header>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="rep-brief-kpis">
-        {kpis.map((r) => {
-          const name = String(r[0]); const cur = Number(r[1] ?? 0); const prevV = p ? Number(r[2] ?? 0) : null
-          const pctV = prevV === null ? null : prevV === 0 ? (cur ? null : 0) : Math.round(((cur - prevV) / prevV) * 100)
-          const good = pctV === null || pctV === 0 ? null : BAD_IF_UP.test(name) ? pctV < 0 : pctV > 0
-          return (
-            <div key={name} className="exec-brief-card rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="truncate text-[11px] font-bold text-slate-600">{name}</p>
-              <p className="mt-1 text-2xl font-black tabular-nums text-slate-900">{fmtNum(cur, 1)}</p>
-              {p && <p className={clsx('mt-0.5 text-[11px] font-bold tabular-nums', good === null ? 'text-slate-400' : good ? 'text-emerald-700' : 'text-red-700')}>{pctV === null ? 'لا مقارنة' : pctV === 0 ? 'ثابت' : `${pctV > 0 ? '▲' : '▼'} ${Math.abs(pctV)}٪`} <span className="font-normal text-slate-400">· السابق {fmtNum(prevV ?? 0, 1)}</span></p>}
-            </div>
-          )
-        })}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 p-3">
-          <p className="mb-2 text-xs font-black text-slate-800">أبرز النتائج</p>
-          <InsightList items={insights} limit={5} testId="rep-brief-findings" />
-        </div>
-        <div className="rounded-xl border border-slate-200 p-3" data-testid="rep-brief-decisions">
-          <p className="mb-2 text-xs font-black text-slate-800">ما يحتاج قراراً</p>
-          {decisions.length ? <ul className="space-y-1.5">{decisions.map((d) => <li key={d.text}><DecisionItem {...d} /></li>)}</ul> : <p className="text-xs text-slate-400">لا توجد بنود معلّقة تحتاج قراراً في هذه الفترة.</p>}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 const SECTION_DOMAIN: Partial<Record<SectionKey, string[]>> = {
   complaints: ['الشكاوى'], fleet: ['الأسطول', 'الصيانة'], station: ['المحطة التحويلية', 'المحطة'], workforce: ['الموارد البشرية', 'الحضور'], workforce_cost: ['الموارد البشرية', 'المالية'],
   disclosures: ['الكشوفات'], supplies: ['التجهيز', 'الإعلام'], finance: ['المالية'], payroll: ['المالية'], budget: ['المالية'], spend: ['المالية'], sectors: ['الأسطول', 'الشكاوى'],
@@ -307,8 +275,8 @@ function SectionReading({ k, insights }: { k: SectionKey; insights: Insight[] })
   const list = insights.filter((i) => domains.includes(i.domain)).slice(0, 4)
   if (!list.length) return null
   return (
-    <div className="rounded-xl border-r-4 border-slate-900 bg-slate-50 p-3 text-xs leading-6 text-slate-700" data-testid={`rep-reading-${k}`}>
-      <p className="mb-1 font-black text-slate-900">القراءة</p>
+    <div className="rounded-xl border-r-4 bg-slate-50 p-3 text-xs leading-6 text-slate-700" style={{ borderColor: NAVY }} data-testid={`rep-reading-${k}`}>
+      <p className="mb-1 flex items-center gap-1 font-black" style={{ color: NAVY }}><Icon name="file-text" size={12} className="text-[#c9a227]" />القراءة</p>
       <p>{list.map((i) => i.text.replace(/[.。]?$/, '')).join('؛ ')}.</p>
     </div>
   )
@@ -340,11 +308,5 @@ function Signatures({ kind, orgName }: { kind: ExecPortalKind; orgName: string }
   )
 }
 
-export function SummaryTable({ o, p, scope = 'all' }: { o: ExecOverview; p: ExecOverview | null; scope?: ExecScope }) {
-  const sheet = buildExecSheets(o, [], p, scope)[0]!
-  return (
-    <Panel title={scope === 'finance' ? 'جدول المؤشرات المالية' : 'جدول المؤشرات'} subtitle={p ? 'الحالية مقابل السابقة' : undefined} icon="bar-chart" testId="rep-summary">
-      <MiniTable cols={sheet.columns} rows={sheet.rows.map((r) => r.map((c) => (c === null ? '' : c)))} />
-    </Panel>
-  )
-}
+/** جدول المؤشرات (مجمّع حسب الوحدة) — يُصدَّر أيضاً للاستخدام في الصفحات الأخرى */
+export function SummaryTable({ o, p, kind = 'admin' }: { o: ExecOverview; p: ExecOverview | null; kind?: ExecPortalKind }) { return <IndicatorsTable o={o} p={p} kind={kind} /> }
