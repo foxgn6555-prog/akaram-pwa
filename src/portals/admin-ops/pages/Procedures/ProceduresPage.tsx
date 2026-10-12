@@ -9,8 +9,8 @@ import { TERMINATION_TYPE_AR, type TerminationRequest, type TerminationTarget, t
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 
-const SCOPE_AR: Record<string, string> = { department_manager: 'مسؤولو الأقسام', contractor: 'المتعهدون', worker: 'عمال المتعهدين', admin_ops: 'مسؤولو القواطع', garage: 'الكراج المركزي', maintenance: 'الصيانة', other: 'موظفون آخرون' }
-const SCOPE_ORDER = ['admin_ops', 'department_manager', 'contractor', 'worker', 'garage', 'maintenance', 'other']
+const SCOPE_AR: Record<string, string> = { department_manager: 'مسؤولو الأقسام', contractor: 'المتعهدون', worker: 'عمال المتعهدين', admin_ops: 'مسؤولو القواطع', garage: 'الكراج المركزي', station: 'المحطة التحويلية', maintenance: 'الصيانة', other: 'موظفون آخرون' }
+const SCOPE_ORDER = ['admin_ops', 'department_manager', 'contractor', 'worker', 'garage', 'station', 'maintenance', 'other']
 const REQ_STATUS_AR: Record<TerminationRequest['status'], string> = { pending: 'قيد الموافقة', executed: 'نُفّذ', rejected: 'مرفوض', cancelled: 'مسحوب' }
 const REQ_STATUS_CLS: Record<TerminationRequest['status'], string> = { pending: 'bg-amber-50 text-amber-800', executed: 'bg-emerald-50 text-emerald-800', rejected: 'bg-rose-50 text-rose-800', cancelled: 'bg-slate-100 text-slate-600' }
 const targetId = (t: TerminationTarget) => (t.target_kind === 'worker' ? t.worker_id : t.employee_id) as string
@@ -41,7 +41,9 @@ export function NewTermination({ onDone }: { onDone: () => void }) {
     const rows = (targets.data ?? []).filter((t) => !needle || t.full_name.toLowerCase().includes(needle) || t.label.toLowerCase().includes(needle) || (t.employee_number ?? '').toLowerCase().includes(needle))
     const map = new Map<string, TerminationTarget[]>()
     for (const r of rows) map.set(r.scope, [...(map.get(r.scope) ?? []), r])
-    return SCOPE_ORDER.filter((s) => map.has(s)).map((s) => ({ scope: s, rows: map.get(s) as TerminationTarget[] }))
+    const known = SCOPE_ORDER.filter((s) => map.has(s))
+    const extra = [...map.keys()].filter((s) => !SCOPE_ORDER.includes(s))   // أي نطاق جديد من الخادم يظهر بدل أن يُسقط بصمت
+    return [...known, ...extra].map((s) => ({ scope: s, rows: map.get(s) as TerminationTarget[] }))
   }, [targets.data, q])
   const canSend = Boolean(picked) && reason.trim().length >= 5 && Boolean(lastDay) && confirm && !create.isPending
   const submit = () => {

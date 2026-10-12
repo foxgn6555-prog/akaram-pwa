@@ -66,4 +66,38 @@ do $$ begin
   begin perform public.garage_leaves_summary(); raise exception 'should fail';
   exception when others then assert sqlerrm = 'STATION_NO_DEPARTMENT', 'summary no dept: ' || sqlerrm; end;
 end $$;
+
+-- ⑥ (00213) الإجراءات: المحطة تطلب إنهاء خدمة موظف قسمها فقط (عبر الموافقات)، وتُعيّن ببيانات أساسية داخل هيكل قسمها (S-xxxx)
+insert into auth.users (id, email) values ('ec010000-0000-0000-0000-000000000009', 'sthr@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('ec010000-0000-0000-0000-000000000009', 'hr_officer') on conflict do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title) values ('dc010000-0000-0000-0000-0000000000a3', 'وزّان', 'TSWJ', 'dc010000-0000-0000-0000-0000000000a2', true) on conflict do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title) values ('dc010000-0000-0000-0000-0000000000b2', 'كاتب', 'FARJ', 'dc010000-0000-0000-0000-0000000000b1', true) on conflict do nothing;
+select auth.set_test_user('ec010000-0000-0000-0000-000000000001');
+do $$ declare names text[]; rid uuid; o jsonb; h jsonb; begin
+  assert app.procedure_role() = 'station', 'role: ' || coalesce(app.procedure_role(), 'null');
+  select array_agg(full_name order by full_name) into names from public.termination_targets();
+  assert names = array['موظف الميزان'], 'station targets (own dept, not self, no outsiders): ' || coalesce(names::text, 'null');
+  begin perform public.termination_request_create('employee', 'fc010000-0000-0000-0000-000000000004', 'dismissal', current_date + 7, 'سبب كافٍ هنا'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'PROCEDURE_TARGET_FORBIDDEN', 'outsider termination: ' || sqlerrm; end;
+  rid := public.termination_request_create('employee', 'fc010000-0000-0000-0000-000000000003', 'resignation', current_date + 7, 'استقالة بطلب الموظف');
+  assert (select status from public.termination_requests where id = rid) = 'pending' and (select requester_role from public.termination_requests where id = rid) = 'station', 'pending via approvals';
+  assert (select employment_status from public.employees where id = 'fc010000-0000-0000-0000-000000000003') <> 'terminated', 'not executed before approval';
+  assert app.procedures_link_for('ec010000-0000-0000-0000-000000000001') = '/transfer-station/procedures', 'link';
+  perform public.termination_request_cancel(rid);
+  o := public.garage_hire_options();
+  assert o ->> 'next_employee_number' like 'S-%', 'station prefix: ' || (o ->> 'next_employee_number');
+  assert exists (select 1 from jsonb_array_elements(o -> 'job_titles') t where t ->> 'name' = 'وزّان'), 'in-scope title: ' || o::text;
+  assert not exists (select 1 from jsonb_array_elements(o -> 'job_titles') t where t ->> 'name' = 'كاتب'), 'out-of-scope title hidden';
+  begin perform public.garage_employee_hire(jsonb_build_object('full_name', 'موظف جديد', 'employee_number', 'S-0901', 'job_title_id', 'dc010000-0000-0000-0000-0000000000a3', 'base_salary', 1)); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_SENSITIVE_FIELD_FORBIDDEN', 'sensitive: ' || sqlerrm; end;
+  begin perform public.garage_employee_hire(jsonb_build_object('full_name', 'موظف جديد', 'employee_number', 'S-0901', 'job_title_id', 'dc010000-0000-0000-0000-0000000000b2')); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_JOB_TITLE_OUT_OF_SCOPE', 'title scope: ' || sqlerrm; end;
+  h := public.garage_employee_hire(jsonb_build_object('full_name', 'وزّان جديد', 'employee_number', 'S-0901', 'job_title_id', 'dc010000-0000-0000-0000-0000000000a3'));
+  assert (select department_id from public.employees where id = (h ->> 'id')::uuid) = 'dc010000-0000-0000-0000-0000000000a2', 'dept derived from title';
+  assert (select status from public.employee_salary_profiles where employee_id = (h ->> 'id')::uuid) = 'pending', 'salary pending for finance';
+  assert exists (select 1 from public.finance_hr_notices where employee_id = (h ->> 'id')::uuid and kind = 'salary_pending' and payload ->> 'source' = 'station'), 'finance notice (station)';
+  assert exists (select 1 from public.notifications where user_id = 'ec010000-0000-0000-0000-000000000009' and title like 'تعيين جديد من المحطة التحويلية%'), 'hr notified';
+  assert exists (select 1 from jsonb_array_elements(public.garage_recent_hires()) r where r ->> 'employee_number' = 'S-0901'), 'recent hires';
+  assert (public.garage_employees('S-0901', null) -> 'summary' ->> 'total')::int = 1, 'appears in employees';
+end $$;
 select 'test ok' as result;

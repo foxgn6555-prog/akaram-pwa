@@ -17,7 +17,9 @@ const field = 'mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3
 const today = () => new Date().toISOString().slice(0, 10)
 const n = (v: number) => v.toLocaleString('en-US')
 
-export default function GarageProceduresPage() {
+export interface DeptProceduresPageProps { title?: string; dept?: string; testId?: string }
+/** صفحة مشتركة بنطاق القسم — الكراج افتراضياً؛ المحطة التحويلية (00213) تمرر عنوانها واسم جهتها. */
+export default function GarageProceduresPage({ title = 'إجراءات الكراج', dept = 'الكراج', testId = 'garage-procedures-page' }: DeptProceduresPageProps = {}) {
   const [tab, setTab] = useState<Tab>('hire')
   const mine = useMyTerminationRequests()
   const hires = useGarageRecentHires()
@@ -25,11 +27,11 @@ export default function GarageProceduresPage() {
   const pending = all.filter((r) => r.status === 'pending').length
   const incomplete = (hires.data ?? []).filter((h) => !h.has_biometric || !h.salary_ready || !h.has_manager).length
   return (
-    <div className="space-y-4 pb-4" data-testid="garage-procedures-page">
-      <ExecPageHeader icon="flow" title="إجراءات الكراج" subtitle="تعيين ببيانات أساسية فقط، وإنهاء خدمة لموظفي قسم الكراج عبر سلسلة الموافقات — الراتب للمالية، والبصمة والبيانات الشخصية للموارد البشرية"
+    <div className="space-y-4 pb-4" data-testid={testId}>
+      <ExecPageHeader icon="flow" title={title} subtitle={`تعيين ببيانات أساسية فقط، وإنهاء خدمة لموظفي قسم ${dept} عبر سلسلة الموافقات — الراتب للمالية، والبصمة والبيانات الشخصية للموارد البشرية`}
         stats={[{ label: 'إنهاء قيد الموافقة', value: mine.isLoading ? '…' : n(pending), tone: pending ? 'gold' : 'plain' }, { label: 'تعيينات (180 يوماً)', value: hires.isLoading ? '…' : n((hires.data ?? []).length) }, { label: 'ملفات غير مكتملة', value: hires.isLoading ? '…' : n(incomplete), tone: incomplete ? 'red' : 'green' }, { label: 'إنهاء نُفّذ', value: n(all.filter((r) => r.status === 'executed').length) }]} />
       <ExecTabBar value={tab} onChange={setTab} testId="gp-tabs" tabs={[{ key: 'hire', label: 'تعيين', icon: 'user-plus' }, { key: 'terminate', label: 'إنهاء خدمة', icon: 'alert-triangle' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }, { key: 'hires', label: 'التعيينات الأخيرة', icon: 'users', badge: incomplete }]} />
-      {tab === 'hire' && <HireForm onDone={() => setTab('hires')} />}
+      {tab === 'hire' && <HireForm dept={dept} onDone={() => setTab('hires')} />}
       {tab === 'terminate' && <NewTermination onDone={() => setTab('mine')} />}
       {tab === 'mine' && <MyRequests />}
       {tab === 'hires' && <RecentHires />}
@@ -37,7 +39,7 @@ export default function GarageProceduresPage() {
   )
 }
 
-function HireForm({ onDone }: { onDone: () => void }) {
+function HireForm({ onDone, dept }: { onDone: () => void; dept: string }) {
   const { data: opts, isLoading, error } = useGarageHireOptions()
   const hire = useGarageHire()
   const [fullName, setFullName] = useState(''); const [number, setNumber] = useState(''); const [phone, setPhone] = useState('')
@@ -57,10 +59,10 @@ function HireForm({ onDone }: { onDone: () => void }) {
   }
   if (isLoading) return <LoadingSpinner />
   if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">{disclosureErrorMessage(error)}</p>
-  if (!opts?.job_titles.length) return <EmptyState title="لا مسميات وظيفية في هيكل قسم الكراج" hint="اطلب من الموارد البشرية إضافة المسميات (سائق، فني…) تحت قسم الكراج في الهيكل التنظيمي" />
+  if (!opts?.job_titles.length) return <EmptyState title={`لا مسميات وظيفية في هيكل قسم ${dept}`} hint={`اطلب من الموارد البشرية إضافة المسميات تحت قسم ${dept} في الهيكل التنظيمي`} />
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="gp-hire-form">
-      <h2 className="text-sm font-black text-slate-800">تعيين موظف جديد في قسم الكراج</h2>
+      <h2 className="text-sm font-black text-slate-800">تعيين موظف جديد في قسم {dept}</h2>
       <p className="mt-1 text-[11px] text-slate-500">البيانات الأساسية فقط. رقم البصمة والبيانات الشخصية والمدير المباشر تُكملها الموارد البشرية؛ الراتب تحدده المالية. القسم وخانة «سائق» يُشتقّان من المسمى.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs font-semibold text-slate-600">الاسم الكامل<input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} data-testid="gp-name" /></label>
