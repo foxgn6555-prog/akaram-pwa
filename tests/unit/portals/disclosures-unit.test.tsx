@@ -50,6 +50,7 @@ import { disclosureErrorMessage } from '@sdk/disclosures-unit.sdk'
 import OpsDisclosuresPage from '@portals/ops-room/pages/Disclosures/OpsDisclosuresPage'
 import GarageDisclosuresPage from '@portals/central-garage/pages/GarageDisclosuresPage'
 import SectorDisclosuresPage from '@portals/admin-ops/pages/Disclosures/SectorDisclosuresPage'
+import StationDisclosuresPage from '@portals/transfer-station/pages/Disclosures/StationDisclosuresPage'
 import IncomingStatements from '@portals/deputy/pages/IncomingStatements'
 import AdminDisclosures from '@portals/admin/pages/AdminDisclosures'
 import DisclosureTypesPage from '@portals/it/pages/UserManagement/DisclosureTypesPage'
@@ -331,5 +332,18 @@ describe('00188 — تقرير الكشوفات (الجولة B)', () => {
     fireEvent.change(screen.getByTestId('target-search'), { target: { value: 'مسؤول' } })
     await waitFor(() => expect(h.employees).toHaveBeenCalled())
     expect(disclosureErrorMessage(new Error('SECTOR_MANAGER_NOT_ASSIGNED'))).toContain('غير مرتبط بقاطع')
+  })
+
+  it('00214 — كشوفات المحطة التحويلية: الرأس الموحّد، موظف من قسم المحطة فقط (بلا آليات)، ورسالة واضحة لحساب بلا قسم', async () => {
+    wrap(<StationDisclosuresPage />, '/transfer-station/disclosures')
+    const page = await screen.findByTestId('station-disclosures')
+    expect(page).toHaveAttribute('data-mode', 'station')
+    expect(screen.getByTestId('exec-page-header')).toHaveTextContent('كشوفات المحطة')
+    fireEvent.click(screen.getByTestId('new-disclosure-btn'))
+    expect(screen.queryByTestId('target-vehicle')).toBeNull()
+    expect(screen.getByTestId('target-employee-only')).toHaveTextContent('موظف من قسم المحطة')
+    fireEvent.change(screen.getByTestId('target-search'), { target: { value: 'ميزان' } })
+    await waitFor(() => expect(h.employees).toHaveBeenCalled())
+    expect(disclosureErrorMessage(new Error('STATION_NO_DEPARTMENT'))).toContain('المحطة التحويلية')
   })
 })

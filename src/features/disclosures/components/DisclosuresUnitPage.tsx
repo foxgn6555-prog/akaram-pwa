@@ -2,6 +2,7 @@
  * وحدة الكشوفات — مشتركة (00170 / 00206)
  *  mode='ops'    غرفة العمليات: كشوفات على الآليات والموظفين، كل الحسابات ترى الكل.
  *  mode='garage' الكراج المركزي: كشوفات على موظفي قسم الكراج فقط (النطاق يُفرض في قاعدة البيانات).
+ *  mode='station' المحطة التحويلية (00214): كشوفات على موظفي قسم المحطة فقط — نفس آلية الكراج.
  *  mode='sector' مسؤول القاطع (00210): كشوفات على الموظفين المرتبطين به فقط (مسؤولو أقسام/متعهدو قواطعه + من مديرهم المباشر هو).
  *  التبويبات (?tab=): لوحة · الكشوفات (النشطة) · كشف جديد · المُعادة · الأرشيف (معتمد/ملغى) · التقارير
  */
@@ -21,10 +22,11 @@ import { DisclosureReportTab } from '@features/disclosures/components/Disclosure
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 
-export type DisclosuresUnitMode = 'ops' | 'garage' | 'sector'
+export type DisclosuresUnitMode = 'ops' | 'garage' | 'sector' | 'station'
 const COPY: Record<DisclosuresUnitMode, { title: string; subtitle: string; preparers: string; testId: string }> = {
   ops: { title: 'وحدة الكشوفات', subtitle: 'كشوفات المخالفات على الآليات والموظفين → معاون المدير المفوض → المدير المفوض → استقطاع تلقائي في الحضورية', preparers: 'حسب مُعدّ الكشف (كل حسابات غرفة العمليات)', testId: 'ops-disclosures' },
   garage: { title: 'كشوفات الكراج', subtitle: 'كشوفات على موظفي قسم الكراج فقط (سائقون وكادر) → معاون المدير المفوض → المدير المفوض → استقطاع تلقائي في الحضورية', preparers: 'حسب مُعدّ الكشف', testId: 'garage-disclosures' },
+  station: { title: 'كشوفات المحطة', subtitle: 'كشوفات على موظفي قسم المحطة التحويلية فقط → معاون المدير المفوض → المدير المفوض → استقطاع تلقائي في الحضورية', preparers: 'حسب مُعدّ الكشف', testId: 'station-disclosures' },
   sector: { title: 'كشوفات القاطع', subtitle: 'كشوفات على الموظفين المرتبطين بك فقط (مسؤولو الأقسام والمتعهدون في قواطعك ومن تديرهم مباشرة) → معاون المدير المفوض → المدير المفوض → استقطاع تلقائي في الحضورية', preparers: 'حسب مُعدّ الكشف', testId: 'sector-disclosures' },
 }
 
@@ -69,7 +71,7 @@ export function DisclosuresUnitPage({ mode = 'ops' }: { mode?: DisclosuresUnitMo
       {tab === 'new' && (
         <div className="max-w-4xl">
           <h2 className="mb-2 text-sm font-black text-slate-700">{editing ? `تعديل الكشف ${editing.ref_no ?? ''}` : 'كشف جديد'}</h2>
-          <DisclosureForm key={editing?.id ?? 'new'} initial={editing} employeeOnly={mode !== 'ops'} employeeOnlyLabel={mode === 'sector' ? 'موظف مرتبط بك فقط' : 'موظف من قسم الكراج'} onCancel={() => { setEditing(null); setTab('list') }}
+          <DisclosureForm key={editing?.id ?? 'new'} initial={editing} employeeOnly={mode !== 'ops'} employeeOnlyLabel={mode === 'sector' ? 'موظف مرتبط بك فقط' : mode === 'station' ? 'موظف من قسم المحطة' : 'موظف من قسم الكراج'} onCancel={() => { setEditing(null); setTab('list') }}
             onSaved={(d) => { setEditing(null); setTab(d.status === 'draft' ? 'list' : 'list'); setOpenId(d.id) }} />
         </div>
       )}

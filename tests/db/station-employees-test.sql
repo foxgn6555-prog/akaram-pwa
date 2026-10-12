@@ -100,4 +100,50 @@ do $$ declare names text[]; rid uuid; o jsonb; h jsonb; begin
   assert exists (select 1 from jsonb_array_elements(public.garage_recent_hires()) r where r ->> 'employee_number' = 'S-0901'), 'recent hires';
   assert (public.garage_employees('S-0901', null) -> 'summary' ->> 'total')::int = 1, 'appears in employees';
 end $$;
+
+-- ⑧ (00214) الكشوفات: المحطة ترفع كشوفات على موظفي قسمها فقط، لا آليات، لا خارج القسم؛ RLS يحصر الرؤية
+insert into auth.users (id, email) values ('ec010000-0000-0000-0000-000000000008', 'stops@t.iq') on conflict (id) do nothing;
+insert into auth.users (id, email) values ('ec010000-0000-0000-0000-000000000007', 'stdep@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('ec010000-0000-0000-0000-000000000008', 'ops_room'), ('ec010000-0000-0000-0000-000000000007', 'deputy_director') on conflict do nothing;
+select auth.set_test_user('ec010000-0000-0000-0000-000000000001');
+do $$ declare j jsonb; d jsonb; did uuid; begin
+  j := public.disclosure_employee_lookup(null, 50);
+  assert exists (select 1 from jsonb_array_elements(j) x where x ->> 'employee_number' = 'S-EMP'), 'station emp in lookup: ' || j::text;
+  assert not exists (select 1 from jsonb_array_elements(j) x where x ->> 'employee_number' = 'S-OUT'), 'outsider hidden: ' || j::text;
+  begin perform public.disclosure_save(null, jsonb_build_object('target_kind','vehicle','vehicle_id', gen_random_uuid(), 'violation_type','delay','details','تفاصيل كافية هنا','log_date', current_date)); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'DISCLOSURE_GARAGE_EMPLOYEE_ONLY', 'vehicle blocked: ' || sqlerrm; end;
+  begin perform public.disclosure_save(null, jsonb_build_object('target_kind','employee','employee_id','fc010000-0000-0000-0000-000000000004','violation_type','delay','details','تفاصيل كافية هنا','log_date', current_date)); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'DISCLOSURE_OUT_OF_SCOPE', 'outsider blocked: ' || sqlerrm; end;
+  d := public.disclosure_save(null, jsonb_build_object('target_kind','employee','employee_id','fc010000-0000-0000-0000-000000000003','violation_type','delay','details','تأخر عن الدوام في الميزان','log_date', current_date));
+  did := (d ->> 'id')::uuid;
+  assert d ->> 'department_name' = 'ميزان المحطة', 'saved: ' || d::text;
+  assert jsonb_array_length(public.disclosures_list('active')) = 1, 'station sees its draft';
+  assert (public.disclosure_stats(current_date) ->> 'total')::int = 1, 'stats scoped';
+  d := public.disclosure_submit(did);
+  assert d ->> 'status' = 'pending', 'submitted: ' || (d ->> 'status');
+  assert app.disclosure_link_for('ec010000-0000-0000-0000-000000000001', 'returned') = '/transfer-station/disclosures?tab=returned', 'link';
+end $$;
+-- غرفة العمليات ترى كشف المحطة وتنشئ كشفاً على موظف خارجها لا يظهر للمحطة
+select auth.set_test_user('ec010000-0000-0000-0000-000000000008');
+do $$ declare d jsonb; begin
+  assert exists (select 1 from jsonb_array_elements(public.disclosures_list('pending')) x where x ->> 'employee_number' = 'S-EMP'), 'ops sees station disclosure';
+  d := public.disclosure_save(null, jsonb_build_object('target_kind','employee','employee_id','fc010000-0000-0000-0000-000000000004','violation_type','delay','details','تفاصيل كافية هنا','log_date', current_date));
+  assert d ->> 'status' = 'draft', 'ops draft';
+end $$;
+select auth.set_test_user('ec010000-0000-0000-0000-000000000001');
+do $$ begin
+  assert not exists (select 1 from jsonb_array_elements(public.disclosures_list('all')) x where x ->> 'employee_number' = 'S-OUT'), 'station cannot see outsider disclosure';
+end $$;
+set role authenticated;
+do $$ begin
+  assert (select count(*) from public.disclosures where employee_number = 'S-OUT') = 0, 'RLS hides outsider rows from station';
+  assert (select count(*) from public.disclosures where employee_number = 'S-EMP') = 1, 'RLS shows own-scope rows to station';
+end $$;
+reset role;
+-- حساب محطة بلا قسم ⇒ رسالة واضحة في الكشوفات أيضاً
+select auth.set_test_user('ec010000-0000-0000-0000-000000000002');
+do $$ begin
+  begin perform public.disclosures_list('active'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'STATION_NO_DEPARTMENT', 'no dept: ' || sqlerrm; end;
+end $$;
 select 'test ok' as result;
