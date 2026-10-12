@@ -12,6 +12,8 @@ import {
 import { StationTable } from '@components/station/StationTable'
 import { currentMonth, monthLabel } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 
 export default function TripsPage() {
   const [name, setName] = useState('')
@@ -44,10 +46,7 @@ export default function TripsPage() {
 
   return (
     <div className="space-y-5" data-testid="trips-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">النسافات الخارجة</h1>
-        <p className="text-sm text-slate-500">تسجيل النسافات الخارجة من المحطة التحويلية</p>
-      </div>
+      <ExecPageHeader icon="truck" title="النسافات الخارجة" subtitle="تسجيل النسافات الخارجة من المحطة التحويلية" />
 
       <form
         onSubmit={(e) => { e.preventDefault(); submit() }}

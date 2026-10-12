@@ -12,6 +12,8 @@ import { archiveReasonSchema } from '@features/transfer-station/schemas/weight.s
 import type { WeightRecord } from '@features/transfer-station/types'
 import { netOf } from '@features/transfer-station/lib/export'
 import { Icon } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 
@@ -58,12 +60,7 @@ export default function StationArchivePage() {
 
   return (
     <div className="space-y-5" data-testid="station-archive-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">أرشيف المحطة التحويلية</h1>
-        <p className="text-sm text-slate-500">
-          سجلات الأوزان — والحذف ينقل السجل إلى الأرشيف المركزي (IT) ويُنبّه فريق التطوير.
-        </p>
-      </div>
+      <ExecPageHeader icon="archive-box" title="أرشيف المحطة التحويلية" subtitle="سجلات الأوزان — والحذف ينقل السجل إلى الأرشيف المركزي (IT) ويُنبّه فريق التطوير." />
 
       {/* السجلات النشطة مع إمكانية الأرشفة */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">

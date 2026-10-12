@@ -13,6 +13,8 @@ import {
 import type { Shift } from '@features/transfer-station/types'
 import { toExcel, printPdf, netOf, sheetTitle } from '@features/transfer-station/lib/export'
 import { Icon } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 
@@ -46,12 +48,7 @@ export default function WeightsPage() {
 
   return (
     <div className="space-y-5" data-testid="weights-page">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">سجل الأوزان</h1>
-          <p className="text-sm text-slate-500">دفتر أوزان الشفت — يُغذيه سير العمل بالخطوات تلقائياً (بلا إدخال يدوي)</p>
-        </div>
-      </div>
+      <ExecPageHeader icon="scale" title="سجل الأوزان" subtitle="دفتر أوزان الشفت — يُغذيه سير العمل بالخطوات تلقائياً (بلا إدخال يدوي)" />
 
       {/* ── فلاتر التاريخ/الشفت + التصدير ── */}
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -14,6 +14,8 @@ import {
 } from 'recharts'
 import { useWeightSummary } from '@features/transfer-station'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 interface Stat {
@@ -59,13 +61,9 @@ export default function StationDashboard() {
   const s = (raw ?? {}) as WeightSummaryLike
 
   const stats: Stat[] = [
-    { label: 'سجلات اليوم', value: String(s.today_records ?? 0), icon: 'scale', tone: 'bg-brand-50 text-brand-700' },
     { label: 'إجمالي السجلات', value: String(s.total_records ?? 0), icon: 'list', tone: 'bg-slate-100 text-slate-700' },
-    { label: 'بانتظار التدقيق', value: String(s.pending_ops ?? 0), icon: 'file-text', tone: 'bg-amber-50 text-amber-700' },
     { label: 'مُرسل لغرفة العمليات', value: String(s.submitted_ops ?? 0), icon: 'send', tone: 'bg-emerald-50 text-emerald-700' },
-    { label: 'أطنان اليوم', value: `${(s.today_net_tons ?? 0).toFixed(2)} طن`, icon: 'bar-chart', tone: 'bg-indigo-50 text-indigo-700' },
     { label: 'في الأرشيف المركزي', value: String(s.archived ?? 0), icon: 'archive-box', tone: 'bg-red-50 text-red-700' },
-    { label: 'مخالفات اليوم', value: String(s.today_violations ?? 0), icon: 'alert-triangle', tone: 'bg-red-50 text-red-700' },
   ]
 
   const quick: Array<{ path: string; label: string; hint: string; icon: IconName }> = [
@@ -75,6 +73,10 @@ export default function StationDashboard() {
     { path: '/transfer-station/trips', label: 'النسافات الخارجة', hint: 'فولدر شهري للمعاون', icon: 'truck' },
     { path: '/transfer-station/carrier', label: 'ناقلات الحاويات', hint: 'فولدر شهري للمعاون', icon: 'truck' },
     { path: '/transfer-station/fines', label: 'مخالفات الوزن', hint: 'الأقل من الحد المسموح', icon: 'alert-triangle' },
+    { path: '/transfer-station/employees', label: 'الموظفون', hint: 'موظفو قسم المحطة — بيانات أساسية', icon: 'users' },
+    { path: '/transfer-station/requests', label: 'الطلبات', hint: 'إجازات وزمنيات موظفي المحطة', icon: 'calendar' },
+    { path: '/transfer-station/procedures', label: 'الإجراءات', hint: 'تعيين أساسي وإنهاء خدمة عبر الموافقات', icon: 'flow' },
+    { path: '/transfer-station/disclosures', label: 'الكشوفات', hint: 'كشوفات على موظفي المحطة فقط', icon: 'clipboard' },
     { path: '/transfer-station/archive', label: 'الأرشيف', hint: 'السجلات والأرشفة المركزية', icon: 'archive-box' },
   ]
 
@@ -83,16 +85,19 @@ export default function StationDashboard() {
 
   return (
     <div className="space-y-5" data-testid="station-dashboard">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">المحطة التحويلية</h1>
-        <p className="text-sm text-slate-500">تقارير الوحدات والأمور المهمة</p>
-      </div>
+      <ExecPageHeader icon="home" title="المحطة التحويلية" subtitle="تقارير الوحدات والأمور المهمة — الأوزان وحركة الآليات والمخالفات والموظفون"
+        stats={isLoading ? undefined : [
+          { label: 'سجلات اليوم', value: String(s.today_records ?? 0), tone: 'gold', testId: 'hd-today' },
+          { label: 'أطنان اليوم', value: `${(s.today_net_tons ?? 0).toFixed(2)} طن`, testId: 'hd-tons' },
+          { label: 'بانتظار التدقيق', value: String(s.pending_ops ?? 0), tone: s.pending_ops ? 'gold' : 'plain', testId: 'hd-pending' },
+          { label: 'مخالفات اليوم', value: String(s.today_violations ?? 0), tone: s.today_violations ? 'red' : 'green', testId: 'hd-violations' },
+        ]} />
 
       {/* بطاقات إحصائية */}
       {isLoading ? (
         <div className="p-8"><LoadingSpinner label="جارٍ تجهيز التقارير…" /></div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" data-testid="dash-stats">
+        <div className="grid grid-cols-3 gap-3" data-testid="dash-stats">
           {stats.map((st) => (
             <div key={st.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <span className={`mb-2 flex size-9 items-center justify-center rounded-xl ${st.tone}`}>
@@ -180,9 +185,9 @@ export default function StationDashboard() {
             <button
               key={q.path}
               onClick={() => navigate(q.path)}
-              className="group flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
+              className="group flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#0b3d6b]/30 hover:shadow-md"
             >
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-100">
+              <span className="flex size-14 items-center justify-center rounded-2xl bg-[#0b3d6b]/10 text-[#0b3d6b] transition-colors group-hover:bg-[#0b3d6b]/15">
                 <Icon name={q.icon} size={24} />
               </span>
               <span className="text-sm font-bold text-slate-800">{q.label}</span>

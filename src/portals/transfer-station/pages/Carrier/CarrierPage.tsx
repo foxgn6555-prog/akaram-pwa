@@ -12,6 +12,8 @@ import {
 import { StationTable } from '@components/station/StationTable'
 import { currentMonth, monthLabel } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 
 export default function CarrierPage() {
   const [name, setName] = useState('')
@@ -44,10 +46,7 @@ export default function CarrierPage() {
 
   return (
     <div className="space-y-5" data-testid="carrier-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">ناقلة الحاويات المكبسية</h1>
-        <p className="text-sm text-slate-500">تسجيل خروج ناقلات الحاويات المكبسية من المحطة التحويلية — الوقت تلقائي والوزن يُدخله المسؤول</p>
-      </div>
+      <ExecPageHeader icon="truck" title="ناقلة الحاويات المكبسية" subtitle="تسجيل خروج ناقلات الحاويات المكبسية من المحطة التحويلية — الوقت تلقائي والوزن يُدخله المسؤول" />
 
       <form
         onSubmit={(e) => { e.preventDefault(); submit() }}

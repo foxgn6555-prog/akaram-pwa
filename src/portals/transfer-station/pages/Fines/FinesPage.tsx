@@ -5,7 +5,9 @@
  *  · العرض: السائق · DB · الآلية · الوزن · الحد الأدنى · الفرق · الوقت
  */
 import { useState } from 'react'
-import { AlertTriangle, ShieldAlert } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 import { useViolations } from '@features/transfer-station'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
@@ -21,15 +23,8 @@ export default function FinesPage() {
 
   return (
     <div className="space-y-5" data-testid="fines-page">
+      <ExecPageHeader icon="alert-triangle" title="مخالفات الوزن" subtitle="تُسجل تلقائياً عندما يكتمل سير العمل بوزن أقل من الحد المسموح — بلا مبالغ، وتصل تنبيهات لغرفة العمليات" />
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-bold text-slate-800">
-            <ShieldAlert size={18} className="text-red-600" /> مخالفات الوزن
-          </h1>
-          <p className="text-sm text-slate-500">
-            تُسجل تلقائياً عندما يكتمل سير العمل بوزن أقل من الحد المسموح — بلا مبالغ، وتصل تنبيهات لغرفة العمليات
-          </p>
-        </div>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
           فلتر بتاريخ المخالفة
           <input

@@ -12,6 +12,8 @@ import {
 import { StationTable } from '@components/station/StationTable'
 import { currentMonth, monthLabel } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+
 
 export default function SaksatPage() {
   const [name, setName] = useState('')
@@ -44,10 +46,7 @@ export default function SaksatPage() {
 
   return (
     <div className="space-y-5" data-testid="saksat-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">السكسات الخارجة</h1>
-        <p className="text-sm text-slate-500">تسجيل السكسات الخارجة من المحطة التحويلية</p>
-      </div>
+      <ExecPageHeader icon="send" title="السكسات الخارجة" subtitle="تسجيل السكسات الخارجة من المحطة التحويلية" />
 
       {/* ── نموذج الإدخال ── */}
       <form
