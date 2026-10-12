@@ -149,7 +149,7 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
     void act(() => cancel.mutateAsync({ id: r.id, reason: reason.trim() }))
   }
   if (isLoading) return <LoadingSpinner />
-  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : mode === 'garage' ? 'لا طلبات لموظفي قسم الكراج في هذا المدى' : 'لم تُسجَّل طلبات في هذا النطاق'} />
+  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : mode === 'garage' ? 'لا طلبات لموظفي قسمك في هذا المدى' : 'لم تُسجَّل طلبات في هذا النطاق'} />
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm" data-testid={`${testId}-table`}>

@@ -341,6 +341,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'truck',
     },
     { path: '/transfer-station/employees', labelKey: 'nav.ts_employees', icon: 'users' },   // 00211
+    { path: '/transfer-station/requests', labelKey: 'nav.ts_requests', icon: 'calendar' },   // 00212
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
   ],

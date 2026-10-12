@@ -41,4 +41,29 @@ do $$ begin
   begin perform public.garage_employees(null, null); raise exception 'should fail';
   exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'forbidden: ' || sqlerrm; end;
 end $$;
+
+-- ④ (00212) الطلبات: المحطة تُدخل إجازة نيابةً عن موظف قسمها، تراها في النطاق، تلغيها؛ لا تستطيع لموظف خارج قسمها
+update public.employees set manager_id = 'fc010000-0000-0000-0000-000000000001' where id = 'fc010000-0000-0000-0000-000000000003';
+select auth.set_test_user('ec010000-0000-0000-0000-000000000001');
+do $$ declare t uuid; lid uuid; j jsonb; begin
+  select id into t from public.hr_leave_types where code = 'unpaid';
+  lid := public.hr_leave_request('fc010000-0000-0000-0000-000000000003', t, current_date + 3, current_date + 4, null, null, 'طلب من المحطة');
+  assert exists (select 1 from public.hr_leaves_list('garage') x where x.id = lid and x.employee_number = 'S-EMP' and x.can_cancel), 'station scope sees it with can_cancel';
+  assert not exists (select 1 from public.hr_leaves_list('garage') x where x.employee_number = 'S-OUT'), 'station scope excludes outsiders';
+  assert (public.hr_leave_balance('fc010000-0000-0000-0000-000000000003') ? 'remaining'), 'station reads balance of its employee';
+  j := public.garage_leaves_summary();
+  assert (j ->> 'pending')::int >= 1 and (j ->> 'scoped')::boolean, 'summary: ' || j::text;
+  begin perform public.hr_leave_request('fc010000-0000-0000-0000-000000000004', t, current_date + 3, current_date + 3, null, null, 'خارج القسم'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'HR_FORBIDDEN', 'outsider: ' || sqlerrm; end;
+  begin perform public.hr_leave_balance('fc010000-0000-0000-0000-000000000004'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'HR_FORBIDDEN', 'outsider balance: ' || sqlerrm; end;
+  perform public.hr_leave_cancel(lid, 'أُدخل بالخطأ');
+  assert (select status from public.hr_leaves where id = lid) = 'cancelled', 'station cancels own pending request';
+end $$;
+-- ⑤ حساب محطة بلا قسم ⇒ النطاق يرفع STATION_NO_DEPARTMENT في الطلبات أيضاً
+select auth.set_test_user('ec010000-0000-0000-0000-000000000002');
+do $$ begin
+  begin perform public.garage_leaves_summary(); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'STATION_NO_DEPARTMENT', 'summary no dept: ' || sqlerrm; end;
+end $$;
 select 'test ok' as result;

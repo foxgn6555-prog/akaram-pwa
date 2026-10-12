@@ -17,7 +17,9 @@ import { disclosureErrorMessage } from '@sdk/disclosures-unit.sdk'
 type Tab = 'inbox' | 'all'
 const n = (v: number) => v.toLocaleString('en-US')
 
-export default function GarageRequestsPage() {
+export interface DeptRequestsPageProps { title?: string; dept?: string; testId?: string }
+/** صفحة مشتركة بنطاق القسم — الكراج افتراضياً؛ المحطة التحويلية (00212) تمرر عنوانها واسم جهتها. */
+export default function GarageRequestsPage({ title = 'طلبات موظفي الكراج', dept = 'الكراج', testId = 'garage-requests-page' }: DeptRequestsPageProps = {}) {
   const [tab, setTab] = useState<Tab>('inbox')
   const [from, setFrom] = useState(monthStart(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)))
   const [to, setTo] = useState(isoDay(new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0)))
@@ -33,8 +35,8 @@ export default function GarageRequestsPage() {
   const inbox = useMemo(() => rows.filter((r) => r.status === 'pending'), [rows])
   const err = error ?? summaryError
   return (
-    <div className="space-y-4" data-testid="garage-requests-page">
-      <ExecPageHeader icon="calendar" title="طلبات موظفي الكراج" subtitle="إجازات وزمنيات موظفي قسم الكراج — الطلب يُرسل إلى سلسلة الموافقات المعتمدة من التطوير المركزية ويُسجَّل في الحضور تلقائياً عند الموافقة"
+    <div className="space-y-4" data-testid={testId}>
+      <ExecPageHeader icon="calendar" title={title} subtitle={`إجازات وزمنيات موظفي قسم ${dept} — الطلب يُرسل إلى سلسلة الموافقات المعتمدة من التطوير المركزية ويُسجَّل في الحضور تلقائياً عند الموافقة`}
         stats={[{ label: 'معلّقة', value: summary ? n(summary.pending) : '…', tone: summary?.pending ? 'gold' : 'plain' }, { label: 'بانتظار قرارك', value: summary ? n(summary.my_decisions) : '…', tone: summary?.my_decisions ? 'red' : 'green' }, { label: 'في إجازة اليوم', value: summary ? n(summary.on_leave_today) : '…' }, { label: 'زمنيات الشهر', value: summary ? n(summary.permits_month) : '…' }]}
         actions={<HeaderButton onClick={() => setOnBehalf((v) => !v)} icon="user-plus" testId="gr-on-behalf">{onBehalf ? 'إغلاق النموذج' : '+ طلب نيابة عن موظف'}</HeaderButton>} />
 
@@ -42,7 +44,7 @@ export default function GarageRequestsPage() {
 
       {onBehalf && (
         <div className="space-y-2 rounded-2xl border border-[#0b3d6b]/20 bg-[#0b3d6b]/[0.03] p-3" data-testid="gr-behalf-panel">
-          <label className="block text-xs font-semibold text-slate-600">الموظف (من قسم الكراج)
+          <label className="block text-xs font-semibold text-slate-600">الموظف (من قسم {dept})
             <select className={clsx(field, 'mt-1')} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} data-testid="gr-behalf-emp">
               <option value="">— اختر الموظف —</option>
               {(employees?.rows ?? []).filter((e) => e.employment_status !== 'terminated').map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_number}{e.is_driver ? ' · سائق' : ''}</option>)}

@@ -24,6 +24,7 @@ const CarrierPage = lazy(() => import('./pages/Carrier/CarrierPage'))
 const FinesPage = lazy(() => import('./pages/Fines/FinesPage'))
 const StationArchivePage = lazy(() => import('./pages/Archive/StationArchivePage'))
 const StationEmployeesPage = lazy(() => import('./pages/Employees/StationEmployeesPage'))   // 00211: الموظفون (قسم المحطة فقط)
+const StationRequestsPage = lazy(() => import('./pages/Requests/StationRequestsPage'))   // 00212: الطلبات (إجازات/زمنيات قسم المحطة)
 const StationVehicleMovementsPage=lazy(()=>import('./pages/VehicleMovements/StationVehicleMovementsPage'))
 
 const s = (node: ReactNode): ReactNode => (
@@ -39,6 +40,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'carrier', element: s(<CarrierPage />) },
   { path:'vehicle-movements',element:s(<StationVehicleMovementsPage/>) },
   { path: 'employees', element: s(<StationEmployeesPage />) },
+  { path: 'requests', element: s(<StationRequestsPage />) },
   { path: 'fines', element: s(<FinesPage />) },
   { path: 'archive', element: s(<StationArchivePage />) },
 ]
