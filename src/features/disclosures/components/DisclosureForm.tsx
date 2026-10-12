@@ -15,16 +15,18 @@ export interface DisclosureFormProps {
   /** عند التعديل */
   initial?: DisclosureV2 | null
   onSaved: (d: DisclosureV2, submitted: boolean) => void
+  /** 00206: الكراج المركزي — كشوفات على الموظفين فقط */
+  employeeOnly?: boolean
   onCancel?: () => void
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
 function useDebounced(v: string, ms = 250) { const [d, setD] = useState(v); useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t) }, [v, ms]); return d }
 
-export function DisclosureForm({ initial, onSaved, onCancel }: DisclosureFormProps) {
+export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = false }: DisclosureFormProps) {
   const types = useDisclosureTypes()
   const { save, submit } = useDisclosureActions()
-  const [kind, setKind] = useState<DisclosureTargetKind>(initial?.target_kind ?? 'vehicle')
+  const [kind, setKind] = useState<DisclosureTargetKind>(initial?.target_kind ?? (employeeOnly ? 'employee' : 'vehicle'))
   const [vehicle, setVehicle] = useState<VehicleOption | null>(initial?.vehicle_id ? { id: initial.vehicle_id, db_number: initial.db_number, plate_number: '', vehicle_name: initial.vehicle_type ?? '', driver_name: initial.driver_name, shift: initial.shift, sector: initial.sector, parent_sector: null, driver_employee_id: initial.employee_id, driver_employee_name: initial.employee_name, driver_employee_number: initial.employee_number } : null)
   const [employee, setEmployee] = useState<EmployeeOption | null>(initial?.target_kind === 'employee' && initial.employee_id ? { id: initial.employee_id, full_name: initial.employee_name ?? '', employee_number: initial.employee_number ?? '', job_title: initial.job_title, department_name: initial.department_name } : null)
   const [q, setQ] = useState('')
@@ -56,6 +58,7 @@ export function DisclosureForm({ initial, onSaved, onCancel }: DisclosureFormPro
   if (details.trim().length < 5) errors.push('اكتب التفاصيل (5 أحرف على الأقل)')
   if (!logDate || logDate > today()) errors.push('تاريخ المخالفة غير صالح')
   if (amountNum != null && (!Number.isFinite(amountNum) || amountNum < 0)) errors.push('المبلغ غير صالح')
+  if (penalty === 'fine' && !(amountNum != null && amountNum > 0)) errors.push('الغرامة المالية تتطلب مبلغاً أكبر من صفر')
   const busy = save.isPending || submit.isPending
 
   const build = (): DisclosureInput => ({
@@ -80,12 +83,12 @@ export function DisclosureForm({ initial, onSaved, onCancel }: DisclosureFormPro
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-black text-slate-800">على مَن الكشف؟</h3>
-          <div className="ms-auto inline-flex rounded-xl border border-slate-200 p-0.5" role="tablist">
+          {employeeOnly ? <span className="ms-auto rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-600" data-testid="target-employee-only">موظف من قسم الكراج</span> : <div className="ms-auto inline-flex rounded-xl border border-slate-200 p-0.5" role="tablist">
             {(['vehicle', 'employee'] as const).map((k) => (
               <button key={k} type="button" role="tab" aria-selected={kind === k} data-testid={`target-${k}`} onClick={() => { if (!initial) { setKind(k); setQ(''); setOpen(false) } }} disabled={!!initial}
                 className={clsx('h-8 rounded-lg px-3 text-xs font-black', kind === k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>{k === 'vehicle' ? 'آلية (رقم DB)' : 'موظف'}</button>
             ))}
-          </div>
+          </div>}
         </div>
         {(kind === 'vehicle' ? vehicle : employee) ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 p-3 text-sm" data-testid="target-selected">

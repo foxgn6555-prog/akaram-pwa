@@ -16,7 +16,7 @@ export type ViolationType =
  * الإجراء التأديبي — «توبيخ» أُلغي من الاختيارات في الواجهة،
  * ويبقى محجوزاً لإظهار السجلات القديمة فقط (ميجريشن 00041).
  */
-export type PenaltyType = 'warning' | 'reprimand' | 'termination'
+export type PenaltyType = 'warning' | 'reprimand' | 'termination' | 'fine'
 
 /** نوع المتعهد: التشغيل الذاتي أو الآلية المؤجرة */
 export const CONTRACTOR_TYPES = ['ذاتي', 'مؤجر'] as const
@@ -84,6 +84,7 @@ export const PENALTY_LABELS: Record<PenaltyType, string> = {
   // التوبيخ أُلغي من الاختيارات — يبقى للعرض التاريخي فقط (انظر ميجريشن 00041)
   reprimand: 'توبيخ',
   termination: 'إنهاء خدمات',
+  fine: 'غرامة مالية',
 }
 
 export const SHIFT_LABELS: Record<Shift, string> = {

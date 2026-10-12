@@ -12,6 +12,7 @@ const DriversDispatchPage = lazy(() => import('./pages/DriversDispatchPage'))
 const MaintenanceCoordinationPage = lazy(() => import('./pages/MaintenanceCoordinationPage'))
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'))
 const FuelTypePage = lazy(() => import('./pages/FuelTypePage'))
+const GarageDisclosuresPage = lazy(() => import('./pages/GarageDisclosuresPage'))   // 00206: كشوفات على موظفي قسم الكراج
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 )
@@ -27,6 +28,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'fuel/hydraulic', element: s(<FuelTypePage fuelType="hydraulic" />) },
   { path: 'fuel/grease', element: s(<FuelTypePage fuelType="grease" />) },
   { path: 'fuel/c-oil', element: s(<FuelTypePage fuelType="c_oil" />) },
+  { path: 'disclosures', element: s(<GarageDisclosuresPage />) },
   { path: 'reports', element: s(<GarageReportsPage />) },
   { path: 'archive', element: s(<GarageArchivePage />) },
 ]

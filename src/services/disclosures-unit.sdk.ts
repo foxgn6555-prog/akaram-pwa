@@ -7,7 +7,7 @@ import { sdkGuard, supabase } from './client'
 
 export type DisclosureTargetKind = 'vehicle' | 'employee'
 export type DisclosureStatusV2 = 'draft' | 'pending' | 'returned' | 'approved' | 'cancelled'
-export type PenaltyKey = 'warning' | 'reprimand' | 'termination'
+export type PenaltyKey = 'warning' | 'reprimand' | 'termination' | 'fine'
 
 export interface DisclosureType {
   key: string; label: string; description: string | null; allowed_penalties: PenaltyKey[]; default_amount: number | null
@@ -53,7 +53,7 @@ export interface DisclosureStats {
 }
 
 export const DISCLOSURE_STATUS_LABEL: Record<DisclosureStatusV2, string> = { draft: 'مسودة', pending: 'قيد الموافقة', returned: 'مُعاد للتصحيح', approved: 'معتمد', cancelled: 'ملغى' }
-export const PENALTY_LABEL: Record<PenaltyKey, string> = { warning: 'إنذار', reprimand: 'توبيخ', termination: 'إنهاء خدمة' }
+export const PENALTY_LABEL: Record<PenaltyKey, string> = { warning: 'إنذار', reprimand: 'توبيخ', termination: 'إنهاء خدمة', fine: 'غرامة مالية' }
 export const SHIFT_LABEL: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
 export const EVENT_LABEL: Record<string, string> = {
   created: 'أُنشئ', updated: 'عُدّل', submitted: 'رُفع للموافقة', resubmitted: 'أُعيد رفعه بعد التصحيح', step_approved: 'وافق', returned: 'أُعيد بسبب', approved: 'اعتُمد نهائياً',
@@ -86,6 +86,10 @@ const ERRORS: Record<string, string> = {
   DISCLOSURE_TYPE_KEY_INVALID: 'رمز النوع: حروف إنجليزية صغيرة وأرقام وشرطة سفلية (مثل: speeding)',
   DISCLOSURE_TYPE_LABEL_INVALID: 'اسم النوع مطلوب',
   DISCLOSURE_PENALTY_INVALID: 'عقوبة غير معروفة',
+  DISCLOSURE_FINE_AMOUNT_REQUIRED: 'عقوبة «غرامة مالية» تتطلب مبلغاً أكبر من صفر',
+  DISCLOSURE_GARAGE_EMPLOYEE_ONLY: 'كشوفات الكراج على الموظفين فقط',
+  DISCLOSURE_OUT_OF_SCOPE: 'هذا الموظف/الكشف خارج نطاق قسمك',
+  GARAGE_NO_DEPARTMENT: 'حسابك غير مربوط بقسم في الموارد البشرية — اطلب من الموارد البشرية إضافة سجلك الوظيفي ضمن قسم الكراج',
   APPROVAL_NO_APPROVER: 'لا يوجد مُعتمِد (معاون/مدير مفوض) — راجع التطوير المركزية',
   HR_MONTH_LOCKED: 'كل الأشهر القادمة مقفلة من المالية — تعذّر تسجيل الاستقطاع',
   IT_FORBIDDEN: 'هذه الصلاحية للتطوير المركزية فقط',

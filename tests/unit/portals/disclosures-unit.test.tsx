@@ -47,6 +47,7 @@ vi.mock('@sdk/disclosures-unit.sdk', async (importOriginal) => {
 vi.mock('@features/auth/hooks/useAuth', () => ({ useAuth: () => ({ data: { id: 'u1', roles: ['ops_room'], full_name: 'موظف' } }), useLogout: () => ({ mutate: vi.fn() }) }))
 
 import OpsDisclosuresPage from '@portals/ops-room/pages/Disclosures/OpsDisclosuresPage'
+import GarageDisclosuresPage from '@portals/central-garage/pages/GarageDisclosuresPage'
 import IncomingStatements from '@portals/deputy/pages/IncomingStatements'
 import AdminDisclosures from '@portals/admin/pages/AdminDisclosures'
 import DisclosureTypesPage from '@portals/it/pages/UserManagement/DisclosureTypesPage'
@@ -296,5 +297,24 @@ describe('00188 — تقرير الكشوفات (الجولة B)', () => {
     fireEvent.click(await screen.findByTestId('tab-report'))
     await screen.findByTestId('approver-report')
     expect(await screen.findByTestId('rep-k-count')).toHaveTextContent('4')
+  })
+
+  it('00206 — كشوفات الكراج: الرأس الموحّد، نموذج على موظف فقط (بلا تبويب الآليات)، عقوبة «غرامة مالية» تتطلب مبلغاً', async () => {
+    h.types.mockResolvedValueOnce([{ key: 'delay', label: 'تأخير', description: null, allowed_penalties: ['warning', 'fine'], default_amount: null, min_amount: null, max_amount: null, is_active: true, sort_order: 1, updated_at: null, updated_by_name: null, used: 0 }])
+    wrap(<GarageDisclosuresPage />)
+    const page = await screen.findByTestId('garage-disclosures')
+    expect(page).toHaveAttribute('data-mode', 'garage')
+    expect(screen.getByTestId('exec-page-header')).toHaveTextContent('كشوفات الكراج')
+    fireEvent.click(screen.getByTestId('new-disclosure-btn'))
+    expect(screen.queryByTestId('target-vehicle')).toBeNull()
+    expect(screen.getByTestId('target-employee-only')).toHaveTextContent('موظف من قسم الكراج')
+    fireEvent.change(screen.getByTestId('target-search'), { target: { value: 'سائق' } })
+    await waitFor(() => expect(h.employees).toHaveBeenCalled())
+    const typeSel = await screen.findByTestId('type-select')
+    fireEvent.change(typeSel, { target: { value: 'delay' } })
+    const pen = screen.getByTestId('penalty-select') as HTMLSelectElement
+    expect(Array.from(pen.options).map((o) => o.textContent)).toContain('غرامة مالية')
+    fireEvent.change(pen, { target: { value: 'fine' } })
+    expect(screen.getByTestId('form-errors')).toHaveTextContent('الغرامة المالية تتطلب مبلغاً أكبر من صفر')
   })
 })
