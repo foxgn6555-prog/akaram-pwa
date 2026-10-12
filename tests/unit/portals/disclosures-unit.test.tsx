@@ -46,8 +46,10 @@ vi.mock('@sdk/disclosures-unit.sdk', async (importOriginal) => {
 })
 vi.mock('@features/auth/hooks/useAuth', () => ({ useAuth: () => ({ data: { id: 'u1', roles: ['ops_room'], full_name: 'موظف' } }), useLogout: () => ({ mutate: vi.fn() }) }))
 
+import { disclosureErrorMessage } from '@sdk/disclosures-unit.sdk'
 import OpsDisclosuresPage from '@portals/ops-room/pages/Disclosures/OpsDisclosuresPage'
 import GarageDisclosuresPage from '@portals/central-garage/pages/GarageDisclosuresPage'
+import SectorDisclosuresPage from '@portals/admin-ops/pages/Disclosures/SectorDisclosuresPage'
 import IncomingStatements from '@portals/deputy/pages/IncomingStatements'
 import AdminDisclosures from '@portals/admin/pages/AdminDisclosures'
 import DisclosureTypesPage from '@portals/it/pages/UserManagement/DisclosureTypesPage'
@@ -316,5 +318,18 @@ describe('00188 — تقرير الكشوفات (الجولة B)', () => {
     expect(Array.from(pen.options).map((o) => o.textContent)).toContain('غرامة مالية')
     fireEvent.change(pen, { target: { value: 'fine' } })
     expect(screen.getByTestId('form-errors')).toHaveTextContent('الغرامة المالية تتطلب مبلغاً أكبر من صفر')
+  })
+
+  it('00210 — كشوفات مسؤول القاطع: الرأس الموحّد، موظف مرتبط به فقط (بلا آليات)، ورسالة واضحة لحساب بلا قاطع', async () => {
+    wrap(<SectorDisclosuresPage />, '/admin-ops/disclosures')
+    const page = await screen.findByTestId('sector-disclosures')
+    expect(page).toHaveAttribute('data-mode', 'sector')
+    expect(screen.getByTestId('exec-page-header')).toHaveTextContent('كشوفات القاطع')
+    fireEvent.click(screen.getByTestId('new-disclosure-btn'))
+    expect(screen.queryByTestId('target-vehicle')).toBeNull()
+    expect(screen.getByTestId('target-employee-only')).toHaveTextContent('موظف مرتبط بك فقط')
+    fireEvent.change(screen.getByTestId('target-search'), { target: { value: 'مسؤول' } })
+    await waitFor(() => expect(h.employees).toHaveBeenCalled())
+    expect(disclosureErrorMessage(new Error('SECTOR_MANAGER_NOT_ASSIGNED'))).toContain('غير مرتبط بقاطع')
   })
 })

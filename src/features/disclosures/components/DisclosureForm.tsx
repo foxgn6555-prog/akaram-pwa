@@ -17,13 +17,15 @@ export interface DisclosureFormProps {
   onSaved: (d: DisclosureV2, submitted: boolean) => void
   /** 00206: الكراج المركزي — كشوفات على الموظفين فقط */
   employeeOnly?: boolean
+  /** نص شارة «موظف فقط» (الكراج: من قسم الكراج · مسؤول القاطع: المرتبطون به) */
+  employeeOnlyLabel?: string
   onCancel?: () => void
 }
 
 const today = () => new Date().toISOString().slice(0, 10)
 function useDebounced(v: string, ms = 250) { const [d, setD] = useState(v); useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t) }, [v, ms]); return d }
 
-export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = false }: DisclosureFormProps) {
+export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = false, employeeOnlyLabel = 'موظف من قسم الكراج' }: DisclosureFormProps) {
   const types = useDisclosureTypes()
   const { save, submit } = useDisclosureActions()
   const [kind, setKind] = useState<DisclosureTargetKind>(initial?.target_kind ?? (employeeOnly ? 'employee' : 'vehicle'))
@@ -83,7 +85,7 @@ export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = fals
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-black text-slate-800">على مَن الكشف؟</h3>
-          {employeeOnly ? <span className="ms-auto rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-600" data-testid="target-employee-only">موظف من قسم الكراج</span> : <div className="ms-auto inline-flex rounded-xl border border-slate-200 p-0.5" role="tablist">
+          {employeeOnly ? <span className="ms-auto rounded-lg bg-slate-100 px-3 py-1 text-xs font-black text-slate-600" data-testid="target-employee-only">{employeeOnlyLabel}</span> : <div className="ms-auto inline-flex rounded-xl border border-slate-200 p-0.5" role="tablist">
             {(['vehicle', 'employee'] as const).map((k) => (
               <button key={k} type="button" role="tab" aria-selected={kind === k} data-testid={`target-${k}`} onClick={() => { if (!initial) { setKind(k); setQ(''); setOpen(false) } }} disabled={!!initial}
                 className={clsx('h-8 rounded-lg px-3 text-xs font-black', kind === k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>{k === 'vehicle' ? 'آلية (رقم DB)' : 'موظف'}</button>

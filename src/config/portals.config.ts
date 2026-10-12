@@ -308,6 +308,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin-ops/reports', labelKey: 'nav.sm_reports', icon: 'bar-chart' },
     { path: '/admin-ops/notify', labelKey: 'nav.sm_notify', icon: 'send' },
     { path: '/admin-ops/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
+    { path: '/admin-ops/disclosures', labelKey: 'nav.sm_disclosures', icon: 'alert-triangle' },   // 00210
     { path: '/admin-ops/my-requests', labelKey: 'nav.my_requests', icon: 'calendar' },
   ],
   [PORTALS.MAINTENANCE]: [
