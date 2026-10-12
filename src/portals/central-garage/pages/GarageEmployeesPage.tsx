@@ -20,7 +20,9 @@ const thisMonth = () => new Date().toISOString().slice(0, 7)
 const n = (v: number) => v.toLocaleString('en-US')
 type Filter = 'all' | 'drivers' | 'staff' | 'issues'
 
-export default function GarageEmployeesPage() {
+export interface DeptEmployeesPageProps { title?: string; dept?: string; testId?: string }
+/** صفحة مشتركة بنطاق القسم — الكراج افتراضياً؛ المحطة التحويلية (00211) تمرر عنوانها واسم جهتها. */
+export default function GarageEmployeesPage({ title = 'موظفو الكراج', dept = 'الكراج', testId = 'garage-employees-page' }: DeptEmployeesPageProps = {}) {
   const [q, setQ] = useState(''); const dq = useDeferredValue(q.trim())
   const [month, setMonth] = useState(thisMonth())
   const [filter, setFilter] = useState<Filter>('all')
@@ -28,8 +30,8 @@ export default function GarageEmployeesPage() {
   const rows = (data?.rows ?? []).filter((r) => filter === 'all' ? true : filter === 'drivers' ? r.is_driver : filter === 'staff' ? !r.is_driver : r.open_disclosures > 0 || r.month.absent > 0)
   const s = data?.summary
   return (
-    <div className="space-y-4" data-testid="garage-employees-page">
-      <ExecPageHeader icon="users" title="موظفو الكراج" subtitle={data?.department ? `قسم «${data.department}» وفروعه — بيانات أساسية؛ الرواتب لدى المالية والملف الكامل لدى الموارد البشرية` : 'كل موظفي قسم الكراج وفروعه — بيانات أساسية غير حساسة'}
+    <div className="space-y-4" data-testid={testId}>
+      <ExecPageHeader icon="users" title={title} subtitle={data?.department ? `قسم «${data.department}» وفروعه — بيانات أساسية؛ الرواتب لدى المالية والملف الكامل لدى الموارد البشرية` : 'كل موظفي قسم الكراج وفروعه — بيانات أساسية غير حساسة'}
         stats={[{ label: 'الموظفون', value: s ? n(s.total) : '…', tone: 'gold' }, { label: 'سائقون', value: s ? n(s.drivers) : '…' }, { label: 'غائبون اليوم', value: s ? n(s.absent_today) : '…', tone: s?.absent_today ? 'red' : 'green' }, { label: 'عليهم كشوفات مفتوحة', value: s ? n(s.with_open_disclosures) : '…', tone: s?.with_open_disclosures ? 'red' : 'plain' }]} />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -43,7 +45,7 @@ export default function GarageEmployeesPage() {
       </div>
 
       {isLoading ? <LoadingSpinner /> : error ? <p role="alert" className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">{disclosureErrorMessage(error)}</p> : rows.length === 0 ? (
-        <EmptyState title="لا موظفون" hint={data?.scoped ? 'لم تضع الموارد البشرية موظفين في قسم الكراج بعد' : 'لا نتائج مطابقة'} />
+        <EmptyState title="لا موظفون" hint={data?.scoped ? `لم تضع الموارد البشرية موظفين في قسم ${dept} بعد` : 'لا نتائج مطابقة'} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[900px] text-sm" data-testid="emp-table">
