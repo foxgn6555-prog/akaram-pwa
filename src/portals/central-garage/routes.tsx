@@ -14,7 +14,8 @@ const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'))
 const FuelTypePage = lazy(() => import('./pages/FuelTypePage'))
 const GarageDisclosuresPage = lazy(() => import('./pages/GarageDisclosuresPage'))
 const GarageEmployeesPage = lazy(() => import('./pages/GarageEmployeesPage'))   // 00207: موظفو قسم الكراج
-const GarageRequestsPage = lazy(() => import('./pages/GarageRequestsPage'))     // 00208: طلبات موظفي الكراج   // 00206: كشوفات على موظفي قسم الكراج
+const GarageRequestsPage = lazy(() => import('./pages/GarageRequestsPage'))     // 00208: طلبات موظفي الكراج
+const GarageProceduresPage = lazy(() => import('./pages/GarageProceduresPage'))   // 00209: الإجراءات (تعيين/إنهاء خدمة)   // 00206: كشوفات على موظفي قسم الكراج
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 )
@@ -32,6 +33,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'fuel/c-oil', element: s(<FuelTypePage fuelType="c_oil" />) },
   { path: 'employees', element: s(<GarageEmployeesPage />) },
   { path: 'requests', element: s(<GarageRequestsPage />) },
+  { path: 'procedures', element: s(<GarageProceduresPage />) },
   { path: 'disclosures', element: s(<GarageDisclosuresPage />) },
   { path: 'reports', element: s(<GarageReportsPage />) },
   { path: 'archive', element: s(<GarageArchivePage />) },

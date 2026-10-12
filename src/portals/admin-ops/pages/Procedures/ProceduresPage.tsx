@@ -46,7 +46,7 @@ export default function ProceduresPage({ title = 'الإجراءات', hero = fa
   )
 }
 
-function NewTermination({ onDone }: { onDone: () => void }) {
+export function NewTermination({ onDone }: { onDone: () => void }) {
   const targets = useTerminationTargets(), create = useCreateTerminationRequest()
   const [q, setQ] = useState(''), [picked, setPicked] = useState<TerminationTarget | null>(null)
   const [type, setType] = useState<TerminationType>('resignation'), [lastDay, setLastDay] = useState(isoDay()), [reason, setReason] = useState(''), [confirm, setConfirm] = useState(false)
@@ -126,7 +126,7 @@ function NewTermination({ onDone }: { onDone: () => void }) {
   )
 }
 
-function MyRequests() {
+export function MyRequests() {
   const mine = useMyTerminationRequests()
   if (mine.isLoading) return <LoadingSpinner />
   const rows = mine.data ?? []

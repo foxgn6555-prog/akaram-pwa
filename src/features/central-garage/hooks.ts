@@ -6,6 +6,7 @@ import { API } from '@lib/constants/api.constants'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import type { GarageReportFilter } from './reports'
+import type { GarageHireInput } from './types'
 import type { GarageFuelUnit } from './fuel-units'
 import { buildFleetWorkbook, downloadWorkbook, type FleetImportRow } from './fleet-excel'
 import type {
@@ -518,4 +519,19 @@ export function useGarageEmployees(q: string, month: string) {
 /** 00208: ملخص طلبات الكراج */
 export function useGarageLeavesSummary() {
   return useQuery({ queryKey: centralGarageKeys.leavesSummary(), queryFn: () => centralGarage.leavesSummary(), staleTime: 15_000 })
+}
+
+/** 00209: الإجراءات — التعيين الأساسي */
+export function useGarageHireOptions() {
+  return useQuery({ queryKey: centralGarageKeys.hireOptions(), queryFn: () => centralGarage.hireOptions(), staleTime: 60_000 })
+}
+export function useGarageRecentHires() {
+  return useQuery({ queryKey: centralGarageKeys.recentHires(), queryFn: () => centralGarage.recentHires(), staleTime: 15_000 })
+}
+export function useGarageHire() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: GarageHireInput) => centralGarage.hire(v),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.all }) },
+  })
 }

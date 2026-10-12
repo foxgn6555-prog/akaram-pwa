@@ -141,3 +141,44 @@ do $$ begin
   exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'employee garage scope: ' || sqlerrm; end;
   raise notice 'G11 ✅ نطاق الكراج ممنوع على الموظف العادي';
 end $$;
+
+-- ⑧ (00209) الإجراءات: الكراج يطلب إنهاء خدمة موظف قسمه فقط (عبر الموافقات)، ويُعيّن ببيانات أساسية فقط
+insert into public.user_roles (user_id, role) values ('ee010000-0000-0000-0000-000000000001', 'hr_officer') on conflict do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles) values ('dd010000-0000-0000-0000-0000000000a3', 'سائق شاحنة', 'GKT', 'dd010000-0000-0000-0000-0000000000a2', true, true) on conflict do nothing;
+insert into public.departments (id, name, code, parent_id, is_job_title) values ('dd010000-0000-0000-0000-0000000000b2', 'محاسب', 'OTA', 'dd010000-0000-0000-0000-0000000000b1', true) on conflict do nothing;
+select auth.set_test_user('ee010000-0000-0000-0000-000000000003');
+do $$ declare names text[]; rid uuid; o jsonb; h jsonb; begin
+  assert app.procedure_role() = 'garage', 'role: ' || coalesce(app.procedure_role(), 'null');
+  select array_agg(full_name order by full_name) into names from public.termination_targets();
+  assert names = array['سائق الكراج'], 'garage targets (own dept, not self, no outsiders): ' || coalesce(names::text, 'null');
+  begin perform public.termination_request_create('employee', 'ff010000-0000-0000-0000-000000000006', 'dismissal', current_date + 7, 'سبب كافٍ هنا'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'PROCEDURE_TARGET_FORBIDDEN', 'outsider termination: ' || sqlerrm; end;
+  rid := public.termination_request_create('employee', 'ff010000-0000-0000-0000-000000000005', 'resignation', current_date + 7, 'استقالة بطلب الموظف');
+  assert (select status from public.termination_requests where id = rid) = 'pending', 'pending via approvals';
+  assert (select employment_status from public.employees where id = 'ff010000-0000-0000-0000-000000000005') <> 'terminated', 'not executed before approval';
+  assert app.procedures_link_for('ee010000-0000-0000-0000-000000000003') = '/central-garage/procedures', 'link';
+  perform public.termination_request_cancel(rid);
+  -- التعيين
+  o := public.garage_hire_options();
+  assert exists (select 1 from jsonb_array_elements(o -> 'job_titles') t where t ->> 'name' = 'سائق شاحنة'), 'in-scope title: ' || o::text;
+  assert not exists (select 1 from jsonb_array_elements(o -> 'job_titles') t where t ->> 'name' = 'محاسب'), 'out-of-scope title hidden';
+  begin perform public.garage_employee_hire(jsonb_build_object('full_name', 'موظف جديد', 'employee_number', 'G-0901', 'job_title_id', 'dd010000-0000-0000-0000-0000000000a3', 'biometric_pin', '77')); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_SENSITIVE_FIELD_FORBIDDEN', 'sensitive: ' || sqlerrm; end;
+  begin perform public.garage_employee_hire(jsonb_build_object('full_name', 'موظف جديد', 'employee_number', 'G-0901', 'job_title_id', 'dd010000-0000-0000-0000-0000000000b2')); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_JOB_TITLE_OUT_OF_SCOPE', 'title scope: ' || sqlerrm; end;
+  h := public.garage_employee_hire(jsonb_build_object('full_name', 'سائق جديد', 'employee_number', 'G-0901', 'phone', '07801234567', 'job_title_id', 'dd010000-0000-0000-0000-0000000000a3', 'contract_type', 'daily'));
+  assert (h ->> 'is_driver')::boolean and h ->> 'job_title' = 'سائق شاحنة', 'hired: ' || h::text;
+  assert (select department_id from public.employees where id = (h ->> 'id')::uuid) = 'dd010000-0000-0000-0000-0000000000a2', 'dept derived from title';
+  assert (select status from public.employee_salary_profiles where employee_id = (h ->> 'id')::uuid) = 'pending', 'salary pending for finance';
+  assert exists (select 1 from public.finance_hr_notices where employee_id = (h ->> 'id')::uuid and kind = 'salary_pending'), 'finance notice';
+  assert exists (select 1 from public.notifications where user_id = 'ee010000-0000-0000-0000-000000000001' and title like 'تعيين جديد من الكراج%'), 'hr notified';
+  assert exists (select 1 from jsonb_array_elements(public.garage_recent_hires()) r where r ->> 'employee_number' = 'G-0901' and not (r ->> 'has_biometric')::boolean and not (r ->> 'salary_ready')::boolean), 'recent hires';
+  assert (public.garage_employees('G-0901', null) -> 'summary' ->> 'total')::int = 1, 'appears in employees';
+  raise notice 'G12 ✅ إجراءات الكراج: إنهاء عبر الموافقات + تعيين أساسي';
+end $$;
+select auth.set_test_user('ee010000-0000-0000-0000-000000000005');
+do $$ begin
+  begin perform public.garage_employee_hire(jsonb_build_object('full_name', 'x', 'employee_number', 'G-0902')); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'employee hire forbidden: ' || sqlerrm; end;
+  raise notice 'G13 ✅ التعيين ممنوع على الموظف العادي';
+end $$;

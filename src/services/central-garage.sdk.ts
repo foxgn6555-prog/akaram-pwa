@@ -26,6 +26,10 @@ import type {
   GarageVehiclePage,
   GarageEmployees,
   GarageLeavesSummary,
+  GarageHireOptions,
+  GarageHireInput,
+  GarageHireResult,
+  GarageRecentHire,
 } from '@features/central-garage/types'
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -735,5 +739,17 @@ export const centralGarage = {
   /** 00208: ملخص طلبات (إجازات/زمنيات) موظفي قسم الكراج */
   leavesSummary(): Promise<GarageLeavesSummary> {
     return sdkGuard(supabase.rpc('garage_leaves_summary', {} as never)) as Promise<GarageLeavesSummary>
+  },
+  /** 00209: خيارات التعيين (مسميات قسم الكراج، الشفتات، الرقم المقترح) */
+  hireOptions(): Promise<GarageHireOptions> {
+    return sdkGuard(supabase.rpc('garage_hire_options', {} as never)) as Promise<GarageHireOptions>
+  },
+  /** 00209: تعيين ببيانات أساسية فقط — الحساسة لـ HR والراتب للمالية (الخادم يرفض أي حقل حساس) */
+  hire(v: GarageHireInput): Promise<GarageHireResult> {
+    return sdkGuard(supabase.rpc('garage_employee_hire', { p: { full_name: v.full_name, employee_number: v.employee_number, phone: v.phone ?? null, job_title_id: v.job_title_id, hire_date: v.hire_date, contract_type: v.contract_type, shift_id: v.shift_id ?? null } } as never)) as Promise<GarageHireResult>
+  },
+  /** 00209: التعيينات الأخيرة في قسم الكراج (180 يوماً) */
+  recentHires(limit = 50): Promise<GarageRecentHire[]> {
+    return sdkGuard(supabase.rpc('garage_recent_hires', { p_limit: limit } as never)) as Promise<GarageRecentHire[]>
   },
 }

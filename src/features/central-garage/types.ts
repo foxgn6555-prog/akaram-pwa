@@ -223,3 +223,17 @@ export interface GarageEmployees {
 
 /* ─── 00208: ملخص طلبات موظفي الكراج ─── */
 export interface GarageLeavesSummary { pending: number; my_decisions: number; on_leave_today: number; permits_month: number; scoped: boolean }
+
+/* ─── 00209: الإجراءات — التعيين الأساسي ─── */
+export interface GarageHireOptions {
+  job_titles: { id: string; name: string; department_id: string; department: string; drives_vehicles: boolean }[]
+  shifts: { id: string; name: string; start_time: string; end_time: string }[]
+  next_employee_number: string | null
+  scoped: boolean
+}
+export interface GarageHireInput { full_name: string; employee_number: string; phone?: string | null; job_title_id: string; hire_date: string; contract_type: 'monthly' | 'daily'; shift_id?: string | null }
+export interface GarageHireResult { id: string; employee_number: string; full_name: string; job_title: string; department_id: string; is_driver: boolean; hire_date: string; contract_type: 'monthly' | 'daily' }
+export interface GarageRecentHire {
+  id: string; employee_number: string; full_name: string; job_title: string | null; is_driver: boolean; hire_date: string; contract_type: 'monthly' | 'daily'
+  employment_status: string; has_biometric: boolean; has_manager: boolean; salary_ready: boolean
+}
