@@ -15,7 +15,8 @@ const REQ_STATUS_AR: Record<TerminationRequest['status'], string> = { pending: '
 const REQ_STATUS_CLS: Record<TerminationRequest['status'], string> = { pending: 'bg-amber-50 text-amber-800', executed: 'bg-emerald-50 text-emerald-800', rejected: 'bg-rose-50 text-rose-800', cancelled: 'bg-slate-100 text-slate-600' }
 const targetId = (t: TerminationTarget) => (t.target_kind === 'worker' ? t.worker_id : t.employee_id) as string
 
-export default function ProceduresPage({ title = 'الإجراءات', hero = false }: { title?: string; hero?: boolean }) {
+/** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
+export default function ProceduresPage({ title = 'الإجراءات' }: { title?: string; hero?: boolean }) {
   const [tab, setTab] = useState<'new' | 'mine'>('new')
   const mine = useMyTerminationRequests()
   const all = mine.data ?? []
@@ -23,24 +24,9 @@ export default function ProceduresPage({ title = 'الإجراءات', hero = fa
   const count = (st: TerminationRequest['status']) => all.filter((r) => r.status === st).length
   return (
     <div className="space-y-4 pb-4" data-testid="procedures-page">
-      {hero ? (
-        <>
-          <ExecPageHeader icon="flow" title={title} subtitle="طلبات إنهاء الخدمة ضمن نطاق صلاحيتك — لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية"
-            stats={[{ label: 'قيد الموافقة', value: mine.isLoading ? '…' : pending, tone: pending ? 'gold' : 'plain' }, { label: 'نُفّذ', value: count('executed'), tone: 'green' }, { label: 'مرفوض', value: count('rejected'), tone: count('rejected') ? 'red' : 'plain' }, { label: 'مسحوب', value: count('cancelled') }]} />
-          <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'new', label: 'طلب إنهاء خدمة', icon: 'user-plus' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }]} />
-        </>
-      ) : (
-        <>
-          <header>
-            <h1 className="text-lg font-black">{title}</h1>
-            <p className="text-xs text-slate-600">طلبات إنهاء الخدمة ضمن نطاق صلاحيتك. لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية.</p>
-          </header>
-          <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === 'new'} data-testid="tab-new" onClick={() => setTab('new')} className={`flex-1 rounded-lg py-2 ${tab === 'new' ? 'bg-white shadow' : 'text-slate-600'}`}>طلب إنهاء خدمة</button>
-            <button type="button" role="tab" aria-selected={tab === 'mine'} data-testid="tab-mine" onClick={() => setTab('mine')} className={`flex-1 rounded-lg py-2 ${tab === 'mine' ? 'bg-white shadow' : 'text-slate-600'}`}>طلباتي {pending > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[10px] text-amber-800">{pending}</span>}</button>
-          </div>
-        </>
-      )}
+      <ExecPageHeader icon="flow" title={title} subtitle="طلبات إنهاء الخدمة ضمن نطاق صلاحيتك — لا يُنفَّذ أي إنهاء قبل اكتمال سلسلة الموافقات المضبوطة من التطوير المركزية"
+        stats={[{ label: 'قيد الموافقة', value: mine.isLoading ? '…' : pending, tone: pending ? 'gold' : 'plain' }, { label: 'نُفّذ', value: count('executed'), tone: 'green' }, { label: 'مرفوض', value: count('rejected'), tone: count('rejected') ? 'red' : 'plain' }, { label: 'مسحوب', value: count('cancelled') }]} />
+      <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'new', label: 'طلب إنهاء خدمة', icon: 'user-plus' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }]} />
       {tab === 'new' ? <NewTermination onDone={() => setTab('mine')} /> : <MyRequests />}
     </div>
   )

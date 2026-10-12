@@ -13,20 +13,14 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
 const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']]]
-export default function TeamRequestsPage({ title = 'طلبات فريقي', hero = false }: { title?: string; hero?: boolean }) {
+/** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
+export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
   const list = tasks.data ?? []
   return (
     <div className="space-y-4 pb-4" data-testid="sm-requests">
-      {hero ? (
-        <ExecPageHeader icon="check-square" title={title} subtitle="الطلبات التي وصلت إلى دورك في سلسلة الموافقات — الرفض يُنهي الطلب، والموافقة تنقله للخطوة التالية أو تُنفّذه"
-          stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : list.length, tone: list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
-      ) : (
-      <header>
-        <h1 className="text-lg font-black">{title}</h1>
-        <p className="text-xs text-slate-600">الطلبات (إجازات، زمنيات، مستلزمات، إنهاء خدمة، سلف) التي وصلت إلى دورك في سلسلة الموافقات. الرفض يُنهي الطلب، والموافقة تنقله إلى الخطوة التالية أو تعتمده إن كنت الأخير.</p>
-      </header>
-      )}
+      <ExecPageHeader icon="check-square" title={title} subtitle="الطلبات التي وصلت إلى دورك في سلسلة الموافقات — الرفض يُنهي الطلب، والموافقة تنقله للخطوة التالية أو تُنفّذه"
+        stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : list.length, tone: list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
       {tasks.isLoading ? <LoadingSpinner /> : (tasks.data ?? []).length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500" data-testid="sm-requests-empty">لا طلبات بانتظار قرارك الآن.</div>
       ) : (
@@ -71,7 +65,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
           <div className="text-sm font-black">{t.requester_name} <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">{t.requester_role_label}</span></div>
           <div className="text-[11px] text-slate-500">{[t.parent_sector ? (PARENT_AR[t.parent_sector] ?? t.parent_sector) : null, t.area_name].filter(Boolean).join(' · ')}</div>
         </div>
-        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-800" data-testid={`task-step-${t.request_id}`}>خطوة {t.step_no} من {t.total_steps}</span>
+        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#0b3d6b]" data-testid={`task-step-${t.request_id}`}>خطوة {t.step_no} من {t.total_steps}</span>
       </div>
       <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
         <div className="font-black">{isSupply ? <><Package size={14} className="inline" /> {t.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· {t.ref_no}</span>}</> : isTermination ? <span className="text-rose-800"><UserX size={14} className="inline" /> {t.type_name} · {term?.type_label}</span>
@@ -93,7 +87,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
             {mode === 'idle' && (
               <div className="mt-2">
                 {!editAmount ? (
-                  <button type="button" data-testid={`advance-edit-${t.request_id}`} onClick={() => { setEditAmount(true); setAmount(String(adv.amount)); setInst(adv.installments ? String(adv.installments) : '') }} className="text-[11px] font-bold text-indigo-700 underline">تعديل المبلغ{adv.method === 'equal' ? ' / عدد الأقساط' : ''} قبل الموافقة</button>
+                  <button type="button" data-testid={`advance-edit-${t.request_id}`} onClick={() => { setEditAmount(true); setAmount(String(adv.amount)); setInst(adv.installments ? String(adv.installments) : '') }} className="text-[11px] font-bold text-[#0b3d6b] underline">تعديل المبلغ{adv.method === 'equal' ? ' / عدد الأقساط' : ''} قبل الموافقة</button>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     <label className="text-[11px] font-bold text-slate-700">المبلغ المعتمد (د.ع)
@@ -157,7 +151,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
           </div>
         </div>
       )}
-      <button type="button" data-testid={`path-${t.request_id}`} onClick={() => setShowPath((v) => !v)} className="mt-2 text-[11px] font-bold text-indigo-700 underline">{showPath ? 'إخفاء مسار الطلب' : 'عرض مسار الطلب كاملاً'}</button>
+      <button type="button" data-testid={`path-${t.request_id}`} onClick={() => setShowPath((v) => !v)} className="mt-2 text-[11px] font-bold text-[#0b3d6b] underline">{showPath ? 'إخفاء مسار الطلب' : 'عرض مسار الطلب كاملاً'}</button>
       {showPath && (
         <ol className="mt-2 space-y-1 rounded-xl border p-2 text-[11px]" data-testid={`path-list-${t.request_id}`}>
           {(timeline.data ?? []).map((s) => (

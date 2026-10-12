@@ -13,7 +13,7 @@ export interface ExecHeaderLink { to: string; label: string; icon: IconName }
 const STAT_TONE = { gold: 'text-[#f3d06a]', red: 'text-red-300', green: 'text-emerald-300', plain: 'text-white' } as const
 
 export function ExecPageHeader({ icon, title, subtitle, stats, actions, links, testId = 'exec-page-header' }: {
-  icon: IconName; title: string; subtitle?: string; stats?: ExecStat[]; actions?: ReactNode; links?: ExecHeaderLink[]; testId?: string
+  icon: IconName; title: string; subtitle?: ReactNode; stats?: ExecStat[]; actions?: ReactNode; links?: ExecHeaderLink[]; testId?: string
 }) {
   return (
     <header className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#0b3d6b] via-[#0b4f8a] to-[#0a2f52] p-4 text-white shadow-lg print:hidden sm:rounded-3xl sm:p-5" data-testid={testId}>

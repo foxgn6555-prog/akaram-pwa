@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContai
 import { useSectorReports } from '@features/sector-manager/hooks'
 import { PARENT_AR, SHIFT_AR, isoDay, pct } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const PRESETS = [{ k: 7, l: 'آخر 7 أيام' }, { k: 30, l: 'آخر 30 يوماً' }, { k: 90, l: 'آخر 90 يوماً' }]
 const ago = (n: number) => { const d = new Date(); d.setDate(d.getDate() - (n - 1)); return isoDay(d) }
@@ -15,10 +16,13 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
   const r = rep.data ? { ...rep.data, contractors: rep.data.contractors.filter((c) => parent === 'all' || c.parent_sector === parent), managers: rep.data.managers.filter((m) => parent === 'all' || m.parent_sector === parent) } : undefined
   return (
     <div className="space-y-4 pb-4" data-testid="sm-reports">
-      <header>
-        <h1 className="text-lg font-black">التقارير</h1>
-        <p className="text-xs text-slate-600">{fieldOps ? 'المتعهدون ومسؤولو الأقسام في كل القواطع' : 'المتعهدون ومسؤولو الأقسام في قواطعك'}: حضور، تواجد، خروجات، إجازات.</p>
-      </header>
+      <ExecPageHeader icon="bar-chart" title="التقارير" subtitle={`${fieldOps ? 'المتعهدون ومسؤولو الأقسام في كل القواطع' : 'المتعهدون ومسؤولو الأقسام في قواطعك'}: حضور، تواجد، خروجات، إجازات — من ${from} إلى ${to}`}
+        stats={r ? [
+          { label: 'حضور عمال', value: r.totals.present, tone: 'green' },
+          { label: 'غياب عمال', value: r.totals.absent, tone: r.totals.absent ? 'red' : 'plain' },
+          { label: 'نسبة الحضور', value: `${pct(r.totals.present, r.totals.present + r.totals.absent)}%`, tone: 'gold' },
+          { label: 'خارج النطاق', value: r.totals.out_of_zone, tone: r.totals.out_of_zone ? 'red' : 'plain' },
+        ] : undefined} />
       {fieldOps && (
         <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" data-testid="rep-parent-filter">
           {([['all', 'كل القواطع'], ['karrada', 'الكرادة'], ['zaafaraniya', 'الزعفرانية']] as const).map(([k, l]) => (
@@ -28,7 +32,7 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
       )}
       <section className="rounded-2xl border bg-white p-3 shadow-sm">
         <div className="flex flex-wrap gap-2">
-          {PRESETS.map((p) => <button key={p.k} type="button" data-testid={`preset-${p.k}`} onClick={() => { setFrom(ago(p.k)); setTo(isoDay()) }} className={`rounded-full border px-3 py-1 text-xs font-bold ${from === ago(p.k) && to === isoDay() ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white'}`}>{p.l}</button>)}
+          {PRESETS.map((p) => <button key={p.k} type="button" data-testid={`preset-${p.k}`} onClick={() => { setFrom(ago(p.k)); setTo(isoDay()) }} className={`rounded-full border px-3 py-1 text-xs font-bold ${from === ago(p.k) && to === isoDay() ? 'border-[#0b3d6b] bg-[#0b3d6b] text-white' : 'bg-white'}`}>{p.l}</button>)}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <label className="text-[11px] font-bold">من<input type="date" data-testid="rep-from" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 h-10 w-full rounded-xl border px-2 text-sm font-normal" /></label>
@@ -71,7 +75,7 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
                   <XAxis dataKey="d" tickFormatter={(v: string) => v.slice(5)} fontSize={10} interval="preserveStartEnd" />
                   <YAxis fontSize={10} allowDecimals={false} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="proofs" name="إثباتات" stroke="#4f46e5" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="proofs" name="إثباتات" stroke="#0b4f8a" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -90,7 +94,7 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
                     <div className="flex items-center justify-between"><b>{c.name}</b><span className="text-[11px] text-slate-500">{c.area} · {PARENT_AR[c.parent_sector]}</span></div>
                     <div className="text-[11px] text-slate-500">مسؤول القسم: {c.manager_name} · {SHIFT_AR[c.shift] ?? c.shift} · {c.workers} عاملاً</div>
                     <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[11px]">
-                      <Mini label="حضور" v={c.present} cls="text-emerald-700" /><Mini label="غياب" v={c.absent} cls="text-rose-700" /><Mini label="أيام إثبات" v={`${c.proof_days}/${r.days}`} cls="text-indigo-700" /><Mini label="خارج النطاق" v={c.out_of_zone_days} cls={c.out_of_zone_days ? 'text-rose-700' : 'text-slate-600'} />
+                      <Mini label="حضور" v={c.present} cls="text-emerald-700" /><Mini label="غياب" v={c.absent} cls="text-rose-700" /><Mini label="أيام إثبات" v={`${c.proof_days}/${r.days}`} cls="text-[#0b3d6b]" /><Mini label="خارج النطاق" v={c.out_of_zone_days} cls={c.out_of_zone_days ? 'text-rose-700' : 'text-slate-600'} />
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-500" style={{ width: `${pct(c.present, c.present + c.absent)}%` }} /></div>
                   </li>

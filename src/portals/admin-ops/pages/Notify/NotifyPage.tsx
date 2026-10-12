@@ -5,6 +5,7 @@ import { Send } from 'lucide-react'
 import { useNotifyTargets, useSectorNotices, useSendSectorNotice } from '@features/sector-manager/hooks'
 import { PARENT_AR, SHIFT_AR, dateAr, timeAr } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean }) {
   const targets = useNotifyTargets(), notices = useSectorNotices(), send = useSendSectorNotice()
@@ -14,10 +15,8 @@ export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean })
   const can = title.trim().length >= 3 && body.trim().length >= 3 && all.length > 0 && !send.isPending
   return (
     <div className="space-y-4 pb-4" data-testid="sm-notify">
-      <header>
-        <h1 className="text-lg font-black">التبليغ</h1>
-        <p className="text-xs text-slate-600">{fieldOps ? 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي القواطع ومسؤولي الأقسام في كل القواطع.' : 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي الأقسام في قواطعك فقط.'}</p>
-      </header>
+      <ExecPageHeader icon="send" title="التبليغ" subtitle={fieldOps ? 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي القواطع ومسؤولي الأقسام في كل القواطع.' : 'يصل التبليغ كإشعار داخل التطبيق إلى مسؤولي الأقسام في قواطعك فقط.'}
+        stats={[{ label: 'المستلمون المتاحون', value: targets.isLoading ? '…' : all.length, tone: 'gold', testId: 'notify-k-targets' }, { label: 'تبليغاتي السابقة', value: notices.isLoading ? '…' : (notices.data ?? []).length, testId: 'notify-k-sent' }]} />
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
         <label className="text-xs font-bold">العنوان
           <input data-testid="notice-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3 text-sm font-normal" placeholder="مثال: اجتماع طارئ غداً" />
@@ -28,7 +27,7 @@ export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean })
         <div className="mt-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold">المستلمون {sel.length === 0 ? '(الكل)' : `(${sel.length} مختار)`}</span>
-            {sel.length > 0 && <button type="button" onClick={() => setSel([])} className="text-[11px] font-bold text-indigo-700 underline">إرسال للكل</button>}
+            {sel.length > 0 && <button type="button" onClick={() => setSel([])} className="text-[11px] font-bold text-[#0b3d6b] underline">إرسال للكل</button>}
           </div>
           {targets.isLoading ? <LoadingSpinner /> : all.length === 0 ? <p className="mt-2 text-xs text-amber-700" data-testid="notice-no-targets">لا مستلمين متاحين بعد.</p> : (
             <div className="mt-2 space-y-2" data-testid="notice-targets">
@@ -41,9 +40,9 @@ export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean })
                     <div className="flex flex-wrap gap-2">
                       {group.map((t) => (
                         <button key={t.user_id} type="button" data-testid={`target-${t.user_id}`} aria-pressed={sel.includes(t.user_id)} onClick={() => toggle(t.user_id)}
-                          className={clsx('rounded-xl border px-3 py-1.5 text-right text-xs font-bold', sel.includes(t.user_id) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white')}>
+                          className={clsx('rounded-xl border px-3 py-1.5 text-right text-xs font-bold', sel.includes(t.user_id) ? 'border-[#0b3d6b] bg-[#0b3d6b] text-white' : 'border-slate-300 bg-white')}>
                           <div>{t.full_name}</div>
-                          <div className={clsx('text-[10px] font-normal', sel.includes(t.user_id) ? 'text-indigo-100' : 'text-slate-500')}>
+                          <div className={clsx('text-[10px] font-normal', sel.includes(t.user_id) ? 'text-blue-100' : 'text-slate-500')}>
                             {role === 'admin_ops' ? `مسؤول قاطع · ${t.areas}` : `${PARENT_AR[t.parent_sector]} · ${SHIFT_AR[t.shift ?? ''] ?? t.shift ?? ''} · ${t.areas}`}
                           </div>
                         </button>
@@ -56,7 +55,7 @@ export default function NotifyPage({ fieldOps = false }: { fieldOps?: boolean })
           )}
         </div>
         <button type="button" data-testid="notice-send" disabled={!can} onClick={() => send.mutate({ title: title.trim(), body: body.trim(), targets: sel }, { onSuccess: () => { setTitle(''); setBody(''); setSel([]) } })}
-          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-black text-white disabled:opacity-40"><Send size={16} /> إرسال التبليغ</button>
+          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0b3d6b] text-sm font-black text-white disabled:opacity-40"><Send size={16} /> إرسال التبليغ</button>
       </section>
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-black">تبليغاتي السابقة</h2>
