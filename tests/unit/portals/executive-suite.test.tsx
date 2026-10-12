@@ -36,6 +36,8 @@ vi.mock('@components/citizen/CitizenReportPanel', () => ({ CitizenReportPanel: (
 
 import { ExecHome } from '@components/executive/ExecHome'
 import { ExecReports } from '@components/executive/ExecReports'
+import { ExecPeopleBody } from '@components/executive/ExecPeoplePanels'
+import { HOME_TABS, REPORT_SECTIONS } from '@features/executive/lib/portal'
 import { AnnouncementsPage } from '@components/executive/AnnouncementsPage'
 import AnnouncementInbox, { AnnouncementDetail } from '@components/executive/AnnouncementInbox'
 import DeputyHome from '@portals/deputy/pages/DeputyHome'
@@ -152,13 +154,21 @@ describe('الرسوم — SVG/CSS خالصة ومتجاوبة', () => {
 })
 
 describe('الرئيسية — التنفيذي والمعاون والمالية', () => {
-  it('التنفيذي: تبويبات تشغيلية بلا مالية، وبطاقات بلا بطاقة مالية، وقراءة بلا استنتاجات مالية', () => {
+  it('00219 — التنفيذي = المفوض: نفس التبويبات (مع المالية) ونفس البطاقات ونفس القرارات والاستنتاجات المالية', () => {
     r(<ExecHome kind="executive" basePath="/executive" />)
     expect(screen.getByText('المدير التنفيذي — الرئيسية')).toBeInTheDocument()
-    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(['نظرة عامة', 'الشكاوى', 'الأسطول والصيانة', 'المحطة التحويلية', 'القوى العاملة', 'القواطع والدعم'])
-    expect(within(screen.getByTestId('scorecards')).getAllByTestId(/^card-/).map((c) => c.dataset.testid)).toEqual(['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-field'])
-    expect(within(screen.getByTestId('insights')).getAllByRole('listitem').some((li) => li.textContent?.includes('المالية'))).toBe(false)
-    expect(screen.queryByTestId('decisions')).toBeNull()
+    expect(REPORT_SECTIONS.executive).toEqual(REPORT_SECTIONS.admin)
+    expect(HOME_TABS.executive).toEqual(HOME_TABS.admin)
+    expect(within(screen.getByTestId('home-tabs')).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))).toEqual(['نظرة عامة', 'الشكاوى', 'الأسطول والصيانة', 'المحطة التحويلية', 'القوى العاملة', 'المالية', 'الميدان'])
+    expect(within(screen.getByTestId('scorecards')).getAllByTestId(/^card-/).map((c) => c.dataset.testid)).toEqual(['card-complaints', 'card-fleet', 'card-station', 'card-workforce', 'card-finance', 'card-field'])
+    expect(screen.getByTestId('decisions')).toBeInTheDocument()
+  })
+  it('00219 — تقرير التنفيذي: 13 قسماً كالمفوض، وقسم الأشخاص يعرض المبالغ والاستقطاعات', () => {
+    r(<ExecReports kind="executive" />); fireEvent.click(screen.getByTestId('next-step'))
+    expect(within(screen.getByTestId('section-toggles')).getAllByRole('listitem')).toHaveLength(13)
+    fireEvent.click(screen.getByTestId('next-step'))
+    expect(screen.getByTestId('rep-sec-finance')).toBeInTheDocument()
+    expect(within(screen.getByTestId('rep-sec-people')).getByTestId('people-deductions')).toHaveTextContent('150,000 د.ع')
   })
   it('المعاون: شريط الوارد العاجل فوق الملخص، ثم تبويبات الميدان وبطاقة القواطع أولاً', () => {
     r(<DeputyHome />)
@@ -462,10 +472,10 @@ describe('00217 — وثيقة التقرير الرسمية', () => {
     expect(within(sec).getByTestId('rep-reading-people')).toHaveTextContent('الأكثر غياباً حيدر كاظم')
     expect(within(sec).getByTestId('rep-reading-people')).toHaveTextContent('أعلى استقطاع')
   })
-  it('00218 — المدير التنفيذي يرى الأشخاص بلا مبالغ؛ والفراغ حالة واضحة لا جدول فارغ', () => {
+  it('00218 — المعاون يرى الأشخاص بلا مبالغ؛ والفراغ حالة واضحة لا جدول فارغ', () => {
     h.people = samplePeople({ absent: [], late: [], committed: [], disclosures: [], deductions: [], drivers: { rows: [], drivers: 0, dep_days: 0, punched_days: 0, unlinked_departures: 0 } })
-    r(<ExecReports kind="executive" />); toStep3()
-    const sec = screen.getByTestId('rep-sec-people')
+    r(<ExecPeopleBody data={h.people as never} kind="deputy" />)
+    const sec = screen.getByTestId('exec-people')
     expect(within(sec).queryByTestId('people-deductions')).toBeNull()
     expect(within(sec).queryByTestId('people-drivers-flag')).toBeNull()
     expect(within(sec).getAllByTestId('people-empty')).toHaveLength(5)

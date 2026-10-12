@@ -86,7 +86,7 @@ export function ExecHome({ kind, basePath, userName }: { kind: ExecPortalKind; b
 
 /* ═══════════════ نظرة عامة (خفيفة): قرارات → قراءة قصيرة → بطاقات ═══════════════ */
 function Overview({ kind, o, p, insights, onOpen }: { kind: ExecPortalKind; o: ExecOverview; p: ExecOverview | null; insights: Insight[]; onOpen: (k: HomeTabKey) => void }) {
-  const decisions = kind === 'admin' ? buildDecisions(o) : []
+  const decisions = kind === 'admin' || kind === 'executive' ? buildDecisions(o) : []
   const mine = insightsFor(kind, insights)
   const top = [...mine].sort((a, b) => rank(a) - rank(b)).slice(0, 4)
   const h = healthScore(o)
@@ -154,7 +154,7 @@ export function UnitCards({ kind, o, p, onOpen }: { kind: ExecPortalKind; o: Exe
   const finance = <Card k="finance" onOpen={onOpen} title="المالية" icon="wallet" tone="violet" value={fmtMoney(o.finance.payroll?.final_total ?? 0)} delta={pct(spend, (p?.finance.purchases.total ?? 0) + (p?.finance.maintenance_cost ?? 0))} increaseIsGood={false} facts={[['إنفاق تشغيلي', fmtMoney(spend)], ['كشف الرواتب', o.finance.payroll ? label(o.finance.payroll.status) : '—'], ['الموازنة', o.finance.budget.allocated ? `${Math.round((o.finance.budget.spent / o.finance.budget.allocated) * 100)}٪` : '—']]} testId="card-finance" />
   const field = <Card k={kind === 'deputy' ? 'disclosures' : 'field'} onOpen={onOpen} title={kind === 'deputy' ? 'الكشوفات' : 'الميدان'} icon="alert-triangle" tone="amber" value={o.disclosures.total} unit="كشف مخالفة" delta={pct(o.disclosures.total, p?.disclosures.total ?? 0)} increaseIsGood={false} facts={[['أعطال ميدانية', o.fleet.breakdowns], ['طلبات تجهيز', o.supplies.total], ['أنشطة إعلام', o.media.submissions]]} testId="card-field" />
   const sectors = <Card k="sectors" onOpen={onOpen} title="القواطع" icon="map-pin" tone="violet" value={o.complaints.by_sector[0] ? label(o.complaints.by_sector[0].name) : '—'} unit="الأكثر شكاوى" facts={[['قواطع نشطة', o.fleet.by_sector.length], ['أعلى انطلاقات', o.fleet.by_sector[0]?.name ?? '—'], ['طلبات تجهيز', o.supplies.total]]} testId="card-sectors" />
-  const order = kind === 'deputy' ? [sectors, field, station, complaints, workforce, fleet] : kind === 'executive' ? [complaints, fleet, station, workforce, field] : [complaints, fleet, station, workforce, finance, field]
+  const order = kind === 'deputy' ? [sectors, field, station, complaints, workforce, fleet] : [complaints, fleet, station, workforce, finance, field]
   return <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3" data-testid="scorecards">{order.map((c, i) => <div key={i} className="grid">{c}</div>)}</div>
 }
 

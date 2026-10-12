@@ -8,7 +8,7 @@ export type ExecPortalKind = 'admin' | 'executive' | 'deputy' | 'finance'
 
 export const PORTAL_TITLES: Record<ExecPortalKind, { title: string; subtitle: string; who: string }> = {
   admin: { title: 'المدير المفوض — الرئيسية', subtitle: 'صورة الشركة كاملة: ما يحتاج قرارك، ثم قراءة الفترة، ثم بطاقة لكل وحدة', who: 'المدير المفوض' },
-  executive: { title: 'المدير التنفيذي — الرئيسية', subtitle: 'متابعة تنفيذية لعمليات الشركة: الشكاوى، الأسطول، المحطة، القوى العاملة', who: 'المدير التنفيذي' },
+  executive: { title: 'المدير التنفيذي — الرئيسية', subtitle: 'صورة الشركة كاملة: ما يحتاج قرارك، ثم قراءة الفترة، ثم بطاقة لكل وحدة', who: 'المدير التنفيذي' },
   deputy: { title: 'معاون المدير المفوض — الرئيسية', subtitle: 'الميدان أولاً: القواطع، الكشوفات، المحطة التحويلية، التجهيز', who: 'معاون المدير المفوض' },
   finance: { title: 'الشؤون المالية — الرئيسية', subtitle: 'الرواتب والاستقطاعات والإنفاق والموازنة — بيانات مالية فقط', who: 'الشؤون المالية' },
 }
@@ -24,7 +24,6 @@ export function financeInsights(all: Insight[]): Insight[] {
 /** الاستنتاجات المناسبة لكل رتبة */
 export function insightsFor(kind: ExecPortalKind, all: Insight[]): Insight[] {
   if (kind === 'finance') return financeInsights(all)
-  if (kind === 'executive') return all.filter((i) => !FINANCE_DOMAINS.has(i.domain))
   if (kind === 'deputy') { const f = all.filter((i) => FIELD_DOMAINS.has(i.domain)); return f.length ? f : all }
   return all
 }
@@ -48,15 +47,15 @@ export function buildDecisions(o: ExecOverview): Decision[] {
 }
 
 export type SectionKey = 'insights' | 'summary' | 'scorecards' | 'kpis' | 'complaints' | 'fleet' | 'station' | 'workforce' | 'sectors' | 'disclosures' | 'supplies' | 'finance' | 'support' | 'payroll' | 'budget' | 'spend' | 'workforce_cost' | 'citizen' | 'people'
-/** أقسام التقرير لكل بوابة — المالية أقسام مالية فقط */
+/** أقسام التقرير لكل بوابة — المالية أقسام مالية فقط · 00219: المدير التنفيذي = المدير المفوض نفسه (أنواع وتصميم وصلاحية مالية) */
 export const REPORT_SECTIONS: Record<ExecPortalKind, Array<{ key: SectionKey; label: string }>> = {
   admin: [
     { key: 'insights', label: 'قراءة تحليلية' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'scorecards', label: 'بطاقات الوحدات' }, { key: 'complaints', label: 'الشكاوى' }, { key: 'fleet', label: 'الأسطول والصيانة' },
     { key: 'station', label: 'المحطة التحويلية' }, { key: 'workforce', label: 'القوى العاملة' }, { key: 'people', label: 'الأشخاص: الالتزام والمخالفات' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'finance', label: 'المالية' }, { key: 'support', label: 'الإعلام والتجهيز' }, { key: 'citizen', label: 'شكاوى المواطنين والدعم' },
   ],
   executive: [
-    { key: 'insights', label: 'قراءة تحليلية' }, { key: 'kpis', label: 'مؤشرات التشغيل' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'complaints', label: 'الشكاوى' }, { key: 'fleet', label: 'الأسطول والصيانة' },
-    { key: 'station', label: 'المحطة التحويلية' }, { key: 'workforce', label: 'القوى العاملة' }, { key: 'people', label: 'الأشخاص: الالتزام والمخالفات' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'support', label: 'الإعلام والتجهيز' },
+    { key: 'insights', label: 'قراءة تحليلية' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'scorecards', label: 'بطاقات الوحدات' }, { key: 'complaints', label: 'الشكاوى' }, { key: 'fleet', label: 'الأسطول والصيانة' },
+    { key: 'station', label: 'المحطة التحويلية' }, { key: 'workforce', label: 'القوى العاملة' }, { key: 'people', label: 'الأشخاص: الالتزام والمخالفات' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'finance', label: 'المالية' }, { key: 'support', label: 'الإعلام والتجهيز' }, { key: 'citizen', label: 'شكاوى المواطنين والدعم' },
   ],
   deputy: [
     { key: 'insights', label: 'قراءة الميدان' }, { key: 'summary', label: 'جدول المؤشرات' }, { key: 'sectors', label: 'مقارنة القواطع' }, { key: 'disclosures', label: 'الكشوفات' }, { key: 'station', label: 'المحطة التحويلية' },
@@ -77,7 +76,7 @@ export const HOME_TABS: Record<ExecPortalKind, HomeTab[]> = {
   ],
   executive: [
     { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'complaints', label: 'الشكاوى', domains: ['الشكاوى'] }, { key: 'fleet', label: 'الأسطول والصيانة', domains: ['الأسطول', 'الصيانة'] },
-    { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] }, { key: 'workforce', label: 'القوى العاملة', domains: ['الموارد البشرية'] }, { key: 'field', label: 'القواطع والدعم', domains: ['الكشوفات', 'التجهيز', 'الإعلام'] },
+    { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] }, { key: 'workforce', label: 'القوى العاملة', domains: ['الموارد البشرية'] }, { key: 'finance', label: 'المالية', domains: ['المالية'] }, { key: 'field', label: 'الميدان', domains: ['الكشوفات', 'التجهيز', 'الإعلام'] },
   ],
   deputy: [
     { key: 'overview', label: 'نظرة عامة', domains: [] }, { key: 'sectors', label: 'القواطع', domains: [] }, { key: 'disclosures', label: 'الكشوفات', domains: ['الكشوفات'] }, { key: 'station', label: 'المحطة التحويلية', domains: ['المحطة التحويلية'] },

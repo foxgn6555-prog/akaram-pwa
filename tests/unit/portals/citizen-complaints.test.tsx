@@ -312,10 +312,10 @@ describe('مسؤول القسم + التقارير التنفيذية', () => {
     await waitFor(() => expect(h.setStatus).toHaveBeenCalledWith('c1', 'resolved', 'رُفعت النفايات وغُسل الموقع'))
   })
 
-  it('قسم «شكاوى المواطنين والدعم» في تقارير المدير المفوض ومعاونه (وليس التنفيذي) + لوحة المؤشرات', async () => {
+  it('قسم «شكاوى المواطنين والدعم» في تقارير المدير المفوض والتنفيذي ومعاونه + لوحة المؤشرات', async () => {
     expect(REPORT_SECTIONS.admin.some((s) => s.key === 'citizen')).toBe(true)
     expect(REPORT_SECTIONS.deputy.some((s) => s.key === 'citizen')).toBe(true)
-    expect(REPORT_SECTIONS.executive.some((s) => s.key === 'citizen')).toBe(false)
+    expect(REPORT_SECTIONS.executive.some((s) => s.key === 'citizen')).toBe(true)   // 00219: المدير التنفيذي بأقسام المدير المفوض نفسها
     expect(REPORT_SECTIONS.finance.some((s) => s.key === 'citizen')).toBe(false)
     wrap(<CitizenReportPanel from="2026-10-01" to="2026-10-02" />)
     await waitFor(() => expect(screen.getByTestId('citizen-report')).toBeInTheDocument())

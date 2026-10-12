@@ -26,7 +26,7 @@ export function ExecPeoplePanels({ from, to, kind }: { from: string; to: string;
 
 /** الجسم مفصول عن الخطاف ليُستخدم في الاختبارات ومن المعاينة */
 export function ExecPeopleBody({ data: d, kind }: { data: ExecPeople; kind: ExecPortalKind }) {
-  const showMoney = kind === 'admin' || kind === 'finance'
+  const showMoney = kind !== 'deputy'   // 00219: المدير التنفيذي بصلاحية المدير المفوض نفسها
   const s = d.summary
   const chips: Array<{ label: string; value: string; tone: 'navy' | 'emerald' | 'red' | 'amber' | 'slate' }> = [
     { label: 'موظفون لهم سجل حضور', value: fmtInt(s.employees), tone: 'navy' },

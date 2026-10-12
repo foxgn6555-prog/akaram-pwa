@@ -106,7 +106,7 @@ describe('منطق البوابات', () => {
     const all = buildInsights(sample(), sample())
     expect(insightsFor('finance', all).every((i) => i.domain === 'المالية' || i.domain === 'الموارد البشرية')).toBe(true)
     expect(insightsFor('finance', all)[0]!.domain).toBe('المالية')
-    expect(insightsFor('executive', all).some((i) => i.domain === 'المالية')).toBe(false)
+    expect(insightsFor('executive', all)).toBe(all)   // 00219: المدير التنفيذي يرى كل الاستنتاجات كالمدير المفوض
     expect(insightsFor('deputy', all).every((i) => ['الشكاوى', 'المحطة التحويلية', 'الكشوفات', 'الأسطول', 'التجهيز', 'الإعلام'].includes(i.domain))).toBe(true)
     expect(insightsFor('admin', all)).toBe(all)
   })
