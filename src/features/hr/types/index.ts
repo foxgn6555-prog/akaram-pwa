@@ -672,7 +672,7 @@ export interface LeaveLedgerEntry {
   note: string | null
   created_at: string
 }
-export type LeaveScope = 'mine' | 'team' | 'all'
+export type LeaveScope = 'mine' | 'team' | 'all' | 'garage'   // 00208: garage = موظفو قسم الكراج
 export interface LeaveRequestRow {
   id: string
   employee_id: string
@@ -701,6 +701,7 @@ export interface LeaveRequestRow {
   cancelled_reason: string | null
   created_at: string
   can_decide: boolean
+  can_cancel?: boolean   // 00208: من أدخل الطلب (الكراج) أو HR أو المعتمد
   /** 00197: طلب بأثر رجعي (ليوم سابق) */
   is_backdated?: boolean
   backdated_reason?: string | null

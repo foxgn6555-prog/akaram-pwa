@@ -220,3 +220,6 @@ export interface GarageEmployees {
   summary: { total: number; drivers: number; active: number; on_leave: number; absent_today: number; with_open_disclosures: number }
   rows: GarageEmployeeRow[]
 }
+
+/* ─── 00208: ملخص طلبات موظفي الكراج ─── */
+export interface GarageLeavesSummary { pending: number; my_decisions: number; on_leave_today: number; permits_month: number; scoped: boolean }

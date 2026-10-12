@@ -520,6 +520,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       ],
     },
     { path: '/central-garage/employees', labelKey: 'nav.garage_employees', icon: 'users', exact: true },   // 00207
+    { path: '/central-garage/requests', labelKey: 'nav.garage_requests', icon: 'calendar', exact: true },   // 00208
     { path: '/central-garage/disclosures', labelKey: 'nav.garage_disclosures', icon: 'alert-triangle', exact: true },   // 00206
     {
       path: '/central-garage/reports',

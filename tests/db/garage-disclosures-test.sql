@@ -116,3 +116,28 @@ do $$ begin
   exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'employee forbidden: ' || sqlerrm; end;
   raise notice 'G9 ✅ الموظف العادي ممنوع';
 end $$;
+
+-- ⑦ (00208) الطلبات: الكراج يُدخل إجازة نيابةً عن موظف قسمه، يراها في نطاق 'garage'، يلغيها وهي معلّقة؛ لا يستطيع لموظف خارج قسمه
+update public.employees set manager_id = 'ff010000-0000-0000-0000-000000000003' where id = 'ff010000-0000-0000-0000-000000000005';
+select auth.set_test_user('ee010000-0000-0000-0000-000000000003');
+do $$ declare t uuid; lid uuid; j jsonb; begin
+  select id into t from public.hr_leave_types where code = 'unpaid';
+  lid := public.hr_leave_request('ff010000-0000-0000-0000-000000000005', t, current_date + 3, current_date + 4, null, null, 'طلب من الكراج');
+  assert lid is not null, 'garage request created';
+  assert exists (select 1 from public.hr_leaves_list('garage') x where x.id = lid and x.employee_number = 'G-DRV' and x.can_cancel), 'garage scope sees it with can_cancel';
+  assert not exists (select 1 from public.hr_leaves_list('garage') x where x.employee_number = 'G-OTH'), 'garage scope excludes outsiders';
+  assert (public.hr_leave_balance('ff010000-0000-0000-0000-000000000005') ? 'remaining'), 'garage reads balance of its employee';
+  j := public.garage_leaves_summary();
+  assert (j ->> 'pending')::int >= 1 and (j ->> 'scoped')::boolean, 'summary: ' || j::text;
+  begin perform public.hr_leave_request('ff010000-0000-0000-0000-000000000006', t, current_date + 3, current_date + 3, null, null, 'خارج القسم'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'HR_FORBIDDEN', 'outsider: ' || sqlerrm; end;
+  perform public.hr_leave_cancel(lid, 'أُدخل بالخطأ');
+  assert (select status from public.hr_leaves where id = lid) = 'cancelled', 'garage cancels own pending request';
+  raise notice 'G10 ✅ طلبات الكراج نيابةً عن موظفي القسم';
+end $$;
+select auth.set_test_user('ee010000-0000-0000-0000-000000000005');
+do $$ begin
+  begin perform public.hr_leaves_list('garage'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'employee garage scope: ' || sqlerrm; end;
+  raise notice 'G11 ✅ نطاق الكراج ممنوع على الموظف العادي';
+end $$;

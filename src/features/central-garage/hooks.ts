@@ -514,3 +514,8 @@ export function useDecideGarageTankZero() {
 export function useGarageEmployees(q: string, month: string) {
   return useQuery({ queryKey: centralGarageKeys.employees(q, month), queryFn: () => centralGarage.employees(q || null, month || null), staleTime: 60_000 })
 }
+
+/** 00208: ملخص طلبات الكراج */
+export function useGarageLeavesSummary() {
+  return useQuery({ queryKey: centralGarageKeys.leavesSummary(), queryFn: () => centralGarage.leavesSummary(), staleTime: 15_000 })
+}

@@ -25,6 +25,7 @@ import type {
   GarageVehicleFilter,
   GarageVehiclePage,
   GarageEmployees,
+  GarageLeavesSummary,
 } from '@features/central-garage/types'
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -730,5 +731,9 @@ export const centralGarage = {
   /** 00207: موظفو قسم الكراج — بلا رواتب ولا بيانات حساسة (النطاق يُفرض في قاعدة البيانات) */
   employees(q: string | null = null, month: string | null = null): Promise<GarageEmployees> {
     return sdkGuard(supabase.rpc('garage_employees', { p_q: q, p_month: month ? `${month}-01` : null } as never)) as Promise<GarageEmployees>
+  },
+  /** 00208: ملخص طلبات (إجازات/زمنيات) موظفي قسم الكراج */
+  leavesSummary(): Promise<GarageLeavesSummary> {
+    return sdkGuard(supabase.rpc('garage_leaves_summary', {} as never)) as Promise<GarageLeavesSummary>
   },
 }

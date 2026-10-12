@@ -136,7 +136,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
 }
 
 export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true, testId = 'lv-req' }: {
-  rows: LeaveRequestRow[]; isLoading?: boolean; mode: 'employee' | 'manager' | 'hr'; showEmployee?: boolean; testId?: string
+  rows: LeaveRequestRow[]; isLoading?: boolean; mode: 'employee' | 'manager' | 'hr' | 'garage'; showEmployee?: boolean; testId?: string
 }) {
   const decide = useDecideLeave(); const cancel = useCancelLeave()
   const today = isoDay()
@@ -149,7 +149,7 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
     void act(() => cancel.mutateAsync({ id: r.id, reason: reason.trim() }))
   }
   if (isLoading) return <LoadingSpinner />
-  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : 'لم تُسجَّل طلبات في هذا النطاق'} />
+  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : mode === 'garage' ? 'لا طلبات لموظفي قسم الكراج في هذا المدى' : 'لم تُسجَّل طلبات في هذا النطاق'} />
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm" data-testid={`${testId}-table`}>
@@ -157,7 +157,8 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
           {showEmployee && <th className="p-2 text-start">الموظف</th>}<th className="p-2">النوع</th><th className="p-2">الفترة</th><th className="p-2">المدة</th><th className="p-2">الحالة</th><th className="p-2 text-start">ملاحظات / قرار</th>{mode !== 'employee' && <th className="p-2">المدير المباشر</th>}<th className="p-2">إجراءات</th>
         </tr></thead>
         <tbody>{rows.map((r) => {
-          const canCancel = (r.status === 'pending' && (mode !== 'manager' || r.can_decide)) || (r.status === 'approved' && (mode === 'hr' || r.start_date > today))
+          const canCancel = mode === 'garage' ? (r.status === 'pending' && (r.can_cancel === true || r.can_decide))
+            : (r.status === 'pending' && (mode !== 'manager' || r.can_decide)) || (r.status === 'approved' && (mode === 'hr' || r.start_date > today))
           return (
             <tr key={r.id} className={clsx('border-t border-slate-100', r.status === 'pending' && 'bg-amber-50/30')} data-testid={`${testId}-row-${r.id}`}>
               {showEmployee && <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</p></td>}
