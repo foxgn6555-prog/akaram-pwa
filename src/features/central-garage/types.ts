@@ -206,3 +206,17 @@ export interface GarageDashboardSummary {
   sectorId: number | null
   fuelType: GarageFuelType | null
 }
+
+/* ─── 00207: موظفو الكراج (بيانات أساسية غير حساسة) ─── */
+export interface GarageEmployeeRow {
+  id: string; employee_number: string; full_name: string; job_title: string | null; department: string; is_driver: boolean
+  hire_date: string; employment_status: 'active' | 'on_leave' | 'suspended' | 'terminated'; contract_type: 'monthly' | 'daily'; phone: string | null
+  shift: string | null; vehicle: string | null
+  month: { present: number; late: number; absent: number; leave: number; working_days: number }
+  open_disclosures: number; approved_disclosures_month: number
+}
+export interface GarageEmployees {
+  month: string; department: string | null; scoped: boolean
+  summary: { total: number; drivers: number; active: number; on_leave: number; absent_today: number; with_open_disclosures: number }
+  rows: GarageEmployeeRow[]
+}

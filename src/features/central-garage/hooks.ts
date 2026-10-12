@@ -509,3 +509,8 @@ export function useDecideGarageTankZero() {
     onError,
   })
 }
+
+/** 00207: موظفو الكراج */
+export function useGarageEmployees(q: string, month: string) {
+  return useQuery({ queryKey: centralGarageKeys.employees(q, month), queryFn: () => centralGarage.employees(q || null, month || null), staleTime: 60_000 })
+}

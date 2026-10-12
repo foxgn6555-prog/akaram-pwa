@@ -519,6 +519,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/central-garage/fuel/c-oil', labelKey: 'nav.garage_c_oil', icon: 'droplet' },
       ],
     },
+    { path: '/central-garage/employees', labelKey: 'nav.garage_employees', icon: 'users', exact: true },   // 00207
     { path: '/central-garage/disclosures', labelKey: 'nav.garage_disclosures', icon: 'alert-triangle', exact: true },   // 00206
     {
       path: '/central-garage/reports',

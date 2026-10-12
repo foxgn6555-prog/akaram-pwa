@@ -89,6 +89,7 @@ const ERRORS: Record<string, string> = {
   DISCLOSURE_FINE_AMOUNT_REQUIRED: 'عقوبة «غرامة مالية» تتطلب مبلغاً أكبر من صفر',
   DISCLOSURE_GARAGE_EMPLOYEE_ONLY: 'كشوفات الكراج على الموظفين فقط',
   DISCLOSURE_OUT_OF_SCOPE: 'هذا الموظف/الكشف خارج نطاق قسمك',
+  GARAGE_FORBIDDEN: 'هذه الصفحة لبوابة الكراج والجهات المخوّلة فقط',
   GARAGE_NO_DEPARTMENT: 'حسابك غير مربوط بقسم في الموارد البشرية — اطلب من الموارد البشرية إضافة سجلك الوظيفي ضمن قسم الكراج',
   APPROVAL_NO_APPROVER: 'لا يوجد مُعتمِد (معاون/مدير مفوض) — راجع التطوير المركزية',
   HR_MONTH_LOCKED: 'كل الأشهر القادمة مقفلة من المالية — تعذّر تسجيل الاستقطاع',

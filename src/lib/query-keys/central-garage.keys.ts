@@ -16,6 +16,7 @@ export const centralGarageKeys = {
   zeroRequests: (status?: string) => [...centralGarageKeys.tanks(), 'zero-requests', status ?? 'all'] as const,
   dashboard: () => [...centralGarageKeys.all, 'dashboard'] as const,
   dashboardSummary: (filter: GarageDashboardFilter = {}) => [...centralGarageKeys.dashboard(), filter] as const,
+  employees: (q: string, month: string) => [...centralGarageKeys.all, 'employees', q, month] as const,
   reports: () => [...centralGarageKeys.all, 'reports'] as const,
   report: (filter: GarageReportFilter = {}) => [...centralGarageKeys.reports(), filter] as const,
 }

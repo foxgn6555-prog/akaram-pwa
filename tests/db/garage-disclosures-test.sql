@@ -89,3 +89,30 @@ do $$ begin
   exception when others then assert sqlerrm = 'DISCLOSURE_PENALTY_INVALID', 'unknown penalty: ' || sqlerrm; end;
   raise notice 'G6 ✅ عقوبة «غرامة مالية» في أنواع الكشوفات';
 end $$;
+
+-- ⑥ (00207) الموظفون: الكراج يرى موظفي قسمه وفروعه فقط، بلا حقول حساسة؛ غرفة العمليات ترى الكل
+select auth.set_test_user('ee010000-0000-0000-0000-000000000003');
+do $$ declare j jsonb; r jsonb; begin
+  j := public.garage_employees(null, current_date);
+  assert (j ->> 'scoped')::boolean and j ->> 'department' = 'الكراج المركزي – الكرادة', 'scoped: ' || j::text;
+  assert (j -> 'summary' ->> 'total')::int = 2, 'two in scope: ' || (j -> 'summary')::text;
+  assert exists (select 1 from jsonb_array_elements(j -> 'rows') x where x ->> 'employee_number' = 'G-DRV' and x ->> 'department' = 'سوّاق الكراج'), 'sub-dept included';
+  assert not exists (select 1 from jsonb_array_elements(j -> 'rows') x where x ->> 'employee_number' = 'G-OTH'), 'outsider excluded';
+  r := (select x from jsonb_array_elements(j -> 'rows') x where x ->> 'employee_number' = 'G-DRV');
+  assert (r ->> 'open_disclosures')::int = 1, 'returned disclosure counted as open: ' || r::text;
+  assert not (r ? 'biometric_pin') and not (r ? 'salary') and not (r ? 'national_id_number') and not (r ? 'base_salary'), 'no sensitive fields: ' || r::text;
+  assert jsonb_array_length(public.garage_employees('G-DRV', null) -> 'rows') = 1, 'search by number';
+  raise notice 'G7 ✅ موظفو الكراج ضمن القسم بلا حقول حساسة';
+end $$;
+select auth.set_test_user('ee010000-0000-0000-0000-000000000002');
+do $$ declare j jsonb; begin
+  j := public.garage_employees(null, null);
+  assert not (j ->> 'scoped')::boolean and exists (select 1 from jsonb_array_elements(j -> 'rows') x where x ->> 'employee_number' = 'G-OTH'), 'ops unscoped';
+  raise notice 'G8 ✅ غرفة العمليات بلا تقييد';
+end $$;
+select auth.set_test_user('ee010000-0000-0000-0000-000000000005');
+do $$ begin
+  begin perform public.garage_employees(null, null); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'GARAGE_FORBIDDEN', 'employee forbidden: ' || sqlerrm; end;
+  raise notice 'G9 ✅ الموظف العادي ممنوع';
+end $$;
