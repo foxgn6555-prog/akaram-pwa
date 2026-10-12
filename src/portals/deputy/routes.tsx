@@ -17,8 +17,8 @@ const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFold
 const DataAnalysisPage = lazy(() => import('./pages/DataAnalysis/DataAnalysisPage'))
 const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 const DeputyRewardsPage = lazy(() => import('@portals/executive/pages/Treasury/ExecRewardsPage').then((m) => ({ default: () => <m.default actor="deputy" /> })))   // 00203: المكافآت (نفس وحدة التنفيذي)
-const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage'))   // 00163: الإجراءات (إنهاء الخدمة)
-const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" /> })))   // 00162: طلبات الموافقة (خطوات «حساب محدد» في السلاسل)
+const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة)
+const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00162: طلبات الموافقة (خطوات «حساب محدد» في السلاسل)
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>

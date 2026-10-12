@@ -4,6 +4,7 @@
  *  · كل فولدر يومي وارد يعرض: وحدات الصادر الثلاث (سكسات/نسافات/ناقلات) بحمولاتها القياسية،
  *    مجاميع الوارد (مكبس/محطة)، ومخالفات الوزن — للاطلاع والاعتماد.
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useDeputyDailyReports, UNIT_CAPACITIES } from '@features/transfer-station'
 import type { OutboundUnit } from '@features/transfer-station/lib/unitCapacities'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -50,12 +51,8 @@ export default function StationFolders() {
 
   return (
     <div className="space-y-5" data-testid="station-folders-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">فولدر المحطة</h1>
-        <p className="text-sm text-slate-500">
-          فولدرات يومية مدققة واردة من غرفة العمليات — النمط: المحطة ← غرفة العمليات ← المعاون
-        </p>
-      </div>
+      <ExecPageHeader icon="folder" title="فولدر المحطة" subtitle="فولدرات يومية مدققة واردة من غرفة العمليات — النمط: المحطة ← غرفة العمليات ← المعاون"
+        stats={[{ label: 'فولدرات واردة', value: rows.length, tone: 'gold' }, { label: 'آخر يوم', value: rows[0]?.report_day ?? '—' }]} />
 
       {rows.length === 0 ? (
         <div

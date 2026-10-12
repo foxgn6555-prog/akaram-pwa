@@ -4,6 +4,7 @@
  *  · فلاتر: نطاق التاريخ · القاطع · نوع الفترة · بحث بالعنوان/نوع العمل
  *  · فتح التصميم بملء الشاشة للقراءة فقط + تصدير (HTML / PDF / PowerPoint) + طباعة نظيفة
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
@@ -36,10 +37,8 @@ export default function ExecEventsPage() {
 
   return (
     <div className="space-y-4" data-testid="exec-events-page">
-      <header>
-        <h1 className="text-lg font-black text-slate-800">فعاليات الشركة</h1>
-        <p className="text-xs text-slate-500">التصاميم المكتملة من قسم الإعلام تصل هنا تلقائياً · افتح أي فعالية لعرضها أو تصديرها أو طباعتها</p>
-      </header>
+      <ExecPageHeader icon="photo" title="فعاليات الشركة" subtitle="التصاميم المكتملة من قسم الإعلام تصل هنا تلقائياً · افتح أي فعالية لعرضها أو تصديرها أو طباعتها"
+        stats={[{ label: 'فعاليات في النطاق', value: rows.length, tone: 'gold' }, { label: 'بغلاف', value: coverPaths.length }]} />
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <DateRangeFilter value={range} onChange={setRange} testId="ev-range" />

@@ -5,6 +5,7 @@
  *  · المبلغ يذهب إلى «القاصة» (المالية) مجمّداً حتى تؤكد المالية الاستلام — وتُبلَّغ المالية فوراً
  *  · كل الحركات محفوظة ومرئية مع فلتر تاريخ وبحث + Excel
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
@@ -34,10 +35,8 @@ export default function ExecReceivablesPage() {
 
   return (
     <div className="space-y-4" data-testid="exec-receivables-page">
-      <header>
-        <h1 className="text-lg font-black text-slate-800">مستحقات الشركة</h1>
-        <p className="text-xs text-slate-500">المبالغ المستلمة تذهب إلى قاصة الشؤون المالية وتبقى مجمّدة حتى يؤكد موظف المالية استلامها</p>
-      </header>
+      <ExecPageHeader icon="wallet" title="مستحقات الشركة" subtitle="المبالغ المستلمة تذهب إلى قاصة الشؤون المالية وتبقى مجمّدة حتى يؤكد موظف المالية استلامها"
+        stats={[{ label: 'حركات في النطاق', value: rows.length, tone: 'gold' }, { label: 'بانتظار تأكيد المالية', value: rows.filter((r) => r.status === 'pending').length, tone: 'red' }]} />
 
       {/* الزرّان الرئيسيان */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

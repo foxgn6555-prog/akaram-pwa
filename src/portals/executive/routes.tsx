@@ -7,8 +7,8 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const ExecutiveHome = lazy(() => import('./pages/ExecutiveHome'))
 const ExecutiveReports = lazy(() => import('./pages/ExecutiveReports'))
 const ExecutiveAnnouncements = lazy(() => import('./pages/ExecutiveAnnouncements'))
-const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage'))   // 00163: الإجراءات (إنهاء الخدمة)
-const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" /> })))   // 00162: طلبات الموافقة
+const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة)
+const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00162: طلبات الموافقة
 const ExecReceivablesPage = lazy(() => import('./pages/Treasury/ExecReceivablesPage'))   // 00189
 const ExecRewardsPage = lazy(() => import('./pages/Treasury/ExecRewardsPage'))
 const ExecGpsPaymentsPage = lazy(() => import('./pages/Treasury/ExecGpsPaymentsPage'))

@@ -5,6 +5,7 @@
  *  · كتاب الشكر والإجازة التشجيعية: تُسجَّل فوراً ويُبلَّغ الموظف — بلا مرور بالمالية
  *  · غير مرتبطة بالراتب إطلاقاً — تُسلَّم بشكل مستقل
  */
+import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
@@ -35,13 +36,8 @@ export default function ExecRewardsPage({ actor = 'executive' }: { actor?: keyof
 
   return (
     <div className="space-y-4" data-testid="exec-rewards-page" data-actor={actor}>
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-black text-slate-800">المكافآت</h1>
-          <p className="text-xs text-slate-500">مكافآت مستقلة عن الراتب · النقدية والهدايا تُسلَّم عبر المالية («تم التسليم») · كتاب الشكر والإجازة التشجيعية تُسجَّل فوراً</p>
-        </div>
-        <Button size="sm" onClick={() => setOpen(!open)} data-testid="btn-new-reward">{open ? 'إغلاق' : 'مكافأة جديدة'}</Button>
-      </header>
+      <ExecPageHeader icon="user-plus" title="المكافآت" subtitle="مكافآت مستقلة عن الراتب · النقدية والهدايا تُسلَّم عبر المالية («تم التسليم») · كتاب الشكر والإجازة التشجيعية تُسجَّل فوراً"
+        actions={<HeaderButton onClick={() => setOpen(!open)} icon={open ? 'x' : 'user-plus'} testId="btn-new-reward">{open ? 'إغلاق' : 'مكافأة جديدة'}</HeaderButton>} />
       {open && <RewardForm onDone={() => setOpen(false)} />}
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

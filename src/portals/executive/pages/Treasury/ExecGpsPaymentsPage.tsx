@@ -3,6 +3,7 @@
  *  · المبلغ فقط؛ اسم الحركة «تسديد مستحقات GPS» والتاريخ/الوقت/المنفّذ تلقائياً
  *  · تُبلَّغ المالية وتضغط «تم الدفع» فيُخصم من القاصة · كل الحركات محفوظة مع فلتر تاريخ + Excel
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
@@ -30,10 +31,8 @@ export default function ExecGpsPaymentsPage() {
 
   return (
     <div className="space-y-4" data-testid="exec-gps-page">
-      <header>
-        <h1 className="text-lg font-black text-slate-800">تسديد مستحقات GPS</h1>
-        <p className="text-xs text-slate-500">اسم الحركة والتاريخ والوقت والمنفّذ تلقائياً · تُبلَّغ الشؤون المالية وتضغط «تم الدفع»</p>
-      </header>
+      <ExecPageHeader icon="map-pin" title="تسديد مستحقات GPS" subtitle="اسم الحركة والتاريخ والوقت والمنفّذ تلقائياً · تُبلَّغ الشؤون المالية وتضغط «تم الدفع»"
+        stats={[{ label: 'حركات في النطاق', value: rows.length, tone: 'gold' }, { label: 'بانتظار الدفع', value: rows.filter((r) => r.status === 'pending').length, tone: 'red' }]} />
       <form className="space-y-3 rounded-2xl border border-sky-200 bg-white p-4" data-testid="gps-form"
         onSubmit={(e) => { e.preventDefault(); if (!valid) return; record.mutate({ kind: 'gps_payment', amount: n, details: details.trim() || null }, { onSuccess: () => { setAmount(''); setDetails('') } }) }}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

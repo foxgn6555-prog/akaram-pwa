@@ -342,28 +342,30 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
   ],
+  // المدير التنفيذي (00220): نفس ترتيب المدير المفوض ثم وحدات القاصة الأربع
   [PORTALS.EXECUTIVE]: [
     { path: '/executive', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/executive/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
-    { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'send' },
+    { path: '/executive/announcements', labelKey: 'nav.announcements', icon: 'bell' },
     { path: '/executive/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
-    { path: '/executive/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
+    { path: '/executive/procedures', labelKey: 'nav.procedures', icon: 'flow' },
     { path: '/executive/receivables', labelKey: 'nav.exec_receivables', icon: 'wallet' },
-    { path: '/executive/rewards', labelKey: 'nav.exec_rewards', icon: 'check-square' },
     { path: '/executive/gps-payments', labelKey: 'nav.exec_gps_payments', icon: 'map-pin' },
+    { path: '/executive/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },
     { path: '/executive/events', labelKey: 'nav.exec_events', icon: 'photo' },
   ],
+  // معاون المدير المفوض (00220): الرئيسية والتقارير والتبليغات، ثم وحدات الميدان الأربع، ثم المكافآت والموافقات والإجراءات
   [PORTALS.DEPUTY]: [
     { path: '/deputy', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/deputy/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
-    { path: '/deputy/announcements', labelKey: 'nav.announcements', icon: 'send' },
-    { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'file-text' },
+    { path: '/deputy/announcements', labelKey: 'nav.announcements', icon: 'bell' },
+    { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'alert-triangle' },
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
-    { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'bar-chart' },
+    { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'activity' },
+    { path: '/deputy/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },   // 00203
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
-    { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'clipboard' },
-    { path: '/deputy/rewards', labelKey: 'nav.exec_rewards', icon: 'check-square' },   // 00203
+    { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'flow' },
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },

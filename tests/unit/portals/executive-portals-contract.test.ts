@@ -89,4 +89,18 @@ describe('بوابات الإدارة العليا', () => {
     expect(resolvePortal(['deputy_director'])).toEqual({ type: 'single', portal: 'deputy', path: '/deputy' })
     expect(resolvePortal(['finance_officer'])).toEqual({ type: 'single', portal: 'finance', path: '/finance' })
   })
+
+  it('00220 — ترتيب الشريط الجانبي: التنفيذي كالمفوض ثم القاصة؛ المعاون: الميدان ثم المكافآت ثم الموافقات والإجراءات؛ وأيقونات بلا تكرار داخل البوابة', () => {
+    expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/events'])
+    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/approvals', '/deputy/procedures'])
+    for (const portal of [PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY]) {
+      const icons = PORTAL_UNITS[portal].map((u) => u.icon)
+      expect(new Set(icons).size, `أيقونات ${portal}`).toBe(icons.length)
+    }
+    // الوحدات الخمس المشتركة تحمل الأيقونة نفسها في البوابات الثلاث
+    for (const tail of ['', '/reports', '/announcements', '/approvals', '/procedures']) {
+      const set = new Set([PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY].map((p) => PORTAL_UNITS[p].find((u) => u.path === `/${p}${tail}`)?.icon))
+      expect(set.size, tail).toBe(1)
+    }
+  })
 })

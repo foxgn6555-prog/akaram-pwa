@@ -2,6 +2,7 @@
  * وارد كتب مستلزمات القواطع — معاون المدير المفوض.
  * يعرض كل الكتب المرفوعة من مسؤولي الأقسام (RLS يتيح القراءة للمعاون) مع طباعة/تصدير.
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useMemo } from 'react'
 import { useSupplies, useSectors } from '@features/sector'
 import { SHIFT_LABELS } from '@features/sector'
@@ -24,10 +25,8 @@ export default function SectorSupplies() {
 
   return (
     <div className="space-y-5" data-testid="deputy-supplies">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">وارد كتب مستلزمات القواطع</h1>
-        <p className="text-sm text-slate-500">كتب طلبات المستلزمات المرفوعة من مسؤولي الأقسام بانتظار موافقتكم.</p>
-      </div>
+      <ExecPageHeader icon="send" title="كتب مستلزمات القواطع" subtitle="كتب طلبات المستلزمات المرفوعة من مسؤولي الأقسام بانتظار موافقتكم — طباعة أو تنزيل Word لكل كتاب"
+        stats={[{ label: 'كتب واردة', value: list.length, tone: 'gold' }, { label: 'إجمالي العدد المطلوب', value: list.reduce((a, r) => a + Number(r.quantity ?? 0), 0) }]} />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         {supplies.isLoading ? (

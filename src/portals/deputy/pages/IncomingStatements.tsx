@@ -5,5 +5,5 @@
 import { ApproverDisclosuresPage } from '@features/disclosures/components/ApproverDisclosuresPage'
 
 export default function IncomingStatements() {
-  return <ApproverDisclosuresPage testId="deputy-statements" title="وارد الكشوفات" subtitle="الكشوفات المرفوعة من غرفة العمليات — حدّد المبلغ واعتمد لينتقل الكشف إلى المدير المفوض، أو أعده مع السبب" />
+  return <ApproverDisclosuresPage hero testId="deputy-statements" title="وارد الكشوفات" subtitle="الكشوفات المرفوعة من غرفة العمليات — حدّد المبلغ واعتمد لينتقل الكشف إلى المدير المفوض، أو أعده مع السبب" />
 }

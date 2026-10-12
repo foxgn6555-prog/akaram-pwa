@@ -6,12 +6,13 @@
  *  · توزيع الوجهات (مكبس/محطة) · تركيب الصادرات (سكسات/نسافات/ناقلات)
  *  · جدول يومي تفصيلي + تصدير Excel احترافي
  */
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useMemo, useState } from 'react'
 import {
   Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend,
   Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { BrainCircuit, FileSpreadsheet, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { FileSpreadsheet, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { useDeputyDailyReports, UNIT_CAPACITIES } from '@features/transfer-station'
 import type { DailyStationReport } from '@features/transfer-station/types'
 import { forecast, growthRate, linearRegression, movingAverage, trendLabel } from '@features/deputy/lib/forecast'
@@ -135,17 +136,14 @@ export default function DataAnalysisPage() {
 
   return (
     <section dir="rtl" className="space-y-5" data-testid="data-analysis-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-fuchsia-950 to-indigo-900 p-6 text-white shadow-xl">
-        <p className="flex items-center gap-2 text-xs text-fuchsia-100"><BrainCircuit size={16} />تحليلات وتنبؤات مبنية على تقارير غرفة_operations المدققة</p>
-        <h1 className="mt-2 text-2xl font-black">وحدة تحليل البيانات</h1>
-        <p className="mt-1 text-sm text-fuchsia-100">اتجاهات الأوزان والصادرات والمخالفات مع تنبؤ أسبوعي بنطاق ثقة.</p>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+      <ExecPageHeader icon="activity" title="وحدة تحليل البيانات" subtitle="اتجاهات الأوزان والصادرات والمخالفات مع تنبؤ أسبوعي بنطاق ثقة — مبنية على تقارير غرفة العمليات المدققة"
+        stats={[{ label: 'الوارد (طن)', value: totals.inbound.toLocaleString('en-US', { maximumFractionDigits: 1 }), tone: 'gold' }, { label: 'الصادر (طن)', value: totals.outbound.toLocaleString('en-US', { maximumFractionDigits: 1 }) }, { label: 'المخالفات', value: totals.violations, tone: totals.violations ? 'red' : 'green' }]}
+        actions={<>
           {([14, 30, 90] as const).map(value => (
-            <button key={value} data-testid={`range-${value}`} onClick={() => setRange(value)} className={`rounded-full px-4 py-2 text-xs font-black transition ${range === value ? 'bg-white text-fuchsia-900' : 'bg-white/10 hover:bg-white/20'}`}>آخر {value} يوم</button>
+            <button key={value} type="button" data-testid={`range-${value}`} onClick={() => setRange(value)} className={`inline-flex h-9 items-center rounded-xl px-3 text-xs font-black transition ${range === value ? 'bg-white text-[#0b3d6b] shadow' : 'bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20'}`}>آخر {value} يوم</button>
           ))}
-          <button onClick={() => void exportExcel()} disabled={!series.length} data-testid="analysis-export" className="ms-auto flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-40"><FileSpreadsheet size={15} />تصدير التحليل Excel</button>
-        </div>
-      </header>
+          <button type="button" onClick={() => void exportExcel()} disabled={!series.length} data-testid="analysis-export" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:opacity-40"><FileSpreadsheet size={14} className="text-[#c9a227]" />تصدير Excel</button>
+        </>} />
 
       {series.length === 0 ? (
         <div className="rounded-3xl border border-dashed bg-white p-12 text-center">
