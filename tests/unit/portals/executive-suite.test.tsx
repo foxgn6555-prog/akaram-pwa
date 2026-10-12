@@ -9,10 +9,10 @@ afterAll(() => vi.useRealTimers())
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import type { ReactNode } from 'react'
-import { sample } from '../../fixtures/exec-overview'
+import { sample, samplePeople } from '../../fixtures/exec-overview'
 
 const h = vi.hoisted(() => ({
-  overview: null as unknown, previous: null as unknown, lastFilters: null as unknown, withPrev: true,
+  overview: null as unknown, previous: null as unknown, people: null as unknown, lastFilters: null as unknown, withPrev: true,
   feedInbox: [] as unknown[], feedSent: [] as unknown[], recipients: [] as unknown[], detail: null as unknown,
   publish: vi.fn(async () => 'new-id'), ack: vi.fn(async () => undefined), archive: vi.fn(async () => undefined), download: vi.fn(async () => undefined),
 }))
@@ -20,6 +20,7 @@ const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never, o
 
 vi.mock('@features/executive/hooks/useExecutive', () => ({
   useExecOverview: (f: unknown, withPrev = true) => { h.lastFilters = f; h.withPrev = withPrev; return { data: h.overview, previous: withPrev ? h.previous : null, isLoading: false, error: null, refetch: vi.fn(), isFetching: false } },
+  useExecPeople: () => ({ data: h.people, isLoading: false, error: null }),
   useExecFilterOptions: () => ({ data: { sectors: [{ id: 91, name: 'قاطع الاختبار', parent: 'karrada' }, { id: 92, name: 'قاطع ثانٍ', parent: 'zaafaraniya' }], shifts: [{ key: 'morning', label: 'صباحي' }, { key: 'evening', label: 'مسائي' }], parents: [] } }),
   useAnnouncementFeed: (scope: string) => ({ data: scope === 'sent' ? h.feedSent : h.feedInbox, isLoading: false }),
   useAnnouncement: () => ({ data: h.detail, isLoading: false, error: null }),
@@ -46,7 +47,7 @@ const ann = (over: Record<string, unknown> = {}) => ({
   recipients_count: 60, read_count: 20, ack_count: 5, my_read_at: null, my_acked_at: null, is_mine: false, ...over,
 })
 
-beforeEach(() => { h.overview = sample(); h.previous = sample({ complaints: { ...sample().complaints, total: 50 } }); h.feedInbox = []; h.feedSent = []; h.recipients = []; h.detail = null; vi.clearAllMocks() })
+beforeEach(() => { h.overview = sample(); h.previous = sample({ complaints: { ...sample().complaints, total: 50 } }); h.people = samplePeople(); h.feedInbox = []; h.feedSent = []; h.recipients = []; h.detail = null; vi.clearAllMocks() })
 
 const openTab = (k: string) => fireEvent.click(screen.getByTestId(`tab-${k}`))
 const toStep3 = () => { fireEvent.click(screen.getByTestId('next-step')); fireEvent.click(screen.getByTestId('next-step')) }
@@ -199,14 +200,14 @@ describe('التقارير — معالج من ثلاث خطوات', () => {
     expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '2')
     expect(screen.getByTestId('step-1')).toHaveAttribute('data-state', 'done')
     const items = within(screen.getByTestId('section-toggles')).getAllByRole('listitem')
-    expect(items).toHaveLength(12)   // 00168: + شكاوى المواطنين والدعم
+    expect(items).toHaveLength(13)   // 00168: + شكاوى المواطنين والدعم · 00218: + الأشخاص
     expect(items[0]).toHaveTextContent('1. قراءة تحليلية'); expect(items[0]).toHaveTextContent('جمل جاهزة')
     fireEvent.click(screen.getByTestId('sec-finance'))
-    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('11 قسم')
+    expect(screen.getByTestId('wizard-summary')).toHaveTextContent('12 قسم')
     fireEvent.click(screen.getByTestId('next-step'))
     expect(screen.getByTestId('exec-reports')).toHaveAttribute('data-step', '3')
     expect(screen.getByTestId('rep-cover')).toHaveTextContent('تقرير شهري')
-    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(13) // الموجز + ١١ قسماً + المصادقات
+    expect(within(screen.getByTestId('rep-toc')).getAllByRole('listitem')).toHaveLength(14) // الموجز + ١٢ قسماً + المصادقات
     expect(screen.getByTestId('rep-sec-insights')).toHaveTextContent('1قراءة تحليلية')
     expect(screen.getByTestId('rep-summary')).toHaveTextContent('الفترة السابقة')
     expect(screen.getByTestId('scorecards')).toBeInTheDocument()
@@ -441,5 +442,35 @@ describe('00217 — وثيقة التقرير الرسمية', () => {
     expect(within(screen.getByTestId('rep-sec-complaints')).getByTestId('no-activity')).toBeInTheDocument()
     expect(screen.getAllByTestId('group-idle').length).toBeGreaterThan(0)
     expect(screen.getByTestId('rep-figs-complaints')).toHaveTextContent('الواردة')
+  })
+
+  it('00218 — الأشخاص: ملخّص، سائقون مقابل البصمات مع تنبيه غير المربوط، الأكثر غياباً/تأخراً/التزاماً/كشوفات، الاستقطاعات للإدارة فقط، وقراءة مكتوبة', () => {
+    r(<ExecReports kind="admin" />); toStep3()
+    const sec = screen.getByTestId('rep-sec-people')
+    expect(sec).toHaveTextContent('الأشخاص: الالتزام والمخالفات')
+    expect(within(sec).getByTestId('people-summary').children).toHaveLength(5)
+    expect(within(sec).getByTestId('people-summary')).toHaveTextContent('12')
+    const drv = within(sec).getByTestId('people-drivers')
+    expect(drv).toHaveTextContent('2 سائق · 30 يوم انطلاق · بصمة في 24 يوماً (80%)')
+    expect(within(sec).getByTestId('people-drivers-flag')).toHaveTextContent('5 انطلاقة بلا سائق')
+    expect(within(drv).getAllByRole('row')[1]).toHaveTextContent('كرار حسين'); expect(within(drv).getAllByRole('row')[1]).toHaveTextContent('67%')
+    expect(within(sec).getByTestId('people-absent')).toHaveTextContent('حيدر كاظم')
+    expect(within(sec).getByTestId('people-late')).toHaveTextContent('4 س 35 د')
+    expect(within(sec).getByTestId('people-committed')).toHaveTextContent('07:41')
+    expect(within(sec).getByTestId('people-disclosures')).toHaveTextContent('75,000 د.ع')
+    expect(within(sec).getByTestId('people-deductions')).toHaveTextContent('150,000 د.ع')
+    expect(within(sec).getByTestId('rep-reading-people')).toHaveTextContent('الأكثر غياباً حيدر كاظم')
+    expect(within(sec).getByTestId('rep-reading-people')).toHaveTextContent('أعلى استقطاع')
+  })
+  it('00218 — المدير التنفيذي يرى الأشخاص بلا مبالغ؛ والفراغ حالة واضحة لا جدول فارغ', () => {
+    h.people = samplePeople({ absent: [], late: [], committed: [], disclosures: [], deductions: [], drivers: { rows: [], drivers: 0, dep_days: 0, punched_days: 0, unlinked_departures: 0 } })
+    r(<ExecReports kind="executive" />); toStep3()
+    const sec = screen.getByTestId('rep-sec-people')
+    expect(within(sec).queryByTestId('people-deductions')).toBeNull()
+    expect(within(sec).queryByTestId('people-drivers-flag')).toBeNull()
+    expect(within(sec).getAllByTestId('people-empty')).toHaveLength(5)
+    expect(within(sec).getByTestId('people-absent')).toHaveTextContent('لا غياب مسجّل خلال الفترة')
+    expect(within(sec).getByTestId('rep-reading-people')).toHaveTextContent('لا غياب مسجّل على أي موظف')
+    expect(within(sec).queryByText(/د\.ع/)).toBeNull()
   })
 })

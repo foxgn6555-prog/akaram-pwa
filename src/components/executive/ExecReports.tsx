@@ -14,6 +14,7 @@ import {
 import { HealthGauge, InsightList, Panel, Stepper } from './exec-ui'
 import { Brief, IndicatorsTable, NAVY, NoActivity, SectionFigures, sectionFigures, sectionHasData } from './ExecReportDoc'
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
+import { ExecPeoplePanels } from './ExecPeoplePanels'
 import { OpsKpiGrid, UnitScoreCards } from './ExecHome'
 import { BudgetPanel, ComplaintsPanel, DisclosuresPanel, FinanceBriefPanel, FleetPanel, PayrollPanel, SectorsPanel, SpendPanel, StationPanel, SuppliesPanel, SupportPanel, WorkforcePanel } from './ExecPanels'
 
@@ -203,6 +204,7 @@ function SectionBody({ k, o, p, insights, compare, kind }: { k: SectionKey; o: E
     case 'workforce_cost': return <WorkforcePanel o={o} costFocus />
     case 'sectors': return <SectorsPanel o={o} />
     case 'citizen': return <CitizenReportPanel from={o.period.from} to={o.period.to} />
+    case 'people': return <ExecPeoplePanels from={o.period.from} to={o.period.to} kind={kind} />
     case 'complaints': return <ComplaintsPanel o={o} />
     case 'fleet': return <FleetPanel o={o} />
     case 'station': return <StationPanel o={o} />

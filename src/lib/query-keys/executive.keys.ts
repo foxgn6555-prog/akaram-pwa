@@ -1,6 +1,7 @@
 export const executiveKeys = {
   all: ['executive'] as const,
   overview: (f: unknown) => [...executiveKeys.all, 'overview', f] as const,
+  people: (from: string, to: string) => [...executiveKeys.all, 'people', from, to] as const,
   filterOptions: () => [...executiveKeys.all, 'filter-options'] as const,
   feed: (scope: string, archived: boolean) => [...executiveKeys.all, 'announcements', scope, archived] as const,
   announcement: (id: string) => [...executiveKeys.all, 'announcement', id] as const,

@@ -240,3 +240,33 @@ do $$ declare aid uuid; n int; begin
   assert public.announcement_unread_count() = 3, 'unread excludes expired (all + dept + employees-role): ' || public.announcement_unread_count();
   raise notice 'X11 ✅ انتهاء الصلاحية';
 end $$;
+
+-- ── ⑫ (00205) الأفراد: سائقون/غياب/تأخير/التزام/كشوفات/استقطاعات ──
+reset role; select set_config('auth.user_id','', false);
+-- ربط انطلاقتي «سائق 1» بالموظف ب (X-E2) + بصمة في يوم واحد منهما فقط؛ كشف D-1 على الموظف ب؛ استقطاع مؤكد للموظف أ
+update public.garage_departures set driver_employee_id = 'ffff0000-0000-0000-0000-000000000007' where driver_name = 'سائق 1';
+insert into public.biometric_punches (device_serial, pin, employee_id, punched_at, direction, method) values ('T-DEV', 'X7', 'ffff0000-0000-0000-0000-000000000007', (now() - interval '1 day')::date + time '07:50', 'in', 'manual');
+-- البصمة تعيد بناء يوم الحضور (سلوك الإنتاج)؛ نعيد تثبيت يوم التأخير بعدها
+update public.hr_attendance_days set status = 'late', late_minutes = 30, expected_in = (current_date - 1) + time '08:00', check_in = (current_date - 1) + time '08:30', is_rest_day = false where employee_id = 'ffff0000-0000-0000-0000-000000000007' and work_date = current_date - 1;
+update public.disclosures set employee_id = 'ffff0000-0000-0000-0000-000000000007' where ref_no = 'D-1';
+insert into public.hr_attendance_deductions (employee_id, period_month, amount, days, reason) values ('ffff0000-0000-0000-0000-000000000006', date_trunc('month', current_date)::date, 25000, 1, 'غياب بلا عذر');
+select auth.set_test_user('eeee0000-0000-0000-0000-000000000008');
+do $$ begin
+  begin perform public.exec_people(current_date - 7, current_date); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'EXEC_FORBIDDEN', 'ops cannot read exec_people: ' || sqlerrm; end;
+end $$;
+select auth.set_test_user('eeee0000-0000-0000-0000-000000000001');
+do $$ declare o jsonb; d jsonb; begin
+  o := public.exec_people(current_date - 7, current_date);
+  d := o -> 'drivers';
+  assert (d ->> 'drivers')::int = 1 and (d ->> 'dep_days')::int = 2 and (d ->> 'punched_days')::int = 1, 'driver days: ' || d::text;
+  assert (d -> 'rows' -> 0 ->> 'name') = 'موظف ب' and (d -> 'rows' -> 0 ->> 'missing_days')::int = 1 and (d -> 'rows' -> 0 ->> 'match_pct')::int = 50, 'driver row: ' || (d -> 'rows')::text;
+  assert (d ->> 'unlinked_departures')::int = 1, 'unlinked = سائق 2';
+  assert exists (select 1 from jsonb_array_elements(o -> 'absent') r where r ->> 'name' = 'موظف أ' and (r ->> 'absent')::int = 1 and (r ->> 'deduction_days')::numeric = 1), 'most absent: ' || (o -> 'absent')::text;
+  assert (o -> 'late' -> 0 ->> 'name') = 'موظف ب' and (o -> 'late' -> 0 ->> 'late_minutes')::int = 30, 'most late: ' || (o -> 'late')::text;
+  assert jsonb_array_length(o -> 'committed') = 0, 'committed requires >= 3 working days: ' || (o -> 'committed')::text;
+  assert (o -> 'disclosures' -> 0 ->> 'name') = 'موظف ب' and (o -> 'disclosures' -> 0 ->> 'count')::int = 1 and (o -> 'disclosures' -> 0 ->> 'top_violation') = 'تأخير', 'disclosures: ' || (o -> 'disclosures')::text;
+  assert (o -> 'deductions' -> 0 ->> 'name') = 'موظف أ' and (o -> 'deductions' -> 0 ->> 'amount')::numeric = 25000, 'deductions: ' || (o -> 'deductions')::text;
+  assert (o -> 'summary' ->> 'with_absence')::int = 2 and (o -> 'summary' ->> 'employees')::int = 2 and (o -> 'summary' ->> 'deducted')::int = 1 and (o -> 'summary' ->> 'with_disclosures')::int = 1, 'summary: ' || (o -> 'summary')::text;
+  raise notice 'X12 ✅ exec_people: سائقون مقابل بصمات، الأكثر غياباً/تأخراً، الكشوفات، الاستقطاعات';
+end $$;

@@ -24,6 +24,11 @@ export function useExecOverview(f: Pick<ExecFilters, 'from' | 'to' | 'sector' | 
   return { data: cur.data ?? null, previous: prv.data ?? null, isLoading: cur.isLoading, error: cur.error, refetch: () => { void cur.refetch(); void prv.refetch() }, isFetching: cur.isFetching || prv.isFetching }
 }
 
+/** 00218: الأشخاص في التقرير (يُطلب فقط عند اختيار قسم «الأشخاص») */
+export function useExecPeople(from: string, to: string, enabled = true) {
+  return useQuery({ queryKey: executiveKeys.people(from, to), queryFn: () => executive.people(from, to), staleTime: 60_000, enabled })
+}
+
 export function useExecFilterOptions() {
   return useQuery({ queryKey: executiveKeys.filterOptions(), queryFn: executive.filterOptions, staleTime: 10 * 60_000 })
 }

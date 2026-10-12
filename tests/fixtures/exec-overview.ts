@@ -1,5 +1,5 @@
 /** عيّنة ملخص تنفيذي كاملة للاختبارات */
-import type { ExecOverview } from '@features/executive/types'
+import type { ExecOverview, ExecPeople } from '@features/executive/types'
 
 export function sample(over: Partial<ExecOverview> = {}): ExecOverview {
   return {
@@ -17,3 +17,25 @@ export function sample(over: Partial<ExecOverview> = {}): ExecOverview {
   }
 }
 
+
+/** 00218: عيّنة exec_people */
+export function samplePeople(over: Partial<ExecPeople> = {}): ExecPeople {
+  const p = (name: string, department = 'قسم النظافة', number: string | null = 'E-1') => ({ employee_id: `e-${name}`, name, number, department })
+  return {
+    period: { from: '2026-09-01', to: '2026-09-29', generated_at: '2026-09-29T09:00:00Z' },
+    summary: { employees: 40, perfect: 12, with_absence: 9, with_disclosures: 3, deduction_month: '2026-09', deducted: 4 },
+    drivers: {
+      drivers: 2, dep_days: 30, punched_days: 24, unlinked_departures: 5,
+      rows: [
+        { ...p('كرار حسين', 'الكراج', 'D-7'), dep_days: 18, trips: 22, punched_days: 12, attended_days: 12, missing_days: 6, match_pct: 67 },
+        { ...p('علي جاسم', 'الكراج', 'D-9'), dep_days: 12, trips: 12, punched_days: 12, attended_days: 12, missing_days: 0, match_pct: 100 },
+      ],
+    },
+    absent: [{ ...p('حيدر كاظم'), job_title: 'عامل', absent: 6, late: 2, present: 14, leave: 1, working_days: 21, absent_pct: 29, deduction_days: 6 }],
+    late: [{ ...p('مصطفى سعد'), late_days: 9, late_minutes: 275, avg_late: 31, working_days: 21 }],
+    committed: [{ ...p('زينب علي', 'الإدارة', 'A-2'), working_days: 21, present: 21, absent: 0, late_days: 0, late_minutes: 0, attendance_pct: 100, avg_in: '07:41', avg_early_minutes: 19, score: 100 }],
+    disclosures: [{ ...p('كرار حسين', 'الكراج', 'D-7'), count: 3, approved: 2, pending: 1, amount: 75000, top_violation: 'تأخير' }],
+    deductions: [{ ...p('حيدر كاظم'), amount: 150000, days: 6, proposed_days: 6, items: 2, reasons: 'غياب بلا عذر' }],
+    ...over,
+  }
+}

@@ -4,7 +4,7 @@
  * أما الوارد والقراءة/الإقرار فلكل مستخدم مستهدف.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { Announcement, AnnouncementInput, AnnouncementRecipient, AnnouncementTargets, ExecFilterOptions, ExecOverview } from '@features/executive/types'
+import type { Announcement, AnnouncementInput, AnnouncementRecipient, AnnouncementTargets, ExecFilterOptions, ExecOverview, ExecPeople } from '@features/executive/types'
 
 export const EXEC_ERROR_MESSAGES: Record<string, string> = {
   EXEC_FORBIDDEN: 'هذه اللوحة حصرية للإدارة العليا والمالية',
@@ -34,6 +34,8 @@ export const executive = {
   overview(from: string, to: string, sector: number | null = null, shift: string | null = null): Promise<ExecOverview> {
     return rpc<ExecOverview>('exec_overview', { p_from: from, p_to: to, p_sector: sector, p_shift: shift })
   },
+  /** 00218: الأشخاص — سائقون/بصمات، الأكثر غياباً وتأخراً والتزاماً، الكشوفات، استقطاعات الشهر */
+  people(from: string, to: string, limit = 10): Promise<ExecPeople> { return rpc<ExecPeople>('exec_people', { p_from: from, p_to: to, p_limit: limit }) },
   filterOptions(): Promise<ExecFilterOptions> { return rpc<ExecFilterOptions>('exec_filter_options') },
 
   // ── التبليغات ──

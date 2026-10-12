@@ -70,3 +70,22 @@ export interface AnnouncementTargets {
 }
 
 export interface AnnouncementRecipient { user_id: string; full_name: string; department_name: string | null; delivered_at: string; read_at: string | null; acked_at: string | null }
+
+/* ─── 00218: الأشخاص في التقارير التنفيذية (exec_people) ─── */
+export interface ExecPersonBase { employee_id: string; name: string; number: string | null; department: string }
+export interface ExecDriverRow extends ExecPersonBase { dep_days: number; trips: number; punched_days: number; attended_days: number; missing_days: number; match_pct: number }
+export interface ExecAbsentRow extends ExecPersonBase { job_title: string | null; absent: number; late: number; present: number; leave: number; working_days: number; absent_pct: number; deduction_days: number }
+export interface ExecLateRow extends ExecPersonBase { late_days: number; late_minutes: number; avg_late: number | null; working_days: number }
+export interface ExecCommittedRow extends ExecPersonBase { working_days: number; present: number; absent: number; late_days: number; late_minutes: number; attendance_pct: number; avg_in: string | null; avg_early_minutes: number | null; score: number }
+export interface ExecDisclosureRow extends ExecPersonBase { count: number; approved: number; pending: number; amount: number; top_violation: string | null }
+export interface ExecDeductionRow extends ExecPersonBase { amount: number; days: number; proposed_days: number; items: number; reasons: string | null }
+export interface ExecPeople {
+  period: { from: string; to: string; generated_at: string }
+  summary: { employees: number; perfect: number; with_absence: number; with_disclosures: number; deduction_month: string; deducted: number }
+  drivers: { rows: ExecDriverRow[]; drivers: number; dep_days: number; punched_days: number; unlinked_departures: number }
+  absent: ExecAbsentRow[]
+  late: ExecLateRow[]
+  committed: ExecCommittedRow[]
+  disclosures: ExecDisclosureRow[]
+  deductions: ExecDeductionRow[]
+}
