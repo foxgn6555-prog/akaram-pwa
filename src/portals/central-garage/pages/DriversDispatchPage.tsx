@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import { BusFront, DoorOpen, FolderOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
+import { DoorOpen, FolderOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
 import {
   useGarageAreas,
   useGarageDepartureDays,
@@ -14,6 +14,7 @@ import { canGarageReceive, garageWaitingHint, resolveTripStatus, tripStatusMeta 
 import type { GarageDeparture, GarageShift, GarageVehicle } from '@features/central-garage/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
   'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -112,39 +113,15 @@ export default function DriversDispatchPage() {
   const inField = rows.filter((vehicle) => states.get(vehicle.id)?.kind === 'field').length
   const returned = rows.filter((vehicle) => states.get(vehicle.id)?.kind === 'returned').length
   const pending = rows.length - inField - returned
-  const stat = (testId: string, label: string, value: number, tone: string) => (
-    <div
-      data-testid={testId}
-      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-sm"
-    >
-      <p className="text-[11px] font-bold text-slate-500">{label}</p>
-      <b className={`mt-1 block text-2xl ${tone}`}>{value}</b>
-    </div>
-  )
   return (
     <section className="space-y-5" dir="rtl" data-testid="drivers-dispatch-page">
-      <header className="rounded-3xl bg-gradient-to-l from-blue-950 to-cyan-800 p-6 text-white shadow-xl">
-        <span className="inline-flex items-center gap-2 text-xs font-bold text-cyan-100">
-          <BusFront size={16} />
-          حركة الكراج اليومية
-        </span>
-        <h1 className="mt-2 text-2xl font-black">انطلاق السائقين من الكراج</h1>
-        <p className="mt-1 text-sm text-cyan-100">
-          سجّل خروج كل سائق من الكراج إلى ورديته، ثم سجّل عودته عند الرجوع — كل التوقيتات محفوظة في
-          السجل
-        </p>
-      </header>
+      <ExecPageHeader icon="truck" title="انطلاق السائقين من الكراج" subtitle="سجّل خروج كل سائق من الكراج إلى ورديته، ثم سجّل عودته عند الرجوع — كل التوقيتات محفوظة في السجل"
+        stats={[{ label: 'آليات الانطلاقية', value: rows.length, tone: 'gold', testId: 'stat-total' }, { label: 'في الميدان الآن', value: inField, tone: 'green', testId: 'stat-field' }, { label: 'عادت إلى الكراج', value: returned, testId: 'stat-returned' }, { label: 'لم تنطلق بعد', value: pending, tone: pending ? 'red' : 'plain', testId: 'stat-pending' }]} />
       <GarageDailyFolders
         days={dayFolders.data ?? []}
         selected={selectedDay}
         onSelect={setSelectedDay}
       />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {stat('stat-total', 'آليات الانطلاقية', rows.length, 'text-slate-900')}
-        {stat('stat-field', 'في الميدان الآن', inField, 'text-emerald-700')}
-        {stat('stat-returned', 'عادت إلى الكراج', returned, 'text-slate-600')}
-        {stat('stat-pending', 'لم تنطلق بعد', pending, 'text-amber-700')}
-      </div>
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_180px_220px]">
         <label className="relative">
           <Search className="absolute right-3 top-3 text-slate-400" size={18} />

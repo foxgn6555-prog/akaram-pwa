@@ -39,7 +39,7 @@ describe('GarageProceduresPage (00209)', () => {
     expect(screen.getByTestId('gp-hire-submit')).toBeEnabled()
     fireEvent.click(screen.getByTestId('gp-hire-submit'))
     await waitFor(() => expect(hire).toHaveBeenCalledTimes(1))
-    const sent = hire.mock.calls[0][0] as Record<string, unknown>
+    const sent = hire.mock.calls[0]?.[0] as Record<string, unknown>
     expect(sent).toMatchObject({ full_name: 'علي حسين', employee_number: 'G-0012', job_title_id: 't1', contract_type: 'monthly' })
     expect(Object.keys(sent)).toEqual(expect.not.arrayContaining(['biometric_pin', 'base_salary', 'national_id_number']))
     expect(await screen.findByTestId('gp-hires-table')).toBeInTheDocument()   // ينتقل إلى التعيينات الأخيرة

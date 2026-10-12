@@ -1,11 +1,12 @@
 import { useDeferredValue, useState } from 'react'
-import { AlertTriangle, ArrowDownToLine, Droplets, Fuel, History, Plus, Search, Send, X } from 'lucide-react'
+import { AlertTriangle, ArrowDownToLine, Droplets, History, Plus, Search, Send, X } from 'lucide-react'
 import { garageFillSchema, garageStockSchema, garageTankSchema, garageZeroSchema } from '@features/central-garage/schemas'
 import { useAddGarageTank, useAddGarageTankStock, useFillGarageVehicle, useGarageTankMovements, useGarageTanks, useGarageVehicles, useRequestGarageTankZero } from '@features/central-garage/hooks'
 import type { GarageFuelType, GarageTank } from '@features/central-garage/types'
 import { GARAGE_FUEL_UNITS, garageFuelUnitLabels, garageUnitLabel } from '@features/central-garage/fuel-units'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 
 const fuelMeta:Record<GarageFuelType,{title:string;description:string;color:string}>={gas_oil:{title:'الكاز',description:'خزانات الكاز وتعبئة الآليات',color:'from-amber-950 to-orange-700'},hydraulic:{title:'الهيدروليك',description:'مخزون سائل الهيدروليك وحركات الصرف',color:'from-blue-950 to-cyan-700'},grease:{title:'الدهن',description:'خزانات الدهن وسجل التوزيع',color:'from-violet-950 to-fuchsia-700'},c_oil:{title:'C-Oil',description:'خزانات C-Oil وحركات الآليات',color:'from-slate-950 to-teal-700'}}
 const input='h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-100'
@@ -15,7 +16,8 @@ type Dialog={kind:'stock'|'fill'|'zero'|'history';tank:GarageTank}|{kind:'add'}|
 export default function FuelTypePage({fuelType}:{fuelType:GarageFuelType}){
   const meta=fuelMeta[fuelType];const tanks=useGarageTanks(fuelType);const[dialog,setDialog]=useState<Dialog>(null)
   return <section className="space-y-5" dir="rtl" data-testid={`fuel-page-${fuelType}`}>
-    <header className={`flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-gradient-to-l ${meta.color} p-6 text-white shadow-xl`}><div><span className="inline-flex items-center gap-2 text-xs font-bold text-white/75"><Fuel size={16}/>الوقود والزيوت</span><h1 className="mt-2 text-3xl font-black">{meta.title}</h1><p className="mt-1 text-sm text-white/75">{meta.description}</p></div><button data-testid="open-add-tank" onClick={()=>setDialog({kind:'add'})} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-900"><Plus size={18}/>إضافة خزان جديد</button></header>
+    <ExecPageHeader icon="droplet" title={meta.title} subtitle={`الوقود والزيوت — ${meta.description}`} stats={[{ label: 'الخزانات', value: tanks.data?.length ?? 0, tone: 'gold' }, { label: 'منخفضة المخزون', value: (tanks.data ?? []).filter((t) => t.currentQuantity * 100 / Math.max(1, t.capacity) <= t.lowStockThreshold).length }]}
+      actions={<HeaderButton icon="user-plus" onClick={() => setDialog({ kind: 'add' })} testId="open-add-tank">إضافة خزان جديد</HeaderButton>} />
     {tanks.isLoading?<div className="rounded-2xl bg-white p-12"><LoadingSpinner label="جارٍ تحميل الخزانات…"/></div>:(tanks.data?.length??0)===0?<EmptyState title={`لا توجد خزانات ${meta.title}`} hint="أضف الخزان الأول وحدد سعته وكميته الابتدائية"/>:<div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">{tanks.data?.map(tank=><TankCard key={tank.id} tank={tank} onAction={kind=>setDialog({kind,tank})}/>)}</div>}
     {dialog?.kind==='add'&&<AddTankDialog fuelType={fuelType} onClose={()=>setDialog(null)}/>} 
     {dialog&&dialog.kind==='stock'&&<StockDialog tank={dialog.tank} onClose={()=>setDialog(null)}/>} 

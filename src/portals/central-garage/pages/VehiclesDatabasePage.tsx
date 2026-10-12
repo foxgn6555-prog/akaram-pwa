@@ -28,6 +28,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import { VehicleCard } from '../components/VehicleCard'
 import { FleetImportDialog } from '../components/FleetImportDialog'
 import { DriverPicker } from '../components/DriverPicker'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -77,35 +78,24 @@ export default function VehiclesDatabasePage({
   const pages = Math.max(1, Math.ceil(total / 24))
   return (
     <section className="space-y-5" dir="rtl" data-testid="vehicles-database-page">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-cyan-900 p-6 text-white shadow-xl">
-        <div>
-          <span className="text-xs font-bold text-cyan-200">قاعدة بيانات الأسطول</span>
-          <h1 className="mt-1 text-2xl font-black">الآليات</h1>
-          <p className="mt-1 text-sm text-cyan-100">
-            {managementMode
-              ? 'المصدر المركزي لإضافة وتعديل بيانات آليات القاطعين'
-              : 'عرض آليات الكراج المرتبط بحسابك — البيانات الأساسية للقراءة فقط'}
-          </p>
-        </div>
-        {managementMode && (
-          <div className="flex flex-wrap gap-2">
+      <ExecPageHeader icon="database" title="الآليات" subtitle={managementMode ? 'قاعدة بيانات الأسطول — المصدر المركزي لإضافة وتعديل بيانات آليات القاطعين' : 'عرض آليات الكراج المرتبط بحسابك — البيانات الأساسية للقراءة فقط'}
+        stats={[{ label: 'إجمالي الآليات', value: total, tone: 'gold' }, { label: 'الصفحات', value: pages }]}
+        actions={managementMode ? (<div className="flex flex-wrap gap-2">
             <button
               data-testid="open-add-vehicle"
               onClick={() => setOpen(true)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-cyan-900 shadow"
+              className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow"
             >
               <Plus size={18} />
               إضافة آلية
             </button>
-            <button data-testid="fleet-export" onClick={() => fleetExport.mutate(false)} disabled={fleetExport.isPending} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white disabled:opacity-50">
+            <button data-testid="fleet-export" onClick={() => fleetExport.mutate(false)} disabled={fleetExport.isPending} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
               <FileSpreadsheet size={16} />{fleetExport.isPending ? 'جارٍ التصدير…' : 'تصدير Excel'}
             </button>
-            <button data-testid="fleet-import-open" onClick={() => setImportOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white">
+            <button data-testid="fleet-import-open" onClick={() => setImportOpen(true)} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25">
               <DatabaseBackup size={16} />استرداد من Excel
             </button>
-          </div>
-        )}
-      </header>
+          </div>) : undefined} />
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px_180px_auto]">
         <label className="relative">
           <Search className="absolute right-3 top-3 text-slate-400" size={18} />

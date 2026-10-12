@@ -5,6 +5,7 @@ import { useGarageAreas, useGarageVehicles } from '@features/central-garage/hook
 import type { GarageShift } from '@features/central-garage/types'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -38,16 +39,8 @@ export default function GarageArchivePage({
   const pages = Math.max(1, Math.ceil(total / 24))
   return (
     <section className="space-y-5" dir="rtl" data-testid="garage-archive-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-slate-700 p-6 text-white shadow-xl">
-        <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-200">
-          <Archive size={16} />
-          السجلات المحفوظة
-        </span>
-        <h1 className="mt-2 text-2xl font-black">أرشيف آليات الكراج</h1>
-        <p className="mt-1 text-sm text-slate-200">
-          الآليات المؤرشفة مع سبب وتوقيت الأرشفة والسجلات التاريخية الكاملة
-        </p>
-      </header>
+      <ExecPageHeader icon="archive-box" title="أرشيف آليات الكراج" subtitle="السجلات المحفوظة — الآليات المؤرشفة مع سبب وتوقيت الأرشفة والسجلات التاريخية الكاملة"
+        stats={[{ label: 'آليات مؤرشفة', value: total, tone: 'gold' }, { label: 'الصفحات', value: pages }]} />
       <div className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm md:grid-cols-[1fr_220px_180px_auto]">
         <label className="relative">
           <Search className="absolute right-3 top-3 text-slate-400" size={18} />

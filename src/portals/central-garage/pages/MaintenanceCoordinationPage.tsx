@@ -14,6 +14,7 @@ import {
 } from '@features/vehicle-operations/hooks'
 import type { GarageMaintenanceCoordination } from '@sdk/vehicle-operations.sdk'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 const dt = (v: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     dateStyle: 'medium',
@@ -69,21 +70,8 @@ export default function MaintenanceCoordinationPage() {
   }
   return (
     <section className="space-y-5" dir="rtl" data-testid="garage-maintenance-coordination">
-      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-violet-950 to-cyan-900 p-6 text-white shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold text-cyan-200">تنسيق فوري دون تعطيل الميدان</span>
-            <h1 className="mt-2 text-2xl font-black">حركة الآليات إلى الصيانة</h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-200">
-              أكد استلام البلاغ أو راجع طلب الموافقة وفق السياسة التي حددتها بوابة التطوير المركزي.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white/10 p-4 text-center">
-            <b className="block text-3xl">{pending.length}</b>
-            <span className="text-xs">إجراء مطلوب</span>
-          </div>
-        </div>
-      </header>
+      <ExecPageHeader icon="settings" title="حركة الآليات إلى الصيانة" subtitle="أكد استلام البلاغ أو راجع طلب الموافقة وفق السياسة التي حددتها بوابة التطوير المركزية — تنسيق فوري دون تعطيل الميدان"
+        stats={[{ label: 'إجراء مطلوب', value: pending.length, tone: pending.length ? 'gold' : 'green' }, { label: 'تأكيدات معلقة', value: pending.filter((x) => x.decision_status === 'awaiting_ack').length }, { label: 'موافقات معلقة', value: pending.filter((x) => x.decision_status === 'awaiting_approval').length }, { label: 'سجل 30 يوماً', value: q.data?.length ?? 0 }]} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           icon={<Clock3 />}
