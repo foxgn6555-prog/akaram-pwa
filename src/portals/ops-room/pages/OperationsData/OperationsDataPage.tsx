@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
-  Sparkles,
   TimerReset,
 } from 'lucide-react'
 import {
@@ -36,6 +35,7 @@ import { SupportRequestsPanel } from './SupportRequestsPanel'
 import { SUPPORT_STATUS_LABEL } from '@features/sector/supportMeta'
 import { useOpsSupportRequests } from '@features/sector'
 import { MaintenanceCorrectionDialog, type MaintenanceCorrectionTarget } from './MaintenanceCorrectionDialog'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export type OperationsTab =
   | 'alerts'
@@ -683,34 +683,8 @@ export default function OperationsDataPage() {
   }
   return (
     <section dir="rtl" className="space-y-5" data-testid="operations-data-page">
-      <header className="relative isolate overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/10 md:p-8">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(34,211,238,.22),transparent_28%),radial-gradient(circle_at_85%_90%,rgba(99,102,241,.28),transparent_32%)]" />
-        <div className="absolute -left-16 -top-20 -z-10 size-64 rounded-full border border-white/10" />
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="flex items-center gap-2 text-xs font-bold text-cyan-300">
-              <Sparkles size={16} /> غرفة العمليات · مركز القرار التشغيلي
-            </p>
-            <h1 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">
-              التقارير وذكاء العمليات
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
-              رؤية موحدة للرحلات والحركة والعمل المنتج والمحطة والكراج والصيانة، مع تقارير قابلة
-              للتخصيص والتصدير.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
-              <b className="block text-xl">{Object.values(allSources).flat().length}</b>
-              <span className="text-[10px] text-slate-300">سجل ضمن المصادر</span>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 backdrop-blur">
-              <b className="block text-xl text-cyan-300">{isLoading ? '…' : 'محدّث'}</b>
-              <span className="text-[10px] text-slate-300">حالة البيانات</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ExecPageHeader icon="bar-chart" title="التقارير وذكاء العمليات" subtitle={<><span className="font-bold text-[#f3d06a]">غرفة العمليات · مركز القرار التشغيلي</span> · رؤية موحدة للرحلات والحركة والعمل المنتج والمحطة والكراج والصيانة، مع تقارير قابلة للتخصيص والتصدير.</>}
+        stats={[{ label: 'سجل ضمن المصادر', value: Object.values(allSources).flat().length, tone: 'gold' }, { label: 'حالة البيانات', value: isLoading ? '…' : 'محدّث', tone: 'green' }]} />
 
       <div className="grid gap-4 rounded-[2rem] border border-slate-200/80 bg-white p-5 shadow-lg shadow-slate-200/40 md:grid-cols-3 xl:grid-cols-6">
         <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-3 xl:col-span-6">

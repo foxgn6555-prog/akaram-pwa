@@ -88,6 +88,7 @@ import { exportGpsAlerts, exportGpsTrips } from '@features/gps-lvn/export'
 import { useUiStore } from '@stores/ui.store'
 import type { ZoneShape } from './ZoneMapEditor'
 import { LandmarkGlyph, landmarkIconLabels } from './LandmarkIcon'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 const GpsRouteMap = lazy(() => import('./GpsRouteMap'))
 const GpsLiveMap = lazy(() => import('./GpsLiveMap'))
 const ZoneMapEditor = lazy(() => import('./ZoneMapEditor'))
@@ -221,75 +222,14 @@ export default function GpsDataPage() {
 
   return (
     <section dir="rtl" className="space-y-5 pb-10" data-testid="gps-data-page">
-      <header className="relative overflow-hidden rounded-[2rem] bg-[#071827] text-white shadow-[0_24px_70px_-30px_rgba(2,132,199,.7)]">
-        <div className="absolute -left-24 -top-28 size-80 rounded-full bg-cyan-400/15 blur-3xl" />
-        <div className="absolute bottom-0 right-1/3 h-px w-1/2 bg-gradient-to-l from-transparent via-cyan-300/70 to-transparent" />
-        <div className="relative p-5 md:p-7">
-          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
-            <div className="flex items-start gap-4">
-              <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-cyan-300/30 bg-cyan-400/10">
-                <Navigation className="text-cyan-300" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-black tracking-[.22em] text-cyan-300">
-                    GPS COMMAND CENTER
-                  </span>
-                  <span className="rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] font-bold text-emerald-300">
-                    <CircleDot className="ml-1 inline size-3 animate-pulse" />
-                    مباشر
-                  </span>
-                </div>
-                <h1 className="mt-2 text-2xl font-black md:text-3xl">
-                  قيادة الانطلاقيات والمسارات
-                </h1>
-                <p className="mt-1 max-w-2xl text-xs leading-6 text-slate-300">
-                  صورة تشغيلية واحدة من لحظة مغادرة الكراج حتى العودة، مع سلامة GPS والانقطاعات
-                  والزونات.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                aria-label="الخريطة الحية"
-                onClick={() => setView('operations')}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black hover:bg-white/10"
-              >
-                <MapPinned className="ml-2 inline size-4 text-cyan-300" />
-                الخريطة الحية
-              </button>
-              <button
-                aria-label={`التنبيهات (${alerts.data?.length ?? 0})`}
-                onClick={() => setView('operations')}
-                className="rounded-xl border border-rose-300/20 bg-rose-400/10 px-4 py-2.5 text-xs font-black text-rose-200"
-              >
-                <AlertTriangle className="ml-2 inline size-4" />
-                التنبيهات ({alerts.data?.length ?? 0})
-              </button>
-              <button
-                onClick={() => sync.mutate(d?.last_full_sync_at ? 'incremental' : 'full')}
-                disabled={sync.isPending}
-                className="rounded-xl bg-cyan-300 px-4 py-2.5 text-xs font-black text-slate-950 disabled:opacity-50"
-              >
-                {sync.isPending ? (
-                  <Loader2 className="ml-2 inline size-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="ml-2 inline size-4" />
-                )}
-                تحديث البيانات
-              </button>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-2 border-t border-white/10 pt-4 text-[10px] text-slate-400 sm:grid-cols-3">
-            <span>
-              <span className="ml-2 inline-block size-1.5 rounded-full bg-emerald-400" />
-              آخر نجاح {fmt(d?.last_success_at ?? null)}
-            </span>
-            <span>مزامنة تلقائية كل 30 ثانية</span>
-            <span className="sm:text-left">LVN API {d?.api_version ?? '—'}</span>
-          </div>
-        </div>
-      </header>
+      <ExecPageHeader icon="map-pin" iconNode={<Navigation size={22} className="text-[#f3d06a]" />} title="قيادة الانطلاقيات والمسارات"
+        subtitle={<><span className="font-bold text-[#f3d06a]">GPS COMMAND CENTER</span> <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300"><CircleDot className="ml-1 inline size-3 animate-pulse" />مباشر</span> · صورة تشغيلية واحدة من لحظة مغادرة الكراج حتى العودة، مع سلامة GPS والانقطاعات والزونات.</>}
+        actions={<>
+          <button aria-label="الخريطة الحية" onClick={() => setView('operations')} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><MapPinned className="size-4 text-[#f3d06a]" />الخريطة الحية</button>
+          <button aria-label={`التنبيهات (${alerts.data?.length ?? 0})`} onClick={() => setView('operations')} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 text-rose-200"><AlertTriangle className="size-4" />التنبيهات ({alerts.data?.length ?? 0})</button>
+          <button onClick={() => sync.mutate(d?.last_full_sync_at ? 'incremental' : 'full')} disabled={sync.isPending} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:opacity-50">{sync.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}تحديث البيانات</button>
+        </>}
+        stats={[{ label: 'آخر نجاح', value: <span className="text-sm">{fmt(d?.last_success_at ?? null)}</span>, tone: 'green' }, { label: 'المزامنة التلقائية', value: <span className="text-sm">كل 30 ثانية</span>, tone: 'plain' }, { label: 'LVN API', value: <span className="text-sm">{d?.api_version ?? '—'}</span>, tone: 'gold' }]} />
 
       <nav
         className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm md:grid-cols-3 xl:grid-cols-5"

@@ -20,6 +20,7 @@ import {
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus, GbsUpdateState } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Draft = {
   id?: string
@@ -138,31 +139,24 @@ export default function GbsContainersPage() {
 
   return (
     <section className="space-y-4 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black">GBS الحاويات</h1>
-          <p className="mt-1 text-xs font-bold text-slate-500">
-            خريطة الحاويات الكاملة — الإضافة والتعديل والحذف واعتماد تحديثات مسؤولي الأقسام من غرفة
-            العمليات فقط.
-          </p>
-        </div>
+      <ExecPageHeader icon="box" title="GBS الحاويات" subtitle="خريطة الحاويات الكاملة — الإضافة والتعديل والحذف واعتماد تحديثات مسؤولي الأقسام من غرفة العمليات فقط." actions={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             data-testid="gbs-add-container"
             onClick={() => setDraft(emptyDraft())}
-            className="h-11 rounded-xl bg-cyan-700 px-5 text-sm font-black text-white"
+            className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"
           >
             إضافة حاوية
           </button>
-          <button type="button" data-testid="gbs-export" onClick={() => gbsExport.mutate(false)} disabled={gbsExport.isPending} className="h-11 rounded-xl border px-4 text-sm font-bold disabled:opacity-50">
+          <button type="button" data-testid="gbs-export" onClick={() => gbsExport.mutate(false)} disabled={gbsExport.isPending} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-50">
             {gbsExport.isPending ? 'جارٍ التصدير…' : 'تصدير Excel'}
           </button>
-          <button type="button" data-testid="gbs-import-open" onClick={() => setImportOpen(true)} className="h-11 rounded-xl border px-4 text-sm font-bold">
+          <button type="button" data-testid="gbs-import-open" onClick={() => setImportOpen(true)} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20">
             استرداد من Excel
           </button>
         </div>
-      </header>
+      } />
       {importOpen && <GbsImportDialog onClose={() => setImportOpen(false)} />}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

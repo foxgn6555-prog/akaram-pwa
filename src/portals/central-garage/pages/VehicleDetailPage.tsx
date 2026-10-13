@@ -30,6 +30,7 @@ import {
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { AssignmentDialog } from '../components/AssignmentDialog'
 import { EditVehicleDialog } from '../components/EditVehicleDialog'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const arDate = (value: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -90,6 +91,7 @@ export default function VehicleDetailPage({
   }
   return (
     <section className="space-y-5" dir="rtl" data-testid="vehicle-detail-page">
+      <ExecPageHeader icon="truck" title={`ملف الآلية — ${v.vehicleName}`} subtitle={<>DB {v.dbNumber} · السائق: {v.driverName}{v.archivedAt ? ' · مؤرشفة' : ''}</>} actions={
       <Link
         to={
           managementMode
@@ -100,11 +102,12 @@ export default function VehicleDetailPage({
               ? '/central-garage/archive'
               : '/central-garage/vehicles-database'
         }
-        className="inline-flex items-center gap-2 text-sm font-bold text-cyan-800"
+        className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"
       >
-        <ArrowRight size={17} />
+        <ArrowRight size={15} />
         {v.archivedAt ? 'العودة إلى الأرشيف' : 'العودة إلى قاعدة الآليات'}
       </Link>
+      } />
       {!managementMode && (
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           <b>بيانات الآلية للقراءة فقط</b>
@@ -140,7 +143,7 @@ export default function VehicleDetailPage({
                 <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">
                   DB {v.dbNumber}
                 </span>
-                <h1 className="mt-3 text-3xl font-black text-slate-950">{v.vehicleName}</h1>
+                <h2 className="mt-3 text-2xl font-black text-slate-950">{v.vehicleName}</h2>
                 <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
                   <UserRound size={17} />
                   {v.driverName}
