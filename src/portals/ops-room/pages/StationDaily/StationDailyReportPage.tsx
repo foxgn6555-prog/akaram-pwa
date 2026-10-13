@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, FileSpreadsheet, Send, Scale, Truck } from 'lucide-react'
 import { useOpsDailyReport, useSendDailyToDeputy, UNIT_CAPACITIES } from '@features/transfer-station'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const time = (value: unknown) =>
@@ -72,18 +73,14 @@ export default function StationDailyReportPage() {
 
   return (
     <section dir="rtl" className="space-y-5" data-testid="ops-station-daily-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-indigo-800 p-6 text-white shadow-xl">
-        <p className="flex items-center gap-2 text-xs text-indigo-100"><Scale size={16} />المحاسبة الوزنية اليومية — تدقيق ثم إرسال للمعاون</p>
-        <h1 className="mt-2 text-2xl font-black">التقرير اليومي للمحطة التحويلية</h1>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs font-bold text-indigo-100">اليوم
-            <input type="date" value={day} onChange={e => setDay(e.target.value)} data-testid="daily-day" className="h-11 rounded-xl border border-indigo-400/40 bg-indigo-950/50 px-3 text-sm font-bold text-white" />
+      <ExecPageHeader icon="scale" iconNode={<Scale size={22} className="text-[#f3d06a]" />} title="التقرير اليومي للمحطة التحويلية" subtitle="المحاسبة الوزنية اليومية — تدقيق ثم إرسال للمعاون" actions={<>
+          <label className="flex items-center gap-2 text-xs font-bold text-blue-100">اليوم
+            <input type="date" value={day} onChange={e => setDay(e.target.value)} data-testid="daily-day" className="h-9 rounded-xl border border-white/30 bg-white/10 px-3 text-xs font-bold text-white" />
           </label>
-          <button onClick={() => void exportExcel()} disabled={!inbound.length} data-testid="daily-export" className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-black hover:bg-white/20 disabled:opacity-40"><FileSpreadsheet size={16} />تصدير Excel</button>
-          <button onClick={() => setConfirmOpen(true)} data-testid="daily-send" className="flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-500"><Send size={16} />إرسال اليوم إلى المعاون</button>
+          <button onClick={() => void exportExcel()} disabled={!inbound.length} data-testid="daily-export" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-40"><FileSpreadsheet size={16} />تصدير Excel</button>
+          <button onClick={() => setConfirmOpen(true)} data-testid="daily-send" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"><Send size={16} />إرسال اليوم إلى المعاون</button>
           {sentFlash && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-black text-emerald-200">أُرسل التقرير إلى بوابة المعاون ✓</span>}
-        </div>
-      </header>
+        </>} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card label="أطنان داخلة" value={`${num(totals?.total_tons).toFixed(2)} طن`} icon={<ArrowDownToLine size={16} />} tone="text-emerald-700 bg-emerald-50" />

@@ -21,6 +21,7 @@ import {
 import type { OpsCampaignRow } from '@sdk/media.sdk'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const MODES: Array<{ key: MediaMode; label: string; icon: typeof Sparkles }> = [
   { key: 'campaign', label: 'الحملات', icon: Sparkles },
@@ -92,15 +93,11 @@ export default function OpsCampaignsPage() {
   return (
     <section dir="rtl" className="space-y-4 pb-4" data-testid="ops-campaigns">
       <style>{`@media print { @page { size: A4 landscape; margin: 0 } body * { visibility: hidden } #campaign-print, #campaign-print * { visibility: visible } #campaign-print { position: absolute; inset: 0; padding: 12mm; print-color-adjust: exact; -webkit-print-color-adjust: exact } }`}</style>
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-emerald-950 to-emerald-800 p-6 text-white shadow-xl print:hidden">
-        <p className="text-xs text-emerald-200">غرفة العمليات — متابعة الحملات</p>
-        <h1 className="mt-1 text-xl font-black">{CAMPAIGN_REPORT_TITLE}</h1>
-        <p className="mt-1 text-xs text-emerald-100">بيانات مسؤولي الأقسام (الموقع، التنفيذ، المراقبون، العمال، الآليات، الصور) مفلترة بالقاطع والقسم والفترة، مع تصدير Excel وطباعة بترويسة الشركة.</p>
-      </header>
+      <ExecPageHeader icon="flow" title={CAMPAIGN_REPORT_TITLE} subtitle={<><span className="font-bold text-[#f3d06a]">غرفة العمليات — متابعة الحملات</span> · بيانات مسؤولي الأقسام (الموقع، التنفيذ، المراقبون، العمال، الآليات، الصور) مفلترة بالقاطع والقسم والفترة، مع تصدير Excel وطباعة بترويسة الشركة.</>} />
 
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 print:hidden">
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm print:hidden">
         {MODES.map((m) => (
-          <button key={m.key} type="button" data-testid={`camp-tab-${m.key}`} onClick={() => setMode(m.key)} className={clsx('flex h-10 items-center justify-center gap-1 rounded-lg text-xs font-black', mode === m.key ? 'bg-white shadow' : 'text-slate-600')}>
+          <button key={m.key} type="button" data-testid={`camp-tab-${m.key}`} onClick={() => setMode(m.key)} className={clsx('flex h-10 items-center justify-center gap-1 rounded-xl text-xs font-black', mode === m.key ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600')}>
             <m.icon size={14} /> {m.label}
           </button>
         ))}

@@ -20,6 +20,7 @@ import {
   useOpsStationVisits,
   useOpsVehicleKpis,
 } from '@features/vehicle-operations/hooks'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -51,27 +52,8 @@ export default function OpsRoomDashboardPage() {
     max = Math.max(1, ...volumes.map((v) => v.value))
   return (
     <section dir="rtl" className="space-y-6" data-testid="ops-dashboard-page">
-      <header className="overflow-hidden rounded-[2rem] bg-gradient-to-l from-slate-950 via-indigo-950 to-cyan-800 p-7 text-white shadow-lg">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <p className="flex items-center gap-2 text-xs text-cyan-200">
-              <Activity size={16} />
-              مركز المتابعة التشغيلية المباشرة
-            </p>
-            <h1 className="mt-2 text-3xl font-black">غرفة العمليات</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-200">
-              نظرة تنفيذية على حركة الآليات والعمل المنتج والكراج والمحطة والصيانة والحضور. استخدم
-              صفحة التقارير للتحليل التفصيلي والتصدير.
-            </p>
-          </div>
-          <Link
-            to="/ops-room/operations-data"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-black text-indigo-950"
-          >
-            فتح التقارير التفصيلية <ArrowLeft size={17} />
-          </Link>
-        </div>
-      </header>
+      <ExecPageHeader icon="activity" title="غرفة العمليات" subtitle={<><span className="font-bold text-[#f3d06a]">مركز المتابعة التشغيلية المباشرة</span> · نظرة تنفيذية على حركة الآليات والعمل المنتج والكراج والمحطة والصيانة والحضور. استخدم صفحة التقارير للتحليل التفصيلي والتصدير.</>}
+        actions={<Link to="/ops-room/operations-data" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50">فتح التقارير التفصيلية <ArrowLeft size={15} /></Link>} />
       <Link
         to="/ops-room/gps"
         className="group flex items-center gap-4 rounded-3xl border border-cyan-200 bg-gradient-to-l from-cyan-50 to-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"

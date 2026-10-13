@@ -24,6 +24,7 @@ import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/component
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
 import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
 import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
 const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', confirm: 'اعتماد حضورية الشهر', reopen: 'إعادة فتح الحضورية', auto_blocked: 'تغيير تلقائي مُعلَّق بعد الاعتماد' }
@@ -114,11 +115,7 @@ export default function OpsAttendancePage() {
 
   return (
     <div className="space-y-4" data-testid="ops-attendance">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-black">الحضوريات</h1>
-          <p className="text-xs text-slate-500">تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير للمالية · كل تعديل بسبب موثّق باسم المدقق</p>
-        </div>
+      <ExecPageHeader icon="activity" title="الحضوريات" subtitle="تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير للمالية · كل تعديل بسبب موثّق باسم المدقق" actions={
         <div className="flex flex-wrap items-center gap-2">
           <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
           <MonthStateChip conf={conf} />
@@ -129,7 +126,7 @@ export default function OpsAttendancePage() {
             </Button>
           )}
         </div>
-      </header>
+      } />
 
       <StageBar conf={conf} stage={stage} onStage={setStage} />
 

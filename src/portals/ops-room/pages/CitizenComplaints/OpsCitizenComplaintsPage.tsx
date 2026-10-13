@@ -14,6 +14,7 @@ import {
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
 import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'complaints' | 'support' | 'archive' | 'report' | 'settings'
 const TABS: Array<{ key: Tab; label: string; icon: typeof Headset }> = [
@@ -33,13 +34,10 @@ export default function OpsCitizenComplaintsPage() {
   const waiting = queue.filter((q) => q.status === 'waiting').length
   return (
     <section className="space-y-4" dir="rtl" data-testid="ops-citizen-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-sky-900 p-5 text-white shadow-xl">
-        <h1 className="text-xl font-black sm:text-2xl">استقبال الشكاوى</h1>
-        <p className="mt-1 text-xs leading-6 text-blue-100">شكاوى المواطنين من الصفحة العامة والدعم الفني المباشر — لا تصبح الشكوى «قيد المعالجة» إلا بإسنادها لمسؤول قسم.</p>
-      </header>
+      <ExecPageHeader icon="users" title="استقبال الشكاوى" subtitle="شكاوى المواطنين من الصفحة العامة والدعم الفني المباشر — لا تصبح الشكوى «قيد المعالجة» إلا بإسنادها لمسؤول قسم." />
       <nav className="flex flex-wrap gap-2" aria-label="التبويبات">
         {TABS.map(({ key, label, icon: I }) => (
-          <button key={key} type="button" onClick={() => setParams((p) => { p.set('tab', key); p.delete('c'); return p })} className={clsx('inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black', tab === key ? 'bg-slate-900 text-white shadow' : 'bg-white text-slate-700 ring-1 ring-slate-200')} data-testid={`tab-${key}`}>
+          <button key={key} type="button" onClick={() => setParams((p) => { p.set('tab', key); p.delete('c'); return p })} className={clsx('inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black', tab === key ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'bg-white text-slate-700 ring-1 ring-slate-200')} data-testid={`tab-${key}`}>
             <I size={16} />{label}{key === 'support' && waiting > 0 && <span className="rounded-full bg-red-600 px-2 text-[11px] text-white">{waiting}</span>}
           </button>
         ))}

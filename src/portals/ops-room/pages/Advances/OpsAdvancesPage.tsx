@@ -6,12 +6,13 @@
  */
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { Search, Wallet } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useAdvanceEmployeeLookup, useAdvanceTypes, useAdvancesList, useCancelAdvance, useCreateAdvance } from '@features/advances/hooks'
 import { REPAYMENT_METHOD_HINT, REPAYMENT_METHOD_LABEL, type Advance, type AdvanceEmployee, type AdvanceStatus, type RepaymentMethod } from '@sdk/advances.sdk'
 import { fmtDT, methodDetail } from '@features/advances/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { field, fmtMoney } from '@portals/hr/components/hr-format'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const STATUS_TONE: Record<AdvanceStatus, string> = {
   pending: 'bg-amber-50 text-amber-800 border-amber-200', approved: 'bg-sky-50 text-sky-800 border-sky-200', delivered: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -24,18 +25,13 @@ export default function OpsAdvancesPage() {
   const [showForm, setShowForm] = useState(false)
   return (
     <div className="space-y-4 pb-6" data-testid="ops-advances">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-black"><Wallet size={18} className="inline" /> السُّلَف</h1>
-          <p className="text-xs text-slate-600">تُدخل غرفة العمليات طلب السلفة لموظف، ثم يمرّ بسلسلة الموافقات، وتسلّمه الشؤون المالية. تظهر هنا حالة الطلبات فقط.</p>
-        </div>
-        <button type="button" data-testid="adv-new" onClick={() => setShowForm((v) => !v)} className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-black text-white">{showForm ? 'إغلاق النموذج' : 'طلب سلفة جديد'}</button>
-      </header>
+      <ExecPageHeader icon="wallet" title="السُّلَف" subtitle="تُدخل غرفة العمليات طلب السلفة لموظف، ثم يمرّ بسلسلة الموافقات، وتسلّمه الشؤون المالية. تظهر هنا حالة الطلبات فقط."
+        actions={<button type="button" data-testid="adv-new" onClick={() => setShowForm((v) => !v)} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50">{showForm ? 'إغلاق النموذج' : 'طلب سلفة جديد'}</button>} />
       {showForm && <RequestForm onDone={() => setShowForm(false)} />}
 
       <div className="flex flex-wrap gap-1" data-testid="adv-status-filter">
         {([['open', 'المفتوحة'], ['pending', 'قيد الموافقة'], ['approved', 'بانتظار التسليم'], ['delivered', 'مسلَّمة'], ['settled', 'مسدَّدة'], ['rejected', 'مرفوضة'], ['cancelled', 'ملغاة'], ['', 'الكل']] as const).map(([k, l]) => (
-          <button key={k || 'all'} type="button" data-testid={`adv-filter-${k || 'all'}`} onClick={() => setStatus(k)} className={clsx('h-8 rounded-full border px-3 text-xs font-bold', status === k ? 'border-indigo-600 bg-indigo-600 text-white' : 'bg-white text-slate-700')}>{l}</button>
+          <button key={k || 'all'} type="button" data-testid={`adv-filter-${k || 'all'}`} onClick={() => setStatus(k)} className={clsx('h-8 rounded-full border px-3 text-xs font-bold', status === k ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'border-slate-200 bg-white text-slate-700')}>{l}</button>
         ))}
       </div>
       {list.isLoading ? <LoadingSpinner /> : (list.data ?? []).length === 0 ? (

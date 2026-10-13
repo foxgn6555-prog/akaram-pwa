@@ -8,6 +8,7 @@ import type { StoreItem, SupplyRequestRow } from '@sdk/ops-store.sdk'
 import { useApprovalTimeline } from '@features/sector-manager/hooks'
 import { STATUS_AR, dateAr, timeAr } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'موافَق عليه — غير جاهز للتسليم', ready: 'جاهز للتسليم', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
 const SHIFT: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
@@ -19,13 +20,10 @@ export default function OpsStorePage() {
   const readyCount = (ready.data ?? []).filter((r) => r.approval_status === 'approved' || r.approval_status === 'ready').length
   return (
     <div className="space-y-4 pb-4" data-testid="ops-store">
-      <header>
-        <h1 className="text-lg font-black">المخزن</h1>
-        <p className="text-xs text-slate-600">طلبات مستلزمات القواطع: بعد اكتمال موافقاتها تبقى «غير جاهزة» حتى تعلنوا جاهزيتها (فيُبلَّغ مسؤول القسم)، ثم تُسلَّم فيُنقص المخزن.</p>
-      </header>
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
+      <ExecPageHeader icon="box" title="المخزن" subtitle="طلبات مستلزمات القواطع: بعد اكتمال موافقاتها تبقى «غير جاهزة» حتى تعلنوا جاهزيتها (فيُبلَّغ مسؤول القسم)، ثم تُسلَّم فيُنقص المخزن." />
+      <div className="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
         {([['ready', 'للتسليم', readyCount], ['items', 'المواد', null], ['movements', 'الحركات', null], ['done', 'المنجزة', null]] as const).map(([k, l, n]) => (
-          <button key={k} type="button" data-testid={`store-tab-${k}`} onClick={() => setTab(k)} className={clsx('relative h-10 rounded-lg text-xs font-black', tab === k ? 'bg-white shadow' : 'text-slate-600')}>
+          <button key={k} type="button" data-testid={`store-tab-${k}`} onClick={() => setTab(k)} className={clsx('relative h-10 rounded-xl text-xs font-black', tab === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600')}>
             {l}{n ? <span className="absolute -top-1 -left-1 rounded-full bg-rose-600 px-1.5 text-[10px] text-white">{n}</span> : null}
           </button>
         ))}
