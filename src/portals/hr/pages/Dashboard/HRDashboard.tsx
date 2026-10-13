@@ -6,6 +6,7 @@ import { Link } from 'react-router'
 import { useHrDashboard } from '@features/hr'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { StatCard } from '../../components/hr-ui'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function HRDashboard() {
   const { data: s, isLoading } = useHrDashboard()
@@ -15,7 +16,7 @@ export default function HRDashboard() {
 
   return (
     <div className="space-y-5" data-testid="hr-dashboard">
-      <header><h1 className="text-xl font-black">الموارد البشرية — الرئيسية</h1><p className="text-xs text-slate-500">لمحة حيّة عن الموظفين والحضور والإجازات والرواتب</p></header>
+      <ExecPageHeader icon="home" title="الموارد البشرية — الرئيسية" subtitle="لمحة حيّة عن الموظفين والحضور والإجازات والرواتب" />
 
       <section>
         <h2 className="mb-2 text-sm font-bold text-slate-700">القوى العاملة</h2>

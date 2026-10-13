@@ -14,6 +14,7 @@ import clsx from 'clsx'
 import { field } from '../../components/hr-format'
 import { ColumnPicker, ExportButton } from '../../components/ExportButton'
 import { EMPLOYEE_COLUMNS, EMPLOYEE_DEFAULT_COLUMNS, employeesSpec, exportToExcel } from '@features/hr/lib/hrExcel'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const STATUS_AR: Record<string, string> = { active: 'نشط', on_leave: 'في إجازة', suspended: 'موقوف', terminated: 'منتهية خدمته' }
 
@@ -32,20 +33,16 @@ export default function EmployeesList() {
 
   return (
     <div className="space-y-4" data-testid="hr-employees">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-black">بيانات الموظفين</h1>
-          <p className="text-xs text-slate-500">{rows.length} موظفاً ضمن الفلاتر الحالية</p>
-        </div>
+      <ExecPageHeader icon="users" title="بيانات الموظفين" subtitle={`${rows.length} موظفاً ضمن الفلاتر الحالية`} actions={
         <div className="flex flex-wrap items-center gap-2">
           <ColumnPicker all={EMPLOYEE_COLUMNS} selected={columns} onChange={setColumns} />
           <ExportButton disabled={rows.length === 0 || columns.length === 0} onExport={() => exportToExcel(employeesSpec(rows, columns, [
             ['بحث', search], ['القسم', departments.find((d) => d.id === departmentId)?.name ?? ''], ['الفرع', branches.find((b) => b.id === branchId)?.name ?? ''],
             ['الحالة', status ? STATUS_AR[status] ?? status : ''], ['الشفت', shifts.find((x) => x.id === shiftId)?.name ?? ''],
           ]))} testId="emp-export" />
-          <Link to="/hr/recruitment" className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-bold text-white">+ توظيف موظف</Link>
+          <Link to="/hr/recruitment" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50">+ توظيف موظف</Link>
         </div>
-      </header>
+      } />
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-5" data-testid="emp-filters">
         <input className={field} placeholder="بحث: اسم / رقم وظيفي / هاتف" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="emp-search" />

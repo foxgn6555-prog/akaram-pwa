@@ -18,6 +18,7 @@ import { field, fmtMinutes, fmtTime, isoDay, STATUS_STYLES } from '../../compone
 import { ExportButton } from '../../components/ExportButton'
 import { UnmatchedPunchesPanel } from '../../components/UnmatchedPunchesPanel'
 import { attendanceSpec, exportToExcel } from '@features/hr/lib/hrExcel'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function AttendanceLog() {
   const [from, setFrom] = useState(isoDay(new Date(Date.now() - 6 * 86400000)))
@@ -35,11 +36,7 @@ export default function AttendanceLog() {
 
   return (
     <div className="space-y-4" data-testid="hr-attendance">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-black">الحضور والانصراف</h1>
-          <p className="text-xs text-slate-500">مشتق من البصمات حسب شفت كل موظف · التدقيق والتعديل في غرفة العمليات</p>
-        </div>
+      <ExecPageHeader icon="activity" title="الحضور والانصراف" subtitle="مشتق من البصمات حسب شفت كل موظف · التدقيق والتعديل في غرفة العمليات" actions={
         <div className="flex flex-wrap gap-2">
           <ExportButton disabled={rows.length === 0} testId="att-export" onExport={() => exportToExcel(attendanceSpec(rows, [
             ['من', from], ['إلى', to], ['الفرع', branches.find((b) => b.id === branchId)?.name ?? ''], ['القسم', departments.find((d) => d.id === departmentId)?.name ?? ''],
@@ -49,7 +46,7 @@ export default function AttendanceLog() {
             <Icon name="refresh" size={14} /> إعادة الاحتساب من البصمات
           </Button>
         </div>
-      </header>
+      } />
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="att-filters">
         <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="att-from" />

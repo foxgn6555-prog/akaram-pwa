@@ -18,6 +18,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const field = 'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm'
 const DIRECTION_LABEL = { in: 'دخول', out: 'خروج', unknown: 'غير محدد' } as const
@@ -50,16 +51,10 @@ export default function BiometricLedger() {
   }, [punches])
 
   return (
-    <section aria-labelledby="ledger-title" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 id="ledger-title" className="text-lg font-bold">دفتر البصمة</h1>
-          <p className="text-sm text-slate-500">كل البصمات الواصلة من جميع المصادر — المطابقة والربط واشتقاق الحضور تتم هنا.</p>
-          <Link to="/hr/biometric/unmatched" data-testid="ledger-unmatched-link"
-                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100">
-            <Icon name="alert-triangle" size={13} /> وحدة الأشخاص غير المطابقين (سجل يومي + تصدير)
-          </Link>
-        </div>
+    <section aria-label="دفتر البصمة" className="space-y-4">
+      <ExecPageHeader icon="fingerprint" title="دفتر البصمة" subtitle="كل البصمات الواصلة من جميع المصادر — المطابقة والربط واشتقاق الحضور تتم هنا."
+        actions={<Link to="/hr/biometric/unmatched" data-testid="ledger-unmatched-link" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><Icon name="alert-triangle" size={13} className="text-[#f3d06a]" /> وحدة الأشخاص غير المطابقين (سجل يومي + تصدير)</Link>} />
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="derive-panel">
           <label className="text-[11px] text-slate-600">اشتقاق حضور يوم
             <input type="date" className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs" value={deriveDate}

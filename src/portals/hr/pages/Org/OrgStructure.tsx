@@ -18,6 +18,7 @@ import { field } from '../../components/hr-format'
 import { ExportButton } from '../../components/ExportButton'
 
 import { MAINTENANCE_SPECIALTIES, specialtyLabel } from '@sdk/vehicle-operations.sdk'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 type Draft = { id: string | null; name: string; code: string; parentId: string; managerId: string; isActive: boolean; isJobTitle: boolean; drivesVehicles: boolean; maintenanceSpecialty: string }
 const empty = (parentId = '', isJobTitle = false): Draft => ({ id: null, name: '', code: '', parentId, managerId: '', isActive: true, isJobTitle, drivesVehicles: false, maintenanceSpecialty: '' })
 
@@ -64,8 +65,7 @@ export default function OrgStructure() {
 
   return (
     <div className="space-y-4" data-testid="hr-org">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div><h1 className="text-xl font-black">الهيكل التنظيمي</h1><p className="text-xs text-slate-500">الأقسام والأقسام الفرعية — تُستخدم في التوظيف والحضور والاستيراد وفلاتر غرفة العمليات</p></div>
+      <ExecPageHeader icon="layout-grid" title="الهيكل التنظيمي" subtitle="الأقسام والأقسام الفرعية — تُستخدم في التوظيف والحضور والاستيراد وفلاتر غرفة العمليات" actions={
         <div className="flex flex-wrap gap-2">
           <ExportButton testId="org-export" disabled={tree.length === 0} onExport={() => exportToExcel({
             title: 'الهيكل التنظيمي', sheetName: 'الأقسام', fileName: 'الهيكل-التنظيمي.xlsx', rows: tree,
@@ -78,7 +78,7 @@ export default function OrgStructure() {
           })} />
           <Button size="sm" onClick={() => setDraft(empty())} data-testid="org-add">+ قسم جديد</Button>
         </div>
-      </header>
+      } />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <StatCard title="أقسام نشطة" value={totalActive - titles.length} tone="emerald" testId="org-stat-active" />

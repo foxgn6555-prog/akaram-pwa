@@ -20,6 +20,7 @@ import { hr } from '@sdk/hr.sdk'
 import { useDevices, usePushEmployeeToDevices } from '@features/integrations'
 import { Field, MonthPicker, StatCard, StatusBadge } from '../../components/hr-ui'
 import { field, fmtMinutes, fmtTime, hhmm, isoDay, monthStart } from '../../components/hr-format'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'data' | 'docs' | 'shift' | 'attendance' | 'leaves'
 const GENDER: Record<string, string> = { male: 'ذكر', female: 'أنثى' }
@@ -33,29 +34,25 @@ export default function EmployeeDetail() {
 
   return (
     <div className="space-y-4" data-testid="employee-detail">
-      <header className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Avatar name={e.full_name} />
-          <div>
-            <h1 className="text-lg font-black">{e.full_name}</h1>
-            <p className="text-xs text-slate-500">{e.employee_number} · {e.job_title ?? '—'} · {e.department_name ?? 'بلا قسم'} · {e.branch_name ?? 'بلا فرع'}</p>
-            <div className="mt-1 flex flex-wrap gap-1">
-              <Chip>{CONTRACT_LABELS[e.contract_type]}</Chip>
-              <Chip>{e.shift_name ? `شفت ${e.shift_name}` : 'بلا شفت'}</Chip>
-              <Chip tone={e.salary_status === 'defined' ? 'emerald' : 'amber'} testId="salary-status">{e.salary_status === 'defined' ? 'الراتب مُعرَّف لدى المالية' : 'الراتب بانتظار المالية'}</Chip>
-              {e.employment_status === 'terminated' && <Chip tone="red" testId="terminated-chip">منتهية خدمته — {e.termination_type ? TERMINATION_LABELS[e.termination_type] : ''} {e.terminated_at}</Chip>}
-            </div>
-          </div>
-        </div>
+      <ExecPageHeader icon="user" title={e.full_name} subtitle={`${e.employee_number} · ${e.job_title ?? '—'} · ${e.department_name ?? 'بلا قسم'} · ${e.branch_name ?? 'بلا فرع'}`} actions={
         <div className="flex items-center gap-2">
           <PushToDevicesButton employeeId={e.id} pin={e.biometric_pin} branchId={e.branch_id} terminated={e.employment_status === 'terminated'} />
           <ExportButton label="تصدير الملف Excel" testId="emp-profile-export" onExport={async () => {
             const [assignments, shifts, attendance] = await Promise.all([hr.listAssignments(e.id), hr.listShifts(true), hr.listAttendance({ from: monthStart(), to: isoDay(), search: e.employee_number })])
             await downloadWorkbook(await buildEmployeeProfileWorkbook(e, assignments, shifts, attendance.filter((r) => r.employee_id === e.id)), `ملف-${e.employee_number}.xlsx`)
           }} />
-          <Link to="/hr/employees" className="text-xs font-semibold text-brand-700 hover:underline">← كل الموظفين</Link>
+          <Link to="/hr/employees" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20">← كل الموظفين</Link>
         </div>
-      </header>
+      } />
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <Avatar name={e.full_name} />
+            <div className="flex flex-wrap gap-1">
+              <Chip>{CONTRACT_LABELS[e.contract_type]}</Chip>
+              <Chip>{e.shift_name ? `شفت ${e.shift_name}` : 'بلا شفت'}</Chip>
+              <Chip tone={e.salary_status === 'defined' ? 'emerald' : 'amber'} testId="salary-status">{e.salary_status === 'defined' ? 'الراتب مُعرَّف لدى المالية' : 'الراتب بانتظار المالية'}</Chip>
+              {e.employment_status === 'terminated' && <Chip tone="red" testId="terminated-chip">منتهية خدمته — {e.termination_type ? TERMINATION_LABELS[e.termination_type] : ''} {e.terminated_at}</Chip>}
+            </div>
+      </div>
 
       <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
         {([['data', 'البيانات'], ['docs', 'المستمسكات'], ['shift', 'الشفت'], ['attendance', 'الحضور'], ['leaves', 'الإجازات المعتمدة']] as const).map(([k, l]) => (

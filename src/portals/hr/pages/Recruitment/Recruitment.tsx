@@ -23,6 +23,7 @@ import { Field } from '../../components/hr-ui'
 import { field, hhmm, isoDay } from '../../components/hr-format'
 import { DocumentsPanel } from '../../components/DocumentsPanel'
 import { ImportEmployeesPanel } from '../../components/ImportEmployeesPanel'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'hire' | 'import' | 'terminate' | 'shifts'
 
@@ -37,18 +38,15 @@ export default function Recruitment() {
   const [tab, setTab] = useState<Tab>('hire')
   return (
     <div className="space-y-4" data-testid="hr-recruitment">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-black">التوظيف وإنهاء الخدمات</h1>
-          <p className="text-xs text-slate-500">بيانات الموظف الكاملة · المستمسكات · الشفت · إنهاء الخدمة — الراتب يُعرَّف في بوابة المالية حصراً</p>
-        </div>
-        <nav className="flex gap-1 rounded-xl bg-slate-100 p-1" aria-label="أقسام الوحدة">
+      <ExecPageHeader icon="user-plus" title="التوظيف وإنهاء الخدمات" subtitle="بيانات الموظف الكاملة · المستمسكات · الشفت · إنهاء الخدمة — الراتب يُعرَّف في بوابة المالية حصراً" actions={
+        <nav className="flex gap-1 rounded-xl bg-white/10 p-1 ring-1 ring-white/20" aria-label="أقسام الوحدة">
           {([['hire', 'توظيف موظف'], ['import', 'استيراد من Excel'], ['terminate', 'إنهاء خدمات'], ['shifts', 'قوالب الشفتات']] as const).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setTab(k)} data-testid={`tab-${k}`}
-              className={clsx('rounded-lg px-3 py-1.5 text-xs font-bold', tab === k ? 'bg-white shadow text-brand-700' : 'text-slate-600')}>{l}</button>
+              className={clsx('rounded-lg px-3 py-1.5 text-xs font-bold', tab === k ? 'bg-white text-[#0b3d6b] shadow' : 'text-white')}>{l}</button>
           ))}
         </nav>
-      </header>
+      } />
+      
       {tab === 'hire' && <HireForm />}
       {tab === 'import' && <ImportEmployeesPanel />}
       {tab === 'terminate' && <TerminatePanel />}
@@ -324,7 +322,7 @@ function ShiftsPanel() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shifts.map((s) => (
-          <div key={s.id} data-testid={`shift-card-${s.name}`} className={clsx('rounded-2xl border bg-white p-4 shadow-sm', s.is_active ? 'border-slate-200' : 'border-dashed opacity-70')} data-testid={`shift-card-${s.name}`}>
+          <div key={s.id} className={clsx('rounded-2xl border bg-white p-4 shadow-sm', s.is_active ? 'border-slate-200' : 'border-dashed opacity-70')} data-testid={`shift-card-${s.name}`}>
             <div className="flex items-start justify-between">
               <p className="font-bold">{s.name}{s.kind === 'flexible' && <span className="ms-2 rounded-md bg-[#0b3d6b]/10 px-1.5 py-0.5 text-[10px] font-black text-[#0b3d6b]" data-testid={`shift-flex-${s.name}`}>مرن · {s.required_hours} ساعة</span>}</p>
               <button type="button" className="text-[11px] font-semibold text-brand-700 hover:underline" onClick={() => setEditing({ ...s, start_time: hhmm(s.start_time), end_time: hhmm(s.end_time) })} data-testid={`shift-edit-${s.name}`}>تعديل</button>

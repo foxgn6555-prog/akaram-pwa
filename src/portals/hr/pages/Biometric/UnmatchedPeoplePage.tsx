@@ -15,11 +15,11 @@ import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT, useUnmatchedReport } f
 import type { UnmatchedDay, UnmatchedPersonRow } from '@features/integrations'
 import { buildUnmatchedWorkbook, dayCellText, fmtHours } from '@features/integrations/lib/unmatchedExcel'
 import { downloadWorkbook } from '@features/hr/lib/hrExcel'
-import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExportButton } from '../../components/ExportButton'
 import { StatCard } from '../../components/hr-ui'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const monthBounds = (ym: string): [string, string] => {
@@ -55,21 +55,17 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
   }
 
   return (
-    <section aria-labelledby="um-title" className="space-y-4" data-testid="unmatched-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 id="um-title" className="flex items-center gap-2 text-xl font-bold text-slate-800">
-            <Icon name="fingerprint" size={20} className="text-brand-600" /> الأشخاص غير المطابقين
-          </h1>
-          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+    <section aria-label="الأشخاص غير المطابقين" className="space-y-4" data-testid="unmatched-page">
+      <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle="أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد — نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم."
+        actions={<ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
+          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined }), `غير-المطابقين-${from}_${to}.xlsx`)} />} />
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="max-w-3xl text-xs leading-5 text-slate-500">
             أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد. نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم:
             «حاضر» = بصمتان فأكثر (ساعات العمل من أول بصمة إلى آخرها)، «بصمة ناقصة» = بصمة واحدة فقط، «غائب» = لا بصمة في ذلك اليوم.
             {!readOnly && <> اربط كل رقم بموظف من <Link to={ledgerPath} className="font-semibold text-brand-700 hover:underline">دفتر البصمة</Link> لينتقل حضوره تلقائياً إلى سجل الحضور الرسمي.</>}
           </p>
-        </div>
-        <ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
-          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined }), `غير-المطابقين-${from}_${to}.xlsx`)} />
-      </header>
+      </div>
 
       {/* الفلاتر */}
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-6" data-testid="unmatched-filters">

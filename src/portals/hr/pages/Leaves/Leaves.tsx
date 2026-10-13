@@ -19,6 +19,7 @@ import { ExportButton } from '../../components/ExportButton'
 import { exportToExcel, leavesSpec } from '@features/hr/lib/hrExcel'
 import { AlertsTable, BalanceCard, LeaveRequestForm, LeaveRequestsTable } from '../../components/leaves/LeaveShared'
 import { LEAVE_STATUS_LABELS } from '../../components/leaves/leaveUtils'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'requests' | 'balances' | 'alerts' | 'approved'
 const LEDGER_LABELS: Record<string, string> = { grant: 'منحة سنوية', adjust: 'تسوية HR', consume: 'إجازة', permit: 'زمنية', overtime: 'دوام إضافي', carry_over: 'مرحّل', reversal: 'إرجاع (إلغاء)' }
@@ -28,12 +29,7 @@ export default function Leaves() {
   const { data: dash } = useLeavesDashboard()
   return (
     <div className="space-y-4" data-testid="hr-leaves">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-black">الإجازات والزمنيات</h1>
-          <p className="text-xs text-slate-500">الطلبات تُرسل من حساب الموظف ويبتّ فيها مديره المباشر حصراً · HR تدير الأرصدة وتُدخل الطلبات نيابةً عند الحاجة</p>
-        </div>
-      </header>
+      <ExecPageHeader icon="calendar" title="الإجازات والزمنيات" subtitle="الطلبات تُرسل من حساب الموظف ويبتّ فيها مديره المباشر حصراً · HR تدير الأرصدة وتُدخل الطلبات نيابةً عند الحاجة" />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatCard title="طلبات بانتظار المدراء" value={dash?.pending ?? 0} tone="amber" testId="lv-dash-pending" />
         <StatCard title="في إجازة اليوم" value={dash?.approved_today ?? 0} tone="sky" testId="lv-dash-today" />
