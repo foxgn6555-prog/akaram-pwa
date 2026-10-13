@@ -4,6 +4,7 @@ import { useManagerTeamSummary } from '@features/contractors/hooks'
 import { PARENT_AR, SHIFT_AR, timeAr, zoneLabel } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const TRIP_AR: Record<string, string> = { at_site: 'تعمل في الموقع', breakdown: 'عطل مُبلَّغ', to_site: 'في الطريق', to_station: 'إلى المحطة', at_station: 'في المحطة' }
 
@@ -13,10 +14,7 @@ export default function TeamPage() {
   if (!q.data?.length) return <EmptyState title="لا مناطق مسندة إليك" hint="تُسند المناطق لمسؤول القسم من التطوير المركزية" />
   return (
     <div className="space-y-4" data-testid="manager-team">
-      <header className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h1 className="flex items-center gap-2 text-xl font-black"><Users size={20} />فريقي</h1>
-        <p className="text-xs text-slate-500">المتعهد وعماله تُدار من بوابة المتعهد؛ هنا العرض والمتابعة فقط.</p>
-      </header>
+      <ExecPageHeader icon="users" iconNode={<Users size={22} className="text-[#f3d06a]" />} title="فريقي" subtitle="المتعهد وعماله تُدار من بوابة المتعهد؛ هنا العرض والمتابعة فقط." />
       {q.data.map((r) => (
         <section key={r.sector_id} className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`team-area-${r.sector_id}`}>
           <h2 className="flex items-center gap-2 font-black"><MapPin size={16} />{r.area_name} <span className="text-xs font-bold text-slate-500">· {PARENT_AR[r.parent_sector] ?? r.parent_sector}</span></h2>

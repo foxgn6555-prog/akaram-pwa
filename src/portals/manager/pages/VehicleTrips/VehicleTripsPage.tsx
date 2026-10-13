@@ -17,6 +17,7 @@ import {
 } from '@features/vehicle-operations/hooks'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { MaintenanceTimelineDialog } from '@features/vehicle-operations/components/MaintenanceTimelineDialog'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 const dt = (v: string | null) =>
   v
     ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -64,13 +65,7 @@ export default function VehicleTripsPage() {
   const returning = list.filter((t) => statusOf(t) === 'to_garage')
   return (
     <section className="space-y-5" dir="rtl" data-testid="manager-vehicle-trips">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-cyan-800 p-6 text-white shadow-xl">
-        <span className="text-xs font-bold text-cyan-200">ربط مباشر مع الكراج المركزي</span>
-        <h1 className="mt-2 text-2xl font-black">حركة آليات الوردية</h1>
-        <p className="mt-1 text-sm text-cyan-100">
-          أكد وصول الآلية إلى موقع العمل، ثم أنهِ ورديتها عند مغادرتها باتجاه الكراج.
-        </p>
-      </header>
+      <ExecPageHeader icon="truck" title="حركة آليات الوردية" subtitle={<><span className="font-bold text-[#f3d06a]">ربط مباشر مع الكراج المركزي</span> · أكد وصول الآلية إلى موقع العمل، ثم أنهِ ورديتها عند مغادرتها باتجاه الكراج.</>} />
       <DailyFolders days={days.data ?? []} selected={selectedDay} onSelect={setSelectedDay} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="في الطريق إليك" value={incoming.length} tone="text-amber-700" />

@@ -31,6 +31,7 @@ import { sector } from '@sdk/sector.sdk'
 import { Icon } from '@components/ui/Icon/Icon'
 import { CameraCapture } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const todayBaghdad = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -160,12 +161,7 @@ export default function PhotosPage() {
 
   return (
     <div className="space-y-6" data-testid="photos-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">إرسال صور إلى الإعلام</h1>
-        <p className="text-sm text-slate-500">
-          القاطع والقسم يُحدَّدان تلقائياً من حسابك — املأ التفاصيل واختر حتى {MAX_PHOTOS} صورة.
-        </p>
-      </div>
+      <ExecPageHeader icon="camera" title="إرسال صور إلى الإعلام" subtitle={`القاطع والقسم يُحدَّدان تلقائياً من حسابك — املأ التفاصيل واختر حتى ${MAX_PHOTOS} صورة.`} />
 
       {/* المنطقة التلقائية من الحساب */}
       <div className="grid gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4 sm:grid-cols-3">

@@ -2,10 +2,11 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import clsx from 'clsx'
-import { CheckCircle2, MessageSquareText } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { CITIZEN_STATUS_LABEL, useAssignedCitizenComplaints, type CitizenStatus } from '@features/citizen'
 import { ComplaintDetail, STATUS_TONE } from '@portals/ops-room/pages/CitizenComplaints/OpsCitizenComplaintsPage'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function ManagerCitizenComplaintsPage() {
   const { data = [], isLoading } = useAssignedCitizenComplaints()
@@ -16,14 +17,8 @@ export default function ManagerCitizenComplaintsPage() {
   const counts = (s: CitizenStatus) => data.filter((c) => c.status === s).length
   return (
     <section className="space-y-5" dir="rtl" data-testid="mgr-citizen-page">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-teal-900 p-6 text-white shadow-xl">
-        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs"><MessageSquareText size={14} />من غرفة العمليات</span>
-        <h1 className="mt-3 text-2xl font-black">شكاوى المواطنين المسندة إليّ</h1>
-        <p className="mt-2 text-sm leading-7 text-blue-100">شكاوى وردت من المواطنين مباشرة عبر صفحة الشركة وأسندتها غرفة العمليات إليك. عند الإنجاز اكتب نتيجة المعالجة — تظهر للمواطن.</p>
-        <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
-          {(['in_progress', 'on_hold', 'resolved'] as const).map((s) => <div key={s} className="rounded-2xl bg-white/10 p-3 text-center"><strong className="text-2xl">{counts(s)}</strong><p className="text-[11px] text-blue-100">{CITIZEN_STATUS_LABEL[s]}</p></div>)}
-        </div>
-      </header>
+      <ExecPageHeader icon="users" title="شكاوى المواطنين المسندة إليّ" subtitle={<><span className="font-bold text-[#f3d06a]">من غرفة العمليات</span> · شكاوى وردت من المواطنين مباشرة عبر صفحة الشركة وأسندتها غرفة العمليات إليك. عند الإنجاز اكتب نتيجة المعالجة — تظهر للمواطن.</>}
+        stats={(['in_progress', 'on_hold', 'resolved'] as const).map((s) => ({ label: CITIZEN_STATUS_LABEL[s], value: counts(s), tone: s === 'resolved' ? 'green' as const : s === 'on_hold' ? 'gold' as const : 'plain' as const }))} />
       <div className="flex flex-wrap gap-2">{([['open', 'تحتاج إجراء'], ['resolved', 'المنجزة'], ['all', 'الكل']] as const).map(([v, l]) => <button key={v} type="button" onClick={() => setFilter(v)} className={clsx('rounded-xl px-3 py-2 text-xs font-bold', filter === v ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600')}>{l}</button>)}</div>
       {isLoading && <LoadingSpinner />}
       {!isLoading && !shown.length && <div className="rounded-3xl border border-dashed bg-white p-14 text-center"><CheckCircle2 className="mx-auto text-emerald-600" size={40} /><h2 className="mt-3 font-black">لا توجد شكاوى في هذا القسم</h2></div>}

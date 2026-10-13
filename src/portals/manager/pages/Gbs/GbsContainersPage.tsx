@@ -17,6 +17,7 @@ import {
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function GbsContainersPage() {
   const [search, setSearch] = useState('')
@@ -80,13 +81,7 @@ export default function GbsContainersPage() {
 
   return (
     <section className="space-y-4 p-4">
-      <header>
-        <h1 className="text-2xl font-black">حاويات GBS</h1>
-        <p className="mt-1 text-xs font-bold text-slate-500">
-          مسؤوليتك تحديث البيانات: انقر على حاوية واقترح حالتها الجديدة. لا تتغير البيانات تلقائياً —
-          تعتمد غرفة العمليات طلبك أولاً.
-        </p>
-      </header>
+      <ExecPageHeader icon="box" title="حاويات GBS" subtitle="مسؤوليتك تحديث البيانات: انقر على حاوية واقترح حالتها الجديدة. لا تتغير البيانات تلقائياً — تعتمد غرفة العمليات طلبك أولاً." />
 
       <div
         className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-black text-amber-900"

@@ -10,6 +10,7 @@ import {
 import { sectorPhotos } from '@sdk/sector.sdk'
 import { Icon } from '@components/ui/Icon/Icon'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type TabKey = 'supplies' | 'breakdowns' | 'photos'
 
@@ -27,10 +28,7 @@ export default function ArchivePage() {
 
   return (
     <div className="space-y-5" data-testid="archive-page">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">الأرشيف</h1>
-        <p className="text-sm text-slate-500">الكتب والبلاغات والصور والعناصر المؤرشفة الخاصة بقواطعك.</p>
-      </div>
+      <ExecPageHeader icon="archive-box" title="الأرشيف" subtitle="الكتب والبلاغات والصور والعناصر المؤرشفة الخاصة بقواطعك." />
 
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (

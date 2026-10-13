@@ -17,6 +17,7 @@ import type { SupplyRequestRow } from '@sdk/ops-store.sdk'
 import { Icon } from '@components/ui/Icon/Icon'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'غير جاهز للتسليم — بانتظار تجهيز غرفة العمليات', ready: 'جاهز للتسليم في غرفة العمليات', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
 const STATUS_CLS: Record<string, string> = { pending: 'bg-amber-100 text-amber-800', approved: 'bg-orange-100 text-orange-800', ready: 'bg-sky-100 text-sky-800', delivered: 'bg-emerald-100 text-emerald-800', rejected: 'bg-rose-100 text-rose-800', cancelled: 'bg-slate-200 text-slate-700' }
@@ -44,13 +45,8 @@ export default function NewRequestPage() {
 
   return (
     <div className="space-y-5 pb-4" data-testid="request-page">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/manager')} aria-label="رجوع" className="flex size-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"><Icon name="chevron-right" size={18} /></button>
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">طلب مستلزمات القاطع</h1>
-          <p className="text-sm text-slate-500">من مخزن غرفة العمليات · يمر بسلسلة الموافقات ثم يُسلَّم من غرفة العمليات</p>
-        </div>
-      </div>
+      <ExecPageHeader icon="clipboard" title="طلب مستلزمات القاطع" subtitle="من مخزن غرفة العمليات · يمر بسلسلة الموافقات ثم يُسلَّم من غرفة العمليات"
+        actions={<button type="button" onClick={() => navigate('/manager')} aria-label="رجوع" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><Icon name="chevron-right" size={16} />رجوع</button>} />
 
       <form onSubmit={(e) => { e.preventDefault(); send() }} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-testid="supply-form">
         <div className="grid grid-cols-1 gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-3">

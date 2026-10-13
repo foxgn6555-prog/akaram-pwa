@@ -1,5 +1,6 @@
 import { ArrowRight, Camera, CheckCircle2, Download, ImagePlus, MapPin, PlayCircle, Printer, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const steps = [
   { icon: PlayCircle, title: 'ابدأ التذكرة', text: 'افتح التذكرة المسندة إليك واضغط «بدء معالجة التذكرة». تُبدأ جميع مواقع البريد المسندة إليك كوحدة واحدة.' },
@@ -13,10 +14,7 @@ const steps = [
 
 export default function ComplaintsGuidancePage() {
   return <section className="space-y-6" dir="rtl">
-    <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-blue-950 to-teal-800 p-7 text-white">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3"><Link to="/manager/complaints" className="inline-flex items-center gap-2 text-sm text-cyan-100"><ArrowRight size={17} />العودة إلى التذاكر</Link><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-blue-950"><Printer size={17} />طباعة الدليل / حفظ PDF</button></div>
-      <div className="mt-6 flex items-center gap-4"><span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-white/10"><ImagePlus size={30} /></span><div><h1 className="text-2xl font-black">دليل مسؤول القسم لمعالجة الشكاوى</h1><p className="mt-1 text-sm leading-7 text-blue-100">من استلام التذكرة إلى مطابقة كل صورة قبل بصورة معالجة وإرسالها للتدقيق.</p></div></div>
-    </header>
+    <ExecPageHeader icon="file-text" iconNode={<ImagePlus size={22} className="text-[#f3d06a]" />} title="دليل مسؤول القسم لمعالجة الشكاوى" subtitle="من استلام التذكرة إلى مطابقة كل صورة قبل بصورة معالجة وإرسالها للتدقيق." actions={<><Link to="/manager/complaints" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><ArrowRight size={15} />العودة إلى التذاكر</Link><button onClick={() => window.print()} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"><Printer size={17} />طباعة الدليل / حفظ PDF</button></>} />
 
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{steps.map((step, index) => <article key={step.title} className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className="absolute left-4 top-4 text-4xl font-black text-slate-100">{index + 1}</span><span className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><step.icon size={22} /></span><h2 className="mt-4 font-black text-slate-900">{step.title}</h2><p className="mt-2 text-sm leading-7 text-slate-600">{step.text}</p></article>)}</div>
 

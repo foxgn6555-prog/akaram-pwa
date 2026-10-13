@@ -5,6 +5,7 @@ import { SHIFT_LABELS } from '@features/sector/types'
 import { useManagerTeamSummary } from '@features/contractors/hooks'
 import { Icon, type IconName } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 type Tone = 'cyan' | 'blue' | 'emerald' | 'amber' | 'violet' | 'rose' | 'slate' | 'teal'
 const tones: Record<Tone, string> = {
   cyan: 'border-cyan-200 bg-cyan-50 text-cyan-800', blue: 'border-blue-200 bg-blue-50 text-blue-800', emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
@@ -37,11 +38,7 @@ export default function ManagerDashboard() {
   ]
   return (
     <section dir="rtl" className="space-y-6" data-testid="manager-dashboard">
-      <header className="rounded-[2rem] bg-gradient-to-l from-slate-950 via-blue-950 to-cyan-800 p-7 text-white shadow-lg">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-cyan-100">مركز قيادة القسم الميداني</span>
-        <h1 className="mt-4 text-3xl font-black">بوابة مسؤول القسم</h1>
-        <p className="mt-2 text-sm leading-7 text-cyan-100">{profile.data ? `${SHIFT_LABELS[profile.data.shift]}${names ? ` · مناطق المسؤولية: ${names}` : ''}` : 'متابعة الفريق والآليات والطلبات والأعمال الميدانية'}</p>
-      </header>
+      <ExecPageHeader icon="home" title="بوابة مسؤول القسم" subtitle={<><span className="font-bold text-[#f3d06a]">مركز قيادة القسم الميداني</span> · {profile.data ? `${SHIFT_LABELS[profile.data.shift]}${names ? ` · مناطق المسؤولية: ${names}` : ''}` : 'متابعة الفريق والآليات والطلبات والأعمال الميدانية'}</>} />
       {summary.isLoading || team.isLoading ? <div className="p-8"><LoadingSpinner label="جارٍ تجهيز مؤشرات القسم…" /></div> : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6" data-testid="mgr-stats">

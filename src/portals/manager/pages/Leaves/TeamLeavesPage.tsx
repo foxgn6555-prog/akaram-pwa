@@ -5,10 +5,10 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { useHrAlerts, useHrPolicy, useLeaveBalance, useLeaveRequests, useMyEmployee } from '@features/hr'
-import { StatCard } from '@portals/hr/components/hr-ui'
 import { field, isoDay, monthStart } from '@portals/hr/components/hr-format'
 import { AlertsTable, BalanceCard, LeaveRequestForm, LeaveRequestsTable } from '@portals/hr/components/leaves/LeaveShared'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'inbox' | 'history' | 'alerts' | 'mine'
 
@@ -27,19 +27,15 @@ export default function TeamLeavesPage() {
 
   return (
     <div className="space-y-4" data-testid="team-leaves">
-      <header>
-        <h1 className="text-xl font-black">إجازات فريقي</h1>
-        <p className="text-xs text-slate-500">أنت المعتمد الوحيد لطلبات موظفيك المباشرين ({me?.reports_count ?? 0} موظف) · الرفض يتطلب سبباً يصل إلى الموظف</p>
-      </header>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatCard title="بانتظار قرارك" value={inbox.length} tone={inbox.length ? 'amber' : 'emerald'} testId="tl-inbox-count" />
-        <StatCard title="في إجازة اليوم" value={onLeaveToday} tone="sky" testId="tl-today" />
-        <StatCard title="تنبيهات الفريق" value={alerts.length} tone={alerts.length ? 'red' : 'slate'} testId="tl-alerts-count" />
-        <StatCard title="رصيدي المتبقي" value={balance ? Number(balance.remaining) : '—'} hint="يوم" tone="violet" testId="tl-my-balance" />
-      </div>
-      <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
+      <ExecPageHeader icon="calendar" title="إجازات فريقي" subtitle={`أنت المعتمد الوحيد لطلبات موظفيك المباشرين (${me?.reports_count ?? 0} موظف) · الرفض يتطلب سبباً يصل إلى الموظف`} stats={[
+        { label: 'بانتظار قرارك', value: inbox.length, tone: inbox.length ? 'gold' : 'green', testId: 'tl-inbox-count' },
+        { label: 'في إجازة اليوم', value: onLeaveToday, tone: 'plain', testId: 'tl-today' },
+        { label: 'تنبيهات الفريق', value: alerts.length, tone: alerts.length ? 'red' : 'plain', testId: 'tl-alerts-count' },
+        { label: 'رصيدي المتبقي (يوم)', value: balance ? Number(balance.remaining) : '—', tone: 'gold', testId: 'tl-my-balance' },
+      ]} />
+      <nav className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 text-xs font-black shadow-sm" role="tablist">
         {([['inbox', `صندوق الموافقات (${inbox.length})`], ['history', 'سجل الفريق'], ['alerts', 'تنبيهات الفريق'], ['mine', 'طلباتي']] as const).map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={clsx('rounded-lg px-3 py-1.5', tab === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`tl-tab-${k}`}>{l}</button>
+          <button key={k} type="button" onClick={() => setTab(k)} role="tab" aria-selected={tab === k} className={clsx('h-9 rounded-xl px-3', tab === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600 hover:bg-slate-100')} data-testid={`tl-tab-${k}`}>{l}</button>
         ))}
       </nav>
       {tab === 'inbox' && (inbox.length === 0 && !isLoading ? <EmptyState title="لا طلبات بانتظارك" hint="ستصلك إشعارات فور إرسال أي طلب من موظفيك المباشرين" /> : <LeaveRequestsTable rows={inbox} isLoading={isLoading} mode="manager" testId="tl-inbox" />)}

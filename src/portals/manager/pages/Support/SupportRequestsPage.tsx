@@ -16,6 +16,7 @@ import {
 import type { SupportAssignment, SupportRequest } from '@features/sector'
 import { SUPPORT_STATUS_META } from '@features/sector/supportMeta'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (v: string | null) =>
   v
@@ -48,20 +49,8 @@ export default function SupportRequestsPage() {
 
   return (
     <section className="space-y-5" dir="rtl" data-testid="manager-support">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-violet-950 to-fuchsia-800 p-6 text-white shadow-xl">
-        <span className="text-xs font-bold text-fuchsia-200">تعاون بين مسؤولي الأقسام</span>
-        <h1 className="mt-2 text-2xl font-black">طلبات الدعم بالآليات</h1>
-        <p className="mt-1 text-sm text-fuchsia-100">
-          اطلب آليات من مسؤول آخر عند الحاجة، أو أرسل آلياتك دعماً لمنطقة أخرى. غرفة العمليات تُبلَّغ بكل خطوة.
-        </p>
-        <button
-          data-testid="support-new"
-          onClick={() => setShowNew(true)}
-          className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-violet-900"
-        >
-          <Send className="h-4 w-4" /> طلب دعم جديد
-        </button>
-      </header>
+      <ExecPageHeader icon="truck" title="طلبات الدعم بالآليات" subtitle={<><span className="font-bold text-[#f3d06a]">تعاون بين مسؤولي الأقسام</span> · اطلب آليات من مسؤول آخر عند الحاجة، أو أرسل آلياتك دعماً لمنطقة أخرى. غرفة العمليات تُبلَّغ بكل خطوة.</>}
+        actions={<button data-testid="support-new" onClick={() => setShowNew(true)} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"><Send className="h-4 w-4" /> طلب دعم جديد</button>} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="طلبات واردة بانتظارك" value={pendingIncoming} tone="text-amber-700" />
         <Stat label="دعم جارٍ (وارد + صادر)" value={list.filter((r) => r.status === 'accepted').length} tone="text-emerald-700" />
