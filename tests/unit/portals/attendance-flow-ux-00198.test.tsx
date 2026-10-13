@@ -7,14 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
-const h = vi.hoisted(() => ({ conf: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, exports: [] as unknown[], sheet: [] as unknown[], reconcile: [] as unknown[], evaluateMonth: vi.fn(async () => 0) }))
+const h = vi.hoisted(() => ({ gate: null as unknown, conf: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, exports: [] as unknown[], sheet: [] as unknown[], reconcile: [] as unknown[], evaluateMonth: vi.fn(async () => 0) }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [] }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: () => mut(async () => 'd'), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined),
-  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: h.exports }), useExportMonth: () => mut(async () => 'x'), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(h.evaluateMonth),
+  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: h.exports }), useExportMonth: () => mut(async () => 'x'), usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(h.evaluateMonth),
   useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: [], isLoading: false }),
   useConfirmAttendanceMonth: () => mut(async () => ({})), useReopenAttendanceMonth: () => mut(async () => ({})),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: h.reconcile, isLoading: false }),

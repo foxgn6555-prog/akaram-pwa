@@ -1,6 +1,13 @@
 -- 00185 · الكشوفات (الجولة A): سلامة سلسلة كشف معتمد → استقطاع → كشف المالية (بادئة fc)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — المراجعة نفسها تُختبر في deputy-deduction-review-test
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'fc000000-0000-0000-0000-000000000003', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
@@ -29,7 +36,7 @@ do $$ declare e record; begin
 end $$;
 select auth.set_test_user('fc000000-0000-0000-0000-000000000001');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; j jsonb; st jsonb; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   -- الاختبار كله في معاملة واحدة (now() ثابت) → نُرجع وقت التصدير دقيقة للخلف لمحاكاة الزمن الحقيقي
   update public.hr_month_exports set exported_at = exported_at - interval '1 minute' where id = x;
   st := public.hr_month_export_status(m);
@@ -76,7 +83,7 @@ end $$;
 -- ═══ S4 · إعادة التصدير تُدخل المبلغ في كشف المالية؛ حالة الكشف «في كشف المالية» ثم «معتمد» بعد اعتماد المالية ═══
 select auth.set_test_user('fc000000-0000-0000-0000-000000000001');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; st jsonb; j jsonb; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   st := public.hr_month_export_status(m);
   assert (st ->> 'export_id')::uuid = x and not (st ->> 'needs_reexport')::boolean and (st ->> 'deductions_after')::int = 0, 'S4 fresh: ' || st::text;
   j := public.disclosure_get(current_setting('test.fc1')::uuid);
@@ -105,7 +112,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '3 month')
 end $$;
 select auth.set_test_user('fc000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fcm2')::date; x uuid; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   update public.hr_month_exports set exported_at = exported_at - interval '1 minute' where id = x;
   perform public.ops_deduction_add('fc000000-0000-0000-0000-0000000000e9', m, 1000, 0, 'استقطاع يدوي بعد التصدير');
   assert (public.hr_month_export_status(m) ->> 'needs_reexport')::boolean, 'S5 stale after manual deduction';

@@ -1,6 +1,13 @@
 -- 00184 · كشف المالية: الإجازة المدفوعة/غير المدفوعة، الأجر اليومي بلا استقطاع مزدوج، الإجمالي/الاستقطاعات، الترتيب (بادئة pf)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'f6000000-0000-0000-0000-0000000000dd', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
@@ -8,6 +15,8 @@ update public.hr_policy set settings = settings || '{"require_attendance_confirm
 insert into auth.users (id, email) values
   ('f6000000-0000-0000-0000-00000000000b', 'pf-ops@t.iq'), ('f6000000-0000-0000-0000-00000000000c', 'pf-fin@t.iq')
 on conflict (id) do nothing;
+insert into auth.users (id, email) values ('f6000000-0000-0000-0000-0000000000dd', 'f6000000-deputy@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('f6000000-0000-0000-0000-0000000000dd', 'deputy_director') on conflict do nothing;
 insert into public.user_roles (user_id, role) values
   ('f6000000-0000-0000-0000-00000000000b', 'ops_room'), ('f6000000-0000-0000-0000-00000000000c', 'finance_officer')
 on conflict do nothing;
@@ -68,7 +77,7 @@ end $$;
 -- ═══ S2 · التصدير: الشهري = 900000+60000 − (30000 + يوم عمليات 30000 + يومان تلقائي 60000) = 840000 ═══
 select auth.set_test_user('f6000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PF-10';
   assert r.gross_amount = 960000 and r.deductions_total = 120000 and r.proposed_net = 840000, 'S2 monthly: ' || row_to_json(r)::text;
   assert r.ops_deduction_days_amount = 30000 and r.auto_deduction_amount = 60000 and r.auto_absence_days = 2 and r.payable_days is null, 'S2 monthly breakdown: ' || row_to_json(r)::text;
@@ -105,7 +114,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
 end $$;
 select auth.set_test_user('f6000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PF-10';
   assert r.auto_deduction_days = 1 and r.auto_deduction_amount = 30000 and r.proposed_net = 870000, 'S4 waived: ' || row_to_json(r)::text;
   raise notice 'S4 ✅ الإعفاء ينعكس على الكشف';

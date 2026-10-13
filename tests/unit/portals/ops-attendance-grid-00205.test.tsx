@@ -85,14 +85,14 @@ describe('GridLegend', () => {
 })
 
 // ── الصفحة: شريط أدوات موحّد + النقر على خلية الشبكة يفتح سجل اليوم ──
-const h = vi.hoisted(() => ({ grid: [] as unknown[], attendance: [] as unknown[], mut: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(async () => undefined), isPending: false }) }))
+const h = vi.hoisted(() => ({ gate: null as unknown, grid: [] as unknown[], attendance: [] as unknown[], mut: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(async () => undefined), isPending: false }) }))
 
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [] }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: h.mut, useEditAttendance: h.mut, useResetAttendance: h.mut,
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: h.mut, useDeleteDeduction: h.mut, useWaiveDeduction: h.mut,
-  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: h.mut, useMonthExportStatus: () => ({ data: null }), useEvaluateMonth: h.mut,
+  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: h.mut, usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: null }), useEvaluateMonth: h.mut,
   useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }),
   useConfirmAttendanceMonth: h.mut, useReopenAttendanceMonth: h.mut,
 }))

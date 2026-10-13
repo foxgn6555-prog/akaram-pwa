@@ -2,6 +2,13 @@
 --   نقص اليوم = max(0, تأخير فوق السماحية − بقاء بعد النهاية) + خروج مبكر · فائض اليوم = بقاء زائد + مجيء مبكر ⇒ رصيد إجازة بسقف · لا تعويض بين الأيام · الغياب خارج البنك
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'b7000000-0000-0000-0000-000000000004', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false, "backdated_max_days": 365, "annual_leave_days_default": 60, "shortfall_method": "hour_bank", "salary_model": "earned_days", "salary_day_basis": "calendar_days"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('b7000000-0000-0000-0000-000000000001', 'hb-ops@t.iq'), ('b7000000-0000-0000-0000-000000000007', 'hb-fin@t.iq'), ('b7000000-0000-0000-0000-000000000008', 'hb-it@t.iq'),
@@ -101,7 +108,7 @@ end $$;
 select auth.set_test_user('b7000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.hb_m')::date; dim int := extract(day from (m + interval '1 month - 1 day'))::int; x uuid; r record; dr numeric; mr numeric; amt numeric; bal jsonb; begin
   dr := round(500000::numeric / dim, 4); mr := round(dr / 480, 4); amt := round(mr * 1200, 2);
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'HB-C';
   assert r.hour_bank_enabled and r.hour_bank_required_minutes = 9600 and r.hour_bank_credited_minutes = 8400 and r.hour_bank_net_minutes = -1200 and r.hour_bank_credit_days = 0, 'S3 C cols: ' || row_to_json(r)::text;
   assert r.auto_deduction_minutes = 1200 and r.auto_deduction_amount = amt and r.auto_deduction_basis = 'hour_bank' and r.auto_deduction_days = 0, 'S3 C auto: ' || row_to_json(r)::text;
@@ -117,7 +124,7 @@ do $$ declare m date := current_setting('test.hb_m')::date; dim int := extract(d
   bal := public.hr_leave_balance('b7000000-0000-0000-0000-0000000000eb', extract(year from m)::int);
   assert (bal ->> 'overtime_days')::numeric = 0.156, 'S3 balance B: ' || bal::text;
   -- إعادة التصدير لا تُكرّر القيد
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select count(*) into r from public.hr_leave_ledger where kind = 'overtime' and period_month = m and employee_id = 'b7000000-0000-0000-0000-0000000000eb';
   assert r.count = 1, 'S3 re-export idempotent';
   raise notice 'S3 ✅ أجر الدقيقة % · استقطاع C %', mr, amt;
@@ -148,7 +155,7 @@ reset role; select set_config('auth.user_id','', false);
 update public.hr_policy set settings = settings || '{"hour_bank_credit_cap_days": 0}'::jsonb where id = 1;
 select auth.set_test_user('b7000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.hb_m')::date; x uuid; n int; h record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select count(*) into n from public.hr_leave_ledger where kind = 'overtime' and period_month = m and employee_id = 'b7000000-0000-0000-0000-0000000000eb';
   assert n = 0, 'S5 cap 0 ⇒ ledger removed ' || n;
   select * into h from app.hr_hour_bank('b7000000-0000-0000-0000-0000000000eb', m);
@@ -168,7 +175,7 @@ select 'hour-bank test ok' as test_ok;
 reset role; select set_config('auth.user_id','', false);
 update public.hr_policy set settings = settings || '{"shortfall_method": "hour_bank", "hour_bank_credit_cap_days": 2}'::jsonb where id = 1;
 select auth.set_test_user('b7000000-0000-0000-0000-000000000001');
-select public.ops_month_export(current_setting('test.hb_m')::date);
+select public.ops_month_export_reviewed(current_setting('test.hb_m')::date);
 select auth.set_test_user('b7000000-0000-0000-0000-000000000007');
 do $$ declare r record; begin
   select * into r from public.finance_payroll_sheet(current_setting('test.hb_m')::date) where employee_number = 'HB-C';

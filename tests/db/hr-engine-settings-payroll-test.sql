@@ -1,12 +1,21 @@
 -- 00179 · إعدادات محرك البصمة (نافذة الالتقاط/الاحتساب التلقائي) + اكتمال كشف المالية + تفاصيل الأيام (بادئة es)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — المراجعة نفسها تُختبر في deputy-deduction-review-test
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'e5000000-0000-0000-0000-0000000000dd', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values
   ('e5000000-0000-0000-0000-00000000000a', 'es-it@t.iq'), ('e5000000-0000-0000-0000-00000000000b', 'es-ops@t.iq'),
   ('e5000000-0000-0000-0000-00000000000c', 'es-fin@t.iq'), ('e5000000-0000-0000-0000-00000000000d', 'es-emp@t.iq')
 on conflict (id) do nothing;
+insert into auth.users (id, email) values ('e5000000-0000-0000-0000-0000000000dd', 'e5000000-deputy@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('e5000000-0000-0000-0000-0000000000dd', 'deputy_director') on conflict do nothing;
 insert into public.user_roles (user_id, role) values
   ('e5000000-0000-0000-0000-00000000000a', 'it_admin'), ('e5000000-0000-0000-0000-00000000000b', 'ops_room'),
   ('e5000000-0000-0000-0000-00000000000c', 'finance_officer'), ('e5000000-0000-0000-0000-00000000000d', 'employee')
@@ -82,7 +91,7 @@ end $$;
 -- ═══ S4 · كشف الشهر يشمل الإداري بلا بصمة ويستثني المنتهي قبل الشهر والمعيّن بعده ═══
 select auth.set_test_user('e5000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; n int; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select count(*) into n from public.hr_month_export_rows where export_id = x and employee_number = 'ES-OFF';
   assert n = 1, 'S4 office employee included';
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'ES-OFF';

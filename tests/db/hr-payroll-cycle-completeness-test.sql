@@ -1,11 +1,20 @@
 -- 00186 · دورة الرواتب: سيناريو المستخدم (راتب 100,000 · 3 أيام حضور · صافٍ 90,000) يجب ألا يتكرر (بادئة pc)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'fd000000-0000-0000-0000-0000000000dd', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 insert into auth.users (id, email) values ('fd000000-0000-0000-0000-00000000000b', 'pc-ops@t.iq'), ('fd000000-0000-0000-0000-00000000000c', 'pc-fin@t.iq') on conflict (id) do nothing;
+insert into auth.users (id, email) values ('fd000000-0000-0000-0000-0000000000dd', 'fd000000-deputy@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('fd000000-0000-0000-0000-0000000000dd', 'deputy_director') on conflict do nothing;
 insert into public.user_roles (user_id, role) values ('fd000000-0000-0000-0000-00000000000b', 'ops_room'), ('fd000000-0000-0000-0000-00000000000c', 'finance_officer') on conflict do nothing;
 insert into public.hr_shifts (id, name, start_time, end_time, grace_minutes, work_days) values
   ('fd000000-0000-0000-0000-0000000000d1', 'pc صباحي', '08:00', '16:00', 15, '{0,1,2,3,4,5,6}') on conflict (name) do nothing;
@@ -48,7 +57,7 @@ end $$;
 -- ═══ S2 · التصدير يحتسب الشهر كاملاً أولاً: الغياب يظهر، الصافي ينخفض فعلاً، ولا أيام غير محتسبة في الكشف ═══
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; dim int; expected numeric; begin
   dim := extract(day from (m + interval '1 month - 1 day'))::int;
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PC-1';
   assert r.unevaluated_days = 0 and r.scheduled_days = dim and r.working_days = dim, 'S2 complete: ' || row_to_json(r)::text;
   assert r.days_present = 3 and r.days_incomplete = 2 and r.days_absent = dim - 5, 'S2 counts: ' || row_to_json(r)::text;

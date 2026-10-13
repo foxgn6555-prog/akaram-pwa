@@ -3,6 +3,13 @@
 -- الهدف: إثبات أن ترتيب العمليات صحيح وأن كل رقم في كشف الرواتب يُشتق من مصدره بلا تضارب بين غرفة العمليات والمالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'fe000000-0000-0000-0000-000000000003', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
@@ -161,7 +168,7 @@ do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; e 
   assert ok, 'S7 export blocked before confirmation';
   cf := public.ops_attendance_confirm(m);
   assert (cf ->> 'confirmed')::boolean and (cf ->> 'can_export')::boolean and (cf ->> 'unevaluated_days')::int = 0, 'S7 confirmed: ' || cf::text;
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   perform set_config('test.fx_export', x::text, false);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = e;
   assert r.id is not null, 'S7 row';
@@ -231,7 +238,7 @@ do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; ok
   assert ok, 'S9 export blocked while reopened';
   perform public.ops_attendance_confirm(m);
   assert (public.ops_attendance_confirmation(m) ->> 'confirm_count')::int = 2, 'S9 confirm_count 2';
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   perform set_config('test.fx_export', x::text, false);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.ops_deduction_amount = 15000 and r.advance_installment = 100000, 'S9 re-export: ' || r.ops_deduction_amount;
@@ -288,7 +295,7 @@ end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; begin
   perform public.ops_attendance_confirm(m);
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.ops_deduction_amount = 4000 and r.ops_deduction_reasons like '%كشف%', 'S12a carried disclosure: ' || r.ops_deduction_amount;
   -- 00207: القسط لا يأخذ أكثر مما بقي بعد بقية الاستقطاعات (في النموذج القديم قد يبقى فائض مخصصات صغير يُغطّي جزءاً من القسط؛ لا يُستقطع من لا شيء)
@@ -321,7 +328,7 @@ do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r recor
     assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'leave', 'S12 reopen applies pending leave';
   end if;
   perform public.ops_attendance_confirm(m);
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.days_absent = 0 and r.auto_deduction_amount = 0, 'S12 leave covers month: ' || row_to_json(r)::text;
   assert r.advance_installment = 100000, 'S12 second installment: ' || r.advance_installment;

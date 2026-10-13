@@ -7,12 +7,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
-const h = vi.hoisted(() => ({ employees: [] as unknown[], profile: null as unknown, setSalary: vi.fn(async () => undefined), sheet: [] as unknown[], policy: {} as Record<string, unknown>, setPolicy: vi.fn(async () => ({})) }))
+const h = vi.hoisted(() => ({ gate: null as unknown, employees: [] as unknown[], profile: null as unknown, setSalary: vi.fn(async () => undefined), sheet: [] as unknown[], policy: {} as Record<string, unknown>, setPolicy: vi.fn(async () => ({})) }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/hr', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useHrEmployees: () => ({ data: h.employees, isLoading: false }), useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary),
-  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: [], isLoading: false }), useMonthExportStatus: () => ({ data: null }),
+  usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: [], isLoading: false }), usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: null }),
   useApprovePayroll: () => mut(async () => undefined), useAdjustPayroll: () => mut(async () => undefined), useEmployeeMonthDays: () => ({ data: [], isLoading: false }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }),
   useFinanceNotices: () => ({ data: [] }), useMarkNoticeDone: () => mut(async () => undefined),
   useHrPolicy: () => ({ data: h.policy, isLoading: false }), useSetHrPolicy: () => mut(h.setPolicy), useLeaveTypes: () => ({ data: [], isLoading: false }), useSaveLeaveType: () => mut(async () => undefined),

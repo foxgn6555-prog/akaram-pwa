@@ -5,7 +5,7 @@
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
 import { Fragment, useMemo, useState } from 'react'
-import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useMarkNoticeDone, useMonthExportStatus, usePayrollReconcile, usePayrollSheet } from '@features/hr'
+import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useMarkNoticeDone, useMonthExportStatus, usePayrollGate, usePayrollReconcile, usePayrollSheet } from '@features/hr'
 import type { PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
 import { downloadPayrollExcel, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
 import { applyFilters, branchOptions, DEFAULT_FILTERS, departmentOptions, explainRow, groupByBranchDept, RECONCILE_ISSUE_LABELS, reconcileSummary, sheetTotals, SORT_LABELS, sortRows, totalsConsistent } from '@features/hr/lib/payrollSheetModel'
@@ -76,6 +76,8 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const [view, setView] = useState<'sheet' | 'verify'>('sheet')
   const { data: rows = [], isLoading } = usePayrollSheet(month)
   const { data: exportStatus } = useMonthExportStatus(month)
+  const { data: gate } = usePayrollGate(month)
+  const awaitingDeputy = !!gate?.exported && !gate.visible
   const { data: reconcile = [], isLoading: reconcileLoading } = usePayrollReconcile(month, rows.length > 0)
   const approve = useApprovePayroll()
   const [editing, setEditing] = useState<PayrollSheetRow | null>(null)
@@ -156,6 +158,16 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           </div>
         )}
       </div>
+      {awaitingDeputy && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status" data-testid="ps-deputy-pending">
+          <b>بانتظار معاون المدير المفوض:</b> صدّرت غرفة العمليات حضورية هذا الشهر، ولا يُعرض الكشف للمالية ولا يُعتمد قبل مراجعة الاستقطاعات واعتمادها.
+        </div>
+      )}
+      {head && (gate?.relief_total ?? 0) > 0 && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900" role="status" data-testid="ps-deputy-relief">
+          <b>مراجعة معاون المدير المفوض:</b> خُفّفت الاستقطاعات بإجمالي <span className="font-black tabular-nums" dir="ltr">{fmtMoney(gate?.relief_total ?? 0)}</span> د.ع{(gate?.review_pct ?? 0) > 0 ? ` (منها تخفيض عام ${gate?.review_pct}%)` : ''} — الصافي النهائي يعكس التخفيف، وأرقام التصدير الأصلية محفوظة للتحقق.
+        </div>
+      )}
       {head && (
         <PipelineStrip head={head} approved={approved} stale={!!exportStatus?.needs_reexport} rc={rc} hasReconcile={reconcile.length > 0} blockReason={blockReason} />
       )}
@@ -232,7 +244,8 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
         </section>
       )}
 
-      {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات" /> : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : tableRows.length === 0 ? <EmptyState title="كل الموظفين في هذا النطاق بلا ملف راتب" hint="عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب إعادة التصدير" /> : (
+      {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? (awaitingDeputy ? <EmptyState title="الكشف بانتظار اعتماد معاون المدير المفوض" hint={`صدّرت غرفة العمليات الشهر (إصدار ${gate?.version ?? 1}) ويُراجع معاون المدير المفوض الاستقطاعات الآن — يظهر الكشف هنا فور اعتماده`} />
+        : <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات ثم اعتماد معاون المدير المفوض" />) : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : tableRows.length === 0 ? <EmptyState title="كل الموظفين في هذا النطاق بلا ملف راتب" hint="عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب إعادة التصدير" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table" data-layout="net-first">
             <thead className="bg-slate-50 text-[11px] text-slate-600">

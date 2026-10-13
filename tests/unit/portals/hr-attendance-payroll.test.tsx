@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 
-const h = vi.hoisted(() => ({
+const h = vi.hoisted(() => ({ gate: null as unknown,
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
   days: [] as unknown[], employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
@@ -35,7 +35,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
   useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
-  useMonthExportStatus: () => ({ data: h.exportStatus }),
+  usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: h.exportStatus }),
   useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }), useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }), useEvaluateMonth: () => mut(h.evaluateMonth),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: h.reconcile, isLoading: false }), useEmployeeMonthDays: () => ({ data: h.days ?? [], isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
@@ -64,7 +64,7 @@ const emp = { id: 'e1', employee_number: 'E100', full_name: 'أحمد علي ح�
 const day = { id: 'r1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'فرع بغداد', work_date: '2026-09-05', shift_name: 'صباحي', expected_in: '2026-09-05T05:00:00Z', expected_out: '2026-09-05T13:00:00Z', check_in: '2026-09-05T05:40:00Z', check_out: null, late_minutes: 25, early_minutes: 0, worked_minutes: 0, is_rest_day: false, status: 'incomplete', source: 'auto', edit_reason: null }
 const sheetRow = { row_id: 'pr1', export_id: 'x1', export_version: 1, export_status: 'exported', exported_at: '2026-10-01T08:00:00Z', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'بغداد', job_title: 'سائق', contract_type: 'monthly', pay_type: 'monthly', working_days: 26, days_present: 24, days_late: 3, days_absent: 1, days_incomplete: 0, days_leave: 1, late_minutes: 70, early_minutes: 0, ops_deduction_amount: 25000, ops_deduction_days: 0, ops_deduction_reasons: 'تأخر متكرر', base_salary: 800000, daily_rate: 0, allowances_total: 100000, fixed_deductions_total: 20000, proposed_net: 855000, final_net: null, finance_note: null }
 
-beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; h.exportStatus = null; h.monthDeductions = []; h.conf = null; h.grid = []; h.reconcile = []; vi.clearAllMocks() })
+beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; h.exportStatus = null; h.gate = null; h.monthDeductions = []; h.conf = null; h.grid = []; h.reconcile = []; vi.clearAllMocks() })
 /** 00193: حالة اعتماد الحضورية — معتمد وجاهز للتصدير */
 const confirmedConf = { month: '2026-09-01', status: 'confirmed', confirmed: true, confirmed_at: '2026-10-01T08:00:00Z', confirmed_by_name: 'مدقق الحضور', confirm_count: 1, reopened_at: null, reopened_by_name: null, reopen_reason: null, pending_auto: 0, pending_days: [], deductions_after: 0, unevaluated_days: 0, employees: 1, locked: false, required: true, export: {}, snapshot: {}, can_export: true }
 
@@ -251,6 +251,23 @@ describe('غرفة العمليات — الحضوريات', () => {
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).toBeDisabled()
     fireEvent.click(screen.getByTestId('stage-approved'))
     expect(screen.getByTestId('ops-export-month')).toBeDisabled(); expect(screen.getByTestId('ops-export-month')).toHaveTextContent('مقفل')
+  })
+})
+
+describe('00247 — بوابة معاون المدير المفوض في المالية', () => {
+  it('الكشف المصدَّر غير المعتمد من المعاون: لا صفوف، ولافتة «بانتظار معاون المدير المفوض»', () => {
+    h.sheet = []; h.gate = { exported: true, visible: false, version: 2, review_status: 'pending', relief_total: 0 }
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-deputy-pending')).toHaveTextContent('بانتظار معاون المدير المفوض')
+    expect(screen.getByText('الكشف بانتظار اعتماد معاون المدير المفوض')).toBeInTheDocument()
+    expect(screen.queryByTestId('ps-approve')).toBeDisabled()
+  })
+  it('بعد اعتماد المعاون بتخفيف: لافتة التخفيف بالمبلغ والنسبة ولا لافتة انتظار', () => {
+    h.gate = { exported: true, visible: true, version: 2, review_status: 'approved', relief_total: 24150, review_pct: 10 }
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.queryByTestId('ps-deputy-pending')).toBeNull()
+    expect(screen.getByTestId('ps-deputy-relief')).toHaveTextContent('24,150')
+    expect(screen.getByTestId('ps-deputy-relief')).toHaveTextContent('تخفيض عام 10%')
   })
 })
 

@@ -2,6 +2,13 @@
 -- الاعتماد يرفض أي مخالفة حسابية؛ تعديل المالية محصور بين 0 والإجمالي. (بادئة rc)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'ac000000-0000-0000-0000-000000000004', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
@@ -56,7 +63,7 @@ end $$;
 select auth.set_test_user('ac000000-0000-0000-0000-000000000001');
 select public.ops_deduction_add('ac000000-0000-0000-0000-0000000000e9', current_setting('test.rc_m')::date, 12500, 0, 'rc مخالفة');
 select public.ops_attendance_confirm(current_setting('test.rc_m')::date);
-select set_config('test.rc_export', public.ops_month_export(current_setting('test.rc_m')::date)::text, false);
+select set_config('test.rc_export', public.ops_month_export_reviewed(current_setting('test.rc_m')::date)::text, false);
 do $$ begin raise notice 'S1 ✅ بصمات + استقطاع + اعتماد الحضورية + تصدير'; end $$;
 
 -- ═══ S2 · التحقق: كل الصفوف ذات الراتب متطابقة مالياً وحضورياً؛ المكوّنات تُفسّر الرقم؛ RC-N يُعلَّم SALARY_MISSING فقط ═══
@@ -120,7 +127,7 @@ do $$ declare m date := current_setting('test.rc_m')::date; r record; begin
 end $$;
 select auth.set_test_user('ac000000-0000-0000-0000-000000000001');
 select public.ops_attendance_confirm(current_setting('test.rc_m')::date);
-select set_config('test.rc_export', public.ops_month_export(current_setting('test.rc_m')::date)::text, false);
+select set_config('test.rc_export', public.ops_month_export_reviewed(current_setting('test.rc_m')::date)::text, false);
 select auth.set_test_user('ac000000-0000-0000-0000-000000000007');
 do $$ declare m date := current_setting('test.rc_m')::date; r record; n_bad int; begin
   select * into r from public.finance_payroll_reconcile(m) where employee_number = 'RC-D';
@@ -135,7 +142,7 @@ select public.finance_salary_set('ac000000-0000-0000-0000-0000000000ea', 'monthl
 select auth.set_test_user('ac000000-0000-0000-0000-000000000001');
 select public.ops_attendance_reopen(current_setting('test.rc_m')::date, 'rc تعريف راتب');
 select public.ops_attendance_confirm(current_setting('test.rc_m')::date);
-select set_config('test.rc_export', public.ops_month_export(current_setting('test.rc_m')::date)::text, false);
+select set_config('test.rc_export', public.ops_month_export_reviewed(current_setting('test.rc_m')::date)::text, false);
 select auth.set_test_user('ac000000-0000-0000-0000-000000000007');
 do $$ declare m date := current_setting('test.rc_m')::date; n_bad int; r record; begin
   select count(*) into n_bad from public.finance_payroll_reconcile(m) where not ok;

@@ -5,7 +5,7 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { HourBankRow,
+import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
@@ -38,6 +38,15 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_TIMES_INVALID: 'وقت الخروج يجب أن يكون بعد الدخول',
   HR_DEDUCTION_INVALID: 'الخصم يحتاج مبلغاً أو أياماً',
   HR_EXPORT_NOT_EDITABLE: 'هذا الكشف لم يعد قابلاً للتعديل (مُعتمد أو مُستبدل)',
+  HR_WAIVE_NOT_ALLOWED: 'الإعفاء من الاستقطاع ليس من صلاحية غرفة العمليات — يقرّره معاون المدير المفوض في مرحلة المراجعة',
+  HR_EDIT_LIMITED: 'تعديل غرفة العمليات محصور بالبصمات الناقصة/الغياب — يوم مكتمل البصمتين لا يُعدَّل',
+  HR_DEPUTY_REVIEW_PENDING: 'كشف الشهر بانتظار اعتماد معاون المدير المفوض — لا يُعرض ولا يُعتمد في المالية قبل ذلك',
+  HR_REVIEW_APPROVED: 'اعتُمدت المراجعة — أعد فتحها بسبب لتعديل الاستقطاعات',
+  HR_REVIEW_NOT_APPROVED: 'المراجعة غير معتمدة أصلاً',
+  HR_AMOUNT_ABOVE_ORIGINAL: 'المبلغ المعدَّل لا يتجاوز الاستقطاع الأصلي',
+  HR_PCT_INVALID: 'النسبة بين 0 و100',
+  HR_KIND_INVALID: 'نوع استقطاع غير معروف',
+  HR_MODE_INVALID: 'إجراء غير معروف',
   HR_EXPORT_STALE: 'حدثت تغييرات في الحضورية بعد هذا التصدير — اطلب من غرفة العمليات إعادة التصدير أو أكّد الاعتماد صراحةً',
   HR_DEDUCTION_FROM_DISCLOSURE: 'هذا الاستقطاع ناتج عن كشف معتمد — يُدار من وحدة الكشوفات ولا يُحذف من هنا',
   HR_SALARY_MISSING: 'يوجد موظفون بلا راتب نهائي — عرّف رواتبهم أو أدخل مبلغاً نهائياً قبل الاعتماد',
@@ -274,6 +283,19 @@ export const hr = {
     return sdkVoid(supabase.rpc('finance_payroll_adjust', { p_row: rowId, p_final_net: finalNet, p_note: note } as never))
   },
   approvePayroll(exportId: string, force = false) { return sdkVoid(supabase.rpc('finance_payroll_approve', { p_export: exportId, p_force: force } as never)) },
+  /** 00247 — بوابة المالية: الكشف غير مرئي قبل اعتماد معاون المدير المفوض */
+  payrollGate(month: string) { return rpc<FinancePayrollGate>('finance_payroll_gate', { p_month: month }) },
+  /** 00247 — وحدة معاون المدير المفوض: مراجعة الاستقطاعات قبل المالية */
+  deputyMonths() { return rpc<DeputyPayrollMonth[]>('deputy_payroll_months', {}) },
+  deputyReview(month: string) { return rpc<DeputyReviewRow[]>('deputy_deduction_review', { p_month: month }) },
+  deputyAdjust(rowId: string, kind: DeputyDeductionKind, mode: 'waive' | 'amount' | 'clear', amount: number | null, reason: string | null) {
+    return rpc<DeputyReviewRow['breakdown']>('deputy_deduction_adjust', { p_row: rowId, p_kind: kind, p_mode: mode, p_amount: amount, p_reason: reason })
+  },
+  deputyPercent(exportId: string, pct: number, reason: string) { return sdkVoid(supabase.rpc('deputy_deduction_percent', { p_export: exportId, p_pct: pct, p_reason: reason } as never)) },
+  deputyNote(rowId: string, note: string) { return sdkVoid(supabase.rpc('deputy_deduction_note', { p_row: rowId, p_note: note } as never)) },
+  deputyApprove(exportId: string) { return rpc<{ export_id: string; rows: number; relief_total: number; rows_with_relief: number }>('deputy_payroll_approve', { p_export: exportId }) },
+  deputyReopen(exportId: string, reason: string) { return sdkVoid(supabase.rpc('deputy_review_reopen', { p_export: exportId, p_reason: reason } as never)) },
+  deputyAudit(exportId: string) { return rpc<DeputyReviewAudit[]>('deputy_review_audit', { p_export: exportId }) },
   /** 00185 — حالة آخر تصدير للشهر والتغييرات بعده (العمليات/المالية/HR/التطوير) */
   monthExportStatus(month: string) { return rpc<MonthExportStatus>('hr_month_export_status', { p_month: month }) },
   /** 00185 — استقطاعات موظف في شهر مع مرجع الكشف */

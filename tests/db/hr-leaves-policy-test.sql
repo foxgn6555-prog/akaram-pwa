@@ -11,6 +11,8 @@ insert into auth.users (id, email) values
   ('aaaa0000-0000-0000-0000-00000000000e', 'ops@t.iq'), ('aaaa0000-0000-0000-0000-00000000000f', 'fin@t.iq'),
   ('aaaa0000-0000-0000-0000-000000000010', 'boss@t.iq')
 on conflict (id) do nothing;
+insert into auth.users (id, email) values ('aaaa0000-0000-0000-0000-0000000000ad', 'adm@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('aaaa0000-0000-0000-0000-0000000000ad', 'super_admin') on conflict do nothing;
 insert into public.user_roles (user_id, role) values
   ('aaaa0000-0000-0000-0000-00000000000a', 'hr_officer'), ('aaaa0000-0000-0000-0000-00000000000b', 'it_admin'),
   ('aaaa0000-0000-0000-0000-00000000000c', 'department_manager'), ('aaaa0000-0000-0000-0000-00000000000d', 'employee'),
@@ -39,6 +41,13 @@ do $$ declare p jsonb; begin
   assert jsonb_array_length(p -> 'deduction_tiers') = 6, 'tiers seeded';
 end $$;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — المراجعة نفسها تُختبر في deputy-deduction-review-test
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'aaaa0000-0000-0000-0000-0000000000ad', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000a');
@@ -204,8 +213,13 @@ do $$ declare r record; a record; m date := (date_trunc('month', current_date) -
   assert (b ->> 'permits_count')::int = 1 and (b ->> 'used_permit_days')::numeric = 0.333, 'permit consumes 1/3: ' || b::text;
   raise notice 'T9 ✅ الزمنية المدفوعة تغطي النقص وتستهلك ثلث يوم؛ غير المدفوعة والإجازة بلا راتب تُستقطع';
 end $$;
--- غرفة العمليات: إلغاء استقطاع بسبب
+-- إلغاء استقطاع بسبب (00218: ليس لغرفة العمليات — يُجرى بصلاحية مدير النظام هنا؛ المعاون في 00247)
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
+do $$ begin
+  begin perform public.ops_deduction_waive('bbbb0000-0000-0000-0000-00000000000d', (date_trunc('month', current_date) - interval '1 month')::date + 2, true, 'سبب'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'HR_WAIVE_NOT_ALLOWED', 'ops cannot waive: ' || sqlerrm; end;
+end $$;
+select auth.set_test_user('aaaa0000-0000-0000-0000-0000000000ad');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; s record; n int; begin
   begin perform public.ops_deduction_waive(e, m + 2, true, ''); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_REASON_REQUIRED', 'waive needs reason'; end;
@@ -234,7 +248,7 @@ select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000f');
 select public.finance_salary_set('bbbb0000-0000-0000-0000-00000000000d', 'monthly', 1440000, null, '{}', '{}');
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := 'bbbb0000-0000-0000-0000-00000000000d'; x uuid; r record; b jsonb; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = e;
   -- أجر اليوم 48000 · أجر الدقيقة 100 · مقترح: 0 دقيقة + 1.5 يوم (نقص 0.5 + إجازة غير مدفوعة 1) + أيام الغياب (منذ 00186 يُحتسب الشهر كاملاً عند التصدير)
   assert r.auto_deduction_minutes = 0 and r.auto_deduction_days = 1.5 + r.days_absent and r.auto_deduction_amount = 48000 * (1.5 + r.days_absent), 'auto amount: ' || row_to_json(r)::text;
@@ -243,7 +257,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
   -- رصيد الإضافي: 90/480 = 0.188 يوم، idempotent
   b := public.hr_leave_balance(e, extract(year from m)::int);
   assert (b ->> 'overtime_days')::numeric = 0.188, 'overtime credited: ' || b::text;
-  perform public.ops_month_export(m);
+  perform public.ops_month_export_reviewed(m);
   b := public.hr_leave_balance(e, extract(year from m)::int);
   assert (b ->> 'overtime_days')::numeric = 0.188, 'overtime idempotent: ' || b::text;
   raise notice 'T12 ✅ التصدير: مبلغ الاستقطاع التلقائي + رصيد الإضافي (idempotent)';

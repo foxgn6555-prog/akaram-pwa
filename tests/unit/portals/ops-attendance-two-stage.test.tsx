@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
-const h = vi.hoisted(() => ({
+const h = vi.hoisted(() => ({ gate: null as unknown,
   conf: null as unknown, grid: [] as unknown[], gridFilters: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, hourBank: [] as unknown[],
   confirmMonth: vi.fn(async () => ({ confirm_count: 1 })), reopenMonth: vi.fn(async () => ({})), exportMonth: vi.fn(async () => 'x'),
 }))
@@ -18,7 +18,7 @@ vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 
 vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: () => mut(async () => 'd'), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined),
-  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(async () => 0),
+  useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth), usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(async () => 0),
   useHourBankMonth: () => ({ data: h.hourBank ?? [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: (f: unknown) => { h.gridFilters = f; return { data: h.grid, isLoading: false } },
   useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth),
 }))

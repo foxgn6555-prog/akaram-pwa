@@ -2,6 +2,13 @@
 -- يقرآن قاعدة الموظف · المحاكاة · السجل · توافق سياسة HR القديمة. (بادئة dr)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — المراجعة نفسها تُختبر في deputy-deduction-review-test
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'd1000000-0000-0000-0000-000000000004', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values
@@ -129,7 +136,7 @@ end $$;
 -- ═══ S6 · التصدير يستعمل قاعدة كل موظف: A ثابت (fixed) باسم القاعدة، B متوقف (مستثنى)، C من الراتب؛ والمالية ترى اسم القاعدة ═══
 select auth.set_test_user('d1000000-0000-0000-0000-000000000001');
 select public.ops_attendance_confirm(current_setting('test.dr_m')::date);
-select set_config('test.dr_export', public.ops_month_export(current_setting('test.dr_m')::date)::text, false);
+select set_config('test.dr_export', public.ops_month_export_reviewed(current_setting('test.dr_m')::date)::text, false);
 do $$ declare r record; begin
   select * into r from public.hr_month_export_rows where export_id = current_setting('test.dr_export')::uuid and employee_id = 'd1000000-0000-0000-0000-0000000000ea';
   assert r.auto_deduction_basis = 'fixed' and r.auto_deduction_rule = 'dr صارمة', 'S6 A basis/rule: ' || row_to_json(r)::text;

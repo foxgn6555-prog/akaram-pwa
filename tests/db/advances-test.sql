@@ -1,6 +1,13 @@
 -- 00191 · السلف: طلب من غرفة العمليات → سلسلة موافقات (افتراضية: معاون ثم مدير مفوض) → تسليم المالية من القاصة → قسط تلقائي في كشف الرواتب → تسجيل القسط عند الاعتماد (بادئة ad)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'ad000000-0000-0000-0000-000000000003', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
@@ -101,7 +108,7 @@ end $$;
 -- ═══ T4 · تصدير الشهر الحالي (قبل شهر البدء) → لا قسط؛ نُقدّم شهر البدء إلى الشهر الماضي ونصدّره → قسط 80,000 يُطرح من الصافي ═══
 select auth.set_test_user('ad000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'ad000000-0000-0000-0000-0000000000e9';
   assert r.advance_installment = 0, 'T4 no installment before start month: ' || r.advance_installment;
   raise notice 'T4a ✅ لا استقطاع قبل شهر البدء';
@@ -110,7 +117,7 @@ reset role; select set_config('auth.user_id','', false);
 update public.advances set start_month = (date_trunc('month', current_date) - interval '1 month')::date where id = current_setting('test.ad1')::uuid;
 select auth.set_test_user('ad000000-0000-0000-0000-000000000001');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   perform set_config('test.ad_export', x::text, false);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'ad000000-0000-0000-0000-0000000000e9';
   assert r.advance_installment = 80000, 'T4 installment: ' || r.advance_installment;
@@ -147,7 +154,7 @@ do $$ declare j jsonb; b0 numeric; ok boolean; begin
 end $$;
 select auth.set_test_user('ad000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; j jsonb; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'ad000000-0000-0000-0000-0000000000e9';
   assert r.advance_installment = 0, 'T5 settled → no installment';
   -- بعد التسديد يمكن طلب سلفة جديدة؛ الرفض بسبب إلزامي

@@ -4,7 +4,7 @@ import { hrKeys } from '@lib/query-keys/hr.keys'
 import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
+import type { AttendanceFilters, DeputyDeductionKind, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -226,6 +226,52 @@ export function useEvaluateMonth() {
   return useMutation({
     mutationFn: (month: string) => hr.evaluateMonth(month),
     onSuccess: (n) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(`اكتمل احتساب الشهر — ${n} يوم/موظف`) },
+    onError: t.err,
+  })
+}
+/** 00247 — بوابة المالية (بانتظار معاون المدير المفوض؟) */
+export function usePayrollGate(month: string) {
+  return useQuery({ queryKey: [...hrKeys.all, 'payroll-gate', month], queryFn: () => hr.payrollGate(month), enabled: !!month })
+}
+/** 00247 — وحدة معاون المدير المفوض */
+export function useDeputyMonths() {
+  return useQuery({ queryKey: [...hrKeys.all, 'deputy-months'], queryFn: () => hr.deputyMonths() })
+}
+export function useDeputyReview(month: string, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.all, 'deputy-review', month], queryFn: () => hr.deputyReview(month), enabled: enabled && !!month })
+}
+export function useDeputyAudit(exportId: string | null | undefined) {
+  return useQuery({ queryKey: [...hrKeys.all, 'deputy-audit', exportId], queryFn: () => hr.deputyAudit(exportId as string), enabled: !!exportId })
+}
+export function useDeputyAdjust() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { rowId: string; kind: DeputyDeductionKind; mode: 'waive' | 'amount' | 'clear'; amount?: number | null; reason?: string | null }) => hr.deputyAdjust(v.rowId, v.kind, v.mode, v.amount ?? null, v.reason ?? null),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.mode === 'clear' ? 'أُلغي التخفيف' : v.mode === 'waive' ? 'تم الإعفاء الكامل' : 'تم تعديل المبلغ') },
+    onError: t.err,
+  })
+}
+export function useDeputyPercent() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { exportId: string; pct: number; reason: string }) => hr.deputyPercent(v.exportId, v.pct, v.reason),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.pct > 0 ? `طُبّق تخفيض ${v.pct}% على الجميع` : 'أُلغي التخفيض العام') },
+    onError: t.err,
+  })
+}
+export function useDeputyApprove() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (exportId: string) => hr.deputyApprove(exportId),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('اعتُمدت الاستقطاعات وأُرسل الكشف إلى المالية') },
+    onError: t.err,
+  })
+}
+export function useDeputyReopen() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { exportId: string; reason: string }) => hr.deputyReopen(v.exportId, v.reason),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُعيد فتح المراجعة — الكشف محجوب عن المالية') },
     onError: t.err,
   })
 }

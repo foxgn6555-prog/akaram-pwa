@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
-const h = vi.hoisted(() => ({
+const h = vi.hoisted(() => ({ gate: null as unknown,
   policy: null as Record<string, unknown> | null,
   setPolicy: vi.fn(),
   saveType: vi.fn(),
@@ -65,7 +65,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }),
   useEvaluateAttendance: () => ({ mutate: vi.fn(), isPending: false }),
   useExportMonth: () => mut(vi.fn()),
-  useMonthExports: () => ({ data: [] }), useMonthExportStatus: () => ({ data: null }), useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: [], isLoading: false }), useConfirmAttendanceMonth: () => mut(vi.fn()), useReopenAttendanceMonth: () => mut(vi.fn()), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }), useEvaluateMonth: () => ({ mutate: () => undefined, isPending: false }),
+  useMonthExports: () => ({ data: [] }), usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: null }), useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: [], isLoading: false }), useConfirmAttendanceMonth: () => mut(vi.fn()), useReopenAttendanceMonth: () => mut(vi.fn()), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }), useEvaluateMonth: () => ({ mutate: () => undefined, isPending: false }),
   useEditAttendance: () => mut(vi.fn()), useResetAttendance: () => mut(vi.fn()), useAttendanceAudit: () => ({ data: [] }),
   useDeductions: () => ({ data: [] }), useAddDeduction: () => mut(vi.fn()), useDeleteDeduction: () => mut(vi.fn()),
   useWaiveDeduction: () => mut(h.waive),

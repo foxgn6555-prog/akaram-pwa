@@ -395,6 +395,13 @@ export interface OpsExportRow {
 
 export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_amount: number
+  /** 00247 — مراجعة معاون المدير المفوض: حالة المراجعة، نسبة التخفيض العامة، تخفيف هذا الصف (مطروح من الاستقطاعات في الصافي النهائي) */
+  review_status?: 'pending' | 'approved' | null
+  reviewed_at?: string | null
+  review_pct?: number | null
+  review_relief_amount?: number | null
+  review_note?: string | null
+  review_relief?: Record<string, { mode: 'waive' | 'amount'; amount: number; reason: string }> | null
   /** 00216/00217 — بنك الساعات الشهري: المطلوب/المعمول/الصافي بالدقائق ورصيد الإجازة الممنوح من الفائض */
   hour_bank_enabled?: boolean | null
   hour_bank_required_minutes?: number | null
@@ -812,3 +819,38 @@ export interface DeductionSimulationV2 {
   steps: DeductionSimStep[]; ladder: DeductionSimLadderRow[]
 }
 export interface DeductionAuditRow { id: number; action: 'rule_save' | 'rule_delete' | 'target_set' | 'exemption_add' | 'exemption_remove'; rule_id: string | null; rule_name: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; actor: string | null; actor_name: string | null; created_at: string }
+
+/** 00247 — بوابة المالية: هل الشهر مصدَّر وهل اعتمده معاون المدير المفوض (المالية لا ترى الكشف قبل ذلك) */
+export interface FinancePayrollGate {
+  exported: boolean
+  visible: boolean
+  export_id?: string
+  version?: number
+  review_status: 'pending' | 'approved' | null
+  reviewed_at?: string | null
+  review_pct?: number
+  relief_total?: number
+}
+export type DeputyDeductionKind = 'shortfall' | 'absence' | 'ops' | 'fines'
+export interface DeputyKindBreakdown { original: number; relief: number; after: number; mode: 'none' | 'waive' | 'amount'; reason: string | null; set_amount: number | null }
+/** 00247 — صف موظف في مراجعة المعاون: الاستقطاعات مفكّكة إلى أنواعها الأربعة + التخفيف + الصافي بعد المراجعة */
+export interface DeputyReviewRow {
+  export_id: string; export_version: number; review_status: 'pending' | 'approved'; review_pct: number
+  row_id: string; employee_id: string; employee_number: string; full_name: string
+  department_name: string | null; branch_name: string | null; job_title: string | null; pay_type: 'monthly' | 'daily' | null; shift_minutes: number; day_rate: number | null
+  shortfall_minutes: number; shortfall_amount: number; absence_days: number; absence_amount: number; ops_amount: number; ops_reasons: string | null; fines_amount: number; fines_count: number
+  reviewable_total: number; relief_total: number; pct_relief: number; deductions_total: number | null; deductions_after: number; gross_amount: number | null; proposed_net: number | null; final_net: number | null
+  review_note: string | null
+  breakdown: Record<DeputyDeductionKind, DeputyKindBreakdown> & { pct: number; pct_relief: number; reviewable_total: number; relief_total: number; deductions_after: number; final_net_after: number | null; minute_rate: number }
+  hour_bank_enabled: boolean | null
+}
+export interface DeputyPayrollMonth {
+  period_month: string; export_id: string; version: number; export_status: 'exported' | 'approved'; exported_at: string
+  review_status: 'pending' | 'approved'; reviewed_at: string | null; reviewed_by_name: string | null; review_pct: number
+  rows_count: number; employees_with_deductions: number; deductions_total: number; relief_total: number; net_total: number
+}
+export interface DeputyReviewAudit {
+  id: string; row_id: string | null; employee_number: string | null; full_name: string | null
+  action: 'waive' | 'amount' | 'clear' | 'percent' | 'approve' | 'reopen'; kind: DeputyDeductionKind | null
+  before: Record<string, unknown> | null; after: Record<string, unknown> | null; reason: string | null; actor_name: string | null; created_at: string
+}

@@ -1,6 +1,13 @@
 -- 00187 · الراتب الشهري بالنسبة والتناسب + ضوابط السياسة + حدود مبلغ المخالفة (بادئة pr)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
+create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare x uuid; u text := current_setting('auth.user_id', true); begin
+  x := public.ops_month_export(p_month);
+  perform set_config('auth.user_id', 'fe000000-0000-0000-0000-00000000000e', true); perform public.deputy_payroll_approve(x); perform set_config('auth.user_id', coalesce(u, ''), true);
+  return x;
+end $$;
 -- 00201: هذا الاختبار يتحقق من النموذج القديم (الراتب كاملاً ناقص الغياب)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
@@ -38,7 +45,7 @@ select public.hr_policy_set('{"salary_day_basis":"fixed_30","prorate_partial_mon
 select auth.set_test_user('fe000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; dim int; begin
   dim := extract(day from (m + interval '1 month - 1 day'))::int;
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PR-1';
   assert r.covered_days = 5 and r.days_in_month = dim and r.period_from = m + (dim - 5) and r.period_to = m + (dim - 1), 'S1 period: ' || row_to_json(r)::text;
   assert r.scheduled_days = 5 and r.days_present = 2 and r.days_absent = 3 and r.unevaluated_days = 0, 'S1 counts: ' || row_to_json(r)::text;
@@ -56,7 +63,7 @@ select public.hr_policy_set('{"salary_day_basis":"calendar_days"}'::jsonb);
 select auth.set_test_user('fe000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; dim int; dr numeric; begin
   dim := extract(day from (m + interval '1 month - 1 day'))::int; dr := round(500000::numeric / dim, 4);
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PR-1';
   assert r.day_rate = dr and r.gross_amount = round(dr * 5, 2) + round(30000 * r.proration_ratio, 2) and r.auto_deduction_amount = round(dr * 3, 2), 'S2: ' || row_to_json(r)::text;
   raise notice 'S2 ✅ أساس أيام الشهر: أجر اليوم % · إجمالي %', r.day_rate, r.gross_amount;
@@ -67,7 +74,7 @@ select auth.set_test_user('fe000000-0000-0000-0000-00000000000d');
 select public.hr_policy_set('{"salary_day_basis":"fixed_30","prorate_partial_month":false,"auto_deduction_cap_ratio":0.05}'::jsonb);
 select auth.set_test_user('fe000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; begin
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PR-1';
   assert r.gross_amount = 530000 and r.proration_ratio = 1, 'S3 gross ' || r.gross_amount;
   assert r.auto_deduction_capped and r.auto_deduction_amount = round(0.05 * 530000, 2) and r.proposed_net = 530000 - round(0.05 * 530000, 2), 'S3 cap: ' || row_to_json(r)::text;
@@ -93,7 +100,7 @@ select auth.set_test_user('fe000000-0000-0000-0000-00000000000b');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; x uuid; r record; p record; begin
   select * into p from app.hr_month_period(m) where employee_id = 'fe000000-0000-0000-0000-0000000000e2';
   assert p.full_month and p.covered_days = p.days_in_month, 'S4 period: ' || row_to_json(p)::text;
-  x := public.ops_month_export(m);
+  x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'PR-2';
   assert r.gross_amount = 500000 and r.proration_ratio = 1 and r.covered_days = r.days_in_month, 'S4: ' || row_to_json(r)::text;
   raise notice 'S4 ✅ الشهر المكتمل = الأساسي كاملاً';
