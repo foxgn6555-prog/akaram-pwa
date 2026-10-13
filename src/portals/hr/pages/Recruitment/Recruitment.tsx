@@ -155,7 +155,7 @@ function HireForm() {
         <Field id="h-shift" label="الشفت *">
           <select id="h-shift" className={field} value={v.shift_id ?? ''} onChange={(e) => set('shift_id', e.target.value)} data-testid="f-shift">
             <option value="">— اختر —</option>
-            {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} · {hhmm(s.start_time)}–{hhmm(s.end_time)} · سماحية {s.grace_minutes}د</option>)}
+            {shifts.map((s) => <option key={s.id} value={s.id}>{s.name} · {hhmm(s.start_time)}–{hhmm(s.end_time)}{s.kind === 'flexible' ? ` · مرن ${s.required_hours} ساعة` : ''} · سماحية {s.grace_minutes}د</option>)}
           </select>
         </Field>
         <Field id="h-ss" label="تجاوز وقت البداية (اختياري)" hint={shift ? `افتراضي القالب ${hhmm(shift.start_time)}` : undefined}><input id="h-ss" type="time" className={field} value={v.shift_start_override} onChange={(e) => set('shift_start_override', e.target.value)} data-testid="f-shift-start" /></Field>
@@ -302,38 +302,55 @@ function ShiftsPanel() {
   const e = editing
   const set = (p: Partial<HrShift>) => setEditing((s) => ({ ...(s ?? {}), ...p }))
   const overnight = useMemo(() => !!e?.start_time && !!e?.end_time && e.end_time <= e.start_time, [e?.start_time, e?.end_time])
+  const flexible = e?.kind === 'flexible'
 
   const submit = async () => {
     if (!e?.name?.trim() || !e.start_time || !e.end_time) return
+    if (flexible && !(Number(e.required_hours) > 0 && Number(e.required_hours) <= 24)) return
     await save.mutateAsync({ id: e.id, name: e.name.trim(), start_time: e.start_time, end_time: e.end_time, grace_minutes: e.grace_minutes ?? 10,
-      work_days: e.work_days?.length ? e.work_days : [0, 1, 2, 3, 4, 5, 6], is_active: e.is_active ?? true })
+      work_days: e.work_days?.length ? e.work_days : [0, 1, 2, 3, 4, 5, 6], is_active: e.is_active ?? true,
+      kind: flexible ? 'flexible' : 'fixed', required_hours: flexible ? Number(e.required_hours) : null })
     setEditing(null)
   }
 
   return (
     <div className="space-y-3" data-testid="shifts-panel">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">القوالب تُسند للموظفين؛ ويمكن تجاوز الأوقات/السماحية لكل موظف على حدة. بلا عطل افتراضية — كل الأيام عمل ما لم تُزل هنا.</p>
-        <Button size="sm" onClick={() => setEditing({ name: '', start_time: '08:00', end_time: '16:00', grace_minutes: 10, work_days: [0, 1, 2, 3, 4, 5, 6], is_active: true })} data-testid="shift-new">+ شفت جديد</Button>
+        <p className="text-xs text-slate-500">القوالب تُسند للموظفين؛ ويمكن تجاوز الأوقات/السماحية لكل موظف على حدة. بلا عطل افتراضية — كل الأيام عمل ما لم تُزل هنا. <b>الشفت المرن:</b> دخول بأي وقت داخل النافذة بلا تأخير، والخروج المتوقع = الدخول + الساعات المطلوبة؛ النقص يُعامل كخروج مبكر.</p>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setEditing({ name: '', start_time: '08:00', end_time: '16:00', grace_minutes: 10, work_days: [0, 1, 2, 3, 4, 5, 6], is_active: true, kind: 'fixed', required_hours: null })} data-testid="shift-new">+ شفت ثابت</Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing({ name: '', start_time: '05:00', end_time: '16:00', grace_minutes: 10, work_days: [0, 1, 2, 3, 4, 5, 6], is_active: true, kind: 'flexible', required_hours: 12 })} data-testid="shift-new-flex">+ شفت مرن</Button>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shifts.map((s) => (
-          <div key={s.id} className={clsx('rounded-2xl border bg-white p-4 shadow-sm', s.is_active ? 'border-slate-200' : 'border-dashed opacity-70')} data-testid={`shift-card-${s.name}`}>
+          <div key={s.id} data-testid={`shift-card-${s.name}`} className={clsx('rounded-2xl border bg-white p-4 shadow-sm', s.is_active ? 'border-slate-200' : 'border-dashed opacity-70')} data-testid={`shift-card-${s.name}`}>
             <div className="flex items-start justify-between">
-              <p className="font-bold">{s.name}</p>
+              <p className="font-bold">{s.name}{s.kind === 'flexible' && <span className="ms-2 rounded-md bg-[#0b3d6b]/10 px-1.5 py-0.5 text-[10px] font-black text-[#0b3d6b]" data-testid={`shift-flex-${s.name}`}>مرن · {s.required_hours} ساعة</span>}</p>
               <button type="button" className="text-[11px] font-semibold text-brand-700 hover:underline" onClick={() => setEditing({ ...s, start_time: hhmm(s.start_time), end_time: hhmm(s.end_time) })} data-testid={`shift-edit-${s.name}`}>تعديل</button>
             </div>
             <p className="mt-1 text-sm tabular-nums" dir="ltr">{hhmm(s.start_time)} → {hhmm(s.end_time)}{s.end_time <= s.start_time && <span className="ms-1 text-[10px] text-violet-700">(+1 يوم)</span>}</p>
-            <p className="text-xs text-slate-500">سماحية {s.grace_minutes} دقيقة · {s.work_days.length === 7 ? 'كل الأيام' : s.work_days.map((d) => WEEKDAYS_AR[d]).join('، ')}</p>
+            <p className="text-xs text-slate-500">{s.kind === 'flexible' ? 'نافذة الدخول — بلا تأخير · ' : ''}سماحية {s.grace_minutes} دقيقة · {s.work_days.length === 7 ? 'كل الأيام' : s.work_days.map((d) => WEEKDAYS_AR[d]).join('، ')}</p>
           </div>
         ))}
       </div>
       {e && (
         <div className="space-y-3 rounded-2xl border border-brand-200 bg-white p-4 shadow-sm" data-testid="shift-form">
           <div className="grid gap-3 sm:grid-cols-4">
+            <Field id="s-kind" label="النوع">
+              <select id="s-kind" className={field} value={e.kind ?? 'fixed'} onChange={(ev) => set({ kind: ev.target.value as HrShift['kind'], required_hours: ev.target.value === 'flexible' ? (e.required_hours ?? 12) : null })} data-testid="s-kind">
+                <option value="fixed">ثابت — بداية ونهاية محددتان</option>
+                <option value="flexible">مرن — نافذة دخول + ساعات مطلوبة</option>
+              </select>
+            </Field>
+            {flexible && (
+              <Field id="s-hours" label="الساعات المطلوبة" hint="الخروج المتوقع = أول بصمة + هذه الساعات">
+                <input id="s-hours" type="number" min={1} max={24} step={0.5} className={field} value={e.required_hours ?? 12} onChange={(ev) => set({ required_hours: Number(ev.target.value) })} data-testid="s-hours" />
+              </Field>
+            )}
             <Field id="s-name" label="الاسم"><input id="s-name" className={field} value={e.name ?? ''} onChange={(ev) => set({ name: ev.target.value })} data-testid="s-name" /></Field>
-            <Field id="s-start" label="البداية"><input id="s-start" type="time" className={field} value={e.start_time ?? ''} onChange={(ev) => set({ start_time: ev.target.value })} data-testid="s-start" /></Field>
-            <Field id="s-end" label="النهاية" hint={overnight ? 'يعبر منتصف الليل — الخروج في اليوم التالي' : undefined}><input id="s-end" type="time" className={field} value={e.end_time ?? ''} onChange={(ev) => set({ end_time: ev.target.value })} data-testid="s-end" /></Field>
+            <Field id="s-start" label={flexible ? 'بداية النافذة' : 'البداية'}><input id="s-start" type="time" className={field} value={e.start_time ?? ''} onChange={(ev) => set({ start_time: ev.target.value })} data-testid="s-start" /></Field>
+            <Field id="s-end" label={flexible ? 'نهاية النافذة' : 'النهاية'} hint={overnight ? 'يعبر منتصف الليل — الخروج في اليوم التالي' : undefined}><input id="s-end" type="time" className={field} value={e.end_time ?? ''} onChange={(ev) => set({ end_time: ev.target.value })} data-testid="s-end" /></Field>
             <Field id="s-grace" label="السماحية (دقائق)"><input id="s-grace" type="number" min={0} max={180} className={field} value={e.grace_minutes ?? 10} onChange={(ev) => set({ grace_minutes: Number(ev.target.value) })} data-testid="s-grace" /></Field>
           </div>
           <div>

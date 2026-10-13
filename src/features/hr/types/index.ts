@@ -8,6 +8,8 @@ export interface HrShift {
   grace_minutes: number
   work_days: number[]  // 0=الأحد … 6=السبت
   is_active: boolean
+  kind: 'fixed' | 'flexible'        // 00215: مرن = دخول بأي وقت داخل النافذة بلا تأخير
+  required_hours: number | null     // 00215: الساعات المطلوبة للمرن (افتراضي 12)
 }
 
 export interface ShiftAssignment {

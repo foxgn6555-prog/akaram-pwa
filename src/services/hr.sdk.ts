@@ -111,7 +111,7 @@ const rpc = <T,>(fn: string, args: Record<string, unknown>) => sdkGuard(supabase
 export const hr = {
   // ─────────── الشفتات ───────────
   async listShifts(includeInactive = false): Promise<HrShift[]> {
-    let q = supabase.from('hr_shifts').select('id, name, start_time, end_time, grace_minutes, work_days, is_active').order('start_time')
+    let q = supabase.from('hr_shifts').select('id, name, start_time, end_time, grace_minutes, work_days, is_active, kind, required_hours').order('start_time')
     if (!includeInactive) q = q.eq('is_active', true)
     return (await sdkGuard(q)) as HrShift[]
   },
