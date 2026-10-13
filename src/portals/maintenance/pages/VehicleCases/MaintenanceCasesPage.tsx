@@ -13,6 +13,7 @@ import {
 } from '@features/vehicle-operations/hooks'
 import { money } from '@features/vehicle-operations/purchase-schemas'
 import type { MaintenanceCase } from '@sdk/vehicle-operations.sdk'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const labels: Record<string, string> = {
   to_maintenance: 'في الطريق إلى الصيانة',
@@ -62,22 +63,16 @@ export default function MaintenanceCasesPage() {
     archivedCount = (q.data ?? []).length - open.length
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-rose-800 p-6 text-white">
-        <p className="flex gap-2 text-xs">
-          <Wrench size={16} />
-          وصول → تشخيص وإصلاح (الوقت يُحسب تلقائياً) → إنهاء الصيانة → إرسال
-        </p>
-        <h1 className="mt-2 text-2xl font-black">حالات صيانة الآليات</h1>
-      </header>
+      <ExecPageHeader icon="settings" iconNode={<Wrench size={22} className="text-[#f3d06a]" />} title="حالات صيانة الآليات" subtitle="وصول → تشخيص وإصلاح (الوقت يُحسب تلقائياً) → إنهاء الصيانة → إرسال" />
       <section className="rounded-2xl border bg-white p-4">
         <div className="mb-3 flex items-center gap-2">
-          <CalendarDays className="size-5 text-rose-700" />
+          <CalendarDays className="size-5 text-[#0b3d6b]" />
           <b>مجلدات أيام الصيانة</b>
           <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="mr-auto h-9 rounded-xl border px-2" />
         </div>
         <div className="flex gap-2 overflow-x-auto">
           {(days.data ?? []).map((x) => (
-            <button key={x.case_day} onClick={() => setDay(x.case_day)} className={`min-w-40 rounded-xl border p-3 text-xs ${day === x.case_day ? 'border-rose-600 bg-rose-50' : ''}`}>
+            <button key={x.case_day} onClick={() => setDay(x.case_day)} className={`min-w-40 rounded-xl border p-3 text-xs ${day === x.case_day ? 'border-[#0b3d6b] bg-blue-50' : ''}`}>
               <b>{x.case_day}</b>
               <span className="mt-1 block">{x.open_count} مفتوحة · {x.total_count - x.open_count} في الأرشيف</span>
             </button>
@@ -114,7 +109,7 @@ function CaseCard({ c, onArrival, onFinish, onDetail, onDispatch }: { c: Mainten
           <h2 className="mt-3 font-black">{c.vehicle_name}</h2>
           <p className="text-xs text-slate-500">{c.driver_name} · {c.area_name} · {c.manager_name}</p>
         </div>
-        <span className={`h-fit rounded-full px-3 py-1 text-xs font-black ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{labels[c.status] ?? c.status}</span>
+        <span className={`h-fit rounded-full px-3 py-1 text-xs font-black ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-[#0b3d6b]'}`}>{labels[c.status] ?? c.status}</span>
       </div>
       <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl bg-slate-50 p-3 text-xs" data-testid={`case-summary-${c.case_id}`}>
         <dt className="text-slate-500">العطل</dt><dd className="font-bold">{c.fault_type} · {priorityLabels[c.priority] ?? c.priority}</dd>

@@ -7,6 +7,7 @@ import {
 } from '@features/vehicle-operations/hooks'
 import { PART_CATEGORIES, money, partCategoryLabel } from '@features/vehicle-operations/purchase-schemas'
 import type { MaintenanceInventoryItem } from '@sdk/vehicle-operations.sdk'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const CATEGORIES = [
   { value: '', label: 'كل الأقسام' },
@@ -35,16 +36,7 @@ export default function MaintenanceInventoryPage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-amber-700 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <Warehouse size={17} />
-          مخزن مقسم إلى أربعة أقسام حسب نوع القطعة + قسم «أخرى»
-        </p>
-        <h1 className="mt-2 text-2xl font-black">مخزون قطع الصيانة</h1>
-        <p className="mt-1 text-sm text-amber-100">
-          القطع المتوفرة بالكميات والسعر المتوسط للوحدة — حركات الاستلام والصرف موثقة بالكامل.
-        </p>
-      </header>
+      <ExecPageHeader icon="box" iconNode={<Warehouse size={22} className="text-[#f3d06a]" />} title="مخزون قطع الصيانة" subtitle={<><span className="font-bold text-[#f3d06a]">مخزن مقسم إلى أربعة أقسام حسب نوع القطعة + قسم «أخرى»</span> · القطع المتوفرة بالكميات والسعر المتوسط للوحدة — حركات الاستلام والصرف موثقة بالكامل.</>} />
 
       {/* أشرطة الأقسام */}
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">

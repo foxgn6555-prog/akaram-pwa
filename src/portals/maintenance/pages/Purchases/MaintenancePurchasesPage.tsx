@@ -14,6 +14,7 @@ import {
   purchaseOrderTotal,
 } from '@features/vehicle-operations/purchase-schemas'
 import type { MaintenancePurchaseOrder } from '@sdk/vehicle-operations.sdk'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (x: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -45,16 +46,7 @@ export default function MaintenancePurchasesPage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-emerald-800 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <ShoppingBag size={17} />
-          كل الأسعار بالدينار العراقي — الأصناف تدخل قسمها في المخزون فوراً والمبلغ يصل الشؤون المالية
-        </p>
-        <h1 className="mt-2 text-2xl font-black">مشتريات قطع الصيانة</h1>
-        <p className="mt-1 text-sm text-emerald-100">
-          نماذج الشراء التي يملؤها أصحاب الصيانة: نوع القطعة (ميكانيكا/كهرباء/سمكرة/حدادة/أخرى) والسعر والكمية.
-        </p>
-      </header>
+      <ExecPageHeader icon="shopping-cart" iconNode={<ShoppingBag size={22} className="text-[#f3d06a]" />} title="مشتريات قطع الصيانة" subtitle={<><span className="font-bold text-[#f3d06a]">كل الأسعار بالدينار العراقي — الأصناف تدخل قسمها في المخزون فوراً والمبلغ يصل الشؤون المالية</span> · نماذج الشراء التي يملؤها أصحاب الصيانة: نوع القطعة (ميكانيكا/كهرباء/سمكرة/حدادة/أخرى) والسعر والكمية.</>} />
 
       <div className="flex items-center justify-between rounded-2xl border bg-white p-4">
         <p className="text-sm text-slate-600">
@@ -62,7 +54,7 @@ export default function MaintenancePurchasesPage() {
         </p>
         <button
           onClick={() => setCreating(true)}
-          className="flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 font-black text-white"
+          className="flex h-11 items-center gap-2 rounded-xl bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] px-5 font-black text-white shadow"
         >
           <Plus size={17} />
           أمر شراء جديد

@@ -5,6 +5,7 @@ import type { MaintenanceArchiveEntry } from '@sdk/vehicle-operations.sdk'
 import { useMaintenanceArchive } from '@features/vehicle-operations/hooks'
 import { money } from '@features/vehicle-operations/purchase-schemas'
 import { archiveSummary, exportMaintenanceArchive, finalLabels, priorityLabels } from '@features/vehicle-operations/export-archive'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (x: string | null | undefined) =>
   x ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
@@ -34,22 +35,13 @@ export default function MaintenanceArchivePage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-indigo-900 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <Archive size={17} />
-          سجل دائم لكل الحالات المكتملة — البحث والتصدير
-        </p>
-        <h1 className="mt-2 text-2xl font-black">أرشيف الصيانة</h1>
-        <p className="mt-1 text-sm text-indigo-100">
-          الحالات المغلقة مع الفنيين والقطع والأوقات والكلف — {rows.length} حالة معروضة
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4" data-testid="archive-summary">
-          <Stat label="إجمالي الكلفة الفعلية" value={`${money(summary.totalCost)} د.ع`} />
-          <Stat label="كلفة القطع / الخدمة" value={`${money(summary.partsCost)} / ${money(summary.serviceCost)}`} />
-          <Stat label="متوسط وقت الصيانة" value={minutes(summary.avgMaintenanceMinutes)} />
-          <Stat label="عادت للعمل / أُغلقت بالكراج" value={`${summary.returnedToWork} / ${summary.closedAtGarage}`} />
-        </div>
-      </header>
+      <ExecPageHeader icon="archive-box" iconNode={<Archive size={22} className="text-[#f3d06a]" />} title="أرشيف الصيانة" subtitle={<><span className="font-bold text-[#f3d06a]">سجل دائم لكل الحالات المكتملة — البحث والتصدير</span> · الحالات المغلقة مع الفنيين والقطع والأوقات والكلف — {rows.length} حالة معروضة</>}
+        testId="archive-summary" stats={[
+          { label: 'إجمالي الكلفة الفعلية', value: `${money(summary.totalCost)} د.ع`, tone: 'gold' },
+          { label: 'كلفة القطع / الخدمة', value: `${money(summary.partsCost)} / ${money(summary.serviceCost)}`, tone: 'plain' },
+          { label: 'متوسط وقت الصيانة', value: minutes(summary.avgMaintenanceMinutes), tone: 'plain' },
+          { label: 'عادت للعمل / أُغلقت بالكراج', value: `${summary.returnedToWork} / ${summary.closedAtGarage}`, tone: 'green' },
+        ]} />
 
       <div className="flex flex-wrap gap-3 rounded-2xl border bg-white p-4">
         <label className="relative min-w-64 flex-1">
@@ -176,14 +168,5 @@ export default function MaintenanceArchivePage() {
       </div>
       {history && <MaintenanceCaseHistoryDialog item={history} close={() => setHistory(null)} allowUpload={false} />}
     </section>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white/10 p-3">
-      <span className="block text-[10px] text-indigo-100">{label}</span>
-      <b className="text-sm">{value}</b>
-    </div>
   )
 }
