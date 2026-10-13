@@ -5,5 +5,5 @@
 import { ApproverDisclosuresPage } from '@features/disclosures/components/ApproverDisclosuresPage'
 
 export default function AdminDisclosures() {
-  return <ApproverDisclosuresPage hero testId="admin-disclosures" title="الكشوفات" subtitle="الاعتماد النهائي للكشوفات بعد المعاون — يمكنك تعديل المبلغ؛ عند الاعتماد يُضاف الاستقطاع تلقائياً إلى حضورية الموظف ويُستقطع من راتبه" />
+  return <ApproverDisclosuresPage testId="admin-disclosures" title="الكشوفات" subtitle="الاعتماد النهائي للكشوفات بعد المعاون — يمكنك تعديل المبلغ؛ عند الاعتماد يُضاف الاستقطاع تلقائياً إلى حضورية الموظف ويُستقطع من راتبه" />
 }
