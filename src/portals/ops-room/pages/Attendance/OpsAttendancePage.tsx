@@ -11,7 +11,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useHourBankMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance, useWaiveDeduction,
+  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useHourBankMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, downloadWorkbook, fmtHM } from '@features/hr/lib/attendanceExcel'
@@ -28,6 +28,8 @@ import { HourBankPanel } from './HourBankPanel'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
+/** 00218: غرفة العمليات تعدّل فقط أيام البصمة الناقصة أو بلا بصمات (يوم ببصمتين لا يُعدَّل) */
+const canEditRow = (r: AttendanceDay) => !(['present', 'late', 'early_leave', 'time_permit'].includes(r.status) && !!r.check_in && !!r.check_out)
 const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', confirm: 'اعتماد حضورية الشهر', reopen: 'إعادة فتح الحضورية', auto_blocked: 'تغيير تلقائي مُعلَّق بعد الاعتماد' }
 const EDITABLE: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 
@@ -47,7 +49,6 @@ export default function OpsAttendancePage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [busyExcel, setBusyExcel] = useState(false)
-  const waive = useWaiveDeduction()
 
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
@@ -92,11 +93,6 @@ export default function OpsAttendancePage() {
     return { items, open, ok: open === 0 }
   }, [exportStatus, counts, proposedTotals, mode, day, month, evaluateMonth])
   const gridTotals = useMemo(() => grid.reduce((a, r) => { a.emp += 1; a.present += r.present_days + r.late_days + r.early_days + r.incomplete_days; a.absent += r.absent_days; a.leave += r.leave_days; a.minutes += r.worked_minutes; a.incomplete += r.incomplete_days; a.unevaluated += r.unevaluated_days; a.manual += r.days.filter((c) => c.src === 'manual').length; return a }, { emp: 0, present: 0, absent: 0, leave: 0, minutes: 0, incomplete: 0, unevaluated: 0, manual: 0 }), [grid])
-  const toggleWaive = async (r: AttendanceDay) => {
-    const reason = window.prompt((r.deduction_waived ? 'سبب إعادة الاستقطاع المقترح:' : 'سبب إلغاء الاستقطاع المقترح (إلزامي):') + '\nسيتم تبليغ وحدة التطوير المركزية بهذا الإجراء.')
-    if (!reason || reason.trim().length < 3) return
-    try { await waive.mutateAsync({ employeeId: r.employee_id, date: r.work_date, waive: !r.deduction_waived, reason: reason.trim() }) } catch { /* toast in hook */ }
-  }
   const branchLabel = branches.find((b) => b.id === branchId)?.name ?? 'كل الفروع'
   const departmentLabel = departments.find((d) => d.id === departmentId)?.name ?? 'كل الأقسام'
   const doExport = async () => {
@@ -174,7 +170,7 @@ export default function OpsAttendancePage() {
               <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
               <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
               <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
-              <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
+              <StatCard title="استقطاعات معفاة" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="الإعفاء من صلاحية معاون المدير المفوض" />
             </div>)}
           </SectionCard>
 
@@ -258,7 +254,7 @@ export default function OpsAttendancePage() {
                             <span className={clsx('font-bold', r.deduction_waived ? 'text-slate-400 line-through' : 'text-red-700')}>{proposedLabel(r)}</span>
                             {r.deduction_reason && <span className="block max-w-[10rem] truncate text-[10px] text-slate-500" title={r.deduction_reason}>{r.deduction_reason}</span>}
                             {r.deduction_waived && <span className="block text-[10px] font-bold text-emerald-700" title={r.waive_reason ?? ''}>مُلغى: {r.waive_reason}</span>}
-                            {!frozen && <button type="button" className="mt-0.5 text-[10px] font-bold text-brand-700 hover:underline" onClick={() => void toggleWaive(r)} data-testid={`ops-waive-${r.employee_number}-${r.work_date}`}>{r.deduction_waived ? 'إعادة الاستقطاع' : 'إلغاء بسبب'}</button>}
+                            {/* 00218: الإعفاء من الاستقطاع ليس لغرفة العمليات (وحدة معاون المدير المفوض) */}
                           </div>
                         ) : r.deduction_reason ? (
                           // 00202: يوم غير مدفوع (غياب/إجازة غير مدفوعة) في نموذج الأيام المستحقة — لا استقطاع، يُعرض للعلم فقط
@@ -268,7 +264,7 @@ export default function OpsAttendancePage() {
                       <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
                       <td className="p-2">
                         <div className="flex justify-center gap-1">
-                          <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
+                          <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل محصور بالبصمة الناقصة أو يوم بلا بصمات' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-40" onClick={() => setDeductFor(r)} disabled={frozen} data-testid={`ops-deduct-${r.employee_number}`}>استقطاع</button>
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>سجل</button>
                         </div>

@@ -244,24 +244,22 @@ describe('00202 — معادلة الصفحة تطابق محرّك التصدي
   })
 })
 
-describe('00216 — بنك الساعات الشهري في محرر القاعدة', () => {
-  it('اختيار الطريقة يُظهر السقف وأيام الإجازة الشهرية والمعادلة الشهرية بمثال حي، والحفظ يرسلها', async () => {
+describe('00216/00218 — بنك الساعات في محرر القاعدة', () => {
+  it('اختيار الطريقة يُظهر السقف والمعادلة اليومية بمثال حي، والحفظ يرسلها', async () => {
     render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('rule-new'))
     expect(screen.queryByTestId('r-hb-cap')).toBeNull()
     fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'hour_bank' } })
     expect(screen.getByTestId('r-hb-cap')).toHaveValue(2)
-    expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('المطلوب شهرياً = (أيام الشهر − 2.50 يوم إجازة شهرية [30 سنوية ÷ 12])')
+    expect(screen.queryByTestId('r-hb-off')).toBeNull()
+    expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('لكل يوم على حدة (لا تعويض بين الأيام)')
     expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('بسقف 2 يوم/شهر')
-    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('لا استقطاع · رصيد إجازة 2 يوم (سقف)')
-    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('ومن حضر 20 يوماً بنقص 30 د يومياً ⇒ عجز 10س 0د')
-    expect(screen.getByTestId('r-formula')).toHaveTextContent('لا استقطاع يومي — تُحتسب كل دقائق النقص')
+    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('تأخر 30 د وخرج بالنهاية ⇒ نقص 30 د · تأخر 30 د وبقي 30 د ⇒ نقص 0 · بقي 30 د بلا تأخير ⇒ فائض 30 د')
+    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('ومن خرج مبكراً 30 د في 20 يوماً ⇒ استقطاع 10س 0د')
     fireEvent.change(screen.getByTestId('r-hb-cap'), { target: { value: '1' } })
-    fireEvent.change(screen.getByTestId('r-hb-off'), { target: { value: '5' } })
-    expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('(أيام الشهر − 5.00 يوم إجازة شهرية)')
     fireEvent.change(screen.getByTestId('rule-name'), { target: { value: 'بنك' } })
     fireEvent.click(screen.getByTestId('rule-save'))
     await waitFor(() => expect(h.saveRule).toHaveBeenCalled())
-    expect(h.saveRule.mock.calls[0]?.[0].settings).toMatchObject({ shortfall_method: 'hour_bank', hour_bank_credit_cap_days: 1, hour_bank_off_days_per_month: 5 })
+    expect(h.saveRule.mock.calls[0]?.[0].settings).toMatchObject({ shortfall_method: 'hour_bank', hour_bank_credit_cap_days: 1 })
   })
 })

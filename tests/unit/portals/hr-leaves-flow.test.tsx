@@ -300,7 +300,7 @@ describe('بوابة HR — الإجازات والزمنيات', () => {
 })
 
 describe('غرفة العمليات — الاستقطاع المقترح', () => {
-  it('أعمدة النقص/الإضافي/المقترح + ملخص + إلغاء بسبب إلزامي', async () => {
+  it('أعمدة النقص/الإضافي/المقترح + ملخص؛ ولا إعفاء من غرفة العمليات (00218)', async () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.getByTestId('ops-shortfall-E2-2026-09-02')).toHaveTextContent('30د')
     expect(screen.getByTestId('ops-proposed-E2-2026-09-02')).toHaveTextContent('1س 0د')
@@ -311,14 +311,10 @@ describe('غرفة العمليات — الاستقطاع المقترح', () =
     expect(screen.getByTestId('ops-unpaid-E2-2026-09-05')).toHaveTextContent('غياب بلا إجازة معتمدة — يوم غير مدفوع (لا يدخل الراتب)')
     expect(screen.getByTestId('ops-proposed-count')).toHaveTextContent('1')
     expect(screen.getByTestId('ops-proposed-days')).toHaveTextContent('0')
-    const p = vi.spyOn(window, 'prompt').mockReturnValue('')
-    fireEvent.click(screen.getByTestId('ops-waive-E2-2026-09-02'))
+    // 00218: الإعفاء ليس من صلاحية غرفة العمليات (يُحال لمعاون المدير المفوض) — لا زر إعفاء ولا استدعاء
+    expect(screen.queryByTestId('ops-waive-E2-2026-09-02')).toBeNull()
+    expect(screen.queryByTestId('ops-waive-E2-2026-09-03')).toBeNull()
     expect(h.waive).not.toHaveBeenCalled()
-    p.mockReturnValue('ظرف طارئ موثّق')
-    fireEvent.click(screen.getByTestId('ops-waive-E2-2026-09-02'))
-    await waitFor(() => expect(h.waive).toHaveBeenCalledWith({ employeeId: 'e2', date: '2026-09-02', waive: true, reason: 'ظرف طارئ موثّق' }))
-    fireEvent.click(screen.getByTestId('ops-waive-E2-2026-09-03'))
-    await waitFor(() => expect(h.waive).toHaveBeenCalledWith({ employeeId: 'e2', date: '2026-09-03', waive: false, reason: 'ظرف طارئ موثّق' }))
   })
 })
 

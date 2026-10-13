@@ -264,8 +264,8 @@ export interface AttendanceGridRow {
 /** 00216 — ميزان بنك الساعات لموظف في شهر (ops_hour_bank_month) */
 export interface HourBankRow {
   employee_id: string; employee_number: string | null; full_name: string | null; department_name: string | null
-  enabled: boolean; shift_minutes: number; off_days: number; covered_days: number
-  days_counted: number; days_absent: number; days_leave_paid: number; days_leave_unpaid: number; required_days: number
+  enabled: boolean; shift_minutes: number; covered_days: number
+  days_counted: number; days_absent: number; days_leave_paid: number; days_leave_unpaid: number; days_short: number; required_days: number
   required_minutes: number; credited_minutes: number; net_minutes: number; deduction_minutes: number; surplus_minutes: number
   credit_days: number; credit_cap_days: number; credit_capped: boolean; grace_minutes: number
 }
@@ -647,9 +647,8 @@ export interface HrPolicy {
   shortfall_method?: ShortfallMethod
   shortfall_multiplier?: number
   shortfall_block_minutes?: number
-  /** 00216: بنك الساعات — سقف تحويل الفائض إلى رصيد إجازة (يوم/شهر)، وأيام الإجازة الشهرية المطروحة من المطلوب (null ⇒ السنوية ÷ 12) */
+  /** 00216/00218: بنك الساعات — سقف تحويل الفائض اليومي (بقاء بعد النهاية + مجيء مبكر) إلى رصيد إجازة (يوم/شهر) */
   hour_bank_credit_cap_days?: number
-  hour_bank_off_days_per_month?: number | null
   /** 00193 — لا تصدير للمالية قبل اعتماد حضورية الشهر في غرفة العمليات */
   require_attendance_confirmation?: boolean
 }
@@ -770,7 +769,7 @@ export interface MyEmployee {
 
 /** 00195 — وحدة الاستقطاعات التلقائية (التطوير المركزية) */
 export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks' | 'hour_bank'
-export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'hour_bank_credit_cap_days' | 'hour_bank_off_days_per_month' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
+export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'hour_bank_credit_cap_days' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
 export type DeductionTargetType = 'branch' | 'department' | 'employee'
 export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
 export interface DeductionRule {

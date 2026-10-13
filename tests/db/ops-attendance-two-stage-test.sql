@@ -103,7 +103,8 @@ select auth.set_test_user('fc000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.ts_m')::date; ok boolean; e uuid := 'fc000000-0000-0000-0000-0000000000e6'; cf jsonb; n int; before_status text; begin
   ok := false; begin perform public.ops_attendance_edit(e, m + 3, ((m + 3)::text || ' 08:00')::timestamp at time zone 'Asia/Baghdad', ((m + 3)::text || ' 16:00')::timestamp at time zone 'Asia/Baghdad', 'present', 'تصحيح'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
   assert ok, 'S3 edit blocked';
-  ok := false; begin perform public.ops_deduction_waive(e, m + 2, true, 'سبب'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
+  -- 00218: الإعفاء لم يعد من صلاحية غرفة العمليات أصلاً
+  ok := false; begin perform public.ops_deduction_waive(e, m + 2, true, 'سبب'); exception when others then ok := sqlerrm = 'HR_WAIVE_NOT_ALLOWED'; end;
   assert ok, 'S3 waive blocked';
   ok := false; begin perform public.ops_deduction_add(e, m, 1000, 0, 'سبب'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
   assert ok, 'S3 deduction blocked';
@@ -135,7 +136,9 @@ do $$ declare m date := current_setting('test.ts_m')::date; e uuid := 'fc000000-
   assert exists (select 1 from public.notifications where user_id = 'fc000000-0000-0000-0000-000000000008' and title like 'إعادة فتح حضورية%' and body like '%تصحيح بصمة%'), 'S4 IT notified';
   assert exists (select 1 from public.hr_attendance_audit where action = 'reopen' and work_date = m and reason like 'تصحيح%'), 'S4 reopen audited';
   perform public.ops_attendance_edit(e, m + 3, ((m + 3)::text || ' 08:00')::timestamp at time zone 'Asia/Baghdad', ((m + 3)::text || ' 16:00')::timestamp at time zone 'Asia/Baghdad', 'present', 'عطل جهاز عند الخروج');
+  perform auth.set_test_user('fc000000-0000-0000-0000-000000000004');   -- 00218: الإعفاء ليس لغرفة العمليات
   perform public.ops_deduction_waive(e, m + 2, true, 'حاجز أمني');
+  perform auth.set_test_user('fc000000-0000-0000-0000-000000000001');
   begin perform public.ops_attendance_reopen(m, 'مرة ثانية'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
   assert ok, 'S4 cannot reopen an already-open month';
   cf := public.ops_attendance_confirm(m);

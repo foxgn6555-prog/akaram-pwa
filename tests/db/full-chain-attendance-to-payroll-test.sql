@@ -105,7 +105,11 @@ end $$;
 -- ═══ S4 · غرفة العمليات: إعفاء استقطاع يوم التأخير بسبب + استقطاع يدوي 5,000 (كلاهما في سجل التدقيق) ═══
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fx_m')::date; a record; begin
+  -- 00218: غرفة العمليات لا تُعفي (الإعفاء لمعاون المدير المفوض)؛ هنا يعفي مدير النظام لاستكمال السلسلة
+  begin perform public.ops_deduction_waive('fe000000-0000-0000-0000-0000000000e6', m + 2, true, 'x'); raise exception 'should fail'; exception when others then assert sqlerrm = 'HR_WAIVE_NOT_ALLOWED', sqlerrm; end;
+  perform auth.set_test_user('fe000000-0000-0000-0000-000000000004');
   perform public.ops_deduction_waive('fe000000-0000-0000-0000-0000000000e6', m + 2, true, 'تأخير بسبب حاجز أمني');
+  perform auth.set_test_user('fe000000-0000-0000-0000-000000000001');
   select * into a from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m + 2;
   assert a.deduction_waived and a.waive_reason like 'تأخير%', 'S4 waived';
   perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 5000, 0, 'تلف عهدة');

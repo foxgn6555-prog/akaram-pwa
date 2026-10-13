@@ -61,7 +61,7 @@ import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 import { buildPayrollWorkbook } from '@features/hr/lib/payrollExcel'
 
 const emp = { id: 'e1', employee_number: 'E100', full_name: 'أحمد علي حسن محمد', job_title: 'سائق', department_name: 'النقل', branch_name: 'فرع بغداد', shift_name: 'صباحي', contract_type: 'monthly', biometric_pin: '77', employment_status: 'active', salary_status: 'pending', department_id: 'd1', branch_id: 'b1', mother_name: 'فاطمة', gender: 'male', hire_date: '2026-01-01' }
-const day = { id: 'r1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'فرع بغداد', work_date: '2026-09-05', shift_name: 'صباحي', expected_in: '2026-09-05T05:00:00Z', expected_out: '2026-09-05T13:00:00Z', check_in: '2026-09-05T05:40:00Z', check_out: '2026-09-05T13:00:00Z', late_minutes: 25, early_minutes: 0, worked_minutes: 440, is_rest_day: false, status: 'late', source: 'auto', edit_reason: null }
+const day = { id: 'r1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'فرع بغداد', work_date: '2026-09-05', shift_name: 'صباحي', expected_in: '2026-09-05T05:00:00Z', expected_out: '2026-09-05T13:00:00Z', check_in: '2026-09-05T05:40:00Z', check_out: null, late_minutes: 25, early_minutes: 0, worked_minutes: 0, is_rest_day: false, status: 'incomplete', source: 'auto', edit_reason: null }
 const sheetRow = { row_id: 'pr1', export_id: 'x1', export_version: 1, export_status: 'exported', exported_at: '2026-10-01T08:00:00Z', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد علي', department_name: 'النقل', branch_name: 'بغداد', job_title: 'سائق', contract_type: 'monthly', pay_type: 'monthly', working_days: 26, days_present: 24, days_late: 3, days_absent: 1, days_incomplete: 0, days_leave: 1, late_minutes: 70, early_minutes: 0, ops_deduction_amount: 25000, ops_deduction_days: 0, ops_deduction_reasons: 'تأخر متكرر', base_salary: 800000, daily_rate: 0, allowances_total: 100000, fixed_deductions_total: 20000, proposed_net: 855000, final_net: null, finance_note: null }
 
 beforeEach(() => { h.employees = [emp]; h.attendance = [day]; h.exports = []; h.deductions = []; h.sheet = [sheetRow]; h.notices = []; h.profile = null; h.unmatched = []; h.exportStatus = null; h.monthDeductions = []; h.conf = null; h.grid = []; h.reconcile = []; vi.clearAllMocks() })
@@ -140,7 +140,7 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
   it('تعرض الصف بدقائق التأخير والحالة بلا أي زر تعديل، وتمرر الفلاتر إلى RPC', () => {
     render(<MemoryRouter><AttendanceLog /></MemoryRouter>)
     const row = screen.getByTestId('att-row-E100-2026-09-05')
-    expect(row).toHaveTextContent('25د'); expect(within(row).getByTestId('att-status')).toHaveAttribute('data-status', 'late')
+    expect(row).toHaveTextContent('25د'); expect(within(row).getByTestId('att-status')).toHaveAttribute('data-status', 'incomplete')
     expect(within(row).queryByText('تعديل')).toBeNull()
     fireEvent.change(screen.getByTestId('att-dept'), { target: { value: 'd2' } })
     expect(h.attendanceFilters).toMatchObject({ departmentId: 'd2' })
@@ -208,6 +208,13 @@ describe('غرفة العمليات — الحضوريات', () => {
     fireEvent.change(screen.getByTestId('e-reason'), { target: { value: 'بصمة الخروج لم تُسجَّل' } })
     fireEvent.click(screen.getByTestId('e-save'))
     await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ checkIn: '2026-09-05T05:40:00.000Z', checkOut: '2026-09-05T12:52:00.000Z' })))
+  })
+  it('00218: يوم مكتمل البصمتين (حاضر/متأخر) لا تعدّله غرفة العمليات — التعديل للبصمات الناقصة فقط', () => {
+    h.attendance = [{ ...day, id: 'r2', work_date: '2026-09-06', check_out: '2026-09-06T13:00:00Z', status: 'late', worked_minutes: 440 }, day]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    expect(screen.getByTestId('ops-edit-E100-2026-09-06')).toBeDisabled()
+    expect(screen.getByTestId('ops-edit-E100-2026-09-05')).not.toBeDisabled()
+    expect(screen.queryByTestId('ops-waive-E100-2026-09-06')).toBeNull()
   })
   it('00178: الجدول يعرض الأوقات بأرقام إنكليزية (لا ٠-٩)', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)

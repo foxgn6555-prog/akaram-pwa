@@ -179,25 +179,25 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
 })
 
 describe('00245 — ميزان بنك الساعات في الحضوريات', () => {
-  const hb = (o: Record<string, unknown>) => ({ employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', enabled: true, shift_minutes: 480, off_days: 5, covered_days: 30, days_counted: 30, days_absent: 0, days_leave_paid: 0, days_leave_unpaid: 0, required_days: 25, required_minutes: 12000, credited_minutes: 14400, net_minutes: 2400, deduction_minutes: 0, surplus_minutes: 2400, credit_days: 2, credit_cap_days: 2, credit_capped: true, grace_minutes: 10, ...o })
+  const hb = (o: Record<string, unknown>) => ({ employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', enabled: true, shift_minutes: 480, covered_days: 30, days_counted: 30, days_absent: 0, days_leave_paid: 0, days_leave_unpaid: 0, days_short: 0, required_days: 30, required_minutes: 14400, credited_minutes: 15600, net_minutes: 1200, deduction_minutes: 0, surplus_minutes: 1200, credit_days: 2, credit_cap_days: 2, credit_capped: true, grace_minutes: 10, ...o })
   it('بلا تفعيل ⇒ لا لوحة وتبقى بطاقات الاستقطاع المقترح', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.queryByTestId('ops-hour-bank')).toBeNull()
     expect(screen.getByTestId('ops-proposed-summary')).toBeInTheDocument()
   })
   it('مع التفعيل: تحل اللوحة محل الاستقطاع المقترح في عرض الشهر، وتُظهر الفائض/العجز/الغياب خارج البنك والفلاتر', () => {
-    h.hourBank = [hb({}), hb({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', days_counted: 20, days_absent: 10, required_days: 20, required_minutes: 9600, credited_minutes: 8400, net_minutes: -1200, deduction_minutes: 1200, surplus_minutes: 0, credit_days: 0, credit_capped: false })]
+    h.hourBank = [hb({}), hb({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', days_counted: 20, days_absent: 10, days_short: 20, required_days: 20, required_minutes: 9600, credited_minutes: 8400, net_minutes: -1200, deduction_minutes: 1200, surplus_minutes: 0, credit_days: 0, credit_capped: false })]
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('mode-month'))
     expect(screen.queryByTestId('ops-proposed-summary')).toBeNull()
     expect(screen.getByTestId('ops-proposed-replaced')).toHaveTextContent('يُصفّى شهرياً')
     const panel = screen.getByTestId('ops-hour-bank')
-    expect(within(panel).getByTestId('ops-hb-count')).toHaveTextContent('2 موظفاً · السماحية 10 د · الإجازة الشهرية 5.00 يوم')
-    expect(within(panel).getByTestId('ops-hb-required')).toHaveTextContent('360س 0د')
+    expect(within(panel).getByTestId('ops-hb-count')).toHaveTextContent('2 موظفاً · السماحية 10 د · لا تعويض بين الأيام')
+    expect(within(panel).getByTestId('ops-hb-required')).toHaveTextContent('400س 0د')
     expect(within(panel).getByTestId('ops-hb-deficit')).toHaveTextContent('1')
-    expect(within(panel).getByTestId('ops-hb-net-E100')).toHaveTextContent('+40س 0د')
+    expect(within(panel).getByTestId('ops-hb-surplus-E100')).toHaveTextContent('+20س 0د'); expect(within(panel).getByTestId('ops-hb-short-E100')).toHaveTextContent('0')
     expect(within(panel).getByTestId('ops-hb-result-E100')).toHaveTextContent('رصيد إجازة 2 يوم (سقف 2)')
-    expect(within(panel).getByTestId('ops-hb-net-E200')).toHaveTextContent('−20س 0د')
+    expect(within(panel).getByTestId('ops-hb-short-E200')).toHaveTextContent('−20س 0د')
     expect(within(panel).getByTestId('ops-hb-result-E200')).toHaveTextContent('يُستقطع 20س 0د'); expect(within(panel).getByTestId('ops-hb-result-E200')).toHaveTextContent('+ 10 يوم غياب خارج البنك')
     fireEvent.click(within(panel).getByTestId('ops-hb-filter-deficit'))
     expect(within(panel).queryByTestId('ops-hb-row-E100')).toBeNull(); expect(within(panel).getByTestId('ops-hb-row-E200')).toBeInTheDocument()
