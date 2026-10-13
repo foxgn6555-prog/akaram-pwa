@@ -5,6 +5,7 @@ import { Archive, LayoutTemplate } from 'lucide-react'
 import { Link } from 'react-router'
 import { MODE_LABEL, PERIOD_LABEL, SECTOR_LABEL, type MediaMode, type PeriodType, type SectorParent } from '@features/media/constants'
 import { useDesigns, useSubmissions } from '@features/media/hooks'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (x: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
@@ -16,16 +17,7 @@ export default function MediaArchivePage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-slate-800 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <Archive size={17} />
-          المحتوى المؤرشف
-        </p>
-        <h1 className="mt-2 text-2xl font-black">أرشيف الإعلام</h1>
-        <p className="mt-1 text-sm text-slate-300">
-          التذكرات المؤرشفة بعد المتابعة + التصاميم المكتملة لكل القواطع.
-        </p>
-      </header>
+      <ExecPageHeader icon="archive-box" iconNode={<Archive size={22} className="text-[#f3d06a]" />} title="أرشيف الإعلام" subtitle={<><span className="font-bold text-[#f3d06a]">المحتوى المؤرشف</span> · التذكرات المؤرشفة بعد المتابعة + التصاميم المكتملة لكل القواطع.</>} />
 
       <section>
         <h2 className="mb-3 text-sm font-black">التصاميم المكتملة ({completed.length})</h2>

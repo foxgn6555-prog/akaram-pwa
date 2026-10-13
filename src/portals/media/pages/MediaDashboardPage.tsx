@@ -35,6 +35,7 @@ import {
 } from 'recharts'
 import { useDesigns, useMediaTemplates, useSubmissions } from '@features/media/hooks'
 import { baghdadDay, designGroupLabel, ticketDay } from '@features/media/constants'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const PIE_COLORS = ['#0e7490', '#7c3aed', '#059669', '#db2777', '#d97706', '#334155']
 
@@ -202,17 +203,7 @@ export default function MediaDashboardPage() {
 
   return (
     <section className="space-y-6" dir="rtl">
-      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-cyan-950 to-blue-900 p-7 text-white shadow-xl sm:p-8">
-        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-cyan-100">
-          <Newspaper size={15} />
-          المركز الإعلامي — لوحة القيادة
-        </span>
-        <h1 className="mt-4 text-3xl font-black">بوابة الإعلام</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-7 text-cyan-100">
-          نظرة حية على القاطعين والفولدرات والتصاميم والقوالب والأرشيف: المؤشرات، النشاط اليومي،
-          وتوزيع الأعمال.
-        </p>
-      </header>
+      <ExecPageHeader icon="home" iconNode={<Newspaper size={22} className="text-[#f3d06a]" />} title="بوابة الإعلام" subtitle={<><span className="font-bold text-[#f3d06a]">المركز الإعلامي — لوحة القيادة</span> · نظرة حية على القاطعين والفولدرات والتصاميم والقوالب والأرشيف: المؤشرات، النشاط اليومي، وتوزيع الأعمال.</>} />
 
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">

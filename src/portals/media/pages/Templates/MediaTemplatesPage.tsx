@@ -28,6 +28,7 @@ import { DialogShell } from '../Tickets/MediaTicketsPage'
 import { PickCoverButton } from '../../components/CoverLibrary'
 import DesignCover from '../../components/DesignCover'
 import { isBuiltinCover } from '@features/media/lib/cover-templates'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function MediaTemplatesPage() {
   const [editorFor, setEditorFor] = useState<MediaDesignTemplate | 'new' | null>(null)
@@ -36,24 +37,8 @@ export default function MediaTemplatesPage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-fuchsia-950 to-rose-900 p-7 text-white shadow-xl">
-        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/85">
-          <Palette size={15} />
-          الهوية البصرية
-        </span>
-        <h1 className="mt-4 text-2xl font-black sm:text-3xl">قوالب التصميم</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-7 text-white/75">
-          قالب جاهز = غلاف الورقة الأولى + العنوان والدورة وأنواع العمل الافتراضية؛ يُطبق عند إنشاء
-          تصميم جديد من وحدة التذاكر.
-        </p>
-        <button
-          onClick={() => setEditorFor('new')}
-          className="mt-4 flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-fuchsia-900 shadow hover:bg-fuchsia-50"
-        >
-          <Plus size={16} />
-          قالب جديد
-        </button>
-      </header>
+      <ExecPageHeader icon="photo" iconNode={<Palette size={22} className="text-[#f3d06a]" />} title="قوالب التصميم" subtitle={<><span className="font-bold text-[#f3d06a]">الهوية البصرية</span> · قالب جاهز = غلاف الورقة الأولى + العنوان والدورة وأنواع العمل الافتراضية؛ يُطبق عند إنشاء تصميم جديد من وحدة التذاكر.</>}
+        actions={<button onClick={() => setEditorFor('new')} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"><Plus size={15} />قالب جديد</button>} />
 
       {templates.isLoading ? (
         <LoadingSpinner label="جارٍ تحميل القوالب…" />

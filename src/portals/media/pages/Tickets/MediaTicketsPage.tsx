@@ -36,6 +36,7 @@ import PhotoGrid from '../../components/PhotoGrid'
 import { DayFilter } from '../../components/DayFilter'
 import { baghdadDay, findDraftForDay, ticketDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (x: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
@@ -74,16 +75,7 @@ export default function MediaTicketsPage({ sector }: { sector: SectorParent }) {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-cyan-900 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <Ticket size={17} />
-          تذكرات الصور الواردة من مسؤولي الأقسام
-        </p>
-        <h1 className="mt-2 text-2xl font-black">{SECTOR_LABEL[sector]} — التذكرات</h1>
-        <p className="mt-1 text-sm text-cyan-100">
-          افتح التذكرة، راجع الصور حسب النوع، عدّل المعلومات، ثم حدّد الصور وأرسلها للتصميم.
-        </p>
-      </header>
+      <ExecPageHeader icon="clipboard" iconNode={<Ticket size={22} className="text-[#f3d06a]" />} title={`${SECTOR_LABEL[sector]} — التذكرات`} subtitle={<><span className="font-bold text-[#f3d06a]">تذكرات الصور الواردة من مسؤولي الأقسام</span> · افتح التذكرة، راجع الصور حسب النوع، عدّل المعلومات، ثم حدّد الصور وأرسلها للتصميم.</>} />
 
       <div className="space-y-3 rounded-2xl border bg-white p-4">
         <div className="flex flex-wrap items-center gap-3">

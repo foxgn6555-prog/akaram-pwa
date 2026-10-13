@@ -56,6 +56,7 @@ import DesignReportView, {
   type ReportStyle,
   type ReportSummary,
 } from './DesignReportView'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function MediaDesignsPage() {
   const [params, setParams] = useSearchParams()
@@ -67,27 +68,18 @@ export default function MediaDesignsPage() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-fuchsia-900 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <Palette size={17} />
-          فولدر التصاميم — التصميم مرتين شهرياً (1–14 / 15–آخر) أو شهري كامل
-        </p>
-        <h1 className="mt-2 text-2xl font-black">التصاميم</h1>
-        <p className="mt-1 text-sm text-fuchsia-100">
-          الغلاف يُرفع يدوياً (الورقة الأولى) — والتقرير ولوحات الصور تُعبأ من النظام تلقائياً (الورقة الثانية).
-        </p>
-      </header>
+      <ExecPageHeader icon="photo" iconNode={<Palette size={22} className="text-[#f3d06a]" />} title="التصاميم" subtitle={<><span className="font-bold text-[#f3d06a]">فولدر التصاميم — التصميم مرتين شهرياً (1–14 / 15–آخر) أو شهري كامل</span> · الغلاف يُرفع يدوياً (الورقة الأولى) — والتقرير ولوحات الصور تُعبأ من النظام تلقائياً (الورقة الثانية).</>} />
 
       {/* 00200: ترشيح بالقاطع والشفت */}
       <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="designs-filters">
         {([['', 'كل القواطع'], ['karrada', SECTOR_LABEL.karrada], ['zaafaraniya', SECTOR_LABEL.zaafaraniya]] as Array<['' | SectorParent, string]>).map(([v, l]) => (
-          <button key={`s-${v}`} type="button" data-testid={`filter-sector-${v || 'all'}`} onClick={() => setSectorFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${sectorFilter === v ? 'border-fuchsia-700 bg-fuchsia-700 text-white' : 'bg-white text-slate-700'}`}>
+          <button key={`s-${v}`} type="button" data-testid={`filter-sector-${v || 'all'}`} onClick={() => setSectorFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${sectorFilter === v ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'border-slate-200 bg-white text-slate-700'}`}>
             {l}
           </button>
         ))}
         <span className="mx-1 h-6 w-px bg-slate-300" />
         {([['', 'كل الشفتات'], ['morning', SHIFT_LABEL.morning], ['night', SHIFT_LABEL.night]] as Array<['' | CoverShift, string]>).map(([v, l]) => (
-          <button key={`sh-${v}`} type="button" data-testid={`filter-shift-${v || 'all'}`} onClick={() => setShiftFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${shiftFilter === v ? 'border-slate-900 bg-slate-900 text-white' : 'bg-white text-slate-700'}`}>
+          <button key={`sh-${v}`} type="button" data-testid={`filter-shift-${v || 'all'}`} onClick={() => setShiftFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${shiftFilter === v ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'border-slate-200 bg-white text-slate-700'}`}>
             {l}
           </button>
         ))}
