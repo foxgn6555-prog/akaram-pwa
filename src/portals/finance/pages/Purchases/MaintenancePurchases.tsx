@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { CalendarRange, Download, Search, ShoppingBag, Wallet } from 'lucide-react'
+import { CalendarRange, Download, Search, Wallet } from 'lucide-react'
 import { useMaintenancePurchasesFinance } from '@features/vehicle-operations/hooks'
 import { money, partCategoryLabel } from '@features/vehicle-operations/purchase-schemas'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const dt = (x: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x))
@@ -45,24 +46,10 @@ export default function FinanceMaintenancePurchases() {
 
   return (
     <section dir="rtl" className="space-y-5">
-      <header className="rounded-3xl bg-gradient-to-l from-slate-950 to-emerald-800 p-6 text-white">
-        <p className="flex items-center gap-2 text-xs">
-          <ShoppingBag size={17} />
-          تصل تلقائياً من بوابة الصيانة عند تسجيل أي أمر شراء
-        </p>
-        <h1 className="mt-2 text-2xl font-black">مشتريات الصيانة</h1>
-        <p className="mt-1 text-sm text-emerald-100">
-          سجل مصاريف قطع الصيانة بالدينار العراقي — إجمالي الفترة:{' '}
-          <b className="text-xl">{money(summary.total)} د.ع</b>
-        </p>
-      </header>
+      <ExecPageHeader icon="shopping-cart" title="مشتريات الصيانة" subtitle="تصل تلقائياً من بوابة الصيانة عند تسجيل أي أمر شراء — سجل مصاريف قطع الصيانة بالدينار العراقي"
+        stats={[{ label: 'إجمالي المبالغ (د.ع)', value: money(summary.total), tone: 'gold' }, { label: 'عدد الأصناف', value: Object.keys(summary.byCategory).length, tone: 'plain' }]} />
 
       <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <div className="rounded-2xl border bg-white p-4">
-          <p className="text-[11px] font-bold text-slate-500">إجمالي المبالغ</p>
-          <b className="mt-1 block text-xl text-emerald-800">{money(summary.total)}</b>
-          <p className="text-[10px] text-slate-400">دينار عراقي</p>
-        </div>
         {Object.entries(summary.byCategory).map(([cat, amount]) => (
           <div key={cat} className="rounded-2xl border bg-white p-4">
             <p className="text-[11px] font-bold text-slate-500">{partCategoryLabel(cat)}</p>

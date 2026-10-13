@@ -11,10 +11,11 @@ import type { ContractorWageMode, ContractorWageRow } from '@sdk/contractors.sdk
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
-import { MonthPicker, StatCard } from '@portals/hr/components/hr-ui'
+import { MonthPicker } from '@portals/hr/components/hr-ui'
 import { field, fmtMoney, monthStart } from '@portals/hr/components/hr-format'
 import { buildExcelReport } from '@lib/export/excel-report'
 import clsx from 'clsx'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const MODE_LABEL: Record<ContractorWageMode, string> = { monthly: 'شهري', daily: 'يومي' }
 
@@ -66,24 +67,18 @@ export default function ContractorWagesPage() {
 
   return (
     <div className="space-y-4" data-testid="contractor-wages-page">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-black text-slate-800">أجور عمال المتعهدين</h1>
-          <p className="text-xs text-slate-500">الحضور من تسجيل المتعهد بعد إثبات تواجده في الموقع · الأجر يُحدَّد هنا فقط (شهري ثابت أو يومي × أيام الحضور) ويُسجَّل كل تعديل في سجل التدقيق</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <ExecPageHeader icon="users" title="أجور عمال المتعهدين" stats={[
+        { label: 'العمال', value: totals.workers, tone: 'plain', testId: 'cw-stat-workers' },
+        { label: 'أيام الحضور', value: totals.present, tone: 'green' },
+        { label: totals.missing ? 'بلا أجر محدد — حدّد الأجر حتى يُحتسب المستحق' : 'بلا أجر محدد', value: totals.missing, tone: totals.missing ? 'gold' : 'plain', testId: 'cw-stat-missing' },
+        { label: 'إجمالي المستحق (د.ع)', value: fmtMoney(totals.payable), tone: 'gold', testId: 'cw-stat-total' },
+      ]} subtitle={<>الحضور من تسجيل المتعهد بعد إثبات تواجده في الموقع · الأجر يُحدَّد هنا فقط (شهري ثابت أو يومي × أيام الحضور) ويُسجَّل كل تعديل في سجل التدقيق</>} actions={<div className="flex flex-wrap items-center gap-2">
           <MonthPicker value={month} onChange={setMonth} testId="cw-month" />
           <Button variant="secondary" size="sm" disabled={copyPrev.isPending} onClick={() => { if (window.confirm('نسخ أجور الشهر السابق لكل عامل لا أجر له في هذا الشهر؟')) copyPrev.mutate({ month }) }} data-testid="cw-copy-prev">نسخ أجور الشهر السابق</Button>
           <Button variant="secondary" size="sm" disabled={exporting || rows.length === 0} onClick={async () => { setExporting(true); try { await downloadContractorWagesExcel(month, rows) } finally { setExporting(false) } }} data-testid="cw-excel">Excel</Button>
-        </div>
-      </header>
+        </div>} />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatCard title="العمال" value={totals.workers} testId="cw-stat-workers" />
-        <StatCard title="أيام الحضور" value={totals.present} tone="emerald" />
-        <StatCard title="بلا أجر محدد" value={totals.missing} tone={totals.missing ? 'amber' : 'slate'} testId="cw-stat-missing" hint={totals.missing ? 'حدّد الأجر حتى يُحتسب المستحق' : undefined} />
-        <StatCard title="إجمالي المستحق" value={fmtMoney(totals.payable)} tone="sky" testId="cw-stat-total" />
-      </div>
+      
 
       {isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا عمال متعهدين في هذا الشهر" hint="يظهر هنا كل عامل نشط أو له حضور مسجَّل خلال الشهر" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">

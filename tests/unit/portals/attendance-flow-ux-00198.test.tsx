@@ -193,7 +193,7 @@ describe('00199 — المالية: جدول كشف نظيف', () => {
     expect(screen.getByTestId('ps-grand-total')).toHaveTextContent('1 موظفاً'); expect(screen.getByTestId('ps-grand-total')).toHaveTextContent('+ 1 بلا ملف راتب خارج الجدول')
     expect(screen.getByTestId('ps-grand-total')).not.toHaveTextContent('سلف 0')
     fireEvent.click(screen.getByTestId('ps-missing-define'))
-    expect(screen.getByTestId('ftab-profiles')).toHaveClass('bg-white')
+    expect(screen.getByTestId('ftab-profiles')).toHaveAttribute('aria-selected', 'true')
   })
   it('ترشيح «بلا ملف راتب» صراحةً يعرضهم في الجدول نفسه (سلوك 00194 محفوظ) ويخفي البطاقة', () => {
     h.sheet = [base, missing]; h.reconcile = [rcRow]

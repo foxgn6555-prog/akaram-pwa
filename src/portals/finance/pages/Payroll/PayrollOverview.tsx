@@ -19,6 +19,7 @@ import clsx from 'clsx'
 import { Field, MonthPicker, StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, monthStart } from '@portals/hr/components/hr-format'
 import { STATUS_STYLES } from '@portals/hr/components/hr-format'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'sheet' | 'profiles' | 'notices'
 
@@ -27,10 +28,10 @@ export default function PayrollOverview() {
   const { data: notices = [] } = useFinanceNotices()
   return (
     <div className="space-y-4" data-testid="finance-payroll">
-      <header><h1 className="text-xl font-black">الرواتب</h1><p className="text-xs text-slate-500">بيانات الراتب تُدخل وتُعدَّل هنا حصراً — لا تظهر لأي بوابة أخرى</p></header>
-      <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
+      <ExecPageHeader icon="wallet" title="الرواتب" subtitle="بيانات الراتب تُدخل وتُعدَّل هنا حصراً — لا تظهر لأي بوابة أخرى" />
+      <nav className="flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-1 text-xs font-black shadow-sm" role="tablist">
         {([['sheet', 'كشف الشهر'], ['profiles', 'ملفات الرواتب'], ['notices', `إشعارات الموارد البشرية${notices.length ? ` (${notices.length})` : ''}`]] as const).map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} className={clsx('rounded-lg px-3 py-1.5', tab === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`ftab-${k}`}>{l}</button>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={clsx('h-9 rounded-xl px-3', tab === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600 hover:bg-slate-100')} data-testid={`ftab-${k}`}>{l}</button>
         ))}
       </nav>
       {tab === 'sheet' && <SheetTab onDefine={() => setTab('profiles')} />}

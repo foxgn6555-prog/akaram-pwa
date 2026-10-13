@@ -7,14 +7,14 @@
  */
 import { useState } from 'react'
 import clsx from 'clsx'
-import { FileSpreadsheet, HandCoins, Wallet, X } from 'lucide-react'
+import { FileSpreadsheet, HandCoins, X } from 'lucide-react'
 import { useAdvance, useAdvancesList, useAdvancesSummary, useCancelAdvance, useDeliverAdvance, useSettleAdvanceCash } from '@features/advances/hooks'
 import { ADVANCE_STATUS_LABEL, EVENT_LABEL, REPAYMENT_METHOD_LABEL, type Advance, type AdvanceStatus } from '@sdk/advances.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
-import { StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMoney } from '@portals/hr/components/hr-format'
 import { buildExcelReport } from '@lib/export/excel-report'
 import { fmtDT, methodDetail } from '@features/advances/format'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'approved' | 'delivered' | 'all'
 const STATUS_TONE: Record<AdvanceStatus, string> = {
@@ -48,22 +48,15 @@ export default function FinanceAdvancesPage() {
   const s = summary.data
   return (
     <div className="space-y-4 pb-6" data-testid="fin-advances">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-black"><Wallet size={18} className="inline" /> السُّلَف</h1>
-          <p className="text-xs text-slate-600">السلف التي اكتملت موافقاتها تصل هنا للتسليم. التسليم يُخصم من القاصة، وتُستقطع الأقساط تلقائياً من كشف الرواتب ابتداءً من الشهر التالي وتُسجَّل عند اعتماد الشهر.</p>
-        </div>
-        <button type="button" data-testid="adv-excel" disabled={(list.data ?? []).length === 0} onClick={() => void downloadAdvancesExcel(list.data ?? [])} className="flex h-10 items-center gap-1 rounded-xl border bg-white px-3 text-xs font-black text-emerald-800 disabled:opacity-40"><FileSpreadsheet size={14} /> Excel</button>
-      </header>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4" data-testid="adv-stats">
-        <StatCard title="جاهزة للتسليم" value={s?.awaiting_delivery ?? 0} hint={s ? `${fmtMoney(s.awaiting_delivery_amount)} د.ع` : undefined} tone="sky" testId="adv-stat-awaiting" />
-        <StatCard title="قيد الاستقطاع" value={s?.active ?? 0} hint={s ? `المتبقي ${fmtMoney(s.outstanding)} د.ع` : undefined} tone="emerald" testId="adv-stat-active" />
-        <StatCard title="قيد الموافقة" value={s?.pending ?? 0} tone="amber" testId="adv-stat-pending" />
-        <StatCard title="المسلَّم / المسدَّد" value={s ? fmtMoney(s.delivered_total) : '—'} hint={s ? `سُدّد ${fmtMoney(s.repaid_total)} د.ع` : undefined} tone="slate" testId="adv-stat-totals" />
-      </div>
+      <ExecPageHeader icon="wallet" title="السُّلَف" stats={[
+        { label: 'جاهزة للتسليم', value: <>{s?.awaiting_delivery ?? 0}{s && <small className="ms-1 text-[10px] font-normal text-blue-100/80">{fmtMoney(s.awaiting_delivery_amount)} د.ع</small>}</>, tone: 'plain', testId: 'adv-stat-awaiting' },
+        { label: 'قيد الاستقطاع', value: <>{s?.active ?? 0}{s && <small className="ms-1 text-[10px] font-normal text-blue-100/80">المتبقي {fmtMoney(s.outstanding)} د.ع</small>}</>, tone: 'green', testId: 'adv-stat-active' },
+        { label: 'قيد الموافقة', value: s?.pending ?? 0, tone: 'gold', testId: 'adv-stat-pending' },
+        { label: 'المسلَّم / المسدَّد', value: <>{s ? fmtMoney(s.delivered_total) : '—'}{s && <small className="ms-1 text-[10px] font-normal text-blue-100/80">سُدّد {fmtMoney(s.repaid_total)} د.ع</small>}</>, tone: 'plain', testId: 'adv-stat-totals' },
+      ]} subtitle={<>السلف التي اكتملت موافقاتها تصل هنا للتسليم. التسليم يُخصم من القاصة، وتُستقطع الأقساط تلقائياً من كشف الرواتب ابتداءً من الشهر التالي وتُسجَّل عند اعتماد الشهر.</>} actions={<button type="button" data-testid="adv-excel" disabled={(list.data ?? []).length === 0} onClick={() => void downloadAdvancesExcel(list.data ?? [])} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:opacity-50"><FileSpreadsheet size={14} /> Excel</button>} />
       <div className="flex flex-wrap gap-1" data-testid="adv-tabs">
         {([['approved', 'جاهزة للتسليم'], ['delivered', 'قيد الاستقطاع'], ['all', 'الكل والبحث']] as const).map(([k, l]) => (
-          <button key={k} type="button" data-testid={`adv-tab-${k}`} onClick={() => setTab(k)} className={clsx('h-9 rounded-full border px-4 text-xs font-bold', tab === k ? 'border-indigo-600 bg-indigo-600 text-white' : 'bg-white text-slate-700')}>{l}</button>
+          <button key={k} type="button" data-testid={`adv-tab-${k}`} onClick={() => setTab(k)} className={clsx('h-9 rounded-full border px-4 text-xs font-bold', tab === k ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>{l}</button>
         ))}
       </div>
       {tab === 'all' && (

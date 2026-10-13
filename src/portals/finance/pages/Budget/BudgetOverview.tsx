@@ -8,11 +8,11 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
-import { StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMoney } from '@portals/hr/components/hr-format'
 import { useTreasuryCancel, useTreasuryConfirm, useTreasuryList, useTreasurySummary } from '@features/treasury/hooks'
 import { DateRangeFilter, ReasonPrompt, TxList, defaultRange, downloadTreasuryExcel, type DateRange } from '@features/treasury/components/TreasuryShared'
 import { CONFIRM_LABEL, TREASURY_KIND_LABEL, type TreasuryKind, type TreasuryStatus, type TreasuryTx } from '@sdk/treasury.sdk'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function BudgetOverview() {
   const [range, setRange] = useState<DateRange>(defaultRange())
@@ -34,17 +34,12 @@ export default function BudgetOverview() {
 
   return (
     <div className="space-y-4" data-testid="finance-treasury-page">
-      <header>
-        <h1 className="text-lg font-black text-slate-800">القاصة</h1>
-        <p className="text-xs text-slate-500">كل ما يسجّله المدير التنفيذي (مستحقات · مكافآت · GPS) يصل هنا — المبالغ تبقى مجمّدة حتى تؤكدها المالية</p>
-      </header>
-
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <StatCard title="رصيد القاصة الحالي" value={fmtMoney(s?.balance ?? 0)} hint="د.ع — مؤكَّد فقط" tone="emerald" testId="tr-stat-balance" />
-        <StatCard title="مجمّد بانتظار تأكيد الاستلام" value={fmtMoney(s?.frozen ?? 0)} hint="د.ع" tone="amber" testId="tr-stat-frozen" />
-        <StatCard title="مكافآت/GPS بانتظار التسليم" value={fmtMoney(s?.pending_out ?? 0)} hint="د.ع" tone="sky" testId="tr-stat-pending-out" />
-        <StatCard title="حركات تنتظر إجراءك" value={pendingRows.length} tone={pendingRows.length > 0 ? 'red' : 'slate'} testId="tr-stat-pending-count" />
-      </div>
+      <ExecPageHeader icon="wallet" title="القاصة" subtitle="كل ما يسجّله المدير التنفيذي (مستحقات · مكافآت · GPS) يصل هنا — المبالغ تبقى مجمّدة حتى تؤكدها المالية" stats={[
+        { label: 'رصيد القاصة الحالي (د.ع — مؤكَّد فقط)', value: fmtMoney(s?.balance ?? 0), tone: 'green', testId: 'tr-stat-balance' },
+        { label: 'مجمّد بانتظار تأكيد الاستلام (د.ع)', value: fmtMoney(s?.frozen ?? 0), tone: 'gold', testId: 'tr-stat-frozen' },
+        { label: 'مكافآت/GPS بانتظار التسليم (د.ع)', value: fmtMoney(s?.pending_out ?? 0), tone: 'plain', testId: 'tr-stat-pending-out' },
+        { label: 'حركات تنتظر إجراءك', value: pendingRows.length, tone: pendingRows.length > 0 ? 'red' : 'plain', testId: 'tr-stat-pending-count' },
+      ]} />
 
       {/* بانتظار الإجراء */}
       <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/30 p-3" data-testid="tr-pending-section">
