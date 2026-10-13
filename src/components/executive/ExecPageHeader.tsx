@@ -12,8 +12,8 @@ export interface ExecHeaderLink { to: string; label: string; icon: IconName }
 
 const STAT_TONE = { gold: 'text-[#f3d06a]', red: 'text-red-300', green: 'text-emerald-300', plain: 'text-white' } as const
 
-export function ExecPageHeader({ icon, title, subtitle, stats, actions, links, testId = 'exec-page-header' }: {
-  icon: IconName; title: string; subtitle?: ReactNode; stats?: ExecStat[]; actions?: ReactNode; links?: ExecHeaderLink[]; testId?: string
+export function ExecPageHeader({ icon, iconNode, title, subtitle, stats, actions, links, testId = 'exec-page-header' }: {
+  icon: IconName; iconNode?: ReactNode; title: string; subtitle?: ReactNode; stats?: ExecStat[]; actions?: ReactNode; links?: ExecHeaderLink[]; testId?: string
 }) {
   return (
     <header className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#0b3d6b] via-[#0b4f8a] to-[#0a2f52] p-4 text-white shadow-lg print:hidden sm:rounded-3xl sm:p-5" data-testid={testId}>
@@ -21,7 +21,7 @@ export function ExecPageHeader({ icon, title, subtitle, stats, actions, links, t
       <div className="pointer-events-none absolute -bottom-20 left-1/4 h-56 w-56 rounded-full bg-[#c9a227]/10" /><div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-white/5" />
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25"><Icon name={icon} size={22} className="text-[#f3d06a]" /></span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/25">{iconNode ?? <Icon name={icon} size={22} className="text-[#f3d06a]" />}</span>
           <div className="min-w-0"><h1 className="text-lg font-black sm:text-xl">{title}</h1>{subtitle && <p className="line-clamp-2 text-[11px] text-blue-100/90">{subtitle}</p>}</div>
         </div>
         {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}

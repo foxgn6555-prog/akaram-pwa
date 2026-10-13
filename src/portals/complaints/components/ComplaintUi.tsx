@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Check, ChevronLeft, Circle, Search } from 'lucide-react'
 import type { ComplaintItemStatus } from '@features/complaints'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const statusMeta: Record<ComplaintItemStatus, { label: string; className: string }> = {
   under_review: { label: 'بانتظار الإسناد', className: 'bg-slate-100 text-slate-700' },
@@ -13,7 +14,8 @@ const statusMeta: Record<ComplaintItemStatus, { label: string; className: string
   returned: { label: 'معادة للمسؤول', className: 'bg-rose-100 text-rose-800' },
 }
 
-export function ComplaintPageHeader({ icon: Icon, eyebrow, title, description, action, tone = 'sky' }: {
+/** 00236: رأس وحدات الشكاوى = الرأس الموحد الكحلي/الذهبي (tone يُحتفظ به للتوافق ولا يغيّر الهوية) */
+export function ComplaintPageHeader({ icon: Icon, eyebrow, title, description, action }: {
   icon: LucideIcon
   eyebrow: string
   title: string
@@ -21,23 +23,7 @@ export function ComplaintPageHeader({ icon: Icon, eyebrow, title, description, a
   action?: ReactNode
   tone?: 'sky' | 'rose' | 'emerald' | 'slate'
 }) {
-  const gradients = {
-    sky: 'from-slate-950 via-sky-950 to-teal-900',
-    rose: 'from-slate-950 via-fuchsia-950 to-rose-900',
-    emerald: 'from-slate-950 via-emerald-950 to-teal-900',
-    slate: 'from-slate-950 to-slate-800',
-  }
-  return <header className={`relative overflow-hidden rounded-3xl bg-gradient-to-l ${gradients[tone]} p-6 text-white shadow-lg sm:p-7`}>
-    <div className="absolute -left-12 -top-16 size-52 rounded-full bg-white/10 blur-3xl" />
-    <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 max-w-3xl">
-        <span className="inline-flex max-w-full items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/80"><Icon size={15} className="shrink-0" /><span className="truncate">{eyebrow}</span></span>
-        <h1 className="mt-3 break-words text-2xl font-black sm:text-3xl">{title}</h1>
-        <p className="mt-2 break-words text-sm leading-7 text-white/75">{description}</p>
-      </div>
-      {action && <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{action}</div>}
-    </div>
-  </header>
+  return <ExecPageHeader icon="clipboard" iconNode={<Icon size={22} className="text-[#f3d06a]" />} title={title} subtitle={<><span className="font-bold text-[#f3d06a]">{eyebrow}</span> · {description}</>} actions={action} />
 }
 
 export function ComplaintStatusBadge({ status }: { status: ComplaintItemStatus }) {
@@ -71,7 +57,7 @@ export function ComplaintWorkflow({ current }: { current: 'inbox' | 'sort' | 'as
   return <nav aria-label="مراحل دورة الشكوى" className="overflow-x-auto rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
     <ol className="flex min-w-max items-center gap-1">
       {steps.map(([key, label], index) => <li key={key} className="flex items-center">
-        <span aria-current={index === currentIndex ? 'step' : undefined} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${index === currentIndex ? 'bg-sky-700 text-white' : index < currentIndex ? 'bg-emerald-50 text-emerald-800' : 'text-slate-400'}`}>
+        <span aria-current={index === currentIndex ? 'step' : undefined} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold ${index === currentIndex ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : index < currentIndex ? 'bg-emerald-50 text-emerald-800' : 'text-slate-400'}`}>
           {index < currentIndex ? <Check size={14} /> : <Circle size={10} fill="currentColor" />}{label}
         </span>
         {index < steps.length - 1 && <ChevronLeft size={15} className="mx-1 text-slate-300" />}

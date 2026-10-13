@@ -11,6 +11,7 @@ import {
   usePrepareComplaintReport, useSaveComplaintTemplate, reportStatusLabel,
   type ComplaintReport, type ComplaintSector, type ComplaintTemplate,
 } from '@features/complaints'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'templates' | 'prepare' | 'reports'
 type ReportFilter = 'all' | ComplaintReport['status']
@@ -171,12 +172,8 @@ export default function TemplatesPage() {
   }
 
   return <section className="min-h-full space-y-6 pb-8" dir="rtl">
-    <header className="overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-fuchsia-900 p-6 text-white shadow-xl sm:p-7">
-      <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">استديو التقارير</span>
-      <h1 className="mt-3 text-2xl font-black sm:text-3xl">صمّم، أنشئ المسودة، ثم راجع وأرسل</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-7 text-indigo-100">مسار واضح يمنع استبدال المسودات القائمة أو استخدام قالب لا يطابق البلدية.</p>
-      <div className="mt-6 grid gap-2 sm:grid-cols-3"><Step number="1" text="اختر أو صمّم القالب" /><Step number="2" text="أنشئ مسودة البريد أو اليوم" /><Step number="3" text="ولّد، راجع، اعتمد ثم أرسل" /></div>
-    </header>
+    <ExecPageHeader icon="file-text" title="صمّم، أنشئ المسودة، ثم راجع وأرسل" subtitle="استديو التقارير — مسار واضح يمنع استبدال المسودات القائمة أو استخدام قالب لا يطابق البلدية." />
+    <div className="grid gap-2 sm:grid-cols-3"><Step number="1" text="اختر أو صمّم القالب" /><Step number="2" text="أنشئ مسودة البريد أو اليوم" /><Step number="3" text="ولّد، راجع، اعتمد ثم أرسل" /></div>
     <ComplaintWorkflow current="report" />
     {notice && <p role="status" className={`rounded-2xl p-4 text-sm font-bold ${notice.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>{notice.text}</p>}
 

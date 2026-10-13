@@ -3,6 +3,7 @@ import {
   useComplaintContacts, useComplaintSettings, useSaveComplaintContact,
   useSaveComplaintSetting, type ComplaintContact, type ComplaintSetting,
 } from '@features/complaints'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type ContactDraft = Omit<ComplaintContact, 'id'> & { id?: string }
 type Feedback = { kind: 'ok' | 'err'; text: string }
@@ -37,10 +38,7 @@ export default function SettingsPage() {
 
   return (
     <section className="space-y-5" dir="rtl">
-      <header>
-        <h1 className="text-2xl font-bold">إعدادات الصفحات والتواصل</h1>
-        <p className="text-sm text-slate-500">إدارة To وCC وقواعد المرسلين. التعطيل يحفظ السجل ولا يحذف الجهة. مفاتيح Mailgun تبقى في أسرار الخادم.</p>
-      </header>
+      <ExecPageHeader icon="settings" title="إعدادات الصفحات والتواصل" subtitle="إدارة To وCC وقواعد المرسلين. التعطيل يحفظ السجل ولا يحذف الجهة. مفاتيح Mailgun تبقى في أسرار الخادم." />
       {feedback && <p aria-live="polite" className={`rounded-lg p-3 text-sm font-bold ${feedbackClass(feedback.kind)}`}>{feedback.text}</p>}
       <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="grid gap-3 rounded-xl border bg-white p-5 md:grid-cols-2 xl:grid-cols-6">
         <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="اسم الجهة" aria-label="اسم الجهة" className="rounded-lg border p-2" />

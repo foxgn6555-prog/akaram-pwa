@@ -1,5 +1,6 @@
 import { Archive, ArrowRight, CheckCircle2, FileImage, FileText, Inbox, LayoutTemplate, Mail, Printer, Send, ShieldAlert, ShieldCheck, Users } from 'lucide-react'
 import { Link } from 'react-router'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const stages = [
   { icon: Inbox, title: '1. استلام البريد', text: 'اختر تاريخ بغداد والقاطع الصحيح ثم افتح بريداً واحداً. راجع المرسل والموضوع والنص والعدد الكامل للمرفقات قبل بدء الفرز.' },
@@ -21,12 +22,11 @@ const mistakes = [
 
 export default function GuidancePage() {
   return <section className="space-y-6" dir="rtl">
-    <header className="rounded-3xl bg-gradient-to-l from-rose-900 via-slate-950 to-sky-950 p-7 text-white">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3"><Link to="/complaints" className="inline-flex items-center gap-2 text-sm text-rose-100"><ArrowRight size={17} />العودة إلى الرئيسية</Link><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-900"><Printer size={17} />طباعة الدليل / حفظ PDF</button></div>
-      <p className="hidden text-xs font-bold text-rose-100 print:block">جزيرة الأكارم · بوابة الشكاوى</p>
-      <h1 className="mt-5 text-3xl font-black">دليل موظف الشكاوى</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-200">مرجع عملي من وصول البريد إلى اعتماد التقرير وتسليمه، مع نقاط رقابة تمنع الخلط والتكرار والاعتماد الناقص.</p>
-    </header>
+    <ExecPageHeader icon="file-text" title="دليل موظف الشكاوى" subtitle="مرجع عملي من وصول البريد إلى اعتماد التقرير وتسليمه، مع نقاط رقابة تمنع الخلط والتكرار والاعتماد الناقص." actions={<>
+      <Link to="/complaints" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><ArrowRight size={15} />العودة إلى الرئيسية</Link>
+      <button onClick={() => window.print()} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"><Printer size={15} />طباعة الدليل / حفظ PDF</button>
+    </>} />
+    <p className="hidden text-xs font-bold text-slate-500 print:block">جزيرة الأكارم · بوابة الشكاوى — دليل موظف الشكاوى</p>
 
     <div className="relative grid gap-4 lg:grid-cols-2">{stages.map(stage => <article key={stage.title} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700"><stage.icon size={23} /></span><div><h2 className="font-black text-slate-900">{stage.title}</h2><p className="mt-2 text-sm leading-7 text-slate-600">{stage.text}</p></div></article>)}</div>
 

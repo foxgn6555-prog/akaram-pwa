@@ -7,6 +7,7 @@ import {
   type ComplaintItemDetail,
 } from '@features/complaints'
 import { ComplaintStatusBadge } from '../../components/ComplaintUi'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const statusLabel: Record<string, string> = {
   under_review: 'بانتظار الإسناد', assigned: 'مسندة إلى المسؤول', in_progress: 'قيد التنفيذ',
@@ -46,12 +47,8 @@ function DetailContent({ detail }: { detail: ComplaintItemDetail }) {
   const hasActiveAfter = afterMedia.some(media => media.isActive)
 
   return <section className="min-h-full space-y-5 pb-8" dir="rtl">
-    <header className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-slate-950 via-sky-950 to-indigo-950 p-6 text-white shadow-xl sm:p-7">
-      <div className="absolute -left-12 -top-16 size-56 rounded-full bg-sky-400/20 blur-3xl" />
-      <div className="relative"><Link to="/complaints/data" className="inline-flex items-center gap-2 text-sm font-bold text-sky-100"><ArrowRight size={17} />العودة إلى بيانات الشكاوى</Link>
-        <div className="mt-5 flex flex-wrap items-end justify-between gap-4"><div><span className="text-xs font-bold text-sky-200">بطاقة موقع الشكوى</span><h1 className="mt-1 text-2xl font-black sm:text-3xl">الموقع {item.sequenceNo} — {item.referenceNo}</h1><p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-200"><MapPin size={15} />{item.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}<span>•</span>محلة {item.neighborhood || 'غير محددة'}<span>•</span>زقاق {item.alley || 'غير محدد'}</p></div><ComplaintStatusBadge status={item.status} /></div>
-      </div>
-    </header>
+    <ExecPageHeader icon="map-pin" title={`الموقع ${item.sequenceNo} — ${item.referenceNo}`} subtitle={<><span className="font-bold text-[#f3d06a]">بطاقة موقع الشكوى</span> · {item.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} • محلة {item.neighborhood || 'غير محددة'} • زقاق {item.alley || 'غير محدد'}</>}
+      actions={<><ComplaintStatusBadge status={item.status} /><Link to="/complaints/data" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><ArrowRight size={15} />العودة إلى بيانات الشكاوى</Link></>} />
 
     {message && <p aria-live="polite" className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">{message}</p>}
 

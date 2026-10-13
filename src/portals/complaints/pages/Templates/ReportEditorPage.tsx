@@ -10,6 +10,7 @@ import {
 import { ComplaintEmpty, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
 import { ReportCoverPreview, ReportSlidePreview, ReportTablePreview } from '../../components/reportPreview'
 import { buildSlidePlan } from '../../components/reportPreviewModel'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const deliveryLabels: Record<string, string> = {
   queued: 'في قائمة الإرسال', accepted: 'قبله مزود البريد', delivered: 'مُسلّم',
@@ -122,10 +123,9 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   ]
 
   return <section className="min-h-full space-y-5 pb-8" dir="rtl">
-    <header className="rounded-3xl bg-gradient-to-l from-slate-950 via-indigo-950 to-fuchsia-900 p-6 text-white shadow-xl">
-      <Link to="/complaints/templates" className="inline-flex items-center gap-2 text-sm font-bold text-indigo-100"><ArrowRight size={17} />العودة إلى التقارير</Link>
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-4"><div><span className="text-xs font-bold text-fuchsia-200">{initial.scope === 'email' ? 'تقرير بريد مستقل' : 'تقرير يومي جامع'}</span><h1 className="mt-1 text-2xl font-black sm:text-3xl">محرر التقرير والمراجعة</h1><p className="mt-2 text-sm text-indigo-100">{initial.reportDate} · {initial.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} · {reportStatusLabel(initial.status)}</p></div><span className={`rounded-full px-4 py-2 text-xs font-black ${dirty ? 'bg-amber-400 text-amber-950' : 'bg-white/10 text-white'}`}>{dirty ? 'تعديلات غير محفوظة' : 'النسخة محفوظة'}</span></div>
-    </header>
+    <ExecPageHeader icon="edit" title="محرر التقرير والمراجعة" subtitle={<><span className="font-bold text-[#f3d06a]">{initial.scope === 'email' ? 'تقرير بريد مستقل' : 'تقرير يومي جامع'}</span> · {initial.reportDate} · {initial.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} · {reportStatusLabel(initial.status)}</>} actions={<>
+      <Link to="/complaints/templates" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><ArrowRight size={15} />العودة إلى التقارير</Link><span className={`rounded-full px-4 py-2 text-xs font-black ${dirty ? 'bg-amber-400 text-amber-950' : 'bg-white/10 text-white'}`}>{dirty ? 'تعديلات غير محفوظة' : 'النسخة محفوظة'}</span>
+    </>} />
     <ComplaintWorkflow current="report" />
 
     <div className="grid gap-2 rounded-2xl border bg-white p-2 shadow-sm sm:grid-cols-4">{[
