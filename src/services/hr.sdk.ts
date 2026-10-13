@@ -44,6 +44,7 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_REVIEW_APPROVED: 'اعتُمدت المراجعة — أعد فتحها بسبب لتعديل الاستقطاعات',
   HR_REVIEW_NOT_APPROVED: 'المراجعة غير معتمدة أصلاً',
   HR_AMOUNT_ABOVE_ORIGINAL: 'المبلغ المعدَّل لا يتجاوز الاستقطاع الأصلي',
+  HR_NOTHING_TO_WAIVE: 'لا استقطاعات على هذا الموظف هذا الشهر',
   HR_PCT_INVALID: 'النسبة بين 0 و100',
   HR_KIND_INVALID: 'نوع استقطاع غير معروف',
   HR_MODE_INVALID: 'إجراء غير معروف',
@@ -291,6 +292,9 @@ export const hr = {
   deputyAdjust(rowId: string, kind: DeputyDeductionKind, mode: 'waive' | 'amount' | 'clear', amount: number | null, reason: string | null) {
     return rpc<DeputyReviewRow['breakdown']>('deputy_deduction_adjust', { p_row: rowId, p_kind: kind, p_mode: mode, p_amount: amount, p_reason: reason })
   },
+  /** 00249 — إعفاء موظف بعينه من كل استقطاعات الشهر (الآخرون لا يتأثرون) / إلغاء إعفائه */
+  deputyEmployeeWaive(rowId: string, reason: string) { return rpc<DeputyReviewRow['breakdown']>('deputy_employee_waive', { p_row: rowId, p_reason: reason }) },
+  deputyEmployeeRestore(rowId: string) { return rpc<DeputyReviewRow['breakdown']>('deputy_employee_restore', { p_row: rowId }) },
   deputyPercent(exportId: string, pct: number, reason: string) { return sdkVoid(supabase.rpc('deputy_deduction_percent', { p_export: exportId, p_pct: pct, p_reason: reason } as never)) },
   deputyNote(rowId: string, note: string) { return sdkVoid(supabase.rpc('deputy_deduction_note', { p_row: rowId, p_note: note } as never)) },
   deputyApprove(exportId: string) { return rpc<{ export_id: string; rows: number; relief_total: number; rows_with_relief: number }>('deputy_payroll_approve', { p_export: exportId }) },

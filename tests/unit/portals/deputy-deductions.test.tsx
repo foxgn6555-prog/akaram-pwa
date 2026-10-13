@@ -8,12 +8,12 @@ import type { DeputyKindBreakdown, DeputyReviewRow } from '@features/hr'
 
 const h = vi.hoisted(() => ({
   months: [] as unknown[], rows: [] as unknown[], audit: [] as unknown[],
-  adjust: vi.fn(async () => ({})), percent: vi.fn(async () => undefined), approve: vi.fn(async () => ({})), reopen: vi.fn(async () => undefined),
+  adjust: vi.fn(async () => ({})), empWaive: vi.fn(async () => ({})), percent: vi.fn(async () => undefined), approve: vi.fn(async () => ({})), reopen: vi.fn(async () => undefined),
 }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/hr', () => ({
   useDeputyMonths: () => ({ data: h.months, isLoading: false }), useDeputyReview: () => ({ data: h.rows, isLoading: false }), useDeputyAudit: () => ({ data: h.audit }),
-  useDeputyAdjust: () => mut(h.adjust), useDeputyPercent: () => mut(h.percent), useDeputyApprove: () => mut(h.approve), useDeputyReopen: () => mut(h.reopen),
+  useDeputyAdjust: () => mut(h.adjust), useDeputyEmployeeWaive: () => mut(h.empWaive), useDeputyPercent: () => mut(h.percent), useDeputyApprove: () => mut(h.approve), useDeputyReopen: () => mut(h.reopen),
 }))
 
 const bk = (o: Partial<DeputyKindBreakdown> = {}): DeputyKindBreakdown => ({ original: 0, relief: 0, after: 0, mode: 'none', reason: null, set_amount: null, ...o })
@@ -105,6 +105,30 @@ describe('00248 — مراجعة الاستقطاعات', () => {
     render(<MemoryRouter><DeputyDeductionsPage /></MemoryRouter>)
     expect(screen.queryByTestId('dd-reopen')).toBeNull()
     expect(screen.getByTestId('dd-status')).toHaveTextContent('مقفل')
+  })
+  it('00249: إعفاء موظف بعينه بسبب (الآخرون لا يتأثرون) — زر في صفه، شارة «معفى كلياً»، وإلغاء الإعفاء', async () => {
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('')
+    render(<MemoryRouter><DeputyDeductionsPage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('dd-f-all'))
+    expect(screen.queryByTestId('dd-waive-emp-DD-2')).toBeNull()   // لا استقطاع عليه ⇒ لا زر
+    fireEvent.click(screen.getByTestId('dd-waive-emp-DD-1'))
+    expect(h.empWaive).not.toHaveBeenCalled()                     // بلا سبب ⇒ لا إرسال
+    prompt.mockReturnValue('موظف مستجد — توجيه فقط')
+    fireEvent.click(screen.getByTestId('dd-waive-emp-DD-1'))
+    await waitFor(() => expect(h.empWaive).toHaveBeenCalledWith({ rowId: 'r1', reason: 'موظف مستجد — توجيه فقط' }))
+    expect(prompt.mock.calls[1]?.[0]).toContain('بقية الموظفين لا يتأثرون')
+    prompt.mockRestore()
+  })
+  it('00249: الموظف المعفى كلياً يحمل شارة وزر إلغاء الإعفاء يرسل reason=null بعد تأكيد', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    h.rows = [row({ employee_waived: true, relief_total: 34500, final_net: 600000, review_note: 'إعفاء كلي: موظف مستجد' })]
+    render(<MemoryRouter><DeputyDeductionsPage /></MemoryRouter>)
+    expect(screen.getByTestId('dd-waived-badge-DD-1')).toHaveTextContent('معفى كلياً')
+    expect(screen.getByTestId('dd-row-DD-1')).toHaveAttribute('data-waived', 'true')
+    expect(screen.queryByTestId('dd-waive-emp-DD-1')).toBeNull()
+    expect(screen.getByTestId('dd-after-DD-1')).toHaveTextContent('0')
+    fireEvent.click(screen.getByTestId('dd-restore-emp-DD-1'))
+    await waitFor(() => expect(h.empWaive).toHaveBeenCalledWith({ rowId: 'r1', reason: null }))
   })
   it('reviewTotals: المجاميع والنِّسب', () => {
     const t = reviewTotals([row({ relief_total: 24150 }), row({ row_id: 'r2', reviewable_total: 0, shortfall_amount: 0, absence_amount: 0, ops_amount: 0, fines_amount: 0, final_net: 500000 })])

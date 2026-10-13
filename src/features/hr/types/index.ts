@@ -843,6 +843,8 @@ export interface DeputyReviewRow {
   review_note: string | null
   breakdown: Record<DeputyDeductionKind, DeputyKindBreakdown> & { pct: number; pct_relief: number; reviewable_total: number; relief_total: number; deductions_after: number; final_net_after: number | null; minute_rate: number }
   hour_bank_enabled: boolean | null
+  /** 00249 — معفى كلياً من كل استقطاعات الشهر (بسبب) */
+  employee_waived?: boolean
 }
 export interface DeputyPayrollMonth {
   period_month: string; export_id: string; version: number; export_status: 'exported' | 'approved'; exported_at: string

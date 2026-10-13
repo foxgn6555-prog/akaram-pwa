@@ -12,11 +12,12 @@ insert into public.user_roles (user_id, role) values
   ('dd000000-0000-0000-0000-000000000006', 'employee'), ('dd000000-0000-0000-0000-000000000007', 'finance_officer')
 on conflict do nothing;
 insert into public.employees (id, user_id, full_name, employee_number, hire_date, biometric_pin) values
-  ('dd000000-0000-0000-0000-0000000000e6', 'dd000000-0000-0000-0000-000000000006', 'dd موظف المراجعة', 'DD-EMP', '2024-01-01', '8401')
+  ('dd000000-0000-0000-0000-0000000000e6', 'dd000000-0000-0000-0000-000000000006', 'dd موظف المراجعة', 'DD-EMP', '2024-01-01', '8401'),
+  ('dd000000-0000-0000-0000-0000000000e7', null, 'dd موظف ثانٍ', 'DD-EMP2', '2024-01-01', '8402')
 on conflict (id) do nothing;
 insert into public.hr_shifts (id, name, start_time, end_time, grace_minutes, work_days) values
   ('dd000000-0000-0000-0000-0000000000a1', 'dd شفت 8-16', '08:00', '16:00', 10, '{0,1,2,3,4,5,6}') on conflict (name) do nothing;
-insert into public.employee_shift_assignments (employee_id, shift_id, effective_from) values ('dd000000-0000-0000-0000-0000000000e6', 'dd000000-0000-0000-0000-0000000000a1', '2024-01-01') on conflict do nothing;
+insert into public.employee_shift_assignments (employee_id, shift_id, effective_from) values ('dd000000-0000-0000-0000-0000000000e6', 'dd000000-0000-0000-0000-0000000000a1', '2024-01-01'), ('dd000000-0000-0000-0000-0000000000e7', 'dd000000-0000-0000-0000-0000000000a1', '2024-01-01') on conflict do nothing;
 insert into public.biometric_devices (id, serial_number, name, timezone_offset, is_active) values ('dd000000-0000-0000-0000-0000000000d1', 'DD-DEV-1', 'dd جهاز', '+03:00', true) on conflict (serial_number) do nothing;
 select set_config('test.dd_m', (date_trunc('month', current_date) - interval '1 month')::date::text, false);
 
@@ -35,8 +36,8 @@ do $$ declare m date := current_setting('test.dd_m')::date; d date; s text := ''
   d := m;
   while d <= (m + interval '1 month - 1 day')::date loop
     if d = m + 2 then null;                                    -- غياب
-    elsif d = m + 1 then s := s || '8401' || E'\t' || d::text || ' 09:00:00' || E'\t0\n' || '8401' || E'\t' || d::text || ' 16:00:00' || E'\t1\n';
-    else s := s || '8401' || E'\t' || d::text || ' 08:00:00' || E'\t0\n' || '8401' || E'\t' || d::text || ' 16:00:00' || E'\t1\n'; end if;
+    elsif d = m + 1 then s := s || '8401' || E'\t' || d::text || ' 09:00:00' || E'\t0\n' || '8401' || E'\t' || d::text || ' 16:00:00' || E'\t1\n' || '8402' || E'\t' || d::text || ' 09:00:00' || E'\t0\n' || '8402' || E'\t' || d::text || ' 16:00:00' || E'\t1\n';
+    else s := s || '8401' || E'\t' || d::text || ' 08:00:00' || E'\t0\n' || '8401' || E'\t' || d::text || ' 16:00:00' || E'\t1\n' || '8402' || E'\t' || d::text || ' 08:00:00' || E'\t0\n' || '8402' || E'\t' || d::text || ' 16:00:00' || E'\t1\n'; end if;
     d := d + 1;
   end loop;
   n := public.biometric_ingest('DD-DEV-1', s, 'ATTLOG');
@@ -115,11 +116,33 @@ do $$ declare row_id uuid := current_setting('test.dd_row')::uuid; x uuid := cur
   raise notice 'S3 ✅ إعفاء/تعديل/نسبة';
 end $$;
 
+-- ═══ S3b · إعفاء موظف بعينه كلياً (00220): الموظف الثاني يُعفى من كل شيء بسبب، والأول يبقى على استقطاعاته؛ ثم إلغاء الإعفاء يعيده ═══
+do $$ declare m date := current_setting('test.dd_m')::date; r1 record; r2 record; b jsonb; ok boolean := false; begin
+  select * into r2 from public.deputy_deduction_review(m) where employee_number = 'DD-EMP2';
+  assert r2.shortfall_amount = 2083.33 and r2.absence_amount = 16666.67 and r2.reviewable_total = 18750 and r2.pct_relief = 1875 and not r2.employee_waived, 'S3b emp2 before: ' || row_to_json(r2)::text;
+  begin perform public.deputy_employee_waive(r2.row_id, ''); exception when others then ok := sqlerrm = 'HR_REASON_REQUIRED'; end;
+  assert ok, 'S3b reason required';
+  b := public.deputy_employee_waive(r2.row_id, 'موظف مستجد — توجيه فقط');
+  assert (b ->> 'relief_total')::numeric = 18750 and (b ->> 'final_net_after')::numeric = 500000, 'S3b waive all: ' || b::text;
+  select * into r2 from public.deputy_deduction_review(m) where employee_number = 'DD-EMP2';
+  assert r2.employee_waived and r2.relief_total = 18750 and r2.final_net = 500000 and r2.review_note like 'إعفاء كلي:%', 'S3b emp2 after: ' || row_to_json(r2)::text;
+  -- الموظف الأول لم يتأثر
+  select * into r1 from public.deputy_deduction_review(m) where employee_number = 'DD-EMP';
+  assert r1.relief_total = 24150 and r1.final_net = 589650 and not r1.employee_waived, 'S3b emp1 untouched: ' || row_to_json(r1)::text;
+  -- إلغاء الإعفاء الكلي يعيد الأصل (مع النسبة العامة 10%)
+  b := public.deputy_employee_restore(r2.row_id);
+  assert (b ->> 'relief_total')::numeric = 1875 and (b -> 'absence' ->> 'relief')::numeric = 0, 'S3b restore: ' || b::text;
+  select * into r2 from public.deputy_deduction_review(m) where employee_number = 'DD-EMP2';
+  assert not r2.employee_waived and r2.review_note is null, 'S3b restored flags';
+  b := public.deputy_employee_waive(r2.row_id, 'موظف مستجد — توجيه فقط');
+  raise notice 'S3b ✅ إعفاء موظف بعينه';
+end $$;
+
 -- ═══ S4 · اعتماد المعاون ⇒ المالية ترى الكشف بالصافي بعد التخفيف، تُشعَر، ولا تعديل للمعاون بعدها إلا بإعادة فتح بسبب ═══
 do $$ declare x uuid := current_setting('test.dd_x')::uuid; m date := current_setting('test.dd_m')::date; j jsonb; r record; ok boolean := false; row_id uuid := current_setting('test.dd_row')::uuid; begin
   j := public.deputy_payroll_approve(x);
-  assert (j ->> 'relief_total')::numeric = 24150 and (j ->> 'rows_with_relief')::int >= 1, 'S4 approve: ' || j::text;
-  assert exists (select 1 from public.notifications where user_id = 'dd000000-0000-0000-0000-000000000007' and title like 'كشف رواتب%جاهز للمالية' and body like '%24,150%'), 'S4 finance notified';
+  assert (j ->> 'relief_total')::numeric = 24150 + 18750 and (j ->> 'rows_with_relief')::int = 2, 'S4 approve: ' || j::text;
+  assert exists (select 1 from public.notifications where user_id = 'dd000000-0000-0000-0000-000000000007' and title like 'كشف رواتب%جاهز للمالية' and body like '%42,900%'), 'S4 finance notified';
   begin perform public.deputy_deduction_adjust(row_id, 'fines', 'waive', null, 'x'); exception when others then ok := sqlerrm = 'HR_REVIEW_APPROVED'; end;
   assert ok, 'S4 locked after approve';
   perform auth.set_test_user('dd000000-0000-0000-0000-000000000007');

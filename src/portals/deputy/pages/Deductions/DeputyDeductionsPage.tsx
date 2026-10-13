@@ -11,7 +11,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney } from '@portals/hr/components/hr-format'
-import { useDeputyAdjust, useDeputyApprove, useDeputyAudit, useDeputyMonths, useDeputyPercent, useDeputyReopen, useDeputyReview, type DeputyDeductionKind, type DeputyReviewRow } from '@features/hr'
+import { useDeputyAdjust, useDeputyApprove, useDeputyAudit, useDeputyEmployeeWaive, useDeputyMonths, useDeputyPercent, useDeputyReopen, useDeputyReview, type DeputyDeductionKind, type DeputyReviewRow } from '@features/hr'
 import { ACTION_LABELS, KIND_LABELS, KINDS, monthLabel, pctOf, reviewTotals } from './review-utils'
 
 export default function DeputyDeductionsPage() {
@@ -27,7 +27,7 @@ export default function DeputyDeductionsPage() {
   const [open, setOpen] = useState<string | null>(null)
   const [showAudit, setShowAudit] = useState(false)
   const [pct, setPct] = useState(''); const [pctReason, setPctReason] = useState('')
-  const adjust = useDeputyAdjust(); const percent = useDeputyPercent(); const approve = useDeputyApprove(); const reopen = useDeputyReopen()
+  const adjust = useDeputyAdjust(); const empWaive = useDeputyEmployeeWaive(); const percent = useDeputyPercent(); const approve = useDeputyApprove(); const reopen = useDeputyReopen()
   const audit = useDeputyAudit(showAudit ? cur?.export_id : null)
   useEffect(() => { setPct(cur ? String(cur.review_pct) : '') }, [cur])
 
@@ -152,7 +152,8 @@ export default function DeputyDeductionsPage() {
                   <tbody>
                     {shown.map((r) => (
                       <RowBlock key={r.row_id} r={r} open={open === r.row_id} onToggle={() => setOpen(open === r.row_id ? null : r.row_id)} editable={editable}
-                        onAdjust={(kind, mode, amount, reason) => adjust.mutateAsync({ rowId: r.row_id, kind, mode, amount, reason })} busy={adjust.isPending} />
+                        onAdjust={(kind, mode, amount, reason) => adjust.mutateAsync({ rowId: r.row_id, kind, mode, amount, reason })} busy={adjust.isPending || empWaive.isPending}
+                        onEmployeeWaive={(reason) => empWaive.mutateAsync({ rowId: r.row_id, reason })} />
                     ))}
                   </tbody>
                 </table>
@@ -165,9 +166,11 @@ export default function DeputyDeductionsPage() {
   )
 }
 
-function RowBlock({ r, open, onToggle, editable, onAdjust, busy }: {
+function RowBlock({ r, open, onToggle, editable, onAdjust, onEmployeeWaive, busy }: {
   r: DeputyReviewRow; open: boolean; onToggle: () => void; editable: boolean; busy: boolean
   onAdjust: (kind: DeputyDeductionKind, mode: 'waive' | 'amount' | 'clear', amount: number | null, reason: string | null) => Promise<unknown>
+  /** 00249 — إعفاء هذا الموظف وحده من كل استقطاعات الشهر (reason) أو إلغاء إعفائه (null) */
+  onEmployeeWaive: (reason: string | null) => Promise<unknown>
 }) {
   const [kind, setKind] = useState<DeputyDeductionKind>('shortfall')
   const [mode, setMode] = useState<'waive' | 'amount'>('waive')
@@ -186,10 +189,19 @@ function RowBlock({ r, open, onToggle, editable, onAdjust, busy }: {
     if (orig <= 0) { setErr('لا استقطاع من هذا النوع لهذا الموظف'); return }
     try { await onAdjust(kind, mode, mode === 'amount' ? Number(amount) : null, reason.trim()); setReason(''); setAmount('') } catch { /* toast */ }
   }
+  const waiveEmployee = async () => {
+    const reason = window.prompt(`إعفاء ${r.full_name} من كل استقطاعات هذا الشهر (${fmtMoney(r.reviewable_total)}) — بقية الموظفين لا يتأثرون.\nالسبب (إلزامي):`)
+    if (!reason?.trim()) return
+    try { await onEmployeeWaive(reason.trim()) } catch { /* toast */ }
+  }
+  const restoreEmployee = async () => {
+    if (!window.confirm(`إلغاء الإعفاء الكلي لـ ${r.full_name} وإعادة استقطاعاته؟`)) return
+    try { await onEmployeeWaive(null) } catch { /* toast */ }
+  }
   return (
     <>
-      <tr className={clsx('border-t border-slate-100', r.relief_total > 0 && 'bg-emerald-50/40')} data-testid={`dd-row-${n}`}>
-        <td className="p-2"><div className="font-bold">{r.full_name}</div><div className="text-[10px] text-slate-500" dir="ltr">{n}{r.hour_bank_enabled ? ' · بنك الساعات' : ''}</div></td>
+      <tr className={clsx('border-t border-slate-100', r.employee_waived ? 'bg-emerald-100/60' : r.relief_total > 0 && 'bg-emerald-50/40')} data-testid={`dd-row-${n}`} data-waived={r.employee_waived ? 'true' : undefined}>
+        <td className="p-2"><div className="font-bold">{r.full_name}{r.employee_waived && <span className="ms-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white" data-testid={`dd-waived-badge-${n}`}>معفى كلياً</span>}</div><div className="text-[10px] text-slate-500" dir="ltr">{n}{r.hour_bank_enabled ? ' · بنك الساعات' : ''}</div></td>
         <td className="p-2 text-slate-600">{r.department_name ?? '—'}</td>
         <td className="p-2 text-center tabular-nums" data-testid={`dd-short-${n}`}>{r.shortfall_amount > 0 ? <>{fmtMoney(r.shortfall_amount)}<div className="text-[10px] text-slate-500">{fmtMinutes(r.shortfall_minutes)}</div></> : '—'}</td>
         <td className="p-2 text-center tabular-nums" data-testid={`dd-abs-${n}`}>{r.absence_amount > 0 ? <>{fmtMoney(r.absence_amount)}<div className="text-[10px] text-slate-500">{r.absence_days} يوم</div></> : '—'}</td>
@@ -199,7 +211,13 @@ function RowBlock({ r, open, onToggle, editable, onAdjust, busy }: {
         <td className={clsx('p-2 text-center font-bold tabular-nums', r.relief_total > 0 ? 'text-emerald-700' : 'text-slate-400')} data-testid={`dd-relief-${n}`}>{r.relief_total > 0 ? `−${fmtMoney(r.relief_total)}` : '0'}</td>
         <td className="p-2 text-center font-bold tabular-nums" data-testid={`dd-after-${n}`}>{fmtMoney(Math.max(0, r.reviewable_total - r.relief_total))}</td>
         <td className="p-2 text-center font-black tabular-nums" data-testid={`dd-net-${n}`}>{r.final_net == null ? <span className="text-red-600">بلا راتب</span> : fmtMoney(r.final_net)}</td>
-        <td className="p-2 text-center"><button type="button" className="rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-700" onClick={onToggle} data-testid={`dd-open-${n}`}>{open ? 'إغلاق' : 'تفاصيل'}</button></td>
+        <td className="p-2 text-center">
+          <div className="flex items-center justify-center gap-1">
+            {editable && r.reviewable_total > 0 && !r.employee_waived && <button type="button" className="rounded-lg bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50" onClick={() => void waiveEmployee()} disabled={busy} title="إعفاء هذا الموظف وحده من كل استقطاعات الشهر" data-testid={`dd-waive-emp-${n}`}>إعفاء الموظف</button>}
+            {editable && r.employee_waived && <button type="button" className="rounded-lg bg-red-50 px-2 py-1 font-bold text-red-700 ring-1 ring-red-200 disabled:opacity-50" onClick={() => void restoreEmployee()} disabled={busy} data-testid={`dd-restore-emp-${n}`}>إلغاء الإعفاء</button>}
+            <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-700" onClick={onToggle} data-testid={`dd-open-${n}`}>{open ? 'إغلاق' : 'تفاصيل'}</button>
+          </div>
+        </td>
       </tr>
       {open && (
         <tr className="border-t border-slate-100 bg-slate-50/60" data-testid={`dd-detail-${n}`}>

@@ -251,6 +251,14 @@ export function useDeputyAdjust() {
     onError: t.err,
   })
 }
+export function useDeputyEmployeeWaive() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { rowId: string; reason: string | null }) => (v.reason == null ? hr.deputyEmployeeRestore(v.rowId) : hr.deputyEmployeeWaive(v.rowId, v.reason)),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.reason == null ? 'أُلغي الإعفاء الكلي وعادت استقطاعات الموظف' : 'أُعفي الموظف من كل استقطاعات الشهر') },
+    onError: t.err,
+  })
+}
 export function useDeputyPercent() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
