@@ -158,3 +158,18 @@ do $$ declare m date := current_setting('test.hb_m')::date; h record; begin
   raise notice 'S5b ✅';
 end $$;
 select 'hour-bank test ok' as test_ok;
+
+-- ═══ S6 (00217) · كشف المالية يحمل أعمدة البنك ═══
+reset role; select set_config('auth.user_id','', false);
+update public.hr_policy set settings = settings || '{"shortfall_method": "hour_bank", "hour_bank_credit_cap_days": 2}'::jsonb where id = 1;
+select auth.set_test_user('b7000000-0000-0000-0000-000000000001');
+select public.ops_month_export(current_setting('test.hb_m')::date);
+select auth.set_test_user('b7000000-0000-0000-0000-000000000007');
+do $$ declare r record; begin
+  select * into r from public.finance_payroll_sheet(current_setting('test.hb_m')::date) where employee_number = 'HB-C';
+  assert r.hour_bank_enabled and r.hour_bank_net_minutes = -1200 and r.hour_bank_required_minutes = 9600 and r.auto_deduction_minutes = 1200, 'S6 sheet C: ' || row_to_json(r)::text;
+  select * into r from public.finance_payroll_sheet(current_setting('test.hb_m')::date) where employee_number = 'HB-A';
+  assert r.hour_bank_credit_days = 2 and r.hour_bank_net_minutes = 2400, 'S6 sheet A: ' || row_to_json(r)::text;
+  raise notice 'S6 ✅';
+end $$;
+select 'hour-bank test ok (00217)' as test_ok;

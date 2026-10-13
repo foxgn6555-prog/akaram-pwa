@@ -11,7 +11,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance, useWaiveDeduction,
+  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useHourBankMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance, useWaiveDeduction,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, downloadWorkbook, fmtHM } from '@features/hr/lib/attendanceExcel'
@@ -24,6 +24,7 @@ import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/component
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
 import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
 import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
+import { HourBankPanel } from './HourBankPanel'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
@@ -56,6 +57,9 @@ export default function OpsAttendancePage() {
   const needGrid = stage === 'approved' || panel === 'grid' || confirmOpen
   const { data: grid = [], isLoading: gridLoading } = useAttendanceGrid(gridFilters, needGrid)
   const { data: conf } = useAttendanceConfirmation(month)
+  // 00245 — ميزان بنك الساعات (يُحمَّل في عرض الشهر؛ فارغ إن لم تكن الطريقة مفعّلة في التطوير المركزية)
+  const { data: hourBank = [] } = useHourBankMonth(month)
+  const hourBankActive = hourBank.some((r) => r.enabled)
   const confirmMonth = useConfirmAttendanceMonth()
   const reopenMonth = useReopenAttendanceMonth()
   const evaluate = useEvaluateAttendance()
@@ -163,13 +167,18 @@ export default function OpsAttendancePage() {
                 )
               })}
             </div>
+            {hourBankActive ? (
+              <p className="border-t border-slate-100 pt-2 text-[11px] text-slate-600" data-testid="ops-proposed-replaced">الاستقطاع المقترح اليومي على النقص متوقف — يُصفّى شهرياً في «ميزان بنك الساعات» أدناه (يبقى الغياب بلا إجازة يوماً كاملاً).</p>
+            ) : (
             <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
               <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
               <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
               <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
               <StatCard title="استقطاعات ألغتها غرفة العمليات" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="بسبب موثّق في سجل التدقيق" />
-            </div>
+            </div>)}
           </SectionCard>
+
+          {mode === 'month' && <HourBankPanel rows={hourBank} month={month} search={search} />}
 
           {!frozen && (
             <SectionCard title="جاهزية الاعتماد" testId="att-readiness" badge={<span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', readiness.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')} data-testid="att-readiness-state">{readiness.ok ? '✓ جاهز للاعتماد' : `${readiness.open} نقاط تحتاج مراجعة`}</span>}>
@@ -303,6 +312,7 @@ export default function OpsAttendancePage() {
                 </StatusLine>
               )}
             </SectionCard>
+          <HourBankPanel rows={hourBank} month={month} search={search} />
 
             <SectionCard title="التصدير إلى المالية" testId="att-export-card" badge={
               <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', locked ? 'bg-slate-800 text-white' : monthExport ? (exportStatus?.needs_reexport ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900') : 'bg-slate-100 text-slate-700')} data-testid="att-export-state">

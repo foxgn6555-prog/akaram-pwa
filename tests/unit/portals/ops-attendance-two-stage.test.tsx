@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router'
 
 const h = vi.hoisted(() => ({
-  conf: null as unknown, grid: [] as unknown[], gridFilters: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown,
+  conf: null as unknown, grid: [] as unknown[], gridFilters: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, hourBank: [] as unknown[],
   confirmMonth: vi.fn(async () => ({ confirm_count: 1 })), reopenMonth: vi.fn(async () => ({})), exportMonth: vi.fn(async () => 'x'),
 }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
@@ -19,7 +19,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: () => mut(async () => 'd'), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined),
   useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(async () => 0),
-  useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: (f: unknown) => { h.gridFilters = f; return { data: h.grid, isLoading: false } },
+  useHourBankMonth: () => ({ data: h.hourBank ?? [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: (f: unknown) => { h.gridFilters = f; return { data: h.grid, isLoading: false } },
   useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth),
 }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }), usePushEmployeeToDevices: () => ({ mutate: vi.fn(), isPending: false }), useDevices: () => ({ data: [], isLoading: false }) }))
@@ -42,7 +42,7 @@ const month = (() => { const d = new Date(); return `${d.getFullYear()}-${String
 const open = { month, status: 'open', confirmed: false, confirmed_at: null, confirmed_by_name: null, confirm_count: 0, reopened_at: null, reopened_by_name: null, reopen_reason: null, pending_auto: 0, pending_days: [], deductions_after: 0, unevaluated_days: 3, employees: 2, locked: false, required: true, export: {}, snapshot: {}, can_export: false }
 const confirmed = { ...open, status: 'confirmed', confirmed: true, confirmed_at: '2026-10-01T08:00:00Z', confirmed_by_name: 'مدقق الحضور', confirm_count: 1, unevaluated_days: 0, can_export: true }
 
-beforeEach(() => { h.conf = open; h.grid = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_id: 'd2', department_name: 'الإدارة', present_days: 1, late_days: 0, early_days: 0, incomplete_days: 0, absent_days: 0, leave_days: 0, rest_days: 0, worked_minutes: 480, late_minutes: 0, early_minutes: 0, shortfall_minutes: 0, proposed_minutes: 0, proposed_days: 0, days: [cell('2026-09-01', 'present', { in: '08:00', out: '16:00', w: 480 })] })]; h.attendance = []; h.exportStatus = null; vi.clearAllMocks() })
+beforeEach(() => { h.hourBank = []; h.conf = open; h.grid = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_id: 'd2', department_name: 'الإدارة', present_days: 1, late_days: 0, early_days: 0, incomplete_days: 0, absent_days: 0, leave_days: 0, rest_days: 0, worked_minutes: 480, late_minutes: 0, early_minutes: 0, shortfall_minutes: 0, proposed_minutes: 0, proposed_days: 0, days: [cell('2026-09-01', 'present', { in: '08:00', out: '16:00', w: 480 })] })]; h.attendance = []; h.exportStatus = null; vi.clearAllMocks() })
 
 describe('00193 — الحضوريات بمرحلتين', () => {
   it('شريط المراحل: قبل الاعتماد المرحلة 1 نشطة والكشف المعتمد مقفل مع زر عودة؛ لا زر تصدير للمالية', () => {
@@ -175,5 +175,32 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
     expect([12, 13, 14, 15].map((c) => r.getCell(c).value)).toEqual([4, 1, 1, '21:18'])
     expect(String(ws.getCell('A2').value)).toContain('اعتمده مدقق الحضور')
     for (let c = 5; c <= 11; c++) expect(String(r.getCell(c).value)).not.toMatch(/\d\d:\d\d/)
+  })
+})
+
+describe('00245 — ميزان بنك الساعات في الحضوريات', () => {
+  const hb = (o: Record<string, unknown>) => ({ employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', enabled: true, shift_minutes: 480, off_days: 5, covered_days: 30, days_counted: 30, days_absent: 0, days_leave_paid: 0, days_leave_unpaid: 0, required_days: 25, required_minutes: 12000, credited_minutes: 14400, net_minutes: 2400, deduction_minutes: 0, surplus_minutes: 2400, credit_days: 2, credit_cap_days: 2, credit_capped: true, grace_minutes: 10, ...o })
+  it('بلا تفعيل ⇒ لا لوحة وتبقى بطاقات الاستقطاع المقترح', () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    expect(screen.queryByTestId('ops-hour-bank')).toBeNull()
+    expect(screen.getByTestId('ops-proposed-summary')).toBeInTheDocument()
+  })
+  it('مع التفعيل: تحل اللوحة محل الاستقطاع المقترح في عرض الشهر، وتُظهر الفائض/العجز/الغياب خارج البنك والفلاتر', () => {
+    h.hourBank = [hb({}), hb({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', days_counted: 20, days_absent: 10, required_days: 20, required_minutes: 9600, credited_minutes: 8400, net_minutes: -1200, deduction_minutes: 1200, surplus_minutes: 0, credit_days: 0, credit_capped: false })]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('mode-month'))
+    expect(screen.queryByTestId('ops-proposed-summary')).toBeNull()
+    expect(screen.getByTestId('ops-proposed-replaced')).toHaveTextContent('يُصفّى شهرياً')
+    const panel = screen.getByTestId('ops-hour-bank')
+    expect(within(panel).getByTestId('ops-hb-count')).toHaveTextContent('2 موظفاً · السماحية 10 د · الإجازة الشهرية 5.00 يوم')
+    expect(within(panel).getByTestId('ops-hb-required')).toHaveTextContent('360س 0د')
+    expect(within(panel).getByTestId('ops-hb-deficit')).toHaveTextContent('1')
+    expect(within(panel).getByTestId('ops-hb-net-E100')).toHaveTextContent('+40س 0د')
+    expect(within(panel).getByTestId('ops-hb-result-E100')).toHaveTextContent('رصيد إجازة 2 يوم (سقف 2)')
+    expect(within(panel).getByTestId('ops-hb-net-E200')).toHaveTextContent('−20س 0د')
+    expect(within(panel).getByTestId('ops-hb-result-E200')).toHaveTextContent('يُستقطع 20س 0د'); expect(within(panel).getByTestId('ops-hb-result-E200')).toHaveTextContent('+ 10 يوم غياب خارج البنك')
+    fireEvent.click(within(panel).getByTestId('ops-hb-filter-deficit'))
+    expect(within(panel).queryByTestId('ops-hb-row-E100')).toBeNull(); expect(within(panel).getByTestId('ops-hb-row-E200')).toBeInTheDocument()
+    expect(panel.textContent).not.toMatch(/[\u0660-\u0669]/)
   })
 })

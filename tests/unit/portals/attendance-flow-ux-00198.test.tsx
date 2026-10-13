@@ -15,7 +15,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: () => mut(async () => 'd'), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined),
   useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: h.exports }), useExportMonth: () => mut(async () => 'x'), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(h.evaluateMonth),
-  useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: [], isLoading: false }),
+  useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: [], isLoading: false }),
   useConfirmAttendanceMonth: () => mut(async () => ({})), useReopenAttendanceMonth: () => mut(async () => ({})),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: h.reconcile, isLoading: false }),
   useApprovePayroll: () => mut(async () => undefined), useAdjustPayroll: () => mut(async () => undefined), useEmployeeMonthDays: () => ({ data: [], isLoading: false }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }),

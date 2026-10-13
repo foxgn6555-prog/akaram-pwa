@@ -93,7 +93,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: h.mut, useEditAttendance: h.mut, useResetAttendance: h.mut,
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: h.mut, useDeleteDeduction: h.mut, useWaiveDeduction: h.mut,
   useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: h.mut, useMonthExportStatus: () => ({ data: null }), useEvaluateMonth: h.mut,
-  useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }),
+  useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: null }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }),
   useConfirmAttendanceMonth: h.mut, useReopenAttendanceMonth: h.mut,
 }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }), usePushEmployeeToDevices: h.mut, useDevices: () => ({ data: [], isLoading: false }) }))

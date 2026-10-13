@@ -181,7 +181,8 @@ export const DETAIL_HEADERS = ['ت', 'الرقم الوظيفي', 'الاسم', 
   'استقطاع العمليات (مبلغ)', 'استقطاع العمليات (أيام)', 'استقطاع العمليات (مبلغ الأيام)', 'أسباب استقطاعات العمليات',
   'قاعدة الاستقطاع التلقائي', 'أساس المبلغ', 'استقطاع تلقائي (دقائق)', 'استقطاع تلقائي (أيام)', 'منها أيام غياب/إجازة غير مدفوعة', 'منها أيام شرائح النقص', 'استقطاع تلقائي (مبلغ)', 'مقيّد بسقف', 'الصافي المقترح'] as const
 function writeAttendanceDetail(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMeta) {
-  const headers = [...DETAIL_HEADERS]
+  const headers = [...DETAIL_HEADERS,
+  'بنك الساعات: المطلوب (د)', 'بنك الساعات: المعمول (د)', 'بنك الساعات: الصافي (د)', 'بنك الساعات: رصيد إجازة (يوم)']
   writeTitle(ws, headers, meta)
   const BASIS: Record<string, string> = { salary: 'من الراتب', fixed: 'مبالغ ثابتة', disabled: 'متوقف' }
   rows.forEach((r, i) => {
@@ -191,7 +192,9 @@ function writeAttendanceDetail(ws: Worksheet, rows: PayrollSheetRow[], meta: Tab
       r.period_from && r.period_to ? `${r.period_from} → ${r.period_to}` : '', r.covered_days != null && r.days_in_month != null ? `${r.covered_days} / ${r.days_in_month}` : '', r.day_rate ?? (r.pay_type === 'daily' ? r.daily_rate ?? 0 : Math.round(((r.base_salary ?? 0) / 30) * 100) / 100),
       r.ops_deduction_amount, r.ops_deduction_days, r.ops_deduction_days_amount ?? 0, r.ops_deduction_reasons ?? '',
       r.auto_deduction_rule ?? '', BASIS[r.auto_deduction_basis ?? ''] ?? '', r.auto_deduction_minutes ?? 0, r.auto_deduction_days ?? 0, r.auto_absence_days ?? 0, r.auto_shortfall_days ?? 0, r.auto_deduction_amount ?? 0,
-      r.auto_deduction_capped || r.auto_deduction_days_capped ? 'نعم' : '', r.proposed_net ?? 0])
+      r.auto_deduction_capped || r.auto_deduction_days_capped ? 'نعم' : '', r.proposed_net ?? 0,
+      // 00245 — بنك الساعات (فارغ عندما لا تكون الطريقة مفعّلة للموظف)
+      r.hour_bank_enabled ? r.hour_bank_required_minutes ?? 0 : '', r.hour_bank_enabled ? r.hour_bank_credited_minutes ?? 0 : '', r.hour_bank_enabled ? r.hour_bank_net_minutes ?? 0 : '', r.hour_bank_enabled ? Number(r.hour_bank_credit_days ?? 0) : ''])
     row.eachCell({ includeEmpty: true }, (c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 6 || col === 24 || col === 25 ? 'right' : 'center', vertical: 'middle', wrapText: col === 24 }; if ([21, 23, 31, 33].includes(col)) c.numFmt = '#,##0'; if (col === 20) c.numFmt = '#,##0.##'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
     if ((r.unevaluated_days ?? 0) > 0) row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
   })

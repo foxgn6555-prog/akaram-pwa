@@ -5,7 +5,7 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type {
+import type { HourBankRow,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
@@ -260,6 +260,7 @@ export const hr = {
     return rpc<AttendanceGridRow[]>('ops_attendance_month_grid', { p_month: f.month, p_branch: f.branchId || null, p_department: f.departmentId || null, p_search: f.search?.trim() || null })
   },
   /** 00193 — حالة اعتماد حضورية الشهر / اعتماد / إعادة فتح بسبب */
+  hourBankMonth(month: string) { return rpc<HourBankRow[]>('ops_hour_bank_month', { p_month: month }) },
   attendanceConfirmation(month: string) { return rpc<AttendanceConfirmation>('ops_attendance_confirmation', { p_month: month }) },
   confirmAttendanceMonth(month: string) { return rpc<AttendanceConfirmation>('ops_attendance_confirm', { p_month: month }) },
   reopenAttendanceMonth(month: string, reason: string) { return rpc<AttendanceConfirmation>('ops_attendance_reopen', { p_month: month, p_reason: reason }) },

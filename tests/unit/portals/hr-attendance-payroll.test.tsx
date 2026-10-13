@@ -36,7 +36,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useAddDeduction: () => mut(h.addDed), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined), useAttendanceAudit: () => ({ data: [{ id: 'l1', action: 'edit', reason: 'عطل جهاز', actor: 'u', before: { status: 'absent' }, after: { status: 'present' }, created_at: '2026-09-05T10:00:00Z' }], isLoading: false }),
   useMonthExports: () => ({ data: h.exports }), useExportRows: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth),
   useMonthExportStatus: () => ({ data: h.exportStatus }),
-  useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }), useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }), useEvaluateMonth: () => mut(h.evaluateMonth),
+  useHourBankMonth: () => ({ data: [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: () => ({ data: h.grid, isLoading: false }), useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth), useEmployeeMonthDeductions: () => ({ data: h.monthDeductions ?? [], isLoading: false }), useEvaluateMonth: () => mut(h.evaluateMonth),
   usePayrollSheet: () => ({ data: h.sheet, isLoading: false }), usePayrollReconcile: () => ({ data: h.reconcile, isLoading: false }), useEmployeeMonthDays: () => ({ data: h.days ?? [], isLoading: false }), useAdjustPayroll: () => mut(h.adjust), useApprovePayroll: () => mut(h.approve),
   useSalaryProfile: () => ({ data: h.profile, isLoading: false }), useSetSalary: () => mut(h.setSalary), useFinanceNotices: () => ({ data: h.notices, isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined),
 }))
@@ -471,5 +471,29 @@ describe('00187 — الشهر الجزئي بالنسبة والتناسب (س�
     expect(ws.getRow(5).getCell(i('أجر اليوم المحتسب')).value).toBe(16666.6667)
     const main = wb.worksheets[0]!; const mh = (main.getRow(4).values as unknown[]).slice(1) as string[]
     expect(main.getRow(5).getCell(mh.indexOf('الإجمالي المستحق') + 1).value).toBe(83333.33)
+  })
+})
+
+describe('00245 — بنك الساعات في كشف المالية', () => {
+  const base = { ...sheetRow, row_id: 'hb', employee_id: 'eh', employee_number: 'F-0000000009', full_name: 'بنك', pay_type: 'monthly', base_salary: 500000, allowances_total: 0, fixed_deductions_total: 0, ops_deduction_amount: 0, ops_deduction_days: 0, ops_deduction_reasons: null,
+    working_days: 30, days_present: 20, days_absent: 10, covered_days: 30, days_in_month: 30, proration_ratio: 1, gross_amount: 500000, hour_bank_enabled: true }
+  it('العجز فقط يُستقطع: المطلوب/المعمول/الصافي بالدقائق اللاتينية', () => {
+    h.sheet = [{ ...base, hour_bank_required_minutes: 9600, hour_bank_credited_minutes: 8400, hour_bank_net_minutes: -1200, hour_bank_credit_days: 0, auto_deduction_minutes: 1200, auto_deduction_amount: 40322.64, deductions_total: 40322.64, proposed_net: 459677.36 } as never]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000009'))
+    const p = screen.getByTestId('ps-hour-bank')
+    expect(p).toHaveTextContent('المطلوب 160س 0د · المعمول 140س 0د · الصافي −20س 0د ⇒ يُستقطع العجز فقط (1200 دقيقة × أجر الدقيقة)')
+    expect(p.textContent).not.toMatch(/[\u0660-\u0669]/)
+  })
+  it('الفائض ⇒ لا استقطاع ورصيد إجازة؛ وبلا تفعيل لا يظهر السطر', () => {
+    h.sheet = [{ ...base, hour_bank_required_minutes: 12000, hour_bank_credited_minutes: 14400, hour_bank_net_minutes: 2400, hour_bank_credit_days: 2, auto_deduction_minutes: 0, auto_deduction_amount: 0, deductions_total: 0, proposed_net: 500000 } as never]
+    const { unmount } = render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000009'))
+    expect(screen.getByTestId('ps-hour-bank')).toHaveTextContent('الصافي +40س 0د ⇒ لا استقطاع · حُوِّل 2 يوم إلى رصيد الإجازات')
+    unmount()
+    h.sheet = [{ ...base, hour_bank_enabled: false, auto_deduction_minutes: 0, auto_deduction_amount: 0, deductions_total: 0, proposed_net: 500000 } as never]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-days-F-0000000009'))
+    expect(screen.queryByTestId('ps-hour-bank')).toBeNull()
   })
 })

@@ -181,6 +181,9 @@ export function useExportMonth() {
 export function useAttendanceGrid(f: { month: string; branchId?: string | null; departmentId?: string | null; search?: string | null }, enabled = true) {
   return useQuery({ queryKey: [...hrKeys.all, 'grid', f], queryFn: () => hr.monthGrid(f), enabled: enabled && !!f.month })
 }
+export function useHourBankMonth(month: string, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.all, 'hour-bank', month], queryFn: () => hr.hourBankMonth(month), enabled: enabled && !!month })
+}
 export function useAttendanceConfirmation(month: string) {
   return useQuery({ queryKey: [...hrKeys.all, 'confirmation', month], queryFn: () => hr.attendanceConfirmation(month), enabled: !!month })
 }

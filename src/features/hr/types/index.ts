@@ -261,6 +261,15 @@ export interface AttendanceGridRow {
   proposed_days: number
 }
 /** 00193 — حالة اعتماد حضورية الشهر (المرحلة 1 → 2) */
+/** 00216 — ميزان بنك الساعات لموظف في شهر (ops_hour_bank_month) */
+export interface HourBankRow {
+  employee_id: string; employee_number: string | null; full_name: string | null; department_name: string | null
+  enabled: boolean; shift_minutes: number; off_days: number; covered_days: number
+  days_counted: number; days_absent: number; days_leave_paid: number; days_leave_unpaid: number; required_days: number
+  required_minutes: number; credited_minutes: number; net_minutes: number; deduction_minutes: number; surplus_minutes: number
+  credit_days: number; credit_cap_days: number; credit_capped: boolean; grace_minutes: number
+}
+
 export interface AttendanceConfirmation {
   month: string
   status: 'open' | 'confirmed' | 'reopened'
@@ -386,6 +395,12 @@ export interface OpsExportRow {
 
 export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_amount: number
+  /** 00216/00217 — بنك الساعات الشهري: المطلوب/المعمول/الصافي بالدقائق ورصيد الإجازة الممنوح من الفائض */
+  hour_bank_enabled?: boolean | null
+  hour_bank_required_minutes?: number | null
+  hour_bank_credited_minutes?: number | null
+  hour_bank_net_minutes?: number | null
+  hour_bank_credit_days?: number | null
   /** 00184 — مبلغ أيام استقطاع العمليات، الأيام المدفوعة (يومي)، الإجمالي قبل الاستقطاع، إجمالي الاستقطاعات */
   ops_deduction_days_amount?: number | null
   payable_days?: number | null

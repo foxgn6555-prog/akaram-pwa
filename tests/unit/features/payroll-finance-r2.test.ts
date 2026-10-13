@@ -63,3 +63,17 @@ describe('00184 · كشف المالية', () => {
     expect((ds.getRow(2).values as unknown[]).slice(1)).toContain('إجمالي الاستقطاعات')
   })
 })
+
+describe('00245 — أعمدة بنك الساعات في ورقة تفاصيل الحضور', () => {
+  it('تُضاف في آخر الورقة؛ تُملأ للموظف المفعَّل وتبقى فارغة لغيره', async () => {
+    const hb: PayrollSheetRow = { ...two, row_id: 'rhb', employee_id: 'ehb', employee_number: 'PF-HB', full_name: 'بنك', hour_bank_enabled: true, hour_bank_required_minutes: 9600, hour_bank_credited_minutes: 8400, hour_bank_net_minutes: -1200, hour_bank_credit_days: 0, auto_deduction_minutes: 1200 }
+    const wb = await buildPayrollWorkbook('2026-09-01', [two, hb])
+    const det = wb.getWorksheet('تفاصيل الحضور')!
+    const dh = (det.getRow(4).values as unknown[]).slice(1) as string[]
+    const di = (h: string) => dh.indexOf(h)
+    expect(dh.slice(-4)).toEqual(['بنك الساعات: المطلوب (د)', 'بنك الساعات: المعمول (د)', 'بنك الساعات: الصافي (د)', 'بنك الساعات: رصيد إجازة (يوم)'])
+    const vals = (n: string) => { for (let r = 5; r <= det.rowCount; r++) { const v = det.getRow(r).values as unknown[]; if (v[2] === n) return v }; return [] as unknown[] }
+    expect(vals('PF-HB')[di('بنك الساعات: الصافي (د)') + 1]).toBe(-1200); expect(vals('PF-HB')[di('بنك الساعات: المطلوب (د)') + 1]).toBe(9600)
+    expect(vals('PF-2')[di('بنك الساعات: الصافي (د)') + 1] ?? '').toBe('')
+  })
+})
