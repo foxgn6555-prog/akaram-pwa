@@ -632,6 +632,9 @@ export interface HrPolicy {
   shortfall_method?: ShortfallMethod
   shortfall_multiplier?: number
   shortfall_block_minutes?: number
+  /** 00216: بنك الساعات — سقف تحويل الفائض إلى رصيد إجازة (يوم/شهر)، وأيام الإجازة الشهرية المطروحة من المطلوب (null ⇒ السنوية ÷ 12) */
+  hour_bank_credit_cap_days?: number
+  hour_bank_off_days_per_month?: number | null
   /** 00193 — لا تصدير للمالية قبل اعتماد حضورية الشهر في غرفة العمليات */
   require_attendance_confirmation?: boolean
 }
@@ -751,8 +754,8 @@ export interface MyEmployee {
 }
 
 /** 00195 — وحدة الاستقطاعات التلقائية (التطوير المركزية) */
-export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks'
-export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
+export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks' | 'hour_bank'
+export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'hour_bank_credit_cap_days' | 'hour_bank_off_days_per_month' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
 export type DeductionTargetType = 'branch' | 'department' | 'employee'
 export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
 export interface DeductionRule {

@@ -29,6 +29,7 @@ export interface ShortfallRule { shortfall_method?: ShortfallMethod; shortfall_m
 export function applyShortfall(rule: ShortfallRule, shortfall: number, shiftMinutes = 480): { minutes: number; days: number; note: string } {
   const method = rule.shortfall_method ?? 'tiers'
   if (shortfall <= 0) return { minutes: 0, days: 0, note: '' }
+  if (method === 'hour_bank') return { minutes: 0, days: 0, note: 'يُصفّى شهرياً ضمن بنك الساعات' }
   if (method === 'tiers') return { ...applyTiers(rule.deduction_tiers, shortfall), note: 'شريحة النقص المطابقة' }
   const mult = rule.shortfall_multiplier ?? 1
   const block = Math.max(1, rule.shortfall_block_minutes ?? 30)
@@ -43,4 +44,37 @@ export const SHORTFALL_METHOD_LABEL: Record<ShortfallMethod, string> = {
   actual: 'دقيقة بدقيقة: يُستقطع نفس عدد دقائق النقص',
   multiplier: 'دقيقة بدقيقة × مضاعف (مثلاً ×2)',
   blocks: 'كتل زمنية: يُقرَّب النقص لأعلى إلى أقرب كتلة (مثلاً 30 د) ثم × المضاعف',
+  hour_bank: 'بنك الساعات الشهري: لا استقطاع يومي؛ يُصفّى صافي الساعات آخر الشهر (العجز يُستقطع، الفائض رصيد إجازة)',
+}
+
+/** 00216: ميزان بنك الساعات لشهر (مطابق لـ app.hr_hour_bank) — يُستخدم للمعاينة الحية في وحدة الاستقطاعات */
+export interface HourBankInput {
+  shiftMinutes: number; daysInMonth: number; coveredDays?: number; restDays?: number
+  offDaysPerMonth: number; creditCapDays: number; graceMinutes: number
+  /** أيام الحضور الفعلي: المطلوب والمعمول والنقص (بعد الزمنية المدفوعة) لكل يوم */
+  days: Array<{ required: number; worked: number; shortfall?: number; waived?: boolean }>
+}
+export interface HourBankResult {
+  requiredDays: number; requiredMinutes: number; creditedMinutes: number; netMinutes: number
+  deductionMinutes: number; surplusMinutes: number; creditDays: number; creditCapped: boolean
+}
+export function computeHourBank(i: HourBankInput): HourBankResult {
+  const covered = i.coveredDays ?? i.daysInMonth
+  const rest = i.restDays ?? 0
+  const shift = Math.max(1, i.shiftMinutes)
+  const pool = Math.round((i.offDaysPerMonth * covered / Math.max(1, i.daysInMonth)) * 10000) / 10000
+  const requiredDays = Math.max(0, Math.min(covered - rest - pool, i.days.length))
+  const requiredMinutes = Math.round(requiredDays * shift)
+  const creditedMinutes = i.days.reduce((acc, d) => {
+    const short = d.shortfall ?? Math.max(0, d.required - d.worked)
+    const credit = d.required - short + Math.max(0, d.worked - d.required)
+    return acc + (short <= i.graceMinutes || d.waived ? Math.max(d.required, credit) : credit)
+  }, 0)
+  const netMinutes = creditedMinutes - requiredMinutes
+  const rawDays = Math.round((Math.max(0, netMinutes) / shift) * 1000) / 1000
+  return {
+    requiredDays, requiredMinutes, creditedMinutes, netMinutes,
+    deductionMinutes: Math.max(0, -netMinutes), surplusMinutes: Math.max(0, netMinutes),
+    creditDays: Math.min(rawDays, i.creditCapDays), creditCapped: rawDays > i.creditCapDays,
+  }
 }

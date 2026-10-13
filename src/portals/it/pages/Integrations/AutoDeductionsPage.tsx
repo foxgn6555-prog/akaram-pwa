@@ -18,7 +18,7 @@ import {
 } from '@features/hr'
 import type { DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimCase, DeductionSimulationV2, DeductionTargetType, DeductionTier, ShortfallMethod } from '@features/hr'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
-import { applyShortfall, SHORTFALL_METHOD_LABEL, validateTiers } from '@features/hr/lib/policy'
+import { applyShortfall, computeHourBank, SHORTFALL_METHOD_LABEL, validateTiers } from '@features/hr/lib/policy'
 import { field, fmtMinutes, fmtMoney, isoDay, monthStart } from '@portals/hr/components/hr-format'
 
 type Tab = 'rules' | 'scope' | 'exemptions' | 'employees' | 'simulate' | 'audit'
@@ -36,13 +36,14 @@ const DEFAULT_RULE_SETTINGS: DeductionRuleSettings = {
   auto_deduction_enabled: true, deduct_absence_enabled: true, deduct_shortfall_enabled: true, deduct_unpaid_leave_enabled: true,
   auto_deduction_amount_mode: 'salary', fixed_absent_day_amount: 0, fixed_shortfall_minute_amount: 0, max_auto_deduction_days_per_month: 0, auto_deduction_cap_ratio: 1,
   shortfall_method: 'tiers', shortfall_multiplier: 1, shortfall_block_minutes: 30,
+  hour_bank_credit_cap_days: 2, hour_bank_off_days_per_month: null,
 }
 const summarize = (s: DeductionRuleSettings) => {
   if (s.auto_deduction_enabled === false) return 'متوقف — لا يُقترح أي استقطاع'
   const parts = [s.auto_deduction_amount_mode === 'fixed' ? `ثابت: ${fmtMoney(s.fixed_absent_day_amount)} د.ع/يوم · ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع/دقيقة` : 'من راتب الموظف (أجر اليوم والدقيقة)']
   parts.push(s.deduct_absence_enabled === false ? 'الغياب: لا يُستقطع' : `الغياب: ${s.absent_day_deduction_days} يوم`)
   const m = s.shortfall_method ?? 'tiers'
-  const methodText = m === 'tiers' ? `${s.deduction_tiers.length} شرائح` : m === 'actual' ? 'دقيقة بدقيقة' : m === 'multiplier' ? `دقيقة بدقيقة × ${s.shortfall_multiplier ?? 1}` : `كتل ${s.shortfall_block_minutes ?? 30} د${(s.shortfall_multiplier ?? 1) !== 1 ? ` × ${s.shortfall_multiplier}` : ''}`
+  const methodText = m === 'hour_bank' ? `بنك الساعات الشهري (فائض حتى ${s.hour_bank_credit_cap_days ?? 2} يوم رصيد)` : m === 'tiers' ? `${s.deduction_tiers.length} شرائح` : m === 'actual' ? 'دقيقة بدقيقة' : m === 'multiplier' ? `دقيقة بدقيقة × ${s.shortfall_multiplier ?? 1}` : `كتل ${s.shortfall_block_minutes ?? 30} د${(s.shortfall_multiplier ?? 1) !== 1 ? ` × ${s.shortfall_multiplier}` : ''}`
   parts.push(s.deduct_shortfall_enabled === false ? 'النقص: لا يُستقطع' : `النقص: ${methodText} بعد ${s.grace_minutes_default} د سماحية`)
   if (s.incomplete_punch_as_absent) parts.push('البصمة الناقصة = غياب')
   if ((s.max_auto_deduction_days_per_month ?? 0) > 0) parts.push(`سقف ${s.max_auto_deduction_days_per_month} يوم/شهر`)
@@ -145,6 +146,12 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
   const minuteRate = dayRate / Math.max(1, previewShift)
   const fixed = (s.auto_deduction_amount_mode ?? 'salary') === 'fixed'
   const amountOf = (minutes: number, days: number) => (s.auto_deduction_enabled === false ? 0 : fixed ? (s.fixed_shortfall_minute_amount ?? 0) * minutes + (s.fixed_absent_day_amount ?? 0) * days : minuteRate * minutes + dayRate * days)
+  const offDaysAuto = (policy?.annual_leave_days_default ?? 30) / 12
+  const hbOff = s.hour_bank_off_days_per_month ?? offDaysAuto
+  // 00216: مثال بنك الساعات — شهر كامل حضور، يوم واحد فيه نقص «sample» فوق السماحية، ويوم فيه بقاء إضافي بنفس المقدار
+  const hbDays = Array.from({ length: daysInMonth }, (_v, k) => ({ required: previewShift, worked: k === 0 ? previewShift - sample : k === 1 ? previewShift + sample : previewShift }))
+  const hb = computeHourBank({ shiftMinutes: previewShift, daysInMonth, offDaysPerMonth: hbOff, creditCapDays: s.hour_bank_credit_cap_days ?? 2, graceMinutes: s.grace_minutes_default, days: hbDays })
+  const hbShort = computeHourBank({ shiftMinutes: previewShift, daysInMonth, offDaysPerMonth: hbOff, creditCapDays: s.hour_bank_credit_cap_days ?? 2, graceMinutes: s.grace_minutes_default, days: Array.from({ length: 20 }, () => ({ required: previewShift, worked: previewShift - sample })) })
   const describe = (minutes: number, days: number) => (days > 0 ? `${days} يوم` : minutes > 0 ? `${minutes} دقيقة` : 'لا استقطاع')
   const off = s.auto_deduction_enabled === false
   const canSave = name.trim().length > 0 && !tiersError
@@ -183,12 +190,24 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
         <L label="طريقة احتساب النقص"><select className={field} disabled={off} value={method} onChange={(e) => set('shortfall_method', e.target.value as ShortfallMethod)} data-testid="r-method">{(Object.keys(SHORTFALL_METHOD_LABEL) as ShortfallMethod[]).map((k) => <option key={k} value={k}>{SHORTFALL_METHOD_LABEL[k]}</option>)}</select></L>
         {(method === 'multiplier' || method === 'blocks') && <L label="المضاعف (1 = نفس الدقائق، 2 = ضعفها)"><input type="number" min={0.25} max={5} step={0.25} className={field} dir="ltr" disabled={off} value={s.shortfall_multiplier ?? 1} onChange={(e) => set('shortfall_multiplier', Math.min(5, Math.max(0.25, NUM(e.target.value, 1))))} data-testid="r-multiplier" /></L>}
         {method === 'blocks' && <L label="حجم الكتلة (دقيقة)"><input type="number" min={5} max={240} step={5} className={field} dir="ltr" disabled={off} value={s.shortfall_block_minutes ?? 30} onChange={(e) => set('shortfall_block_minutes', Math.min(240, Math.max(5, NUM(e.target.value, 30))))} data-testid="r-block" /></L>}
+        {method === 'hour_bank' && (<>
+          <L label="سقف تحويل الفائض إلى رصيد إجازة (يوم/شهر، 0 = لا تحويل)"><input type="number" min={0} max={15} step={0.5} className={field} dir="ltr" disabled={off} value={s.hour_bank_credit_cap_days ?? 2} onChange={(e) => set('hour_bank_credit_cap_days', Math.min(15, Math.max(0, NUM(e.target.value))))} data-testid="r-hb-cap" /></L>
+          <L label="أيام الإجازة الشهرية المطروحة من المطلوب (فارغ = السنوية ÷ 12)"><input type="number" min={0} max={15} step={0.5} className={field} dir="ltr" disabled={off} placeholder={offDaysAuto.toFixed(2)} value={s.hour_bank_off_days_per_month ?? ''} onChange={(e) => set('hour_bank_off_days_per_month', e.target.value === '' ? null : Math.min(15, Math.max(0, NUM(e.target.value))))} data-testid="r-hb-off" /></L>
+        </>)}
         <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-sky-100 bg-sky-50 p-3 text-[11px] leading-6 text-sky-900" data-testid="r-formula">
           <div className="font-black">المعادلة بوضوح</div>
           <div>١. أجر اليوم = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_absent_day_amount)} د.ع` : <span data-testid="r-day-basis">{earned ? `الراتب الأساسي ÷ أيام الشهر الفعلية (هذا الشهر ${daysInMonth})` : 'الراتب الأساسي ÷ 30'}</span>} · أجر الدقيقة = {fixed ? `مبلغ ثابت ${fmtMoney(s.fixed_shortfall_minute_amount)} د.ع` : 'أجر اليوم ÷ دقائق الشفت'}.</div>
           <div>٢. نقص اليوم = دقائق الشفت − المنجز − الزمنية المدفوعة. إن كان النقص ≤ {s.grace_minutes_default} دقيقة ⇒ لا استقطاع.</div>
-          <div>٣. وإلا: {method === 'tiers' ? 'نبحث عن الشريحة التي يقع فيها النقص ونستقطع دقائقها أو كسر يومها.' : method === 'actual' ? 'نستقطع نفس عدد دقائق النقص.' : method === 'multiplier' ? `نستقطع دقائق النقص × ${s.shortfall_multiplier ?? 1}.` : `نقرّب النقص لأعلى إلى أقرب ${s.shortfall_block_minutes ?? 30} دقيقة${(s.shortfall_multiplier ?? 1) !== 1 ? ` ثم × ${s.shortfall_multiplier}` : ''}.`} وإذا بلغ الناتج دقائق شفت كامل يُحتسب يوماً واحداً.</div>
+          <div>٣. وإلا: {method === 'hour_bank' ? 'لا استقطاع يومي — تُحتسب كل دقائق النقص (لا السماحية فقط) في بنك الساعات ويعوّضها البقاء الأطول في أي يوم من الشهر.' : method === 'tiers' ? 'نبحث عن الشريحة التي يقع فيها النقص ونستقطع دقائقها أو كسر يومها.' : method === 'actual' ? 'نستقطع نفس عدد دقائق النقص.' : method === 'multiplier' ? `نستقطع دقائق النقص × ${s.shortfall_multiplier ?? 1}.` : `نقرّب النقص لأعلى إلى أقرب ${s.shortfall_block_minutes ?? 30} دقيقة${(s.shortfall_multiplier ?? 1) !== 1 ? ` ثم × ${s.shortfall_multiplier}` : ''}.`} وإذا بلغ الناتج دقائق شفت كامل يُحتسب يوماً واحداً.</div>
           <div>٤. المبلغ = الدقائق المستقطعة × أجر الدقيقة + الأيام المستقطعة × أجر اليوم. {earned ? <span data-testid="r-absence-note">الغياب بلا إجازة والإجازة غير المدفوعة لا تُستقطع بل لا تُدفع أصلاً (الراتب = أجر اليوم × الأيام المستحقة)؛ الإجازة/الزمنية المدفوعة = صفر.</span> : <>الغياب بلا إجازة = {s.absent_day_deduction_days} يوم لكل يوم؛ الإجازة غير المدفوعة حسب نوعها؛ الإجازة/الزمنية المدفوعة = صفر.</>}</div>
+          {method === 'hour_bank' && (
+            <div className="mt-1 rounded-lg border border-sky-200 bg-white/70 p-2" data-testid="r-hb-formula">
+              <div className="font-black">بنك الساعات الشهري</div>
+              <div>٥. المطلوب شهرياً = (أيام الشهر − {hbOff.toFixed(2)} يوم إجازة شهرية{s.hour_bank_off_days_per_month == null ? ` [${policy?.annual_leave_days_default ?? 30} سنوية ÷ 12]` : ''}) × دقائق الشفت، ولا يتجاوز أيام الحضور الفعلي × دقائق الشفت. الغياب بلا إجازة = يوم كامل خارج البنك؛ الإجازة المدفوعة لا تُستقطع ولا تدخل البنك.</div>
+              <div>٦. صافي الشهر = مجموع المعمول − المطلوب. سالب ⇒ تُستقطع دقائق العجز فقط × أجر الدقيقة. موجب ⇒ لا استقطاع، والفائض رصيد إجازة (دقائق الشفت = يوم) بسقف {s.hour_bank_credit_cap_days ?? 2} يوم/شهر.</div>
+              <div data-testid="r-hb-preview">مثال: شهر {daysInMonth} يوماً حضور كامل، يوم فيه نقص {sample} د ويوم فيه بقاء إضافي {sample} د ⇒ المطلوب {fmtMinutes(hb.requiredMinutes)} · المعمول {fmtMinutes(hb.creditedMinutes)} · الصافي {hb.netMinutes >= 0 ? '+' : '−'}{fmtMinutes(Math.abs(hb.netMinutes))} ⇒ {hb.deductionMinutes > 0 ? `استقطاع ${fmtMinutes(hb.deductionMinutes)} = ${fmtMoney(amountOf(hb.deductionMinutes, 0))} د.ع` : `لا استقطاع · رصيد إجازة ${hb.creditDays} يوم${hb.creditCapped ? ' (سقف)' : ''}`}.
+                {' '}ومن حضر 20 يوماً بنقص {sample} د يومياً ⇒ عجز {fmtMinutes(hbShort.deductionMinutes)} = {fmtMoney(amountOf(hbShort.deductionMinutes, 0))} د.ع (وأيام الغياب خارج البنك).</div>
+            </div>)}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sky-800">مثال حي بـ: راتب <input type="number" min={0} step={50000} className={clsx(field, 'w-28 py-0.5')} dir="ltr" value={previewSalary} onChange={(e) => setPreviewSalary(NUM(e.target.value))} data-testid="r-preview-salary" /> د.ع وشفت <input type="number" min={60} step={30} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={previewShift} onChange={(e) => setPreviewShift(NUM(e.target.value, 480))} data-testid="r-preview-shift" /> دقيقة ⇒ أجر اليوم <b dir="ltr">{fmtMoney(fixed ? s.fixed_absent_day_amount : dayRate)}</b> · أجر الدقيقة <b dir="ltr">{fixed ? fmtMoney(s.fixed_shortfall_minute_amount) : minuteRate.toFixed(1)}</b> د.ع</div>
         </div>
         {method === 'tiers' && (
