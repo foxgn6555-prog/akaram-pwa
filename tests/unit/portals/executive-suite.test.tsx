@@ -31,6 +31,8 @@ vi.mock('@features/executive/hooks/useExecutive', () => ({
 }))
 vi.mock('@features/executive/lib/execExcel', async (orig) => ({ ...(await orig<Record<string, unknown>>()), downloadExecWorkbook: h.download }))
 vi.mock('@features/disclosures/unit', () => ({ useDisclosureInbox: () => ({ data: [{ id: 'd1', status: 'pending' }] }) }))
+// 00248: بلاطة مراجعة الاستقطاعات في رئيسية المعاون
+vi.mock('@features/hr', () => ({ useDeputyMonths: () => ({ data: [{ export_id: 'x1', period_month: '2026-09-01', review_status: 'pending' }] }) }))
 // 00168: قسم شكاوى المواطنين يجلب بياناته بنفسه — يُعزل هنا
 vi.mock('@components/citizen/CitizenReportPanel', () => ({ CitizenReportPanel: ({ from, to }: { from: string; to: string }) => <div data-testid="citizen-report">{from}→{to}</div> }))
 

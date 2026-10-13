@@ -58,7 +58,7 @@ describe('بوابات الإدارة العليا', () => {
 
   it('المعاون يحتفظ بوحداته الميدانية (كشوفات/تجهيزات/فولدر المحطة/تحليل البيانات)', () => {
     const p = PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)
-    for (const x of ['/deputy/statements', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis']) expect(p).toContain(x)
+    for (const x of ['/deputy/statements', '/deputy/deductions', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis']) expect(p).toContain(x)
   })
 
   it('المالية تحتفظ بالرواتب والمشتريات والموازنة ولا تحمل صفحة تدقيق فارغة', () => {
@@ -92,7 +92,7 @@ describe('بوابات الإدارة العليا', () => {
 
   it('00220 — ترتيب الشريط الجانبي: التنفيذي كالمفوض ثم القاصة؛ المعاون: الميدان ثم المكافآت ثم الموافقات والإجراءات؛ وأيقونات بلا تكرار داخل البوابة', () => {
     expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/events'])
-    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/approvals', '/deputy/procedures'])
+    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/approvals', '/deputy/procedures'])
     for (const portal of [PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY]) {
       const icons = PORTAL_UNITS[portal].map((u) => u.icon)
       expect(new Set(icons).size, `أيقونات ${portal}`).toBe(icons.length)

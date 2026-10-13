@@ -365,6 +365,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/deputy/announcements', labelKey: 'nav.announcements', icon: 'bell' },
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'alert-triangle' },
+    { path: '/deputy/deductions', labelKey: 'nav.deputy_deductions', icon: 'wallet' },   // 00248
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'activity' },
