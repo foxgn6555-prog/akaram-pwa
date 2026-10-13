@@ -5,6 +5,7 @@ import { useAddWorker, useContractorMe, useContractorWorkers, useRemoveWorker } 
 import { PARENT_AR, dateAr } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function ContractorTeamPage() {
   const me = useContractorMe(), workers = useContractorWorkers(), add = useAddWorker(), remove = useRemoveWorker()
@@ -20,16 +21,8 @@ export default function ContractorTeamPage() {
   }
   return (
     <div className="space-y-4" data-testid="contractor-team">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-black"><Users size={20} />فريقي</h1>
-          <p className="text-xs text-slate-500">منطقة {m.area_name} · {PARENT_AR[m.parent_sector] ?? m.parent_sector}</p>
-        </div>
-        <div className="rounded-2xl bg-brand-50 px-4 py-2 text-center">
-          <div className="text-[11px] font-bold text-brand-700">عدد أفراد الفريق</div>
-          <div className="text-2xl font-black text-brand-800" data-testid="team-count">{workers.data?.length ?? m.workers_count}</div>
-        </div>
-      </header>
+      <ExecPageHeader icon="users" iconNode={<Users size={22} className="text-[#f3d06a]" />} title="فريقي" subtitle={`منطقة ${m.area_name} · ${PARENT_AR[m.parent_sector] ?? m.parent_sector}`}
+        stats={[{ label: 'عدد أفراد الفريق', value: <span data-testid="team-count">{workers.data?.length ?? m.workers_count}</span>, tone: 'gold' }]} />
       <form onSubmit={submit} className="grid gap-2 rounded-2xl border bg-white p-4 shadow-sm md:grid-cols-[1fr_1fr_auto]" data-testid="add-worker-form">
         <label className="text-xs font-bold">اسم العامل
           <input data-testid="worker-name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3 text-sm" placeholder="الاسم الثلاثي" />

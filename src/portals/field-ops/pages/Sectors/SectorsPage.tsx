@@ -4,6 +4,7 @@ import { Phone } from 'lucide-react'
 import { useFieldOpsSectorManagers, useSectorTeam } from '@features/sector-manager/hooks'
 import { PARENT_AR, SHIFT_AR, pct } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Parent = 'karrada' | 'zaafaraniya'
 export default function SectorsPage() {
@@ -14,13 +15,10 @@ export default function SectorsPage() {
   const dms = (team.data ?? []).filter((m) => m.parent_sector === parent)
   return (
     <div className="space-y-4 pb-4" data-testid="fo-sectors">
-      <header>
-        <h1 className="text-lg font-black">القواطع والمسؤولون</h1>
-        <p className="text-xs text-slate-600">مسؤول القاطع يرأس مسؤولي أقسام قاطعه، وأنت تعلو الجميع.</p>
-      </header>
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+      <ExecPageHeader icon="map-pin" title="القواطع والمسؤولون" subtitle="مسؤول القاطع يرأس مسؤولي أقسام قاطعه، وأنت تعلو الجميع." />
+      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
         {(['karrada', 'zaafaraniya'] as Parent[]).map((k) => (
-          <button key={k} type="button" data-testid={`sectors-tab-${k}`} onClick={() => setParent(k)} className={`h-10 rounded-lg text-sm font-black ${parent === k ? 'bg-white shadow' : 'text-slate-600'}`}>{PARENT_AR[k]}</button>
+          <button key={k} type="button" data-testid={`sectors-tab-${k}`} onClick={() => setParent(k)} className={`h-10 rounded-xl text-sm font-black ${parent === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600'}`}>{PARENT_AR[k]}</button>
         ))}
       </div>
 

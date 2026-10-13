@@ -11,6 +11,7 @@ import { timeAr, zoneLabel } from '@features/contractors/format'
 import { CameraCapture } from '@features/contractors/components/CameraCapture'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Geo = { latitude: number; longitude: number; accuracy: number | null }
 function useGeolocation() {
@@ -70,10 +71,7 @@ export default function ContractorAttendancePage() {
   const unmarked = list.filter((w) => !w.status).length
   return (
     <div className="space-y-4" data-testid="contractor-attendance">
-      <header className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-black">حضورية العمال</h1>
-        <p className="text-xs text-slate-500">منطقة {m.area_name} · اليوم {m.today}</p>
-      </header>
+      <ExecPageHeader icon="check-square" title="حضورية العمال" subtitle={`منطقة ${m.area_name} · اليوم ${m.today}`} />
 
       {!m.checked_in_today ? (
         <section className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4" data-testid="checkin-form">

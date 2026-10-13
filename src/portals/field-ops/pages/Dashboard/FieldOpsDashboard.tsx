@@ -5,6 +5,7 @@ import { useSectorDashboard, useSectorManagerMe } from '@features/sector-manager
 import { pct } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function FieldOpsDashboard() {
   const me = useSectorManagerMe(), dash = useSectorDashboard()
@@ -13,11 +14,8 @@ export default function FieldOpsDashboard() {
   const d = dash.data, total = d.present_today + d.absent_today
   return (
     <div className="space-y-4 pb-4" data-testid="fo-dashboard">
-      <header className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h1 className="text-lg font-black">{me.data.full_name}</h1>
-        <p className="mt-1 text-sm text-slate-600">العمليات الميدانية · <b data-testid="fo-parents">{me.data.parent_names.join(' و')}</b> · {d.areas} منطقة · {d.sector_managers.length} مسؤول قاطع · {d.department_managers} مسؤول قسم · {d.contractors} متعهد</p>
-        {!me.data.has_employee && <p className="mt-2 rounded-xl bg-amber-50 p-2 text-[11px] font-bold text-amber-800" data-testid="fo-no-hr">حسابك غير مرتبط بسجل موظف — لن تتمكن من تقديم طلباتك حتى تربطه الموارد البشرية.</p>}
-      </header>
+      <ExecPageHeader icon="user" title={me.data.full_name} subtitle={<>العمليات الميدانية · <b data-testid="fo-parents">{me.data.parent_names.join(' و')}</b> · {d.areas} منطقة · {d.sector_managers.length} مسؤول قاطع · {d.department_managers} مسؤول قسم · {d.contractors} متعهد</>} />
+      {!me.data.has_employee && <p className="rounded-xl bg-amber-50 p-2 text-[11px] font-bold text-amber-800" data-testid="fo-no-hr">حسابك غير مرتبط بسجل موظف — لن تتمكن من تقديم طلباتك حتى تربطه الموارد البشرية.</p>}
 
       {d.pending_requests > 0 && (
         <Link to="/field-ops/requests" className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4" data-testid="fo-pending-banner">

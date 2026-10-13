@@ -5,6 +5,7 @@ import { useContractorMe, useContractorMonthGrid } from '@features/contractors/h
 import { PARENT_AR, SHIFT_AR, daysInMonth, monthKey, timeAr, zoneLabel } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function ContractorDashboard() {
   const me = useContractorMe(), grid = useContractorMonthGrid()
@@ -13,12 +14,7 @@ export default function ContractorDashboard() {
   const m = me.data, month = monthKey(), nDays = daysInMonth(month), today = Number(m.today.slice(8, 10))
   return (
     <div className="space-y-4" data-testid="contractor-dashboard">
-      <header className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-black">{m.full_name}</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          متعهد منطقة <b data-testid="my-area">{m.area_name}</b> · {PARENT_AR[m.parent_sector] ?? m.parent_sector} · شفت {SHIFT_AR[m.shift] ?? m.shift} · مسؤول القسم: <b data-testid="my-manager">{m.manager_name}</b>
-        </p>
-      </header>
+      <ExecPageHeader icon="user" title={m.full_name} subtitle={<>متعهد منطقة <b data-testid="my-area">{m.area_name}</b> · {PARENT_AR[m.parent_sector] ?? m.parent_sector} · شفت {SHIFT_AR[m.shift] ?? m.shift} · مسؤول القسم: <b data-testid="my-manager">{m.manager_name}</b></>} />
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat icon={<Users size={18} />} label="أفراد الفريق" value={m.workers_count} testId="stat-workers" to="/employee/team" />
         <Stat icon={<UserCheck size={18} />} label="حاضرون اليوم" value={m.today_present} tone="emerald" testId="stat-present" to="/employee/attendance" />
