@@ -80,3 +80,21 @@ do $$ declare ok boolean := false; begin
   raise notice 'C3 ✅ الصلاحيات والمدخلات محمية';
 end $$;
 reset role; select set_config('auth.user_id','', false);
+
+-- ═══ C4 (00222) · الشكاوى المنجزة/المرسلة (archived_at بعد تسليم التقرير) تبقى في قاعدة البيانات والمؤشرات؛ البريد المنقول يدوياً للأرشيف فقط يُستبعد ويعود بالاستعادة ═══
+select auth.set_test_user('cd000000-0000-0000-0000-00000000000a');
+update public.complaints set status = 'archived', archived_at = now(), sent_at = now() where id = 'cd000000-0000-0000-0000-0000000000c1';
+do $$ declare n int; total int; begin
+  select count(*) into n from public.complaint_database_rows('2026-02-01', '2026-02-28', 'karrada') where complaint_id = 'cd000000-0000-0000-0000-0000000000c1';
+  assert n = 2, 'C4 lifecycle-archived complaint must stay in sheet, rows: ' || n;
+  select (public.complaint_analytics('2026-02-01', '2026-02-28', 'karrada')->'summary'->>'total')::int into total;
+  assert total >= 2, 'C4 analytics must include archived-after-send items: ' || coalesce(total::text, 'null');
+  perform public.complaint_archive_email('cd000000-0000-0000-0000-0000000000a1', 'بريد مكرر للاختبار');
+  select count(*) into n from public.complaint_database_rows('2026-02-01', '2026-02-28', 'karrada') where complaint_id = 'cd000000-0000-0000-0000-0000000000c1';
+  assert n = 0, 'C4 manually archived email must be excluded, rows: ' || n;
+  perform public.complaint_restore_email((select id from public.complaint_archive_folders where inbox_message_id = 'cd000000-0000-0000-0000-0000000000a1'));
+  select count(*) into n from public.complaint_database_rows('2026-02-01', '2026-02-28', 'karrada') where complaint_id = 'cd000000-0000-0000-0000-0000000000c1';
+  assert n = 2, 'C4 restored email must reappear, rows: ' || n;
+  raise notice 'C4 ✅ المنجز يبقى في قاعدة البيانات';
+end $$;
+reset role; select set_config('auth.user_id','', false);

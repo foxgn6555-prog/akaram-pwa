@@ -484,3 +484,8 @@
 - **الإسناد:** كل تذكرة تعرض منطقتها والمسؤول المقترح (أو «N مسؤولون»/«لا مسؤول مسند»)، وزر **«إسناد تلقائي حسب المحلة»** ينفّذ دفعة ذرية لكل مسؤول (على المحدد أو كل المعروض)، ويترك غير المطابق أو متعدد المسؤولين يدوياً مع ملخص واضح؛ عند فشل دفعة يتوقف ولا يكرر.
 - مكتبة مشتركة `src/features/complaints/lib/neighborhoods.ts` (`normalizeArabicName`, `matchNeighborhood`, `suggestManager`, `planAutoAssign`) بتوحيد مطابق لدالة القاعدة.
 - اختبارات: `tests/db/complaint-neighborhoods-test.sql` (التوحيد، التكرار، القائمة والعدّ، التعديل، مناطق المسؤولين، الصلاحيات وRLS) و`tests/unit/portals/complaints-neighborhoods.test.tsx` (10 اختبارات).
+
+## 00252 — إصلاح: الشكاوى المنجزة لا تختفي من قاعدة بيانات الشكاوى
+- **السبب الجذري:** بعد تسليم بريد التقرير يضع المشغّل `app.complaint_after_delivery` الشكوى في `status='archived'` مع `archived_at` (اكتمال الدورة)، وكانت `complaint_database_rows` (الجدول الشهري) و`complaint_analytics` (المؤشرات) تستبعدان كل ما له `archived_at` ⇒ اختفاء المنجز من البيانات التي تُصدَّر شهرياً.
+- **الإصلاح (00222_complaint_database_keep_completed.sql):** يُستبعد فقط البريد المنقول يدوياً إلى مجلد الأرشيف (`complaint_inbox_messages.archived_at`)، ويعود بالاستعادة؛ كل الشكاوى الأخرى — بما فيها المنجزة والمرسلة — تبقى في قاعدة البيانات والمؤشرات.
+- اختبار DB جديد C4 في `tests/db/complaints-database-sheet-test.sql`: شكوى مؤرشفة بعد الإرسال تبقى (صفّان)، المؤشرات تشملها، أرشفة البريد يدوياً تخفيها، والاستعادة تعيدها.
