@@ -48,8 +48,9 @@ describe('الصيغ المشتركة بين المعاينة وملف PowerPoin
   })
 
   it('سطر التاريخ على الغلاف يبدأ بالقاطع ثم التاريخ كما في التصميم', () => {
-    expect(coverDateLine('zaafaraniya', '2026-09-06')).toBe('قاطع الزعفرانية - 2026-09-06')
-    expect(coverDateLine('karrada', '2026-09-06')).toBe('قاطع الكرادة - 2026-09-06')
+    expect(coverDateLine('zaafaraniya', '2026-09-06')).toBe('قاطع الزعفرانية - 2026/9/6')
+    expect(coverDateLine('karrada', '2026-09-06')).toBe('قاطع الكرادة - 2026/9/6')
+    expect(coverDateLine('karrada', '2026-10-02', 'arabic')).toBe('قاطع الكرادة - ٢٠٢٦/١٠/٢')
   })
 
   it('سطر الجهة الحكومية يتبع القطاع ما لم يُخصص', () => {
@@ -108,7 +109,7 @@ describe('مكونات المعاينة', () => {
 
   it('غلاف المعاينة يعرض سطر التاريخ بصيغة القاطع أولاً', () => {
     render(<ReportCoverPreview layout={{ title: 'تقرير معالجة التلكؤات ليوم' }} title="التقرير اليومي الجامع للشكاوى" accent="#cf63c6" sector="zaafaraniya" reportDate="2026-09-06" />)
-    expect(screen.getByText('قاطع الزعفرانية - 2026-09-06')).toBeTruthy()
+    expect(screen.getByText('قاطع الزعفرانية - 2026/9/6')).toBeTruthy()
     expect(screen.getByText('أمانة بغداد / دائرة بلدية الزعفرانية')).toBeTruthy()
   })
 })

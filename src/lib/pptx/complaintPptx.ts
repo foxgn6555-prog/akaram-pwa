@@ -4,6 +4,9 @@
  * غلاف بالشعارات الثلاثة ← صفحات الجدول (11 صفاً) ← شرائح قبل/بعد
  * مع شريط التذييل «محلة - زقاق - نوع».
  */
+import { coverFor, coverTexts, reportTheme } from './complaintCovers'
+
+export { authorityLineFor } from './complaintCovers'
 export const EMU = 914400
 export type SlidePart = { xml: string; rels: string; images: { name: string; bytes: Uint8Array }[] }
 
@@ -28,6 +31,10 @@ export interface ComposeInput {
   items: ComposeItem[]
   mediaFor: (itemId: string) => { before?: LoadedPptxImage; afters: LoadedPptxImage[] }
   brand: ComposeBrandImage[]
+  /** خلفية الغلاف المحمّلة (للملصقات k1..k6)؛ عند غيابها يُرسم الغلاف الرسمي. */
+  coverBackground?: { name: string; bytes: Uint8Array } | null
+  /** مطلوب لحساب نصوص الغلاف الافتراضية (التاريخ/القاطع). */
+  sector?: string
 }
 
 export const TABLE_ROWS_PER_SLIDE = 11
@@ -45,18 +52,11 @@ export const dateTimeLabels = (receivedAt: string): { dateLabel: string; arrival
   }
 }
 
-/** القاعدة المشتركة لسطر الجهة الحكومية حسب القطاع (معاينة ومتصفح وحافة). */
-export const authorityLineFor = (layout: Record<string, unknown>, sector: string) => {
-  const configured = String(layout.authorityLine ?? '')
-  return !configured || configured === 'أمانة بغداد / دائرة بلدية الكرادة'
-    ? `أمانة بغداد / دائرة بلدية ${sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}`
-    : configured
-}
-
 function makeSlide(parts:string[],rels:string[]=[],images:{name:string;bytes:Uint8Array}[]=[]):SlidePart{return{xml:`<?xml version="1.0"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>${group()}${parts.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`,rels:relsXml(`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${rels.join('')}`),images}}
 let shapeId=2;function textBox(t:string,x:number,y:number,w:number,h:number,size:number,bold:boolean,color:string,font='Arial'){const id=shapeId++;return`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(x,y,w,h)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr anchor="ctr"/><a:lstStyle/><a:p><a:pPr algn="ctr" rtl="1"/><a:r><a:rPr lang="ar-IQ" sz="${size*100}" b="${bold?1:0}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="${font}"/><a:cs typeface="${font}"/></a:rPr><a:t>${esc(t)}</a:t></a:r><a:endParaRPr lang="ar-IQ"/></a:p></p:txBody></p:sp>`}
 function rect(x:number,y:number,w:number,h:number,fill:string,line:string){const id=shapeId++;return`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(x,y,w,h)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="${line}"/></a:solidFill></a:ln></p:spPr></p:sp>`}
 function roundRect(x:number,y:number,w:number,h:number,fill:string,line:string,lineWidth=2){const id=shapeId++;return`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Rounded Frame ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(x,y,w,h)}<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln w="${lineWidth*12700}"><a:solidFill><a:srgbClr val="${line}"/></a:solidFill></a:ln></p:spPr></p:sp>`}
+function geom(prst:string,x:number,y:number,w:number,h:number,fill:string,flipH=false,flipV=false){const id=shapeId++;return`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm${flipH?' flipH="1"':''}${flipV?' flipV="1"':''}><a:off x="${Math.round(x*EMU)}" y="${Math.round(y*EMU)}"/><a:ext cx="${Math.round(w*EMU)}" cy="${Math.round(h*EMU)}"/></a:xfrm><a:prstGeom prst="${prst}"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></p:spPr></p:sp>`}
 function picture(rid:string,x:number,y:number,w:number,h:number,n:number){const id=shapeId++;return`<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Picture ${n}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${xfrm(x,y,w,h)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`}
 function xfrm(x:number,y:number,w:number,h:number){return`<a:xfrm><a:off x="${Math.round(x*EMU)}" y="${Math.round(y*EMU)}"/><a:ext cx="${Math.round(w*EMU)}" cy="${Math.round(h*EMU)}"/></a:xfrm>`}function group(){return'<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'}function relsXml(v:string){return`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${v}</Relationships>`}function esc(v:unknown){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!))}
 function clamp(value:number,min:number,max:number){return Number.isFinite(value)?Math.min(max,Math.max(min,value)):min}
@@ -72,35 +72,68 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
   shapeId = 2
   mediaCounter = 1
   const layout = input.layout
-  const accent = safeColor(layout.accent, 'D269C8')
+  const theme = reportTheme(layout)
+  const cover = coverFor(layout)
+  const accent = safeColor(theme.primary, 'D269C8')
+  const gold = safeColor(theme.gold, 'C9A24A')
+  const ink = safeColor(theme.ink, '111111')
   const beforeLabel = String(layout.beforeLabel ?? 'صورة التلكؤ / الشكوى')
   const afterLabel = String(layout.afterLabel ?? 'صورة المعالجة')
-  const coverTitle = String(input.coverTitle || 'تقرير معالجة التلكؤات')
   const coverFontSize = clamp(Number(layout.coverFontSize ?? 30), 20, 42)
   const imageHeight = clamp(Number(layout.imageHeight ?? 4.8), 3, 4.8)
   const fontFamily = safeFont(layout.fontFamily)
   const slides: SlidePart[] = []
+  const sector = input.sector ?? (input.sectorLabel.includes('الكرادة') ? 'karrada' : 'zaafaraniya')
+  const texts = coverTexts({ ...layout, title: input.coverTitle || layout.title, authorityLine: input.authorityLine, contractorLine: input.contractorLine }, { sector, reportDate: input.reportDate })
+  const coverTitle = texts.title || 'تقرير معالجة التلكؤات'
 
-  // 1) الغلاف — ترتيب الشعارات كما في التصميم: يسار الأكارم، وسط التحالف، يمين أمانة بغداد
-  const coverShapes = [roundRect(.55, .4, 12.2, 6.65, 'FFFFFF', accent, 4),
-    textBox(input.authorityLine, 2.1, 2.28, 9.1, .42, 17, true, '111111', fontFamily),
-    textBox(input.contractorLine, 2.1, 2.78, 9.1, .42, 17, true, '111111', fontFamily),
-    textBox(coverTitle, 1.2, 3.2, 10.9, .65, coverFontSize, true, accent, fontFamily),
-    textBox(input.reportTitle, 1.4, 3.92, 10.5, .42, 16, true, '1E293B', fontFamily),
-    textBox(`${input.sectorLabel} - ${input.reportDate}`, 4.3, 4.55, 4.7, .42, 17, true, '111111', fontFamily),
-    textBox(input.scopeLabel, 4.3, 5.32, 4.7, .3, 10, false, '64748B', fontFamily)]
-  if (input.brand.length === 3) {
-    coverShapes.push(picture('rId4', 4.93, 1.02, .92, .9, 9003), picture('rId3', 5.98, 1.02, 1.05, .9, 9002), picture('rId2', 7.13, 1.08, .78, .78, 9001))
+  // لمسات الملصق على الصفحات الداخلية: زاوية مائلة بلون الهوية مع خط ذهبي
+  const decor = (): string[] => theme.styled
+    ? [geom('rtTriangle', 0, 0, 2.6, .62, gold, true, true), geom('rtTriangle', 0, 0, 2.2, .55, accent, true, true),
+      geom('rtTriangle', 10.73, 6.88, 2.6, .62, gold), geom('rtTriangle', 11.13, 6.95, 2.2, .55, accent),
+      rect(.4, 7.42, 12.53, .04, gold, gold)]
+    : []
+  const titleRule = (y: number): string[] => theme.styled ? [rect(5.15, y, 3, .04, gold, gold)] : []
+
+  // 1) الغلاف
+  if (cover.id !== 'official' && input.coverBackground) {
+    // ملصق المستخدم كخلفية كاملة + النصوص الحية داخل المنطقة المفرّغة
+    const z = cover.zone
+    const x = 13.333 * z.left, w = 13.333 * (z.right - z.left)
+    const top = 7.5 * z.top, height = 7.5 * (z.bottom - z.top)
+    const line = height / 6.2
+    const coverShapes = [picture('rId2', 0, 0, 13.333, 7.5, 9100),
+      textBox(texts.authorityLine, x, top, w, line, 17, true, ink, fontFamily),
+      textBox(texts.contractorLine, x, top + line, w, line, 15, true, ink, fontFamily),
+      textBox(coverTitle, x - .5, top + line * 2.05, w + 1, line * 1.5, coverFontSize, true, accent, fontFamily),
+      textBox(texts.dateLine, x, top + line * 3.6, w, line, 18, true, ink, fontFamily),
+      textBox(texts.sectorLine, x, top + line * 4.6, w, line, 20, true, safeColor(theme.sector, 'B3261E'), fontFamily)]
+    if (texts.slogan) coverShapes.push(textBox(texts.slogan, x, top + line * 5.5, w, line * .7, 12, true, gold, fontFamily))
+    const bgRel = `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${input.coverBackground.name}"/>`
+    slides.push(makeSlide(coverShapes, [bgRel], [input.coverBackground]))
+  } else {
+    // التصميم الرسمي — ترتيب الشعارات كما في التصميم: يسار الأكارم، وسط التحالف، يمين أمانة بغداد
+    const coverShapes = [roundRect(.55, .4, 12.2, 6.65, 'FFFFFF', accent, 4),
+      textBox(texts.authorityLine, 2.1, 2.28, 9.1, .42, 17, true, '111111', fontFamily),
+      textBox(texts.contractorLine, 2.1, 2.78, 9.1, .42, 17, true, '111111', fontFamily),
+      textBox(coverTitle, 1.2, 3.2, 10.9, .65, coverFontSize, true, accent, fontFamily),
+      textBox(input.reportTitle, 1.4, 3.92, 10.5, .42, 16, true, '1E293B', fontFamily),
+      textBox(`${texts.sectorLine} - ${texts.dateLine.replace(/^التاريخ\s*:\s*/, '')}`, 3.3, 4.55, 6.7, .42, 17, true, '111111', fontFamily),
+      textBox(input.scopeLabel, 4.3, 5.32, 4.7, .3, 10, false, '64748B', fontFamily)]
+    if (texts.slogan) coverShapes.push(textBox(texts.slogan, 4.3, 5.75, 4.7, .35, 12, true, accent, fontFamily))
+    if (input.brand.length === 3) {
+      coverShapes.push(picture('rId4', 4.93, 1.02, .92, .9, 9003), picture('rId3', 5.98, 1.02, 1.05, .9, 9002), picture('rId2', 7.13, 1.08, .78, .78, 9001))
+    }
+    const brandRels = input.brand.map((logo, index) => `<Relationship Id="rId${index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${logo.name}"/>`)
+    slides.push(makeSlide(coverShapes, brandRels, input.brand))
   }
-  const brandRels = input.brand.map((logo, index) => `<Relationship Id="rId${index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${logo.name}"/>`)
-  slides.push(makeSlide(coverShapes, brandRels, input.brand))
 
   // 3) صفحات الجدول — 11 صفاً لكل شريحة بأعمدة التصميم: ت، التاريخ، المحلة، الزقاق، المركز، النوع، وقت الوصول
   const headers = ['وقت وصول الشكوى', 'نوع التلكؤ', 'المركز البلدي', 'رقم الزقاق', 'رقم المحلة', 'التاريخ', 'ت']
   const widths = [2.3, 2.3, 2.1, 1.5, 1.5, 1.7, .7]
   for (let start = 0; start < input.items.length || start === 0; start += TABLE_ROWS_PER_SLIDE) {
     const slice = input.items.slice(start, start + TABLE_ROWS_PER_SLIDE)
-    const shapes = [textBox('جدول بيانات التلكؤات', 3.25, .18, 6.8, .45, 20, true, accent, fontFamily)]
+    const shapes = [...decor(), textBox('جدول بيانات التلكؤات', 3.25, .18, 6.8, .45, 20, true, accent, fontFamily), ...titleRule(.66)]
     const rows = [headers, ...slice.map((item, index) => [item.arrivalLabel, item.title, item.center, item.alley, item.neighborhood, item.dateLabel, String(start + index + 1)])]
     rows.forEach((row, ri) => {
       let x = .6
@@ -125,7 +158,7 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
       const images: { name: string; bytes: Uint8Array }[] = []
       const rels: string[] = []
       const afterTitle = pages.length > 1 ? `${afterLabel} ${afterIndex + 1} من ${pages.length}` : afterLabel
-      const shapes = [rect(.4, .2, 6.1, .45, accent, accent), rect(6.65, .2, 6.1, .45, accent, accent),
+      const shapes = [...decor(), rect(.4, .2, 6.1, .45, accent, accent), rect(6.65, .2, 6.1, .45, accent, accent),
         textBox(beforeLabel, .4, .25, 6.1, .3, 14, true, 'FFFFFF'), textBox(afterTitle, 6.65, .25, 6.1, .3, 14, true, 'FFFFFF'),
         rect(.5, .75, 5.9, imageHeight + .4, 'FFFFFF', 'CBD5E1'), rect(6.8, .75, 5.9, imageHeight + .4, 'FFFFFF', 'CBD5E1')]
       const slots: Array<[LoadedPptxImage | undefined, number, string]> = [[after, 6.9, 'لم تتم المعالجة بعد'], [media.before, .65, 'الصورة غير متاحة']]
@@ -141,7 +174,7 @@ export function composeComplaintSlides(input: ComposeInput): SlidePart[] {
           shapes.push(textBox(missing, x, 2.8, 5.6, .5, 18, true, 'C00000'))
         }
       }
-      shapes.push(rect(3.05, 6.55, 7.2, .5, 'F1F5F9', 'E2E8F0'), textBox(`محلة ${item.neighborhood} - زقاق ${item.alley} - ${item.title}`, 3.15, 6.62, 7, .34, 12.5, true, '0F172A', fontFamily))
+      shapes.push(rect(3.05, 6.55, 7.2, .5, theme.styled ? 'FFFFFF' : 'F1F5F9', theme.styled ? gold : 'E2E8F0'), textBox(`محلة ${item.neighborhood} - زقاق ${item.alley} - ${item.title}`, 3.15, 6.62, 7, .34, 12.5, true, '0F172A', fontFamily))
       slides.push(makeSlide(shapes, rels, images))
     }
   }

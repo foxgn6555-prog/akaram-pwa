@@ -11,6 +11,9 @@ import {
   usePrepareComplaintReport, useSaveComplaintTemplate, reportStatusLabel,
   type ComplaintReport, type ComplaintSector, type ComplaintTemplate,
 } from '@features/complaints'
+import { CoverPicker } from '../../components/CoverPicker'
+import { ReportCoverPreview } from '../../components/reportPreview'
+import { DEFAULT_SLOGAN, isCoverId, reportTheme, type ComplaintCoverId } from '@lib/pptx/complaintCovers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Tab = 'templates' | 'prepare' | 'reports'
@@ -21,6 +24,8 @@ type Form = {
   description: string
   sector: ComplaintSector | ''
   accent: string
+  cover: ComplaintCoverId
+  coverSlogan: string
   coverTitle: string
   authorityLine: string
   contractorLine: string
@@ -31,7 +36,7 @@ type Form = {
 }
 
 const emptyForm: Form = {
-  name: '', description: '', sector: '', accent: '#d269c8',
+  name: '', description: '', sector: '', accent: '#d269c8', cover: 'official', coverSlogan: DEFAULT_SLOGAN,
   coverTitle: 'تقرير معالجة التلكؤات ليوم',
   authorityLine: 'أمانة بغداد / دائرة بلدية الكرادة',
   contractorLine: 'تحالف شركات جزيرة الأكارم وفيرست ترايد',
@@ -118,7 +123,7 @@ export default function TemplatesPage() {
 
   const patch = <K extends keyof Form>(key: K, next: Form[K]) => setForm(old => ({ ...old, [key]: next }))
   const layout = () => ({
-    accent: form.accent, title: form.coverTitle, authorityLine: form.authorityLine,
+    accent: form.accent, cover: form.cover, coverSlogan: form.coverSlogan, title: form.coverTitle, authorityLine: form.authorityLine,
     contractorLine: form.contractorLine, beforeLabel: form.beforeLabel, afterLabel: form.afterLabel,
   })
   const resetForm = () => { setForm(emptyForm); setNotice(null) }
@@ -138,6 +143,8 @@ export default function TemplatesPage() {
     setForm({
       id: item.id, name: item.name, description: item.description ?? '', sector: item.sector ?? '',
       accent: value(item.layout, 'accent', '#d269c8'),
+      cover: isCoverId(item.layout.cover) ? item.layout.cover : 'official',
+      coverSlogan: typeof item.layout.coverSlogan === 'string' ? item.layout.coverSlogan : DEFAULT_SLOGAN,
       coverTitle: value(item.layout, 'title', 'تقرير معالجة التلكؤات ليوم'),
       authorityLine: value(item.layout, 'authorityLine', 'أمانة بغداد / دائرة بلدية الكرادة'),
       contractorLine: value(item.layout, 'contractorLine', 'تحالف شركات جزيرة الأكارم وفيرست ترايد'),
@@ -216,7 +223,10 @@ export default function TemplatesPage() {
           <label className="text-xs font-bold text-slate-600">اسم القالب<input aria-label="اسم القالب" value={form.name} onChange={event => patch('name', event.target.value)} placeholder="مثال: قالب الزعفرانية الرسمي" className="mt-1 w-full rounded-xl border p-3" /></label>
           <label className="text-xs font-bold text-slate-600">وصف الاستخدام<input aria-label="وصف القالب" value={form.description} onChange={event => patch('description', event.target.value)} placeholder="متى يستخدم هذا القالب؟" className="mt-1 w-full rounded-xl border p-3" /></label>
           <label className="text-xs font-bold text-slate-600">نطاق القالب<select aria-label="قاطع القالب" value={form.sector} onChange={event => patch('sector', event.target.value as Form['sector'])} className="mt-1 w-full rounded-xl border p-3"><option value="">جميع البلديات</option><option value="karrada">الكرادة فقط</option><option value="zaafaraniya">الزعفرانية فقط</option></select></label>
-          <label className="flex items-center justify-between rounded-xl border p-3 text-sm font-bold">لون الهوية<input aria-label="لون الهوية" type="color" value={form.accent} onChange={event => patch('accent', event.target.value)} /></label>
+          <CoverPicker value={form.cover} onChange={cover => patch('cover', cover)} label="غلاف التقرير الافتراضي لهذا القالب" />
+          {form.cover === 'official' ? <label className="flex items-center justify-between rounded-xl border p-3 text-sm font-bold">لون الهوية<input aria-label="لون الهوية" type="color" value={form.accent} onChange={event => patch('accent', event.target.value)} /></label>
+            : <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">ألوان الجدول وصفحات الصور تتبع لوحة الغلاف المختار تلقائياً.</p>}
+          <input aria-label="شعار الغلاف" value={form.coverSlogan} onChange={event => patch('coverSlogan', event.target.value)} placeholder="شعار أسفل الغلاف (اتركه فارغاً لإخفائه)" className="rounded-xl border p-3" />
           <input aria-label="الجهة الحكومية على الغلاف" value={form.authorityLine} onChange={event => patch('authorityLine', event.target.value)} className="rounded-xl border p-3" />
           <input aria-label="الجهة المنفذة على الغلاف" value={form.contractorLine} onChange={event => patch('contractorLine', event.target.value)} className="rounded-xl border p-3" />
           <input aria-label="عنوان الغلاف" value={form.coverTitle} onChange={event => patch('coverTitle', event.target.value)} className="rounded-xl border p-3" />
@@ -229,7 +239,7 @@ export default function TemplatesPage() {
 
       <div className="space-y-3">
         <div><h2 className="text-lg font-black">القوالب المحفوظة</h2><p className="mt-1 text-sm text-slate-500">يمكن أن يوجد قالب افتراضي واحد لكل نطاق: عام، الكرادة، أو الزعفرانية.</p></div>
-        {templatesQuery.isLoading ? <div className="h-40 animate-pulse rounded-2xl bg-slate-100" /> : templatesQuery.isError ? <p className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-red-800">تعذر تحميل القوالب.</p> : templates.map(item => <article key={item.id} className={`rounded-2xl border bg-white p-5 shadow-sm ${item.isActive ? '' : 'opacity-65'}`} style={{ borderRightColor: value(item.layout, 'accent', '#2563eb'), borderRightWidth: 6 }}>
+        {templatesQuery.isLoading ? <div className="h-40 animate-pulse rounded-2xl bg-slate-100" /> : templatesQuery.isError ? <p className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-red-800">تعذر تحميل القوالب.</p> : templates.map(item => <article key={item.id} className={`rounded-2xl border bg-white p-5 shadow-sm ${item.isActive ? '' : 'opacity-65'}`} style={{ borderRightColor: reportTheme(item.layout).primary, borderRightWidth: 6 }}>
           <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{item.name}</h3>{item.isDefault && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">الافتراضي</span>}</div><p className="mt-1 text-xs text-slate-500">{item.description || 'قالب تقارير الشكاوى'}</p><p className="mt-2 text-[11px] font-bold text-slate-400">{item.sector ? sectorLabel(item.sector) : 'صالح لجميع البلديات'} · الإصدار {item.version}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${item.isActive ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{item.isActive ? 'نشط' : 'معطل'}</span></div>
           <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => edit(item)} className="rounded-lg border px-3 py-2 text-xs font-bold text-blue-700">تعديل التصميم</button>{!item.isDefault && item.isActive && <button onClick={() => saveTemplateState(item, { isDefault: true }, 'تم تعيين القالب افتراضياً لنطاقه.')} className="rounded-lg border px-3 py-2 text-xs font-bold text-emerald-700">تعيين افتراضياً</button>}<button onClick={() => saveTemplateState(item, { isActive: !item.isActive, isDefault: item.isActive ? false : item.isDefault }, item.isActive ? 'تم تعطيل القالب.' : 'تم تفعيل القالب.')} className="rounded-lg border px-3 py-2 text-xs font-bold">{item.isActive ? 'تعطيل' : 'تفعيل'}</button></div>
         </article>)}
@@ -273,7 +283,10 @@ function ExistingReportNotice({ report }: { report: ComplaintReport }) {
 }
 
 function TemplatePreview({ form }: { form: Form }) {
-  const authority = form.sector === 'zaafaraniya' && form.authorityLine === 'أمانة بغداد / دائرة بلدية الكرادة'
-    ? 'أمانة بغداد / دائرة بلدية الزعفرانية' : form.authorityLine
-  return <div className="mt-4 rounded-[2rem] border-4 bg-white p-5 text-center" style={{ borderColor: form.accent }}><div className="mx-auto flex items-center justify-center gap-2"><img src="/icons/baghdad-municipality.png" alt="شعار أمانة بغداد" className="size-12 object-contain" /><img src="/icons/alliance.png" alt="شعار التحالف" className="size-14 object-contain" /><img src="/icons/logo.png" alt="شعار جزيرة الأكارم" className="size-14 object-contain" /></div><p className="mt-3 text-xs font-bold">{authority}</p><p className="mt-1 text-xs font-bold">{form.contractorLine}</p><div className="mt-3 text-lg font-black" style={{ color: form.accent }}>{form.coverTitle}</div><div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs"><div className="rounded-lg bg-slate-100 p-8">{form.afterLabel}</div><div className="rounded-lg bg-slate-100 p-8">{form.beforeLabel}</div></div></div>
+  const sector = form.sector || 'karrada'
+  const layout = { accent: form.accent, cover: form.cover, coverSlogan: form.coverSlogan, title: form.coverTitle, authorityLine: form.authorityLine, contractorLine: form.contractorLine }
+  const theme = reportTheme(layout)
+  return <div className="mt-4 aspect-video w-full overflow-hidden rounded-xl border-2 bg-white" style={{ borderColor: theme.primary }}>
+    <ReportCoverPreview layout={layout} title="معاينة الغلاف" accent={theme.primary} sector={sector} reportDate={new Date().toISOString().slice(0, 10)} />
+  </div>
 }

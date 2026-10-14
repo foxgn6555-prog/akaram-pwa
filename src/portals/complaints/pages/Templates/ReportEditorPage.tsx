@@ -10,6 +10,8 @@ import {
 import { ComplaintEmpty, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
 import { ReportCoverPreview, ReportSlidePreview, ReportTablePreview } from '../../components/reportPreview'
 import { buildSlidePlan } from '../../components/reportPreviewModel'
+import { CoverPicker } from '../../components/CoverPicker'
+import { DEFAULT_SLOGAN, coverFor, coverTexts, formatCoverDate, reportTheme, sectorLabelFor, type ComplaintCoverId } from '@lib/pptx/complaintCovers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const deliveryLabels: Record<string, string> = {
@@ -83,7 +85,10 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const emails = useMemo(() => [...new Set(recipients.split(/[\n,;]+/).map(value => value.trim().toLowerCase()).filter(Boolean))], [recipients])
   const invalidEmails = emails.filter(email => !validEmail(email))
   const editable = ['draft', 'quality_review', 'failed'].includes(initial.status)
-  const accent = String(layout.accent ?? '#cf63c6')
+  const theme = reportTheme(layout)
+  const accent = theme.primary
+  const cover = coverFor(layout)
+  const liveTexts = coverTexts(layout, { sector: initial.sector, reportDate: initial.reportDate })
   const payload = { id: initial.id, title: title.trim(), layout, recipients: emails, items }
   const canSave = editable && Boolean(title.trim()) && emails.length > 0 && invalidEmails.length === 0 && includedItems.length > 0
   const canGenerate = editable && Boolean(title.trim()) && includedItems.length > 0
@@ -146,8 +151,13 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
       <aside className="space-y-4 xl:sticky xl:top-24">
         <article className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><LayoutTemplate className="text-indigo-700" size={19} /><h2 className="font-black">هوية الشرائح</h2></div>
           <label className="mt-4 block text-xs font-bold">عنوان التقرير<input disabled={!editable} value={title} onChange={event => { setTitle(event.target.value); setDirty(true) }} className="mt-1 w-full rounded-xl border p-2.5 text-sm" /></label>
-          <label className="mt-3 flex items-center justify-between text-xs font-bold">اللون الرئيسي<input disabled={!editable} type="color" value={accent} onChange={event => changeLayout('accent', event.target.value)} /></label>
-          <label className="mt-3 block text-xs font-bold">عنوان الغلاف<input disabled={!editable} value={String(layout.title ?? 'تقرير معالجة الشكاوى ليوم')} onChange={event => changeLayout('title', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
+                    <CoverPicker value={cover.id} disabled={!editable} onChange={(id: ComplaintCoverId) => changeLayout('cover', id)} />
+          {cover.id === 'official' && <label className="mt-3 flex items-center justify-between text-xs font-bold">اللون الرئيسي<input disabled={!editable} type="color" value={accent.toLowerCase()} onChange={event => changeLayout('accent', event.target.value)} /></label>}
+          <label className="mt-3 block text-xs font-bold">عنوان الغلاف<input disabled={!editable} value={String(layout.title ?? 'تقرير معالجة التلكؤات ليوم')} onChange={event => changeLayout('title', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
+          <label className="mt-3 block text-xs font-bold">سطر القاطع على الغلاف<input disabled={!editable} aria-label="سطر القاطع على الغلاف" value={liveTexts.sectorLine} onChange={event => changeLayout('coverSectorLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /><span className="mt-1 flex gap-1">{(['karrada', 'zaafaraniya'] as const).map(code => <button key={code} type="button" disabled={!editable} onClick={() => changeLayout('coverSectorLine', sectorLabelFor(code))} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${liveTexts.sectorLine === sectorLabelFor(code) ? 'border-indigo-600 bg-indigo-50 text-indigo-800' : 'text-slate-600'}`}>{sectorLabelFor(code)}</button>)}</span></label>
+          <div className="mt-3 rounded-xl border p-2"><span className="text-xs font-bold">أرقام التاريخ على الغلاف</span><div className="mt-1 flex gap-1">{([['latin', 'لاتينية 2026/10/2'], ['arabic', 'عربية ٢٠٢٦/١٠/٢']] as const).map(([digits, text]) => <button key={digits} type="button" disabled={!editable} onClick={() => { changeLayout('coverDateDigits', digits); changeLayout('coverDateText', '') }} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${(layout.coverDateDigits ?? 'latin') === digits ? 'border-indigo-600 bg-indigo-50 text-indigo-800' : 'text-slate-600'}`}>{text}</button>)}</div>
+            <label className="mt-2 block text-xs font-bold">نص التاريخ<input disabled={!editable} aria-label="نص التاريخ على الغلاف" value={liveTexts.dateLine} onChange={event => changeLayout('coverDateText', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /><span className="text-[10px] font-normal text-slate-500">الافتراضي: {formatCoverDate(initial.reportDate, layout.coverDateDigits === 'arabic' ? 'arabic' : 'latin')}</span></label></div>
+          <label className="mt-3 block text-xs font-bold">الشعار أسفل الغلاف<input disabled={!editable} aria-label="شعار الغلاف" value={typeof layout.coverSlogan === 'string' ? layout.coverSlogan : DEFAULT_SLOGAN} onChange={event => changeLayout('coverSlogan', event.target.value)} placeholder="اتركه فارغاً لإخفائه" className="mt-1 w-full rounded-xl border p-2.5" /></label>
           <label className="mt-3 block text-xs font-bold">الجهة الحكومية<input disabled={!editable} value={String(layout.authorityLine ?? `أمانة بغداد / دائرة بلدية ${initial.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}`)} onChange={event => changeLayout('authorityLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
           <label className="mt-3 block text-xs font-bold">الجهة المنفذة<input disabled={!editable} value={String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكارم وفيرست ترايد')} onChange={event => changeLayout('contractorLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
           <div className="grid grid-cols-2 gap-2"><label className="mt-3 text-xs font-bold">عنوان قبل<input disabled={!editable} value={String(layout.beforeLabel ?? 'صورة التلكؤ / الشكوى')} onChange={event => changeLayout('beforeLabel', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label><label className="mt-3 text-xs font-bold">عنوان بعد<input disabled={!editable} value={String(layout.afterLabel ?? 'صورة المعالجة')} onChange={event => changeLayout('afterLabel', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label></div>
@@ -163,7 +173,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
         <article className="rounded-3xl border bg-slate-100 p-4 shadow-inner sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Eye className="text-indigo-700" /><div><h2 className="font-black">المعاينة البصرية</h2><p className="text-xs text-slate-500">تمثيل قريب من شرائح PowerPoint قبل التوليد.</p></div></div><div className="flex rounded-xl bg-white p-1">{(['cover', 'table', 'slides'] as const).map(value => <button key={value} onClick={() => setPreview(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${preview === value ? 'bg-indigo-700 text-white' : 'text-slate-600'}`}>{value === 'cover' ? 'الغلاف' : value === 'table' ? 'الجدول' : 'قبل / بعد'}</button>)}</div></div>
           <div className="mx-auto mt-5 aspect-video w-full max-w-4xl overflow-hidden rounded-xl border bg-white shadow-xl" style={{ borderColor: accent }}>
             {preview === 'cover' && <ReportCoverPreview layout={layout} title={title} accent={accent} sector={initial.sector} reportDate={initial.reportDate} />}
-            {preview === 'table' && <ReportTablePreview entries={includedItems} accent={accent} />}
+            {preview === 'table' && <ReportTablePreview entries={includedItems} accent={accent} layout={layout} />}
             {preview === 'slides' && <ReportSlidePreview entry={slideEntry} before={before?.url} after={after?.url} accent={accent} layout={layout} />}
           </div>
           <details className="mx-auto mt-4 w-full max-w-4xl rounded-xl border bg-white p-3"><summary className="cursor-pointer text-xs font-black text-slate-600">ترتيب شرائح ملف PowerPoint الناتج ({slidePlan.length} شريحة) — مطابق للمعاينة أعلاه</summary><div className="mt-3 flex flex-wrap gap-1.5">{slidePlan.map((step, index) => <span key={`${step.kind}-${index}`} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${step.kind === 'cover' ? 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800' : step.kind === 'table' ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{step.label}</span>)}</div></details>

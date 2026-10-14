@@ -5,6 +5,7 @@ import {
   authorityLineFor, buildPptx, composeComplaintSlides, dateTimeLabels, imageDimensions, validMagic,
   type ComposeBrandImage, type ComposeItem, type LoadedPptxImage,
 } from '@lib/pptx/complaintPptx'
+import { coverBackgroundUrl, coverFor } from '@lib/pptx/complaintCovers'
 import { SDKError } from '@lib/errors/SDKError'
 import { baghdadDayRange } from '@features/complaints/lib/baghdad-date'
 import type {
@@ -68,6 +69,19 @@ async function loadBrandLogos(): Promise<ComposeBrandImage[]> {
       return { name, bytes: new Uint8Array(await response.arrayBuffer()) }
     }))
   } catch { return [] }
+}
+
+async function loadCoverBackground(layout: Record<string, unknown>): Promise<{ name: string; bytes: Uint8Array } | null> {
+  const cover = coverFor(layout)
+  const url = coverBackgroundUrl(cover)
+  if (!url) return null
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('COVER_MISSING')
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (!validMagic(bytes, 'image/jpeg')) throw new Error('COVER_INVALID')
+    return { name: `cover-${cover.id}.jpg`, bytes }
+  } catch { throw new SDKError('تعذر تحميل خلفية الغلاف المختار؛ لم يُنشأ ملف بغلاف ناقص.', 'COVER_BACKGROUND_MISSING') }
 }
 
 async function mapBatches<T,R>(values:T[],size:number,worker:(value:T,index:number)=>Promise<R>):Promise<R[]>{
@@ -616,6 +630,7 @@ export const complaints = {
     })
     const brand = await loadBrandLogos()
     const layout = report.layout
+    const coverBackground = await loadCoverBackground(layout)
     const slides = composeComplaintSlides({
       reportTitle: report.title,
       coverTitle: String(layout.title ?? report.title ?? 'تقرير معالجة التلكؤات'),
@@ -628,6 +643,8 @@ export const complaints = {
       items: composeItems,
       mediaFor: id => loaded.get(id) ?? { afters: [] },
       brand,
+      coverBackground,
+      sector: report.sector,
     })
     const bytes = await buildPptx(slides, report.title, new JSZip())
     const generationId = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`

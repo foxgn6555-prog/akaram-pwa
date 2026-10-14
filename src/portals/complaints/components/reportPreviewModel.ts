@@ -15,9 +15,11 @@ export const siteCaption = (entry: ReportEntry) =>
   `محلة ${entry.item.neighborhood || '—'} - زقاق ${entry.item.alley || '—'} - ${entry.item.title || 'نوع غير محدد'}`
 
 /** سطر التاريخ على الغلاف — مطابق لسطر الغلاف في ملف PowerPoint. */
-export const coverDateLine = (sector: string, reportDate: string) => `${sectorLabel(sector)} - ${reportDate}`
+export const coverDateLine = (sector: string, reportDate: string, digits: CoverDigits = 'latin') =>
+  `${sectorLabel(sector)} - ${formatCoverDate(reportDate, digits).replace(/^التاريخ\s*:\s*/, '')}`
 
-export { authorityLineFor } from '@lib/pptx/complaintPptx'
+export { authorityLineFor } from '@lib/pptx/complaintCovers'
+import { formatCoverDate, type CoverDigits } from '@lib/pptx/complaintCovers'
 
 /** مفتاح مجموعة «البريد + مسؤول القسم» — مطابق لتجميع مولّد PowerPoint. */
 export const entryGroupKey = (entry: ReportEntry) =>
