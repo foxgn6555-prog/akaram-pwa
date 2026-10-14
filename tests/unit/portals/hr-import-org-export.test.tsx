@@ -101,7 +101,7 @@ describe('الهيكل التنظيمي', () => {
     h.depts = [d({ id: 'a', name: 'العمليات', code: 'OPS', employees_active: 2 }), d({ id: 'b', name: 'القاطع الأول', code: 'OPS-1', parent_id: 'a', employees_active: 5 }), d({ id: 'c', name: 'قديم', code: 'OLD', is_active: false })]
     render(<MemoryRouter><OrgStructure /></MemoryRouter>)
     expect(screen.getByTestId('org-row-OPS')).toHaveAttribute('data-depth', '0'); expect(screen.getByTestId('org-row-OPS-1')).toHaveAttribute('data-depth', '1')
-    expect(within(screen.getByTestId('org-row-OPS')).getAllByRole('cell')[4]).toHaveTextContent('7')
+    expect(screen.getByTestId('org-subtree-OPS')).toHaveTextContent('7')   // 00254: شجرة بطاقات بدل الجدول
     expect(screen.queryByTestId('org-row-OLD')).toBeNull()
     fireEvent.click(screen.getByTestId('org-show-inactive'))
     expect(screen.getByTestId('org-row-OLD')).toBeInTheDocument(); expect(screen.getByTestId('org-reactivate-OLD')).toBeInTheDocument()
