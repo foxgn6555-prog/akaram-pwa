@@ -11,6 +11,14 @@ insert into public.user_roles (user_id, role) values
   ('dd000000-0000-0000-0000-000000000001', 'ops_room'), ('dd000000-0000-0000-0000-000000000003', 'deputy_director'), ('dd000000-0000-0000-0000-000000000004', 'super_admin'),
   ('dd000000-0000-0000-0000-000000000006', 'employee'), ('dd000000-0000-0000-0000-000000000007', 'finance_officer')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', 'dd000000-0000-0000-0000-000000000004', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 insert into public.employees (id, user_id, full_name, employee_number, hire_date, biometric_pin) values
   ('dd000000-0000-0000-0000-0000000000e6', 'dd000000-0000-0000-0000-000000000006', 'dd موظف المراجعة', 'DD-EMP', '2024-01-01', '8401'),
   ('dd000000-0000-0000-0000-0000000000e7', null, 'dd موظف ثانٍ', 'DD-EMP2', '2024-01-01', '8402')
@@ -48,7 +56,7 @@ end $$;
 -- غرفة العمليات: استقطاع يدوي 5,000 + غرامة كشف 7,000 (نُدرجها مباشرة بمصدر كشف كما تفعل سلسلة الكشوفات)
 select auth.set_test_user('dd000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.dd_m')::date; e uuid := 'dd000000-0000-0000-0000-0000000000e6'; did uuid; begin
-  perform public.ops_deduction_add(e, m, 5000, 0, 'تلف عهدة');
+  perform app.test_ded_add(e, m, 5000, 0, 'تلف عهدة');
   insert into public.disclosures (db_number, driver_name, log_date, violation_type, details, status, target_kind, employee_id)
   values ('DD-1', 'dd موظف المراجعة', m + 5, 'absence', 'غياب موثق', 'approved', 'employee', e) returning id into did;
   insert into public.hr_attendance_deductions (employee_id, period_month, amount, days, reason, created_by, source_disclosure_id)

@@ -137,22 +137,6 @@ export function useResetAttendance() {
 export function useDeductions(month: string, employeeId?: string | null) {
   return useQuery({ queryKey: hrKeys.deductions(month, employeeId), queryFn: () => hr.listDeductions(month, employeeId), enabled: !!month })
 }
-export function useAddDeduction() {
-  const qc = useQueryClient(); const t = useToast()
-  return useMutation({
-    mutationFn: hr.addDeduction,
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'deductions'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('سُجّل الخصم') },
-    onError: t.err,
-  })
-}
-export function useDeleteDeduction() {
-  const qc = useQueryClient(); const t = useToast()
-  return useMutation({
-    mutationFn: (v: { id: string; reason: string }) => hr.deleteDeduction(v.id, v.reason),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'deductions'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('حُذف الخصم') },
-    onError: t.err,
-  })
-}
 export function useEmployeeMonthDays(employeeId: string | null, month: string) {
   return useQuery({ queryKey: ['hr', 'month-days', employeeId, month], queryFn: () => hr.employeeMonthDays(employeeId as string, month), enabled: !!employeeId })
 }
@@ -306,7 +290,7 @@ export function useSetSalary() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
     mutationFn: hr.setSalary,
-    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.salaryProfile(v.employeeId) }); void qc.invalidateQueries({ queryKey: hrKeys.notices() }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'employees'] }); t.ok('حُفظ ملف الراتب') },
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.salaryProfile(v.employeeId) }); void qc.invalidateQueries({ queryKey: hrKeys.notices() }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'employees'] }); /* 00256: تعريف الراتب يحدّث صف الموظف في كشف الشهر المفتوح تلقائياً */ void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'payroll-sheet'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'export-status'] }); t.ok('حُفظ ملف الراتب — تحدّث كشف الشهر المفتوح تلقائياً') },
     onError: t.err,
   })
 }

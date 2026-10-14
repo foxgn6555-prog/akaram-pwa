@@ -3,13 +3,23 @@ set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية
 insert into auth.users (id, email) values
+  ('0e000000-0000-0000-0000-00000000000f', 'oe-sa@t.iq'), ('0e000000-0000-0000-0000-00000000000e', 'oe-dep@t.iq'),
   ('0e000000-0000-0000-0000-00000000000a', 'oe-ops@t.iq'), ('0e000000-0000-0000-0000-00000000000b', 'oe-it@t.iq'),
   ('0e000000-0000-0000-0000-00000000000c', 'oe-emp@t.iq'), ('0e000000-0000-0000-0000-00000000000d', 'oe-hr@t.iq')
 on conflict (id) do nothing;
 insert into public.user_roles (user_id, role) values
+  ('0e000000-0000-0000-0000-00000000000f', 'super_admin'), ('0e000000-0000-0000-0000-00000000000e', 'deputy_director'),
   ('0e000000-0000-0000-0000-00000000000a', 'ops_room'), ('0e000000-0000-0000-0000-00000000000b', 'it_admin'),
   ('0e000000-0000-0000-0000-00000000000c', 'employee'), ('0e000000-0000-0000-0000-00000000000d', 'hr_officer')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', '0e000000-0000-0000-0000-00000000000f', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 insert into public.hr_shifts (id, name, start_time, end_time, grace_minutes, work_days) values
   ('0e000000-0000-0000-0000-0000000000d1', 'oe صباحي', '08:00', '16:00', 15, '{0,1,2,3,4,5,6}')
 on conflict (name) do nothing;
@@ -72,12 +82,17 @@ do $$ declare e uuid := '0e000000-0000-0000-0000-0000000000e1'; n int; r record;
   assert n = 0, 'O4 actor not self-notified';
   -- إعادة الاحتساب وإلغاء الاستقطاع المقترح يبلّغان أيضاً
   perform public.ops_attendance_reset(e, m + 3, 'إعادة للاشتقاق التلقائي');
-  perform public.ops_deduction_add(e, m, 0, 0.5, 'استقطاع تجريبي');
+  perform app.test_ded_add(e, m, 0, 0.5, 'استقطاع تجريبي');
   select count(*) into n from public.notifications where user_id = '0e000000-0000-0000-0000-00000000000b' and category = 'hr' and body like 'إعادة احتساب%';
   assert n = 1, 'O4 reset notified';
   select count(*) into n from public.notifications where user_id = '0e000000-0000-0000-0000-00000000000b' and category = 'hr' and body like 'إضافة استقطاع%';
   assert n = 1, 'O4 deduction notified';
-  raise notice 'O4 ✅ التطوير المركزية تُبلَّغ بكل تعديل تشغيلي';
+  -- 00225: معاون المدير المفوض يُبلَّغ أيضاً (رابط وحدته) وغرفة العمليات لا تملك الاستقطاع
+  select count(*) into n from public.notifications where user_id = '0e000000-0000-0000-0000-00000000000e' and category = 'hr' and entity_type = 'hr_attendance_audit' and link = '/deputy/deductions';
+  assert n >= 4, 'O4 deputy notified: ' || n;
+  begin perform public.ops_deduction_add(e, m, 1000, 0, 'محاولة من غرفة العمليات'); raise exception 'O4 ops must not deduct'; exception when others then assert sqlerrm = 'OPS_DEDUCTION_DISABLED', 'O4 ops denied: ' || sqlerrm; end;
+  begin perform public.ops_deduction_delete((select id from public.hr_attendance_deductions where employee_id = e and period_month = m limit 1), 'محاولة حذف'); raise exception 'O4 ops must not delete'; exception when others then assert sqlerrm = 'OPS_DEDUCTION_DISABLED', 'O4 ops delete denied: ' || sqlerrm; end;
+  raise notice 'O4 ✅ التطوير المركزية والمعاون يُبلَّغان بكل تعديل تشغيلي؛ غرفة العمليات بلا استقطاع';
 end $$;
 select auth.set_test_user('0e000000-0000-0000-0000-00000000000b');
 do $$ declare r record; n int; begin

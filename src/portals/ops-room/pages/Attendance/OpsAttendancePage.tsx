@@ -1,7 +1,7 @@
 /**
  * غرفة العمليات — وحدة «الحضوريات» بمرحلتين (00193)
  *   المرحلة 1 «التدقيق التفصيلي»: سجلات اليوم/الشهر + شبكة الشهر بالأوقات (موظف × أيام) · تعديل أي صف بسبب إلزامي + سجل تدقيق
- *     · استقطاعات يدوية · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
+ *     · استقطاعات للاطلاع فقط (لا إضافة/حذف — 00256) · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
  *   المرحلة 2 «الكشف المعتمد»: بعد الاعتماد فقط — كل يوم حاضر/غائب/مجاز + ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة)
  *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى المالية» (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
  *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
@@ -11,7 +11,7 @@ import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_ORDER, WEEKDAYS_AR,
-  useAddDeduction, useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useDeleteDeduction, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useHourBankMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance,
+  useAttendance, useAttendanceAudit, useAttendanceConfirmation, useAttendanceGrid, useConfirmAttendanceMonth, useDeductions, useEditAttendance, useEvaluateAttendance, useEvaluateMonth, useExportMonth, useHourBankMonth, useMonthExportStatus, useMonthExports, useReopenAttendanceMonth, useResetAttendance,
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, downloadWorkbook, fmtHM } from '@features/hr/lib/attendanceExcel'
@@ -44,7 +44,6 @@ export default function OpsAttendancePage() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<AttendanceDay | null>(null)
   const [auditFor, setAuditFor] = useState<AttendanceDay | null>(null)
-  const [deductFor, setDeductFor] = useState<AttendanceDay | null>(null)
   const [panel, setPanel] = useState<'rows' | 'grid' | 'deductions' | 'exports'>('rows')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
@@ -86,7 +85,7 @@ export default function OpsAttendancePage() {
     const items = [
       { key: 'unevaluated', ok: uneval === 0, label: uneval === 0 ? 'كل الأيام محتسبة' : `${uneval} يوم غير محتسب`, hint: uneval === 0 ? 'لا أيام بلا احتساب في الشهر' : `لدى ${exportStatus?.unevaluated_employees ?? 0} موظف — يُحتسب تلقائياً عند الاعتماد`, go: () => evaluateMonth.mutate(month), goLabel: 'احتسب الآن' },
       { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — ستُعدّ «حاضر» إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
-      { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — راجعها أو ألغِها بسبب قبل الاعتماد`, go: () => setPanel('deductions'), goLabel: 'المراجعة' },
+      { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — للاطلاع؛ الإعفاء أو التخفيض من صلاحية معاون المدير المفوض بعد التصدير`, go: () => setPanel('deductions'), goLabel: 'عرض' },
       { key: 'scope', ok: mode === 'month', label: mode === 'month' ? 'عرض الشهر كاملاً' : 'العرض الحالي يوم واحد', hint: mode === 'month' ? 'الأرقام أعلاه تغطي الشهر كله' : 'انتقل إلى عرض الشهر للتحقق من كامل الشهر قبل الاعتماد', go: () => setMode('month'), goLabel: 'عرض الشهر' },
     ]
     const open = items.filter((i) => !i.ok).length
@@ -265,7 +264,6 @@ export default function OpsAttendancePage() {
                       <td className="p-2">
                         <div className="flex justify-center gap-1">
                           <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل محصور بالبصمة الناقصة أو يوم بلا بصمات' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
-                          <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-40" onClick={() => setDeductFor(r)} disabled={frozen} data-testid={`ops-deduct-${r.employee_number}`}>استقطاع</button>
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>سجل</button>
                         </div>
                       </td>
@@ -275,7 +273,7 @@ export default function OpsAttendancePage() {
               </table>
             </div>
           ))}
-          {panel === 'deductions' && <DeductionsPanel month={month} locked={frozen} />}
+          {panel === 'deductions' && <DeductionsPanel month={month} />}
           {panel === 'exports' && <ExportsPanel />}
         </>
       )}
@@ -318,7 +316,7 @@ export default function OpsAttendancePage() {
                 <p className="min-w-0 flex-1 text-[11px] text-slate-600">
                   {locked ? `اعتمدت المالية الإصدار v${monthExport?.version ?? exportStatus?.version ?? 1} وأُقفل الشهر — لا يمكن إعادة التصدير.`
                     : monthExport ? `آخر تصدير v${monthExport.version} في ${new Date(monthExport.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · ${monthExport.rows_count} موظفاً. إعادة التصدير تستبدل اللقطة لدى المالية ما لم تعتمدها.`
-                    : 'يُرسَل الكشف المعتمد (أيام الحضور/الغياب/الإجازة + الاستقطاعات) إلى وحدة الرواتب في المالية كلقطة مرقّمة.'}
+                    : 'يُرسَل الكشف المعتمد (أيام الحضور/الغياب/الإجازة + الاستقطاعات) كلقطة مرقّمة إلى معاون المدير المفوض لمراجعة الاستقطاعات، ثم يصل إلى وحدة الرواتب في المالية بعد اعتماده.'}
                   {!locked && !conf?.can_export && <span className="block font-bold text-amber-800">التصدير متوقف: أعد الاعتماد أولاً لتطبيق التغييرات المعلّقة.</span>}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -349,7 +347,6 @@ export default function OpsAttendancePage() {
 
       {editing && <EditPanel row={editing} onClose={() => setEditing(null)} />}
       {auditFor && <AuditPanel row={auditFor} onClose={() => setAuditFor(null)} />}
-      {deductFor && <DeductPanel row={deductFor} month={month} onClose={() => setDeductFor(null)} />}
       {confirmOpen && (
         <Overlay title={`اعتماد حضورية ${month.slice(0, 7)}`} onClose={() => setConfirmOpen(false)} testId="att-confirm-dialog">
           {gridLoading ? <LoadingSpinner /> : (
@@ -390,7 +387,7 @@ function ReopenPanel({ month, onClose, onDone, reopen }: { month: string; onClos
       <Field id="ro-reason" label="سبب إعادة الفتح *"><textarea id="ro-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: وصلت بصمة خروج متأخرة ليوم 12 — تصحيح قبل التصدير" data-testid="ro-reason" /></Field>
       <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice-reopen">
         <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب). التغييرات التلقائية المعلّقة ستُطبَّق، ثم يلزم اعتماد الشهر من جديد قبل التصدير.</span>
+        <span><b>تنبيه:</b> سيتم تبليغ <b>معاون المدير المفوض</b> و<b>وحدة التطوير المركزية</b> بهذا الإجراء تلقائياً (إشعار لكل منهما + قيد في سجل التدقيق باسمك والسبب). التغييرات التلقائية المعلّقة ستُطبَّق، ثم يلزم اعتماد الشهر من جديد قبل التصدير.</span>
       </p>
       {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="ro-error">{err}</p>}
       <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={reopen.isPending} data-testid="ro-save">إعادة الفتح</Button></div>
@@ -441,7 +438,7 @@ function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }
       </div>
       <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice">
         <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب).</span>
+        <span><b>تنبيه:</b> سيتم تبليغ <b>معاون المدير المفوض</b> و<b>وحدة التطوير المركزية</b> بهذا التعديل تلقائياً (إشعار لكل منهما + قيد في سجل التدقيق باسمك والسبب) — التعديل لا يستقطع ولا يعفي؛ مراجعة الاستقطاعات عند المعاون.</span>
       </p>
       {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="e-error">{err}</p>}
       <div className="mt-3 flex flex-wrap justify-between gap-2">
@@ -475,39 +472,14 @@ function AuditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void 
   )
 }
 
-function DeductPanel({ row, month, onClose }: { row: AttendanceDay; month: string; onClose: () => void }) {
-  const add = useAddDeduction(); const [err, setErr] = useState<string | null>(null)
-  const [kind, setKind] = useState<'amount' | 'days'>('days'); const [value, setValue] = useState(''); const [reason, setReason] = useState('')
-  const save = async () => {
-    const v = Number(value); if (!(v > 0)) { setErr('القيمة يجب أن تكون أكبر من صفر'); return }
-    if (reason.trim().length < 3) { setErr('السبب إلزامي'); return }
-    setErr(null)
-    try { await add.mutateAsync({ employeeId: row.employee_id, month, amount: kind === 'amount' ? v : 0, days: kind === 'days' ? v : 0, reason: reason.trim() }); onClose() } catch { /* toast in hook */ }
-  }
-  return (
-    <Overlay title={`استقطاع يدوي — ${row.full_name} (${month.slice(0, 7)})`} onClose={onClose} testId="ops-deduct-panel">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="d-kind" label="النوع"><select id="d-kind" className={field} value={kind} onChange={(e) => setKind(e.target.value as 'amount' | 'days')} data-testid="d-kind"><option value="days">أيام (تحسمها المالية بأجر اليوم)</option><option value="amount">مبلغ ثابت (د.ع)</option></select></Field>
-        <Field id="d-value" label={kind === 'days' ? 'عدد الأيام' : 'المبلغ'}><input id="d-value" type="number" min={0} step={kind === 'days' ? 0.5 : 250} className={field} value={value} onChange={(e) => setValue(e.target.value)} data-testid="d-value" /></Field>
-        <div className="sm:col-span-2"><Field id="d-reason" label="السبب *"><textarea id="d-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="d-reason" /></Field></div>
-      </div>
-      <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice-ded">
-        <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>سيتم تبليغ وحدة التطوير المركزية بهذا الإجراء تلقائياً (إشعار + قيد في سجل التدقيق باسمك والسبب).</span>
-      </p>
-      {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="d-error">{err}</p>}
-      <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={add.isPending} data-testid="d-save">تسجيل الاستقطاع</Button></div>
-    </Overlay>
-  )
-}
-
-function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) {
-  const { data: rows = [], isLoading } = useDeductions(month); const del = useDeleteDeduction()
+/** 00256: للاطلاع فقط — غرفة العمليات لا تضيف ولا تحذف استقطاعات؛ الاستقطاعات تلقائية (قواعد التطوير المركزية) أو من كشوفات معتمدة، والإعفاء عند معاون المدير المفوض */
+function DeductionsPanel({ month }: { month: string }) {
+  const { data: rows = [], isLoading } = useDeductions(month)
   if (isLoading) return <LoadingSpinner />
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="deductions-panel">
-      <div className="flex items-center justify-between p-3"><h3 className="text-sm font-bold">الاستقطاعات (يدوية + كشوفات معتمدة) — {month.slice(0, 7)}</h3><span className="text-xs text-slate-500">{rows.length} استقطاعاً</span></div>
-      {rows.length === 0 ? <p className="p-6 text-center text-xs text-slate-400">لا استقطاعات لهذا الشهر — تُضاف من زر «استقطاع» بجانب أي صف حضور</p> : (
+      <div className="flex items-center justify-between p-3"><h3 className="text-sm font-bold">الاستقطاعات الواردة من كشوفات معتمدة — {month.slice(0, 7)} <span className="ms-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">للاطلاع فقط</span></h3><span className="text-xs text-slate-500">{rows.length} استقطاعاً</span></div>
+      {rows.length === 0 ? <p className="p-6 text-center text-xs text-slate-400">لا استقطاعات واردة لهذا الشهر — غرفة العمليات لا تستقطع؛ الاستقطاعات تلقائية حسب قواعد التطوير المركزية أو من كشوفات معتمدة، ومراجعتها/الإعفاء منها عند معاون المدير المفوض</p> : (
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-600"><tr><th className="p-2 text-start">الموظف</th><th className="p-2">النوع</th><th className="p-2">القيمة</th><th className="p-2 text-start">السبب</th><th className="p-2">التاريخ</th><th className="p-2"></th></tr></thead>
           <tbody>{rows.map((d) => (
@@ -517,7 +489,7 @@ function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) 
               <td className="p-2 text-center font-bold tabular-nums">{d.days > 0 ? `${d.days} يوم` : fmtMoney(d.amount)}</td>
               <td className="p-2 text-xs">{d.reason}{d.source_disclosure_id && <a href={`/ops-room/disclosures?tab=archive&id=${d.source_disclosure_id}`} className="ms-1 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800 hover:bg-violet-200" data-testid={`ded-src-${d.id}`}>كشف {d.disclosure?.ref_no ?? ''}</a>}</td>
               <td className="p-2 text-center text-xs">{new Date(d.created_at).toLocaleDateString('ar-IQ-u-nu-latn')}</td>
-              <td className="p-2 text-center">{d.source_disclosure_id ? <span className="text-[10px] text-slate-400" title="استقطاع ناتج عن كشف معتمد — يُدار من وحدة الكشوفات" data-testid={`ded-locked-${d.id}`}>من كشف معتمد</span> : !locked && <button type="button" className="text-[11px] text-red-600 hover:underline" onClick={async () => { const reason = window.prompt('سبب حذف الاستقطاع:'); if (!reason || reason.trim().length < 3) return; try { await del.mutateAsync({ id: d.id, reason: reason.trim() }) } catch { /* toast in hook */ } }} data-testid={`ded-del-${d.id}`}>حذف</button>}</td>
+              <td className="p-2 text-center"><span className="text-[10px] text-slate-400" title="يُدار من وحدة الكشوفات/معاون المدير المفوض — لا حذف من غرفة العمليات" data-testid={`ded-locked-${d.id}`}>{d.source_disclosure_id ? 'من كشف معتمد' : 'للاطلاع'}</span></td>
             </tr>))}</tbody>
         </table>
       )}
@@ -528,7 +500,7 @@ function DeductionsPanel({ month, locked }: { month: string; locked: boolean }) 
 function ExportsPanel() {
   const { data: rows = [], isLoading } = useMonthExports()
   if (isLoading) return <LoadingSpinner />
-  const label: Record<string, string> = { exported: 'مُرسل للمالية', approved: 'معتمد ومقفل', superseded: 'استُبدل بتصدير أحدث' }
+  const label: Record<string, string> = { exported: 'مُرسل لمعاون المدير المفوض ثم المالية', approved: 'معتمد ومقفل', superseded: 'استُبدل بتصدير أحدث' }
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="exports-panel">
       {rows.length === 0 ? <p className="p-6 text-center text-xs text-slate-400">لم يُصدَّر أي شهر بعد</p> : (

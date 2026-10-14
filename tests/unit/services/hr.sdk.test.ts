@@ -69,11 +69,9 @@ describe('hr.sdk — الحضوريات (غرفة العمليات)', () => {
     await hr.editAttendance({ employeeId: 'e', date: '2026-09-05', checkIn: 'A', checkOut: 'B', status: 'present', reason: 'عطل جهاز' })
     expect(h.rpc).toHaveBeenCalledWith('ops_attendance_edit', { p_employee: 'e', p_date: '2026-09-05', p_check_in: 'A', p_check_out: 'B', p_status: 'present', p_reason: 'عطل جهاز' })
   })
-  it('الاستقطاع اليدوي (مبلغ أو أيام) عبر ops_deduction_add، والحذف بسبب', async () => {
-    await hr.addDeduction({ employeeId: 'e', month: '2026-09-01', amount: 0, days: 2, reason: 'غياب بلا عذر' })
-    expect(h.rpc).toHaveBeenCalledWith('ops_deduction_add', { p_employee: 'e', p_month: '2026-09-01', p_amount: 0, p_days: 2, p_reason: 'غياب بلا عذر' })
-    await hr.deleteDeduction('d1', 'خطأ إدخال')
-    expect(h.rpc).toHaveBeenLastCalledWith('ops_deduction_delete', expect.objectContaining({ p_id: 'd1', p_reason: 'خطأ إدخال' }))
+  it('00256: لا دوال استقطاع يدوي في SDK غرفة العمليات (الاستقطاع ليس من صلاحيتها)', () => {
+    expect((hr as unknown as Record<string, unknown>).addDeduction).toBeUndefined()
+    expect((hr as unknown as Record<string, unknown>).deleteDeduction).toBeUndefined()
   })
   it('تصدير الشهر عبر ops_month_export', async () => {
     h.state.result = { data: 'exp-1', error: null }

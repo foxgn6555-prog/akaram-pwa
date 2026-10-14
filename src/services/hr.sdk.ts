@@ -238,12 +238,6 @@ export const hr = {
     if (employeeId) q = q.eq('employee_id', employeeId)
     return (await sdkGuard(q)) as AttendanceDeduction[]
   },
-  addDeduction(v: { employeeId: string; month: string; amount: number; days: number; reason: string }) {
-    return rpc<string>('ops_deduction_add', { p_employee: v.employeeId, p_month: v.month, p_amount: v.amount, p_days: v.days, p_reason: v.reason })
-  },
-  deleteDeduction(id: string, reason: string) {
-    return sdkVoid(supabase.rpc('ops_deduction_delete', { p_id: id, p_reason: reason } as never))
-  },
   async listAudit(f: { employeeId?: string | null; from?: string; to?: string; limit?: number } = {}): Promise<AttendanceAudit[]> {
     let q = supabase.from('hr_attendance_audit').select('*').order('created_at', { ascending: false }).limit(f.limit ?? 200)
     if (f.employeeId) q = q.eq('employee_id', f.employeeId)

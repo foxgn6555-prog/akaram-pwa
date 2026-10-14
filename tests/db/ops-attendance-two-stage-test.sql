@@ -14,6 +14,14 @@ insert into public.user_roles (user_id, role) values
   ('fc000000-0000-0000-0000-000000000005', 'department_manager'), ('fc000000-0000-0000-0000-000000000006', 'employee'), ('fc000000-0000-0000-0000-000000000007', 'finance_officer'),
   ('fc000000-0000-0000-0000-000000000008', 'it_admin'), ('fc000000-0000-0000-0000-000000000009', 'employee'), ('fc000000-0000-0000-0000-000000000010', 'employee')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', 'fc000000-0000-0000-0000-000000000004', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 insert into public.departments (id, name, code) values ('fc000000-0000-0000-0000-0000000000c1', 'ts قسم الإدارة', 'TS-ADM'), ('fc000000-0000-0000-0000-0000000000c2', 'ts قسم الآليات', 'TS-MEC') on conflict (id) do nothing;
 insert into public.employees (id, user_id, full_name, employee_number, hire_date, biometric_pin, department_id) values
   ('fc000000-0000-0000-0000-0000000000e5', 'fc000000-0000-0000-0000-000000000005', 'ts مدير', 'TS-MGR', '2024-01-01', 'TS-M', 'fc000000-0000-0000-0000-0000000000c1'),
@@ -106,7 +114,7 @@ do $$ declare m date := current_setting('test.ts_m')::date; ok boolean; e uuid :
   -- 00218: الإعفاء لم يعد من صلاحية غرفة العمليات أصلاً
   ok := false; begin perform public.ops_deduction_waive(e, m + 2, true, 'سبب'); exception when others then ok := sqlerrm = 'HR_WAIVE_NOT_ALLOWED'; end;
   assert ok, 'S3 waive blocked';
-  ok := false; begin perform public.ops_deduction_add(e, m, 1000, 0, 'سبب'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
+  ok := false; begin perform app.test_ded_add(e, m, 1000, 0, 'سبب'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
   assert ok, 'S3 deduction blocked';
   ok := false; begin perform public.ops_attendance_reset(e, m + 3, 'سبب'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
   assert ok, 'S3 reset blocked';

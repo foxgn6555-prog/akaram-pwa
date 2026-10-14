@@ -21,6 +21,14 @@ insert into public.user_roles (user_id, role) values
   ('ac000000-0000-0000-0000-000000000006', 'employee'), ('ac000000-0000-0000-0000-000000000007', 'finance_officer'),
   ('ac000000-0000-0000-0000-000000000009', 'employee'), ('ac000000-0000-0000-0000-000000000010', 'employee')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', 'ac000000-0000-0000-0000-000000000004', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 select set_config('test.rc_m', (date_trunc('month', current_date) - interval '1 month')::date::text, false);
 insert into public.branches (id, name, code) values ('ac000000-0000-0000-0000-0000000000b1', 'rc فرع الكرخ', 'RCK') on conflict (id) do nothing;
 insert into public.departments (id, name, code) values ('ac000000-0000-0000-0000-0000000000c1', 'rc النقل', 'RCT'), ('ac000000-0000-0000-0000-0000000000c2', 'rc الإدارة', 'RCA') on conflict (id) do nothing;
@@ -61,7 +69,7 @@ do $$ declare m date := current_setting('test.rc_m')::date; n int; begin
   assert n = 10, 'S1 ingest ' || n;
 end $$;
 select auth.set_test_user('ac000000-0000-0000-0000-000000000001');
-select public.ops_deduction_add('ac000000-0000-0000-0000-0000000000e9', current_setting('test.rc_m')::date, 12500, 0, 'rc مخالفة');
+select app.test_ded_add('ac000000-0000-0000-0000-0000000000e9', current_setting('test.rc_m')::date, 12500, 0, 'rc مخالفة');
 select public.ops_attendance_confirm(current_setting('test.rc_m')::date);
 select set_config('test.rc_export', public.ops_month_export_reviewed(current_setting('test.rc_m')::date)::text, false);
 do $$ begin raise notice 'S1 ✅ بصمات + استقطاع + اعتماد الحضورية + تصدير'; end $$;
@@ -118,7 +126,7 @@ end $$;
 -- ═══ S5 · استقطاع عمليات جديد بعد التصدير ⇒ OPS_DEDUCTIONS_CHANGED (حضورياً) مع بقاء السلامة المالية؛ إعادة الاعتماد والتصدير تُصفّي الفرق ═══
 select auth.set_test_user('ac000000-0000-0000-0000-000000000001');
 select public.ops_attendance_reopen(current_setting('test.rc_m')::date, 'rc استقطاع متأخر');
-select public.ops_deduction_add('ac000000-0000-0000-0000-0000000000e6', current_setting('test.rc_m')::date, 5000, 0, 'rc تأخير متكرر');
+select app.test_ded_add('ac000000-0000-0000-0000-0000000000e6', current_setting('test.rc_m')::date, 5000, 0, 'rc تأخير متكرر');
 select auth.set_test_user('ac000000-0000-0000-0000-000000000007');
 do $$ declare m date := current_setting('test.rc_m')::date; r record; begin
   select * into r from public.finance_payroll_reconcile(m) where employee_number = 'RC-D';

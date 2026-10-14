@@ -41,12 +41,13 @@ export default function PayrollOverview() {
   )
 }
 
-// ── 00198 · شريط رحلة الكشف: غرفة العمليات → التصدير → التحقق الحسابي → اعتماد المالية ──
+// ── 00198/00256 · شريط رحلة الكشف: غرفة العمليات → التصدير → مراجعة معاون المدير المفوض → التحقق الحسابي → اعتماد المالية ──
 function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }: { head: PayrollSheetRow; approved: boolean; stale: boolean; rc: ReturnType<typeof reconcileSummary>; hasReconcile: boolean; blockReason: string }) {
   const exportedAt = new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')
   const steps: { key: string; label: string; hint: string; state: 'done' | 'warn' | 'bad' | 'active' | 'todo' }[] = [
     { key: 'ops', label: 'اعتماد غرفة العمليات', hint: 'حضورية الشهر مُدقَّقة ومعتمدة', state: 'done' },
-    { key: 'export', label: `التصدير v${head.export_version}`, hint: stale ? 'تغيّرت الحضورية بعده — يلزم إعادة تصدير' : `مُستلم ${exportedAt}`, state: stale ? 'warn' : 'done' },
+    { key: 'export', label: `التصدير v${head.export_version}`, hint: stale ? 'تغيّرت الحضورية بعده — يلزم إعادة تصدير' : `صدر ${exportedAt}`, state: stale ? 'warn' : 'done' },
+    { key: 'deputy', label: 'مراجعة معاون المدير المفوض', hint: head.reviewed_at ? `اعتُمد ${new Date(head.reviewed_at).toLocaleString('ar-IQ-u-nu-latn')}` : 'الاستقطاعات مُراجَعة ومعتمدة', state: 'done' },
     { key: 'verify', label: 'التحقق الحسابي', hint: !hasReconcile ? 'جارٍ…' : rc.money > 0 ? `${rc.money} صف غير متطابق` : `${rc.total} صف متطابق`, state: !hasReconcile ? 'todo' : rc.money > 0 ? 'bad' : 'done' },
     { key: 'approve', label: 'اعتماد المالية', hint: approved ? 'معتمد ومقفل' : blockReason ? 'موقوف — راجع الجاهزية' : 'بانتظار الاعتماد', state: approved ? 'done' : blockReason ? 'bad' : 'active' },
   ]
@@ -55,7 +56,7 @@ function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }:
   const mark = { done: '✓', warn: '!', bad: '✗', active: '…', todo: '' }
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-pipeline">
-      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
         {steps.map((s, i) => (
           <li key={s.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 ring-1', cls[s.state])} data-testid={`ps-step-${s.key}`} data-state={s.state}>
             <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', dot[s.state])}>{mark[s.state] || i + 1}</span>
@@ -63,7 +64,7 @@ function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }:
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · مُستلم من غرفة العمليات {exportedAt} · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}{hasReconcile && <> · <span className={clsx('font-bold', rc.money === 0 ? 'text-emerald-700' : 'text-red-700')} data-testid="ps-consistency">{rc.money === 0 ? `✓ التحقق الحسابي: ${rc.total} صف متطابق` : `✗ ${rc.money} صف غير متطابق`}</span></>}</p>
+      <p className="mt-2 text-[11px] text-slate-500" data-testid="ps-meta">الإصدار v{head.export_version} · صدر من غرفة العمليات {exportedAt} · وصل بعد اعتماد معاون المدير المفوض · {approved ? <span className="font-bold text-emerald-700">معتمد ومقفل</span> : <span className="font-bold text-sky-700">بانتظار الاعتماد — قد تعيد غرفة العمليات التصدير</span>}{hasReconcile && <> · <span className={clsx('font-bold', rc.money === 0 ? 'text-emerald-700' : 'text-red-700')} data-testid="ps-consistency">{rc.money === 0 ? `✓ التحقق الحسابي: ${rc.total} صف متطابق` : `✗ ${rc.money} صف غير متطابق`}</span></>}</p>
     </section>
   )
 }
@@ -199,7 +200,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           </header>
           {missing > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900" role="status" data-testid="ps-missing-banner">
-              <span className="min-w-0 flex-1"><b>الاعتماد موقوف:</b> {missing} موظفاً بلا ملف راتب — <span className="font-semibold">{missingRows.slice(0, 6).map((r) => `${r.full_name} (${r.employee_number})`).join('، ')}{missing > 6 ? ` و${missing - 6} آخرين` : ''}</span>. عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب من غرفة العمليات إعادة التصدير.</span>
+              <span className="min-w-0 flex-1"><b>الاعتماد موقوف:</b> {missing} موظفاً بلا ملف راتب — <span className="font-semibold">{missingRows.slice(0, 6).map((r) => `${r.full_name} (${r.employee_number})`).join('، ')}{missing > 6 ? ` و${missing - 6} آخرين` : ''}</span>. عرّف رواتبهم من تبويب «ملفات الرواتب» — يتحدّث صفّهم في هذا الكشف فوراً دون إعادة تصدير من غرفة العمليات.</span>
               <button type="button" className="rounded-lg bg-white px-2 py-0.5 font-bold text-red-800 ring-1 ring-red-300" onClick={() => setF('profile', 'missing')} data-testid="ps-missing-filter">عرضهم فقط</button>
             </div>
           )}
@@ -231,7 +232,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
         <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3" data-testid="ps-missing-card">
           <header className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xs font-black text-amber-900">موظفون بلا ملف راتب <span className="rounded-full bg-white px-2 py-0.5 text-[11px] tabular-nums ring-1 ring-amber-200">{missing}</span></h2>
-            <p className="text-[11px] text-amber-800">خارج جدول الكشف حتى يُعرَّف راتبهم — لا تدخل أيامهم في المجاميع.</p>
+            <p className="text-[11px] text-amber-800">خارج جدول الكشف حتى يُعرَّف راتبهم — فور التعريف يُحتسب صفّهم ويدخل المجاميع تلقائياً (لا حاجة لإعادة التصدير).</p>
             <Button size="sm" onClick={onDefine} data-testid="ps-missing-define">تعريف الرواتب</Button>
           </header>
           <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -245,7 +246,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
       )}
 
       {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? (awaitingDeputy ? <EmptyState title="الكشف بانتظار اعتماد معاون المدير المفوض" hint={`صدّرت غرفة العمليات الشهر (إصدار ${gate?.version ?? 1}) ويُراجع معاون المدير المفوض الاستقطاعات الآن — يظهر الكشف هنا فور اعتماده`} />
-        : <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات ثم اعتماد معاون المدير المفوض" />) : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : tableRows.length === 0 ? <EmptyState title="كل الموظفين في هذا النطاق بلا ملف راتب" hint="عرّف رواتبهم من تبويب «ملفات الرواتب» ثم اطلب إعادة التصدير" /> : (
+        : <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات ثم اعتماد معاون المدير المفوض" />) : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : tableRows.length === 0 ? <EmptyState title="كل الموظفين في هذا النطاق بلا ملف راتب" hint="عرّف رواتبهم من تبويب «ملفات الرواتب» — يتحدّث الكشف تلقائياً" /> : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-xs" data-testid="ps-table" data-layout="net-first">
             <thead className="bg-slate-50 text-[11px] text-slate-600">

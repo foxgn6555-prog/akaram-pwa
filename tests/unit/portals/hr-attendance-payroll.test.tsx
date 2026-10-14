@@ -213,10 +213,10 @@ describe('غرفة العمليات — الحضوريات', () => {
     fireEvent.click(screen.getByTestId('e-save'))
     await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'present', reason: 'تأكيد من مسؤول القسم' })))
   })
-  it('00178: تنبيه تبليغ التطوير المركزية يظهر في لوحتي التعديل والاستقطاع', () => {
+  it('00178/00256: تنبيه التبليغ في لوحة التعديل يذكر معاون المدير المفوض ووحدة التطوير المركزية', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
-    expect(screen.getByTestId('it-notify-notice')).toHaveTextContent('سيتم تبليغ وحدة التطوير المركزية')
+    expect(screen.getByTestId('it-notify-notice')).toHaveTextContent('سيتم تبليغ معاون المدير المفوض ووحدة التطوير المركزية')
   })
   it('00178: أوقات التعديل تُعرض وتُحفظ بتوقيت بغداد بأرقام إنكليزية مهما كان توقيت المتصفح', async () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
@@ -241,13 +241,12 @@ describe('غرفة العمليات — الحضوريات', () => {
     expect(row.textContent).toMatch(/08:40/)
     expect(row.textContent).not.toMatch(/[\u0660-\u0669]/)
   })
-  it('الاستقطاع اليدوي بالأيام يرسل days والمبلغ صفراً مع السبب', async () => {
+  it('00256: غرفة العمليات بلا زر استقطاع، ولوحة الاستقطاعات للاطلاع فقط، ورسالة التعديل تذكر المعاون والتطوير', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
-    fireEvent.click(screen.getByTestId('ops-deduct-E100'))
-    fireEvent.change(screen.getByTestId('d-value'), { target: { value: '2' } })
-    fireEvent.change(screen.getByTestId('d-reason'), { target: { value: 'غياب بلا عذر' } })
-    fireEvent.click(screen.getByTestId('d-save'))
-    await waitFor(() => expect(h.addDed).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', amount: 0, days: 2, reason: 'غياب بلا عذر' })))
+    expect(screen.queryByTestId('ops-deduct-E100')).toBeNull()
+    fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
+    const notice = screen.getByTestId('it-notify-notice')
+    expect(notice).toHaveTextContent('معاون المدير المفوض'); expect(notice).toHaveTextContent('وحدة التطوير المركزية')
   })
   it('سجل التدقيق يعرض السبب والفرق قبل/بعد', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)

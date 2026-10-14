@@ -20,6 +20,14 @@ insert into public.user_roles (user_id, role) values
   ('fc000000-0000-0000-0000-000000000001', 'ops_room'), ('fc000000-0000-0000-0000-000000000003', 'deputy_director'),
   ('fc000000-0000-0000-0000-000000000004', 'super_admin'), ('fc000000-0000-0000-0000-000000000007', 'finance_officer')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', 'fc000000-0000-0000-0000-000000000004', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 insert into public.employees (id, user_id, full_name, employee_number, hire_date) values
   ('fc000000-0000-0000-0000-0000000000e1', 'fc000000-0000-0000-0000-000000000001', 'fc عمليات', 'FC-OPS', '2024-01-01'),
   ('fc000000-0000-0000-0000-0000000000e3', 'fc000000-0000-0000-0000-000000000003', 'fc معاون', 'FC-DEP', '2024-01-01'),
@@ -64,7 +72,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
   st := public.hr_month_export_status(m);
   assert (st ->> 'needs_reexport')::boolean and (st ->> 'deductions_after')::int >= 1 and (st ->> 'disclosure_deductions_after')::int >= 1 and (st ->> 'changes_after')::int >= 1, 'S3 stale: ' || st::text;
   select id into dd from public.hr_attendance_deductions where source_disclosure_id = current_setting('test.fc1')::uuid;
-  begin perform public.ops_deduction_delete(dd, 'محاولة حذف'); exception when others then ok := sqlerrm = 'HR_DEDUCTION_FROM_DISCLOSURE'; end;
+  begin perform public.ops_deduction_delete(dd, 'محاولة حذف'); exception when others then ok := sqlerrm in ('HR_DEDUCTION_FROM_DISCLOSURE', 'OPS_DEDUCTION_DISABLED'); end;   -- 00225: غرفة العمليات بلا صلاحية حذف أصلاً
   assert ok and exists (select 1 from public.hr_attendance_deductions where id = dd), 'S3 disclosure deduction protected';
   select * into r from public.hr_employee_month_deductions('fc000000-0000-0000-0000-0000000000e9', m);
   assert r.amount = 7000 and r.disclosure_ref is not null and r.disclosure_type = 'غياب' and r.source_disclosure_id = current_setting('test.fc1')::uuid, 'S3 detail: ' || row_to_json(r)::text;
@@ -114,7 +122,7 @@ select auth.set_test_user('fc000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fcm2')::date; x uuid; begin
   x := public.ops_month_export_reviewed(m);
   update public.hr_month_exports set exported_at = exported_at - interval '1 minute' where id = x;
-  perform public.ops_deduction_add('fc000000-0000-0000-0000-0000000000e9', m, 1000, 0, 'استقطاع يدوي بعد التصدير');
+  perform app.test_ded_add('fc000000-0000-0000-0000-0000000000e9', m, 1000, 0, 'استقطاع يدوي بعد التصدير');
   assert (public.hr_month_export_status(m) ->> 'needs_reexport')::boolean, 'S5 stale after manual deduction';
 end $$;
 select auth.set_test_user('fc000000-0000-0000-0000-000000000007');

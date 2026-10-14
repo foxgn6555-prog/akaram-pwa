@@ -23,6 +23,14 @@ insert into public.user_roles (user_id, role) values
   ('fe000000-0000-0000-0000-000000000004', 'super_admin'), ('fe000000-0000-0000-0000-000000000005', 'department_manager'), ('fe000000-0000-0000-0000-000000000006', 'employee'),
   ('fe000000-0000-0000-0000-000000000007', 'finance_officer'), ('fe000000-0000-0000-0000-000000000008', 'it_admin')
 on conflict do nothing;
+-- 00225: غرفة العمليات بلا صلاحية استقطاع — الاستقطاعات اليدوية في هذا الاختبار تُنشأ بهوية المدير المفوض (super_admin) ثم تعود الهوية الأصلية
+create or replace function app.test_ded_add(p_employee uuid, p_month date, p_amount numeric, p_days numeric, p_reason text) returns uuid language plpgsql security definer set search_path = public, app as $$
+declare u text := current_setting('auth.user_id', true); v uuid; begin
+  perform set_config('auth.user_id', 'fe000000-0000-0000-0000-000000000004', true);
+  begin v := public.ops_deduction_add(p_employee, p_month, p_amount, p_days, p_reason); exception when others then perform set_config('auth.user_id', coalesce(u, ''), true); raise; end;
+  perform set_config('auth.user_id', coalesce(u, ''), true); return v;
+end $$;
+
 insert into public.employees (id, user_id, full_name, employee_number, hire_date, biometric_pin) values
   ('fe000000-0000-0000-0000-0000000000e5', 'fe000000-0000-0000-0000-000000000005', 'fx مدير القسم', 'FX-MGR', '2024-01-01', 'FX-M'),
   ('fe000000-0000-0000-0000-0000000000e6', 'fe000000-0000-0000-0000-000000000006', 'fx موظف الدورة', 'FX-EMP', '2024-01-01', '8101')
@@ -119,7 +127,7 @@ do $$ declare m date := current_setting('test.fx_m')::date; a record; begin
   perform auth.set_test_user('fe000000-0000-0000-0000-000000000001');
   select * into a from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m + 2;
   assert a.deduction_waived and a.waive_reason like 'تأخير%', 'S4 waived';
-  perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 5000, 0, 'تلف عهدة');
+  perform app.test_ded_add('fe000000-0000-0000-0000-0000000000e6', m, 5000, 0, 'تلف عهدة');
   assert (select count(*) from public.hr_attendance_audit where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and action in ('waive', 'deduction_add', 'deduction_waive')) >= 1, 'S4 audited';
   raise notice 'S4 ✅ تعديلات غرفة العمليات موثّقة';
 end $$;
@@ -216,14 +224,14 @@ select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fx_m')::date; ok boolean := false; cf jsonb; begin
   update public.hr_month_exports set exported_at = exported_at - interval '1 minute' where id = current_setting('test.fx_export')::uuid;
   -- بعد الاعتماد: أي تعديل يدوي ممنوع حتى إعادة الفتح بسبب
-  begin perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
+  begin perform app.test_ded_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة'); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_CONFIRMED'; end;
   assert ok, 'S9 manual deduction blocked while confirmed';
   ok := false; begin perform public.ops_attendance_reopen(m, ''); exception when others then ok := sqlerrm = 'HR_REASON_REQUIRED'; end;
   assert ok, 'S9 reopen needs reason';
   cf := public.ops_attendance_reopen(m, 'غرامة وصلت بعد الاعتماد');
   assert cf ->> 'status' = 'reopened' and not (cf ->> 'can_export')::boolean, 'S9 reopened: ' || cf::text;
   assert exists (select 1 from public.notifications where user_id = 'fe000000-0000-0000-0000-000000000008' and title like 'إعادة فتح حضورية%'), 'S9 IT notified of reopen';
-  perform public.ops_deduction_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة');
+  perform app.test_ded_add('fe000000-0000-0000-0000-0000000000e6', m, 3000, 0, 'غرامة متأخرة');
 end $$;
 select auth.set_test_user('fe000000-0000-0000-0000-000000000007');
 do $$ declare m date := current_setting('test.fx_m')::date; st jsonb; ok boolean := false; begin
@@ -267,7 +275,7 @@ select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.fx_m')::date; ok boolean; n int; e uuid := 'fe000000-0000-0000-0000-0000000000e6'; before_status text; begin
   ok := false; begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 export blocked';
   ok := false; begin perform public.ops_attendance_edit(e, m + 3, (m + 3)::text::timestamp at time zone 'Asia/Baghdad' + interval '8 hour', (m + 3)::text::timestamp at time zone 'Asia/Baghdad' + interval '16 hour', 'present', 'تصحيح'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 edit blocked';
-  ok := false; begin perform public.ops_deduction_add(e, m, 1000, 0, 'متأخر'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 deduction blocked';
+  ok := false; begin perform app.test_ded_add(e, m, 1000, 0, 'متأخر'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 deduction blocked';
   ok := false; begin perform public.ops_attendance_reopen(m, 'محاولة'); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 reopen blocked after lock';
   ok := false; begin perform public.ops_attendance_confirm(m); exception when others then ok := sqlerrm = 'HR_MONTH_LOCKED'; end; assert ok, 'S11 confirm blocked after lock';
   select status into before_status from public.hr_attendance_days where employee_id = e and work_date = m + 9;
@@ -299,7 +307,7 @@ do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r recor
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';
   assert r.ops_deduction_amount = 4000 and r.ops_deduction_reasons like '%كشف%', 'S12a carried disclosure: ' || r.ops_deduction_amount;
   -- 00207: القسط لا يأخذ أكثر مما بقي بعد بقية الاستقطاعات (في النموذج القديم قد يبقى فائض مخصصات صغير يُغطّي جزءاً من القسط؛ لا يُستقطع من لا شيء)
-  assert r.proposed_net >= 0 and r.advance_installment = least(100000, greatest(0, r.gross_amount - (r.deductions_total - r.advance_installment))), 'S12a installment bounded by what remains: ' || r.proposed_net || '/' || r.advance_installment || ' gross=' || r.gross_amount || ' ded=' || r.deductions_total;
+  assert r.proposed_net >= 0 and r.advance_installment = floor(least(100000, greatest(0, r.gross_amount - (r.deductions_total - r.advance_installment)))), 'S12a installment bounded by what remains: ' || r.proposed_net || '/' || r.advance_installment || ' gross=' || r.gross_amount || ' ded=' || r.deductions_total;
   assert (select amount - repaid_total from public.advances where id = current_setting('test.fx_adv')::uuid) = 200000, 'S12a remaining untouched';
 end $$;
 -- الرصيد السنوي لا يكفي لشهر كامل (يُرفض HR_BALANCE_INSUFFICIENT) ⇒ نستخدم إجازة رسمية مدفوعة بلا رصيد تغطي الشهر الحالي كله
