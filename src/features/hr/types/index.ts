@@ -510,6 +510,17 @@ export interface HrDashboardStats {
   salary_pending: number
   unmatched_punches: number
   shifts: Array<{ name: string; count: number }>
+  /** 00224 — رسومات الرئيسية (اختيارية لتوافق الاستجابات القديمة) */
+  attendance_30d?: Array<{ d: string; present: number; late: number; absent: number; incomplete: number; leave: number }>
+  movement_6m?: Array<{ month: string; hired: number; terminated: number }>
+  by_contract?: { monthly: number; daily: number }
+  by_status?: { active: number; on_leave: number; suspended: number }
+  by_gender?: { male: number; female: number; unknown: number }
+  tenure?: { lt1: number; y1_3: number; gt3: number }
+  leaves_month?: Array<{ name: string; count: number }>
+  leaves_pending?: number
+  month_attendance?: { present: number; absent: number; late: number; days: number }
+  incomplete_profiles?: number
 }
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {

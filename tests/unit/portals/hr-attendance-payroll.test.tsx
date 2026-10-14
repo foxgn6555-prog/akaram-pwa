@@ -176,6 +176,25 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
     expect(screen.getByTestId('d-late')).toHaveTextContent('5'); expect(screen.getByTestId('d-salary-pending')).toHaveTextContent('4'); expect(screen.getByTestId('d-unmatched')).toHaveTextContent('7')
     expect(screen.getByTestId('d-by-dept')).toHaveTextContent('النقل')
   })
+  it('00256: الرسومات تظهر مع مفاتيح 00224 (اتجاه 30 يوماً، حركة 6 أشهر، التركيبة، نسبة الحضور، المتابعة)', () => {
+    h.dashboard = {
+      employees_active: 40, employees_terminated: 3, hired_this_month: 2, terminated_this_month: 1, by_department: [{ name: 'النقل', count: 30 }], by_branch: [], today: { present: 30, late: 5, absent: 3, incomplete: 2, leave: 0 }, leaves_today: 1, salary_pending: 0, unmatched_punches: 0, shifts: [],
+      attendance_30d: Array.from({ length: 30 }, (_, i) => ({ d: `2026-09-${String(15 + (i % 15)).padStart(2, '0')}`, present: 30 + (i % 3), late: 4, absent: 2, incomplete: 1, leave: 0 })),
+      movement_6m: [{ month: '2026-05', hired: 1, terminated: 0 }, { month: '2026-06', hired: 3, terminated: 1 }, { month: '2026-07', hired: 0, terminated: 0 }, { month: '2026-08', hired: 2, terminated: 2 }, { month: '2026-09', hired: 4, terminated: 0 }, { month: '2026-10', hired: 2, terminated: 1 }],
+      by_contract: { monthly: 35, daily: 5 }, by_status: { active: 38, on_leave: 1, suspended: 1 }, by_gender: { male: 30, female: 10, unknown: 0 }, tenure: { lt1: 10, y1_3: 20, gt3: 10 },
+      leaves_month: [{ name: 'اعتيادية', count: 6 }, { name: 'مرضية', count: 2 }], leaves_pending: 3, month_attendance: { present: 270, absent: 20, late: 30, days: 300 }, incomplete_profiles: 4,
+    }
+    render(<MemoryRouter><HRDashboard /></MemoryRouter>)
+    expect(screen.getByTestId('d-trend-30d')).toBeInTheDocument()
+    expect(screen.getByTestId('d-movement-6m')).toHaveTextContent('تعيين')
+    expect(screen.getByTestId('d-today-donut')).toBeInTheDocument()
+    expect(screen.getByTestId('d-attendance-rate')).toHaveTextContent('90')
+    expect(screen.getByTestId('d-composition')).toHaveTextContent('شهري')
+    expect(screen.getByTestId('d-leaves-month')).toHaveTextContent('اعتيادية')
+    expect(screen.getByTestId('d-leaves-pending')).toHaveTextContent('3')
+    expect(screen.getByTestId('d-incomplete-profiles')).toHaveTextContent('4')
+    expect(screen.getByTestId('d-active')).toHaveTextContent('شهري 35')
+  })
 })
 
 describe('غرفة العمليات — الحضوريات', () => {
