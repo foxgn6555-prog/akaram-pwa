@@ -6,6 +6,7 @@
  *        وخانة «يقود آليات الشركة» على المسمى هي ما يُظهر موظفيه في قائمة سائقي غرفة العمليات.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useHrDepartments, useHrEmployees, useSaveDepartment } from '@features/hr'
 import type { HrDepartment } from '@features/hr'
 import { exportToExcel } from '@features/hr/lib/hrExcel'
@@ -114,7 +115,7 @@ export default function OrgStructure() {
 
   return (
     <div className="space-y-4" data-testid="hr-org">
-      <ExecPageHeader icon="layout-grid" title="الهيكل التنظيمي" subtitle="هرمية الأقسام والمسميات الوظيفية — تُستخدم في التوظيف والحضور والاستيراد وفلاتر غرفة العمليات ونطاقات الكراج/المحطة/الصيانة" actions={
+      <ExecPageHeader icon="layout-grid" title="الهيكل التنظيمي" subtitle="هرمية الأقسام والمسميات الوظيفية — أساس التوظيف والحضور والنطاقات في كل البوابات" actions={
         <div className="flex flex-wrap gap-2">
           <ExportButton testId="org-export" disabled={tree.flat.length === 0} onExport={() => exportToExcel({
             title: 'الهيكل التنظيمي', sheetName: 'الأقسام', fileName: 'الهيكل-التنظيمي.xlsx', rows: tree.flat,
@@ -168,61 +169,75 @@ export default function OrgStructure() {
         <OrgChartView tree={tree} filter={filter} onSelect={edit} />
       )}
 
-      {/* تأكيد النقل */}
-      {pendingMove && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="org-move-title" data-testid="org-move-confirm">
+      {/* تأكيد النقل — Portal فوق قوقعة البوابة (الشريط الجانبي z-30) */}
+      {pendingMove && createPortal(
+        <div className="fixed inset-0 z-[2300] grid place-items-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="org-move-title" data-testid="org-move-confirm" dir="rtl">
           <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
             <h3 id="org-move-title" className="text-sm font-black text-slate-900">تأكيد نقل {pendingMove.moving.is_job_title ? 'المسمى' : 'القسم'}</h3>
             <p className="mt-2 text-xs leading-6 text-slate-700">
               سيُنقل <b>«{pendingMove.moving.name}»</b> ليصبح تحت <b>«{targetName}»</b>.
               {movingSubtree && (movingSubtree.descendants > 0 || movingSubtree.subtree > 0) && <span className="block text-slate-500">ينتقل معه {movingSubtree.descendants > 0 ? `${movingSubtree.descendants} فرع/مسمى و` : ''}{movingSubtree.subtree} موظف؛ وتتحدّث أقسام الموظفين تلقائياً.</span>}
             </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setPendingMove(null)} data-testid="org-move-cancel">إلغاء</Button>
+            <div className="mt-4 flex gap-2">
               <Button size="sm" onClick={() => void confirmMove()} isLoading={save.isPending} data-testid="org-move-ok">تأكيد النقل</Button>
+              <Button size="sm" variant="ghost" onClick={() => setPendingMove(null)} data-testid="org-move-cancel">إلغاء</Button>
             </div>
           </div>
-        </div>
-      )}
+        </div>, document.body)}
 
-      {/* لوحة النموذج الجانبية */}
-      {draft && (
-        <div className="fixed inset-0 z-40 flex justify-start bg-slate-900/30" onClick={() => { setDraft(null); setErr(null) }}>
-          <section className="h-full w-full max-w-lg overflow-y-auto bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" data-testid="org-form">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-black text-slate-900">{draft.id ? (draft.isJobTitle ? 'تعديل المسمى الوظيفي' : 'تعديل القسم') : draft.isJobTitle ? 'مسمى وظيفي جديد' : draft.parentId ? 'قسم فرعي جديد' : 'قسم رئيسي جديد'}</h3>
-                {draft.parentId && <p className="text-[11px] text-slate-500">تحت: {tree.byId.get(draft.parentId)?.path ?? depts.find((d) => d.id === draft.parentId)?.name}</p>}
+      {/* نموذج القسم/المسمى — نافذة مركزية (Portal) بأقسام واضحة؛ على الجوال ورقة سفلية */}
+      {draft && createPortal(
+        <div className="fixed inset-0 z-[2300] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" onClick={() => { setDraft(null); setErr(null) }} dir="rtl">
+          <section className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="org-form-title" data-testid="org-form">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-[#0b2a4a] px-5 py-4 text-white">
+              <div className="min-w-0">
+                <h3 id="org-form-title" className="text-base font-black">{draft.id ? (draft.isJobTitle ? 'تعديل المسمى الوظيفي' : 'تعديل القسم') : draft.isJobTitle ? 'مسمى وظيفي جديد' : draft.parentId ? 'قسم فرعي جديد' : 'قسم رئيسي جديد'}</h3>
+                <p className="truncate text-[11px] text-blue-100/90" data-testid="org-form-path">{draft.parentId ? `الموضع في الهرم: ${tree.byId.get(draft.parentId)?.path ?? depts.find((d) => d.id === draft.parentId)?.name ?? ''} › ${draft.name || '…'}` : 'قسم في أعلى الهرم (بلا أب)'}</p>
               </div>
-              <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold" onClick={() => { setDraft(null); setErr(null) }} aria-label="إغلاق">✕</button>
+              <button type="button" className="rounded-xl bg-white/10 px-2.5 py-1 text-sm font-black ring-1 ring-white/25 hover:bg-white/20" onClick={() => { setDraft(null); setErr(null) }} aria-label="إغلاق">✕</button>
             </div>
-            <div className="grid gap-3">
-              <Field id="org-name" label={draft.isJobTitle ? 'اسم المسمى الوظيفي *' : 'اسم القسم *'}><input id="org-name" className={field} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} data-testid="org-name" /></Field>
-              <Field id="org-code" label="الرمز *" hint="فريد — مثل OPS أو OPS-1"><input id="org-code" className={clsx(field, 'uppercase')} dir="ltr" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} data-testid="org-code" /></Field>
-              <Field id="org-parent" label="القسم الأب" hint={draft.id ? 'تغيير الأب = نقل القسم مع فروعه وموظفيه' : undefined}>
-                <select id="org-parent" className={field} value={draft.parentId} onChange={(e) => setDraft({ ...draft, parentId: e.target.value, isJobTitle: e.target.value ? draft.isJobTitle : false })} data-testid="org-parent">
-                  <option value="">— قسم رئيسي —</option>
-                  {parentOptions.map((n) => <option key={n.d.id} value={n.d.id}>{'\u00A0\u00A0'.repeat(n.depth)}{n.depth > 0 ? '↳ ' : ''}{n.d.name} ({n.d.code})</option>)}
-                </select>
-              </Field>
-              {!draft.isJobTitle && <Field id="org-manager" label="مدير القسم"><select id="org-manager" className={field} value={draft.managerId} onChange={(e) => setDraft({ ...draft, managerId: e.target.value })} data-testid="org-manager"><option value="">—</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_number}</option>)}</select></Field>}
+            <div className="space-y-4 overflow-y-auto px-5 py-4">
+              <fieldset className="rounded-2xl border border-slate-200 p-3">
+                <legend className="px-1 text-[11px] font-black text-slate-500">البيانات الأساسية</legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field id="org-name" label={draft.isJobTitle ? 'اسم المسمى الوظيفي *' : 'اسم القسم *'}><input id="org-name" className={field} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} data-testid="org-name" autoFocus /></Field>
+                  <Field id="org-code" label="الرمز *" hint="فريد — مثل OPS أو OPS-1"><input id="org-code" className={clsx(field, 'uppercase')} dir="ltr" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} data-testid="org-code" /></Field>
+                </div>
+              </fieldset>
+              <fieldset className="rounded-2xl border border-slate-200 p-3">
+                <legend className="px-1 text-[11px] font-black text-slate-500">الموقع في الهرم</legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field id="org-parent" label="القسم الأب" hint={draft.id ? 'تغيير الأب = نقل القسم مع فروعه وموظفيه' : undefined}>
+                    <select id="org-parent" className={field} value={draft.parentId} onChange={(e) => setDraft({ ...draft, parentId: e.target.value, isJobTitle: e.target.value ? draft.isJobTitle : false })} data-testid="org-parent">
+                      <option value="">— قسم رئيسي —</option>
+                      {parentOptions.map((n) => <option key={n.d.id} value={n.d.id}>{n.depth > 0 ? `${'—'.repeat(n.depth)} ` : ''}{n.d.name} ({n.d.code})</option>)}
+                    </select>
+                  </Field>
+                  {!draft.isJobTitle && <Field id="org-manager" label="مدير القسم"><select id="org-manager" className={field} value={draft.managerId} onChange={(e) => setDraft({ ...draft, managerId: e.target.value })} data-testid="org-manager"><option value="">—</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_number}</option>)}</select></Field>}
+                </div>
+              </fieldset>
+              <fieldset className="rounded-2xl border border-slate-200 p-3">
+                <legend className="px-1 text-[11px] font-black text-slate-500">نوع العقدة</legend>
+                <div className="flex flex-col gap-2 text-xs font-bold">
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={draft.isJobTitle} disabled={!draft.parentId} onChange={(e) => setDraft({ ...draft, isJobTitle: e.target.checked, drivesVehicles: e.target.checked && draft.drivesVehicles, managerId: e.target.checked ? '' : draft.managerId })} data-testid="org-is-title" /> مسمى وظيفي (لا قسم){!draft.parentId && <span className="font-normal text-slate-400">— يتطلب قسماً أباً</span>}</label>
+                  {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-2 py-1.5 text-amber-900"><input type="checkbox" checked={draft.drivesVehicles} onChange={(e) => setDraft({ ...draft, drivesVehicles: e.target.checked })} data-testid="org-drives" /> 🚛 يقود آليات الشركة <span className="font-normal text-amber-700">(يظهر موظفوه لغرفة العمليات كسائقين)</span></label>}
+                  {draft.isJobTitle && <label className="flex flex-wrap items-center gap-2 rounded-lg bg-indigo-50 px-2 py-1.5 text-indigo-900">🔧 تخصص صيانة
+                    <select className={clsx(field, 'max-w-xs')} value={draft.maintenanceSpecialty} onChange={(e) => setDraft({ ...draft, maintenanceSpecialty: e.target.value })} data-testid="org-maintenance-specialty">
+                      <option value="">ليس فني صيانة</option>
+                      {MAINTENANCE_SPECIALTIES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                    <span className="font-normal text-indigo-700">(يظهر موظفوه لبوابة الصيانة كفنيين)</span>
+                  </label>}
+                </div>
+              </fieldset>
+              {err && <p className="text-xs font-bold text-red-600" role="alert" data-testid="org-error">{err}</p>}
             </div>
-            <div className="mt-3 flex flex-col gap-2 text-xs font-bold">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={draft.isJobTitle} disabled={!draft.parentId} onChange={(e) => setDraft({ ...draft, isJobTitle: e.target.checked, drivesVehicles: e.target.checked && draft.drivesVehicles, managerId: e.target.checked ? '' : draft.managerId })} data-testid="org-is-title" /> مسمى وظيفي (لا قسم){!draft.parentId && <span className="font-normal text-slate-400">— يتطلب قسماً أباً</span>}</label>
-              {draft.isJobTitle && <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-2 py-1 text-amber-900"><input type="checkbox" checked={draft.drivesVehicles} onChange={(e) => setDraft({ ...draft, drivesVehicles: e.target.checked })} data-testid="org-drives" /> 🚛 يقود آليات الشركة (يظهر موظفوه لغرفة العمليات كسائقين)</label>}
-              {draft.isJobTitle && <label className="flex flex-wrap items-center gap-2 rounded-lg bg-indigo-50 px-2 py-1 text-indigo-900">🔧 تخصص صيانة
-                <select className={field} value={draft.maintenanceSpecialty} onChange={(e) => setDraft({ ...draft, maintenanceSpecialty: e.target.value })} data-testid="org-maintenance-specialty">
-                  <option value="">ليس فني صيانة</option>
-                  {MAINTENANCE_SPECIALTIES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
-                <span className="font-normal text-indigo-700">(يظهر موظفوه لبوابة الصيانة كفنيين للتعيين على الآليات)</span>
-              </label>}
-            </div>
-            {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="org-error">{err}</p>}
-            <div className="mt-4 flex gap-2"><Button size="sm" onClick={() => void submit()} isLoading={save.isPending} data-testid="org-save">حفظ</Button><Button size="sm" variant="ghost" onClick={() => { setDraft(null); setErr(null) }}>إلغاء</Button></div>
+            <footer className="flex gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+              <Button size="sm" onClick={() => void submit()} isLoading={save.isPending} data-testid="org-save">حفظ</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setDraft(null); setErr(null) }}>إلغاء</Button>
+            </footer>
           </section>
-        </div>
-      )}
+        </div>, document.body)}
     </div>
   )
 }
