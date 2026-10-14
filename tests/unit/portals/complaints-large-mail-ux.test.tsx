@@ -10,7 +10,9 @@ const items = Array.from({ length: 60 }, (_, index) => ({
   assignedTo: null, status: 'under_review', managerNotes: null, reviewerNotes: null,
   receivedAt: '2026-09-06T08:00:00Z', inboxMessageId: 'mail-large', ticketName: 'بريد ميداني كبير — 60 موقعاً',
 }))
-vi.mock('@features/complaints', () => ({
+vi.mock('@features/complaints', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('../../../src/features/complaints/lib/neighborhoods')),
+  useComplaintNeighborhoods: () => ({ data: [], isLoading: false }),
   useComplaintItems: () => ({ data: items, isLoading: false }),
   useComplaintManagers: () => ({ data: [{ userId: 'manager-1', fullName: 'مسؤول القسم', jobTitle: null }] }),
   useAssignComplaintItems: () => ({ mutate: vi.fn(), isPending: false }),

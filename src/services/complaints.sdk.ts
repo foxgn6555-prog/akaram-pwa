@@ -17,6 +17,7 @@ import type {
   ComplaintItem,
   ComplaintItemFields,
   ComplaintManager,
+  ComplaintNeighborhood,
   ComplaintSector,
   ComplaintEmailDelivery,
   ComplaintMedia,
@@ -285,7 +286,26 @@ export const complaints = {
       userId: String(row.user_id),
       fullName: String(row.full_name),
       jobTitle: (row.job_title as string | null) ?? null,
+      sectorIds: Array.isArray(row.sector_ids) ? (row.sector_ids as unknown[]).map(Number).filter(Number.isFinite) : [],
     }))
+  },
+
+  /** سجل المحلات لكل منطقة (بيانات المحلة والزقاق). */
+  async neighborhoods(): Promise<ComplaintNeighborhood[]> {
+    const result = await sdkGuard(supabase.rpc('complaint_neighborhoods_list'))
+    const rows = (result ?? []) as unknown as Array<Record<string, unknown>>
+    return rows.map(row => ({
+      id: String(row.id), sectorId: Number(row.sector_id), sectorName: String(row.sector_name),
+      parentSector: row.parent_sector as ComplaintSector, name: String(row.name), isActive: Boolean(row.is_active),
+      usageCount: Number(row.usage_count ?? 0),
+    }))
+  },
+
+  async saveNeighborhood(input: { id?: string; sectorId: number; name: string; isActive?: boolean }): Promise<string> {
+    const data = await sdkGuard(supabase.rpc('complaint_neighborhood_save', {
+      p_id: input.id ?? null, p_sector_id: input.sectorId, p_name: input.name, p_is_active: input.isActive ?? true,
+    }))
+    return String(data)
   },
 
   async assign(itemId: string, managerId: string): Promise<void> {

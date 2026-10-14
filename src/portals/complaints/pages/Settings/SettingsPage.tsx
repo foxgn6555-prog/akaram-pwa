@@ -4,6 +4,8 @@ import {
   useSaveComplaintSetting, type ComplaintContact, type ComplaintSetting,
 } from '@features/complaints'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { NeighborhoodsPanel } from './NeighborhoodsPanel'
+import { useSearchParams } from 'react-router'
 
 type ContactDraft = Omit<ComplaintContact, 'id'> & { id?: string }
 type Feedback = { kind: 'ok' | 'err'; text: string }
@@ -21,6 +23,9 @@ export default function SettingsPage() {
   const save = useSaveComplaintContact()
   const [draft, setDraft] = useState<ContactDraft>(emptyDraft)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const [params, setParams] = useSearchParams()
+  const tab: 'contacts' | 'neighborhoods' = params.get('tab') === 'neighborhoods' ? 'neighborhoods' : 'contacts'
+  const setTab = (next: 'contacts' | 'neighborhoods') => setParams(next === 'contacts' ? {} : { tab: next }, { replace: true })
 
   const submit = () => {
     const name = draft.name.trim()
@@ -38,7 +43,12 @@ export default function SettingsPage() {
 
   return (
     <section className="space-y-5" dir="rtl">
-      <ExecPageHeader icon="settings" title="إعدادات الصفحات والتواصل" subtitle="إدارة To وCC وقواعد المرسلين. التعطيل يحفظ السجل ولا يحذف الجهة. مفاتيح Mailgun تبقى في أسرار الخادم." />
+      <ExecPageHeader icon="settings" title="إعدادات الصفحات والتواصل" subtitle="إدارة To وCC وقواعد المرسلين، وبيانات المحلة والزقاق للمناطق الثماني. التعطيل يحفظ السجل ولا يحذف. مفاتيح Mailgun تبقى في أسرار الخادم." />
+      <div role="tablist" aria-label="أقسام الإعدادات" className="flex flex-wrap gap-2 rounded-2xl border bg-white p-2 shadow-sm">
+        {([['contacts', 'جهات التواصل والإعدادات'], ['neighborhoods', 'بيانات المحلة والزقاق']] as const).map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${tab === id ? 'bg-indigo-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}
+      </div>
+      {tab === 'neighborhoods' && <NeighborhoodsPanel />}
+      {tab === 'contacts' && <>
       {feedback && <p aria-live="polite" className={`rounded-lg p-3 text-sm font-bold ${feedbackClass(feedback.kind)}`}>{feedback.text}</p>}
       <form noValidate onSubmit={(e) => { e.preventDefault(); submit() }} className="grid gap-3 rounded-xl border bg-white p-5 md:grid-cols-2 xl:grid-cols-6">
         <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="اسم الجهة" aria-label="اسم الجهة" className="rounded-lg border p-2" />
@@ -96,6 +106,7 @@ export default function SettingsPage() {
       <div className="grid gap-3 md:grid-cols-2">
         {settings.filter((setting) => setting.key !== 'complaints.issue_types').map((setting) => <VisualSettingCard key={setting.key} setting={setting} />)}
       </div>
+      </>}
     </section>
   )
 }

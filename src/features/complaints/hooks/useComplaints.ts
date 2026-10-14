@@ -193,6 +193,15 @@ export function useSaveComplaintTemplate() {
   })
 }
 
+export function useComplaintNeighborhoods() {
+  return useQuery({ queryKey: complaintsKeys.neighborhoods(), queryFn: () => complaints.neighborhoods(), staleTime: 5 * 60_000 })
+}
+export function useSaveComplaintNeighborhood() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: complaints.saveNeighborhood,
+    onSuccess: () => qc.invalidateQueries({ queryKey: complaintsKeys.neighborhoods() }) })
+}
+
 export function useSaveComplaintContact() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: complaints.saveContact,

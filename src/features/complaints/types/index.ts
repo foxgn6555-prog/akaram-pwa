@@ -96,6 +96,19 @@ export interface ComplaintManager {
   userId: string
   fullName: string
   jobTitle: string | null
+  /** المناطق التشغيلية (1..8) المسندة للمسؤول من ملفه؛ تُستخدم لاقتراحه من المحلة. */
+  sectorIds: number[]
+}
+
+/** محلة مسجلة ضمن منطقة تشغيلية (بيانات المحلة والزقاق). */
+export interface ComplaintNeighborhood {
+  id: string
+  sectorId: number
+  sectorName: string
+  parentSector: ComplaintSector
+  name: string
+  isActive: boolean
+  usageCount: number
 }
 
 export interface SendComplaintEmailInput {

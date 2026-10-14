@@ -11,6 +11,7 @@ export const complaintsKeys = {
   analytics: (from: string,to: string,sector?: string) => [...complaintsKeys.all,'analytics',from,to,sector??'all'] as const,
   templates: () => [...complaintsKeys.all, 'templates'] as const,
   contacts: () => [...complaintsKeys.all, 'contacts'] as const,
+  neighborhoods: () => [...complaintsKeys.all, 'neighborhoods'] as const,
   settings: () => [...complaintsKeys.all, 'settings'] as const,
   reports: () => [...complaintsKeys.all, 'reports'] as const,
   deliveries: (complaintId?: string) => [...complaintsKeys.all, 'deliveries', complaintId ?? 'all'] as const,

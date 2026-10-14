@@ -8,7 +8,9 @@ import AssignedComplaintsPage from '../../../src/portals/manager/pages/Complaint
 import ComplaintDetailPage from '../../../src/portals/complaints/pages/Processing/ComplaintDetailPage'
 
 const h=vi.hoisted(()=>({batchSort:vi.fn(),batchAssign:vi.fn(),updateReview:vi.fn(),replaceMedia:vi.fn()}))
-vi.mock('@features/complaints',()=>({
+vi.mock('@features/complaints',async()=>({
+ ...(await vi.importActual<Record<string, unknown>>('../../../src/features/complaints/lib/neighborhoods')),
+ useComplaintNeighborhoods:()=>({data:[],isLoading:false}),
  useComplaintSettings:()=>({data:[{key:'complaints.issue_types',value:['مخلفات زراعية','تراكم نفايات','أنقاض']}]}),
  useComplaintInbox:()=>({data:[{id:'m1',senderEmail:'sender@test.iq',senderName:'بلدية الكرادة',replyTo:null,subject:'60 موقع',bodyText:'المحلة والزقاق في الصور',sector:'karrada',receivedAt:'2026-09-05T08:00:00Z',status:'ready',attachmentCount:2,duplicateOf:null}],isLoading:false,error:null,refetch:vi.fn(),isFetching:false}),
  useArchiveComplaintEmail:()=>({mutate:vi.fn(),isPending:false}),

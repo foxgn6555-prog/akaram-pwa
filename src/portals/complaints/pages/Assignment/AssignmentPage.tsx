@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { CalendarDays, ChevronDown, ChevronUp, Inbox, MapPin, Send, Users } from 'lucide-react'
-import { useAssignComplaintItems, useComplaintItems, useComplaintManagers, type ComplaintItem, type ComplaintSector } from '@features/complaints'
+import { CalendarDays, ChevronDown, ChevronUp, Inbox, MapPin, Send, Sparkles, Users } from 'lucide-react'
+import { planAutoAssign, suggestManager, useAssignComplaintItems, useComplaintItems, useComplaintManagers, useComplaintNeighborhoods, type ComplaintItem, type ComplaintSector } from '@features/complaints'
 import { baghdadDateKey } from '@features/complaints/lib/baghdad-date'
 import { ComplaintEmpty, ComplaintPageHeader, ComplaintSearch, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
 
@@ -11,7 +11,9 @@ export default function AssignmentPage() {
   const [date, setDate] = useState(baghdadDateKey())
   const { data: items = [], isLoading } = useComplaintItems(false,date)
   const { data: managers = [] } = useComplaintManagers()
+  const { data: registry = [] } = useComplaintNeighborhoods()
   const assign = useAssignComplaintItems()
+  const [autoBusy, setAutoBusy] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [managerId, setManagerId] = useState('')
   const [message, setMessage] = useState('')
@@ -46,6 +48,29 @@ export default function AssignmentPage() {
     const fullySelected = ids.every(id => selected.includes(id))
     setSelected(old => fullySelected ? old.filter(id => !ids.includes(id)) : [...new Set([...old, ...ids])])
   }
+  // خطة الإسناد التلقائي حسب المحلة: التذاكر المحددة (أو كل المعروض إن لم يُحدد شيء) ⇒ دفعة لكل مسؤول
+  const autoScope = useMemo(() => {
+    const pool = shown.flatMap(folder => folder.items)
+    return selected.length ? pool.filter(item => selected.includes(item.id)) : pool
+  }, [shown, selected])
+  const autoPlan = useMemo(() => planAutoAssign(autoScope, registry, managers), [autoScope, registry, managers])
+  const autoCount = autoPlan.batches.reduce((sum, batch) => sum + batch.itemIds.length, 0)
+  const runAutoAssign = async () => {
+    if (!autoCount || autoBusy) return
+    setAutoBusy(true)
+    const done: string[] = []
+    let failedAt: string | null = null
+    for (const batch of autoPlan.batches) {
+      try {
+        const count = await assign.mutateAsync({ itemIds: batch.itemIds, managerId: batch.manager.userId })
+        done.push(`${batch.manager.fullName}: ${count} تذكرة (${batch.areaNames.join('، ')})`)
+      } catch { failedAt = batch.manager.fullName; break }
+    }
+    setAutoBusy(false)
+    setSelected([])
+    const rest = [autoPlan.unmatched.length ? `${autoPlan.unmatched.length} بلا محلة مسجلة` : '', autoPlan.ambiguous.length ? `${autoPlan.ambiguous.length} لمنطقة بأكثر من مسؤول` : ''].filter(Boolean)
+    setMessage(`${failedAt ? `توقف الإسناد التلقائي عند ${failedAt}؛ الدفعات السابقة نُفذت كاملة. ` : 'تم الإسناد التلقائي حسب المحلة. '}${done.join(' · ')}${rest.length ? ` — يبقى يدوياً: ${rest.join('، ')}.` : ''}`)
+  }
   const submit = () => assign.mutate({ itemIds: selected, managerId }, {
     onSuccess: count => {
       setMessage(`تم إسناد ${count} تذكرة بنجاح دون نجاح جزئي.`)
@@ -75,6 +100,11 @@ export default function AssignmentPage() {
         {managers.map(manager => <option key={manager.userId} value={manager.userId}>{manager.fullName} — لديه {workloads.get(manager.userId) ?? 0} قيد العمل</option>)}
       </select>
       <button onClick={submit} disabled={!selected.length || !managerId || assign.isPending} className="rounded-xl bg-rose-700 px-5 py-2.5 text-sm font-black text-white disabled:opacity-40">{assign.isPending ? 'جارٍ الإسناد…' : `إسناد ${selected.length} تذكرة`}</button>
+      <div className="flex flex-wrap items-center gap-2 border-t pt-3 md:col-span-3">
+        <button type="button" onClick={() => void runAutoAssign()} disabled={!autoCount || autoBusy || assign.isPending} className="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-40"><Sparkles size={16} />{autoBusy ? 'جارٍ الإسناد التلقائي…' : `إسناد تلقائي حسب المحلة (${autoCount})`}</button>
+        <span className="text-xs font-bold text-slate-600">{selected.length ? 'على التذاكر المحددة' : 'على كل التذاكر المعروضة'} · {autoPlan.batches.length} مسؤول{autoPlan.unmatched.length ? ` · ${autoPlan.unmatched.length} بلا محلة مسجلة` : ''}{autoPlan.ambiguous.length ? ` · ${autoPlan.ambiguous.length} لمنطقة بأكثر من مسؤول` : ''}</span>
+        {autoPlan.batches.map(batch => <span key={batch.manager.userId} className="rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-900">{batch.manager.fullName}: {batch.itemIds.length} ({batch.areaNames.join('، ')})</span>)}
+      </div>
     </div>
 
     {isLoading ? <div className="h-64 animate-pulse rounded-3xl bg-slate-100" /> : !shown.length ? <ComplaintEmpty icon={Inbox} title="لا توجد تذاكر بانتظار الإسناد" description="ستظهر هنا مجلدات البريد بعد اعتماد بيانات الصور في شاشة الوارد." /> : <div className="space-y-4">
@@ -94,7 +124,7 @@ export default function AssignmentPage() {
             </button>
           </div>
           {open && <div className="border-t border-slate-100 bg-slate-50/70 p-3 sm:p-4"><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{folder.items.map(item => <label key={item.id} className={`cursor-pointer rounded-2xl border p-4 transition ${selected.includes(item.id) ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-400'}`}>
-            <div className="flex items-start gap-3"><input type="checkbox" aria-label={`تحديد ${item.referenceNo}/${item.sequenceNo}`} checked={selected.includes(item.id)} onChange={event => toggleItem(item.id, event.target.checked)} className="mt-1 size-5" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><Link onClick={event => event.stopPropagation()} to={`/complaints/items/${item.id}`} className="font-black text-blue-700">الموقع {item.sequenceNo}</Link><ComplaintStatusBadge status={item.status} /></div><p className="mt-2 truncate text-sm font-bold text-slate-800">{item.title || 'نوع التلكؤ غير محدد'}</p><p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin size={13} />محلة {item.neighborhood || '—'} · زقاق {item.alley || '—'}</p></div></div>
+            <div className="flex items-start gap-3"><input type="checkbox" aria-label={`تحديد ${item.referenceNo}/${item.sequenceNo}`} checked={selected.includes(item.id)} onChange={event => toggleItem(item.id, event.target.checked)} className="mt-1 size-5" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><Link onClick={event => event.stopPropagation()} to={`/complaints/items/${item.id}`} className="font-black text-blue-700">الموقع {item.sequenceNo}</Link><ComplaintStatusBadge status={item.status} /></div><p className="mt-2 truncate text-sm font-bold text-slate-800">{item.title || 'نوع التلكؤ غير محدد'}</p><p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin size={13} />محلة {item.neighborhood || '—'} · زقاق {item.alley || '—'}</p>{(() => { const hint = suggestManager(item.neighborhood, item.sector, registry, managers); return hint ? <p className={`mt-1 rounded-lg px-2 py-1 text-[11px] font-bold ${hint.manager ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>منطقة {hint.match.areaName}{hint.manager ? ` ← ${hint.manager.fullName}` : hint.candidates.length ? ` ← ${hint.candidates.length} مسؤولون` : ' ← لا مسؤول مسند'}</p> : null })()}</div></div>
           </label>)}</div></div>}
         </article>
       })}
