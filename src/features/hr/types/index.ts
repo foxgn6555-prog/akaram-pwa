@@ -204,6 +204,10 @@ export interface MonthExportStatus {
   version?: number
   status: 'exported' | 'approved' | null
   exported_at?: string
+  /** 00256-ج — مرحلة معاون المدير المفوض: pending = لم يراجع بعد (المالية لا ترى الكشف)؛ approved = وصل إلى المالية */
+  review_status?: 'pending' | 'approved' | null
+  reviewed_at?: string | null
+  reviewed_by_name?: string | null
   changes_after: number
   deductions_after: number
   disclosure_deductions_after: number
@@ -360,6 +364,8 @@ export interface MonthExport {
   rows_count: number
   exported_at: string
   approved_at: string | null
+  review_status?: 'pending' | 'approved'
+  reviewed_at?: string | null
 }
 
 export interface OpsExportRow {

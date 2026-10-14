@@ -156,7 +156,7 @@ export function useExportMonth() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
     mutationFn: (month: string) => hr.exportMonth(month),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'exports'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'export-status'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('صُدّرت بيانات الشهر إلى بوابة المالية') },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'exports'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'export-status'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'audit'] }); t.ok('صُدّرت بيانات الشهر إلى معاون المدير المفوض — تصل المالية بعد اعتماده') },
     onError: t.err,
   })
 }

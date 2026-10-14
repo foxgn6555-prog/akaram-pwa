@@ -3,7 +3,7 @@
  *   المرحلة 1 «التدقيق التفصيلي»: سجلات اليوم/الشهر + شبكة الشهر بالأوقات (موظف × أيام) · تعديل أي صف بسبب إلزامي + سجل تدقيق
  *     · استقطاعات للاطلاع فقط (لا إضافة/حذف — 00256) · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
  *   المرحلة 2 «الكشف المعتمد»: بعد الاعتماد فقط — كل يوم حاضر/غائب/مجاز + ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة)
- *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى المالية» (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
+ *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى معاون المدير المفوض» ثم المالية (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
  *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
  */
 import { useMemo, useState } from 'react'
@@ -96,7 +96,7 @@ export default function OpsAttendancePage() {
   const departmentLabel = departments.find((d) => d.id === departmentId)?.name ?? 'كل الأقسام'
   const doExport = async () => {
     if (locked || !conf?.can_export) return
-    if (!window.confirm((monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة.' : 'سيُنشأ ملف شهري يُرسل إلى المالية من الكشف المعتمد.') + '\nمتابعة؟')) return
+    if (!window.confirm((monthExport ? 'يوجد تصدير سابق لهذا الشهر لم تعتمده المالية بعد — سيُستبدل بلقطة جديدة وتعود مراجعة معاون المدير المفوض من البداية.' : 'سيُنشأ كشف شهري مرقّم من الحضورية المعتمدة ويُرسل إلى معاون المدير المفوض لمراجعة الاستقطاعات، ثم يصل إلى المالية بعد اعتماده.') + '\nمتابعة؟')) return
     try { await exportMonth.mutateAsync(month) } catch { /* toast in hook */ }
   }
   const doExcel = async (kind: Stage) => {
@@ -114,7 +114,7 @@ export default function OpsAttendancePage() {
 
   return (
     <div className="space-y-4" data-testid="ops-attendance">
-      <ExecPageHeader icon="activity" title="الحضوريات" subtitle="تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير للمالية · كل تعديل بسبب موثّق باسم المدقق" actions={
+      <ExecPageHeader icon="activity" title="الحضوريات" subtitle="تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير إلى معاون المدير المفوض ← المالية · كل تعديل بسبب موثّق باسم المدقق" actions={
         <div className="flex flex-wrap items-center gap-2">
           <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
           <MonthStateChip conf={conf} />
@@ -283,7 +283,7 @@ export default function OpsAttendancePage() {
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center" data-testid="att-approved-locked">
             <Icon name="lock" size={28} className="mx-auto text-slate-300" />
             <h2 className="mt-2 text-base font-black">الكشف المعتمد غير متاح بعد</h2>
-            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">أكمل التدقيق التفصيلي لشهر {month.slice(0, 7)} ثم اضغط «اعتماد حضورية الشهر». بعدها يظهر هنا الكشف النهائي (حاضر / غائب / مجاز) ويُفتح التصدير إلى المالية.</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">أكمل التدقيق التفصيلي لشهر {month.slice(0, 7)} ثم اضغط «اعتماد حضورية الشهر». بعدها يظهر هنا الكشف النهائي (حاضر / غائب / مجاز) ويُفتح التصدير إلى معاون المدير المفوض (ثم المالية بعد اعتماده).</p>
             <Button size="sm" className="mt-3" onClick={() => setStage('detailed')} data-testid="att-back-detailed">العودة إلى التدقيق التفصيلي</Button>
           </div>
         ) : (
@@ -308,21 +308,21 @@ export default function OpsAttendancePage() {
             </SectionCard>
           <HourBankPanel rows={hourBank} month={month} search={search} />
 
-            <SectionCard title="التصدير إلى المالية" testId="att-export-card" badge={
+            <SectionCard title="التصدير: غرفة العمليات → معاون المدير المفوض → المالية" testId="att-export-card" badge={
               <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', locked ? 'bg-slate-800 text-white' : monthExport ? (exportStatus?.needs_reexport ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900') : 'bg-slate-100 text-slate-700')} data-testid="att-export-state">
-                {locked ? '🔒 اعتمدته المالية' : monthExport ? (exportStatus?.needs_reexport ? `v${monthExport.version} · يلزم إعادة التصدير` : `v${monthExport.version} · بانتظار اعتماد المالية`) : 'لم يُصدَّر بعد'}
+                {locked ? '🔒 اعتمدته المالية' : monthExport ? (exportStatus?.needs_reexport ? `v${monthExport.version} · يلزم إعادة التصدير` : exportStatus?.review_status === 'approved' ? `v${monthExport.version} · اعتمده المعاون · لدى المالية` : `v${monthExport.version} · بانتظار مراجعة معاون المدير المفوض`) : 'لم يُصدَّر بعد'}
               </span>}>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="min-w-0 flex-1 text-[11px] text-slate-600">
                   {locked ? `اعتمدت المالية الإصدار v${monthExport?.version ?? exportStatus?.version ?? 1} وأُقفل الشهر — لا يمكن إعادة التصدير.`
-                    : monthExport ? `آخر تصدير v${monthExport.version} في ${new Date(monthExport.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · ${monthExport.rows_count} موظفاً. إعادة التصدير تستبدل اللقطة لدى المالية ما لم تعتمدها.`
+                    : monthExport ? `آخر تصدير v${monthExport.version} في ${new Date(monthExport.exported_at).toLocaleString('ar-IQ-u-nu-latn')} · ${monthExport.rows_count} موظفاً · ${exportStatus?.review_status === 'approved' ? `اعتمده معاون المدير المفوض${exportStatus.reviewed_at ? ` في ${new Date(exportStatus.reviewed_at).toLocaleString('ar-IQ-u-nu-latn')}` : ''} ووصل إلى المالية` : 'لدى معاون المدير المفوض لمراجعة الاستقطاعات — المالية لا تراه قبل اعتماده'}. إعادة التصدير تستبدل اللقطة وتعيد مراجعة المعاون ما لم تعتمده المالية.`
                     : 'يُرسَل الكشف المعتمد (أيام الحضور/الغياب/الإجازة + الاستقطاعات) كلقطة مرقّمة إلى معاون المدير المفوض لمراجعة الاستقطاعات، ثم يصل إلى وحدة الرواتب في المالية بعد اعتماده.'}
                   {!locked && !conf?.can_export && <span className="block font-bold text-amber-800">التصدير متوقف: أعد الاعتماد أولاً لتطبيق التغييرات المعلّقة.</span>}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="secondary" isLoading={busyExcel} disabled={!grid.length} onClick={() => void doExcel('approved')} data-testid="att-excel-approved"><Icon name="file-spreadsheet" size={14} /> Excel الكشف المعتمد</Button>
                   <Button size="sm" isLoading={exportMonth.isPending} disabled={locked || !conf?.can_export} onClick={() => void doExport()} data-testid="ops-export-month" title={locked ? 'الشهر مقفل بعد اعتماد المالية' : !conf?.can_export ? 'أعد الاعتماد أولاً' : ''}>
-                    <Icon name="send" size={14} /> {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر إلى المالية' : 'تصدير بيانات الشهر إلى المالية'}
+                    <Icon name="send" size={14} /> {locked ? '🔒 الشهر مقفل' : monthExport ? 'إعادة تصدير بيانات الشهر إلى معاون المدير المفوض' : 'تصدير بيانات الشهر إلى معاون المدير المفوض'}
                   </Button>
                 </div>
               </div>
@@ -351,7 +351,7 @@ export default function OpsAttendancePage() {
         <Overlay title={`اعتماد حضورية ${month.slice(0, 7)}`} onClose={() => setConfirmOpen(false)} testId="att-confirm-dialog">
           {gridLoading ? <LoadingSpinner /> : (
             <div className="space-y-3 text-xs">
-              <p className="text-slate-600">سيُحتسب الشهر كاملاً أولاً (كل الأيام الماضية بلا بصمة تُسجَّل غياباً)، ثم يُقفل التعديل التفصيلي ويُفتح «الكشف المعتمد» والتصدير إلى المالية. أي تعديل لاحق يحتاج إعادة فتح بسبب يُبلَّغ به التطوير المركزية.</p>
+              <p className="text-slate-600">سيُحتسب الشهر كاملاً أولاً (كل الأيام الماضية بلا بصمة تُسجَّل غياباً)، ثم يُقفل التعديل التفصيلي ويُفتح «الكشف المعتمد» والتصدير إلى معاون المدير المفوض ثم المالية. أي تعديل لاحق يحتاج إعادة فتح بسبب يُبلَّغ به التطوير المركزية.</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatCard title="الموظفون" value={gridTotals.emp} testId="cf-emp" />
                 <StatCard title="أيام حضور" value={gridTotals.present} tone="emerald" testId="cf-present" />
@@ -500,17 +500,18 @@ function DeductionsPanel({ month }: { month: string }) {
 function ExportsPanel() {
   const { data: rows = [], isLoading } = useMonthExports()
   if (isLoading) return <LoadingSpinner />
-  const label: Record<string, string> = { exported: 'مُرسل لمعاون المدير المفوض ثم المالية', approved: 'معتمد ومقفل', superseded: 'استُبدل بتصدير أحدث' }
+  const label: Record<string, string> = { exported: 'مُصدَّر — لدى المعاون/المالية', approved: 'معتمد ومقفل', superseded: 'استُبدل بتصدير أحدث' }
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="exports-panel">
       {rows.length === 0 ? <p className="p-6 text-center text-xs text-slate-400">لم يُصدَّر أي شهر بعد</p> : (
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-600"><tr><th className="p-2">الشهر</th><th className="p-2">الإصدار</th><th className="p-2">الموظفون</th><th className="p-2">الحالة</th><th className="p-2">التاريخ</th><th className="p-2">اعتماد المالية</th></tr></thead>
+          <thead className="bg-slate-50 text-xs text-slate-600"><tr><th className="p-2">الشهر</th><th className="p-2">الإصدار</th><th className="p-2">الموظفون</th><th className="p-2">الحالة</th><th className="p-2">التاريخ</th><th className="p-2">مراجعة المعاون</th><th className="p-2">اعتماد المالية</th></tr></thead>
           <tbody>{rows.map((x) => (
             <tr key={x.id} className="border-t border-slate-100 text-center text-xs" data-testid={`exp-row-${x.period_month}-${x.version}`}>
               <td className="p-2 font-bold">{x.period_month.slice(0, 7)}</td><td className="p-2">v{x.version}</td><td className="p-2">{x.rows_count}</td>
               <td className="p-2"><span className={clsx('rounded-full px-2 py-0.5 font-bold', x.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : x.status === 'exported' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500')}>{label[x.status] ?? x.status}</span></td>
               <td className="p-2">{new Date(x.exported_at).toLocaleString('ar-IQ-u-nu-latn')}</td>
+              <td className="p-2">{x.review_status === 'approved' && x.reviewed_at ? new Date(x.reviewed_at).toLocaleString('ar-IQ-u-nu-latn') : x.status === 'superseded' ? '—' : 'بانتظار'}</td>
               <td className="p-2">{x.approved_at ? new Date(x.approved_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}</td>
             </tr>))}</tbody>
         </table>

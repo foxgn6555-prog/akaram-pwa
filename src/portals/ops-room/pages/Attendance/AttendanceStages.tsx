@@ -17,7 +17,9 @@ const WEEKDAY_SHORT = ['أحد', 'اثن', 'ثلا', 'أرب', 'خمي', 'جمع
 /** حالة الشهر في سطر واحد (شريحة في رأس الصفحة) */
 function monthState(conf: AttendanceConfirmation | undefined): { key: 'open' | 'reopened' | 'confirmed' | 'exported' | 'locked'; label: string; cls: string } {
   if (conf?.locked || conf?.export?.status === 'approved') return { key: 'locked', label: 'مقفل باعتماد المالية', cls: 'bg-slate-800 text-white' }
-  if (conf?.export?.status) return { key: 'exported', label: `مُصدَّر للمالية · v${conf.export.version ?? 1} · بانتظار اعتمادها`, cls: 'bg-sky-100 text-sky-900' }
+  if (conf?.export?.status) return conf.export.review_status === 'approved'
+    ? { key: 'exported', label: `v${conf.export.version ?? 1} · اعتمده معاون المدير المفوض · لدى المالية بانتظار اعتمادها`, cls: 'bg-sky-100 text-sky-900' }
+    : { key: 'exported', label: `v${conf.export.version ?? 1} · لدى معاون المدير المفوض بانتظار مراجعة الاستقطاعات`, cls: 'bg-violet-100 text-violet-900' }
   if (conf?.confirmed) return { key: 'confirmed', label: 'معتمد من غرفة العمليات · لم يُصدَّر بعد', cls: 'bg-emerald-100 text-emerald-900' }
   if (conf?.status === 'reopened') return { key: 'reopened', label: 'مُعاد فتحه · بانتظار إعادة الاعتماد', cls: 'bg-amber-100 text-amber-900' }
   return { key: 'open', label: 'قيد التدقيق', cls: 'bg-slate-100 text-slate-700' }
@@ -31,7 +33,7 @@ export function MonthStateChip({ conf }: { conf: AttendanceConfirmation | undefi
 /**
  * شريط المراحل: مرحلتان رئيسيتان (زرّان كبيران = التنقل الوحيد بين الشاشتين) وتحت كل منهما خطواتها الفرعية بحالة حيّة:
  *   المرحلة ١ «التدقيق التفصيلي»: ① التدقيق بالأوقات → ② اعتماد الشهر
- *   المرحلة ٢ «الكشف المعتمد»:     ③ الكشف النهائي → ④ التصدير للمالية
+ *   المرحلة ٢ «الكشف المعتمد»:     ③ الكشف النهائي → ④ التصدير → معاون المدير المفوض → المالية
  */
 export function StageBar({ conf, stage, onStage }: { conf: AttendanceConfirmation | undefined; stage: Stage; onStage: (s: Stage) => void }) {
   const confirmed = !!conf?.confirmed
@@ -41,7 +43,7 @@ export function StageBar({ conf, stage, onStage }: { conf: AttendanceConfirmatio
     { n: 1, phase: 'detailed' as Stage, label: 'التدقيق بالأوقات', hint: conf?.status === 'reopened' && !confirmed ? `مُعاد فتحه: ${conf.reopen_reason ?? ''}` : 'كل تعديل بسبب موثّق', done: confirmed || locked, active: stage === 'detailed' && !confirmed && !locked },
     { n: 2, phase: 'detailed' as Stage, label: 'اعتماد الشهر', hint: conf?.confirmed_at ? `${conf.confirmed_by_name ?? ''} · ${new Date(conf.confirmed_at).toLocaleDateString('ar-IQ-u-nu-latn')}` : 'بعد اكتمال التدقيق', done: confirmed || locked, active: false },
     { n: 3, phase: 'approved' as Stage, label: 'الكشف المعتمد', hint: 'حاضر / غائب / مجاز', done: exported || locked, active: stage === 'approved' && confirmed && !exported && !locked },
-    { n: 4, phase: 'approved' as Stage, label: 'التصدير للمالية', hint: locked ? 'اعتمدته المالية وأُقفل' : exported ? `إصدار v${conf?.export?.version ?? 1} · بانتظار المالية` : 'بعد الاعتماد', done: exported || locked, active: stage === 'approved' && exported && !locked },
+    { n: 4, phase: 'approved' as Stage, label: 'التصدير → المعاون → المالية', hint: locked ? 'اعتمدته المالية وأُقفل' : exported ? `v${conf?.export?.version ?? 1} · ${conf?.export?.review_status === 'approved' ? 'اعتمده المعاون · لدى المالية' : 'بانتظار مراجعة المعاون'}` : 'بعد الاعتماد', done: exported || locked, active: stage === 'approved' && exported && !locked },
   ]
   const phases: { key: Stage; n: string; title: string; sub: string; testId: string; locked: boolean }[] = [
     { key: 'detailed', n: '١', title: 'التدقيق التفصيلي', sub: 'سجلات وأوقات · تعديلات · استقطاعات', testId: 'stage-detailed', locked: false },

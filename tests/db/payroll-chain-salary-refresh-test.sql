@@ -60,7 +60,7 @@ do $$ declare m date := current_setting('test.sr_m')::date; x uuid := current_se
   assert (select count(*) from public.hr_month_exports where period_month = m) = 1, 'S2 no new export version';
   select count(*) into n from public.hr_month_export_rows where export_id = x and pay_type is null; assert n = 0, 'S2 no missing rows left';
   st := app.hr_month_export_status(m);
-  assert not (st ->> 'needs_reexport')::boolean, 'S2 not stale: ' || st::text;
+  assert not (st ->> 'needs_reexport')::boolean and st ->> 'review_status' = 'pending', 'S2 not stale, awaiting deputy: ' || st::text;
   -- إعادة تعريف الراتب نفسه لاحقاً لا تُعيد بناء الصف (الصف لم يعد «بلا راتب»)
   perform public.finance_salary_set('ce000000-0000-0000-0000-0000000000ea', 'daily', 0, 30000, '{}'::jsonb, '{}'::jsonb, null);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'ce000000-0000-0000-0000-0000000000ea';
@@ -84,4 +84,11 @@ do $$ declare m date := current_setting('test.sr_m')::date; x uuid := current_se
   select count(*) into n from public.hr_month_export_rows where export_id = x and employee_id = 'ce000000-0000-0000-0000-0000000000e9' and pay_type is null;
   assert n = 1, 'S3 approved export untouched';
   raise notice 'S3 ✅ السلسلة: عمليات → معاون → مالية، والمقفل لا يُمسّ';
+end $$;
+
+-- S4 · 00226: حالة التصدير تحمل مرحلة المعاون (كان pending قبل اعتماده ثم approved) — لغرفة العمليات كي تعرض المسار الصحيح
+do $$ declare m date := current_setting('test.sr_m')::date; st jsonb; begin
+  st := app.hr_month_export_status(m);
+  assert st ->> 'review_status' = 'approved' and st ->> 'reviewed_at' is not null and st ->> 'status' = 'approved', 'S4 status carries review stage: ' || st::text;
+  raise notice 'S4 ✅ حالة التصدير تبيّن مرحلة معاون المدير المفوض';
 end $$;

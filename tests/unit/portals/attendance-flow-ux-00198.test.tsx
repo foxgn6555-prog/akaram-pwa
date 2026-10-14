@@ -92,7 +92,7 @@ describe('00198 — غرفة العمليات: ترتيب صفحة الحضور�
     fireEvent.click(screen.getByTestId('att-go-approved'))
     expect(screen.getByTestId('stage-approved')).toHaveAttribute('aria-selected', 'true')
   })
-  it('الكشف المعتمد: بطاقة «التصدير إلى المالية» بحالة صريحة (لم يُصدَّر / v2 بانتظار المالية / يلزم إعادة التصدير / مقفل)', () => {
+  it('الكشف المعتمد: بطاقة التصدير (→ المعاون → المالية) بحالة صريحة (لم يُصدَّر / v2 بانتظار المعاون / يلزم إعادة التصدير / مقفل)', () => {
     h.conf = confirmed
     const r1 = render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('stage-approved'))
@@ -102,7 +102,7 @@ describe('00198 — غرفة العمليات: ترتيب صفحة الحضور�
     h.conf = exported; h.exports = [{ id: 'x', period_month: month, version: 2, status: 'exported', rows_count: 12, exported_at: '2026-10-02T09:00:00Z', approved_at: null }]
     const r2 = render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('stage-approved'))
-    expect(screen.getByTestId('att-export-state')).toHaveTextContent('v2 · بانتظار اعتماد المالية')
+    expect(screen.getByTestId('att-export-state')).toHaveTextContent('v2 · بانتظار مراجعة معاون المدير المفوض')   // 00256-ج: المسار عمليات → معاون → مالية
     expect(screen.getByTestId('att-export-card')).toHaveTextContent('12 موظفاً'); r2.unmount()
 
     h.exportStatus = { ...noStatus, export_id: 'x', status: 'exported', version: 2, changes_after: 3, needs_reexport: true }

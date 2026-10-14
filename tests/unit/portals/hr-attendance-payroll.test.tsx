@@ -213,6 +213,17 @@ describe('غرفة العمليات — الحضوريات', () => {
     fireEvent.click(screen.getByTestId('e-save'))
     await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'present', reason: 'تأكيد من مسؤول القسم' })))
   })
+  it('00256-ج: زر التصدير وحالته يذكران معاون المدير المفوض لا المالية مباشرة', () => {
+    h.conf = { ...confirmedConf, export: { export_id: 'x1', version: 14, status: 'exported', review_status: 'pending', changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false } }
+    h.exportStatus = { export_id: 'x1', version: 14, status: 'exported', review_status: 'pending', changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false }
+    const cur = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })()
+    h.exports = [{ id: 'x1', period_month: cur, version: 14, status: 'exported', rows_count: 40, exported_at: '2026-10-01T08:00:00Z', approved_at: null, review_status: 'pending' }]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('stage-approved'))
+    expect(screen.getByTestId('ops-export-month')).toHaveTextContent('إعادة تصدير بيانات الشهر إلى معاون المدير المفوض')
+    expect(screen.getByTestId('att-export-state')).toHaveTextContent('بانتظار مراجعة معاون المدير المفوض')
+    expect(screen.getByTestId('att-export-state').textContent).not.toMatch(/اعتماد المالية/)
+  })
   it('00178/00256: تنبيه التبليغ في لوحة التعديل يذكر معاون المدير المفوض ووحدة التطوير المركزية', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
