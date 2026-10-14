@@ -316,6 +316,9 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/maintenance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/maintenance/inventory', labelKey: 'nav.maintenance_inventory', icon: 'box' },
     { path: '/maintenance/vehicle-cases', labelKey: 'nav.maintenance_cases', icon: 'settings' },
+    { path: '/maintenance/employees', labelKey: 'nav.ts_employees', icon: 'users' },   // 00223
+    { path: '/maintenance/requests', labelKey: 'nav.ts_requests', icon: 'calendar' },   // 00223
+    { path: '/maintenance/procedures', labelKey: 'nav.procedures', icon: 'flow' },   // 00223
     { path: '/maintenance/archive', labelKey: 'nav.maintenance_archive', icon: 'archive-box' },
   ],
   [PORTALS.TRANSFER_STATION]: [
