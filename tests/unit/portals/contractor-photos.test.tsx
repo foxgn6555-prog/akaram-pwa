@@ -26,7 +26,7 @@ vi.mock('@sdk/sector.sdk', () => ({
 vi.mock('@components/ui', () => ({ CameraCapture: () => null }))
 import ContractorPhotosPage from '@portals/employee/pages/Photos/ContractorPhotosPage'
 
-const me = { user_id: 'c1', full_name: 'متعهد الرياض', manager_user_id: 'm1', manager_name: 'مسؤول الرياض', sector_id: 2, area_name: 'الرياض', parent_sector: 'karrada', shift: 'morning', workers_count: 3, today: '2026-10-15', checked_in_today: true }
+const me = { user_id: 'c1', full_name: 'متعهد الرياض', manager_user_id: 'm1', manager_name: 'مسؤول الرياض', sector_id: 2, area_name: 'الرياض', parent_sector: 'karrada', shift: 'morning', today: '2026-10-15', checked_in_today: true }
 const wrap = (ui: React.ReactNode) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>)
 
 beforeEach(() => {
@@ -37,9 +37,9 @@ beforeEach(() => {
 })
 
 describe('إرسال الصور — بوابة المتعهد (00257)', () => {
-  it('الشريط الجانبي للمتعهد يحوي وحدة «إرسال الصور» رابعةً بعد الثلاث الأصلية', () => {
+  it('الشريط الجانبي للمتعهد يحوي: الرئيسية · إثبات التواجد والعدد · إرسال الصور (00258)', () => {
     const units = PORTAL_UNITS[PORTALS.EMPLOYEE]
-    expect(units.map((u) => u.path)).toEqual(['/employee', '/employee/team', '/employee/attendance', '/employee/photos'])
+    expect(units.map((u) => u.path)).toEqual(['/employee', '/employee/attendance', '/employee/photos'])
     expect((sidebarAr as { nav: Record<string, string> }).nav.contractor_photos).toBe('إرسال الصور')
   })
 

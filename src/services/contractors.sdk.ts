@@ -2,32 +2,28 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 
 export type Shift = 'morning' | 'evening' | 'night'
-export type AttendanceStatus = 'present' | 'absent'
+/** 00258: المتعهد يكتب «العدد» (يشمل نفسه) بدل قائمة العمال وحاضر/غائب */
 export interface ContractorMe {
   user_id: string; full_name: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift
-  workers_count: number; today: string; checked_in_today: boolean; checkin_at: string | null; in_zone: boolean | null
+  today: string; checked_in_today: boolean; checkin_at: string | null; in_zone: boolean | null
   selfie_path: string | null; team_photo_path: string | null
-  today_present: number; today_absent: number; today_unmarked: number; month_present: number; month_absent: number; zone_defined: boolean
+  today_headcount: number | null; month_days: number; month_headcount_total: number; month_locked: boolean; zone_defined: boolean
 }
-export interface ContractorWorker {
-  id: string; full_name: string; phone: string | null; sector_id: number; area_name: string; parent_sector: string; created_at: string
-  status: AttendanceStatus | null; marked_at: string | null; month_present: number; month_absent: number
-}
-export interface ContractorMonthRow { worker_id: string; full_name: string; days: Record<string, AttendanceStatus>; present_days: number; absent_days: number }
+export interface ContractorMonthDay { log_date: string; checked_in: boolean; checkin_at: string | null; in_zone: boolean | null; headcount: number | null }
 export interface ContractorManagerOption {
   user_id: string; full_name: string; shift: Shift; sectors: number[]; contractors: number
   areas: { id: number; name: string; parent_sector: string; taken_by: string | null }[]
 }
 export interface ContractorProfileInfo {
-  user_id: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift; is_active: boolean; workers_count: number; assigned_at: string
+  user_id: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift; is_active: boolean; assigned_at: string
 }
 export interface ManagerTeamSummary {
   sector_id: number; area_name: string; parent_sector: string; contractor_user_id: string | null; contractor_name: string | null; contractor_phone: string | null
-  workers_count: number; today_present: number; today_absent: number; contractor_checked_in: boolean; contractor_checkin_at: string | null; in_zone: boolean | null
+  today_headcount: number | null; contractor_checked_in: boolean; contractor_checkin_at: string | null; in_zone: boolean | null
   vehicles_now: number
   vehicles: { id: string; db_number: string; vehicle_name: string; driver_name: string; shift: Shift; arrived_at: string; trip_status: string }[]
 }
-export interface CheckinInput { latitude: number; longitude: number; accuracy: number | null; selfie: File; teamPhoto: File }
+export interface CheckinInput { latitude: number; longitude: number; accuracy: number | null; selfie: File; teamPhoto: File; headcount: number }
 
 const BUCKET = 'contractor-photos'
 async function uploadPhoto(file: File, kind: 'selfie' | 'team'): Promise<string> {
@@ -64,31 +60,19 @@ export const contractors = {
     const rows = (await sdkGuard(supabase.rpc('contractor_me'))) as ContractorMe[] | null
     return rows?.[0] ?? null
   },
-  async myWorkers(date?: string): Promise<ContractorWorker[]> {
-    return ((await sdkGuard(supabase.rpc('contractor_my_workers', { p_date: date ?? null }))) as ContractorWorker[] | null) ?? []
+  async myMonth(month?: string): Promise<ContractorMonthDay[]> {
+    return ((await sdkGuard(supabase.rpc('contractor_my_month', { p_month: month ?? null }))) as ContractorMonthDay[] | null) ?? []
   },
-  async addWorker(fullName: string, phone?: string | null): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_add_worker', { p_full_name: fullName.trim(), p_phone: phone?.trim() || null }))
-  },
-  async removeWorker(workerId: string, reason?: string): Promise<void> {
-    await sdkVoid(supabase.rpc('contractor_remove_worker', { p_worker_id: workerId, p_reason: reason?.trim() || null }))
+  async setHeadcount(headcount: number): Promise<void> {
+    await sdkGuard(supabase.rpc('contractor_set_headcount', { p_headcount: headcount }))
   },
   async checkin(input: CheckinInput): Promise<void> {
     const [selfiePath, teamPath] = await Promise.all([uploadPhoto(input.selfie, 'selfie'), uploadPhoto(input.teamPhoto, 'team')])
     await sdkGuard(
       supabase.rpc('contractor_checkin', {
-        p_lat: input.latitude, p_lng: input.longitude, p_accuracy: input.accuracy, p_selfie_path: selfiePath, p_team_photo_path: teamPath,
+        p_lat: input.latitude, p_lng: input.longitude, p_accuracy: input.accuracy, p_selfie_path: selfiePath, p_team_photo_path: teamPath, p_headcount: input.headcount,
       }),
     )
-  },
-  async markAttendance(workerId: string, status: AttendanceStatus, date?: string): Promise<void> {
-    await sdkGuard(supabase.rpc('contractor_mark_attendance', { p_worker_id: workerId, p_status: status, p_date: date ?? null }))
-  },
-  async markAll(status: AttendanceStatus, date?: string): Promise<number> {
-    return ((await sdkGuard(supabase.rpc('contractor_mark_all', { p_status: status, p_date: date ?? null }))) as number | null) ?? 0
-  },
-  async monthGrid(month?: string): Promise<ContractorMonthRow[]> {
-    return ((await sdkGuard(supabase.rpc('contractor_month_grid', { p_month: month ?? null }))) as ContractorMonthRow[] | null) ?? []
   },
   async signedUrl(path: string): Promise<string> {
     const res = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 30)

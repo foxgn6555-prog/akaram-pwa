@@ -71,65 +71,59 @@ begin
   raise notice 'C1 ok';
 end $$;
 
--- ═══ C2 · فريقي: إضافة/إزالة عمال، القاطع والمنطقة تلقائيان، عزل بين المتعهدين ═══
+-- ═══ C2 (00258) · قائمة العمال أُلغيت: دوالها لم تعد موجودة، وملفي بلا عدّادات عمال ═══
 do $$
-declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; c2 uuid := 'c7000000-0000-0000-0000-000000000003'; w public.contractor_workers; n int; me record;
+declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; me record;
 begin
   perform pg_temp.as_user(c1);
-  w := public.contractor_add_worker('عامل أول', '0781');
-  if w.sector_id <> 1 or w.parent_sector <> 'karrada' then raise exception 'worker sector should come from contractor: % %', w.sector_id, w.parent_sector; end if;
-  perform public.contractor_add_worker('عامل ثانٍ', null);
-  perform public.contractor_add_worker('عامل ثالث', null);
-  perform pg_temp.expect_error($q$ select public.contractor_add_worker('عامل أول') $q$, 'CONTRACTOR_WORKER_DUPLICATE');
-  perform pg_temp.expect_error($q$ select public.contractor_add_worker('x') $q$, 'CONTRACTOR_WORKER_NAME_INVALID');
+  if to_regprocedure('public.contractor_add_worker(text,text)') is not null or to_regprocedure('public.contractor_mark_attendance(uuid,text,date)') is not null
+     or to_regprocedure('public.contractor_my_workers(date)') is not null or to_regprocedure('public.contractor_month_grid(date)') is not null then
+    raise exception 'worker-list functions must be dropped';
+  end if;
   select * into me from public.contractor_me();
-  if me.workers_count <> 3 or me.area_name <> 'أرخيته' or me.checked_in_today then raise exception 'me wrong: %', me; end if;
-  perform pg_temp.as_user(c2);
-  select count(*) into n from public.contractor_my_workers(); if n <> 0 then raise exception 'isolation: c2 sees c1 workers'; end if;
-  perform pg_temp.expect_error(format($q$ select public.contractor_remove_worker('%s') $q$, w.id), 'CONTRACTOR_WORKER_NOT_FOUND');
-  perform pg_temp.as_user(c1);
-  perform public.contractor_remove_worker(w.id, 'ترك العمل');
-  select count(*) into n from public.contractor_my_workers(); if n <> 2 then raise exception 'remove failed'; end if;
+  if me.area_name <> 'أرخيته' or me.checked_in_today or me.today_headcount is not null or me.month_days <> 0 or me.month_locked then raise exception 'me wrong: %', me; end if;
   raise notice 'C2 ok';
 end $$;
 
--- ═══ C3 · حضور المتعهد قبل العمال؛ الموقع والصورتان إلزامية؛ داخل/خارج الزون؛ مرة واحدة يومياً ═══
+-- ═══ C3 (00258) · إثبات التواجد: موقع + صورتان + العدد (يشمل المتعهد) ؛ داخل/خارج الزون؛ مرة يومياً؛ تعديل العدد اليوم نفسه؛ قفل الشهر ═══
 do $$
-declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; ops uuid := 'c7000000-0000-0000-0000-000000000005'; wid uuid; c public.contractor_checkins; n int; me record;
+declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; ops uuid := 'c7000000-0000-0000-0000-000000000005'; c public.contractor_checkins; n int; me record; r record;
 begin
   perform pg_temp.as_user(c1);
-  select id into wid from public.contractor_my_workers() limit 1;
-  perform pg_temp.expect_error(format($q$ select public.contractor_mark_attendance('%s', 'present') $q$, wid), 'CONTRACTOR_CHECKIN_REQUIRED');
-  perform pg_temp.expect_error($q$ select public.contractor_checkin(null, 44.4, 5, 'u/selfie.jpg', 'u/team.jpg') $q$, 'CONTRACTOR_LOCATION_REQUIRED');
-  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, '', 'u/team.jpg') $q$, 'CONTRACTOR_SELFIE_REQUIRED');
-  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, 'u/selfie.jpg', null) $q$, 'CONTRACTOR_TEAM_PHOTO_REQUIRED');
-  -- لا زونات للمنطقة 1 → in_zone null
-  c := public.contractor_checkin(33.30, 44.40, 8, 'u/selfie.jpg', 'u/team.jpg');
-  if c.in_zone is not null or c.workers_count_at_checkin <> 2 or c.log_date <> app.baghdad_today() then raise exception 'checkin wrong: %', c; end if;
-  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, 'u/s2.jpg', 'u/t2.jpg') $q$, 'CONTRACTOR_ALREADY_CHECKED_IN');
-  -- منطقة 2 لها زون مربع؛ متعهدها يسجل خارجه → in_zone=false + إشعار غرفة العمليات
+  perform pg_temp.expect_error($q$ select public.contractor_set_headcount(5) $q$, 'CONTRACTOR_CHECKIN_REQUIRED');
+  perform pg_temp.expect_error($q$ select public.contractor_checkin(null, 44.4, 5, 'u/selfie.jpg', 'u/team.jpg', 5) $q$, 'CONTRACTOR_LOCATION_REQUIRED');
+  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, '', 'u/team.jpg', 5) $q$, 'CONTRACTOR_SELFIE_REQUIRED');
+  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, 'u/selfie.jpg', null, 5) $q$, 'CONTRACTOR_TEAM_PHOTO_REQUIRED');
+  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, 'u/selfie.jpg', 'u/team.jpg', 0) $q$, 'CONTRACTOR_COUNT_INVALID');
+  -- لا زونات للمنطقة 1 → in_zone null؛ العدد 16 يشمل المتعهد
+  c := public.contractor_checkin(33.30, 44.40, 8, 'u/selfie.jpg', 'u/team.jpg', 16);
+  if c.in_zone is not null or c.workers_count_at_checkin <> 16 or c.log_date <> app.baghdad_today() then raise exception 'checkin wrong: %', c; end if;
+  perform pg_temp.expect_error($q$ select public.contractor_checkin(33.3, 44.4, 5, 'u/s2.jpg', 'u/t2.jpg', 16) $q$, 'CONTRACTOR_ALREADY_CHECKED_IN');
+  select * into r from public.contractor_daily_counts where contractor_user_id = c1 and log_date = app.baghdad_today() and source = 'contractor';
+  if r.headcount <> 16 or r.sector_id <> 1 then raise exception 'daily count missing: %', r; end if;
+  -- تعديل العدد اليوم نفسه يستبدل (صف واحد)
+  perform public.contractor_set_headcount(15);
+  select * into me from public.contractor_me();
+  if me.today_headcount <> 15 or me.month_days <> 1 or me.month_headcount_total <> 15 or not me.checked_in_today then raise exception 'me after checkin wrong: %', me; end if;
+  select count(*) into n from public.contractor_daily_counts where contractor_user_id = c1 and source = 'contractor'; if n <> 1 then raise exception 'one row per day per source'; end if;
+  select count(*) into n from public.contractor_audit_log where action = 'count_contractor' and contractor_user_id = c1; if n <> 2 then raise exception 'audit count rows %', n; end if;
+  -- سجل الشهر
+  select * into r from public.contractor_my_month() m where m.log_date = app.baghdad_today();
+  if not r.checked_in or r.headcount <> 15 then raise exception 'my month wrong: %', r; end if;
+  -- منطقة 2 لها زون مربع؛ متعهدها يسجل خارجه → in_zone=false + إشعار غرفة العمليات يذكر العدد
   insert into public.gps_geofences (name, source, polygon, sector_id) values ('زون الرياض', 'platform',
     '[{"lat":33.0,"lng":44.0},{"lat":33.0,"lng":44.1},{"lat":33.1,"lng":44.1},{"lat":33.1,"lng":44.0}]'::jsonb, 2);
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000003');
-  c := public.contractor_checkin(33.5, 44.5, 8, 'v/selfie.jpg', 'v/team.jpg');
+  c := public.contractor_checkin(33.5, 44.5, 8, 'v/selfie.jpg', 'v/team.jpg', 7);
   if c.in_zone is not false then raise exception 'should be out of zone'; end if;
-  select count(*) into n from public.notifications where user_id = ops and dedupe_key like 'contractor_out_of_zone:%';
+  select count(*) into n from public.notifications where user_id = ops and dedupe_key like 'contractor_out_of_zone:%' and body like '%العدد 7%';
   if n <> 1 then raise exception 'ops should get out-of-zone notification, got %', n; end if;
   if app.point_in_sector_zones(2::smallint, 33.05, 44.05) is not true then raise exception 'inside point should be true'; end if;
-  -- العمال: حاضر/غائب فقط، اليوم أو أمس، تعديل نفس اليوم يستبدل
-  perform pg_temp.as_user(c1);
-  perform pg_temp.expect_error(format($q$ select public.contractor_mark_attendance('%s', 'leave') $q$, wid), 'CONTRACTOR_STATUS_INVALID');
-  perform pg_temp.expect_error(format($q$ select public.contractor_mark_attendance('%s', 'present', current_date + 1) $q$, wid), 'CONTRACTOR_DATE_FUTURE');
-  perform pg_temp.expect_error(format($q$ select public.contractor_mark_attendance('%s', 'present', current_date - 5) $q$, wid), 'CONTRACTOR_DATE_LOCKED');
-  n := public.contractor_mark_all('present'); if n <> 2 then raise exception 'mark_all should mark 2, got %', n; end if;
-  perform public.contractor_mark_attendance(wid, 'absent');
-  select * into me from public.contractor_me();
-  if me.today_present <> 1 or me.today_absent <> 1 or me.today_unmarked <> 0 or not me.checked_in_today then raise exception 'today counters wrong: %', me; end if;
-  select count(*) into n from public.contractor_worker_attendance where contractor_user_id = 'c7000000-0000-0000-0000-000000000002' and log_date = app.baghdad_today();
-  if n <> 2 then raise exception 'one row per worker per day expected, got %', n; end if;
-  -- شبكة الشهر
-  select count(*) into n from public.contractor_month_grid() g where (g.days ->> extract(day from app.baghdad_today())::int::text) is not null;
-  if n <> 2 then raise exception 'month grid should have today for 2 workers, got %', n; end if;
+  -- قفل الشهر (اعتماد غرفة العمليات) يمنع الكتابة
+  insert into public.contractor_month_approvals (month, approved_source, approved_by) values (date_trunc('month', app.baghdad_today())::date, 'contractor', ops);
+  perform pg_temp.expect_error($q$ select public.contractor_set_headcount(9) $q$, 'CONTRACTOR_MONTH_LOCKED');
+  delete from public.contractor_month_approvals;
+  perform public.contractor_set_headcount(7);
   raise notice 'C3 ok';
 end $$;
 
@@ -140,7 +134,7 @@ begin
   perform pg_temp.as_user(mgr);
   select count(*) into n from public.manager_team_summary(); if n <> 2 then raise exception 'manager has 2 areas, got %', n; end if;
   select * into r from public.manager_team_summary() t where t.sector_id = 1;
-  if r.contractor_name <> 'متعهد أرخيته' or r.workers_count <> 2 or r.today_present <> 1 or r.today_absent <> 1 or not r.contractor_checked_in then raise exception 'summary area1 wrong: %', r; end if;
+  if r.contractor_name <> 'متعهد أرخيته' or r.today_headcount <> 15 or not r.contractor_checked_in then raise exception 'summary area1 wrong: %', r; end if;
   select * into r from public.manager_team_summary() t where t.sector_id = 2;
   if r.in_zone is not false or r.vehicles_now <> 0 then raise exception 'summary area2 wrong: %', r; end if;
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000002');

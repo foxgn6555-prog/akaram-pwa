@@ -1,4 +1,4 @@
-/** فريقي (مسؤول القسم) — لكل منطقة من مناطقي: المتعهد الذي يعمل معي، عدد العمال (عدد فقط)، والآليات التي تعمل في منطقتي الآن */
+/** فريقي (مسؤول القسم) — لكل منطقة من مناطقي: المتعهد الذي يعمل معي، العدد الذي سجّله اليوم (يشمله)، والآليات التي تعمل في منطقتي الآن */
 import { Camera, MapPin, Phone, Truck, UserCheck, Users } from 'lucide-react'
 import { useManagerContractorPhotosToday, useManagerTeamSummary } from '@features/contractors/hooks'
 import { PARENT_AR, SHIFT_AR, timeAr, zoneLabel } from '@features/contractors/format'
@@ -37,9 +37,9 @@ export default function TeamPage() {
               ) : <div className="text-sm font-bold text-slate-500">لا متعهد معيّن لهذه المنطقة</div>}
             </div>
             <div className="rounded-2xl border bg-emerald-50 p-3">
-              <div className="text-[11px] font-bold text-emerald-800">عدد العمال</div>
-              <div className="text-3xl font-black text-emerald-950" data-testid={`workers-${r.sector_id}`}>{r.workers_count}</div>
-              <div className="inline-flex items-center gap-1 text-[11px] text-emerald-900"><UserCheck size={11} />اليوم: حاضر {r.today_present} · غائب {r.today_absent}</div>
+              <div className="text-[11px] font-bold text-emerald-800">العدد اليوم (كما سجّله المتعهد)</div>
+              <div className="text-3xl font-black text-emerald-950" data-testid={`workers-${r.sector_id}`}>{r.today_headcount ?? '—'}</div>
+              <div className="inline-flex items-center gap-1 text-[11px] text-emerald-900"><UserCheck size={11} />{r.today_headcount == null ? 'لم يسجّل العدد اليوم بعد' : `يشمل المتعهد نفسه · عمال: ${Math.max(0, r.today_headcount - 1)}`}</div>
             </div>
             <div className="rounded-2xl border bg-blue-50 p-3">
               <div className="text-[11px] font-bold text-blue-800">آليات تعمل الآن</div>

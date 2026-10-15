@@ -139,10 +139,9 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
 export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.PUBLIC]: [],
 
-  // بوابة المتعهد (00158): ثلاث وحدات + إرسال الصور (00257)
+  // بوابة المتعهد (00258): الرئيسية · إثبات التواجد والعدد · إرسال الصور
   [PORTALS.EMPLOYEE]: [
     { path: '/employee', labelKey: 'nav.dashboard', icon: 'home' },
-    { path: '/employee/team', labelKey: 'nav.contractor_team', icon: 'users' },
     { path: '/employee/attendance', labelKey: 'nav.contractor_attendance', icon: 'check-square' },
     { path: '/employee/photos', labelKey: 'nav.contractor_photos', icon: 'camera' },
   ],

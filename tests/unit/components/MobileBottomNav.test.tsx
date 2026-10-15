@@ -34,11 +34,12 @@ beforeEach(() => {
 })
 
 describe('MobileBottomNav — الاختصارات', () => {
-  it('بوابة المتعهد: يعرض وحداتها الثلاث كاختصارات (الرئيسية، فريقي، حضورية العمال)', () => {
+  it('بوابة المتعهد: يعرض وحداتها الثلاث كاختصارات (الرئيسية، إثبات التواجد والعدد، إرسال الصور)', () => {
     renderAt('/employee')
     expect(screen.getByTestId('bottom-nav-home')).toBeInTheDocument()
-    expect(screen.getByTestId('bottom-nav-team')).toBeInTheDocument()
     expect(screen.getByTestId('bottom-nav-attendance')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-photos')).toBeInTheDocument()
+    expect(screen.queryByTestId('bottom-nav-team')).toBeNull()
   })
   it('بوابة HR: يعرض 4 اختصارات سريعة فقط (أول الوحدات)', () => {
     renderAt('/hr', 'hr' as never)
@@ -78,9 +79,9 @@ describe('MobileBottomNav — التنقل والحالة النشطة', () => {
   it('النقر على اختصار ينقل لمساره', async () => {
     const user = userEvent.setup()
     renderAt('/employee')
-    await user.click(screen.getByTestId('bottom-nav-team'))
+    await user.click(screen.getByTestId('bottom-nav-photos'))
     // الرابط ينقل — لا تعطل هنا؛ نتحقق من عدم رمي خطأ وأن العنصر زر تفاعلي
-    expect(screen.getByTestId('bottom-nav-team')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-nav-photos')).toBeInTheDocument()
   })
 
   it('الصفحة الرئيسية موسومة aria-current=page على مسار البوابة', () => {

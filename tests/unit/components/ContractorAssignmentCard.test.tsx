@@ -24,9 +24,9 @@ describe('بطاقة إسناد المتعهد (التطوير المركزية)
     expect(h.assign).toHaveBeenCalledWith({ userId: 'u1', managerUserId: 'm1', sectorId: 2 })
   })
   it('مع إسناد نشط: يعرض الحالي، منطقته الحالية غير معطلة، وإلغاء الإسناد يتطلب سبباً', () => {
-    h.profile = { user_id: 'u1', manager_user_id: 'm1', manager_name: 'مسؤول الكرادة', sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', shift: 'morning', is_active: true, workers_count: 7, assigned_at: '2026-09-01T00:00:00Z' }
+    h.profile = { user_id: 'u1', manager_user_id: 'm1', manager_name: 'مسؤول الكرادة', sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', shift: 'morning', is_active: true, assigned_at: '2026-09-01T00:00:00Z' }
     render(<ContractorAssignmentCard userId="u1" />)
-    expect(screen.getByTestId('contractor-current')).toHaveTextContent('مسؤول الكرادة · أرخيته · قاطع الكرادة · صباحي · عمال نشطون 7')
+    expect(screen.getByTestId('contractor-current')).toHaveTextContent('مسؤول الكرادة · أرخيته · قاطع الكرادة · صباحي · منذ')
     expect(screen.getByTestId('ca-area-1')).toBeEnabled()
     expect(screen.getByTestId('ca-unassign')).toBeDisabled()
     fireEvent.change(screen.getByTestId('ca-reason'), { target: { value: 'انتهاء العقد' } })

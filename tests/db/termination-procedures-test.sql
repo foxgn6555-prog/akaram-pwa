@@ -1,5 +1,18 @@
 -- اختبار 00163: وحدة «الإجراءات» — طلبات إنهاء الخدمة بنطاقات متدرجة وسلاسل موافقات. مستقل (بادئة ea، مناطق 4 و7).
 set client_min_messages = notice;
+-- 00258: قائمة العمال أُلغيت من بوابة المتعهد (العدد بدل القائمة)؛ هذا الاختبار يحتاج صفوف عمال/حضور أرشيفية لوحداته الأخرى إلى حين إعادة تصميمها
+create or replace function pg_temp.legacy_worker(p_contractor uuid, p_name text, p_phone text default null) returns public.contractor_workers language plpgsql as $$
+declare cp public.contractor_profiles; w public.contractor_workers;
+begin
+  select * into cp from public.contractor_profiles where user_id = p_contractor;
+  insert into public.contractor_workers(contractor_user_id, full_name, phone, sector_id, parent_sector, created_by)
+  values (p_contractor, p_name, p_phone, cp.sector_id, (select parent_sector from public.sectors where id = cp.sector_id), p_contractor) returning * into w;
+  return w;
+end $$;
+create or replace function pg_temp.legacy_present(p_worker uuid) returns void language sql as $$
+  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
+  select w.id, w.contractor_user_id, w.sector_id, app.baghdad_today(), 'present', w.contractor_user_id from public.contractor_workers w where w.id = p_worker on conflict do nothing
+$$;
 insert into auth.users (id, email) values
   ('ea000000-0000-0000-0000-000000000001', 'it-t@t.iq'),
   ('ea000000-0000-0000-0000-000000000002', 'hr-t@t.iq'),        -- موارد بشرية
@@ -50,8 +63,8 @@ begin
   perform public.sector_manager_profile_save('ea000000-0000-0000-0000-00000000000b', '{zaafaraniya}');
   perform public.contractor_assign('ea000000-0000-0000-0000-000000000007', 'ea000000-0000-0000-0000-000000000003', 4::smallint);
   perform pg_temp.as_user('ea000000-0000-0000-0000-000000000007');
-  w := public.contractor_add_worker('عامل أول', '0790'); insert into pg_temp.ids values ('w1', w.id);
-  w := public.contractor_add_worker('عامل ثاني', '0791'); insert into pg_temp.ids values ('w2', w.id);
+  w := pg_temp.legacy_worker(auth.uid(), 'عامل أول', '0790'); insert into pg_temp.ids values ('w1', w.id);
+  w := pg_temp.legacy_worker(auth.uid(), 'عامل ثاني', '0791'); insert into pg_temp.ids values ('w2', w.id);
   raise notice 'T0 ✅ تهيئة';
 end $$;
 

@@ -20,7 +20,7 @@ export function ContractorAssignmentCard({ userId }: { userId: string }) {
       <p className="mt-1 text-xs text-slate-500">القاطع والمنطقة والشفت تُشتق من ملف مسؤول القسم تلقائياً. منطقة واحدة = متعهد واحد.</p>
       {p?.is_active ? (
         <p className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-900" data-testid="contractor-current">
-          الإسناد الحالي: {p.manager_name} · {p.area_name} · {PARENT_AR[p.parent_sector] ?? p.parent_sector} · {SHIFT_AR[p.shift] ?? p.shift} · عمال نشطون {p.workers_count} · منذ {dateAr(p.assigned_at)}
+          الإسناد الحالي: {p.manager_name} · {p.area_name} · {PARENT_AR[p.parent_sector] ?? p.parent_sector} · {SHIFT_AR[p.shift] ?? p.shift} · منذ {dateAr(p.assigned_at)}
         </p>
       ) : (
         <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900" data-testid="contractor-none">لا إسناد نشط — لن تعمل بوابة المتعهد حتى يُسنَد.</p>

@@ -1,5 +1,18 @@
 -- 00188 · (أ) تحكم الاستقطاع التلقائي · (ب) تقرير الكشوفات · (ج) أجور عمال المتعهدين (بادئة ad)
 set client_min_messages = notice;
+-- 00258: قائمة العمال أُلغيت من بوابة المتعهد (العدد بدل القائمة)؛ هذا الاختبار يحتاج صفوف عمال/حضور أرشيفية لوحداته الأخرى إلى حين إعادة تصميمها
+create or replace function pg_temp.legacy_worker(p_contractor uuid, p_name text, p_phone text default null) returns public.contractor_workers language plpgsql as $$
+declare cp public.contractor_profiles; w public.contractor_workers;
+begin
+  select * into cp from public.contractor_profiles where user_id = p_contractor;
+  insert into public.contractor_workers(contractor_user_id, full_name, phone, sector_id, parent_sector, created_by)
+  values (p_contractor, p_name, p_phone, cp.sector_id, (select parent_sector from public.sectors where id = cp.sector_id), p_contractor) returning * into w;
+  return w;
+end $$;
+create or replace function pg_temp.legacy_present(p_worker uuid) returns void language sql as $$
+  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
+  select w.id, w.contractor_user_id, w.sector_id, app.baghdad_today(), 'present', w.contractor_user_id from public.contractor_workers w where w.id = p_worker on conflict do nothing
+$$;
 reset role; select set_config('auth.user_id','', false);
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
@@ -154,7 +167,7 @@ select auth.set_test_user('ad000000-0000-0000-0000-00000000000d');
 select public.contractor_assign('ad000000-0000-0000-0000-000000000011', 'ad000000-0000-0000-0000-000000000012', 3::smallint, 'ad');
 select auth.set_test_user('ad000000-0000-0000-0000-000000000011');
 do $$ declare w1 public.contractor_workers; w2 public.contractor_workers; d date := app.baghdad_today(); m date := date_trunc('month', app.baghdad_today())::date; begin
-  w1 := public.contractor_add_worker('عامل ad واحد', '0781'); w2 := public.contractor_add_worker('عامل ad اثنان', null);
+  w1 := pg_temp.legacy_worker(auth.uid(), 'عامل ad واحد', '0781'); w2 := pg_temp.legacy_worker(auth.uid(), 'عامل ad اثنان', null);
   perform set_config('test.adw1', w1.id::text, false); perform set_config('test.adw2', w2.id::text, false);
   -- حضور مباشر (تجاوز بوابة الموقع/الصور لأن الاختبار لقواعد الأجور): 4 أيام حاضر + يوم غائب للعامل 1، يومان للعامل 2
   reset role;

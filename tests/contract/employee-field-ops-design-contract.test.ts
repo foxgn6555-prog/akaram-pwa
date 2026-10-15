@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = join(process.cwd(), 'src/portals')
-const OWN = ['employee/pages/Dashboard/ContractorDashboard', 'employee/pages/Team/ContractorTeamPage', 'employee/pages/Attendance/ContractorAttendancePage', 'employee/pages/Photos/ContractorPhotosPage', 'employee/pages/Requests/MyRequests',
+const OWN = ['employee/pages/Dashboard/ContractorDashboard', 'employee/pages/Attendance/ContractorAttendancePage', 'employee/pages/Photos/ContractorPhotosPage', 'employee/pages/Requests/MyRequests',
   'field-ops/pages/Dashboard/FieldOpsDashboard', 'field-ops/pages/Sectors/SectorsPage']
 const SHARED = ['admin-ops/pages/Requests/TeamRequestsPage', 'admin-ops/pages/Reports/SectorReportsPage', 'admin-ops/pages/Notify/NotifyPage', 'admin-ops/pages/Procedures/ProceduresPage']
 

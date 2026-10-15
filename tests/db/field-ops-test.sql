@@ -1,6 +1,19 @@
 -- اختبار 00161: بوابة العمليات الميدانية — نطاق كل القواطع، تعلو مسؤولي القواطع، خطوة «العمليات الميدانية» في السلسلة تُنفَّذ (لا تُخطّى)،
 -- التبليغ لمسؤولي القواطع ومسؤولي الأقسام، ولا أي بيانات مالية. مستقل (بادئة d9، مناطق 3 و6).
 set client_min_messages = notice;
+-- 00258: قائمة العمال أُلغيت من بوابة المتعهد (العدد بدل القائمة)؛ هذا الاختبار يحتاج صفوف عمال/حضور أرشيفية لوحداته الأخرى إلى حين إعادة تصميمها
+create or replace function pg_temp.legacy_worker(p_contractor uuid, p_name text, p_phone text default null) returns public.contractor_workers language plpgsql as $$
+declare cp public.contractor_profiles; w public.contractor_workers;
+begin
+  select * into cp from public.contractor_profiles where user_id = p_contractor;
+  insert into public.contractor_workers(contractor_user_id, full_name, phone, sector_id, parent_sector, created_by)
+  values (p_contractor, p_name, p_phone, cp.sector_id, (select parent_sector from public.sectors where id = cp.sector_id), p_contractor) returning * into w;
+  return w;
+end $$;
+create or replace function pg_temp.legacy_present(p_worker uuid) returns void language sql as $$
+  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
+  select w.id, w.contractor_user_id, w.sector_id, app.baghdad_today(), 'present', w.contractor_user_id from public.contractor_workers w where w.id = p_worker on conflict do nothing
+$$;
 insert into auth.users (id, email) values
   ('d9000000-0000-0000-0000-000000000001', 'it-f@t.iq'),
   ('d9000000-0000-0000-0000-000000000002', 'cont-f@t.iq'),      -- متعهد (الكرادة/منطقة 3)
@@ -42,9 +55,9 @@ begin
   perform public.sector_manager_profile_save('d9000000-0000-0000-0000-000000000007', '{zaafaraniya}');
   perform public.contractor_assign('d9000000-0000-0000-0000-000000000002', 'd9000000-0000-0000-0000-000000000003', 3::smallint);
   perform pg_temp.as_user('d9000000-0000-0000-0000-000000000002');
-  wid := (public.contractor_add_worker('عامل ف1')).id;
-  perform public.contractor_checkin(33.31, 44.42, 8, 'f/s.jpg', 'f/t.jpg');
-  perform public.contractor_mark_attendance(wid, 'present');
+  wid := (pg_temp.legacy_worker(auth.uid(), 'عامل ف1')).id;
+  perform public.contractor_checkin(33.31, 44.42, 8, 'f/s.jpg', 'f/t.jpg', 2);
+  perform pg_temp.legacy_present(wid);
 
   perform pg_temp.as_user('d9000000-0000-0000-0000-000000000005');
   select * into r from public.sector_manager_me();

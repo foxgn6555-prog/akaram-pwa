@@ -1,8 +1,7 @@
 {
   "nav": {
     "dashboard": "الرئيسية",
-    "contractor_team": "فريقي",
-    "contractor_attendance": "حضورية العمال",
+    "contractor_attendance": "إثبات التواجد والعدد",
     "contractor_photos": "إرسال الصور",
     "profile": "ملفي الشخصي",
     "my_requests": "طلباتي",

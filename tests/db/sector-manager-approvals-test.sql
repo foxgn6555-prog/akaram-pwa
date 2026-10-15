@@ -1,6 +1,19 @@
 -- اختبار 00160: مسؤول القاطع (إسناد القواطع من IT، فريقي، اللوحة، التقارير، التبليغ) + سلاسل الموافقات القابلة للتخصيص
 -- (خطوات حسب التسلسل/حساب محدد، تخطّي الخطوات الفارغة، لا موافقة ذاتية، الرفض يُنهي، الموافقة الأخيرة تنفّذ الإجازة). مستقل.
 set client_min_messages = notice;
+-- 00258: قائمة العمال أُلغيت من بوابة المتعهد (العدد بدل القائمة)؛ هذا الاختبار يحتاج صفوف عمال/حضور أرشيفية لوحداته الأخرى إلى حين إعادة تصميمها
+create or replace function pg_temp.legacy_worker(p_contractor uuid, p_name text, p_phone text default null) returns public.contractor_workers language plpgsql as $$
+declare cp public.contractor_profiles; w public.contractor_workers;
+begin
+  select * into cp from public.contractor_profiles where user_id = p_contractor;
+  insert into public.contractor_workers(contractor_user_id, full_name, phone, sector_id, parent_sector, created_by)
+  values (p_contractor, p_name, p_phone, cp.sector_id, (select parent_sector from public.sectors where id = cp.sector_id), p_contractor) returning * into w;
+  return w;
+end $$;
+create or replace function pg_temp.legacy_present(p_worker uuid) returns void language sql as $$
+  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
+  select w.id, w.contractor_user_id, w.sector_id, app.baghdad_today(), 'present', w.contractor_user_id from public.contractor_workers w where w.id = p_worker on conflict do nothing
+$$;
 insert into auth.users (id, email) values
   ('d8000000-0000-0000-0000-000000000001', 'it-d@t.iq'),
   ('d8000000-0000-0000-0000-000000000002', 'cont-d@t.iq'),       -- متعهد (الكرادة/منطقة 1)
@@ -197,10 +210,10 @@ do $$
 declare r record; j jsonb; n int; wid uuid;
 begin
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000002');
-  wid := (public.contractor_add_worker('عامل 1')).id;
-  perform public.contractor_add_worker('عامل 2');
-  perform public.contractor_checkin(33.31, 44.42, 8, 'c/s.jpg', 'c/t.jpg');
-  perform public.contractor_mark_attendance(wid, 'present');
+  wid := (pg_temp.legacy_worker(auth.uid(), 'عامل 1')).id;
+  perform pg_temp.legacy_worker(auth.uid(), 'عامل 2');
+  perform public.contractor_checkin(33.31, 44.42, 8, 'c/s.jpg', 'c/t.jpg', 3);
+  perform pg_temp.legacy_present(wid);
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000004');
   j := public.sector_manager_dashboard();
   if (j ->> 'department_managers')::int <> 1 or (j ->> 'contractors')::int <> 1 or (j ->> 'workers')::int <> 2 or (j ->> 'present_today')::int <> 1 or (j ->> 'presence_proved')::int <> 1 then raise exception 'dashboard wrong: %', j; end if;
