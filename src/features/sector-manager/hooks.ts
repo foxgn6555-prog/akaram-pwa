@@ -25,6 +25,13 @@ export const useFieldOpsSectorManagers = () => useQuery({ queryKey: [...ROOT, 'f
 export const useNotifyTargets = () => useQuery({ queryKey: [...ROOT, 'notify-targets'], queryFn: () => sectorManager.notifyTargets() })
 export const useSectorNotices = () => useQuery({ queryKey: [...ROOT, 'notices'], queryFn: () => sectorManager.notices() })
 export const useSendSectorNotice = () => useAction((x: { title: string; body: string; targets?: string[] }) => sectorManager.notify(x.title, x.body, x.targets), (n) => `أُرسل التبليغ إلى ${n} من مسؤولي الأقسام`)
+// 00261: متابعة المتعهدين والعمال
+export const useSmContractors = (date?: string | null, contractor?: string | null, parent?: ParentSector | null) =>
+  useQuery({ queryKey: [...ROOT, 'contractors', date ?? '', contractor ?? '', parent ?? ''], queryFn: () => sectorManager.contractors(date, contractor, parent), refetchInterval: 60_000 })
+export const useSmSetContractorHeadcount = () => useAction((x: { contractorUserId: string; headcount: number }) => sectorManager.setContractorHeadcount(x.contractorUserId, x.headcount), 'حُفظ عدد القاطع')
+export const useSmContractorMonth = (contractorUserId: string | null, month?: string | null) =>
+  useQuery({ queryKey: [...ROOT, 'contractor-month', contractorUserId, month ?? ''], queryFn: () => sectorManager.contractorMonth(contractorUserId as string, month), enabled: Boolean(contractorUserId) })
+export const useSmContractorsSummary = () => useQuery({ queryKey: [...ROOT, 'contractors-summary'], queryFn: () => sectorManager.contractorsSummary(), refetchInterval: 60_000 })
 // سلاسل الموافقات
 export const useApprovalChains = (enabled = true) => useQuery({ queryKey: [...ROOT, 'chains'], queryFn: () => approvals.chains(), enabled })
 export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalRequestType; steps: ApprovalStep[]; active?: boolean }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true), 'حُفظت سلسلة الموافقات')

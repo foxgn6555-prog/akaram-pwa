@@ -11,6 +11,7 @@ const SectorReportsPage = lazy(() => import('./pages/Reports/SectorReportsPage')
 const NotifyPage = lazy(() => import('./pages/Notify/NotifyPage'))
 const ProceduresPage = lazy(() => import('./pages/Procedures/ProceduresPage'))
 const SectorDisclosuresPage = lazy(() => import('./pages/Disclosures/SectorDisclosuresPage'))   // 00210: الكشوفات (موظفوه فقط)
+const ContractorsFollowUpPage = lazy(() => import('./pages/Contractors/ContractorsFollowUpPage'))   // 00261: متابعة المتعهدين والعمال
 const MyRequests = lazy(() => import('@portals/employee/pages/Requests/MyRequests'))
 
 const s = (node: ReactNode): ReactNode => (
@@ -24,5 +25,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'notify', element: s(<NotifyPage />) },
   { path: 'procedures', element: s(<ProceduresPage />) },
   { path: 'disclosures', element: s(<SectorDisclosuresPage />) },
+  { path: 'contractors', element: s(<ContractorsFollowUpPage />) },
   { path: 'my-requests', element: s(<MyRequests />) },
 ]

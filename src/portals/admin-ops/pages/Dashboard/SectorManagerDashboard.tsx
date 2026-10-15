@@ -22,7 +22,7 @@ export default function SectorManagerDashboard() {
           { label: 'متعهدون أثبتوا تواجدهم', value: `${d.presence_proved}/${d.contractors}`, tone: d.presence_proved === d.contractors ? 'green' : 'gold', testId: 'st-proved' },
           { label: 'خارج النطاق', value: d.out_of_zone, tone: d.out_of_zone ? 'red' : 'plain', testId: 'st-out' },
         ]}
-        links={[{ to: '/admin-ops/requests', label: 'طلبات فريقي', icon: 'check-square' }, { to: '/admin-ops/reports', label: 'التقارير', icon: 'bar-chart' }, { to: '/admin-ops/notify', label: 'التبليغ', icon: 'send' }, { to: '/admin-ops/procedures', label: 'الإجراءات', icon: 'clipboard' }, { to: '/admin-ops/disclosures', label: 'الكشوفات', icon: 'alert-triangle' }]} />
+        links={[{ to: '/admin-ops/requests', label: 'طلبات فريقي', icon: 'check-square' }, { to: '/admin-ops/reports', label: 'التقارير', icon: 'bar-chart' }, { to: '/admin-ops/notify', label: 'التبليغ', icon: 'send' }, { to: '/admin-ops/procedures', label: 'الإجراءات', icon: 'clipboard' }, { to: '/admin-ops/disclosures', label: 'الكشوفات', icon: 'alert-triangle' }, { to: '/admin-ops/contractors', label: 'متابعة المتعهدين والعمال', icon: 'users' }]} />
       {!me.data.has_employee && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold text-amber-800" data-testid="sm-no-hr">حسابك غير مرتبط بسجل موظف — لن تتمكن من تقديم طلباتك حتى تربطه الموارد البشرية.</p>}
 
       {d.pending_requests > 0 && (

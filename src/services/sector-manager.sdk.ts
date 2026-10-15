@@ -25,6 +25,16 @@ export interface SectorReports {
 }
 export interface NotifyTarget { user_id: string; full_name: string; role: 'admin_ops' | 'department_manager'; parent_sector: ParentSector; areas: string; shift: string | null }
 /** 00161: تفصيل قاطع أم واحد (للعمليات الميدانية — مقارنة القاطعين) */
+/** 00261: متابعة المتعهدين والعمال (مسؤول القاطع) */
+export interface SmContractorRow {
+  contractor_user_id: string; contractor_name: string; contractor_phone: string | null; sector_id: number; area_name: string; parent_sector: ParentSector; shift: string | null
+  department_manager_name: string | null
+  checked_in: boolean; checkin_at: string | null; latitude: number | null; longitude: number | null; accuracy_m: number | null; in_zone: boolean | null
+  selfie_path: string | null; team_photo_path: string | null
+  contractor_headcount: number | null; follow_up_headcount: number | null; my_headcount: number | null; my_updated_at: string | null; editable: boolean
+}
+export interface SmContractorMonthDay { log_date: string; checked_in: boolean; checkin_at: string | null; in_zone: boolean | null; selfie_path: string | null; team_photo_path: string | null; contractor_headcount: number | null; follow_up_headcount: number | null; admin_ops_headcount: number | null }
+export interface SmContractorsSummary { contractors: number; checked_in: number; out_of_zone: number; counted_by_me: number; month_locked: boolean }
 export interface ParentSectorDetail { code: ParentSector; name: string; sector_managers: string | null; areas: number; department_managers: number; contractors: number; areas_without_contractor: number; present_today: number; absent_today: number; presence_proved: number; out_of_zone: number; vehicles_now: number }
 export interface FieldOpsSectorManager { user_id: string; full_name: string; phone: string | null; parent_sectors: ParentSector[]; parent_names: string[]; department_managers: number; contractors: number; present_today: number; absent_today: number; presence_proved: number; pending_tasks: number; on_leave_today: boolean; has_employee: boolean }
 export interface SectorNotice { id: string; title: string; body: string; recipients_count: number; recipient_names: string; created_at: string }
@@ -62,6 +72,20 @@ export interface ApprovalTimelineRow { step_no: number; step_label: string; stat
 const one = <T>(rows: unknown): T | null => (Array.isArray(rows) ? ((rows[0] as T) ?? null) : ((rows as T) ?? null))
 
 export const sectorManager = {
+  // ── 00261: متابعة المتعهدين والعمال ──
+  async contractors(date?: string | null, contractor?: string | null, parent?: ParentSector | null): Promise<SmContractorRow[]> {
+    return ((await sdkGuard(supabase.rpc('sector_manager_contractors', { p_date: date ?? null, p_contractor: contractor ?? null, p_parent: parent ?? null }))) as SmContractorRow[] | null) ?? []
+  },
+  async setContractorHeadcount(contractorUserId: string, headcount: number): Promise<void> {
+    await sdkGuard(supabase.rpc('sector_manager_set_headcount', { p_contractor: contractorUserId, p_headcount: headcount }))
+  },
+  async contractorMonth(contractorUserId: string, month?: string | null): Promise<SmContractorMonthDay[]> {
+    return ((await sdkGuard(supabase.rpc('sector_manager_contractor_month', { p_contractor: contractorUserId, p_month: month ?? null }))) as SmContractorMonthDay[] | null) ?? []
+  },
+  async contractorsSummary(): Promise<SmContractorsSummary | null> {
+    const rows = (await sdkGuard(supabase.rpc('sector_manager_contractors_summary'))) as SmContractorsSummary[] | null
+    return rows?.[0] ?? null
+  },
   // التطوير المركزية
   options: async () => (await sdkGuard(supabase.rpc('sector_manager_options'))) as SectorManagerOption[],
   profileForUser: async (userId: string) => one<SectorManagerProfile>(await sdkGuard(supabase.rpc('sector_manager_profile_for_user', { p_user_id: userId }))),
