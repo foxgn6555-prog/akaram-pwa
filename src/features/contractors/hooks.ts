@@ -33,3 +33,4 @@ export const useSetContractorWage = () => useAction((x: { workerId: string; mont
 export const useCopyPreviousWages = () => useAction((x: { month: string }) => contractors.copyPreviousWages(x.month), 'نُسخت أجور الشهر السابق للعمال الذين لا أجر لهم')
 // مسؤول القسم
 export const useManagerTeamSummary = () => useQuery({ queryKey: [...ROOT, 'manager-team'], queryFn: () => contractors.managerTeamSummary(), refetchInterval: 60_000 })
+export const useManagerContractorPhotosToday = () => useQuery({ queryKey: [...ROOT, 'manager-contractor-photos'], queryFn: () => contractors.managerContractorPhotosToday(), refetchInterval: 60_000 })

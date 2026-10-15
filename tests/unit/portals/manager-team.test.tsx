@@ -9,6 +9,7 @@ vi.mock('@features/contractors/hooks', () => ({
     ],
     isLoading: false,
   }),
+  useManagerContractorPhotosToday: () => ({ data: [{ contractor_user_id: 'e1', tickets_today: 2, photos_today: 9 }], isLoading: false }),
 }))
 import TeamPage from '@portals/manager/pages/Team/TeamPage'
 
@@ -20,6 +21,8 @@ describe('فريقي — مسؤول القسم (00158)', () => {
     expect(screen.getByTestId('team-area-1')).toHaveTextContent('حاضر 10 · غائب 2')
     expect(screen.getByTestId('team-area-1')).toHaveTextContent('داخل نطاق المنطقة')
     expect(screen.getByTestId('vehicles-1')).toHaveTextContent('1')
+    // 00257: صور المتعهد اليوم تصل مسؤول قسمه
+    expect(screen.getByTestId('contractor-photos-1')).toHaveTextContent('صور اليوم: 2 تذكرة · 9 صورة')
     expect(screen.getByTestId('vehicles-list-1')).toHaveTextContent('DB-13 · هيونداي')
     expect(screen.getByTestId('vehicles-list-1')).toHaveTextContent('تعمل في الموقع')
     expect(screen.getByTestId('team-area-2')).toHaveTextContent('لا متعهد معيّن لهذه المنطقة')

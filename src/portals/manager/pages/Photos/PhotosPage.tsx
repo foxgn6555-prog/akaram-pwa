@@ -36,7 +36,10 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 const todayBaghdad = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 
-export default function PhotosPage() {
+/** 00257: نطاق خارجي (بوابة المتعهد) — القاطع والقسم يُمرَّران بدل اشتقاقهما من ملف مسؤول القسم */
+export type PhotosScope = { parent: SectorParent | null; sectionNames: string }
+
+export default function PhotosPage({ scope }: { scope?: PhotosScope } = {}) {
   const [mode, setMode] = useState<MediaMode>('street')
   const [title, setTitle] = useState('')
   const [workType, setWorkType] = useState('')
@@ -62,15 +65,16 @@ export default function PhotosPage() {
   const isBusy = busy || send.isPending || upload.isPending
 
   // اشتقاق القاطع والقسم تلقائياً من حساب المسؤول
-  const sectorsQ = useQuery({ queryKey: ['sector', 'sectors'], queryFn: () => sector.listSectors(), staleTime: Infinity })
-  const profileQ = useQuery({ queryKey: ['sector', 'my-profile'], queryFn: () => sector.myProfile(), staleTime: Infinity })
+  const external = Boolean(scope)
+  const sectorsQ = useQuery({ queryKey: ['sector', 'sectors'], queryFn: () => sector.listSectors(), staleTime: Infinity, enabled: !external })
+  const profileQ = useQuery({ queryKey: ['sector', 'my-profile'], queryFn: () => sector.myProfile(), staleTime: Infinity, enabled: !external })
   const mySectors = useMemo(() => {
     const ids = profileQ.data?.sectors ?? []
     const all = sectorsQ.data ?? []
     return all.filter((s) => ids.includes(s.id))
   }, [profileQ.data, sectorsQ.data])
-  const parent: SectorParent | null = mySectors[0]?.parent_sector ?? null
-  const sectionNames = mySectors.map((s) => s.name).join('، ')
+  const parent: SectorParent | null = scope ? scope.parent : (mySectors[0]?.parent_sector ?? null)
+  const sectionNames = scope ? scope.sectionNames : mySectors.map((s) => s.name).join('، ')
 
   const appendFiles = (incoming: FileList | File[]) => {
     const list = Array.from(incoming).filter((f) => f.type.startsWith('image/'))
@@ -161,7 +165,7 @@ export default function PhotosPage() {
 
   return (
     <div className="space-y-6" data-testid="photos-page">
-      <ExecPageHeader icon="camera" title="إرسال صور إلى الإعلام" subtitle={`القاطع والقسم يُحدَّدان تلقائياً من حسابك — املأ التفاصيل واختر حتى ${MAX_PHOTOS} صورة.`} />
+      {!scope && <ExecPageHeader icon="camera" title="إرسال صور إلى الإعلام" subtitle={`القاطع والقسم يُحدَّدان تلقائياً من حسابك — املأ التفاصيل واختر حتى ${MAX_PHOTOS} صورة.`} />}
 
       {/* المنطقة التلقائية من الحساب */}
       <div className="grid gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4 sm:grid-cols-3">

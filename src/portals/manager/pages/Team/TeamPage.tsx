@@ -1,6 +1,6 @@
 /** فريقي (مسؤول القسم) — لكل منطقة من مناطقي: المتعهد الذي يعمل معي، عدد العمال (عدد فقط)، والآليات التي تعمل في منطقتي الآن */
-import { MapPin, Phone, Truck, UserCheck, Users } from 'lucide-react'
-import { useManagerTeamSummary } from '@features/contractors/hooks'
+import { Camera, MapPin, Phone, Truck, UserCheck, Users } from 'lucide-react'
+import { useManagerContractorPhotosToday, useManagerTeamSummary } from '@features/contractors/hooks'
 import { PARENT_AR, SHIFT_AR, timeAr, zoneLabel } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -10,6 +10,8 @@ const TRIP_AR: Record<string, string> = { at_site: 'تعمل في الموقع',
 
 export default function TeamPage() {
   const q = useManagerTeamSummary()
+  const photosQ = useManagerContractorPhotosToday()
+  const photosOf = (uid: string | null) => photosQ.data?.find((x) => x.contractor_user_id === uid)
   if (q.isLoading) return <LoadingSpinner />
   if (!q.data?.length) return <EmptyState title="لا مناطق مسندة إليك" hint="تُسند المناطق لمسؤول القسم من التطوير المركزية" />
   return (
@@ -27,6 +29,9 @@ export default function TeamPage() {
                   {r.contractor_phone && <div className="inline-flex items-center gap-1 text-xs text-cyan-900"><Phone size={11} />{r.contractor_phone}</div>}
                   <div className="mt-1 text-[11px] text-cyan-900">
                     {r.contractor_checked_in ? <>✓ أثبت تواجده في الموقع {timeAr(r.contractor_checkin_at)} · {zoneLabel(r.in_zone)}</> : 'لم يُثبت تواجده في الموقع اليوم بعد'}
+                  </div>
+                  <div className="mt-1 inline-flex items-center gap-1 text-[11px] text-cyan-900" data-testid={`contractor-photos-${r.sector_id}`}>
+                    <Camera size={11} />صور اليوم: {photosOf(r.contractor_user_id)?.tickets_today ?? 0} تذكرة · {photosOf(r.contractor_user_id)?.photos_today ?? 0} صورة
                   </div>
                 </>
               ) : <div className="text-sm font-bold text-slate-500">لا متعهد معيّن لهذه المنطقة</div>}

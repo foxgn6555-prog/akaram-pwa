@@ -110,6 +110,12 @@ export const contractors = {
     await sdkVoid(supabase.rpc('contractor_unassign', { p_user_id: userId, p_reason: reason.trim() }))
   },
   // ── مسؤول القسم ──
+  /** 00257: تذاكر صور متعهديّ اليوم (لمسؤول القسم) */
+  async managerContractorPhotosToday(): Promise<{ contractor_user_id: string; tickets_today: number; photos_today: number }[]> {
+    const { data, error } = await supabase.rpc('manager_contractor_photos_today')
+    if (error) throw error
+    return (data ?? []) as { contractor_user_id: string; tickets_today: number; photos_today: number }[]
+  },
   async managerTeamSummary(): Promise<ManagerTeamSummary[]> {
     return ((await sdkGuard(supabase.rpc('manager_team_summary'))) as ManagerTeamSummary[] | null) ?? []
   },

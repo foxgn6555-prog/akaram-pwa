@@ -1,4 +1,4 @@
-/** مسارات بوابة المتعهد (00158) — الرئيسية، فريقي، حضورية العمال */
+/** مسارات بوابة المتعهد (00158) — الرئيسية، فريقي، حضورية العمال، إرسال الصور (00257) */
 
 import { lazy } from '@lib/router/lazy'
 import { Suspense, type ReactNode } from 'react'
@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const ContractorDashboard = lazy(() => import('./pages/Dashboard/ContractorDashboard'))
 const ContractorTeamPage = lazy(() => import('./pages/Team/ContractorTeamPage'))
 const ContractorAttendancePage = lazy(() => import('./pages/Attendance/ContractorAttendancePage'))
+const ContractorPhotosPage = lazy(() => import('./pages/Photos/ContractorPhotosPage'))
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -17,4 +18,5 @@ export const customRoutes: RouteObject[] = [
   { path: '', element: s(<ContractorDashboard />) },
   { path: 'team', element: s(<ContractorTeamPage />) },
   { path: 'attendance', element: s(<ContractorAttendancePage />) },
+  { path: 'photos', element: s(<ContractorPhotosPage />) },
 ]

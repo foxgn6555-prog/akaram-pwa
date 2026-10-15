@@ -158,3 +158,39 @@ begin
   raise notice 'C4 ok';
 end $$;
 
+
+-- ═══ C5 (00257) · إرسال الصور من المتعهد: منطقته + قاطعها + مسؤول قسمه، علامة «متعهد»، تصل الإعلام وغرفة العمليات ومسؤول القسم؛ غير المُسند ممنوع ═══
+do $$
+declare c1 uuid := 'c7000000-0000-0000-0000-000000000002'; mgr uuid := 'c7000000-0000-0000-0000-000000000004'; s public.media_submissions; r record; n int;
+        photos jsonb := jsonb_build_array(jsonb_build_object('storage_path', 'c7000000-0000-0000-0000-000000000002/p1.jpg', 'caption', ''), jsonb_build_object('storage_path', 'c7000000-0000-0000-0000-000000000002/p2.jpg', 'caption', ''));
+begin
+  -- المتعهد 1 (منطقة 1 = أرخيته، مسؤول الكرادة) ما زال مُسنداً؛ المتعهد 2 أُلغي إسناده في C4
+  perform pg_temp.as_user('c7000000-0000-0000-0000-000000000003');
+  perform pg_temp.expect_error(format($q$ select public.media_send_photos('street', 'شارع', null, null, %L::jsonb, null) $q$, photos), 'MEDIA_FORBIDDEN');
+  if app.is_active_contractor('c7000000-0000-0000-0000-000000000003') then raise exception 'unassigned must not be active contractor'; end if;
+  perform pg_temp.as_user(c1);
+  if not app.is_active_contractor() then raise exception 'c1 should be active contractor'; end if;
+  -- مسار صورة خارج مجلده مرفوض
+  perform pg_temp.expect_error($q$ select public.media_send_photos('street', 'شارع', null, null, '[{"storage_path":"other/x.jpg"}]'::jsonb, null) $q$, 'MEDIA_PHOTO_PATH_INVALID');
+  s := public.media_send_photos('campaign', 'حملة تنظيف أرخيته', 'رفع أنقاض', 'ملاحظة', photos, '{"location":"شارع 62","supervisors":1,"workers":6,"vehicles":{"tipper":1}}'::jsonb);
+  if s.submitter_kind <> 'contractor' then raise exception 'kind: %', s.submitter_kind; end if;
+  if s.contractor_manager_user_id <> mgr then raise exception 'manager link missing'; end if;
+  if s.sector_ids <> '{1}'::smallint[] or s.sector_parent <> (select parent_sector from public.sectors where id = 1) then raise exception 'sector derive wrong: % %', s.sector_ids, s.sector_parent; end if;
+  if s.submitted_by_name not like 'متعهد أرخيته (متعهد — منطقة %' then raise exception 'name marker missing: %', s.submitted_by_name; end if;
+  if s.photo_count <> 2 or s.workers_count <> 6 or s.veh_tipper <> 1 then raise exception 'details lost: %', s; end if;
+  -- تذاكري
+  select count(*) into n from public.media_my_submissions(); if n <> 1 then raise exception 'my submissions %', n; end if;
+  -- مسؤول القسم يرى صور متعهده اليوم
+  perform pg_temp.as_user(mgr);
+  select * into r from public.manager_contractor_photos_today() where contractor_user_id = c1;
+  if r.tickets_today <> 1 or r.photos_today <> 2 then raise exception 'manager photos today wrong: %', r; end if;
+  -- غرفة العمليات: تقرير الحملات يُظهر التذكرة بعلامة المتعهد
+  perform pg_temp.as_user('c7000000-0000-0000-0000-000000000005');
+  select * into r from public.ops_campaigns_report() x where x.id = s.id;
+  if r.id is null or r.submitted_by_name not like '%متعهد — منطقة%' then raise exception 'ops report missing contractor ticket'; end if;
+  -- مسؤول القسم نفسه ما زال يرسل كما كان (نوع manager، مناطقه كلها)
+  perform pg_temp.as_user(mgr);
+  s := public.media_send_photos('street', 'شارع المسؤول', null, null, jsonb_build_array(jsonb_build_object('storage_path', mgr::text || '/m1.jpg')), null);
+  if s.submitter_kind <> 'manager' or s.contractor_manager_user_id is not null or s.sector_ids <> '{1,2}'::smallint[] then raise exception 'manager path changed: %', s; end if;
+  raise notice 'C5 ok';
+end $$;
