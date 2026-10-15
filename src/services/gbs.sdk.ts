@@ -130,10 +130,11 @@ export const gbs = {
     const data = await sdkGuard(
       supabase.rpc('gbs_container_request_location', {
         p_container_id: input.containerId,
-        p_latitude: input.latitude,
-        p_longitude: input.longitude,
+        p_latitude: input.latitude ?? null,
+        p_longitude: input.longitude ?? null,
         p_accuracy: input.accuracy ?? null,
         p_note: input.note?.trim() || null,
+        p_status: input.status ?? null,
       }),
     )
     return String(data)

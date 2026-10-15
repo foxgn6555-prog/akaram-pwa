@@ -70,10 +70,32 @@ begin
   if not exists(select 1 from public.notifications where user_id = fu and title = 'تم اعتماد موقع الحاوية الجديد') then raise exception 'approve notification missing'; end if;
   -- الحالة لم تتغير باعتماد الموقع
   if (select status from public.gbs_containers where id = c_in) <> 'ok' then raise exception 'status must stay'; end if;
+  -- 00234: الحالة أيضاً — حالة فقط (بلا إحداثيات) ⇒ kind=status ويُطبَّق عند الاعتماد دون تغيير الموقع
+  perform pg_temp.as_user(fu);
+  perform pg_temp.expect_error(format($q$ select public.gbs_container_request_location('%s', null, null, null, null, 'bad') $q$, c_in), 'GBS_STATUS_INVALID');
+  perform pg_temp.expect_error(format($q$ select public.gbs_container_request_location('%s', null, null, null, null, 'ok') $q$, c_in), 'GBS_NOTHING_TO_UPDATE');
+  upd := public.gbs_container_request_location(c_in, null, null, null, 'الحاوية مكسورة', 'damaged');
+  select * into r from public.gbs_container_updates where id = upd;
+  if r.kind <> 'status' or r.proposed_status <> 'damaged' or r.proposed_latitude is not null then raise exception 'status-only request wrong: %', r; end if;
+  if not exists(select 1 from public.notifications where link = '/ops-room/gbs-containers' and title = 'طلب تحديث حالة حاوية' and body like '%الحالة: متضررة%') then raise exception 'status notify missing'; end if;
+  perform pg_temp.as_user(ops);
+  perform public.gbs_update_review(upd, true, null);
+  select * into r from public.gbs_containers where id = c_in;
+  if r.status <> 'damaged' or r.latitude <> 33.3200 then raise exception 'status approve wrong: %', r; end if;
+  -- موقع + حالة معاً ⇒ kind=both ويُطبَّق الاثنان
+  perform pg_temp.as_user(fu);
+  upd := public.gbs_container_request_location(c_in, 33.3300, 44.4300, 4, null, 'replace');
+  select * into r from public.gbs_container_updates where id = upd;
+  if r.kind <> 'both' then raise exception 'both expected: %', r.kind; end if;
+  perform pg_temp.as_user(ops);
+  perform public.gbs_update_review(upd, true, 'تم');
+  select * into r from public.gbs_containers where id = c_in;
+  if r.status <> 'replace' or r.latitude <> 33.3300 or r.longitude <> 44.4300 then raise exception 'both approve wrong: %', r; end if;
+  if not exists(select 1 from public.notifications where user_id = fu and title = 'تم اعتماد موقع الحاوية وحالتها') then raise exception 'both notify missing'; end if;
   -- ملخص الرئيسية
   perform pg_temp.as_user(fu);
   select * into r from public.follow_up_containers_summary();
-  if r.containers < 1 or r.my_pending <> 0 or r.my_approved <> 1 or r.my_rejected <> 1 then raise exception 'summary wrong: %', r; end if;
+  if r.containers < 1 or r.my_pending <> 0 or r.my_approved <> 3 or r.my_rejected <> 1 then raise exception 'summary wrong: %', r; end if;
   -- غير مخوّل
   perform pg_temp.as_user('fc000000-0000-0000-0000-000000000004');
   perform pg_temp.expect_error($q$ select * from public.gbs_containers_list() $q$, 'GBS_FORBIDDEN');

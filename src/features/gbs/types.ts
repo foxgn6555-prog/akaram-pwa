@@ -3,7 +3,8 @@
 export type GbsContainerStatus = 'ok' | 'damaged' | 'replace' | 'missing'
 export type GbsUpdateState = 'pending' | 'approved' | 'rejected'
 /** 00260: نوع الطلب — حالة (مسؤول القسم) أو موقع (المتابعة) */
-export type GbsUpdateKind = 'status' | 'location'
+/** 00234: 'both' = موقع + حالة في طلب واحد (المتابعة) */
+export type GbsUpdateKind = 'status' | 'location' | 'both'
 
 export interface GbsContainer {
   id: string
@@ -56,10 +57,13 @@ export interface GbsUpdateRequest {
 /** 00260: طلب تحديث موقع حاوية إلى GPS الحالي (معلّق حتى اعتماد غرفة العمليات) */
 export interface GbsLocationRequestInput {
   containerId: string
-  latitude: number
-  longitude: number
+  /** 00234: الإحداثيات اختيارية — طلب حالة فقط عند غيابها */
+  latitude?: number | null
+  longitude?: number | null
   accuracy?: number | null
   note?: string | null
+  /** 00234: الحالة المقترحة (اختيارية؛ تُتجاهل إن ساوت الحالية) */
+  status?: GbsContainerStatus | null
 }
 
 /** 00260: ملخص الحاويات لرئيسية المتابعة */

@@ -105,6 +105,8 @@ describe('غرفة العمليات — خريطة GBS', () => {
   it('يعرض النقاط والقائمة وإحصاءات الحالات', () => {
     render(<GbsContainersPage />)
     expect(screen.getByTestId('gbs-map')).toBeInTheDocument()
+    // 00234: الخريطة في سياق تراص معزول (isolate z-0) حتى لا تطفو طبقات Leaflet فوق الحوارات
+    expect(screen.getByTestId('gbs-map').className).toContain('isolate')
     // نقاط الحاويات Markers DOM في طبقة أعلى من الزونات — لا تُغطى ولا تُمنع نقراتها أبداً
     expect(screen.getAllByTestId('gbs-marker')).toHaveLength(2)
     expect(screen.getByTestId('gbs-popup-c1')).toBeInTheDocument()

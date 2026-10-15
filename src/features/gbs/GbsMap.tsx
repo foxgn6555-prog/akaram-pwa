@@ -99,7 +99,7 @@ export default function GbsMap({
       className={
         full
           ? 'fixed inset-0 z-[2200] bg-white'
-          : `relative overflow-hidden rounded-3xl border bg-slate-900 ${heightClass}`
+          : `relative isolate z-0 overflow-hidden rounded-3xl border bg-slate-900 ${heightClass}`
       }
       data-testid={testId}
     >

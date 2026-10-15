@@ -51,10 +51,33 @@ describe('FollowUpContainersPage (00260)', () => {
     await user.type(within(dlg).getByTestId('fu-move-note'), 'نُقلت إلى الزاوية')
     await user.click(within(dlg).getByTestId('fu-move-send'))
     expect(mockRequest).toHaveBeenCalledWith(
-      { containerId: 'c1', latitude: 33.3101, longitude: 44.4101, accuracy: 8, note: 'نُقلت إلى الزاوية' },
+      { containerId: 'c1', latitude: 33.3101, longitude: 44.4101, accuracy: 8, note: 'نُقلت إلى الزاوية', status: null },
       expect.anything(),
     )
     // سجل طلباتي يُظهر طلب الموقع المعلّق
     expect(within(screen.getByTestId('fu-my-updates')).getByTestId('fu-my-update-u1')).toHaveTextContent('موقع جديد')
+  })
+  it('00234: تحديث الحالة فقط (بلا إحداثيات) أو الموقع والحالة معاً؛ بلا تغيير ⇒ الإرسال معطّل؛ الحوار فوق الخريطة (z-[2100])', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><FollowUpContainersPage /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByTestId('fu-geo-status')).toHaveTextContent('33.310100'))
+    await user.click(screen.getByTestId('fu-gbs-move-btn-c1'))
+    const dlg = screen.getByTestId('fu-move-dialog')
+    expect(dlg.className).toContain('z-[2100]')
+    expect(within(dlg).getByTestId('fu-move-status')).toHaveValue('ok')
+    // إلغاء الموقع وبلا تغيير حالة ⇒ معطّل
+    await user.click(within(dlg).getByTestId('fu-move-here'))
+    expect(within(dlg).getByTestId('fu-move-send')).toBeDisabled()
+    expect(within(dlg).getByTestId('fu-move-summary')).toHaveTextContent('لا تغيير')
+    // حالة فقط
+    await user.selectOptions(within(dlg).getByTestId('fu-move-status'), 'damaged')
+    expect(within(dlg).getByTestId('fu-move-summary')).toHaveTextContent('الحالة فقط')
+    await user.click(within(dlg).getByTestId('fu-move-send'))
+    expect(mockRequest).toHaveBeenLastCalledWith({ containerId: 'c1', latitude: null, longitude: null, accuracy: null, note: null, status: 'damaged' }, expect.anything())
+    // موقع + حالة معاً
+    await user.click(within(dlg).getByTestId('fu-move-here'))
+    expect(within(dlg).getByTestId('fu-move-summary')).toHaveTextContent('الموقع والحالة معاً')
+    await user.click(within(dlg).getByTestId('fu-move-send'))
+    expect(mockRequest).toHaveBeenLastCalledWith({ containerId: 'c1', latitude: 33.3101, longitude: 44.4101, accuracy: 8, note: null, status: 'damaged' }, expect.anything())
   })
 })
