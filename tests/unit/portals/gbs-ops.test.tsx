@@ -205,6 +205,18 @@ describe('غرفة العمليات — اعتماد طلبات التحديث',
     )
   })
 
+  it('00260: طلب تحديث موقع من المتابعة يُعرض بالإحداثيات الحالية والمقترحة ويُعتمد بالآلية نفسها', () => {
+    h.updates = [update({ id: 'u9', kind: 'location', requesterName: 'متابع الكرادة', note: null, proposedLatitude: 33.3205, proposedLongitude: 44.4205, accuracyM: 6, currentLatitude: 33.32, currentLongitude: 44.42, areaName: 'أرخيته' })]
+    render(<GbsContainersPage />)
+    expect(screen.getByTestId('gbs-kind-location-u9')).toHaveTextContent('تحديث موقع')
+    const diff = screen.getByTestId('gbs-location-diff-u9')
+    expect(diff.textContent).toContain('33.320000, 44.420000')
+    expect(diff.textContent).toContain('33.320500, 44.420500')
+    expect(diff.textContent).toContain('±6 م')
+    fireEvent.click(screen.getByTestId('gbs-approve-u9'))
+    expect(h.review).toHaveBeenCalledWith({ updateId: 'u9', approve: true, reviewNote: undefined }, expect.anything())
+  })
+
   it('الرفض يمرر approve=false', () => {
     h.updates = [update()]
     render(<GbsContainersPage />)

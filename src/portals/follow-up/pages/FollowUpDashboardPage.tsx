@@ -1,7 +1,8 @@
 /** بوابة المتابعة — الرئيسية (00259): نطاقي (مناطق/قاطع كامل)، إحصاءات اليوم، روابط الوحدات */
 import { Link } from 'react-router'
-import { CalendarCheck, MapPin, Users } from 'lucide-react'
+import { CalendarCheck, MapPin, Trash2, Users } from 'lucide-react'
 import { useFollowUpMe } from '@features/follow-up/hooks'
+import { useFollowUpContainersSummary } from '@features/gbs/hooks'
 import { PARENT_AR } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -9,6 +10,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export default function FollowUpDashboardPage() {
   const me = useFollowUpMe()
+  const gbs = useFollowUpContainersSummary()
   if (me.isLoading) return <LoadingSpinner />
   if (!me.data) return <EmptyState title="لم يُحدَّد نطاق متابعتك بعد" hint="تسند التطوير المركزية حسابك إلى مناطق محددة أو قاطع كامل — بعدها تظهر وحدات المتابعة" />
   const m = me.data
@@ -24,6 +26,12 @@ export default function FollowUpDashboardPage() {
         <Stat icon={<MapPin size={18} />} label="أثبتوا التواجد اليوم" value={`${m.today_checked_in} / ${m.contractors_count}`} tone={m.today_checked_in >= m.contractors_count ? 'emerald' : 'amber'} testId="stat-checked-in" to="/follow-up/workers" />
         <Stat icon={<CalendarCheck size={18} />} label="أعداد سجّلتها اليوم" value={`${m.today_counted_by_me} / ${m.contractors_count}`} tone={m.today_counted_by_me >= m.contractors_count ? 'emerald' : 'rose'} testId="stat-counted" to="/follow-up/workers" />
         <Stat icon={<MapPin size={18} />} label="مناطق النطاق" value={m.areas_count} tone="slate" testId="stat-areas" to="/follow-up/workers" />
+      </section>
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="containers-stats">
+        <Stat icon={<Trash2 size={18} />} label="حاويات نطاقك" value={gbs.data?.containers ?? '—'} testId="stat-containers" to="/follow-up/containers" />
+        <Stat icon={<Trash2 size={18} />} label="متضررة / للاستبدال" value={gbs.data?.damaged ?? '—'} tone={(gbs.data?.damaged ?? 0) > 0 ? 'amber' : 'slate'} testId="stat-containers-damaged" to="/follow-up/containers" />
+        <Stat icon={<Trash2 size={18} />} label="مفقودة" value={gbs.data?.missing ?? '—'} tone={(gbs.data?.missing ?? 0) > 0 ? 'rose' : 'slate'} testId="stat-containers-missing" to="/follow-up/containers" />
+        <Stat icon={<MapPin size={18} />} label="طلبات موقع بانتظار الاعتماد" value={gbs.data?.my_pending ?? '—'} tone={(gbs.data?.my_pending ?? 0) > 0 ? 'amber' : 'emerald'} testId="stat-containers-pending" to="/follow-up/containers" />
       </section>
       {m.today_counted_by_me < m.contractors_count && !m.month_locked && (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4" data-testid="pending-banner">

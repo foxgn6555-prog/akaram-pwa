@@ -6,6 +6,9 @@ import type { GbsExportRow, GbsImportResult, GbsImportRow } from '@features/gbs/
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
+  FollowUpContainersSummary,
+  GbsLocationRequestInput,
+  GbsUpdateKind,
   GbsContainer,
   GbsZone,
   GbsContainerSaveInput,
@@ -50,6 +53,13 @@ function normUpdate(r: Record<string, unknown>): GbsUpdateRequest {
     createdAt: String(r.created_at),
     reviewedAt: (r.reviewed_at as string | null) ?? null,
     reviewNote: (r.review_note as string | null) ?? null,
+    kind: ((r.kind as GbsUpdateKind | null) ?? 'status'),
+    proposedLatitude: r.proposed_latitude != null ? Number(r.proposed_latitude) : null,
+    proposedLongitude: r.proposed_longitude != null ? Number(r.proposed_longitude) : null,
+    accuracyM: r.accuracy_m != null ? Number(r.accuracy_m) : null,
+    currentLatitude: r.current_latitude != null ? Number(r.current_latitude) : null,
+    currentLongitude: r.current_longitude != null ? Number(r.current_longitude) : null,
+    areaName: (r.area_name as string | null) ?? null,
   }
 }
 
@@ -113,6 +123,26 @@ export const gbs = {
       }),
     )
     return String(data)
+  },
+
+  /** 00260: طلب تحديث موقع حاوية إلى الإحداثيات الحالية — المتابعة (معلّق حتى الاعتماد) */
+  async requestLocation(input: GbsLocationRequestInput): Promise<string> {
+    const data = await sdkGuard(
+      supabase.rpc('gbs_container_request_location', {
+        p_container_id: input.containerId,
+        p_latitude: input.latitude,
+        p_longitude: input.longitude,
+        p_accuracy: input.accuracy ?? null,
+        p_note: input.note?.trim() || null,
+      }),
+    )
+    return String(data)
+  },
+
+  /** 00260: ملخص حاويات نطاق المتابِع */
+  async followUpSummary(): Promise<FollowUpContainersSummary | null> {
+    const rows = (await sdkGuard(supabase.rpc('follow_up_containers_summary'))) as FollowUpContainersSummary[] | null
+    return rows?.[0] ?? null
   },
 
   /** طلبات التحديث — غرفة العمليات (افتراضياً المعلقة) */

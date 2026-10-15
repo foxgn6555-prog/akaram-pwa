@@ -331,14 +331,25 @@ export default function GbsContainersPage() {
                     <p className="text-xs font-black">
                       {request.code} · {request.label}
                     </p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[9px] font-black ${GBS_STATUS_META[request.proposedStatus].chip}`}
-                    >
-                      {GBS_STATUS_META[request.proposedStatus].label}
-                    </span>
+                    {request.kind === 'location' ? (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-black text-green-800" data-testid={`gbs-kind-location-${request.id}`}>تحديث موقع</span>
+                    ) : (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-black ${GBS_STATUS_META[request.proposedStatus].chip}`}
+                      >
+                        {GBS_STATUS_META[request.proposedStatus].label}
+                      </span>
+                    )}
                   </div>
+                  {request.kind === 'location' && request.proposedLatitude != null && request.proposedLongitude != null && (
+                    <div className="mt-1 grid grid-cols-2 gap-1 text-[10px]" data-testid={`gbs-location-diff-${request.id}`}>
+                      <div className="rounded-lg bg-slate-50 p-1"><span className="font-bold text-slate-500">الحالي: </span><span className="font-mono">{request.currentLatitude?.toFixed(6)}, {request.currentLongitude?.toFixed(6)}</span></div>
+                      <div className="rounded-lg bg-green-50 p-1"><span className="font-bold text-slate-500">المقترح: </span><span className="font-mono">{request.proposedLatitude.toFixed(6)}, {request.proposedLongitude.toFixed(6)}</span>{request.accuracyM != null && <span className="text-slate-500"> ±{Math.round(request.accuracyM)} م</span>}</div>
+                      <a className="col-span-2 font-bold text-cyan-700 underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${request.proposedLatitude},${request.proposedLongitude}`}>فتح الموقع المقترح في الخرائط</a>
+                    </div>
+                  )}
                   <p className="mt-1 text-[10px] font-bold text-slate-500">
-                    {request.requesterName ?? 'مسؤول قسم'} ·{' '}
+                    {request.requesterName ?? (request.kind === 'location' ? 'المتابعة' : 'مسؤول قسم')} ·{' '}
                     {GBS_UPDATE_STATE_META[request.state].label}
                   </p>
                   {request.note && <p className="mt-1 text-[10px] text-slate-600">{request.note}</p>}

@@ -547,9 +547,10 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/central-garage/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
   ],
 
-  // 00259: بوابة المتابعة — الرئيسية · متابعة الحاويات (00260) · متابعة العمال
+  // 00259/00260: بوابة المتابعة — الرئيسية · متابعة الحاويات · متابعة العمال
   [PORTALS.FOLLOW_UP]: [
     { path: '/follow-up', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/follow-up/containers', labelKey: 'nav.follow_up_containers', icon: 'box' },
     { path: '/follow-up/workers', labelKey: 'nav.follow_up_workers', icon: 'users' },
   ],
 }

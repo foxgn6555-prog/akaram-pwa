@@ -5,6 +5,7 @@ import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 import { buildGbsWorkbook, downloadWorkbook, type GbsImportRow } from './gbs-excel'
 import type {
+  GbsLocationRequestInput,
   GbsContainerSaveInput,
   GbsContainerStatus,
   GbsUpdateState,
@@ -22,6 +23,7 @@ export const gbsKeys = {
   updates: (state: GbsUpdateState) => ['gbs', 'updates', state] as const,
   myUpdates: () => ['gbs', 'my-updates'] as const,
   jurisdiction: () => ['gbs', 'jurisdiction'] as const,
+  followUpSummary: () => ['gbs', 'follow-up-summary'] as const,
 }
 
 function useGbsError(scope: string) {
@@ -147,6 +149,26 @@ export function useGbsRequestUpdate() {
     },
     onError,
   })
+}
+
+/** 00260: طلب تحديث موقع (المتابعة) */
+export function useGbsRequestLocation() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((state) => state.addToast)
+  const onError = useGbsError('gbsRequestLocation')
+  return useMutation({
+    mutationFn: (input: GbsLocationRequestInput) => gbs.requestLocation(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['gbs'] })
+      addToast({ type: 'success', message: 'أُرسل طلب تحديث الموقع إلى غرفة العمليات — لا يتغير موقع الحاوية قبل الاعتماد' })
+    },
+    onError,
+  })
+}
+
+/** 00260: ملخص الحاويات لرئيسية المتابعة */
+export function useFollowUpContainersSummary() {
+  return useQuery({ queryKey: gbsKeys.followUpSummary(), queryFn: () => gbs.followUpSummary(), refetchInterval: 60000 })
 }
 
 export function useGbsReviewUpdate() {
