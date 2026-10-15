@@ -13,6 +13,7 @@ const OpsCampaigns = lazy(() => import('./pages/Campaigns/OpsCampaignsPage'))   
 const OpsCitizenComplaints = lazy(() => import('./pages/CitizenComplaints/OpsCitizenComplaintsPage'))   // 00168: استقبال الشكاوى
 const OpsDisclosures = lazy(() => import('./pages/Disclosures/OpsDisclosuresPage'))   // 00170: وحدة الكشوفات
 const OpsAdvances = lazy(() => import('./pages/Advances/OpsAdvancesPage'))   // 00191: السلف
+const OpsContractorHeadcounts = lazy(() => import('./pages/ContractorHeadcounts/OpsContractorHeadcountsPage'))   // 00262: حضوريات العمال
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
     default: () => <module.default managementMode />,
@@ -46,4 +47,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'citizen-complaints', element: load(<OpsCitizenComplaints />) },
   { path: 'disclosures', element: load(<OpsDisclosures />) },
   { path: 'advances', element: load(<OpsAdvances />) },
+  { path: 'contractor-headcounts', element: load(<OpsContractorHeadcounts />) },
 ]
