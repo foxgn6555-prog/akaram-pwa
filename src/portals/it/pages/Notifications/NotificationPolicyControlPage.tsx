@@ -56,6 +56,7 @@ const categories = [
 ] as const
 const recipients = [
   ['central_garage_officer', 'الكراج المركزي'],
+  ['follow_up', 'المتابعة'],
   ['maintenance', 'الصيانة'],
   ['ops_room', 'غرفة العمليات'],
   ['it_admin', 'التطوير المركزي'],

@@ -19,7 +19,7 @@ export const ROLE_AR: Record<string, string> = {
   super_admin: 'المدير المفوض', executive_director: 'المدير التنفيذي', deputy_director: 'معاون المدير المفوض', finance_officer: 'الشؤون المالية',
   hr_officer: 'الموارد البشرية', it_admin: 'التطوير المركزية', ops_room: 'غرفة العمليات', department_manager: 'مسؤولو الأقسام', employee: 'الموظفون',
   field_ops: 'العمليات الميدانية', admin_ops: 'مسؤول القاطع', maintenance: 'الصيانة', transfer_station: 'المحطة التحويلية',
-  complaints_officer: 'الشكاوى', media_officer: 'الإعلام', central_garage_officer: 'الكراج المركزي',
+  complaints_officer: 'الشكاوى', media_officer: 'الإعلام', central_garage_officer: 'الكراج المركزي', follow_up: 'المتابعة',
 }
 
 export const PRIORITY_AR = { normal: 'عادي', important: 'مهم', urgent: 'عاجل' } as const

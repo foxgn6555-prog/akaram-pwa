@@ -16,6 +16,7 @@ export const ROLES = {
   COMPLAINTS_OFFICER: 'complaints_officer',
   MEDIA_OFFICER: 'media_officer',
   CENTRAL_GARAGE_OFFICER: 'central_garage_officer',
+  FOLLOW_UP: 'follow_up',
 } as const
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
@@ -31,6 +32,7 @@ export const ROLE_PRIORITY: readonly Role[] = [
   ROLES.HR_OFFICER,
   ROLES.ADMIN_OPS,
   ROLES.FIELD_OPS,
+  ROLES.FOLLOW_UP,
   ROLES.MAINTENANCE,
   ROLES.TRANSFER_STATION,
   ROLES.COMPLAINTS_OFFICER,
@@ -58,4 +60,5 @@ export const ROLE_LABELS: Readonly<Record<Role, string>> = {
   complaints_officer: 'مسؤول الشكاوى',
   media_officer: 'مسؤول الإعلام',
   central_garage_officer: 'مسؤول الكراج المركزي',
+  follow_up: 'المتابعة',
 } as const

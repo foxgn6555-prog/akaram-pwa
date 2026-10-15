@@ -32,6 +32,7 @@ const VALID_ROLES = [
   'complaints_officer',
   'media_officer',
   'central_garage_officer',
+  'follow_up',
 ]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -321,6 +321,7 @@ const PORTAL_AR: Record<PortalId, string> = {
   complaints: 'بوابة الشكاوى',
   media: 'بوابة الإعلام',
   'central-garage': 'الكراج المركزي',
+  'follow-up': 'بوابة المتابعة',
 }
 
 export function portalFromPath(pathOrUrl: string | null | undefined): PortalId | 'unknown' {

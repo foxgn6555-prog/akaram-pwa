@@ -17,6 +17,7 @@ export const PORTALS = {
   COMPLAINTS: 'complaints',
   MEDIA: 'media',
   CENTRAL_GARAGE: 'central-garage',
+  FOLLOW_UP: 'follow-up',
 } as const
 
 export type PortalId = (typeof PORTALS)[keyof typeof PORTALS]
@@ -48,6 +49,8 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
   { id: PORTALS.COMPLAINTS, path: '/complaints', allowedRoles: ['complaints_officer'], colorVar: '--portal-complaints' },
   { id: PORTALS.MEDIA, path: '/media', allowedRoles: ['media_officer'], colorVar: '--portal-media' },
   { id: PORTALS.CENTRAL_GARAGE, path: '/central-garage', allowedRoles: ['central_garage_officer'], colorVar: '--portal-central-garage' },
+  // 00259: بوابة المتابعة (متابعة العمال/الحاويات في نطاق مناطق أو قاطع كامل)
+  { id: PORTALS.FOLLOW_UP, path: '/follow-up', allowedRoles: ['follow_up'], colorVar: '--portal-follow-up' },
 ] as const
 
 /** كل البوابات التي يملك المستخدم صلاحية الدخول إليها بحسب أدواره */

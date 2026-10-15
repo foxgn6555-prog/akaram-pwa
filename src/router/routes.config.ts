@@ -23,6 +23,7 @@ import { customRoutes as opsRoomRoutes } from '@portals/ops-room/routes'
 import { customRoutes as complaintsRoutes } from '@portals/complaints/routes'
 import { customRoutes as mediaRoutes } from '@portals/media/routes'
 import { customRoutes as centralGarageRoutes } from '@portals/central-garage/routes'
+import { customRoutes as followUpRoutes } from '@portals/follow-up/routes'
 
 // ── Public ──
 const LoginPage = lazy(() => import('@portals/public/pages/Login/LoginPage'))
@@ -48,6 +49,7 @@ const OpsRoomPortal = lazy(() => import('@portals/ops-room/OpsRoomPortal'))
 const ComplaintsPortal = lazy(() => import('@portals/complaints/ComplaintsPortal'))
 const MediaPortal = lazy(() => import('@portals/media/MediaPortal'))
 const CentralGaragePortal = lazy(() => import('@portals/central-garage/CentralGaragePortal'))
+const FollowUpPortal = lazy(() => import('@portals/follow-up/FollowUpPortal'))
 
 export interface PortalRouteConfig {
   portal: string
@@ -138,6 +140,11 @@ export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
     portal: PORTALS.CENTRAL_GARAGE, path: '/central-garage', shell: CentralGaragePortal,
     allowedRoles: ['central_garage_officer', 'super_admin'],
     children: buildPortalRoutes(PORTALS.CENTRAL_GARAGE, centralGarageRoutes),
+  },
+  {
+    portal: PORTALS.FOLLOW_UP, path: '/follow-up', shell: FollowUpPortal,
+    allowedRoles: ['follow_up', 'super_admin'],
+    children: buildPortalRoutes(PORTALS.FOLLOW_UP, followUpRoutes),
   },
 ] as const
 

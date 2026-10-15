@@ -29,6 +29,12 @@ describe('accessiblePortals', () => {
     expect(portals[0]?.id).toBe('central-garage')
   })
 
+  it('00259: دور المتابعة يرى بوابة المتابعة فقط', () => {
+    const portals = accessiblePortals(['follow_up'])
+    expect(portals).toHaveLength(1)
+    expect(portals[0]?.id).toBe('follow-up')
+  })
+
   it('دور الإعلام يرى بوابة الإعلام فقط', () => {
     const portals = accessiblePortals(['media_officer'])
     expect(portals).toHaveLength(1)

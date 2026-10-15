@@ -39,6 +39,7 @@ const PORTALS = {
   complaints: '/complaints',
   media: '/media',
   'central-garage': '/central-garage',
+  'follow-up': '/follow-up',
 } as const
 
 /** هل يسمح الحارس بالدخول لهذه البوابة بهذا الدور؟ */
@@ -116,6 +117,7 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
       ['complaints_officer', 'complaints'],
       ['media_officer', 'media'],
       ['central_garage_officer', 'central-garage'],
+      ['follow_up', 'follow-up'],
     ]
     for (const [role, portal] of pairs) {
       expect(resolvePortal([role]), `${role} → /${portal}`).toEqual({
@@ -150,6 +152,7 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
     expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin'])
     expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin'])
     expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin'])
+    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin'])
   })
 
   it('بلا جلسة → تحويل إلى /login', () => {

@@ -133,6 +133,12 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
     colorVar: '--portal-central-garage',
     themeClass: 'portal-central-garage',
   },
+  [PORTALS.FOLLOW_UP]: {
+    label: 'بوابة المتابعة',
+    icon: 'eye',
+    colorVar: '--portal-follow-up',
+    themeClass: 'portal-follow-up',
+  },
 }
 
 /** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
@@ -541,6 +547,11 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/central-garage/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
   ],
 
+  // 00259: بوابة المتابعة — الرئيسية · متابعة الحاويات (00260) · متابعة العمال
+  [PORTALS.FOLLOW_UP]: [
+    { path: '/follow-up', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/follow-up/workers', labelKey: 'nav.follow_up_workers', icon: 'users' },
+  ],
 }
 
 export const portalsConfig = {

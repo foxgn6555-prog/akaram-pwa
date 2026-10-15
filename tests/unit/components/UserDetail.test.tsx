@@ -82,6 +82,18 @@ vi.mock('@features/contractors/hooks', () => ({
   useUnassignContractor: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+const mockAssignFollowUp = vi.fn()
+vi.mock('@features/follow-up/hooks', () => ({
+  useFollowUpProfile: () => ({ data: null }),
+  useFollowUpScopeOptions: () => ({ data: [
+    { parent_sector: 'karrada', parent_name: 'الكرادة', sector_id: 1, area_name: 'أرخيته', contractor_name: 'علي' },
+    { parent_sector: 'karrada', parent_name: 'الكرادة', sector_id: 3, area_name: 'الواثق', contractor_name: null },
+    { parent_sector: 'zaafaraniya', parent_name: 'الزعفرانية', sector_id: 5, area_name: 'السندباد', contractor_name: 'حسن' },
+  ] }),
+  useAssignFollowUp: () => ({ mutate: mockAssignFollowUp, isPending: false }),
+  useUnassignFollowUp: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+
 vi.mock('@features/sector', () => ({
   useManagerProfileForUser: () => ({
     data: { user_id: 'u1', shift: 'evening', sectors: [3] },
@@ -175,6 +187,20 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'hr_officer', grant: true })
     await user.click(screen.getByTestId('role-toggle-employee'))
     expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'employee', grant: false })
+  })
+
+  it('00259: يعرض بطاقة نطاق المتابعة لدور follow_up ويحفظ قاطعاً كاملاً + منطقة', async () => {
+    FIXTURE.roles = ['follow_up']
+    const user = userEvent.setup()
+    renderPage()
+    expect(screen.getByTestId('follow-up-card')).toBeInTheDocument()
+    expect(screen.getByTestId('fu-none')).toBeInTheDocument()
+    expect(screen.getByTestId('fu-save')).toBeDisabled()
+    await user.click(screen.getByTestId('fu-parent-karrada'))
+    expect(screen.getByTestId('fu-area-1')).toBeDisabled()
+    await user.click(screen.getByTestId('fu-area-5'))
+    await user.click(screen.getByTestId('fu-save'))
+    expect(mockAssignFollowUp).toHaveBeenCalledWith({ userId: 'u1', parentSectors: ['karrada'], sectorIds: [5] })
   })
 
   it('يتيح ربط حساب كراج قائم بقاطع الزعفرانية', async () => {

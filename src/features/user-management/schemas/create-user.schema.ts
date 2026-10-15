@@ -32,6 +32,7 @@ export const createSuperAdminSchema = z
         'complaints_officer',
         'media_officer',
         'central_garage_officer',
+        'follow_up',
       ],
       { message: 'اختر دوراً للمستخدم' },
     ),
