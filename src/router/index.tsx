@@ -19,6 +19,8 @@ export const router = createBrowserRouter([
   // ── الجذر: موجّه ذكي حسب الجلسة ──
   {
     path: '/',
+    // عنصر صريح: الـloader يعيد التوجيه دائماً، لكن React Router يحذّر (ويُرسم فارغاً) إن غاب العنصر
+    element: <LoadingSpinner fullScreen />,
     HydrateFallback: RouteHydrateFallback,
     loader: async () => {
       const { authenticated, session } = await authGuard()

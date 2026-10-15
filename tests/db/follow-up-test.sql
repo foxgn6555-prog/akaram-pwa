@@ -32,8 +32,17 @@ declare it uuid := 'f0000000-0000-0000-0000-000000000001'; fu1 uuid := 'f0000000
 begin
   perform pg_temp.as_user('f0000000-0000-0000-0000-000000000008');
   perform pg_temp.expect_error($q$ select public.follow_up_assign('f0000000-0000-0000-0000-000000000002', '{karrada}') $q$, 'IT_FORBIDDEN');
+  -- 00235: القراءة بلا إسناد تُرجع فارغاً بهدوء (لا 400)؛ الكتابة تبقى صارمة
   perform pg_temp.as_user(fu1);
-  perform pg_temp.expect_error($q$ select * from public.follow_up_me() $q$, 'FOLLOW_UP_NOT_ASSIGNED');
+  select count(*) into n from public.follow_up_me(); if n <> 0 then raise exception 'unassigned me must be empty'; end if;
+  select count(*) into n from public.follow_up_contractors(); if n <> 0 then raise exception 'unassigned contractors must be empty'; end if;
+  select * into r from public.follow_up_containers_summary(); if r.containers <> 0 or r.my_pending <> 0 then raise exception 'unassigned summary must be zeros'; end if;
+  select count(*) into n from public.gbs_my_update_requests(); if n <> 0 then raise exception 'my requests must be empty'; end if;
+  perform pg_temp.expect_error($q$ select public.follow_up_set_headcount('f0000000-0000-0000-0000-000000000005', 3) $q$, 'FOLLOW_UP_NOT_ASSIGNED');
+  perform pg_temp.as_user('f0000000-0000-0000-0000-000000000008');
+  perform pg_temp.expect_error($q$ select * from public.follow_up_me() $q$, 'FOLLOW_UP_FORBIDDEN');
+  -- 00235: دالة سياسة التخزين قابلة للتنفيذ بدور authenticated (كانت تمنع رفع صور مسؤول القسم)
+  if not has_function_privilege('authenticated', 'app.is_active_contractor(uuid)', 'execute') then raise exception 'is_active_contractor must be executable by authenticated'; end if;
   perform pg_temp.as_user(it);
   perform pg_temp.expect_error($q$ select public.follow_up_assign('f0000000-0000-0000-0000-000000000008', '{karrada}') $q$, 'FOLLOW_UP_ROLE_REQUIRED');
   perform pg_temp.expect_error($q$ select public.follow_up_assign('f0000000-0000-0000-0000-000000000002') $q$, 'FOLLOW_UP_SCOPE_REQUIRED');
@@ -102,6 +111,6 @@ begin
   perform pg_temp.expect_error($q$ select public.follow_up_unassign('f0000000-0000-0000-0000-000000000003', '') $q$, 'FOLLOW_UP_REASON_REQUIRED');
   perform public.follow_up_unassign(fu2, 'انتقال');
   perform pg_temp.as_user(fu2);
-  perform pg_temp.expect_error($q$ select * from public.follow_up_me() $q$, 'FOLLOW_UP_NOT_ASSIGNED');
+  select count(*) into n from public.follow_up_me(); if n <> 0 then raise exception 'unassigned after unassign must be empty'; end if;
   raise notice 'U2 ok';
 end $$;
