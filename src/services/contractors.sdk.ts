@@ -36,24 +36,35 @@ async function uploadPhoto(file: File, kind: 'selfie' | 'team'): Promise<string>
   return path
 }
 
-/** 00188 — كشف أجور عمال المتعهدين (المالية فقط) */
-export type ContractorWageMode = 'monthly' | 'daily'
+/** 00263 — أجور المتعهدين (المالية فقط) بالعدد المعتمد من غرفة العمليات: لكل يوم بعدد > 0 ⇒ (العدد − 1) × أجر العامل + أجر المتعهد */
+export type ApprovedSource = 'contractor' | 'follow_up' | 'sector_manager'
+export interface ContractorWageMonthStatus { month: string; approved: boolean; approved_source: ApprovedSource | null; approved_by_name: string | null; approved_at: string | null; is_locked: boolean; month_ended: boolean }
 export interface ContractorWageRow {
-  contractor_user_id: string; contractor_name: string; sector_id: number; area_name: string; parent_sector: string
-  worker_id: string; full_name: string; phone: string | null; is_active: boolean
-  present_days: number; absent_days: number; marked_days: number; contractor_checkins: number
-  wage_mode: ContractorWageMode; monthly_wage: number; daily_wage: number; payable: number | null; note: string | null; set_by_name: string | null; set_at: string | null
+  contractor_user_id: string; contractor_name: string; contractor_phone: string | null; sector_id: number; area_name: string; parent_sector: string; shift: Shift; is_active: boolean
+  approved: boolean; approved_source: ApprovedSource | null
+  paid_days: number; worker_days: number; headcount_total: number
+  contractor_daily_wage: number; worker_daily_wage: number; rates_set: boolean
+  contractor_pay: number | null; workers_pay: number | null; total_pay: number | null
+  note: string | null; set_by_name: string | null; set_at: string | null
 }
+export interface ContractorWageDay { log_date: string; headcount: number | null; workers: number | null; contractor_pay: number | null; workers_pay: number | null; day_pay: number | null; edit_reason: string | null }
 export const contractors = {
-  // ── المالية: أجور عمال المتعهدين ──
+  // ── المالية: أجور المتعهدين (00263) ──
+  async wagesMonthStatus(month: string): Promise<ContractorWageMonthStatus | null> {
+    const rows = (await sdkGuard(supabase.rpc('finance_contractor_month_status', { p_month: `${month.slice(0, 7)}-01` }))) as ContractorWageMonthStatus[] | null
+    return rows?.[0] ?? null
+  },
   async wagesSheet(month: string): Promise<ContractorWageRow[]> {
     return ((await sdkGuard(supabase.rpc('finance_contractor_wages_sheet', { p_month: `${month.slice(0, 7)}-01` }))) as ContractorWageRow[] | null) ?? []
   },
-  async setWage(x: { workerId: string; month: string; mode: ContractorWageMode; amount: number; note?: string | null }): Promise<unknown> {
-    return sdkGuard(supabase.rpc('finance_contractor_wage_set', { p_worker: x.workerId, p_month: `${x.month.slice(0, 7)}-01`, p_mode: x.mode, p_amount: x.amount, p_note: x.note ?? null }))
+  async wageDays(contractorId: string, month: string): Promise<ContractorWageDay[]> {
+    return ((await sdkGuard(supabase.rpc('finance_contractor_wage_days', { p_contractor: contractorId, p_month: `${month.slice(0, 7)}-01` }))) as ContractorWageDay[] | null) ?? []
   },
-  async copyPreviousWages(month: string): Promise<number> {
-    return ((await sdkGuard(supabase.rpc('finance_contractor_wages_copy_previous', { p_month: `${month.slice(0, 7)}-01` }))) as number | null) ?? 0
+  async setRates(x: { contractorId: string; month: string; contractorDaily: number; workerDaily: number; note?: string | null }): Promise<unknown> {
+    return sdkGuard(supabase.rpc('finance_contractor_rates_set', { p_contractor: x.contractorId, p_month: `${x.month.slice(0, 7)}-01`, p_contractor_daily: x.contractorDaily, p_worker_daily: x.workerDaily, p_note: x.note ?? null }))
+  },
+  async copyPreviousRates(month: string): Promise<number> {
+    return ((await sdkGuard(supabase.rpc('finance_contractor_rates_copy_previous', { p_month: `${month.slice(0, 7)}-01` }))) as number | null) ?? 0
   },
   // ── بوابة المتعهد ──
   async me(): Promise<ContractorMe | null> {

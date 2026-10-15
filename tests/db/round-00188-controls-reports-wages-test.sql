@@ -1,18 +1,5 @@
 -- 00188 · (أ) تحكم الاستقطاع التلقائي · (ب) تقرير الكشوفات · (ج) أجور عمال المتعهدين (بادئة ad)
 set client_min_messages = notice;
--- 00258: قائمة العمال أُلغيت من بوابة المتعهد (العدد بدل القائمة)؛ هذا الاختبار يحتاج صفوف عمال/حضور أرشيفية لوحداته الأخرى إلى حين إعادة تصميمها
-create or replace function pg_temp.legacy_worker(p_contractor uuid, p_name text, p_phone text default null) returns public.contractor_workers language plpgsql as $$
-declare cp public.contractor_profiles; w public.contractor_workers;
-begin
-  select * into cp from public.contractor_profiles where user_id = p_contractor;
-  insert into public.contractor_workers(contractor_user_id, full_name, phone, sector_id, parent_sector, created_by)
-  values (p_contractor, p_name, p_phone, cp.sector_id, (select parent_sector from public.sectors where id = cp.sector_id), p_contractor) returning * into w;
-  return w;
-end $$;
-create or replace function pg_temp.legacy_present(p_worker uuid) returns void language sql as $$
-  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
-  select w.id, w.contractor_user_id, w.sector_id, app.baghdad_today(), 'present', w.contractor_user_id from public.contractor_workers w where w.id = p_worker on conflict do nothing
-$$;
 reset role; select set_config('auth.user_id','', false);
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
@@ -159,55 +146,12 @@ do $$ begin
   raise notice 'B3 ✅ المالية لا ترى تقرير الكشوفات';
 end $$;
 
--- ═══ C · أجور عمال المتعهدين (المالية) ═══
-reset role; select set_config('auth.user_id','', false);
-insert into public.manager_profiles (user_id, shift, sectors) values ('ad000000-0000-0000-0000-000000000012', 'morning', '{3}') on conflict do nothing;
-insert into public.employees (id, user_id, employee_number, full_name, hire_date) values ('ad000000-0000-0000-0000-0000000000e2', 'ad000000-0000-0000-0000-000000000011', 'AD-C', 'متعهد ad', '2024-01-01') on conflict (employee_number) do nothing;
-select auth.set_test_user('ad000000-0000-0000-0000-00000000000d');
-select public.contractor_assign('ad000000-0000-0000-0000-000000000011', 'ad000000-0000-0000-0000-000000000012', 3::smallint, 'ad');
-select auth.set_test_user('ad000000-0000-0000-0000-000000000011');
-do $$ declare w1 public.contractor_workers; w2 public.contractor_workers; d date := app.baghdad_today(); m date := date_trunc('month', app.baghdad_today())::date; begin
-  w1 := pg_temp.legacy_worker(auth.uid(), 'عامل ad واحد', '0781'); w2 := pg_temp.legacy_worker(auth.uid(), 'عامل ad اثنان', null);
-  perform set_config('test.adw1', w1.id::text, false); perform set_config('test.adw2', w2.id::text, false);
-  -- حضور مباشر (تجاوز بوابة الموقع/الصور لأن الاختبار لقواعد الأجور): 4 أيام حاضر + يوم غائب للعامل 1، يومان للعامل 2
-  reset role;
-  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
-  select w1.id, 'ad000000-0000-0000-0000-000000000011', 3, g::date, case when g::date = m then 'absent' else 'present' end, 'ad000000-0000-0000-0000-000000000011'
-  from generate_series(m, least(m + 4, d), interval '1 day') g on conflict do nothing;
-  insert into public.contractor_worker_attendance (worker_id, contractor_user_id, sector_id, log_date, status, marked_by)
-  select w2.id, 'ad000000-0000-0000-0000-000000000011', 3, g::date, 'present', 'ad000000-0000-0000-0000-000000000011'
-  from generate_series(m, least(m + 1, d), interval '1 day') g on conflict do nothing;
-end $$;
-select auth.set_test_user('ad000000-0000-0000-0000-00000000000c');
-do $$ declare m date := date_trunc('month', app.baghdad_today())::date; r record; n int; j jsonb; p1 int; begin
-  select count(*) into p1 from public.contractor_worker_attendance where worker_id = current_setting('test.adw1')::uuid and status = 'present';
-  select * into r from public.finance_contractor_wages_sheet(m) where worker_id = current_setting('test.adw1')::uuid;
-  assert r.contractor_name is not null and r.present_days = p1 and r.payable is null and r.wage_mode = 'monthly', 'C1 sheet: ' || row_to_json(r)::text;
-  -- يومي: 25,000 × أيام الحضور
-  j := public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, m, 'daily', 25000, 'أجر يومي متفق عليه');
-  select * into r from public.finance_contractor_wages_sheet(m) where worker_id = current_setting('test.adw1')::uuid;
-  assert r.wage_mode = 'daily' and r.daily_wage = 25000 and r.payable = 25000 * p1 and r.set_by_name is not null, 'C2 daily: ' || row_to_json(r)::text;
-  -- شهري: مبلغ ثابت مهما كان الحضور
-  perform public.finance_contractor_wage_set(current_setting('test.adw2')::uuid, m, 'monthly', 600000, null);
-  select * into r from public.finance_contractor_wages_sheet(m) where worker_id = current_setting('test.adw2')::uuid;
-  assert r.wage_mode = 'monthly' and r.payable = 600000, 'C3 monthly: ' || row_to_json(r)::text;
-  assert (select count(*) from public.contractor_audit_log where action = 'wage_set' and worker_id = current_setting('test.adw1')::uuid) = 1, 'C3 audit';
-  -- التعديل يحفظ «قبل/بعد»
-  perform public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, m, 'daily', 30000, 'زيادة');
-  assert exists (select 1 from public.contractor_audit_log where action = 'wage_set' and worker_id = current_setting('test.adw1')::uuid and (before_data ->> 'daily_wage')::numeric = 25000 and (after_data ->> 'daily_wage')::numeric = 30000), 'C4 audit before/after';
-  -- قيم غير صالحة وشهر مستقبلي
-  begin perform public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, m, 'weekly', 1, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'CONTRACTOR_WAGE_MODE_INVALID', sqlerrm; end;
-  begin perform public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, m, 'daily', -5, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'CONTRACTOR_WAGE_INVALID', sqlerrm; end;
-  begin perform public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, (m + interval '1 month')::date, 'daily', 5, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'CONTRACTOR_WAGE_FUTURE_MONTH', sqlerrm; end;
-  -- نسخ إلى الشهر التالي غير ممكن (مستقبل)؛ نسخ من شهر سابق لا أجور فيه = 0
-  n := public.finance_contractor_wages_copy_previous(m);
-  assert n = 0, 'C5 copy none ' || n;
-  raise notice 'C ✅ أجور المتعهدين: يومي % × % = % · شهري 600,000 · تدقيق قبل/بعد', 25000, p1, 25000 * p1;
-end $$;
--- غير المالية ممنوع
+-- ═══ C · أجور المتعهدين (المالية) ═══
+-- 00263: أُلغي نموذج «أجر لكل عامل» (قائمة العمال أُلغيت في 00258)؛ الأجور الآن لكل متعهد (متعهد/عامل يومي) وتُحتسب من العدد
+-- المعتمد في غرفة العمليات. الاختبار الكامل في tests/db/finance-contractor-wages-test.sql. هنا نتحقق فقط من العزل وزوال الدوال القديمة.
 select auth.set_test_user('ad000000-0000-0000-0000-00000000000b');
 do $$ declare m date := date_trunc('month', app.baghdad_today())::date; begin
-  begin perform public.finance_contractor_wage_set(current_setting('test.adw1')::uuid, m, 'daily', 1, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'FINANCE_FORBIDDEN', sqlerrm; end;
   begin perform count(*) from public.finance_contractor_wages_sheet(m); raise exception 'should fail'; exception when others then assert sqlerrm = 'FINANCE_FORBIDDEN', sqlerrm; end;
-  raise notice 'C6 ✅ الأجور للمالية فقط';
+  assert not exists (select 1 from pg_proc where proname = 'finance_contractor_wage_set'), 'old per-worker wage RPC must be gone';
+  raise notice 'C6 ✅ الأجور للمالية فقط (النموذج الجديد في finance-contractor-wages-test)';
 end $$;

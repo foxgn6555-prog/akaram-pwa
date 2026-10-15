@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { contractors, type CheckinInput, type ContractorWageMode } from '@sdk/contractors.sdk'
+import { contractors, type CheckinInput } from '@sdk/contractors.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 
@@ -24,9 +24,11 @@ export const useContractorProfileForUser = (userId: string | undefined) => useQu
 export const useAssignContractor = () => useAction((x: { userId: string; managerUserId: string; sectorId?: number | null; notes?: string }) => contractors.assign(x.userId, x.managerUserId, x.sectorId, x.notes), 'أُسند المتعهد إلى مسؤول القسم ومنطقته')
 export const useUnassignContractor = () => useAction((x: { userId: string; reason: string }) => contractors.unassign(x.userId, x.reason), 'أُلغي إسناد المتعهد')
 // المالية (00188)
+export const useContractorWagesMonthStatus = (month: string) => useQuery({ queryKey: [...ROOT, 'wages-status', month], queryFn: () => contractors.wagesMonthStatus(month) })
 export const useContractorWagesSheet = (month: string) => useQuery({ queryKey: [...ROOT, 'wages', month], queryFn: () => contractors.wagesSheet(month) })
-export const useSetContractorWage = () => useAction((x: { workerId: string; month: string; mode: ContractorWageMode; amount: number; note?: string | null }) => contractors.setWage(x), 'حُفظ أجر العامل')
-export const useCopyPreviousWages = () => useAction((x: { month: string }) => contractors.copyPreviousWages(x.month), 'نُسخت أجور الشهر السابق للعمال الذين لا أجر لهم')
+export const useContractorWageDays = (contractorId: string | null, month: string) => useQuery({ queryKey: [...ROOT, 'wage-days', contractorId, month], queryFn: () => contractors.wageDays(contractorId!, month), enabled: !!contractorId })
+export const useSetContractorRates = () => useAction((x: { contractorId: string; month: string; contractorDaily: number; workerDaily: number; note?: string | null }) => contractors.setRates(x), 'حُفظت أجور المتعهد')
+export const useCopyPreviousRates = () => useAction((x: { month: string }) => contractors.copyPreviousRates(x.month), 'نُسخت أجور الشهر السابق للمتعهدين الذين لا أجور لهم')
 // مسؤول القسم
 export const useManagerTeamSummary = () => useQuery({ queryKey: [...ROOT, 'manager-team'], queryFn: () => contractors.managerTeamSummary(), refetchInterval: 60_000 })
 export const useManagerContractorPhotosToday = () => useQuery({ queryKey: [...ROOT, 'manager-contractor-photos'], queryFn: () => contractors.managerContractorPhotosToday(), refetchInterval: 60_000 })
