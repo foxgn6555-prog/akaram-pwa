@@ -22,7 +22,7 @@ export default defineConfig({
       transformIndexHtml: (html) =>
         html
           .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
-          .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173"),
+          .replace("connect-src 'self'", "connect-src 'self' ws: wss:"), // HMR من الهاتف عبر IP الشبكة أيضاً
     },
   ],
   // اعتماديات ثقيلة تُحمَّل كسولاً فقط: تُحسَّن مسبقاً كي لا يعيد Vite التحسين أثناء الجلسة (504 Outdated Optimize Dep)
