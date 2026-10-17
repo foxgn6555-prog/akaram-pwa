@@ -126,6 +126,9 @@ do $$ declare m date := current_setting('test.fv_m')::date; x uuid; d record; r 
 end $$;
 
 -- ═══ S6 · كشف المالية يطابق + الاعتماد يسجّل القسطين بطريقتيهما ويقفل الشهر؛ تغيير السياسة بعد القفل لا يمسّه ═══
+-- 00247: اعتماد معاون المدير المفوض إلزامي بين التصدير وكشف/اعتماد المالية
+select auth.set_test_user('fd000000-0000-0000-0000-000000000003');
+select public.deputy_payroll_approve(current_setting('test.fv_export')::uuid);
 select auth.set_test_user('fd000000-0000-0000-0000-000000000007');
 do $$ declare m date := current_setting('test.fv_m')::date; f record; j jsonb; begin
   select * into f from public.finance_payroll_sheet(m) x where x.employee_id = 'fd000000-0000-0000-0000-0000000000e6';

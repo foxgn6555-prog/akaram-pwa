@@ -225,11 +225,16 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')
   select id into t from public.hr_leave_types where code = 'annual';
   perform public.hr_leave_request('bbbb0000-0000-0000-0000-000000000021', t, m + 20, m + 20, null, null, 'قبل القفل', null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
 end $$;
+-- 00247: اعتماد معاون المدير المفوض إلزامي بين تصدير غرفة العمليات واعتماد المالية
+insert into auth.users (id, email) values ('aaaa0000-0000-0000-0000-00000000002d', 'dep-edge@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('aaaa0000-0000-0000-0000-00000000002d', 'deputy_director') on conflict do nothing;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; x uuid; begin
   x := public.ops_month_export(m);
   perform set_config('test.export_id', x::text, false);
 end $$;
+select auth.set_test_user('aaaa0000-0000-0000-0000-00000000002d');
+do $$ begin perform public.deputy_payroll_approve(current_setting('test.export_id')::uuid); end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000f');
 do $$ begin
   update public.hr_month_export_rows set final_net = coalesce(final_net, proposed_net, 0) where export_id = current_setting('test.export_id')::uuid and final_net is null;
@@ -246,8 +251,13 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')
 end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; begin
+  -- 00218/00246: غرفة العمليات لا تُعفي إطلاقاً؛ وحتى مدير النظام لا يُعفي في شهر مقفول
+  begin perform public.ops_deduction_waive('bbbb0000-0000-0000-0000-000000000021', m + 10, true, 'محاولة'); raise exception 'should fail';
+  exception when others then assert sqlerrm = 'HR_WAIVE_NOT_ALLOWED', 'waive by ops: ' || sqlerrm; end;
+  perform auth.set_test_user('aaaa0000-0000-0000-0000-0000000000ad');
   begin perform public.ops_deduction_waive('bbbb0000-0000-0000-0000-000000000021', m + 10, true, 'محاولة'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_MONTH_LOCKED', 'waive in locked month: ' || sqlerrm; end;
+  perform auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
   begin perform public.hr_attendance_evaluate(m + 1, m + 5, 'bbbb0000-0000-0000-0000-000000000021'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'HR_MONTH_LOCKED', 'evaluate in locked month: ' || sqlerrm; end;
   raise notice 'E9c ✅ لا إلغاء استقطاع ولا إعادة احتساب في شهر مقفول';
@@ -273,7 +283,8 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '3 month')
   assert a.value = 960, 'shortfall alert = 2 × 480: ' || coalesce(a.value::text, 'none');
   raise notice 'E10a ✅ أيام الإجازة ليست غياباً في التنبيهات';
 end $$;
-select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
+-- 00218: الإعفاء ليس لغرفة العمليات؛ يعفي مدير النظام لاستكمال الفحص
+select auth.set_test_user('aaaa0000-0000-0000-0000-0000000000ad');
 do $$ declare m date := (date_trunc('month', current_date) - interval '3 month')::date; e uuid := 'bbbb0000-0000-0000-0000-000000000021'; a record; begin
   perform public.ops_deduction_waive(e, m + 1, true, 'عذر موثق');
   perform public.ops_deduction_waive(e, m + 2, true, 'عذر موثق');

@@ -160,7 +160,7 @@ end $$;
 
 -- ═══ S5 · كشف معتمد بعد الاعتماد: الاستقطاع يُسمح (من السلسلة) ويُعدّ «بعد الاعتماد»؛ التصدير يمر ثم كشف المالية = الشبكة ═══
 do $$ declare m date := current_setting('test.ts_m')::date; j jsonb; begin
-  j := public.disclosure_save(null::uuid, jsonb_build_object('target_kind', 'employee', 'employee_id', 'fc000000-0000-0000-0000-0000000000e9', 'violation_type', 'absence', 'penalty_type', 'reprimand', 'details', 'غياب', 'log_date', (m + 9)::text, 'amount', 2500));
+  j := public.disclosure_save(null::uuid, jsonb_build_object('target_kind', 'employee', 'employee_id', 'fc000000-0000-0000-0000-0000000000e9', 'violation_type', 'absence', 'penalty_type', 'reprimand', 'details', 'غياب بلا عذر', 'log_date', (m + 9)::text, 'amount', 2500));
   perform set_config('test.ts_disc', j ->> 'id', false);
   perform public.disclosure_submit(current_setting('test.ts_disc')::uuid);
 end $$;
@@ -185,6 +185,11 @@ do $$ declare m date := current_setting('test.ts_m')::date; x uuid; r record; g 
 end $$;
 
 -- ═══ S6 · اعتماد المالية ⇒ قفل: لا اعتماد ولا إعادة فتح؛ الحالة تعكس القفل ═══
+-- 00247: اعتماد معاون المدير المفوض إلزامي بين التصدير واعتماد المالية
+insert into auth.users (id, email) values ('fc000000-0000-0000-0000-000000000011', 'ts-dep@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('fc000000-0000-0000-0000-000000000011', 'deputy_director') on conflict do nothing;
+select auth.set_test_user('fc000000-0000-0000-0000-000000000011');
+select public.deputy_payroll_approve((select id from public.hr_month_exports where period_month = current_setting('test.ts_m')::date and status = 'exported'));
 select auth.set_test_user('fc000000-0000-0000-0000-000000000007');
 select public.finance_payroll_approve((select id from public.hr_month_exports where period_month = current_setting('test.ts_m')::date and status = 'exported'), false);
 select auth.set_test_user('fc000000-0000-0000-0000-000000000001');

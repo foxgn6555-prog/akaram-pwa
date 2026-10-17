@@ -160,13 +160,13 @@ do $$ begin
   exception when others then assert sqlerrm = 'ANN_TITLE_REQUIRED', 'title: ' || sqlerrm; end;
   begin perform public.announcement_publish('عنوان', '  '); raise exception 'should fail';
   exception when others then assert sqlerrm = 'ANN_BODY_REQUIRED', 'body: ' || sqlerrm; end;
-  begin perform public.announcement_publish('عنوان', 'نص', 'normal', 'roles', '{}'); raise exception 'should fail';
+  begin perform public.announcement_publish('عنوان', 'نص التبليغ', 'normal', 'roles', '{}'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'ANN_AUDIENCE_EMPTY', 'audience empty: ' || sqlerrm; end;
-  begin perform public.announcement_publish('عنوان', 'نص', 'normal', 'roles', array['no_such_role']); raise exception 'should fail';
+  begin perform public.announcement_publish('عنوان', 'نص التبليغ', 'normal', 'roles', array['no_such_role']); raise exception 'should fail';
   exception when others then assert sqlerrm = 'ANN_NO_RECIPIENTS', 'no recipients: ' || sqlerrm; end;
-  begin perform public.announcement_publish('عنوان', 'نص', 'critical'); raise exception 'should fail';
+  begin perform public.announcement_publish('عنوان', 'نص التبليغ', 'critical'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'ANN_PRIORITY_INVALID', 'priority: ' || sqlerrm; end;
-  begin perform public.announcement_publish('عنوان', 'نص', 'normal', 'all', '{}', '{}', '{}', false, false, now() - interval '1 hour'); raise exception 'should fail';
+  begin perform public.announcement_publish('عنوان', 'نص التبليغ', 'normal', 'all', '{}', '{}', '{}', false, false, now() - interval '1 hour'); raise exception 'should fail';
   exception when others then assert sqlerrm = 'ANN_EXPIRY_INVALID', 'expiry: ' || sqlerrm; end;
   raise notice 'X7 ✅ التحقق من المدخلات';
 end $$;

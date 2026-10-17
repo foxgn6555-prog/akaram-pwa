@@ -104,7 +104,7 @@ describe('generateReportLocally', () => {
     const zip = await JSZip.loadAsync(bytes)
     const cover = await zip.file('ppt/slides/slide1.xml')!.async('string')
     expect(cover).toContain('أمانة بغداد / دائرة بلدية الكرادة')
-    expect(cover).toContain('قاطع الكرادة - 2026-09-18')
+    expect(cover).toContain('قاطع الكرادة - 2026/9/18')
     const table = await zip.file('ppt/slides/slide2.xml')!.async('string')
     expect(table).toContain('جدول بيانات التلكؤات')
     expect(table).toContain('وقت وصول الشكوى')

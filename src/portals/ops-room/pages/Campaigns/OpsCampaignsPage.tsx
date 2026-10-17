@@ -40,7 +40,7 @@ export default function OpsCampaignsPage() {
   const [to, setTo] = useState(baghdadDay())
   const sectors = useSectors()
   const q = useOpsCampaigns({ mode, sectorParent: parent || null, sectorId: sectorId === '' ? null : sectorId, from: from || null, to: to || null })
-  const rows = q.data ?? []
+  const rows = useMemo(() => q.data ?? [], [q.data])
   const labels = CAMPAIGN_FIELD_LABEL[mode]
   const sectorOptions = useMemo(() => (sectors.data ?? []).filter((s) => !parent || s.parent_sector === parent), [sectors.data, parent])
   const totals = useMemo(

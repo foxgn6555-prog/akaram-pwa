@@ -69,7 +69,7 @@ describe('تكوين الشرائح المطابق للتصميم المعتمد
     expect(akaram).toBeLessThan(alliance)
     expect(alliance).toBeLessThan(baghdad)
     expect(cover.xml).toContain('أمانة بغداد / دائرة بلدية الكرادة')
-    expect(cover.xml).toContain('قاطع الكرادة - 2026-09-18')
+    expect(cover.xml).toContain('قاطع الكرادة - 2026/9/18')
     expect(cover.rels).toContain('brand-baghdad.png')
   })
 

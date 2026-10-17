@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- خريطة الرموز ومصنع Leaflet مشتركان مع منتقي المعالم. */
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import L from 'leaflet'
