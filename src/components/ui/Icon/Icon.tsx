@@ -11,7 +11,7 @@ export type IconName =
   | 'layout-grid' | 'logout' | 'menu' | 'x' | 'bell' | 'eye' | 'eye-off'
   | 'chevron-left' | 'chevron-right' | 'lock' | 'wifi-off'
   | 'user-plus' | 'activity' | 'list' | 'alert-triangle' | 'refresh' | 'search'
-  | 'fingerprint' | 'map-pin' | 'truck' | 'flow'
+  | 'fingerprint' | 'map-pin' | 'truck' | 'flow' | 'globe'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
   | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
   | 'shopping-cart' | 'chevron-up' | 'chevron-down'
@@ -59,6 +59,7 @@ const paths: Record<IconName, React.ReactNode> = {
   refresh: <><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" /><path d="M20.5 3.5V8H16" /></>,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.4-4.4" /></>,
   fingerprint: <><path d="M12 11.5a3 3 0 0 0-3 3c0 2.5-.5 4.5-1.5 6" /><path d="M15 14.5c0 3-.3 5.5-1 7.5" /><path d="M6.2 8.5A7 7 0 0 1 12 5.5a7 7 0 0 1 5.8 3" /><path d="M3.5 12.5c.5-1.5 1-2.5 1.5-3.3" /><path d="M19 9.2c1 1.5 1.8 3.5 2 6.3" /><path d="M9 14.5c0-1.7 1.3-3 3-3s3 1.3 3 3c0 2.3-.3 4.6-.8 6.5" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
   'map-pin': <><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.8" /></>,
   truck: <><path d="M2 6h12v10H2z" /><path d="M14 9h4l3 3.5V16h-7" /><circle cx="6" cy="18.5" r="1.8" /><circle cx="17.5" cy="18.5" r="1.8" /></>,
   flow: <><path d="M4 12h5m6 0h5" /><path d="M9 8l-3 4 3 4" /><path d="M15 8l3 4-3 4" /></>,

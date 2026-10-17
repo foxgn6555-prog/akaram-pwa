@@ -39,7 +39,20 @@ describe('عقد محتوى الأدلة', () => {
     expect(t.sections.find((s) => s.id === 'types')!.concepts).toHaveLength(6)
     const tj = JSON.stringify(t)
     for (const c of ['npm test', 'npm run typecheck', 'npm run lint', 'npm run build', 'node scripts/db-migrations-test.mjs']) expect(tj).toContain(c)
-    expect(GUIDES.map((g) => g.slug)).toEqual(['git', 'database', 'tests'])
+    expect(GUIDES.map((g) => g.slug)).toEqual(['git', 'database', 'tests', 'hosting'])
+  })
+  it('00277: دليل الاستضافة — النشر الأول بالترتيب، تحديث القاعدة قبل الواجهة، والبصمة في الإنتاج تغطي الأنماط الأربعة والدوال الطرفية', () => {
+    const h = findGuide('hosting')!
+    expect(h.sections.map((s) => s.id)).toEqual(['map', 'first', 'update', 'biometric'])
+    const first = h.sections.find((s) => s.id === 'first')!.steps!.map((s) => s.title)
+    expect(first.findIndex((t) => t.includes('ابنِ'))).toBeLessThan(first.findIndex((t) => t.includes('public_html')))
+    expect(first.findIndex((t) => t.includes('public_html'))).toBeLessThan(first.findIndex((t) => t.includes('Supabase بعنوان')))
+    const upd = h.sections.find((s) => s.id === 'update')!.commands!.map((c) => c.cmd)
+    expect(upd.indexOf('npx supabase db push')).toBeLessThan(upd.indexOf('npm run build'))
+    const bio = JSON.stringify(h.sections.find((s) => s.id === 'biometric'))
+    for (const k of ['app_api_pull', 'ADMS', 'zk-bridge', 'generic_pull', 'adms-receiver', 'biometric-pull', 'biometric-bridge', 'gps-receiver']) expect(bio).toContain(k)
+    expect(JSON.stringify(h)).toContain('.htaccess')
+    expect(JSON.stringify(h)).not.toMatch(/service_role=|VITE_SERVICE/)
   })
 })
 

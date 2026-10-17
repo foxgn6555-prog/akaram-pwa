@@ -138,6 +138,7 @@
     "devops_git": "Git ورفع التحديثات",
     "devops_database": "قاعدة البيانات والترحيلات",
     "devops_tests": "الاختبارات",
+    "devops_hosting": "الاستضافة والبصمة في الإنتاج",
     "mgr_citizen_complaints": "شكاوى المواطنين",
     "approval_tasks": "طلبات الموافقة",
     "mgr_gbs_containers": "حاويات GBS",
