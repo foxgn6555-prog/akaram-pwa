@@ -294,6 +294,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/devops/database', labelKey: 'nav.devops_database', icon: 'database' },
         { path: '/it/devops/tests', labelKey: 'nav.devops_tests', icon: 'check-square' },
         { path: '/it/devops/hosting', labelKey: 'nav.devops_hosting', icon: 'globe' },
+        { path: '/it/devops/status', labelKey: 'nav.devops_status', icon: 'activity' },
       ],
     },
   ],

@@ -139,6 +139,7 @@
     "devops_database": "قاعدة البيانات والترحيلات",
     "devops_tests": "الاختبارات",
     "devops_hosting": "الاستضافة والبصمة في الإنتاج",
+    "devops_status": "لوحة الحالة الحية",
     "mgr_citizen_complaints": "شكاوى المواطنين",
     "approval_tasks": "طلبات الموافقة",
     "mgr_gbs_containers": "حاويات GBS",

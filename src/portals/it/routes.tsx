@@ -39,6 +39,7 @@ const CentralGarageApprovalsPage = lazy(
 )
 const DevOpsHub = lazy(() => import('@portals/it/pages/DevOps/DevOpsHub'))   // 00275: دليل التشغيل التقني
 const DevOpsGuidePage = lazy(() => import('@portals/it/pages/DevOps/DevOpsGuidePage'))
+const DevOpsStatusPage = lazy(() => import('@portals/it/pages/DevOps/DevOpsStatusPage'))
 const NotificationPolicyControlPage = lazy(
   () => import('@portals/it/pages/Notifications/NotificationPolicyControlPage'),
 )
@@ -70,6 +71,7 @@ export const customRoutes: RouteObject[] = [
 
   // ── وحدة دليل التشغيل التقني (00275) ──
   { path: 'devops', element: s(<DevOpsHub />) },
+  { path: 'devops/status', element: s(<DevOpsStatusPage />) },
   { path: 'devops/:slug', element: s(<DevOpsGuidePage />) },
 
   // ── وحدة Console — رصد الأخطاء الحي لكل البوابات ──

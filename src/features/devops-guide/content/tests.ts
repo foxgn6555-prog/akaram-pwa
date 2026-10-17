@@ -11,7 +11,7 @@ export const testsGuide: Guide = {
       id: 'types',
       title: '١ · أنواع الاختبارات عندنا',
       concepts: [
-        { term: 'اختبارات قاعدة البيانات (tests/db/*.sql)', meaning: 'تبني قاعدة فارغة، تطبّق كل الترحيلات (243)، ثم تنفّذ سيناريوهات حقيقية بالدوال نفسها وتتأكد من النتيجة. هي الأهم لأنها تحمي الرواتب والحضور والصلاحيات.', example: 'maintenance-workshops-test.sql: حساب الزعفرانية لا يرى حالات المركزية، والتحويل يتطلب سبباً.' },
+        { term: 'اختبارات قاعدة البيانات (tests/db/*.sql)', meaning: 'تبني قاعدة فارغة، تطبّق كل الترحيلات (244)، ثم تنفّذ سيناريوهات حقيقية بالدوال نفسها وتتأكد من النتيجة. هي الأهم لأنها تحمي الرواتب والحضور والصلاحيات.', example: 'maintenance-workshops-test.sql: حساب الزعفرانية لا يرى حالات المركزية، والتحويل يتطلب سبباً.' },
         { term: 'اختبارات الوحدات (tests/unit)', meaning: 'تفحص الصفحات والمكونات والدوال في الواجهة: هل الزر يظهر؟ هل يُرسل البيانات الصحيحة؟ تعمل بدون قاعدة بيانات (محاكاة).', example: 'maintenance-cases.test.tsx: زر التحويل لا يظهر لحالة مركزية، ويُعطَّل بلا سبب.' },
         { term: 'اختبارات العقود (tests/contract)', meaning: 'تثبّت «اتفاقات» البنية: عدد وحدات كل بوابة وترتيبها، أسماء دوال RPC التي تناديها الواجهة موجودة فعلاً، كل صفحة تستخدم الرأس الموحد.', example: 'portal-contracts: بوابة التطوير بها 11 وحدة بترتيب محدد؛ إن أضفنا وحدة بلا تحديث العقد يفشل.' },
         { term: 'اختبارات الأمان (tests/security)', meaning: 'تتأكد أن الأدوار لا تصل لما لا يحق لها، وأن لا بيانات مالية في بوابات الميدان، وأن المفاتيح السرية ليست في الكود.', example: 'permission-integrity: كل بوابة لها أدوار مسموحة صريحة.' },
@@ -37,7 +37,7 @@ export const testsGuide: Guide = {
       title: '٣ · اختبارات قاعدة البيانات — كيف تعمل عندي وكيف تشغّلها أنت',
       intro: 'تحتاج PostgreSQL. على جهازك الطريقة الأسهل هي السكربت المضمّن الذي يشغّل PostgreSQL مؤقتاً دون تثبيت.',
       commands: [
-        { cmd: 'node scripts/db-migrations-test.mjs', what: 'يشغّل PostgreSQL مضمّناً مؤقتاً، يطبّق كل الترحيلات من الصفر، ويطبع migrations ok: 243.', when: 'للتأكد أن كل الترحيلات تُبنى من قاعدة فارغة بلا خطأ.', example: 'migrations ok: 243', ifFails: 'FAIL <اسم الملف> <الرسالة> ⇒ أرسل لي السطر كاملاً. المرة الأولى تنزّل PostgreSQL (دقائق).', danger: 'safe' },
+        { cmd: 'node scripts/db-migrations-test.mjs', what: 'يشغّل PostgreSQL مضمّناً مؤقتاً، يطبّق كل الترحيلات من الصفر، ويطبع migrations ok: 244.', when: 'للتأكد أن كل الترحيلات تُبنى من قاعدة فارغة بلا خطأ.', example: 'migrations ok: 244', ifFails: 'FAIL <اسم الملف> <الرسالة> ⇒ أرسل لي السطر كاملاً. المرة الأولى تنزّل PostgreSQL (دقائق).', danger: 'safe' },
         { cmd: 'node scripts/db-migrations-test.mjs tests/db/maintenance-workshops-test.sql', what: 'نفس السابق ثم يشغّل ملف اختبار محدداً بعد الترحيلات.', when: 'لفحص ميزة محددة.', example: 'test ok: tests/db/maintenance-workshops-test.sql', ifFails: 'ERROR: <نص assert> ⇒ النص يشرح ما كان متوقعاً وما حدث.', danger: 'safe' },
         { cmd: 'bash scripts/test-migrations-postgres.sh', what: 'النسخة الكاملة على PostgreSQL مثبّت (كل الترحيلات + كل ملفات tests/db).', when: 'للمطوّرين أو في CI (ملف db-smoke.yml).', example: 'يطبع APPLY لكل ترحيل ثم نتائج الاختبارات.', ifFails: 'يتطلب TEST_DATABASE_ADMIN_URL وpsql؛ غير مطلوب منك.', danger: 'safe' },
       ],

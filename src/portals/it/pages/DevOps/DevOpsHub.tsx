@@ -1,4 +1,4 @@
-/** 00275 — وحدة «دليل التشغيل التقني»: Git ورفع التحديثات (هذه الجولة) + أدلة الجولات التالية (قاعدة البيانات/الاختبارات، الاستضافة والبصمة، لوحة الحالة) */
+/** 00275–00278 — وحدة «دليل التشغيل التقني»: Git ورفع التحديثات، قاعدة البيانات، الاختبارات، الاستضافة والبصمة، لوحة الحالة الحية */
 import { UnitHub, type HubPageLink } from '@components/layout/UnitHub'
 import { GUIDES } from '@features/devops-guide'
 
@@ -7,6 +7,7 @@ const PAGES: readonly HubPageLink[] = [
   { path: '/it/devops/database', label: 'قاعدة البيانات والترحيلات', hint: 'Supabase، db push، القواعد الذهبية، لوحة Supabase', icon: 'database' },
   { path: '/it/devops/tests', label: 'الاختبارات', hint: 'الأنواع الستة، التشغيل، قراءة النتيجة، CI', icon: 'check-square' },
   { path: '/it/devops/hosting', label: 'الاستضافة والبصمة في الإنتاج', hint: 'هوستنجر + Supabase، النشر الأول، التحديث، البصمة لا تتغير', icon: 'globe' },
+  { path: '/it/devops/status', label: 'لوحة الحالة الحية', hint: 'وصول Supabase، آخر ترحيل، آخر بصمة لكل مصدر، الدوال الطرفية، GPS', icon: 'activity' },
 ]
 
 export default function DevOpsHub() {
@@ -16,7 +17,7 @@ export default function DevOpsHub() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="devops-stats">
         <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">الأدلة</p><b className="text-2xl">{GUIDES.length}</b></div>
         <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">الأوامر المشروحة</p><b className="text-2xl">{total}</b></div>
-        <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">قادم</p><b className="text-xs">لوحة الحالة الحية (Supabase، آخر ترحيل، آخر بصمة، الدوال)</b></div>
+        <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">الحالة الآن</p><b className="text-xs">افتح «لوحة الحالة الحية» لرؤية Supabase والبصمة والدوال لحظياً</b></div>
       </div>
     </UnitHub>
   )
