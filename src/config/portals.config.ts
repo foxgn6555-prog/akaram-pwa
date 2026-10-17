@@ -284,6 +284,15 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'activity',
       exact: true,
     },
+    {
+      // 00275: دليل التشغيل التقني — Git/الترحيلات/الاختبارات/الاستضافة/البصمة في الإنتاج
+      path: '/it/devops',
+      labelKey: 'nav.devops_guide',
+      icon: 'file-text',
+      children: [
+        { path: '/it/devops/git', labelKey: 'nav.devops_git', icon: 'upload' },
+      ],
+    },
   ],
 
   // بوابة المدير المفوض — أعمال صافية (لا شيء تقني؛ التقني كله في /it)

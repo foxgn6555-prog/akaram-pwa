@@ -20,8 +20,8 @@ const allPaths = new Set<string>()
 }
 
 describe('بنية البوابة التقنية v2', () => {
-  it('عشر وحدات: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + مصمم التدفقات', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(10)
+  it('إحدى عشرة وحدة: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + Console + دليل التشغيل التقني (00275)', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(11)
     expect(PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)).toEqual([
       'nav.dashboard',
       'nav.user_management',
@@ -33,6 +33,7 @@ describe('بنية البوابة التقنية v2', () => {
       'nav.updates',
       'nav.archive',
       'nav.console',
+      'nav.devops_guide',
     ])
   })
 
@@ -74,9 +75,11 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(29) // 00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)))
+    expect(itPaths).toHaveLength(32) // 00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170))))
     expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('user-management/maintenance-workshops')   // 00274
+    expect(itPaths).toContain('devops')   // 00275
+    expect(itPaths).toContain('devops/:slug')
     expect(itPaths).toContain('integrations/advances')
     expect(itPaths).toContain('integrations/auto-deductions')
     expect(itPaths).toContain('integrations/biometric/unmatched')

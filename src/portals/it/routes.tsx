@@ -37,6 +37,8 @@ const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 const CentralGarageApprovalsPage = lazy(
   () => import('@portals/it/pages/CentralGarage/CentralGarageApprovalsPage'),
 )
+const DevOpsHub = lazy(() => import('@portals/it/pages/DevOps/DevOpsHub'))   // 00275: دليل التشغيل التقني
+const DevOpsGuidePage = lazy(() => import('@portals/it/pages/DevOps/DevOpsGuidePage'))
 const NotificationPolicyControlPage = lazy(
   () => import('@portals/it/pages/Notifications/NotificationPolicyControlPage'),
 )
@@ -65,6 +67,10 @@ export const customRoutes: RouteObject[] = [
   { path: 'database/tables/:tableName', element: s(<TableDetailPage />) },
   // أخطاء التطبيق انتقلت إلى وحدة Console — نُبقي المسار القديم كتحويل حتى لا تنكسر الروابط المحفوظة
   { path: 'database/errors', element: <Navigate to="/it/console" replace /> },
+
+  // ── وحدة دليل التشغيل التقني (00275) ──
+  { path: 'devops', element: s(<DevOpsHub />) },
+  { path: 'devops/:slug', element: s(<DevOpsGuidePage />) },
 
   // ── وحدة Console — رصد الأخطاء الحي لكل البوابات ──
   { path: 'console', element: s(<ConsolePage />) },

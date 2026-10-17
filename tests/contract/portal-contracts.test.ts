@@ -13,8 +13,8 @@ import { UNIT_LIBRARY } from '@features/portals/types'
 const allRoutes = customRoutes.map((r) => r.path).filter(Boolean) as string[]
 
 describe('⚓ عقد البوابة التقنية', () => {
-  it('الوحدات العشر مسجلة بالترتيب الصحيح', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(10)
+  it('الوحدات الإحدى عشرة مسجلة بالترتيب الصحيح (00275: + دليل التشغيل التقني)', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(11)
     const labels = PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)
     expect(labels).toEqual([
       'nav.dashboard',
@@ -27,6 +27,7 @@ describe('⚓ عقد البوابة التقنية', () => {
       'nav.updates',
       'nav.archive',
       'nav.console',
+      'nav.devops_guide',
     ])
   })
 
@@ -49,7 +50,7 @@ describe('⚓ عقد البوابة التقنية', () => {
           ),
         )
         // database/errors: تحويل قديم إلى /it/console (الروابط المحفوظة) — ليس صفحة
-        .concat(['user-management/:userId', 'database/tables/:tableName', 'database/errors']),
+        .concat(['user-management/:userId', 'database/tables/:tableName', 'database/errors', 'devops/:slug']),   // devops/:slug (00275): صفحة دليل بحسب المعرّف
     )
     for (const route of allRoutes) {
       expect(sidebarPaths.has(route), `مسار يتيم: ${route}`).toBe(true)
