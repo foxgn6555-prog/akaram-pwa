@@ -9,7 +9,7 @@ import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewR
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
-  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, HrAlert, LeavesDashboard, MyEmployee,
+  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
@@ -386,6 +386,9 @@ export const hr = {
       p_search: f.search?.trim() || null, p_limit: f.limit ?? 500,
     })
   },
+  /** 00239: غرفة العمليات — ملخص الطلبات وبحث كل الملاك */
+  opsLeavesSummary() { return rpc<OpsLeavesSummary>('ops_leaves_summary', {}) },
+  opsLeaveEmployeeLookup(q: string) { return rpc<OpsLeaveEmployee[]>('ops_leave_employee_lookup', { p_q: q.trim() || null }) },
   waiveDeduction(employeeId: string, date: string, waive: boolean, reason: string) {
     return sdkVoid(supabase.rpc('ops_deduction_waive', { p_employee: employeeId, p_date: date, p_waive: waive, p_reason: reason } as never))
   },

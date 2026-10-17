@@ -136,7 +136,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
 }
 
 export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true, testId = 'lv-req' }: {
-  rows: LeaveRequestRow[]; isLoading?: boolean; mode: 'employee' | 'manager' | 'hr' | 'garage'; showEmployee?: boolean; testId?: string
+  rows: LeaveRequestRow[]; isLoading?: boolean; mode: 'employee' | 'manager' | 'hr' | 'garage' | 'ops'; showEmployee?: boolean; testId?: string
 }) {
   const decide = useDecideLeave(); const cancel = useCancelLeave()
   const today = isoDay()
@@ -149,7 +149,7 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
     void act(() => cancel.mutateAsync({ id: r.id, reason: reason.trim() }))
   }
   if (isLoading) return <LoadingSpinner />
-  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : mode === 'garage' ? 'لا طلبات لموظفي قسمك في هذا المدى' : 'لم تُسجَّل طلبات في هذا النطاق'} />
+  if (rows.length === 0) return <EmptyState title="لا طلبات" hint={mode === 'manager' ? 'ستظهر هنا طلبات موظفيك المباشرين فور إرسالها' : mode === 'garage' ? 'لا طلبات لموظفي قسمك في هذا المدى' : mode === 'ops' ? 'لا طلبات في هذا المدى' : 'لم تُسجَّل طلبات في هذا النطاق'} />
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm" data-testid={`${testId}-table`}>
@@ -157,11 +157,11 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
           {showEmployee && <th className="p-2 text-start">الموظف</th>}<th className="p-2">النوع</th><th className="p-2">الفترة</th><th className="p-2">المدة</th><th className="p-2">الحالة</th><th className="p-2 text-start">ملاحظات / قرار</th>{mode !== 'employee' && <th className="p-2">المدير المباشر</th>}<th className="p-2">إجراءات</th>
         </tr></thead>
         <tbody>{rows.map((r) => {
-          const canCancel = mode === 'garage' ? (r.status === 'pending' && (r.can_cancel === true || r.can_decide))
+          const canCancel = (mode === 'garage' || mode === 'ops') ? (r.status === 'pending' && (r.can_cancel === true || r.can_decide))
             : (r.status === 'pending' && (mode !== 'manager' || r.can_decide)) || (r.status === 'approved' && (mode === 'hr' || r.start_date > today))
           return (
             <tr key={r.id} className={clsx('border-t border-slate-100', r.status === 'pending' && 'bg-amber-50/30')} data-testid={`${testId}-row-${r.id}`}>
-              {showEmployee && <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</p></td>}
+              {showEmployee && <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</p><ViaBadge row={r} /></td>}
               <td className="p-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', r.kind === 'leave' ? 'bg-sky-50 text-sky-700' : 'bg-violet-50 text-violet-700')}>{r.type_name ?? (r.kind === 'leave' ? 'إجازة' : 'زمنية')}</span>{r.is_paid === false && <span className="block text-[10px] text-red-600">تُستقطع من الراتب</span>}{r.is_backdated && <span className="mt-0.5 block rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800" title={r.backdated_reason ?? ''} data-testid={`${testId}-backdated-${r.id}`}>بأثر رجعي · قبل {r.backdated_days} يوم</span>}</td>
               <td className="p-2 text-center text-xs" dir="ltr">{r.start_date}{r.end_date !== r.start_date ? ` → ${r.end_date}` : ''}{r.start_time && <span className="block text-[10px] text-slate-500">{hhmm(r.start_time)}–{hhmm(r.end_time)}</span>}</td>
               <td className="p-2 text-center text-xs font-bold">{r.kind === 'leave' ? `${Number(r.days)} يوم` : fmtMinutes(r.minutes)}</td>
@@ -183,6 +183,14 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
       </table>
     </div>
   )
+}
+
+/** 00239: وسم جهة التقديم عندما لا يكون الموظف نفسه (غرفة العمليات / الكراج / الموارد البشرية) */
+const VIA_LABEL: Record<string, string> = { ops_room: 'غرفة العمليات', garage: 'الكراج المركزي', hr: 'الموارد البشرية' }
+export function ViaBadge({ row }: { row: LeaveRequestRow }) {
+  const label = row.requested_via ? VIA_LABEL[row.requested_via] : undefined
+  if (!label) return null
+  return <span className="mt-0.5 inline-block rounded-full bg-[#0b3d6b]/10 px-2 py-0.5 text-[10px] font-bold text-[#0b3d6b]" data-testid={`via-${row.id}`}>قُدِّم عبر {label}{row.requester_name ? ` · ${row.requester_name}` : ''}</span>
 }
 
 function AttachmentLink({ path }: { path: string }) {

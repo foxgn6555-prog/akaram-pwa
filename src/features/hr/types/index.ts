@@ -749,7 +749,15 @@ export interface LeaveRequestRow {
   is_backdated?: boolean
   backdated_reason?: string | null
   backdated_days?: number
+  /** 00239: جهة التقديم (self/manager/hr/garage/ops_room/admin) واسم المُقدِّم عندما لا يكون الموظف نفسه */
+  requested_via?: LeaveRequestedVia | null
+  requester_name?: string | null
 }
+export type LeaveRequestedVia = 'self' | 'manager' | 'hr' | 'garage' | 'ops_room' | 'admin'
+/** 00239: ملخص وحدة طلبات الإجازة في غرفة العمليات */
+export interface OpsLeavesSummary { pending: number; via_ops_pending: number; via_ops_month: number; on_leave_today: number }
+/** 00239: نتيجة بحث الموظف لغرفة العمليات — كل الملاك (حتى بلا حساب/بصمة) */
+export interface OpsLeaveEmployee { id: string; full_name: string; employee_number: string; job_title: string | null; department_name: string | null; has_account: boolean; has_biometric: boolean; manager_name: string | null }
 export interface LeaveRequestInput {
   employeeId: string
   typeId: string

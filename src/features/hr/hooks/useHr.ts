@@ -390,6 +390,13 @@ export function useRequestLeave() {
     onError: t.err,
   })
 }
+/** 00239: غرفة العمليات — ملخص طلبات الإجازة + بحث الموظف (كل الملاك) */
+export function useOpsLeavesSummary() {
+  return useQuery({ queryKey: hrKeys.opsLeavesSummary(), queryFn: hr.opsLeavesSummary, staleTime: 15_000 })
+}
+export function useOpsLeaveEmployeeLookup(q: string) {
+  return useQuery({ queryKey: hrKeys.opsLeaveLookup(q), queryFn: () => hr.opsLeaveEmployeeLookup(q), enabled: q.trim().length >= 2, staleTime: 30_000 })
+}
 export function useDecideLeave() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({

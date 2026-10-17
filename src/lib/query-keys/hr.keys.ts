@@ -24,4 +24,6 @@ export const hrKeys = {
   ledger: (employeeId: string, year?: number | null) => [...hrKeys.all, 'ledger', employeeId, year ?? 'current'] as const,
   alerts: (month?: string | null, onlyOpen?: boolean) => [...hrKeys.all, 'alerts', month ?? 'all', onlyOpen ?? true] as const,
   leavesDashboard: () => [...hrKeys.all, 'leaves-dashboard'] as const,
+  opsLeavesSummary: () => [...hrKeys.all, 'leaves-dashboard', 'ops'] as const,   // 00239
+  opsLeaveLookup: (q: string) => [...hrKeys.all, 'ops-leave-lookup', q] as const,
 }
