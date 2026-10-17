@@ -69,6 +69,20 @@ describe('بنية البوابة التقنية v2', () => {
     expect(allPaths).not.toContain('user-management/departments') // الهيكل التنظيمي يُدار من /hr/org حصراً
   })
 
+  it('00279: أطفال الشريط الذين يخدمهم مسار بمعامل (devops/git … ← devops/:slug) يحصلون على صفحة الدليل لا Placeholder «قيد التطوير»', () => {
+    const guide = routes.find((r) => r.path === 'devops/:slug')?.element as ReactElement<{ children?: ReactElement }>
+    const guideInner = (guide.props.children as ReactElement).type
+    for (const rel of ['devops/git', 'devops/database', 'devops/tests', 'devops/hosting']) {
+      const el = routes.find((r) => r.path === rel)?.element as ReactElement<{ children?: ReactElement }>
+      const inner = el.props.children as ReactElement<Record<string, unknown>>
+      expect(inner.props.unitPath, `${rel} سقط في Placeholder`).toBeUndefined()
+      expect(inner.type).toBe(guideInner)
+    }
+    // الصفحة الثابتة devops/status تبقى صفحتها لا دليل :slug
+    const st = routes.find((r) => r.path === 'devops/status')?.element as ReactElement<{ children?: ReactElement }>
+    expect((st.props.children as ReactElement).type).not.toBe(guideInner)
+  })
+
   it('صفحة التفاصيل :userId محفوظة رغم أنها ليست في الشريط', () => {
     expect(allPaths).toContain('user-management/:userId')
   })

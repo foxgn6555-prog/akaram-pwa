@@ -6,7 +6,7 @@
  */
 import { lazy } from '@lib/router/lazy'
 import { Suspense, type ReactNode } from 'react'
-import { Navigate, type RouteObject } from 'react-router'
+import { Navigate, matchPath, type RouteObject } from 'react-router'
 import { PORTAL_UNITS } from '@config/portals.config'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -41,7 +41,9 @@ export function buildPortalRoutes(
 
   const resolve = (absPath: string): RouteObject => {
     const rel = absPath === portalPath ? '' : absPath.slice(portalPath.length + 1)
-    const custom = byRel.get(rel)
+    // 00279: مسار مخصص بمعامل (مثل devops/:slug) يخدم أطفال الشريط المطابقين له (devops/git …)
+    // بدل أن يسقطوا في Placeholder «قيد التطوير» الذي كان يسبق المسار بالمعامل في الترتيب
+    const custom = byRel.get(rel) ?? customRoutes.find((r) => typeof r.path === 'string' && r.path.includes(':') && matchPath({ path: r.path, end: true }, '/' + rel))
     if (custom?.element) {
       return { path: rel || undefined, index: rel === '', element: custom.element }
     }
