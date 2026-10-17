@@ -194,6 +194,12 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
     expect(screen.getByTestId('d-leaves-pending')).toHaveTextContent('3')
     expect(screen.getByTestId('d-incomplete-profiles')).toHaveTextContent('4')
     expect(screen.getByTestId('d-active')).toHaveTextContent('شهري 35')
+    // 00266: الترتيب — الملاك أولاً ثم الحضور؛ أعمدة شهرية مُرقّمة ومتوسطات مشروحة بدل المنحنيات
+    const html = screen.getByTestId('hr-dashboard').innerHTML
+    expect(html.indexOf('aria-label="الملاك"')).toBeLessThan(html.indexOf('aria-label="الحضور"'))
+    expect(screen.getByTestId('d-movement-6m')).toHaveTextContent('صافي الحركة')
+    expect(screen.getByTestId('d-trend-averages')).toHaveTextContent('متوسط الحاضرين يومياً')
+    expect(screen.getByTestId('hr-dashboard').textContent).not.toMatch(/[\u0660-\u0669]/)
   })
 })
 
