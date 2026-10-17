@@ -12,7 +12,7 @@ grant usage on schema auth to public;
 
 create table if not exists auth.users (
   id                uuid primary key default gen_random_uuid(),
-  email             text,
+  email             varchar(255),  -- كما في Supabase الحقيقي (varchar لا text) لكشف أخطاء 42804
   email_confirmed_at timestamptz,
   raw_user_meta_data jsonb default '{}'::jsonb,
   created_at        timestamptz default now()
