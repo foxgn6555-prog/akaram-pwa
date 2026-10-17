@@ -243,31 +243,30 @@ function sheetPage(text: string, d: WordReportData): Array<Paragraph | Table> {
 }
 
 /* ===== صفحة 4 صور (2×2) ===== */
+/** صفحة صور (٤ كحدّ أقصى). 00280: الصفحة الناقصة تُوزَّع بحسب عددها بلا خلايا فارغة: ١ = صورة كاملة، ٢ = عمودان بكامل الارتفاع، ٣ = صفّان والثالثة في المنتصف */
+export const PHOTO_BOX_TALL = { w: Math.floor(86 * PX_PER_MM), h: Math.floor(250 * PX_PER_MM) }
+export const PHOTO_BOX_FULL = { w: Math.floor(180 * PX_PER_MM), h: Math.floor(250 * PX_PER_MM) }
 function photosPage(four: Array<{ url: string; caption: string }>, d: WordReportData, images: Map<string, WordImage>): Array<Paragraph | Table> {
   const colW = Math.floor(CONTENT_W / 2)
+  const capRow = (ps: Array<{ caption: string }>, w: number) =>
+    new TableRow({ height: { value: Math.round(9 * MM), rule: HeightRule.EXACT }, cantSplit: true, children: ps.map((p) => cell([para(p.caption, { size: 22, bold: true, color: hex(d.colors.barText), font: d.fontName })], { width: w, fill: d.colors.barTo, border: d.colors.border })) })
+  const imgRow = (ps: Array<{ url: string; caption: string }>, w: number, hMm: number, box: { w: number; h: number }) =>
+    new TableRow({ height: { value: Math.round(hMm * MM), rule: HeightRule.EXACT }, cantSplit: true, children: ps.map((p) => cell([imagePara(images.get(p.url), box, p.caption)], { width: w, border: d.colors.border })) })
+  const table = (w: number, rows: TableRow[], center = false) =>
+    new Table({ width: { size: w, type: WidthType.DXA }, visuallyRightToLeft: true, alignment: center ? AlignmentType.CENTER : undefined, rows })
+  const n = four.length
+  if (n === 1) return [table(CONTENT_W, [capRow(four, CONTENT_W), imgRow(four, CONTENT_W, 257, PHOTO_BOX_FULL)])]
+  if (n === 2) return [table(CONTENT_W, [capRow(four, colW), imgRow(four, colW, 257, PHOTO_BOX_TALL)])]
+  if (n === 3) {
+    const top = four.slice(0, 2), last = four.slice(2)
+    return [table(CONTENT_W, [capRow(top, colW), imgRow(top, colW, 124, PHOTO_BOX)]), table(colW, [capRow(last, colW), imgRow(last, colW, 124, PHOTO_BOX)], true)]
+  }
   const rowsArr: TableRow[] = []
   for (let r = 0; r < 2; r++) {
-    const pair = [four[r * 2], four[r * 2 + 1]]
-    rowsArr.push(
-      new TableRow({
-        height: { value: Math.round(9 * MM), rule: HeightRule.EXACT },
-        cantSplit: true,
-        children: pair.map((p) =>
-          p
-            ? cell([para(p.caption, { size: 22, bold: true, color: hex(d.colors.barText), font: d.fontName })], { width: colW, fill: d.colors.barTo, border: d.colors.border })
-            : plainCell([new Paragraph('')], colW),
-        ),
-      }),
-    )
-    rowsArr.push(
-      new TableRow({
-        height: { value: Math.round(124 * MM), rule: HeightRule.EXACT },
-        cantSplit: true,
-        children: pair.map((p) => (p ? cell([imagePara(images.get(p.url), PHOTO_BOX, p.caption)], { width: colW, border: d.colors.border }) : plainCell([new Paragraph('')], colW))),
-      }),
-    )
+    const pair = [four[r * 2], four[r * 2 + 1]].filter((p): p is { url: string; caption: string } => Boolean(p))
+    rowsArr.push(capRow(pair, colW), imgRow(pair, colW, 124, PHOTO_BOX))
   }
-  return [new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, visuallyRightToLeft: true, rows: rowsArr })]
+  return [table(CONTENT_W, rowsArr)]
 }
 
 /** يبني مستند Word كاملاً من بيانات التصميم والصور المحمّلة (نقي) */

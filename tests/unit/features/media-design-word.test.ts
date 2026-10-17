@@ -99,3 +99,37 @@ describe('Word — الملف الناتج', () => {
     expect((xml.match(/<w:vMerge w:val="continue"\/>/g) ?? []).length).toBe(data.summary.rows.length - 1)
   })
 })
+
+/** 00280 — الصفحة الناقصة (١–٣ صور) بلا خلايا فارغة: ١ = جدول بعمود واحد بكامل العرض، ٢ = عمودان بكامل الارتفاع، ٣ = جدول علوي + جدول سفلي بعرض نصفي في المنتصف */
+describe('Word — توزيع الصور بحسب عددها (00280)', () => {
+  const only = (n: number): WordReportData => ({ ...data, groups: [{ workType: 'ع', sheetText: 'ع', photos: Array.from({ length: n }, (_, i) => ({ url: `p${i}`, caption: `ص${i + 1}` })) }] })
+  const tablesAfterLastBreak = (xml: string) => xml.slice(xml.lastIndexOf('<w:br w:type="page"/>'))
+  it('صورة واحدة: لا خلية فارغة، عرض الخلية = عرض الصفحة كاملاً، وارتفاع الصف الطويل', async () => {
+    const { xml } = await unzipDoc(only(1))
+    const tail = tablesAfterLastBreak(xml)
+    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(2)   // عبارة + صورة
+    expect(tail).toContain('w:w="10546"')                   // CONTENT_W
+    expect(tail).toContain(`w:val="${Math.round(257 * 56.6929)}"`)
+  })
+  it('صورتان: صف واحد بعمودين بكامل الارتفاع (لا صف سفلي فارغ)', async () => {
+    const { xml } = await unzipDoc(only(2))
+    const tail = tablesAfterLastBreak(xml)
+    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(4)
+    expect((tail.match(/<w:tr[ >]/g) ?? []).length).toBe(2)
+    expect(tail).toContain(`w:val="${Math.round(257 * 56.6929)}"`)
+  })
+  it('ثلاث صور: جدولان — العلوي بصورتين والسفلي بصورة واحدة بنصف العرض ومتمركز', async () => {
+    const { xml } = await unzipDoc(only(3))
+    const tail = tablesAfterLastBreak(xml)
+    expect((tail.match(/<w:tbl>/g) ?? []).length).toBe(2)
+    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(6)
+    expect(tail).toContain('<w:jc w:val="center"/>')
+    expect(tail).toContain('w:w="5273"')                    // colW
+  })
+  it('أربع صور: الشبكة الكاملة ٢×٢ كما هي', async () => {
+    const { xml } = await unzipDoc(only(4))
+    const tail = tablesAfterLastBreak(xml)
+    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(8)
+    expect((tail.match(/<w:tbl>/g) ?? []).length).toBe(1)
+  })
+})

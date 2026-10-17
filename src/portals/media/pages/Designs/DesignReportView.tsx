@@ -566,6 +566,12 @@ export default function DesignReportView({
         .rp-grid[data-layout='collage'] { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
         .rp-grid[data-layout='collage'] .rp-cell:first-child { grid-row: 1 / -1; }
         .rp-grid[data-layout='round'] .rp-cell { border-radius: 3mm; overflow: hidden; }
+        /* 00280: صفحة ناقصة (١–٣ صور) تُوزَّع بحسب عددها بلا فراغ — الحد الأقصى ٤ للصفحة ثابت */
+        .rp-grid[data-count='1'] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        .rp-grid[data-count='2'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+        .rp-grid[data-count='3'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .rp-grid[data-count='1'] .rp-cell, .rp-grid[data-count='2'] .rp-cell, .rp-grid[data-count='3'] .rp-cell { grid-column: auto; grid-row: auto; }
+        .rp-grid[data-count='3'] .rp-cell:nth-child(3) { grid-column: 1 / -1; width: calc(50% - 1.25mm); justify-self: center; }
         .rp-cell { display: flex; flex-direction: column; min-height: 0; background: #fff; }
         .rp-bar { text-align: center; font-size: 10pt; font-weight: 800; padding: 1.6mm 1mm; width: 100%; }
         .rp-bar-input {
@@ -914,7 +920,7 @@ export default function DesignReportView({
 
               {chunk4(g.photos).map((four, i) => (
                 <section key={`${g.workType}-${i}`} className="rp-page">
-                  <div className="rp-grid" data-layout={sty.photoLayout}>
+                  <div className="rp-grid" data-layout={sty.photoLayout} data-count={four.length}>
                     {four.map((p) => {
                       const fz = fits[p.rowId] ?? { fit: 'contain' as const, zoom: 1 }
                       return (

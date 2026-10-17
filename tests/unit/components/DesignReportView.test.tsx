@@ -51,6 +51,14 @@ describe('بنية أوراق التقرير', () => {
     expect(grids[0]?.children.length).toBe(4)
     expect(grids[1]?.children.length).toBe(1)
     expect(grids[2]?.children.length).toBe(2)
+    // 00280: الصفحة الناقصة تحمل عدد صورها لتُوزَّع بحسبه (CSS data-count) — الحد الأقصى ٤ ثابت
+    expect(grids[0]).toHaveAttribute('data-count', '4')
+    expect(grids[1]).toHaveAttribute('data-count', '1')
+    expect(grids[2]).toHaveAttribute('data-count', '2')
+    const css = container.querySelector('style')?.textContent ?? document.head.textContent ?? ''
+    expect(css).toContain(".rp-grid[data-count='1'] { grid-template-columns: 1fr; grid-template-rows: 1fr; }")
+    expect(css).toContain(".rp-grid[data-count='2'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }")
+    expect(css).toContain(".rp-grid[data-count='3'] .rp-cell:nth-child(3) { grid-column: 1 / -1; width: calc(50% - 1.25mm); justify-self: center; }")
   })
 
   it('بلا غلاف: ورقة عنوان + صفحة الجدول', () => {
