@@ -14,6 +14,7 @@ const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
 const ApprovalChainsPage = lazy(() => import('@portals/it/pages/ApprovalChains/ApprovalChainsPage'))
 const DisclosureTypesPage = lazy(() => import('@portals/it/pages/UserManagement/DisclosureTypesPage'))   // 00170: أنواع الكشوفات
+const MaintenanceWorkshopsPage = lazy(() => import('@portals/it/pages/UserManagement/MaintenanceWorkshopsPage'))   // 00274: ورش الصيانة
 const UserDetail = lazy(() => import('@portals/it/pages/UserManagement/UserDetail'))
 const DatabaseHub = lazy(() => import('@portals/it/pages/Database/DatabaseHub'))
 const DatabaseOverview = lazy(() => import('@portals/it/pages/Database/DatabaseOverview'))
@@ -55,6 +56,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management/create', element: s(<CreateUser />) },
   { path: 'user-management/approval-chains', element: s(<ApprovalChainsPage />) },
   { path: 'user-management/disclosure-types', element: s(<DisclosureTypesPage />) },
+  { path: 'user-management/maintenance-workshops', element: s(<MaintenanceWorkshopsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },
 
   // ── وحدة قاعدة البيانات ──

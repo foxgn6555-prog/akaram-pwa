@@ -204,4 +204,28 @@ do $$ declare c1 uuid := current_setting('test.c1')::uuid; c2 uuid := current_se
   assert (select a.origin_workshop_name from public.maintenance_archive_list(null, null, null, 'zaafaraniya') a where a.case_id = c2) = 'صيانة قاطع الزعفرانية', 'archive origin column';
   assert (select count(*) from public.maintenance_archive_list(null, null, null, null) a where a.case_id in (c1, c2)) = 2, 'archive no filter';
 end $$;
+
+-- ⑨ (00243) التطوير المركزية: قائمة الحسابات بورشها، إيقاف/تفعيل ورشة (لا المركزية، لا مع حالات مفتوحة)، الموقوفة ⇒ حساباتها وتوجيهها كالمركزية
+select auth.set_test_user('ec240000-0000-0000-0000-000000000003');
+do $$ declare j jsonb; begin
+  assert (select a.workshop_key from public.maintenance_workshop_accounts_list() a where a.email = 'ws-zaaf@t.iq') = 'zaafaraniya', 'accounts list zaaf';
+  assert (select a.workshop_key from public.maintenance_workshop_accounts_list() a where a.email = 'ws-central@t.iq') = 'central' and (select not a.explicit from public.maintenance_workshop_accounts_list() a where a.email = 'ws-central@t.iq'), 'accounts list central default';
+  perform pg_temp.expect_error($q$select public.maintenance_workshop_set_active('central', false)$q$, 'MAINTENANCE_WORKSHOP_CENTRAL_REQUIRED');
+  perform pg_temp.expect_error($q$select public.maintenance_workshop_set_active('nowhere', false)$q$, 'MAINTENANCE_WORKSHOP_INVALID');
+  -- حالة مفتوحة جديدة في الزعفرانية تمنع الإيقاف
+  insert into public.vehicle_maintenance_cases (departure_id, breakdown_id, vehicle_id, manager_id, fault_type, priority, workshop_key)
+  select departure_id, breakdown_id, vehicle_id, manager_id, 'عطل مؤقت', 'normal', 'zaafaraniya' from public.vehicle_maintenance_cases where id = current_setting('test.c2')::uuid;
+  perform pg_temp.expect_error($q$select public.maintenance_workshop_set_active('zaafaraniya', false)$q$, 'MAINTENANCE_WORKSHOP_HAS_OPEN_CASES');
+  update public.vehicle_maintenance_cases set completed_at = now(), status = 'returned_to_work' where fault_type = 'عطل مؤقت';
+  j := public.maintenance_workshop_set_active('zaafaraniya', false);
+  assert (select not (w ->> 'is_active')::boolean from jsonb_array_elements(j) w where w ->> 'key' = 'zaafaraniya'), 'deactivated';
+  assert app.maintenance_workshop_for_sector(6::smallint) = 'central', 'routing falls back to central';
+  assert (select a.workshop_key from public.maintenance_workshop_accounts_list() a where a.email = 'ws-zaaf@t.iq') = 'central', 'inactive workshop account listed as central';
+end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000002');
+do $$ begin assert app.maintenance_workshop() = 'central', 'zaaf account behaves as central while inactive'; end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000003');
+do $$ begin perform public.maintenance_workshop_set_active('zaafaraniya', true); assert app.maintenance_workshop_for_sector(6::smallint) = 'zaafaraniya', 'reactivated'; end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000004');
+select pg_temp.expect_error($q$select public.maintenance_workshop_set_active('zaafaraniya', false)$q$, 'IT_FORBIDDEN');
 do $$ begin raise notice 'maintenance-workshops-test OK'; end $$;

@@ -16,4 +16,13 @@ export const useAssignMaintenanceWorkshop = () => {
     onError: (e) => toast({ type: 'error', message: handleAppError(e, { scope: 'maintenance-workshops' }).message }),
   })
 }
+export const useMaintenanceWorkshopAccounts = () => useQuery({ queryKey: [...ROOT, 'accounts'], queryFn: () => maintenanceWorkshops.accounts() })
+export const useSetMaintenanceWorkshopActive = () => {
+  const qc = useQueryClient(), toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (x: { key: WorkshopKey; isActive: boolean }) => maintenanceWorkshops.setActive(x.key, x.isActive),
+    onSuccess: (_d, x) => { void qc.invalidateQueries({ queryKey: ROOT }); toast({ type: 'success', message: x.isActive ? 'فُعِّلت الورشة' : 'أُوقفت الورشة' }) },
+    onError: (e) => toast({ type: 'error', message: handleAppError(e, { scope: 'maintenance-workshops' }).message }),
+  })
+}
 export const useMyMaintenanceWorkshop = () => useQuery({ queryKey: [...ROOT, 'mine'], queryFn: () => maintenanceWorkshops.mine(), staleTime: 5 * 60_000 })

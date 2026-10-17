@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const PAGES: readonly HubPageLink[] = [
   { path: '/it/user-management/list', label: 'المستخدمون', hint: 'قائمة كل الحسابات والأدوار', icon: 'users' },
   { path: '/it/user-management/create', label: 'إنشاء مستخدم', hint: 'حساب + دور + ربط موظف', icon: 'user-plus' },
+  { path: '/it/user-management/maintenance-workshops', label: 'ورش الصيانة', hint: 'المركزية وقاطع الزعفرانية — حسابات كل ورشة وتفعيلها', icon: 'settings' },
 ]
 
 export default function UserManagementHub() {
