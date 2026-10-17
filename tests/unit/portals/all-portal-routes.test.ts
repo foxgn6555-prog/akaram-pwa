@@ -4,7 +4,7 @@
  * يجب أن يكون له Route فعلي — وإلا يسقط في wildcard ويعود لـ /login.
  */
 import { describe, it, expect } from 'vitest'
-import type { RouteObject } from 'react-router'
+import { matchPath, type RouteObject } from 'react-router'
 import { buildPortalRoutes } from '@router/unit-routes'
 import { PORTAL_UNITS } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
@@ -57,7 +57,9 @@ describe('⚓ الانحدار: كل روابط الشريط الجانبي له
       )
 
       for (const rel of sidebarPaths) {
-        const covered = rel === '' ? hasIndex || paths.has('') : paths.has(rel)
+        // 00280: التغطية إما بمسار حرفي أو بمسار مخصص بمعامل يطابقه (devops/git ← devops/:slug)
+        const byParam = [...paths].some((p) => p.includes(':') && matchPath({ path: p, end: true }, '/' + rel) !== null)
+        const covered = rel === '' ? hasIndex || paths.has('') : paths.has(rel) || byParam
         expect(covered, `الشريط يعلن /${portal}/${rel} بلا صفحة`).toBe(true)
       }
     })

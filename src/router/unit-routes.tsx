@@ -39,11 +39,12 @@ export function buildPortalRoutes(
   const children: RouteObject[] = []
   const covered = new Set<string>()
 
+  const servedByParamRoute = (rel: string): boolean =>
+    customRoutes.some((r) => typeof r.path === 'string' && r.path.includes(':') && matchPath({ path: r.path, end: true }, '/' + rel) !== null)
+
   const resolve = (absPath: string): RouteObject => {
     const rel = absPath === portalPath ? '' : absPath.slice(portalPath.length + 1)
-    // 00279: مسار مخصص بمعامل (مثل devops/:slug) يخدم أطفال الشريط المطابقين له (devops/git …)
-    // بدل أن يسقطوا في Placeholder «قيد التطوير» الذي كان يسبق المسار بالمعامل في الترتيب
-    const custom = byRel.get(rel) ?? customRoutes.find((r) => typeof r.path === 'string' && r.path.includes(':') && matchPath({ path: r.path, end: true }, '/' + rel))
+    const custom = byRel.get(rel)
     if (custom?.element) {
       return { path: rel || undefined, index: rel === '', element: custom.element }
     }
@@ -59,6 +60,9 @@ export function buildPortalRoutes(
     covered.add(unit.path === portalPath ? '' : unit.path.slice(portalPath.length + 1))
     for (const child of unit.children ?? []) {
       const rel = child.path.slice(portalPath.length + 1)
+      // 00279/00280: طفل يخدمه مسار مخصص بمعامل (devops/git ← devops/:slug) لا يأخذ مساراً ثابتاً خاصاً
+      // (كان يسقط في Placeholder «قيد التطوير»، وبمسار ثابت يفقد المعامل slug) — يُترك لمسار المعامل الذي يُضاف أدناه
+      if (!byRel.has(rel) && servedByParamRoute(rel)) continue
       children.push(resolve(child.path))
       covered.add(rel)
     }

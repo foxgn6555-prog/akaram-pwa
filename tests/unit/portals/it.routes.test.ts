@@ -69,18 +69,10 @@ describe('بنية البوابة التقنية v2', () => {
     expect(allPaths).not.toContain('user-management/departments') // الهيكل التنظيمي يُدار من /hr/org حصراً
   })
 
-  it('00279: أطفال الشريط الذين يخدمهم مسار بمعامل (devops/git … ← devops/:slug) يحصلون على صفحة الدليل لا Placeholder «قيد التطوير»', () => {
-    const guide = routes.find((r) => r.path === 'devops/:slug')?.element as ReactElement<{ children?: ReactElement }>
-    const guideInner = (guide.props.children as ReactElement).type
-    for (const rel of ['devops/git', 'devops/database', 'devops/tests', 'devops/hosting']) {
-      const el = routes.find((r) => r.path === rel)?.element as ReactElement<{ children?: ReactElement }>
-      const inner = el.props.children as ReactElement<Record<string, unknown>>
-      expect(inner.props.unitPath, `${rel} سقط في Placeholder`).toBeUndefined()
-      expect(inner.type).toBe(guideInner)
-    }
-    // الصفحة الثابتة devops/status تبقى صفحتها لا دليل :slug
-    const st = routes.find((r) => r.path === 'devops/status')?.element as ReactElement<{ children?: ReactElement }>
-    expect((st.props.children as ReactElement).type).not.toBe(guideInner)
+  it('00279/00280: أطفال الشريط الذين يخدمهم مسار بمعامل (devops/git … ← devops/:slug) لا يأخذون مساراً ثابتاً (كان Placeholder «قيد التطوير» ثم فقدان slug) — يخدمهم مسار المعامل', () => {
+    for (const rel of ['devops/git', 'devops/database', 'devops/tests', 'devops/hosting']) expect(allPaths.has(rel), `${rel} يجب ألا يكون مساراً ثابتاً`).toBe(false)
+    expect(allPaths).toContain('devops/:slug')
+    expect(allPaths).toContain('devops/status')   // الصفحة الثابتة تبقى
   })
 
   it('صفحة التفاصيل :userId محفوظة رغم أنها ليست في الشريط', () => {
@@ -89,7 +81,7 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(36) // 00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)))))))
+    expect(itPaths).toHaveLength(32) // 00280: أطفال devops الأربعة يخدمهم devops/:slug بلا مسارات ثابتة · 36 (00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170))))))))
     expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('user-management/maintenance-workshops')   // 00274
     expect(itPaths).toContain('devops')   // 00275
