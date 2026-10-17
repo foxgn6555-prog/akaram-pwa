@@ -30,6 +30,17 @@ describe('عقد محتوى الأدلة', () => {
     const rescue = g.sections.find((s) => s.id === 'rescue')!
     expect(rescue.commands!.find((c) => c.cmd.startsWith('git reset --hard'))!.danger).toBe('danger')
   })
+  it('00276: دليل قاعدة البيانات يغطي db push والقواعد الذهبية؛ دليل الاختبارات يغطي الأنواع الستة وأوامر التشغيل', () => {
+    const db = JSON.stringify(findGuide('database')!)
+    expect(db).toContain('npx supabase db push')
+    expect(db).toContain('--dry-run')
+    expect(db).toContain('لا يُعدَّل أبداً')
+    const t = findGuide('tests')!
+    expect(t.sections.find((s) => s.id === 'types')!.concepts).toHaveLength(6)
+    const tj = JSON.stringify(t)
+    for (const c of ['npm test', 'npm run typecheck', 'npm run lint', 'npm run build', 'node scripts/db-migrations-test.mjs']) expect(tj).toContain(c)
+    expect(GUIDES.map((g) => g.slug)).toEqual(['git', 'database', 'tests'])
+  })
 })
 
 describe('العارض والصفحات', () => {

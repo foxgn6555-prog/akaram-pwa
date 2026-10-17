@@ -4,6 +4,8 @@ import { GUIDES } from '@features/devops-guide'
 
 const PAGES: readonly HubPageLink[] = [
   { path: '/it/devops/git', label: 'Git ورفع التحديثات', hint: 'الباتشات، الرفع إلى GitHub، أوامر الإنقاذ', icon: 'upload' },
+  { path: '/it/devops/database', label: 'قاعدة البيانات والترحيلات', hint: 'Supabase، db push، القواعد الذهبية، لوحة Supabase', icon: 'database' },
+  { path: '/it/devops/tests', label: 'الاختبارات', hint: 'الأنواع الستة، التشغيل، قراءة النتيجة، CI', icon: 'check-square' },
 ]
 
 export default function DevOpsHub() {
@@ -13,7 +15,7 @@ export default function DevOpsHub() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="devops-stats">
         <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">الأدلة</p><b className="text-2xl">{GUIDES.length}</b></div>
         <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">الأوامر المشروحة</p><b className="text-2xl">{total}</b></div>
-        <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">قادم</p><b className="text-xs">قاعدة البيانات والاختبارات · الاستضافة والبصمة · لوحة الحالة الحية</b></div>
+        <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">قادم</p><b className="text-xs">الاستضافة (هوستنجر + Supabase) والبصمة في الإنتاج · لوحة الحالة الحية</b></div>
       </div>
     </UnitHub>
   )

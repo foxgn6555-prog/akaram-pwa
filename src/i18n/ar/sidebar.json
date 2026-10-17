@@ -136,6 +136,8 @@
     "maintenance_workshops": "ورش الصيانة",
     "devops_guide": "دليل التشغيل التقني",
     "devops_git": "Git ورفع التحديثات",
+    "devops_database": "قاعدة البيانات والترحيلات",
+    "devops_tests": "الاختبارات",
     "mgr_citizen_complaints": "شكاوى المواطنين",
     "approval_tasks": "طلبات الموافقة",
     "mgr_gbs_containers": "حاويات GBS",
