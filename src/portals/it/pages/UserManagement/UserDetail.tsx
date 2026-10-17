@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ContractorAssignmentCard } from './ContractorAssignmentCard'
 import { SectorManagerCard } from './SectorManagerCard'
 import { FollowUpAssignmentCard } from './FollowUpAssignmentCard'   // 00259
+import { MaintenanceWorkshopCard } from './MaintenanceWorkshopCard'   // 00271
 import { OpsUnitsCard } from './OpsUnitsCard'
 import { useNavigate, useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
@@ -417,6 +418,7 @@ export default function UserDetail() {
       {hasRole('employee') && userId && <ContractorAssignmentCard userId={userId} />}
       {hasRole('admin_ops') && userId && <SectorManagerCard userId={userId} />}
       {hasRole('follow_up') && userId && <FollowUpAssignmentCard userId={userId} />}
+      {hasRole('maintenance') && userId && <MaintenanceWorkshopCard userId={userId} />}
       {hasRole('ops_room') && userId && <OpsUnitsCard userId={userId} />}
 
       {hasRole('central_garage_officer') && (
