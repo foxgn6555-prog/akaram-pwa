@@ -146,6 +146,17 @@ interface ThumbGroup {
 }
 
 /** إسقاط صورة قبل صورة أخرى (أو نهاية المجموعة) مع إمكانية تغيير نوع العمل */
+/** 00282: تبديل موضعي صورتين (داخل الفقرة نفسها أو بين فقرتين — تتبادلان الفقرة أيضاً) — نقي */
+export function applySwap(gs: ThumbGroup[], a: string, b: string): ThumbGroup[] {
+  if (a === b) return gs
+  let pa: ThumbPhoto | undefined, pb: ThumbPhoto | undefined
+  for (const g of gs) for (const p of g.photos) { if (p.rowId === a) pa = p; if (p.rowId === b) pb = p }
+  if (!pa || !pb) return gs
+  return gs.map((g) => ({ ...g, photos: g.photos.map((p) => (p.rowId === a ? pb! : p.rowId === b ? pa! : p)) }))
+}
+/** ترتيب الحفظ (sort_order) من المجموعات — نقي */
+export const orderItems = (gs: ThumbGroup[]) => gs.flatMap((g, gi) => g.photos.map((p, i) => ({ rowId: p.rowId, workType: g.workType, sortOrder: gi * 100 + i + 1 })))
+
 function applyMove(
   gs: ThumbGroup[],
   dragRowId: string,
@@ -281,6 +292,12 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
         update.mutate([designId, { ...meta(), coverPath: path }], { onSuccess: () => detail.refetch() })
       },
     })
+  }
+
+  const commitSwap = (a: string, b: string) => {
+    const next = applySwap(groups, a, b)
+    if (next === groups) return
+    reorder.mutate([orderItems(next)], { onSuccess: () => detail.refetch() })
   }
 
   const commitMove = (toWork: string, beforeRowId: string | null) => {
@@ -634,6 +651,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                 })),
               }))}
               onSaveReport={(sh, caps, extra) => saveReport.mutateAsync([sh, caps, extra])}
+              onSwapPhotos={locked ? undefined : commitSwap}
               wordDataRef={wordRef}
             />
           </div>

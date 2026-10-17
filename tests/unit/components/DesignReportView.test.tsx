@@ -51,14 +51,13 @@ describe('بنية أوراق التقرير', () => {
     expect(grids[0]?.children.length).toBe(4)
     expect(grids[1]?.children.length).toBe(1)
     expect(grids[2]?.children.length).toBe(2)
-    // 00280: الصفحة الناقصة تحمل عدد صورها لتُوزَّع بحسبه (CSS data-count) — الحد الأقصى ٤ ثابت
+    // 00282: شكل الشبكة من محرك القوالب كأنماط مضمّنة: ٤ = 2×2، ١ = كاملة، ٢ = عمودان
     expect(grids[0]).toHaveAttribute('data-count', '4')
-    expect(grids[1]).toHaveAttribute('data-count', '1')
-    expect(grids[2]).toHaveAttribute('data-count', '2')
-    const css = container.querySelector('style')?.textContent ?? document.head.textContent ?? ''
-    expect(css).toContain(".rp-grid[data-count='1'] { grid-template-columns: 1fr; grid-template-rows: 1fr; }")
-    expect(css).toContain(".rp-grid[data-count='2'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }")
-    expect(css).toContain(".rp-grid[data-count='3'] .rp-cell:nth-child(3) { grid-column: 1 / -1; width: calc(50% - 1.25mm); justify-self: center; }")
+    expect((grids[0] as HTMLElement).style.gridTemplateColumns).toBe('1fr 1fr')
+    expect((grids[1] as HTMLElement).style.gridTemplateColumns).toBe('1fr')
+    expect((grids[1] as HTMLElement).style.gridTemplateRows).toBe('1fr')
+    expect((grids[2] as HTMLElement).style.gridTemplateColumns).toBe('1fr 1fr')
+    expect((grids[2] as HTMLElement).style.gridTemplateRows).toBe('1fr')
   })
 
   it('بلا غلاف: ورقة عنوان + صفحة الجدول', () => {
@@ -137,7 +136,7 @@ describe('بنية أوراق التقرير', () => {
     expect(screen.getByText('4 ورقة')).toBeInTheDocument()
     // القالب الافتراضي كلاسيكي ثم فسيفساء
     expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('classic')
-    fireEvent.click(screen.getByText('فسيفساء: عنوان كبير + ثلاث'))
+    fireEvent.click(screen.getByText('فسيفساء: كبيرة فوق + صغار تحت'))
     expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('mosaic')
     // الخط
     fireEvent.click(screen.getByText('أميري'))
@@ -171,7 +170,7 @@ describe('بنية أوراق التقرير', () => {
     )
     fireEvent.click(screen.getByText('شريط فيلم أفقي'))
     expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('film')
-    fireEvent.click(screen.getByText('كولاج: كبير جانبياً'))
+    fireEvent.click(screen.getByText('كولاج: كبيرة جانبياً + عمود'))
     expect(container.querySelector('.rp-grid')?.getAttribute('data-layout')).toBe('collage')
     fireEvent.click(screen.getByText('خط أنيق تحت النص'))
     expect(container.querySelector('.rp-sheet-inner')?.getAttribute('data-style')).toBe('underline')
@@ -349,5 +348,40 @@ describe('00202 — مزوّد بيانات Word من المعاينة الحي�
     expect(d!.logos?.company).toBe('/report-assets/logo-company.png')
     unmount()
     expect(ref.current).toBeNull()
+  })
+})
+
+/** 00282 — السحب والإفلات لتبديل موضعي صورتين داخل المعاينة + مواضع الخلايا من المحرك */
+describe('السحب والإفلات وتوزيع الخلايا (00282)', () => {
+  it('كل خلية تأخذ موضعها (gridColumn/gridRow) من القالب: ٣ صور كلاسيكية ⇒ الثالثة تمتد على العمودين', () => {
+    const { container } = render(<DesignReportView {...base} groups={[{ workType: 'كنس', photos: [1, 2, 3].map(photo) }]} />)
+    const cells = container.querySelectorAll<HTMLElement>('.rp-grid .rp-cell')
+    expect(cells).toHaveLength(3)
+    expect(cells[2]!.style.gridColumn).toBe('1 / -1')
+    expect(cells[2]!.style.gridRow).toBe('2')
+    expect(cells[0]!.getAttribute('draggable')).toBeNull()   // غير قابل للتحرير ⇒ لا سحب
+  })
+  it('في وضع التحرير: سحب صورة وإفلاتها على أخرى ينادي onSwapPhotos بالترتيب (المسحوبة، الهدف)؛ الإفلات على نفسها لا يفعل شيئاً', () => {
+    const onSwap = vi.fn()
+    const { container } = render(
+      <DesignReportView {...base} groups={[{ workType: 'كنس', photos: [1, 2].map(photo) }]} onSaveReport={async () => {}} onSwapPhotos={onSwap} />,
+    )
+    const [a, b] = Array.from(container.querySelectorAll<HTMLElement>('.rp-grid .rp-cell'))
+    expect(a!.getAttribute('draggable')).toBe('true')
+    const dt = { effectAllowed: '', dropEffect: '', setData: vi.fn(), getData: vi.fn(() => 'row-1') }
+    fireEvent.dragStart(a!, { dataTransfer: dt })
+    expect(a!.getAttribute('data-dragging')).toBe('true')
+    fireEvent.dragOver(b!, { dataTransfer: dt })
+    expect(b!.getAttribute('data-over')).toBe('true')
+    fireEvent.drop(b!, { dataTransfer: dt })
+    expect(onSwap).toHaveBeenCalledWith('row-1', 'row-2')
+    expect(a!.getAttribute('data-dragging')).toBeNull()
+    fireEvent.dragStart(a!, { dataTransfer: dt })
+    fireEvent.drop(a!, { dataTransfer: dt })
+    expect(onSwap).toHaveBeenCalledTimes(1)
+  })
+  it('بلا onSwapPhotos (تصميم مكتمل) لا سحب حتى مع التحرير', () => {
+    const { container } = render(<DesignReportView {...base} groups={[{ workType: 'كنس', photos: [1, 2].map(photo) }]} onSaveReport={async () => {}} />)
+    expect(container.querySelector('.rp-grid .rp-cell')!.getAttribute('draggable')).toBeNull()
   })
 })

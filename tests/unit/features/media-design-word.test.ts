@@ -100,36 +100,28 @@ describe('Word — الملف الناتج', () => {
   })
 })
 
-/** 00280 — الصفحة الناقصة (١–٣ صور) بلا خلايا فارغة: ١ = جدول بعمود واحد بكامل العرض، ٢ = عمودان بكامل الارتفاع، ٣ = جدول علوي + جدول سفلي بعرض نصفي في المنتصف */
-describe('Word — توزيع الصور بحسب عددها (00280)', () => {
-  const only = (n: number): WordReportData => ({ ...data, groups: [{ workType: 'ع', sheetText: 'ع', photos: Array.from({ length: n }, (_, i) => ({ url: `p${i}`, caption: `ص${i + 1}` })) }] })
-  const tablesAfterLastBreak = (xml: string) => xml.slice(xml.lastIndexOf('<w:br w:type="page"/>'))
-  it('صورة واحدة: لا خلية فارغة، عرض الخلية = عرض الصفحة كاملاً، وارتفاع الصف الطويل', async () => {
-    const { xml } = await unzipDoc(only(1))
-    const tail = tablesAfterLastBreak(xml)
-    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(2)   // عبارة + صورة
-    expect(tail).toContain('w:w="10546"')                   // CONTENT_W
-    expect(tail).toContain(`w:val="${Math.round(257 * 56.6929)}"`)
-  })
-  it('صورتان: صف واحد بعمودين بكامل الارتفاع (لا صف سفلي فارغ)', async () => {
-    const { xml } = await unzipDoc(only(2))
-    const tail = tablesAfterLastBreak(xml)
-    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(4)
-    expect((tail.match(/<w:tr[ >]/g) ?? []).length).toBe(2)
-    expect(tail).toContain(`w:val="${Math.round(257 * 56.6929)}"`)
-  })
-  it('ثلاث صور: جدولان — العلوي بصورتين والسفلي بصورة واحدة بنصف العرض ومتمركز', async () => {
-    const { xml } = await unzipDoc(only(3))
-    const tail = tablesAfterLastBreak(xml)
-    expect((tail.match(/<w:tbl>/g) ?? []).length).toBe(2)
-    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(6)
-    expect(tail).toContain('<w:jc w:val="center"/>')
-    expect(tail).toContain('w:w="5273"')                    // colW
-  })
-  it('أربع صور: الشبكة الكاملة ٢×٢ كما هي', async () => {
-    const { xml } = await unzipDoc(only(4))
-    const tail = tablesAfterLastBreak(xml)
-    expect((tail.match(/<w:tc>/g) ?? []).length).toBe(8)
-    expect((tail.match(/<w:tbl>/g) ?? []).length).toBe(1)
+/** 00282 — صفحة الصور في Word تُبنى من photoPageSpec: لكل قالب ولكل عدد (١–٤) جدول واحد بعدد خلايا = عدد الصور (الممتدة بدمج أعمدة/صفوف) بلا خلايا فارغة */
+describe('Word — توزيع الصور بحسب القالب والعدد (00282)', () => {
+  const only = (n: number, photoLayout: WordReportData['photoLayout']): WordReportData => ({ ...data, photoLayout, groups: [{ workType: 'ع', sheetText: 'ع', photos: Array.from({ length: n }, (_, i) => ({ url: `p${i}`, caption: `ص${i + 1}` })) }] })
+  const tail = (xml: string) => xml.slice(xml.lastIndexOf('<w:br w:type="page"/>'))
+  const layouts = ['classic', 'round', 'polaroid', 'stack', 'film', 'mosaic', 'inverse', 'collage', 'magazine'] as const
+  for (const l of layouts) for (const n of [1, 2, 3, 4]) {
+    it(`${l} × ${n}: جدول واحد، ${n} صورة مرسومة، العبارات حاضرة، لا خلية فارغة`, async () => {
+      const { xml } = await unzipDoc(only(n, l))
+      const t = tail(xml)
+      expect((t.match(/<w:tbl>/g) ?? []).length).toBe(1)
+      expect((t.match(/<w:drawing>/g) ?? []).length).toBe(n)
+      for (let i = 1; i <= n; i++) expect(t).toContain(`ص${i}`)
+      // خلايا بلا محتوى (لا نص ولا صورة) = فراغ ممنوع — خلايا الاستمرار (vMerge continue) مستثناة
+      const emptyCells = (t.match(/<w:tc>(?:(?!<\/w:tc>).)*?<\/w:tc>/gs) ?? []).filter((c) => !c.includes('<w:drawing>') && !/ص\d/.test(c) && !c.includes('vMerge'))
+      expect(emptyCells, 'خلايا فارغة').toHaveLength(0)
+    })
+  }
+  it('classic × 3: الثالثة تمتد على العمودين (gridSpan=2)؛ collage × 4: الكبيرة تمتد ثلاثة صفوف (vMerge)', async () => {
+    const a = tail((await unzipDoc(only(3, 'classic'))).xml)
+    expect(a).toContain('<w:gridSpan w:val="2"/>')
+    const b = tail((await unzipDoc(only(4, 'collage'))).xml)
+    expect(b).toContain('<w:vMerge w:val="restart"/>')
+    expect((b.match(/<w:vMerge w:val="continue"\/>/g) ?? []).length).toBe(2)
   })
 })

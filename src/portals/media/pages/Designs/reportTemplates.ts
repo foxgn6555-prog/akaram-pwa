@@ -1,5 +1,6 @@
 /** ثوابت قوالب التقرير المصور: أشكال صفحات الصور، قوالب ورقة النص، ثيمات الجدول، والخطوط */
-export type PhotoLayout = 'classic' | 'round' | 'stack' | 'mosaic' | 'film' | 'collage'
+export type { PhotoLayout } from '@features/media/lib/photo-layouts'
+import type { PhotoLayout } from '@features/media/lib/photo-layouts'
 export type SheetStyle = 'frame' | 'plain' | 'double' | 'underline'
 export type SummaryTheme = 'blue' | 'green' | 'slate' | 'royal'
 export type ReportFont = 'cairo' | 'tajawal' | 'amiri' | 'kufi'
@@ -13,11 +14,17 @@ export interface ReportStyle {
 export const PHOTO_LAYOUTS: Array<{ value: PhotoLayout; label: string }> = [
   { value: 'classic', label: 'شبكة 2×2 كلاسيكية' },
   { value: 'round', label: 'شبكة 2×2 بحواف دائرية' },
-  { value: 'stack', label: 'عمود رباعي عريض' },
-  { value: 'mosaic', label: 'فسيفساء: عنوان كبير + ثلاث' },
+  { value: 'polaroid', label: 'بولارويد: إطار أبيض وظل' },
+  { value: 'stack', label: 'عمود عريض (صور فوق بعضها)' },
   { value: 'film', label: 'شريط فيلم أفقي' },
-  { value: 'collage', label: 'كولاج: كبير جانبياً' },
+  { value: 'mosaic', label: 'فسيفساء: كبيرة فوق + صغار تحت' },
+  { value: 'inverse', label: 'فسيفساء معكوسة: صغار فوق + كبيرة تحت' },
+  { value: 'collage', label: 'كولاج: كبيرة جانبياً + عمود' },
+  { value: 'magazine', label: 'مجلة: طويلة + اثنتان + عريضة' },
 ]
+
+export { PHOTOS_PER_PAGE, photoPageSpec, photoPageCoverage, type PhotoCount, type PhotoPageSpec } from '@features/media/lib/photo-layouts'
+
 export const SHEET_STYLES: Array<{ value: SheetStyle; label: string }> = [
   { value: 'frame', label: 'إطار أسود' },
   { value: 'double', label: 'إطار مزدوج' },

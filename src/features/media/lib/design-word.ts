@@ -26,6 +26,7 @@ import {
   type IParagraphOptions,
   type IRunOptions,
 } from 'docx'
+import { photoPageCoverage, photoPageSpec, type PhotoLayout } from './photo-layouts'
 
 export interface WordImage {
   bytes: Uint8Array
@@ -60,6 +61,8 @@ export interface WordReportData {
   fontName: string
   groups: Array<{ workType: string; sheetText: string; photos: Array<{ url: string; caption: string }> }>
   logos?: { company?: string; baghdad?: string }
+  /** 00282: قالب صفحات الصور (نفس المعاينة) */
+  photoLayout?: PhotoLayout
 }
 
 /* ===== قياسات A4 (DXA = 1/20 نقطة؛ EMU للصور) ===== */
@@ -243,30 +246,49 @@ function sheetPage(text: string, d: WordReportData): Array<Paragraph | Table> {
 }
 
 /* ===== صفحة 4 صور (2×2) ===== */
-/** صفحة صور (٤ كحدّ أقصى). 00280: الصفحة الناقصة تُوزَّع بحسب عددها بلا خلايا فارغة: ١ = صورة كاملة، ٢ = عمودان بكامل الارتفاع، ٣ = صفّان والثالثة في المنتصف */
-export const PHOTO_BOX_TALL = { w: Math.floor(86 * PX_PER_MM), h: Math.floor(250 * PX_PER_MM) }
-export const PHOTO_BOX_FULL = { w: Math.floor(180 * PX_PER_MM), h: Math.floor(250 * PX_PER_MM) }
+/** صفحة صور (٤ كحدّ أقصى). 00282: تُبنى من photoPageSpec نفسه الذي ترسمه المعاينة — كل قالب وكل عدد (١–٤) بلا خلايا فارغة؛
+ *  الخلايا الممتدة تُنفَّذ بدمج أعمدة (columnSpan) وصفوف (rowSpan)، وكل خلية = شريط العبارة + الصورة مقاسة على مساحتها الحقيقية. */
+const PAGE_INSET_MM = 4
+const CAPTION_MM = 9
+const frWeights = (v: string): number[] => v.trim().split(/\s+/).map((x) => Number.parseFloat(x) || 1)
 function photosPage(four: Array<{ url: string; caption: string }>, d: WordReportData, images: Map<string, WordImage>): Array<Paragraph | Table> {
-  const colW = Math.floor(CONTENT_W / 2)
-  const capRow = (ps: Array<{ caption: string }>, w: number) =>
-    new TableRow({ height: { value: Math.round(9 * MM), rule: HeightRule.EXACT }, cantSplit: true, children: ps.map((p) => cell([para(p.caption, { size: 22, bold: true, color: hex(d.colors.barText), font: d.fontName })], { width: w, fill: d.colors.barTo, border: d.colors.border })) })
-  const imgRow = (ps: Array<{ url: string; caption: string }>, w: number, hMm: number, box: { w: number; h: number }) =>
-    new TableRow({ height: { value: Math.round(hMm * MM), rule: HeightRule.EXACT }, cantSplit: true, children: ps.map((p) => cell([imagePara(images.get(p.url), box, p.caption)], { width: w, border: d.colors.border })) })
-  const table = (w: number, rows: TableRow[], center = false) =>
-    new Table({ width: { size: w, type: WidthType.DXA }, visuallyRightToLeft: true, alignment: center ? AlignmentType.CENTER : undefined, rows })
-  const n = four.length
-  if (n === 1) return [table(CONTENT_W, [capRow(four, CONTENT_W), imgRow(four, CONTENT_W, 257, PHOTO_BOX_FULL)])]
-  if (n === 2) return [table(CONTENT_W, [capRow(four, colW), imgRow(four, colW, 257, PHOTO_BOX_TALL)])]
-  if (n === 3) {
-    const top = four.slice(0, 2), last = four.slice(2)
-    return [table(CONTENT_W, [capRow(top, colW), imgRow(top, colW, 124, PHOTO_BOX)]), table(colW, [capRow(last, colW), imgRow(last, colW, 124, PHOTO_BOX)], true)]
+  const spec = photoPageSpec(d.photoLayout ?? 'classic', four.length)
+  const cov = photoPageCoverage(spec)
+  const cw = frWeights(spec.cols), rw = frWeights(spec.rows)
+  const totalW = CONTENT_W - Math.round(PAGE_INSET_MM * MM) * 2, totalH = CONTENT_H - Math.round(PAGE_INSET_MM * MM) * 2
+  const sumW = cw.reduce((a, b) => a + b, 0), sumH = rw.reduce((a, b) => a + b, 0)
+  const colW = cw.map((w) => Math.floor((totalW * w) / sumW)), rowH = rw.map((h) => Math.floor((totalH * h) / sumH))
+  // كل خلية منطقية ⇒ صفّا جدول (عبارة + صورة) لكل صف شبكة تبدأ فيه؛ لتبسيط الدمج نعتمد صفاً واحداً لكل صف شبكة يحوي العبارة والصورة معاً
+  const starts = new Map<number, { r: number; k: number; rs: number; cs: number }>()
+  for (let r = 0; r < cov.rows; r++) for (let k = 0; k < cov.cols; k++) {
+    const i = cov.occupied[r]![k]!
+    if (!i) continue
+    const st = starts.get(i)
+    if (!st) starts.set(i, { r, k, rs: 1, cs: 1 })
+    else { st.rs = Math.max(st.rs, r - st.r + 1); st.cs = Math.max(st.cs, k - st.k + 1) }
   }
-  const rowsArr: TableRow[] = []
-  for (let r = 0; r < 2; r++) {
-    const pair = [four[r * 2], four[r * 2 + 1]].filter((p): p is { url: string; caption: string } => Boolean(p))
-    rowsArr.push(capRow(pair, colW), imgRow(pair, colW, 124, PHOTO_BOX))
+  const rows: TableRow[] = []
+  for (let r = 0; r < cov.rows; r++) {
+    const children: TableCell[] = []
+    for (let k = 0; k < cov.cols; k++) {
+      const i = cov.occupied[r]![k]!
+      const st = starts.get(i)
+      if (!st || st.r !== r || st.k !== k) continue   // خلية ممتدة من صورة بدأت قبلها (docx يضيف خلايا الاستمرار تلقائياً)
+      const p = four[i - 1]!
+      const wDxa = colW.slice(st.k, st.k + st.cs).reduce((a, b) => a + b, 0)
+      const hDxa = rowH.slice(st.r, st.r + st.rs).reduce((a, b) => a + b, 0)
+      const boxWmm = wDxa / MM - 4, boxHmm = hDxa / MM - CAPTION_MM - 4
+      const box = { w: Math.floor(boxWmm * PX_PER_MM), h: Math.floor(boxHmm * PX_PER_MM) }
+      children.push(
+        cell(
+          [para(p.caption, { size: 22, bold: true, color: hex(d.colors.barText), font: d.fontName, shading: { type: ShadingType.CLEAR, color: 'auto', fill: hex(d.colors.barTo) }, spacing: { before: 60, after: 60 } }), imagePara(images.get(p.url), box, p.caption)],
+          { width: wDxa, border: d.colors.border, colSpan: st.cs > 1 ? st.cs : undefined, rowSpan: st.rs > 1 ? st.rs : undefined, vAlign: VerticalAlign.TOP },
+        ),
+      )
+    }
+    rows.push(new TableRow({ height: { value: rowH[r]!, rule: HeightRule.EXACT }, cantSplit: true, children }))
   }
-  return [table(CONTENT_W, rowsArr)]
+  return [new Table({ width: { size: totalW, type: WidthType.DXA }, columnWidths: colW, visuallyRightToLeft: true, alignment: AlignmentType.CENTER, rows })]
 }
 
 /** يبني مستند Word كاملاً من بيانات التصميم والصور المحمّلة (نقي) */

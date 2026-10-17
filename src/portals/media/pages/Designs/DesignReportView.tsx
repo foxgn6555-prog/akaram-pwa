@@ -79,6 +79,7 @@ import {
   DEFAULT_STYLE,
   FONTS,
   PHOTO_LAYOUTS,
+  photoPageSpec,
   REPORT_FONTS,
   SHEET_STYLES,
   SUMMARY_THEMES,
@@ -108,6 +109,8 @@ export interface DesignReportData {
   style?: ReportStyle | null
   /** 00202: يُسجَّل فيه مزوّد بيانات ملف Word (الحالة الحية للتقرير) لتستخدمه قائمة التصدير */
   wordDataRef?: WordDataRef
+  /** 00282: تبديل موضعي صورتين بالسحب والإفلات داخل المعاينة (يُحفظ ترتيبها فوراً) */
+  onSwapPhotos?: (rowIdA: string, rowIdB: string) => void
   onSaveReport?: (
     sheets: Array<{ workType: string; text: string }>,
     captions: Array<{ rowId: string; text: string; fit: 'contain' | 'cover'; zoom: number }>,
@@ -316,9 +319,13 @@ export default function DesignReportView({
   colors,
   style,
   onSaveReport,
+  onSwapPhotos,
   wordDataRef,
   ...periodProps
 }: DesignReportData) {
+  // 00282: سحب وإفلات لتبديل موضعي صورتين
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
   const allPaths = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.path)), [groups])
   const urls = useSignedPhotoUrls(allPaths).data ?? {}
 
@@ -473,6 +480,7 @@ export default function DesignReportView({
       theme,
       colors: cols,
       fontName: WORD_FONT_NAME[sty.font],
+      photoLayout: sty.photoLayout,
       logos: { company: '/report-assets/logo-company.png', baghdad: '/report-assets/logo-baghdad.png' },
       groups: groups.map((g) => ({
         workType: g.workType,
@@ -559,19 +567,15 @@ export default function DesignReportView({
           grid-template-rows: 1fr 1fr;
           gap: 2.5mm;
         }
-        .rp-grid[data-layout='stack'] { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
-        .rp-grid[data-layout='mosaic'] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 3fr 2fr; }
-        .rp-grid[data-layout='mosaic'] .rp-cell:first-child { grid-column: 1 / -1; }
-        .rp-grid[data-layout='film'] { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; }
-        .rp-grid[data-layout='collage'] { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
-        .rp-grid[data-layout='collage'] .rp-cell:first-child { grid-row: 1 / -1; }
+        /* 00282: شكل الشبكة (الأعمدة/الصفوف/مواضع الخلايا) يأتي من photoPageSpec كأنماط مضمّنة لكل قالب وكل عدد (١–٤) */
         .rp-grid[data-layout='round'] .rp-cell { border-radius: 3mm; overflow: hidden; }
-        /* 00280: صفحة ناقصة (١–٣ صور) تُوزَّع بحسب عددها بلا فراغ — الحد الأقصى ٤ للصفحة ثابت */
-        .rp-grid[data-count='1'] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-        .rp-grid[data-count='2'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-        .rp-grid[data-count='3'] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        .rp-grid[data-count='1'] .rp-cell, .rp-grid[data-count='2'] .rp-cell, .rp-grid[data-count='3'] .rp-cell { grid-column: auto; grid-row: auto; }
-        .rp-grid[data-count='3'] .rp-cell:nth-child(3) { grid-column: 1 / -1; width: calc(50% - 1.25mm); justify-self: center; }
+        .rp-grid[data-layout='polaroid'] { gap: 5mm; inset: 6mm; }
+        .rp-grid[data-layout='polaroid'] .rp-cell { padding: 3mm 3mm 0; background: #fff; box-shadow: 0 1.5mm 4mm rgb(0 0 0 / 0.25); border-radius: 1mm; }
+        .rp-grid[data-layout='polaroid'] .rp-cell .rp-bar { order: 2; }
+        .rp-grid[data-layout='polaroid'] .rp-cell .rp-photo { order: 1; }
+        .rp-cell[draggable='true'] { cursor: grab; }
+        .rp-cell[data-dragging='true'] { opacity: 0.45; }
+        .rp-cell[data-over='true'] { outline: 1.2mm dashed #0891b2; outline-offset: -1.2mm; }
         .rp-cell { display: flex; flex-direction: column; min-height: 0; background: #fff; }
         .rp-bar { text-align: center; font-size: 10pt; font-weight: 800; padding: 1.6mm 1mm; width: 100%; }
         .rp-bar-input {
@@ -918,13 +922,35 @@ export default function DesignReportView({
                 </div>
               </section>
 
-              {chunk4(g.photos).map((four, i) => (
+              {chunk4(g.photos).map((four, i) => {
+                const spec = photoPageSpec(sty.photoLayout, four.length)
+                return (
                 <section key={`${g.workType}-${i}`} className="rp-page">
-                  <div className="rp-grid" data-layout={sty.photoLayout} data-count={four.length}>
-                    {four.map((p) => {
+                  <div className="rp-grid" data-layout={sty.photoLayout} data-count={four.length} style={{ gridTemplateColumns: spec.cols, gridTemplateRows: spec.rows }}>
+                    {four.map((p, ci) => {
                       const fz = fits[p.rowId] ?? { fit: 'contain' as const, zoom: 1 }
+                      const area = spec.cells[ci] ?? spec.cells[spec.cells.length - 1]!
+                      const canDrag = editable && Boolean(onSwapPhotos)
                       return (
-                        <figure key={p.rowId} className="rp-cell" style={cellStyle}>
+                        <figure
+                          key={p.rowId}
+                          className="rp-cell"
+                          data-row-id={p.rowId}
+                          data-dragging={dragId === p.rowId || undefined}
+                          data-over={(overId === p.rowId && dragId !== p.rowId) || undefined}
+                          draggable={canDrag || undefined}
+                          onDragStart={canDrag ? (e) => { setDragId(p.rowId); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.rowId) } : undefined}
+                          onDragOver={canDrag ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overId !== p.rowId) setOverId(p.rowId) } : undefined}
+                          onDragLeave={canDrag ? () => setOverId((o) => (o === p.rowId ? null : o)) : undefined}
+                          onDragEnd={canDrag ? () => { setDragId(null); setOverId(null) } : undefined}
+                          onDrop={canDrag ? (e) => {
+                            e.preventDefault()
+                            const src = dragId ?? e.dataTransfer.getData('text/plain')
+                            setDragId(null); setOverId(null)
+                            if (src && src !== p.rowId) onSwapPhotos!(src, p.rowId)
+                          } : undefined}
+                          title={canDrag ? 'اسحب الصورة وأفلتها على صورة أخرى لتبديل موضعيهما' : undefined}
+                          style={{ ...cellStyle, gridColumn: area.col, gridRow: area.row }}>
                           <EditableText
                             label={`عبارة صورة ${g.workType}`}
                             value={captions[p.rowId] ?? p.caption ?? g.workType}
@@ -1005,7 +1031,8 @@ export default function DesignReportView({
                     })}
                   </div>
                 </section>
-              ))}
+                )
+              })}
             </div>
           ))}
         </div>

@@ -149,3 +149,22 @@ describe('00198 — دوال نقية', () => {
     expect(jpegName('IMG_0001.HEIC')).toBe('IMG_0001.jpg'); expect(jpegName('photo')).toBe('photo.jpg')
   })
 })
+
+/** 00282 — تبديل موضعي صورتين (نقي) وترتيب الحفظ */
+describe('00282 — applySwap / orderItems', () => {
+  const g = (w: string, ids: string[]) => ({ workType: w, photos: ids.map((id) => ({ id, rowId: id, path: id, caption: null, reportCaption: null, fit: 'contain' as const, zoom: 1 })) })
+  it('داخل الفقرة نفسها: تتبادلان الموضع؛ بين فقرتين: تتبادلان الفقرة أيضاً؛ معرّف مجهول أو نفسه ⇒ لا تغيير', async () => {
+    const { applySwap, orderItems } = await import('@portals/media/pages/Designs/MediaDesignsPage')
+    const gs = [g('كنس', ['a', 'b', 'c']), g('غسل', ['x'])]
+    expect(applySwap(gs, 'a', 'c')[0]!.photos.map((p) => p.rowId)).toEqual(['c', 'b', 'a'])
+    const cross = applySwap(gs, 'b', 'x')
+    expect(cross[0]!.photos.map((p) => p.rowId)).toEqual(['a', 'x', 'c'])
+    expect(cross[1]!.photos.map((p) => p.rowId)).toEqual(['b'])
+    expect(applySwap(gs, 'a', 'a')).toBe(gs)
+    expect(applySwap(gs, 'a', 'zz')).toBe(gs)
+    expect(orderItems(cross)).toEqual([
+      { rowId: 'a', workType: 'كنس', sortOrder: 1 }, { rowId: 'x', workType: 'كنس', sortOrder: 2 }, { rowId: 'c', workType: 'كنس', sortOrder: 3 },
+      { rowId: 'b', workType: 'غسل', sortOrder: 101 },
+    ])
+  })
+})
