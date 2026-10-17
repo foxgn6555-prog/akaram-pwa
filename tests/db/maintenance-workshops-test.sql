@@ -169,4 +169,39 @@ do $$ declare c2 uuid := current_setting('test.c2')::uuid; c1 uuid := current_se
   perform public.maintenance_confirm_arrival(c1, 'وصلت');
   perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c1, 'سبب كافٍ للتحويل'), 'MAINTENANCE_FORWARD_ALREADY_CENTRAL');
 end $$;
+
+-- ⑧ (00242) خارج بوابة الصيانة: غرفة العمليات ترى الورشة وحدث التحويل وتفلتر بالورشة؛ مسؤول القاطع يرى الورشة في حالة رحلته؛ الأرشيف بفلتر الورشة
+select auth.set_test_user('ec240000-0000-0000-0000-000000000004');
+do $$ declare c1 uuid := current_setting('test.c1')::uuid; c2 uuid := current_setting('test.c2')::uuid; n int; begin
+  assert (select r.workshop_name from public.operational_maintenance_report(current_date, current_date) r where r.case_id = c2) = 'الصيانة المركزية', 'ops report workshop';
+  assert (select r.origin_workshop_name from public.operational_maintenance_report(current_date, current_date) r where r.case_id = c2) = 'صيانة قاطع الزعفرانية', 'ops report origin';
+  assert (select r.forward_reason from public.operational_maintenance_report(current_date, current_date) r where r.case_id = c2) like 'يحتاج رافعة%', 'ops report reason';
+  select count(*) into n from public.operational_maintenance_report(current_date, current_date, 'zaafaraniya') r where r.case_id in (c1, c2);
+  assert n = 1, 'ops filter zaafaraniya (origin counts): ' || n;
+  select count(*) into n from public.operational_maintenance_report(current_date, current_date, 'central') r where r.case_id in (c1, c2);
+  assert n = 2, 'ops filter central: ' || n;
+  assert exists (select 1 from public.operational_departure_timeline('dd240000-0000-0000-0000-000000000002') t where t.title = 'تحويل إلى الصيانة المركزية' and t.details like '%صيانة قاطع الزعفرانية%'), 'ops timeline forward event';
+  assert exists (select 1 from public.operational_departure_timeline('dd240000-0000-0000-0000-000000000002') t where t.title = 'وصلت إلى الصيانة المركزية'), 'ops timeline leg arrival label';
+  assert exists (select 1 from public.operational_departure_timeline('dd240000-0000-0000-0000-000000000002') t where t.title = 'إحالة إلى الصيانة' and t.details like '%الورشة: صيانة قاطع الزعفرانية%'), 'ops timeline referral shows original workshop';
+  assert exists (select 1 from public.maintenance_case_events(c2) e where e.event_key = 'case:forwarded'), 'case events forward';
+  assert not exists (select 1 from public.maintenance_case_events(c2) e where e.title = 'تحديث الصيانة: to_maintenance'), 'no raw duplicate update row';
+  -- الأرشيف بفلتر الورشة (بعد إكمال حالة المركزية الأصلية)
+end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000006');
+do $$ declare j jsonb; begin
+  j := public.sector_trip_maintenance_state('dd240000-0000-0000-0000-000000000002');
+  assert j ->> 'workshop_name' = 'الصيانة المركزية' and j ->> 'origin_workshop_name' = 'صيانة قاطع الزعفرانية' and (j ->> 'forwarded_at') is not null, 'manager state: ' || j::text;
+end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000005');
+do $$ declare j jsonb; begin
+  j := public.sector_trip_maintenance_state('dd240000-0000-0000-0000-000000000001');
+  assert j ->> 'workshop_name' = 'الصيانة المركزية' and (j ->> 'origin_workshop_key') is null, 'manager state central: ' || j::text;
+end $$;
+select auth.set_test_user('ec240000-0000-0000-0000-000000000004');
+do $$ declare c1 uuid := current_setting('test.c1')::uuid; c2 uuid := current_setting('test.c2')::uuid; begin
+  update public.vehicle_maintenance_cases set completed_at = now(), status = 'returned_to_work' where id in (c1, c2);
+  assert (select count(*) from public.maintenance_archive_list(null, null, null, 'zaafaraniya') a where a.case_id in (c1, c2)) = 1, 'archive filter zaafaraniya';
+  assert (select a.origin_workshop_name from public.maintenance_archive_list(null, null, null, 'zaafaraniya') a where a.case_id = c2) = 'صيانة قاطع الزعفرانية', 'archive origin column';
+  assert (select count(*) from public.maintenance_archive_list(null, null, null, null) a where a.case_id in (c1, c2)) = 2, 'archive no filter';
+end $$;
 do $$ begin raise notice 'maintenance-workshops-test OK'; end $$;

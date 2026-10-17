@@ -138,6 +138,8 @@ const labels: Record<string, string> = {
   transit_minutes: 'مدة الطريق',
   stay_minutes: 'مدة البقاء',
   fault_type: 'نوع العطل',
+  workshop_name: 'الورشة',
+  forward_info: 'التحويل إلى المركزية',
   priority: 'الأولوية',
   progress: 'نسبة الإنجاز',
   reported_at: 'وقت البلاغ',
@@ -318,6 +320,8 @@ const reportKeys: Record<OperationsTab, string[]> = {
     'shift',
     'area_name',
     'manager_name',
+    'workshop_name',
+    'forward_info',
     'fault_type',
     'priority',
     'status',
@@ -486,6 +490,7 @@ export default function OperationsDataPage() {
     [parentSector, setParentSector] = useState(''),
     [sector, setSector] = useState(''),
     [severity, setSeverity] = useState(''),
+    [workshop, setWorkshop] = useState(''),
     [showColumns, setShowColumns] = useState(false),
     [columnChoice, setColumnChoice] = useState<Partial<Record<OperationsTab, string[]>>>({}),
     [timeline, setTimeline] = useState<{ caseId: string; title: string } | null>(null),
@@ -510,7 +515,7 @@ export default function OperationsDataPage() {
     movements = useOpsMovements(from, to),
     station = useOpsStationVisits(from, to),
     garage = useOpsGarageTrips(from, to),
-    maintenance = useOpsMaintenance(from, to),
+    maintenance = useOpsMaintenance(from, to, workshop),
     attendance = useOpsAttendance(from, to)
   const weighings = useOpsWorkflowRange(from, to)
   const sectorsTonnage = useSectorTonnage(from, to)
@@ -528,7 +533,12 @@ export default function OperationsDataPage() {
         parent_sector: row.parent_sector === 'karrada' ? 'الكرادة' : row.parent_sector === 'zaafaraniya' ? 'الزعفرانية' : row.parent_sector,
       })) as unknown as Row[],
       garage: garage.data ?? [],
-      maintenance: (maintenance.data ?? []).map((row) => ({ ...row, completed_case_at: row.completed_at })) as Row[],
+      maintenance: (maintenance.data ?? []).map((row) => ({
+        ...row,
+        completed_case_at: row.completed_at,
+        // (00273) حدث التحويل إلى الصيانة المركزية في عمود واحد
+        forward_info: row.forwarded_at ? `من ${String(row.origin_workshop_name ?? '')} · ${String(row.forward_reason ?? '')}` : null,
+      })) as Row[],
       attendance: attendance.data ?? [],
       gbs: (gbsContainers.data ?? []).map((c) => ({
         code: c.code,
@@ -608,7 +618,7 @@ export default function OperationsDataPage() {
     [allSources, parentSector],
   )
   const sum = (key: string) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0)
-  const activeFilterCount = [search, shift, parentSector, sector, tab === 'alerts' ? severity : ''].filter(
+  const activeFilterCount = [search, shift, parentSector, sector, tab === 'alerts' ? severity : '', tab === 'maintenance' ? workshop : ''].filter(
     Boolean,
   ).length
   const isLoading = [alertQuery, kpis, movements, station, weighings, garage, maintenance, attendance, sectorsTonnage, gbsContainers].some(
@@ -628,6 +638,7 @@ export default function OperationsDataPage() {
     setParentSector('')
     setSector('')
     setSeverity('')
+    setWorkshop('')
   }
   const toggleColumn = (key: string) =>
     setColumnChoice((old) => {
@@ -788,6 +799,16 @@ export default function OperationsDataPage() {
             <option value="zaafaraniya">الزعفرانية</option>
           </select>
         </label>
+        {tab === 'maintenance' && (
+          <label className="text-xs">
+            الورشة
+            <select aria-label="الورشة" data-testid="ops-workshop-filter" value={workshop} onChange={(e) => setWorkshop(e.target.value)} className="mt-1 h-11 w-full rounded-xl border px-3">
+              <option value="">كل الورش</option>
+              <option value="central">الصيانة المركزية</option>
+              <option value="zaafaraniya">صيانة قاطع الزعفرانية</option>
+            </select>
+          </label>
+        )}
         <label className="text-xs">
           المنطقة
           <select

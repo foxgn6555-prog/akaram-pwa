@@ -97,6 +97,13 @@ describe('صفحة حركة آليات مسؤول القسم', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('تسجيل العطل وإرسال الآلية')).toBeInTheDocument()
   })
+  it('00273: مسؤول القاطع يرى ورشة الصيانة التي عندها آليته وحدث التحويل إلى المركزية', () => {
+    h.data = [{ ...trip, arrived_at: '2026-09-09T06:30:00Z' }]
+    h.maintenanceState = { case_id: 'c1', decision_status: 'acknowledged', workshop_key: 'central', workshop_name: 'الصيانة المركزية', origin_workshop_key: 'zaafaraniya', origin_workshop_name: 'صيانة قاطع الزعفرانية', forward_reason: 'يحتاج رافعة', completed_at: null }
+    render(<VehicleTripsPage />)
+    expect(screen.getByTestId('trip-workshop-d1')).toHaveTextContent('الورشة: الصيانة المركزية')
+    expect(screen.getByTestId('trip-workshop-d1')).toHaveTextContent('حُوِّلت من صيانة قاطع الزعفرانية — السبب: يحتاج رافعة')
+  })
   it('لا يسمح بالإرسال إلى الكراج إلا بعد الوصول', () => {
     h.data = [{ ...trip, arrived_at: '2026-09-09T06:30:00Z' }]
     render(<VehicleTripsPage />)

@@ -322,6 +322,12 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
         status: 'returned_to_work',
         progress: 100,
         completed_at: '2026-09-09T12:00:00Z',
+        workshop_key: 'central',
+        workshop_name: 'الصيانة المركزية',
+        origin_workshop_key: 'zaafaraniya',
+        origin_workshop_name: 'صيانة قاطع الزعفرانية',
+        forwarded_at: '2026-09-09T10:00:00Z',
+        forward_reason: 'يحتاج رافعة',
         diagnosis: 'تلف أسطوانة',
         work_notes: null,
         parts_notes: null,
@@ -412,6 +418,16 @@ describe('تقارير غرفة العمليات المركبة', () => {
     expect(screen.getByRole('cell', { name: '3 س 20 د' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'أسطوانة فرامل ×1 قطعة' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'سائق الاختبار' })).toBeInTheDocument()
+  })
+  it('00273: جدول الصيانة يعرض عمود الورشة وحدث التحويل إلى المركزية، وفلتر الورشة يظهر في هذا التبويب فقط', () => {
+    render(<OperationsDataPage />)
+    expect(screen.queryByTestId('ops-workshop-filter')).toBeNull()
+    fireEvent.click(screen.getByTestId('ops-tab-maintenance'))
+    expect(screen.getByTestId('ops-workshop-filter')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'الورشة' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'التحويل إلى المركزية' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'الصيانة المركزية' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'من صيانة قاطع الزعفرانية · يحتاج رافعة' })).toBeInTheDocument()
   })
   it('يفتح تسلسل الصيانة من غرفة العمليات', () => {
     render(<OperationsDataPage />)

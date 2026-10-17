@@ -10,6 +10,7 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
       departed_maintenance_at: '2026-09-29T15:16:00Z', completed_at: '2026-09-29T15:30:00Z', final_status: 'closed_at_garage', diagnosis: 'كلجات', work_notes: 'اكمال التصليح', delay_reason: null, progress: 100,
       technicians: 'علي ادهم (ميكانيك)', technician_count: 1, parts_count: 1, parts_summary: 'كلجات ×1 قطعة', estimated_cost: null, service_cost: 0, parts_actual_cost: 1000, actual_cost: 1000,
       wait_minutes: 1, maintenance_minutes: 109, duration_days: 0.1, corrected_at: null, correction_reason: null,
+      workshop_key: 'central', workshop_name: 'الصيانة المركزية', origin_workshop_key: 'zaafaraniya', origin_workshop_name: 'صيانة قاطع الزعفرانية', forwarded_at: '2026-09-29T14:00:00Z', forward_reason: 'يحتاج رافعة',
     }],
     isLoading: false,
   }),
@@ -40,6 +41,12 @@ describe('أرشيف الصيانة', () => {
     render(<Page />)
     fireEvent.change(screen.getByLabelText('بحث الأرشيف'), { target: { value: 'DB-13' } })
     fireEvent.click(screen.getByTestId('archive-export-excel'))
-    expect(h.excel).toHaveBeenCalledWith(expect.any(Array), { search: 'DB-13', from: '', to: '' })
+    expect(h.excel).toHaveBeenCalledWith(expect.any(Array), { search: 'DB-13', from: '', to: '', workshop: '' })
+  })
+  it('00273: عمود الورشة مع شارة «محوَّلة من» وفلتر الورشة', () => {
+    render(<Page />)
+    expect(screen.getByTestId('archive-workshop-filter')).toBeInTheDocument()
+    expect(screen.getByTestId('archive-workshop-c1')).toHaveTextContent('الصيانة المركزية')
+    expect(screen.getByTestId('archive-workshop-c1')).toHaveTextContent('محوَّلة من صيانة قاطع الزعفرانية')
   })
 })

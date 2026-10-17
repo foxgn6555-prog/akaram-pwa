@@ -17,17 +17,18 @@ export default function MaintenanceArchivePage() {
   const [search, setSearch] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [workshop, setWorkshop] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [history, setHistory] = useState<MaintenanceArchiveEntry | null>(null)
   const [exporting, setExporting] = useState(false)
-  const q = useMaintenanceArchive(search, from, to)
+  const q = useMaintenanceArchive(search, from, to, workshop)
   const rows = q.data ?? []
   const summary = archiveSummary(rows)
 
   const exportExcel = async () => {
     setExporting(true)
     try {
-      await exportMaintenanceArchive(rows, { search, from, to })
+      await exportMaintenanceArchive(rows, { search, from, to, workshop })
     } finally {
       setExporting(false)
     }
@@ -71,6 +72,14 @@ export default function MaintenanceArchivePage() {
             className="h-11 rounded-xl border px-3"
           />
         </label>
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+          الورشة
+          <select data-testid="archive-workshop-filter" aria-label="الورشة" value={workshop} onChange={(e) => setWorkshop(e.target.value)} className="h-11 rounded-xl border px-3">
+            <option value="">كل الورش</option>
+            <option value="central">الصيانة المركزية</option>
+            <option value="zaafaraniya">صيانة قاطع الزعفرانية</option>
+          </select>
+        </label>
         <button
           data-testid="archive-export-excel"
           onClick={() => void exportExcel()}
@@ -86,7 +95,7 @@ export default function MaintenanceArchivePage() {
         <table className="w-full min-w-[80rem] text-sm">
           <thead>
             <tr className="border-b bg-slate-900 text-right text-xs text-white">
-              {['رقم DB', 'الآلية', 'السائق', 'المنطقة', 'العطل', 'الأولوية', 'الفنيون', 'القطع', 'البلاغ', 'وصول الصيانة', 'انتظار', 'وقت الصيانة', 'إغلاق الحالة', 'قطع', 'خدمة', 'الكلفة الفعلية', 'النهاية', ''].map((h, i) => (
+              {['رقم DB', 'الآلية', 'السائق', 'المنطقة', 'الورشة', 'العطل', 'الأولوية', 'الفنيون', 'القطع', 'البلاغ', 'وصول الصيانة', 'انتظار', 'وقت الصيانة', 'إغلاق الحالة', 'قطع', 'خدمة', 'الكلفة الفعلية', 'النهاية', ''].map((h, i) => (
                 <th key={i} className="whitespace-nowrap px-3 py-3 font-black">{h}</th>
               ))}
             </tr>
@@ -101,6 +110,10 @@ export default function MaintenanceArchivePage() {
                   <td className="px-3 py-3 font-bold">{r.vehicle_name}</td>
                   <td className="px-3 py-3 text-slate-600">{r.driver_name}</td>
                   <td className="px-3 py-3 text-slate-600">{r.area_name}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-xs" data-testid={`archive-workshop-${r.case_id}`}>
+                    {r.workshop_name ?? '—'}
+                    {r.origin_workshop_name && <span className="mr-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800" title={r.forward_reason ?? ''}>محوَّلة من {r.origin_workshop_name}</span>}
+                  </td>
                   <td className="max-w-40 truncate px-3 py-3" title={r.fault_type}>{r.fault_type}</td>
                   <td className="px-3 py-3 text-xs">{priorityLabels[r.priority] ?? r.priority}</td>
                   <td className="max-w-48 truncate px-3 py-3 text-xs" title={r.technicians ?? ''}>{r.technicians ?? '—'}</td>

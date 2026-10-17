@@ -80,6 +80,14 @@ export interface MaintenanceDispatchState {
     'not_required' | 'awaiting_ack' | 'acknowledged' | 'awaiting_approval' | 'approved' | 'rejected'
   garage_decision_notes?: string | null
   reported_at?: string
+  /** (00273) الورشة الحالية والتحويل إلى المركزية إن حصل */
+  workshop_key?: string
+  workshop_name?: string | null
+  origin_workshop_key?: string | null
+  origin_workshop_name?: string | null
+  forwarded_at?: string | null
+  forward_reason?: string | null
+  completed_at?: string | null
 }
 export interface GarageMaintenanceCoordination {
   case_id: string
@@ -285,6 +293,13 @@ export interface MaintenanceFinancePurchaseRow {
 }
 export interface MaintenanceArchiveEntry {
   case_id: string
+  /** (00273) الورشة */
+  workshop_key?: string
+  workshop_name?: string | null
+  origin_workshop_key?: string | null
+  origin_workshop_name?: string | null
+  forwarded_at?: string | null
+  forward_reason?: string | null
   vehicle_name: string
   db_number: string
   driver_name: string
@@ -864,9 +879,9 @@ export const vehicleOperations = {
       supabase.rpc('operational_garage_trips', { p_from: from, p_to: to }),
     )) ?? []) as unknown as Record<string, unknown>[]
   },
-  async opsMaintenance(from: string, to: string) {
+  async opsMaintenance(from: string, to: string, workshop?: string) {
     return ((await sdkGuard(
-      supabase.rpc('operational_maintenance_report', { p_from: from, p_to: to }),
+      supabase.rpc('operational_maintenance_report', { p_from: from, p_to: to, p_workshop: workshop || null }),
     )) ?? []) as unknown as Record<string, unknown>[]
   },
   async opsStationVisits(from: string, to: string) {
@@ -971,12 +986,14 @@ export const vehicleOperations = {
     search?: string,
     from?: string,
     to?: string,
+    workshop?: string,
   ): Promise<MaintenanceArchiveEntry[]> {
     return ((await sdkGuard(
       supabase.rpc('maintenance_archive_list', {
         p_search: search?.trim() || null,
         p_from: from || null,
         p_to: to || null,
+        p_workshop: workshop || null,
       }),
     )) ?? []) as unknown as MaintenanceArchiveEntry[]
   },

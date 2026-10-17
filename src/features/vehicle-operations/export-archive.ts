@@ -23,6 +23,7 @@ export function archiveMainRow(r: MaintenanceArchiveEntry, index: number) {
     driver_name: r.driver_name,
     shift: shiftLabels[r.shift] ?? r.shift,
     area_name: r.area_name,
+    workshop_name: (r.workshop_name ?? '—') + (r.origin_workshop_name ? ` (محوَّلة من ${r.origin_workshop_name})` : ''),
     manager_name: r.manager_name ?? '—',
     fault_type: r.fault_type,
     priority: priorityLabels[r.priority] ?? r.priority,
@@ -53,6 +54,7 @@ export const ARCHIVE_MAIN_COLUMNS: ReportColumn[] = [
   { key: 'driver_name', header: 'السائق', width: 20 },
   { key: 'shift', header: 'الشفت', width: 10 },
   { key: 'area_name', header: 'المنطقة', width: 16 },
+  { key: 'workshop_name', header: 'الورشة', width: 22 },
   { key: 'manager_name', header: 'مسؤول القسم', width: 18 },
   { key: 'fault_type', header: 'العطل', width: 20, wrap: true },
   { key: 'priority', header: 'الأولوية', width: 10 },
@@ -120,7 +122,7 @@ export function archiveSummary(rows: MaintenanceArchiveEntry[]) {
 
 export async function exportMaintenanceArchive(
   rows: MaintenanceArchiveEntry[],
-  filters: { search?: string; from?: string; to?: string },
+  filters: { search?: string; from?: string; to?: string; workshop?: string },
 ) {
   const s = archiveSummary(rows)
   const money = (v: number) => new Intl.NumberFormat('ar-IQ-u-nu-latn').format(v)

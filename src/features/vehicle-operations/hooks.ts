@@ -279,10 +279,10 @@ export const useOpsGarageTrips = (from: string, to: string) =>
     queryFn: () => vehicleOperations.opsGarageTrips(from, to),
     enabled: Boolean(from && to),
   })
-export const useOpsMaintenance = (from: string, to: string) =>
+export const useOpsMaintenance = (from: string, to: string, workshop = '') =>
   useQuery({
-    queryKey: ['vehicle-operations', 'ops-maintenance', from, to],
-    queryFn: () => vehicleOperations.opsMaintenance(from, to),
+    queryKey: ['vehicle-operations', 'ops-maintenance', from, to, workshop],
+    queryFn: () => vehicleOperations.opsMaintenance(from, to, workshop),
     enabled: Boolean(from && to),
   })
 export const useOpsStationVisits = (from: string, to: string) =>
@@ -360,8 +360,8 @@ export const useMaintenanceAdvanceStage = () =>
     'تم الانتقال إلى المرحلة التالية من الصيانة',
   )
 // ─── أرشيف الصيانة ───
-export const useMaintenanceArchive = (search = '', from = '', to = '') =>
+export const useMaintenanceArchive = (search = '', from = '', to = '', workshop = '') =>
   useQuery({
-    queryKey: ['vehicle-operations', 'maintenance-archive', search, from, to],
-    queryFn: () => vehicleOperations.maintenanceArchive(search, from, to),
+    queryKey: ['vehicle-operations', 'maintenance-archive', search, from, to, workshop],
+    queryFn: () => vehicleOperations.maintenanceArchive(search, from, to, workshop),
   })

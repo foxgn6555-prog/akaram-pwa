@@ -314,6 +314,14 @@ function MaintenanceTimelineButton({ trip }: { trip: SectorVehicleTrip }) {
   if (!state.data?.case_id) return null
   return (
     <>
+      {state.data.workshop_name && !state.data.completed_at && (
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900" data-testid={`trip-workshop-${trip.id}`}>
+          الورشة: <b>{state.data.workshop_name}</b>
+          {state.data.origin_workshop_name && (
+            <span className="block">حُوِّلت من {state.data.origin_workshop_name}{state.data.forward_reason ? ` — السبب: ${state.data.forward_reason}` : ''}</span>
+          )}
+        </p>
+      )}
       <button
         onClick={() => setOpen(true)}
         className="mt-3 h-10 w-full rounded-xl border border-violet-200 bg-violet-50 text-xs font-black text-violet-800"
