@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   complete: vi.fn(),
   arrival: vi.fn(),
   dispatch: vi.fn(),
+  forward: vi.fn(),
   upload: vi.fn(),
   rows: [] as Record<string, unknown>[],
 }))
@@ -20,6 +21,7 @@ vi.mock('@features/vehicle-operations/hooks', () => ({
   useMaintenanceForDay: () => ({ data: h.rows }),
   useMaintenanceConfirmArrival: () => ({ mutate: h.arrival }),
   useMaintenanceDispatch: () => ({ mutate: h.dispatch }),
+  useMaintenanceForwardToCentral: () => ({ mutate: h.forward, isPending: false }),
   useMaintenanceCompleteCase: () => ({ mutate: h.complete, isPending: false }),
   useMaintenanceTechnicianOptions: () => ({
     data: [
@@ -129,5 +131,31 @@ describe('الصيانة المبسّطة (00157): وصول → تشخيص وإ�
     expect(screen.getByTestId('archived-note')).toHaveTextContent('1 حالة اكتملت هذا اليوم')
     expect(screen.getByRole('link', { name: 'فتح الأرشيف' })).toHaveAttribute('href', '/maintenance/archive')
     expect(screen.getByText('1 مفتوحة · 0 في الأرشيف')).toBeInTheDocument()
+  })
+
+  // (00272) التحويل إلى الصيانة المركزية
+  it('00272: حالة مركزية ⇒ لا زر تحويل؛ حالة ورشة الزعفرانية داخل الورشة ⇒ زر تحويل بسبب إلزامي؛ المحوَّلة للقراءة فقط عند الزعفرانية', () => {
+    h.forward.mockReset()
+    const { unmount } = render(<Page />)
+    expect(screen.queryByTestId('forward-c1')).toBeNull()
+    unmount()
+    h.rows = [{ ...base, workshop_key: 'zaafaraniya', workshop_name: 'صيانة قاطع الزعفرانية', can_edit: true }]
+    const r2 = render(<Page />)
+    fireEvent.click(screen.getByTestId('forward-c1'))
+    expect(screen.getByTestId('forward-submit')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('forward-reason'), { target: { value: 'قصير' } })
+    expect(screen.getByTestId('forward-submit')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('forward-reason'), { target: { value: 'يحتاج رافعة هيدروليكية' } })
+    fireEvent.submit(screen.getByTestId('forward-form'))
+    expect(h.forward).toHaveBeenCalledWith({ caseId: 'c1', reason: 'يحتاج رافعة هيدروليكية' }, expect.anything())
+    r2.unmount()
+    h.rows = [{ ...base, status: 'to_maintenance', arrived_at: null, workshop_key: 'central', workshop_name: 'الصيانة المركزية', origin_workshop_key: 'zaafaraniya', origin_workshop_name: 'صيانة قاطع الزعفرانية', forwarded_at: '2026-09-09T10:00:00Z', forward_reason: 'يحتاج رافعة', can_edit: false }]
+    render(<Page />)
+    expect(screen.getByTestId('forwarded-c1')).toHaveTextContent('محوَّلة من صيانة قاطع الزعفرانية إلى الصيانة المركزية')
+    expect(screen.getByTestId('forwarded-c1')).toHaveTextContent('السبب: يحتاج رافعة')
+    expect(screen.getByTestId('readonly-c1')).toBeInTheDocument()
+    expect(screen.queryByText('تأكيد وصول الآلية إلى الصيانة')).toBeNull()
+    expect(screen.queryByTestId('finish-c1')).toBeNull()
+    expect(screen.queryByTestId('forward-c1')).toBeNull()
   })
 })

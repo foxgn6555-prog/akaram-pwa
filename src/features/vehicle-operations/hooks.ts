@@ -249,6 +249,8 @@ export const useMaintenanceDispatch = () =>
       vehicleOperations.maintenanceDispatch(x.caseId, x.destination, x.notes),
     'غادرت الآلية الصيانة وأُبلغت الجهة المستلمة',
   )
+export const useMaintenanceForwardToCentral = () =>
+  useAction((x: { caseId: string; reason: string }) => vehicleOperations.maintenanceForwardToCentral(x.caseId, x.reason), 'حُوِّلت الحالة إلى الصيانة المركزية')
 export const useOpsMovements = (from: string, to: string) =>
   useQuery({
     queryKey: keys.ops(from, to),

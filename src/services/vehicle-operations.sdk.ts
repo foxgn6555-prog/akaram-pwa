@@ -147,6 +147,14 @@ export interface MaintenanceCase {
   updates_count?: number
   last_update_at?: string | null
   sector_id?: number
+  /** (00271/00272) الورشة الحالية والأصل عند التحويل إلى المركزية؛ can_edit=false ⇒ قراءة فقط لهذا الحساب */
+  workshop_key?: string
+  workshop_name?: string | null
+  origin_workshop_key?: string | null
+  origin_workshop_name?: string | null
+  forwarded_at?: string | null
+  forward_reason?: string | null
+  can_edit?: boolean
 }
 export type MaintenanceSpecialty = 'mechanical' | 'electrical' | 'bodywork' | 'tires' | 'hydraulic' | 'ac' | 'general'
 export const MAINTENANCE_SPECIALTIES: { key: MaintenanceSpecialty; label: string }[] = [
@@ -788,6 +796,10 @@ export const vehicleOperations = {
   async maintenanceForDay(day: string) {
     return ((await sdkGuard(supabase.rpc('maintenance_cases_for_day', { p_day: day }))) ??
       []) as unknown as MaintenanceCase[]
+  },
+  /** (00272) تحويل الحالة إلى الصيانة المركزية بسبب إلزامي */
+  async maintenanceForwardToCentral(caseId: string, reason: string) {
+    return await sdkGuard(supabase.rpc('maintenance_forward_to_central', { p_case_id: caseId, p_reason: reason.trim() }))
   },
   async maintenanceDispatch(caseId: string, destination: 'work_site' | 'garage', notes?: string) {
     return await sdkGuard(

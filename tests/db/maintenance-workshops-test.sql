@@ -130,4 +130,43 @@ do $$ declare c1 uuid := current_setting('test.c1')::uuid; c2 uuid := current_se
   assert (public.maintenance_case_timeline(c2) -> 'case' ->> 'workshop_key') = 'zaafaraniya', 'workshop column';
   perform public.maintenance_case_timeline(c1); perform public.maintenance_case_timeline(c2);
 end $$;
+
+-- ⑦ (00241) التحويل إلى الصيانة المركزية: سبب إلزامي، نفس الحالة تنتقل بسجلها، للقراءة فقط في الزعفرانية، ساق رحلة جديدة، المركزية تؤكد الوصول
+select auth.set_test_user('ec240000-0000-0000-0000-000000000002');
+do $$ declare c2 uuid := current_setting('test.c2')::uuid; c1 uuid := current_setting('test.c1')::uuid; c public.vehicle_maintenance_cases; legs_before int; upd_before int; begin
+  perform public.maintenance_assign_technician(c2, 'fc240000-0000-0000-0000-000000000004', null);
+  select count(*) into legs_before from public.vehicle_trip_legs l join public.vehicle_maintenance_cases x on x.departure_id = l.departure_id where x.id = c2;
+  select count(*) into upd_before from public.vehicle_maintenance_updates where case_id = c2;
+  perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c2, ''), 'MAINTENANCE_FORWARD_REASON_REQUIRED');
+  perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c2, 'قصير'), 'MAINTENANCE_FORWARD_REASON_REQUIRED');
+  perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c1, 'ليست حالتي أصلاً'), 'MAINTENANCE_CASE_NOT_FOUND');
+  c := public.maintenance_forward_to_central(c2, 'يحتاج رافعة هيدروليكية غير متوفرة في الورشة');
+  assert c.workshop_key = 'central' and c.origin_workshop_key = 'zaafaraniya' and c.forwarded_at is not null and c.status = 'to_maintenance' and c.arrived_at is null, 'forwarded: ' || row_to_json(c)::text;
+  assert (select count(*) from public.vehicle_trip_legs l where l.departure_id = c.departure_id) = legs_before + 1, 'new leg';
+  assert exists (select 1 from public.vehicle_trip_legs l where l.departure_id = c.departure_id and l.origin_type = 'maintenance' and l.destination_type = 'maintenance' and l.arrived_at is null), 'open leg workshop → central';
+  assert (select count(*) from public.vehicle_maintenance_updates where case_id = c2) = upd_before + 1, 'forward event in history';
+  assert not exists (select 1 from public.vehicle_maintenance_case_technicians where case_id = c2 and released_at is null), 'zaaf technicians released';
+  assert exists (select 1 from public.vehicle_maintenance_case_technicians where case_id = c2), 'technician history kept';
+  assert exists (select 1 from public.notifications where user_id = 'ec240000-0000-0000-0000-000000000001' and title like '%الصيانة المركزية%'), 'central notified';
+  assert exists (select 1 from public.notifications where user_id = 'ec240000-0000-0000-0000-000000000004' and title like '%الصيانة المركزية%'), 'ops notified';
+  assert exists (select 1 from public.notifications where user_id = 'ec240000-0000-0000-0000-000000000006' and title like '%الصيانة المركزية%'), 'sector manager notified';
+  -- الزعفرانية: ما تزال تراها (للقراءة) ولا تعدّلها ولا تحوّلها ثانية
+  assert exists (select 1 from public.maintenance_vehicle_cases() x where x.case_id = c2), 'zaaf still sees forwarded case';
+  assert (select x.can_edit from public.maintenance_cases_for_day(current_date) x where x.case_id = c2) = false, 'read-only for zaaf';
+  assert (select x.origin_workshop_name from public.maintenance_cases_for_day(current_date) x where x.case_id = c2) = 'صيانة قاطع الزعفرانية', 'origin name';
+  perform public.maintenance_case_timeline(c2);
+  perform pg_temp.expect_error(format('select public.maintenance_confirm_arrival(%L, %L)', c2, 'وصلت'), 'MAINTENANCE_ARRIVAL_NOT_ALLOWED');
+  perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c2, 'سبب آخر كافٍ هنا'), 'MAINTENANCE_CASE_NOT_FOUND');
+end $$;
+-- المركزية: تراها قابلة للتعديل، تؤكد الوصول (الساق تُغلق)، ولا يمكن تحويل حالة مركزية
+select auth.set_test_user('ec240000-0000-0000-0000-000000000001');
+do $$ declare c2 uuid := current_setting('test.c2')::uuid; c1 uuid := current_setting('test.c1')::uuid; c public.vehicle_maintenance_cases; begin
+  assert (select x.can_edit from public.maintenance_cases_for_day(current_date) x where x.case_id = c2) = true, 'central can edit';
+  c := public.maintenance_confirm_arrival(c2, 'وصلت المركزية');
+  assert c.arrived_at is not null and c.status = 'diagnosing', 'central arrival';
+  assert not exists (select 1 from public.vehicle_trip_legs l where l.departure_id = c.departure_id and l.arrived_at is null), 'leg closed';
+  assert (select count(*) from public.vehicle_maintenance_stages where case_id = c2 and status = 'active') = 1, 'one active stage';
+  perform public.maintenance_confirm_arrival(c1, 'وصلت');
+  perform pg_temp.expect_error(format('select public.maintenance_forward_to_central(%L, %L)', c1, 'سبب كافٍ للتحويل'), 'MAINTENANCE_FORWARD_ALREADY_CENTRAL');
+end $$;
 do $$ begin raise notice 'maintenance-workshops-test OK'; end $$;
