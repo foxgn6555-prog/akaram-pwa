@@ -56,7 +56,8 @@ begin
   n := public.media_design_photos_remove(ids);
   if n <> 3 or (select count(*) from public.media_design_photos where design_id = d.id) <> 3 then raise exception 'T6 group remove wrong %', n; end if;
   perform pg_temp.expect_error($q$ select public.media_design_photos_remove('{}'::uuid[]) $q$, 'MEDIA_DESIGN_PHOTOS_INVALID');
-  perform pg_temp.expect_error($q$ select public.media_design_photos_remove(array['fd000000-0000-0000-0000-00000000ffff']::uuid[]) $q$, 'MEDIA_DESIGN_PHOTO_NOT_FOUND');
+  -- 00245: معرّفات محذوفة مسبقاً ⇒ عاطلة بلا خطأ (null)
+  if public.media_design_photos_remove(array['fd000000-0000-0000-0000-00000000ffff']::uuid[]) is not null then raise exception 'remove of missing ids should be no-op'; end if;
   select array_agg(id) into ids from public.media_design_photos where design_id = d.id;
   n := public.media_design_photos_remove(ids);
   if n <> 0 then raise exception 'T6 remove all wrong %', n; end if;

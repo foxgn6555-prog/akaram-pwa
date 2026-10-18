@@ -408,17 +408,17 @@ export const mediaService = {
   },
 
   async removeDesignPhoto(photoRowId: string): Promise<number> {
-    return (await sdkGuard(
+    return ((await sdkGuard(
       supabase.rpc('media_design_photo_remove', { p_photo_row_id: photoRowId }),
-    )) as unknown as number
+    )) as unknown as number | null) ?? 0
   },
 
   /** 00198 — حذف عدة صور من التصميم بضغطة واحدة (كل صور فقرة / كل الصور) */
   async removeDesignPhotos(photoRowIds: string[]): Promise<number> {
     if (!photoRowIds.length) return 0
-    return (await sdkGuard(
+    return ((await sdkGuard(
       supabase.rpc('media_design_photos_remove', { p_photo_row_ids: photoRowIds }),
-    )) as unknown as number
+    )) as unknown as number | null) ?? 0
   },
 
   async completeDesign(id: string): Promise<MediaDesign> {

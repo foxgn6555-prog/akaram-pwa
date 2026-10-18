@@ -44,6 +44,7 @@ import {
   useSetDesignShift,
 } from '@features/media/hooks'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { useUiStore } from '@stores/ui.store'
 import type { MediaDesignDetail } from '@sdk/media.sdk'
 import { DialogShell } from '../Tickets/MediaTicketsPage'
 import PhotoGrid from '../../components/PhotoGrid'
@@ -192,6 +193,15 @@ function applyMove(
  *  قبل ذلك كان المحرر يُهيّئ حالته والبيانات لم تصل بعد، فيظهر «نصف شهري» بلا غلاف مهما كان القالب. */
 function DesignComposer({ designId, close }: { designId: string; close: () => void }) {
   const detail = useDesignDetail(designId)
+  const toast = useUiStore((s) => s.addToast)
+  // 00284: رابط ?open= لتصميم حُذف أو غير موجود — لا سبينر أبدي ولا إعادة محاولات: رسالة واضحة ثم إغلاق وتنظيف الرابط
+  useEffect(() => {
+    if (detail.isError) {
+      toast({ type: 'warning', message: 'هذا التصميم غير موجود أو حُذف — أُغلق الرابط القديم' })
+      close()
+    }
+  }, [detail.isError, toast, close])
+  if (detail.isError) return null
   if (detail.isLoading || !detail.data) {
     return createPortal(
       <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-100" dir="rtl">

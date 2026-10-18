@@ -145,6 +145,7 @@ export const useDesignDetail = (designId: string | null) =>
     queryKey: ['media', 'design-detail', designId],
     queryFn: () => mediaService.designDetail(designId as string),
     enabled: Boolean(designId),
+    retry: (n, e) => !/MEDIA_DESIGN_NOT_FOUND/.test(e instanceof Error ? e.message : String(e)) && n < 2,
   })
 
 export const useCreateDesign = () =>

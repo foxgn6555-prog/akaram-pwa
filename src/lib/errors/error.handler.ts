@@ -196,6 +196,9 @@ const APP_ERROR_AR: Record<string, string> = {
   GBS_JURISDICTION_FAILED: 'تعذر تحميل مناطق اختصاصك — حاول مرة أخرى.',
 }
 
+/** الترجمة العربية لكود تعاقدي معروف (null إن لم يكن مسجلاً) — تستخدمها لوحة الأخطاء */
+export function contractCodeMessage(code: string): string | null { return APP_ERROR_AR[code] ?? null }
+
 function translateAppMessage(message: string): string | null {
   for (const code of Object.keys(APP_ERROR_AR)) {
     if (message.includes(code)) return APP_ERROR_AR[code] ?? null

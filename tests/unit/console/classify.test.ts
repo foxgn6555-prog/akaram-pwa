@@ -88,3 +88,23 @@ describe('Console · البصمة والكود التعاقدي', () => {
     expect(w.level).toBe('warn')
   })
 })
+
+describe('00284: إرشاد خاص بالأكواد التعاقدية المعروفة', () => {
+  it('CONTRACTOR_NOT_ASSIGNED / GBS_FORBIDDEN / APPROVAL_NO_APPROVER / MEDIA_DESIGN_NOT_FOUND لها شرح وخطوات محددة بدل النص العام', () => {
+    for (const code of ['CONTRACTOR_NOT_ASSIGNED', 'GBS_FORBIDDEN', 'APPROVAL_NO_APPROVER', 'MEDIA_DESIGN_NOT_FOUND', 'MEDIA_DESIGN_PHOTO_NOT_FOUND']) {
+      const c = classify({ message: `P0001: ${code}`, url: 'http://x/employee' })
+      expect(['contract_code', 'permission']).toContain(c.kind)
+      expect(c.info.explanation).toContain(code)
+      expect(c.info.explanation).not.toContain('MEDIA_DESIGN_LOCKED')
+      expect(c.info.actions.join(' ')).not.toContain('ابحث عن الكود في APP_ERROR_AR')
+    }
+    expect(classify({ message: 'P0001: APPROVAL_NO_APPROVER' }).info.owner).toBe('it')
+  })
+  it('كود مترجم لكن بلا دليل خاص ⇒ يعرض ترجمته العربية؛ وكود غير مترجم ⇒ ينبّه إلى غياب الترجمة', () => {
+    const known = classify({ message: 'P0001: GBS_JURISDICTION_FAILED' })
+    expect(known.info.explanation).toContain('«GBS_JURISDICTION_FAILED»')
+    expect(known.info.explanation).not.toContain('بلا ترجمة')
+    const unknown = classify({ message: 'P0001: SOME_NEW_CODE_X' })
+    expect(unknown.info.explanation).toContain('بلا ترجمة عربية')
+  })
+})

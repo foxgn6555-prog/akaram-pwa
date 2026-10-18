@@ -42,7 +42,10 @@ begin
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000005');   -- غرفة العمليات: ترى الخيارات لكن لا تُسند
   perform pg_temp.expect_error($q$ select public.contractor_assign('c7000000-0000-0000-0000-000000000002', 'c7000000-0000-0000-0000-000000000004', 1::smallint) $q$, 'CONTRACTOR_FORBIDDEN');
   perform pg_temp.as_user('c7000000-0000-0000-0000-000000000002');
-  perform pg_temp.expect_error($q$ select * from public.contractor_me() $q$, 'CONTRACTOR_NOT_ASSIGNED');
+  -- 00245: غير مُسنَد ⇒ لا صفوف (لا خطأ)؛ الإجراءات ما زالت ترفض
+  select count(*) into n from public.contractor_me(); if n <> 0 then raise exception 'unassigned contractor_me should be empty'; end if;
+  select count(*) into n from public.contractor_my_month(); if n <> 0 then raise exception 'unassigned contractor_my_month should be empty'; end if;
+  perform pg_temp.expect_error($q$ select public.contractor_set_headcount(5) $q$, 'CONTRACTOR_NOT_ASSIGNED');
   perform pg_temp.as_user(it);
   select count(*) into n from public.contractor_manager_options() where user_id in ('c7000000-0000-0000-0000-000000000004','c7000000-0000-0000-0000-000000000007');
   if n <> 2 then raise exception 'manager options should list both managers, got %', n; end if;

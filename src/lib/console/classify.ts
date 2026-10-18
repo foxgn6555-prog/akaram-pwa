@@ -6,6 +6,7 @@
  * وفي صفحة Console (الشرح والإجراءات) حتى يكون التفسير واحداً في كل مكان.
  */
 import { PORTAL_DEFINITIONS, type PortalId } from '@lib/constants/portals.constants'
+import { contractCodeMessage } from '@lib/errors/error.handler'
 
 export type ConsoleLevel = 'error' | 'warn'
 export type ConsoleSource = 'logger' | 'window' | 'promise' | 'console' | 'boundary' | 'sdk' | 'network' | 'asset'
@@ -365,15 +366,57 @@ function hash32(s: string): string {
   return h.toString(16).padStart(8, '0')
 }
 
+/** 00284: إرشاد خاص بأكواد معروفة تتكرر في الإنتاج — بدل النص العام «ابحث عن الكود» */
+export const CONTRACT_CODE_GUIDE: Record<string, { explanation: string; actions: string[]; owner?: KindInfo['owner'] }> = {
+  CONTRACTOR_NOT_ASSIGNED: {
+    explanation: 'حساب فتح بوابة المتعهد وليس له ملف متعهد مُسنَد إلى مسؤول قسم (غالباً حساب إداري يتفقد البوابة، أو متعهد جديد لم يُسنَد بعد).',
+    actions: ['إن كان متعهداً فعلياً: التطوير المركزية → الحسابات → أسنِد حسابه إلى مسؤول القسم ومنطقته.', 'إن كان حساباً إدارياً يتفقد البوابة: لا شيء مطلوب — الواجهة تعرض «لم تُعيَّن بعد» بلا خطأ بعد 00284.'],
+    owner: 'user',
+  },
+  GBS_FORBIDDEN: {
+    explanation: 'دالة الحاويات رفضت دور هذا الحساب. بعد 00284 المدير المفوض مسموح له في كل إجراءات المتابعة؛ أي تكرار يعني أن الحساب بلا دور متابعة/مسؤول قسم/غرفة عمليات.',
+    actions: ['افتح «المستخدمون» وتحقق من أدوار الحساب (follow_up / department_manager / ops_room).', 'إن ظهر لحساب بدور صحيح: تأكد من تطبيق هجرة 00245 (supabase db push).'],
+    owner: 'it',
+  },
+  APPROVAL_NO_APPROVER: {
+    explanation: 'سلسلة الموافقات لم تُحلّ إلى أي شخص غير الطالب نفسه (لا معاون مدير مفوض ولا مدير مفوض آخر في النظام).',
+    actions: ['أضف حساب «معاون المدير المفوض» من المستخدمين، أو اضبط سلسلة الموافقات لهذا النوع في التطوير المركزية.', 'بعد 00284: إن كان الطالب هو المدير المفوض الوحيد يعتمد بنفسه ولا يظهر هذا الخطأ.'],
+    owner: 'it',
+  },
+  MEDIA_DESIGN_NOT_FOUND: {
+    explanation: 'رابط ?open= يشير إلى تصميم حُذف (إشارة مرجعية قديمة أو تبويب مفتوح قبل الحذف).',
+    actions: ['لا شيء مطلوب — بعد 00284 تُغلق الواجهة الرابط برسالة واضحة بدل سبينر دائم.'],
+    owner: 'user',
+  },
+  MEDIA_DESIGN_PHOTO_NOT_FOUND: {
+    explanation: 'حذف/إضافة صورة لم تعد موجودة (نقرة مكررة، تبويب آخر، أو صورة مصدر حُذفت من الأرشيف).',
+    actions: ['لا شيء مطلوب — بعد هجرة 00245 العملية عاطلة بلا خطأ.'],
+    owner: 'user',
+  },
+}
+
+export function infoFor(kind: ConsoleKind, code: string | null): KindInfo {
+  const base = KIND_CATALOG[kind]
+  if (!code) return base
+  const guide = CONTRACT_CODE_GUIDE[code]
+  const ar = contractCodeMessage(code)
+  // الدليل الخاص يسبق التصنيف العام (مثلاً GBS_FORBIDDEN يُصنَّف «رفض صلاحية» لكن له إرشاد محدد)
+  if (guide) return { ...base, owner: guide.owner ?? base.owner, explanation: `«${code}» — ${ar ?? ''} ${guide.explanation}`.trim(), actions: guide.actions }
+  if (kind !== 'contract_code') return base
+  if (ar) return { ...base, explanation: `«${code}»: ${ar} — الخادم رفض العملية بقاعدة عمل مقصودة؛ الواجهة عرضت هذه الرسالة للمستخدم.`, actions: ['إن تكرر كثيراً من نفس الشاشة: الواجهة تسمح بإجراء يجب تعطيله مسبقاً.', 'لا يحتاج تدخلاً في قاعدة البيانات.'] }
+  return { ...base, explanation: `«${code}» كود تعاقدي بلا ترجمة عربية — ظهر للمستخدم كنص خام.`, actions: base.actions }
+}
+
 export function classify(e: RawEvent): ClassifiedEvent {
   const kind = classifyKind(e)
   const portal = portalFromPath(e.url ?? null)
   const level: ConsoleLevel = e.level ?? (kind === 'react_warning' ? 'warn' : 'error')
+  const contractCode = kind === 'contract_code' ? extractContractCode(e.message) : null
   return {
     kind,
     level,
-    info: KIND_CATALOG[kind],
-    contractCode: kind === 'contract_code' ? extractContractCode(e.message) : null,
+    info: infoFor(kind, contractCode ?? extractContractCode(e.message)),
+    contractCode,
     fingerprint: fingerprintOf(kind, portal, e.message),
     portal,
   }
