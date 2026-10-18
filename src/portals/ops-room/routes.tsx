@@ -16,6 +16,7 @@ const OpsAdvances = lazy(() => import('./pages/Advances/OpsAdvancesPage'))   // 
 const OpsContractorHeadcounts = lazy(() => import('./pages/ContractorHeadcounts/OpsContractorHeadcountsPage'))   // 00262: حضوريات العمال
 const OpsLeaves = lazy(() => import('./pages/Leaves/OpsLeavesPage'))   // 00239: طلبات الإجازة
 const OpsLiveTracking = lazy(() => import('./pages/LiveTracking/OpsLiveTrackingPage'))   // 00287: البث المباشر
+const OpsLiveData = lazy(() => import('./pages/LiveTracking/OpsLiveDataPage'))   // 00288: بيانات البث المباشر
 const FleetDatabase = lazy(() =>
   import('@portals/central-garage/pages/VehiclesDatabasePage').then((module) => ({
     default: () => <module.default managementMode />,
@@ -52,4 +53,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'contractor-headcounts', element: load(<OpsContractorHeadcounts />) },
   { path: 'leaves', element: load(<OpsLeaves />) },
   { path: 'live-tracking', element: load(<OpsLiveTracking />) },
+  { path: 'live-tracking/data', element: load(<OpsLiveData />) },
 ]

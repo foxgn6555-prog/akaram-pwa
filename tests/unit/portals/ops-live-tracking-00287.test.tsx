@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import type { ReactNode } from 'react'
 import { PORTAL_UNITS } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
@@ -36,7 +37,7 @@ const zones: LiveZoneRow[] = [
   { id: 'z1', name: 'زون الكرادة', color: '#f00', polygon: [{ lat: 33, lng: 44 }, { lat: 33.1, lng: 44 }, { lat: 33.1, lng: 44.1 }], sector_id: 1, area_name: 'الكرادة', parent_sector: 'الرصافة', manager_ids: ['m1'], manager_names: 'سعد', contractor_id: 'c1', contractor_name: 'كريم' },
   { id: 'z2', name: 'زون الزعفرانية', color: null, polygon: [], sector_id: 2, area_name: 'الزعفرانية', parent_sector: 'الرصافة', manager_ids: [], manager_names: null, contractor_id: null, contractor_name: null },
 ]
-const wrap = (ui: ReactNode) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
+const wrap = (ui: ReactNode) => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider></MemoryRouter>)
 
 describe('00287 · البث المباشر — غرفة العمليات', () => {
   beforeEach(() => {

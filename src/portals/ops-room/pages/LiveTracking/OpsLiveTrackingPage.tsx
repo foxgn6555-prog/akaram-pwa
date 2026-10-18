@@ -40,6 +40,7 @@ export default function OpsLiveTrackingPage() {
           { label: 'خارج الزون', value: n(sum.outZone), tone: sum.outZone ? 'red' : 'plain' },
           { label: 'منقطع', value: n(sum.stale), tone: sum.stale ? 'gold' : 'plain' },
         ]}
+        links={[{ to: '/ops-room/live-tracking/data', label: 'بيانات البث المباشر', icon: 'list' }]}
         actions={<HeaderButton icon="refresh" testId="live-refresh" onClick={() => { void rowsQ.refetch(); void zonesQ.refetch() }}>{rowsQ.isFetching ? 'جارٍ التحديث…' : 'تحديث الآن'}</HeaderButton>}
       />
 

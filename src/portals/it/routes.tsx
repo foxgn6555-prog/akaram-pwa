@@ -32,6 +32,7 @@ const GpsHealthPage = lazy(() => import('@portals/it/pages/Integrations/GpsHealt
 const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
 const AutoDeductionsPage = lazy(() => import('@portals/it/pages/Integrations/AutoDeductionsPage'))   // 00195: الاستقطاعات التلقائية — القواعد والنطاق والاستثناءات
 const AdvanceTypesPage = lazy(() => import('@portals/it/pages/Integrations/AdvanceTypesPage'))   // 00191: السلف — الأنواع والسياسة
+const LiveTrackingSettingsPage = lazy(() => import('@portals/it/pages/Integrations/LiveTrackingSettingsPage'))   // 00288: البث المباشر — الإعدادات
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 const CentralGarageApprovalsPage = lazy(
@@ -93,6 +94,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },
   { path: 'integrations/auto-deductions', element: s(<AutoDeductionsPage />) },
   { path: 'integrations/advances', element: s(<AdvanceTypesPage />) },
+  { path: 'integrations/live-tracking', element: s(<LiveTrackingSettingsPage />) },
 
   // ── وحدة التحديثات والمراقبة ──
   { path: 'updates', element: s(<UpdatesPage />) },

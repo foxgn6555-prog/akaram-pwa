@@ -54,8 +54,8 @@ export function minutesAgoLabel(iso: string, now: Date = new Date()): string {
 
 export function timeHM(iso: string | null | undefined): string {
   if (!iso) return '—'
-  const d = iso.length <= 8 ? new Date(`1970-01-01T${iso}`) : new Date(iso)
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (iso.length <= 8) return iso.slice(0, 5)
+  return new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Baghdad', hour: '2-digit', minute: '2-digit' })
 }
 
 export interface ZoneOccupancy { zone: LiveZoneRow; live: LiveMapRow[]; expected: number }

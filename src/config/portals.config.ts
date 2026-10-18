@@ -251,6 +251,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
         { path: '/it/integrations/auto-deductions', labelKey: 'nav.it_auto_deductions', icon: 'clipboard' },
         { path: '/it/integrations/advances', labelKey: 'nav.it_advances', icon: 'wallet' },
+        { path: '/it/integrations/live-tracking', labelKey: 'nav.it_live_tracking', icon: 'map-pin' },   // 00288
       ],
     },
     {
@@ -421,7 +422,8 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/advances', labelKey: 'nav.ops_advances', icon: 'wallet' },
     { path: '/ops-room/contractor-headcounts', labelKey: 'nav.ops_contractor_headcounts', icon: 'users' },   // 00262
     { path: '/ops-room/leaves', labelKey: 'nav.ops_leaves', icon: 'calendar' },   // 00239
-    { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin' },   // 00287
+    { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
+    { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
   ],
 
   // ═══ وحدة الكشوفات ═══
