@@ -48,9 +48,10 @@ export function useLiveShare() {
     } finally { setBusy(false) }
   }, [qc, stopLocal])
 
+  /** زر «مشاركة موقعي المباشر» — ضغطة واحدة يومياً تكفي؛ الضغط مجدداً يعيد الإرسال فقط */
   const start = useCallback(async () => {
     const ok = await pingOnce()
-    if (ok) { setEnabled(true); writeFlag(storage(), true); toast({ type: 'success', message: 'بدأت مشاركة موقعك المباشر — تتوقف تلقائياً بنهاية شفتك' }) }
+    if (ok) { setEnabled(true); writeFlag(storage(), true); toast({ type: 'success', message: 'تم مشاركة موقعك بنجاح — يتحدث تلقائياً أثناء شفتك ويتوقف بنهايته' }) }
   }, [pingOnce, toast])
 
   const stop = useCallback(async () => {

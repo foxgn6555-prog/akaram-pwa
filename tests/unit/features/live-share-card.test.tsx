@@ -39,7 +39,7 @@ describe('LiveShareCard', () => {
     expect(screen.getByTestId('live-share-deny')).toHaveTextContent('خارج وقت الشفت')
     expect(screen.getByTestId('live-share-start')).toBeDisabled()
   })
-  it('جاهز ⇒ البدء يقرأ الموقع ويرسل نبضة ويحفظ العلم ويعرض «البث نشط»؛ الإيقاف يستدعي stop ويمسح العلم', async () => {
+  it('جاهز ⇒ ضغطة واحدة تقرأ الموقع وترسل نبضة وتحفظ العلم وتعرض «تم مشاركة موقعك بنجاح»؛ لا زر إيقاف ولا إرسال الآن؛ الزر يبقى ظاهراً', async () => {
     h.status.mockResolvedValue(base)
     mount()
     const start = await screen.findByTestId('live-share-start')
@@ -50,11 +50,14 @@ describe('LiveShareCard', () => {
     await screen.findByTestId('live-share-on-text')
     expect(screen.getByTestId('live-share-on-text')).toHaveTextContent('داخل زون عملك')
     expect(localStorage.getItem(LIVE_SHARE_FLAG)).toBe('1')
-    expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
-    fireEvent.click(screen.getByTestId('live-share-stop'))
-    await waitFor(() => expect(h.stop).toHaveBeenCalled())
-    expect(localStorage.getItem(LIVE_SHARE_FLAG)).toBeNull()
-    await screen.findByTestId('live-share-start')
+    expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'success', message: expect.stringContaining('تم مشاركة موقعك بنجاح') }))
+    expect(screen.getByTestId('live-share-on-text')).toHaveTextContent('تم مشاركة موقعك بنجاح')
+    expect(screen.queryByTestId('live-share-stop')).toBeNull()
+    expect(screen.queryByTestId('live-share-ping')).toBeNull()
+    // الزر يبقى ظاهراً؛ الضغط مجدداً يعيد الإرسال فقط (لا ضرر)
+    fireEvent.click(screen.getByTestId('live-share-start'))
+    await waitFor(() => expect(h.ping).toHaveBeenCalledTimes(2))
+    expect(localStorage.getItem(LIVE_SHARE_FLAG)).toBe('1')
   })
   it('رفض الخادم (انتهى الشفت) أثناء النبضة يوقف المشاركة ويعرض الرسالة العربية', async () => {
     h.status.mockResolvedValue(base)

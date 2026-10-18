@@ -10,7 +10,7 @@ import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 const fmtTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTimeString('ar-IQ-u-nu-latn', { timeZone: 'Asia/Baghdad', hour: '2-digit', minute: '2-digit' }) : '—')
 
 export function LiveShareCard({ compact = false }: { compact?: boolean }) {
-  const { status, enabled, busy, lastPing, lastError, permError, start, stop, pingNow } = useLiveShare()
+  const { status, enabled, busy, lastPing, lastError, permError, start } = useLiveShare()
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t) }, [])
   const s = status.data
@@ -31,7 +31,7 @@ export function LiveShareCard({ compact = false }: { compact?: boolean }) {
             <h2 className="text-sm font-black text-slate-900">مشاركة الموقع المباشر</h2>
             {enabled ? (
               <p className="text-[11px] text-emerald-900" data-testid="live-share-on-text">
-                البث نشط · آخر إرسال {agoText(lastPing?.recorded_at ?? s.last_seen_at, now)} · {inZone == null ? 'لا زون معرّف لمنطقتك' : inZone ? 'داخل زون عملك' : 'خارج زون عملك'} · {s.point_count + (lastPing && !s.active_session_id ? 1 : 0)} نقطة
+                تم مشاركة موقعك بنجاح ✅ · آخر تحديث {agoText(lastPing?.recorded_at ?? s.last_seen_at, now)} · {inZone == null ? 'لا زون معرّف لمنطقتك' : inZone ? 'داخل زون عملك' : 'خارج زون عملك'} · يتحدث تلقائياً كل {s.interval_minutes} دقيقة وعند فتح المنصة، ويتوقف بنهاية الشفت
               </p>
             ) : deny ? (
               <p className="text-[11px] text-slate-600" data-testid="live-share-deny"><b>{deny.title}</b> — {deny.hint}</p>
@@ -44,18 +44,14 @@ export function LiveShareCard({ compact = false }: { compact?: boolean }) {
           </div>
         </div>
         <div className="flex gap-2">
-          {enabled ? (
-            <>
-              <button type="button" className="h-10 rounded-xl border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 disabled:opacity-50" onClick={() => void pingNow()} disabled={busy} data-testid="live-share-ping">{busy ? 'جارٍ الإرسال…' : 'إرسال الآن'}</button>
-              <button type="button" className="h-10 rounded-xl bg-rose-600 px-4 text-xs font-black text-white" onClick={() => void stop()} data-testid="live-share-stop">إيقاف المشاركة</button>
-            </>
-          ) : (
-            <button type="button" className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white disabled:opacity-40" onClick={() => void start()} disabled={busy || !s.allowed} data-testid="live-share-start">{busy ? 'جارٍ تحديد موقعك…' : 'مشاركة موقعي المباشر'}</button>
-          )}
+          {/* زر واحد ظاهر دائماً: ضغطة واحدة يومياً تكفي، والتحديث بعدها تلقائي (عند فتح المنصة وكل N دقيقة) حتى نهاية الشفت */}
+          <button type="button" className={clsx('h-10 rounded-xl px-4 text-xs font-black text-white disabled:opacity-40', enabled ? 'bg-emerald-700' : 'bg-emerald-600')} onClick={() => void start()} disabled={busy || !s.allowed} data-testid="live-share-start">
+            {busy ? 'جارٍ تحديد موقعك…' : enabled ? '✓ مشاركة موقعي المباشر' : 'مشاركة موقعي المباشر'}
+          </button>
         </div>
       </div>
       {s.allowed && (permError || !enabled) && <PermissionPanel kind="geolocation" lastError={permError} onGranted={() => { if (!enabled) void start() }} className="mt-3" />}
-      {!compact && <p className="mt-3 text-[10px] text-slate-500">الخصوصية: لا يُرسل موقعك إلا أثناء شفتك الرسمي وأثناء فتح التطبيق؛ إغلاق الهاتف يوقف الإرسال، وتُستأنف المشاركة تلقائياً عند فتح التطبيق داخل الشفت.</p>}
+      {!compact && <p className="mt-3 text-[10px] text-slate-500">الخصوصية: ضغطة واحدة يومياً تكفي — لا يُرسل موقعك إلا أثناء شفتك الرسمي وأثناء فتح التطبيق، ويتحدث تلقائياً عند فتح المنصة وكل فترة، ويتوقف نهائياً بانتهاء ساعات شفتك.</p>}
     </section>
   )
 }
