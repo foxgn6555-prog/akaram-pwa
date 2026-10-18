@@ -804,6 +804,9 @@ export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks' | 'ho
 export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'hour_bank_credit_cap_days' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
 export type DeductionTargetType = 'branch' | 'department' | 'employee'
 export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
+/** 00248: شريحة احتساب (مجيء مبكر/بقاء بعد النهاية) — حتى `upto` دقيقة بنسبة `pct`% تدريجياً؛ ما بعد آخر شريحة = 0 */
+export interface CreditTier { upto: number; pct: number }
+export interface CreditTiers { early_in: CreditTier[]; late_out: CreditTier[] }
 export interface DeductionRule {
   id: string
   name: string

@@ -13,12 +13,12 @@ import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useBranches } from '@features/branches/hooks/useBranches'
 import {
-  useAddDeductionExemption, useDeductionAudit, useDeductionEmployees, useDeductionExemptions, useDeductionRules, useDeleteDeductionRule, useHrDepartments, useHrEmployees,
-  useHrPolicy, useRemoveDeductionExemption, useSaveDeductionRule, useSetDeductionTargets, useSimulateDeductionV2,
+  useAddDeductionExemption, useDeductionAudit, useDeductionEmployees, useDeductionExemptions, useCreditTiers, useDeductionRules, useDeleteDeductionRule, useHrDepartments, useHrEmployees,
+  useHrPolicy, useRemoveDeductionExemption, useSaveDeductionRule, useSetCreditTiers, useSetDeductionTargets, useSimulateDeductionV2,
 } from '@features/hr'
-import type { DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimCase, DeductionSimulationV2, DeductionTargetType, DeductionTier, ShortfallMethod } from '@features/hr'
+import type { CreditTier, CreditTiers, DeductionEmployeeRow, DeductionRule, DeductionRuleSettings, DeductionRuleSource, DeductionSimCase, DeductionSimulationV2, DeductionTargetType, DeductionTier, ShortfallMethod } from '@features/hr'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
-import { applyShortfall, computeHourBank, hourBankDay, SHORTFALL_METHOD_LABEL, validateTiers } from '@features/hr/lib/policy'
+import { applyShortfall, computeHourBank, creditTiered, DEFAULT_EARLY_IN_TIERS, DEFAULT_LATE_OUT_TIERS, hourBankDay, SHORTFALL_METHOD_LABEL, validateCreditTiers, validateTiers } from '@features/hr/lib/policy'
 import { field, fmtMinutes, fmtMoney, isoDay, monthStart } from '@portals/hr/components/hr-format'
 
 type Tab = 'rules' | 'scope' | 'exemptions' | 'employees' | 'simulate' | 'audit'
@@ -87,6 +87,7 @@ function RulesTab({ rules, onScope }: { rules: DeductionRule[]; onScope: (id: st
   if (editing) return <RuleEditor rule={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
   return (
     <div className="space-y-3" data-testid="ad-rules">
+      <CreditTiersCard />
       <div className="flex justify-end"><Button size="sm" onClick={() => setEditing('new')} data-testid="rule-new">+ قاعدة جديدة</Button></div>
       {rules.map((r) => (
         <article key={r.id} className={clsx('rounded-2xl border bg-white p-4 shadow-sm', r.is_default ? 'border-slate-900' : 'border-slate-200', !r.is_active && 'opacity-60')} data-testid={`rule-${r.id}`}>
@@ -146,8 +147,10 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
   const minuteRate = dayRate / Math.max(1, previewShift)
   const fixed = (s.auto_deduction_amount_mode ?? 'salary') === 'fixed'
   const amountOf = (minutes: number, days: number) => (s.auto_deduction_enabled === false ? 0 : fixed ? (s.fixed_shortfall_minute_amount ?? 0) * minutes + (s.fixed_absent_day_amount ?? 0) * days : minuteRate * minutes + dayRate * days)
+  const { data: creditTiers } = useCreditTiers()
+  const earlyTiers = creditTiers?.early_in ?? DEFAULT_EARLY_IN_TIERS, lateTiers = creditTiers?.late_out ?? DEFAULT_LATE_OUT_TIERS
   // 00218: مثال بنك الساعات — قاعدة اليوم الواحد: يوم تأخر «sample» وخرج بالنهاية (نقص) · يوم تأخر «sample» وبقي «sample» (معوَّض) · يوم بقي «sample» بعد النهاية (فائض)
-  const hb = computeHourBank({ shiftMinutes: previewShift, creditCapDays: s.hour_bank_credit_cap_days ?? 2, graceMinutes: s.grace_minutes_default,
+  const hb = computeHourBank({ shiftMinutes: previewShift, creditCapDays: s.hour_bank_credit_cap_days ?? 2, graceMinutes: s.grace_minutes_default, earlyInTiers: earlyTiers, lateOutTiers: lateTiers,
     days: [{ required: previewShift, lateMinutes: sample }, { required: previewShift, lateMinutes: sample, extraMinutes: sample }, { required: previewShift, extraMinutes: sample }] })
   const hbShort = computeHourBank({ shiftMinutes: previewShift, creditCapDays: s.hour_bank_credit_cap_days ?? 2, graceMinutes: s.grace_minutes_default, days: Array.from({ length: 20 }, () => ({ required: previewShift, earlyOutMinutes: sample })) })
   const describe = (minutes: number, days: number) => (days > 0 ? `${days} يوم` : minutes > 0 ? `${minutes} دقيقة` : 'لا استقطاع')
@@ -201,8 +204,8 @@ function RuleEditor({ rule, onClose }: { rule: DeductionRule | null; onClose: ()
             <div className="mt-1 rounded-lg border border-sky-200 bg-white/70 p-2" data-testid="r-hb-formula">
               <div className="font-black">بنك الساعات الشهري</div>
               <div>٥. لكل يوم على حدة (لا تعويض بين الأيام): نقص اليوم = (التأخير فوق السماحية − البقاء بعد نهاية الشفت في نفس اليوم، لا أقل من صفر) + الخروج المبكر − الزمنية المدفوعة. المجيء المبكر لا يعوّض خروجاً مبكراً.</div>
-              <div>٦. فائض اليوم = ما زاد من البقاء بعد تغطية تأخير اليوم + المجيء المبكر ⇒ يتجمّع شهرياً ويتحول رصيد إجازة (دقائق الشفت {previewShift} = يوم) بسقف {s.hour_bank_credit_cap_days ?? 2} يوم/شهر. الاستقطاع الشهري = مجموع نقص الأيام × أجر الدقيقة. الغياب بلا إجازة يوم كامل خارج البنك.</div>
-              <div data-testid="r-hb-preview">مثال (سماحية {s.grace_minutes_default} د): تأخر {sample} د وخرج بالنهاية ⇒ نقص {hourBankDay({ required: previewShift, lateMinutes: sample }, s.grace_minutes_default).shortfall} د · تأخر {sample} د وبقي {sample} د ⇒ نقص 0 · بقي {sample} د بلا تأخير ⇒ فائض {sample} د. مجموع الأيام الثلاثة: استقطاع {fmtMinutes(hb.deductionMinutes)} = {fmtMoney(amountOf(hb.deductionMinutes, 0))} د.ع · فائض {fmtMinutes(hb.surplusMinutes)}{hb.creditDays > 0 ? ` = ${hb.creditDays} يوم رصيد` : ''}.
+              <div>٦. فائض اليوم = شرائح(ما زاد من البقاء بعد تغطية تأخير اليوم) + شرائح(المجيء المبكر) — الشرائح تُضبط مرة واحدة للجميع في بطاقة «احتساب الحضور المبكر والخروج المتأخر» أعلى تبويب القواعد (حالياً: المبكر {describeTiers(earlyTiers)} · المتأخر {describeTiers(lateTiers)}) ⇒ يتجمّع شهرياً ويتحول رصيد إجازة (دقائق الشفت {previewShift} = يوم) بسقف {s.hour_bank_credit_cap_days ?? 2} يوم/شهر. الاستقطاع الشهري = مجموع نقص الأيام × أجر الدقيقة. الغياب بلا إجازة يوم كامل خارج البنك.</div>
+              <div data-testid="r-hb-preview">مثال (سماحية {s.grace_minutes_default} د): تأخر {sample} د وخرج بالنهاية ⇒ نقص {hourBankDay({ required: previewShift, lateMinutes: sample }, s.grace_minutes_default).shortfall} د · تأخر {sample} د وبقي {sample} د ⇒ نقص 0 · بقي {sample} د بلا تأخير ⇒ فائض {creditTiered(sample, lateTiers)} د · جاء مبكراً {sample} د ⇒ فائض {creditTiered(sample, earlyTiers)} د. مجموع الأيام الثلاثة: استقطاع {fmtMinutes(hb.deductionMinutes)} = {fmtMoney(amountOf(hb.deductionMinutes, 0))} د.ع · فائض {fmtMinutes(hb.surplusMinutes)}{hb.creditDays > 0 ? ` = ${hb.creditDays} يوم رصيد` : ''}.
                 {' '}ومن خرج مبكراً {sample} د في 20 يوماً ⇒ استقطاع {fmtMinutes(hbShort.deductionMinutes)} = {fmtMoney(amountOf(hbShort.deductionMinutes, 0))} د.ع.</div>
             </div>)}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sky-800">مثال حي بـ: راتب <input type="number" min={0} step={50000} className={clsx(field, 'w-28 py-0.5')} dir="ltr" value={previewSalary} onChange={(e) => setPreviewSalary(NUM(e.target.value))} data-testid="r-preview-salary" /> د.ع وشفت <input type="number" min={60} step={30} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={previewShift} onChange={(e) => setPreviewShift(NUM(e.target.value, 480))} data-testid="r-preview-shift" /> دقيقة ⇒ أجر اليوم <b dir="ltr">{fmtMoney(fixed ? s.fixed_absent_day_amount : dayRate)}</b> · أجر الدقيقة <b dir="ltr">{fixed ? fmtMoney(s.fixed_shortfall_minute_amount) : minuteRate.toFixed(1)}</b> د.ع</div>
@@ -496,6 +499,58 @@ function AuditTab() {
 }
 
 // ───────────────────────── عناصر مشتركة ─────────────────────────
+const describeTiers = (t: CreditTier[]) => (t.length === 0 ? 'لا يُحتسب (0%)' : t.map((x, i) => `${i === 0 ? 'حتى' : 'ثم حتى'} ${x.upto} د ${x.pct}%`).join(' · ') + ' · ما بعدها 0%')
+/** 00248: شرائح احتساب المجيء المبكر/البقاء بعد النهاية — إعداد واحد عام لكل الموظفين (ليس لكل قاعدة) */
+function CreditTiersCard() {
+  const q = useCreditTiers(); const save = useSetCreditTiers()
+  const [v, setV] = useState<CreditTiers | null>(null)
+  const [sample, setSample] = useState(45)
+  const cur = v ?? q.data ?? { early_in: DEFAULT_EARLY_IN_TIERS, late_out: DEFAULT_LATE_OUT_TIERS }
+  const errE = validateCreditTiers(cur.early_in), errL = validateCreditTiers(cur.late_out)
+  const dirty = v !== null && JSON.stringify(v) !== JSON.stringify(q.data)
+  const setKind = (k: keyof CreditTiers, tiers: CreditTier[]) => setV({ ...cur, [k]: tiers })
+  return (
+    <section className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm" data-testid="credit-tiers-card">
+      <h2 className="text-sm font-black">احتساب الحضور المبكر والخروج المتأخر — يُطبَّق على الجميع</h2>
+      <p className="mb-3 text-[11px] text-slate-600">تدريجي: كل جزء من الدقائق يُحتسب بنسبة شريحته، وما بعد آخر شريحة لا يُحتسب (0%). مثال: «حتى 15 د 100% ثم حتى 30 د 50%» ⇒ من جاء مبكراً 30 دقيقة يُحتسب له 15 + 7.5 ≈ 23 دقيقة فائضاً. الفائض يتجمّع شهرياً ويتحول رصيد إجازة بسقف القاعدة. لا تعويض بين الأيام، والمجيء المبكر لا يعوّض خروجاً مبكراً. البقاء بعد النهاية يغطي تأخير اليوم نفسه بالكامل أولاً ثم يُحتسب الزائد بالشرائح.</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <CreditTierTable kind="early" title="المجيء قبل بداية الشفت" tiers={cur.early_in} error={errE} onChange={(t) => setKind('early_in', t)} />
+        <CreditTierTable kind="late" title="البقاء بعد نهاية الشفت" tiers={cur.late_out} error={errL} onChange={(t) => setKind('late_out', t)} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-violet-900" data-testid="credit-tiers-preview">
+        مثال حي: <input type="number" min={0} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="credit-tiers-sample" /> دقيقة ⇒
+        مبكراً يُحتسب <b dir="ltr" data-testid="credit-tiers-preview-early">{creditTiered(sample, cur.early_in)}</b> د · متأخراً يُحتسب <b dir="ltr" data-testid="credit-tiers-preview-late">{creditTiered(sample, cur.late_out)}</b> د
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-500" data-testid="credit-tiers-summary">حالياً: المبكر {describeTiers(cur.early_in)} · المتأخر {describeTiers(cur.late_out)}</span>
+        <div className="flex gap-2">
+          {dirty && <Button size="sm" variant="secondary" onClick={() => setV(null)} data-testid="credit-tiers-reset">تراجع</Button>}
+          <Button size="sm" disabled={!dirty || !!errE || !!errL || save.isPending} onClick={() => save.mutate(cur, { onSuccess: () => setV(null) })} data-testid="credit-tiers-save">حفظ الشرائح</Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+function CreditTierTable({ kind, title, tiers, error, onChange }: { kind: string; title: string; tiers: CreditTier[]; error: string | null; onChange: (t: CreditTier[]) => void }) {
+  const setRow = (i: number, patch: Partial<CreditTier>) => onChange(tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)))
+  const add = () => { const last = tiers[tiers.length - 1]; onChange([...tiers, { upto: Math.min(720, (last?.upto ?? 0) + 15), pct: last ? Math.max(0, last.pct - 50) : 100 }]) }
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3" data-testid={`credit-tiers-${kind}`}>
+      <div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-black">{title}</h3><Button size="sm" variant="secondary" onClick={add} disabled={tiers.length >= 10} data-testid={`credit-tiers-${kind}-add`}>+ شريحة</Button></div>
+      {tiers.length === 0 && <div className="rounded-lg border border-dashed border-slate-300 p-2 text-center text-[11px] text-slate-500" data-testid={`credit-tiers-${kind}-empty`}>لا شرائح ⇒ لا يُحتسب (0%)</div>}
+      {tiers.map((t, i) => (
+        <div key={i} className="mb-1 flex flex-wrap items-center gap-2 text-[11px]" data-testid={`credit-tiers-${kind}-row-${i}`}>
+          <span className="w-16 text-slate-500">{i === 0 ? 'من 1 إلى' : `من ${(tiers[i - 1]?.upto ?? 0) + 1} إلى`}</span>
+          <input type="number" min={1} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.upto} onChange={(e) => setRow(i, { upto: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-upto-${i}`} /> دقيقة بنسبة
+          <input type="number" min={0} max={100} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.pct} onChange={(e) => setRow(i, { pct: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-pct-${i}`} /> %
+          <button type="button" className="text-rose-600" onClick={() => onChange(tiers.filter((_x, j) => j !== i))} data-testid={`credit-tiers-${kind}-remove-${i}`}>حذف</button>
+        </div>
+      ))}
+      {tiers.length > 0 && <div className="text-[10px] text-slate-400">ما بعد {tiers[tiers.length - 1]?.upto} دقيقة ⇒ 0%</div>}
+      {error && <div className="mt-1 text-[11px] font-bold text-rose-600" data-testid={`credit-tiers-${kind}-error`}>{error}</div>}
+    </div>
+  )
+}
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

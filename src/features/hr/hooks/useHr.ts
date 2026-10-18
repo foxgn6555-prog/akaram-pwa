@@ -448,6 +448,13 @@ const invalidateDeductionUnit = (qc: ReturnType<typeof useQueryClient>) => {
 export function useDeductionRules() {
   return useQuery({ queryKey: [...DED, 'rules'], queryFn: hr.deductionRules, staleTime: 30_000 })
 }
+export function useCreditTiers() {
+  return useQuery({ queryKey: [...DED, 'credit-tiers'], queryFn: hr.creditTiers, staleTime: 30_000 })
+}
+export function useSetCreditTiers() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.setCreditTiers, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('حُفظت شرائح الاحتساب وأُعيد احتساب الشهر الجاري والسابق') }, onError: t.err })
+}
 export function useSaveDeductionRule() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({ mutationFn: hr.saveDeductionRule, onSuccess: () => { invalidateDeductionUnit(qc); t.ok('حُفظت القاعدة وأُعيد احتساب الشهر الجاري') }, onError: t.err })

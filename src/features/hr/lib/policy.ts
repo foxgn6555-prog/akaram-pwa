@@ -48,24 +48,46 @@ export const SHORTFALL_METHOD_LABEL: Record<ShortfallMethod, string> = {
 }
 
 /** 00218: بنك الساعات — قاعدة اليوم الواحد (مطابق لـ app.hr_compute_day_metrics/hr_hour_bank):
- *  نقص اليوم = max(0, تأخير فوق السماحية − بقاء بعد النهاية) + خروج مبكر − زمنية مدفوعة · فائض اليوم = بقاء زائد + مجيء مبكر. لا تعويض بين الأيام. */
+ *  نقص اليوم = max(0, تأخير فوق السماحية − بقاء بعد النهاية) + خروج مبكر − زمنية مدفوعة · فائض اليوم = شرائح(بقاء زائد) + شرائح(مجيء مبكر) (00248). لا تعويض بين الأيام. */
+/** 00248: الاحتساب التدريجي بالشرائح (مطابق لـ app.hr_credit_tiered): كل جزء بنسبة شريحته، ما بعد آخر شريحة = 0، تقريب لأقرب دقيقة */
+export interface CreditTierLike { upto: number; pct: number }
+export const DEFAULT_EARLY_IN_TIERS: CreditTierLike[] = []
+export const DEFAULT_LATE_OUT_TIERS: CreditTierLike[] = [{ upto: 720, pct: 100 }]
+export function creditTiered(minutes: number, tiers: CreditTierLike[] | null | undefined): number {
+  const m = Math.max(0, minutes || 0); let prev = 0, acc = 0
+  for (const t of tiers ?? []) { const seg = Math.min(m, t.upto) - prev; if (seg <= 0) break; acc += (seg * t.pct) / 100; prev = t.upto }
+  return Math.round(acc)
+}
+export function validateCreditTiers(tiers: CreditTierLike[]): string | null {
+  if (tiers.length > 10) return 'الحد الأقصى 10 شرائح'
+  let prev = 0
+  for (const t of tiers) {
+    if (!Number.isFinite(t.upto) || !Number.isFinite(t.pct)) return 'قيم غير صالحة'
+    if (t.upto <= prev) return 'حدود الشرائح يجب أن تكون تصاعدية'
+    if (t.upto > 720) return 'الحد الأقصى للشريحة 720 دقيقة'
+    if (t.pct < 0 || t.pct > 100) return 'النسبة بين 0 و100'
+    prev = t.upto
+  }
+  return null
+}
 export interface HourBankDay { required: number; lateMinutes?: number; earlyInMinutes?: number; earlyOutMinutes?: number; extraMinutes?: number; permitMinutes?: number; waived?: boolean }
-export interface HourBankInput { shiftMinutes: number; creditCapDays: number; graceMinutes: number; days: HourBankDay[] }
+export interface HourBankInput { shiftMinutes: number; creditCapDays: number; graceMinutes: number; days: HourBankDay[]; earlyInTiers?: CreditTierLike[]; lateOutTiers?: CreditTierLike[] }
 export interface HourBankResult {
   requiredMinutes: number; creditedMinutes: number; netMinutes: number
   deductionMinutes: number; surplusMinutes: number; daysShort: number; creditDays: number; creditCapped: boolean
 }
-export function hourBankDay(d: HourBankDay, graceMinutes: number): { shortfall: number; surplus: number } {
+export function hourBankDay(d: HourBankDay, graceMinutes: number, earlyInTiers: CreditTierLike[] = DEFAULT_EARLY_IN_TIERS, lateOutTiers: CreditTierLike[] = DEFAULT_LATE_OUT_TIERS): { shortfall: number; surplus: number } {
   const lateRaw = d.lateMinutes ?? 0, late = lateRaw <= graceMinutes ? 0 : lateRaw
   const extra = d.extraMinutes ?? 0, earlyIn = d.earlyInMinutes ?? 0, earlyOut = d.earlyOutMinutes ?? 0
   const shortfall = d.waived ? 0 : Math.max(0, Math.max(0, late - extra) + earlyOut - (d.permitMinutes ?? 0))
-  return { shortfall, surplus: Math.max(0, extra - late) + earlyIn }
+  // 00248: البقاء يغطي تأخير اليوم 100% أولاً، ثم الزائد والمجيء المبكر كلٌّ بشرائحه
+  return { shortfall, surplus: creditTiered(Math.max(0, extra - late), lateOutTiers) + creditTiered(earlyIn, earlyInTiers) }
 }
 export function computeHourBank(i: HourBankInput): HourBankResult {
   const shift = Math.max(1, i.shiftMinutes)
   let requiredMinutes = 0, deductionMinutes = 0, surplusMinutes = 0, daysShort = 0
   for (const d of i.days) {
-    const { shortfall, surplus } = hourBankDay(d, i.graceMinutes)
+    const { shortfall, surplus } = hourBankDay(d, i.graceMinutes, i.earlyInTiers ?? DEFAULT_EARLY_IN_TIERS, i.lateOutTiers ?? DEFAULT_LATE_OUT_TIERS)
     requiredMinutes += d.required; deductionMinutes += shortfall; surplusMinutes += surplus; if (shortfall > 0) daysShort += 1
   }
   const rawDays = Math.round((surplusMinutes / shift) * 1000) / 1000

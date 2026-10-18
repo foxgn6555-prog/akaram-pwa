@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   rules: [] as Array<Record<string, unknown>>,
   exemptions: [] as Array<Record<string, unknown>>,
   employees: [] as Array<Record<string, unknown>>,
+  creditTiers: { early_in: [] as Array<{ upto: number; pct: number }>, late_out: [{ upto: 720, pct: 100 }] as Array<{ upto: number; pct: number }> }, saveTiers: vi.fn(),
   saveRule: vi.fn(), deleteRule: vi.fn(), setTargets: vi.fn(), addExempt: vi.fn(), removeExempt: vi.fn(), simulate: vi.fn(),
 }))
 const SETTINGS = () => ({
@@ -25,6 +26,7 @@ const mut = (fn: (...a: never[]) => unknown) => ({ mutate: (v: never, opts?: { o
 vi.mock('@features/branches/hooks/useBranches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'بغداد', code: 'BG', is_active: true }, { id: 'b2', name: 'البصرة', code: 'BS', is_active: true }] }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useDeductionRules: () => ({ data: h.rules, isLoading: false }),
+  useCreditTiers: () => ({ data: h.creditTiers, isLoading: false }), useSetCreditTiers: () => mut(h.saveTiers),
   useSaveDeductionRule: () => mut(h.saveRule), useDeleteDeductionRule: () => mut(h.deleteRule), useSetDeductionTargets: () => mut(h.setTargets),
   useDeductionExemptions: () => ({ data: h.exemptions, isLoading: false }), useAddDeductionExemption: () => mut(h.addExempt), useRemoveDeductionExemption: () => mut(h.removeExempt),
   useDeductionEmployees: () => ({ data: h.employees, isLoading: false }),
@@ -254,12 +256,36 @@ describe('00216/00218 — بنك الساعات في محرر القاعدة', (
     expect(screen.queryByTestId('r-hb-off')).toBeNull()
     expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('لكل يوم على حدة (لا تعويض بين الأيام)')
     expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('بسقف 2 يوم/شهر')
-    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('تأخر 30 د وخرج بالنهاية ⇒ نقص 30 د · تأخر 30 د وبقي 30 د ⇒ نقص 0 · بقي 30 د بلا تأخير ⇒ فائض 30 د')
+    expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('تأخر 30 د وخرج بالنهاية ⇒ نقص 30 د · تأخر 30 د وبقي 30 د ⇒ نقص 0 · بقي 30 د بلا تأخير ⇒ فائض 30 د · جاء مبكراً 30 د ⇒ فائض 0 د')
+    expect(screen.getByTestId('r-hb-formula')).toHaveTextContent('المبكر لا يُحتسب (0%) · المتأخر حتى 720 د 100% · ما بعدها 0%')
     expect(screen.getByTestId('r-hb-preview')).toHaveTextContent('ومن خرج مبكراً 30 د في 20 يوماً ⇒ استقطاع 10س 0د')
     fireEvent.change(screen.getByTestId('r-hb-cap'), { target: { value: '1' } })
     fireEvent.change(screen.getByTestId('rule-name'), { target: { value: 'بنك' } })
     fireEvent.click(screen.getByTestId('rule-save'))
     await waitFor(() => expect(h.saveRule).toHaveBeenCalled())
     expect(h.saveRule.mock.calls[0]?.[0].settings).toMatchObject({ shortfall_method: 'hour_bank', hour_bank_credit_cap_days: 1 })
+  })
+  it('00248: بطاقة الشرائح العامة — الافتراضي مبكر 0% ومتأخر 100%؛ إضافة شرائح تدريجية تُعاين حيّاً وتُحفظ؛ الترتيب غير التصاعدي يمنع الحفظ', async () => {
+    render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+    const card = screen.getByTestId('credit-tiers-card')
+    expect(within(card).getByTestId('credit-tiers-early-empty')).toBeInTheDocument()
+    expect(within(card).getByTestId('credit-tiers-preview-early')).toHaveTextContent('0')
+    expect(within(card).getByTestId('credit-tiers-preview-late')).toHaveTextContent('45')
+    expect(within(card).getByTestId('credit-tiers-save')).toBeDisabled()
+    fireEvent.click(within(card).getByTestId('credit-tiers-early-add'))
+    fireEvent.click(within(card).getByTestId('credit-tiers-early-add'))
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-upto-0'), { target: { value: '15' } })
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-pct-0'), { target: { value: '100' } })
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-upto-1'), { target: { value: '30' } })
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-pct-1'), { target: { value: '50' } })
+    fireEvent.change(within(card).getByTestId('credit-tiers-sample'), { target: { value: '30' } })
+    expect(within(card).getByTestId('credit-tiers-preview-early')).toHaveTextContent('23')
+    expect(within(card).getByTestId('credit-tiers-summary')).toHaveTextContent('المبكر حتى 15 د 100% · ثم حتى 30 د 50% · ما بعدها 0%')
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-upto-1'), { target: { value: '10' } })
+    expect(within(card).getByTestId('credit-tiers-early-error')).toHaveTextContent('تصاعدية')
+    expect(within(card).getByTestId('credit-tiers-save')).toBeDisabled()
+    fireEvent.change(within(card).getByTestId('credit-tiers-early-upto-1'), { target: { value: '30' } })
+    fireEvent.click(within(card).getByTestId('credit-tiers-save'))
+    await waitFor(() => expect(h.saveTiers).toHaveBeenCalledWith({ early_in: [{ upto: 15, pct: 100 }, { upto: 30, pct: 50 }], late_out: [{ upto: 720, pct: 100 }] }))
   })
 })

@@ -9,7 +9,7 @@ import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewR
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
-  HrPolicy, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
+  HrPolicy, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
@@ -333,6 +333,8 @@ export const hr = {
   policy() { return rpc<HrPolicy>('hr_policy_get', {}) },
   // ─────────── 00195: وحدة الاستقطاعات التلقائية (التطوير المركزية) ───────────
   deductionRules() { return rpc<DeductionRule[]>('it_deduction_rules', {}) },
+  creditTiers() { return rpc<CreditTiers>('it_credit_tiers_get', {}) },
+  setCreditTiers(v: CreditTiers) { return rpc<CreditTiers>('it_credit_tiers_set', { p_early: v.early_in, p_late: v.late_out }) },
   saveDeductionRule(v: { id?: string | null; name: string; description?: string | null; is_active?: boolean; settings: Partial<DeductionRuleSettings> }) { return rpc<string>('it_deduction_rule_save', { p: v }) },
   deleteDeductionRule(id: string) { return sdkVoid(supabase.rpc('it_deduction_rule_delete', { p_id: id } as never)) },
   setDeductionTargets(ruleId: string, targets: { target_type: DeductionTargetType; target_id: string }[]) { return rpc<number>('it_deduction_targets_set', { p_rule: ruleId, p_targets: targets }) },

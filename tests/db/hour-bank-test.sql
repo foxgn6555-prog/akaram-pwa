@@ -81,7 +81,7 @@ do $$ declare m date := current_setting('test.hb_m')::date; d record; begin
   select * into d from public.hr_attendance_days where employee_id = 'b7000000-0000-0000-0000-0000000000eb' and work_date = m + 3;
   assert d.shortfall_minutes = 0 and d.proposed_deduction_minutes = 0 and d.overtime_minutes = 0, 'S1 B d4 معوَّض بنفس اليوم: ' || row_to_json(d)::text;
   select * into d from public.hr_attendance_days where employee_id = 'b7000000-0000-0000-0000-0000000000eb' and work_date = m + 4;
-  assert d.shortfall_minutes = 15 and d.proposed_deduction_minutes = 15 and d.overtime_minutes = 15, 'S1 B d5 مبكر دخولاً وخروجاً: ' || row_to_json(d)::text;
+  assert d.shortfall_minutes = 15 and d.proposed_deduction_minutes = 15 and d.overtime_minutes = 0, 'S1 B d5 مبكر دخولاً (00248: لا يُحتسب افتراضياً) وخروجاً: ' || row_to_json(d)::text;
   select * into d from public.hr_attendance_days where employee_id = 'b7000000-0000-0000-0000-0000000000ec' and work_date = m;
   assert d.shortfall_minutes = 60 and d.proposed_deduction_minutes = 60, 'S1 C d1: ' || row_to_json(d)::text;
   select * into d from public.hr_attendance_days where employee_id = 'b7000000-0000-0000-0000-0000000000ec' and work_date = m + 25;
@@ -95,7 +95,7 @@ do $$ declare m date := current_setting('test.hb_m')::date; dim int := extract(d
   assert h.enabled and h.shift_minutes = 480 and h.covered_days = dim and h.days_counted = dim and h.required_days = dim, 'S2 A base: ' || row_to_json(h)::text;
   assert h.required_minutes = dim * 480 and h.credited_minutes = dim * 480 and h.net_minutes = 0 and h.deduction_minutes = 0 and h.credit_days = 0 and h.surplus_minutes = 0, 'S2 A: ' || row_to_json(h)::text;
   select * into h from app.hr_hour_bank('b7000000-0000-0000-0000-0000000000eb', m);
-  assert h.deduction_minutes = 75 and h.surplus_minutes = 75 and h.net_minutes = 0 and h.days_short = 2 and h.credit_days = 0.156 and not h.credit_capped, 'S2 B no cross-day: ' || row_to_json(h)::text;
+  assert h.deduction_minutes = 75 and h.surplus_minutes = 60 and h.net_minutes = -15 and h.days_short = 2 and h.credit_days = 0.125 and not h.credit_capped, 'S2 B no cross-day: ' || row_to_json(h)::text;
   select * into h from app.hr_hour_bank('b7000000-0000-0000-0000-0000000000ec', m);
   assert h.days_counted = 20 and h.days_absent = dim - 20 and h.required_days = 20 and h.required_minutes = 9600 and h.credited_minutes = 8400, 'S2 C base: ' || row_to_json(h)::text;
   assert h.net_minutes = -1200 and h.deduction_minutes = 1200 and h.credit_days = 0 and h.surplus_minutes = 0, 'S2 C deficit: ' || row_to_json(h)::text;
@@ -116,13 +116,13 @@ do $$ declare m date := current_setting('test.hb_m')::date; dim int := extract(d
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'HB-A';
   assert r.auto_deduction_minutes = 0 and r.auto_deduction_amount = 0 and r.hour_bank_credit_days = 0 and r.final_net = r.gross_amount and r.payable_days = dim, 'S3 A: ' || row_to_json(r)::text;
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'HB-B';
-  assert r.auto_deduction_minutes = 75 and r.auto_deduction_amount = round(mr * 75, 2) and r.hour_bank_credit_days = 0.156 and r.final_net = r.gross_amount - round(mr * 75, 2), 'S3 B: ' || row_to_json(r)::text;
+  assert r.auto_deduction_minutes = 75 and r.auto_deduction_amount = round(mr * 75, 2) and r.hour_bank_credit_days = 0.125 and r.final_net = r.gross_amount - round(mr * 75, 2), 'S3 B: ' || row_to_json(r)::text;
   select * into r from public.hr_month_export_rows where export_id = x and employee_number = 'HB-D';
   assert r.auto_deduction_minutes = 0 and r.auto_deduction_amount = 0 and r.hour_bank_credit_days = 0 and r.payable_days = 30, 'S3 D: ' || row_to_json(r)::text;
   select count(*), coalesce(sum(days), 0) into r from public.hr_leave_ledger where kind = 'overtime' and period_month = m and employee_id in ('b7000000-0000-0000-0000-0000000000ea', 'b7000000-0000-0000-0000-0000000000eb', 'b7000000-0000-0000-0000-0000000000ec', 'b7000000-0000-0000-0000-0000000000ed');
-  assert r.count = 1 and r.coalesce = 0.156, 'S3 ledger: ' || row_to_json(r)::text;
+  assert r.count = 1 and r.coalesce = 0.125, 'S3 ledger: ' || row_to_json(r)::text;
   bal := public.hr_leave_balance('b7000000-0000-0000-0000-0000000000eb', extract(year from m)::int);
-  assert (bal ->> 'overtime_days')::numeric = 0.156, 'S3 balance B: ' || bal::text;
+  assert (bal ->> 'overtime_days')::numeric = 0.125, 'S3 balance B: ' || bal::text;
   -- إعادة التصدير لا تُكرّر القيد
   x := public.ops_month_export_reviewed(m);
   select count(*) into r from public.hr_leave_ledger where kind = 'overtime' and period_month = m and employee_id = 'b7000000-0000-0000-0000-0000000000eb';
@@ -159,7 +159,7 @@ do $$ declare m date := current_setting('test.hb_m')::date; x uuid; n int; h rec
   select count(*) into n from public.hr_leave_ledger where kind = 'overtime' and period_month = m and employee_id = 'b7000000-0000-0000-0000-0000000000eb';
   assert n = 0, 'S5 cap 0 ⇒ ledger removed ' || n;
   select * into h from app.hr_hour_bank('b7000000-0000-0000-0000-0000000000eb', m);
-  assert h.credit_days = 0 and h.credit_capped and h.surplus_minutes = 75, 'S5 B: ' || row_to_json(h)::text;
+  assert h.credit_days = 0 and h.credit_capped and h.surplus_minutes = 60, 'S5 B: ' || row_to_json(h)::text;
   raise notice 'S5 ✅';
 end $$;
 reset role; select set_config('auth.user_id','', false);
