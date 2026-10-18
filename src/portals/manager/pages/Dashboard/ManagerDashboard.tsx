@@ -1,5 +1,7 @@
 /** لوحة مسؤول القسم — المؤشرات من متعهد المنطقة (عمال/حضور) وآليات تعمل الآن والطلبات والصور */
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { LiveShareCard } from '@features/live-tracking/LiveShareCard'
 import { useManagerProfile, useSectorSummary, useSectors } from '@features/sector'
 import { SHIFT_LABELS } from '@features/sector/types'
 import { useManagerTeamSummary } from '@features/contractors/hooks'
@@ -20,6 +22,10 @@ export default function ManagerDashboard() {
   const headcount = rows.reduce((a, r) => a + (r.today_headcount ?? 0), 0), reported = rows.filter((r) => r.contractor_user_id).length, checkedIn = rows.filter((r) => r.contractor_checked_in).length
   const vehiclesNow = rows.reduce((a, r) => a + r.vehicles_now, 0), contractorsNames = rows.map((r) => r.contractor_name).filter(Boolean).join(' · ')
   const checkinTotal = Math.max(1, reported)
+  // 00286: وحدة «مشاركة الموقع» — تفتح بطاقة المشاركة المباشرة في الرئيسية
+  const [liveOpen, setLiveOpen] = useState(false)
+  const liveRef = useRef<HTMLDivElement>(null)
+  const openLive = () => { setLiveOpen(true); setTimeout(() => liveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }
   const stats: Array<{ label: string; value: string; hint: string; icon: IconName; tone: Tone }> = [
     { label: 'العدد اليوم (المتعهد وعماله)', value: String(headcount), hint: contractorsNames ? `متعهد: ${contractorsNames}` : 'لا متعهد معيّن لمنطقتك بعد', icon: 'users', tone: 'cyan' },
     { label: 'آليات تعمل الآن', value: String(vehiclesNow), hint: 'في مناطق مسؤوليتك', icon: 'truck', tone: 'blue' },
@@ -29,6 +35,7 @@ export default function ManagerDashboard() {
     { label: 'الصور الميدانية', value: String(summary.data?.photos ?? 0), hint: 'صورة محفوظة', icon: 'photo', tone: 'rose' },
   ]
   const units: Array<{ path: string; label: string; hint: string; icon: IconName; tone: Tone }> = [
+    { path: '#live-share', label: 'مشاركة الموقع', hint: 'بث موقعك المباشر لغرفة العمليات أثناء شفتك فقط', icon: 'map-pin', tone: 'emerald' },
     { path: '/manager/vehicle-trips', label: 'حركة الآليات', hint: 'الاستلام والمحطة والصيانة والعودة', icon: 'truck', tone: 'blue' },
     { path: '/manager/team', label: 'فريقي', hint: 'متعهد المنطقة والعدد اليومي والآليات العاملة الآن', icon: 'users', tone: 'cyan' },
     { path: '/manager/breakdown', label: 'الأعطال', hint: 'بلاغ عطل والعودة إلى العمل', icon: 'alert-triangle', tone: 'amber' },
@@ -40,6 +47,7 @@ export default function ManagerDashboard() {
   return (
     <section dir="rtl" className="space-y-6" data-testid="manager-dashboard">
       <ExecPageHeader icon="home" title="بوابة مسؤول القسم" subtitle={<><span className="font-bold text-[#f3d06a]">مركز قيادة القسم الميداني</span> · {profile.data ? `${SHIFT_LABELS[profile.data.shift]}${names ? ` · مناطق المسؤولية: ${names}` : ''}` : 'متابعة الفريق والآليات والطلبات والأعمال الميدانية'}</>} />
+      {liveOpen && <div ref={liveRef} id="live-share" data-testid="mgr-live-share"><LiveShareCard /></div>}
       {summary.isLoading || team.isLoading ? <div className="p-8"><LoadingSpinner label="جارٍ تجهيز مؤشرات القسم…" /></div> : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6" data-testid="mgr-stats">
@@ -58,7 +66,7 @@ export default function ManagerDashboard() {
               <p className="mt-1 text-xs text-slate-500">دخول سريع إلى العمليات اليومية المرتبطة بالقسم</p>
               <div className="mt-5 grid gap-3 sm:grid-cols-2" data-testid="mgr-units">
                 {units.map((u) => (
-                  <button key={u.path} type="button" onClick={() => navigate(u.path)} className={`flex items-start gap-3 rounded-2xl border p-4 text-right transition hover:shadow ${tones[u.tone]}`}>
+                  <button key={u.path} type="button" data-testid={u.path === '#live-share' ? 'mgr-unit-live-share' : undefined} onClick={() => (u.path === '#live-share' ? openLive() : navigate(u.path))} className={`flex items-start gap-3 rounded-2xl border p-4 text-right transition hover:shadow ${tones[u.tone]}`}>
                     <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/80"><Icon name={u.icon} size={18} /></span>
                     <span><b className="block text-sm text-slate-900">{u.label}</b><small className="text-[11px] opacity-80">{u.hint}</small></span>
                   </button>

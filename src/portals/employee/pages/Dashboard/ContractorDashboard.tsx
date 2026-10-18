@@ -6,6 +6,7 @@ import { PARENT_AR, SHIFT_AR, timeAr, zoneLabel } from '@features/contractors/fo
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { LiveShareCard } from '@features/live-tracking/LiveShareCard'
 
 export default function ContractorDashboard() {
   const me = useContractorMe(), month = useContractorMyMonth()
@@ -21,6 +22,8 @@ export default function ContractorDashboard() {
         <Stat icon={<Users size={18} />} label="مجموع الأعداد هذا الشهر" value={m.month_headcount_total} tone="slate" testId="stat-month-total" to="/employee/attendance" />
         <Stat icon={<Camera size={18} />} label="إرسال الصور" value="→" tone="amber" testId="stat-photos" to="/employee/photos" />
       </section>
+      {/* 00286: البث المباشر أثناء الشفت (مستقل عن إثبات التواجد) */}
+      <LiveShareCard />
       <section className={`rounded-2xl border p-4 ${m.checked_in_today ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`} data-testid="checkin-status">
         {m.checked_in_today ? (
           <div className="flex flex-wrap items-center gap-3 text-sm">

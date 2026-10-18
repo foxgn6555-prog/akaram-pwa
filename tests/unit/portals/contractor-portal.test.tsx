@@ -10,6 +10,7 @@ const baseMe = {
   today: '2026-09-29', checked_in_today: false, checkin_at: null, in_zone: null, selfie_path: null, team_photo_path: null,
   today_headcount: null, month_days: 20, month_headcount_total: 300, month_locked: false, zone_defined: true,
 }
+vi.mock('@features/live-tracking/LiveShareCard', () => ({ LiveShareCard: () => <div data-testid="live-share-card" /> }))
 vi.mock('@features/contractors/hooks', () => ({
   useContractorMe: () => ({ data: h.me, isLoading: false }),
   useContractorMyMonth: () => ({ data: [{ log_date: '2026-09-28', checked_in: true, checkin_at: '2026-09-28T04:00:00Z', in_zone: true, headcount: 16 }, { log_date: '2026-09-29', checked_in: false, checkin_at: null, in_zone: null, headcount: null }] }),
