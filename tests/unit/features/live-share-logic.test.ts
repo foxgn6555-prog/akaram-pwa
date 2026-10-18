@@ -49,7 +49,7 @@ describe('live-share.logic', () => {
     const ok = { getCurrentPosition: vi.fn((s: PositionCallback) => s({ coords: { latitude: 33.3, longitude: 44.4, accuracy: 8 } } as GeolocationPosition)) } as unknown as Geolocation
     await expect(getFix(ok)).resolves.toEqual({ latitude: 33.3, longitude: 44.4, accuracy: 8 })
     const denied = { getCurrentPosition: vi.fn((_s: PositionCallback, e: PositionErrorCallback) => e({ code: 1 } as GeolocationPositionError)) } as unknown as Geolocation
-    await expect(getFix(denied)).rejects.toThrow('رفضت إذن الموقع')
+    await expect(getFix(denied)).rejects.toThrow('إذن الموقع مرفوض')
     await expect(getFix(undefined)).rejects.toThrow('لا يدعم')
   })
 })

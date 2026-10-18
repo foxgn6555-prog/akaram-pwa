@@ -37,12 +37,24 @@ describe('CameraCapture — التقاط مباشر بالكاميرا', () => {
   it('عند رفض الإذن: رسالة سبب + زر إعادة محاولة فقط — لا يوجد أي اختيار من الألبوم', async () => {
     mockCamera(() => Promise.reject(Object.assign(new Error('denied'), { name: 'NotAllowedError' })))
     const { container } = render(<CameraCapture facing="environment" title="العمال" testId="team" onCapture={vi.fn()} onClose={vi.fn()} />)
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('رفضت إذن الكاميرا'))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('إذن الكاميرا مرفوض'))
     expect(container.querySelector('input[type="file"]')).toBeNull()
+    // 00289: لوحة الأذونات بخطوات التفعيل وزر «تحقق مجدداً»
+    await waitFor(() => expect(screen.getByTestId('perm-panel-camera')).toHaveAttribute('data-state', 'denied'))
+    expect(screen.getByTestId('perm-help-camera')).toBeInTheDocument()
     const gum = navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>
     const before = gum.mock.calls.length
     fireEvent.click(screen.getByTestId('team-retry'))
     await waitFor(() => expect(gum.mock.calls.length).toBeGreaterThan(before))
+  })
+  it('00289: اتصال http غير آمن → رسالة https واضحة ولا يُستدعى getUserMedia', async () => {
+    Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true })
+    mockCamera(() => Promise.resolve(stream))
+    render(<CameraCapture facing="user" title="صورتك" testId="selfie" onCapture={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('https'))
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('perm-panel-camera')).toHaveAttribute('data-state', 'insecure'))
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
   })
   it('لا كاميرا في الجهاز → رسالة مناسبة', async () => {
     mockCamera(() => Promise.reject(Object.assign(new Error(), { name: 'NotFoundError' })))

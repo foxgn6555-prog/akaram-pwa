@@ -5,11 +5,12 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useLiveShare } from './useLiveShare'
 import { DENY_TEXT, agoText, minutesLeft } from './live-share.logic'
+import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 
 const fmtTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTimeString('ar-IQ-u-nu-latn', { timeZone: 'Asia/Baghdad', hour: '2-digit', minute: '2-digit' }) : '—')
 
 export function LiveShareCard({ compact = false }: { compact?: boolean }) {
-  const { status, enabled, busy, lastPing, lastError, start, stop, pingNow } = useLiveShare()
+  const { status, enabled, busy, lastPing, lastError, permError, start, stop, pingNow } = useLiveShare()
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t) }, [])
   const s = status.data
@@ -53,6 +54,7 @@ export function LiveShareCard({ compact = false }: { compact?: boolean }) {
           )}
         </div>
       </div>
+      {s.allowed && (permError || !enabled) && <PermissionPanel kind="geolocation" lastError={permError} onGranted={() => { if (!enabled) void start() }} className="mt-3" />}
       {!compact && <p className="mt-3 text-[10px] text-slate-500">الخصوصية: لا يُرسل موقعك إلا أثناء شفتك الرسمي وأثناء فتح التطبيق؛ إغلاق الهاتف يوقف الإرسال، وتُستأنف المشاركة تلقائياً عند فتح التطبيق داخل الشفت.</p>}
     </section>
   )

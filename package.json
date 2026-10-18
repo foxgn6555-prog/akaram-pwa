@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:phone": "node scripts/dev-phone.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -76,6 +77,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^4.6.0",
     "eslint": "^9.30.0",
     "eslint-config-prettier": "^10.1.0",

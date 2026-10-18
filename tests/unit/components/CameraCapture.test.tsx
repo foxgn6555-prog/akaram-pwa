@@ -84,7 +84,7 @@ describe('CameraCapture', () => {
   it('رفض إذن الكاميرا يظهر برسالة عربية', async () => {
     gUM.mockRejectedValue(Object.assign(new Error('denied'), { name: 'NotAllowedError' }))
     render(<CameraCapture open onClose={vi.fn()} onCapture={vi.fn()} />)
-    expect(await screen.findByTestId('camera-error')).toHaveTextContent('رُفض إذن الكاميرا')
+    expect(await screen.findByTestId('camera-error')).toHaveTextContent('إذن الكاميرا مرفوض')
     // زر الالتقاط معطّل عند الخطأ
     expect(screen.getByTestId('camera-shot')).toBeDisabled()
   })

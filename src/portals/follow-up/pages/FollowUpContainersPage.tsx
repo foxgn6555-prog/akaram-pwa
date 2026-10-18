@@ -4,6 +4,8 @@
  * الطلب معلّق ولا يُطبَّق إلا بعد اعتماد غرفة العمليات (الآلية نفسها لطلبات مسؤول القسم). الحوار فوق الخريطة (z-[2100]) ومناسب للهاتف.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { requestGeolocation } from '@lib/device-permissions'
+import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 import { Crosshair, LocateFixed, MapPin } from 'lucide-react'
 import GbsMap from '@features/gbs/GbsMap'
 import { GBS_STATUS_META, GBS_STATUS_ORDER, GBS_UPDATE_STATE_META } from '@features/gbs/statusMeta'
@@ -19,17 +21,16 @@ type Geo = { latitude: number; longitude: number; accuracy: number | null }
 
 function useGeolocation() {
   const [geo, setGeo] = useState<Geo | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false)
+  const [permError, setPermError] = useState<unknown>(null)
   const locate = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { setError('المتصفح لا يدعم تحديد الموقع'); return }
     setBusy(true); setError(null)
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setGeo({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy ?? null }); setBusy(false) },
-      (e) => { setError(e.code === 1 ? 'رفضت إذن الموقع — فعّله من إعدادات المتصفح' : 'تعذّر تحديد الموقع، حاول مجدداً'); setBusy(false) },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
-    )
+    requestGeolocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })
+      .then((fix) => { setGeo(fix); setPermError(null) })
+      .catch((e: unknown) => { setGeo(null); setError(e instanceof Error ? e.message : 'تعذّر تحديد الموقع، حاول مجدداً'); setPermError(e) })
+      .finally(() => setBusy(false))
   }
   useEffect(() => { locate() }, [])
-  return { geo, error, busy, locate }
+  return { geo, error, busy, locate, permError }
 }
 
 export default function FollowUpContainersPage() {
@@ -44,7 +45,7 @@ export default function FollowUpContainersPage() {
   const zones = useGbsZones()
   const myUpdates = useGbsMyUpdates()
   const request = useGbsRequestLocation()
-  const { geo, error: geoError, busy: geoBusy, locate } = useGeolocation()
+  const { geo, error: geoError, busy: geoBusy, locate, permError } = useGeolocation()
   const list = useMemo(() => containers.data ?? [], [containers.data])
   const pendingMine = useMemo(() => new Set((myUpdates.data ?? []).filter((u) => u.state === 'pending').map((u) => u.containerId)), [myUpdates.data])
   const openDialog = (c: GbsContainer) => { setTarget(c); setMoveHere(true); setNewStatus(c.status); setNote('') }
@@ -71,6 +72,7 @@ export default function FollowUpContainersPage() {
         <LocateFixed size={14} />
         {geo ? <span>موقعك الحالي: {geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)}{geo.accuracy != null ? ` · دقة ±${Math.round(geo.accuracy)} م` : ''}</span> : <span>{geoError ?? (geoBusy ? 'جارٍ تحديد موقعك…' : 'لم يُحدَّد موقعك بعد')}</span>}
         <button type="button" onClick={locate} disabled={geoBusy} className="ms-auto rounded-lg border bg-white px-3 py-1 font-black disabled:opacity-50" data-testid="fu-geo-refresh">تحديث موقعي</button>
+        {!geo && !geoBusy && <PermissionPanel kind="geolocation" lastError={permError} onGranted={locate} className="mt-2 w-full" />}
       </section>
       {containers.isLoading ? <LoadingSpinner /> : list.length === 0 ? <EmptyState title="لا حاويات في نطاقك" hint="تُسجَّل الحاويات من غرفة العمليات بمنطقتها؛ تأكد من نطاق متابعتك من التطوير المركزية" /> : (
         <div className="grid gap-3 lg:grid-cols-[1fr_360px]">

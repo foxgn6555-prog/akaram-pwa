@@ -105,7 +105,7 @@ describe('بوابة المتعهد (00158 → 00258: العدد بدل قائم
   it('رفض إذن الموقع يظهر رسالة واضحة وزر إعادة المحاولة، ويبقى الزر معطلاً', async () => {
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_ok: unknown, err: (e: { code: number }) => void) => err({ code: 1 }) } })
     wrap(<Attendance />)
-    await waitFor(() => expect(screen.getByTestId('geo-text')).toHaveTextContent('رفضت إذن الموقع'))
+    await waitFor(() => expect(screen.getByTestId('geo-text')).toHaveTextContent('إذن الموقع مرفوض'))
     expect(screen.getByTestId('geo-retry')).toBeInTheDocument()
     expect(screen.getByTestId('checkin-missing')).toHaveTextContent('الموقع')
   })

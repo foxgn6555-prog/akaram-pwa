@@ -5,6 +5,7 @@
  *   · علم «المشاركة مفعّلة» يُحفظ محلياً ليستأنف تلقائياً عند فتح التطبيق داخل الشفت نفسه.
  */
 import type { LiveDenyReason, LiveShareStatus } from '@sdk/live-tracking.sdk'
+import { requestGeolocation, type GeoFix } from '@lib/device-permissions'
 
 export const LIVE_SHARE_FLAG = 'live-share:enabled'
 export const DENY_REASONS: LiveDenyReason[] = ['LIVE_NOT_ELIGIBLE', 'LIVE_NO_SHIFT', 'LIVE_OUTSIDE_SHIFT']
@@ -64,15 +65,8 @@ export function writeFlag(storage: Pick<Storage, 'setItem' | 'removeItem'> | nul
   try { if (on) storage?.setItem(LIVE_SHARE_FLAG, '1'); else storage?.removeItem(LIVE_SHARE_FLAG) } catch { /* تخزين معطّل */ }
 }
 
-export type GeoFix = { latitude: number; longitude: number; accuracy: number | null }
-/** قراءة الموقع مرة واحدة كوعد (رسائل عربية) */
+export type { GeoFix } from '@lib/device-permissions'
+/** قراءة الموقع مرة واحدة كوعد — عبر طبقة أذونات الجهاز الموحدة (أخطاء مصنّفة: غير آمن/مرفوض/GPS معطّل/مهلة) */
 export function getFix(geo: Geolocation | undefined = typeof navigator === 'undefined' ? undefined : navigator.geolocation): Promise<GeoFix> {
-  return new Promise((resolve, reject) => {
-    if (!geo) { reject(new Error('المتصفح لا يدعم تحديد الموقع')); return }
-    geo.getCurrentPosition(
-      ({ coords }) => resolve({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy ?? null }),
-      (e) => reject(new Error(e.code === 1 ? 'رفضت إذن الموقع — فعّله من إعدادات المتصفح' : 'تعذّر تحديد الموقع، حاول مجدداً')),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    )
-  })
+  return requestGeolocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }, geo)
 }

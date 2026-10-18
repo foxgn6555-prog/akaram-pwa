@@ -8,6 +8,7 @@
  *   · نبذة وأرقام التواصل (تُحرَّر من غرفة العمليات).
  */
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react'
+import { requestGeolocation } from '@lib/device-permissions'
 import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -225,13 +226,11 @@ function ComplaintForm({ token, defaultName, onDone }: { token: string; defaultN
   useEffect(() => () => files.forEach((f) => URL.revokeObjectURL(f.url)), [files])
 
   function locate() {
-    if (!navigator.geolocation) { setLocError('المتصفح لا يدعم تحديد الموقع'); return }
     setLocating(true); setLocError('')
-    navigator.geolocation.getCurrentPosition(
-      (p) => { setPos({ lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), acc: Math.round(p.coords.accuracy) }); setLocating(false) },
-      (e) => { setLocError(e.code === 1 ? 'رُفض إذن الموقع — فعّله من إعدادات المتصفح أو اكتب العنوان يدوياً' : 'تعذر تحديد الموقع — حاول مجدداً أو اكتب العنوان'); setLocating(false) },
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
-    )
+    requestGeolocation({ enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 })
+      .then((fix) => setPos({ lat: +fix.latitude.toFixed(6), lng: +fix.longitude.toFixed(6), acc: Math.round(fix.accuracy ?? 0) }))
+      .catch((e: unknown) => setLocError(`${e instanceof Error ? e.message : 'تعذر تحديد الموقع'} — أو اكتب العنوان يدوياً`))
+      .finally(() => setLocating(false))
   }
   const m = useMutation({
     mutationFn: async () => {

@@ -5,22 +5,18 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, RefreshCw, X } from 'lucide-react'
+import { DevicePermissionError, classifyCameraError, permMessage } from '@lib/device-permissions'
+import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 
 export type Facing = 'user' | 'environment'
 
-export function cameraErrorMessage(name: string): string {
-  switch (name) {
-    case 'NotAllowedError': case 'SecurityError': return 'رفضت إذن الكاميرا — اسمح بالكاميرا لهذا الموقع من إعدادات المتصفح ثم أعد المحاولة'
-    case 'NotFoundError': case 'DevicesNotFoundError': return 'لم يُعثر على كاميرا في هذا الجهاز'
-    case 'NotReadableError': case 'TrackStartError': return 'الكاميرا مشغولة بتطبيق آخر — أغلقه ثم أعد المحاولة'
-    default: return 'تعذّر فتح الكاميرا — أعد المحاولة'
-  }
-}
+export function cameraErrorMessage(name: string): string { return permMessage('camera', classifyCameraError(name)) }
 
 export function CameraCapture({ facing, title, onCapture, onClose, testId }: { facing: Facing; title: string; onCapture: (f: File) => void; onClose: () => void; testId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [permError, setPermError] = useState<DevicePermissionError | null>(null)
   const [ready, setReady] = useState(false)
   const [attempt, setAttempt] = useState(0)
 
@@ -29,9 +25,9 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
   useEffect(() => {
     let cancelled = false
     const start = async () => {
-      setError(null); setReady(false)
-      if (typeof window !== 'undefined' && window.isSecureContext === false) { setError('الكاميرا تعمل فقط عبر اتصال آمن (https) — افتح التطبيق من رابطه الرسمي'); return }
-      if (!navigator.mediaDevices?.getUserMedia) { setError('هذا المتصفح لا يدعم الكاميرا المباشرة — استخدم Chrome أو Safari محدثاً'); return }
+      setError(null); setPermError(null); setReady(false)
+      if (typeof window !== 'undefined' && window.isSecureContext === false) { setError(permMessage('camera', 'INSECURE')); setPermError(new DevicePermissionError('camera', 'INSECURE', permMessage('camera', 'INSECURE'))); return }
+      if (!navigator.mediaDevices?.getUserMedia) { setError(permMessage('camera', 'UNSUPPORTED')); setPermError(new DevicePermissionError('camera', 'UNSUPPORTED', permMessage('camera', 'UNSUPPORTED'))); return }
       let lastName = ''
       const attempts: MediaStreamConstraints[] = [
         { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false },
@@ -51,7 +47,7 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
           if (lastName === 'NotAllowedError' || lastName === 'SecurityError') break
         }
       }
-      if (!cancelled) setError(cameraErrorMessage(lastName))
+      if (!cancelled) { const code = classifyCameraError(lastName); setError(permMessage('camera', code)); if (code === 'DENIED') setPermError(new DevicePermissionError('camera', code, permMessage('camera', code))) }
     }
     void start()
     return () => { cancelled = true; stop() }
@@ -84,6 +80,7 @@ export function CameraCapture({ facing, title, onCapture, onClose, testId }: { f
       <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         <video ref={videoRef} playsInline muted autoPlay className={`h-full w-full object-cover ${facing === 'user' ? '-scale-x-100' : ''}`} data-testid={`${testId}-video`} />
         {error && <p className="absolute inset-x-4 top-4 rounded-xl bg-rose-600/90 p-3 text-center text-sm font-bold text-white" role="alert">{error}</p>}
+        {permError && <div className="absolute inset-x-3 bottom-3 max-h-[60%] overflow-y-auto"><PermissionPanel kind="camera" lastError={permError} facing={facing} onGranted={() => setAttempt((a) => a + 1)} /></div>}
       </div>
       <div className="flex items-center justify-center gap-6 p-5">
         {error ? (

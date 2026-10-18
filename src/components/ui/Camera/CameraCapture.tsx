@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '@components/ui/Icon/Icon'
+import { DevicePermissionError, classifyCameraError, permMessage } from '@lib/device-permissions'
 
 export interface CameraCaptureProps {
   open: boolean
@@ -37,9 +38,8 @@ export function CameraCapture({ open, onClose, onCapture }: CameraCaptureProps) 
     setErrMsg('')
     const start = async (): Promise<void> => {
       try {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('المتصفح لا يدعم الكاميرا — افتح التطبيق عبر اتصال آمن (HTTPS) أو استخدم زر اختيار ملف')
-        }
+        if (window.isSecureContext === false) throw new DevicePermissionError('camera', 'INSECURE', permMessage('camera', 'INSECURE'))
+        if (!navigator.mediaDevices?.getUserMedia) throw new DevicePermissionError('camera', 'UNSUPPORTED', permMessage('camera', 'UNSUPPORTED'))
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: facing } },
           audio: false,
@@ -58,11 +58,7 @@ export function CameraCapture({ open, onClose, onCapture }: CameraCaptureProps) 
         if (cancelled) return
         const name = (e as DOMException)?.name
         setErrMsg(
-          name === 'NotAllowedError'
-            ? 'رُفض إذن الكاميرا — اسمح بالوصول من إعدادات المتصفح ثم أعد المحاولة'
-            : name === 'NotFoundError' || name === 'OverconstrainedError'
-              ? 'لا توجد كاميرا متاحة على هذا الجهاز'
-              : (e as Error)?.message || 'تعذّر تشغيل الكاميرا',
+          e instanceof DevicePermissionError ? e.message : permMessage('camera', classifyCameraError(name)),
         )
         setState('error')
       }

@@ -5,6 +5,8 @@
  * إثبات التواجد ليس حضوراً وظيفياً (حضور المتعهد الرسمي بالبصمة) — هو دليل أنه في موقعه وزونه، ويُقيَّم داخل/خارج النطاق لغرفة العمليات.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { requestGeolocation } from '@lib/device-permissions'
+import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 import { Camera, CheckCircle2, Info, MapPin, RefreshCw, Users } from 'lucide-react'
 import { useContractorCheckin, useContractorMe, useContractorPhotoUrl, useSetHeadcount } from '@features/contractors/hooks'
 import { timeAr, zoneLabel } from '@features/contractors/format'
@@ -16,17 +18,16 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 type Geo = { latitude: number; longitude: number; accuracy: number | null }
 function useGeolocation() {
   const [geo, setGeo] = useState<Geo | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false)
+  const [permError, setPermError] = useState<unknown>(null)
   const locate = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { setError('المتصفح لا يدعم تحديد الموقع'); return }
     setBusy(true); setError(null)
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setGeo({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy ?? null }); setBusy(false) },
-      (e) => { setError(e.code === 1 ? 'رفضت إذن الموقع — فعّله من إعدادات المتصفح' : 'تعذّر تحديد الموقع، حاول مجدداً'); setBusy(false) },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
-    )
+    requestGeolocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })
+      .then((fix) => { setGeo(fix); setPermError(null) })
+      .catch((e: unknown) => { setGeo(null); setError(e instanceof Error ? e.message : 'تعذّر تحديد الموقع، حاول مجدداً'); setPermError(e) })
+      .finally(() => setBusy(false))
   }
   useEffect(() => { locate() }, [])
-  return { geo, error, busy, locate }
+  return { geo, error, busy, locate, permError }
 }
 
 function PhotoStep({ n, title, hint, file, onFile, facing, testId }: { n: number; title: string; hint: string; file: File | null; onFile: (f: File | null) => void; facing: 'user' | 'environment'; testId: string }) {
@@ -72,7 +73,7 @@ const parseCount = (v: string) => (/^\d{1,4}$/.test(v.trim()) ? Number(v.trim())
 
 export default function ContractorAttendancePage() {
   const me = useContractorMe(), checkin = useContractorCheckin(), setCount = useSetHeadcount()
-  const { geo, error: geoError, busy, locate } = useGeolocation()
+  const { geo, error: geoError, busy, locate, permError } = useGeolocation()
   const [selfie, setSelfie] = useState<File | null>(null), [team, setTeam] = useState<File | null>(null)
   const [count, setCountInput] = useState(''), [edit, setEdit] = useState('')
   if (me.isLoading) return <LoadingSpinner />
@@ -103,6 +104,7 @@ export default function ContractorAttendancePage() {
               {busy ? 'جارٍ تحديد الموقع…' : geo ? `تم التقاط الموقع (دقة ≈ ${Math.round(geo.accuracy ?? 0)} م)` : geoError ?? 'لم يُحدَّد بعد'}
             </p>
             <button type="button" onClick={locate} className="mt-2 inline-flex items-center gap-1 rounded-lg border bg-white px-3 py-1 text-xs font-bold" data-testid="geo-retry"><RefreshCw size={12} />إعادة تحديد الموقع</button>
+            {!geo && !busy && <PermissionPanel kind="geolocation" lastError={permError} onGranted={locate} className="mt-2" />}
           </div>
           <PhotoStep n={2} title="صورتك (سلفي)" hint="بالكاميرا الأمامية — تُرسل إلى غرفة العمليات" file={selfie} onFile={setSelfie} facing="user" testId="selfie-input" />
           <PhotoStep n={3} title="صورة العمال" hint="صورة جماعية للعمال الحاضرين في الموقع الآن" file={team} onFile={setTeam} facing="environment" testId="team-input" />

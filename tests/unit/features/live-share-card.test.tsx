@@ -74,6 +74,19 @@ describe('LiveShareCard', () => {
     await screen.findByTestId('live-share-error')
     expect(h.ping).not.toHaveBeenCalled()
     expect(localStorage.getItem(LIVE_SHARE_FLAG)).toBeNull()
+    // 00289: لوحة الأذونات تظهر بحالة «مرفوض» مع خطوات التفعيل وزر «تحقق مجدداً»
+    await waitFor(() => expect(screen.getByTestId('perm-panel-geolocation')).toHaveAttribute('data-state', 'denied'))
+    expect(screen.getByTestId('perm-help-geolocation')).toBeInTheDocument()
+    expect(screen.getByTestId('perm-recheck-geolocation')).toBeInTheDocument()
+  })
+  it('00289: الجاهز يعرض زر «السماح بالوصول إلى الموقع» الذي يطلب الإذن ثم يبدأ البث تلقائياً', async () => {
+    h.status.mockResolvedValue(base)
+    Object.defineProperty(navigator, 'permissions', { value: { query: vi.fn().mockResolvedValue({ state: 'prompt', addEventListener: vi.fn(), removeEventListener: vi.fn() }) }, configurable: true })
+    mount()
+    fireEvent.click(await screen.findByTestId('perm-request-geolocation'))
+    await waitFor(() => expect(h.ping).toHaveBeenCalledTimes(1))
+    await screen.findByTestId('live-share-on-text')
+    expect(localStorage.getItem(LIVE_SHARE_FLAG)).toBe('1')
   })
   it('الاستئناف: العلم محفوظ وداخل الشفت ⇒ نبضة فورية عند الفتح ثم نبضة بعد الفاصل', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })

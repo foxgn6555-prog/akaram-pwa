@@ -5,6 +5,7 @@ import { liveTracking, type LivePingResult } from '@sdk/live-tracking.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 import { denyReasonOf, getFix, nextPingDelayMs, readFlag, shouldPingNow, writeFlag } from './live-share.logic'
+import { DevicePermissionError } from '@lib/device-permissions'
 
 export const LIVE_STATUS_KEY = ['live-tracking', 'status']
 const storage = () => (typeof localStorage === 'undefined' ? null : localStorage)
@@ -17,6 +18,8 @@ export function useLiveShare() {
   const [busy, setBusy] = useState(false)
   const [lastPing, setLastPing] = useState<LivePingResult | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
+  /** خطأ إذن الجهاز (موقع مرفوض/اتصال غير آمن…) — تعرضه لوحة الأذونات بخطوات الحل */
+  const [permError, setPermError] = useState<DevicePermissionError | null>(null)
   const lastAtRef = useRef<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const s = status.data
@@ -33,12 +36,13 @@ export function useLiveShare() {
     try {
       const fix = await getFix()
       const r = await liveTracking.ping(fix)
-      lastAtRef.current = Date.now(); setLastPing(r); setLastError(null)
+      lastAtRef.current = Date.now(); setLastPing(r); setLastError(null); setPermError(null)
       void qc.invalidateQueries({ queryKey: LIVE_STATUS_KEY })
       return true
     } catch (e) {
       const deny = denyReasonOf(e)
       if (deny) { stopLocal(handleAppError(e, { scope: 'live-share' }).message); void qc.invalidateQueries({ queryKey: LIVE_STATUS_KEY }); return false }
+      if (e instanceof DevicePermissionError) { setPermError(e); if (e.code === 'DENIED' || e.code === 'INSECURE' || e.code === 'UNSUPPORTED') stopLocal() }
       setLastError(e instanceof Error ? e.message : 'تعذّر إرسال الموقع')
       return false
     } finally { setBusy(false) }
@@ -71,5 +75,5 @@ export function useLiveShare() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); document.removeEventListener('visibilitychange', onVisible) }
   }, [enabled, s, pingOnce, stopLocal])
 
-  return { status, enabled, busy, lastPing, lastError, start, stop, pingNow: pingOnce }
+  return { status, enabled, busy, lastPing, lastError, permError, start, stop, pingNow: pingOnce }
 }
