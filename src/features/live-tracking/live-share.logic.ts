@@ -2,7 +2,7 @@
  * منطق مشاركة الموقع المباشر (00286) — نقي وقابل للاختبار:
  *   · لا تتبع خلفي: النبضة تُرسل والتطبيق مفتوح فقط، كل N دقيقة (من إعدادات IT)، وعند العودة إلى التطبيق إن مرّ الفاصل.
  *   · الخادم هو الحكم: أي رفض LIVE_OUTSIDE_SHIFT/LIVE_NO_SHIFT/LIVE_NOT_ELIGIBLE يوقف المشاركة محلياً.
- *   · علم «المشاركة مفعّلة» يُحفظ محلياً ليستأنف تلقائياً عند فتح التطبيق داخل الشفت نفسه.
+ *   · لا يُسحب الموقع أبداً قبل ضغطة «مشاركة موقعي المباشر»؛ علم الضغطة مربوط بتاريخ اليوم ليُستأنف التحديث التلقائي عند فتح التطبيق في اليوم/الشفت نفسه فقط.
  */
 import type { LiveDenyReason, LiveShareStatus } from '@sdk/live-tracking.sdk'
 import { requestGeolocation, type GeoFix } from '@lib/device-permissions'
@@ -58,11 +58,19 @@ export function agoText(iso: string | null | undefined, now: number): string {
   return `منذ ${h} س ${m % 60} د`
 }
 
-export function readFlag(storage: Pick<Storage, 'getItem'> | null): boolean {
-  try { return storage?.getItem(LIVE_SHARE_FLAG) === '1' } catch { return false }
+/** تاريخ اليوم بتوقيت بغداد (YYYY-MM-DD) — العلم صالح لليوم نفسه فقط */
+export function todayKey(now: number = Date.now()): string {
+  return new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Baghdad' })
 }
-export function writeFlag(storage: Pick<Storage, 'setItem' | 'removeItem'> | null, on: boolean): void {
-  try { if (on) storage?.setItem(LIVE_SHARE_FLAG, '1'); else storage?.removeItem(LIVE_SHARE_FLAG) } catch { /* تخزين معطّل */ }
+/**
+ * هل ضغط الموظف «مشاركة موقعي المباشر» اليوم؟ — لا سحب تلقائي أبداً قبل ضغطته؛
+ * العلم مربوط بتاريخ اليوم فلا يُستأنف البث في يوم لاحق دون ضغطة جديدة.
+ */
+export function readFlag(storage: Pick<Storage, 'getItem'> | null, now: number = Date.now()): boolean {
+  try { const v = storage?.getItem(LIVE_SHARE_FLAG); return v === todayKey(now) } catch { return false }
+}
+export function writeFlag(storage: Pick<Storage, 'setItem' | 'removeItem'> | null, on: boolean, now: number = Date.now()): void {
+  try { if (on) storage?.setItem(LIVE_SHARE_FLAG, todayKey(now)); else storage?.removeItem(LIVE_SHARE_FLAG) } catch { /* تخزين معطّل */ }
 }
 
 export type { GeoFix } from '@lib/device-permissions'

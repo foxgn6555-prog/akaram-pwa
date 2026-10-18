@@ -1,6 +1,6 @@
 /** 00286 — منطق مشاركة الموقع المباشر (نقي) */
 import { describe, expect, it, vi } from 'vitest'
-import { agoText, denyReasonOf, getFix, minutesLeft, nextPingDelayMs, readFlag, shouldPingNow, withinShift, writeFlag } from '@features/live-tracking/live-share.logic'
+import { agoText, denyReasonOf, getFix, minutesLeft, nextPingDelayMs, readFlag, shouldPingNow, todayKey, withinShift, writeFlag } from '@features/live-tracking/live-share.logic'
 
 const T0 = Date.parse('2026-10-18T08:00:00Z')
 describe('live-share.logic', () => {
@@ -40,6 +40,9 @@ describe('live-share.logic', () => {
     const mem = new Map<string, string>()
     const st = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) }
     writeFlag(st, true); expect(readFlag(st)).toBe(true)
+    expect(st.getItem('live-share:enabled')).toBe(todayKey())   // 00291: العلم بتاريخ اليوم
+    st.setItem('live-share:enabled', '2000-01-01'); expect(readFlag(st)).toBe(false)   // يوم سابق ⇒ لا استئناف
+    st.setItem('live-share:enabled', '1'); expect(readFlag(st)).toBe(false)   // صيغة قديمة ⇒ لا استئناف
     writeFlag(st, false); expect(readFlag(st)).toBe(false)
     expect(readFlag(null)).toBe(false)
     const broken = { getItem: () => { throw new Error('x') }, setItem: () => { throw new Error('x') }, removeItem: () => { throw new Error('x') } }

@@ -79,7 +79,9 @@ export function watchPermission(kind: PermKind, cb: (s: PermState) => void): () 
   let status: PermissionStatus | null = null
   const handler = () => { if (status) cb(status.state) }
   if (typeof navigator !== 'undefined' && navigator.permissions?.query && isSecure()) {
-    navigator.permissions.query({ name: kind as PermissionName }).then((st) => { status = st; st.addEventListener('change', handler) }).catch(() => undefined)
+    try {
+      Promise.resolve(navigator.permissions.query({ name: kind as PermissionName })).then((st) => { if (st?.addEventListener) { status = st; st.addEventListener('change', handler) } }).catch(() => undefined)
+    } catch { /* متصفح لا يدعم هذا النوع */ }
   }
   return () => { status?.removeEventListener('change', handler) }
 }

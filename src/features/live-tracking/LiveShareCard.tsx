@@ -50,7 +50,7 @@ export function LiveShareCard({ compact = false }: { compact?: boolean }) {
           </button>
         </div>
       </div>
-      {s.allowed && (permError || !enabled) && <PermissionPanel kind="geolocation" lastError={permError} onGranted={() => { if (!enabled) void start() }} className="mt-3" />}
+      {s.allowed && (permError || !enabled) && <PermissionPanel kind="geolocation" lastError={permError} grantedHint="تم السماح — اضغط «مشاركة موقعي المباشر» لبدء المشاركة" className="mt-3" />}
       {!compact && <p className="mt-3 text-[10px] text-slate-500">الخصوصية: ضغطة واحدة يومياً تكفي — لا يُرسل موقعك إلا أثناء شفتك الرسمي وأثناء فتح التطبيق، ويتحدث تلقائياً عند فتح المنصة وكل فترة، ويتوقف نهائياً بانتهاء ساعات شفتك.</p>}
     </section>
   )

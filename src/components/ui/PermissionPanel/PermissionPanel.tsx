@@ -30,16 +30,19 @@ export interface PermissionPanelProps {
   onGranted?: () => void
   facing?: 'user' | 'environment'
   className?: string
+  /** نص يبقى ظاهراً بعد المنح (حين لا يُراد أي إجراء تلقائي بعده) */
+  grantedHint?: string
 }
 
 /** يظهر فقط عندما لا يكون الإذن ممنوحاً (أو عند وجود خطأ إذن) */
-export function PermissionPanel({ kind, lastError, onGranted, facing = 'environment', className }: PermissionPanelProps) {
+export function PermissionPanel({ kind, lastError, onGranted, facing = 'environment', className, grantedHint }: PermissionPanelProps) {
   const { state, refresh, setState } = useDevicePermission(kind)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [justGranted, setJustGranted] = useState(false)
   const errCode: PermErrorCode | null = permErrorCode(lastError)
   const effective: PermState = errCode === 'INSECURE' ? 'insecure' : errCode === 'DENIED' && state !== 'granted' ? 'denied' : errCode === 'UNSUPPORTED' ? 'unsupported' : state
-  if (effective === 'granted' && !errCode) return null
+  if (effective === 'granted' && !errCode && !(justGranted && grantedHint)) return null
   const platform = detectPlatform()
   const label = KIND_LABEL[kind]
 
@@ -47,14 +50,14 @@ export function PermissionPanel({ kind, lastError, onGranted, facing = 'environm
     setBusy(true); setMsg(null)
     try {
       if (kind === 'geolocation') await requestGeolocation(); else await requestCameraPermission(facing)
-      setState('granted'); setMsg(`تم السماح بـ${label} ✅`); onGranted?.()
+      setState('granted'); setJustGranted(true); setMsg(grantedHint ?? `تم السماح بـ${label} ✅`); onGranted?.()
     } catch (e) {
       const code = permErrorCode(e) ?? 'UNKNOWN'
       setMsg(permMessage(kind, code))
       if (code === 'DENIED') setState('denied'); else if (code === 'INSECURE') setState('insecure')
     } finally { setBusy(false) }
   }
-  const recheck = async () => { const s = await refresh(); setMsg(s === 'granted' ? `تم السماح بـ${label} ✅` : s === 'denied' ? `ما زال إذن ${label} مرفوضاً — أكمل الخطوات ثم أعد التحقق` : null); if (s === 'granted') onGranted?.() }
+  const recheck = async () => { const s = await refresh(); if (s === 'granted') setJustGranted(true); setMsg(s === 'granted' ? (grantedHint ?? `تم السماح بـ${label} ✅`) : s === 'denied' ? `ما زال إذن ${label} مرفوضاً — أكمل الخطوات ثم أعد التحقق` : null); if (s === 'granted') onGranted?.() }
   const meta = STATE_META[effective]
   const showHelp = effective === 'denied' || (errCode !== null && errCode !== 'INSECURE' && errCode !== 'UNSUPPORTED' && effective !== 'granted' && effective !== 'prompt')
 
