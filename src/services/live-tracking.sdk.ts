@@ -29,6 +29,10 @@ export interface LiveSessionRow {
   first_lat: number | null; first_lng: number | null; first_in_zone: boolean | null; last_lat: number | null; last_lng: number | null; last_in_zone: boolean | null
   point_count: number; out_of_zone_count: number; duration_minutes: number
 }
+export interface LiveZoneRow {
+  id: string; name: string; color: string | null; polygon: { lat: number; lng: number }[]; sector_id: number | null; area_name: string | null; parent_sector: string | null
+  manager_ids: string[]; manager_names: string | null; contractor_id: string | null; contractor_name: string | null
+}
 export interface LivePoint { recorded_at: string; latitude: number; longitude: number; accuracy_m: number | null; in_zone: boolean | null; zone_sector_id: number | null }
 export interface LiveTrackSettings { ping_interval_minutes: number; retention_days: number; updated_at: string }
 
@@ -43,6 +47,7 @@ export const liveTracking = {
   async mapCurrent(kind: LiveKind | null = null): Promise<LiveMapRow[]> {
     return ((await sdkGuard(supabase.rpc('live_map_current', { p_kind: kind }))) as LiveMapRow[] | null) ?? []
   },
+  async zones(): Promise<LiveZoneRow[]> { return ((await sdkGuard(supabase.rpc('live_zones_list'))) as LiveZoneRow[] | null) ?? [] },
   async sessions(x: { from: string; to: string; kind?: LiveKind | null; userId?: string | null }): Promise<LiveSessionRow[]> {
     return ((await sdkGuard(supabase.rpc('live_sessions_list', { p_from: x.from, p_to: x.to, p_kind: x.kind ?? null, p_user: x.userId ?? null }))) as LiveSessionRow[] | null) ?? []
   },

@@ -159,3 +159,21 @@ delete from public.contractor_profiles where user_id = '1a000000-0000-0000-0000-
 delete from public.employee_shift_assignments where employee_id::text like '1a000000-%';
 delete from public.hr_shifts where name like '%للاختبار';
 delete from public.gps_geofences where name = 'زون الرياض البث';
+
+-- ═══ 00247 · live_zones_list: الزون مع مسؤول القسم والمتعهد المُسنَدين؛ لغرفة العمليات فقط ═══
+insert into public.gps_geofences (name, source, polygon, sector_id) values ('زون الرياض البث ٢', 'platform',
+  '[{"lat":33.0,"lng":44.0},{"lat":33.0,"lng":44.1},{"lat":33.1,"lng":44.1},{"lat":33.1,"lng":44.0}]'::jsonb, 2);
+do $$
+declare mgr uuid := '1a000000-0000-0000-0000-000000000002'; cont uuid := '1a000000-0000-0000-0000-000000000003'; it uuid := '1a000000-0000-0000-0000-000000000001'; r record;
+begin
+  perform pg_temp.as_user(it);
+  perform public.contractor_assign(cont, mgr, 2::smallint, 'اختبار البث');
+  perform pg_temp.as_user(mgr);
+  perform pg_temp.expect_error($q$ select * from public.live_zones_list() $q$, 'LIVE_FORBIDDEN');
+  perform pg_temp.as_user('1a000000-0000-0000-0000-000000000004');
+  select * into r from public.live_zones_list() z where z.name = 'زون الرياض البث ٢';
+  if r.sector_id <> 2 or not (mgr = any(r.manager_ids)) or r.manager_names not like '%مسؤول البث%' or r.contractor_id <> cont or r.contractor_name <> 'متعهد البث' then raise exception 'Z1 zone row: %', r; end if;
+  raise notice 'Z1 ✅ الزون مع المُسنَدين';
+end $$;
+delete from public.contractor_profiles where user_id = '1a000000-0000-0000-0000-000000000003';
+delete from public.gps_geofences where name = 'زون الرياض البث ٢';

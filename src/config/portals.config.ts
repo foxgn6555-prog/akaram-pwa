@@ -421,6 +421,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/advances', labelKey: 'nav.ops_advances', icon: 'wallet' },
     { path: '/ops-room/contractor-headcounts', labelKey: 'nav.ops_contractor_headcounts', icon: 'users' },   // 00262
     { path: '/ops-room/leaves', labelKey: 'nav.ops_leaves', icon: 'calendar' },   // 00239
+    { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin' },   // 00287
   ],
 
   // ═══ وحدة الكشوفات ═══
