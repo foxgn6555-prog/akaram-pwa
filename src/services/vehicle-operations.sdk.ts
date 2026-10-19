@@ -77,7 +77,7 @@ export interface MaintenanceDispatchState {
   case_id?: string
   dispatch_policy?: 'notify_only' | 'ack_required' | 'approval_required'
   decision_status?:
-    'not_required' | 'awaiting_ack' | 'acknowledged' | 'awaiting_approval' | 'approved' | 'rejected'
+    'not_required' | 'awaiting_ack' | 'acknowledged' | 'awaiting_approval' | 'approved' | 'rejected' | 'cancelled'
   garage_decision_notes?: string | null
   reported_at?: string
   /** (00273) الورشة الحالية والتحويل إلى المركزية إن حصل */
@@ -101,7 +101,7 @@ export interface GarageMaintenanceCoordination {
   fault_type: string
   priority: 'normal' | 'urgent' | 'critical'
   dispatch_policy: 'ack_required' | 'approval_required'
-  decision_status: 'awaiting_ack' | 'acknowledged' | 'awaiting_approval' | 'approved' | 'rejected'
+  decision_status: 'awaiting_ack' | 'acknowledged' | 'awaiting_approval' | 'approved' | 'rejected' | 'cancelled'
   reported_at: string
   decision_notes: string | null
 }

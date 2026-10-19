@@ -27,6 +27,7 @@ const stateLabel = {
   awaiting_approval: 'بانتظار الموافقة',
   approved: 'تمت الموافقة',
   rejected: 'مرفوض',
+  cancelled: 'أُلغي (أُرسلت الآلية إلى الكراج)',
 }
 export default function MaintenanceCoordinationPage() {
   const q = useGarageMaintenanceCoordination(),

@@ -82,12 +82,13 @@ describe('صفحة حركة آليات مسؤول القسم', () => {
     )
     expect(h.garage).not.toHaveBeenCalled()
   })
-  it('يوقف أزرار الحركة عندما تكون موافقة الصيانة معلقة', () => {
+  it('00298: أثناء انتظار موافقة الصيانة تُخفى المحطة ويبقى إنهاء الوردية للكراج (يلغي الطلب)', () => {
     h.data = [{ ...trip, arrived_at: '2026-09-09T06:30:00Z' }]
     h.maintenanceState = { decision_status: 'awaiting_approval' }
     render(<VehicleTripsPage />)
     expect(screen.getByText(/بانتظار موافقة الكراج المركزي/)).toBeInTheDocument()
-    expect(screen.queryByTestId('send-garage-d1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /المحطة/ })).not.toBeInTheDocument()
+    expect(screen.getByTestId('send-garage-d1')).toHaveTextContent('يُلغى طلب الصيانة')
   })
   it('يعرض لمسؤول القسم التسلسل الزمني للحالة المرتبطة', () => {
     h.data = [{ ...trip, arrived_at: '2026-09-09T06:30:00Z' }]

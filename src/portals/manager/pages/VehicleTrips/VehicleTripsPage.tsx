@@ -355,9 +355,18 @@ function OperationalActions({
     decision = dispatch.data?.decision_status
   if (decision === 'awaiting_approval')
     return (
-      <p className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs font-black text-violet-800">
-        بانتظار موافقة الكراج المركزي؛ لم يُسمح بحركة الآلية بعد.
-      </p>
+      <div className="mt-4 space-y-2">
+        <p className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs font-black text-violet-800">
+          بانتظار موافقة الكراج المركزي؛ لا تُرسل الآلية إلى المحطة حتى يصدر القرار.
+        </p>
+        <button
+          data-testid={`send-garage-${trip.id}`}
+          onClick={onDirectGarage}
+          className="h-11 w-full rounded-xl bg-blue-700 text-xs font-black text-white"
+        >
+          إنهاء الوردية للكراج (يُلغى طلب الصيانة)
+        </button>
+      </div>
     )
   if (latest && !latest.arrivedAt) {
     if (latest.destinationType === 'work_site')

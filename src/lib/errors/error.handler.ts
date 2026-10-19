@@ -154,6 +154,8 @@ const APP_ERROR_AR: Record<string, string> = {
   MAINTENANCE_DIAGNOSIS_REQUIRED: 'اكتب تشخيصاً واضحاً (3 أحرف على الأقل) لإكمال مرحلة التشخيص.',
   MAINTENANCE_READINESS_APPROVAL_REQUIRED: 'يلزم اعتماد جاهزية الآلية قبل إرسالها من الصيانة.',
   BREAKDOWN_ALREADY_OPEN: 'العطل مسجل على رحلة أخرى — أغلقه أولاً.',
+  MAINTENANCE_APPROVAL_PENDING: 'على الآلية طلب صيانة بانتظار قرار الكراج — لا تُرسل إلى المحطة؛ أرسلها إلى الكراج أو انتظر القرار.',
+  MAINTENANCE_VEHICLE_ALREADY_DISPATCHED: 'الآلية غادرت الورشة — لا يمكن صرف قطع على هذه الحالة بعد تسريحها.',
   BREAKDOWN_TRIP_IN_MAINTENANCE: 'الآلية بيد الصيانة الآن — يُتابَع العطل من ملف الصيانة لا من بلاغ جديد.',
   // الكراج المركزي والانطلاقيات
   GARAGE_VEHICLE_NOT_FOUND: 'الآلية غير موجودة أو مؤرشفة.',
