@@ -113,3 +113,23 @@ select auth.set_test_user('d9000000-0000-0000-0000-000000000001');
 do $$ declare ok boolean := false; begin
   begin perform public.hr_behavior_employee('d9000000-0000-0000-0000-0000000000e2', 'monthly', current_setting('test.bh_m')::date); exception when others then ok := sqlerrm like '%HR_FORBIDDEN%'; end; assert ok, 'T5 ops forbidden on employee card';
 end $$;
+
+-- ═══ T6 (00250) · سلسلة الفترات: شهران من البيانات ⇒ B متراجع (100 ← 69.9)، A بفترة واحدة، الأعمدة بطول الفترات ═══
+select auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+do $$ declare m date := current_setting('test.bh_m')::date; r jsonb; b jsonb; a jsonb; n int; begin
+  r := public.hr_behavior_series('monthly', m, 3);
+  n := jsonb_array_length(r -> 'periods');
+  assert n = 3 and (r -> 'periods' -> 2 ->> 'label') = to_char(m, 'YYYY-MM') and (r -> 'periods' -> 2 ->> 'avg_score') is not null, 'T6 periods: ' || (r -> 'periods')::text;
+  select x into b from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-B';
+  assert jsonb_array_length(b -> 'scores') = 3 and (b -> 'scores' -> 0) = 'null'::jsonb and (b -> 'scores' -> 1)::text = '100.0' and (b -> 'scores' -> 2)::text = '69.9', 'T6 B scores: ' || b::text;
+  assert b ->> 'trend' = 'declining' and (b ->> 'slope')::numeric < 0 and (b ->> 'last_score')::numeric = 69.9 and (b ->> 'first_score')::numeric = 100 and (b ->> 'periods_with_data')::int = 2, 'T6 B trend: ' || b::text;
+  select x into a from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-A';
+  assert a ->> 'trend' = 'insufficient' and (a -> 'scores' -> 2)::text = '100.0' and (a -> 'scores' -> 1) = 'null'::jsonb, 'T6 A: ' || a::text;
+  r := public.hr_behavior_series('monthly', m, 2, 'd9000000-0000-0000-0000-0000000000d2');
+  assert not exists (select 1 from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-A'), 'T6 dept filter';
+  raise notice 'T6 ✅ سلسلة الفترات';
+end $$;
+select auth.set_test_user('d9000000-0000-0000-0000-000000000001');
+do $$ declare ok boolean := false; begin
+  begin perform public.hr_behavior_series('monthly', current_setting('test.bh_m')::date, 3); exception when others then ok := sqlerrm like '%HR_FORBIDDEN%'; end; assert ok, 'T6 ops forbidden on series';
+end $$;

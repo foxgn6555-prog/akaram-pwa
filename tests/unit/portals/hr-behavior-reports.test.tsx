@@ -4,11 +4,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { BehaviorEmployeeReport, BehaviorReport } from '@features/hr'
 
-const h = vi.hoisted(() => ({ report: null as unknown, employee: null as unknown, lastArgs: null as unknown }))
+const h = vi.hoisted(() => ({ report: null as unknown, employee: null as unknown, lastArgs: null as unknown, series: null as unknown, seriesArgs: null as unknown, excel: vi.fn().mockResolvedValue({}) }))
+vi.mock('@lib/export/excel-report', () => ({ buildExcelReport: h.excel, saveWorkbook: vi.fn() }))
 vi.mock('@features/branches/hooks/useBranches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'بغداد' }] }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useBehaviorReport: (f: unknown) => { h.lastArgs = f; return { data: h.report, isLoading: false } },
   useBehaviorEmployee: (id: string | null) => ({ data: id ? h.employee : null, isLoading: false }),
+  useBehaviorSeries: (f: unknown) => { h.seriesArgs = f; return { data: h.series, isLoading: false } },
   useHrDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null, is_active: true, is_job_title: false }] }),
 }))
 import BehaviorReportsPage from '@portals/hr/pages/Behavior/BehaviorReportsPage'
@@ -47,8 +49,17 @@ const EMPLOYEE: BehaviorEmployeeReport = {
   weights: REPORT.weights,
 }
 
+const SERIES = {
+  kind: 'monthly', periods: ['2026-07', '2026-08', '2026-09'].map((label, i) => ({ label, from: `${label}-01`, to: `${label}-28`, employees: 3, avg_score: [80, 82, 84.6][i]!, attendance_rate: 95, punctuality_rate: 80, absence_rate: 4, early_rate: 0, late_minutes: 300, chronic_late: 1, grades: { excellent: 1, very_good: 0, good: 0, fair: 2, poor: 0 } })),
+  employees: [
+    { employee_id: 'A', employee_number: 'A', full_name: 'مثالي', department_name: 'النقل', scores: [null, 100, 100], last_score: 100, first_score: 100, slope: 0, periods_with_data: 2, trend: 'stable' },
+    { employee_id: 'B', employee_number: 'B', full_name: 'متأخر', department_name: 'النقل', scores: [100, 100, 69.9], last_score: 69.9, first_score: 100, slope: -15.05, periods_with_data: 3, trend: 'declining' },
+    { employee_id: 'C', employee_number: 'C', full_name: 'صاعد', department_name: 'النقل', scores: [60, 70, 85], last_score: 85, first_score: 60, slope: 12.5, periods_with_data: 3, trend: 'improving' },
+  ],
+}
+
 describe('00249 — صفحة تقارير سلوك الموظفين', () => {
-  beforeEach(() => { h.report = REPORT; h.employee = EMPLOYEE; h.lastArgs = null })
+  beforeEach(() => { h.report = REPORT; h.employee = EMPLOYEE; h.lastArgs = null; h.series = SERIES; h.excel.mockClear() })
   const open = (props: { readOnly?: boolean } = {}) => render(<MemoryRouter><BehaviorReportsPage {...props} /></MemoryRouter>)
 
   it('الأنواع الأربعة كتبويبات، والطلب يرسل النوع والمرساة؛ التنقل يحرك الفترة', () => {
@@ -119,5 +130,58 @@ describe('00249 — صفحة تقارير سلوك الموظفين', () => {
     open({ readOnly: true })
     expect(screen.getByText('لا بصمات لأي موظف في هذه الفترة')).toBeInTheDocument()
     h.report = REPORT
+  })
+
+  it('00250: تصدير Excel للتقرير — ورقة الترتيب + ملخص + اتجاه + أيام الأسبوع + أقسام + 3 رسوم', async () => {
+    open()
+    fireEvent.click(screen.getByTestId('behavior-excel'))
+    await vi.waitFor(() => expect(h.excel).toHaveBeenCalled())
+    const o = h.excel.mock.calls[0]![0] as { sheetName: string; title: string; rows: Array<Record<string, unknown>>; extraSheets: Array<{ sheetName: string }>; charts: unknown[]; fileName: string }
+    expect(o.sheetName).toBe('الترتيب'); expect(o.title).toContain('أيلول 2026'); expect(o.rows).toHaveLength(3)
+    expect(o.rows[1]).toMatchObject({ employee_number: 'B', grade: 'مقبول', delta: -30.1, i_punctuality: 33, flags: 'تأخير مزمن (بوابة 69.9)' })
+    expect(o.extraSheets.map((x) => x.sheetName)).toEqual(['الملخص', 'الاتجاه', 'أيام الأسبوع', 'الأقسام'])
+    expect(o.charts).toHaveLength(3); expect(o.fileName).toBe('behavior-monthly-2026-09-01.xlsx')
+  })
+  it('00250: النسخة المطبوعة — غلاف، ملخص، اتجاه، ترتيب كامل، متابعة، منهجية، تواقيع؛ زر PDF يستدعي الطباعة', () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    open()
+    fireEvent.click(screen.getByTestId('view-print'))
+    const p = screen.getByTestId('behavior-print')
+    expect(p).toHaveTextContent('شركة جزيرة الأكارم'); expect(p).toHaveTextContent('تقرير سلوك الموظفين'); expect(p).toHaveTextContent('أيلول 2026')
+    expect(within(p).getByTestId('print-ranking').querySelectorAll('tbody tr')).toHaveLength(3)
+    expect(within(p).getByTestId('print-followup').querySelectorAll('tbody tr')).toHaveLength(2)
+    expect(p).toHaveTextContent('تنبيه كتابي ومقابلة مع المسؤول المباشر'); expect(p).toHaveTextContent('المنهجية'); expect(p).toHaveTextContent('معاون المدير المفوض')
+    expect(p.textContent).not.toMatch(/[٠-٩]/)
+    fireEvent.click(screen.getByTestId('print-now'))
+    expect(print).toHaveBeenCalled()
+    print.mockRestore()
+  })
+  it('00250: المقارنة بين الفترات — الطلب بعدد الفترات، المؤشرات، الخريطة الحرارية، التصفية بالاتجاه، Excel', async () => {
+    open()
+    fireEvent.click(screen.getByTestId('view-compare'))
+    expect((h.seriesArgs as { count: number; kind: string }).count).toBe(6)
+    fireEvent.click(screen.getByTestId('series-count-3'))
+    expect((h.seriesArgs as { count: number }).count).toBe(3)
+    expect(screen.getByTestId('series-range')).toHaveTextContent('2026-07 → 2026-09')
+    expect(screen.getByTestId('series-kpi-overall')).toHaveTextContent('+4.6')
+    expect(screen.getByTestId('series-kpi-improving')).toHaveTextContent('1'); expect(screen.getByTestId('series-kpi-declining')).toHaveTextContent('1')
+    expect(screen.getByTestId('series-row-B')).toHaveTextContent('متراجع'); expect(screen.getByTestId('series-row-B')).toHaveTextContent('-15.05')
+    expect(screen.getByTestId('series-row-A')).toHaveTextContent('—')
+    fireEvent.click(screen.getByTestId('series-filter-improving'))
+    expect(screen.getAllByTestId(/^series-row-/)).toHaveLength(1)
+    fireEvent.click(screen.getByTestId('series-excel'))
+    await vi.waitFor(() => expect(h.excel).toHaveBeenCalled())
+    const o = h.excel.mock.calls[0]![0] as { sheetName: string; columns: Array<{ header: string }>; rows: Array<Record<string, unknown>> }
+    expect(o.sheetName).toBe('المقارنة'); expect(o.columns.map((c) => c.header)).toEqual(expect.arrayContaining(['2026-07', '2026-08', '2026-09', 'الاتجاه']))
+    expect(o.rows.find((r) => r.employee_number === 'B')).toMatchObject({ p0: 100, p2: 69.9, trend: 'متراجع' })
+  })
+  it('00250: بطاقة الموظف تُصدَّر إلى Excel (السجل اليومي + الملخص)', async () => {
+    open()
+    fireEvent.click(screen.getByTestId('lb-row-B'))
+    fireEvent.click(screen.getByTestId('emp-excel'))
+    await vi.waitFor(() => expect(h.excel).toHaveBeenCalled())
+    const o = h.excel.mock.calls[0]![0] as { sheetName: string; rows: Array<Record<string, unknown>>; extraSheets: Array<{ rows: Array<Record<string, unknown>> }>; totalRow: Record<string, unknown> }
+    expect(o.sheetName).toBe('السجل اليومي'); expect(o.rows).toHaveLength(2); expect(o.rows[0]).toMatchObject({ status: 'متأخر', in: '08:30', in_offset: 30, day: 'الثلاثاء' })
+    expect(o.totalRow).toMatchObject({ late: 360 }); expect(o.extraSheets[0]!.rows[0]).toMatchObject({ k: 'الدرجة', v: 69.9, p: 100 })
   })
 })

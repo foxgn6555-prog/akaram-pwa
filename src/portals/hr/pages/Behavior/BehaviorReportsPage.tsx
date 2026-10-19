@@ -17,6 +17,10 @@ import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { BEHAVIOR_KINDS, DOW_LABELS, GRADE_META, GRADE_ORDER, INDEX_META, INDEX_ORDER, defaultAnchor, employeeInsights, gradeOf, periodTitle, radarData, reportInsights, scoreColor, shiftAnchor, type BehaviorInsight } from '@features/hr/lib/behavior'
 import { fmtInt, fmtNum } from '@features/executive'
 import { field } from '@portals/hr/components/hr-format'
+import { Button } from '@components/ui'
+import { exportBehaviorExcel, exportEmployeeExcel } from '@features/hr/lib/behavior-export'
+import { BehaviorPrintReport } from './BehaviorPrintReport'
+import { BehaviorSeriesSection } from './BehaviorSeriesSection'
 
 const STATUS_COLOR: Record<string, string> = { present: '#059669', late: '#d97706', early_leave: '#0e7490', absent: '#dc2626', incomplete: '#7c3aed', leave: '#64748b', time_permit: '#94a3b8' }
 const fmtHm = (m: number) => { const h = Math.floor(m / 60), r = m % 60; return h ? `${fmtInt(h)}س ${r ? fmtInt(r) + 'د' : ''}`.trim() : `${fmtInt(r)}د` }
@@ -32,17 +36,29 @@ export default function BehaviorReportsPage({ readOnly = false, hero = true }: {
   const [departmentId, setDepartmentId] = useState('')
   const [branchId, setBranchId] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [view, setView] = useState<'report' | 'compare' | 'print'>('report')
   const q = useBehaviorReport({ kind, anchor, departmentId: departmentId || null, branchId: branchId || null })
   const deps = useHrDepartments(); const branches = useBranches()
   const move = (dir: 1 | -1) => setAnchors((a) => ({ ...a, [kind]: shiftAnchor(kind, a[kind], dir) }))
   const r = q.data
   const title = periodTitle(kind, r?.period.period_from ?? anchor)
+  const scope = [departmentId ? deps.data?.find((d) => d.id === departmentId)?.name : null, branchId ? branches.data?.find((b) => b.id === branchId)?.name : null].filter(Boolean).join(' · ') || undefined
+  const canExport = !!r?.summary && r.employees.length > 0
+  const printPdf = () => { const t = document.title; document.title = `behavior-${kind}-${r?.period.period_from ?? anchor}`; window.print(); document.title = t }
+  const actions = (
+    <>
+      <button type="button" onClick={() => { if (r) void exportBehaviorExcel(r, scope) }} disabled={!canExport} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:opacity-40" data-testid="behavior-excel"><Icon name="file-spreadsheet" size={14} className="text-[#c9a227]" />Excel</button>
+      <button type="button" onClick={() => { setView('print'); setTimeout(printPdf, 50) }} disabled={!canExport} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-40" data-testid="behavior-pdf"><Icon name="printer" size={14} />PDF / طباعة</button>
+    </>
+  )
   return (
     <div className="space-y-4" data-testid="behavior-page">
       {hero && <ExecPageHeader icon="gauge" title="تقارير سلوك الموظفين" subtitle="تحليل انضباط الحضور من بصمات الموظفين: درجة من 100 بأوزان ثابتة، تصنيف، ترتيب، أنماط أسبوعية، ومقارنة بالفترة السابقة — للموظفين الذين لديهم بصمة فقط." testId="behavior-header"
-        stats={r?.summary ? [{ label: 'موظف ببصمة', value: fmtInt(r.summary.employees) }, { label: 'متوسط الدرجة', value: fmtNum(r.summary.avg_score, 1) }, { label: 'الفترة', value: title }] : undefined} />}
+        stats={r?.summary ? [{ label: 'موظف ببصمة', value: fmtInt(r.summary.employees) }, { label: 'متوسط الدرجة', value: fmtNum(r.summary.avg_score, 1) }, { label: 'الفترة', value: title }] : undefined} actions={actions} />}
+      {!hero && <div className="flex justify-end gap-2 rounded-2xl bg-[#0b3d6b] p-2 print:hidden">{actions}</div>}
       <Tabs tabs={BEHAVIOR_KINDS.map((k) => ({ key: k.key, label: k.label, icon: k.key === 'monthly' ? 'calendar' as const : k.key === 'yearly' ? 'bar-chart' as const : 'pie-chart' as const }))} value={kind} onChange={setKind} testId="behavior-kind" />
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm print:hidden" data-testid="behavior-controls">
+        <div className="flex gap-1 rounded-xl bg-slate-100 p-0.5">{([['report', 'التقرير', 'bar-chart'], ['compare', 'المقارنة بين الفترات', 'activity'], ['print', 'النسخة المطبوعة', 'printer']] as const).map(([k, l, ic]) => <button key={k} type="button" onClick={() => setView(k)} className={clsx('flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-black', view === k ? 'bg-white text-slate-900 shadow' : 'text-slate-500')} data-testid={`view-${k}`}><Icon name={ic} size={12} />{l}</button>)}</div>
         <button type="button" className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 hover:bg-slate-50" onClick={() => move(-1)} aria-label="الفترة السابقة" data-testid="behavior-prev"><Icon name="chevron-right" size={16} /></button>
         <div className="min-w-[10rem] flex-1 text-center">
           <p className="text-sm font-black" data-testid="behavior-period-title">{title}</p>
@@ -56,9 +72,10 @@ export default function BehaviorReportsPage({ readOnly = false, hero = true }: {
           <option value="">كل الفروع</option>{(branches.data ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
-      {q.isLoading || !r ? <LoadingSpinner /> : !r.summary || !r.employees.length ? <Empty text="لا بصمات لأي موظف في هذه الفترة" /> : (
-        <ReportBody r={r} onSelect={setSelected} readOnly={readOnly} />
-      )}
+      {view === 'compare' ? <BehaviorSeriesSection kind={kind} anchor={anchor} departmentId={departmentId || null} branchId={branchId || null} />
+        : q.isLoading || !r ? <LoadingSpinner /> : !r.summary || !r.employees.length ? <Empty text="لا بصمات لأي موظف في هذه الفترة" />
+        : view === 'print' ? <div className="space-y-2"><div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-2 text-[11px] text-slate-500 print:hidden"><span>معاينة النسخة المطبوعة (A4) — كل قسم في صفحة، تُطبع بألوانها بلا رأس/تذييل المتصفح.</span><Button size="sm" onClick={printPdf} data-testid="print-now"><Icon name="printer" size={14} className="ms-1" />طباعة / حفظ PDF</Button></div><BehaviorPrintReport r={r} scope={scope} /></div>
+        : <ReportBody r={r} onSelect={setSelected} readOnly={readOnly} />}
       {selected && <EmployeeDrawer employeeId={selected} kind={kind} anchor={anchor} onClose={() => setSelected(null)} />}
     </div>
   )
@@ -236,7 +253,7 @@ function EmployeeDrawer({ employeeId, kind, anchor, onClose }: { employeeId: str
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4" onClick={onClose} data-testid="behavior-drawer">
       <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-t-3xl bg-slate-50 p-3 shadow-2xl sm:rounded-3xl sm:p-4" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-2 flex items-center justify-between"><h2 className="text-sm font-black">بطاقة سلوك الموظف</h2><button type="button" className="grid h-8 w-8 place-items-center rounded-lg hover:bg-slate-200" onClick={onClose} aria-label="إغلاق" data-testid="drawer-close"><Icon name="x" size={16} /></button></div>
+        <div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-black">بطاقة سلوك الموظف</h2><div className="flex items-center gap-2">{q.data && <Button size="sm" variant="secondary" onClick={() => { if (q.data) void exportEmployeeExcel(q.data) }} data-testid="emp-excel"><Icon name="file-spreadsheet" size={14} className="ms-1" />Excel</Button>}<button type="button" className="grid h-8 w-8 place-items-center rounded-lg hover:bg-slate-200" onClick={onClose} aria-label="إغلاق" data-testid="drawer-close"><Icon name="x" size={16} /></button></div></div>
         {q.isLoading || !q.data ? <LoadingSpinner /> : <EmployeeCard r={q.data} />}
       </div>
     </div>

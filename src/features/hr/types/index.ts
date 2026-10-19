@@ -840,6 +840,10 @@ export interface BehaviorEmployeeReport {
   rank: number | null; population: number; trend: BehaviorEmployeeTrend[]; weekdays: BehaviorWeekday[]; in_histogram: Array<{ bucket: number; days: number }>; days: BehaviorDay[]
   weights: Record<keyof BehaviorIndices, number>
 }
+/** 00250: سلسلة فترات للمقارنة */
+export interface BehaviorSeriesPeriod { label: string; from: string; to: string; employees: number; avg_score: number | null; attendance_rate: number | null; punctuality_rate: number | null; absence_rate: number | null; early_rate: number | null; late_minutes: number; chronic_late: number; grades: Record<BehaviorGrade, number> }
+export interface BehaviorSeriesEmployee { employee_id: string; employee_number: string; full_name: string; department_name: string | null; scores: Array<number | null>; last_score: number | null; first_score: number | null; slope: number | null; periods_with_data: number; trend: 'improving' | 'declining' | 'stable' | 'insufficient' }
+export interface BehaviorSeries { kind: BehaviorPeriodKind; periods: BehaviorSeriesPeriod[]; employees: BehaviorSeriesEmployee[] }
 /** 00248: شريحة احتساب (مجيء مبكر/بقاء بعد النهاية) — حتى `upto` دقيقة بنسبة `pct`% تدريجياً؛ ما بعد آخر شريحة = 0 */
 export interface CreditTier { upto: number; pct: number }
 export interface CreditTiers { early_in: CreditTier[]; late_out: CreditTier[] }

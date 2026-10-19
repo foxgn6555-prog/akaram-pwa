@@ -454,6 +454,9 @@ export function useBehaviorReport(f: { kind: BehaviorPeriodKind; anchor: string;
 export function useBehaviorEmployee(employeeId: string | null, kind: BehaviorPeriodKind, anchor: string) {
   return useQuery({ queryKey: [...hrKeys.all, 'behavior-employee', employeeId, kind, anchor], queryFn: () => hr.behaviorEmployee(employeeId!, kind, anchor), enabled: !!employeeId, staleTime: 60_000 })
 }
+export function useBehaviorSeries(f: { kind: BehaviorPeriodKind; anchor: string; count: number; departmentId?: string | null; branchId?: string | null }, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.all, 'behavior-series', f.kind, f.anchor, f.count, f.departmentId ?? '', f.branchId ?? ''], queryFn: () => hr.behaviorSeries(f), enabled, staleTime: 60_000 })
+}
 export function useCreditTiers() {
   return useQuery({ queryKey: [...DED, 'credit-tiers'], queryFn: hr.creditTiers, staleTime: 30_000 })
 }
