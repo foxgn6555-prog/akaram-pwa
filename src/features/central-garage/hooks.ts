@@ -292,6 +292,7 @@ export function useGarageDepartures() {
     queryKey: centralGarageKeys.departures(),
     queryFn: () => centralGarage.todayDepartures(),
     staleTime: API.STALE_TIME.DEFAULT,
+    refetchInterval: 30_000,
   })
 }
 export function useGarageDepartureDays() {
@@ -299,6 +300,7 @@ export function useGarageDepartureDays() {
     queryKey: ['central-garage', 'departure-days'],
     queryFn: () => centralGarage.departureDays(),
     staleTime: API.STALE_TIME.DEFAULT,
+    refetchInterval: 30_000,
   })
 }
 export function useGarageDeparturesForDay(day: string) {
@@ -307,6 +309,7 @@ export function useGarageDeparturesForDay(day: string) {
     queryFn: () => centralGarage.departuresForDay(day),
     enabled: Boolean(day),
     staleTime: API.STALE_TIME.DEFAULT,
+    refetchInterval: 30_000,
   })
 }
 export function useGarageShiftAssignments(vehicleId: string) {
