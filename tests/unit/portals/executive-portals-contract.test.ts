@@ -92,7 +92,7 @@ describe('بوابات الإدارة العليا', () => {
 
   it('00220 — ترتيب الشريط الجانبي: التنفيذي كالمفوض ثم القاصة؛ المعاون: الميدان ثم المكافآت ثم الموافقات والإجراءات؛ وأيقونات بلا تكرار داخل البوابة', () => {
     expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/events', '/executive/behavior'])
-    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior'])
+    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/rented-tax', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior'])
     for (const portal of [PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY]) {
       const icons = PORTAL_UNITS[portal].map((u) => u.icon)
       expect(new Set(icons).size, `أيقونات ${portal}`).toBe(icons.length)

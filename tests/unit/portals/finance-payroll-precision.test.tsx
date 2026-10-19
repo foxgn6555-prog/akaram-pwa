@@ -98,10 +98,27 @@ describe('00195 — الكشف المبسّط: المالية ترى الصاف�
     fireEvent.click(screen.getByTestId('ps-days-E-2'))
     expect(screen.getByTestId('ps-auto-rule')).toHaveTextContent('قاعدة «صارمة»'); expect(screen.getByTestId('ps-auto-fixed')).toBeInTheDocument()
   })
-  it('Excel: الورقة الرئيسية 23 عموداً بقاعدة الاستقطاع، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
+  it('00251: ضريبة الآلية المؤجرة سطر مستقل في الكشف والتفاصيل والـ Excel (3٪ من الإجمالي المستحق)، ولا تظهر لمن لا ضريبة عليه', async () => {
+    h.sheet = [row({ ...rows[0]!, employee_number: 'E-7', full_name: 'سائق مؤجرة', gross_amount: 1350000, base_salary: 1500000, payable_days: 27, deductions_total: 90500, auto_deduction_amount: 50000, rented_tax_pct: 3, rented_tax_amount: 40500, rented_tax_vehicle: 'DB-77 — قلاب مؤجر', rented_tax_source: 'auto', proposed_net: 1259500, final_net: 1259500 }), rows[4]!]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-ded-E-7')).toHaveTextContent('90,500')
+    expect(screen.getByTestId('ps-rented-tax-E-7')).toHaveTextContent('ضريبة آلية مؤجرة 40,500 (3٪)')
+    expect(screen.getByTestId('ps-rented-tax-E-7')).toHaveAttribute('title', '3٪ من الإجمالي المستحق — DB-77 — قلاب مؤجر')
+    expect(screen.queryByTestId('ps-rented-tax-E-5')).toBeNull()
+    fireEvent.click(screen.getByTestId('ps-days-E-7'))
+    expect(screen.getByTestId('ps-rented-tax-note')).toHaveTextContent('+ ضريبة آلية مؤجرة 40,500 (3٪ × الإجمالي المستحق 1,350,000 — تُحتسب من الأيام المدفوعة فقط ولا تتأثر بالغرامات أو السلف · DB-77 — قلاب مؤجر)')
+    const wb = await buildPayrollWorkbook('2026-09-01', h.sheet as PayrollSheetRow[])
+    const ws = wb.getWorksheet(1)!
+    const headers = (ws.getRow(4).values as string[]).slice(1)
+    expect(headers.indexOf('ضريبة آلية مؤجرة') + 1).toBe(18)
+    expect(ws.getRow(5).getCell(18).value).toBe(40500); expect(ws.getRow(5).getCell(19).value).toBe(90500); expect(ws.getRow(5).getCell(20).value).toBe(1259500)
+    expect(String(ws.getRow(5).getCell(18).note)).toContain('3٪ من الإجمالي المستحق')
+    expect(ws.getRow(6).getCell(18).value).toBe(0)
+  })
+  it('Excel: الورقة الرئيسية 24 عموداً بقاعدة الاستقطاع، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
     const wb = await buildPayrollWorkbook('2026-09-01', [row({ ...rows[0]!, auto_deduction_rule: 'صارمة' }), rows[1]!])
     const ws = wb.worksheets[0]!; const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
-    expect(headers).toHaveLength(23); expect(headers).not.toContain('دقائق التأخير'); expect(ws.getRow(5).getCell(headers.indexOf('قاعدة الاستقطاع التلقائي') + 1).value).toBe('صارمة')
+    expect(headers).toHaveLength(24); expect(headers[17]).toBe('ضريبة آلية مؤجرة'); expect(headers).not.toContain('دقائق التأخير'); expect(ws.getRow(5).getCell(headers.indexOf('قاعدة الاستقطاع التلقائي') + 1).value).toBe('صارمة')
     expect(ws.getRow(5).getCell(8).value).toBe(25)   // الأيام المدفوعة = حاضر 24 + إجازة مدفوعة 1
     expect(wb.worksheets[1]!.name).toBe('تفاصيل الحضور')
     const dh = (wb.worksheets[1]!.getRow(4).values as unknown[]).slice(1) as string[]
@@ -189,10 +206,10 @@ describe('00194 — Excel المالي', () => {
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     expect(headers.slice(-2)).toEqual(['تحقق الصافي', 'ملاحظات التدقيق'])
     expect(String(ws.getCell('A2').value)).toContain('الفرع: الكرخ')
-    expect((ws.getRow(5).getCell(22).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,L5-R5)-S5)<=1,"✓","✗")')   // 00195: الأعمدة المبسّطة L/R/S
-    expect(ws.getRow(7).getCell(23).value).toBe('صافٍ معدَّل يدوياً')
-    expect(ws.getRow(10).getCell(22).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(23).value).toBe('بلا ملف راتب')
-    expect(String((ws.getRow(11).getCell(22).value as { formula: string }).formula)).toContain('COUNTIF(V5:V10,"✗")')
+    expect((ws.getRow(5).getCell(23).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,L5-S5)-T5)<=1,"✓","✗")')   // 00251: L/S/T بعد عمود ضريبة الآلية المؤجرة
+    expect(ws.getRow(7).getCell(24).value).toBe('صافٍ معدَّل يدوياً')
+    expect(ws.getRow(10).getCell(23).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(24).value).toBe('بلا ملف راتب')
+    expect(String((ws.getRow(11).getCell(23).value as { formula: string }).formula)).toContain('COUNTIF(W5:W10,"✗")')
     expect(ws.views[0]).toMatchObject({ xSplit: 3, ySplit: 4 })
   })
   it('ورقة «ملخص الفروع» هرمية (فرع ثم أقسامه) بمجاميع كل مستوى وإجمالي عام', async () => {

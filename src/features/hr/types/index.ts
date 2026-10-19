@@ -441,6 +441,11 @@ export interface PayrollSheetRow extends OpsExportRow {
   auto_deduction_days_capped?: boolean
   /** 00191 — قسط السلفة المستقطع تلقائياً هذا الشهر (ضمن إجمالي الاستقطاعات) */
   advance_installment?: number | null
+  /** 00251 — ضريبة الآلية المؤجرة: نسبة × الإجمالي المستحق، سطر مستقل ضمن إجمالي الاستقطاعات */
+  rented_tax_pct?: number | null
+  rented_tax_amount?: number | null
+  rented_tax_vehicle?: string | null
+  rented_tax_source?: 'auto' | 'custom' | 'exempt' | null
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'
@@ -457,7 +462,7 @@ export interface PayrollSheetRow extends OpsExportRow {
 }
 
 /** 00194 — صف التحقق الحسابي لكشف الرواتب (المالية) */
-export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED' | 'PAYABLE_DAYS_CHANGED'
+export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'RENTED_TAX_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED' | 'PAYABLE_DAYS_CHANGED'
 export interface PayrollReconcileRow {
   row_id: string
   employee_id: string
@@ -919,6 +924,16 @@ export interface DeputyPayrollMonth {
   review_status: 'pending' | 'approved'; reviewed_at: string | null; reviewed_by_name: string | null; review_pct: number
   rows_count: number; employees_with_deductions: number; deductions_total: number; relief_total: number; net_total: number
 }
+/** 00251 — ضريبة الآليات المؤجرة (وحدة المعاون) */
+export interface RentedTaxOverride { mode: 'exempt' | 'custom'; pct: number | null; reason: string; valid_from: string; valid_to: string | null; created_at: string; by: string | null }
+export interface RentedTaxEmployee {
+  employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null
+  vehicles: string | null; linked: boolean; pct: number; source: 'auto' | 'custom' | 'exempt' | 'none'; override: RentedTaxOverride | null
+  last_month: string | null; last_gross: number | null; last_tax: number | null; last_pct: number | null; has_salary: boolean
+}
+export interface RentedTaxOverview { pct: number; updated_at: string; updated_by: string | null; last_export_month: string | null; rented_vehicles: number; rented_vehicles_without_driver: number; employees: RentedTaxEmployee[] }
+export interface RentedTaxAudit { id: string; employee_id: string | null; employee_number: string | null; full_name: string | null; action: 'pct' | 'exempt' | 'custom' | 'clear'; before: Record<string, unknown> | null; after: Record<string, unknown> | null; reason: string | null; actor_name: string | null; created_at: string }
+export interface RentedTaxPreviewRow { employee_id: string; employee_number: string; full_name: string; gross_amount: number | null; stored_pct: number; stored_tax: number; current_pct: number; current_source: string; current_tax: number; export_status: 'exported' | 'approved'; version: number }
 export interface DeputyReviewAudit {
   id: string; row_id: string | null; employee_number: string | null; full_name: string | null
   action: 'waive' | 'amount' | 'clear' | 'percent' | 'approve' | 'reopen'; kind: DeputyDeductionKind | null

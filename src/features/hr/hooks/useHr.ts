@@ -259,6 +259,22 @@ export function useDeputyApprove() {
     onError: t.err,
   })
 }
+// 00251 — ضريبة الآليات المؤجرة
+export function useRentedTaxOverview() { return useQuery({ queryKey: [...hrKeys.all, 'rented-tax'], queryFn: () => hr.rentedTaxOverview(), staleTime: 30_000 }) }
+export function useRentedTaxAudit(enabled: boolean) { return useQuery({ queryKey: [...hrKeys.all, 'rented-tax-audit'], queryFn: () => hr.rentedTaxAudit(200), enabled }) }
+export function useRentedTaxPreview(month: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'rented-tax-preview', month], queryFn: () => hr.rentedTaxPreview(month as string), enabled: !!month }) }
+export function useRentedTaxSetPct() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { pct: number; reason: string }) => hr.rentedTaxSetPct(v.pct, v.reason), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('حُدّثت النسبة العامة — تسري على التصدير القادم') }, onError: t.err })
+}
+export function useRentedTaxOverrideSet() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; mode: 'exempt' | 'custom'; pct: number | null; reason: string; validTo: string | null }) => hr.rentedTaxOverrideSet(v.employeeId, v.mode, v.pct, v.reason, v.validTo), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.mode === 'exempt' ? 'سُجّل الإعفاء' : 'سُجّلت النسبة الخاصة') }, onError: t.err })
+}
+export function useRentedTaxOverrideClear() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; reason: string }) => hr.rentedTaxOverrideClear(v.employeeId, v.reason), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُلغي الاستثناء — يعود للنسبة العامة') }, onError: t.err })
+}
 export function useDeputyReopen() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({

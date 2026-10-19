@@ -10,8 +10,7 @@ import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewR
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
-  MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
-} from '@features/hr/types'
+  MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation, RentedTaxOverview, RentedTaxAudit, RentedTaxPreviewRow} from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
@@ -294,6 +293,13 @@ export const hr = {
   deputyApprove(exportId: string) { return rpc<{ export_id: string; rows: number; relief_total: number; rows_with_relief: number }>('deputy_payroll_approve', { p_export: exportId }) },
   deputyReopen(exportId: string, reason: string) { return sdkVoid(supabase.rpc('deputy_review_reopen', { p_export: exportId, p_reason: reason } as never)) },
   deputyAudit(exportId: string) { return rpc<DeputyReviewAudit[]>('deputy_review_audit', { p_export: exportId }) },
+  // 00251 — ضريبة الآليات المؤجرة (المعاون)
+  rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },
+  rentedTaxSetPct(pct: number, reason: string) { return rpc<{ pct: number; previous: number }>('deputy_rented_tax_set_pct', { p_pct: pct, p_reason: reason }) },
+  rentedTaxOverrideSet(employeeId: string, mode: 'exempt' | 'custom', pct: number | null, reason: string, validTo: string | null) { return rpc<unknown>('deputy_rented_tax_override_set', { p_employee: employeeId, p_mode: mode, p_pct: pct, p_reason: reason, p_valid_to: validTo }) },
+  rentedTaxOverrideClear(employeeId: string, reason: string) { return sdkVoid(supabase.rpc('deputy_rented_tax_override_clear', { p_employee: employeeId, p_reason: reason } as never)) },
+  rentedTaxAudit(limit = 200) { return rpc<RentedTaxAudit[]>('deputy_rented_tax_audit', { p_limit: limit }) },
+  rentedTaxPreview(month: string) { return rpc<RentedTaxPreviewRow[]>('deputy_rented_tax_preview', { p_month: month }) },
   /** 00185 — حالة آخر تصدير للشهر والتغييرات بعده (العمليات/المالية/HR/التطوير) */
   monthExportStatus(month: string) { return rpc<MonthExportStatus>('hr_month_export_status', { p_month: month }) },
   /** 00185 — استقطاعات موظف في شهر مع مرجع الكشف */

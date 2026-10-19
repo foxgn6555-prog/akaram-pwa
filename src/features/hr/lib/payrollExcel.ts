@@ -139,10 +139,11 @@ interface TableMeta { title: string; subtitle: string; approved: boolean }
 /** 00195 — أعمدة الورقة الرئيسية المبسّطة (المالية تحتاج الصافي؛ تفاصيل الحضور في ورقة «تفاصيل الحضور») */
 export const MAIN_HEADERS = ['ت', 'الرقم الوظيفي', 'الاسم', 'القسم', 'الفرع', 'العنوان الوظيفي', 'نوع التعاقد',
   'الأيام المدفوعة', 'غائب', 'الراتب الأساسي / أجر اليوم', 'المخصصات', 'الإجمالي المستحق',
-  'استقطاعات ثابتة', 'استقطاع غرفة العمليات', 'استقطاع تلقائي', 'قاعدة الاستقطاع التلقائي', 'قسط السلفة', 'إجمالي الاستقطاعات',
+  'استقطاعات ثابتة', 'استقطاع غرفة العمليات', 'استقطاع تلقائي', 'قاعدة الاستقطاع التلقائي', 'قسط السلفة', 'ضريبة آلية مؤجرة', 'إجمالي الاستقطاعات',
   'الصافي المقترح', 'الصافي المعتمد', 'ملاحظة المالية', 'تحقق الصافي', 'ملاحظات التدقيق'] as const
-export const MAIN_COL = { gross: 12, deductions: 18, proposed: 19, final: 20, verify: 22, notes: 23 } as const
-const MAIN_MONEY = [10, 11, 12, 13, 14, 15, 17, 18, 19, 20]
+/** 00251: العمود 18 = ضريبة الآلية المؤجرة (3٪ افتراضياً من الإجمالي المستحق — سطر مستقل) */
+export const MAIN_COL = { gross: 12, rented_tax: 18, deductions: 19, proposed: 20, final: 21, verify: 23, notes: 24 } as const
+const MAIN_MONEY = [10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21]
 /** الجدول الرئيسي للكشف (الورقة الأولى وأوراق الفروع): ترويسة، صف لكل موظف، عمود تحقق بمعادلة Excel، مجاميع بمعادلات */
 function writePayrollTable(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMeta) {
   const headers = [...MAIN_HEADERS]
@@ -153,12 +154,13 @@ function writePayrollTable(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMe
     const paidDays = r.payable_days ?? r.days_present + paidLeave
     const row = ws.addRow([i + 1, r.employee_number, r.full_name, r.department_name, r.branch_name, r.job_title, CONTRACT[r.pay_type ?? r.contract_type ?? ''] ?? '—',
       paidDays, r.days_absent, r.pay_type === 'daily' ? r.daily_rate ?? 0 : r.base_salary ?? 0, r.allowances_total ?? 0, rowGross(r),
-      r.fixed_deductions_total ?? 0, r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), r.auto_deduction_amount ?? 0, r.auto_deduction_rule ?? (r.auto_deduction_basis === 'disabled' ? 'متوقف' : ''), r.advance_installment ?? 0, rowDeductions(r),
+      r.fixed_deductions_total ?? 0, r.ops_deduction_amount + (r.ops_deduction_days_amount ?? 0), r.auto_deduction_amount ?? 0, r.auto_deduction_rule ?? (r.auto_deduction_basis === 'disabled' ? 'متوقف' : ''), r.advance_installment ?? 0, r.rented_tax_amount ?? 0, rowDeductions(r),
       r.proposed_net ?? 0, r.final_net ?? r.proposed_net ?? 0, r.finance_note ?? '', '', rowFlags(r).join(' · ')])
     const n = row.number
     // تحقق بمعادلة حية داخل Excel: الصافي المقترح = max(0, الإجمالي − إجمالي الاستقطاعات) — يبقى صحيحاً حتى لو عدّل المحاسب الخلايا
-    row.getCell(MAIN_COL.verify).value = r.pay_type == null ? 'بلا راتب' : { formula: `IF(ABS(MAX(0,L${n}-R${n})-S${n})<=1,"✓","✗")`, result: '✓' }
-    row.eachCell({ includeEmpty: true }, (c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col === 16 || col === 21 || col === 23 ? 'right' : 'center', vertical: 'middle', wrapText: col === 21 || col === 23 }; if (MAIN_MONEY.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    row.getCell(MAIN_COL.verify).value = r.pay_type == null ? 'بلا راتب' : { formula: `IF(ABS(MAX(0,L${n}-S${n})-T${n})<=1,"✓","✗")`, result: '✓' }
+    if ((r.rented_tax_amount ?? 0) > 0) row.getCell(MAIN_COL.rented_tax).note = `${r.rented_tax_pct ?? 0}٪ من الإجمالي المستحق${r.rented_tax_vehicle ? ` — ${r.rented_tax_vehicle}` : ''}${r.rented_tax_source === 'custom' ? ' (نسبة خاصة بقرار المعاون)' : ''}`
+    row.eachCell({ includeEmpty: true }, (c, col) => { c.border = thin(); c.alignment = { horizontal: col <= 7 || col === 16 || col === 22 || col === 24 ? 'right' : 'center', vertical: 'middle', wrapText: col === 22 || col === 24 }; if (MAIN_MONEY.includes(col)) c.numFmt = '#,##0'; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
     row.getCell(MAIN_COL.gross).font = { bold: true }; row.getCell(MAIN_COL.deductions).font = { bold: true, color: { argb: 'FFB91C1C' } }; row.getCell(MAIN_COL.final).font = { bold: true }
     if (r.final_net != null && r.final_net !== r.proposed_net) row.getCell(MAIN_COL.final).font = { bold: true, color: { argb: 'FFB45309' } }
     if (r.pay_type == null) row.getCell(MAIN_COL.proposed).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
@@ -167,9 +169,9 @@ function writePayrollTable(ws: Worksheet, rows: PayrollSheetRow[], meta: TableMe
   const first = 5, last = 4 + rows.length
   const tot = ws.addRow(['', '', 'الإجمالي'])
   ;[8, 9, ...MAIN_MONEY].forEach((col) => { tot.getCell(col).value = rows.length ? { formula: `SUM(${colL(col)}${first}:${colL(col)}${last})`, result: 0 } : 0; if (MAIN_MONEY.includes(col)) tot.getCell(col).numFmt = '#,##0' })
-  tot.getCell(MAIN_COL.verify).value = rows.length ? { formula: `IF(COUNTIF(V${first}:V${last},"✗")=0,"✓ كل الصفوف متطابقة",COUNTIF(V${first}:V${last},"✗")&" صف غير متطابق")`, result: '✓' } : ''
+  tot.getCell(MAIN_COL.verify).value = rows.length ? { formula: `IF(COUNTIF(W${first}:W${last},"✗")=0,"✓ كل الصفوف متطابقة",COUNTIF(W${first}:W${last},"✗")&" صف غير متطابق")`, result: '✓' } : ''
   tot.eachCell((c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; c.border = thin() })
-  const widths = [5, 12, 26, 16, 14, 16, 10, 9, 7, 15, 12, 15, 13, 14, 13, 18, 12, 15, 15, 15, 24, 12, 30]
+  const widths = [5, 12, 26, 16, 14, 16, 10, 9, 7, 15, 12, 15, 13, 14, 13, 18, 12, 13, 15, 15, 15, 24, 12, 30]
   widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
   ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: last, column: headers.length } }
 }
