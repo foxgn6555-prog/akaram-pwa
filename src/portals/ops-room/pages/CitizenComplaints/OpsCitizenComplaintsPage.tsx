@@ -101,7 +101,7 @@ export function ComplaintDetail({ c, onClose, managerMode = false }: { c: Citize
   const { data: urls = {} } = useCitizenPhotoUrls(paths)
   const { data: managers = [] } = useCitizenManagers()
   const assign = useAssignCitizenComplaint(); const setStatus = useSetCitizenStatus(); const addNote = useAddCitizenNote()
-  const [manager, setManager] = useState(''); const [note, setNote] = useState(''); const [action, setAction] = useState<'on_hold' | 'resolved' | 'note' | null>(null)
+  const [manager, setManager] = useState(''); const [note, setNote] = useState(''); const [action, setAction] = useState<'on_hold' | 'resolved' | 'reopen' | 'note' | null>(null)
   useEffect(() => { setManager(c.assigned_to ?? ''); setAction(null); setNote('') }, [c.id, c.assigned_to])
   const busy = assign.isPending || setStatus.isPending || addNote.isPending
   const mapsUrl = c.lat != null ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : null
@@ -140,12 +140,12 @@ export function ComplaintDetail({ c, onClose, managerMode = false }: { c: Citize
         {c.status !== 'resolved' && c.assigned_to && <button type="button" onClick={() => setAction('resolved')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">تمت المعالجة</button>}
         {c.status !== 'resolved' && c.status !== 'on_hold' && <button type="button" onClick={() => setAction('on_hold')} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-black text-white">تعليق</button>}
         {c.status === 'on_hold' && c.assigned_to && <button type="button" disabled={busy} onClick={() => setStatus.mutate({ id: c.id, status: 'in_progress' })} className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-white">استئناف المعالجة</button>}
-        {!managerMode && c.status === 'resolved' && <button type="button" disabled={busy} onClick={() => setStatus.mutate({ id: c.id, status: 'new' })} className="rounded-xl bg-slate-200 px-3 py-2 text-xs font-black">إعادة فتح</button>}
+        {c.status === 'resolved' && <button type="button" disabled={busy} onClick={() => setAction('reopen')} className="rounded-xl bg-slate-200 px-3 py-2 text-xs font-black" data-testid="cc-reopen">إعادة فتح</button>}
         <button type="button" onClick={() => setAction('note')} className="rounded-xl bg-white px-3 py-2 text-xs font-black ring-1 ring-slate-300">+ ملاحظة</button>
       </div>
       {action && (
-        <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (action === 'note') addNote.mutate({ id: c.id, note }, { onSuccess: () => setAction(null) }); else setStatus.mutate({ id: c.id, status: action, note }, { onSuccess: () => setAction(null) }) }} className="space-y-2 rounded-2xl bg-slate-50 p-3" data-testid="cc-action-form">
-          <p className="text-xs font-black">{action === 'resolved' ? 'نتيجة المعالجة (تظهر للمواطن)' : action === 'on_hold' ? 'سبب التعليق (يظهر للمواطن)' : 'ملاحظة داخلية'}</p>
+        <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (action === 'note') addNote.mutate({ id: c.id, note }, { onSuccess: () => setAction(null) }); else setStatus.mutate({ id: c.id, status: action === 'reopen' ? (managerMode ? 'in_progress' : 'new') : action, note }, { onSuccess: () => setAction(null) }) }} className="space-y-2 rounded-2xl bg-slate-50 p-3" data-testid="cc-action-form">
+          <p className="text-xs font-black">{action === 'resolved' ? 'نتيجة المعالجة (تظهر للمواطن)' : action === 'on_hold' ? 'سبب التعليق (يظهر للمواطن)' : action === 'reopen' ? 'سبب إعادة الفتح (إلزامي — يُسجَّل في المتابعة ويُلغى تقييم المواطن السابق)' : 'ملاحظة داخلية'}</p>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} required minLength={3} className="w-full rounded-xl border border-slate-300 p-2 text-sm" data-testid="cc-action-note" />
           <div className="flex gap-2"><button type="submit" disabled={busy || note.trim().length < 3} className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white disabled:opacity-50">حفظ</button><button type="button" onClick={() => setAction(null)} className="rounded-xl px-3 py-2 text-xs font-bold">إلغاء</button></div>
         </form>

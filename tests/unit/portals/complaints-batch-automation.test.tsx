@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InboxPage from '../../../src/portals/complaints/pages/Inbox/InboxPage'
@@ -7,7 +7,7 @@ import AssignmentPage from '../../../src/portals/complaints/pages/Assignment/Ass
 import AssignedComplaintsPage from '../../../src/portals/manager/pages/Complaints/AssignedComplaintsPage'
 import ComplaintDetailPage from '../../../src/portals/complaints/pages/Processing/ComplaintDetailPage'
 
-const h=vi.hoisted(()=>({batchSort:vi.fn(),batchAssign:vi.fn(),updateReview:vi.fn(),replaceMedia:vi.fn()}))
+const h=vi.hoisted(()=>({batchSort:vi.fn(),batchAssign:vi.fn(),updateReview:vi.fn(),replaceMedia:vi.fn(),reassign:vi.fn(),itemStatus:'quality_review' as string}))
 vi.mock('@features/complaints',async()=>({
  ...(await vi.importActual<Record<string, unknown>>('../../../src/features/complaints/lib/neighborhoods')),
  useComplaintNeighborhoods:()=>({data:[],isLoading:false}),
@@ -21,11 +21,12 @@ vi.mock('@features/complaints',async()=>({
   {id:'i1',complaintId:'c1',referenceNo:'CMP-1',complaintStatus:'under_review',sector:'karrada',sequenceNo:1,title:null,municipalCenter:null,neighborhood:'901',alley:'1',locationText:null,ocrText:null,assignedTo:manager?'mgr1':null,status:manager?'assigned':'under_review',managerNotes:null,reviewerNotes:null,receivedAt:'2026-09-05'},
   {id:'i2',complaintId:'c1',referenceNo:'CMP-1',complaintStatus:'under_review',sector:'karrada',sequenceNo:2,title:null,municipalCenter:null,neighborhood:'902',alley:'2',locationText:null,ocrText:null,assignedTo:manager?'mgr1':null,status:manager?'assigned':'under_review',managerNotes:null,reviewerNotes:null,receivedAt:'2026-09-05'},
  ]}),
- useComplaintManagers:()=>({data:[{userId:'mgr1',fullName:'مسؤول أول',jobTitle:null}]}),
+ useComplaintManagers:()=>({data:[{userId:'mgr1',fullName:'مسؤول أول',jobTitle:null},{userId:'mgr2',fullName:'مسؤول ثانٍ',jobTitle:'مسؤول الزعفرانية'}]}),
+ useReassignComplaintItem:()=>({mutate:h.reassign,isPending:false}),
  useAssignComplaintItems:()=>({mutate:h.batchAssign,isPending:false}),
  useComplaintItemsMedia:(ids:string[])=>({data:ids.length?[{id:'f1',itemId:'i1',mediaCode:'IMG-A',kind:'before',url:'https://test/a.jpg',name:'a.jpg',mimeType:'image/jpeg',capturedAt:null,isActive:true,replacementReason:null,supersededAt:null}]:[]}),
  useComplaintItemMedia:()=>({data:[]}),useStartComplaintItem:()=>({mutate:vi.fn()}),useCompleteComplaintItem:()=>({mutate:vi.fn(),isPending:false}),compareImageContext:vi.fn(),
- useComplaintItemDetail:()=>({isLoading:false,data:{item:{id:'i1',complaintId:'c1',referenceNo:'CMP-1',complaintStatus:'quality_review',sector:'karrada',sequenceNo:1,title:'نفايات',municipalCenter:'الكرادة',neighborhood:'901',alley:'1',locationText:null,ocrText:null,assignedTo:'mgr1',status:'processed',managerNotes:null,reviewerNotes:null,receivedAt:'2026-09-05'},media:[{id:'active-before',itemId:'i1',mediaCode:'IMG-A',kind:'before',url:'https://test/a.jpg',name:'a.jpg',mimeType:'image/jpeg',capturedAt:null,isActive:true,replacementReason:null,supersededAt:null},{id:'old-before',itemId:'i1',mediaCode:'IMG-OLD',kind:'before',url:'https://test/old.jpg',name:'old.jpg',mimeType:'image/jpeg',capturedAt:null,isActive:false,replacementReason:'صورة أوضح',supersededAt:'2026-09-05'}],history:[{id:'h1',fromStatus:'under_review',toStatus:'assigned',note:null,actorId:'u1',createdAt:'2026-09-05T09:00:00Z'}],senderEmail:'sender@test.iq',subject:'بلاغ',bodyText:'تفاصيل البلاغ\n[image: PHOTO-1.jpg]\n[image: PHOTO-2.jpg]',inboxMessageId:'m1'}}),
+ useComplaintItemDetail:()=>({isLoading:false,data:{item:{id:'i1',complaintId:'c1',referenceNo:'CMP-1',complaintStatus:'quality_review',sector:'karrada',sequenceNo:1,title:'نفايات',municipalCenter:'الكرادة',neighborhood:'901',alley:'1',locationText:null,ocrText:null,assignedTo:'mgr1',status:h.itemStatus,managerNotes:null,reviewerNotes:null,receivedAt:'2026-09-05'},media:[{id:'active-before',itemId:'i1',mediaCode:'IMG-A',kind:'before',url:'https://test/a.jpg',name:'a.jpg',mimeType:'image/jpeg',capturedAt:null,isActive:true,replacementReason:null,supersededAt:null},{id:'old-before',itemId:'i1',mediaCode:'IMG-OLD',kind:'before',url:'https://test/old.jpg',name:'old.jpg',mimeType:'image/jpeg',capturedAt:null,isActive:false,replacementReason:'صورة أوضح',supersededAt:'2026-09-05'}],history:[{id:'h1',fromStatus:'under_review',toStatus:'assigned',note:null,actorId:'u1',createdAt:'2026-09-05T09:00:00Z'}],senderEmail:'sender@test.iq',subject:'بلاغ',bodyText:'تفاصيل البلاغ\n[image: PHOTO-1.jpg]\n[image: PHOTO-2.jpg]',inboxMessageId:'m1'}}),
  useComplaintDeliveries:()=>({data:[]}),useReviewComplaintItem:()=>({mutate:vi.fn()}),useUpdateComplaintItemDuringReview:()=>({mutate:h.updateReview,isPending:false}),useReplaceComplaintItemMedia:()=>({mutate:h.replaceMedia,isPending:false}),
 }))
 function view(node:ReactNode){return render(<MemoryRouter>{node}</MemoryRouter>)}
@@ -73,5 +74,20 @@ describe('أتمتة فرز وإسناد الشكاوى على دفعات',()=>{
   expect(h.updateReview).toHaveBeenCalledWith(expect.objectContaining({itemId:'i1',fields:expect.objectContaining({neighborhood:'905',alley:'8'}),reason:'تصحيح الكتاب'}),expect.any(Object))
   fireEvent.change(screen.getByLabelText(/سبب استبدال الصورة/),{target:{value:'الصورة أوضح'}});const file=new File(['image'],'new.jpg',{type:'image/jpeg'});fireEvent.change(screen.getByLabelText('اختيار صورة بديلة'),{target:{files:[file]}})
   expect(h.replaceMedia).toHaveBeenCalledWith({itemId:'i1',oldMediaId:'active-before',kind:'before',file,reason:'الصورة أوضح'},expect.any(Object))
+ })
+})
+
+describe('00302 — إعادة إسناد موقع شكوى من بطاقة الموقع',()=>{
+ it('لا تظهر اللوحة أثناء التدقيق؛ تظهر للمسند/قيد المعالجة مع استبعاد المسؤول الحالي وسبب إلزامي، وترسل itemId/managerId/reason',()=>{
+  h.itemStatus='processed';view(<ComplaintDetailPage/>);expect(screen.queryByTestId('reassign-panel')).toBeNull();cleanup()
+  h.itemStatus='in_progress';view(<ComplaintDetailPage/>);expect(screen.getByTestId('reassign-panel')).toBeInTheDocument()
+  const select=screen.getByTestId('reassign-manager') as HTMLSelectElement
+  expect(Array.from(select.options).map(o=>o.value)).toEqual(['','mgr2'])
+  fireEvent.change(select,{target:{value:'mgr2'}})
+  expect(screen.getByTestId('reassign-submit')).toBeDisabled()
+  fireEvent.change(screen.getByTestId('reassign-reason'),{target:{value:'غياب المسؤول'}})
+  fireEvent.click(screen.getByTestId('reassign-submit'))
+  expect(h.reassign).toHaveBeenCalledWith({itemId:'i1',managerId:'mgr2',reason:'غياب المسؤول'},expect.anything())
+  h.itemStatus='quality_review'
  })
 })

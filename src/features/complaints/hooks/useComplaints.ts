@@ -90,6 +90,15 @@ export function useComplaintManagers() {
   })
 }
 
+export function useReassignComplaintItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, managerId, reason }: { itemId: string; managerId: string; reason: string }) =>
+      complaints.reassign(itemId, managerId, reason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: complaintsKeys.all }),
+  })
+}
+
 export function useAssignComplaintItem() {
   const queryClient = useQueryClient()
   return useMutation({

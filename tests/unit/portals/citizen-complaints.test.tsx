@@ -251,6 +251,20 @@ describe('غرفة العمليات — استقبال الشكاوى', () => {
     await waitFor(() => expect(h.setStatus).toHaveBeenCalledWith('c1', 'on_hold', 'بانتظار آلية'))
   })
 
+  it('00302: إعادة فتح شكوى منتهية تتطلب سبباً إلزامياً (غرفة العمليات → جديدة)', async () => {
+    h.opsList.mockResolvedValue([COMPLAINT({ status: 'resolved', status_label: 'تمت المعالجة', assigned_to: 'm1', assignee_name: 'مسؤول الكرادة', resolution_note: 'تم الرفع', citizen_rating: 4 })])
+    wrap(<OpsCitizenComplaintsPage />, '/ops-room/citizen-complaints?c=c1')
+    const detail = await screen.findByTestId('cc-detail')
+    fireEvent.click(within(detail).getByTestId('cc-reopen'))
+    expect(h.setStatus).not.toHaveBeenCalled()
+    const form = within(detail).getByTestId('cc-action-form')
+    expect(form).toHaveTextContent('سبب إعادة الفتح (إلزامي')
+    expect(within(form).getByText('حفظ')).toBeDisabled()
+    fireEvent.change(within(form).getByTestId('cc-action-note'), { target: { value: 'المواطن أبلغ أن المشكلة عادت' } })
+    fireEvent.submit(form)
+    await waitFor(() => expect(h.setStatus).toHaveBeenCalledWith('c1', 'new', 'المواطن أبلغ أن المشكلة عادت'))
+  })
+
   it('الدعم المباشر: شارة عدد المنتظرين، الطابور، استلام المحادثة', async () => {
     h.opsQueue.mockResolvedValue([{ id: 's1', status: 'waiting', citizen_name: 'علي حسين كاظم', phone: '07701234567', requested_at: '2026-10-02T10:00:00Z', accepted_at: null, agent_id: null, agent_name: null, mine: false, last_message: 'الحاوية ممتلئة', last_at: '2026-10-02T10:01:00Z', unread: 1 }])
     wrap(<OpsCitizenComplaintsPage />, '/ops-room/citizen-complaints?tab=support')

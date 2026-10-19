@@ -312,6 +312,11 @@ export const complaints = {
     await sdkVoid(supabase.rpc('complaint_assign_item', { p_item_id: itemId, p_manager_id: managerId }))
   },
 
+  /** 00302: إعادة إسناد عنصر مسند/قيد المعالجة/مُعاد إلى مسؤول آخر بسبب موثّق (موظف الشكاوى فقط). */
+  async reassign(itemId: string, managerId: string, reason: string): Promise<void> {
+    await sdkVoid(supabase.rpc('complaint_reassign_item', { p_item_id: itemId, p_manager_id: managerId, p_reason: reason }))
+  },
+
   async assignBatch(itemIds: string[], managerId: string): Promise<number> {
     const data = await sdkGuard(supabase.rpc('complaint_assign_items', {
       p_item_ids: itemIds, p_manager_id: managerId,

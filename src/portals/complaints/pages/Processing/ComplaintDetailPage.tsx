@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowRight, CheckCircle2, Clock3, FileText, History, Image as ImageIcon, Mail, MapPin, PencilLine, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Clock3, FileText, History, Image as ImageIcon, Mail, MapPin, PencilLine, ShieldCheck, UserCog } from 'lucide-react'
 import {
-  useComplaintDeliveries, useComplaintItemDetail, useReplaceComplaintItemMedia,
+  useComplaintDeliveries, useComplaintItemDetail, useComplaintManagers, useReassignComplaintItem, useReplaceComplaintItemMedia,
   useReviewComplaintItem, useUpdateComplaintItemDuringReview,
   type ComplaintItemDetail,
 } from '@features/complaints'
@@ -41,6 +41,11 @@ function DetailContent({ detail }: { detail: ComplaintItemDetail }) {
   const [replaceReason, setReplaceReason] = useState('')
   const [message, setMessage] = useState('')
   const canReview = ['processed', 'quality_review'].includes(item.status)
+  const canReassign = ['assigned', 'in_progress', 'returned'].includes(item.status)
+  const reassign = useReassignComplaintItem()
+  const { data: managers = [] } = useComplaintManagers()
+  const [reassignTo, setReassignTo] = useState('')
+  const [reassignReason, setReassignReason] = useState('')
   const mailBody = useMemo(() => cleanMailBody(detail.bodyText), [detail.bodyText])
   const beforeMedia = detail.media.filter(media => media.kind === 'before' && media.mimeType.startsWith('image/'))
   const afterMedia = detail.media.filter(media => media.kind === 'after' && media.mimeType.startsWith('image/'))
@@ -81,6 +86,12 @@ function DetailContent({ detail }: { detail: ComplaintItemDetail }) {
         <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><History className="text-violet-700" size={20} /><h2 className="font-black">سجل الحالات</h2></div><ol className="mt-5 space-y-4">{detail.history.length === 0 ? <li className="text-sm text-slate-500">لا توجد حركات مسجلة.</li> : detail.history.map((event, index) => <li key={event.id} className="relative border-r-2 border-violet-200 pr-4"><span className="absolute -right-[7px] top-1 size-3 rounded-full border-2 border-white bg-violet-500" /><p className="text-sm font-black text-slate-800">{event.fromStatus ? `${statusLabel[event.fromStatus] ?? event.fromStatus} ← ` : ''}{statusLabel[event.toStatus] ?? event.toStatus}</p><time className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 size={12} />{new Date(event.createdAt).toLocaleString('ar-IQ-u-nu-latn')}</time>{event.note && <p className="mt-2 rounded-lg bg-slate-50 p-2 text-xs leading-6 text-slate-600">{event.note}</p>}{index === 0 && !event.fromStatus && <span className="mt-1 block text-[10px] text-violet-600">بداية السجل</span>}</li>)}</ol></article>
 
         {canReview && <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><PencilLine className="text-slate-700" size={19} /><h2 className="font-black">تصحيح بيانات الموقع</h2></div><p className="mt-2 text-xs leading-6 text-slate-500">المركز البلدي محدد آلياً حسب القاطع ولا يُدخل يدوياً.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><Field label="المحلة" value={edit.neighborhood} onChange={value => setEdit({ ...edit, neighborhood: value })} /><Field label="الزقاق" value={edit.alley} onChange={value => setEdit({ ...edit, alley: value })} /><Field label="وصف الموقع" value={edit.locationText} onChange={value => setEdit({ ...edit, locationText: value })} /></div><Field label="سبب التصحيح" value={editReason} onChange={setEditReason} className="mt-3" /><button disabled={!edit.neighborhood.trim() || !edit.alley.trim() || editReason.trim().length < 3 || updateLocation.isPending} onClick={() => updateLocation.mutate({ itemId: item.id, fields: edit, reason: editReason }, { onSuccess: () => setMessage('تم تصحيح بيانات الموقع وتسجيل السبب في السجل.') })} className="mt-3 w-full rounded-xl bg-slate-900 px-4 py-2.5 font-bold text-white disabled:opacity-40">حفظ التصحيح</button></article>}
+
+        {canReassign && <article className="rounded-3xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm" data-testid="reassign-panel"><div className="flex items-center gap-2"><UserCog className="text-amber-800" size={19} /><h2 className="font-black text-amber-950">إعادة إسناد الموقع</h2></div><p className="mt-2 text-xs leading-6 text-amber-900">عند غياب المسؤول أو خطأ الإسناد: يُسحب الموقع من المسؤول الحالي ويعود «مسنداً» للمسؤول الجديد من البداية، ويُبلَّغ الطرفان ويُسجَّل السبب في سجل الحالات.</p>
+          <label className="mt-4 block text-xs font-bold text-slate-600">المسؤول الجديد<select value={reassignTo} onChange={event => setReassignTo(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-2.5 outline-none focus:border-amber-500" data-testid="reassign-manager"><option value="">— اختر —</option>{managers.filter(manager => manager.userId !== item.assignedTo).map(manager => <option key={manager.userId} value={manager.userId}>{manager.fullName}{manager.jobTitle ? ` — ${manager.jobTitle}` : ''}</option>)}</select></label>
+          <label className="mt-3 block text-xs font-bold text-slate-600">سبب إعادة الإسناد (إلزامي)<textarea value={reassignReason} onChange={event => setReassignReason(event.target.value)} rows={2} className="mt-1.5 w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-amber-500" data-testid="reassign-reason" /></label>
+          <button type="button" disabled={reassign.isPending || !reassignTo || reassignReason.trim().length < 3} onClick={() => reassign.mutate({ itemId: item.id, managerId: reassignTo, reason: reassignReason.trim() }, { onSuccess: () => { setMessage('تمت إعادة الإسناد وتبليغ المسؤولين.'); setReassignReason(''); setReassignTo('') } })} className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-amber-700 px-4 text-sm font-black text-white disabled:opacity-50" data-testid="reassign-submit">إعادة الإسناد</button>
+        </article>}
 
         <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><FileText className="text-sky-700" size={19} /><h2 className="font-black">محاولات الإرسال</h2></div>{deliveries.length === 0 ? <p className="mt-3 text-sm text-slate-500">لا توجد محاولات مرتبطة بهذا الموقع.</p> : <div className="mt-3 space-y-3">{deliveries.map(delivery => <div key={delivery.id} className="rounded-xl bg-slate-50 p-3 text-sm"><div className="flex justify-between gap-2"><b>{statusLabel[delivery.status] ?? delivery.status}</b><time className="text-xs text-slate-500">{new Date(delivery.createdAt).toLocaleDateString('ar-IQ-u-nu-latn')}</time></div><p className="mt-1 break-all text-xs text-slate-600" dir="ltr">{delivery.recipients.join('، ')}</p>{delivery.errorMessage && <p className="mt-2 text-xs font-bold text-rose-700">{delivery.errorMessage}</p>}</div>)}</div>}</article>
       </aside>
