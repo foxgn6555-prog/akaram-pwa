@@ -4,7 +4,7 @@ import { hrKeys } from '@lib/query-keys/hr.keys'
 import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, DeputyDeductionKind, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
+import type { AttendanceFilters, BehaviorPeriodKind, DeputyDeductionKind, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -447,6 +447,12 @@ const invalidateDeductionUnit = (qc: ReturnType<typeof useQueryClient>) => {
 }
 export function useDeductionRules() {
   return useQuery({ queryKey: [...DED, 'rules'], queryFn: hr.deductionRules, staleTime: 30_000 })
+}
+export function useBehaviorReport(f: { kind: BehaviorPeriodKind; anchor: string; departmentId?: string | null; branchId?: string | null }) {
+  return useQuery({ queryKey: [...hrKeys.all, 'behavior', f.kind, f.anchor, f.departmentId ?? '', f.branchId ?? ''], queryFn: () => hr.behaviorReport(f), staleTime: 60_000 })
+}
+export function useBehaviorEmployee(employeeId: string | null, kind: BehaviorPeriodKind, anchor: string) {
+  return useQuery({ queryKey: [...hrKeys.all, 'behavior-employee', employeeId, kind, anchor], queryFn: () => hr.behaviorEmployee(employeeId!, kind, anchor), enabled: !!employeeId, staleTime: 60_000 })
 }
 export function useCreditTiers() {
   return useQuery({ queryKey: [...DED, 'credit-tiers'], queryFn: hr.creditTiers, staleTime: 30_000 })

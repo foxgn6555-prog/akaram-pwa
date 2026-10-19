@@ -9,7 +9,7 @@ import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewR
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
-  HrPolicy, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
+  HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation,
 } from '@features/hr/types'
 
@@ -333,6 +333,10 @@ export const hr = {
   policy() { return rpc<HrPolicy>('hr_policy_get', {}) },
   // ─────────── 00195: وحدة الاستقطاعات التلقائية (التطوير المركزية) ───────────
   deductionRules() { return rpc<DeductionRule[]>('it_deduction_rules', {}) },
+  behaviorReport(f: { kind: BehaviorPeriodKind; anchor: string; departmentId?: string | null; branchId?: string | null }) {
+    return rpc<BehaviorReport>('hr_behavior_report', { p_kind: f.kind, p_anchor: f.anchor, p_department: f.departmentId || null, p_branch: f.branchId || null })
+  },
+  behaviorEmployee(employeeId: string, kind: BehaviorPeriodKind, anchor: string) { return rpc<BehaviorEmployeeReport>('hr_behavior_employee', { p_employee: employeeId, p_kind: kind, p_anchor: anchor }) },
   creditTiers() { return rpc<CreditTiers>('it_credit_tiers_get', {}) },
   setCreditTiers(v: CreditTiers) { return rpc<CreditTiers>('it_credit_tiers_set', { p_early: v.early_in, p_late: v.late_out }) },
   saveDeductionRule(v: { id?: string | null; name: string; description?: string | null; is_active?: boolean; settings: Partial<DeductionRuleSettings> }) { return rpc<string>('it_deduction_rule_save', { p: v }) },

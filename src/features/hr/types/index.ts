@@ -804,6 +804,42 @@ export type ShortfallMethod = 'tiers' | 'actual' | 'multiplier' | 'blocks' | 'ho
 export type DeductionRuleSettings = Pick<HrPolicy, 'shortfall_method' | 'shortfall_multiplier' | 'shortfall_block_minutes' | 'hour_bank_credit_cap_days' | 'grace_minutes_default' | 'deduction_tiers' | 'absent_day_deduction_days' | 'incomplete_punch_as_absent' | 'auto_deduction_enabled' | 'deduct_absence_enabled' | 'deduct_shortfall_enabled' | 'deduct_unpaid_leave_enabled' | 'auto_deduction_amount_mode' | 'fixed_absent_day_amount' | 'fixed_shortfall_minute_amount' | 'max_auto_deduction_days_per_month' | 'auto_deduction_cap_ratio'>
 export type DeductionTargetType = 'branch' | 'department' | 'employee'
 export interface DeductionRuleTarget { id: string; target_type: DeductionTargetType; target_id: string; name: string | null }
+/** 00249: تقارير سلوك الموظفين */
+export type BehaviorPeriodKind = 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+export type BehaviorGrade = 'excellent' | 'very_good' | 'good' | 'fair' | 'poor'
+export interface BehaviorPeriod { kind: BehaviorPeriodKind; period_from: string; period_to: string; period_to_effective: string; prev_from: string; prev_to: string; label: string }
+export interface BehaviorIndices { attendance: number; punctuality: number; early: number; complete: number; consistency: number }
+export interface BehaviorMetrics {
+  employee_id: string; scheduled_days: number; leave_days: number; expected_days: number; worked_days: number; present_days: number
+  late_days: number; late_minutes: number; early_days: number; early_minutes: number; absent_days: number; incomplete_days: number
+  extra_minutes: number; avg_in_offset: number | null; sd_in_offset: number | null; perfect_days: number; max_perfect_streak: number; score: number
+}
+export interface BehaviorEmployeeRow extends BehaviorMetrics {
+  employee_number: string; full_name: string; department_id: string | null; department_name: string | null; branch_name: string | null; job_title: string | null
+  indices: BehaviorIndices; grade: BehaviorGrade; prev_score: number | null; prev_grade: BehaviorGrade | null; delta: number | null; rank: number; chronic_late: boolean; high_absence: boolean
+}
+export interface BehaviorSummary {
+  employees: number; avg_score: number | null; prev_avg_score: number | null; attendance_rate: number | null; punctuality_rate: number | null; early_leave_rate: number | null
+  absence_rate: number | null; incomplete_rate: number | null; late_minutes: number; early_minutes: number; extra_minutes: number; absent_days: number
+  avg_late_minutes_per_late_day: number | null; chronic_late: number; perfect: number; grades: Record<BehaviorGrade, number>; improved: number; declined: number
+}
+export interface BehaviorTrendPoint { label: string; from: string; to: string; avg_score: number | null; late_rate: number | null; absence_rate: number | null; early_rate: number | null; employees: number }
+export interface BehaviorWeekday { dow: number; late_days: number; absent_days: number; early_days: number; worked_days: number; late_rate?: number | null; avg_in_offset?: number | null }
+export interface BehaviorDepartment { department_id: string | null; name: string; employees: number; avg_score: number | null; late_rate: number | null; absence_rate: number | null }
+export interface BehaviorReport {
+  period: BehaviorPeriod; summary: BehaviorSummary | null; trend: BehaviorTrendPoint[]; weekdays: BehaviorWeekday[]; departments: BehaviorDepartment[]; employees: BehaviorEmployeeRow[]
+  weights: Record<keyof BehaviorIndices, number>
+}
+export interface BehaviorDay { date: string; dow: number; status: AttendanceStatus; late: number; early: number; in: string | null; out: string | null; expected_in: string | null; expected_out: string | null; worked: number; in_offset: number | null; extra: number; source: 'auto' | 'manual' }
+export interface BehaviorEmployeeTrend { label: string; from: string; to: string; score: number; late_days: number; absent_days: number; early_days: number; late_minutes: number }
+export interface BehaviorEmployeeReport {
+  period: BehaviorPeriod
+  employee: { id: string; employee_number: string; full_name: string; department_name: string | null; branch_name: string | null; job_title: string | null; hire_date: string; biometric_pin: string | null }
+  current: (BehaviorMetrics & { idx_attendance: number; idx_punctuality: number; idx_early: number; idx_complete: number; idx_consistency: number; grade: BehaviorGrade }) | null
+  previous: (BehaviorMetrics & { idx_attendance: number; idx_punctuality: number; idx_early: number; idx_complete: number; idx_consistency: number; grade: BehaviorGrade }) | null
+  rank: number | null; population: number; trend: BehaviorEmployeeTrend[]; weekdays: BehaviorWeekday[]; in_histogram: Array<{ bucket: number; days: number }>; days: BehaviorDay[]
+  weights: Record<keyof BehaviorIndices, number>
+}
 /** 00248: شريحة احتساب (مجيء مبكر/بقاء بعد النهاية) — حتى `upto` دقيقة بنسبة `pct`% تدريجياً؛ ما بعد آخر شريحة = 0 */
 export interface CreditTier { upto: number; pct: number }
 export interface CreditTiers { early_in: CreditTier[]; late_out: CreditTier[] }

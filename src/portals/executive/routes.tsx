@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const ExecutiveHome = lazy(() => import('./pages/ExecutiveHome'))
 const ExecutiveReports = lazy(() => import('./pages/ExecutiveReports'))
+const BehaviorReportsPage = lazy(() => import('@portals/hr/pages/Behavior/BehaviorReportsPage').then((m) => ({ default: () => <m.default readOnly /> })))   // 00249: قراءة فقط
 const ExecutiveAnnouncements = lazy(() => import('./pages/ExecutiveAnnouncements'))
 const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة)
 const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00162: طلبات الموافقة
@@ -25,4 +26,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'rewards', element: s(<ExecRewardsPage />) },
   { path: 'gps-payments', element: s(<ExecGpsPaymentsPage />) },
   { path: 'events', element: s(<ExecEventsPage />) },
+  { path: 'behavior', element: s(<BehaviorReportsPage />) },
 ]

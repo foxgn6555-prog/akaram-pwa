@@ -14,6 +14,7 @@ const BiometricLedger = lazy(() => import('./pages/Biometric/BiometricLedger'))
 const UnmatchedPeoplePage = lazy(() => import('./pages/Biometric/UnmatchedPeoplePage'))
 const Leaves = lazy(() => import('./pages/Leaves/Leaves'))
 const OrgStructure = lazy(() => import('./pages/Org/OrgStructure'))
+const BehaviorReportsPage = lazy(() => import('./pages/Behavior/BehaviorReportsPage'))   // 00249
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -29,4 +30,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'biometric', element: s(<BiometricLedger />) },
   { path: 'biometric/unmatched', element: s(<UnmatchedPeoplePage />) },
   { path: 'org', element: s(<OrgStructure />) },
+  { path: 'behavior', element: s(<BehaviorReportsPage />) },
 ]

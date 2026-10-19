@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const DeputyHome = lazy(() => import('./pages/DeputyHome'))
 const DeputyReports = lazy(() => import('./pages/DeputyReports'))
+const BehaviorReportsPage = lazy(() => import('@portals/hr/pages/Behavior/BehaviorReportsPage').then((m) => ({ default: () => <m.default readOnly /> })))   // 00249: قراءة فقط
 const DeputyAnnouncements = lazy(() => import('./pages/DeputyAnnouncements'))
 const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))
@@ -28,6 +29,7 @@ const s = (node: ReactNode): ReactNode => (
 export const customRoutes: RouteObject[] = [
   { path: '', element: s(<DeputyHome />) },
   { path: 'reports', element: s(<DeputyReports />) },
+  { path: 'behavior', element: s(<BehaviorReportsPage />) },
   { path: 'announcements', element: s(<DeputyAnnouncements />) },
   { path: 'statements', element: s(<IncomingStatements />) },
   { path: 'deductions', element: s(<DeputyDeductionsPage />) },

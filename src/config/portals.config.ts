@@ -162,6 +162,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },
     { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },
     { path: '/hr/org', labelKey: 'nav.hr_org', icon: 'folder' },
+    { path: '/hr/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249
   ],
 
   // بوابة مسؤول القسم (قواطع/شفتات)
@@ -383,6 +384,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive/gps-payments', labelKey: 'nav.exec_gps_payments', icon: 'map-pin' },
     { path: '/executive/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },
     { path: '/executive/events', labelKey: 'nav.exec_events', icon: 'photo' },
+    { path: '/executive/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة
   ],
   // معاون المدير المفوض (00220): الرئيسية والتقارير والتبليغات، ثم وحدات الميدان الأربع، ثم المكافآت والموافقات والإجراءات
   [PORTALS.DEPUTY]: [
@@ -397,6 +399,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },   // 00203
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'flow' },
+    { path: '/deputy/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
