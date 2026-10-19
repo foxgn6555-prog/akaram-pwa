@@ -446,6 +446,8 @@ export interface PayrollSheetRow extends OpsExportRow {
   rented_tax_amount?: number | null
   rented_tax_vehicle?: string | null
   rented_tax_source?: 'auto' | 'custom' | 'exempt' | null
+  /** 00300: ما زاد من الاستقطاعات على الإجمالي — يُرحَّل تلقائياً إلى أول شهر مفتوح عند اعتماد المالية */
+  uncollected_amount?: number | null
   export_id: string
   export_version: number
   export_status: 'exported' | 'approved'

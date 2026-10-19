@@ -115,6 +115,15 @@ describe('00195 — الكشف المبسّط: المالية ترى الصاف�
     expect(String(ws.getRow(5).getCell(18).note)).toContain('3٪ من الإجمالي المستحق')
     expect(ws.getRow(6).getCell(18).value).toBe(0)
   })
+  it('00300: استقطاعات تتجاوز الراتب — شارة «مرحّل للشهر التالي» بالفرق، وملاحظة في التفاصيل، ولا تظهر لمن لا تجاوز عنده', () => {
+    h.sheet = [row({ ...rows[0]!, employee_number: 'E-8', full_name: 'موظف متجاوز', gross_amount: 100000, base_salary: 100000, deductions_total: 150000, ops_deduction_amount: 150000, proposed_net: 0, final_net: 0, uncollected_amount: 50000 }), rows[4]!]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-uncollected-E-8')).toHaveTextContent('مرحّل للشهر التالي 50,000')
+    expect(screen.queryByTestId('ps-uncollected-E-5')).toBeNull()
+    fireEvent.click(screen.getByTestId('ps-days-E-8'))
+    expect(screen.getByTestId('ps-uncollected-note')).toHaveTextContent('الاستقطاعات تجاوزت الراتب بمقدار 50,000')
+    expect(screen.getByTestId('ps-uncollected-note')).toHaveTextContent('أول شهر مفتوح عند اعتماد المالية')
+  })
   it('Excel: الورقة الرئيسية 24 عموداً بقاعدة الاستقطاع، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
     const wb = await buildPayrollWorkbook('2026-09-01', [row({ ...rows[0]!, auto_deduction_rule: 'صارمة' }), rows[1]!])
     const ws = wb.worksheets[0]!; const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
