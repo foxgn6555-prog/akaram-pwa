@@ -158,4 +158,13 @@ describe('سياسة التطوير المركزية: نموذج الراتب', 
     expect(screen.getByTestId('p-day-basis')).toBeInTheDocument()
     expect(screen.getByTestId('p-prorate')).toBeInTheDocument()
   })
+  it('00299: حراسة محرك البصمة قابلة للتعديل — الحد الأدنى بين الدخول والخروج (افتراضي 30) وتقييد النافذة (افتراضي مفعّل) ويُرسَلان عند الحفظ', () => {
+    render(<MemoryRouter><HrPolicyPage /></MemoryRouter>)
+    expect((screen.getByTestId('p-min-gap') as HTMLInputElement).value).toBe('30')
+    expect((screen.getByTestId('p-window-cap') as HTMLSelectElement).value).toBe('true')
+    fireEvent.change(screen.getByTestId('p-min-gap'), { target: { value: '45' } })
+    fireEvent.change(screen.getByTestId('p-window-cap'), { target: { value: 'false' } })
+    fireEvent.click(screen.getByTestId('policy-save'))
+    expect(h.setPolicy).toHaveBeenCalledWith(expect.objectContaining({ min_punch_gap_minutes: 45, punch_window_auto_cap: false }))
+  })
 })

@@ -653,6 +653,9 @@ export interface HrPolicy {
   alert_balance_low_days: number
   /** 00179: محرك البصمة */
   punch_window_hours?: number
+  /** 00255: أقل فاصل بين الدخول والخروج ليُعتبر خروجاً (0 = إيقاف) · تقييد النافذة تلقائياً كي لا تتداخل الأيام */
+  min_punch_gap_minutes?: number
+  punch_window_auto_cap?: boolean
   auto_evaluate_enabled?: boolean
   evaluate_lookback_days?: number
   /** 00187: احتساب الراتب الشهري */
