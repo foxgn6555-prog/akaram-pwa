@@ -21,9 +21,10 @@ export function BalanceCard({ balance, isLoading, compact = false, testId = 'bal
   if (isLoading) return <LoadingSpinner />
   if (!balance) return <EmptyState title="لا رصيد متاح" hint="يظهر الرصيد بعد ربط حسابك بسجل موظف" />
   const remaining = Number(balance.remaining)
+  const reserved = Number(balance.pending_reserved ?? 0)
   return (
     <div className={clsx('grid gap-2', compact ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6')} data-testid={testId}>
-      <StatCard title={`المتبقي ${balance.year}`} value={remaining} tone={remaining <= 2 ? 'red' : remaining <= 5 ? 'amber' : 'emerald'} hint="يوم" testId={`${testId}-remaining`} />
+      <StatCard title={`المتبقي ${balance.year}`} value={remaining} tone={remaining <= 2 ? 'red' : remaining <= 5 ? 'amber' : 'emerald'} hint={reserved > 0 ? `يوم · محجوز لطلبات معلّقة ${reserved} · المتاح ${Number(balance.available ?? remaining - reserved)}` : 'يوم'} testId={`${testId}-remaining`} />
       <StatCard title="المنحة السنوية" value={Number(balance.granted)} hint={balance.accrued !== balance.granted ? `المستحق حتى الآن ${balance.accrued}` : undefined} testId={`${testId}-granted`} />
       <StatCard title="إجازات مستهلكة" value={Number(balance.used_leave_days)} tone="sky" testId={`${testId}-used`} />
       <StatCard title="زمنيات" value={`${balance.permits_count}`} hint={`= ${Number(balance.used_permit_days)} يوم (كل ${balance.permits_per_leave_day} زمنيات = يوم)`} tone="violet" testId={`${testId}-permits`} />
@@ -58,7 +59,8 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
   const minutes = isPermit ? minutesBetween(startTime, endTime) : 0
   const maxMin = t?.max_minutes ?? permitMaxMinutes ?? null
   const cost = balanceCost(t, days, balance?.permits_per_leave_day ?? 3)
-  const insufficient = !!t?.consumes_balance && balance != null && cost > Number(balance.remaining)
+  const available = balance == null ? 0 : Number(balance.available ?? Number(balance.remaining) - Number(balance.pending_reserved ?? 0))
+  const insufficient = !!t?.consumes_balance && balance != null && cost > available
   const localError = !t ? 'اختر النوع' : !employeeId ? 'لا يوجد سجل موظف مرتبط بحسابك' : isPermit
     ? (minutes <= 0 ? 'وقت النهاية يجب أن يكون بعد البداية' : maxMin && minutes > maxMin ? `الحد الأقصى للزمنية ${fmtMinutes(maxMin)}` : null)
     : (end < start ? 'تاريخ النهاية قبل البداية' : t.max_days_per_request && days > t.max_days_per_request ? `الحد الأقصى ${t.max_days_per_request} يوم لهذا النوع` : null)
@@ -123,7 +125,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2 text-xs" data-testid={`${testId}-summary`}>
           <span className="font-bold">{isPermit ? `المدة: ${minutes > 0 ? fmtMinutes(minutes) : '—'}` : `الأيام: ${days}`}</span>
           <span className={clsx('rounded-full px-2 py-0.5 font-bold', t.is_paid ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')}>{t.is_paid ? 'مدفوعة — لا تُستقطع من الراتب' : 'غير مدفوعة — تُستقطع من الراتب'}</span>
-          {t.consumes_balance && <span className={clsx('rounded-full px-2 py-0.5 font-bold', insufficient ? 'bg-red-50 text-red-700' : 'bg-sky-50 text-sky-700')}>تخصم من الرصيد {cost} يوم{balance ? ` · المتبقي ${Number(balance.remaining)}` : ''}</span>}
+          {t.consumes_balance && <span className={clsx('rounded-full px-2 py-0.5 font-bold', insufficient ? 'bg-red-50 text-red-700' : 'bg-sky-50 text-sky-700')}>تخصم من الرصيد {cost} يوم{balance ? ` · المتاح ${available}` : ''}</span>}
           {localError && <span className="text-red-600">{localError}</span>}
           {insufficient && <span className="text-red-600">الرصيد غير كافٍ</span>}
           {attachmentMissing && <span className="text-red-600">أرفق المستند</span>}

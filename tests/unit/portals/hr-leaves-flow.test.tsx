@@ -164,6 +164,19 @@ describe('بوابة التطوير المركزية — سياسة الحضور
     fireEvent.click(screen.getByTestId('lt-save'))
     expect(h.saveType).toHaveBeenCalledWith(expect.objectContaining({ code: 'study1', name: 'إجازة دراسية', is_paid: false, deduction_days_per_day: 0.5, kind: 'leave' }))
   })
+  it('00305: المحجوز للطلبات المعلّقة يظهر ويُحتسب في «المتاح» ويمنع طلبًا يتجاوزه', async () => {
+    const prev = h.balance
+    h.balance = { ...prev, pending_reserved: 20, available: 4.167 } as typeof prev
+    render(<MyRequests />)
+    expect(screen.getByTestId('my-balance-remaining')).toHaveTextContent('محجوز لطلبات معلّقة 20')
+    expect(screen.getByTestId('my-balance-remaining')).toHaveTextContent('المتاح 4.167')
+    fireEvent.change(screen.getByTestId('my-form-type'), { target: { value: 'annual' } })
+    fireEvent.change(screen.getByTestId('my-form-start'), { target: { value: '2099-02-01' } })
+    fireEvent.change(screen.getByTestId('my-form-end'), { target: { value: '2099-02-05' } })
+    expect(screen.getByTestId('my-form-summary')).toHaveTextContent('المتاح 4.167')
+    expect(screen.getByTestId('my-form-submit')).toBeDisabled()
+    h.balance = prev
+  })
 })
 
 describe('بوابة الموظف — طلباتي', () => {

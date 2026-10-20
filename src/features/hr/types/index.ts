@@ -714,6 +714,9 @@ export interface LeaveBalance {
   overtime_days: number
   reversed: number
   remaining: number
+  /** 00305 */
+  pending_reserved?: number
+  available?: number
   permits_per_leave_day: number
 }
 export interface LeaveLedgerEntry {
