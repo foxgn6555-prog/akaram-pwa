@@ -43,6 +43,8 @@ export interface ContractorWageRow {
   contractor_user_id: string; contractor_name: string; contractor_phone: string | null; sector_id: number; area_name: string; parent_sector: string; shift: Shift; is_active: boolean
   approved: boolean; approved_source: ApprovedSource | null
   paid_days: number; worker_days: number; headcount_total: number
+  /** 00303: أيام فيها رقم من جهة أخرى ولا رقم من الجهة المعتمدة — غير مدفوعة */
+  uncovered_days?: number | null
   contractor_daily_wage: number; worker_daily_wage: number; rates_set: boolean
   contractor_pay: number | null; workers_pay: number | null; total_pay: number | null
   note: string | null; set_by_name: string | null; set_at: string | null

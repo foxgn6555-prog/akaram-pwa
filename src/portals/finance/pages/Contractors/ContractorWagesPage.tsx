@@ -125,7 +125,7 @@ export default function ContractorWagesPage() {
                   <tr className={clsx('border-t border-slate-100', !r.is_active && 'text-slate-400')} data-testid={`cw-row-${r.contractor_user_id}`}>
                     <td className="p-2 font-bold">{r.contractor_name}{!r.is_active && <span className="ms-1 text-[10px]">(موقوف)</span>}<span className="block text-[10px] font-normal text-slate-500" dir="ltr">{r.contractor_phone ?? ''}</span></td>
                     <td className="p-2 text-center">{parentAr(r.parent_sector)} / {r.area_name}<span className="block text-[10px] text-slate-500">{SHIFT_AR[r.shift] ?? r.shift}</span></td>
-                    <td className="p-2 text-center font-bold tabular-nums text-emerald-700" data-testid={`cw-days-${r.contractor_user_id}`}>{r.paid_days}</td>
+                    <td className="p-2 text-center font-bold tabular-nums text-emerald-700" data-testid={`cw-days-${r.contractor_user_id}`}>{r.paid_days}{(r.uncovered_days ?? 0) > 0 && <span className="ms-1 rounded bg-rose-100 px-1 text-[10px] font-black text-rose-800" title="أيام فيها رقم من جهة أخرى ولا رقم من الجهة المعتمدة — غير مدفوعة؛ تُصحَّح من غرفة العمليات بإعادة فتح الشهر" data-testid={`cw-uncovered-${r.contractor_user_id}`}>+{r.uncovered_days} غير مغطى</span>}</td>
                     <td className="p-2 text-center tabular-nums">{r.worker_days}</td>
                     <td className="p-2 text-center tabular-nums">{r.rates_set ? fmtMoney(r.contractor_daily_wage) : <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">غير محدد</span>}</td>
                     <td className="p-2 text-center tabular-nums">{r.rates_set ? fmtMoney(r.worker_daily_wage) : '—'}</td>

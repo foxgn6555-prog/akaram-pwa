@@ -103,4 +103,11 @@ describe('المالية — أجور المتعهدين بالعدد المعت
     const extra = (o.extraSheets as Record<string, unknown>[])
     expect(extra).toHaveLength(1); expect((extra[0]!.rows as unknown[])).toHaveLength(1); expect((extra[0]!.totalRow as Record<string, unknown>).dp).toBe(135000)
   })
+  it('00303: شارة «غير مغطى» تظهر فقط لمن لديه أيام بلا رقم من الجهة المعتمدة', () => {
+    h.rows = [{ ...c1, uncovered_days: 3 }, { ...c2, uncovered_days: 0 }]
+    render(<MemoryRouter><ContractorWagesPage /></MemoryRouter>)
+    expect(screen.getByTestId('cw-uncovered-c1')).toHaveTextContent('+3 غير مغطى')
+    expect(screen.queryByTestId('cw-uncovered-c2')).toBeNull()
+  })
+
 })

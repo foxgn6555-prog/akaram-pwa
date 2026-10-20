@@ -6,7 +6,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Download, Lock, Unlock } from 'lucide-react'
-import { useApproveHeadcountMonth, useCorrectHeadcount, useHeadcountAudit, useHeadcountMonthStatus, useHeadcountSheet, useReopenHeadcountMonth } from '@features/ops-contractor-headcounts/hooks'
+import { useApproveHeadcountMonth, useHeadcountCoverageGaps, useCorrectHeadcount, useHeadcountAudit, useHeadcountMonthStatus, useHeadcountSheet, useReopenHeadcountMonth } from '@features/ops-contractor-headcounts/hooks'
 import { buildPivot, workersOf, type Pivot, type PivotContractor } from '@features/ops-contractor-headcounts/pivot'
 import { COUNT_SOURCES, COUNT_SOURCE_AR, type CountSource } from '@sdk/ops-contractor-headcounts.sdk'
 import { PARENT_AR, SHIFT_AR, dateAr } from '@features/contractors/format'
@@ -29,14 +29,18 @@ export default function OpsContractorHeadcountsPage() {
   const status = useHeadcountMonthStatus(month)
   const audit = useHeadcountAudit(month)
   const approve = useApproveHeadcountMonth(), reopen = useReopenHeadcountMonth()
+  const gaps = useHeadcountCoverageGaps(month, approveSrc)
+  const gapCount = gaps.data?.length ?? 0
   const addToast = useUiStore((s) => s.addToast)
   const pivot = useMemo(() => buildPivot(sheet.data ?? [], source), [sheet.data, source])
   const st = status.data
   const locked = Boolean(st?.is_locked)
   const doApprove = () => {
     if (!approveSrc) return
-    const msg = `سيُعتمد شهر ${month} على جهة «${COUNT_SOURCE_AR[approveSrc]}» لكل المتعهدين ويُقفل التسجيل والتصحيح.${st?.month_ended ? '' : '\nتنبيه: الشهر لم ينتهِ بعد.'}\nمتابعة؟`
-    if (window.confirm(msg)) approve.mutate({ month, source: approveSrc })
+    const gapMsg = gapCount > 0 ? `\nتحذير: ${gapCount} يوم/متعهد بلا رقم من هذه الجهة رغم وجود رقم من جهة أخرى — هذه الأيام لن تُدفع للمتعهد. الأفضل تصحيحها من الكشف أولاً.` : ''
+    const msg = `سيُعتمد شهر ${month} على جهة «${COUNT_SOURCE_AR[approveSrc]}» لكل المتعهدين ويُقفل التسجيل والتصحيح.${st?.month_ended ? '' : '\nتنبيه: الشهر لم ينتهِ بعد.'}${gapMsg}\nمتابعة؟`
+    if (!window.confirm(msg)) return
+    if (gapCount > 0) approve.mutate({ month, source: approveSrc, force: true }); else approve.mutate({ month, source: approveSrc })
   }
   const doReopen = () => {
     const reason = window.prompt('سبب إعادة فتح الشهر (إلزامي)')?.trim()
@@ -93,7 +97,20 @@ export default function OpsContractorHeadcountsPage() {
                 <option value="">اختر الجهة المعتمدة…</option>
                 {COUNT_SOURCES.map((s) => <option key={s} value={s}>{COUNT_SOURCE_AR[s]}</option>)}
               </select>
-              <button type="button" onClick={doApprove} disabled={!approveSrc || approve.isPending} className="h-10 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white disabled:opacity-40" data-testid="approve-btn">اعتماد الشهر وقفله</button>
+              <button type="button" onClick={doApprove} disabled={!approveSrc || approve.isPending || gaps.isLoading} className={`h-10 rounded-xl px-4 text-xs font-black text-white disabled:opacity-40 ${gapCount > 0 ? 'bg-rose-700' : 'bg-emerald-700'}`} data-testid="approve-btn">{gapCount > 0 ? `اعتماد رغم ${gapCount} فجوة` : 'اعتماد الشهر وقفله'}</button>
+            </div>
+          )}
+          {!locked && approveSrc && gapCount > 0 && (
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs" data-testid="coverage-gaps">
+              <p className="font-black text-rose-900">فجوات التغطية لجهة «{COUNT_SOURCE_AR[approveSrc]}»: {gapCount} يوم/متعهد بلا رقم منها رغم وجود رقم من جهة أخرى — لن تُدفع هذه الأيام إن اعتُمدت الجهة كما هي. صحّحها من الكشف (أي خلية، بسبب) أو اعتمد مع الإقرار.</p>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                {gaps.data!.slice(0, 60).map((g) => (
+                  <li key={`${g.contractor_user_id}-${g.log_date}`} className="rounded-lg bg-white px-2 py-1 ring-1 ring-rose-100" data-testid={`gap-${g.contractor_user_id}-${g.log_date}`}>
+                    <b>{g.contractor_name}</b> · {g.log_date}{g.area_name ? ` · ${g.area_name}` : ''} — القاطع {g.sector_manager_count ?? '—'} · المتعهد {g.contractor_count ?? '—'} · المتابعة {g.follow_up_count ?? '—'}
+                  </li>
+                ))}
+              </ul>
+              {gapCount > 60 && <p className="mt-1 text-rose-800">… و{gapCount - 60} أخرى</p>}
             </div>
           )}
         </section>

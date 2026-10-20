@@ -17,6 +17,8 @@ export interface MonthStatus {
   reopened_by_name: string | null; reopened_at: string | null; reopen_reason: string | null; month_ended: boolean
   contractors: number; days_with_contractor: number; days_with_follow_up: number; days_with_sector_manager: number
 }
+/** 00303: متعهد × يوم فيه رقم من جهة أخرى ولا رقم من الجهة المختارة — لن يُدفع إن اعتُمدت هذه الجهة */
+export interface CoverageGap { contractor_user_id: string; contractor_name: string; area_name: string | null; log_date: string; contractor_count: number | null; follow_up_count: number | null; sector_manager_count: number | null }
 export interface HeadcountAudit { id: string; actor_name: string; action: string; contractor_name: string | null; log_date: string | null; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null; reason: string | null; created_at: string }
 
 const first = (m: string) => `${m.slice(0, 7)}-01`
@@ -31,8 +33,11 @@ export const opsContractorHeadcounts = {
   async correct(x: { contractorUserId: string; date: string; source: CountSource; headcount: number; reason: string }): Promise<void> {
     await sdkGuard(supabase.rpc('ops_contractor_count_correct', { p_contractor: x.contractorUserId, p_date: x.date, p_source: x.source, p_headcount: x.headcount, p_reason: x.reason }))
   },
-  async approve(month: string, source: CountSource): Promise<void> {
-    await sdkGuard(supabase.rpc('ops_contractor_month_approve', { p_month: first(month), p_source: source }))
+  async coverageGaps(month: string, source: CountSource): Promise<CoverageGap[]> {
+    return ((await sdkGuard(supabase.rpc('ops_contractor_coverage_gaps', { p_month: first(month), p_source: source }))) as CoverageGap[] | null) ?? []
+  },
+  async approve(month: string, source: CountSource, force = false): Promise<void> {
+    await sdkGuard(supabase.rpc('ops_contractor_month_approve', { p_month: first(month), p_source: source, p_force: force }))
   },
   async reopen(month: string, reason: string): Promise<void> {
     await sdkGuard(supabase.rpc('ops_contractor_month_reopen', { p_month: first(month), p_reason: reason }))

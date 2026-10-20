@@ -58,7 +58,7 @@ begin
 
   -- اعتماد غرفة العمليات لجهة «المتعهد»
   perform pg_temp.as_user(ops);
-  perform public.ops_contractor_month_approve(m, 'contractor');
+  perform public.ops_contractor_month_approve(m, 'contractor', true);
   perform pg_temp.as_user(fin);
   select * into r from public.finance_contractor_wages_sheet(m) where contractor_user_id = c1;
   if not r.approved or r.approved_source <> 'contractor' then raise exception 'approved expected'; end if;
@@ -85,7 +85,7 @@ begin
   -- تغيير الجهة المعتمدة إلى «المتابعة» ⇒ 10 أيام × (14 × 8000 + 15000) = 1,270,000
   perform pg_temp.as_user(ops);
   perform public.ops_contractor_month_reopen(m, 'تصحيح الجهة');
-  perform public.ops_contractor_month_approve(m, 'follow_up');
+  perform public.ops_contractor_month_approve(m, 'follow_up', true);   -- 00303: إقرار صريح بالفجوات
   perform pg_temp.as_user(fin);
   select * into r from public.finance_contractor_wages_sheet(m) where contractor_user_id = c1;
   if r.paid_days <> 10 or r.worker_days <> 140 or r.total_pay <> 1270000 then raise exception 'follow_up: paid=% w=% t=%', r.paid_days, r.worker_days, r.total_pay; end if;

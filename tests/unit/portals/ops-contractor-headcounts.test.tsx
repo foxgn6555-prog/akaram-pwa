@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { buildPivot, workersOf } from '@features/ops-contractor-headcounts/pivot'
-import type { HeadcountSheetRow } from '@sdk/ops-contractor-headcounts.sdk'
+import type { CoverageGap, HeadcountSheetRow } from '@sdk/ops-contractor-headcounts.sdk'
 
 const row = (o: Partial<HeadcountSheetRow>): HeadcountSheetRow => ({
   contractor_user_id: 'c1', contractor_name: 'متعهد أ', sector_id: 1, area_name: 'أرخيته', parent_sector: 'karrada', shift: 'morning', is_active: true,
@@ -40,6 +40,7 @@ describe('buildPivot (00262)', () => {
 })
 
 const mockCorrect = vi.fn(), mockApprove = vi.fn(), mockReopen = vi.fn()
+const G: { gaps: CoverageGap[] } = { gaps: [] }
 const H = { status: { month: '2026-10-01', approved: false, approved_source: null, approved_by_name: null, approved_at: null, is_locked: false, reopened_by_name: null, reopened_at: null, reopen_reason: null, month_ended: true, contractors: 2, days_with_contractor: 3, days_with_follow_up: 3, days_with_sector_manager: 2 } as Record<string, unknown> }
 vi.mock('@features/ops-contractor-headcounts/hooks', () => ({
   useHeadcountSheet: () => ({ data: ROWS, isLoading: false }),
@@ -47,6 +48,7 @@ vi.mock('@features/ops-contractor-headcounts/hooks', () => ({
   useHeadcountAudit: () => ({ data: [{ id: 'a1', actor_name: 'عمليات', action: 'ops_correct_contractor', contractor_name: 'متعهد أ', log_date: '2026-10-02', before_data: { headcount: 15 }, after_data: { headcount: 16 }, reason: 'عدّ ميداني', created_at: '2026-10-02T10:00:00Z' }] }),
   useCorrectHeadcount: () => ({ mutate: mockCorrect, isPending: false }),
   useApproveHeadcountMonth: () => ({ mutate: mockApprove, isPending: false }),
+  useHeadcountCoverageGaps: (_m: string, src: string) => ({ data: src ? G.gaps : [], isLoading: false }),
   useReopenHeadcountMonth: () => ({ mutate: mockReopen, isPending: false }),
 }))
 import OpsContractorHeadcountsPage from '@portals/ops-room/pages/ContractorHeadcounts/OpsContractorHeadcountsPage'
@@ -84,6 +86,25 @@ describe('OpsContractorHeadcountsPage (00262)', () => {
     await user.click(within(dlg).getByTestId('correct-save'))
     expect(mockCorrect).toHaveBeenCalledWith({ contractorUserId: 'c1', date: '2026-10-01', source: 'follow_up', headcount: 13, reason: 'مراجعة الصور' }, expect.anything())
   })
+  it('00303: فجوات التغطية للجهة المختارة تُعرض قبل الاعتماد؛ الاعتماد معها يمرّ force: true، وبدونها بلا force', async () => {
+    const user = userEvent.setup()
+    G.gaps = [{ contractor_user_id: 'c2', contractor_name: 'متعهد ب', area_name: 'الزعفرانية 1', log_date: '2026-10-02', contractor_count: 10, follow_up_count: null, sector_manager_count: null }]
+    const { unmount } = render(<MemoryRouter><OpsContractorHeadcountsPage /></MemoryRouter>)
+    expect(screen.queryByTestId('coverage-gaps')).toBeNull()
+    await user.selectOptions(screen.getByTestId('approve-source'), 'follow_up')
+    expect(screen.getByTestId('coverage-gaps')).toHaveTextContent('فجوات التغطية لجهة «المتابعة»: 1')
+    expect(screen.getByTestId('gap-c2-2026-10-02')).toHaveTextContent('متعهد ب · 2026-10-02 · الزعفرانية 1 — القاطع — · المتعهد 10 · المتابعة —')
+    expect(screen.getByTestId('approve-btn')).toHaveTextContent('اعتماد رغم 1 فجوة')
+    await user.click(screen.getByTestId('approve-btn'))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('لن تُدفع'))
+    expect(mockApprove).toHaveBeenCalledWith({ month: expect.any(String), source: 'follow_up', force: true })
+    unmount(); mockApprove.mockReset(); G.gaps = []
+    render(<MemoryRouter><OpsContractorHeadcountsPage /></MemoryRouter>)
+    await user.selectOptions(screen.getByTestId('approve-source'), 'follow_up')
+    expect(screen.queryByTestId('coverage-gaps')).toBeNull()
+    await user.click(screen.getByTestId('approve-btn'))
+    expect(mockApprove).toHaveBeenCalledWith({ month: expect.any(String), source: 'follow_up' })
+  })
   it('اعتماد الشهر على جهة واحدة بعد التأكيد؛ وعند القفل تُعطَّل الخلايا ويظهر زر إعادة الفتح', async () => {
     const user = userEvent.setup()
     const { unmount } = render(<MemoryRouter><OpsContractorHeadcountsPage /></MemoryRouter>)
@@ -119,4 +140,5 @@ describe('exportHeadcountsExcel (00262)', () => {
     expect(ws.getCell('A5').value).toBe('2026-10-01'); expect(ws.getCell('C5').value).toBe(16)
     expect(wb.worksheets.some((s) => s.name === 'التفاصيل')).toBe(true)
   })
+
 })

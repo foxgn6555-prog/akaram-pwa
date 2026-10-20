@@ -68,7 +68,7 @@ begin
   -- اعتماد: جهة غير صحيحة، شهر مستقبلي، ثم اعتماد المتابعة ⇒ قفل كل الجهات
   perform pg_temp.expect_error(format($q$ select public.ops_contractor_month_approve('%s', 'ops') $q$, m), 'CONTRACTOR_SOURCE_INVALID');
   perform pg_temp.expect_error(format($q$ select public.ops_contractor_month_approve('%s', 'follow_up') $q$, (m + interval '1 month')::date), 'CONTRACTOR_MONTH_FUTURE');
-  perform public.ops_contractor_month_approve(m, 'follow_up');
+  perform public.ops_contractor_month_approve(m, 'follow_up', true);   -- 00303: إقرار صريح بالفجوات
   select * into r from public.ops_contractor_month_status();
   if not r.approved or not r.is_locked or r.approved_source <> 'follow_up' or r.approved_by_name is null then raise exception 'approved status wrong: %', r; end if;
   if not exists (select 1 from public.notifications where user_id = fin and title like 'اعتُمدت حضوريات عمال المتعهدين%') then raise exception 'finance notification missing'; end if;
@@ -85,7 +85,7 @@ begin
   select * into r from public.ops_contractor_month_status();
   if r.is_locked or r.reopen_reason <> 'خطأ في اختيار الجهة' or r.reopened_by_name is null then raise exception 'reopen status wrong: %', r; end if;
   perform pg_temp.expect_error(format($q$ select public.ops_contractor_month_reopen('%s', 'مرة أخرى') $q$, m), 'CONTRACTOR_MONTH_NOT_LOCKED');
-  perform public.ops_contractor_month_approve(m, 'sector_manager');
+  perform public.ops_contractor_month_approve(m, 'sector_manager', true);
   select * into r from public.ops_contractor_month_status();
   if not r.is_locked or r.approved_source <> 'sector_manager' then raise exception 'reapprove wrong: %', r; end if;
   select count(*) into n from public.ops_contractor_audit() x where x.action in ('month_approve','month_reopen'); if n <> 3 then raise exception 'month audit % expected 3', n; end if;
