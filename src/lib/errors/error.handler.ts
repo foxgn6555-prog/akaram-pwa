@@ -23,6 +23,8 @@ const APP_ERROR_AR: Record<string, string> = {
   SITE_RETURN_NOT_ALLOWED:
     'لا يمكن تأكيد عودة الآلية إلى الموقع في حالتها الحالية.',
   SECTOR_MANAGER_FORBIDDEN: 'هذه العملية متاحة لمسؤول القسم فقط.',
+  ROLE_ESCALATION_FORBIDDEN: 'لا يمكن منح أو سحب هذا الدور من حسابك — دور المدير المفوض للمدير المفوض فقط، ودور IT لـ IT أو المدير المفوض.',
+  LAST_SUPER_ADMIN: 'لا يمكن سحب دور المدير المفوض من آخر حساب يحمله.',
   // طلبات الدعم بين المسؤولين (00154)
   SUPPORT_TARGET_INVALID: 'اختر مسؤول قسم آخر لطلب الدعم منه.',
   SUPPORT_SECTOR_NOT_MINE: 'المنطقة المحتاجة للدعم يجب أن تكون من مناطقك.',
