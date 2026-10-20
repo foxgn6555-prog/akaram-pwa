@@ -3,6 +3,9 @@
 -- الهدف: إثبات أن ترتيب العمليات صحيح وأن كل رقم في كشف الرواتب يُشتق من مصدره بلا تضارب بين غرفة العمليات والمالية.
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00307: القاصة يجب أن تغطي الصرف النقدي — تمويل أولي للاختبار
+insert into auth.users (id, email) values ('5eed0000-0000-0000-0000-000000000001', 'treasury-seed@t.iq') on conflict (id) do nothing;
+insert into public.treasury_transactions (ref_no, kind, amount, type_name, status, affects_balance, created_by, created_by_name, confirmed_by, confirmed_at) values ('TR-SEED-'||gen_random_uuid()::text, 'receipt', 1000000000, 'تمويل اختبار', 'confirmed', true, '5eed0000-0000-0000-0000-000000000001', 'seed', '5eed0000-0000-0000-0000-000000000001', now());
 -- 00247: التصدير يتبعه اعتماد معاون المدير المفوض (إلزامي قبل المالية) — هذا الاختبار لا يختبر المراجعة نفسها (انظر deputy-deduction-review-test) فيعتمد تلقائياً
 create or replace function public.ops_month_export_reviewed(p_month date) returns uuid language plpgsql security definer set search_path = public, app as $$
 declare x uuid; u text := current_setting('auth.user_id', true); begin

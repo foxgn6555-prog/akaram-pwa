@@ -2,6 +2,9 @@
 -- (مبالغ ثابتة / بصمة ناقصة كغياب / سقف أيام) تُعيد الاحتساب فوراً · سلفة بقسط ثابت وسلفة بنسبة من الإجمالي · تناسب الشهر الجزئي. (بادئة fv)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00307: القاصة يجب أن تغطي الصرف النقدي — تمويل أولي للاختبار
+insert into auth.users (id, email) values ('5eed0000-0000-0000-0000-000000000001', 'treasury-seed@t.iq') on conflict (id) do nothing;
+insert into public.treasury_transactions (ref_no, kind, amount, type_name, status, affects_balance, created_by, created_by_name, confirmed_by, confirmed_at) values ('TR-SEED-'||gen_random_uuid()::text, 'receipt', 1000000000, 'تمويل اختبار', 'confirmed', true, '5eed0000-0000-0000-0000-000000000001', 'seed', '5eed0000-0000-0000-0000-000000000001', now());
 -- 00201: هذا الاختبار يفترض النموذج القديم (الراتب كاملاً ناقص الغياب ÷ 30)؛ النموذج الافتراضي الجديد «الأيام المستحقة» يُختبر في payroll-earned-days-test
 update public.hr_policy set settings = settings || '{"salary_model":"full_minus_absence","salary_day_basis":"fixed_30"}'::jsonb where id = 1;
 insert into auth.users (id, email) values

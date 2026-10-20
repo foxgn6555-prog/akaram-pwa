@@ -68,6 +68,7 @@ export function TxCard({ tx, actions }: { tx: TreasuryTx; actions?: ReactNode })
         <StatusPill status={tx.status} needsFinance={tx.needs_finance} />
       </div>
       {txHasAmount(tx) && <p className="mt-2 text-lg font-black tabular-nums text-slate-900" dir="ltr" data-testid={`tx-amount-${tx.id}`}>{IQD(tx.amount)}</p>}
+      {tx.leave_days != null && Number(tx.leave_days) > 0 && <p className="mt-1 text-xs font-bold text-emerald-700" data-testid={`tx-leave-days-${tx.id}`}>+{Number(tx.leave_days)} يوم أُضيفت إلى رصيد الإجازات</p>}
       {tx.details && <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600">{tx.details}</p>}
       <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:grid-cols-3">
         <div><dt className="font-semibold">سجّلها</dt><dd className="text-slate-700">{tx.created_by_name ?? '—'}</dd></div>
@@ -118,7 +119,7 @@ export async function downloadTreasuryExcel(rows: TreasuryTx[], opts: { title: s
       { header: 'أكّدته المالية', key: 'cby', width: 18 }, { header: 'وقت التأكيد', key: 'cat', width: 20, align: 'center' }, { header: 'التفاصيل / الملاحظات', key: 'details', width: 32, wrap: true },
     ],
     rows: rows.map((r, i) => ({ i: i + 1, ref: r.ref_no, kind: TREASURY_KIND_LABEL[r.kind], title: txTitle(r), rt: r.reward_type ? REWARD_TYPE_LABEL[r.reward_type] : '', amount: txHasAmount(r) ? r.amount : '', status: TREASURY_STATUS_LABEL[r.status],
-      by: r.created_by_name ?? '', at: fmtDateTime(r.created_at), cby: r.confirmed_by_name ?? '', cat: r.confirmed_at ? fmtDateTime(r.confirmed_at) : '', details: [r.details, r.finance_note && `المالية: ${r.finance_note}`, r.cancel_reason && `الإلغاء: ${r.cancel_reason}`].filter(Boolean).join(' · ') })),
+      by: r.created_by_name ?? '', at: fmtDateTime(r.created_at), cby: r.confirmed_by_name ?? '', cat: r.confirmed_at ? fmtDateTime(r.confirmed_at) : '', details: [r.leave_days != null && Number(r.leave_days) > 0 ? `+${Number(r.leave_days)} يوم إجازة` : null, r.details, r.finance_note && `المالية: ${r.finance_note}`, r.cancel_reason && `الإلغاء: ${r.cancel_reason}`].filter(Boolean).join(' · ') })),
     totalRow: { i: 'الإجمالي', title: `${rows.length} حركة`, amount: confirmed.reduce((s, r) => s + (r.kind === 'receipt' ? r.amount : -r.amount), 0), status: 'صافي المؤكَّد' },
   })
 }

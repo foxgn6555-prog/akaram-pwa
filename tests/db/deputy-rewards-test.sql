@@ -1,6 +1,9 @@
 -- 00203 · المكافآت لمعاون المدير المفوض: نفس صلاحيات التنفيذي على المكافآت فقط (بادئة dp)
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
+-- 00307: القاصة يجب أن تغطي الصرف النقدي — تمويل أولي للاختبار
+insert into auth.users (id, email) values ('5eed0000-0000-0000-0000-000000000001', 'treasury-seed@t.iq') on conflict (id) do nothing;
+insert into public.treasury_transactions (ref_no, kind, amount, type_name, status, affects_balance, created_by, created_by_name, confirmed_by, confirmed_at) values ('TR-SEED-'||gen_random_uuid()::text, 'receipt', 1000000000, 'تمويل اختبار', 'confirmed', true, '5eed0000-0000-0000-0000-000000000001', 'seed', '5eed0000-0000-0000-0000-000000000001', now());
 insert into auth.users (id, email) values
   ('dd000000-0000-0000-0000-000000000001', 'dp-dep@t.iq'), ('dd000000-0000-0000-0000-000000000002', 'dp-fin@t.iq'), ('dd000000-0000-0000-0000-000000000003', 'dp-exec@t.iq'), ('dd000000-0000-0000-0000-000000000004', 'dp-emp@t.iq')
 on conflict (id) do nothing;

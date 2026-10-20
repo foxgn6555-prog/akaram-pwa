@@ -101,11 +101,14 @@ function RewardForm({ onDone }: { onDone: () => void }) {
   const [rt, setRt] = useState<RewardType>('cash')
   const [amount, setAmount] = useState('')
   const [details, setDetails] = useState('')
+  const [days, setDays] = useState('')   // 00307: أيام الإجازة التشجيعية
   const n = Number(amount.replace(/,/g, ''))
-  const valid = Boolean(emp) && (rt !== 'cash' || (Number.isFinite(n) && n > 0)) && (rt === 'cash' || details.trim().length >= 2)
+  const d = Number(days)
+  const daysValid = rt !== 'incentive_leave' || (Number.isFinite(d) && d > 0 && d <= 30 && d * 2 === Math.floor(d * 2))
+  const valid = Boolean(emp) && (rt !== 'cash' || (Number.isFinite(n) && n > 0)) && (rt === 'cash' || details.trim().length >= 2) && daysValid
   return (
     <form className="space-y-3 rounded-2xl border border-violet-200 bg-white p-4" data-testid="reward-form"
-      onSubmit={(e) => { e.preventDefault(); if (!valid || !emp) return; record.mutate({ kind: 'reward', employeeId: emp.id, rewardType: rt, amount: rt === 'cash' ? n : null, details: details.trim() || null }, { onSuccess: () => { setEmp(null); setAmount(''); setDetails(''); onDone() } }) }}>
+      onSubmit={(e) => { e.preventDefault(); if (!valid || !emp) return; record.mutate({ kind: 'reward', employeeId: emp.id, rewardType: rt, amount: rt === 'cash' ? n : null, details: details.trim() || null, days: rt === 'incentive_leave' ? d : null }, { onSuccess: () => { setEmp(null); setAmount(''); setDetails(''); setDays(''); onDone() } }) }}>
       <h2 className="text-sm font-black text-violet-800">مكافأة جديدة</h2>
       <label className="block text-xs font-semibold text-slate-600">الموظف<div className="mt-1"><EmployeePicker value={emp} onChange={setEmp} /></div></label>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -121,11 +124,16 @@ function RewardForm({ onDone }: { onDone: () => void }) {
             {n > 0 && <span className="mt-1 block text-[11px] text-slate-500" dir="ltr">{fmtMoney(n)} د.ع</span>}
           </label>
         )}
-        <label className={clsx('text-xs font-semibold text-slate-600', rt !== 'cash' && 'sm:col-span-2')}>{rt === 'cash' ? 'سبب المكافأة (اختياري)' : rt === 'gift' ? 'وصف الهدية' : rt === 'thanks_letter' ? 'نص / سبب كتاب الشكر' : 'مدة الإجازة وسببها'}
+        {rt === 'incentive_leave' && (
+          <label className="text-xs font-semibold text-slate-600">عدد الأيام (تُضاف إلى رصيد إجازاته)
+            <input inputMode="decimal" dir="ltr" className={clsx(field, 'mt-1 text-left font-black tabular-nums')} value={days} onChange={(e) => setDays(e.target.value.replace(/[^\d.]/g, ''))} placeholder="1" data-testid="reward-days" />
+          </label>
+        )}
+        <label className={clsx('text-xs font-semibold text-slate-600', rt !== 'cash' && rt !== 'incentive_leave' && 'sm:col-span-2')}>{rt === 'cash' ? 'سبب المكافأة (اختياري)' : rt === 'gift' ? 'وصف الهدية' : rt === 'thanks_letter' ? 'نص / سبب كتاب الشكر' : 'سبب الإجازة التشجيعية'}
           <input className={clsx(field, 'mt-1')} value={details} onChange={(e) => setDetails(e.target.value)} data-testid="reward-details" />
         </label>
       </div>
-      <p className="text-[11px] text-slate-500" data-testid="reward-hint">{NEEDS_FINANCE[rt] ? 'ستُبلَّغ الشؤون المالية لتسليمها وتضغط «تم التسليم»' + (rt === 'cash' ? ' — ويُخصم المبلغ من القاصة عند التسليم' : '') : 'تُسجَّل فوراً ويُبلَّغ الموظف — لا تمرّ بالمالية'} · غير مرتبطة بالراتب</p>
+      <p className="text-[11px] text-slate-500" data-testid="reward-hint">{NEEDS_FINANCE[rt] ? 'ستُبلَّغ الشؤون المالية لتسليمها وتضغط «تم التسليم»' + (rt === 'cash' ? ' — ويُخصم المبلغ من القاصة عند التسليم' : '') : (rt === 'incentive_leave' ? 'تُسجَّل فوراً وتُضاف الأيام إلى رصيد إجازات الموظف ويُبلَّغ — لا تمرّ بالمالية' : 'تُسجَّل فوراً ويُبلَّغ الموظف — لا تمرّ بالمالية')} · غير مرتبطة بالراتب</p>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onDone}>إغلاق</Button>
         <Button type="submit" size="sm" disabled={!valid || record.isPending} data-testid="reward-submit">تسجيل المكافأة</Button>

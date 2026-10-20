@@ -21,7 +21,7 @@ export interface ReceivableType { id: string; name: string; is_active: boolean; 
 export interface TreasuryTx {
   id: string; ref_no: string; kind: TreasuryKind; amount: number; type_id: string | null; type_name: string | null
   employee_id: string | null; employee_name: string | null; employee_number: string | null; reward_type: RewardType | null
-  details: string | null; status: TreasuryStatus; affects_balance: boolean; needs_finance: boolean
+  details: string | null; leave_days?: number | null; status: TreasuryStatus; affects_balance: boolean; needs_finance: boolean
   created_by: string; created_by_name: string | null; created_at: string
   confirmed_by: string | null; confirmed_by_name: string | null; confirmed_at: string | null; finance_note: string | null
   cancelled_by: string | null; cancelled_by_name: string | null; cancelled_at: string | null; cancel_reason: string | null
@@ -57,6 +57,8 @@ export const TREASURY_ERROR_MESSAGES: Record<string, string> = {
   TREASURY_NOT_FOUND: 'الحركة غير موجودة',
   TREASURY_NOT_PENDING: 'هذه الحركة ليست معلّقة — لا يمكن تعديلها',
   TREASURY_REASON_REQUIRED: 'سبب الإعادة/الإلغاء مطلوب',
+  TREASURY_INSUFFICIENT: 'رصيد القاصة غير كافٍ لهذا الصرف — سجِّل استلاماً يغطيه أولاً',
+  TREASURY_LEAVE_DAYS_INVALID: 'حدد عدد أيام الإجازة التشجيعية (0.5 إلى 30)',
   MEDIA_FORBIDDEN: 'ليست لديك صلاحية عرض هذا التصميم',
   MEDIA_DESIGN_NOT_FOUND: 'التصميم غير موجود',
 }
@@ -73,8 +75,8 @@ export const treasury = {
   saveType(v: { id?: string | null; name: string; isActive?: boolean; sortOrder?: number }): Promise<ReceivableType[]> {
     return rpc<ReceivableType[]>('exec_receivable_type_save', { p_id: v.id ?? null, p_name: v.name, p_is_active: v.isActive ?? true, p_sort_order: v.sortOrder ?? 100 })
   },
-  record(v: { kind: TreasuryKind; amount?: number | null; typeId?: string | null; employeeId?: string | null; rewardType?: RewardType | null; details?: string | null }): Promise<TreasuryTx> {
-    return rpc<TreasuryTx>('exec_treasury_record', { p_kind: v.kind, p_amount: v.amount ?? null, p_type_id: v.typeId ?? null, p_employee_id: v.employeeId ?? null, p_reward_type: v.rewardType ?? null, p_details: v.details ?? null })
+  record(v: { kind: TreasuryKind; amount?: number | null; typeId?: string | null; employeeId?: string | null; rewardType?: RewardType | null; details?: string | null; days?: number | null }): Promise<TreasuryTx> {
+    return rpc<TreasuryTx>('exec_treasury_record', { p_kind: v.kind, p_amount: v.amount ?? null, p_type_id: v.typeId ?? null, p_employee_id: v.employeeId ?? null, p_reward_type: v.rewardType ?? null, p_details: v.details ?? null, p_days: v.days ?? null })
   },
   confirm(id: string, note?: string | null): Promise<TreasuryTx> { return rpc<TreasuryTx>('finance_treasury_confirm', { p_id: id, p_note: note ?? null }) },
   cancel(id: string, reason: string): Promise<TreasuryTx> { return rpc<TreasuryTx>('treasury_cancel', { p_id: id, p_reason: reason }) },
