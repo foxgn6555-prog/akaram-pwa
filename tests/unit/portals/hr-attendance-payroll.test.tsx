@@ -418,6 +418,17 @@ describe('00185 — سلامة سلسلة الكشوفات → الحضورية 
     fireEvent.click(screen.getByTestId('ps-approve'))
     await waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: true }))
   })
+  it('00304: تغيّر سلف بعد التصدير ⇒ لافتة السلف في المالية والعمليات، وزر الاعتماد معطّل بلا تجاوز', () => {
+    h.exportStatus = { ...stale, advance_changes: 2 }
+    const { unmount } = render(<PayrollOverview />)
+    expect(screen.getByTestId('ps-stale-advance')).toHaveTextContent('تغيّرت سلف 2 موظف بعد التصدير')
+    expect(screen.getByTestId('ps-approve')).toBeDisabled()
+    unmount()
+    h.conf = confirmedConf
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('stage-approved'))
+    expect(screen.getByTestId('ops-reexport-advance')).toHaveTextContent('تغيّرت سلف 2 موظف')
+  })
   it('المالية: تفاصيل الموظف تعرض استقطاعات غرفة العمليات مع مرجع الكشف المعتمد', () => {
     h.monthDeductions = [{ id: 'md1', amount: 7000, days: 0, reason: 'كشف ك/2026/0003 — غياب', created_at: '2026-10-02T09:00:00Z', created_by_name: 'المدير المفوض', source_disclosure_id: 'disc-1', disclosure_ref: 'ك/2026/0003', disclosure_type: 'غياب', disclosure_date: '2026-09-05' }]
     render(<MemoryRouter><PayrollOverview /></MemoryRouter>)

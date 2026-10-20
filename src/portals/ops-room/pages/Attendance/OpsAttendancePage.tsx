@@ -302,7 +302,7 @@ export default function OpsAttendancePage() {
               )}
               {exportStatus?.needs_reexport && !locked && (
                 <StatusLine tone="amber" icon="alert-triangle" role="status" testId="ops-reexport-banner" action={<Button size="sm" isLoading={exportMonth.isPending} disabled={!conf?.can_export} onClick={() => void doExport()} data-testid="ops-reexport-now">إعادة التصدير الآن</Button>}>
-                  <b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.
+                  <b>يلزم إعادة تصدير شهر {month.slice(0, 7)}:</b> {(exportStatus.advance_changes ?? 0) > 0 && <span data-testid="ops-reexport-advance">تغيّرت سلف {exportStatus.advance_changes} موظف (سداد نقدي/سلفة جديدة) · </span>}حدثت {exportStatus.changes_after} تغييرات بعد آخر تصدير (الإصدار v{exportStatus.version}){exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — كشف المالية الحالي لا يتضمنها.
                 </StatusLine>
               )}
             </SectionCard>

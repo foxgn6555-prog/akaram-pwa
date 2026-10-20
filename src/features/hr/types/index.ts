@@ -211,6 +211,8 @@ export interface MonthExportStatus {
   changes_after: number
   deductions_after: number
   disclosure_deductions_after: number
+  /** 00304: صفوف قسط السلفة فيها لا يطابق واقع السلف الآن (سداد نقدي/سلفة جديدة بعد التصدير) — يمنع الاعتماد حتى إعادة التصدير */
+  advance_changes?: number
   needs_reexport: boolean
   /** 00186 — أيام مجدولة ماضية بلا احتساب (الشهر الحالي/غير المعتمد) */
   unevaluated_days?: number

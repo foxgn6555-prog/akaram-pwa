@@ -105,7 +105,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const consistent = totalsConsistent(totalsAll, rows.length)
   const activeFilters = (filters.branch ? 1 : 0) + (filters.department ? 1 : 0) + (filters.contract ? 1 : 0) + (filters.profile !== 'all' ? 1 : 0) + (filters.search ? 1 : 0)
   const filtersLabel = [filters.branch && `الفرع: ${filters.branch}`, filters.department && `القسم: ${filters.department}`, filters.contract && `التعاقد: ${CONTRACT_LABELS[filters.contract]}`, filters.profile !== 'all' && `الحالة: ${PROFILE_LABELS[filters.profile]}`, filters.search && `بحث: ${filters.search}`, filters.sort !== 'default' && `ترتيب: ${SORT_LABELS[filters.sort]} ${filters.dir === 'desc' ? '↓' : '↑'}`].filter(Boolean).join(' · ')
-  const blockReason = !head ? 'لا كشف' : approved ? '' : missing > 0 ? `${missing} موظفاً بلا ملف راتب — لا يمكن الاعتماد قبل تعريف رواتبهم (أو إنهاء خدمتهم)` : !rc.canApprove ? `${rc.money} صف غير متطابق حسابياً — راجع «التحقق الحسابي»` : !consistent ? 'مجاميع الكشف غير متسقة (الإجمالي − الاستقطاعات ≠ الصافي)' : ''
+  const blockReason = !head ? 'لا كشف' : approved ? '' : (exportStatus?.advance_changes ?? 0) > 0 ? `تغيّرت سلف ${exportStatus!.advance_changes} موظف بعد التصدير — اطلب إعادة التصدير من غرفة العمليات` : missing > 0 ? `${missing} موظفاً بلا ملف راتب — لا يمكن الاعتماد قبل تعريف رواتبهم (أو إنهاء خدمتهم)` : !rc.canApprove ? `${rc.money} صف غير متطابق حسابياً — راجع «التحقق الحسابي»` : !consistent ? 'مجاميع الكشف غير متسقة (الإجمالي − الاستقطاعات ≠ الصافي)' : ''
 
   const doApprove = async () => {
     if (!head || blockReason) return
@@ -217,7 +217,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           )}
           {exportStatus?.needs_reexport && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status" data-testid="ps-stale-banner">
-              <b>هذا الكشف قديم:</b> حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.
+              <b>هذا الكشف قديم:</b> {(exportStatus.advance_changes ?? 0) > 0 && <span data-testid="ps-stale-advance">تغيّرت سلف {exportStatus.advance_changes} موظف بعد التصدير (سداد نقدي/سلفة جديدة) فقسط الكشف لا يطابق الواقع — الاعتماد ممنوع حتى إعادة التصدير. </span>}حدثت {exportStatus.changes_after} تغييرات في الحضورية بعد تصديره{exportStatus.deductions_after > 0 ? ` منها ${exportStatus.deductions_after} استقطاعات` : ''}{exportStatus.disclosure_deductions_after > 0 ? ` (${exportStatus.disclosure_deductions_after} من كشوفات معتمدة)` : ''} — اطلب من غرفة العمليات «إعادة تصدير بيانات الشهر» قبل الاعتماد.
             </div>
           )}
           {!blockReason && !exportStatus?.needs_reexport && unevaluated === 0 && (
