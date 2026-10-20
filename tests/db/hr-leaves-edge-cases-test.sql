@@ -1,3 +1,4 @@
+-- depends: tests/db/hr-leaves-policy-test.sql
 -- 00193: هذا الاختبار يختبر التصدير مباشرة؛ بوابة «اعتماد الحضورية قبل التصدير» تُختبر في ops-attendance-two-stage-test
 update public.hr_policy set settings = settings || '{"require_attendance_confirmation": false}'::jsonb where id = 1;
 -- تدقيق تداخلات الحضور ↔ الإجازات (00145) — يُشغَّل بعد hr-leaves-policy-test.sql (يعتمد على مستخدميه وشفته)
