@@ -208,7 +208,11 @@ function PullPanel({ p }: { p: ColdPackage }) {
     pull.mutate({ id: p.id, onProgress: setProg }, {
       onSuccess: (r) => {
         if (!r || r.verified) return
-        if (r.failed > 0) setError(`تعذر تنزيل ${r.failed} ملف (انقطاع أو خطأ شبكة). اضغط الزر مرة أخرى واختر نفس المجلد للاستكمال.`)
+        if (r.failed > 0) {
+          const reasons = [...new Set(r.failures.map((f) => f.reason))].slice(0, 3)
+          const sample = r.failures[0] ? ` — مثال: ${r.failures[0].bucket}/${r.failures[0].path}` : ''
+          setError(`تعذر تنزيل ${r.failed} ملف بعد 3 محاولات. السبب: ${reasons.join(' | ')}${sample}. اضغط الزر مرة أخرى واختر نفس المجلد للاستكمال.`)
+        }
         else setError(`${r.corrupt} ملف على القرص لا يطابق الأصل — اضغط الزر مرة أخرى واختر نفس المجلد لإعادة تنزيلها.`)
       },
     })

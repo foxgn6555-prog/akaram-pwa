@@ -91,9 +91,27 @@ describe('pullPackageToDirectory', () => {
     expect(manifest.files[fileKey('media-photos', 'u1/a.jpg')]).toBeUndefined()
   })
 
-  it('خطأ شبكة في ملف: يُحصى كفاشل ولا يُسجَّل تحقق', async () => {
-    h.download.mockImplementation(async (p: string) => p === 'u1/a.jpg' ? { data: null, error: { message: 'network' } } : { data: new Blob([blobs[p] as BlobPart]), error: null })
-    const r = await pullPackageToDirectory('p1', memDir(), { diskLabel: 'x' })
-    expect(r).toMatchObject({ failed: 1, verified: false })
+  it('خطأ شبكة في ملف: 3 محاولات ثم يُحصى كفاشل مع السبب ولا يُسجَّل تحقق', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      h.download.mockImplementation(async (p: string) => p === 'u1/a.jpg' ? { data: null, error: { message: 'network' } } : { data: new Blob([blobs[p] as BlobPart]), error: null })
+      const r = await pullPackageToDirectory('p1', memDir(), { diskLabel: 'x' })
+      expect(r).toMatchObject({ failed: 1, verified: false })
+      expect(r.failures).toEqual([{ bucket: 'media-photos', path: 'u1/a.jpg', reason: 'network' }])
+      expect(h.download.mock.calls.filter((c) => c[0] === 'u1/a.jpg')).toHaveLength(3)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('خطأ عابر: المحاولة الثانية تنجح والحزمة تتحقق', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      let n = 0
+      h.download.mockImplementation(async (p: string) => {
+        if (p === 'u1/a.jpg' && n++ === 0) throw new TypeError('Failed to fetch')
+        return blobs[p] ? { data: new Blob([blobs[p] as BlobPart]), error: null } : { data: null, error: { message: 'Object not found' } }
+      })
+      const r = await pullPackageToDirectory('p1', memDir(), { diskLabel: 'x' })
+      expect(r).toMatchObject({ downloaded: 2, failed: 0, verified: true })
+    } finally { vi.useRealTimers() }
   })
 })

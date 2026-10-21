@@ -80,7 +80,26 @@ async function allItems(pkgId: string): Promise<ColdItem[]> {
 
 export type PullPhase = 'listing' | 'downloading' | 'verifying' | 'registering' | 'done'
 export interface PullProgress { phase: PullPhase; done: number; total: number; bytes: number; missing: number; failed: number }
-export interface PullResult { package: ColdPackage; downloaded: number; missing: number; failed: number; verified: boolean; corrupt: number }
+export interface PullFailure { bucket: string; path: string; reason: string }
+export interface PullResult { package: ColdPackage; downloaded: number; missing: number; failed: number; verified: boolean; corrupt: number; failures: PullFailure[] }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)) || 'خطأ غير معروف'
+/** تنزيل بمحاولات متكررة (3 محاولات) — يعيد `null` عند عدم وجود الملف في التخزين. */
+async function downloadWithRetry(bucket: string, path: string, attempts = 3): Promise<Blob | null> {
+  let last: unknown = null
+  for (let a = 0; a < attempts; a++) {
+    if (a > 0) await sleep(800 * a)
+    try {
+      const { data, error } = await supabase.storage.from(bucket).download(path)
+      if (data && !error) return data
+      const msg = String((error as { message?: string } | null)?.message ?? '')
+      if (/not.?found|404|does not exist/i.test(msg)) return null
+      last = new Error(msg || 'فشل التنزيل')
+    } catch (e) { last = e }
+  }
+  throw last
+}
 
 /**
  * التنزيل + التحقق + التسجيل في خطوة واحدة.
@@ -100,6 +119,7 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
   const knownMissing = new Set(m.missing.map((x) => fileKey(x.bucket, x.path)))
   const todo = items.filter((it) => !knownMissing.has(fileKey(it.bucket, it.storage_path)) && !/^[0-9a-f]{64}$/.test(m.files[fileKey(it.bucket, it.storage_path)]?.sha256 ?? ''))
   let done = 0, bytes = 0, missing = 0, failed = 0, pending: ManifestEntry[] = []
+  const failures: PullFailure[] = []
   const flush = async () => {
     if (pending.length) await rpc('cold_archive_items_downloaded', { p_package: pkg.id, p_items: pending.map((e) => ({ bucket: e.bucket, path: e.path, sha256: e.sha256, bytes: e.bytes })) })
     pending = []; await writeManifest(dir, m)
@@ -108,12 +128,8 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
   for (const it of todo) {
     if (opts.signal?.aborted) { await flush(); throw new Error('أُوقف التنزيل — يمكنك الاستئناف لاحقاً من نفس المجلد') }
     try {
-      const { data, error } = await supabase.storage.from(it.bucket).download(it.storage_path)
-      if (error || !data) {
-        const msg = String(error?.message ?? '')
-        if (/not found|404/i.test(msg)) { await rpc('cold_archive_item_missing', { p_package: pkg.id, p_bucket: it.bucket, p_path: it.storage_path }); m.missing.push({ bucket: it.bucket, path: it.storage_path }); missing++; continue }
-        throw new Error(msg || 'فشل التنزيل')
-      }
+      const data = await downloadWithRetry(it.bucket, it.storage_path)
+      if (!data) { await rpc('cold_archive_item_missing', { p_package: pkg.id, p_bucket: it.bucket, p_path: it.storage_path }); m.missing.push({ bucket: it.bucket, path: it.storage_path }); missing++; continue }
       const buf = await blobBytes(data)
       const segs = safeSegments(it.bucket, it.storage_path)
       const fh = await fileHandleFor(dir, segs, true); const w = await fh.createWritable(); await w.write(buf); await w.close()
@@ -121,14 +137,14 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
       const entry: ManifestEntry = { bucket: it.bucket, path: it.storage_path, local: segs, sha256: sha, bytes: buf.byteLength, downloaded_at: new Date().toISOString() }
       m.files[fileKey(it.bucket, it.storage_path)] = entry; pending.push(entry); done++; bytes += buf.byteLength
       if (pending.length >= 100) await flush()
-    } catch { failed++ }
+    } catch (e) { failed++; failures.push({ bucket: it.bucket, path: it.storage_path, reason: errMsg(e) }) }
     report({ phase: 'downloading', done, total: todo.length, bytes, missing, failed })
   }
   await flush()
   // إعادة إبلاغ كل البصمات المعروفة (يعالج انقطاعاً سابقاً قبل الإبلاغ)
   const known = Object.values(m.files)
   for (let i = 0; i < known.length; i += 200) await rpc('cold_archive_items_downloaded', { p_package: pkg.id, p_items: known.slice(i, i + 200).map((e) => ({ bucket: e.bucket, path: e.path, sha256: e.sha256, bytes: e.bytes })) })
-  if (failed > 0) return { package: await coldArchive.package(pkg.id), downloaded: done, missing, failed, verified: false, corrupt: 0 }
+  if (failed > 0) return { package: await coldArchive.package(pkg.id), downloaded: done, missing, failed, verified: false, corrupt: 0, failures }
 
   /* ② التحقق من القرص: إعادة قراءة كل ملف ومطابقة بصمته */
   const entries = Object.values(m.files); const ok: Array<{ bucket: string; path: string; sha256: string }> = []; let corrupt = 0, i = 0
@@ -142,11 +158,11 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
     } catch { corrupt++; delete m.files[fileKey(e.bucket, e.path)] }
     report({ phase: 'verifying', done: ++i, total: entries.length, bytes, missing, failed })
   }
-  if (corrupt > 0) { await writeManifest(dir, m); return { package: await coldArchive.package(pkg.id), downloaded: done, missing, failed, verified: false, corrupt } }
+  if (corrupt > 0) { await writeManifest(dir, m); return { package: await coldArchive.package(pkg.id), downloaded: done, missing, failed, verified: false, corrupt, failures } }
 
   /* ③ تسجيل النسخة */
   report({ phase: 'registering', done: entries.length, total: entries.length, bytes, missing, failed })
   const after = await rpc<ColdPackage>('cold_archive_copy_verify', { p_package: pkg.id, p_disk_label: opts.diskLabel.trim() || root.name || 'قرص', p_ok_hashes: ok })
   report({ phase: 'done', done: entries.length, total: entries.length, bytes, missing, failed })
-  return { package: after, downloaded: done, missing, failed, verified: true, corrupt: 0 }
+  return { package: after, downloaded: done, missing, failed, verified: true, corrupt: 0, failures }
 }
