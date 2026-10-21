@@ -5,6 +5,7 @@
  *  · تنظيف مسار الكاميرا (tracks.stop) عند الإغلاق/التبديل — لا تسريب موارد
  *  · رسائل خطأ عربية واضحة (إذن مرفوض / لا كاميرا / متصفح غير آمن)
  */
+import { compressImage } from '@lib/media/image-compress'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '@components/ui/Icon/Icon'
 import { DevicePermissionError, classifyCameraError, permMessage } from '@lib/device-permissions'
@@ -95,8 +96,7 @@ export function CameraCapture({ open, onClose, onCapture }: CameraCaptureProps) 
       (blob) => {
         if (!blob) return
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-        onCapture(new File([blob], `كاميرا-${stamp}.jpg`, { type: 'image/jpeg' }))
-        onClose()
+        void compressImage(new File([blob], `كاميرا-${stamp}.jpg`, { type: 'image/jpeg' })).then((f) => { onCapture(f); onClose() })   // 00319
       },
       'image/jpeg',
       0.92,

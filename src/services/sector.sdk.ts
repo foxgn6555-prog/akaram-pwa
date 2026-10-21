@@ -3,6 +3,7 @@
  * كل لمسات Supabase حصراً هنا (قانون SDK). العزل الحقيقي في RLS — هذا العميل
  * يمرر ما يخص المدير فقط، والخادم يرفض أي تجاوز.
  */
+import { compressImage } from '@lib/media/image-compress'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type {
   Sector,
@@ -328,7 +329,8 @@ export const sectorPhotos = {
     return rows.map(normPhoto)
   },
   /** رفع صورة إلى Storage ثم تسجيلها عبر RPC (الهوية من ملف المدير) */
-  async upload(file: File, caption: string): Promise<SectorPhoto> {
+  async upload(raw: File, caption: string): Promise<SectorPhoto> {
+    const file = await compressImage(raw)   // 00319: ضغط موحّد قبل الرفع
     const { data: authData } = await supabase.auth.getUser()
     const uid = authData.user?.id ?? 'anon'
     const safe = file.name.replace(/[^\w.-]+/g, '_')

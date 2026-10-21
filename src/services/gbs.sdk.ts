@@ -2,6 +2,7 @@
  * SDK وحدة GBS الحاويات (00136) — كل لمسات Supabase حصراً هنا (قانون SDK).
  * غرفة العمليات: إدارة كاملة + اعتماد الطلبات. مسؤول القسم: طلبات تحديث فقط.
  */
+import { compressImage } from '@lib/media/image-compress'
 import type { GbsExportRow, GbsImportResult, GbsImportRow } from '@features/gbs/gbs-excel'
 import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
@@ -206,7 +207,8 @@ export const gbs = {
   },
 
   /** رفع صورة حاوية (اختياري) إلى مخزن خاص بمجلد المستخدم */
-  async uploadImage(file: File): Promise<string> {
+  async uploadImage(raw: File): Promise<string> {
+    const file = await compressImage(raw)   // 00319: ضغط موحّد قبل الرفع
     if (!file.type.startsWith('image/')) {
       throw new SDKError('ملف الصورة غير صالح — اختر صورة فقط', 'GBS_IMAGE_INVALID')
     }

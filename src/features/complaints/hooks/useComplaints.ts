@@ -1,3 +1,4 @@
+import { compressImage } from '@lib/media/image-compress'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { complaints } from '@sdk/complaints.sdk'
 import { complaintsKeys } from '@lib/query-keys/complaints.keys'
@@ -139,8 +140,8 @@ export function useUpdateComplaintItemDuringReview() {
 
 export function useReplaceComplaintItemMedia() {
   const queryClient=useQueryClient()
-  return useMutation({mutationFn:({itemId,oldMediaId,kind,file,reason}:{itemId:string;oldMediaId:string;kind:'before'|'after';file:File;reason:string})=>
-    complaints.replaceItemMedia(itemId,oldMediaId,kind,file,reason),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+  return useMutation({mutationFn:async({itemId,oldMediaId,kind,file,reason}:{itemId:string;oldMediaId:string;kind:'before'|'after';file:File;reason:string})=>
+    complaints.replaceItemMedia(itemId,oldMediaId,kind,await compressImage(file),reason),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
 }
 
 export function useComplaintItemMedia(itemId: string | null) {
@@ -324,15 +325,23 @@ export function useStartComplaintAssignmentTicket(){
 
 export function useCompleteComplaintAssignmentTicket(){
   const queryClient=useQueryClient()
-  return useMutation({mutationFn:({complaintId,files,notes}:{complaintId:string;files:ComplaintTicketAfterUpload[];notes?:string})=>complaints.completeAssignmentTicket(complaintId,files,notes),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+  return useMutation({mutationFn:async({complaintId,files,notes}:{complaintId:string;files:ComplaintTicketAfterUpload[];notes?:string})=>complaints.completeAssignmentTicket(complaintId,await compressUploads(files),notes),onSuccess:()=>queryClient.invalidateQueries({queryKey:complaintsKeys.all})})
+}
+
+/** 00319: ضغط صور المعالجة قبل الرفع مع الحفاظ على بقية الحقول (المصدر، معرّف الموقع…) */
+async function compressUploads<T extends { file: File }>(items: T[]): Promise<T[]> {
+  const out: T[] = []
+  for (const it of items) out.push({ ...it, file: await compressImage(it.file) })
+  return out
 }
 
 export function useCompleteComplaintItem() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ itemId, file, files, notes, location }: { itemId: string; file?: File; files?: ComplaintAfterUpload[]; notes?: string; location?: {latitude:number;longitude:number} }) => {
-      const uploads=files?.length?files:file?[{file,source:'gallery' as const}]:[]
-      if(!uploads.length)throw new Error('COMPLAINT_AFTER_IMAGE_REQUIRED')
+      const raw=files?.length?files:file?[{file,source:'gallery' as const}]:[]
+      if(!raw.length)throw new Error('COMPLAINT_AFTER_IMAGE_REQUIRED')
+      const uploads=await compressUploads(raw)   // 00319
       const resolvedLocation = location ?? await currentLocation()
       await complaints.uploadAfterBatch(itemId,uploads,resolvedLocation ?? undefined)
       await complaints.complete(itemId, notes)

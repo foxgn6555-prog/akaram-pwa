@@ -1,4 +1,5 @@
 /** SDK المتعهدين (00158): بوابة المتعهد + تعيين غرفة العمليات + ملخص فريق مسؤول القسم */
+import { compressImage } from '@lib/media/image-compress'
 import { sdkGuard, sdkVoid, supabase } from './client'
 
 export type Shift = 'morning' | 'evening' | 'night'
@@ -26,7 +27,8 @@ export interface ManagerTeamSummary {
 export interface CheckinInput { latitude: number; longitude: number; accuracy: number | null; selfie: File; teamPhoto: File; headcount: number }
 
 const BUCKET = 'contractor-photos'
-async function uploadPhoto(file: File, kind: 'selfie' | 'team'): Promise<string> {
+async function uploadPhoto(raw: File, kind: 'selfie' | 'team'): Promise<string> {
+  const file = await compressImage(raw)   // 00319: ضغط موحّد قبل الرفع
   const { data } = await supabase.auth.getUser()
   const uid = data.user?.id ?? 'anon'
   const ext = (file.type.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg'
