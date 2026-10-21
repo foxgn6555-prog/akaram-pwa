@@ -278,6 +278,11 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
           labelKey: 'nav.garage_zero_approvals',
           icon: 'droplet',
         },
+        {
+          path: '/it/cold-archive',
+          labelKey: 'nav.cold_archive',
+          icon: 'box',
+        },
       ],
     },
     {

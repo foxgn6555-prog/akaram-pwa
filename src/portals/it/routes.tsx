@@ -35,6 +35,7 @@ const AdvanceTypesPage = lazy(() => import('@portals/it/pages/Integrations/Advan
 const LiveTrackingSettingsPage = lazy(() => import('@portals/it/pages/Integrations/LiveTrackingSettingsPage'))   // 00288: البث المباشر — الإعدادات
 const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
+const ColdArchivePage = lazy(() => import('@portals/it/pages/ColdArchive/ColdArchivePage'))
 const CentralGarageApprovalsPage = lazy(
   () => import('@portals/it/pages/CentralGarage/CentralGarageApprovalsPage'),
 )
@@ -103,5 +104,6 @@ export const customRoutes: RouteObject[] = [
   // ── وحدة الأرشيف ──
   { path: 'archive', element: s(<ArchivePage />) },
   { path: 'central-garage-approvals', element: s(<CentralGarageApprovalsPage />) },
+  { path: 'cold-archive', element: s(<ColdArchivePage />) },
 
 ]
