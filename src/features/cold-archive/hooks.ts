@@ -28,3 +28,7 @@ export const useColdPackages = () => useQuery({ queryKey: coldKeys.packages(), q
 export const useColdPackage = (id: string | null) => useQuery({ queryKey: coldKeys.package(id ?? ''), queryFn: () => coldArchive.package(id as string), enabled: Boolean(id) })
 export const useCreateColdPackage = () => useAction((x: { from: string; to: string; note?: string | null }) => coldArchive.createPackage(x.from, x.to, x.note), (p) => `أُنشئت الحزمة ${p.code} — ${p.file_count} ملف`)
 export const useCancelColdPackage = () => useAction((x: { id: string; reason: string }) => coldArchive.cancel(x.id, x.reason), 'أُلغيت الحزمة وتحرّرت ملفاتها')
+export const useRequestColdPurge = () => useAction((id: string) => coldArchive.purgeRequest(id), 'سُجِّل طلب الحذف — بانتظار موافقة حساب IT آخر')
+export const useApproveColdPurge = () => useAction((id: string) => coldArchive.purgeApprove(id), 'تمت الموافقة — زر الحذف متاح الآن')
+export const useRunColdPurge = () => useAction((x: { id: string; onProgress?: (done: number, total: number) => void }) => coldArchive.purgeRun(x.id, x.onProgress),
+  (p) => p.status === 'purged' ? `حُذفت ملفات الحزمة ${p.code} من المنصة (${p.purged_count} ملف)` : `توقف الحذف عند ${p.purged_count}/${p.file_count} — اضغط «استئناف»`)

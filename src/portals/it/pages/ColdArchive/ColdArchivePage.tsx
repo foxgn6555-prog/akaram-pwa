@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Archive, CheckCircle2, Database, HardDrive, RefreshCw, Settings2, ShieldCheck, X } from 'lucide-react'
+import { AlertTriangle, Archive, CheckCircle2, Database, HardDrive, RefreshCw, Settings2, ShieldCheck, Trash2, UserCheck, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { COLD_STATUS_LABEL, formatBytes, type ColdPackage, type ColdSettings } from '@sdk/cold-archive.sdk'
-import { useCancelColdPackage, useColdPackage, useColdPackages, useColdPreview, useColdSettings, useCreateColdPackage, useSaveColdSettings } from '@features/cold-archive/hooks'
+import { useApproveColdPurge, useCancelColdPackage, useColdPackage, useColdPackages, useColdPreview, useColdSettings, useCreateColdPackage, useRequestColdPurge, useRunColdPurge, useSaveColdSettings } from '@features/cold-archive/hooks'
 
 /**
  * 🧊 الأرشيف البارد (00315 · ٢/٤) — بوابة التطوير المركزية
@@ -118,6 +118,7 @@ function PackageCard({ p, expanded, onToggle }: { p: ColdPackage; expanded: bool
               <ul className="mt-2 space-y-1 text-xs text-slate-600">{d.events.map((e, i) => <li key={i}>{formatDateTime(e.at)} · {eventLabel(e.action)} · {e.actor_name ?? '—'}</li>)}</ul>
             </details>
           )}
+          {(d.status === 'verified' || d.status === 'purging') && <PurgePanel p={d} />}
           {(p.status === 'ready' || p.status === 'verified') && (
             <div className="flex flex-wrap items-center gap-2">
               <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="سبب الإلغاء (إلزامي)" className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm" data-testid="cold-cancel-reason" />
@@ -129,6 +130,69 @@ function PackageCard({ p, expanded, onToggle }: { p: ColdPackage; expanded: bool
       )}
     </article>
   )
+}
+
+/** لوحة الحذف من المنصة — IT فقط: جاهزية → (موافقة ثنائية اختيارية) → تأكيد بكتابة الرمز → تنفيذ دفعات قابل للاستئناف */
+function PurgePanel({ p }: { p: ColdPackage }) {
+  const request = useRequestColdPurge(), approve = useApproveColdPurge(), run = useRunColdPurge()
+  const [confirm, setConfirm] = useState('')
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const graceOver = Boolean(p.purge_available_at && new Date(p.purge_available_at) <= new Date())
+  const copiesOk = p.verified_copies >= p.required_copies
+  const needApproval = p.purge_approval_required
+  const approved = Boolean(p.purge_approved_at)
+  const resuming = p.status === 'purging'
+  const ready = resuming || (copiesOk && graceOver && (!needApproval || approved))
+  const busy = run.isPending
+  return (
+    <section className="rounded-2xl border border-red-200 bg-red-50/60 p-4" data-testid="cold-purge-panel">
+      <h4 className="flex items-center gap-2 font-black text-red-900"><Trash2 size={16} />الحذف من المنصة</h4>
+      <p className="mt-1 text-xs text-red-800">يحذف الملفات من سحابة المنصة فقط. السجلات النصية تبقى، ويظهر مكان كل صورة بطاقة تدل على الحزمة والقرص. لا رجوع إلا من نسخة القرص.</p>
+      <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2">
+        <Check ok={copiesOk} label={`النسخ المتحقَّق منها ${p.verified_copies} / ${p.required_copies}`} />
+        <Check ok={graceOver} label={p.purge_available_at ? (graceOver ? 'انتهت مهلة الأمان' : `مهلة الأمان حتى ${formatDateTime(p.purge_available_at)}`) : 'مهلة الأمان لم تبدأ'} />
+        {needApproval && <Check ok={Boolean(p.purge_requested_at)} label={p.purge_requested_at ? `طلب الحذف: ${p.purge_requested_by_name ?? '—'} · ${formatDateTime(p.purge_requested_at)}` : 'لم يُطلب الحذف بعد'} />}
+        {needApproval && <Check ok={approved} label={approved ? `وافق: ${p.purge_approved_by_name ?? '—'} · ${formatDateTime(p.purge_approved_at as string)}` : 'بانتظار موافقة حساب IT آخر'} />}
+      </ul>
+
+      {needApproval && !resuming && !approved && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!p.purge_requested_at && (
+            <button type="button" disabled={request.isPending || !copiesOk} onClick={() => request.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-request">
+              <UserCheck size={14} />طلب الحذف
+            </button>
+          )}
+          {p.purge_requested_at && (
+            p.purge_requested_by_me
+              ? <span className="text-xs text-slate-600">أنت طالب الحذف — الموافقة يجب أن تأتي من حساب IT آخر.</span>
+              : <button type="button" disabled={approve.isPending} onClick={() => approve.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-approve"><UserCheck size={14} />الموافقة على الحذف</button>
+          )}
+        </div>
+      )}
+
+      {ready && (
+        <div className="mt-3 space-y-2">
+          {progress && (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-red-100" role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total} data-testid="cold-purge-progress">
+              <div className="h-full bg-red-600 transition-all" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+            </div>
+          )}
+          {resuming && <p className="text-xs font-bold text-red-800">توقف الحذف سابقاً عند {p.purged_count} / {p.file_count} — يمكنك الاستئناف.</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={`اكتب رمز الحزمة للتأكيد: ${p.code}`} dir="ltr" className="h-10 flex-1 rounded-xl border border-red-300 bg-white px-3 font-mono text-sm" data-testid="cold-purge-confirm" disabled={busy} />
+            <button type="button" disabled={confirm.trim() !== p.code || busy}
+              onClick={() => run.mutate({ id: p.id, onProgress: (done, total) => setProgress({ done, total }) })}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-700 px-5 text-sm font-black text-white disabled:opacity-50" data-testid="cold-purge-run">
+              <Trash2 size={16} />{busy ? `جارٍ الحذف… ${progress ? `${progress.done}/${progress.total}` : ''}` : resuming ? 'استئناف الحذف' : `حذف ${p.file_count} ملف من المنصة`}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+function Check({ ok, label }: { ok: boolean; label: string }) {
+  return <li className={clsx('flex items-center gap-2', ok ? 'text-emerald-800' : 'text-slate-600')}>{ok ? <CheckCircle2 size={14} /> : <span className="inline-block h-3.5 w-3.5 rounded-full border border-slate-400" />}{label}</li>
 }
 
 function StepLine({ p }: { p: ColdPackage }) {
@@ -228,12 +292,13 @@ function SettingsForm({ initial }: { initial: ColdSettings }) {
   const save = useSaveColdSettings()
   const [copies, setCopies] = useState(initial.required_copies)
   const [grace, setGrace] = useState(initial.grace_days)
+  const [approval, setApproval] = useState(initial.purge_approval)
   const [sources, setSources] = useState<Record<string, boolean>>(() => Object.fromEntries(Object.entries(initial.sources).map(([k, v]) => [k, v.enabled])))
   const [prot, setProt] = useState<Record<string, boolean>>(() => Object.fromEntries(Object.entries(initial.protections).map(([k, v]) => [k, v.on])))
-  const dirty = useMemo(() => copies !== initial.required_copies || grace !== initial.grace_days
-    || Object.entries(sources).some(([k, v]) => v !== initial.sources[k]?.enabled) || Object.entries(prot).some(([k, v]) => v !== initial.protections[k]?.on), [copies, grace, sources, prot, initial])
+  const dirty = useMemo(() => copies !== initial.required_copies || grace !== initial.grace_days || approval !== initial.purge_approval
+    || Object.entries(sources).some(([k, v]) => v !== initial.sources[k]?.enabled) || Object.entries(prot).some(([k, v]) => v !== initial.protections[k]?.on), [copies, grace, approval, sources, prot, initial])
   return (
-    <form className="space-y-4" data-testid="cold-settings" onSubmit={(e) => { e.preventDefault(); save.mutate({ required_copies: copies, grace_days: grace, sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { enabled: v }])), protections: prot }) }}>
+    <form className="space-y-4" data-testid="cold-settings" onSubmit={(e) => { e.preventDefault(); save.mutate({ required_copies: copies, grace_days: grace, sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { enabled: v }])), protections: prot, purge_approval: approval }) }}>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="rounded-2xl border border-slate-200 bg-white p-4 text-sm">
           <span className="block font-black text-slate-900">النسخ المتحقَّق منها قبل فتح الحذف</span>
@@ -246,6 +311,12 @@ function SettingsForm({ initial }: { initial: ColdSettings }) {
           <input type="number" min={0} max={365} value={grace} onChange={(e) => setGrace(Number(e.target.value))} className="mt-2 h-10 w-28 rounded-xl border border-slate-300 px-3" data-testid="cold-grace" />
         </label>
       </div>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+        <input type="checkbox" checked={approval} onChange={(e) => setApproval(e.target.checked)} className="mt-1 h-4 w-4" data-testid="cold-approval" />
+        <span><span className="block font-black text-slate-900">موافقة ثنائية على الحذف (اختياري)</span>
+          <span className="block text-xs text-slate-500">عند التفعيل: حساب IT يطلب الحذف، ويوافق حساب IT <b>آخر</b> قبل أن يُفتح زر الحذف. معطّل افتراضياً.</span></span>
+      </label>
 
       <fieldset className="rounded-2xl border border-slate-200 bg-white p-4">
         <legend className="px-1 font-black text-slate-900">المصادر — ما الذي يدخل الحزم ويُحذف بعد التحقق</legend>
@@ -305,6 +376,6 @@ export const SOURCE_LABELS: Record<string, string> = {
 const sourceLabel = (k: string) => SOURCE_LABELS[k] ?? k
 const EVENT_LABELS: Record<string, string> = {
   created: 'إنشاء الحزمة', cancelled: 'إلغاء', item_missing: 'ملف غير موجود في التخزين', copy_verified: 'تحقق نسخة قرص', copy_verify_failed: 'فشل تحقق نسخة',
-  purge_started: 'بدء الحذف', purge_batch: 'دفعة حذف', purge_completed: 'اكتمال الحذف', settings_updated: 'تحديث الإعدادات',
+  purge_requested: 'طلب الحذف', purge_approved: 'الموافقة على الحذف', purge_started: 'بدء الحذف', purge_batch: 'دفعة حذف', purge_completed: 'اكتمال الحذف', settings_updated: 'تحديث الإعدادات',
 }
 const eventLabel = (a: string) => EVENT_LABELS[a] ?? a

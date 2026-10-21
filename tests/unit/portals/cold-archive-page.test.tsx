@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(), create: vi.fn(), cancel: vi.fn(),
+  save: vi.fn(), create: vi.fn(), cancel: vi.fn(), request: vi.fn(), approve: vi.fn(), run: vi.fn(),
   packages: [] as Record<string, unknown>[], preview: null as Record<string, unknown> | null, settings: null as Record<string, unknown> | null,
   packagesError: false,
 }))
@@ -14,6 +14,9 @@ vi.mock('@features/cold-archive/hooks', () => ({
   useColdPackage: (id: string | null) => ({ data: id ? h.packages.find((p) => p.id === id) : undefined }),
   useCreateColdPackage: () => ({ mutate: h.create, isPending: false }),
   useCancelColdPackage: () => ({ mutate: h.cancel, isPending: false }),
+  useRequestColdPurge: () => ({ mutate: h.request, isPending: false }),
+  useApproveColdPurge: () => ({ mutate: h.approve, isPending: false }),
+  useRunColdPurge: () => ({ mutate: h.run, isPending: false }),
 }))
 import ColdArchivePage from '@portals/it/pages/ColdArchive/ColdArchivePage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -27,9 +30,11 @@ const pkg = {
   verified_at: null, purge_started_at: null, purged_at: null, cancelled_at: null, copies: [],
   by_source: [{ source_key: 'media_submission_photos', files: 100, bytes: 300 * 1024 * 1024 }, { source_key: 'contractor_checkins', files: 20, bytes: 50 * 1024 * 1024 }],
   can_purge: false, events: [{ action: 'created', details: null, actor_name: 'مدير التطوير', at: '2026-10-01T08:00:00Z' }],
+  purge_approval_required: false, purge_requested_at: null, purge_requested_by_name: null, purge_requested_by_me: false, purge_approved_at: null, purge_approved_by_name: null,
 }
+const verified = { ...pkg, status: 'verified', downloaded_count: 120, verified_copies: 1, purge_available_at: '2026-10-10T08:00:00Z', copies: [{ disk_label: 'قرص-1', ok_count: 120, verified_at: '2026-10-03T08:00:00Z', verified_by_name: 'مدير التطوير' }] }
 const settings = {
-  required_copies: 1, grace_days: 7, updated_at: null,
+  required_copies: 1, grace_days: 7, purge_approval: false, updated_at: null,
   sources: {
     media_submission_photos: { label: 'صور الإعلام', bucket: 'media-photos', sensitive: false, description: 'صور التذاكر', enabled: true },
     employee_documents: { label: 'مستندات الموظفين', bucket: 'employee-documents', sensitive: true, description: 'هويات وعقود', enabled: false },
@@ -118,8 +123,76 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
     expect(h.save).toHaveBeenCalledWith({
       required_copies: 2, grace_days: 7,
       sources: { media_submission_photos: { enabled: true }, employee_documents: { enabled: false } },
-      protections: { media_design_used: false },
+      protections: { media_design_used: false }, purge_approval: false,
     })
+  })
+
+  it('الحذف (00317): حزمة متحقَّق منها بعد المهلة — الزر معطّل حتى كتابة رمز الحزمة ثم ينفّذ', () => {
+    h.packages = [verified]
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    const panel = screen.getByTestId('cold-purge-panel')
+    expect(panel).toHaveTextContent('انتهت مهلة الأمان')
+    const run = screen.getByTestId('cold-purge-run')
+    expect(run).toBeDisabled()
+    fireEvent.change(screen.getByTestId('cold-purge-confirm'), { target: { value: 'PKG-WRONG' } })
+    expect(run).toBeDisabled()
+    fireEvent.change(screen.getByTestId('cold-purge-confirm'), { target: { value: pkg.code } })
+    expect(run).not.toBeDisabled()
+    fireEvent.click(run)
+    expect(h.run).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  it('الحذف: مهلة الأمان لم تنتهِ → لا زر حذف', () => {
+    h.packages = [{ ...verified, purge_available_at: '2099-01-01T00:00:00Z' }]
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('مهلة الأمان حتى')
+    expect(screen.queryByTestId('cold-purge-run')).toBeNull()
+  })
+
+  it('الموافقة الثنائية: طلب → (الطالب لا يوافق) → حساب آخر يوافق → يُفتح الزر', () => {
+    h.packages = [{ ...verified, purge_approval_required: true }]
+    const { unmount } = render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.queryByTestId('cold-purge-run')).toBeNull()
+    fireEvent.click(screen.getByTestId('cold-purge-request'))
+    expect(h.request).toHaveBeenCalledWith('p1')
+    unmount()
+    h.packages = [{ ...verified, purge_approval_required: true, purge_requested_at: '2026-10-11T08:00:00Z', purge_requested_by_name: 'أحمد', purge_requested_by_me: true }]
+    const r2 = render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.queryByTestId('cold-purge-approve')).toBeNull()
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('أنت طالب الحذف')
+    r2.unmount()
+    h.packages = [{ ...verified, purge_approval_required: true, purge_requested_at: '2026-10-11T08:00:00Z', purge_requested_by_name: 'أحمد', purge_requested_by_me: false }]
+    const r3 = render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    fireEvent.click(screen.getByTestId('cold-purge-approve'))
+    expect(h.approve).toHaveBeenCalledWith('p1')
+    r3.unmount()
+    h.packages = [{ ...verified, purge_approval_required: true, purge_requested_at: '2026-10-11T08:00:00Z', purge_approved_at: '2026-10-11T09:00:00Z', purge_approved_by_name: 'سارة' }]
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('وافق: سارة')
+    expect(screen.getByTestId('cold-purge-run')).toBeInTheDocument()
+  })
+
+  it('حزمة متوقفة أثناء الحذف تعرض الاستئناف', () => {
+    h.packages = [{ ...verified, status: 'purging', purged_count: 40 }]
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.getByTestId('cold-purge-run')).toHaveTextContent('استئناف الحذف')
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('40 / 120')
+  })
+
+  it('الإعدادات: مفتاح الموافقة الثنائية يُرسل', () => {
+    h.settings = settings
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByTestId('cold-tab-settings'))
+    fireEvent.click(screen.getByTestId('cold-approval'))
+    fireEvent.click(screen.getByTestId('cold-save-settings'))
+    expect(h.save).toHaveBeenCalledWith(expect.objectContaining({ purge_approval: true }))
   })
 
   it('يعرض فشل التحميل بوضوح', () => {

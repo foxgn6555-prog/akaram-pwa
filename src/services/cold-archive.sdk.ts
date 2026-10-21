@@ -13,6 +13,8 @@ export interface ColdSourceSetting { label: string; bucket: string; sensitive: b
 export interface ColdProtectionSetting { label: string; on: boolean }
 export interface ColdSettings {
   required_copies: number; grace_days: number
+  /** موافقة ثنائية اختيارية: حساب IT يطلب الحذف ويوافق حساب IT آخر (00271) */
+  purge_approval: boolean
   sources: Record<string, ColdSourceSetting>
   protections: Record<string, ColdProtectionSetting>
   updated_at: string | null
@@ -29,6 +31,8 @@ export interface ColdPackage {
   purge_available_at: string | null; purged_count: number; created_by: string | null; created_by_name: string | null; created_at: string
   verified_at: string | null; purge_started_at: string | null; purged_at: string | null; cancelled_at: string | null
   copies: ColdCopy[]; by_source: Array<{ source_key: string; files: number; bytes: number }>; can_purge: boolean
+  purge_approval_required: boolean; purge_requested_at: string | null; purge_requested_by_name: string | null; purge_requested_by_me: boolean
+  purge_approved_at: string | null; purge_approved_by_name: string | null
   events?: Array<{ action: string; details: Record<string, unknown> | null; actor_name: string | null; at: string }>
 }
 
@@ -45,6 +49,9 @@ export const COLD_ERROR_MESSAGES: Record<string, string> = {
   COLD_ARCHIVE_NOT_VERIFIED: 'الحزمة غير متحقَّق منها بعد',
   COLD_ARCHIVE_COPIES_INSUFFICIENT: 'عدد النسخ المتحقَّق منها أقل من المطلوب',
   COLD_ARCHIVE_GRACE_ACTIVE: 'مهلة الأمان لم تنتهِ بعد',
+  COLD_ARCHIVE_APPROVAL_REQUIRED: 'الحذف يحتاج موافقة حساب IT آخر أولاً',
+  COLD_ARCHIVE_NOT_REQUESTED: 'لم يُطلب حذف هذه الحزمة بعد',
+  COLD_ARCHIVE_SAME_APPROVER: 'لا يمكن لطالب الحذف أن يوافق على طلبه — يلزم حساب IT آخر',
 }
 export function coldErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error ?? '')
@@ -56,14 +63,49 @@ const rpc = <T,>(fn: string, args: Record<string, unknown> = {}) => sdkGuard(sup
 
 export const coldArchive = {
   settings: () => rpc<ColdSettings>('cold_archive_settings_get'),
-  saveSettings: (s: { required_copies: number; grace_days: number; sources: Record<string, { enabled: boolean }>; protections: Record<string, boolean> }) =>
-    rpc<ColdSettings>('cold_archive_settings_set', { p_required_copies: s.required_copies, p_grace_days: s.grace_days, p_sources: s.sources, p_protections: s.protections }),
+  saveSettings: (s: { required_copies: number; grace_days: number; sources: Record<string, { enabled: boolean }>; protections: Record<string, boolean>; purge_approval: boolean }) =>
+    rpc<ColdSettings>('cold_archive_settings_set', { p_required_copies: s.required_copies, p_grace_days: s.grace_days, p_sources: s.sources, p_protections: s.protections, p_purge_approval: s.purge_approval }),
   preview: (from: string, to: string) => rpc<ColdPreview>('cold_archive_preview', { p_from: from, p_to: to }),
   createPackage: (from: string, to: string, note?: string | null) => rpc<ColdPackage>('cold_archive_package_create', { p_from: from, p_to: to, p_note: note ?? null }),
   packages: async () => (await rpc<ColdPackage[] | null>('cold_archive_packages_list')) ?? [],
   package: (id: string) => rpc<ColdPackage>('cold_archive_package_get', { p_id: id }),
   cancel: (id: string, reason: string) => rpc<ColdPackage>('cold_archive_package_cancel', { p_id: id, p_reason: reason }),
+  purgeRequest: (id: string) => rpc<ColdPackage>('cold_archive_purge_request', { p_package: id }),
+  purgeApprove: (id: string) => rpc<ColdPackage>('cold_archive_purge_approve', { p_package: id }),
+  /** الحذف الفعلي: يقفل الحزمة ثم يحذف الملفات من التخزين دفعات 100 ويؤكد كل دفعة. قابل للاستئناف. */
+  purgeRun: async (id: string, onProgress?: (done: number, total: number) => void): Promise<ColdPackage> => {
+    let pkg = await rpc<ColdPackage>('cold_archive_purge_begin', { p_package: id })
+    const total = pkg.file_count; let done = pkg.purged_count; let after = 0
+    for (;;) {
+      const rows = (await rpc<ColdItem[] | null>('cold_archive_items_list', { p_package: id, p_after: after, p_limit: 500 })) ?? []
+      if (rows.length === 0) break
+      after = rows[rows.length - 1]?.id ?? after
+      const pending = rows.filter((r) => r.status === 'downloaded')
+      const byBucket = new Map<string, ColdItem[]>()
+      for (const r of pending) byBucket.set(r.bucket, [...(byBucket.get(r.bucket) ?? []), r])
+      for (const [bucket, items] of byBucket) {
+        for (let i = 0; i < items.length; i += 100) {
+          const batch = items.slice(i, i + 100)
+          const { data, error } = await supabase.storage.from(bucket).remove(batch.map((b) => b.storage_path))
+          if (error) throw new Error(`فشل حذف ملفات من ${bucket}: ${error.message}`)
+          const removedSet = new Set((data ?? []).map((o: { name: string }) => o.name))
+          // التخزين يعيد ما حُذف فعلاً. ما لم يُعَد: يُعدّ محذوفاً فقط إن ثبت أنه غير موجود أصلاً — أي عائق آخر (صلاحية/شبكة) يبقيه معلّقاً
+          const removed: ColdItem[] = []
+          for (const b of batch) {
+            if (removedSet.has(b.storage_path)) { removed.push(b); continue }
+            const { data: ex, error: exErr } = await supabase.storage.from(bucket).exists(b.storage_path)
+            if (!exErr && ex === false) removed.push(b)
+          }
+          pkg = await rpc<ColdPackage>('cold_archive_purge_confirm', { p_package: id, p_removed: removed.map((b) => ({ bucket: b.bucket, path: b.storage_path })) })
+          done = pkg.purged_count; onProgress?.(done, total)
+        }
+      }
+      if (rows.length < 500) break
+    }
+    return pkg
+  },
 }
+export interface ColdItem { id: number; source_key: string; record_id: string; record_date: string; bucket: string; storage_path: string; size_bytes: number | null; sha256: string | null; status: 'listed' | 'downloaded' | 'purged' | 'missing' }
 
 /** حجم مقروء — بالعربية مع أرقام لاتينية */
 export function formatBytes(n: number | null | undefined): string {
