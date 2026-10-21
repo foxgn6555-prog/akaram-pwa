@@ -49,10 +49,23 @@ const WIN_FORBIDDEN = /[<>:"/\\|?*\u0000-\u001f]/g
 export const safeName = (s: string) => (s.replace(WIN_FORBIDDEN, '_').replace(/[. ]+$/, '').trim() || '_')
 export const packageFolderName = (p: Pick<ColdPackage, 'code' | 'period_from' | 'period_to'>) => safeName(`الأرشيف البارد ${p.period_from} إلى ${p.period_to} (${p.code})`)
 const extOf = (path: string) => { const m = /\.([a-z0-9]{1,5})$/i.exec(path.split('/').pop() ?? ''); return m ? '.' + (m[1] as string).toLowerCase() : '' }
-/** مسار الملف داخل مجلد الحزمة؛ `seq` تسلسل ثابت للملف داخل يومه ومصدره */
-export function localSegments(it: Pick<ColdItem, 'source_key' | 'record_date' | 'storage_path'>, seq: number): string[] {
+/** استنتاج الامتداد من محتوى الملف (كثير من صور المنصة مخزّنة بلا امتداد) ثم من نوع MIME */
+export function sniffExt(buf: Uint8Array, mime = ''): string {
+  const b = buf, ascii = (o: number, n: number) => String.fromCharCode(...b.subarray(o, o + n))
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return '.jpg'
+  if (b.length >= 8 && ascii(1, 3) === 'PNG' && b[0] === 0x89) return '.png'
+  if (b.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return '.webp'
+  if (b.length >= 6 && /^GIF8[79]a$/.test(ascii(0, 6))) return '.gif'
+  if (b.length >= 5 && ascii(0, 5) === '%PDF-') return '.pdf'
+  if (b.length >= 12 && ascii(4, 4) === 'ftyp') { const brand = ascii(8, 4); return /^(heic|heix|hevc|mif1|msf1)$/.test(brand) ? '.heic' : /^(avif|avis)$/.test(brand) ? '.avif' : '.mp4' }
+  if (b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04) return '.zip'
+  const byMime: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'application/pdf': '.pdf', 'image/heic': '.heic', 'video/mp4': '.mp4' }
+  return byMime[mime.split(';')[0]?.trim().toLowerCase() ?? ''] ?? ''
+}
+/** مسار الملف داخل مجلد الحزمة؛ `seq` تسلسل ثابت للملف داخل يومه ومصدره؛ `ext` امتداد مستنتج إن خلا المسار الأصلي منه */
+export function localSegments(it: Pick<ColdItem, 'source_key' | 'record_date' | 'storage_path'>, seq: number, ext = ''): string[] {
   const d = /^\d{4}-\d{2}-\d{2}$/.test(it.record_date) ? it.record_date : 'بدون-تاريخ'
-  return [safeName(SOURCE_FOLDERS[it.source_key] ?? it.source_key), d.slice(0, 7), d, `${d}_${String(seq).padStart(3, '0')}${extOf(it.storage_path)}`]
+  return [safeName(SOURCE_FOLDERS[it.source_key] ?? it.source_key), d.slice(0, 7), d, `${d}_${String(seq).padStart(3, '0')}${extOf(it.storage_path) || ext}`]
 }
 /** تسلسل ثابت لكل ملف داخل (المصدر، اليوم) حسب ترتيب المعرّف — لا يتغير بين التشغيلات */
 export function assignSequences(items: ColdItem[]): Map<number, number> {
@@ -164,7 +177,7 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
       const data = await downloadWithRetry(it.bucket, it.storage_path)
       if (!data) { await rpc('cold_archive_item_missing', { p_package: pkg.id, p_bucket: it.bucket, p_path: it.storage_path }); m.missing.push({ bucket: it.bucket, path: it.storage_path }); missing++; continue }
       const buf = await blobBytes(data)
-      const segs = localSegments(it, seqOf.get(it.id) ?? 0)
+      const segs = localSegments(it, seqOf.get(it.id) ?? 0, sniffExt(buf, data.type))
       const fh = await fileHandleFor(dir, segs, true); const w = await fh.createWritable(); await w.write(buf); await w.close()
       const sha = await sha256Hex(buf)
       const entry: ManifestEntry = { bucket: it.bucket, path: it.storage_path, local: segs, sha256: sha, bytes: buf.byteLength, downloaded_at: new Date().toISOString(), source_key: it.source_key, record_id: it.record_id, record_date: it.record_date }

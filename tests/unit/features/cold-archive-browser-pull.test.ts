@@ -6,7 +6,7 @@ if (!globalThis.crypto?.subtle) Object.defineProperty(globalThis, 'crypto', { va
 const h = vi.hoisted(() => ({ rpc: vi.fn(), download: vi.fn(), pkg: vi.fn() }))
 vi.mock('@sdk/client', () => ({ supabase: { rpc: h.rpc, storage: { from: () => ({ download: h.download }) } } }))
 vi.mock('@sdk/cold-archive.sdk', () => ({ coldArchive: { package: h.pkg } }))
-import { assignSequences, buildIndexCsv, fileKey, localSegments, packageFolderName, pullPackageToDirectory, safeName, sha256Hex, type FsDirHandle, type FsFileHandle } from '@features/cold-archive/browser-pull'
+import { assignSequences, buildIndexCsv, fileKey, localSegments, packageFolderName, pullPackageToDirectory, safeName, sha256Hex, sniffExt, type FsDirHandle, type FsFileHandle } from '@features/cold-archive/browser-pull'
 
 /* مجلد وهمي في الذاكرة */
 function memDir(name = 'D'): FsDirHandle & { store: Map<string, Uint8Array<ArrayBuffer>> } {
@@ -54,6 +54,19 @@ describe('pullPackageToDirectory', () => {
     expect(safeName('a:b/c?d. ')).toBe('a_b_c_d')
     const seq = assignSequences(items as never)
     expect([seq.get(1), seq.get(2), seq.get(3)]).toEqual([1, 2, 1])   // نفس اليوم والمصدر ⇒ 1، 2؛ مصدر آخر ⇒ 1
+  })
+
+  it('الامتداد يُستنتج من المحتوى عندما يخلو المسار الأصلي منه (صور الإعلام)', () => {
+    const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])
+    const webp = new Uint8Array([...'RIFF'].map((c) => c.charCodeAt(0)).concat([0, 0, 0, 0], [...'WEBP'].map((c) => c.charCodeAt(0))))
+    const heic = new Uint8Array([0, 0, 0, 0x18, ...[...'ftypheic'].map((c) => c.charCodeAt(0))])
+    expect([sniffExt(jpg), sniffExt(png), sniffExt(webp), sniffExt(heic)]).toEqual(['.jpg', '.png', '.webp', '.heic'])
+    expect(sniffExt(new Uint8Array([1, 2, 3]), 'image/jpeg')).toBe('.jpg')
+    expect(sniffExt(new Uint8Array([1, 2, 3]))).toBe('')
+    expect(localSegments({ source_key: 'media_submission_photos', record_date: '2026-09-16', storage_path: 'u1/1790877414905-1' }, 7, '.jpg')).toEqual(['صور الإعلام', '2026-09', '2026-09-16', '2026-09-16_007.jpg'])
+    // امتداد المسار الأصلي له الأولوية
+    expect(localSegments({ source_key: 'media_submission_photos', record_date: '2026-09-16', storage_path: 'u1/x.PNG' }, 1, '.jpg').at(-1)).toBe('2026-09-16_001.png')
   })
 
   it('الفهرس.csv بالعربية مع BOM', () => {
