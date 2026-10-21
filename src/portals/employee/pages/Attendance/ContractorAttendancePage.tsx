@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { requestGeolocation } from '@lib/device-permissions'
 import { PermissionPanel } from '@components/ui/PermissionPanel/PermissionPanel'
 import { Camera, CheckCircle2, Info, MapPin, RefreshCw, Users } from 'lucide-react'
+import { ArchiveAwarePhoto } from '@features/cold-archive/ArchivedFile'
 import { useContractorCheckin, useContractorMe, useContractorPhotoUrl, useSetHeadcount } from '@features/contractors/hooks'
 import { timeAr, zoneLabel } from '@features/contractors/format'
 import { CameraCapture } from '@features/contractors/components/CameraCapture'
@@ -53,7 +54,8 @@ function PhotoStep({ n, title, hint, file, onFile, facing, testId }: { n: number
 function Photo({ path, label }: { path: string | null; label: string }) {
   const url = useContractorPhotoUrl(path)
   if (!path) return null
-  return url.data ? <img src={url.data} alt={label} className="h-24 w-24 rounded-xl object-cover" /> : <div className="h-24 w-24 animate-pulse rounded-xl bg-slate-100" />
+  return <ArchiveAwarePhoto bucket="contractor-photos" path={path} url={url.data} missing={url.isError} alt={label} className="h-24 w-24 overflow-hidden rounded-xl object-cover" compact
+    fallback={<div className="h-24 w-24 animate-pulse rounded-xl bg-slate-100" />} />
 }
 
 /** ملاحظة ثابتة: العدد يشمل المتعهد؛ إثبات التواجد ليس البصمة */

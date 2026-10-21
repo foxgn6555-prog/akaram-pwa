@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { ImageOff } from 'lucide-react'
 import { useSignedPhotoUrls } from '@features/media/hooks'
+import { ArchivedFileCard, useArchivedLookup } from '@features/cold-archive/ArchivedFile'
 
 interface PhotoGridItem {
   id: string
@@ -35,6 +36,9 @@ export default function PhotoGrid({
   const shown = items.slice(0, visible)
   const urlsQ = useSignedPhotoUrls(shown.map((p) => p.path))
   const urls = urlsQ.data ?? {}
+  // الصور التي لم يُنتج لها رابط (غير موجودة في التخزين) — نسأل الأرشيف البارد عنها دفعة واحدة
+  const missingPaths = urlsQ.isSuccess ? shown.map((p) => p.path).filter((path) => !urls[path]) : []
+  const archived = useArchivedLookup('media-photos', missingPaths).data ?? {}
 
   return (
     <div>
@@ -57,6 +61,8 @@ export default function PhotoGrid({
                   className="size-full object-cover"
                   onClick={() => selectable && onToggle?.(item.id)}
                 />
+              ) : archived[item.path] ? (
+                <ArchivedFileCard info={archived[item.path] as NonNullable<typeof archived[string]>} compact />
               ) : (
                 <div className="flex size-full items-center justify-center text-slate-300">
                   <ImageOff size={24} />

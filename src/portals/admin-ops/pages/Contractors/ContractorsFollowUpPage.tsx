@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { Camera, ExternalLink, MapPin, Phone, Users, X } from 'lucide-react'
 import { useSectorManagerMe, useSmContractorMonth, useSmContractors, useSmSetContractorHeadcount } from '@features/sector-manager/hooks'
 import { useContractorPhotoUrl } from '@features/contractors/hooks'
+import { ArchiveAwarePhoto } from '@features/cold-archive/ArchivedFile'
 import type { ParentSector, SmContractorRow } from '@sdk/sector-manager.sdk'
 import { PARENT_AR, SHIFT_AR, timeAr, zoneLabel } from '@features/contractors/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -67,7 +68,7 @@ function Photo({ path, label, testId }: { path: string | null; label: string; te
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="relative block h-24 w-full overflow-hidden rounded-xl bg-slate-100" data-testid={testId} aria-label={`تكبير ${label}`}>
-        {url.data ? <img src={url.data} alt={label} className="h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center text-[11px] text-slate-400">جارٍ التحميل…</span>}
+        <ArchiveAwarePhoto bucket="contractor-photos" path={path} url={url.data} missing={url.isError} alt={label} className="h-full w-full object-cover" fallback={<span className="absolute inset-0 grid place-items-center text-[11px] text-slate-400">جارٍ التحميل…</span>} />
         <span className="absolute bottom-1 right-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">{label}</span>
       </button>
       {open && url.data && (

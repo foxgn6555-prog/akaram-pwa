@@ -12,6 +12,8 @@ import {
   useOpsChatActions, useOpsChatDays, useOpsChatHistory, useOpsChatSession, useOpsCitizenComplaints, useSaveCitizenSettings, useSetCitizenStatus, type CitizenChat, type CitizenComplaint, type CitizenStatus,
 } from '@features/citizen'
 import { CitizenReportPanel } from '@components/citizen/CitizenReportPanel'
+import { ArchivedFileCard, useArchivedLookup } from '@features/cold-archive/ArchivedFile'
+import type { ArchivedFileInfo } from '@sdk/cold-archive.sdk'
 import { baghdadDay } from '@features/media/constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
@@ -98,7 +100,8 @@ function ComplaintsTab({ selectedId, onSelect }: { selectedId: string | null; on
 
 export function ComplaintDetail({ c, onClose, managerMode = false }: { c: CitizenComplaint; onClose?: () => void; managerMode?: boolean }) {
   const paths = useMemo(() => c.photos.map((p) => p.path), [c.photos])
-  const { data: urls = {} } = useCitizenPhotoUrls(paths)
+  const { data: urls = {}, isSuccess: urlsReady } = useCitizenPhotoUrls(paths)
+  const archivedPhotos = useArchivedLookup('citizen-complaints', urlsReady ? paths.filter((p) => !urls[p]) : []).data ?? {}
   const { data: managers = [] } = useCitizenManagers()
   const assign = useAssignCitizenComplaint(); const setStatus = useSetCitizenStatus(); const addNote = useAddCitizenNote()
   const [manager, setManager] = useState(''); const [note, setNote] = useState(''); const [action, setAction] = useState<'on_hold' | 'resolved' | 'reopen' | 'note' | null>(null)
@@ -122,7 +125,7 @@ export function ComplaintDetail({ c, onClose, managerMode = false }: { c: Citize
       </div>
       {c.photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2" data-testid="cc-photos">
-          {c.photos.map((p) => urls[p.path] ? <a key={p.id} href={urls[p.path]} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-xl ring-1 ring-slate-200"><img src={urls[p.path]} alt="صورة الشكوى" className="h-full w-full object-cover" loading="lazy" /></a> : <div key={p.id} className="aspect-square animate-pulse rounded-xl bg-slate-100" />)}
+          {c.photos.map((p) => urls[p.path] ? <a key={p.id} href={urls[p.path]} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-xl ring-1 ring-slate-200"><img src={urls[p.path]} alt="صورة الشكوى" className="h-full w-full object-cover" loading="lazy" /></a> : archivedPhotos[p.path] ? <div key={p.id} className="aspect-square overflow-hidden rounded-xl ring-1 ring-slate-200"><ArchivedFileCard info={archivedPhotos[p.path] as ArchivedFileInfo} /></div> : <div key={p.id} className="aspect-square animate-pulse rounded-xl bg-slate-100" />)}
         </div>
       )}
       {!managerMode && c.status !== 'resolved' && (
@@ -213,7 +216,8 @@ function SupportTab() {
 /** فقاعات المحادثة (مشتركة بين الدعم الحيّ والأرشيف) — تعرض صور المواطن بروابط موقّعة */
 function ChatMessages({ chat }: { chat: CitizenChat }) {
   const paths = chat.messages.map((m) => m.attachment).filter((p): p is string => !!p)
-  const { data: urls } = useCitizenPhotoUrls(paths)
+  const { data: urls, isSuccess } = useCitizenPhotoUrls(paths)
+  const archived = useArchivedLookup('citizen-complaints', isSuccess ? paths.filter((p) => !urls?.[p]) : []).data ?? {}
   return (
     <>
       {chat.messages.map((m) => (
@@ -221,7 +225,9 @@ function ChatMessages({ chat }: { chat: CitizenChat }) {
           <div className={clsx('max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6', m.sender === 'agent' ? 'bg-sky-700 text-white' : m.sender === 'citizen' ? 'bg-white ring-1 ring-slate-200' : 'bg-amber-50 text-[11px] text-amber-900')}>
             {m.attachment && (urls?.[m.attachment]
               ? <a href={urls[m.attachment]} target="_blank" rel="noreferrer"><img src={urls[m.attachment]} alt="صورة من المواطن" className="mb-1 max-h-64 rounded-xl object-cover" data-testid="ops-chat-image" /></a>
-              : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-100 text-[10px] text-slate-500">جارٍ تحميل الصورة…</div>)}
+              : archived[m.attachment]
+                ? <div className="mb-1 h-24 w-40 overflow-hidden rounded-xl"><ArchivedFileCard info={archived[m.attachment] as ArchivedFileInfo} compact /></div>
+                : <div className="mb-1 grid h-24 w-40 place-items-center rounded-xl bg-slate-100 text-[10px] text-slate-500">جارٍ تحميل الصورة…</div>)}
             {m.body !== '📷 صورة' && <p className="whitespace-pre-wrap">{m.body}</p>}
             <p className={clsx('mt-1 text-[10px]', m.sender === 'agent' ? 'text-sky-100' : 'text-slate-400')}>{new Date(m.at).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' })}</p>
           </div>

@@ -1,6 +1,7 @@
 /**
  * الأرشيف — كل ما رُفعه ونُقل للأرشيف: الكتب، بلاغات الأعطال، الصور، العمال، الآليات.
  */
+import { ArchiveAwarePhoto } from '@features/cold-archive/ArchivedFile'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -131,8 +132,8 @@ function ArchPhoto({ path, caption }: { path: string; caption: string | null }) 
   return (
     <figure className="overflow-hidden rounded-xl border border-slate-200">
       <div className="aspect-video bg-slate-100">
-        {q.data ? <img src={q.data} alt={caption ?? ''} className="size-full object-cover" loading="lazy" /> :
-          <div className="flex size-full items-center justify-center text-slate-400"><Icon name="photo" size={22} /></div>}
+        <ArchiveAwarePhoto bucket="sector-photos" path={path} url={q.data} missing={q.isError} alt={caption ?? ''} className="size-full object-cover"
+          fallback={<div className="flex size-full items-center justify-center text-slate-400"><Icon name="photo" size={22} /></div>} />
       </div>
       <figcaption className="truncate px-2 py-1.5 text-[11px] text-slate-600">{caption ?? 'بدون وصف'}</figcaption>
     </figure>

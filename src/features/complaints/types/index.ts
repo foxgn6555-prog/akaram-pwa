@@ -21,7 +21,9 @@ export interface ComplaintInboxMedia {
   mediaCode: string
   name: string
   mimeType: string
+  /** '' عندما يكون الملف محذوفاً من المنصة (مؤرشف خارجياً) */
   url: string
+  storagePath?: string
   duplicate: boolean
   duplicateCount: number
   itemId: string | null
@@ -140,7 +142,9 @@ export interface ComplaintMedia {
   itemId: string | null
   mediaCode: string
   kind: 'before' | 'after' | 'email_attachment' | 'report'
+  /** '' عندما يكون الملف محذوفاً من المنصة (مؤرشف خارجياً) */
   url: string
+  storagePath?: string
   name: string
   mimeType: string
   capturedAt: string | null

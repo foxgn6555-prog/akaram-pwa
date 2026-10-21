@@ -105,6 +105,13 @@ export const coldArchive = {
     return pkg
   },
 }
+/** معلومات ملف حُذف من المنصة بعد أرشفته خارجياً — متاحة لكل مستخدم مسجّل (المسار وحده لا يحمل بيانات) */
+export interface ArchivedFileInfo { package_code: string; purged_at: string; period_from: string; period_to: string; disks: string[] }
+/** أين هذا الملف الآن؟ يعيد فقط المسارات المحذوفة فعلاً (status = purged) */
+export const coldArchiveLookup = async (bucket: string, paths: string[]): Promise<Record<string, ArchivedFileInfo>> => {
+  if (paths.length === 0) return {}
+  return (await rpc<Record<string, ArchivedFileInfo> | null>('cold_archive_lookup', { p_bucket: bucket, p_paths: paths })) ?? {}
+}
 export interface ColdItem { id: number; source_key: string; record_id: string; record_date: string; bucket: string; storage_path: string; size_bytes: number | null; sha256: string | null; status: 'listed' | 'downloaded' | 'purged' | 'missing' }
 
 /** حجم مقروء — بالعربية مع أرقام لاتينية */

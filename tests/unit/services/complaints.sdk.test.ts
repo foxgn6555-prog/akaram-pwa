@@ -305,6 +305,28 @@ describe('SDK الشكاوى — قائمة المواقع والإسناد وا
     expect(media[1]?.capturedAt).toBe('2026-09-03T10:00:00Z')
   })
 
+  it('00318: ملف محذوف من المنصة (مؤرشف خارجياً) لا يُسقط قائمة الوسائط — url فارغ مع storagePath', async () => {
+    h.state.db = { data: [
+      { id: 'md1', media_kind: 'before', storage_path: 'inbox/m1/gone.jpg', original_name: 'gone.jpg', mime_type: 'image/jpeg', captured_at: null },
+      { id: 'md2', media_kind: 'after', storage_path: 'item/i1/after/x.jpg', original_name: 'x.jpg', mime_type: 'image/jpeg', captured_at: null },
+    ], error: null }
+    h.storage.from.mockImplementationOnce((): MockBucket => ({
+      createSignedUrl: vi.fn(async () => ({ data: null, error: { message: 'Object not found' } })), upload: vi.fn(), remove: vi.fn(),
+    }))
+    const media = await complaints.itemMedia('i1')
+    expect(media).toHaveLength(2)
+    expect(media[0]).toMatchObject({ url: '', storagePath: 'inbox/m1/gone.jpg' })
+    expect(media[1]).toMatchObject({ url: 'https://signed.test/item/i1/after/x.jpg', storagePath: 'item/i1/after/x.jpg' })
+  })
+
+  it('00318: خطأ توقيع آخر (غير «غير موجود») يبقى خطأً', async () => {
+    h.state.db = { data: [{ id: 'md1', media_kind: 'before', storage_path: 'inbox/m1/a.jpg', original_name: 'a.jpg', mime_type: 'image/jpeg', captured_at: null }], error: null }
+    h.storage.from.mockImplementationOnce((): MockBucket => ({
+      createSignedUrl: vi.fn(async () => ({ data: null, error: { message: 'permission denied' } })), upload: vi.fn(), remove: vi.fn(),
+    }))
+    await expect(complaints.itemMedia('i1')).rejects.toThrow('permission denied')
+  })
+
   it('يجمع تفاصيل الموقع: وسائط وسجل الحالات والرسالة الأصلية', async () => {
     h.tableResults.set('complaint_items', { data: itemRowData, error: null })
     h.tableResults.set('complaint_media', { data: [

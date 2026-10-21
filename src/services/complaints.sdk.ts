@@ -139,6 +139,14 @@ function itemRow(row: Record<string, unknown>): ComplaintItem {
   }
 }
 
+/** رابط موقّع لمرفق شكوى — ملف محذوف (مؤرشف خارجياً) يعيد '' بدل إسقاط القائمة كاملة (00318) */
+async function signComplaintMedia(path: string): Promise<string> {
+  if (!path) return ''
+  const res = await supabase.storage.from('complaint-media').createSignedUrl(path, 600)
+  if (res.error) { if (/not found/i.test(res.error.message)) return ''; throw new SDKError(res.error.message, 'COMPLAINT_MEDIA_URL_FAILED') }
+  return res.data.signedUrl
+}
+
 export const complaints = {
   async inbox(sector?: ComplaintSector, date?: string): Promise<ComplaintInboxMessage[]> {
     let query = supabase
@@ -157,11 +165,11 @@ export const complaints = {
     const rows = (data ?? []) as unknown as Record<string, unknown>[]
     return Promise.all(rows.map(async (row) => {
       const path = String(row.storagePath ?? '')
-      const signed = await sdkGuard(supabase.storage.from('complaint-media').createSignedUrl(path, 600))
+      const url = await signComplaintMedia(path)
       const duplicateCount = Number(row.duplicateCount ?? 0)
       return {
         id: String(row.id), mediaCode: String(row.mediaCode), name: String(row.name ?? 'مرفق'),
-        mimeType: String(row.mimeType ?? ''), url: signed.signedUrl,
+        mimeType: String(row.mimeType ?? ''), url, storagePath: path,
         duplicate: duplicateCount > 0, duplicateCount, itemId: (row.itemId as string | null) ?? null,
       }
     }))
@@ -177,11 +185,11 @@ export const complaints = {
     const sourceRows = Array.isArray(result.rows) ? result.rows as Record<string, unknown>[] : []
     const rows = await mapBatches(sourceRows, 8, async (row) => {
       const path = String(row.storagePath ?? '')
-      const signed = await sdkGuard(supabase.storage.from('complaint-media').createSignedUrl(path, 600))
+      const url = await signComplaintMedia(path)
       const duplicateCount = Number(row.duplicateCount ?? 0)
       return {
         id: String(row.id), mediaCode: String(row.mediaCode), name: String(row.name ?? 'مرفق'),
-        mimeType: String(row.mimeType ?? ''), url: signed.signedUrl,
+        mimeType: String(row.mimeType ?? ''), url, storagePath: path,
         duplicate: duplicateCount > 0, duplicateCount, itemId: (row.itemId as string | null) ?? null,
       }
     })
@@ -383,9 +391,8 @@ export const complaints = {
     if (!includeInactive) query = query.eq('is_active', true)
     const rows = await sdkGuard(query.order('display_order').order('created_at').returns<Record<string, unknown>[]>() )
     return Promise.all((rows ?? []).map(async (row) => {
-      const signed = await sdkGuard(supabase.storage.from('complaint-media')
-        .createSignedUrl(String(row.storage_path), 600))
-      return { id: String(row.id), itemId: (row.item_id as string | null) ?? null, mediaCode: String(row.media_code), kind: row.media_kind as ComplaintMedia['kind'], url: signed.signedUrl,
+      const url = await signComplaintMedia(String(row.storage_path))
+      return { id: String(row.id), itemId: (row.item_id as string | null) ?? null, mediaCode: String(row.media_code), kind: row.media_kind as ComplaintMedia['kind'], url, storagePath: String(row.storage_path),
         name: String(row.original_name ?? 'صورة'), mimeType: String(row.mime_type), capturedAt: (row.captured_at as string | null) ?? null,
         isActive: row.is_active !== false, replacementReason: (row.replacement_reason as string | null) ?? null,
         supersededAt: (row.superseded_at as string | null) ?? null, displayOrder:Number(row.display_order??1) }
@@ -396,7 +403,7 @@ export const complaints = {
     const unique=[...new Set(itemIds)]
     if(unique.length===0)return[]
     const rows=await sdkGuard(supabase.from('complaint_media').select('id,item_id,media_code,media_kind,storage_path,original_name,mime_type,captured_at,is_active,replacement_reason,superseded_at,display_order').in('item_id',unique).eq('is_active',true).order('display_order').order('created_at').returns<Record<string,unknown>[]>() )
-    return mapBatches(rows??[],8,async row=>{const signed=await sdkGuard(supabase.storage.from('complaint-media').createSignedUrl(String(row.storage_path),600));return{id:String(row.id),itemId:(row.item_id as string|null)??null,mediaCode:String(row.media_code),kind:row.media_kind as ComplaintMedia['kind'],url:signed.signedUrl,name:String(row.original_name??'صورة'),mimeType:String(row.mime_type),capturedAt:(row.captured_at as string|null)??null,isActive:row.is_active!==false,replacementReason:(row.replacement_reason as string|null)??null,supersededAt:(row.superseded_at as string|null)??null,displayOrder:Number(row.display_order??1)}})
+    return mapBatches(rows??[],8,async row=>{const url=await signComplaintMedia(String(row.storage_path));return{id:String(row.id),storagePath:String(row.storage_path),itemId:(row.item_id as string|null)??null,mediaCode:String(row.media_code),kind:row.media_kind as ComplaintMedia['kind'],url,name:String(row.original_name??'صورة'),mimeType:String(row.mime_type),capturedAt:(row.captured_at as string|null)??null,isActive:row.is_active!==false,replacementReason:(row.replacement_reason as string|null)??null,supersededAt:(row.superseded_at as string|null)??null,displayOrder:Number(row.display_order??1)}})
   },
 
   async itemDetail(itemId: string): Promise<ComplaintItemDetail> {
