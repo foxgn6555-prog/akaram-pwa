@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(), create: vi.fn(), cancel: vi.fn(), request: vi.fn(), approve: vi.fn(), run: vi.fn(),
+  save: vi.fn(), create: vi.fn(), cancel: vi.fn(), request: vi.fn(), approve: vi.fn(), run: vi.fn(), pull: vi.fn(),
   packages: [] as Record<string, unknown>[], preview: null as Record<string, unknown> | null, settings: null as Record<string, unknown> | null,
   packagesError: false,
 }))
@@ -17,6 +17,7 @@ vi.mock('@features/cold-archive/hooks', () => ({
   useRequestColdPurge: () => ({ mutate: h.request, isPending: false }),
   useApproveColdPurge: () => ({ mutate: h.approve, isPending: false }),
   useRunColdPurge: () => ({ mutate: h.run, isPending: false }),
+  useBrowserPull: () => ({ mutate: h.pull, isPending: false }),
 }))
 import ColdArchivePage from '@portals/it/pages/ColdArchive/ColdArchivePage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -68,12 +69,30 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
     expect(card).toHaveTextContent('0 / 1')
     fireEvent.click(screen.getByText('PKG-2026-07-01_2026-08-31-001'))
     expect(card).toHaveTextContent('صور الإعلام')
-    expect(card).toHaveTextContent('archive.bat pull PKG-2026-07-01_2026-08-31-001')
+    expect(screen.getByTestId('cold-pull-panel')).toBeInTheDocument()
     const btn = screen.getByTestId('cold-cancel-btn')
     expect(btn).toBeDisabled()
     fireEvent.change(screen.getByTestId('cold-cancel-reason'), { target: { value: 'أُنشئت بالخطأ' } })
     fireEvent.click(btn)
     expect(h.cancel).toHaveBeenCalledWith({ id: 'p1', reason: 'أُنشئت بالخطأ' })
+  })
+
+  it('00320: زر «اختيار مجلد وبدء التنزيل» يعمل في المتصفحات الداعمة ويظهر تنبيه في غيرها', () => {
+    h.packages = [pkg]
+    const { unmount } = render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.getByTestId('cold-pull-unsupported')).toBeInTheDocument()
+    expect(screen.getByTestId('cold-pull-btn')).toBeDisabled()
+    unmount()
+    ;(window as unknown as { showDirectoryPicker: () => void }).showDirectoryPicker = () => undefined
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.queryByTestId('cold-pull-unsupported')).toBeNull()
+    const btn = screen.getByTestId('cold-pull-btn')
+    expect(btn).toHaveTextContent('استكمال التنزيل')   // downloaded_count = 60
+    fireEvent.click(btn)
+    expect(h.pull).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }), expect.any(Object))
+    delete (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker
   })
 
   it('الحزمة المحذوفة لا تعرض زر الإلغاء', () => {

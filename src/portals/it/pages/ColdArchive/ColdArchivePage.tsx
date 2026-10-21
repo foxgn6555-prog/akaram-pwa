@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Archive, CheckCircle2, Database, HardDrive, RefreshCw, Settings2, ShieldCheck, Trash2, UserCheck, X } from 'lucide-react'
+import { AlertTriangle, Archive, CheckCircle2, Database, Download, FolderOpen, HardDrive, RefreshCw, Settings2, ShieldCheck, Trash2, UserCheck, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { COLD_STATUS_LABEL, formatBytes, type ColdPackage, type ColdSettings } from '@sdk/cold-archive.sdk'
-import { useApproveColdPurge, useCancelColdPackage, useColdPackage, useColdPackages, useColdPreview, useColdSettings, useCreateColdPackage, useRequestColdPurge, useRunColdPurge, useSaveColdSettings } from '@features/cold-archive/hooks'
+import { browserPullSupported, type PullProgress } from '@features/cold-archive/browser-pull'
+import { useApproveColdPurge, useBrowserPull, useCancelColdPackage, useColdPackage, useColdPackages, useColdPreview, useColdSettings, useCreateColdPackage, useRequestColdPurge, useRunColdPurge, useSaveColdSettings } from '@features/cold-archive/hooks'
 
 /**
  * 🧊 الأرشيف البارد (00315 · ٢/٤) — بوابة التطوير المركزية
@@ -103,16 +104,13 @@ function PackageCard({ p, expanded, onToggle }: { p: ColdPackage; expanded: bool
             </div>
             <div className="rounded-xl bg-slate-50 p-3 text-sm">
               <h4 className="mb-1 font-bold text-slate-800">النسخ المتحقَّق منها</h4>
-              {d.copies.length === 0 ? <p className="text-slate-500">لا نسخ بعد — نزّل الحزمة بالأداة ثم شغّل التحقق.</p> : (
+              {d.copies.length === 0 ? <p className="text-slate-500">لا نسخ بعد — استخدم زر «تنزيل الحزمة إلى مجلد» أدناه.</p> : (
                 <ul className="space-y-0.5">{d.copies.map((c) => <li key={c.disk_label} className="flex justify-between"><span>القرص «{c.disk_label}»</span><span className="text-slate-600">{formatDateTime(c.verified_at)} · {c.verified_by_name ?? '—'}</span></li>)}</ul>
               )}
               {d.purge_available_at && <p className="mt-2 text-xs text-slate-600">الحذف متاح اعتباراً من {formatDateTime(d.purge_available_at)}</p>}
             </div>
           </div>
-          <div className="rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-600">
-            <b>أوامر الأداة</b> (مجلد <span dir="ltr" className="font-mono">tools/akaram-archive</span> — يعمل على ويندوز بـ archive.bat):
-            <code className="mt-1 block rounded bg-slate-900 px-3 py-2 font-mono text-[12px] text-slate-100" dir="ltr">archive.bat pull {p.code} --to D:\Archive<br />archive.bat verify {p.code} --from D:\Archive --disk "قرص-1"</code>
-          </div>
+          {(d.status === 'ready' || d.status === 'verified') && <PullPanel p={d} />}
           {d.events && d.events.length > 0 && (
             <details className="text-sm"><summary className="cursor-pointer font-bold text-slate-700">سجل الأحداث ({d.events.length})</summary>
               <ul className="mt-2 space-y-1 text-xs text-slate-600">{d.events.map((e, i) => <li key={i}>{formatDateTime(e.at)} · {eventLabel(e.action)} · {e.actor_name ?? '—'}</li>)}</ul>
@@ -193,6 +191,47 @@ function PurgePanel({ p }: { p: ColdPackage }) {
 }
 function Check({ ok, label }: { ok: boolean; label: string }) {
   return <li className={clsx('flex items-center gap-2', ok ? 'text-emerald-800' : 'text-slate-600')}>{ok ? <CheckCircle2 size={14} /> : <span className="inline-block h-3.5 w-3.5 rounded-full border border-slate-400" />}{label}</li>
+}
+
+/** تنزيل الحزمة إلى مجلد من المتصفح مباشرة (00320): اختيار مجلد → تنزيل → بصمات → تحقق → تسجيل النسخة — زر واحد، قابل للاستئناف */
+function PullPanel({ p }: { p: ColdPackage }) {
+  const pull = useBrowserPull()
+  const [prog, setProg] = useState<PullProgress | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const running = pull.isPending
+  const supported = browserPullSupported()
+  const needMore = p.verified_copies < p.required_copies
+  const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0
+  const phaseLabel: Record<PullProgress['phase'], string> = { listing: 'جارٍ قراءة قائمة الملفات…', downloading: 'جارٍ التنزيل', verifying: 'جارٍ التحقق من القرص', registering: 'جارٍ تسجيل النسخة…', done: 'اكتمل' }
+  const start = () => {
+    setError(null); setProg(null)
+    pull.mutate({ id: p.id, onProgress: setProg }, {
+      onSuccess: (r) => {
+        if (!r || r.verified) return
+        if (r.failed > 0) setError(`تعذر تنزيل ${r.failed} ملف (انقطاع أو خطأ شبكة). اضغط الزر مرة أخرى واختر نفس المجلد للاستكمال.`)
+        else setError(`${r.corrupt} ملف على القرص لا يطابق الأصل — اضغط الزر مرة أخرى واختر نفس المجلد لإعادة تنزيلها.`)
+      },
+    })
+  }
+  return (
+    <section className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4" data-testid="cold-pull-panel">
+      <h4 className="flex items-center gap-2 font-black text-sky-900"><Download size={16} />{p.status === 'ready' ? 'تنزيل الحزمة إلى مجلد' : needMore ? 'نسخة إضافية على قرص آخر' : 'نسخة إضافية (اختياري)'}</h4>
+      <p className="mt-1 text-xs text-sky-900/80">اضغط الزر واختر مجلداً (قرص داخلي أو خارجي). المنصة تنسخ الملفات، تحسب بصماتها، تتحقق منها على القرص، وتسجّل النسخة — كل ذلك في خطوة واحدة. إن انقطع الاتصال اضغط مرة أخرى واختر نفس المجلد.</p>
+      {!supported && <p className="mt-2 rounded-xl bg-amber-100 p-2 text-xs font-bold text-amber-900" data-testid="cold-pull-unsupported">هذا المتصفح لا يدعم الكتابة إلى مجلد — افتح الصفحة في Chrome أو Edge على الحاسوب.</p>}
+      {prog && running && (
+        <div className="mt-3 space-y-1" data-testid="cold-pull-progress">
+          <div className="flex justify-between text-xs font-bold text-sky-900"><span>{phaseLabel[prog.phase]}</span><span dir="ltr">{prog.done} / {prog.total} · {formatBytes(prog.bytes)}</span></div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-sky-600 transition-all" style={{ width: `${pct}%` }} /></div>
+          {(prog.missing > 0 || prog.failed > 0) && <p className="text-[11px] text-slate-600">مفقودة في التخزين: {prog.missing} · فشلت: {prog.failed}</p>}
+        </div>
+      )}
+      {error && <p role="alert" className="mt-2 rounded-xl bg-red-50 p-2 text-xs font-bold text-red-800">{error}</p>}
+      <button type="button" onClick={start} disabled={!supported || running}
+        className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-sky-700 px-5 text-sm font-black text-white disabled:opacity-50" data-testid="cold-pull-btn">
+        <FolderOpen size={16} />{running ? 'جارٍ العمل…' : p.status === 'ready' && p.downloaded_count > 0 ? 'استكمال التنزيل — اختر نفس المجلد' : 'اختيار مجلد وبدء التنزيل'}
+      </button>
+    </section>
+  )
 }
 
 function StepLine({ p }: { p: ColdPackage }) {

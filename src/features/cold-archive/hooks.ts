@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { coldArchive, coldErrorMessage } from '@sdk/cold-archive.sdk'
 import { useUiStore } from '@stores/ui.store'
+import { pickDirectory, pullPackageToDirectory, type PullProgress } from './browser-pull'
 import { handleAppError } from '@lib/errors/error.handler'
 
 export const coldKeys = {
@@ -32,3 +33,18 @@ export const useRequestColdPurge = () => useAction((id: string) => coldArchive.p
 export const useApproveColdPurge = () => useAction((id: string) => coldArchive.purgeApprove(id), 'تمت الموافقة — زر الحذف متاح الآن')
 export const useRunColdPurge = () => useAction((x: { id: string; onProgress?: (done: number, total: number) => void }) => coldArchive.purgeRun(x.id, x.onProgress),
   (p) => p.status === 'purged' ? `حُذفت ملفات الحزمة ${p.code} من المنصة (${p.purged_count} ملف)` : `توقف الحذف عند ${p.purged_count}/${p.file_count} — اضغط «استئناف»`)
+/** 00320: تنزيل الحزمة إلى مجلد من المتصفح (اختيار مجلد → تنزيل → تحقق → تسجيل) — النتيجة غير المكتملة ليست خطأً */
+export const useBrowserPull = () => {
+  const qc = useQueryClient(), toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: async (x: { id: string; onProgress?: (p: PullProgress) => void }) => {
+      const dir = await pickDirectory()
+      if (!dir) return null
+      const r = await pullPackageToDirectory(x.id, dir, { diskLabel: dir.name, onProgress: x.onProgress })
+      return { ...r, dirName: dir.name }
+    },
+    onSettled: () => { void qc.invalidateQueries({ queryKey: coldKeys.all }) },
+    onSuccess: (r) => { if (r?.verified) toast({ type: 'success', message: `اكتمل: نُسخت الحزمة وتُحقق منها على «${r.dirName}» — النسخ ${r.package.verified_copies}/${r.package.required_copies}` }) },
+    onError: (e) => { handleAppError(e, { scope: 'cold-archive' }); toast({ type: 'error', message: coldErrorMessage(e) }) },
+  })
+}
