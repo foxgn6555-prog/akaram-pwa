@@ -221,6 +221,7 @@ function PullPanel({ p }: { p: ColdPackage }) {
     <section className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4" data-testid="cold-pull-panel">
       <h4 className="flex items-center gap-2 font-black text-sky-900"><Download size={16} />{p.status === 'ready' ? 'تنزيل الحزمة إلى مجلد' : needMore ? 'نسخة إضافية على قرص آخر' : 'نسخة إضافية (اختياري)'}</h4>
       <p className="mt-1 text-xs text-sky-900/80">اضغط الزر واختر مجلداً (قرص داخلي أو خارجي). المنصة تنسخ الملفات، تحسب بصماتها، تتحقق منها على القرص، وتسجّل النسخة — كل ذلك في خطوة واحدة. إن انقطع الاتصال اضغط مرة أخرى واختر نفس المجلد.</p>
+      <p className="mt-1 text-xs text-sky-900/70">الترتيب على القرص: <span className="font-bold">الأرشيف البارد &lt;الفترة&gt;</span> ← المصدر (صور الإعلام، الشكاوى الرسمية…) ← الشهر ← اليوم ← <span dir="ltr" className="font-mono">2026-01-15_001.jpg</span>، مع ملف <span className="font-bold">الفهرس.csv</span> يربط كل ملف بسجله الأصلي.</p>
       {!supported && <p className="mt-2 rounded-xl bg-amber-100 p-2 text-xs font-bold text-amber-900" data-testid="cold-pull-unsupported">هذا المتصفح لا يدعم الكتابة إلى مجلد — افتح الصفحة في Chrome أو Edge على الحاسوب.</p>}
       {prog && running && (
         <div className="mt-3 space-y-1" data-testid="cold-pull-progress">

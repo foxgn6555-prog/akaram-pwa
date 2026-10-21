@@ -26,20 +26,47 @@ export async function pickDirectory(): Promise<FsDirHandle | null> {
   catch (e) { if ((e as { name?: string }).name === 'AbortError') return null; throw e }
 }
 
-/* ───── مسارات آمنة على ويندوز (نفس قواعد الأداة) ───── */
+/* ───── تسمية عربية مقروءة على القرص ─────
+ * <المجلد المختار>/الأرشيف البارد <من> إلى <إلى> (<الرمز>)/<المصدر>/<السنة-الشهر>/<التاريخ>/<التاريخ>_<تسلسل>.<امتداد>
+ * الأسماء قصيرة (تتجنب حد 260 حرفاً في ويندوز) وخالية من الأحرف الممنوعة؛ الربط بالمسار الأصلي في «الفهرس.csv» و manifest.json.
+ */
+export const SOURCE_FOLDERS: Record<string, string> = {
+  media_submission_photos: 'صور الإعلام',
+  contractor_checkins: 'صور المتعهدين',
+  complaint_media: 'الشكاوى الرسمية',
+  citizen_complaint_photos: 'شكاوى المواطنين',
+  citizen_chat_attachments: 'محادثات المواطنين',
+  sector_photos: 'صور القواطع',
+  gbs_container_updates: 'حاويات GBS',
+  vehicle_maintenance_attachments: 'مرفقات الصيانة',
+  garage_vehicles: 'صور الآليات',
+  employee_documents: 'مستندات الموظفين',
+  media_covers: 'أغلفة الإعلام',
+}
 // eslint-disable-next-line no-control-regex -- أحرف التحكم ممنوعة في أسماء ملفات ويندوز
-const WIN_FORBIDDEN = /[<>:"|?*\u0000-\u001f]/g
-const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i
-const enc = (c: string) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')
-export function safeSegments(bucket: string, storagePath: string): string[] {
-  const parts = storagePath.split('/').filter((p) => p.length > 0 && p !== '.')
-  const segs = parts.map((seg) => {
-    let s = seg === '..' ? '%2E%2E' : seg.replace(WIN_FORBIDDEN, enc)
-    if (WIN_RESERVED.test(s)) s = '_' + s
-    s = s.replace(/[. ]+$/, (m) => m.split('').map(enc).join(''))
-    return s
-  })
-  return ['files', bucket.replace(/[^a-zA-Z0-9_-]/g, '_'), ...segs]
+const WIN_FORBIDDEN = /[<>:"/\\|?*\u0000-\u001f]/g
+/** اسم مجلد/ملف صالح على ويندوز وماك ولينكس */
+export const safeName = (s: string) => (s.replace(WIN_FORBIDDEN, '_').replace(/[. ]+$/, '').trim() || '_')
+export const packageFolderName = (p: Pick<ColdPackage, 'code' | 'period_from' | 'period_to'>) => safeName(`الأرشيف البارد ${p.period_from} إلى ${p.period_to} (${p.code})`)
+const extOf = (path: string) => { const m = /\.([a-z0-9]{1,5})$/i.exec(path.split('/').pop() ?? ''); return m ? '.' + (m[1] as string).toLowerCase() : '' }
+/** مسار الملف داخل مجلد الحزمة؛ `seq` تسلسل ثابت للملف داخل يومه ومصدره */
+export function localSegments(it: Pick<ColdItem, 'source_key' | 'record_date' | 'storage_path'>, seq: number): string[] {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(it.record_date) ? it.record_date : 'بدون-تاريخ'
+  return [safeName(SOURCE_FOLDERS[it.source_key] ?? it.source_key), d.slice(0, 7), d, `${d}_${String(seq).padStart(3, '0')}${extOf(it.storage_path)}`]
+}
+/** تسلسل ثابت لكل ملف داخل (المصدر، اليوم) حسب ترتيب المعرّف — لا يتغير بين التشغيلات */
+export function assignSequences(items: ColdItem[]): Map<number, number> {
+  const counters = new Map<string, number>(); const out = new Map<number, number>()
+  for (const it of [...items].sort((a, b) => a.id - b.id)) { const k = it.source_key + '|' + it.record_date; const n = (counters.get(k) ?? 0) + 1; counters.set(k, n); out.set(it.id, n) }
+  return out
+}
+/** «الفهرس.csv» — UTF-8 مع BOM ليفتحه Excel بالعربية مباشرة */
+export function buildIndexCsv(entries: ManifestEntry[]): string {
+  const q = (v: string | number) => '"' + String(v).replace(/"/g, '""') + '"'
+  const head = ['المصدر', 'التاريخ', 'رقم السجل', 'الملف على القرص', 'المسار الأصلي في المنصة', 'الحجم (بايت)', 'SHA-256']
+  const rows = [...entries].sort((a, b) => a.local.join('/').localeCompare(b.local.join('/'), 'ar'))
+    .map((e) => [SOURCE_FOLDERS[e.source_key ?? ''] ?? e.source_key ?? '', e.record_date ?? '', e.record_id ?? '', e.local.join('\\'), `${e.bucket}/${e.path}`, e.bytes, e.sha256].map(q).join(','))
+  return '\ufeff' + [head.map(q).join(','), ...rows].join('\r\n') + '\r\n'
 }
 /** قراءة Blob كـ ArrayBuffer بطريقة تعمل في كل البيئات (بعض البيئات بلا Blob.arrayBuffer) */
 export async function blobBytes(b: Blob): Promise<Uint8Array<ArrayBuffer>> {
@@ -50,7 +77,7 @@ export async function blobBytes(b: Blob): Promise<Uint8Array<ArrayBuffer>> {
 export const sha256Hex = async (buf: Uint8Array<ArrayBuffer> | ArrayBuffer) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 /* ───── البيان ───── */
-export interface ManifestEntry { bucket: string; path: string; local: string[]; sha256: string; bytes: number; downloaded_at: string }
+export interface ManifestEntry { bucket: string; path: string; local: string[]; sha256: string; bytes: number; downloaded_at: string; source_key?: string; record_id?: string; record_date?: string }
 export interface Manifest { tool: string; version: number; package: { id: string; code: string; period_from: string; period_to: string }; created_at: string; updated_at: string; files: Record<string, ManifestEntry>; missing: Array<{ bucket: string; path: string }> }
 export const fileKey = (bucket: string, path: string) => `${bucket}\n${path}`
 const newManifest = (p: ColdPackage): Manifest => ({ tool: 'akaram-platform', version: 1, package: { id: p.id, code: p.code, period_from: p.period_from, period_to: p.period_to }, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), files: {}, missing: [] })
@@ -58,9 +85,13 @@ const newManifest = (p: ColdPackage): Manifest => ({ tool: 'akaram-platform', ve
 async function readManifest(dir: FsDirHandle): Promise<Manifest | null> {
   try { const fh = await dir.getFileHandle('manifest.json'); return JSON.parse(new TextDecoder().decode(await blobBytes(await fh.getFile()))) as Manifest } catch { return null }
 }
+async function writeText(dir: FsDirHandle, name: string, text: string) {
+  const fh = await dir.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(text); await w.close()
+}
 async function writeManifest(dir: FsDirHandle, m: Manifest) {
   m.updated_at = new Date().toISOString()
-  const fh = await dir.getFileHandle('manifest.json', { create: true }); const w = await fh.createWritable(); await w.write(JSON.stringify(m, null, 2)); await w.close()
+  await writeText(dir, 'manifest.json', JSON.stringify(m, null, 2))
+  await writeText(dir, 'الفهرس.csv', buildIndexCsv(Object.values(m.files)))
 }
 async function fileHandleFor(dir: FsDirHandle, segs: string[], create: boolean): Promise<FsFileHandle> {
   let cur = dir
@@ -110,8 +141,10 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
   const pkg = await coldArchive.package(pkgId)
   if (!['ready', 'verified'].includes(pkg.status)) throw new Error('حالة الحزمة لا تسمح بالتنزيل')
   report({ phase: 'listing', done: 0, total: 0, bytes: 0, missing: 0, failed: 0 })
-  const items = (await allItems(pkg.id)).filter((i) => i.status === 'listed' || i.status === 'downloaded')
-  const dir = await root.getDirectoryHandle(pkg.code, { create: true })
+  const all = await allItems(pkg.id)
+  const seqOf = assignSequences(all)
+  const items = all.filter((i) => i.status === 'listed' || i.status === 'downloaded')
+  const dir = await root.getDirectoryHandle(packageFolderName(pkg), { create: true })
   const m = (await readManifest(dir)) ?? newManifest(pkg)
   if (m.package.id !== pkg.id) throw new Error('هذا المجلد يحوي حزمة أخرى بنفس الرمز — اختر مجلداً آخر')
 
@@ -131,10 +164,10 @@ export async function pullPackageToDirectory(pkgId: string, root: FsDirHandle, o
       const data = await downloadWithRetry(it.bucket, it.storage_path)
       if (!data) { await rpc('cold_archive_item_missing', { p_package: pkg.id, p_bucket: it.bucket, p_path: it.storage_path }); m.missing.push({ bucket: it.bucket, path: it.storage_path }); missing++; continue }
       const buf = await blobBytes(data)
-      const segs = safeSegments(it.bucket, it.storage_path)
+      const segs = localSegments(it, seqOf.get(it.id) ?? 0)
       const fh = await fileHandleFor(dir, segs, true); const w = await fh.createWritable(); await w.write(buf); await w.close()
       const sha = await sha256Hex(buf)
-      const entry: ManifestEntry = { bucket: it.bucket, path: it.storage_path, local: segs, sha256: sha, bytes: buf.byteLength, downloaded_at: new Date().toISOString() }
+      const entry: ManifestEntry = { bucket: it.bucket, path: it.storage_path, local: segs, sha256: sha, bytes: buf.byteLength, downloaded_at: new Date().toISOString(), source_key: it.source_key, record_id: it.record_id, record_date: it.record_date }
       m.files[fileKey(it.bucket, it.storage_path)] = entry; pending.push(entry); done++; bytes += buf.byteLength
       if (pending.length >= 100) await flush()
     } catch (e) { failed++; failures.push({ bucket: it.bucket, path: it.storage_path, reason: errMsg(e) }) }

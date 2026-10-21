@@ -6,7 +6,7 @@ if (!globalThis.crypto?.subtle) Object.defineProperty(globalThis, 'crypto', { va
 const h = vi.hoisted(() => ({ rpc: vi.fn(), download: vi.fn(), pkg: vi.fn() }))
 vi.mock('@sdk/client', () => ({ supabase: { rpc: h.rpc, storage: { from: () => ({ download: h.download }) } } }))
 vi.mock('@sdk/cold-archive.sdk', () => ({ coldArchive: { package: h.pkg } }))
-import { fileKey, pullPackageToDirectory, safeSegments, sha256Hex, type FsDirHandle, type FsFileHandle } from '@features/cold-archive/browser-pull'
+import { assignSequences, buildIndexCsv, fileKey, localSegments, packageFolderName, pullPackageToDirectory, safeName, sha256Hex, type FsDirHandle, type FsFileHandle } from '@features/cold-archive/browser-pull'
 
 /* مجلد وهمي في الذاكرة */
 function memDir(name = 'D'): FsDirHandle & { store: Map<string, Uint8Array<ArrayBuffer>> } {
@@ -24,9 +24,9 @@ function memDir(name = 'D'): FsDirHandle & { store: Map<string, Uint8Array<Array
   return Object.assign(make('', name), { store })
 }
 const items = [
-  { id: 1, bucket: 'media-photos', storage_path: 'u1/a.jpg', status: 'listed' },
-  { id: 2, bucket: 'media-photos', storage_path: 'u1/b:x.jpg', status: 'listed' },
-  { id: 3, bucket: 'media-photos', storage_path: 'u1/gone.jpg', status: 'listed' },
+  { id: 1, bucket: 'media-photos', storage_path: 'u1/a.jpg', status: 'listed', source_key: 'media_submission_photos', record_id: 'r1', record_date: '2026-01-15' },
+  { id: 2, bucket: 'media-photos', storage_path: 'u1/b:x.jpg', status: 'listed', source_key: 'media_submission_photos', record_id: 'r1', record_date: '2026-01-15' },
+  { id: 3, bucket: 'media-photos', storage_path: 'u1/gone.jpg', status: 'listed', source_key: 'complaint_media', record_id: 'r2', record_date: '2026-01-20' },
 ]
 const enc = (t: string) => new TextEncoder().encode(t) as Uint8Array<ArrayBuffer>
 const blobs: Record<string, Uint8Array<ArrayBuffer>> = { 'u1/a.jpg': enc('hello'), 'u1/b:x.jpg': enc('world') }
@@ -47,9 +47,19 @@ describe('pullPackageToDirectory', () => {
     h.download.mockImplementation(async (p: string) => blobs[p] ? { data: new Blob([blobs[p] as BlobPart]), error: null } : { data: null, error: { message: 'Object not found' } })
   })
 
-  it('مسارات آمنة على ويندوز', () => {
-    expect(safeSegments('media-photos', 'u1/b:x.jpg')).toEqual(['files', 'media-photos', 'u1', 'b%3Ax.jpg'])
-    expect(safeSegments('media-photos', '../con.jpg')).toEqual(['files', 'media-photos', '%2E%2E', '_con.jpg'])
+  it('أسماء عربية مقروءة ومرتبة حسب التاريخ وآمنة على ويندوز', () => {
+    expect(packageFolderName({ code: 'PKG-2026-01', period_from: '2026-01-01', period_to: '2026-01-31' })).toBe('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-2026-01)')
+    expect(localSegments({ source_key: 'complaint_media', record_date: '2026-01-20', storage_path: 'inbox/x/abc-def.JPG' }, 7)).toEqual(['الشكاوى الرسمية', '2026-01', '2026-01-20', '2026-01-20_007.jpg'])
+    expect(localSegments({ source_key: 'unknown_src', record_date: 'bad', storage_path: 'noext' }, 1)).toEqual(['unknown_src', 'بدون-تا', 'بدون-تاريخ', 'بدون-تاريخ_001'])
+    expect(safeName('a:b/c?d. ')).toBe('a_b_c_d')
+    const seq = assignSequences(items as never)
+    expect([seq.get(1), seq.get(2), seq.get(3)]).toEqual([1, 2, 1])   // نفس اليوم والمصدر ⇒ 1، 2؛ مصدر آخر ⇒ 1
+  })
+
+  it('الفهرس.csv بالعربية مع BOM', () => {
+    const csv = buildIndexCsv([{ bucket: 'b', path: 'p/x.jpg', local: ['صور الإعلام', '2026-01', '2026-01-15', '2026-01-15_001.jpg'], sha256: 'abc', bytes: 5, downloaded_at: '', source_key: 'media_submission_photos', record_id: 'r1', record_date: '2026-01-15' }])
+    expect(csv.startsWith('\ufeff"المصدر"')).toBe(true)
+    expect(csv).toContain('"صور الإعلام","2026-01-15","r1","صور الإعلام\\2026-01\\2026-01-15\\2026-01-15_001.jpg","b/p/x.jpg","5","abc"')
   })
 
   it('دورة كاملة: ينزّل، يبلّغ المفقود، يكتب البيان، يتحقق من القرص، ويسجّل النسخة باسم المجلد', async () => {
@@ -57,8 +67,9 @@ describe('pullPackageToDirectory', () => {
     const r = await pullPackageToDirectory('p1', dir, { diskLabel: dir.name, onProgress: (p) => { if (phases.at(-1) !== p.phase) phases.push(p.phase) } })
     expect(r).toMatchObject({ downloaded: 2, missing: 1, failed: 0, verified: true, corrupt: 0 })
     expect(phases).toEqual(['listing', 'downloading', 'verifying', 'registering', 'done'])
-    expect(dir.store.has('PKG-T/files/media-photos/u1/b%3Ax.jpg')).toBe(true)
-    const manifest = JSON.parse(new TextDecoder().decode(dir.store.get('PKG-T/manifest.json')))
+    expect(dir.store.has('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-T)/صور الإعلام/2026-01/2026-01-15/2026-01-15_002.jpg')).toBe(true)
+    expect(dir.store.has('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-T)/الفهرس.csv')).toBe(true)
+    const manifest = JSON.parse(new TextDecoder().decode(dir.store.get('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-T)/manifest.json')))
     expect(manifest.files[fileKey('media-photos', 'u1/a.jpg')].sha256).toBe(await sha256Hex(enc('hello')))
     expect(manifest.missing).toEqual([{ bucket: 'media-photos', path: 'u1/gone.jpg' }])
     const verify = h.rpc.mock.calls.find((c) => c[0] === 'cold_archive_copy_verify')
@@ -81,13 +92,13 @@ describe('pullPackageToDirectory', () => {
     // تنزيل ناجح أولاً، ثم إتلاف ملف على القرص، ثم محاولة نسخة ثانية
     const r1 = await pullPackageToDirectory('p1', dir, { diskLabel: 'x' })
     expect(r1.verified).toBe(true)
-    dir.store.set('PKG-T/files/media-photos/u1/a.jpg', enc('CORRUPT'))
+    dir.store.set('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-T)/صور الإعلام/2026-01/2026-01-15/2026-01-15_001.jpg', enc('CORRUPT'))
     pkg = { ...pkg, status: 'verified' }
     h.rpc.mockClear()
     const r2 = await pullPackageToDirectory('p1', dir, { diskLabel: 'y' })
     expect(r2).toMatchObject({ verified: false, corrupt: 1 })
     expect(h.rpc.mock.calls.some((c) => c[0] === 'cold_archive_copy_verify')).toBe(false)
-    const manifest = JSON.parse(new TextDecoder().decode(dir.store.get('PKG-T/manifest.json')))
+    const manifest = JSON.parse(new TextDecoder().decode(dir.store.get('الأرشيف البارد 2026-01-01 إلى 2026-01-31 (PKG-T)/manifest.json')))
     expect(manifest.files[fileKey('media-photos', 'u1/a.jpg')]).toBeUndefined()
   })
 
