@@ -110,8 +110,8 @@ function PackageCard({ p, expanded, onToggle }: { p: ColdPackage; expanded: bool
             </div>
           </div>
           <div className="rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-600">
-            <b>أوامر الأداة:</b>
-            <code className="mt-1 block rounded bg-slate-900 px-3 py-2 font-mono text-[12px] text-slate-100" dir="ltr">akaram-archive pull {p.code} --to &lt;مجلد القرص&gt;<br />akaram-archive verify {p.code} --from &lt;مجلد القرص&gt; --disk &lt;اسم القرص&gt;</code>
+            <b>أوامر الأداة</b> (مجلد <span dir="ltr" className="font-mono">tools/akaram-archive</span> — يعمل على ويندوز بـ archive.bat):
+            <code className="mt-1 block rounded bg-slate-900 px-3 py-2 font-mono text-[12px] text-slate-100" dir="ltr">archive.bat pull {p.code} --to D:\Archive<br />archive.bat verify {p.code} --from D:\Archive --disk "قرص-1"</code>
           </div>
           {d.events && d.events.length > 0 && (
             <details className="text-sm"><summary className="cursor-pointer font-bold text-slate-700">سجل الأحداث ({d.events.length})</summary>

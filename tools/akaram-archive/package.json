@@ -1,0 +1,10 @@
+{
+  "name": "akaram-archive",
+  "version": "1.0.0",
+  "private": true,
+  "description": "أداة الأرشيف البارد — تنزيل حزم الملفات القديمة من منصة أكرم إلى قرص (داخلي أو خارجي) والتحقق منها بالبصمات SHA-256",
+  "type": "module",
+  "scripts": { "list": "node archive.mjs list" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "@supabase/supabase-js": "^2.49.0" }
+}

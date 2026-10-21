@@ -63,7 +63,7 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
     expect(card).toHaveTextContent('0 / 1')
     fireEvent.click(screen.getByText('PKG-2026-07-01_2026-08-31-001'))
     expect(card).toHaveTextContent('صور الإعلام')
-    expect(card).toHaveTextContent('akaram-archive pull PKG-2026-07-01_2026-08-31-001')
+    expect(card).toHaveTextContent('archive.bat pull PKG-2026-07-01_2026-08-31-001')
     const btn = screen.getByTestId('cold-cancel-btn')
     expect(btn).toBeDisabled()
     fireEvent.change(screen.getByTestId('cold-cancel-reason'), { target: { value: 'أُنشئت بالخطأ' } })

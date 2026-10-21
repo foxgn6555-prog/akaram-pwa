@@ -1,0 +1,5 @@
+{
+  "supabase_url": "https://YOUR-PROJECT.supabase.co",
+  "anon_key": "sb_publishable_xxxxxxxxxxxxxxxx",
+  "email": "it-account@example.com"
+}
