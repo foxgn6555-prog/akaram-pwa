@@ -84,6 +84,7 @@
     "ts_vehicle_movements": "حركة آليات المواقع",
     "ops_station_daily": "التقرير اليومي للمحطة",
     "ops_station_fleet": "أسطول المحطة التحويلية",
+    "ops_station_outbound": "متابعة خروج آليات المحطة",
     "ops_operations_data": "بيانات وتقارير العمليات",
     "ops_vehicles_database": "قاعدة بيانات الآليات",
     "ops_vehicles_archive": "أرشيف الآليات",

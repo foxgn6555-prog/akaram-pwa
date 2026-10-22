@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const dir = join(process.cwd(), 'src/portals/ops-room/pages')
 export const OPS_UNIFIED = ['Dashboard/OpsRoomDashboardPage', 'Attendance/OpsAttendancePage', 'Store/OpsStorePage', 'Campaigns/OpsCampaignsPage', 'CitizenComplaints/OpsCitizenComplaintsPage', 'Advances/OpsAdvancesPage', 'StationDaily/StationDailyReportPage',
-  'OperationsData/OperationsDataPage', 'Gps/GpsDataPage', 'Gbs/GbsContainersPage', 'ContractorHeadcounts/OpsContractorHeadcountsPage', 'Leaves/OpsLeavesPage', 'LiveTracking/OpsLiveTrackingPage', 'LiveTracking/OpsLiveDataPage', 'StationFleet/OpsStationFleetPage']
+  'OperationsData/OperationsDataPage', 'Gps/GpsDataPage', 'Gbs/GbsContainersPage', 'ContractorHeadcounts/OpsContractorHeadcountsPage', 'Leaves/OpsLeavesPage', 'LiveTracking/OpsLiveTrackingPage', 'LiveTracking/OpsLiveDataPage', 'StationFleet/OpsStationFleetPage', 'StationFleet/OpsStationOutboundPage']
 const SHARED = { 'Disclosures/OpsDisclosuresPage': 'DisclosuresUnitPage', '@portals/central-garage/pages/VehiclesDatabasePage': null, '@portals/central-garage/pages/VehicleDetailPage': null, '@portals/central-garage/pages/GarageArchivePage': null } as const
 
 describe('عقد تصميم غرفة العمليات (00241/00242)', () => {
