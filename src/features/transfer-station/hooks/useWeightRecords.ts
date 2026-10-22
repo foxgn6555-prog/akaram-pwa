@@ -11,7 +11,6 @@ import { useUiStore } from '@stores/ui.store'
 import type {
   CreateWeightInput,
   UpdateWeightInput,
-  CreateSaksatInput,
   Shift,
 } from '../types'
 
@@ -139,16 +138,3 @@ export function useTripsList(month?: string) {
   })
 }
 
-export function useCreateTrips() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (input: CreateSaksatInput) => transferStation.createTrips(input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
-      addToast({ type: 'success', message: 'تم تسجيل النسافة بنجاح' })
-    },
-    onError: (error) =>
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'createTrips' }).message }),
-  })
-}

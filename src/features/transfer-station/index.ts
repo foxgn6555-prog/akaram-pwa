@@ -9,7 +9,6 @@ export {
   useSendToOps,
   useSaksatList,
   useTripsList,
-  useCreateTrips,
 } from './hooks/useWeightRecords'
 export {
   useViolations,
@@ -26,7 +25,7 @@ export {
   useSendDailyToDeputy,
   useDeputyDailyReports,
 } from './hooks/useWorkflow'
-export { UNIT_CAPACITIES, unitCapacity } from './lib/unitCapacities'
+export { UNIT_CAPACITIES, unitCapacity, categoryDefaultTons } from './lib/unitCapacities'
 export type { OutboundUnit } from './lib/unitCapacities'
 export {
   VEHICLE_KINDS,

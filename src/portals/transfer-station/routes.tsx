@@ -3,8 +3,8 @@
  *  · ''          → لوحة التقارير (الداشبورد)
  *  · weights     → صفحة الأوزان (النموذج + الدفتر + التصدير)
  *  · weights/log → نفس وحدة الأوزان (الإدخال)
- *  · saksat      → السكسات الخارجة (هيكل أولي — المحتوى لاحقاً)
- *  · trips       → النسافات الخارجة (هيكل أولي — المحتوى لاحقاً)
+ *  · saksat      → السكسات والنسافات الخارجة (القوائم فقط · الوصول آلي من GPS)
+ *  · trips       → (00332) أُدمجت في وحدة السكسات والنسافات — تحويل تلقائي
  *  · fines       → الغرامات (قيد الإنشاء)
  *  · archive     → أرشيف المحطة (الحذف/الأرشفة نحو IT)
  *
@@ -13,13 +13,12 @@
  */
 import { lazy } from '@lib/router/lazy'
 import { Suspense, type ReactNode } from 'react'
-import type { RouteObject } from 'react-router'
+import { Navigate, type RouteObject } from 'react-router'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const StationDashboard = lazy(() => import('./pages/Dashboard/StationDashboard'))
 const WeightsPage = lazy(() => import('./pages/Weights/WeightsPage'))
 const SaksatPage = lazy(() => import('./pages/Saksat/SaksatPage'))
-const TripsPage = lazy(() => import('./pages/Trips/TripsPage'))
 const CarrierPage = lazy(() => import('./pages/Carrier/CarrierPage'))
 const FinesPage = lazy(() => import('./pages/Fines/FinesPage'))
 const StationArchivePage = lazy(() => import('./pages/Archive/StationArchivePage'))
@@ -38,7 +37,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'weights', element: s(<WeightsPage />) },
   { path: 'weights/log', element: s(<WeightsPage />) },
   { path: 'saksat', element: s(<SaksatPage />) },
-  { path: 'trips', element: s(<TripsPage />) },
+  { path: 'trips', element: <Navigate to="/transfer-station/saksat" replace /> },   // 00332: دمج
   { path: 'carrier', element: s(<CarrierPage />) },
   { path:'vehicle-movements',element:s(<StationVehicleMovementsPage/>) },
   { path: 'employees', element: s(<StationEmployeesPage />) },

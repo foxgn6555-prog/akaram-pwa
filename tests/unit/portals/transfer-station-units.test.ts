@@ -16,7 +16,7 @@ describe('بوابة المحطة التحويلية — إلغاء الحضور
     // الوحدات الأساسية ما تزال موجودة
     expect(paths).toContain('/transfer-station/weights')
     expect(paths).toContain('/transfer-station/saksat')
-    expect(paths).toContain('/transfer-station/trips')
+    expect(paths).not.toContain('/transfer-station/trips')   // 00332: أُدمجت في السكسات والنسافات
   })
 
   it('لا تعرّف مسار attendance في customRoutes', () => {

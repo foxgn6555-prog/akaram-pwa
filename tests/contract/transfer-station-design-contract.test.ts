@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const dir = join(process.cwd(), 'src/portals/transfer-station/pages')
-const UNIT_PAGES = ['Dashboard/StationDashboard', 'Weights/WeightsPage', 'Saksat/SaksatPage', 'Trips/TripsPage', 'Carrier/CarrierPage', 'VehicleMovements/StationVehicleMovementsPage', 'Fines/FinesPage', 'Archive/StationArchivePage']
+const UNIT_PAGES = ['Dashboard/StationDashboard', 'Weights/WeightsPage', 'Saksat/SaksatPage', 'Carrier/CarrierPage', 'VehicleMovements/StationVehicleMovementsPage', 'Fines/FinesPage', 'Archive/StationArchivePage']
 const SHARED = { 'Employees/StationEmployeesPage': 'GarageEmployeesPage', 'Requests/StationRequestsPage': 'GarageRequestsPage', 'Procedures/StationProceduresPage': 'GarageProceduresPage', 'Disclosures/StationDisclosuresPage': 'DisclosuresUnitPage' }
 const walk = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]))
 

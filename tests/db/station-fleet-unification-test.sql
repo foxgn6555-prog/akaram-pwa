@@ -236,5 +236,27 @@ begin
   raise notice 'H ✓ المرشحون';
 end $$;
 
+-- ═══ I) 00277: دمج النسافات — الجدول القديم للقراءة فقط + التقرير اليومي يفرز بالفئة ═══
+do $$
+declare n int; r jsonb;
+begin
+  -- سجل قديم في جدول النسافات (بصلاحية الخادم لمحاكاة التاريخ)
+  insert into public.ts_trips_records (driver_name, vehicle_type, log_date) values ('سائق نسافة قديم', 'نسافة', current_date);
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
+  set role authenticated;
+  perform pg_temp.expect_error($q$insert into public.ts_trips_records (driver_name, vehicle_type, log_date) values ('نص حر', 'نسافة', current_date)$q$, 'row-level security');
+  select count(*) into n from public.ts_trips_records where driver_name = 'سائق نسافة قديم'; assert n = 1, 'I1: القديم مقروء للمحطة';
+  reset role;
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
+  r := public.ops_station_daily_report(current_date);
+  -- اليوم: نسافة واحدة من الجدول الموحّد (exit1) + نسافة قديمة = 2 · سكس قديم (بلا فئة) = 1 · ناقلتان
+  assert (r->'outbound'->'trips'->>'count')::int = 2, 'I2: trips=2 got ' || (r->'outbound'->'trips'->>'count');
+  assert (r->'outbound'->'saksat'->>'count')::int = 1, 'I3: saksat=1 got ' || (r->'outbound'->'saksat'->>'count');
+  assert (r->'outbound'->'carrier'->>'count')::int = 2, 'I4: carrier=2 got ' || (r->'outbound'->'carrier'->>'count');
+  assert (r->'outbound'->'trips'->>'tons')::numeric = 50, 'I5: أطنان النسافات بالحمولة القياسية 25 got ' || (r->'outbound'->'trips'->>'tons');
+  assert (r->'outbound'->>'total_count')::int = 5, 'I6: total=5 got ' || (r->'outbound'->>'total_count');
+  raise notice 'I ✓ دمج النسافات';
+end $$;
+
 reset role; select set_config('auth.user_id','', false);
 select 'STATION FLEET UNIFICATION TEST PASSED' as result;

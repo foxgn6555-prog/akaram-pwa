@@ -36,8 +36,8 @@ describe('StationDashboard', () => {
     renderDash()
     expect(screen.getByTestId('dash-units')).toBeInTheDocument()
     expect(screen.getByText('الأوزان')).toBeInTheDocument()
-    expect(screen.getByText('السكسات الخارجة')).toBeInTheDocument()
-    expect(screen.getByText('النسافات الخارجة')).toBeInTheDocument()
+    expect(screen.getByText('السكسات والنسافات الخارجة')).toBeInTheDocument()   // 00332: وحدة موحّدة
+    expect(screen.queryByText('النسافات الخارجة')).toBeNull()
     expect(screen.getByText('مخالفات الوزن')).toBeInTheDocument()
     expect(screen.getByText('ناقلات الحاويات')).toBeInTheDocument()
     expect(screen.getByText('حركة الآليات')).toBeInTheDocument()

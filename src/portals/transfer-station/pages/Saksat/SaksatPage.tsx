@@ -5,7 +5,7 @@
  *  · البيانات تصل غرفة العمليات ضمن التقرير اليومي ومنها إلى المعاون (لا إرسال مباشر).
  */
 import { useState } from 'react'
-import { useSaksatList } from '@features/transfer-station'
+import { useSaksatList, useTripsList } from '@features/transfer-station'
 import { StationTable } from '@components/station/StationTable'
 import { currentMonth, monthLabel } from '@components/station/station.utils'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -16,6 +16,9 @@ export default function SaksatPage() {
   const [month, setMonth] = useState(currentMonth())
   const list = useSaksatList(month)
   const records = list.data ?? []
+  const legacy = useTripsList(month)   // 00332: جدول النسافات القديم — للقراءة فقط
+  const legacyRows = legacy.data ?? []
+  const [showLegacy, setShowLegacy] = useState(false)
   return (
     <div className="space-y-5" data-testid="saksat-page">
       <ExecPageHeader icon="send" title="السكسات والنسافات الخارجة" subtitle="تسجيل خروج السكسات والنسافات من المحطة التحويلية — بالقوائم فقط؛ الوصول إلى الوجهة يُسجَّل آلياً من GPS" />
@@ -28,6 +31,16 @@ export default function SaksatPage() {
         <span className="ms-auto text-[11px] text-slate-400">تصل غرفة العمليات تلقائياً ضمن التقرير اليومي ومنها إلى المعاون</span>
       </div>
       <StationTable kind="saksat" records={records} personLabel="السائق" withDestination />
+      {legacyRows.length > 0 && (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4" data-testid="saksat-legacy">
+          <button type="button" onClick={() => setShowLegacy((v) => !v)} data-testid="saksat-legacy-toggle" className="flex w-full items-center gap-2 text-start text-sm font-bold text-slate-700">
+            <Icon name="archive-box" size={16} className="text-slate-500" />
+            سجلات النسافات القديمة (قبل التوحيد) — {legacyRows.length} سجل
+            <span className="ms-auto text-[11px] font-normal text-slate-500">{showLegacy ? 'إخفاء' : 'عرض'} · للقراءة فقط</span>
+          </button>
+          {showLegacy && <div className="mt-3"><StationTable kind="trips" records={legacyRows} personLabel="اسم السائق" /></div>}
+        </section>
+      )}
     </div>
   )
 }

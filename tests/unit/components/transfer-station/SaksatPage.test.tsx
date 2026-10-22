@@ -4,8 +4,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { SaksatRecord } from '@features/transfer-station/types'
 
-const h = vi.hoisted(() => ({ list: [] as unknown[], fleet: [] as unknown[], drivers: [] as unknown[], dests: [] as unknown[], record: vi.fn() }))
-vi.mock('@features/transfer-station', () => ({ useSaksatList: () => ({ data: h.list, isLoading: false }) }))
+const h = vi.hoisted(() => ({ list: [] as unknown[], legacy: [] as unknown[], fleet: [] as unknown[], drivers: [] as unknown[], dests: [] as unknown[], record: vi.fn() }))
+vi.mock('@features/transfer-station', () => ({ useSaksatList: () => ({ data: h.list, isLoading: false }), useTripsList: () => ({ data: h.legacy, isLoading: false }) }))
 vi.mock('@features/station-fleet/hooks', () => ({
   useStationFleet: () => ({ data: h.fleet, isLoading: false }),
   useStationDrivers: () => ({ data: h.drivers, isLoading: false }),
@@ -22,6 +22,7 @@ const ui = () => render(<MemoryRouter><SaksatPage /></MemoryRouter>)
 
 beforeEach(() => {
   h.record.mockReset()
+  h.legacy = []
   h.fleet = [
     { id: 'v1', vehicle_name: 'نسافة 1', db_number: '101', plate_number: 'A1', vehicle_category: 'nasafa', category_label: 'نسافة', station_outbound: true, driver_employee_id: null, driver_name: null, has_gps: true, device_id: 'dev1', ownership_type: 'owned' },
     { id: 'v2', vehicle_name: 'سكس 2', db_number: '102', plate_number: 'A2', vehicle_category: 'six', category_label: 'سكس', station_outbound: true, driver_employee_id: null, driver_name: null, has_gps: false, device_id: null, ownership_type: 'rented' },
@@ -63,7 +64,7 @@ describe('SaksatPage (00330)', () => {
     expect(screen.getByText('اختر الوجهة')).toBeInTheDocument()
   })
 
-  it('خروج بسائق موظف وآلية بـ GPS: وسم «الوصول يُسجَّل آلياً» والحمولة القياسية 10', () => {
+  it('خروج بسائق موظف ونسافة بـ GPS: وسم «الوصول يُسجَّل آلياً» والحمولة القياسية للنسافة 25 وللسكس 10', () => {
     ui()
     fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v1' } })
     expect(screen.getByTestId('f-saksat-tracking')).toHaveTextContent('الوصول يُسجَّل آلياً')
@@ -71,7 +72,23 @@ describe('SaksatPage (00330)', () => {
     fireEvent.change(screen.getByTestId('f-saksat-driver'), { target: { value: 'e1' } })
     fireEvent.change(screen.getByTestId('f-saksat-destination'), { target: { value: 'd1' } })
     fireEvent.click(screen.getByTestId('saksat-submit'))
-    expect(h.record).toHaveBeenCalledWith({ vehicleId: 'v1', driverKind: 'employee', destinationId: 'd1', driverEmployeeId: 'e1', externalDriverId: null, driverName: null, weightTons: 10 }, expect.anything())
+    expect(h.record).toHaveBeenCalledWith({ vehicleId: 'v1', driverKind: 'employee', destinationId: 'd1', driverEmployeeId: 'e1', externalDriverId: null, driverName: null, weightTons: 25 }, expect.anything())
+    fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v2' } })
+    expect(screen.getByTestId('f-saksat-weight')).toHaveValue(10)
+  })
+
+  it('00332: سجلات النسافات القديمة تظهر للقراءة فقط عند وجودها', () => {
+    ui()
+    expect(screen.queryByTestId('saksat-legacy')).toBeNull()
+  })
+  it('00332: قسم قابل للطي للسجلات القديمة', () => {
+    h.legacy = [REC({ id: 't1', driver_name: 'سائق نسافة قديم', vehicle_type: 'نسافة' })]
+    ui()
+    expect(screen.getByTestId('saksat-legacy')).toHaveTextContent('1 سجل')
+    expect(screen.queryByText('سائق نسافة قديم')).toBeNull()
+    fireEvent.click(screen.getByTestId('saksat-legacy-toggle'))
+    expect(screen.getByText('سائق نسافة قديم')).toBeInTheDocument()
+    expect(screen.getByTestId('saksat-legacy').querySelector('input, select, button[type=submit]')).toBeNull()
   })
 
   it('آلية مؤجرة بلا GPS: وسم «بلا تتبع»، سائق خارجي من القائمة أو متعاقد بالاسم', () => {

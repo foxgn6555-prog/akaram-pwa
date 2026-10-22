@@ -14,7 +14,6 @@ import type {
   Shift,
   SaksatRecord,
   TripRecord,
-  CreateTripInput,
   CarrierRecord,
   ViolationRecord,
   WorkflowRow,
@@ -196,19 +195,9 @@ export const transferStation = {
     return listStation('ts_saksat_records', month)
   },
 
+  /** 00332: جدول قديم للقراءة فقط — النسافات تُسجَّل الآن في ts_saksat_records بفئة nasafa */
   async listTrips(month?: string): Promise<TripRecord[]> {
     return listStation('ts_trips_records', month)
-  },
-
-  async createTrips(input: CreateTripInput): Promise<TripRecord> {
-    return sdkGuard(
-      supabase
-        .from('ts_trips_records')
-        .insert({ driver_name: input.driver_name, vehicle_type: input.vehicle_type?.trim() || null, exit_time: input.exit_time ?? new Date().toISOString(), log_date: input.log_date } as never)
-        .select(STATION_COLS)
-        .single()
-        .returns<Record<string, unknown>>(),
-    ).then((r) => normalizeStation(r as Record<string, unknown>))
   },
 
   /* ═══ ناقلة الحاويات المكبسية (00130) ═══ */

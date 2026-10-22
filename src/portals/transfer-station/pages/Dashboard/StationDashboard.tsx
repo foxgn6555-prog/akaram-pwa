@@ -69,9 +69,8 @@ export default function StationDashboard() {
   const quick: Array<{ path: string; label: string; hint: string; icon: IconName }> = [
     { path: '/transfer-station/vehicle-movements', label: 'حركة الآليات', hint: 'وصول ← وزن ← وجهة ← اكتمال', icon: 'truck' },
     { path: '/transfer-station/weights', label: 'الأوزان', hint: 'دفتر تلقائي من سير العمل', icon: 'scale' },
-    { path: '/transfer-station/saksat', label: 'السكسات الخارجة', hint: 'فولدر شهري للمعاون', icon: 'send' },
-    { path: '/transfer-station/trips', label: 'النسافات الخارجة', hint: 'فولدر شهري للمعاون', icon: 'truck' },
-    { path: '/transfer-station/carrier', label: 'ناقلات الحاويات', hint: 'فولدر شهري للمعاون', icon: 'truck' },
+    { path: '/transfer-station/saksat', label: 'السكسات والنسافات الخارجة', hint: 'خروج بالقوائم · الوصول آلي من GPS', icon: 'send' },
+    { path: '/transfer-station/carrier', label: 'ناقلات الحاويات', hint: 'خروج بالقوائم · الوصول آلي من GPS', icon: 'truck' },
     { path: '/transfer-station/fines', label: 'مخالفات الوزن', hint: 'الأقل من الحد المسموح', icon: 'alert-triangle' },
     { path: '/transfer-station/employees', label: 'الموظفون', hint: 'موظفو قسم المحطة — بيانات أساسية', icon: 'users' },
     { path: '/transfer-station/requests', label: 'الطلبات', hint: 'إجازات وزمنيات موظفي المحطة', icon: 'calendar' },

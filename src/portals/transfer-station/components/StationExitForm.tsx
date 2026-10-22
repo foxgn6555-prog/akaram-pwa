@@ -9,12 +9,14 @@ import clsx from 'clsx'
 import { Icon } from '@components/ui/Icon/Icon'
 import { useStationDestinations, useStationDrivers, useStationFleet, useStationRecordExit } from '@features/station-fleet/hooks'
 import type { StationDriverKind } from '@sdk/station-fleet.sdk'
+import { categoryDefaultTons } from '@features/transfer-station/lib/unitCapacities'
 
 export type ExitKind = 'saksat' | 'carrier'
 const DRIVER_KIND_AR: Record<StationDriverKind, string> = { employee: 'موظف (سائق في HR)', external: 'سائق متعهد خارجي', contracted: 'سائق الآلية المتعاقدة' }
 const field = 'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500'
 
 export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defaultWeight: string }) {
+  // 00332: عند اختيار الآلية يُقترح الوزن القياسي لفئتها (نسافة 25 · سكس 10 · ناقلة 16) ما لم يكتب المستخدم وزناً
   const fleet = useStationFleet()
   const drivers = useStationDrivers()
   const destinations = useStationDestinations(false)
@@ -29,6 +31,11 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
 
   const vehicles = useMemo(() => (fleet.data ?? []).filter((v) => v.station_outbound && (kind === 'carrier' ? v.vehicle_category === 'container_carrier' : v.vehicle_category !== 'container_carrier')), [fleet.data, kind])
   const vehicle = vehicles.find((v) => v.id === vehicleId) ?? null
+  const pickVehicle = (id: string) => {
+    setVehicleId(id); setErrors((er) => ({ ...er, vehicle: '', driver: '' }))
+    const v = vehicles.find((x) => x.id === id)
+    if (v) setWeight(String(categoryDefaultTons(v.vehicle_category)))
+  }
   const driverOptions = useMemo(() => (drivers.data ?? []).filter((d) => d.driver_kind === driverKind), [drivers.data, driverKind])
   const weightRequired = kind === 'carrier'
 
@@ -63,7 +70,7 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
       )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">الآلية <span className="text-red-500">*</span>
-          <select value={vehicleId} onChange={(e) => { setVehicleId(e.target.value); setErrors((er) => ({ ...er, vehicle: '', driver: '' })) }} data-testid={`f-${kind}-vehicle`} className={clsx(field, errors.vehicle ? 'border-red-400' : 'border-slate-200')}>
+          <select value={vehicleId} onChange={(e) => pickVehicle(e.target.value)} data-testid={`f-${kind}-vehicle`} className={clsx(field, errors.vehicle ? 'border-red-400' : 'border-slate-200')}>
             <option value="">— اختر الآلية —</option>
             {vehicles.map((v) => <option key={v.id} value={v.id}>{`DB ${v.db_number} · ${v.category_label} · ${v.plate_number}${v.has_gps ? '' : ' · بلا GPS'}`}</option>)}
           </select>

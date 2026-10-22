@@ -14,3 +14,7 @@ export const UNIT_CAPACITIES: Record<OutboundUnit, { label: string; tons: number
 }
 
 export const unitCapacity = (unit: OutboundUnit): number => UNIT_CAPACITIES[unit].tons
+
+/** 00332: الحمولة القياسية حسب فئة الآلية الموحّدة (نسافة 25 · ناقلة 16 · سكس وغيرها 10) */
+export const categoryDefaultTons = (category: string | null | undefined): number =>
+  category === 'nasafa' ? UNIT_CAPACITIES.trips.tons : category === 'container_carrier' ? UNIT_CAPACITIES.carrier.tons : UNIT_CAPACITIES.saksat.tons
