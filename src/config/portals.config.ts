@@ -283,6 +283,11 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
           labelKey: 'nav.cold_archive',
           icon: 'box',
         },
+        {
+          path: '/it/data-retention',
+          labelKey: 'nav.data_retention',
+          icon: 'database',
+        },
       ],
     },
     {

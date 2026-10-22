@@ -81,7 +81,7 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(34) // 00315: + cold-archive · 33 (00288: + integrations/live-tracking · 32 (00280: أطفال devops الأربعة يخدمهم devops/:slug بلا مسارات ثابتة · 36 (00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170))))))))))
+    expect(itPaths).toHaveLength(35) // 00325: + data-retention · 34 (00315: + cold-archive · 33 (00288: + integrations/live-tracking · 32 (00280: أطفال devops الأربعة يخدمهم devops/:slug بلا مسارات ثابتة · 36 (00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170))))))))))
     expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('user-management/maintenance-workshops')   // 00274
     expect(itPaths).toContain('devops')   // 00275
@@ -89,6 +89,7 @@ describe('بنية البوابة التقنية v2', () => {
     expect(itPaths).toContain('integrations/advances')
     expect(itPaths).toContain('integrations/live-tracking')   // 00288
     expect(itPaths).toContain('cold-archive')   // 00315
+    expect(itPaths).toContain('data-retention') // 00325
     expect(itPaths).toContain('integrations/auto-deductions')
     expect(itPaths).toContain('integrations/biometric/unmatched')
     expect(itPaths).toContain('integrations/biometric/attendance-audit')
