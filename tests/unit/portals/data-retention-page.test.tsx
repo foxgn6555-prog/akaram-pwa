@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(),
+  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(), run: vi.fn(), runPending: false,
   settings: [] as Record<string, unknown>[], requests: [] as Record<string, unknown>[],
 }))
 vi.mock('@features/data-retention/hooks', () => ({
@@ -13,6 +13,7 @@ vi.mock('@features/data-retention/hooks', () => ({
   useConfirmRetention: () => ({ mutate: h.confirm, isPending: false }),
   useCancelRetention: () => ({ mutate: h.cancel, isPending: false }),
   useBrowserExport: () => ({ mutate: h.exp, isPending: false }),
+  useRunRetentionDelete: () => ({ mutate: h.run, isPending: h.runPending }),
 }))
 import DataRetentionPage from '@portals/it/pages/DataRetention/DataRetentionPage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -33,7 +34,7 @@ const policy = {
 }
 
 describe('DataRetentionPage (00325)', () => {
-  beforeEach(() => { vi.clearAllMocks(); h.settings = [policy, { ...policy, data_key: 'gps_position_history', label: 'نقاط GPS', export_required: false, retention_months: 3 }]; h.requests = [] })
+  beforeEach(() => { vi.clearAllMocks(); h.runPending = false; h.settings = [policy, { ...policy, data_key: 'gps_position_history', label: 'نقاط GPS', export_required: false, retention_months: 3 }]; h.requests = [] })
 
   it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 11)', () => {
     expect(customRoutes.some((r) => r.path === 'data-retention')).toBe(true)
@@ -86,6 +87,26 @@ describe('DataRetentionPage (00325)', () => {
     expect(btn.disabled).toBe(false)
     fireEvent.click(btn)
     expect(h.confirm).toHaveBeenCalledWith('r1')
+  })
+
+  it('00327: طلب مؤكَّد: شريط تقدم + «بدء الحذف» ينادي التشغيل بإشارة إيقاف؛ أثناء التشغيل يظهر زر الإيقاف', () => {
+    h.requests = [{ ...req, status: 'confirmed', can_confirm: false, confirmed_by_name: 'مدير التطوير', confirmed_at: '2026-10-22T02:00:00Z', rows_deleted: 0 }]
+    const { unmount } = render(<DataRetentionPage />)
+    expect(screen.getByTestId('ret-delete-progress').textContent).toContain('0 / 5 (0%)')
+    fireEvent.click(screen.getByTestId('ret-delete-start'))
+    expect(h.run).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1', signal: expect.any(AbortSignal) }))
+    expect(screen.queryByTestId('ret-confirm')).toBeNull()
+    unmount()
+    // قيد الحذف بعد توقف سابق: «استئناف الحذف» والنسبة من المحذوف فعلاً
+    h.requests = [{ ...req, status: 'deleting', can_confirm: false, rows_deleted: 3, rows_deletable: 2, rows_total: 6 }]
+    const u2 = render(<DataRetentionPage />)
+    expect(screen.getByTestId('ret-delete-start').textContent).toContain('استئناف الحذف')
+    expect(screen.getByTestId('ret-delete-progress').textContent).toContain('3 / 5 (60%)')
+    u2.unmount()
+    h.runPending = true
+    render(<DataRetentionPage />)
+    expect(screen.getByTestId('ret-delete-stop')).toBeInTheDocument()
+    expect(screen.queryByTestId('ret-delete-start')).toBeNull()
   })
 
   it('الطلبات المنتهية تُطوى تحت تفاصيل', () => {

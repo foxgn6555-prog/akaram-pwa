@@ -54,4 +54,14 @@ export const dataRetention = {
   confirm: (id: string) => rpc<RetentionRequest>('data_retention_confirm', { p_request: id }),
   deleteBatch: (id: string, limit = 5000) => rpc<RetentionRequest>('data_retention_delete_batch', { p_request: id, p_limit: limit }),
   cancel: (id: string) => rpc<RetentionRequest>('data_retention_cancel', { p_request: id }),
+  /** 00327: تنفيذ الحذف بدفعات حتى الاكتمال أو الإيقاف. كل دفعة معاملة مستقلة ⇒ الإيقاف لا يفقد شيئاً ويُستأنف لاحقاً. */
+  deleteRun: async (id: string, opts: { batch?: number; onProgress?: (r: RetentionRequest) => void; signal?: AbortSignal } = {}) => {
+    let r = await dataRetention.deleteBatch(id, opts.batch ?? 5000)
+    opts.onProgress?.(r)
+    while (r.status === 'deleting' && !opts.signal?.aborted) {
+      r = await dataRetention.deleteBatch(id, opts.batch ?? 5000)
+      opts.onProgress?.(r)
+    }
+    return r
+  },
 }

@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Settings2, ShieldCheck, X } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
+import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Settings2, ShieldCheck, Square, Trash2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { RETENTION_OPEN, RETENTION_STATUS_LABEL, type RetentionPolicy, type RetentionRequest } from '@sdk/data-retention.sdk'
-import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, useSetRetentionPolicy } from '@features/data-retention/hooks'
+import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, useRunRetentionDelete, useSetRetentionPolicy } from '@features/data-retention/hooks'
 import { browserPullSupported } from '@features/cold-archive/browser-pull'
 import type { ExportProgress } from '@features/data-retention/browser-export'
 
@@ -101,7 +101,7 @@ function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: bo
               صُدِّر {num(r.rows_exported ?? 0)} صفاً إلى «{r.export_label}» بواسطة {r.exported_by_name ?? '—'} في {r.exported_at ? formatDateTime(r.exported_at) : '—'} · بصمة <span dir="ltr" className="font-mono">{(r.export_sha256 ?? '').slice(0, 12)}…</span>
             </p>
           )}
-          {r.status === 'confirmed' && <p className="rounded-xl bg-sky-50 p-3 text-xs text-sky-900">أكّده {r.confirmed_by_name ?? '—'} في {r.confirmed_at ? formatDateTime(r.confirmed_at) : '—'}. تنفيذ الحذف بدفعات يُضاف في الجولة الرابعة.</p>}
+          {(r.status === 'confirmed' || r.status === 'deleting') && <DeletePanel r={r} />}
           <div className="flex flex-wrap items-end gap-2">
             {r.can_confirm && (
               <div className="flex flex-1 flex-wrap items-end gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
@@ -133,6 +133,38 @@ function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: bo
     </article>
   )
 }
+function DeletePanel({ r }: { r: RetentionRequest }) {
+  const run = useRunRetentionDelete()
+  const [live, setLive] = useState<RetentionRequest | null>(null)
+  const ctrl = useRef<AbortController | null>(null)
+  const cur = live ?? r
+  const target = cur.rows_deletable + cur.rows_deleted   // ما سيُحذف إجمالاً = ما حُذف + ما بقي قابلاً
+  const pct = target > 0 ? Math.min(100, Math.round((cur.rows_deleted / target) * 100)) : 0
+  const start = () => { ctrl.current = new AbortController(); setLive(null); run.mutate({ id: r.id, onProgress: setLive, signal: ctrl.current.signal }) }
+  return (
+    <div className="rounded-xl border border-rose-200 bg-rose-50 p-3" data-testid="ret-delete-panel">
+      <p className="text-xs text-rose-900">
+        أكّده {r.confirmed_by_name ?? '—'} في {r.confirmed_at ? formatDateTime(r.confirmed_at) : '—'}. الحذف يجري بدفعات 5,000 صف؛ يمكن إيقافه في أي لحظة واستئنافه لاحقاً — المحمية بقفل السلامة لا تُمسّ.
+      </p>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white ring-1 ring-rose-200" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full bg-rose-600 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-1 text-xs font-bold text-rose-900" data-testid="ret-delete-progress" dir="ltr">{num(cur.rows_deleted)} / {num(target)} ({pct}%)</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {!run.isPending ? (
+          <button type="button" onClick={start} data-testid="ret-delete-start" className="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-700 px-4 text-sm font-bold text-white">
+            <Trash2 size={16} /> {r.status === 'deleting' || r.rows_deleted > 0 ? 'استئناف الحذف' : 'بدء الحذف'}
+          </button>
+        ) : (
+          <button type="button" onClick={() => ctrl.current?.abort()} data-testid="ret-delete-stop" className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-rose-900 ring-1 ring-rose-300">
+            <Square size={14} /> إيقاف بعد الدفعة الحالية
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ExportPanel({ r }: { r: RetentionRequest }) {
   const exp = useBrowserExport()
   const [prog, setProg] = useState<ExportProgress | null>(null)

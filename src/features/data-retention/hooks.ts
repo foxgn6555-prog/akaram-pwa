@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { dataRetention, retentionErrorMessage } from '@sdk/data-retention.sdk'
+import { dataRetention, retentionErrorMessage, type RetentionRequest } from '@sdk/data-retention.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 import { pickDirectory } from '@features/cold-archive/browser-pull'
@@ -25,6 +25,10 @@ export const useRetentionRequests = () => useQuery({ queryKey: retentionKeys.req
 export const useSetRetentionPolicy = () => useAction(dataRetention.setPolicy, 'حُفظت السياسة')
 export const useRetentionScanNow = () => useAction(() => dataRetention.scanNow(), (r) => (r.created > 0 ? `أُنشئ ${r.created} طلب حذف جديد — راجعه أدناه` : 'لا توجد بيانات تجاوزت مدتها الآن'))
 export const useConfirmRetention = () => useAction((id: string) => dataRetention.confirm(id), 'تم التأكيد — الطلب جاهز للحذف')
+/** 00327: تشغيل الحذف بدفعات؛ التوقف اليدوي ليس خطأً */
+export const useRunRetentionDelete = () => useAction(
+  (x: { id: string; onProgress?: (r: RetentionRequest) => void; signal?: AbortSignal }) => dataRetention.deleteRun(x.id, { onProgress: x.onProgress, signal: x.signal }),
+  (r) => (r.status === 'done' ? `اكتمل الحذف: ${r.rows_deleted.toLocaleString('en-US')} صفاً — بقيت ${r.rows_locked.toLocaleString('en-US')} محمية` : `توقف الحذف عند ${r.rows_deleted.toLocaleString('en-US')} صفاً — يمكنك الاستئناف لاحقاً`))
 export const useCancelRetention = () => useAction((id: string) => dataRetention.cancel(id), 'أُلغي الطلب — لم يُحذف شيء')
 
 /** تصدير مُثبَت: اختيار مجلد → كتابة CSV/JSON → بصمة → تسجيل الإثبات. يعيد null إذا أُلغي اختيار المجلد. */
