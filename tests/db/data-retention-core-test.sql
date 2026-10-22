@@ -170,3 +170,58 @@ begin
   perform public.data_retention_policy_set('gps_position_history', false, 3, false);
   raise notice 'data-retention-core-test: OK';
 end $$;
+
+-- ─────────────── 00273: تغذية التصدير ───────────────
+do $$
+declare it1 uuid := 'dd000000-0000-0000-0000-000000000001'; mgr uuid := 'dd000000-0000-0000-0000-000000000002';
+  js jsonb; req jsonb; rid uuid; page jsonb; total int := 0; ids jsonb := '[]'::jsonb; after jsonb := null; i int;
+begin
+  perform pg_temp.as_user(it1);
+  -- بصمات جديدة لشهر معتمد (قبل 10 أشهر): 7 صفوف قابلة + شهر مسودة (قبل 7 أشهر): 2 محمية
+  for i in 1..7 loop insert into public.biometric_punches (device_serial, pin, punched_at, direction, method) values ('DR-DEV', 'x' || i, (date_trunc('month', now() - interval '10 month') + interval '2 day')::timestamptz + make_interval(mins => i), 'in', 'manual'); end loop;
+  for i in 1..2 loop insert into public.biometric_punches (device_serial, pin, punched_at, direction, method) values ('DR-DEV', 'y' || i, (date_trunc('month', now() - interval '7 month') + interval '2 day')::timestamptz + make_interval(mins => i), 'out', 'manual'); end loop;
+  insert into public.payrolls (period_month, status) values (date_trunc('month', now() - interval '10 month')::date, 'approved') on conflict (period_month) do update set status = 'approved';
+  insert into public.payrolls (period_month, status) values (date_trunc('month', now() - interval '7 month')::date, 'draft') on conflict (period_month) do update set status = 'draft';
+  js := public.data_retention_policy_set('biometric_raw_punches', true, 6, true);
+  js := public.data_retention_scan_now();
+  select app.data_retention_request_json(r) into req from public.data_retention_requests r where r.data_key = 'biometric_raw_punches' and r.status = 'pending';
+  rid := (req ->> 'id')::uuid;
+  -- E1: الدفعات بمؤشر (حد 3) تعيد كل القابلة بلا تكرار، وعددها = rows_deletable؛ الأعمدة عربية
+  loop
+    page := public.data_retention_export_rows(rid, after, 3);
+    total := total + (page ->> 'count')::int;
+    select coalesce(jsonb_agg(x -> 'المعرّف'), '[]'::jsonb) || ids into ids from jsonb_array_elements(page -> 'rows') x;
+    exit when page -> 'next' is null or page ->> 'next' is null;
+    after := page -> 'next';
+  end loop;
+  if total <> (req ->> 'rows_deletable')::int then raise exception 'E1 exported % expected %', total, req ->> 'rows_deletable'; end if;
+  if (select count(distinct v) from jsonb_array_elements(ids) v) <> total then raise exception 'E1 duplicates across pages'; end if;
+  if page ->> 'label' <> 'البصمات الخام من الأجهزة' then raise exception 'E1 label'; end if;
+  page := public.data_retention_export_rows(rid, null, 1);
+  if not (page -> 'rows' -> 0) ? 'وقت البصمة' or not (page -> 'rows' -> 0) ? 'الاتجاه' or (page -> 'rows' -> 0 ->> 'الاتجاه') not in ('دخول','خروج','غير محدد') then raise exception 'E1 columns %', page -> 'rows' -> 0; end if;
+  -- E2: الصفوف المحمية (شهر المسودة) ليست ضمن التصدير
+  if exists (select 1 from jsonb_array_elements(ids) v join public.biometric_punches b on b.id::text = (v #>> '{}') where b.pin like 'y%') then raise exception 'E2 locked rows exported'; end if;
+  -- E3: العدد المصدَّر يُقبل كإثبات؛ غير IT ممنوع؛ بعد الإلغاء الحالة تمنع التصدير
+  req := public.data_retention_export_recorded(rid, total, repeat('b', 64), 'قرص-ب');
+  if req ->> 'status' <> 'exported' then raise exception 'E3 status'; end if;
+  page := public.data_retention_export_rows(rid, null, 5);   -- ما زال مسموحاً في exported (إعادة تصدير)
+  perform pg_temp.as_user(mgr);
+  perform pg_temp.expect_error(format('select public.data_retention_export_rows(%L, null, 5)', rid), 'IT_FORBIDDEN');
+  perform pg_temp.as_user(it1);
+  req := public.data_retention_cancel(rid);
+  perform pg_temp.expect_error(format('select public.data_retention_export_rows(%L, null, 5)', rid), 'RETENTION_BAD_STATE');
+  -- E4: GPS: الأعمدة عربية والمحمية مستثناة
+  update public.gps_trip_investigations set status = 'open' where departure_id = 'dd0dd000-0000-0000-0000-000000000001';
+  insert into public.gps_device_position_history (device_id, latitude, longitude, fix_time, address)
+  select 'dd0dc000-0000-0000-0000-000000000001', 33.31, 44.41, now() - interval '7 month' + make_interval(hours => g), 'الكرادة' from generate_series(1, 2) g;
+  js := public.data_retention_policy_set('gps_position_history', true, 3, false);
+  js := public.data_retention_scan_now();
+  select app.data_retention_request_json(r) into req from public.data_retention_requests r where r.data_key = 'gps_position_history' and r.status = 'pending';
+  page := public.data_retention_export_rows((req ->> 'id')::uuid, null, 100);
+  if (page ->> 'count')::int <> (req ->> 'rows_deletable')::int or (page ->> 'count')::int <> 2 then raise exception 'E4 count % deletable %', page ->> 'count', req ->> 'rows_deletable'; end if;
+  if (page -> 'rows' -> 0 ->> 'الآلية') <> 'كابسة DR' or (page -> 'rows' -> 0 ->> 'العنوان') <> 'الكرادة' then raise exception 'E4 columns %', page -> 'rows' -> 0; end if;
+  perform public.data_retention_cancel((req ->> 'id')::uuid);
+  perform public.data_retention_policy_set('gps_position_history', false, 3, false);
+  perform public.data_retention_policy_set('biometric_raw_punches', false, 6, true);
+  raise notice 'data-retention-export-rows: OK';
+end $$;

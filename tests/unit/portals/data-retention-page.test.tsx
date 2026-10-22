@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(),
+  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(),
   settings: [] as Record<string, unknown>[], requests: [] as Record<string, unknown>[],
 }))
 vi.mock('@features/data-retention/hooks', () => ({
@@ -12,6 +12,7 @@ vi.mock('@features/data-retention/hooks', () => ({
   useRetentionScanNow: () => ({ mutate: h.scan, isPending: false }),
   useConfirmRetention: () => ({ mutate: h.confirm, isPending: false }),
   useCancelRetention: () => ({ mutate: h.cancel, isPending: false }),
+  useBrowserExport: () => ({ mutate: h.exp, isPending: false }),
 }))
 import DataRetentionPage from '@portals/it/pages/DataRetention/DataRetentionPage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -57,8 +58,23 @@ describe('DataRetentionPage (00325)', () => {
     expect(screen.getByText('9')).toBeInTheDocument(); expect(screen.getByText('4')).toBeInTheDocument(); expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByTestId('ret-export-needed')).toBeInTheDocument()
     expect(screen.queryByTestId('ret-confirm')).toBeNull()
+    // 00326: زر التصدير — معطّل في متصفح غير داعم، ويعمل مع showDirectoryPicker
+    expect((screen.getByTestId('ret-export-btn') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByTestId('ret-export-unsupported')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('ret-cancel'))
     expect(h.cancel).toHaveBeenCalledWith('r1')
+  })
+
+  it('00326: زر التصدير ينادي التصدير بالمعرّف في متصفح داعم', () => {
+    ;(window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker = vi.fn()
+    try {
+      h.requests = [req]
+      render(<DataRetentionPage />)
+      const btn = screen.getByTestId('ret-export-btn') as HTMLButtonElement
+      expect(btn.disabled).toBe(false)
+      fireEvent.click(btn)
+      expect(h.exp).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }))
+    } finally { delete (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker }
   })
 
   it('طلب قابل للتأكيد: الزر معطّل حتى كتابة «حذف» ثم ينادي التأكيد بالمعرّف', () => {

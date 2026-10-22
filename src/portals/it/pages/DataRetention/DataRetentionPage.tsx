@@ -1,11 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardList, Lock, RefreshCw, Settings2, ShieldCheck, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Settings2, ShieldCheck, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { RETENTION_OPEN, RETENTION_STATUS_LABEL, type RetentionPolicy, type RetentionRequest } from '@sdk/data-retention.sdk'
-import { useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, useSetRetentionPolicy } from '@features/data-retention/hooks'
+import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, useSetRetentionPolicy } from '@features/data-retention/hooks'
+import { browserPullSupported } from '@features/cold-archive/browser-pull'
+import type { ExportProgress } from '@features/data-retention/browser-export'
 
 /**
  * 🗂️ الاحتفاظ بالبيانات النصية (00325 · ٢/٤) — بوابة التطوير المركزية
@@ -93,11 +95,7 @@ function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: bo
 
       {isOpen && (
         <div className="mt-3 space-y-3">
-          {r.export_required && r.status === 'pending' && (
-            <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900" data-testid="ret-export-needed">
-              هذا النوع يتطلب <b>تصديراً مُثبَتاً</b> قبل التأكيد. زر التصدير يُضاف في الجولة القادمة؛ حتى ذلك الحين يبقى الطلب بانتظاركم ولا يُحذف شيء.
-            </p>
-          )}
+          {r.export_required && r.status === 'pending' && <ExportPanel r={r} />}
           {r.status === 'exported' && (
             <p className="rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
               صُدِّر {num(r.rows_exported ?? 0)} صفاً إلى «{r.export_label}» بواسطة {r.exported_by_name ?? '—'} في {r.exported_at ? formatDateTime(r.exported_at) : '—'} · بصمة <span dir="ltr" className="font-mono">{(r.export_sha256 ?? '').slice(0, 12)}…</span>
@@ -133,6 +131,23 @@ function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: bo
         </details>
       )}
     </article>
+  )
+}
+function ExportPanel({ r }: { r: RetentionRequest }) {
+  const exp = useBrowserExport()
+  const [prog, setProg] = useState<ExportProgress | null>(null)
+  const supported = browserPullSupported()
+  const phase: Record<ExportProgress['phase'], string> = { fetching: 'جارٍ جلب الصفوف', writing: 'جارٍ الكتابة إلى المجلد', registering: 'جارٍ تسجيل الإثبات…', done: 'اكتمل' }
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="ret-export-needed">
+      <p className="text-xs font-bold text-amber-900">هذا النوع يتطلب <b>تصديراً مُثبَتاً</b> قبل التأكيد: اضغط الزر واختر مجلداً (قرص داخلي أو خارجي). تُكتب الصفوف كملف Excel (CSV) وملف JSON كامل وملف إثبات، ثم تُسجَّل البصمة والعدد في المنصة.</p>
+      {!supported && <p className="mt-2 rounded-lg bg-white p-2 text-xs font-bold text-amber-900" data-testid="ret-export-unsupported">هذا المتصفح لا يدعم الكتابة إلى مجلد — افتح الصفحة في Chrome أو Edge على الحاسوب.</p>}
+      {prog && <p className="mt-2 text-xs text-amber-900" data-testid="ret-export-progress">{phase[prog.phase]} — {num(prog.rows)} صف</p>}
+      <button type="button" disabled={!supported || exp.isPending} onClick={() => { setProg(null); exp.mutate({ id: r.id, onProgress: setProg }) }} data-testid="ret-export-btn"
+        className="mt-2 inline-flex h-10 items-center gap-2 rounded-xl bg-amber-700 px-4 text-sm font-bold text-white disabled:opacity-50">
+        <FolderOpen size={16} /> اختيار مجلد وتصدير {num(r.rows_deletable)} صفاً
+      </button>
+    </div>
   )
 }
 const STATUS_TONE: Record<RetentionRequest['status'], string> = { pending: 'bg-amber-100 text-amber-900', exported: 'bg-sky-100 text-sky-900', confirmed: 'bg-sky-100 text-sky-900', deleting: 'bg-sky-100 text-sky-900', done: 'bg-emerald-100 text-emerald-900', cancelled: 'bg-slate-100 text-slate-600' }

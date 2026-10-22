@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { dataRetention, retentionErrorMessage } from '@sdk/data-retention.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
+import { pickDirectory } from '@features/cold-archive/browser-pull'
+import { exportRequestToDirectory, type ExportProgress } from './browser-export'
 
 export const retentionKeys = {
   all: ['data-retention'] as const,
@@ -24,3 +26,16 @@ export const useSetRetentionPolicy = () => useAction(dataRetention.setPolicy, '�
 export const useRetentionScanNow = () => useAction(() => dataRetention.scanNow(), (r) => (r.created > 0 ? `أُنشئ ${r.created} طلب حذف جديد — راجعه أدناه` : 'لا توجد بيانات تجاوزت مدتها الآن'))
 export const useConfirmRetention = () => useAction((id: string) => dataRetention.confirm(id), 'تم التأكيد — الطلب جاهز للحذف')
 export const useCancelRetention = () => useAction((id: string) => dataRetention.cancel(id), 'أُلغي الطلب — لم يُحذف شيء')
+
+/** تصدير مُثبَت: اختيار مجلد → كتابة CSV/JSON → بصمة → تسجيل الإثبات. يعيد null إذا أُلغي اختيار المجلد. */
+export const useBrowserExport = () => {
+  const qc = useQueryClient(), toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: async ({ id, onProgress }: { id: string; onProgress?: (p: ExportProgress) => void }) => {
+      const root = await pickDirectory(); if (!root) return null
+      return exportRequestToDirectory({ id }, root, { onProgress })
+    },
+    onSuccess: (r) => { if (!r) return; void qc.invalidateQueries({ queryKey: retentionKeys.all }); toast({ type: 'success', message: `صُدِّر ${r.rows.toLocaleString('en-US')} صفاً وسُجِّل الإثبات — يمكنك التأكيد الآن` }) },
+    onError: (e) => { handleAppError(e, { scope: 'data-retention' }); toast({ type: 'error', message: retentionErrorMessage(e) }) },
+  })
+}
