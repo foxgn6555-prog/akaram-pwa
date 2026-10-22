@@ -83,6 +83,13 @@ export interface SaksatRecord {
   archived_at: string | null
   archive_reason: string | null
   created_at: string | null
+  /** 00330: التتبع والوصول — gps = للآلية جهاز مرتبط والوصول يُسجَّل آلياً */
+  tracking?: 'gps' | 'none'
+  arrived_at?: string | null
+  shift_name?: string | null
+  driver_kind?: 'legacy' | 'employee' | 'external' | 'contracted'
+  destination_name?: string | null
+  db_number?: string | null
 }
 
 /** سجل النسافات الخارجة — نفس بنية السكسات */

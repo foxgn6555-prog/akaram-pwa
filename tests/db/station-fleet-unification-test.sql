@@ -204,16 +204,23 @@ begin
   raise notice 'F ✓ الوصول الآلي';
 end $$;
 
--- ═══ G) السجلات القديمة (نص حر) تبقى وتُعرض كـ legacy ═══
+-- ═══ G) 00276: لا إدخال مباشر (القوائم فقط) + القديم محفوظ + قفل حقول الخروج ═══
 do $$
-declare n int;
+declare n int; ex uuid := current_setting('t.exit1')::uuid;
 begin
+  -- سجل قديم (قبل القفل) يُدرج بصلاحية الخادم لمحاكاة البيانات التاريخية
+  insert into public.ts_saksat_records (driver_name, vehicle_type, log_date) values ('سائق قديم', 'سكس', current_date);
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
   set role authenticated;
-  insert into public.ts_saksat_records (driver_name, vehicle_type, log_date) values ('سائق قديم', 'سكس', current_date);
+  perform pg_temp.expect_error($q$insert into public.ts_saksat_records (driver_name, vehicle_type, log_date) values ('نص حر', 'سكس', current_date)$q$, 'row-level security');
+  perform pg_temp.expect_error($q$insert into public.ts_carrier_records (driver_name, vehicle_type, weight_tons, log_date) values ('نص حر', 'ناقلة', 5, current_date)$q$, 'row-level security');
+  perform pg_temp.expect_error(format($q$update public.ts_saksat_records set driver_name = 'تغيير' where id = '%s'$q$, ex), 'STATION_EXIT_FIELDS_LOCKED');
+  perform pg_temp.expect_error(format($q$update public.ts_saksat_records set arrived_at = null where id = '%s'$q$, ex), 'STATION_EXIT_FIELDS_LOCKED');
+  update public.ts_saksat_records set status = 'submitted_to_deputy', submitted_at = now() where id = ex;  -- الحالة تبقى قابلة للتعديل
   reset role;
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
   select count(*) into n from public.station_outbound_list(current_date, current_date, false) l where l.driver_name = 'سائق قديم' and l.status = 'legacy' and l.category_label = 'سكس'; assert n = 1, 'G1: legacy';
-  raise notice 'G ✓ القديم محفوظ';
+  raise notice 'G ✓ القوائم فقط والقديم محفوظ';
 end $$;
 
 -- ═══ H) 00275: بحث المرشحين لغرفة العمليات ═══

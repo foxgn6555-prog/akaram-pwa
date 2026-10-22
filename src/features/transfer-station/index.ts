@@ -8,7 +8,6 @@ export {
   useRestoreWeight,
   useSendToOps,
   useSaksatList,
-  useCreateSaksat,
   useTripsList,
   useCreateTrips,
 } from './hooks/useWeightRecords'
@@ -17,7 +16,6 @@ export {
   useRecordWeighing,
   useCompleteWeighing,
   useCarrierList,
-  useCreateCarrier,
   useOpsWorkflow,
   useOpsWorkflowRange,
   useVehicleKinds,

@@ -5,13 +5,25 @@ import { formatTime, type StationUnitKind } from './station.utils'
 /** صف الجدول — سكسات/نسافات خارجة */
 export type StationRow = SaksatRecord
 
+function arrivalCell(r: StationRow) {
+  if (!r.destination_name) return <span className="text-[11px] text-slate-400">قديم — بلا وجهة</span>
+  const badge = r.arrived_at
+    ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">وصلت {formatTime(r.arrived_at)}</span>
+    : r.tracking === 'gps'
+      ? <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-bold text-sky-700">في الطريق</span>
+      : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">بلا تتبع</span>
+  return <span className="flex flex-wrap items-center gap-1"><b className="text-slate-700">{r.destination_name}</b>{badge}</span>
+}
+
 export function StationTable({
-  kind, records, personLabel, withVehicle = true,
+  kind, records, personLabel, withVehicle = true, withDestination = false,
 }: {
   kind: StationUnitKind
   records: StationRow[]
   personLabel?: string
   withVehicle?: boolean
+  /** 00330: عمود الوجهة والوصول (gps آلي / بلا تتبع / قديم) */
+  withDestination?: boolean
   /** مهمل بعد إلغاء وحدة الحضورية — يبقى لتفادي كسر استدعاءات قديمة */
   presence?: boolean
 }) {
@@ -34,6 +46,7 @@ export function StationTable({
                 <th className="px-3 py-2.5 font-semibold">ت</th>
                 <th className="px-3 py-2.5 font-semibold">{personLabel ?? 'اسم السائق'}</th>
                 {withVehicle && <th className="px-3 py-2.5 font-semibold">نوع الآلية</th>}
+                {withDestination && <th className="px-3 py-2.5 font-semibold">الوجهة / الوصول</th>}
                 <th className="px-3 py-2.5 font-semibold">الوزن (طن)</th>
                 <th className="px-3 py-2.5 font-semibold">وقت الخروج</th>
                 <th className="px-3 py-2.5 font-semibold">التاريخ</th>
@@ -45,7 +58,8 @@ export function StationTable({
                 <tr key={r.id} className="border-t border-slate-50 hover:bg-slate-50/50">
                   <td className="px-3 py-2.5 text-slate-400">{i + 1}</td>
                   <td className="px-3 py-2.5 font-medium">{r.driver_name}</td>
-                  {withVehicle && <td className="px-3 py-2.5 text-slate-500">{r.vehicle_type ?? '—'}</td>}
+                  {withVehicle && <td className="px-3 py-2.5 text-slate-500">{r.vehicle_type ?? '—'}{r.db_number ? <span className="block text-[10px] text-slate-400 dir-ltr">DB {r.db_number}</span> : null}</td>}
+                  {withDestination && <td className="px-3 py-2.5" data-testid={`${kind}-arrival-${r.id}`}>{arrivalCell(r)}</td>}
                   <td className="px-3 py-2.5 font-bold text-slate-700 dir-ltr">{r.weight_tons ?? '—'}</td>
                   <td className="px-3 py-2.5 font-bold text-brand-700 dir-ltr">{formatTime(r.exit_time)}</td>
                   <td className="px-3 py-2.5 text-slate-500 dir-ltr">{r.log_date}</td>

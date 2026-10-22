@@ -102,16 +102,6 @@ export function useCarrierList(month?: string) {
   })
 }
 
-export function useCreateCarrier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: transferStation.createCarrier,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transfer-station', 'carrier'] })
-    },
-  })
-}
-
 /** جدول غرفة العمليات لسير عمل المحطة */
 export function useOpsWorkflow(day?: string) {
   return useQuery({

@@ -38,10 +38,14 @@ export const useStationExternalDrivers = () =>
   useQuery({ queryKey: stationFleetKeys.externalDrivers(), queryFn: () => stationFleet.externalDrivers() })
 export const useSaveExternalDriver = () => useAction(stationFleet.saveExternalDriver, 'حُفظ السائق الخارجي')
 export const useStationDrivers = () => useQuery({ queryKey: stationFleetKeys.drivers(), queryFn: () => stationFleet.drivers(), staleTime: 60_000 })
-export const useStationRecordExit = () =>
-  useAction((x: StationExitInput) => stationFleet.recordExit(x), (r: StationExitResult) =>
-    r.tracking === 'gps'
-      ? `سُجّل خروج ${r.category} إلى ${r.destination} — الوصول سيُسجَّل آلياً من GPS`
-      : `سُجّل خروج ${r.category} إلى ${r.destination} — بلا تتبع (لا جهاز GPS مرتبط)`)
+export const useStationRecordExit = () => {
+  const qc = useQueryClient()
+  return useAction(
+    async (x: StationExitInput) => { const r = await stationFleet.recordExit(x); void qc.invalidateQueries({ queryKey: ['transfer-station'] }); return r },
+    (r: StationExitResult) =>
+      r.tracking === 'gps'
+        ? `سُجّل خروج ${r.category} إلى ${r.destination} — الوصول سيُسجَّل آلياً من GPS`
+        : `سُجّل خروج ${r.category} إلى ${r.destination} — بلا تتبع (لا جهاز GPS مرتبط)`)
+}
 export const useStationOutbound = (from: string, to: string, onlyOpen = false, live = false) =>
   useQuery({ queryKey: stationFleetKeys.outbound(from, to, onlyOpen), queryFn: () => stationFleet.outbound(from, to, onlyOpen), refetchInterval: live ? 30_000 : false })

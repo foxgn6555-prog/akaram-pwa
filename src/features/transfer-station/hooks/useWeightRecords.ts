@@ -131,20 +131,6 @@ export function useSaksatList(month?: string) {
   })
 }
 
-export function useCreateSaksat() {
-  const qc = useQueryClient()
-  const addToast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: (input: CreateSaksatInput) => transferStation.createSaksat(input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: transferStationKeys.all })
-      addToast({ type: 'success', message: 'تم تسجيل الخروج بنجاح' })
-    },
-    onError: (error) =>
-      addToast({ type: 'error', message: handleAppError(error, { scope: 'createSaksat' }).message }),
-  })
-}
-
 export function useTripsList(month?: string) {
   return useQuery({
     queryKey: transferStationKeys.tripsList(month),

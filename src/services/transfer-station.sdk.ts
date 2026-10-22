@@ -14,10 +14,8 @@ import type {
   Shift,
   SaksatRecord,
   TripRecord,
-  CreateSaksatInput,
   CreateTripInput,
   CarrierRecord,
-  CreateCarrierInput,
   ViolationRecord,
   WorkflowRow,
 } from '@features/transfer-station/types'
@@ -70,6 +68,9 @@ function withNet(input: CreateWeightInput | UpdateWeightInput) {
 const STATION_COLS =
   'id, driver_name, vehicle_type, weight_tons, exit_time, log_date, status, submitted_at, ' +
   'archived_at, archive_reason, created_at'
+/** 00330: سجلات الخروج (سكسات/نسافات + ناقلات) تحمل أعمدة الربط؛ الرحلات لا */
+const EXIT_COLS = STATION_COLS + ', tracking, arrived_at, shift_name, driver_kind, destination:station_destinations(name), vehicle:garage_vehicles(db_number)'
+const colsOf = (table: string) => (table === 'ts_trips_records' ? STATION_COLS : EXIT_COLS)
 
 function normalizeStation(r: Record<string, unknown>): SaksatRecord {
   return {
@@ -84,6 +85,13 @@ function normalizeStation(r: Record<string, unknown>): SaksatRecord {
     archived_at: (r.archived_at as string | null) ?? null,
     archive_reason: (r.archive_reason as string | null) ?? null,
     created_at: (r.created_at as string | null) ?? null,
+    // 00330: أعمدة الربط (آلية/وجهة/تتبع/وصول/شفت)
+    tracking: (r.tracking as SaksatRecord['tracking']) ?? 'none',
+    arrived_at: (r.arrived_at as string | null) ?? null,
+    shift_name: (r.shift_name as string | null) ?? null,
+    driver_kind: (r.driver_kind as SaksatRecord['driver_kind']) ?? 'legacy',
+    destination_name: ((r.destination as { name?: string } | null)?.name as string | undefined) ?? null,
+    db_number: ((r.vehicle as { db_number?: string } | null)?.db_number as string | undefined) ?? null,
   }
 }
 
@@ -101,30 +109,13 @@ async function listStation(table: string, month?: string): Promise<SaksatRecord[
   const { from, to } = month ? monthRange(month) : { from: '', to: '' }
   const base = supabase
     .from(table)
-    .select(STATION_COLS)
+    .select(colsOf(table))
     .is('archived_at', null)
     .order('log_date', { ascending: false })
     .order('created_at', { ascending: false })
   const q = month ? base.gte('log_date', from).lt('log_date', to) : base
   const rows = (await sdkGuard(q.returns<Record<string, unknown>[]>())) ?? []
   return rows.map(normalizeStation)
-}
-
-async function createStation(table: string, input: CreateSaksatInput): Promise<SaksatRecord> {
-  return sdkGuard(
-    supabase
-      .from(table)
-      .insert({
-        driver_name: input.driver_name,
-        vehicle_type: input.vehicle_type?.trim() || null,
-        weight_tons: input.weight_tons ?? null,
-        exit_time: input.exit_time ?? new Date().toISOString(), // وقت الخروج — تلقائي
-        log_date: input.log_date,
-      } as never)
-      .select(STATION_COLS)
-      .single()
-      .returns<Record<string, unknown>>(),
-  ).then((r) => normalizeStation(r as Record<string, unknown>))
 }
 
 export const transferStation = {
@@ -205,28 +196,25 @@ export const transferStation = {
     return listStation('ts_saksat_records', month)
   },
 
-  /** تسجيل خروج سكسة — وقت الخروج تلقائي عند غيابه */
-  async createSaksat(input: CreateSaksatInput): Promise<SaksatRecord> {
-    return createStation('ts_saksat_records', input)
-  },
-
   async listTrips(month?: string): Promise<TripRecord[]> {
     return listStation('ts_trips_records', month)
   },
 
   async createTrips(input: CreateTripInput): Promise<TripRecord> {
-    return createStation('ts_trips_records', input)
+    return sdkGuard(
+      supabase
+        .from('ts_trips_records')
+        .insert({ driver_name: input.driver_name, vehicle_type: input.vehicle_type?.trim() || null, exit_time: input.exit_time ?? new Date().toISOString(), log_date: input.log_date } as never)
+        .select(STATION_COLS)
+        .single()
+        .returns<Record<string, unknown>>(),
+    ).then((r) => normalizeStation(r as Record<string, unknown>))
   },
 
   /* ═══ ناقلة الحاويات المكبسية (00130) ═══ */
 
   async listCarrier(month?: string): Promise<CarrierRecord[]> {
     return (await listStation('ts_carrier_records', month)) as CarrierRecord[]
-  },
-
-  /** تسجيل خروج ناقلة حاويات — الوقت تلقائي والوزن يدخله المسؤول */
-  async createCarrier(input: CreateCarrierInput): Promise<CarrierRecord> {
-    return (await createStation('ts_carrier_records', input)) as CarrierRecord
   },
 
   /* ═══ سير العمل بالخطوات (00130) ═══ */
