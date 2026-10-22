@@ -416,6 +416,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/ops-room/operations-data', labelKey: 'nav.ops_operations_data', icon: 'bar-chart' },
     { path: '/ops-room/station-daily', labelKey: 'nav.ops_station_daily', icon: 'scale' },
+    { path: '/ops-room/station-fleet', labelKey: 'nav.ops_station_fleet', icon: 'truck' },   // 00329
     {
       path: '/ops-room/vehicles-database',
       labelKey: 'nav.ops_vehicles_database',

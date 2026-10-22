@@ -216,5 +216,18 @@ begin
   raise notice 'G ✓ القديم محفوظ';
 end $$;
 
+-- ═══ H) 00275: بحث المرشحين لغرفة العمليات ═══
+do $$
+declare n int;
+begin
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
+  perform pg_temp.expect_error($q$select * from public.station_fleet_candidates('', false, 60)$q$, 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
+  select count(*) into n from public.station_fleet_candidates('نسافة', false, 60) c where c.is_station_vehicle and c.has_gps; assert n = 1, 'H1: بحث بالفئة';
+  select count(*) into n from public.station_fleet_candidates(null, true, 60); assert n = 3, 'H2: آليات المحطة فقط = 3 got ' || n;
+  select count(*) into n from public.station_fleet_candidates('DB-SF2', false, 60) c where c.ownership_type = 'rented' and not c.has_gps; assert n = 1, 'H3: بحث بـ DB';
+  raise notice 'H ✓ المرشحون';
+end $$;
+
 reset role; select set_config('auth.user_id','', false);
 select 'STATION FLEET UNIFICATION TEST PASSED' as result;
