@@ -249,4 +249,113 @@ begin
   perform pg_temp.expect_error($q$ select public.sector_manager_dashboard() $q$, 'PARENT_SECTOR_MANAGER_FORBIDDEN');
   raise notice 'S5 ✅ اللوحة والتقارير بلا بيانات مالية + التبليغ لمسؤولي أقسامه فقط';
 end $$;
+
+-- ═══ S6 · 00279: نوع فرعي + شروط + إصدارات + محاكاة ═══
+do $$
+declare it uuid := 'd8000000-0000-0000-0000-000000000001'; cont uuid := 'd8000000-0000-0000-0000-000000000002'; t_unpaid uuid; lid1 uuid; lid5 uuid; r record; n int; cid uuid; sim jsonb;
+begin
+  select id into t_unpaid from public.hr_leave_types where code = 'unpaid';
+  perform pg_temp.as_user(it);
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"admin_ops"}]', true, 'nope') $q$, 'APPROVAL_SUBTYPE_INVALID');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'advance', '[{"kind":"hierarchy","role":"admin_ops"}]', true, 'annual') $q$, 'APPROVAL_SUBTYPE_NOT_ALLOWED');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"admin_ops","condition":{"field":"salary","op":"gte","value":1}}]') $q$, 'APPROVAL_STEP_CONDITION_INVALID');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"admin_ops","mode":"most"}]') $q$, 'APPROVAL_STEP_MODE_INVALID');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"admin_ops","sla_days":"999"}]') $q$, 'APPROVAL_STEP_SLA_INVALID');
+  -- سلسلة فرعية لإجازة «بدون راتب»: مسؤول قاطعه ← المعاون (فقط إذا الأيام ≥ 3، مهلة يومان، تصعيد)
+  cid := public.approval_chain_save('employee', 'leave',
+    '[{"kind":"hierarchy","role":"admin_ops"},{"kind":"account","user_id":"d8000000-0000-0000-0000-000000000006","condition":{"field":"days","op":"gte","value":"3"},"sla_days":2,"escalate":"next"}]', true, 'unpaid');
+  select * into r from public.approval_chains_list() l where l.id = cid;
+  assert r.subtype = 'unpaid' and r.subtype_label = 'إجازة بدون راتب' and r.version_no = 1 and (r.steps -> 1 ->> 'sla_days') = '2', 'S6-1: ' || r::text;
+  select count(*) into n from public.approval_chains_list() l where l.requester_role = 'employee' and l.request_type = 'leave'; assert n = 2, 'S6-2: العامة والفرعية معاً';
+  -- إعادة الحفظ ⇒ إصدار ثانٍ
+  perform public.approval_chain_save('employee', 'leave',
+    '[{"kind":"hierarchy","role":"admin_ops"},{"kind":"account","user_id":"d8000000-0000-0000-0000-000000000006","condition":{"field":"days","op":"gte","value":"3"},"sla_days":2,"escalate":"next"}]', true, 'unpaid');
+  select count(*) into n from public.approval_chain_versions_list(cid) v where v.action = 'updated'; assert n = 1, 'S6-3: إصدار updated';
+  select count(*) into n from public.approval_chain_versions_list(cid); assert n = 2, 'S6-4: إصداران';
+  -- محاكاة
+  sim := public.approval_simulate(cont, 'leave', 'unpaid', '{"days": 1}');
+  assert (sim ->> 'chain_id')::uuid = cid and (sim -> 'steps' -> 1 ->> 'status') = 'skipped_condition' and (sim -> 'steps' -> 0 ->> 'status') = 'active', 'S6-5: ' || sim::text;
+  sim := public.approval_simulate(cont, 'leave', 'unpaid', '{"days": 5}');
+  assert (sim -> 'steps' -> 1 ->> 'status') = 'active' and (sim -> 'steps' -> 1 -> 'approvers' -> 0 ->> 'user_id') = 'd8000000-0000-0000-0000-000000000006', 'S6-6: ' || sim::text;
+  sim := public.approval_simulate(cont, 'leave', 'sick', '{}');
+  assert (sim ->> 'chain_id') is null and jsonb_array_length(sim -> 'steps') = 0, 'S6-7: المرضية لا تأخذ الفرعية (العامة معطّلة في S4 ⇒ الافتراضي): ' || sim::text;
+  -- طلب يوم واحد بدون راتب ⇒ السلسلة الفرعية، الخطوة الشرطية تُخطّى
+  perform pg_temp.as_user(cont);
+  lid1 := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_unpaid, current_date + 20, current_date + 20);
+  select chain_id into r from public.hr_leaves where id = lid1; assert r.chain_id = cid, 'S6-8: السلسلة الفرعية';
+  select status, note into r from public.approval_tasks where request_id = lid1 and step_no = 2; assert r.status = 'skipped' and r.note like 'الشرط غير متحقق%', 'S6-9: ' || r::text;
+  select status into r from public.approval_tasks where request_id = lid1 and step_no = 1; assert r.status = 'pending', 'S6-10';
+  -- طلب 5 أيام ⇒ الخطوة الشرطية فعّالة
+  lid5 := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_unpaid, current_date + 30, current_date + 34);
+  select status, step_label, sla_days, escalate into r from public.approval_tasks where request_id = lid5 and step_no = 2;
+  assert r.status = 'waiting' and r.step_label like '%إذا الأيام ≥ 3%' and r.sla_days = 2 and r.escalate = 'next', 'S6-11: ' || r::text;
+  perform set_config('t.lid1', lid1::text, false); perform set_config('t.lid5', lid5::text, false); perform set_config('t.cid', cid::text, false);
+  raise notice 'S6 ✅ النوع الفرعي والشروط والإصدارات والمحاكاة';
+end $$;
+
+-- ═══ S7 · 00279: التفويض + المهل والتصعيد + نمط «الجميع» ═══
+do $$
+declare sm uuid := 'd8000000-0000-0000-0000-000000000004'; smz uuid := 'd8000000-0000-0000-0000-000000000005'; dep uuid := 'd8000000-0000-0000-0000-000000000006';
+        lid5 uuid := current_setting('t.lid5')::uuid; lid1 uuid := current_setting('t.lid1')::uuid; r record; n int; did uuid; t_permit uuid; lid uuid;
+begin
+  -- تفويض مسؤول قاطع الكرادة ← مسؤول قاطع الزعفرانية
+  perform pg_temp.as_user(smz);
+  perform pg_temp.expect_error(format($q$ select public.approval_delegation_set('%s', current_date, current_date + 3, null, '%s') $q$, smz, sm), 'APPROVAL_DELEGATION_FORBIDDEN');
+  perform pg_temp.as_user(sm);
+  perform pg_temp.expect_error(format($q$ select public.approval_delegation_set('%s', current_date, current_date - 1) $q$, smz), 'APPROVAL_DELEGATION_DATES_INVALID');
+  perform pg_temp.expect_error(format($q$ select public.approval_delegation_set('%s', current_date, current_date + 3) $q$, sm), 'APPROVAL_DELEGATION_INVALID');
+  did := public.approval_delegation_set(smz, current_date, current_date + 3, 'إجازة');
+  select approvers, delegates into r from public.approval_tasks where request_id = lid5 and step_no = 1;
+  assert smz = any(r.approvers) and sm = any(r.approvers) and (r.delegates ->> smz::text)::uuid = sm, 'S7-1: المفوَّض إليه أُضيف: ' || r::text;
+  select count(*) into n from public.notifications where user_id = smz and dedupe_key = 'delegation:' || did::text; assert n = 1, 'S7-2: إشعار التفويض';
+  perform pg_temp.as_user(smz);
+  perform pg_temp.expect_error(format($q$ select public.approval_delegation_set('%s', current_date, current_date + 1) $q$, sm), 'APPROVAL_DELEGATION_CIRCULAR');
+  select count(*) into n from public.approval_my_tasks() where request_id = lid5; assert n = 1, 'S7-3: المهمة تظهر للمفوَّض إليه';
+  perform public.hr_leave_decide(lid5, true, null);
+  select status, decided_by, decided_for, note into r from public.approval_tasks where request_id = lid5 and step_no = 1;
+  assert r.status = 'approved' and r.decided_by = smz and r.decided_for = sm and r.note like 'بالتفويض عن%', 'S7-4: ' || r::text;
+  select status, due_at into r from public.approval_tasks where request_id = lid5 and step_no = 2; assert r.status = 'pending' and r.due_at is not null and r.due_at > now() + interval '47 hours', 'S7-5: مهلة يومين';
+  -- المهلة: تذكير عند الاستحقاق
+  update public.approval_tasks set due_at = now() - interval '1 hour' where request_id = lid5 and step_no = 2;
+  perform app.approval_escalate_overdue();
+  select reminded_at, status into r from public.approval_tasks where request_id = lid5 and step_no = 2; assert r.reminded_at is not null and r.status = 'pending', 'S7-6: تذكير';
+  select count(*) into n from public.notifications where user_id = dep and dedupe_key like 'approval-remind:%'; assert n = 1, 'S7-7: إشعار التذكير للمعاون';
+  perform app.approval_escalate_overdue();
+  select count(*) into n from public.notifications where user_id = dep and dedupe_key like 'approval-remind:%'; assert n = 1, 'S7-8: التذكير مرة واحدة';
+  -- التصعيد بعد ضعف المهلة: لا خطوة تالية ⇒ تبقى معلّقة مع علامة التصعيد
+  update public.approval_tasks set due_at = now() - interval '3 days' where request_id = lid5 and step_no = 2;
+  perform app.approval_escalate_overdue();
+  select escalated_at, status into r from public.approval_tasks where request_id = lid5 and step_no = 2; assert r.escalated_at is not null and r.status = 'pending', 'S7-9: متعثرة بلا تالية';
+  -- تصعيد إلى الخطوة التالية: طلب اليوم الواحد (الخطوة 1 معلّقة) — نضع مهلة وتصعيداً عليها وخطوة تالية
+  update public.approval_tasks set status = 'waiting', note = null where request_id = lid1 and step_no = 2;
+  update public.approval_tasks set sla_days = 1, escalate = 'next', due_at = now() - interval '2 days' where request_id = lid1 and step_no = 1;
+  perform app.approval_escalate_overdue();
+  select status, note into r from public.approval_tasks where request_id = lid1 and step_no = 1; assert r.status = 'skipped' and r.note like 'تصعيد تلقائي%', 'S7-10: ' || r::text;
+  select status into r from public.approval_tasks where request_id = lid1 and step_no = 2; assert r.status = 'pending', 'S7-11: الخطوة التالية فُعّلت';
+  -- إلغاء التفويض يزيل المفوَّض إليه من المهام المفتوحة
+  perform pg_temp.as_user(sm);
+  perform public.approval_delegation_cancel(did);
+  select count(*) into n from public.approval_tasks where status in ('waiting','pending') and smz = any(approvers) and delegates ? smz::text; assert n = 0, 'S7-12: أُزيل بعد الإلغاء';
+  select count(*) into n from public.approval_delegations_list() where id = did and is_active; assert n = 0, 'S7-13';
+  -- نمط «الجميع»: زمنية لمسؤول قسم ⇒ كل موظفي الموارد البشرية (اثنان)
+  insert into auth.users (id, email) values ('d8000000-0000-0000-0000-000000000009', 'hr2-d@t.iq') on conflict (id) do nothing;
+  insert into public.user_roles (user_id, role) values ('d8000000-0000-0000-0000-000000000009', 'hr_officer') on conflict do nothing;
+  perform pg_temp.as_user('d8000000-0000-0000-0000-000000000001');
+  perform public.approval_chain_save('department_manager', 'time_permit', '[{"kind":"hierarchy","role":"hr_officer","mode":"all"}]');
+  select id into t_permit from public.hr_leave_types where code = 'permit_unpaid';
+  perform pg_temp.as_user('d8000000-0000-0000-0000-000000000003');
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e3', t_permit, current_date + 2, current_date + 2, '09:00', '10:00');
+  select mode, cardinality(approvers) as c into r from public.approval_tasks where request_id = lid and step_no = 1; assert r.mode = 'all' and r.c = 2, 'S7-14: ' || r::text;
+  perform pg_temp.as_user('d8000000-0000-0000-0000-000000000007');
+  perform public.hr_leave_decide(lid, true, null);
+  select status, note into r from public.approval_tasks where request_id = lid and step_no = 1; assert r.status = 'pending' and r.note like 'وافق 1 من 2%', 'S7-15: ' || r::text;
+  select status into r from public.hr_leaves where id = lid; assert r.status = 'pending', 'S7-16: الطلب ما زال معلّقاً';
+  perform pg_temp.expect_error(format($q$ select public.hr_leave_decide('%s', true) $q$, lid), 'APPROVAL_ALREADY_DECIDED');   -- الموافق نفسه لا يُحسب مرتين
+  perform pg_temp.as_user('d8000000-0000-0000-0000-000000000009');
+  perform public.hr_leave_decide(lid, true, null);
+  select status into r from public.approval_tasks where request_id = lid and step_no = 1; assert r.status = 'approved', 'S7-17';
+  select status into r from public.hr_leaves where id = lid; assert r.status = 'approved', 'S7-18: اعتُمدت بعد الجميع';
+  raise notice 'S7 ✅ التفويض والمهل والتصعيد ونمط الجميع';
+end $$;
+
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

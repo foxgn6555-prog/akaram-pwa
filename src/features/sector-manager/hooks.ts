@@ -34,7 +34,7 @@ export const useSmContractorMonth = (contractorUserId: string | null, month?: st
 export const useSmContractorsSummary = () => useQuery({ queryKey: [...ROOT, 'contractors-summary'], queryFn: () => sectorManager.contractorsSummary(), refetchInterval: 60_000 })
 // سلاسل الموافقات
 export const useApprovalChains = (enabled = true) => useQuery({ queryKey: [...ROOT, 'chains'], queryFn: () => approvals.chains(), enabled })
-export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalRequestType; steps: ApprovalStep[]; active?: boolean }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true), 'حُفظت سلسلة الموافقات')
+export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalRequestType; steps: ApprovalStep[]; active?: boolean; subtype?: string | null }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true, x.subtype ?? null), 'حُفظت سلسلة الموافقات')
 export const useDeleteApprovalChain = () => useAction((id: string) => approvals.deleteChain(id), 'حُذفت السلسلة')
 export const useMyApprovalTasks = () => useQuery({ queryKey: [...ROOT, 'tasks'], queryFn: () => approvals.myTasks(), refetchInterval: 60_000 })
 export const useApprovalTimeline = (kind: ApprovalRequestType | undefined, requestId: string | undefined) =>
