@@ -596,3 +596,11 @@ export const usePullTripRouteNow = () => {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['gps-lvn', 'trip-routes'] }),
   })
 }
+/* 00344: مسار انطلاقية واحدة (يُحدَّث كل دقيقة ما دام غير نهائي) */
+export const useTripRoute = (departureId: string | null | undefined, maxPoints = 3000) =>
+  useQuery({
+    queryKey: ['gps-lvn', 'trip-routes', 'detail', departureId, maxPoints] as const,
+    queryFn: () => gpsLvn.tripRoute(departureId as string, maxPoints),
+    enabled: Boolean(departureId),
+    refetchInterval: (q) => (q.state.data && !q.state.data.is_final ? 60_000 : false),
+  })

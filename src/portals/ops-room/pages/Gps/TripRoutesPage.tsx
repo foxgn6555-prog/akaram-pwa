@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react'
 import { Circle, MapContainer, Polygon, TileLayer, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { Link } from 'react-router'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -206,6 +207,7 @@ function Row({ r, pulling, onPull }: { r: TripRoutesRow; pulling: boolean; onPul
       <td className="p-2 text-center tabular-nums" dir="ltr">{r.points_kept ? `${Math.round(r.max_speed_kmh)} km/h` : '—'}</td>
       <td className="max-w-[220px] p-2 text-[10px] leading-4 text-slate-600"><span className="block truncate" title={r.from_address ?? ''}>▲ {r.from_address ?? (r.from_lat != null ? `${r.from_lat.toFixed(4)}, ${r.from_lng?.toFixed(4)}` : '—')}</span><span className="block truncate" title={r.to_address ?? ''}>■ {r.to_address ?? (r.to_lat != null ? `${r.to_lat.toFixed(4)}, ${r.to_lng?.toFixed(4)}` : '—')}</span></td>
       <td className="p-2 text-center">
+        {r.points_kept > 0 && <Link to={`/ops-room/trip-routes/${r.departure_id}`} className="mb-1 inline-block rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-black text-white" data-testid={`tr-map-${r.departure_id}`}>الخريطة</Link>}
         {canPull && <button type="button" onClick={onPull} disabled={pulling} className="rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-50" data-testid={`tr-pull-${r.departure_id}`}>{pulling ? 'يسحب…' : 'سحب الآن'}</button>}
         {r.pulled_at && <span className="block text-[10px] text-slate-400">آخر سحب {timeAr(r.pulled_at)}</span>}
       </td>
