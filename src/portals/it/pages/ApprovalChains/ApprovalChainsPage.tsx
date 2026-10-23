@@ -14,6 +14,7 @@ import { useLeaveTypes } from '@features/hr'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import type { ApprovalChain, ApprovalRequestType, ApprovalStep, ApprovalStepOptions } from '@sdk/sector-manager.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { DelegationPanel } from '@components/approvals/DelegationPanel'
 
 /** أدوار حقيقية فقط (مرآة app.approval_requester_roles) */
 const REQUESTER_ROLES: { role: string; group: string }[] = [
@@ -319,6 +320,7 @@ export default function ApprovalChainsPage() {
           </div>
         )}
       </section>
+      <DelegationPanel admin />
     </div>
   )
 }

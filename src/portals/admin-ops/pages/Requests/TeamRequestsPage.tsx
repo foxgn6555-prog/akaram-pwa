@@ -1,7 +1,7 @@
 /** طلبات الموافقة (مشتركة: مسؤول القاطع، الميدانية، المعاون، المدير المفوض): مهام الموافقة المعلّقة لديّ (إجازات/زمنيات/مستلزمات 00162 /إنهاء خدمة 00163 /سلف 00191)
  * حسب سلاسل الموافقات؛ موافقة أو رفض بسبب إلزامي؛ مسار الطلب. السلفة: يمكن للمعتمِد تعديل المبلغ (وعدد الأقساط) قبل الموافقة. */
-import { useState } from 'react'
-import { CheckCircle2, Clock, Package, UserX, Wallet, XCircle } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
+import { CheckCircle2, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
@@ -11,16 +11,23 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { fmtMoney } from '@portals/hr/components/hr-format'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
+/** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
+const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
 const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
   const list = tasks.data ?? []
+  const [showDelegation, setShowDelegation] = useState(false)
   return (
     <div className="space-y-4 pb-4" data-testid="sm-requests">
       <ExecPageHeader icon="check-square" title={title} subtitle="الطلبات التي وصلت إلى دورك في سلسلة الموافقات — الرفض يُنهي الطلب، والموافقة تنقله للخطوة التالية أو تُنفّذه"
         stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : list.length, tone: list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
+      <div className="flex justify-end">
+        <button type="button" data-testid="delegation-toggle" className="inline-flex items-center gap-1 rounded-xl border bg-white px-3 py-2 text-sm font-bold text-emerald-800" onClick={() => setShowDelegation((v) => !v)}><UserCheck className="h-4 w-4" /> {showDelegation ? 'إخفاء التفويض' : 'تفويض موافقاتي أثناء غيابي'}</button>
+      </div>
+      {showDelegation && <Suspense fallback={<LoadingSpinner />}><DelegationPanel /></Suspense>}
       {tasks.isLoading ? <LoadingSpinner /> : (tasks.data ?? []).length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500" data-testid="sm-requests-empty">لا طلبات بانتظار قرارك الآن.</div>
       ) : (

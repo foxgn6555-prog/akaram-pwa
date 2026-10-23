@@ -38,6 +38,9 @@ export const useSaveApprovalChain = () => useAction((x: { requesterRole: string;
 export const useDeleteApprovalChain = () => useAction((id: string) => approvals.deleteChain(id), 'حُذفت السلسلة')
 export const useApprovalChainVersions = (chainId: string | null) => useQuery({ queryKey: [...ROOT, 'chain-versions', chainId], queryFn: () => approvals.chainVersions(chainId as string), enabled: Boolean(chainId) })
 export const useApprovalSimulate = () => useMutation({ mutationFn: (x: { userId: string; type: ApprovalRequestType; subtype: string | null; context: Record<string, number> }) => approvals.simulate(x.userId, x.type, x.subtype, x.context) })
+export const useApprovalDelegations = (all = false, enabled = true) => useQuery({ queryKey: [...ROOT, 'delegations', all], queryFn: () => approvals.delegations(all), enabled })
+export const useSetApprovalDelegation = () => useAction((x: { toUser: string; startsOn: string; endsOn: string; note?: string | null; fromUser?: string | null }) => approvals.delegationSet(x), 'تم تفعيل التفويض وإشعار المفوَّض إليه')
+export const useCancelApprovalDelegation = () => useAction((id: string) => approvals.delegationCancel(id), 'أُلغي التفويض')
 export const useMyApprovalTasks = () => useQuery({ queryKey: [...ROOT, 'tasks'], queryFn: () => approvals.myTasks(), refetchInterval: 60_000 })
 export const useApprovalTimeline = (kind: ApprovalRequestType | undefined, requestId: string | undefined) =>
   useQuery({ queryKey: [...ROOT, 'timeline', kind, requestId], queryFn: () => approvals.timeline(kind as ApprovalRequestType, requestId as string), enabled: Boolean(kind && requestId) })

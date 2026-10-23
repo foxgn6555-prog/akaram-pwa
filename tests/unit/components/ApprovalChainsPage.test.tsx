@@ -8,6 +8,9 @@ vi.mock('@features/sector-manager/hooks', () => ({
   useDeleteApprovalChain: () => ({ mutate: h.del, isPending: false }),
   useApprovalChainVersions: () => ({ data: h.versions, isLoading: false }),
   useApprovalSimulate: () => ({ mutate: h.sim, isPending: false, data: h.simData }),
+  useApprovalDelegations: () => ({ data: [], isLoading: false }),
+  useSetApprovalDelegation: () => ({ mutate: vi.fn(), isPending: false }),
+  useCancelApprovalDelegation: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 vi.mock('@features/hr', () => ({ useLeaveTypes: () => ({ data: [
   { id: 'lt1', code: 'annual', name: 'إجازة اعتيادية', kind: 'leave' }, { id: 'lt2', code: 'sick', name: 'إجازة مرضية', kind: 'leave' }, { id: 'lt3', code: 'permit_paid', name: 'زمنية مدفوعة', kind: 'time_permit' },

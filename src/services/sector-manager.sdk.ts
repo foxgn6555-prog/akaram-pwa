@@ -45,6 +45,8 @@ export type ApprovalStep = ({ kind: 'hierarchy'; role: string; label?: string } 
 export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance'
 export interface ApprovalChainVersion { id: string; version_no: number; action: 'created' | 'updated' | 'deleted'; steps: ApprovalStep[]; is_active: boolean; changed_by_name: string | null; changed_at: string }
 export interface ApprovalSimulationStep { step_no: number; label: string; mode: 'any' | 'all'; sla_days: number | null; escalate: 'none' | 'next'; condition: string | null; status: 'active' | 'skipped_condition' | 'skipped_nobody'; approvers: { user_id: string; name: string }[]; delegates: { to_name: string; from_name: string }[] }
+/** 00336: تفويض موافقات (من مستخدم إلى آخر لفترة ≤ 90 يوماً) */
+export interface ApprovalDelegation { id: string; from_user: string; from_name: string; to_user: string; to_name: string; starts_on: string; ends_on: string; note: string | null; is_active: boolean; is_current: boolean; created_at: string }
 export interface ApprovalSimulation { chain_id: string | null; requester_role?: string; requester_label?: string; subtype?: string | null; note?: string; steps: ApprovalSimulationStep[] }
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
@@ -127,6 +129,11 @@ export const approvals = {
   /** 00335: محاكاة — من سيوافق لو طلب هذا المستخدم هذا النوع بهذا السياق */
   simulate: async (userId: string, type: ApprovalRequestType, subtype: string | null, context: Record<string, number>) =>
     (await sdkGuard(supabase.rpc('approval_simulate', { p_user: userId, p_type: type, p_subtype: subtype, p_context: context }))) as ApprovalSimulation,
+  /** 00336: تفويضاتي (أو الكل لـ IT) */
+  delegations: async (all = false) => (await sdkGuard(supabase.rpc('approval_delegations_list', { p_all: all }))) as ApprovalDelegation[],
+  delegationSet: async (x: { toUser: string; startsOn: string; endsOn: string; note?: string | null; fromUser?: string | null }) =>
+    (await sdkGuard(supabase.rpc('approval_delegation_set', { p_to_user: x.toUser, p_starts_on: x.startsOn, p_ends_on: x.endsOn, p_note: x.note ?? null, p_from_user: x.fromUser ?? null }))) as string,
+  delegationCancel: async (id: string) => sdkVoid(supabase.rpc('approval_delegation_cancel', { p_id: id })),
   myTasks: async () => (await sdkGuard(supabase.rpc('approval_my_tasks'))) as ApprovalTask[],
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
   /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */
