@@ -106,6 +106,8 @@ const APP_ERROR_AR: Record<string, string> = {
   APPROVAL_DELEGATION_TOO_LONG: 'مدة التفويض لا تتجاوز 90 يوماً.',
   APPROVAL_DELEGATION_CIRCULAR: 'لا يمكن التفويض المتبادل بين الحسابين في الفترة نفسها.',
   APPROVAL_DELEGATION_NOT_FOUND: 'التفويض غير موجود.',
+  APPROVAL_REPORT_FORBIDDEN: 'تقرير أداء الموافقات متاح للتطوير المركزية والمدير المفوض فقط.',
+  APPROVAL_REPORT_DATES_INVALID: 'فترة التقرير غير صحيحة.',
   APPROVAL_ROLE_REQUIRED: 'اختر دور الطالب.',
   APPROVAL_NO_APPROVER: 'لا يوجد أي مُعتمِد في سلسلة الموافقات لهذا الطلب (ربما كلّهم أنت) — راجع التطوير المركزية.',
   APPROVAL_NO_PENDING_STEP: 'لا توجد خطوة معلّقة لهذا الطلب.',

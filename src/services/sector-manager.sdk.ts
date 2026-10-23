@@ -47,6 +47,14 @@ export interface ApprovalChainVersion { id: string; version_no: number; action: 
 export interface ApprovalSimulationStep { step_no: number; label: string; mode: 'any' | 'all'; sla_days: number | null; escalate: 'none' | 'next'; condition: string | null; status: 'active' | 'skipped_condition' | 'skipped_nobody'; approvers: { user_id: string; name: string }[]; delegates: { to_name: string; from_name: string }[] }
 /** 00336: تفويض موافقات (من مستخدم إلى آخر لفترة ≤ 90 يوماً) */
 export interface ApprovalDelegation { id: string; from_user: string; from_name: string; to_user: string; to_name: string; starts_on: string; ends_on: string; note: string | null; is_active: boolean; is_current: boolean; created_at: string }
+/** 00337: تقرير أداء الموافقات */
+export interface ApprovalPerfSummary { decided: number; approved: number; rejected: number; avg_hours: number | null; median_hours: number | null; within_sla: number; with_sla: number; delegated: number; escalated: number; open_now: number; overdue_now: number; open_avg_hours: number | null }
+export interface ApprovalPerfKind { kind: string; label: string; decided: number; avg_hours: number | null; max_hours: number | null; rejected: number; open_now: number }
+export interface ApprovalPerfStep { kind: string; kind_label: string; step_label: string; decided: number; avg_hours: number | null; max_hours: number | null; overdue: number; open_now: number }
+export interface ApprovalPerfApprover { user_id: string; name: string; decided: number; avg_hours: number | null; as_delegate: number; pending_now: number; overdue_now: number }
+export interface ApprovalPerfOpenTask { task_id: string; kind: string; kind_label: string; step_no: number; step_label: string; hours: number; due_at: string | null; overdue: boolean; escalated: boolean; approvers: string | null }
+export interface ApprovalPerfEscalation { task_id: string; kind_label: string; step_label: string; escalated_at: string; status: string; approvers: string | null }
+export interface ApprovalPerformanceReport { from: string; to: string; summary: ApprovalPerfSummary; by_kind: ApprovalPerfKind[]; by_step: ApprovalPerfStep[]; by_approver: ApprovalPerfApprover[]; open_tasks: ApprovalPerfOpenTask[]; escalations: ApprovalPerfEscalation[] }
 export interface ApprovalSimulation { chain_id: string | null; requester_role?: string; requester_label?: string; subtype?: string | null; note?: string; steps: ApprovalSimulationStep[] }
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
@@ -134,6 +142,8 @@ export const approvals = {
   delegationSet: async (x: { toUser: string; startsOn: string; endsOn: string; note?: string | null; fromUser?: string | null }) =>
     (await sdkGuard(supabase.rpc('approval_delegation_set', { p_to_user: x.toUser, p_starts_on: x.startsOn, p_ends_on: x.endsOn, p_note: x.note ?? null, p_from_user: x.fromUser ?? null }))) as string,
   delegationCancel: async (id: string) => sdkVoid(supabase.rpc('approval_delegation_cancel', { p_id: id })),
+  /** 00337: تقرير الأداء (IT / المدير المفوض) */
+  performance: async (from: string, to: string) => (await sdkGuard(supabase.rpc('approval_performance_report', { p_from: from, p_to: to }))) as ApprovalPerformanceReport,
   myTasks: async () => (await sdkGuard(supabase.rpc('approval_my_tasks'))) as ApprovalTask[],
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
   /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */

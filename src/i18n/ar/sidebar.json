@@ -165,7 +165,8 @@
     "sm_contractors": "متابعة المتعهدين والعمال",
     "procedures": "الإجراءات",
     "fo_sectors": "القواطع والمسؤولون",
-    "approval_chains": "سلاسل الموافقات"
+    "approval_chains": "سلاسل الموافقات",
+    "approval_performance": "أداء الموافقات"
   },
   "sections": {
     "main": "القائمة الرئيسية",

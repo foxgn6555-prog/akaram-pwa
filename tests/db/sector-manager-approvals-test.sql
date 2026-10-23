@@ -358,4 +358,31 @@ begin
   raise notice 'S7 ✅ التفويض والمهل والتصعيد ونمط الجميع';
 end $$;
 
+-- ═══ S8 · 00280: تقرير أداء الموافقات + pending_at ═══
+do $$
+declare it uuid := 'd8000000-0000-0000-0000-000000000001'; sm uuid := 'd8000000-0000-0000-0000-000000000004'; smz uuid := 'd8000000-0000-0000-0000-000000000005';
+        lid5 uuid := current_setting('t.lid5')::uuid; lid1 uuid := current_setting('t.lid1')::uuid; r record; rep jsonb; a jsonb;
+begin
+  -- pending_at يُضبط بالزناد عند التفعيل ولا يسبق قرار الخطوة السابقة
+  select t2.pending_at as p2, t1.decided_at as d1, t1.pending_at as p1 into r from public.approval_tasks t1 join public.approval_tasks t2 on t2.request_id = t1.request_id and t2.step_no = 2 where t1.request_id = lid5 and t1.step_no = 1;
+  assert r.p1 is not null and r.p2 is not null and r.p2 >= r.d1, 'S8-1: pending_at ' || r::text;
+  select pending_at into r from public.approval_tasks where request_id = lid1 and step_no = 2; assert r.pending_at is not null, 'S8-2: التصعيد يضبط pending_at';
+  -- الصلاحية والتواريخ
+  perform pg_temp.as_user(sm);
+  perform pg_temp.expect_error($q$ select public.approval_performance_report() $q$, 'APPROVAL_REPORT_FORBIDDEN');
+  perform pg_temp.as_user(it);
+  perform pg_temp.expect_error($q$ select public.approval_performance_report(current_date, current_date - 1) $q$, 'APPROVAL_REPORT_DATES_INVALID');
+  rep := public.approval_performance_report(current_date, current_date);
+  assert (rep -> 'summary' ->> 'decided')::int >= 3 and (rep -> 'summary' ->> 'approved')::int >= 3 and (rep -> 'summary' ->> 'avg_hours') is not null, 'S8-3: ' || (rep -> 'summary')::text;
+  assert (rep -> 'summary' ->> 'delegated')::int >= 1 and (rep -> 'summary' ->> 'escalated')::int >= 1 and (rep -> 'summary' ->> 'open_now')::int >= 2 and (rep -> 'summary' ->> 'overdue_now')::int >= 1, 'S8-4: ' || (rep -> 'summary')::text;
+  select x into a from jsonb_array_elements(rep -> 'by_approver') x where (x ->> 'user_id')::uuid = smz; assert a is not null and (a ->> 'as_delegate')::int = 1 and (a ->> 'decided')::int >= 1, 'S8-5: ' || coalesce(a::text, 'null');
+  assert jsonb_array_length(rep -> 'by_kind') >= 1 and (select count(*) from jsonb_array_elements(rep -> 'by_kind') x where x ->> 'kind' = 'leave' and x ->> 'label' = 'إجازة') = 1, 'S8-6: ' || (rep -> 'by_kind')::text;
+  assert jsonb_array_length(rep -> 'by_step') >= 2 and jsonb_array_length(rep -> 'open_tasks') >= 2 and jsonb_array_length(rep -> 'escalations') >= 1, 'S8-7';
+  assert (select count(*) from jsonb_array_elements(rep -> 'open_tasks') x where (x ->> 'overdue')::boolean and (x ->> 'hours')::numeric >= 0) >= 1, 'S8-8: المتأخرون الآن';
+  -- فترة لا قرارات فيها ⇒ أصفار لا أخطاء
+  rep := public.approval_performance_report('2020-01-01', '2020-01-31');
+  assert (rep -> 'summary' ->> 'decided')::int = 0 and (rep -> 'summary' ->> 'avg_hours') is null and rep -> 'by_step' = '[]'::jsonb and (rep -> 'summary' ->> 'open_now')::int >= 2, 'S8-9: ' || rep::text;
+  raise notice 'S8 ✅ تقرير أداء الموافقات';
+end $$;
+
 update public.hr_policy set settings = settings || '{"backdated_max_days": 365}'::jsonb where id = 1;  -- 00197: الاختبار يطلب لأشهر ماضية

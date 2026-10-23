@@ -13,6 +13,7 @@ const UserManagementHub = lazy(() => import('@portals/it/pages/UserManagement/Us
 const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'))
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
 const ApprovalChainsPage = lazy(() => import('@portals/it/pages/ApprovalChains/ApprovalChainsPage'))
+const ApprovalPerformancePage = lazy(() => import('@components/approvals/ApprovalPerformancePage').then((m) => ({ default: () => <m.ApprovalPerformancePage testId="it-approval-performance" /> })))   // 00337
 const DisclosureTypesPage = lazy(() => import('@portals/it/pages/UserManagement/DisclosureTypesPage'))   // 00170: أنواع الكشوفات
 const MaintenanceWorkshopsPage = lazy(() => import('@portals/it/pages/UserManagement/MaintenanceWorkshopsPage'))   // 00274: ورش الصيانة
 const UserDetail = lazy(() => import('@portals/it/pages/UserManagement/UserDetail'))
@@ -61,6 +62,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management/list', element: s(<UsersList />) },
   { path: 'user-management/create', element: s(<CreateUser />) },
   { path: 'user-management/approval-chains', element: s(<ApprovalChainsPage />) },
+  { path: 'user-management/approval-performance', element: s(<ApprovalPerformancePage />) },
   { path: 'user-management/disclosure-types', element: s(<DisclosureTypesPage />) },
   { path: 'user-management/maintenance-workshops', element: s(<MaintenanceWorkshopsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },
