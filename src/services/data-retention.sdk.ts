@@ -17,19 +17,23 @@ export interface RetentionRequest {
   rows_exported: number | null; export_sha256: string | null; export_label: string | null; exported_by_name: string | null; exported_at: string | null
   confirmed_by_name: string | null; confirmed_at: string | null; rows_deleted: number; finished_at: string | null; created_at: string; updated_at: string
   can_export: boolean; can_confirm: boolean; events: RetentionEvent[]
+  /** 00341: موعد الحذف التلقائي (null = يحتاج تأكيداً يدوياً)، عدد التأجيلات، محجوز بانتظار التصدير، يمكن تأجيله */
+  auto_delete_at: string | null; postponed_count: number; auto_blocked_export: boolean; can_postpone: boolean
 }
 export interface RetentionPolicy {
   data_key: string; label: string; description: string; safety_lock: string
   /** 00340: البوابة التي ينتمي إليها النوع، اسم الجدول وعمود الزمن، وهل يمكن تفعيل حذفه أصلاً (المقفل يظهر لكن لا يُفعَّل) */
   portal_key: string; portal_label: string; table_name: string; time_column: string | null; deletable: boolean
   enabled: boolean; retention_months: number; export_required: boolean
+  /** 00341: يحتاج تأكيد IT قبل الحذف (افتراضي نعم)؛ وإلا يُحذف تلقائياً بعد مهلة الأمان بالأيام (0..90) */
+  requires_confirm: boolean; grace_days: number
   updated_at: string | null; updated_by_name: string | null; open_request: RetentionRequest | null
 }
 
 export const RETENTION_ERROR_MESSAGES: Record<string, string> = {
   IT_FORBIDDEN: 'هذه الوحدة لبوابة التطوير المركزية فقط',
   RETENTION_UNKNOWN_KEY: 'نوع بيانات غير معروف',
-  RETENTION_INPUT_INVALID: 'قيمة غير صالحة — المدة بين 1 و120 شهراً',
+  RETENTION_INPUT_INVALID: 'قيمة غير صالحة — المدة بين 1 و120 شهراً، ومهلة الأمان بين 0 و90 يوماً',
   RETENTION_NOT_FOUND: 'الطلب غير موجود',
   RETENTION_BAD_STATE: 'حالة الطلب لا تسمح بهذا الإجراء',
   RETENTION_EXPORT_REQUIRED: 'هذا النوع يتطلب تصديراً مُثبَتاً قبل التأكيد',
@@ -37,6 +41,7 @@ export const RETENTION_ERROR_MESSAGES: Record<string, string> = {
   RETENTION_EXPORT_STALE: 'تغيّرت البيانات بعد التصدير (وصلت صفوف قديمة جديدة) — أعد التصدير ثم أكّد',
   RETENTION_POLICY_DISABLED: 'السياسة معطّلة — فعّلها أولاً',
   RETENTION_LOCKED: 'هذا النوع مقفل — لا يمكن تفعيل حذفه الزمني',
+  RETENTION_NOT_AUTO: 'هذا الطلب يدوي (يحتاج تأكيدكم) — لا موعد تلقائي لتأجيله',
 }
 export function retentionErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error ?? '')
@@ -48,8 +53,10 @@ const rpc = <T,>(fn: string, args: Record<string, unknown> = {}) => sdkGuard(sup
 
 export const dataRetention = {
   settings: async () => (await rpc<RetentionPolicy[] | null>('data_retention_settings_get')) ?? [],
-  setPolicy: (p: { data_key: string; enabled: boolean; retention_months: number; export_required: boolean }) =>
-    rpc<RetentionPolicy[]>('data_retention_policy_set', { p_key: p.data_key, p_enabled: p.enabled, p_months: p.retention_months, p_export_required: p.export_required }),
+  setPolicy: (p: { data_key: string; enabled: boolean; retention_months: number; export_required: boolean; requires_confirm: boolean; grace_days: number }) =>
+    rpc<RetentionPolicy[]>('data_retention_policy_set', { p_key: p.data_key, p_enabled: p.enabled, p_months: p.retention_months, p_export_required: p.export_required, p_requires_confirm: p.requires_confirm, p_grace_days: p.grace_days }),
+  /** 00341: تأجيل الحذف التلقائي أياماً إضافية */
+  postpone: (id: string, days = 7) => rpc<RetentionRequest>('data_retention_postpone', { p_request: id, p_days: days }),
   scanNow: () => rpc<{ created: number; settings: RetentionPolicy[] }>('data_retention_scan_now'),
   requests: async (limit = 50) => (await rpc<RetentionRequest[] | null>('data_retention_requests_list', { p_limit: limit })) ?? [],
   exportRecorded: (id: string, rows: number, sha256: string, label: string) =>

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(), run: vi.fn(), runPending: false,
+  save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(), run: vi.fn(), postpone: vi.fn(), runPending: false,
   settings: [] as Record<string, unknown>[], requests: [] as Record<string, unknown>[],
 }))
 vi.mock('@features/data-retention/hooks', () => ({
@@ -14,6 +14,7 @@ vi.mock('@features/data-retention/hooks', () => ({
   useCancelRetention: () => ({ mutate: h.cancel, isPending: false }),
   useBrowserExport: () => ({ mutate: h.exp, isPending: false }),
   useRunRetentionDelete: () => ({ mutate: h.run, isPending: h.runPending }),
+  usePostponeRetention: () => ({ mutate: h.postpone, isPending: false }),
 }))
 import DataRetentionPage from '@portals/it/pages/DataRetention/DataRetentionPage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -27,11 +28,12 @@ const req = {
   exported_by_name: null, exported_at: null, confirmed_by_name: null, confirmed_at: null, rows_deleted: 0, finished_at: null,
   created_at: '2026-10-22T01:00:00Z', updated_at: '2026-10-22T01:00:00Z', can_export: true, can_confirm: false,
   events: [{ action: 'request_created', details: null, actor_name: 'النظام', at: '2026-10-22T01:00:00Z' }],
+  auto_delete_at: null, postponed_count: 0, auto_blocked_export: false, can_postpone: false,
 }
 const policy = {
   data_key: 'biometric_raw_punches', label: 'البصمات الخام من الأجهزة', description: 'كل لمسة إصبع', safety_lock: 'لا تُحذف بصمات شهر لم تعتمده المالية',
   portal_key: 'it', portal_label: 'بوابة التطوير المركزية (IT)', table_name: 'biometric_punches', time_column: 'punched_at', deletable: true,
-  enabled: false, retention_months: 6, export_required: true, updated_at: null, updated_by_name: null, open_request: null,
+  enabled: false, retention_months: 6, export_required: true, requires_confirm: true, grace_days: 7, updated_at: null, updated_by_name: null, open_request: null,
 }
 const lockedPolicy = {
   ...policy, data_key: 'employees', label: 'الموظفون', description: '', safety_lock: 'بيانات أساسية/مرجعية — لا تخضع للحذف الزمني',
@@ -135,7 +137,7 @@ describe('DataRetentionPage (00325)', () => {
     fireEvent.change(card.querySelector('[data-testid="ret-months"]') as HTMLInputElement, { target: { value: '9' } })
     expect(save.disabled).toBe(false)
     fireEvent.click(save)
-    expect(h.save).toHaveBeenCalledWith({ data_key: 'biometric_raw_punches', enabled: true, retention_months: 9, export_required: true })
+    expect(h.save).toHaveBeenCalledWith({ data_key: 'biometric_raw_punches', enabled: true, retention_months: 9, export_required: true, requires_confirm: true, grace_days: 7 })
   })
 
   it('00340: السياسات مجمّعة حسب البوابة؛ المقفل يظهر بشارة وسبب بلا مدخلات؛ الملخص يعدّ الكل/القابل/المقفل', () => {
@@ -166,5 +168,44 @@ describe('DataRetentionPage (00325)', () => {
     expect(screen.queryByTestId('ret-policy-employees')).toBeNull()
     expect(screen.queryByTestId('ret-portal-hr')).toBeNull()
     expect(screen.getByTestId('ret-policy-biometric_raw_punches')).toBeInTheDocument()
+  })
+
+  it('00341: إلغاء «يحتاج تأكيد IT» يُظهر مهلة الأمان؛ مهلة خارج 0..90 تمنع الحفظ؛ الحفظ يرسل requires_confirm=false و grace_days', () => {
+    render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    const card = screen.getByTestId('ret-policy-gps_position_history')
+    expect(card.querySelector('[data-testid="ret-grace"]')).toBeNull()
+    fireEvent.click(card.querySelector('[data-testid="ret-requires-confirm"]') as HTMLInputElement)
+    const grace = card.querySelector('[data-testid="ret-grace"]') as HTMLInputElement
+    expect(grace).not.toBeNull()
+    const save = card.querySelector('[data-testid="ret-save"]') as HTMLButtonElement
+    fireEvent.change(grace, { target: { value: '91' } })
+    expect(save.disabled).toBe(true)
+    fireEvent.change(grace, { target: { value: '10' } })
+    expect(save.disabled).toBe(false)
+    fireEvent.click(save)
+    expect(h.save).toHaveBeenCalledWith({ data_key: 'gps_position_history', enabled: false, retention_months: 3, export_required: false, requires_confirm: false, grace_days: 10 })
+  })
+
+  it('00341: طلب تلقائي يعرض موعد الحذف وزر التأجيل ينادي بالمعرّف؛ المحجوز بانتظار التصدير يعرض التحذير', () => {
+    h.requests = [{ ...req, data_key: 'gps_position_history', export_required: false, can_confirm: true, auto_delete_at: '2026-10-30T01:00:00Z', can_postpone: true, postponed_count: 1 }]
+    const { unmount } = render(<DataRetentionPage />)
+    expect(screen.getByTestId('ret-auto-banner').textContent).toContain('سيُحذف تلقائياً')
+    expect(screen.getByTestId('ret-auto-banner').textContent).toContain('أُجِّل 1 مرة')
+    fireEvent.click(screen.getByTestId('ret-postpone'))
+    expect(h.postpone).toHaveBeenCalledWith({ id: 'r1', days: 7 })
+    expect(screen.getByTestId('ret-confirm')).toBeInTheDocument()
+    unmount()
+    h.requests = [{ ...req, auto_delete_at: '2026-10-20T01:00:00Z', can_postpone: true, auto_blocked_export: true }]
+    render(<DataRetentionPage />)
+    expect(screen.getByTestId('ret-auto-banner').textContent).toContain('محجوز حتى يُسجَّل تصدير')
+    expect(screen.getByTestId('ret-export-needed')).toBeInTheDocument()
+  })
+
+  it('00341: طلب يدوي (بلا موعد) لا يعرض لافتة الحذف التلقائي', () => {
+    h.requests = [req]
+    render(<DataRetentionPage />)
+    expect(screen.queryByTestId('ret-auto-banner')).toBeNull()
+    expect(screen.queryByTestId('ret-postpone')).toBeNull()
   })
 })

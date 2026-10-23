@@ -30,6 +30,7 @@ export const useRunRetentionDelete = () => useAction(
   (x: { id: string; onProgress?: (r: RetentionRequest) => void; signal?: AbortSignal }) => dataRetention.deleteRun(x.id, { onProgress: x.onProgress, signal: x.signal }),
   (r) => (r.status === 'done' ? `اكتمل الحذف: ${r.rows_deleted.toLocaleString('en-US')} صفاً — بقيت ${r.rows_locked.toLocaleString('en-US')} محمية` : `توقف الحذف عند ${r.rows_deleted.toLocaleString('en-US')} صفاً — يمكنك الاستئناف لاحقاً`))
 export const useCancelRetention = () => useAction((id: string) => dataRetention.cancel(id), 'أُلغي الطلب — لم يُحذف شيء')
+export const usePostponeRetention = () => useAction((x: { id: string; days?: number }) => dataRetention.postpone(x.id, x.days ?? 7), 'أُجِّل الحذف التلقائي')
 
 /** تصدير مُثبَت: اختيار مجلد → كتابة CSV/JSON → بصمة → تسجيل الإثبات. يعيد null إذا أُلغي اختيار المجلد. */
 export const useBrowserExport = () => {

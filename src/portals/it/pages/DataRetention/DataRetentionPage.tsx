@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Search, Settings2, ShieldCheck, Square, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Search, Settings2, ShieldCheck, Square, Trash2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { RETENTION_OPEN, RETENTION_STATUS_LABEL, type RetentionPolicy, type RetentionRequest } from '@sdk/data-retention.sdk'
-import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, useRunRetentionDelete, useSetRetentionPolicy } from '@features/data-retention/hooks'
+import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, usePostponeRetention, useRunRetentionDelete, useSetRetentionPolicy } from '@features/data-retention/hooks'
 import { browserPullSupported } from '@features/cold-archive/browser-pull'
 import type { ExportProgress } from '@features/data-retention/browser-export'
 
@@ -73,7 +73,7 @@ function RequestsTab() {
 }
 
 function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: boolean }) {
-  const confirm = useConfirmRetention(), cancel = useCancelRetention()
+  const confirm = useConfirmRetention(), cancel = useCancelRetention(), postpone = usePostponeRetention()
   const [typed, setTyped] = useState('')
   const isOpen = RETENTION_OPEN.includes(r.status)
   return (
@@ -96,6 +96,20 @@ function RequestCard({ r, compact = false }: { r: RetentionRequest; compact?: bo
 
       {isOpen && (
         <div className="mt-3 space-y-3">
+          {r.auto_delete_at && (r.status === 'pending' || r.status === 'exported') && (
+            <div className={clsx('flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-xs', r.auto_blocked_export ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-sky-200 bg-sky-50 text-sky-900')} data-testid="ret-auto-banner">
+              <p className="inline-flex items-center gap-2 font-bold">
+                <CalendarClock size={14} />
+                {r.auto_blocked_export
+                  ? 'انقضت مهلة الأمان — الحذف التلقائي محجوز حتى يُسجَّل تصدير مُثبَت (لن يُحذف شيء بلا تصدير)'
+                  : <>سيُحذف تلقائياً في <span dir="ltr" className="font-mono">{formatDateTime(r.auto_delete_at)}</span> ما لم تلغوا أو تؤجلوا{r.postponed_count > 0 ? ` · أُجِّل ${num(r.postponed_count)} مرة` : ''}</>}
+              </p>
+              {r.can_postpone && (
+                <button type="button" disabled={postpone.isPending} onClick={() => postpone.mutate({ id: r.id, days: 7 })} data-testid="ret-postpone"
+                  className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-bold ring-1 ring-sky-300">تأجيل 7 أيام</button>
+              )}
+            </div>
+          )}
           {r.export_required && r.status === 'pending' && <ExportPanel r={r} />}
           {r.status === 'exported' && (
             <p className="rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
@@ -184,7 +198,7 @@ function ExportPanel({ r }: { r: RetentionRequest }) {
   )
 }
 const STATUS_TONE: Record<RetentionRequest['status'], string> = { pending: 'bg-amber-100 text-amber-900', exported: 'bg-sky-100 text-sky-900', confirmed: 'bg-sky-100 text-sky-900', deleting: 'bg-sky-100 text-sky-900', done: 'bg-emerald-100 text-emerald-900', cancelled: 'bg-slate-100 text-slate-600' }
-const EVENT_LABEL: Record<string, string> = { request_created: 'أنشأ النظام الطلب', exported: 'تصدير مُثبَت', confirmed: 'تأكيد الحذف', batch: 'دفعة حذف', done: 'اكتمل الحذف', cancelled: 'إلغاء', policy_set: 'تعديل سياسة' }
+const EVENT_LABEL: Record<string, string> = { request_created: 'أنشأ النظام الطلب', exported: 'تصدير مُثبَت', confirmed: 'تأكيد الحذف', batch: 'دفعة حذف', done: 'اكتمل الحذف', cancelled: 'إلغاء', policy_set: 'تعديل سياسة', postponed: 'تأجيل الحذف التلقائي', auto_confirmed: 'تأكيد تلقائي (انقضت المهلة)', auto_blocked_export: 'حذف تلقائي محجوز — بانتظار التصدير', auto_export_stale: 'التصدير لم يعد مطابقاً — أُعيد الطلب لبانتظار التصدير' }
 
 function Stat({ label, value, strong = false, icon }: { label: string; value: string; strong?: boolean; icon?: ReactNode }) {
   return (
@@ -271,8 +285,10 @@ function PolicyCard({ p }: { p: RetentionPolicy }) {
   const [enabled, setEnabled] = useState(p.enabled)
   const [months, setMonths] = useState(p.retention_months)
   const [exp, setExp] = useState(p.export_required)
-  const dirty = enabled !== p.enabled || months !== p.retention_months || exp !== p.export_required
-  const valid = Number.isInteger(months) && months >= 1 && months <= 120
+  const [confirmNeeded, setConfirmNeeded] = useState(p.requires_confirm)
+  const [grace, setGrace] = useState(p.grace_days)
+  const dirty = enabled !== p.enabled || months !== p.retention_months || exp !== p.export_required || confirmNeeded !== p.requires_confirm || grace !== p.grace_days
+  const valid = Number.isInteger(months) && months >= 1 && months <= 120 && Number.isInteger(grace) && grace >= 0 && grace <= 90
   return (
     <article className="rounded-2xl bg-white p-4 ring-1 ring-slate-200" data-testid={`ret-policy-${p.data_key}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -293,11 +309,20 @@ function PolicyCard({ p }: { p: RetentionPolicy }) {
         <label className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm font-bold text-slate-800">
           <input type="checkbox" checked={exp} onChange={(e) => setExp(e.target.checked)} data-testid="ret-export" className="h-4 w-4" /> يتطلب تصديراً مُثبَتاً قبل الحذف
         </label>
+        <label className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm font-bold text-slate-800 sm:col-span-2">
+          <input type="checkbox" checked={confirmNeeded} onChange={(e) => setConfirmNeeded(e.target.checked)} data-testid="ret-requires-confirm" className="h-4 w-4" /> يحتاج تأكيد IT قبل الحذف
+          <span className="text-xs font-normal text-slate-500">{confirmNeeded ? '(لا يُحذف شيء إلا بزر التأكيد هنا)' : '(يُحذف تلقائياً بعد مهلة الأمان — مع إشعاركم قبلها وإمكانية الإلغاء أو التأجيل)'}</span>
+        </label>
+        {!confirmNeeded && (
+          <label className="rounded-xl bg-sky-50 p-3 text-xs font-bold text-sky-900 ring-1 ring-sky-200">مهلة الأمان قبل الحذف التلقائي (أيام 0–90)
+            <input type="number" min={0} max={90} value={grace} onChange={(e) => setGrace(Number(e.target.value))} data-testid="ret-grace" dir="ltr" className="mt-1 h-10 w-full rounded-xl border border-sky-300 bg-white px-3 text-sm text-slate-900" />
+          </label>
+        )}
       </div>
       {p.open_request && <p className="mt-2 text-xs text-amber-900">طلب مفتوح: {RETENTION_STATUS_LABEL[p.open_request.status]} · قابلة للحذف {num(p.open_request.rows_deletable)}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-slate-500">{p.updated_at ? `آخر تعديل ${formatDateTime(p.updated_at)} · ${p.updated_by_name ?? ''}` : 'لم تُعدَّل بعد (الافتراضي)'}</span>
-        <button type="button" disabled={!dirty || !valid || save.isPending} onClick={() => save.mutate({ data_key: p.data_key, enabled, retention_months: months, export_required: exp })} data-testid="ret-save"
+        <button type="button" disabled={!dirty || !valid || save.isPending} onClick={() => save.mutate({ data_key: p.data_key, enabled, retention_months: months, export_required: exp, requires_confirm: confirmNeeded, grace_days: grace })} data-testid="ret-save"
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50">حفظ</button>
       </div>
     </article>
