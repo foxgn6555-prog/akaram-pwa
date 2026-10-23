@@ -588,6 +588,9 @@ export const complaints = {
       approvedAt: (reportData.approved_at as string | null) ?? null,
       sentAt: (reportData.sent_at as string | null) ?? null,
       archivedAt: (reportData.archived_at as string | null) ?? null, deliveries,
+      approvalChainId: (reportData.approval_chain_id as string | null) ?? null,
+      approvalRequestedAt: (reportData.approval_requested_at as string | null) ?? null,
+      approvalRejectedNote: (reportData.approval_rejected_note as string | null) ?? null,
       items: (links ?? []).map((link) => ({ itemId: String(link.item_id), displayOrder: Number(link.display_order),
         included: Boolean(link.included), slideLayout: (link.slide_layout as Record<string, unknown>) ?? {},
         item: itemRow(link.complaint_items as Record<string, unknown>) })) }

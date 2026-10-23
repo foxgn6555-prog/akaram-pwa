@@ -50,7 +50,7 @@ const item = {
 const report = {
   id: 'r1', reportDate: '2026-10-02', sector: 'karrada', title: 'تقرير يومي', status: 'draft', scope: 'daily',
   pptxPath: null, recipients: ['a@b.iq'], deliveryId: null, createdAt: '2026-10-02T18:00:00Z',
-  layout: { cover: 'k3' }, approvedAt: null, sentAt: null, archivedAt: null, deliveries: [],
+  layout: { cover: 'k3' }, approvedAt: null, sentAt: null, archivedAt: null, deliveries: [], approvalChainId: null, approvalRequestedAt: null, approvalRejectedNote: null,
   items: [{ itemId: 'i1', displayOrder: 1, included: true, slideLayout: {}, item }],
 }
 const entry = report.items[0] as unknown as Parameters<typeof ReportTablePreview>[0]['entries'][number]
@@ -177,6 +177,18 @@ describe('الإعدادات والمحرر', () => {
     expect(within(poster).queryByText(DEFAULT_SLOGAN)).toBeNull()
     fireEvent.click(screen.getByText('حفظ التصميم'))
     expect(h.muts.saveDraft.mutate).toHaveBeenCalledWith(expect.objectContaining({ layout: expect.objectContaining({ cover: 'k6', coverSectorLine: 'قاطع الزعفرانية', coverDateDigits: 'arabic', coverSlogan: '' }) }), expect.anything())
+  })
+  it('00339: تقرير في سلسلة موافقات ⇒ لا زر اعتماد ولا إقرار، بل شارة انتظار؛ وبعد الإعادة يظهر السبب ويعود الزر', () => {
+    h.report = { ...report, status: 'quality_review', pptxPath: 'reports/r1/complaints-v1.pptx', approvalChainId: 'c1', approvalRequestedAt: '2026-10-02T19:00:00Z' }
+    const v = editorView()
+    expect(screen.getByTestId('report-chain-pending')).toBeInTheDocument()
+    expect(screen.queryByText('اعتماد التقرير')).toBeNull()
+    expect(screen.queryByText(/نزّلت ملف PowerPoint/)).toBeNull()
+    v.unmount()
+    h.report = { ...report, status: 'quality_review', pptxPath: 'reports/r1/complaints-v1.pptx', approvalRejectedNote: 'صورة بعد غير واضحة' }
+    editorView()
+    expect(screen.getByTestId('report-rejected-note')).toHaveTextContent('صورة بعد غير واضحة')
+    expect(screen.getByText('اعتماد التقرير')).toBeInTheDocument()
   })
   it('محرر التقرير: التصميم الرسمي يبقى خياراً ويظهر معه لون الهوية فقط', () => {
     h.report = { ...report, layout: {} }

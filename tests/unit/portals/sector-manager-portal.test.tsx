@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const h = vi.hoisted(() => ({ decide: vi.fn(), send: vi.fn(), tasks: [] as Record<string, unknown>[], timeline: [] as Record<string, unknown>[] }))
+const h = vi.hoisted(() => ({ decide: vi.fn(), send: vi.fn(), dl: vi.fn(), tasks: [] as Record<string, unknown>[], timeline: [] as Record<string, unknown>[] }))
 const dash = {
   parent_sectors: [{ code: 'karrada', name: 'الكرادة' }], areas: 4, department_managers: 2, contractors: 3, areas_without_contractor: 1, workers: 40,
   present_today: 30, absent_today: 10, presence_proved: 2, out_of_zone: 1, vehicles_now: 5, pending_requests: 2, managers_on_leave: 0, notices_sent: 1, areas_detail: [],
@@ -23,6 +23,7 @@ const reports = {
   contractors: [{ user_id: 'c1', name: 'متعهد أرخيته', area: 'أرخيته', parent_sector: 'karrada', manager_name: 'مسؤول قسم الكرادة', shift: 'morning', workers: 10, present: 200, absent: 20, proof_days: 28, out_of_zone_days: 1 }],
   managers: [{ user_id: 'm1', name: 'مسؤول قسم الكرادة', shift: 'morning', parent_sector: 'karrada', areas: 'أرخيته، الرياض', contractors: 1, present: 200, absent: 20, trips: 60, leave_days: 2, permits: 1 }],
 }
+vi.mock('@features/complaints/hooks/useComplaints', () => ({ useComplaintReportDownload: () => ({ mutate: h.dl, isPending: false }) }))
 vi.mock('@features/sector-manager/hooks', () => ({
   useSectorManagerMe: () => ({ data: { user_id: 'sm', full_name: 'حسن مسؤول القاطع', parent_sectors: ['karrada'], parent_names: ['الكرادة'], areas: 4, department_managers: 2, contractors: 3, employee_id: 'e', has_employee: true }, isLoading: false }),
   useSectorDashboard: () => ({ data: dash, isLoading: false }),
@@ -81,6 +82,18 @@ describe('بوابة مسؤول القاطع (00160)', () => {
     expect(screen.getByTestId('sm-requests-empty')).toBeInTheDocument()
   })
 
+  it('00339: مهمة تقرير شكاوى تعرض القاطع والتاريخ والمواقع وزر تنزيل ملف العرض، وتُقرَّر بالنوع الصحيح', () => {
+    h.tasks = [{ ...task, task_id: 't8', request_kind: 'complaint_report', request_id: 'r1', step_no: 1, total_steps: 1, requester_name: 'موظف الشكاوى', requester_role: 'complaints_officer', requester_role_label: 'الشكاوى', type_name: 'تقرير شكاوى', ref_no: null, notes: null, attachment_path: 'reports/r1/complaints-v1.pptx', previous_steps: [],
+      details: { title: 'تقرير الكرادة 2026-03-01', sector: 'karrada', sector_label: 'الكرادة', report_date: '2026-03-01', scope: 'daily', items: 7, recipients: ['a@b.iq'], pptx_path: 'reports/r1/complaints-v1.pptx', review_confirmed_at: '2026-03-01T10:00:00Z' } }]
+    wrap(<Requests />)
+    const d = screen.getByTestId('task-report-r1')
+    expect(d).toHaveTextContent('القاطع: الكرادة'); expect(d).toHaveTextContent('المواقع المضمّنة: 7'); expect(d).toHaveTextContent('a@b.iq')
+    expect(screen.getByTestId('task-r1')).toHaveTextContent('تقرير الكرادة 2026-03-01')
+    fireEvent.click(screen.getByTestId('report-download-r1'))
+    expect(h.dl).toHaveBeenCalledWith('reports/r1/complaints-v1.pptx', expect.any(Object))
+    fireEvent.click(screen.getByTestId('approve-r1'))
+    expect(h.decide).toHaveBeenCalledWith({ kind: 'complaint_report', requestId: 'r1', approve: true })
+  })
   it('00338: مهمة حذف أرشيف بارد تعرض الفترة والملفات والنسخ وتحذير الحذف النهائي، وتُقرَّر بالنوع الصحيح', () => {
     h.tasks = [{ ...task, task_id: 't9', request_kind: 'cold_archive_purge', request_id: 'pk1', step_no: 1, total_steps: 2, requester_name: 'أحمد (IT)', requester_role: 'it_admin', requester_role_label: 'التطوير المركزية', type_name: 'حذف أرشيف بارد', ref_no: 'PKG-2026-02-09_2026-02-11-001', notes: null, start_date: '2026-02-09', end_date: '2026-02-11', previous_steps: [],
       details: { code: 'PKG-2026-02-09_2026-02-11-001', period_from: '2026-02-09', period_to: '2026-02-11', file_count: 120, total_bytes: 52_428_800, verified_copies: 1, required_copies: 1, purge_available_at: '2026-02-20T00:00:00Z', copies: 'قرص-1', by_source: [{ source_key: 'media_photos', files: 100 }, { source_key: 'contractor_photos', files: 20 }] } }]

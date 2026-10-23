@@ -240,6 +240,10 @@ export interface ComplaintReportDetail extends ComplaintReport {
   sentAt: string | null
   archivedAt: string | null
   deliveries: ComplaintEmailDelivery[]
+  /** 00339: سلسلة موافقات مفتوحة (null = لا سلسلة) + سبب آخر إعادة */
+  approvalChainId: string | null
+  approvalRequestedAt: string | null
+  approvalRejectedNote: string | null
 }
 
 export interface ComplaintReport {

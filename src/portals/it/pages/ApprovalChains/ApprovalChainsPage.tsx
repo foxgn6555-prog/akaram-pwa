@@ -38,6 +38,7 @@ const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' |
   { key: 'leave', label: 'إجازة', fields: ['days'] }, { key: 'time_permit', label: 'زمنية (إذن وقتي)', fields: ['minutes'] },
   { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)', fields: [] }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)', fields: [] },
   { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)', fields: ['amount'] }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)', fields: ['amount'] },
+  { key: 'complaint_report', label: 'اعتماد تقرير شكاوى (طالبه موظف الشكاوى — بلا سلسلة: يعتمده بنفسه بعد المراجعة)', fields: [] },
   { key: 'cold_archive_purge', label: 'حذف أرشيف بارد (طالبه حساب التطوير المركزية — بلا سلسلة: موافقة حساب IT آخر إن فُعّلت)', fields: [] },
 ]
 const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'المبلغ (د.ع)', days: 'الأيام', minutes: 'الدقائق' }

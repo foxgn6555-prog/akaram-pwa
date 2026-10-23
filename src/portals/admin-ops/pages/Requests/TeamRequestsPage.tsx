@@ -1,11 +1,12 @@
 /** طلبات الموافقة (مشتركة: مسؤول القاطع، الميدانية، المعاون، المدير المفوض): مهام الموافقة المعلّقة لديّ (إجازات/زمنيات/مستلزمات 00162 /إنهاء خدمة 00163 /سلف 00191)
  * حسب سلاسل الموافقات؛ موافقة أو رفض بسبب إلزامي؛ مسار الطلب. السلفة: يمكن للمعتمِد تعديل المبلغ (وعدد الأقساط) قبل الموافقة. */
 import { lazy, Suspense, useState } from 'react'
-import { Archive, CheckCircle2, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
+import { Archive, CheckCircle2, FileText, Download, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
-import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, ColdPurgeTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, ColdPurgeTaskDetails, ComplaintReportTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import { useComplaintReportDownload } from '@features/complaints/hooks/useComplaints'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { fmtMoney } from '@portals/hr/components/hr-format'
@@ -14,7 +15,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
-const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']]]
+const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
@@ -56,8 +57,9 @@ function AdvanceTaskCard({ t }: { t: ApprovalTask }) {
 function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const [mode, setMode] = useState<'idle' | 'reject'>('idle'), [note, setNote] = useState(''), [showPath, setShowPath] = useState(false)
   const timeline = useApprovalTimeline(showPath ? t.request_kind : undefined, showPath ? t.request_id : undefined)
-  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge'
+  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge', isReport = t.request_kind === 'complaint_report'
   const cold = isCold ? (t.details as ColdPurgeTaskDetails | null) : null
+  const rep = isReport ? (t.details as ComplaintReportTaskDetails | null) : null
   const term = isTermination ? (t.details as TerminationTaskDetails | null) : null
   const adv = isAdvance ? (t.details as AdvanceTaskDetails | null) : null
   const bd = (t.request_kind === 'leave' || t.request_kind === 'time_permit') && (t.details as BackdatedTaskDetails | null)?.backdated ? (t.details as BackdatedTaskDetails) : null
@@ -65,7 +67,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const pending = d.pending
   const approve = () => d.approve({ amount: isAdvance && editAmount && amount.trim() !== '' ? Number(amount) : null, installments: isAdvance && editAmount && inst.trim() !== '' ? Number(inst) : null })
   const reject = () => d.reject(note.trim(), () => setMode('idle'))
-  const period = isSupply || isTermination || isAdvance || isCold ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
+  const period = isSupply || isTermination || isAdvance || isCold || isReport ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
   return (
     <li className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`task-${t.request_id}`}>
       <div className="flex items-start justify-between gap-2">
@@ -78,7 +80,9 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
       <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
         <div className="font-black">{isSupply ? <><Package size={14} className="inline" /> {t.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· {t.ref_no}</span>}</> : isTermination ? <span className="text-rose-800"><UserX size={14} className="inline" /> {t.type_name} · {term?.type_label}</span>
           : isAdvance ? <span className="text-amber-800"><Wallet size={14} className="inline" /> {t.type_name} · {adv?.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· <span dir="ltr">{t.ref_no}</span></span>}</span>
+          : isReport ? <span className="text-violet-900"><FileText size={14} className="inline" /> {t.type_name} · {rep?.title}</span>
           : isCold ? <span className="text-slate-800"><Archive size={14} className="inline" /> {t.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· <span dir="ltr">{t.ref_no}</span></span>}</span> : t.type_name}</div>
+        {rep && <ComplaintReportDetails t={t} rep={rep} />}
         {cold && (
           <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800" data-testid={`task-cold-${t.request_id}`}>
             <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -128,7 +132,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
           <ul className="mt-1 space-y-0.5 text-xs text-slate-800" data-testid={`task-items-${t.request_id}`}>
             {(t.items ?? []).map((it) => <li key={it.item_id} className="flex justify-between rounded-lg bg-white px-2 py-1"><span>{it.name}</span><b>{it.qty} {it.unit}</b></li>)}
           </ul>
-        ) : isCold ? null : <div className="mt-0.5 flex items-center gap-1 text-slate-700"><Clock size={14} />{period}</div>}
+        ) : isCold || isReport ? null : <div className="mt-0.5 flex items-center gap-1 text-slate-700"><Clock size={14} />{period}</div>}
         {bd && (
           <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid={`task-backdated-${t.request_id}`}>
             <div className="font-black">⚠ طلب بأثر رجعي — قُدِّم بعد اليوم بـ <span dir="ltr">{bd.days_late}</span> {bd.days_late === 1 ? 'يوم' : 'أيام'}</div>
@@ -183,5 +187,28 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
         </ol>
       )}
     </li>
+  )
+}
+
+/** 00339: تفاصيل تقرير شكاوى + تنزيل ملف العرض (سياسة التخزين تسمح للموافق أثناء مهمته فقط) */
+function ComplaintReportDetails({ t, rep }: { t: ApprovalTask; rep: ComplaintReportTaskDetails }) {
+  const download = useComplaintReportDownload()
+  const [err, setErr] = useState('')
+  const open = (url: string) => { const a = document.createElement('a'); a.href = url; a.rel = 'noopener noreferrer'; a.click() }
+  return (
+    <div className="mt-1 rounded-lg border border-violet-100 bg-white p-2 text-xs text-slate-800" data-testid={`task-report-${t.request_id}`}>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <span>القاطع: <b>{rep.sector_label}</b></span>
+        <span>تاريخ التقرير: <b>{dateAr(rep.report_date)}</b></span>
+        <span>المواقع المضمّنة: <b className="tabular-nums">{rep.items}</b></span>
+        <span>النوع: <b>{rep.scope === 'email' ? 'ردّ على بريد' : 'يومي'}</b></span>
+      </div>
+      {rep.recipients.length > 0 && <div className="mt-1 text-slate-600" dir="ltr">{rep.recipients.join(', ')}</div>}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {rep.pptx_path && <button type="button" data-testid={`report-download-${t.request_id}`} disabled={download.isPending} onClick={() => download.mutate(rep.pptx_path as string, { onSuccess: open, onError: () => setErr('تعذر تجهيز رابط التنزيل؛ أعد المحاولة.') })} className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 font-bold text-violet-900 disabled:opacity-40"><Download size={12} /> تنزيل ملف العرض للمراجعة</button>}
+        <span className="text-slate-600">راجع الغلاف والجدول وصور قبل/بعد قبل الاعتماد — الاعتماد يسمح بإرساله إلى الجهة المرسلة.</span>
+      </div>
+      {err && <p className="mt-1 text-red-700">{err}</p>}
+    </div>
   )
 }
