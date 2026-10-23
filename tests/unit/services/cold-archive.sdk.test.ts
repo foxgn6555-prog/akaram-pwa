@@ -52,7 +52,8 @@ describe('coldArchive.purgeRun', () => {
   })
 
   it('رسائل الأخطاء الجديدة مترجمة', () => {
-    expect(coldErrorMessage(new Error('COLD_ARCHIVE_APPROVAL_REQUIRED'))).toContain('موافقة حساب IT آخر')
+    expect(coldErrorMessage(new Error('COLD_ARCHIVE_APPROVAL_REQUIRED'))).toContain('موافقة أولاً')
+    expect(coldErrorMessage(new Error('COLD_ARCHIVE_CHAIN_ACTIVE'))).toContain('سلسلة موافقات')
     expect(coldErrorMessage(new Error('COLD_ARCHIVE_SAME_APPROVER'))).toContain('حساب IT آخر')
     expect(coldErrorMessage(new Error('COLD_ARCHIVE_GRACE_ACTIVE'))).toBe('مهلة الأمان لم تنتهِ بعد')
   })

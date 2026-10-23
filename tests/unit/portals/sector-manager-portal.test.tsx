@@ -81,6 +81,19 @@ describe('بوابة مسؤول القاطع (00160)', () => {
     expect(screen.getByTestId('sm-requests-empty')).toBeInTheDocument()
   })
 
+  it('00338: مهمة حذف أرشيف بارد تعرض الفترة والملفات والنسخ وتحذير الحذف النهائي، وتُقرَّر بالنوع الصحيح', () => {
+    h.tasks = [{ ...task, task_id: 't9', request_kind: 'cold_archive_purge', request_id: 'pk1', step_no: 1, total_steps: 2, requester_name: 'أحمد (IT)', requester_role: 'it_admin', requester_role_label: 'التطوير المركزية', type_name: 'حذف أرشيف بارد', ref_no: 'PKG-2026-02-09_2026-02-11-001', notes: null, start_date: '2026-02-09', end_date: '2026-02-11', previous_steps: [],
+      details: { code: 'PKG-2026-02-09_2026-02-11-001', period_from: '2026-02-09', period_to: '2026-02-11', file_count: 120, total_bytes: 52_428_800, verified_copies: 1, required_copies: 1, purge_available_at: '2026-02-20T00:00:00Z', copies: 'قرص-1', by_source: [{ source_key: 'media_photos', files: 100 }, { source_key: 'contractor_photos', files: 20 }] } }]
+    wrap(<Requests />)
+    const d = screen.getByTestId('task-cold-pk1')
+    expect(d).toHaveTextContent('الملفات: 120 (50.0 م.ب)')
+    expect(d).toHaveTextContent('النسخ المتحقَّقة: 1/1 (قرص-1)')
+    expect(d).toHaveTextContent('media_photos (100)')
+    expect(d).toHaveTextContent('حذف هذه الصور من سحابة المنصة نهائياً')
+    expect(screen.getByTestId('task-pk1')).toHaveTextContent('PKG-2026-02-09_2026-02-11-001')
+    fireEvent.click(screen.getByTestId('approve-pk1'))
+    expect(h.decide).toHaveBeenCalledWith({ kind: 'cold_archive_purge', requestId: 'pk1', approve: true })
+  })
   it('التقارير: المؤشرات، الرسوم، تبويبا المتعهدين ومسؤولي الأقسام — بلا بيانات مالية', () => {
     wrap(<Reports />)
     expect(screen.getByTestId('rep-totals')).toHaveTextContent('300'); expect(screen.getByTestId('rep-totals')).toHaveTextContent('86%')

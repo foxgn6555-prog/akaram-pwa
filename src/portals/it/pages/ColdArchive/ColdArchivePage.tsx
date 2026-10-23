@@ -139,6 +139,7 @@ function PurgePanel({ p }: { p: ColdPackage }) {
   const copiesOk = p.verified_copies >= p.required_copies
   const needApproval = p.purge_approval_required
   const approved = Boolean(p.purge_approved_at)
+  const chain = p.purge_chain   // 00338: سلسلة من التطوير المركزية تحلّ محل موافقة IT الثانية
   const resuming = p.status === 'purging'
   const ready = resuming || (copiesOk && graceOver && (!needApproval || approved))
   const busy = run.isPending
@@ -150,8 +151,17 @@ function PurgePanel({ p }: { p: ColdPackage }) {
         <Check ok={copiesOk} label={`النسخ المتحقَّق منها ${p.verified_copies} / ${p.required_copies}`} />
         <Check ok={graceOver} label={p.purge_available_at ? (graceOver ? 'انتهت مهلة الأمان' : `مهلة الأمان حتى ${formatDateTime(p.purge_available_at)}`) : 'مهلة الأمان لم تبدأ'} />
         {needApproval && <Check ok={Boolean(p.purge_requested_at)} label={p.purge_requested_at ? `طلب الحذف: ${p.purge_requested_by_name ?? '—'} · ${formatDateTime(p.purge_requested_at)}` : 'لم يُطلب الحذف بعد'} />}
-        {needApproval && <Check ok={approved} label={approved ? `وافق: ${p.purge_approved_by_name ?? '—'} · ${formatDateTime(p.purge_approved_at as string)}` : 'بانتظار موافقة حساب IT آخر'} />}
+        {needApproval && <Check ok={approved} label={approved ? `وافق: ${p.purge_approved_by_name ?? '—'} · ${formatDateTime(p.purge_approved_at as string)}` : chain ? `بانتظار سلسلة الموافقات (خطوة ${chain.current_step ?? '—'} من ${chain.total_steps})` : 'بانتظار موافقة حساب IT آخر'} />}
       </ul>
+      {chain && !approved && (
+        <ol className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-white p-2 text-xs" data-testid="cold-purge-chain">
+          {chain.steps.map((st) => (
+            <li key={st.step_no} data-testid={`cold-purge-chain-step-${st.step_no}`} className={st.status === 'pending' ? 'font-black text-[#0b3d6b]' : st.status === 'approved' ? 'text-emerald-800' : st.status === 'rejected' ? 'text-red-800' : 'text-slate-500'}>
+              {st.step_no}. {st.label} — {st.status === 'pending' ? `بانتظار: ${st.approvers ?? '—'}` : st.status === 'approved' ? `وافق ${st.decided_by ?? ''}` : st.status === 'rejected' ? `رفض ${st.decided_by ?? ''}` : st.status === 'skipped' ? 'تُخطّيت' : 'لاحقاً'}{st.note ? ` · ${st.note}` : ''}
+            </li>
+          ))}
+        </ol>
+      )}
 
       {needApproval && !resuming && !approved && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -161,7 +171,9 @@ function PurgePanel({ p }: { p: ColdPackage }) {
             </button>
           )}
           {p.purge_requested_at && (
-            p.purge_requested_by_me
+            chain
+              ? <span className="text-xs text-slate-600" data-testid="cold-purge-chain-note">القرار يُتَّخذ من صفحة «طلبات الموافقة» لدى الموافقين في السلسلة — ستصلك إشعارات بالنتيجة.</span>
+              : p.purge_requested_by_me
               ? <span className="text-xs text-slate-600">أنت طالب الحذف — الموافقة يجب أن تأتي من حساب IT آخر.</span>
               : <button type="button" disabled={approve.isPending} onClick={() => approve.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-approve"><UserCheck size={14} />الموافقة على الحذف</button>
           )}
@@ -420,6 +432,6 @@ export const SOURCE_LABELS: Record<string, string> = {
 const sourceLabel = (k: string) => SOURCE_LABELS[k] ?? k
 const EVENT_LABELS: Record<string, string> = {
   created: 'إنشاء الحزمة', cancelled: 'إلغاء', item_missing: 'ملف غير موجود في التخزين', copy_verified: 'تحقق نسخة قرص', copy_verify_failed: 'فشل تحقق نسخة',
-  purge_requested: 'طلب الحذف', purge_approved: 'الموافقة على الحذف', purge_started: 'بدء الحذف', purge_batch: 'دفعة حذف', purge_completed: 'اكتمال الحذف', settings_updated: 'تحديث الإعدادات',
+  purge_requested: 'طلب الحذف', purge_chain_opened: 'فتح سلسلة الموافقات', purge_rejected: 'رفض الحذف (السلسلة)', purge_approved: 'الموافقة على الحذف', purge_started: 'بدء الحذف', purge_batch: 'دفعة حذف', purge_completed: 'اكتمال الحذف', settings_updated: 'تحديث الإعدادات',
 }
 const eventLabel = (a: string) => EVENT_LABELS[a] ?? a

@@ -1,11 +1,11 @@
 /** طلبات الموافقة (مشتركة: مسؤول القاطع، الميدانية، المعاون، المدير المفوض): مهام الموافقة المعلّقة لديّ (إجازات/زمنيات/مستلزمات 00162 /إنهاء خدمة 00163 /سلف 00191)
  * حسب سلاسل الموافقات؛ موافقة أو رفض بسبب إلزامي؛ مسار الطلب. السلفة: يمكن للمعتمِد تعديل المبلغ (وعدد الأقساط) قبل الموافقة. */
 import { lazy, Suspense, useState } from 'react'
-import { CheckCircle2, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
+import { Archive, CheckCircle2, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
-import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, ColdPurgeTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { fmtMoney } from '@portals/hr/components/hr-format'
@@ -14,7 +14,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
-const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']]]
+const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
@@ -56,7 +56,8 @@ function AdvanceTaskCard({ t }: { t: ApprovalTask }) {
 function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const [mode, setMode] = useState<'idle' | 'reject'>('idle'), [note, setNote] = useState(''), [showPath, setShowPath] = useState(false)
   const timeline = useApprovalTimeline(showPath ? t.request_kind : undefined, showPath ? t.request_id : undefined)
-  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance'
+  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge'
+  const cold = isCold ? (t.details as ColdPurgeTaskDetails | null) : null
   const term = isTermination ? (t.details as TerminationTaskDetails | null) : null
   const adv = isAdvance ? (t.details as AdvanceTaskDetails | null) : null
   const bd = (t.request_kind === 'leave' || t.request_kind === 'time_permit') && (t.details as BackdatedTaskDetails | null)?.backdated ? (t.details as BackdatedTaskDetails) : null
@@ -64,7 +65,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const pending = d.pending
   const approve = () => d.approve({ amount: isAdvance && editAmount && amount.trim() !== '' ? Number(amount) : null, installments: isAdvance && editAmount && inst.trim() !== '' ? Number(inst) : null })
   const reject = () => d.reject(note.trim(), () => setMode('idle'))
-  const period = isSupply || isTermination || isAdvance ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
+  const period = isSupply || isTermination || isAdvance || isCold ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
   return (
     <li className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`task-${t.request_id}`}>
       <div className="flex items-start justify-between gap-2">
@@ -76,7 +77,19 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
       </div>
       <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm">
         <div className="font-black">{isSupply ? <><Package size={14} className="inline" /> {t.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· {t.ref_no}</span>}</> : isTermination ? <span className="text-rose-800"><UserX size={14} className="inline" /> {t.type_name} · {term?.type_label}</span>
-          : isAdvance ? <span className="text-amber-800"><Wallet size={14} className="inline" /> {t.type_name} · {adv?.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· <span dir="ltr">{t.ref_no}</span></span>}</span> : t.type_name}</div>
+          : isAdvance ? <span className="text-amber-800"><Wallet size={14} className="inline" /> {t.type_name} · {adv?.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· <span dir="ltr">{t.ref_no}</span></span>}</span>
+          : isCold ? <span className="text-slate-800"><Archive size={14} className="inline" /> {t.type_name} {t.ref_no && <span className="text-[11px] font-normal text-slate-500">· <span dir="ltr">{t.ref_no}</span></span>}</span> : t.type_name}</div>
+        {cold && (
+          <div className="mt-1 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-800" data-testid={`task-cold-${t.request_id}`}>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <span>الفترة: <b>{dateAr(cold.period_from)} → {dateAr(cold.period_to)}</b></span>
+              <span>الملفات: <b className="tabular-nums">{cold.file_count}</b> ({(cold.total_bytes / 1_048_576).toFixed(1)} م.ب)</span>
+              <span>النسخ المتحقَّقة: <b className="tabular-nums">{cold.verified_copies}/{cold.required_copies}</b>{cold.copies ? ` (${cold.copies})` : ''}</span>
+            </div>
+            {cold.by_source.length > 0 && <div className="mt-1 text-slate-600">المصادر: {cold.by_source.map((s) => `${s.source_key} (${s.files})`).join('، ')}</div>}
+            <div className="mt-1 font-bold text-red-800">الموافقة تعني السماح بحذف هذه الصور من سحابة المنصة نهائياً (تبقى على القرص فقط). السجلات النصية لا تُمسّ.</div>
+          </div>
+        )}
         {term ? (
           <div className="mt-1 rounded-lg border border-rose-100 bg-white p-2 text-xs text-slate-800" data-testid={`task-termination-${t.request_id}`}>
             <div className="font-black">{term.target_name}</div>
@@ -115,7 +128,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
           <ul className="mt-1 space-y-0.5 text-xs text-slate-800" data-testid={`task-items-${t.request_id}`}>
             {(t.items ?? []).map((it) => <li key={it.item_id} className="flex justify-between rounded-lg bg-white px-2 py-1"><span>{it.name}</span><b>{it.qty} {it.unit}</b></li>)}
           </ul>
-        ) : <div className="mt-0.5 flex items-center gap-1 text-slate-700"><Clock size={14} />{period}</div>}
+        ) : isCold ? null : <div className="mt-0.5 flex items-center gap-1 text-slate-700"><Clock size={14} />{period}</div>}
         {bd && (
           <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid={`task-backdated-${t.request_id}`}>
             <div className="font-black">⚠ طلب بأثر رجعي — قُدِّم بعد اليوم بـ <span dir="ltr">{bd.days_late}</span> {bd.days_late === 1 ? 'يوم' : 'أيام'}</div>

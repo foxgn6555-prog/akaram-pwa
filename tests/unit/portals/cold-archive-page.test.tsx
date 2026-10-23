@@ -31,7 +31,7 @@ const pkg = {
   verified_at: null, purge_started_at: null, purged_at: null, cancelled_at: null, copies: [],
   by_source: [{ source_key: 'media_submission_photos', files: 100, bytes: 300 * 1024 * 1024 }, { source_key: 'contractor_checkins', files: 20, bytes: 50 * 1024 * 1024 }],
   can_purge: false, events: [{ action: 'created', details: null, actor_name: 'مدير التطوير', at: '2026-10-01T08:00:00Z' }],
-  purge_approval_required: false, purge_requested_at: null, purge_requested_by_name: null, purge_requested_by_me: false, purge_approved_at: null, purge_approved_by_name: null,
+  purge_approval_required: false, purge_requested_at: null, purge_requested_by_name: null, purge_requested_by_me: false, purge_approved_at: null, purge_approved_by_name: null, purge_chain_id: null, purge_chain: null,
 }
 const verified = { ...pkg, status: 'verified', downloaded_count: 120, verified_copies: 1, purge_available_at: '2026-10-10T08:00:00Z', copies: [{ disk_label: 'قرص-1', ok_count: 120, verified_at: '2026-10-03T08:00:00Z', verified_by_name: 'مدير التطوير' }] }
 const settings = {
@@ -194,6 +194,29 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
     render(<ColdArchivePage />)
     fireEvent.click(screen.getByText(pkg.code))
     expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('وافق: سارة')
+    expect(screen.getByTestId('cold-purge-run')).toBeInTheDocument()
+  })
+
+  it('00338: سلسلة موافقات من التطوير المركزية — لا زر موافقة مباشرة، تُعرض الخطوات وحالتها، وبعد الاعتماد يُفتح الحذف', () => {
+    const chain = { chain_id: 'c1', current_step: 2, total_steps: 2, steps: [
+      { step_no: 1, label: 'التطوير المركزية (حسب التسلسل)', status: 'approved', decided_by: 'سارة', decided_at: '2026-10-11T08:30:00Z', note: null, approvers: 'سارة' },
+      { step_no: 2, label: 'معاون المدير المفوض (حسب التسلسل)', status: 'pending', decided_by: null, decided_at: null, note: null, approvers: 'المعاون' },
+    ] }
+    h.packages = [{ ...verified, purge_approval_required: true, purge_requested_at: '2026-10-11T08:00:00Z', purge_requested_by_name: 'أحمد', purge_requested_by_me: false, purge_chain_id: 'c1', purge_chain: chain }]
+    const r1 = render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.queryByTestId('cold-purge-approve')).toBeNull()
+    expect(screen.queryByTestId('cold-purge-run')).toBeNull()
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('بانتظار سلسلة الموافقات (خطوة 2 من 2)')
+    expect(screen.getByTestId('cold-purge-chain-step-1')).toHaveTextContent('وافق سارة')
+    expect(screen.getByTestId('cold-purge-chain-step-2')).toHaveTextContent('بانتظار: المعاون')
+    expect(screen.getByTestId('cold-purge-chain-note')).toBeInTheDocument()
+    r1.unmount()
+    h.packages = [{ ...verified, purge_approval_required: true, purge_requested_at: '2026-10-11T08:00:00Z', purge_approved_at: '2026-10-11T10:00:00Z', purge_approved_by_name: 'المعاون', purge_chain_id: 'c1', purge_chain: { ...chain, current_step: null } }]
+    render(<ColdArchivePage />)
+    fireEvent.click(screen.getByText(pkg.code))
+    expect(screen.getByTestId('cold-purge-panel')).toHaveTextContent('وافق: المعاون')
+    expect(screen.queryByTestId('cold-purge-chain')).toBeNull()
     expect(screen.getByTestId('cold-purge-run')).toBeInTheDocument()
   })
 

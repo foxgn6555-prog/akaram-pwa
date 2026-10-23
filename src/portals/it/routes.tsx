@@ -13,6 +13,7 @@ const UserManagementHub = lazy(() => import('@portals/it/pages/UserManagement/Us
 const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'))
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
 const ApprovalChainsPage = lazy(() => import('@portals/it/pages/ApprovalChains/ApprovalChainsPage'))
+const ItApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00338
 const ApprovalPerformancePage = lazy(() => import('@components/approvals/ApprovalPerformancePage').then((m) => ({ default: () => <m.ApprovalPerformancePage testId="it-approval-performance" /> })))   // 00337
 const DisclosureTypesPage = lazy(() => import('@portals/it/pages/UserManagement/DisclosureTypesPage'))   // 00170: أنواع الكشوفات
 const MaintenanceWorkshopsPage = lazy(() => import('@portals/it/pages/UserManagement/MaintenanceWorkshopsPage'))   // 00274: ورش الصيانة
@@ -63,6 +64,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management/create', element: s(<CreateUser />) },
   { path: 'user-management/approval-chains', element: s(<ApprovalChainsPage />) },
   { path: 'user-management/approval-performance', element: s(<ApprovalPerformancePage />) },
+  { path: 'approvals', element: s(<ItApprovalTasks />) },
   { path: 'user-management/disclosure-types', element: s(<DisclosureTypesPage />) },
   { path: 'user-management/maintenance-workshops', element: s(<MaintenanceWorkshopsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },

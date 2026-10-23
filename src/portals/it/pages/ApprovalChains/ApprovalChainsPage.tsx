@@ -28,6 +28,7 @@ const HIERARCHY_ROLES: { role: string; label: string; hint: string }[] = [
   { role: 'department_manager', label: 'مسؤول قسمه', hint: 'مسؤول القسم المسؤول عن الطالب (للمتعهد: من إسناده؛ للموظف: المدير المباشر في HR)' },
   { role: 'admin_ops', label: 'مسؤول قاطعه', hint: 'مسؤول القاطع الذي يتبع له الطالب (الكرادة/الزعفرانية)' },
   { role: 'field_ops', label: 'العمليات الميدانية', hint: 'حسابات العمليات الميدانية' },
+  { role: 'it_admin', label: 'التطوير المركزية', hint: 'أي حساب تطوير مركزية آخر غير الطالب' },
   { role: 'hr_officer', label: 'الموارد البشرية', hint: 'أي موظف موارد بشرية' },
   { role: 'deputy_director', label: 'معاون المدير المفوض', hint: 'أي حساب بهذا الدور' },
   { role: 'executive_director', label: 'المدير التنفيذي', hint: 'أي حساب بهذا الدور' },
@@ -37,6 +38,7 @@ const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' |
   { key: 'leave', label: 'إجازة', fields: ['days'] }, { key: 'time_permit', label: 'زمنية (إذن وقتي)', fields: ['minutes'] },
   { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)', fields: [] }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)', fields: [] },
   { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)', fields: ['amount'] }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)', fields: ['amount'] },
+  { key: 'cold_archive_purge', label: 'حذف أرشيف بارد (طالبه حساب التطوير المركزية — بلا سلسلة: موافقة حساب IT آخر إن فُعّلت)', fields: [] },
 ]
 const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'المبلغ (د.ع)', days: 'الأيام', minutes: 'الدقائق' }
 const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)

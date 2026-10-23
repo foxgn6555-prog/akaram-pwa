@@ -214,6 +214,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/user-management/create', labelKey: 'nav.create_user', icon: 'user-plus' },
         { path: '/it/user-management/approval-chains', labelKey: 'nav.approval_chains', icon: 'flow' },
         { path: '/it/user-management/approval-performance', labelKey: 'nav.approval_performance', icon: 'gauge' },   // 00337
+        { path: '/it/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },   // 00338: خطوات السلاسل التي تصل حسابات IT (حذف الأرشيف البارد وغيرها)
         { path: '/it/user-management/disclosure-types', labelKey: 'nav.disclosure_types', icon: 'file-text' },
         { path: '/it/user-management/maintenance-workshops', labelKey: 'nav.maintenance_workshops', icon: 'settings' },   // 00274
         // الهيكل التنظيمي (الأقسام) يُدار حصراً من بوابة الموارد البشرية /hr/org — لا نسخة هنا لتفادي التداخل

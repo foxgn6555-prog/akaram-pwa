@@ -33,6 +33,9 @@ export interface ColdPackage {
   copies: ColdCopy[]; by_source: Array<{ source_key: string; files: number; bytes: number }>; can_purge: boolean
   purge_approval_required: boolean; purge_requested_at: string | null; purge_requested_by_name: string | null; purge_requested_by_me: boolean
   purge_approved_at: string | null; purge_approved_by_name: string | null
+  /** 00338: السلسلة المضبوطة من التطوير المركزية (null = لا سلسلة ⇒ السلوك الثنائي القديم) */
+  purge_chain_id: string | null
+  purge_chain: { chain_id: string; current_step: number | null; total_steps: number; steps: Array<{ step_no: number; label: string; status: string; decided_by: string | null; decided_at: string | null; note: string | null; approvers: string | null }> } | null
   events?: Array<{ action: string; details: Record<string, unknown> | null; actor_name: string | null; at: string }>
 }
 
@@ -49,7 +52,9 @@ export const COLD_ERROR_MESSAGES: Record<string, string> = {
   COLD_ARCHIVE_NOT_VERIFIED: 'الحزمة غير متحقَّق منها بعد',
   COLD_ARCHIVE_COPIES_INSUFFICIENT: 'عدد النسخ المتحقَّق منها أقل من المطلوب',
   COLD_ARCHIVE_GRACE_ACTIVE: 'مهلة الأمان لم تنتهِ بعد',
-  COLD_ARCHIVE_APPROVAL_REQUIRED: 'الحذف يحتاج موافقة حساب IT آخر أولاً',
+  COLD_ARCHIVE_APPROVAL_REQUIRED: 'الحذف يحتاج موافقة أولاً (حساب IT آخر أو سلسلة الموافقات)',
+  COLD_ARCHIVE_CHAIN_ACTIVE: 'هذا الطلب يمرّ بسلسلة موافقات — القرار من صفحة «طلبات الموافقة» لا من هنا',
+  COLD_ARCHIVE_ALREADY_DECIDED: 'سبق البتّ في طلب الحذف هذا',
   COLD_ARCHIVE_NOT_REQUESTED: 'لم يُطلب حذف هذه الحزمة بعد',
   COLD_ARCHIVE_SAME_APPROVER: 'لا يمكن لطالب الحذف أن يوافق على طلبه — يلزم حساب IT آخر',
 }
