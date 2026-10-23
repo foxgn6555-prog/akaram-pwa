@@ -70,6 +70,12 @@ D('gps', 'gps_history_import_runs', 'سجل استيراد تاريخ GPS', 'ع�
 D('gps', 'gps_operational_alerts', 'تنبيهات GPS التشغيلية', 'توقف طويل، خروج عن المسار… المحلولة فقط.', 'opened_at', 12, False, keep='resolved_at is null', lock='التنبيهات غير المحلولة محمية')
 D('gps', 'live_track_points', 'نقاط المشاركة الحية للموظفين', 'إحداثيات مشاركة الموقع من هواتف الميدان.', 'recorded_at', 3)
 D('gps', 'live_track_sessions', 'جلسات المشاركة الحية', 'كل جلسة مشاركة موقع (بداية/نهاية/عدد النقاط).', 'started_at', 12, False, keep='ended_at is null', lock='الجلسات الجارية محمية')
+D('gps', 'trip_route_points', 'نقاط مسارات الانطلاقيات', 'النقاط المنظَّفة لكل انطلاقية (00342). ملخص المسار والتوقفات تبقى.', 'fix_time', 12, False,
+  keep="departure_id in (select ti.departure_id from public.gps_trip_investigations ti where ti.status <> 'resolved')", lock='نقاط انطلاقية عليها تحقيق مفتوح محمية')
+D('gps', 'trip_route_gaps', 'فجوات GPS في مسارات الانطلاقيات', 'فترات انقطاع الإشارة لكل انطلاقية.', 'started_at', 24)
+L('gps', 'trip_routes', 'ملخصات مسارات الانطلاقيات', REC)
+L('gps', 'trip_route_stops', 'توقفات مسارات الانطلاقيات', REC)
+L('gps', 'trip_route_settings', 'إعدادات محرّك المسار', CFG)
 L('gps', 'gps_devices', 'أجهزة GPS', REF)
 L('gps', 'gps_providers', 'مزوّدو GPS', CFG)
 L('gps', 'gps_device_positions', 'آخر موقع لكل جهاز', STATE)

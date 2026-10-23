@@ -776,6 +776,24 @@ export const gpsLvn = {
     if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_HISTORY_SYNC_FAILED')
     return data
   },
+  /* ─── 00342: محرّك مسار الانطلاقية ─── */
+  tripRouteSettings: async () =>
+    (await sdkGuard(supabase.rpc('trip_route_settings_get'))) as unknown as TripRouteSettings,
+  saveTripRouteSettings: async (patch: Partial<TripRouteSettings>) =>
+    (await sdkGuard(supabase.rpc('trip_route_settings_save', { p_patch: patch }))) as unknown as TripRouteSettings,
+  tripRoute: async (departureId: string, maxPoints = 3000) =>
+    (await sdkGuard(
+      supabase.rpc('trip_route_get', { p_departure: departureId, p_max_points: maxPoints }),
+    )) as unknown as TripRouteDetail,
+  /** «سحب الآن»: يقدّم الانطلاقية في الطابور ويسحبها فوراً من LVN */
+  pullTripRouteNow: async (departureId: string) => {
+    const { data, error } = await supabase.functions.invoke<TripRoutePullResult>('lvn-gps-sync', {
+      body: { action: 'trip', departureId },
+    })
+    if (error) throw await toLvnError(error)
+    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'TRIP_ROUTE_PULL_FAILED')
+    return data
+  },
 }
 
 /**
@@ -804,4 +822,114 @@ async function toLvnError(error: unknown): Promise<LvnSyncError> {
     }
   }
   return new LvnSyncError((error as { message?: string })?.message ?? 'LVN_SYNC_FAILED', error)
+}
+
+/* ─── 00342: أنواع مسار الانطلاقية ─── */
+export interface TripRouteSettings {
+  stop_speed_kmh: number
+  stop_min_seconds: number
+  gap_min_seconds: number
+  max_speed_kmh: number
+  jitter_meters: number
+  live_pull_minutes: number
+  final_after_minutes: number
+  updated_at?: string | null
+  updated_by_name?: string | null
+}
+export type TripRouteStatus = 'pending' | 'no_device' | 'partial' | 'complete' | 'empty' | 'failed'
+export type TripRoutePointState = 'moving' | 'stopped' | 'gap'
+export interface TripRoutePoint {
+  seq: number
+  leg_id: string | null
+  t: string
+  lat: number
+  lng: number
+  speed: number | null
+  course: number | null
+  address: string | null
+  dist_m: number
+  seconds: number
+  state: TripRoutePointState
+}
+export interface TripRouteStop {
+  id: number
+  seq: number
+  leg_id: string | null
+  started_at: string
+  ended_at: string
+  duration_seconds: number
+  lat: number
+  lng: number
+  address: string | null
+  address_source: 'lvn' | 'osm' | 'zone' | null
+  geofence_id: string | null
+  geofence_name: string | null
+}
+export interface TripRouteGap {
+  seq: number
+  leg_id: string | null
+  started_at: string
+  ended_at: string
+  seconds: number
+  from_lat: number
+  from_lng: number
+  to_lat: number
+  to_lng: number
+}
+export interface TripRouteLeg {
+  leg_id: string
+  sequence_no: number
+  origin_type: string
+  destination_type: string
+  departed_at: string
+  arrived_at: string | null
+  points: number
+  distance_m: number
+  moving_seconds: number
+  stopped_seconds: number
+  max_speed_kmh: number
+  avg_speed_kmh: number
+  stops_count: number
+  gaps_count: number
+  first_fix: string | null
+  last_fix: string | null
+}
+export interface TripRouteDetail {
+  departure_id: string
+  status: TripRouteStatus
+  is_final: boolean
+  device_id: string | null
+  range_from: string | null
+  range_to: string | null
+  points_source: number
+  points_kept: number
+  points_rejected: number
+  points_returned: number
+  downsample_step: number
+  distance_m: number
+  moving_seconds: number
+  stopped_seconds: number
+  max_speed_kmh: number
+  avg_speed_kmh: number
+  stops_count: number
+  gaps_count: number
+  gap_seconds: number
+  first_fix: string | null
+  last_fix: string | null
+  pulled_at: string | null
+  next_pull_at: string | null
+  pull_count: number
+  error_code: string | null
+  legs: TripRouteLeg[]
+  stops: TripRouteStop[]
+  gaps: TripRouteGap[]
+  points: TripRoutePoint[]
+}
+export interface TripRoutePullResult {
+  ok: boolean
+  departureId: string
+  status: TripRouteStatus
+  points: number
+  final: boolean
+  error?: string
 }

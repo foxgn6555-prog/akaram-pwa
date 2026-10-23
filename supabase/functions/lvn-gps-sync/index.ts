@@ -4,13 +4,14 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
   SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   BASE = (Deno.env.get('LVN_API_BASE_URL') ?? 'https://track.gpslvn.iq/api').replace(/\/$/, '')
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-type Action = 'test' | 'full' | 'incremental' | 'history'
+type Action = 'test' | 'full' | 'incremental' | 'history' | 'trips' | 'trip'
 interface SyncBody {
   action?: Action
   deviceId?: string
   departureId?: string
   windowIndex?: number
   day?: string
+  limit?: number
 }
 interface LvnLatest {
   items?: unknown[]
@@ -411,6 +412,100 @@ async function importHistory(
     throw error
   }
 }
+/* ─────────────── 00342: مسارات الانطلاقيات ───────────────
+ * تسحب نقاط LVN لفترة الانطلاقية بالضبط (من المغادرة حتى العودة/الآن) على دفعات 12 ساعة، ثم trip_route_apply تنظّف وتقسّم وتحسب.
+ * الطابور trip_route_pull_queue يحدد ما يُسحب الآن (مفتوحة كل live_pull_minutes، أو عادت ولم تُسحب نهائياً). */
+interface TripQueueItem {
+  departure_id: string
+  device_id: string
+  external_id: string
+  range_from: string
+  range_to: string
+  final: boolean
+}
+async function pullTripRoute(hash: string, item: TripQueueItem) {
+  const rangeFrom = new Date(item.range_from),
+    rangeTo = new Date(item.range_to),
+    chunkMs = 12 * 3600000
+  if (Number.isNaN(rangeFrom.getTime()) || rangeTo <= rangeFrom) throw new Error('TRIP_ROUTE_RANGE_INVALID')
+  if (rangeTo.getTime() - rangeFrom.getTime() > 7 * 86400000) throw new Error('TRIP_ROUTE_RANGE_TOO_LONG')
+  const points: Record<string, unknown>[] = []
+  let sourcePoints = 0
+  for (let start = rangeFrom.getTime(); start < rangeTo.getTime(); start += chunkMs) {
+    const from = new Date(start),
+      to = new Date(Math.min(start + chunkMs, rangeTo.getTime())),
+      fromLocal = baghdadParts(from),
+      toLocal = baghdadParts(to),
+      payload = await request('/get_history', hash, {
+        device_id: item.external_id,
+        from_date: fromLocal.date,
+        from_time: fromLocal.time,
+        to_date: toLocal.date,
+        to_time: toLocal.time,
+        snap_to_road: 'false',
+      }),
+      extracted = historyPoints(payload)
+    points.push(...extracted.points)
+    sourcePoints += extracted.sourcePoints
+  }
+  const { data, error } = await admin.rpc('trip_route_apply', {
+    p_departure: item.departure_id,
+    p_points: points,
+    p_source_points: sourcePoints,
+    p_range_from: rangeFrom.toISOString(),
+    p_range_to: rangeTo.toISOString(),
+    p_final: item.final,
+  })
+  if (error) throw new Error(`TRIP_ROUTE_APPLY_FAILED:${error.code ?? 'DB'}`)
+  return data as Record<string, unknown>
+}
+async function processTripQueue(hash: string, limit: number) {
+  const { data, error } = await admin.rpc('trip_route_pull_queue', { p_limit: limit })
+  if (error) throw new Error(`TRIP_ROUTE_QUEUE_FAILED:${error.code ?? 'DB'}`)
+  const items = (Array.isArray(data) ? data : []) as TripQueueItem[]
+  const results: Array<{ departure_id: string; ok: boolean; status?: string; points?: number; error?: string }> = []
+  for (const item of items) {
+    try {
+      const r = await pullTripRoute(hash, item)
+      results.push({ departure_id: item.departure_id, ok: true, status: String(r.status ?? ''), points: Number(r.points_kept ?? 0) })
+    } catch (e) {
+      const code = safeError(e).split(':')[0]
+      await admin.rpc('trip_route_mark_failed', { p_departure: item.departure_id, p_error: code })
+      results.push({ departure_id: item.departure_id, ok: false, error: code })
+    }
+  }
+  return results
+}
+/** عنوان التوقفات التي لم يرسل LVN عنواناً لها: تحويل عكسي من OpenStreetMap (Nominatim) — توقف واحد في الثانية احتراماً لشروط الخدمة */
+async function geocodeStops(limit: number) {
+  const { data, error } = await admin.rpc('trip_route_stops_without_address', { p_limit: limit })
+  if (error) return { done: 0, error: error.code }
+  const stops = (Array.isArray(data) ? data : []) as Array<{ id: number; latitude: number; longitude: number }>
+  let done = 0
+  for (const stop of stops) {
+    try {
+      const controller = new AbortController(),
+        timer = setTimeout(() => controller.abort(), 8000)
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${stop.latitude}&lon=${stop.longitude}&zoom=16&accept-language=ar`,
+        { headers: { 'User-Agent': 'AkaramPWA/1.0 (ops trip routes)' }, signal: controller.signal },
+      ).finally(() => clearTimeout(timer))
+      if (!res.ok) continue
+      const body = (await res.json()) as { display_name?: string; address?: Record<string, string> }
+      const a = body.address ?? {}
+      const short = [a.road, a.neighbourhood ?? a.suburb ?? a.quarter, a.city ?? a.town ?? a.county].filter(Boolean).join(' / ')
+      const text = short || body.display_name || ''
+      if (!text) continue
+      await admin.rpc('trip_route_stop_address_set', { p_stop: stop.id, p_address: text })
+      done++
+      await new Promise((r) => setTimeout(r, 1100))
+    } catch {
+      // عنوان اختياري — الفشل لا يوقف شيئاً
+    }
+  }
+  return { done }
+}
+
 async function saveGeofences(providerId: string, value: unknown) {
   const root = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   const geofences = jsonArray(root.geofences).filter(
@@ -446,7 +541,7 @@ Deno.serve(async (req: Request) => {
   let action: Action = 'incremental'
   try {
     const body = (await req.json().catch(() => ({}))) as SyncBody
-    if (body.action && ['test', 'full', 'incremental', 'history'].includes(body.action))
+    if (body.action && ['test', 'full', 'incremental', 'history', 'trips', 'trip'].includes(body.action))
       action = body.action
     const { data: provider, error: providerError } = await admin
       .from('gps_providers')
@@ -459,6 +554,32 @@ Deno.serve(async (req: Request) => {
     if (action === 'history') {
       const hash = await login()
       return response(await importHistory(provider, user.id, hash, body))
+    }
+    if (action === 'trips') {
+      const hash = await login()
+      const results = await processTripQueue(hash, Math.min(Math.max(Number(body.limit) || 5, 1), 20))
+      const geocoded = await geocodeStops(10)
+      return response({ ok: true, action, processed: results.length, results, geocoded: geocoded.done })
+    }
+    if (action === 'trip') {
+      if (!body.departureId) throw new Error('TRIP_ROUTE_TARGET_INVALID')
+      // يقدّم الانطلاقية في الطابور ثم يسحبها فوراً بالفترة الدقيقة التي يحددها الطابور
+      const { error: reqError } = await admin.rpc('trip_route_request_pull', { p_departure: body.departureId })
+      if (reqError) throw new Error(`TRIP_ROUTE_REQUEST_FAILED:${reqError.code ?? 'DB'}`)
+      const { data: queue, error: qErr } = await admin.rpc('trip_route_pull_queue', { p_limit: 50 })
+      if (qErr) throw new Error(`TRIP_ROUTE_QUEUE_FAILED:${qErr.code ?? 'DB'}`)
+      const item = ((Array.isArray(queue) ? queue : []) as TripQueueItem[]).find((x) => x.departure_id === body.departureId)
+      if (!item) throw new Error('TRIP_ROUTE_NOT_QUEUED')
+      const hash = await login()
+      try {
+        const r = await pullTripRoute(hash, item)
+        await geocodeStops(5)
+        return response({ ok: true, action, departureId: item.departure_id, status: r.status, points: r.points_kept, final: item.final })
+      } catch (e) {
+        const code = safeError(e).split(':')[0]
+        await admin.rpc('trip_route_mark_failed', { p_departure: item.departure_id, p_error: code })
+        throw e
+      }
     }
     const { data: run, error: runError } = await admin
       .from('gps_sync_runs')
@@ -560,6 +681,10 @@ Deno.serve(async (req: Request) => {
       const { error: alertError } = await admin.rpc('gps_evaluate_operational_alerts')
       if (alertError && alertError.code !== 'PGRST202')
         throw new Error(`LVN_ALERTS_FAILED:${alertError.code ?? 'DB'}`)
+      // 00342: مع كل دورة مزامنة (كل دقيقة من المجدول) تُسحب حتى 3 انطلاقيات مستحقة من طابور المسارات — فشلها لا يُفشل المزامنة
+      if (action === 'incremental') {
+        try { await processTripQueue(hash, 3) } catch { /* يُسجَّل في trip_routes.error_code لكل انطلاقية */ }
+      }
       if (action === 'full')
         await admin
           .from('gps_providers')
