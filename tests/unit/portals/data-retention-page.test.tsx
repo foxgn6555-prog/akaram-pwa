@@ -30,11 +30,17 @@ const req = {
 }
 const policy = {
   data_key: 'biometric_raw_punches', label: 'البصمات الخام من الأجهزة', description: 'كل لمسة إصبع', safety_lock: 'لا تُحذف بصمات شهر لم تعتمده المالية',
+  portal_key: 'it', portal_label: 'بوابة التطوير المركزية (IT)', table_name: 'biometric_punches', time_column: 'punched_at', deletable: true,
   enabled: false, retention_months: 6, export_required: true, updated_at: null, updated_by_name: null, open_request: null,
 }
+const lockedPolicy = {
+  ...policy, data_key: 'employees', label: 'الموظفون', description: '', safety_lock: 'بيانات أساسية/مرجعية — لا تخضع للحذف الزمني',
+  portal_key: 'hr', portal_label: 'الموارد البشرية', table_name: 'employees', time_column: null, deletable: false, export_required: false, retention_months: 12,
+}
+const gpsPolicy = { ...policy, data_key: 'gps_position_history', label: 'نقاط GPS', export_required: false, retention_months: 3, portal_key: 'gps', portal_label: 'تتبع GPS والمشاركة الحية', table_name: 'gps_device_position_history', time_column: 'fix_time' }
 
 describe('DataRetentionPage (00325)', () => {
-  beforeEach(() => { vi.clearAllMocks(); h.runPending = false; h.settings = [policy, { ...policy, data_key: 'gps_position_history', label: 'نقاط GPS', export_required: false, retention_months: 3 }]; h.requests = [] })
+  beforeEach(() => { vi.clearAllMocks(); h.runPending = false; h.settings = [policy, gpsPolicy, lockedPolicy]; h.requests = [] })
 
   it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 11)', () => {
     expect(customRoutes.some((r) => r.path === 'data-retention')).toBe(true)
@@ -130,5 +136,35 @@ describe('DataRetentionPage (00325)', () => {
     expect(save.disabled).toBe(false)
     fireEvent.click(save)
     expect(h.save).toHaveBeenCalledWith({ data_key: 'biometric_raw_punches', enabled: true, retention_months: 9, export_required: true })
+  })
+
+  it('00340: السياسات مجمّعة حسب البوابة؛ المقفل يظهر بشارة وسبب بلا مدخلات؛ الملخص يعدّ الكل/القابل/المقفل', () => {
+    render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    expect(screen.getByTestId('ret-portal-it')).toBeInTheDocument()
+    expect(screen.getByTestId('ret-portal-gps')).toBeInTheDocument()
+    expect(screen.getByTestId('ret-portal-hr').textContent).toContain('الموارد البشرية')
+    const locked = screen.getByTestId('ret-policy-employees')
+    expect(locked.querySelector('[data-testid="ret-locked-badge"]')).not.toBeNull()
+    expect(locked.textContent).toContain('بيانات أساسية/مرجعية')
+    expect(locked.querySelector('[data-testid="ret-enabled"]')).toBeNull()
+    expect(locked.querySelector('[data-testid="ret-save"]')).toBeNull()
+    const summary = screen.getByTestId('ret-policies-summary').textContent ?? ''
+    expect(summary).toContain('كل الأنواع: 3'); expect(summary).toContain('قابلة للحذف الزمني: 2'); expect(summary).toContain('مقفلة: 1')
+  })
+
+  it('00340: البحث يصفّي بالاسم/الجدول، و«القابلة للحذف فقط» يخفي المقفل', () => {
+    render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    fireEvent.change(screen.getByTestId('ret-search'), { target: { value: 'gps_device' } })
+    expect(screen.getByTestId('ret-policy-gps_position_history')).toBeInTheDocument()
+    expect(screen.queryByTestId('ret-policy-employees')).toBeNull()
+    expect(screen.queryByTestId('ret-policy-biometric_raw_punches')).toBeNull()
+    fireEvent.change(screen.getByTestId('ret-search'), { target: { value: '' } })
+    expect(screen.getByTestId('ret-policy-employees')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('ret-only-deletable'))
+    expect(screen.queryByTestId('ret-policy-employees')).toBeNull()
+    expect(screen.queryByTestId('ret-portal-hr')).toBeNull()
+    expect(screen.getByTestId('ret-policy-biometric_raw_punches')).toBeInTheDocument()
   })
 })

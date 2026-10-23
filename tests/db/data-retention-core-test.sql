@@ -61,7 +61,7 @@ begin
   -- T1: الافتراضي: كل الأنواع معطّلة؛ الفحص لا ينشئ شيئاً ولا يحذف شيئاً
   perform pg_temp.as_user(it1);
   js := public.data_retention_settings_get();
-  if jsonb_array_length(js) <> 2 then raise exception 'T1 catalog size %', jsonb_array_length(js); end if;
+  if jsonb_array_length(js) <> (select count(*) from app.data_retention_catalog()) then raise exception 'T1 catalog size %', jsonb_array_length(js); end if;
   if exists (select 1 from jsonb_array_elements(js) e where (e ->> 'enabled')::boolean) then raise exception 'T1 should all be disabled by default'; end if;
   js := public.data_retention_scan_now();
   if (js ->> 'created')::int <> 0 then raise exception 'T1 scan created % while disabled', js ->> 'created'; end if;

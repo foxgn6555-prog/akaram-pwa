@@ -20,6 +20,8 @@ export interface RetentionRequest {
 }
 export interface RetentionPolicy {
   data_key: string; label: string; description: string; safety_lock: string
+  /** 00340: البوابة التي ينتمي إليها النوع، اسم الجدول وعمود الزمن، وهل يمكن تفعيل حذفه أصلاً (المقفل يظهر لكن لا يُفعَّل) */
+  portal_key: string; portal_label: string; table_name: string; time_column: string | null; deletable: boolean
   enabled: boolean; retention_months: number; export_required: boolean
   updated_at: string | null; updated_by_name: string | null; open_request: RetentionRequest | null
 }
@@ -34,6 +36,7 @@ export const RETENTION_ERROR_MESSAGES: Record<string, string> = {
   RETENTION_EXPORT_COUNT_MISMATCH: 'عدد الصفوف المصدَّرة لا يساوي القابل للحذف — أعد التصدير',
   RETENTION_EXPORT_STALE: 'تغيّرت البيانات بعد التصدير (وصلت صفوف قديمة جديدة) — أعد التصدير ثم أكّد',
   RETENTION_POLICY_DISABLED: 'السياسة معطّلة — فعّلها أولاً',
+  RETENTION_LOCKED: 'هذا النوع مقفل — لا يمكن تفعيل حذفه الزمني',
 }
 export function retentionErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error ?? '')

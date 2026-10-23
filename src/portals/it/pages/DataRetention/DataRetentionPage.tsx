@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Settings2, ShieldCheck, Square, Trash2, X } from 'lucide-react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { AlertTriangle, CheckCircle2, ClipboardList, FolderOpen, Lock, RefreshCw, Search, Settings2, ShieldCheck, Square, Trash2, X } from 'lucide-react'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -10,8 +10,9 @@ import { browserPullSupported } from '@features/cold-archive/browser-pull'
 import type { ExportProgress } from '@features/data-retention/browser-export'
 
 /**
- * 🗂️ الاحتفاظ بالبيانات النصية (00325 · ٢/٤) — بوابة التطوير المركزية
- *  لكل نوع: مفعّل / المدة بالأشهر / يتطلب تصديراً. النظام ينشئ طلب حذف ويبلّغكم؛ الحذف فقط بعد تأكيدكم هنا.
+ * 🗂️ الاحتفاظ بالبيانات النصية (00325 · 00340) — بوابة التطوير المركزية
+ *  كل جداول المنصة تظهر مجمّعة حسب البوابة. القابل للحذف: مفعّل / المدة بالأشهر / يتطلب تصديراً.
+ *  المقفل (أساسي/مالي/إثباتي) يظهر بسبب قفله ولا يمكن تفعيله. النظام ينشئ طلب حذف ويبلّغكم؛ الحذف فقط بعد تأكيدكم هنا.
  */
 const num = (n: number) => n.toLocaleString('en-US')
 
@@ -23,8 +24,8 @@ export default function DataRetentionPage() {
         <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-200"><ShieldCheck size={16} /> إجراء محمي · IT فقط</span>
         <h1 className="mt-2 text-2xl font-black">الاحتفاظ بالبيانات النصية</h1>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-100">
-          لكل نوع بيانات تقنية مدة احتفاظ. عند انقضائها ينشئ النظام <b>طلب حذف</b> ويبلّغكم — ولا يُحذف صف واحد إلا بعد (تصدير مُثبَت إن طُلب) وتأكيدكم هنا.
-          أقفال السلامة ثابتة ولا تُعطَّل. البيانات المالية وسجلات التدقيق ليست ضمن القائمة أصلاً.
+          كل جداول المنصة تظهر هنا مجمّعة حسب البوابة. لكل نوع قابل للحذف مدة احتفاظ؛ عند انقضائها ينشئ النظام <b>طلب حذف</b> ويبلّغكم — ولا يُحذف صف واحد إلا بعد (تصدير مُثبَت إن طُلب) وتأكيدكم هنا.
+          أقفال السلامة ثابتة ولا تُعطَّل. الجداول الأساسية والمالية وسجلات الإثبات تظهر <b>مقفلة</b> ولا يمكن تفعيل حذفها.
         </p>
       </header>
 
@@ -194,18 +195,74 @@ function Stat({ label, value, strong = false, icon }: { label: string; value: st
   )
 }
 
-/* ─────────────── السياسات ─────────────── */
+/* ─────────────── السياسات (00340: كل الجداول مجمّعة حسب البوابة) ─────────────── */
 function PoliciesTab() {
   const q = useRetentionSettings()
+  const [query, setQuery] = useState('')
+  const [onlyDeletable, setOnlyDeletable] = useState(false)
+  const groups = useMemo(() => {
+    const needle = query.trim()
+    const list = (q.data ?? []).filter((p) => (!onlyDeletable || p.deletable) && (needle === '' || p.label.includes(needle) || p.table_name.includes(needle) || p.portal_label.includes(needle)))
+    const map = new Map<string, { key: string; label: string; items: RetentionPolicy[] }>()
+    for (const p of list) {
+      const g = map.get(p.portal_key) ?? { key: p.portal_key, label: p.portal_label, items: [] }
+      g.items.push(p); map.set(p.portal_key, g)
+    }
+    return [...map.values()]
+  }, [q.data, query, onlyDeletable])
   if (q.isLoading) return <div className="rounded-2xl bg-white p-12"><LoadingSpinner label="جارٍ تحميل السياسات…" /></div>
   if (q.isError || !q.data) return <ErrorBox onRetry={() => void q.refetch()} />
+  const all = q.data, deletable = all.filter((p) => p.deletable), enabled = all.filter((p) => p.enabled)
   return (
     <div className="space-y-3" data-testid="ret-policies">
-      <p className="rounded-2xl bg-white p-4 text-sm text-slate-700 ring-1 ring-slate-200">
-        التفعيل لا يحذف شيئاً بنفسه — يسمح للنظام بإنشاء طلب عند انقضاء المدة. إيقاف سياسة يلغي طلبها المعلّق.
-      </p>
-      {q.data.map((p) => <PolicyCard key={p.data_key} p={p} />)}
+      <div className="rounded-2xl bg-white p-4 text-sm text-slate-700 ring-1 ring-slate-200">
+        <p>التفعيل لا يحذف شيئاً بنفسه — يسمح للنظام بإنشاء طلب عند انقضاء المدة. إيقاف سياسة يلغي طلبها المعلّق.</p>
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold" data-testid="ret-policies-summary">
+          <span>كل الأنواع: <span dir="ltr">{num(all.length)}</span></span>
+          <span className="text-emerald-800">قابلة للحذف الزمني: <span dir="ltr">{num(deletable.length)}</span></span>
+          <span className="text-slate-500">مقفلة: <span dir="ltr">{num(all.length - deletable.length)}</span></span>
+          <span className="text-sky-800">مفعّلة الآن: <span dir="ltr">{num(enabled.length)}</span></span>
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="relative flex-1 min-w-[12rem]">
+            <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث باسم النوع أو الجدول أو البوابة…" data-testid="ret-search"
+              className="h-10 w-full rounded-xl border border-slate-300 bg-white pr-9 pl-3 text-sm text-slate-900" />
+          </label>
+          <label className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-50 px-3 text-xs font-bold text-slate-800 ring-1 ring-slate-200">
+            <input type="checkbox" checked={onlyDeletable} onChange={(e) => setOnlyDeletable(e.target.checked)} data-testid="ret-only-deletable" className="h-4 w-4" /> القابلة للحذف فقط
+          </label>
+        </div>
+      </div>
+      {groups.length === 0 && <EmptyState title="لا نتائج" hint="غيّر كلمة البحث أو ألغِ التصفية." />}
+      {groups.map((g, i) => (
+        <details key={g.key} open={i === 0 || query.trim() !== ''} className="rounded-2xl bg-white ring-1 ring-slate-200" data-testid={`ret-portal-${g.key}`}>
+          <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-4">
+            <span className="font-black text-slate-900">{g.label}</span>
+            <span className="flex flex-wrap gap-2 text-xs font-bold">
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-700" dir="ltr">{num(g.items.length)}</span>
+              {g.items.some((p) => p.enabled) && <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-emerald-900">مفعّلة {num(g.items.filter((p) => p.enabled).length)}</span>}
+              {g.items.some((p) => !p.deletable) && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600"><Lock size={11} /> مقفلة {num(g.items.filter((p) => !p.deletable).length)}</span>}
+            </span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">{g.items.map((p) => (p.deletable ? <PolicyCard key={p.data_key} p={p} /> : <LockedCard key={p.data_key} p={p} />))}</div>
+        </details>
+      ))}
     </div>
+  )
+}
+
+function LockedCard({ p }: { p: RetentionPolicy }) {
+  return (
+    <article className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200" data-testid={`ret-policy-${p.data_key}`} aria-disabled="true">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-black text-slate-800">{p.label} <span dir="ltr" className="font-mono text-[11px] font-normal text-slate-400">{p.table_name}</span></h3>
+          <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-slate-600"><Lock size={12} /> {p.safety_lock}</p>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700" data-testid="ret-locked-badge"><Lock size={12} /> مقفل — لا يُحذف زمنياً</span>
+      </div>
+    </article>
   )
 }
 
@@ -220,8 +277,8 @@ function PolicyCard({ p }: { p: RetentionPolicy }) {
     <article className="rounded-2xl bg-white p-4 ring-1 ring-slate-200" data-testid={`ret-policy-${p.data_key}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-black text-slate-900">{p.label}</h3>
-          <p className="mt-0.5 text-xs text-slate-600">{p.description}</p>
+          <h3 className="font-black text-slate-900">{p.label} <span dir="ltr" className="font-mono text-[11px] font-normal text-slate-400">{p.table_name}</span></h3>
+          {p.description && <p className="mt-0.5 text-xs text-slate-600">{p.description}</p>}
           <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-emerald-800"><Lock size={12} /> قفل سلامة ثابت: {p.safety_lock}</p>
         </div>
         <span className={clsx('rounded-full px-3 py-1 text-xs font-bold', p.enabled ? 'bg-emerald-100 text-emerald-900' : 'bg-slate-100 text-slate-600')}>{p.enabled ? 'مفعّلة' : 'معطّلة'}</span>
