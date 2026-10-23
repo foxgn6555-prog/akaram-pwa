@@ -91,6 +91,8 @@ const APP_ERROR_AR: Record<string, string> = {
   APPROVAL_STEP_ACCOUNT_INVALID: 'الحساب المحدد في إحدى الخطوات غير موجود.',
   APPROVAL_STEP_KIND_INVALID: 'نوع الخطوة غير معروف.',
   APPROVAL_TYPE_INVALID: 'نوع الطلب غير مدعوم.',
+  APPROVAL_ROLE_INVALID: 'دور الطالب غير حقيقي — اختر دوراً من القائمة.',
+  APPROVAL_STEPS_DUPLICATE: 'الخطوة نفسها لا تُكرَّر مباشرة بعد نفسها.',
   APPROVAL_ROLE_REQUIRED: 'اختر دور الطالب.',
   APPROVAL_NO_APPROVER: 'لا يوجد أي مُعتمِد في سلسلة الموافقات لهذا الطلب (ربما كلّهم أنت) — راجع التطوير المركزية.',
   APPROVAL_NO_PENDING_STEP: 'لا توجد خطوة معلّقة لهذا الطلب.',

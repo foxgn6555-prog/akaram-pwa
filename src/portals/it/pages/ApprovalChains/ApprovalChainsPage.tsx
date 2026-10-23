@@ -5,7 +5,7 @@
  *  - «حساب محدد»: شخص بعينه.
  * مثال: متعهد/إجازة = مسؤول قسمه → مسؤول قاطعه → العمليات الميدانية → معاون المدير (محدد) → المدير المفوض (محدد).
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useApprovalChains, useDeleteApprovalChain, useSaveApprovalChain } from '@features/sector-manager/hooks'
@@ -14,7 +14,14 @@ import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import type { ApprovalChain, ApprovalRequestType, ApprovalStep } from '@sdk/sector-manager.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
-const REQUESTER_ROLES = ['employee', 'department_manager', 'admin_ops', 'field_ops', 'maintenance', 'central_garage_officer', 'transfer_station', 'ops_room', 'hr_officer', 'finance_officer', 'media', 'complaints', 'disclosures', 'it_admin', 'deputy_director', 'executive_director'] as const
+/** 00333: أدوار حقيقية فقط (مرآة app.approval_requester_roles) — الأدوار الوهمية media/complaints/disclosures كانت تُنتج سلاسل لا تُطبَّق على أحد */
+const REQUESTER_ROLES: { role: string; group: string }[] = [
+  { role: 'employee', group: 'الميدان' }, { role: 'department_manager', group: 'الميدان' }, { role: 'admin_ops', group: 'الميدان' }, { role: 'field_ops', group: 'الميدان' },
+  { role: 'maintenance', group: 'الوحدات' }, { role: 'central_garage_officer', group: 'الوحدات' }, { role: 'transfer_station', group: 'الوحدات' }, { role: 'ops_room', group: 'الوحدات' },
+  { role: 'media_officer', group: 'الوحدات' }, { role: 'complaints_officer', group: 'الوحدات' }, { role: 'follow_up', group: 'الوحدات' },
+  { role: 'hr_officer', group: 'الإدارة' }, { role: 'finance_officer', group: 'الإدارة' }, { role: 'it_admin', group: 'الإدارة' }, { role: 'deputy_director', group: 'الإدارة' }, { role: 'executive_director', group: 'الإدارة' },
+]
+const ROLE_GROUPS = ['الميدان', 'الوحدات', 'الإدارة']
 const HIERARCHY_ROLES: { role: string; label: string; hint: string }[] = [
   { role: 'department_manager', label: 'مسؤول قسمه', hint: 'مسؤول القسم المسؤول عن الطالب (للمتعهد: من إسناده؛ للموظف: المدير المباشر في HR)' },
   { role: 'admin_ops', label: 'مسؤول قاطعه', hint: 'مسؤول القاطع الذي يتبع له الطالب (الكرادة/الزعفرانية)' },
@@ -25,7 +32,7 @@ const HIERARCHY_ROLES: { role: string; label: string; hint: string }[] = [
   { role: 'super_admin', label: 'المدير المفوض', hint: 'أي حساب بهذا الدور' },
 ]
 const TYPES: { key: ApprovalRequestType; label: string }[] = [{ key: 'leave', label: 'إجازة' }, { key: 'time_permit', label: 'زمنية (إذن وقتي)' }, { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)' }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)' }, { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)' }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)' }]
-const roleLabel = (r: string) => (ROLE_LABELS as Record<string, string>)[r] ?? r
+const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)
 
 export default function ApprovalChainsPage() {
   const chains = useApprovalChains(), save = useSaveApprovalChain(), del = useDeleteApprovalChain()
@@ -39,6 +46,13 @@ export default function ApprovalChainsPage() {
 
   const load = (c: ApprovalChain) => { setRole(c.requester_role); setType(c.request_type); setSteps(c.steps); setActive(c.is_active); setEditing(c.id) }
   const reset = () => { setSteps([]); setActive(true); setEditing(null) }
+  // 00333: عند اختيار دور/نوع له سلسلة تُحمَّل تلقائياً — لا استبدال صامت للسلسلة القائمة
+  useEffect(() => { if (existing && editing !== existing.id) { setSteps(existing.steps); setActive(existing.is_active); setEditing(existing.id) } }, [existing, editing])
+  const lastStep = steps[steps.length - 1]
+  const sameAsLast = (st: ApprovalStep) => !!lastStep && lastStep.kind === st.kind && (st.kind === 'hierarchy' ? (lastStep as { role?: string }).role === st.role : (lastStep as { user_id?: string }).user_id === (st as { user_id: string }).user_id)
+  const addStep = (st: ApprovalStep) => { if (sameAsLast(st)) { setDup(true); return } setDup(false); setSteps((s) => [...s, st]) }
+  const [dup, setDup] = useState(false)
+  const withChain = useMemo(() => new Set((chains.data ?? []).filter((c) => c.is_active).map((c) => `${c.requester_role}|${c.request_type}`)), [chains.data])
   const move = (i: number, d: -1 | 1) => setSteps((s) => { const n = [...s]; const j = i + d; if (j < 0 || j >= n.length) return s; const t = n[i] as ApprovalStep; n[i] = n[j] as ApprovalStep; n[j] = t; return n })
   const stepLabel = (s: ApprovalStep) => (s.kind === 'hierarchy' ? `${HIERARCHY_ROLES.find((h) => h.role === s.role)?.label ?? roleLabel(s.role)} (حسب التسلسل)` : s.label ?? userName(s.user_id))
 
@@ -56,17 +70,21 @@ export default function ApprovalChainsPage() {
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="text-xs font-bold">دور الطالب
             <select data-testid="chain-role" value={role} onChange={(e) => { setRole(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
-              {REQUESTER_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
+              {ROLE_GROUPS.map((g) => (
+                <optgroup key={g} label={g}>
+                  {REQUESTER_ROLES.filter((r) => r.group === g).map((r) => <option key={r.role} value={r.role}>{roleLabel(r.role)}{withChain.has(`${r.role}|${type}`) ? ' ✓' : ''}</option>)}
+                </optgroup>
+              ))}
             </select>
           </label>
           <label className="text-xs font-bold">نوع الطلب
             <select data-testid="chain-type" value={type} onChange={(e) => { setType(e.target.value as ApprovalRequestType); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
-              {TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              {TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}{withChain.has(`${role}|${t.key}`) ? ' ✓' : ''}</option>)}
             </select>
           </label>
           <div className="flex items-end gap-2">
-            {existing && !editing && <button type="button" data-testid="chain-load" onClick={() => load(existing)} className="h-11 rounded-xl border px-4 text-sm font-bold">تحميل السلسلة الحالية ({existing.steps.length} خطوات)</button>}
-            {!existing && <p className="pb-3 text-xs text-amber-700" data-testid="chain-none">لا سلسلة لهذا الدور/النوع — ستُنشأ عند الحفظ</p>}
+            {existing && <p className="pb-3 text-xs text-emerald-700" data-testid="chain-loaded">سلسلة قائمة ({existing.steps.length} خطوات) — محمَّلة للتعديل؛ الحفظ يستبدلها</p>}
+            {!existing && <p className="pb-3 text-xs text-amber-700" data-testid="chain-none">لا سلسلة لهذا الدور/النوع — يعمل الافتراضي (المدير المباشر / افتراضي الوحدة) — ستُنشأ عند الحفظ</p>}
           </div>
         </div>
 
@@ -89,7 +107,7 @@ export default function ApprovalChainsPage() {
             <p className="text-xs font-black">إضافة خطوة «حسب التسلسل»</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {HIERARCHY_ROLES.map((h) => (
-                <button key={h.role} type="button" title={h.hint} data-testid={`add-hier-${h.role}`} onClick={() => setSteps((s) => [...s, { kind: 'hierarchy', role: h.role }])}
+                <button key={h.role} type="button" title={h.hint} data-testid={`add-hier-${h.role}`} onClick={() => addStep({ kind: 'hierarchy', role: h.role })}
                   className="rounded-full border border-indigo-300 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-900"><Plus size={12} className="inline" /> {h.label}</button>
               ))}
             </div>
@@ -102,12 +120,13 @@ export default function ApprovalChainsPage() {
                 <option value="">اختر حساباً</option>
                 {accountOptions.map((u) => <option key={u.id} value={u.id}>{u.employee_name ?? u.email} — {u.roles.map(roleLabel).join('، ') || 'بلا دور'}</option>)}
               </select>
-              <button type="button" data-testid="add-account" disabled={!accountId} onClick={() => { const u = (users.data ?? []).find((x) => x.id === accountId); setSteps((s) => [...s, { kind: 'account', user_id: accountId, label: u?.employee_name ?? u?.email ?? undefined }]); setAccountId('') }}
+              <button type="button" data-testid="add-account" disabled={!accountId} onClick={() => { const u = (users.data ?? []).find((x) => x.id === accountId); addStep({ kind: 'account', user_id: accountId, label: u?.employee_name ?? u?.email ?? undefined }); setAccountId('') }}
                 className="h-10 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">إضافة</button>
             </div>
           </div>
         </div>
 
+        {dup && <p className="mt-2 text-xs font-bold text-rose-700" role="alert" data-testid="chain-dup">الخطوة نفسها لا تُكرَّر مباشرة بعد نفسها — المعتمِد نفسه لن يوافق مرتين متتاليتين</p>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" data-testid="chain-active" checked={active} onChange={(e) => setActive(e.target.checked)} /> السلسلة فعّالة</label>
           <button type="button" data-testid="chain-save" disabled={steps.length === 0 || save.isPending} onClick={() => save.mutate({ requesterRole: role, requestType: type, steps, active }, { onSuccess: () => setEditing(null) })}
@@ -123,7 +142,7 @@ export default function ApprovalChainsPage() {
             {(chains.data ?? []).map((c) => (
               <li key={c.id} className="flex flex-wrap items-center gap-2 py-3" data-testid={`chain-${c.requester_role}-${c.request_type}`}>
                 <div className="min-w-[10rem]">
-                  <div className="text-sm font-black">{c.requester_label} · {TYPES.find((t) => t.key === c.request_type)?.label}</div>
+                  <div className="text-sm font-black">{roleLabel(c.requester_role)} · {TYPES.find((t) => t.key === c.request_type)?.label}</div>
                   <div className="text-[11px] text-slate-500">{c.is_active ? 'فعّالة' : 'معطّلة'}{c.updated_by_name ? ` · آخر تعديل: ${c.updated_by_name}` : ''}</div>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-1 text-xs">

@@ -98,6 +98,14 @@ begin
   perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"media"}]') $q$, 'APPROVAL_STEP_ROLE_INVALID');
   perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"account","user_id":"00000000-0000-0000-0000-000000000000"}]') $q$, 'APPROVAL_STEP_ACCOUNT_INVALID');
   perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'bonus', '[{"kind":"hierarchy","role":"admin_ops"}]') $q$, 'APPROVAL_TYPE_INVALID');
+  -- 00278: دور طالب غير حقيقي يُرفض؛ الخطوات المتكررة المتتالية تُرفض
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('media', 'leave', '[{"kind":"hierarchy","role":"admin_ops"}]') $q$, 'APPROVAL_ROLE_INVALID');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('disclosures', 'leave', '[{"kind":"hierarchy","role":"admin_ops"}]') $q$, 'APPROVAL_ROLE_INVALID');
+  perform pg_temp.expect_error($q$ select public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"admin_ops"},{"kind":"hierarchy","role":"admin_ops"}]') $q$, 'APPROVAL_STEPS_DUPLICATE');
+  perform public.approval_chain_save('media_officer', 'leave', '[{"kind":"hierarchy","role":"admin_ops"},{"kind":"hierarchy","role":"deputy_director"},{"kind":"hierarchy","role":"admin_ops"}]');
+  select count(*) into n from public.approval_chains_list() l where l.requester_role = 'media_officer' and l.requester_label = 'مسؤول الإعلام'; assert n = 1, 'S2-278: تسمية مسؤول الإعلام';
+  perform pg_temp.expect_error($q$ insert into public.approval_chains (requester_role, request_type, steps) values ('complaints', 'leave', '[]') $q$, 'approval_chains_requester_role_check');
+  delete from public.approval_chains where requester_role = 'media_officer';
   -- متعهد/إجازة: مسؤول قسمه → مسؤول قاطعه → العمليات الميدانية (لا أحد بعد → تُخطّى) → معاون المدير (حساب محدد)
   perform public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"department_manager"},{"kind":"hierarchy","role":"admin_ops"},{"kind":"hierarchy","role":"field_ops"},{"kind":"account","user_id":"d8000000-0000-0000-0000-000000000006"}]');
   -- مسؤول قسم/إجازة: مباشرة معاون المدير
