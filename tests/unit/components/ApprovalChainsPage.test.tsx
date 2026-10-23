@@ -1,12 +1,17 @@
 /** سلاسل الموافقات (التطوير المركزية، 00160): بناء سلسلة من خطوات «حسب التسلسل» و«حساب محدد»، ترتيب، حفظ، تحميل/تعديل/حذف */
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const h = vi.hoisted(() => ({ save: vi.fn(), del: vi.fn(), chains: [] as Record<string, unknown>[] }))
+const h = vi.hoisted(() => ({ save: vi.fn(), del: vi.fn(), sim: vi.fn(), simData: null as Record<string, unknown> | null, versions: [] as Record<string, unknown>[], chains: [] as Record<string, unknown>[] }))
 vi.mock('@features/sector-manager/hooks', () => ({
   useApprovalChains: () => ({ data: h.chains, isLoading: false }),
   useSaveApprovalChain: () => ({ mutate: h.save, isPending: false }),
   useDeleteApprovalChain: () => ({ mutate: h.del, isPending: false }),
+  useApprovalChainVersions: () => ({ data: h.versions, isLoading: false }),
+  useApprovalSimulate: () => ({ mutate: h.sim, isPending: false, data: h.simData }),
 }))
+vi.mock('@features/hr', () => ({ useLeaveTypes: () => ({ data: [
+  { id: 'lt1', code: 'annual', name: 'إجازة اعتيادية', kind: 'leave' }, { id: 'lt2', code: 'sick', name: 'إجازة مرضية', kind: 'leave' }, { id: 'lt3', code: 'permit_paid', name: 'زمنية مدفوعة', kind: 'time_permit' },
+] }) }))
 vi.mock('@features/user-management', () => ({
   useUsers: () => ({ data: [
     { id: 'u-dep', email: 'dep@x.iq', employee_name: 'معاون المدير', roles: ['deputy_director'] },
@@ -16,7 +21,7 @@ vi.mock('@features/user-management', () => ({
 import Page from '@portals/it/pages/ApprovalChains/ApprovalChainsPage'
 
 describe('سلاسل الموافقات', () => {
-  beforeEach(() => { vi.clearAllMocks(); h.chains = [] })
+  beforeEach(() => { vi.clearAllMocks(); h.chains = []; h.versions = []; h.simData = null })
   it('يبني سلسلة متعهد/إجازة: مسؤول قسمه → مسؤول قاطعه → معاون (حساب) ويحفظها بالترتيب', () => {
     render(<Page />)
     expect(screen.getByTestId('chain-none')).toBeInTheDocument()
@@ -28,7 +33,7 @@ describe('سلاسل الموافقات', () => {
     expect(screen.getByTestId('chain-step-1')).toHaveTextContent('مسؤول قسمه (حسب التسلسل)')
     expect(screen.getByTestId('chain-step-3')).toHaveTextContent('معاون المدير'); expect(screen.getByTestId('chain-step-3')).toHaveTextContent('حساب محدد')
     fireEvent.click(screen.getByTestId('chain-save'))
-    expect(h.save).toHaveBeenCalledWith({ requesterRole: 'employee', requestType: 'leave', steps: [{ kind: 'hierarchy', role: 'department_manager' }, { kind: 'hierarchy', role: 'admin_ops' }, { kind: 'account', user_id: 'u-dep', label: 'معاون المدير' }], active: true }, expect.any(Object))
+    expect(h.save).toHaveBeenCalledWith({ requesterRole: 'employee', requestType: 'leave', steps: [{ kind: 'hierarchy', role: 'department_manager' }, { kind: 'hierarchy', role: 'admin_ops' }, { kind: 'account', user_id: 'u-dep', label: 'معاون المدير' }], active: true, subtype: null }, expect.any(Object))
   })
   it('سلسلة مباشرة: معاون ثم مدير مفوض (حسابان) لدور مسؤول قسم/زمنية، مع حذف خطوة', () => {
     render(<Page />)
@@ -65,7 +70,7 @@ describe('سلاسل الموافقات', () => {
     render(<Page />)
     expect(screen.getByTestId('chain-none')).toBeInTheDocument()
     fireEvent.change(screen.getByTestId('chain-role'), { target: { value: 'department_manager' } })
-    expect(screen.getByTestId('chain-loaded')).toHaveTextContent('1 خطوات')
+    expect(screen.getByTestId('chain-loaded')).toHaveTextContent('1 خطوات · إصدار 1')
     expect(screen.getByTestId('chain-step-1')).toHaveTextContent('مسؤول قاطعه')
     fireEvent.click(screen.getByTestId('add-hier-deputy_director'))
     fireEvent.click(screen.getByTestId('chain-save'))
@@ -81,5 +86,64 @@ describe('سلاسل الموافقات', () => {
     expect(screen.queryByTestId('chain-dup')).toBeNull()
     fireEvent.click(screen.getByTestId('add-hier-admin_ops'))
     expect(screen.getByTestId('chain-step-3')).toHaveTextContent('مسؤول قاطعه')
+  })
+  it('00335: نوع فرعي للإجازة + خصائص الخطوة (الجميع/شرط/مهلة وتصعيد) تُحفظ', () => {
+    render(<Page />)
+    fireEvent.change(screen.getByTestId('chain-subtype'), { target: { value: 'sick' } })
+    expect(screen.getByTestId('chain-none')).toHaveTextContent('النوع الفرعي')
+    fireEvent.click(screen.getByTestId('add-hier-admin_ops'))
+    fireEvent.click(screen.getByTestId('add-hier-deputy_director'))
+    fireEvent.click(screen.getByTestId('chain-step-options-2'))
+    fireEvent.change(screen.getByTestId('step-mode-2'), { target: { value: 'all' } })
+    fireEvent.change(screen.getByTestId('step-cond-field-2'), { target: { value: 'days' } })
+    fireEvent.change(screen.getByTestId('step-cond-value-2'), { target: { value: '3' } })
+    fireEvent.change(screen.getByTestId('step-sla-2'), { target: { value: '2' } })
+    fireEvent.change(screen.getByTestId('step-escalate-2'), { target: { value: 'next' } })
+    expect(screen.getAllByTestId('chain-step-opt-2').map((b) => b.textContent)).toEqual(['الجميع', 'إذا الأيام ≥ 3', 'مهلة 2 يوم ثم تصعيد'])
+    fireEvent.click(screen.getByTestId('chain-save'))
+    expect(h.save).toHaveBeenCalledWith({ requesterRole: 'employee', requestType: 'leave', subtype: 'sick', active: true,
+      steps: [{ kind: 'hierarchy', role: 'admin_ops' }, { kind: 'hierarchy', role: 'deputy_director', mode: 'all', condition: { field: 'days', op: 'gte', value: 3 }, sla_days: 2, escalate: 'next' }] }, expect.any(Object))
+  })
+  it('00335: النوع الفرعي معطّل لغير الإجازات، وحقول الشرط حسب النوع', () => {
+    render(<Page />)
+    fireEvent.change(screen.getByTestId('chain-type'), { target: { value: 'advance' } })
+    expect(screen.getByTestId('chain-subtype')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('add-hier-super_admin'))
+    fireEvent.click(screen.getByTestId('chain-step-options-1'))
+    expect(Array.from((screen.getByTestId('step-cond-field-1') as HTMLSelectElement).options).map((o) => o.value)).toEqual(['', 'amount'])
+  })
+  it('00335: نسخ السلسلة إلى دور/نوع آخر مع تحذير الاستبدال', () => {
+    h.chains = [{ id: 'c9', requester_role: 'maintenance', requester_label: 'الصيانة', request_type: 'leave', subtype: null, steps: [{ kind: 'hierarchy', role: 'deputy_director' }], is_active: true, updated_at: 'x', updated_by_name: 'IT' }]
+    render(<Page />)
+    fireEvent.click(screen.getByTestId('add-hier-admin_ops'))
+    fireEvent.click(screen.getByTestId('chain-copy'))
+    fireEvent.change(screen.getByTestId('copy-role'), { target: { value: 'maintenance' } })
+    expect(screen.getByTestId('copy-overwrite')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('copy-type'), { target: { value: 'time_permit' } })
+    expect(screen.queryByTestId('copy-overwrite')).toBeNull()
+    fireEvent.change(screen.getByTestId('copy-subtype'), { target: { value: 'permit_paid' } })
+    fireEvent.click(screen.getByTestId('copy-confirm'))
+    expect(h.save).toHaveBeenCalledWith({ requesterRole: 'maintenance', requestType: 'time_permit', steps: [{ kind: 'hierarchy', role: 'admin_ops' }], active: true, subtype: 'permit_paid' }, expect.any(Object))
+  })
+  it('00335: سجل الإصدارات والمحاكاة', () => {
+    h.chains = [{ id: 'c1', requester_role: 'employee', requester_label: 'متعهد', request_type: 'leave', subtype: 'sick', subtype_label: 'إجازة مرضية', version_no: 3, steps: [{ kind: 'hierarchy', role: 'admin_ops', label: 'مسؤول قاطع (حسب التسلسل)' }], is_active: true, updated_at: 'x', updated_by_name: 'IT' }]
+    h.versions = [{ id: 'v3', version_no: 3, action: 'updated', steps: [{ kind: 'hierarchy', role: 'admin_ops', label: 'مسؤول قاطع (حسب التسلسل)', sla_days: 2 }], is_active: true, changed_by_name: 'مدير النظام', changed_at: '2026-10-01T08:00:00Z' }, { id: 'v1', version_no: 1, action: 'created', steps: [], is_active: true, changed_by_name: 'IT', changed_at: '2026-09-01T08:00:00Z' }]
+    h.simData = { chain_id: 'c1', requester_label: 'متعهد', subtype: 'sick', steps: [
+      { step_no: 1, label: 'مسؤول قاطع (حسب التسلسل)', mode: 'any', sla_days: null, escalate: 'none', condition: null, status: 'active', approvers: [{ user_id: 'u-sm', name: 'مسؤول الكرادة' }], delegates: [{ to_name: 'بديل', from_name: 'مسؤول الكرادة' }] },
+      { step_no: 2, label: 'معاون المدير', mode: 'any', sla_days: 2, escalate: 'next', condition: 'إذا الأيام ≥ 3', status: 'skipped_condition', approvers: [], delegates: [] },
+    ] }
+    render(<Page />)
+    expect(screen.getByTestId('chain-employee-leave-sick')).toHaveTextContent('إجازة — إجازة مرضية')
+    expect(screen.getByTestId('chain-employee-leave-sick')).toHaveTextContent('إصدار 3')
+    fireEvent.click(screen.getByTestId('chain-history-employee-leave-sick'))
+    expect(screen.getByTestId('chain-version-3')).toHaveTextContent('تعديل · مدير النظام')
+    expect(screen.getByTestId('chain-version-3')).toHaveTextContent('مهلة 2 يوم')
+    fireEvent.change(screen.getByTestId('sim-user'), { target: { value: 'u-dep' } })
+    fireEvent.change(screen.getByTestId('sim-days'), { target: { value: '2' } })
+    fireEvent.click(screen.getByTestId('sim-run'))
+    expect(h.sim).toHaveBeenCalledWith({ userId: 'u-dep', type: 'leave', subtype: null, context: { days: 2 } })
+    expect(screen.getByTestId('sim-step-1')).toHaveTextContent('مسؤول الكرادة')
+    expect(screen.getByTestId('sim-step-1')).toHaveTextContent('بالتفويض: بديل عن مسؤول الكرادة')
+    expect(screen.getByTestId('sim-step-2')).toHaveTextContent('تُخطّى — الشرط غير متحقق')
   })
 })

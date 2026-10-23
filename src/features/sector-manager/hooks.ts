@@ -36,6 +36,8 @@ export const useSmContractorsSummary = () => useQuery({ queryKey: [...ROOT, 'con
 export const useApprovalChains = (enabled = true) => useQuery({ queryKey: [...ROOT, 'chains'], queryFn: () => approvals.chains(), enabled })
 export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalRequestType; steps: ApprovalStep[]; active?: boolean; subtype?: string | null }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true, x.subtype ?? null), 'حُفظت سلسلة الموافقات')
 export const useDeleteApprovalChain = () => useAction((id: string) => approvals.deleteChain(id), 'حُذفت السلسلة')
+export const useApprovalChainVersions = (chainId: string | null) => useQuery({ queryKey: [...ROOT, 'chain-versions', chainId], queryFn: () => approvals.chainVersions(chainId as string), enabled: Boolean(chainId) })
+export const useApprovalSimulate = () => useMutation({ mutationFn: (x: { userId: string; type: ApprovalRequestType; subtype: string | null; context: Record<string, number> }) => approvals.simulate(x.userId, x.type, x.subtype, x.context) })
 export const useMyApprovalTasks = () => useQuery({ queryKey: [...ROOT, 'tasks'], queryFn: () => approvals.myTasks(), refetchInterval: 60_000 })
 export const useApprovalTimeline = (kind: ApprovalRequestType | undefined, requestId: string | undefined) =>
   useQuery({ queryKey: [...ROOT, 'timeline', kind, requestId], queryFn: () => approvals.timeline(kind as ApprovalRequestType, requestId as string), enabled: Boolean(kind && requestId) })

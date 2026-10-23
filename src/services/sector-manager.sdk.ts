@@ -43,6 +43,9 @@ export interface SectorNotice { id: string; title: string; body: string; recipie
 export interface ApprovalStepOptions { mode?: 'any' | 'all'; condition?: { field: 'amount' | 'days' | 'minutes'; op: 'gte' | 'lte'; value: number } | null; sla_days?: number | null; escalate?: 'none' | 'next' }
 export type ApprovalStep = ({ kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }) & ApprovalStepOptions
 export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance'
+export interface ApprovalChainVersion { id: string; version_no: number; action: 'created' | 'updated' | 'deleted'; steps: ApprovalStep[]; is_active: boolean; changed_by_name: string | null; changed_at: string }
+export interface ApprovalSimulationStep { step_no: number; label: string; mode: 'any' | 'all'; sla_days: number | null; escalate: 'none' | 'next'; condition: string | null; status: 'active' | 'skipped_condition' | 'skipped_nobody'; approvers: { user_id: string; name: string }[]; delegates: { to_name: string; from_name: string }[] }
+export interface ApprovalSimulation { chain_id: string | null; requester_role?: string; requester_label?: string; subtype?: string | null; note?: string; steps: ApprovalSimulationStep[] }
 export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
@@ -119,6 +122,11 @@ export const approvals = {
   saveChain: async (requesterRole: string, requestType: ApprovalRequestType, steps: ApprovalStep[], active = true, subtype: string | null = null) =>
     (await sdkGuard(supabase.rpc('approval_chain_save', { p_requester_role: requesterRole, p_request_type: requestType, p_steps: steps.map(cleanStep), p_active: active, p_subtype: subtype }))) as string,
   deleteChain: async (id: string) => sdkVoid(supabase.rpc('approval_chain_delete', { p_id: id })),
+  /** 00335: سجل إصدارات سلسلة */
+  chainVersions: async (chainId: string) => (await sdkGuard(supabase.rpc('approval_chain_versions_list', { p_chain: chainId }))) as ApprovalChainVersion[],
+  /** 00335: محاكاة — من سيوافق لو طلب هذا المستخدم هذا النوع بهذا السياق */
+  simulate: async (userId: string, type: ApprovalRequestType, subtype: string | null, context: Record<string, number>) =>
+    (await sdkGuard(supabase.rpc('approval_simulate', { p_user: userId, p_type: type, p_subtype: subtype, p_context: context }))) as ApprovalSimulation,
   myTasks: async () => (await sdkGuard(supabase.rpc('approval_my_tasks'))) as ApprovalTask[],
   timeline: async (kind: ApprovalRequestType, requestId: string) => (await sdkGuard(supabase.rpc('approval_timeline', { p_kind: kind, p_request: requestId }))) as ApprovalTimelineRow[],
   /** 00162: قرار موحّد حسب نوع الطلب (إجازة/زمنية → hr_leave_decide، مستلزمات → supply_request_decide) */
