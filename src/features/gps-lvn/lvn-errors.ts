@@ -62,6 +62,9 @@ const CATALOG: Record<string, Omit<LvnErrorInfo, 'code'>> = {
     action: 'انتظر انتهاء المزامنة الجارية.',
     owner: '—',
   },
+  TRIP_ROUTE_NO_DEVICE: { kind: 'config', title: 'المركبة بلا جهاز GPS مربوط', cause: 'لا يوجد ربط بين مركبة الانطلاقية وجهاز تتبع.', action: 'اربط الجهاز من بيانات GPS ← الأسطول ثم اطلب السحب.', owner: 'غرفة العمليات' },
+  TRIP_ROUTE_NOT_QUEUED: { kind: 'config', title: 'لا شيء يُسحب لهذه الانطلاقية', cause: 'المسار نهائي ومكتمل أو بلا جهاز.', action: 'لا حاجة لإجراء.', owner: '—' },
+  TRIP_ROUTE_RANGE_TOO_LONG: { kind: 'config', title: 'فترة الانطلاقية أطول من 7 أيام', cause: 'انطلاقية مفتوحة منذ أكثر من أسبوع.', action: 'سجّل عودتها أو صحّحها ثم أعد السحب.', owner: 'غرفة العمليات' },
   LVN_HISTORY_ALREADY_RUNNING: {
     kind: 'busy',
     title: 'استيراد سجل سابق قيد التنفيذ',
@@ -81,6 +84,7 @@ const CATALOG: Record<string, Omit<LvnErrorInfo, 'code'>> = {
 const PREFIXES: Array<[RegExp, Omit<LvnErrorInfo, 'code'>]> = [
   [/^LVN_LOGIN_HTTP_(\d+)/, { kind: 'provider', title: 'خادم LVN لا يستجيب لتسجيل الدخول', cause: 'LVN أعاد حالة HTTP غير 200 عند الدخول (الرقم في الكود) — عطل أو صيانة لديهم أو تغيّر عنوان API.', action: 'أعد المحاولة لاحقاً؛ تحقق من LVN_API_BASE_URL إن استمر.', owner: 'شركة LVN' }],
   [/^LVN_HTTP_(\d+)/, { kind: 'provider', title: 'خادم LVN أعاد خطأ أثناء سحب البيانات', cause: 'استجابة HTTP غير ناجحة من LVN (الرقم في الكود).', action: 'أعد المحاولة؛ إن استمر فراجع شركة LVN.', owner: 'شركة LVN' }],
+  [/^TRIP_ROUTE_(APPLY|QUEUE|REQUEST)_FAILED/, { kind: 'db', title: 'وصلت النقاط لكن تعذّر حفظ المسار', cause: 'خطأ في قاعدة البيانات أثناء بناء مسار الانطلاقية.', action: 'أعد السحب؛ إن تكرر أبلغ التطوير.', owner: 'وحدة التطوير المركزية' }],
   [/^LVN_(APPLY|EVENTS|ALERTS|GEOFENCES|HISTORY_APPLY)_FAILED/, { kind: 'db', title: 'وصلت البيانات من LVN لكن تعذّر حفظها', cause: 'خطأ في قاعدة بياناتنا أثناء تطبيق النقاط (الكود بعد النقطتين هو رمز Postgres).', action: 'أبلغ وحدة التطوير مع رمز الخطأ.', owner: 'وحدة التطوير المركزية' }],
   [/^LVN_(SYNC|HISTORY)_RUN_CREATE_FAILED/, { kind: 'db', title: 'تعذّر فتح سجل مزامنة', cause: 'فشل إدراج صف في gps_sync_runs.', action: 'أبلغ وحدة التطوير.', owner: 'وحدة التطوير المركزية' }],
   [/^LVN_SYNC_FAILED|^LVN_HISTORY_SYNC_FAILED/, { kind: 'unknown', title: 'فشلت المزامنة دون رمز مفصّل', cause: 'الدالة أعادت ok=false بلا كود.', action: 'راجع سجل المزامنة أدناه.', owner: 'وحدة التطوير المركزية' }],

@@ -208,7 +208,7 @@ language plpgsql security definer set search_path = public, app as $$
 declare s public.trip_route_settings; d public.garage_departures; r public.trip_routes;
   pt record; prev record; keep_lat float8; keep_lng float8; keep_t timestamptz; keep_speed numeric;
   dist float8; secs float8; implied numeric; seq int := 0; rejected int := 0;
-  st_start timestamptz; st_lat float8; st_lng float8; st_n int := 0; st_sum_lat float8 := 0; st_sum_lng float8 := 0; st_addr text; stop_seq int := 0; gap_seq int := 0;
+  st_start timestamptz; st_lat float8; st_lng float8; st_n int := 0; st_sum_lat float8 := 0; st_sum_lng float8 := 0; st_addr text; ls_t timestamptz; ls_leg uuid; stop_seq int := 0; gap_seq int := 0;
   legs_json jsonb; tot_dist numeric := 0; tot_move int := 0; tot_stop int := 0; mx numeric := 0; first_t timestamptz; last_t timestamptz;
 begin
   if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'; end if;
@@ -272,24 +272,24 @@ begin
     if pt.state = 'stopped' then
       if st_start is null then st_start := pt.fix_time; st_n := 0; st_sum_lat := 0; st_sum_lng := 0; st_addr := null; end if;
       st_n := st_n + 1; st_sum_lat := st_sum_lat + pt.latitude; st_sum_lng := st_sum_lng + pt.longitude; st_addr := coalesce(st_addr, pt.address);
-      prev := pt;
+      ls_t := pt.fix_time; ls_leg := pt.leg_id;
     end if;
     if (pt.state <> 'stopped') and st_start is not null then
       -- أُغلقت السلسلة عند نقطة متحركة/فجوة: مدة التوقف حتى هذه النقطة إن لم تكن فجوة
-      if extract(epoch from ((case when pt.state = 'gap' then prev.fix_time else pt.fix_time end) - st_start)) >= s.stop_min_seconds then
+      if extract(epoch from ((case when pt.state = 'gap' then ls_t else pt.fix_time end) - st_start)) >= s.stop_min_seconds then
         stop_seq := stop_seq + 1;
         insert into public.trip_route_stops (departure_id, leg_id, seq, started_at, ended_at, duration_seconds, latitude, longitude, address, address_source)
-        values (p_departure, prev.leg_id, stop_seq, st_start, case when pt.state = 'gap' then prev.fix_time else pt.fix_time end,
-                extract(epoch from ((case when pt.state = 'gap' then prev.fix_time else pt.fix_time end) - st_start))::int,
+        values (p_departure, ls_leg, stop_seq, st_start, case when pt.state = 'gap' then ls_t else pt.fix_time end,
+                extract(epoch from ((case when pt.state = 'gap' then ls_t else pt.fix_time end) - st_start))::int,
                 st_sum_lat / st_n, st_sum_lng / st_n, st_addr, case when st_addr is not null then 'lvn' end);
       end if;
       st_start := null;
     end if;
   end loop;
-  if st_start is not null and prev.fix_time is not null and extract(epoch from (prev.fix_time - st_start)) >= s.stop_min_seconds then
+  if st_start is not null and ls_t is not null and extract(epoch from (ls_t - st_start)) >= s.stop_min_seconds then
     stop_seq := stop_seq + 1;
     insert into public.trip_route_stops (departure_id, leg_id, seq, started_at, ended_at, duration_seconds, latitude, longitude, address, address_source)
-    values (p_departure, prev.leg_id, stop_seq, st_start, prev.fix_time, extract(epoch from (prev.fix_time - st_start))::int, st_sum_lat / st_n, st_sum_lng / st_n, st_addr, case when st_addr is not null then 'lvn' end);
+    values (p_departure, ls_leg, stop_seq, st_start, ls_t, extract(epoch from (ls_t - st_start))::int, st_sum_lat / st_n, st_sum_lng / st_n, st_addr, case when st_addr is not null then 'lvn' end);
   end if;
   -- اسم الزون للتوقف (إن وقع داخل زون نشط) — يُستخدم كعنوان احتياطي
   update public.trip_route_stops t set geofence_id = g.id, geofence_name = g.name,

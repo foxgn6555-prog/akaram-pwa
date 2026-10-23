@@ -785,6 +785,13 @@ export const gpsLvn = {
     (await sdkGuard(
       supabase.rpc('trip_route_get', { p_departure: departureId, p_max_points: maxPoints }),
     )) as unknown as TripRouteDetail,
+  /** 00343: قائمة مسارات الانطلاقيات مع الفلاتر والملخص والترقيم */
+  tripRoutesList: async (filters: TripRoutesFilters, limit = 50, offset = 0) =>
+    (await sdkGuard(
+      supabase.rpc('trip_routes_list', { p_filters: filters, p_limit: limit, p_offset: offset }),
+    )) as unknown as TripRoutesListResult,
+  tripRoutesFilterOptions: async () =>
+    (await sdkGuard(supabase.rpc('trip_routes_filter_options'))) as unknown as TripRoutesFilterOptions,
   /** «سحب الآن»: يقدّم الانطلاقية في الطابور ويسحبها فوراً من LVN */
   pullTripRouteNow: async (departureId: string) => {
     const { data, error } = await supabase.functions.invoke<TripRoutePullResult>('lvn-gps-sync', {
@@ -932,4 +939,109 @@ export interface TripRoutePullResult {
   points: number
   final: boolean
   error?: string
+}
+
+/* ─── 00343: قائمة المسارات والفلاتر ─── */
+export type TripRoutePlaceKind = 'zone' | 'landmark' | 'station' | 'circle'
+export interface TripRoutePlace {
+  kind: TripRoutePlaceKind
+  id?: string
+  lat?: number
+  lng?: number
+  radius_m?: number
+  /** للعرض فقط */
+  label?: string
+}
+export type TripRoutesOrder = 'departed_desc' | 'departed_asc' | 'distance_desc' | 'stops_desc' | 'duration_desc' | 'gaps_desc'
+export interface TripRoutesFilters {
+  date_from?: string
+  date_to?: string
+  sector_id?: number | null
+  vehicle_id?: string | null
+  driver?: string
+  shift?: string
+  trip?: 'open' | 'returned' | ''
+  status?: TripRouteStatus | ''
+  search?: string
+  has_gaps?: boolean | null
+  min_stops?: number | null
+  min_km?: number | null
+  from_place?: TripRoutePlace | null
+  to_place?: TripRoutePlace | null
+  via_place?: TripRoutePlace | null
+  order?: TripRoutesOrder
+}
+export interface TripRoutesRow {
+  departure_id: string
+  vehicle_id: string
+  vehicle_name: string
+  db_number: string | null
+  plate_number: string | null
+  vehicle_category: string | null
+  driver_name: string
+  shift: string | null
+  sector_id: number | null
+  sector_name: string | null
+  departed_at: string
+  returned_at: string | null
+  site_arrived_at: string | null
+  site_departed_at: string | null
+  status: TripRouteStatus
+  is_final: boolean
+  distance_m: number
+  moving_seconds: number
+  stopped_seconds: number
+  max_speed_kmh: number
+  avg_speed_kmh: number
+  stops_count: number
+  gaps_count: number
+  gap_seconds: number
+  points_kept: number
+  points_rejected: number
+  first_fix: string | null
+  last_fix: string | null
+  pulled_at: string | null
+  next_pull_at: string | null
+  error_code: string | null
+  device_id: string | null
+  legs_count: number
+  last_destination: string | null
+  last_leg_arrived: boolean | null
+  trip_seconds: number
+  from_lat: number | null
+  from_lng: number | null
+  from_address: string | null
+  to_lat: number | null
+  to_lng: number | null
+  to_address: string | null
+}
+export interface TripRoutesSummary {
+  total: number
+  distance_m: number
+  stops: number
+  gaps: number
+  open: number
+  complete: number
+  partial: number
+  no_device: number
+  pending: number
+  empty: number
+  moving_seconds: number
+  stopped_seconds: number
+  max_speed_kmh: number
+}
+export interface TripRoutesListResult {
+  total: number
+  limit: number
+  offset: number
+  summary: TripRoutesSummary
+  rows: TripRoutesRow[]
+}
+export interface TripRoutesFilterOptions {
+  sectors: { id: number; name: string }[]
+  vehicles: { id: string; name: string; db_number: string | null; plate_number: string | null; sector_id: number | null; has_gps: boolean }[]
+  zones: { id: string; name: string; source: string; color: string }[]
+  landmarks: { id: string; name: string; category: string; lat: number; lng: number; color: string }[]
+  stations: { id: string; name: string; geofence_id: string }[]
+  shifts: string[]
 }

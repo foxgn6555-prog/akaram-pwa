@@ -6,6 +6,7 @@ import {
   type GpsFilters,
   type GpsMapLandmark,
   type GpsTripInvestigation,
+  type TripRoutesFilters,
 } from '@sdk/gps-lvn.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
@@ -575,5 +576,23 @@ export function useGpsUnbind() {
     },
     onError: (error) =>
       toast({ type: 'error', message: handleAppError(error, { scope: 'gpsLvnUnbind' }).message }),
+  })
+}
+
+/* 00343: قائمة مسارات الانطلاقيات */
+export const useTripRoutesList = (filters: TripRoutesFilters, limit: number, offset: number, live = false) =>
+  useQuery({
+    queryKey: ['gps-lvn', 'trip-routes', filters, limit, offset] as const,
+    queryFn: () => gpsLvn.tripRoutesList(filters, limit, offset),
+    placeholderData: (prev) => prev,
+    refetchInterval: live ? 60_000 : false,
+  })
+export const useTripRoutesFilterOptions = () =>
+  useQuery({ queryKey: ['gps-lvn', 'trip-routes', 'options'] as const, queryFn: gpsLvn.tripRoutesFilterOptions, staleTime: 5 * 60_000 })
+export const usePullTripRouteNow = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (departureId: string) => gpsLvn.pullTripRouteNow(departureId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['gps-lvn', 'trip-routes'] }),
   })
 }

@@ -6,6 +6,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard/OpsRoomDashboardPage'))
 const Reports = lazy(() => import('./pages/OperationsData/OperationsDataPage'))
 const StationDaily = lazy(() => import('./pages/StationDaily/StationDailyReportPage'))
 const Gps = lazy(() => import('./pages/Gps/GpsDataPage'))
+const OpsTripRoutes = lazy(() => import('./pages/Gps/TripRoutesPage'))   // 00343: مسارات الانطلاقيات
 const GbsContainers = lazy(() => import('./pages/Gbs/GbsContainersPage'))
 const OpsAttendance = lazy(() => import('./pages/Attendance/OpsAttendancePage'))
 const OpsStore = lazy(() => import('./pages/Store/OpsStorePage'))
@@ -47,6 +48,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'vehicles-database/:vehicleId', element: load(<FleetDetail />) },
   { path: 'vehicles-archive', element: load(<FleetArchive />) },
   { path: 'gps', element: load(<Gps />) },
+  { path: 'trip-routes', element: load(<OpsTripRoutes />) },
   { path: 'gbs-containers', element: load(<GbsContainers />) },
   { path: 'attendance', element: load(<OpsAttendance />) },
   { path: 'store', element: load(<OpsStore />) },
