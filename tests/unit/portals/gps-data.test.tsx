@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type React from 'react'
 const h = vi.hoisted(() => ({
   runs: [] as unknown[],
   sync: vi.fn(),
@@ -20,6 +21,19 @@ const h = vi.hoisted(() => ({
   routeGrace: vi.fn(),
   extraAlerts: [] as Record<string, unknown>[],
 }))
+const routerMocks = vi.hoisted(() => ({ navigate: vi.fn() }))
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('react-router')
+  return {
+    ...actual,
+    useNavigate: () => routerMocks.navigate,
+    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [k: string]: unknown }) => (
+      <a href={to} {...rest}>
+        {children}
+      </a>
+    ),
+  }
+})
 vi.mock('@portals/ops-room/pages/Gps/GpsRouteMap', () => ({
   default: () => <div data-testid="mock-route-map" />,
 }))
@@ -80,6 +94,7 @@ const trip = {
   stored_points: 120,
   imported_at: '2026-09-10T08:01:00Z',
 }
+const hookState = vi.hoisted(() => ({ trips: [] as unknown[] }))
 const device = {
   id: 'g1',
   external_id: '101',
@@ -119,7 +134,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsAutoSync: () => ({ lastAttempt: null }),
   useGpsRoute: () => ({ data: [], isLoading: false }),
   useGpsRouteWindow: (...args: unknown[]) => h.routeWindow(...args),
-  useGpsTripHistory: () => ({ data: [trip], isLoading: false }),
+  useGpsTripHistory: () => ({ data: hookState.trips, isLoading: false }),
   useGpsTripShiftContext: () => ({ data: [], isLoading: false }),
   useGpsTripZoneEvents: () => ({ data: [], isLoading: false }),
   useGpsTripInvestigations: () => ({ data: [], isLoading: false }),
@@ -260,6 +275,8 @@ import GpsDataPage from '@portals/ops-room/pages/Gps/GpsDataPage'
 import { useUiStore } from '@stores/ui.store'
 describe('بيانات LVN GPS', () => {
   beforeEach(() => {
+    hookState.trips = [trip]
+    routerMocks.navigate.mockClear()
     vi.clearAllMocks()
     useUiStore.setState({ toasts: [] })
   })
@@ -382,56 +399,21 @@ describe('بيانات LVN GPS', () => {
       }),
     )
   })
-  it('يفتح مسار الانطلاقية ويتيح تدقيقه من LVN', async () => {
+  it('00346: تبويب الانطلاقيات القديم اختفى ورابطه يفتح صفحة «مسارات الانطلاقيات» الجديدة', () => {
     render(<GpsDataPage />)
-    fireEvent.click(screen.getByRole('button', { name: /الانطلاقيات المسار/ }))
-    expect(screen.getByText('سجل الانطلاقيات ومساراتها')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('بحث الانطلاقيات'), { target: { value: 'غير موجود' } })
-    expect(screen.getByText('لا توجد انطلاقيات تطابق فلاتر التحقيق.')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('بحث الانطلاقيات'), { target: { value: '100' } })
-    fireEvent.click(screen.getByRole('button', { name: 'تدقيق جماعي (1)' }))
-    expect(h.batchHistory).toHaveBeenCalledWith(['trip-1'])
-    fireEvent.click(screen.getAllByRole('button', { name: 'قارن' })[0]!)
-    expect(screen.getByRole('region', { name: 'مقارنة الانطلاقيات' })).toHaveTextContent(
-      'مقارنة انطلاقيتين',
-    )
-    fireEvent.click(screen.getAllByRole('button', { name: 'فتح المسار' })[0]!)
-    const routeDialog = screen.getByRole('dialog', { name: /مسار انطلاقية/ })
-    expect(routeDialog).toHaveClass('z-[2000]', 'fixed', 'inset-0')
-    expect(routeDialog.parentElement).toBe(document.body)
-    expect(document.body.style.overflow).toBe('hidden')
-    expect(screen.getByText('التسلسل الزمني')).toBeInTheDocument()
-    expect(await screen.findByTestId('mock-route-map')).toBeInTheDocument()
-    expect(screen.getByText('المسافة التقريبية')).toBeInTheDocument()
-    expect(screen.getByText(/مسار طويل مقسم/)).toBeInTheDocument()
-    expect(screen.getByText('سجل تحقيق المسار')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'ملاحظة عامة' }))
-    expect(screen.getByRole('region', { name: 'محرر تحقيق GPS' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'سلسلة اكتمال نافذة المسار' })).toHaveTextContent(
-      'مستلم من LVN',
-    )
-    expect(screen.getByRole('region', { name: 'سلسلة اكتمال نافذة المسار' })).toHaveTextContent(
-      'رفض في بيانات المصدر',
-    )
-    expect(screen.getByRole('region', { name: 'سلسلة اكتمال نافذة المسار' })).toHaveTextContent(
-      '120',
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'ملف تحقيق Excel' }))
-    await waitFor(() =>
-      expect(h.exportTrips).toHaveBeenCalledWith([trip], [], [], [], [], [], [], [], []),
-    )
-    expect(useUiStore.getState().toasts.at(-1)?.type).toBe('success')
-    fireEvent.click(screen.getByRole('button', { name: 'تدقيق كل النوافذ الناقصة (1)' }))
-    expect(h.allHistory).toHaveBeenCalledWith({ departureId: 'trip-1', indexes: [1] })
-    fireEvent.click(screen.getByRole('button', { name: 'نافذة المسار التالية' }))
-    expect(h.routeWindow).toHaveBeenLastCalledWith(
-      'g1',
-      '2026-09-13T06:00:00.000Z',
-      '2026-09-14T08:00:00.000Z',
-      true,
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'تدقيق نافذة 2 من LVN' }))
-    expect(h.history).toHaveBeenCalledWith({ departureId: 'trip-1', windowIndex: 1 })
+    expect(screen.queryByRole('button', { name: /الانطلاقيات المسار/ })).toBeNull()
+    expect(screen.queryByText('سجل الانطلاقيات ومساراتها')).toBeNull()
+    const link = screen.getByTestId('gps-nav-trip-routes')
+    expect(link).toHaveAttribute('href', '/ops-room/trip-routes')
+    expect(link).toHaveTextContent('مسارات الانطلاقيات')
+  })
+
+  it('00346: بطاقة الانطلاقية النشطة في المشهد التشغيلي تنتقل إلى خريطة المسار الجديدة بدل النافذة القديمة', () => {
+    hookState.trips = [{ ...trip, returned_at: null }]
+    render(<GpsDataPage />)
+    fireEvent.click(screen.getByRole('button', { name: /DB 100/ }))
+    expect(routerMocks.navigate).toHaveBeenCalledWith('/ops-room/trip-routes/trip-1')
+    expect(screen.queryByRole('dialog', { name: /مسار انطلاقية/ })).toBeNull()
   })
 })
 

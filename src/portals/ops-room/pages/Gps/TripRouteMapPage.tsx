@@ -12,13 +12,13 @@ import 'leaflet/dist/leaflet.css'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
-import { useGpsMapGeofences, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
+import { useGpsMapGeofences, useGpsTripInvestigationSave, useGpsTripInvestigations, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
 import { captureElementPng, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, exportTripRoutePdf, printTripRoute, tripTitle } from '@features/gps-lvn/trip-route-export'
 import { gpsLvn } from '@sdk/gps-lvn.sdk'
 import TripRouteReportSheet from './TripRouteReportSheet'
 import { useUiStore } from '@stores/ui.store'
-import type { GpsMapGeofence, TripRouteDetail, TripRouteLeg, TripRoutePoint, TripRouteStop } from '@sdk/gps-lvn.sdk'
+import type { GpsMapGeofence, GpsTripInvestigation, TripRouteDetail, TripRouteLeg, TripRoutePoint, TripRouteStop } from '@sdk/gps-lvn.sdk'
 import { STATUS_AR, dateAr, dur, km, timeAr } from './TripRoutesPage'
 
 export type TripRouteExportKind = 'excel' | 'pdf' | 'kml' | 'gpx' | 'print'
@@ -86,6 +86,9 @@ export default function TripRouteMapPage() {
   const [mapImage, setMapImage] = useState<string | null>(null)
   const [exporting, setExporting] = useState<TripRouteExportKind | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [invTarget, setInvTarget] = useState<{ type: 'stop' | 'gap'; at: string; title: string } | null>(null)
+  const investigations = useGpsTripInvestigations(departureId)
+  const invByKey = useMemo(() => new Map((investigations.data ?? []).map((i) => [`${i.event_type}:${new Date(i.event_at).getTime()}`, i])), [investigations.data])
   const d = route.data
   const pts = useMemo(() => d?.points ?? [], [d])
   const latlngs = useMemo(() => pts.map((p) => [p.lat, p.lng] as [number, number]), [pts])
@@ -228,9 +231,9 @@ export default function TripRouteMapPage() {
             {(d.stops ?? []).length === 0 ? <p className="text-[11px] text-slate-500">لا توقفات ≥ الحد المعتمد.</p> : (
               <ul className="space-y-1 text-[11px]">
                 {(d.stops ?? []).map((s) => (
-                  <li key={s.seq}><button type="button" onClick={() => setFlyTarget([s.lat, s.lng])} className="w-full rounded-lg bg-slate-50 p-2 text-right hover:bg-rose-50" data-testid={`trm-stop-${s.seq}`}>
+                  <li key={s.seq} className="flex items-stretch gap-1"><button type="button" onClick={() => setFlyTarget([s.lat, s.lng])} className="flex-1 rounded-lg bg-slate-50 p-2 text-right hover:bg-rose-50" data-testid={`trm-stop-${s.seq}`}>
                     <b className="text-rose-700">#{s.seq}</b> · {dur(s.duration_seconds)} · {timeAr(s.started_at)} ← {timeAr(s.ended_at)}<br /><span className="text-slate-600">{s.address ?? (s.geofence_name ?? `${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`)}</span>{s.geofence_name && s.address !== s.geofence_name && <span className="text-sky-700"> · {s.geofence_name}</span>}
-                  </button></li>
+                  </button><InvButton inv={invByKey.get(`stop:${new Date(s.started_at).getTime()}`)} onClick={() => setInvTarget({ type: 'stop', at: s.started_at, title: `توقف #${s.seq} · ${dur(s.duration_seconds)}` })} testId={`trm-inv-stop-${s.seq}`} /></li>
                 ))}
               </ul>
             )}
@@ -238,12 +241,23 @@ export default function TripRouteMapPage() {
           {(d.gaps ?? []).length > 0 && (
             <div className="rounded-2xl border bg-white p-3" data-testid="trm-gaps">
               <h2 className="mb-2 text-xs font-black text-slate-800">انقطاعات الإشارة ({d.gaps_count})</h2>
-              <ul className="space-y-1 text-[11px]">{(d.gaps ?? []).map((g) => <li key={g.seq}><button type="button" onClick={() => setFlyTarget([g.from_lat, g.from_lng])} className="w-full rounded-lg bg-slate-50 p-2 text-right">{dur(g.seconds)} · {timeAr(g.started_at)} ← {timeAr(g.ended_at)}</button></li>)}</ul>
+              <ul className="space-y-1 text-[11px]">{(d.gaps ?? []).map((g) => <li key={g.seq} className="flex items-stretch gap-1"><button type="button" onClick={() => setFlyTarget([g.from_lat, g.from_lng])} className="flex-1 rounded-lg bg-slate-50 p-2 text-right">{dur(g.seconds)} · {timeAr(g.started_at)} ← {timeAr(g.ended_at)}</button><InvButton inv={invByKey.get(`gap:${new Date(g.started_at).getTime()}`)} onClick={() => setInvTarget({ type: 'gap', at: g.started_at, title: `انقطاع · ${dur(g.seconds)}` })} testId={`trm-inv-gap-${g.seq}`} /></li>)}</ul>
             </div>
           )}
+          <div className="rounded-2xl border bg-white p-3" data-testid="trm-investigations">
+            <h2 className="mb-2 text-xs font-black text-slate-800">التحقيقات ({(investigations.data ?? []).length})</h2>
+            {(investigations.data ?? []).length === 0 ? <p className="text-[11px] text-slate-500">لا تحقيقات — اضغط «تحقيق» بجانب أي توقف أو انقطاع.</p> : (
+              <ul className="space-y-1 text-[11px]">{(investigations.data ?? []).map((i) => (
+                <li key={i.id}><button type="button" onClick={() => setInvTarget({ type: i.event_type === 'gap' ? 'gap' : 'stop', at: i.event_at, title: `${INV_TYPE_AR[i.event_type] ?? i.event_type} · ${timeAr(i.event_at)}` })} className="w-full rounded-lg bg-slate-50 p-2 text-right hover:bg-amber-50" data-testid={`trm-inv-${i.id}`}>
+                  <span className={`rounded-full px-2 py-0.5 font-black ${INV_TONE[i.status]}`}>{INV_STATUS_AR[i.status]}</span> <b>{INV_TYPE_AR[i.event_type] ?? i.event_type}</b> · {timeAr(i.event_at)}<br /><span className="text-slate-700">{i.note}</span><br /><span className="text-[10px] text-slate-400">{i.actor_name} · {dateAr(i.updated_at)} {timeAr(i.updated_at)}</span>
+                </button></li>
+              ))}</ul>
+            )}
+          </div>
           <p className="text-[10px] text-slate-400">آخر سحب {d.pulled_at ? `${dateAr(d.pulled_at)} ${timeAr(d.pulled_at)}` : '—'} · عدد السحبات {d.pull_count}{d.error_code ? ` · آخر خطأ ${d.error_code}` : ''}</p>
         </aside>
       </div>
+      {invTarget && <InvestigationModal departureId={departureId} target={invTarget} existing={invByKey.get(`${invTarget.type}:${new Date(invTarget.at).getTime()}`)} onClose={() => setInvTarget(null)} />}
       {/* ورقة التقرير خارج الشاشة — تُلتقط للـ PDF وتُطبع */}
       <div aria-hidden className="pointer-events-none fixed left-[-20000px] top-0" data-testid="trm-sheet-host">
         <TripRouteReportSheet ref={sheetRef} d={d} mapImage={mapImage} compare={compare.data ?? null} />
@@ -293,6 +307,35 @@ function ComparePicker({ current, onPick }: { current: string; onPick: (id: stri
         {rows.length === 0 && <li className="text-slate-500">لا مسارات بنقاط في هذا اليوم.</li>}
         {rows.map((r) => <li key={r.departure_id}><button type="button" onClick={() => onPick(r.departure_id)} className="w-full rounded-lg bg-white p-2 text-right hover:bg-violet-100" data-testid={`trm-cmp-${r.departure_id}`}>DB {r.db_number ?? '—'} · {r.driver_name} · {timeAr(r.departed_at)} · {km(r.distance_m)} كم · {r.stops_count} توقف</button></li>)}
       </ul>
+    </div>
+  )
+}
+
+/* ─── التحقيقات (نُقلت من النافذة القديمة 00346): ملاحظة + حالة على توقف/انقطاع، تُحفظ في سجل التدقيق ─── */
+const INV_TYPE_AR: Record<string, string> = { stop: 'توقف', gap: 'انقطاع', route: 'مسار', zone_enter: 'دخول زون', zone_exit: 'خروج زون' }
+const INV_STATUS_AR: Record<GpsTripInvestigation['status'], string> = { open: 'مفتوح', in_review: 'قيد المراجعة', resolved: 'محلول' }
+const INV_TONE: Record<GpsTripInvestigation['status'], string> = { open: 'bg-rose-50 text-rose-700', in_review: 'bg-amber-50 text-amber-800', resolved: 'bg-emerald-50 text-emerald-700' }
+function InvButton({ inv, onClick, testId }: { inv?: GpsTripInvestigation; onClick: () => void; testId: string }) {
+  return <button type="button" onClick={onClick} className={`rounded-lg border px-2 text-[10px] font-black ${inv ? INV_TONE[inv.status] : 'text-slate-500 hover:bg-amber-50'}`} data-testid={testId} title={inv ? `${INV_STATUS_AR[inv.status]}: ${inv.note}` : 'فتح تحقيق'}>{inv ? INV_STATUS_AR[inv.status] : 'تحقيق'}</button>
+}
+function InvestigationModal({ departureId, target, existing, onClose }: { departureId: string; target: { type: 'stop' | 'gap'; at: string; title: string }; existing?: GpsTripInvestigation; onClose: () => void }) {
+  const [note, setNote] = useState(existing?.note ?? '')
+  const [status, setStatus] = useState<GpsTripInvestigation['status']>(existing?.status ?? 'open')
+  const save = useGpsTripInvestigationSave()
+  return (
+    <div className="fixed inset-0 z-[1400] grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" data-testid="trm-inv-modal">
+      <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl" dir="rtl">
+        <b className="text-sm">{existing ? 'تحديث التحقيق' : 'فتح تحقيق'} — {target.title}</b>
+        <p className="text-[11px] text-slate-500">{dateAr(target.at)} {timeAr(target.at)} · تُحفظ العملية في سجل التدقيق.{existing ? ` · أنشأه ${existing.actor_name}` : ''}</p>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="ما الذي يُستفسر عنه؟ (3 أحرف على الأقل)" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" data-testid="trm-inv-note" />
+        <select value={status} onChange={(e) => setStatus(e.target.value as GpsTripInvestigation['status'])} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" data-testid="trm-inv-status">
+          {(Object.keys(INV_STATUS_AR) as GpsTripInvestigation['status'][]).map((k) => <option key={k} value={k}>{INV_STATUS_AR[k]}</option>)}
+        </select>
+        <div className="mt-3 flex justify-end gap-2 text-xs font-black">
+          <button type="button" onClick={onClose} className="rounded-xl border px-3 py-2">إغلاق</button>
+          <button type="button" disabled={save.isPending || note.trim().length < 3} onClick={() => save.mutate({ id: existing?.id, departureId, eventType: target.type, eventAt: target.at, note: note.trim(), status }, { onSuccess: onClose })} className="rounded-xl bg-slate-900 px-3 py-2 text-white disabled:opacity-50" data-testid="trm-inv-save">{save.isPending ? 'يحفظ…' : existing ? 'تحديث' : 'حفظ التحقيق'}</button>
+        </div>
+      </div>
     </div>
   )
 }

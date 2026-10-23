@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 
-const h = vi.hoisted(() => ({ exp: { excel: vi.fn(), pdf: vi.fn(), kml: vi.fn(), gpx: vi.fn(), print: vi.fn(), capture: vi.fn(), fetch: vi.fn() }, detail: null as unknown, compare: null as unknown, ids: [] as unknown[], pull: vi.fn(), toasts: [] as unknown[], fly: [] as unknown[], fit: [] as unknown[], listRows: [] as unknown[] }))
+const h = vi.hoisted(() => ({ exp: { excel: vi.fn(), pdf: vi.fn(), kml: vi.fn(), gpx: vi.fn(), print: vi.fn(), capture: vi.fn(), fetch: vi.fn() }, detail: null as unknown, compare: null as unknown, ids: [] as unknown[], pull: vi.fn(), toasts: [] as unknown[], fly: [] as unknown[], fit: [] as unknown[], listRows: [] as unknown[], inv: [] as unknown[], invSave: vi.fn() }))
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map" className="leaflet-container">{children}</div>,
   TileLayer: () => null,
@@ -22,6 +22,8 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsMapGeofences: () => ({ data: [{ id: 'z1', name: 'زون', color: '#0f0', polygon: [{ lat: 33.3, lng: 44.4 }, { lat: 33.31, lng: 44.4 }, { lat: 33.31, lng: 44.41 }] }] }),
   usePullTripRouteNow: () => ({ mutate: h.pull, isPending: false }),
   useTripRoutesList: () => ({ data: { rows: h.listRows, total: h.listRows.length, summary: {} } }),
+  useGpsTripInvestigations: () => ({ data: h.inv }),
+  useGpsTripInvestigationSave: () => ({ mutate: h.invSave, isPending: false }),
 }))
 vi.mock('@features/gps-lvn/trip-route-export', () => ({
   exportTripRouteExcel: h.exp.excel, exportTripRoutePdf: h.exp.pdf, downloadTripRouteKml: h.exp.kml, downloadTripRouteGpx: h.exp.gpx, printTripRoute: h.exp.print, captureElementPng: h.exp.capture,
@@ -43,7 +45,7 @@ const detail = (o: Record<string, unknown> = {}) => ({
   points: Array.from({ length: 20 }, (_, i) => pt(i + 1, i + 1 === 12 ? { state: 'gap' } : i + 1 === 6 ? { state: 'stopped', speed: 0 } : {})),
   ...o,
 })
-beforeEach(() => { Object.values(h.exp).forEach((f) => f.mockReset()); h.exp.fetch.mockResolvedValue({ full: true }); h.exp.capture.mockResolvedValue('data:image/png;base64,MAP'); h.detail = detail(); h.compare = null; h.ids = []; h.pull.mockReset(); h.toasts = []; h.fly = []; h.fit = []; h.listRows = [] })
+beforeEach(() => { Object.values(h.exp).forEach((f) => f.mockReset()); h.exp.fetch.mockResolvedValue({ full: true }); h.exp.capture.mockResolvedValue('data:image/png;base64,MAP'); h.detail = detail(); h.compare = null; h.ids = []; h.pull.mockReset(); h.toasts = []; h.fly = []; h.fit = []; h.listRows = []; h.inv = []; h.invSave.mockReset() })
 afterEach(() => vi.useRealTimers())
 const ui = (search = '') => render(<MemoryRouter initialEntries={[`/ops-room/trip-routes/d1${search}`]}><Routes><Route path="/ops-room/trip-routes/:departureId" element={<TripRouteMapPage />} /></Routes></MemoryRouter>)
 
@@ -191,5 +193,26 @@ describe('TripRouteMapPage (00344)', () => {
     h.exp.print.mockImplementationOnce(() => { throw new Error('POPUP_BLOCKED') })
     fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-print'))
     await waitFor(() => expect((h.toasts.at(-1) as { message: string }).message).toContain('منع النافذة المنبثقة'))
+  })
+  it('00346: التحقيقات انتقلت إلى صفحة الخريطة — زر «تحقيق» بجانب كل توقف/انقطاع يفتح نافذة الحفظ، والقائمة تعرض التحقيقات القائمة', () => {
+    h.detail = detail()
+    h.inv = [{ id: 'i1', event_type: 'gap', event_at: new Date(T0 + 400000).toISOString(), note: 'انقطاع طويل قرب المحطة', status: 'open', assigned_to: null, created_by: 'u1', actor_name: 'مشرف', created_at: new Date(T0).toISOString(), updated_at: new Date(T0).toISOString() }]
+    ui()
+    expect(screen.getByTestId('trm-investigations')).toHaveTextContent('التحقيقات (1)')
+    expect(screen.getByTestId('trm-inv-i1')).toHaveTextContent('انقطاع طويل قرب المحطة')
+    // توقف بلا تحقيق ⇒ نافذة جديدة
+    fireEvent.click(screen.getByTestId('trm-inv-stop-1'))
+    const modal = screen.getByTestId('trm-inv-modal')
+    expect(modal).toHaveTextContent('توقف #1')
+    expect(screen.getByTestId('trm-inv-save')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('trm-inv-note'), { target: { value: 'لماذا توقفت هنا؟' } })
+    fireEvent.change(screen.getByTestId('trm-inv-status'), { target: { value: 'in_review' } })
+    fireEvent.click(screen.getByTestId('trm-inv-save'))
+    expect(h.invSave).toHaveBeenCalledWith(expect.objectContaining({ id: undefined, departureId: 'd1', eventType: 'stop', eventAt: h.detail && (h.detail as { stops: { started_at: string }[] }).stops[0]!.started_at, note: 'لماذا توقفت هنا؟', status: 'in_review' }), expect.anything())
+    // انقطاع له تحقيق قائم ⇒ تحديث بنفس المعرّف
+    fireEvent.click(screen.getByTestId('trm-inv-gap-1'))
+    expect(screen.getByTestId('trm-inv-save')).toHaveTextContent('تحديث')
+    fireEvent.click(screen.getByTestId('trm-inv-save'))
+    expect(h.invSave).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'i1', eventType: 'gap' }), expect.anything())
   })
 })

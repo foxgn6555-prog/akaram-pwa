@@ -5,6 +5,7 @@ const edge = readFileSync('supabase/functions/lvn-gps-sync/index.ts', 'utf8'),
   hooks = readFileSync('src/features/gps-lvn/hooks.ts', 'utf8'),
   gpsPage = readFileSync('src/portals/ops-room/pages/Gps/GpsDataPage.tsx', 'utf8'),
   routeMap = readFileSync('src/portals/ops-room/pages/Gps/GpsRouteMap.tsx', 'utf8'),
+  tripRouteMapPage = readFileSync('src/portals/ops-room/pages/Gps/TripRouteMapPage.tsx', 'utf8'),
   html = readFileSync('index.html', 'utf8'),
   round2 = readFileSync('supabase/migrations/00094_gps_live_operations_and_alerts.sql', 'utf8'),
   integrity = readFileSync('supabase/migrations/00098_gps_route_integrity.sql', 'utf8'),
@@ -116,7 +117,11 @@ describe('عقد أمان LVN GPS', () => {
     expect(windowProgress).toContain("coalesce(r.status,'pending')")
     expect(windowProgress).toContain("interval'72 hours'")
     expect(windowProgress).toContain('perform app.require_gps_operator()')
-    expect(gpsPage).toContain("window.status !== 'success'")
+    // 00346: واجهة النوافذ القديمة أُزيلت من GpsDataPage؛ العقد يبقى على الطبقة البرمجية
+    expect(gpsPage).not.toContain('TripRouteModal')
+    expect(gpsPage).not.toContain('TripsWorkspace')
+    expect(gpsPage).toContain('/ops-room/trip-routes')
+    expect(hooks).toContain("window.status !== 'success'")
     expect(hooks).toContain('await gpsLvn.importDepartureHistory')
   })
   it('يدقق كل نافذة من المصدر إلى الرسم ويكشف حدود الصفحات', () => {
@@ -126,7 +131,7 @@ describe('عقد أمان LVN GPS', () => {
     expect(windowAudit).toContain('renderable_points')
     expect(windowAudit).toContain("then'render_limit'")
     expect(windowAudit).toContain('perform app.require_gps_operator()')
-    expect(gpsPage).toContain('سلسلة اكتمال النافذة')
+    expect(hooks).toContain('useGpsTripWindowCoverageAudit')
   })
   it('يربط الخريطة بالمراحل والزونات والشفتات ويقيد التدقيق الجماعي', () => {
     expect(routeMap).toContain('الشريط الزمني لمسار GPS')
@@ -146,8 +151,10 @@ describe('عقد أمان LVN GPS', () => {
     )
     expect(routeMap).toContain('خريطة السرعة الحرارية')
     expect(routeMap).toContain('<Marker')
-    expect(gpsPage).toContain('مقارنة انطلاقيتين')
-    expect(gpsPage).toContain('سجل تحقيق المسار')
+    // 00346: المقارنة والتحقيقات انتقلتا إلى صفحة خريطة المسار الجديدة
+    expect(tripRouteMapPage).toContain('trm-compare-box')
+    expect(tripRouteMapPage).toContain('useGpsTripInvestigationSave')
+    expect(tripRouteMapPage).toContain('trm-investigations')
     const exportSource = readFileSync('src/features/gps-lvn/export.ts', 'utf8')
     expect(exportSource).toContain("workbook.addWorksheet('زونات الانطلاقية المحددة'")
     expect(exportSource).toContain("workbook.addWorksheet('تحقيقات المسار'")
