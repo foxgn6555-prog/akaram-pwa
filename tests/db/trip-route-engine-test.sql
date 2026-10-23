@@ -124,6 +124,15 @@ begin
   if not exists (select 1 from jsonb_array_elements(js -> 'points') p where p ->> 'state' = 'gap') then raise exception 'T5 gap point dropped'; end if;
   js := public.trip_route_get(dep, 0);
   if (js ->> 'points_returned')::int <> 0 then raise exception 'T5 zero'; end if;
+  -- v2 (00345): نفس المحتوى + بيانات الانطلاقية للترويسة
+  js := public.trip_route_get_v2(dep, 10);
+  if js -> 'trip' ->> 'db_number' <> 'DB-TR1' or js -> 'trip' ->> 'driver_name' <> 'سائق TR' or js -> 'trip' ->> 'sector_name' <> 'قاطع المسار' or js -> 'trip' ->> 'device_external_id' <> 'TR-DEV1' or (js -> 'trip' ->> 'departed_at')::timestamptz <> t0 then raise exception 'T5 v2 %', js -> 'trip'; end if;
+  if (js ->> 'points_returned')::int < 8 or jsonb_array_length(js -> 'stops') <> 1 then raise exception 'T5 v2 base'; end if;
+  perform pg_temp.as_user(hr1);
+  perform pg_temp.expect_error(format('select public.trip_route_get_v2(%L, 10)', dep), 'GPS_FORBIDDEN');
+  perform pg_temp.as_user(ops);
+  js := public.trip_route_get(dep, 0);
+  if (js ->> 'points_returned')::int <> 0 then raise exception 'T5 zero'; end if;
   -- انطلاقية بلا صف ⇒ pending فارغ، غير موجودة ⇒ خطأ
   js := public.trip_route_get(dep2, 10); if js ->> 'status' <> 'no_device' then raise exception 'T5 dep2 %', js ->> 'status'; end if;
   perform pg_temp.expect_error('select public.trip_route_get(''00000000-0000-0000-0000-000000000009'', 10)', 'TRIP_ROUTE_DEPARTURE_NOT_FOUND');

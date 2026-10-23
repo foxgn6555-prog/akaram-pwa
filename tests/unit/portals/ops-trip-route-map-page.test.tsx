@@ -1,12 +1,12 @@
 /** اختبارات خريطة مسار الانطلاقية (00344): الطبقات، التلوين بالسرعة، الأسهم، التوقفات، المراحل، التشغيل، المقارنة، السحب. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 
-const h = vi.hoisted(() => ({ detail: null as unknown, compare: null as unknown, ids: [] as unknown[], pull: vi.fn(), toasts: [] as unknown[], fly: [] as unknown[], fit: [] as unknown[], listRows: [] as unknown[] }))
+const h = vi.hoisted(() => ({ exp: { excel: vi.fn(), pdf: vi.fn(), kml: vi.fn(), gpx: vi.fn(), print: vi.fn(), capture: vi.fn(), fetch: vi.fn() }, detail: null as unknown, compare: null as unknown, ids: [] as unknown[], pull: vi.fn(), toasts: [] as unknown[], fly: [] as unknown[], fit: [] as unknown[], listRows: [] as unknown[] }))
 vi.mock('react-leaflet', () => ({
-  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map">{children}</div>,
+  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map" className="leaflet-container">{children}</div>,
   TileLayer: () => null,
   Marker: ({ children, icon }: { children?: ReactNode; icon: { html: string } }) => <div data-testid="marker" data-html={icon.html}>{children}</div>,
   Polyline: ({ pathOptions }: { pathOptions: { color: string; dashArray?: string } }) => <div data-testid="polyline" data-color={pathOptions.color} data-dash={pathOptions.dashArray ?? ''} />,
@@ -23,6 +23,11 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   usePullTripRouteNow: () => ({ mutate: h.pull, isPending: false }),
   useTripRoutesList: () => ({ data: { rows: h.listRows, total: h.listRows.length, summary: {} } }),
 }))
+vi.mock('@features/gps-lvn/trip-route-export', () => ({
+  exportTripRouteExcel: h.exp.excel, exportTripRoutePdf: h.exp.pdf, downloadTripRouteKml: h.exp.kml, downloadTripRouteGpx: h.exp.gpx, printTripRoute: h.exp.print, captureElementPng: h.exp.capture,
+  tripTitle: () => 'DB 1 — كابسة · علي', summaryRows: () => [{ metric: 'المركبة', value: 'كابسة' }], fmtDateTime: (v: string | null) => v ?? '—', fmtTime: (v: string | null) => v ?? '—', fmtDur: (s: number) => `${s} ث`,
+}))
+vi.mock('@sdk/gps-lvn.sdk', () => ({ gpsLvn: { tripRoute: h.exp.fetch } }))
 vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unknown) => void }) => unknown) => sel({ addToast: (t) => h.toasts.push(t) }) }))
 import TripRouteMapPage, { speedColor, stopRadius } from '@portals/ops-room/pages/Gps/TripRouteMapPage'
 
@@ -38,7 +43,7 @@ const detail = (o: Record<string, unknown> = {}) => ({
   points: Array.from({ length: 20 }, (_, i) => pt(i + 1, i + 1 === 12 ? { state: 'gap' } : i + 1 === 6 ? { state: 'stopped', speed: 0 } : {})),
   ...o,
 })
-beforeEach(() => { h.detail = detail(); h.compare = null; h.ids = []; h.pull.mockReset(); h.toasts = []; h.fly = []; h.fit = []; h.listRows = [] })
+beforeEach(() => { Object.values(h.exp).forEach((f) => f.mockReset()); h.exp.fetch.mockResolvedValue({ full: true }); h.exp.capture.mockResolvedValue('data:image/png;base64,MAP'); h.detail = detail(); h.compare = null; h.ids = []; h.pull.mockReset(); h.toasts = []; h.fly = []; h.fit = []; h.listRows = [] })
 afterEach(() => vi.useRealTimers())
 const ui = (search = '') => render(<MemoryRouter initialEntries={[`/ops-room/trip-routes/d1${search}`]}><Routes><Route path="/ops-room/trip-routes/:departureId" element={<TripRouteMapPage />} /></Routes></MemoryRouter>)
 
@@ -153,5 +158,38 @@ describe('TripRouteMapPage (00344)', () => {
   it('speedColor/stopRadius', () => {
     expect([speedColor(0), speedColor(10), speedColor(45), speedColor(75), speedColor(120), speedColor(null)]).toEqual(['#94a3b8', '#16a34a', '#eab308', '#f97316', '#dc2626', '#94a3b8'])
     expect(stopRadius(60)).toBe(18); expect(stopRadius(36000)).toBe(60)
+  })
+  it('00345: قائمة التصدير — Excel يجلب كل النقاط، KML/GPX مباشرة، PDF/طباعة تلتقطان الخريطة وتضعانها في ورقة التقرير', async () => {
+    ui()
+    expect(screen.queryByTestId('trm-export-menu')).toBeNull()
+    fireEvent.click(screen.getByTestId('trm-export-toggle'))
+    expect(screen.getByTestId('trm-export-menu').querySelectorAll('button')).toHaveLength(5)
+    fireEvent.click(screen.getByTestId('trm-export-excel'))
+    await waitFor(() => expect(h.exp.excel).toHaveBeenCalledWith({ full: true }))
+    expect(h.exp.fetch).toHaveBeenCalledWith('d1', 200000)
+    expect(screen.queryByTestId('trm-export-menu')).toBeNull()
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-kml'))
+    await waitFor(() => expect(h.exp.kml).toHaveBeenCalled())
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-gpx'))
+    await waitFor(() => expect(h.exp.gpx).toHaveBeenCalled())
+    // ورقة التقرير موجودة خارج الشاشة بلا صورة قبل الالتقاط
+    expect(screen.getByTestId('trip-report-sheet')).toBeTruthy()
+    expect(screen.queryByTestId('trip-report-map')).toBeNull()
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-pdf'))
+    await waitFor(() => expect(h.exp.pdf).toHaveBeenCalled())
+    expect(h.exp.pdf.mock.calls[0]![0]).toBe(screen.getByTestId('trip-report-sheet'))
+    expect((screen.getByTestId('trip-report-map') as HTMLImageElement).getAttribute('src')).toBe('data:image/png;base64,MAP')
+    expect(screen.getByTestId('trip-report-legs').textContent).toContain('موقع العمل ← المحطة التحويلية')
+    expect(screen.getByTestId('trip-report-stops').textContent).toContain('الكرادة / شارع 62')
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-print'))
+    await waitFor(() => expect(h.exp.print).toHaveBeenCalledWith(screen.getByTestId('trip-report-sheet'), 'تقرير مسار انطلاقية — DB 1 — كابسة · علي'))
+    expect(h.toasts.filter((t) => (t as { type: string }).type === 'success')).toHaveLength(5)
+    // فشل ⇒ رسالة خطأ
+    h.exp.kml.mockImplementationOnce(() => { throw new Error('X') })
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-kml'))
+    await waitFor(() => expect((h.toasts.at(-1) as { message: string }).message).toContain('تعذّر التصدير: X'))
+    h.exp.print.mockImplementationOnce(() => { throw new Error('POPUP_BLOCKED') })
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-print'))
+    await waitFor(() => expect((h.toasts.at(-1) as { message: string }).message).toContain('منع النافذة المنبثقة'))
   })
 })

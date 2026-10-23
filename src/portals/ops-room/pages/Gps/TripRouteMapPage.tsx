@@ -9,13 +9,20 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
+import { captureElementPng, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, exportTripRoutePdf, printTripRoute, tripTitle } from '@features/gps-lvn/trip-route-export'
+import { gpsLvn } from '@sdk/gps-lvn.sdk'
+import TripRouteReportSheet from './TripRouteReportSheet'
 import { useUiStore } from '@stores/ui.store'
 import type { GpsMapGeofence, TripRouteDetail, TripRouteLeg, TripRoutePoint, TripRouteStop } from '@sdk/gps-lvn.sdk'
 import { STATUS_AR, dateAr, dur, km, timeAr } from './TripRoutesPage'
+
+export type TripRouteExportKind = 'excel' | 'pdf' | 'kml' | 'gpx' | 'print'
+const EXPORT_AR: Record<TripRouteExportKind, string> = { excel: 'Excel (ملخص + مراحل + توقفات + نقاط)', pdf: 'PDF بصورة الخريطة', kml: 'KML (Google Earth)', gpx: 'GPX', print: 'طباعة' }
 
 const DEST_AR: Record<string, string> = { work_site: 'موقع العمل', transfer_station: 'المحطة التحويلية', maintenance: 'الصيانة', garage: 'الكراج' }
 const zonePoint = (pt: GpsMapGeofence['polygon'][number]): [number, number] => (Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng])
@@ -74,6 +81,11 @@ export default function TripRouteMapPage() {
   const [speedX, setSpeedX] = useState(10)
   const [pickerOpen, setPickerOpen] = useState(false)
   const timer = useRef<number | null>(null)
+  const mapBox = useRef<HTMLDivElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const [mapImage, setMapImage] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<TripRouteExportKind | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
   const d = route.data
   const pts = useMemo(() => d?.points ?? [], [d])
   const latlngs = useMemo(() => pts.map((p) => [p.lat, p.lng] as [number, number]), [pts])
@@ -95,6 +107,30 @@ export default function TripRouteMapPage() {
     onError: (e) => toast({ type: 'error', message: lvnErrorToast((e as { code?: string }).code ?? (e as Error).message) }),
   })
   const toggle = (k: keyof Layers) => setLayers((l) => ({ ...l, [k]: !l[k] }))
+  /** التصدير: Excel بكل النقاط (يُجلب كاملاً)، PDF/طباعة بصورة الخريطة الحالية (بطبقاتها) داخل ورقة التقرير */
+  const doExport = async (kind: TripRouteExportKind) => {
+    if (!d) return
+    setExportOpen(false); setExporting(kind)
+    try {
+      if (kind === 'excel') { await exportTripRouteExcel(await gpsLvn.tripRoute(departureId, 200000)); }
+      else if (kind === 'kml') downloadTripRouteKml(d)
+      else if (kind === 'gpx') downloadTripRouteGpx(d)
+      else {
+        const mapEl = mapBox.current?.querySelector<HTMLElement>('.leaflet-container')
+        const png = mapEl ? await captureElementPng(mapEl, 2).catch(() => null) : null
+        setMapImage(png)
+        await new Promise((r) => window.setTimeout(r, 120))
+        const sheet = sheetRef.current
+        if (!sheet) throw new Error('REPORT_SHEET_MISSING')
+        if (kind === 'pdf') await exportTripRoutePdf(sheet, d)
+        else printTripRoute(sheet, `تقرير مسار انطلاقية — ${tripTitle(d.trip)}`)
+      }
+      toast({ type: 'success', message: kind === 'print' ? 'فُتحت نافذة الطباعة' : 'تم التصدير' })
+    } catch (e) {
+      const msg = (e as Error).message
+      toast({ type: 'error', message: msg === 'POPUP_BLOCKED' ? 'المتصفح منع النافذة المنبثقة — اسمح بها ثم أعد المحاولة' : `تعذّر التصدير: ${msg}` })
+    } finally { setExporting(null) }
+  }
   const playPoint = playIdx != null ? pts[playIdx] : undefined
 
   if (route.isLoading) return <LoadingSpinner />
@@ -103,21 +139,25 @@ export default function TripRouteMapPage() {
 
   return (
     <section dir="rtl" className={full ? 'fixed inset-0 z-[1200] flex flex-col bg-white' : 'space-y-3'} data-testid="trip-route-map-page">
-      <header className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-white" data-testid="trm-header">
-        <div>
-          <h1 className="text-base font-black">مسار الانطلاقية · {dateAr(d.first_fix ?? d.range_from)} {timeAr(d.first_fix ?? d.range_from)} ← {timeAr(d.last_fix ?? d.range_to)}</h1>
-          <p className="text-[11px] text-slate-300" data-testid="trm-summary">
-            {STATUS_AR[d.status]}{d.is_final ? ' · نهائي' : ' · يُحدَّث'} · {km(d.distance_m)} كم · حركة {dur(d.moving_seconds)} · توقف {dur(d.stopped_seconds)} · {d.stops_count} توقف · {d.gaps_count} انقطاع ({dur(d.gap_seconds)}) · أقصى سرعة {Math.round(d.max_speed_kmh)} · متوسط {Math.round(d.avg_speed_kmh)} km/h · {d.points_kept} نقطة ({d.points_rejected} مرفوضة){d.downsample_step > 1 ? ` · معروض ${d.points_returned} بخطوة ${d.downsample_step}` : ''}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-[11px] font-black">
+      <ExecPageHeader icon="flow" title={`مسار الانطلاقية · ${dateAr(d.first_fix ?? d.range_from)} ${timeAr(d.first_fix ?? d.range_from)} ← ${timeAr(d.last_fix ?? d.range_to)}`}
+        subtitle={<span data-testid="trm-summary">{STATUS_AR[d.status]}{d.is_final ? ' · نهائي' : ' · يُحدَّث'} · {km(d.distance_m)} كم · حركة {dur(d.moving_seconds)} · توقف {dur(d.stopped_seconds)} · {d.stops_count} توقف · {d.gaps_count} انقطاع ({dur(d.gap_seconds)}) · أقصى سرعة {Math.round(d.max_speed_kmh)} · متوسط {Math.round(d.avg_speed_kmh)} km/h · {d.points_kept} نقطة ({d.points_rejected} مرفوضة){d.downsample_step > 1 ? ` · معروض ${d.points_returned} بخطوة ${d.downsample_step}` : ''}</span>}
+        actions={
+        <div className="flex flex-wrap gap-2 text-[11px] font-black" data-testid="trm-header">
           <Link to="/ops-room/trip-routes" className="rounded-xl bg-white/15 px-3 py-2">القائمة</Link>
           {!(d.is_final && d.status === 'complete') && d.status !== 'no_device' && <button type="button" onClick={pullNow} disabled={pull.isPending} className="rounded-xl bg-sky-500 px-3 py-2 disabled:opacity-50" data-testid="trm-pull">{pull.isPending ? 'يسحب…' : 'سحب الآن'}</button>}
           <button type="button" onClick={() => setPickerOpen((v) => !v)} className="rounded-xl bg-white/15 px-3 py-2" data-testid="trm-compare-toggle">{compareId ? 'تغيير المقارنة' : 'مقارنة بمسار آخر'}</button>
           {compareId && <button type="button" onClick={() => { sp.delete('compare'); setSp(sp) }} className="rounded-xl bg-violet-500 px-3 py-2" data-testid="trm-compare-clear">إلغاء المقارنة</button>}
+          <div className="relative">
+            <button type="button" onClick={() => setExportOpen((v) => !v)} disabled={exporting !== null || pts.length === 0} className="rounded-xl bg-emerald-500 px-3 py-2 disabled:opacity-50" data-testid="trm-export-toggle">{exporting ? 'يُصدَّر…' : 'تصدير ▾'}</button>
+            {exportOpen && (
+              <ul className="absolute left-0 top-full z-[1300] mt-1 w-[260px] overflow-hidden rounded-xl border bg-white text-right text-slate-800 shadow-xl" data-testid="trm-export-menu">
+                {(Object.keys(EXPORT_AR) as TripRouteExportKind[]).map((k) => <li key={k}><button type="button" onClick={() => void doExport(k)} className="block w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-slate-50" data-testid={`trm-export-${k}`}>{EXPORT_AR[k]}</button></li>)}
+              </ul>
+            )}
+          </div>
           <button type="button" onClick={() => setFull((v) => !v)} className="rounded-xl bg-white/15 px-3 py-2" data-testid="trm-full">{full ? 'خروج من ملء الشاشة' : 'ملء الشاشة'}</button>
         </div>
-      </header>
+        } />
 
       {pickerOpen && <ComparePicker current={departureId} onPick={(id) => { sp.set('compare', id); setSp(sp); setPickerOpen(false) }} />}
 
@@ -130,7 +170,7 @@ export default function TripRouteMapPage() {
       </div>
 
       <div className={`grid gap-3 ${full ? 'min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_320px]'}`}>
-        <div className={`relative overflow-hidden rounded-2xl border ${full ? 'h-full min-h-[300px]' : 'h-[560px]'}`} data-testid="trm-map">
+        <div ref={mapBox} className={`relative overflow-hidden rounded-2xl border ${full ? 'h-full min-h-[300px]' : 'h-[560px]'}`} data-testid="trm-map">
           {pts.length === 0 ? <EmptyState title="لا نقاط لهذا المسار بعد" hint={d.status === 'no_device' ? 'المركبة بلا جهاز GPS مربوط.' : 'اضغط «سحب الآن» أو انتظر دورة السحب التلقائية.'} /> : (
             <MapContainer center={center} zoom={13} className="h-full w-full">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
@@ -203,6 +243,10 @@ export default function TripRouteMapPage() {
           )}
           <p className="text-[10px] text-slate-400">آخر سحب {d.pulled_at ? `${dateAr(d.pulled_at)} ${timeAr(d.pulled_at)}` : '—'} · عدد السحبات {d.pull_count}{d.error_code ? ` · آخر خطأ ${d.error_code}` : ''}</p>
         </aside>
+      </div>
+      {/* ورقة التقرير خارج الشاشة — تُلتقط للـ PDF وتُطبع */}
+      <div aria-hidden className="pointer-events-none fixed left-[-20000px] top-0" data-testid="trm-sheet-host">
+        <TripRouteReportSheet ref={sheetRef} d={d} mapImage={mapImage} compare={compare.data ?? null} />
       </div>
     </section>
   )

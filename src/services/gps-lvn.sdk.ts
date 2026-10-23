@@ -783,7 +783,7 @@ export const gpsLvn = {
     (await sdkGuard(supabase.rpc('trip_route_settings_save', { p_patch: patch }))) as unknown as TripRouteSettings,
   tripRoute: async (departureId: string, maxPoints = 3000) =>
     (await sdkGuard(
-      supabase.rpc('trip_route_get', { p_departure: departureId, p_max_points: maxPoints }),
+      supabase.rpc('trip_route_get_v2', { p_departure: departureId, p_max_points: maxPoints }),
     )) as unknown as TripRouteDetail,
   /** 00343: قائمة مسارات الانطلاقيات مع الفلاتر والملخص والترقيم */
   tripRoutesList: async (filters: TripRoutesFilters, limit = 50, offset = 0) =>
@@ -931,6 +931,29 @@ export interface TripRouteDetail {
   stops: TripRouteStop[]
   gaps: TripRouteGap[]
   points: TripRoutePoint[]
+  /** 00345: بيانات الانطلاقية للترويسة (trip_route_get_v2) */
+  trip?: TripRouteTripInfo | null
+}
+export interface TripRouteTripInfo {
+  departure_id: string
+  vehicle_id: string
+  vehicle_name: string
+  db_number: string | null
+  plate_number: string | null
+  vehicle_category: string | null
+  driver_name: string
+  shift: string | null
+  sector_id: number | null
+  sector_name: string | null
+  departed_at: string
+  site_arrived_at: string | null
+  site_departed_at: string | null
+  returned_at: string | null
+  departed_by_name: string | null
+  returned_by_name: string | null
+  notes: string | null
+  device_name: string | null
+  device_external_id: string | null
 }
 export interface TripRoutePullResult {
   ok: boolean
