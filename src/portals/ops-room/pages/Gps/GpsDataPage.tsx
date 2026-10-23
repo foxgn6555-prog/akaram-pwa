@@ -35,7 +35,6 @@ import {
   useGpsDevices,
   useGpsGeofenceAssignment,
   useGpsGeofences,
-  useGpsHistoryImport,
   useGpsLiveMap,
   useGpsMapGeofences,
   useGpsZoneSector,
@@ -46,7 +45,6 @@ import {
   useGpsOpenAlerts,
   useGpsPlatformGeofence,
   useGpsOptions,
-  useGpsRoute,
   useGpsSync,
   useGpsTripHistory,
   useGpsTripMetrics,
@@ -70,12 +68,13 @@ import type {
   GpsZoneEvent,
 } from '@sdk/gps-lvn.sdk'
 import { exportGpsAlerts } from '@features/gps-lvn/export'
-import { Link, useNavigate } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { useUiStore } from '@stores/ui.store'
 import type { ZoneShape } from './ZoneMapEditor'
 import { LandmarkGlyph, landmarkIconLabels } from './LandmarkIcon'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
-const GpsRouteMap = lazy(() => import('./GpsRouteMap'))
+const TripRoutesWorkspace = lazy(() => import('./TripRoutesPage'))
+const TripRouteMapWorkspace = lazy(() => import('./TripRouteMapPage'))
 const GpsLiveMap = lazy(() => import('./GpsLiveMap'))
 const ZoneMapEditor = lazy(() => import('./ZoneMapEditor'))
 const LandmarkMapPicker = lazy(() => import('./LandmarkMapPicker'))
@@ -101,18 +100,23 @@ const baghdadDay = (offset = 0) =>
   )
 const speed = (row: GpsDevice) =>
   `${new Intl.NumberFormat('ar-IQ-u-nu-latn', { maximumFractionDigits: 1 }).format(row.speed ?? 0)} ${row.speed_unit === 'mph' ? 'ميل/س' : 'كم/س'}`
-type View = 'operations' | 'fleet' | 'zones'
+type View = 'operations' | 'trips' | 'fleet' | 'zones'
+const VIEWS: View[] = ['operations', 'trips', 'fleet', 'zones']
 
 export default function GpsDataPage() {
-  const [view, setView] = useState<View>('operations')
+  // 00347: التبويب والانطلاقية المفتوحة في عنوان الصفحة (?view=trips&trip=…) حتى تعمل الروابط والتحديث والرجوع
+  const [sp, setSp] = useSearchParams()
+  const spView = sp.get('view')
+  const view: View = VIEWS.includes(spView as View) ? (spView as View) : 'operations'
+  const openTrip = sp.get('trip')
+  const setView = (v: View) => setSp(v === 'operations' ? {} : { view: v })
+  const openTripMap = (departureId: string) => setSp({ view: 'trips', trip: departureId })
   const [filters, setFilters] = useState<GpsFilters>({ page: 1, pageSize: 30 })
   const [tripFrom, setTripFrom] = useState(baghdadDay(-7))
   const [tripTo, setTripTo] = useState(baghdadDay())
   const [selected, setSelected] = useState('')
   const [binding, setBinding] = useState<GpsDevice | null>(null)
   const [candidateSearch, setCandidateSearch] = useState('')
-  const [routeDevice, setRouteDevice] = useState<GpsDevice | null>(null)
-  const navigate = useNavigate()
   const [zoneDevice, setZoneDevice] = useState<GpsDevice | null>(null)
   const [resolveAlert, setResolveAlert] = useState<GpsOperationalAlert | null>(null)
   const [alertSeverity, setAlertSeverity] = useState('')
@@ -195,6 +199,7 @@ export default function GpsDataPage() {
   ].filter((k) => Boolean(filters[k as keyof GpsFilters])).length
   const nav: Array<{ id: View; label: string; hint: string; icon: typeof Map }> = [
     { id: 'operations', label: 'المشهد التشغيلي', hint: 'الآن', icon: Map },
+    { id: 'trips', label: 'مسارات الانطلاقيات', hint: 'المسار الدقيق لكل انطلاقية', icon: Route },
     { id: 'fleet', label: 'أجهزة الأسطول', hint: 'الربط والحالة', icon: Database },
     { id: 'zones', label: 'الزونات', hint: 'المناطق والحركة', icon: MapPinned },
   ]
@@ -233,11 +238,6 @@ export default function GpsDataPage() {
             </span>
           </button>
         ))}
-        {/* 00346: مسارات الانطلاقيات انتقلت إلى صفحتها الجديدة (قائمة + فلاتر + خريطة + تصدير) */}
-        <Link to="/ops-room/trip-routes" className="flex items-center gap-3 rounded-xl px-3 py-3 text-right text-slate-600 transition hover:bg-slate-50" data-testid="gps-nav-trip-routes">
-          <span className="grid size-9 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Route size={18} /></span>
-          <span><b className="block text-xs">مسارات الانطلاقيات</b><small className="text-[10px] text-slate-400">الصفحة الجديدة ↗</small></span>
-        </Link>
       </nav>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
@@ -320,7 +320,7 @@ export default function GpsDataPage() {
                     key={trip.departure_id}
                     trip={trip}
                     metric={tripMetricMap.get(trip.departure_id)}
-                    onOpen={() => navigate(`/ops-room/trip-routes/${trip.departure_id}`)}
+                    onOpen={() => openTripMap(trip.departure_id)}
                   />
                 ))}
                 {!activeTrips.length && <EmptyCompact text="لا توجد انطلاقية مفتوحة ضمن المدة." />}
@@ -471,6 +471,11 @@ export default function GpsDataPage() {
         </div>
       )}
 
+      {view === 'trips' && (
+        <Suspense fallback={<div className="h-[420px] animate-pulse rounded-2xl bg-slate-100" data-testid="gps-trips-loading" />}>
+          {openTrip ? <TripRouteMapWorkspace departureId={openTrip} /> : <TripRoutesWorkspace />}
+        </Suspense>
+      )}
       {view === 'fleet' && (
         <FleetWorkspace
           rows={rows}
@@ -485,7 +490,6 @@ export default function GpsDataPage() {
           reset={() => setFilters({ page: 1, pageSize: 30 })}
           setFilters={setFilters}
           onDetail={setSelected}
-          onRoute={setRouteDevice}
           onZone={setZoneDevice}
           onBind={(row) => {
             setBinding(row)
@@ -535,7 +539,6 @@ export default function GpsDataPage() {
           onClose={() => setZoneDevice(null)}
         />
       )}
-      {routeDevice && <RouteModal device={routeDevice} onClose={() => setRouteDevice(null)} />}
       {resolveAlert && (
         <ResolveAlertModal
           alert={resolveAlert}
@@ -734,7 +737,6 @@ function FleetWorkspace({
   reset,
   setFilters,
   onDetail,
-  onRoute,
   onZone,
   onBind,
 }: {
@@ -750,7 +752,6 @@ function FleetWorkspace({
   reset: () => void
   setFilters: React.Dispatch<React.SetStateAction<GpsFilters>>
   onDetail: (x: string) => void
-  onRoute: (x: GpsDevice) => void
   onZone: (x: GpsDevice) => void
   onBind: (x: GpsDevice) => void
 }) {
@@ -923,7 +924,6 @@ function FleetWorkspace({
                     <td className="p-4">
                       <div className="flex gap-1">
                         <Action label="التفاصيل" onClick={() => onDetail(row.id)} />
-                        <Action label="المسار" onClick={() => onRoute(row)} />
                         <Action
                           label="الزون"
                           onClick={() => onZone(row)}
@@ -962,7 +962,6 @@ function FleetWorkspace({
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Action label="التفاصيل" onClick={() => onDetail(row.id)} />
-                  <Action label="المسار" onClick={() => onRoute(row)} />
                   <Action label="ربط" onClick={() => onBind(row)} />
                 </div>
               </article>
@@ -1985,89 +1984,6 @@ function ZoneModal({
               لا توجد مناطق مستوردة. نفّذ مزامنة كاملة أولاً.
             </p>
           )}
-        </div>
-      </div>
-    </div>
-  )
-}
-function RouteModal({ device, onClose }: { device: GpsDevice; onClose: () => void }) {
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date()),
-    [day, setDay] = useState(today),
-    route = useGpsRoute(device.id, day),
-    historyImport = useGpsHistoryImport()
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-3">
-      <div className="max-h-[94vh] w-full max-w-6xl overflow-auto rounded-3xl bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-xl font-black">
-              <MapPinned className="text-emerald-700" />
-              مسار الآلية
-            </h2>
-            <p className="text-xs text-slate-500">
-              {device.garage_vehicle_name ?? device.device_name} ·{' '}
-              {device.garage_db_number
-                ? `DB ${device.garage_db_number}`
-                : `LVN ${device.external_id}`}
-            </p>
-          </div>
-          <div className="flex items-end gap-2">
-            <label className="text-xs font-bold">
-              اليوم
-              <input
-                aria-label="يوم مسار GPS"
-                type="date"
-                max={today}
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-                className="mt-1 block h-10 rounded-xl border px-3"
-              />
-            </label>
-            <button
-              onClick={() => historyImport.mutate({ deviceId: device.id, day })}
-              disabled={historyImport.isPending}
-              className="h-10 rounded-xl bg-cyan-100 px-3 text-xs font-black text-cyan-900 disabled:opacity-50"
-            >
-              {historyImport.isPending ? 'جارٍ التدقيق…' : 'استيراد التاريخ من LVN'}
-            </button>
-            <button
-              aria-label="إغلاق المسار"
-              onClick={onClose}
-              className="rounded-xl bg-slate-100 p-2"
-            >
-              <X />
-            </button>
-          </div>
-        </div>
-        <div className="mb-3 grid gap-2 sm:grid-cols-4">
-          <Data label="نقاط GPS" value={String(route.data?.length ?? 0)} />
-          <Data label="أول قراءة" value={fmt(route.data?.[0]?.fix_time ?? null)} />
-          <Data label="آخر قراءة" value={fmt(route.data?.at(-1)?.fix_time ?? null)} />
-          <Data
-            label="حالة التغطية"
-            value={
-              route.isLoading
-                ? 'جارٍ التحميل'
-                : route.data?.length
-                  ? 'توجد بيانات GPS'
-                  : 'لا توجد بيانات'
-            }
-          />
-        </div>
-        {route.isLoading ? (
-          <div className="grid h-72 place-items-center">
-            <Loader2 className="animate-spin" />
-          </div>
-        ) : (
-          <Suspense fallback={<div className="h-72 animate-pulse rounded-2xl bg-slate-100" />}>
-            <GpsRouteMap points={route.data ?? []} />
-          </Suspense>
-        )}
-        <div className="mt-3 flex flex-wrap gap-3 text-xs">
-          <span className="text-emerald-700">● متحركة</span>
-          <span className="text-blue-700">● متوقفة والمحرك يعمل</span>
-          <span className="text-amber-700">● متوقفة والمحرك مطفأ</span>
-          <span className="text-slate-600">● غير معروفة</span>
         </div>
       </div>
     </div>

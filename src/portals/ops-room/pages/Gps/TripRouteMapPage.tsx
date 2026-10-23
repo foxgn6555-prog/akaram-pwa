@@ -5,11 +5,11 @@
  * البيانات من trip_route_get (محرّك 00342) — بلا لصق بالطرق: النقاط كما سجّلها الجهاز بعد التنظيف.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { TRIP_ROUTES_HREF } from '@features/gps-lvn/trip-route-links'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences, useGpsTripInvestigationSave, useGpsTripInvestigations, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
@@ -64,9 +64,10 @@ type Layers = { speed: boolean; arrows: boolean; stops: boolean; points: boolean
 const DEFAULT_LAYERS: Layers = { speed: true, arrows: true, stops: true, points: false, stages: true, zones: true, heat: false, gaps: true }
 const LAYER_AR: Record<keyof Layers, string> = { speed: 'تلوين بالسرعة', arrows: 'أسهم الاتجاه', stops: 'التوقفات المرقّمة', points: 'كل النقاط', stages: 'علامات المراحل', zones: 'الزونات', heat: 'حرارة التوقفات', gaps: 'الانقطاعات' }
 
-export default function TripRouteMapPage() {
-  const { departureId = '' } = useParams()
+/** 00347: يُعرض داخل تبويب «مسارات الانطلاقيات» في وحدة GPS؛ معرّف الانطلاقية يأتي من الخاصية أو من ?trip= */
+export default function TripRouteMapPage({ departureId: departureIdProp }: { departureId?: string } = {}) {
   const [sp, setSp] = useSearchParams()
+  const departureId = departureIdProp ?? sp.get('trip') ?? ''
   const compareId = sp.get('compare')
   const route = useTripRoute(departureId)
   const compare = useTripRoute(compareId)
@@ -142,11 +143,14 @@ export default function TripRouteMapPage() {
 
   return (
     <section dir="rtl" className={full ? 'fixed inset-0 z-[1200] flex flex-col bg-white' : 'space-y-3'} data-testid="trip-route-map-page">
-      <ExecPageHeader icon="flow" title={`مسار الانطلاقية · ${dateAr(d.first_fix ?? d.range_from)} ${timeAr(d.first_fix ?? d.range_from)} ← ${timeAr(d.last_fix ?? d.range_to)}`}
-        subtitle={<span data-testid="trm-summary">{STATUS_AR[d.status]}{d.is_final ? ' · نهائي' : ' · يُحدَّث'} · {km(d.distance_m)} كم · حركة {dur(d.moving_seconds)} · توقف {dur(d.stopped_seconds)} · {d.stops_count} توقف · {d.gaps_count} انقطاع ({dur(d.gap_seconds)}) · أقصى سرعة {Math.round(d.max_speed_kmh)} · متوسط {Math.round(d.avg_speed_kmh)} km/h · {d.points_kept} نقطة ({d.points_rejected} مرفوضة){d.downsample_step > 1 ? ` · معروض ${d.points_returned} بخطوة ${d.downsample_step}` : ''}</span>}
-        actions={
+      <div className="rounded-2xl bg-slate-900 p-3 text-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-black">{`مسار الانطلاقية · ${dateAr(d.first_fix ?? d.range_from)} ${timeAr(d.first_fix ?? d.range_from)} ← ${timeAr(d.last_fix ?? d.range_to)}`}</h2>
+            <p className="mt-1 text-[11px] text-slate-300"><span data-testid="trm-summary">{STATUS_AR[d.status]}{d.is_final ? ' · نهائي' : ' · يُحدَّث'} · {km(d.distance_m)} كم · حركة {dur(d.moving_seconds)} · توقف {dur(d.stopped_seconds)} · {d.stops_count} توقف · {d.gaps_count} انقطاع ({dur(d.gap_seconds)}) · أقصى سرعة {Math.round(d.max_speed_kmh)} · متوسط {Math.round(d.avg_speed_kmh)} km/h · {d.points_kept} نقطة ({d.points_rejected} مرفوضة){d.downsample_step > 1 ? ` · معروض ${d.points_returned} بخطوة ${d.downsample_step}` : ''}</span></p>
+          </div>
         <div className="flex flex-wrap gap-2 text-[11px] font-black" data-testid="trm-header">
-          <Link to="/ops-room/trip-routes" className="rounded-xl bg-white/15 px-3 py-2">القائمة</Link>
+          <Link to={TRIP_ROUTES_HREF} className="rounded-xl bg-white/15 px-3 py-2" data-testid="trm-back">القائمة</Link>
           {!(d.is_final && d.status === 'complete') && d.status !== 'no_device' && <button type="button" onClick={pullNow} disabled={pull.isPending} className="rounded-xl bg-sky-500 px-3 py-2 disabled:opacity-50" data-testid="trm-pull">{pull.isPending ? 'يسحب…' : 'سحب الآن'}</button>}
           <button type="button" onClick={() => setPickerOpen((v) => !v)} className="rounded-xl bg-white/15 px-3 py-2" data-testid="trm-compare-toggle">{compareId ? 'تغيير المقارنة' : 'مقارنة بمسار آخر'}</button>
           {compareId && <button type="button" onClick={() => { sp.delete('compare'); setSp(sp) }} className="rounded-xl bg-violet-500 px-3 py-2" data-testid="trm-compare-clear">إلغاء المقارنة</button>}
@@ -160,7 +164,8 @@ export default function TripRouteMapPage() {
           </div>
           <button type="button" onClick={() => setFull((v) => !v)} className="rounded-xl bg-white/15 px-3 py-2" data-testid="trm-full">{full ? 'خروج من ملء الشاشة' : 'ملء الشاشة'}</button>
         </div>
-        } />
+        </div>
+      </div>
 
       {pickerOpen && <ComparePicker current={departureId} onPick={(id) => { sp.set('compare', id); setSp(sp); setPickerOpen(false) }} />}
 

@@ -1,10 +1,9 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 const edge = readFileSync('supabase/functions/lvn-gps-sync/index.ts', 'utf8'),
   client = readFileSync('src/services/gps-lvn.sdk.ts', 'utf8'),
   hooks = readFileSync('src/features/gps-lvn/hooks.ts', 'utf8'),
   gpsPage = readFileSync('src/portals/ops-room/pages/Gps/GpsDataPage.tsx', 'utf8'),
-  routeMap = readFileSync('src/portals/ops-room/pages/Gps/GpsRouteMap.tsx', 'utf8'),
   tripRouteMapPage = readFileSync('src/portals/ops-room/pages/Gps/TripRouteMapPage.tsx', 'utf8'),
   html = readFileSync('index.html', 'utf8'),
   round2 = readFileSync('supabase/migrations/00094_gps_live_operations_and_alerts.sql', 'utf8'),
@@ -100,16 +99,14 @@ describe('عقد أمان LVN GPS', () => {
       "const status = rejected > 0 || completed < chunks ? 'partial' : 'success'",
     )
   })
-  it('يجمع Excel صراحة حسب السائق واليوم والشفت والآلية', () => {
+  it('00347: تصدير الانطلاقيات القديم وخرائط مسار الآلية الكاملة أُزيلت من الواجهة؛ تصدير التنبيهات باقٍ', () => {
     const source = readFileSync('src/features/gps-lvn/export.ts', 'utf8')
-    expect(source).toContain("workbook.addWorksheet('ملخص السائقين'")
-    expect(source).toContain('مدة التداخل بالدقائق')
-    expect(source).toContain('context.driver_name')
-    expect(source).toContain('context.shift')
-    expect(source).toContain('trip.vehicle_id')
-    expect(source).toContain('group.trips.size')
-    expect(source).toContain("workbook.addWorksheet('تدقيق نوافذ المسار'")
-    expect(source).toContain('القابل للرسم')
+    expect(source).not.toContain('exportGpsTrips')
+    expect(source).toContain('export async function exportGpsAlerts')
+    expect(existsSync('src/portals/ops-room/pages/Gps/GpsRouteMap.tsx')).toBe(false)
+    expect(gpsPage).not.toContain('RouteModal')
+    for (const dead of ['useGpsRoute =', 'useGpsRouteWindow', 'useGpsHistoryImport', 'useGpsAllHistoryImport', 'useGpsBatchHistoryAudit', 'useGpsTripDiagnostics', 'useGpsHistoryWindows', 'useGpsTripWindowCoverageAudit', 'useGpsTripEvents', 'useGpsTripZoneEvents', 'useGpsTripShiftContext'])
+      expect(hooks, dead).not.toContain(dead)
   })
 
   it('يعرض تقدم كل نافذة ويمنع العميل من إعادة النافذة الناجحة جماعياً', () => {
@@ -120,9 +117,11 @@ describe('عقد أمان LVN GPS', () => {
     // 00346: واجهة النوافذ القديمة أُزيلت من GpsDataPage؛ العقد يبقى على الطبقة البرمجية
     expect(gpsPage).not.toContain('TripRouteModal')
     expect(gpsPage).not.toContain('TripsWorkspace')
-    expect(gpsPage).toContain('/ops-room/trip-routes')
-    expect(hooks).toContain("window.status !== 'success'")
-    expect(hooks).toContain('await gpsLvn.importDepartureHistory')
+    // 00347: المسارات تبويب داخل وحدة GPS (?view=trips) لا صفحة مستقلة ولا بند جانبي
+    expect(gpsPage).toMatch(/id: 'trips',\s*label: 'مسارات الانطلاقيات'/)
+    expect(readFileSync('src/portals/ops-room/routes.tsx', 'utf8')).not.toContain('trip-routes')
+    expect(readFileSync('src/config/portals.config.ts', 'utf8')).not.toContain('/ops-room/trip-routes')
+    expect(client).toContain('importDepartureHistory')
   })
   it('يدقق كل نافذة من المصدر إلى الرسم ويكشف حدود الصفحات', () => {
     expect(windowAudit).toContain('gps_trip_window_coverage_audit')
@@ -131,16 +130,14 @@ describe('عقد أمان LVN GPS', () => {
     expect(windowAudit).toContain('renderable_points')
     expect(windowAudit).toContain("then'render_limit'")
     expect(windowAudit).toContain('perform app.require_gps_operator()')
-    expect(hooks).toContain('useGpsTripWindowCoverageAudit')
+    expect(client).toContain('gps_trip_window_coverage_audit')
   })
-  it('يربط الخريطة بالمراحل والزونات والشفتات ويقيد التدقيق الجماعي', () => {
-    expect(routeMap).toContain('الشريط الزمني لمسار GPS')
-    expect(routeMap).toContain('statusColor[segment.status]')
-    expect(routeMap).toContain('<Polygon')
-    expect(routeMap).toContain('shiftFor(focused, shifts)')
-    expect(hooks).toContain('useGpsBatchHistoryAudit')
-    expect(hooks).toContain('.slice(0, 20)')
-    expect(hooks).toContain("window.status !== 'success'")
+  it('00347: خريطة المسار الجديدة ترسم الزونات والمراحل وتقيّد السحب بالدالة الخادمية', () => {
+    expect(tripRouteMapPage).toContain('<Polygon')
+    expect(tripRouteMapPage).toContain('<Marker')
+    expect(tripRouteMapPage).toContain('usePullTripRouteNow')
+    expect(client).toContain("action: 'trip', departureId")
+    expect(client).toContain("LVN_FUNCTION_OUTDATED")
   })
   it('يحمي تحقيقات GPS ويعرض الزونات والمقارنة والتصدير العربي', () => {
     expect(investigations).toContain('enable row level security')
@@ -149,15 +146,14 @@ describe('عقد أمان LVN GPS', () => {
     expect(investigations).toContain(
       'public.gps_trip_investigation_save(uuid,uuid,text,timestamptz,text,text,uuid)from public,anon',
     )
-    expect(routeMap).toContain('خريطة السرعة الحرارية')
-    expect(routeMap).toContain('<Marker')
+    expect(tripRouteMapPage).toMatch(/heat/i)
     // 00346: المقارنة والتحقيقات انتقلتا إلى صفحة خريطة المسار الجديدة
     expect(tripRouteMapPage).toContain('trm-compare-box')
     expect(tripRouteMapPage).toContain('useGpsTripInvestigationSave')
     expect(tripRouteMapPage).toContain('trm-investigations')
-    const exportSource = readFileSync('src/features/gps-lvn/export.ts', 'utf8')
-    expect(exportSource).toContain("workbook.addWorksheet('زونات الانطلاقية المحددة'")
-    expect(exportSource).toContain("workbook.addWorksheet('تحقيقات المسار'")
+    const exportSource = readFileSync('src/features/gps-lvn/trip-route-export.ts', 'utf8')
+    expect(exportSource).toContain('buildExcelReport')
+    expect(exportSource).toContain('buildTripRouteKml')
   })
   it('يدعم محرر الزونات كامل الشاشة والأشكال والمعالم المحمية', () => {
     expect(gpsPage).toContain('fixed inset-0 z-[2100]')

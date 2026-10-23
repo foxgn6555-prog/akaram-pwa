@@ -3,13 +3,13 @@
  * لكل انطلاقية مسارها الخاص (محرّك 00342): المسافة، زمن الحركة/التوقف، التوقفات، الفجوات، السرعة، من أين إلى أين.
  * الفلاتر: التاريخ، القاطع، المركبة، السائق، الشفت، مفتوحة/عادت، حالة المسار، فجوات، أدنى توقفات/مسافة، البحث،
  * ومن↔إلى↔مرّ بـ: زون منصة/LVN، معلم (كراج/ورشة/…)، وجهة محطة، أو دائرة حرة تُرسم بالنقر على الخريطة.
- * الخريطة التفصيلية لكل مسار تأتي في 00344 والتصدير في 00345.
+ * 00347: تُعرض كتبويب داخل وحدة «بيانات أجهزة GPS» (GpsDataPage ?view=trips)؛ الخريطة التفصيلية تُفتح بـ ?trip=<id>.
  */
 import { useMemo, useState } from 'react'
 import { Circle, MapContainer, Polygon, TileLayer, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router'
-import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { tripMapHref } from '@features/gps-lvn/trip-route-links'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences, usePullTripRouteNow, useTripRoutesFilterOptions, useTripRoutesList } from '@features/gps-lvn/hooks'
@@ -88,15 +88,21 @@ export default function TripRoutesPage() {
 
   return (
     <section dir="rtl" className="space-y-4" data-testid="trip-routes-page">
-      <ExecPageHeader icon="flow" title="مسارات الانطلاقيات"
-        subtitle="مسار كل انطلاقية من لحظة الانطلاق حتى تأكيد العودة، بنقاط LVN للفترة الدقيقة بعد التنظيف: المسافة، زمن الحركة والتوقف، التوقفات المرقّمة، انقطاعات الإشارة، ومن أين إلى أين. المفتوحة تُحدَّث كل 15 دقيقة."
-        stats={[
-          { label: 'انطلاقيات', value: sum?.total ?? '—', tone: 'plain', testId: 'tr-st-total' },
-          { label: 'مفتوحة الآن', value: sum?.open ?? '—', tone: 'gold', testId: 'tr-st-open' },
-          { label: 'إجمالي المسافة (كم)', value: sum ? km(sum.distance_m) : '—', tone: 'green', testId: 'tr-st-km' },
-          { label: 'توقفات', value: sum?.stops ?? '—', tone: 'plain', testId: 'tr-st-stops' },
-          { label: 'بلا جهاز', value: sum?.no_device ?? '—', tone: (sum?.no_device ?? 0) > 0 ? 'red' : 'plain', testId: 'tr-st-nodev' },
-        ]} />
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5" data-testid="tr-stats">
+        {([
+          { label: 'انطلاقيات', value: sum?.total ?? '—', cls: 'text-slate-900', testId: 'tr-st-total' },
+          { label: 'مفتوحة الآن', value: sum?.open ?? '—', cls: 'text-amber-600', testId: 'tr-st-open' },
+          { label: 'إجمالي المسافة (كم)', value: sum ? km(sum.distance_m) : '—', cls: 'text-emerald-700', testId: 'tr-st-km' },
+          { label: 'توقفات', value: sum?.stops ?? '—', cls: 'text-slate-900', testId: 'tr-st-stops' },
+          { label: 'بلا جهاز', value: sum?.no_device ?? '—', cls: (sum?.no_device ?? 0) > 0 ? 'text-rose-700' : 'text-slate-900', testId: 'tr-st-nodev' },
+        ] as const).map((st) => (
+          <div key={st.testId} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid={st.testId}>
+            <p className="text-[10px] font-bold text-slate-500">{st.label}</p>
+            <b className={`block text-xl font-black tabular-nums ${st.cls}`} dir="ltr">{st.value}</b>
+          </div>
+        ))}
+      </div>
+      <p className="px-1 text-[11px] text-slate-500">مسار كل انطلاقية من لحظة الانطلاق حتى تأكيد العودة، بنقاط LVN للفترة الدقيقة بعد التنظيف: المسافة، زمن الحركة والتوقف، التوقفات المرقّمة، انقطاعات الإشارة، ومن أين إلى أين. المفتوحة تُحدَّث كل 15 دقيقة.</p>
 
       <form className="space-y-3 rounded-2xl border bg-white p-3 shadow-sm" data-testid="tr-filters" onSubmit={(e) => { e.preventDefault(); apply() }}>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
@@ -207,7 +213,7 @@ function Row({ r, pulling, onPull }: { r: TripRoutesRow; pulling: boolean; onPul
       <td className="p-2 text-center tabular-nums" dir="ltr">{r.points_kept ? `${Math.round(r.max_speed_kmh)} km/h` : '—'}</td>
       <td className="max-w-[220px] p-2 text-[10px] leading-4 text-slate-600"><span className="block truncate" title={r.from_address ?? ''}>▲ {r.from_address ?? (r.from_lat != null ? `${r.from_lat.toFixed(4)}, ${r.from_lng?.toFixed(4)}` : '—')}</span><span className="block truncate" title={r.to_address ?? ''}>■ {r.to_address ?? (r.to_lat != null ? `${r.to_lat.toFixed(4)}, ${r.to_lng?.toFixed(4)}` : '—')}</span></td>
       <td className="p-2 text-center">
-        {r.points_kept > 0 && <Link to={`/ops-room/trip-routes/${r.departure_id}`} className="mb-1 inline-block rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-black text-white" data-testid={`tr-map-${r.departure_id}`}>الخريطة</Link>}
+        <Link to={tripMapHref(r.departure_id)} className="mb-1 inline-block rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-black text-white" data-testid={`tr-map-${r.departure_id}`}>الخريطة</Link>
         {canPull && <button type="button" onClick={onPull} disabled={pulling} className="rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-700 disabled:opacity-50" data-testid={`tr-pull-${r.departure_id}`}>{pulling ? 'يسحب…' : 'سحب الآن'}</button>}
         {r.pulled_at && <span className="block text-[10px] text-slate-400">آخر سحب {timeAr(r.pulled_at)}</span>}
       </td>

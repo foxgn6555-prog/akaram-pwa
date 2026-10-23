@@ -47,7 +47,7 @@ const detail = (o: Record<string, unknown> = {}) => ({
 })
 beforeEach(() => { Object.values(h.exp).forEach((f) => f.mockReset()); h.exp.fetch.mockResolvedValue({ full: true }); h.exp.capture.mockResolvedValue('data:image/png;base64,MAP'); h.detail = detail(); h.compare = null; h.ids = []; h.pull.mockReset(); h.toasts = []; h.fly = []; h.fit = []; h.listRows = []; h.inv = []; h.invSave.mockReset() })
 afterEach(() => vi.useRealTimers())
-const ui = (search = '') => render(<MemoryRouter initialEntries={[`/ops-room/trip-routes/d1${search}`]}><Routes><Route path="/ops-room/trip-routes/:departureId" element={<TripRouteMapPage />} /></Routes></MemoryRouter>)
+const ui = (search = '') => render(<MemoryRouter initialEntries={[`/ops-room/gps?view=trips&trip=d1${search ? `&${search.replace(/^\?/, '')}` : ''}`]}><Routes><Route path="/ops-room/gps" element={<TripRouteMapPage />} /></Routes></MemoryRouter>)
 
 describe('TripRouteMapPage (00344)', () => {
   it('الملخص، الخط ملوّن بالسرعة مقطعاً مقطعاً مع الانقطاع متقطّعاً، والطبقات تُبدَّل', () => {

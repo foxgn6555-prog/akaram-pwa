@@ -63,6 +63,7 @@ const CATALOG: Record<string, Omit<LvnErrorInfo, 'code'>> = {
     owner: '—',
   },
   TRIP_ROUTE_NO_DEVICE: { kind: 'config', title: 'المركبة بلا جهاز GPS مربوط', cause: 'لا يوجد ربط بين مركبة الانطلاقية وجهاز تتبع.', action: 'اربط الجهاز من بيانات GPS ← الأسطول ثم اطلب السحب.', owner: 'غرفة العمليات' },
+  LVN_FUNCTION_OUTDATED: { kind: 'config', title: 'دالة مزامنة GPS على الخادم قديمة', cause: 'الدالة الخادمية lvn-gps-sync المنشورة لا تعرف سحب مسارات الانطلاقيات (لم تُنشر بعد التحديث 00342).', action: 'انشر الدالة: npx supabase functions deploy lvn-gps-sync — ثم أعد السحب؛ بعدها يسحب النظام تلقائياً.', owner: 'وحدة التطوير المركزية' },
   TRIP_ROUTE_NOT_QUEUED: { kind: 'config', title: 'لا شيء يُسحب لهذه الانطلاقية', cause: 'المسار نهائي ومكتمل أو بلا جهاز.', action: 'لا حاجة لإجراء.', owner: '—' },
   TRIP_ROUTE_RANGE_TOO_LONG: { kind: 'config', title: 'فترة الانطلاقية أطول من 7 أيام', cause: 'انطلاقية مفتوحة منذ أكثر من أسبوع.', action: 'سجّل عودتها أو صحّحها ثم أعد السحب.', owner: 'غرفة العمليات' },
   LVN_HISTORY_ALREADY_RUNNING: {

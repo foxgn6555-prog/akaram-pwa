@@ -799,6 +799,8 @@ export const gpsLvn = {
     })
     if (error) throw await toLvnError(error)
     if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'TRIP_ROUTE_PULL_FAILED')
+    // 00347: دالة حافة قديمة (قبل 00342) تجهل action='trip' فتجري مزامنة عادية وترد ok بلا مسار — نكشف ذلك بدل «نجاح» كاذب
+    if (data.action !== 'trip') throw new LvnSyncError('LVN_FUNCTION_OUTDATED')
     return data
   },
 }
@@ -957,6 +959,7 @@ export interface TripRouteTripInfo {
 }
 export interface TripRoutePullResult {
   ok: boolean
+  action?: string
   departureId: string
   status: TripRouteStatus
   points: number

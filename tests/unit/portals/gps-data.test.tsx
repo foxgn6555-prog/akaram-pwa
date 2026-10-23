@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type React from 'react'
+import { useSyncExternalStore } from 'react'
 const h = vi.hoisted(() => ({
   runs: [] as unknown[],
   sync: vi.fn(),
@@ -21,22 +21,21 @@ const h = vi.hoisted(() => ({
   routeGrace: vi.fn(),
   extraAlerts: [] as Record<string, unknown>[],
 }))
-const routerMocks = vi.hoisted(() => ({ navigate: vi.fn() }))
+const routerMocks = vi.hoisted(() => ({ params: new URLSearchParams(), listeners: new Set<() => void>() }))
 vi.mock('react-router', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('react-router')
   return {
     ...actual,
-    useNavigate: () => routerMocks.navigate,
-    Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [k: string]: unknown }) => (
-      <a href={to} {...rest}>
-        {children}
-      </a>
-    ),
+    useSearchParams: () => {
+      const snap = useSyncExternalStore((cb) => { routerMocks.listeners.add(cb); return () => routerMocks.listeners.delete(cb) }, () => routerMocks.params.toString())
+      const sp = new URLSearchParams(snap)
+      const set = (next: Record<string, string> | URLSearchParams) => { routerMocks.params = new URLSearchParams(next); routerMocks.listeners.forEach((l) => l()) }
+      return [sp, set] as const
+    },
   }
 })
-vi.mock('@portals/ops-room/pages/Gps/GpsRouteMap', () => ({
-  default: () => <div data-testid="mock-route-map" />,
-}))
+vi.mock('@portals/ops-room/pages/Gps/TripRoutesPage', () => ({ default: () => <div data-testid="mock-trip-routes" /> }))
+vi.mock('@portals/ops-room/pages/Gps/TripRouteMapPage', () => ({ default: ({ departureId }: { departureId: string }) => <div data-testid="mock-trip-map">{departureId}</div> }))
 vi.mock('@sdk/gps-lvn.sdk', () => ({
   gpsLvn: {
     alertEscalationsBulk: h.alertBulk,
@@ -273,10 +272,11 @@ vi.mock('@features/sector', () => ({
 }))
 import GpsDataPage from '@portals/ops-room/pages/Gps/GpsDataPage'
 import { useUiStore } from '@stores/ui.store'
+beforeEach(() => { routerMocks.params = new URLSearchParams() })
+
 describe('بيانات LVN GPS', () => {
   beforeEach(() => {
     hookState.trips = [trip]
-    routerMocks.navigate.mockClear()
     vi.clearAllMocks()
     useUiStore.setState({ toasts: [] })
   })
@@ -293,7 +293,8 @@ describe('بيانات LVN GPS', () => {
     expect(screen.getByLabelText('الحالة التشغيلية')).toBeInTheDocument()
     expect(screen.getByLabelText('حالة الانطلاقة')).toBeInTheDocument()
     expect(screen.getByLabelText('المدار / الزون')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'المسار' }).length).toBeGreaterThan(0)
+    // 00347: زر «المسار» (مسار الآلية الكامل لليوم) أُزيل — المسارات الدقيقة في تبويب «مسارات الانطلاقيات»
+    expect(screen.queryByRole('button', { name: 'المسار' })).toBeNull()
   })
   it('00211: غرفة العمليات لم تعد تحوي تبويب «سلامة التكامل» (نُقل إلى التطوير المركزية)', () => {
     render(<GpsDataPage />)
@@ -399,20 +400,22 @@ describe('بيانات LVN GPS', () => {
       }),
     )
   })
-  it('00346: تبويب الانطلاقيات القديم اختفى ورابطه يفتح صفحة «مسارات الانطلاقيات» الجديدة', () => {
+  it('00347: تبويب «مسارات الانطلاقيات» داخل وحدة GPS يفتح القائمة الجديدة، وبطاقة الانطلاقية النشطة تفتح خريطتها في التبويب نفسه', async () => {
     render(<GpsDataPage />)
-    expect(screen.queryByRole('button', { name: /الانطلاقيات المسار/ })).toBeNull()
     expect(screen.queryByText('سجل الانطلاقيات ومساراتها')).toBeNull()
-    const link = screen.getByTestId('gps-nav-trip-routes')
-    expect(link).toHaveAttribute('href', '/ops-room/trip-routes')
-    expect(link).toHaveTextContent('مسارات الانطلاقيات')
+    expect(screen.queryByRole('button', { name: 'المسار' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /مسارات الانطلاقيات/ }))
+    expect(routerMocks.params.get('view')).toBe('trips')
+    expect(await screen.findByTestId('mock-trip-routes')).toBeInTheDocument()
   })
 
-  it('00346: بطاقة الانطلاقية النشطة في المشهد التشغيلي تنتقل إلى خريطة المسار الجديدة بدل النافذة القديمة', () => {
+  it('00347: بطاقة الانطلاقية النشطة في المشهد التشغيلي تفتح خريطة المسار داخل تبويب GPS (?view=trips&trip=…)', async () => {
     hookState.trips = [{ ...trip, returned_at: null }]
     render(<GpsDataPage />)
     fireEvent.click(screen.getByRole('button', { name: /DB 100/ }))
-    expect(routerMocks.navigate).toHaveBeenCalledWith('/ops-room/trip-routes/trip-1')
+    expect(routerMocks.params.get('view')).toBe('trips')
+    expect(routerMocks.params.get('trip')).toBe('trip-1')
+    expect(await screen.findByTestId('mock-trip-map')).toHaveTextContent('trip-1')
     expect(screen.queryByRole('dialog', { name: /مسار انطلاقية/ })).toBeNull()
   })
 })

@@ -50,6 +50,10 @@ describe('TripRoutesPage (00343)', () => {
     expect(screen.getByTestId('tr-st-open').textContent).toContain('1')
     expect(screen.getByTestId('tr-st-km').textContent).toContain('25')
     expect(screen.getByTestId('tr-st-nodev').textContent).toContain('1')
+    // 00347: زر الخريطة لكل صف (حتى قبل السحب) يفتح تبويب GPS بالانطلاقية المحددة
+    const mapLinks = screen.getAllByText('الخريطة').filter((el) => el.tagName === 'A') as HTMLAnchorElement[]
+    expect(mapLinks.length).toBeGreaterThan(0)
+    expect(mapLinks[0]!.getAttribute('href')).toMatch(/^\/ops-room\/gps\?view=trips&trip=/)
     const r1 = screen.getByTestId('tr-row-d1')
     expect(r1.textContent).toContain('DB 101')
     expect(r1.textContent).toContain('12')

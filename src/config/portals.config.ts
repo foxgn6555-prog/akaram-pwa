@@ -431,7 +431,6 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'archive-box',
     },
     { path: '/ops-room/gps', labelKey: 'nav.ops_gps_data', icon: 'map-pin' },
-    { path: '/ops-room/trip-routes', labelKey: 'nav.ops_trip_routes', icon: 'flow' },   // 00343
     { path: '/ops-room/gbs-containers', labelKey: 'nav.ops_gbs_containers', icon: 'box' },
     { path: '/ops-room/attendance', labelKey: 'nav.ops_attendance', icon: 'check-square' },
     { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
