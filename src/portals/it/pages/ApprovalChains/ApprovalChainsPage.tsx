@@ -40,6 +40,7 @@ const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' |
   { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)', fields: ['amount'] }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)', fields: ['amount'] },
   { key: 'complaint_report', label: 'اعتماد تقرير شكاوى (طالبه موظف الشكاوى — بلا سلسلة: يعتمده بنفسه بعد المراجعة)', fields: [] },
   { key: 'cold_archive_purge', label: 'حذف أرشيف بارد (طالبه حساب التطوير المركزية — بلا سلسلة: موافقة حساب IT آخر إن فُعّلت)', fields: [] },
+  { key: 'hire', label: 'طلب تعيين موظف (من إجراءات الكراج/المحطة/الصيانة — بلا سلسلة: المدير المفوض؛ الرقم الوظيفي تكتبه الموارد البشرية بعد الاعتماد)', fields: [] },
 ]
 const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'المبلغ (د.ع)', days: 'الأيام', minutes: 'الدقائق' }
 const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)

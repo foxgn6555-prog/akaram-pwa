@@ -28,7 +28,8 @@ import type {
   GarageLeavesSummary,
   GarageHireOptions,
   GarageHireInput,
-  GarageHireResult,
+  HireRequestResult,
+  MyHireRequest,
   GarageRecentHire,
 } from '@features/central-garage/types'
 
@@ -740,13 +741,21 @@ export const centralGarage = {
   leavesSummary(): Promise<GarageLeavesSummary> {
     return sdkGuard(supabase.rpc('garage_leaves_summary', {} as never)) as Promise<GarageLeavesSummary>
   },
-  /** 00209: خيارات التعيين (مسميات قسم الكراج، الشفتات، الرقم المقترح) */
+  /** 00209/00348: خيارات طلب التعيين (مسميات القسم، الشفتات، السلسلة المضبوطة) — بلا رقم وظيفي */
   hireOptions(): Promise<GarageHireOptions> {
     return sdkGuard(supabase.rpc('garage_hire_options', {} as never)) as Promise<GarageHireOptions>
   },
-  /** 00209: تعيين ببيانات أساسية فقط — الحساسة لـ HR والراتب للمالية (الخادم يرفض أي حقل حساس) */
-  hire(v: GarageHireInput): Promise<GarageHireResult> {
-    return sdkGuard(supabase.rpc('garage_employee_hire', { p: { full_name: v.full_name, employee_number: v.employee_number, phone: v.phone ?? null, job_title_id: v.job_title_id, hire_date: v.hire_date, contract_type: v.contract_type, shift_id: v.shift_id ?? null } } as never)) as Promise<GarageHireResult>
+  /** 00348: طلب تعيين فقط — لا يُنشئ موظفاً ولا يقبل رقماً وظيفياً؛ يمرّ بسلسلة الموافقات ثم تُكمله الموارد البشرية */
+  hire(v: GarageHireInput): Promise<HireRequestResult> {
+    return sdkGuard(supabase.rpc('hire_request_create', { p: { full_name: v.full_name, phone: v.phone ?? null, job_title_id: v.job_title_id, hire_date: v.hire_date, contract_type: v.contract_type, shift_id: v.shift_id ?? null, note: v.note ?? null } } as never)) as Promise<HireRequestResult>
+  },
+  /** 00348: طلبات التعيين التي قدّمتها (الحالة، عند من، سبب الرفض) */
+  myHireRequests(): Promise<MyHireRequest[]> {
+    return sdkGuard(supabase.rpc('hire_requests_mine', {} as never)) as Promise<MyHireRequest[]>
+  },
+  /** 00348: إلغاء طلب تعيين معلّق */
+  async cancelHireRequest(id: string): Promise<void> {
+    await sdkVoid(supabase.rpc('hire_request_cancel', { p_id: id } as never))
   },
   /** 00209: التعيينات الأخيرة في قسم الكراج (180 يوماً) */
   recentHires(limit = 50): Promise<GarageRecentHire[]> {

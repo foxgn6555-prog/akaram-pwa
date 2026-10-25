@@ -224,15 +224,21 @@ export interface GarageEmployees {
 /* ─── 00208: ملخص طلبات موظفي الكراج ─── */
 export interface GarageLeavesSummary { pending: number; my_decisions: number; on_leave_today: number; permits_month: number; scoped: boolean }
 
-/* ─── 00209: الإجراءات — التعيين الأساسي ─── */
+/* ─── 00209/00348: الإجراءات — طلب تعيين (بلا رقم وظيفي؛ الموظف يُنشأ لاحقاً من الموارد البشرية بعد الموافقات) ─── */
 export interface GarageHireOptions {
   job_titles: { id: string; name: string; department_id: string; department: string; drives_vehicles: boolean }[]
   shifts: { id: string; name: string; start_time: string; end_time: string }[]
-  next_employee_number: string | null
   scoped: boolean
+  /** السلسلة المضبوطة من التطوير المركزية لهذا الدور (null ⇒ الافتراضي: المدير المفوض) */
+  chain: { steps: number; labels: string[] } | null
 }
-export interface GarageHireInput { full_name: string; employee_number: string; phone?: string | null; job_title_id: string; hire_date: string; contract_type: 'monthly' | 'daily'; shift_id?: string | null }
-export interface GarageHireResult { id: string; employee_number: string; full_name: string; job_title: string; department_id: string; is_driver: boolean; hire_date: string; contract_type: 'monthly' | 'daily' }
+export interface GarageHireInput { full_name: string; phone?: string | null; job_title_id: string; hire_date: string; contract_type: 'monthly' | 'daily'; shift_id?: string | null; note?: string | null }
+export interface HireRequestResult { id: string; full_name: string; job_title: string; department: string | null; hire_date: string; contract_type: 'monthly' | 'daily'; status: 'pending'; via_chain: boolean }
+export type HireRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'
+export interface MyHireRequest {
+  id: string; full_name: string; phone: string | null; job_title: string; department: string | null; hire_date: string; contract_type: 'monthly' | 'daily'; shift_name: string | null
+  status: HireRequestStatus; current_step: string | null; rejected_note: string | null; created_at: string; decided_at: string | null; completed_at: string | null; employee_number: string | null
+}
 export interface GarageRecentHire {
   id: string; employee_number: string; full_name: string; job_title: string | null; is_driver: boolean; hire_date: string; contract_type: 'monthly' | 'daily'
   employment_status: string; has_biometric: boolean; has_manager: boolean; salary_ready: boolean

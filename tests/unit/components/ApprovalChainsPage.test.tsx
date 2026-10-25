@@ -49,6 +49,17 @@ describe('سلاسل الموافقات', () => {
     fireEvent.click(screen.getByTestId('chain-save'))
     expect(h.save).toHaveBeenCalledWith(expect.objectContaining({ requesterRole: 'department_manager', requestType: 'time_permit', steps: [{ kind: 'account', user_id: 'u-dep', label: 'معاون المدير' }, { kind: 'account', user_id: 'u-boss', label: 'المدير المفوض' }] }), expect.any(Object))
   })
+  it('00348: نوع «طلب تعيين موظف» متاح ويُحفظ لدور الكراج المركزي (معاون ثم مدير مفوض)', () => {
+    render(<Page />)
+    fireEvent.change(screen.getByTestId('chain-role'), { target: { value: 'central_garage_officer' } })
+    fireEvent.change(screen.getByTestId('chain-type'), { target: { value: 'hire' } })
+    expect(screen.getByTestId('chain-type')).toHaveTextContent('طلب تعيين موظف')
+    fireEvent.click(screen.getByTestId('add-hier-deputy_director'))
+    fireEvent.click(screen.getByTestId('add-hier-super_admin'))
+    fireEvent.click(screen.getByTestId('chain-save'))
+    expect(h.save).toHaveBeenCalledWith(expect.objectContaining({ requesterRole: 'central_garage_officer', requestType: 'hire', steps: [expect.objectContaining({ kind: 'hierarchy', role: 'deputy_director' }), expect.objectContaining({ kind: 'hierarchy', role: 'super_admin' })] }), expect.anything())
+  })
+
   it('يعرض السلاسل المضبوطة ويحمّلها للتعديل ويحذفها بتأكيد', () => {
     h.chains = [{ id: 'c1', requester_role: 'employee', requester_label: 'متعهد', request_type: 'leave', steps: [{ kind: 'hierarchy', role: 'department_manager', label: 'مسؤول قسم (حسب التسلسل)' }, { kind: 'account', user_id: 'u-dep', label: 'معاون المدير' }], is_active: true, updated_at: 'x', updated_by_name: 'IT' }]
     window.confirm = () => true

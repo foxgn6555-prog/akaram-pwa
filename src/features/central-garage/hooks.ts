@@ -531,10 +531,21 @@ export function useGarageHireOptions() {
 export function useGarageRecentHires() {
   return useQuery({ queryKey: centralGarageKeys.recentHires(), queryFn: () => centralGarage.recentHires(), staleTime: 15_000 })
 }
+/** 00348: طلب تعيين (بلا موظف حتى موافقة السلسلة وإكمال الموارد البشرية) */
 export function useGarageHire() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (v: GarageHireInput) => centralGarage.hire(v),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.all }) },
+  })
+}
+export function useMyHireRequests() {
+  return useQuery({ queryKey: centralGarageKeys.hireRequests(), queryFn: () => centralGarage.myHireRequests(), staleTime: 15_000 })
+}
+export function useCancelHireRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => centralGarage.cancelHireRequest(id),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: centralGarageKeys.hireRequests() }) },
   })
 }

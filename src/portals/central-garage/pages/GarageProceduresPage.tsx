@@ -1,10 +1,12 @@
 /**
- * إجراءات الكراج (00209) — ① تعيين ببيانات أساسية فقط (الحساسة للموارد البشرية، الراتب للمالية)
- * ② إنهاء خدمة موظفي قسم الكراج عبر سلسلة الموافقات (وحدة الإجراءات 00163 — لا يُنفَّذ قبل اكتمالها) ③ طلباتي ④ التعيينات الأخيرة ومتابعة اكتمال الملف.
+ * إجراءات القسم (00209 / 00348) — ① «طلب تعيين موظف» ببيانات أساسية فقط وبلا رقم وظيفي: الطلب يمرّ بسلسلة الموافقات (تُضبط من التطوير المركزية؛
+ * بلا سلسلة ⇒ المدير المفوض) ثم تكتب الموارد البشرية الرقم الوظيفي وتُكمل الملف — عندها فقط يُنشأ الموظف. الطلب المرفوض لا يُنشئ موظفاً.
+ * ② إنهاء خدمة موظفي القسم عبر سلسلة الموافقات (00163) ③ طلباتي (تعيين + إنهاء) ④ التعيينات الأخيرة ومتابعة اكتمال الملف.
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
-import { useGarageHire, useGarageHireOptions, useGarageRecentHires } from '@features/central-garage/hooks'
+import { useCancelHireRequest, useGarageHire, useGarageHireOptions, useGarageRecentHires, useMyHireRequests } from '@features/central-garage/hooks'
+import type { MyHireRequest } from '@features/central-garage/types'
 import { useMyTerminationRequests } from '@features/sector-manager/hooks'
 import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -16,24 +18,32 @@ type Tab = 'hire' | 'terminate' | 'mine' | 'hires'
 const field = 'mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm disabled:bg-slate-50'
 const today = () => new Date().toISOString().slice(0, 10)
 const n = (v: number) => v.toLocaleString('en-US')
+const HIRE_STATUS: Record<MyHireRequest['status'], { label: string; cls: string }> = {
+  pending: { label: 'قيد الموافقة', cls: 'bg-amber-50 text-amber-800' }, approved: { label: 'معتمد — بانتظار الموارد البشرية', cls: 'bg-sky-50 text-sky-800' },
+  rejected: { label: 'مرفوض', cls: 'bg-red-50 text-red-700' }, cancelled: { label: 'ملغى', cls: 'bg-slate-100 text-slate-600' }, completed: { label: 'مكتمل — نزل للنظام', cls: 'bg-emerald-50 text-emerald-700' },
+}
 
 export interface DeptProceduresPageProps { title?: string; dept?: string; testId?: string }
-/** صفحة مشتركة بنطاق القسم — الكراج افتراضياً؛ المحطة التحويلية (00213) تمرر عنوانها واسم جهتها. */
+/** صفحة مشتركة بنطاق القسم — الكراج افتراضياً؛ المحطة التحويلية (00213) والصيانة (00223) تمرران عنوانهما واسم جهتهما. */
 export default function GarageProceduresPage({ title = 'إجراءات الكراج', dept = 'الكراج', testId = 'garage-procedures-page' }: DeptProceduresPageProps = {}) {
   const [tab, setTab] = useState<Tab>('hire')
   const mine = useMyTerminationRequests()
+  const hireReqs = useMyHireRequests()
   const hires = useGarageRecentHires()
   const all = mine.data ?? []
-  const pending = all.filter((r) => r.status === 'pending').length
+  const pendingTerm = all.filter((r) => r.status === 'pending').length
+  const pendingHire = (hireReqs.data ?? []).filter((r) => r.status === 'pending').length
+  const awaitingHr = (hireReqs.data ?? []).filter((r) => r.status === 'approved').length
+  const pending = pendingTerm + pendingHire
   const incomplete = (hires.data ?? []).filter((h) => !h.has_biometric || !h.salary_ready || !h.has_manager).length
   return (
     <div className="space-y-4 pb-4" data-testid={testId}>
-      <ExecPageHeader icon="flow" title={title} subtitle={`تعيين ببيانات أساسية فقط، وإنهاء خدمة لموظفي قسم ${dept} عبر سلسلة الموافقات — الراتب للمالية، والبصمة والبيانات الشخصية للموارد البشرية`}
-        stats={[{ label: 'إنهاء قيد الموافقة', value: mine.isLoading ? '…' : n(pending), tone: pending ? 'gold' : 'plain' }, { label: 'تعيينات (180 يوماً)', value: hires.isLoading ? '…' : n((hires.data ?? []).length) }, { label: 'ملفات غير مكتملة', value: hires.isLoading ? '…' : n(incomplete), tone: incomplete ? 'red' : 'green' }, { label: 'إنهاء نُفّذ', value: n(all.filter((r) => r.status === 'executed').length) }]} />
-      <ExecTabBar value={tab} onChange={setTab} testId="gp-tabs" tabs={[{ key: 'hire', label: 'تعيين', icon: 'user-plus' }, { key: 'terminate', label: 'إنهاء خدمة', icon: 'alert-triangle' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }, { key: 'hires', label: 'التعيينات الأخيرة', icon: 'users', badge: incomplete }]} />
-      {tab === 'hire' && <HireForm dept={dept} onDone={() => setTab('hires')} />}
+      <ExecPageHeader icon="flow" title={title} subtitle={`طلب تعيين موظف جديد (بلا رقم وظيفي — يمرّ بسلسلة الموافقات ثم تُكمله الموارد البشرية)، وإنهاء خدمة لموظفي قسم ${dept} عبر سلسلة الموافقات — الراتب للمالية`}
+        stats={[{ label: 'تعيين قيد الموافقة', value: hireReqs.isLoading ? '…' : n(pendingHire), tone: pendingHire ? 'gold' : 'plain' }, { label: 'معتمد بانتظار HR', value: hireReqs.isLoading ? '…' : n(awaitingHr), tone: awaitingHr ? 'gold' : 'plain' }, { label: 'إنهاء قيد الموافقة', value: mine.isLoading ? '…' : n(pendingTerm), tone: pendingTerm ? 'gold' : 'plain' }, { label: 'ملفات غير مكتملة', value: hires.isLoading ? '…' : n(incomplete), tone: incomplete ? 'red' : 'green' }]} />
+      <ExecTabBar value={tab} onChange={setTab} testId="gp-tabs" tabs={[{ key: 'hire', label: 'طلب تعيين', icon: 'user-plus' }, { key: 'terminate', label: 'إنهاء خدمة', icon: 'alert-triangle' }, { key: 'mine', label: 'طلباتي', icon: 'list', badge: pending }, { key: 'hires', label: 'التعيينات الأخيرة', icon: 'users', badge: incomplete }]} />
+      {tab === 'hire' && <HireForm dept={dept} onDone={() => setTab('mine')} />}
       {tab === 'terminate' && <NewTermination onDone={() => setTab('mine')} />}
-      {tab === 'mine' && <MyRequests />}
+      {tab === 'mine' && <><MyHireRequests /><MyRequests /></>}
       {tab === 'hires' && <RecentHires />}
     </div>
   )
@@ -42,31 +52,31 @@ export default function GarageProceduresPage({ title = 'إجراءات الكر�
 function HireForm({ onDone, dept }: { onDone: () => void; dept: string }) {
   const { data: opts, isLoading, error } = useGarageHireOptions()
   const hire = useGarageHire()
-  const [fullName, setFullName] = useState(''); const [number, setNumber] = useState(''); const [phone, setPhone] = useState('')
+  const [fullName, setFullName] = useState(''); const [phone, setPhone] = useState('')
   const [titleId, setTitleId] = useState(''); const [shiftId, setShiftId] = useState(''); const [hireDate, setHireDate] = useState(today()); const [contract, setContract] = useState<'monthly' | 'daily'>('monthly')
   const [done, setDone] = useState<string | null>(null)
-  useEffect(() => { if (opts?.next_employee_number && !number) setNumber(opts.next_employee_number) }, [opts?.next_employee_number, number])
   const title = opts?.job_titles.find((t) => t.id === titleId)
-  const canSend = fullName.trim().length >= 3 && number.trim().length > 0 && !!titleId && !!hireDate && !hire.isPending
+  const canSend = fullName.trim().length >= 3 && !!titleId && !!hireDate && !hire.isPending
   const submit = async () => {
     setDone(null)
     try {
-      const r = await hire.mutateAsync({ full_name: fullName.trim(), employee_number: number.trim(), phone: phone.trim() || null, job_title_id: titleId, hire_date: hireDate, contract_type: contract, shift_id: shiftId || null })
-      setDone(`تم تعيين ${r.full_name} (${r.employee_number}) — أُبلغت الموارد البشرية لإكمال الملف والمالية لتحديد الراتب`)
-      setFullName(''); setPhone(''); setTitleId(''); setShiftId(''); setNumber('')
+      const r = await hire.mutateAsync({ full_name: fullName.trim(), phone: phone.trim() || null, job_title_id: titleId, hire_date: hireDate, contract_type: contract, shift_id: shiftId || null })
+      setDone(`أُرسل طلب تعيين ${r.full_name} (${r.job_title}) إلى ${r.via_chain ? 'سلسلة الموافقات' : 'المدير المفوض'} — بعد الاعتماد تكتب الموارد البشرية الرقم الوظيفي وتُكمل الملف`)
+      setFullName(''); setPhone(''); setTitleId(''); setShiftId('')
       onDone()
     } catch { /* الخطأ يُعرض أدناه */ }
   }
   if (isLoading) return <LoadingSpinner />
   if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">{disclosureErrorMessage(error)}</p>
   if (!opts?.job_titles.length) return <EmptyState title={`لا مسميات وظيفية في هيكل قسم ${dept}`} hint={`اطلب من الموارد البشرية إضافة المسميات تحت قسم ${dept} في الهيكل التنظيمي`} />
+  const path = opts.chain?.labels.length ? opts.chain.labels.join(' ← ') : 'المدير المفوض (الافتراضي — بلا سلسلة مضبوطة)'
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="gp-hire-form">
-      <h2 className="text-sm font-black text-slate-800">تعيين موظف جديد في قسم {dept}</h2>
-      <p className="mt-1 text-[11px] text-slate-500">البيانات الأساسية فقط. رقم البصمة والبيانات الشخصية والمدير المباشر تُكملها الموارد البشرية؛ الراتب تحدده المالية. القسم وخانة «سائق» يُشتقّان من المسمى.</p>
+      <h2 className="text-sm font-black text-slate-800">طلب تعيين موظف جديد في قسم {dept}</h2>
+      <p className="mt-1 text-[11px] text-slate-500">هذا طلب فقط — لا يُنشأ الموظف ولا يُكتب رقمه الوظيفي هنا. بعد اعتماد الطلب تكتب الموارد البشرية الرقم الوظيفي وتُكمل البيانات (البصمة، البيانات الشخصية، المدير المباشر)؛ الراتب تحدده المالية. القسم وخانة «سائق» يُشتقّان من المسمى.</p>
+      <p className="mt-1 rounded-lg bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700" data-testid="gp-hire-path">مسار الموافقة: {path}</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-xs font-semibold text-slate-600">الاسم الكامل<input className={field} value={fullName} onChange={(e) => setFullName(e.target.value)} data-testid="gp-name" /></label>
-        <label className="text-xs font-semibold text-slate-600">الرقم الوظيفي<input className={field} dir="ltr" value={number} onChange={(e) => setNumber(e.target.value)} data-testid="gp-number" /></label>
         <label className="text-xs font-semibold text-slate-600">الهاتف (اختياري)<input className={field} dir="ltr" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} data-testid="gp-phone" /></label>
         <label className="text-xs font-semibold text-slate-600">المسمى الوظيفي
           <select className={field} value={titleId} onChange={(e) => setTitleId(e.target.value)} data-testid="gp-title">
@@ -83,10 +93,45 @@ function HireForm({ onDone, dept }: { onDone: () => void; dept: string }) {
           </select>
         </label>
       </div>
-      {title && <p className="mt-2 text-[11px] text-slate-500">سيُسجَّل في قسم «{title.department}»{title.drives_vehicles ? ' ويظهر ضمن سائقي غرفة العمليات' : ''}.</p>}
+      {title && <p className="mt-2 text-[11px] text-slate-500">سيُسجَّل في قسم «{title.department}»{title.drives_vehicles ? ' ويظهر ضمن سائقي غرفة العمليات' : ''} بعد إكمال الموارد البشرية.</p>}
       {hire.error && <p role="alert" className="mt-2 rounded-xl bg-red-50 p-2 text-xs font-bold text-red-700" data-testid="gp-hire-error">{disclosureErrorMessage(hire.error)}</p>}
       {done && <p className="mt-2 rounded-xl bg-emerald-50 p-2 text-xs font-bold text-emerald-700" data-testid="gp-hire-done">{done}</p>}
-      <button type="button" disabled={!canSend} onClick={() => void submit()} className="mt-3 h-10 rounded-xl bg-[#0b3d6b] px-5 text-sm font-black text-white disabled:opacity-40" data-testid="gp-hire-submit">تعيين</button>
+      <button type="button" disabled={!canSend} onClick={() => void submit()} className="mt-3 h-10 rounded-xl bg-[#0b3d6b] px-5 text-sm font-black text-white disabled:opacity-40" data-testid="gp-hire-submit">إرسال طلب التعيين</button>
+    </section>
+  )
+}
+
+/** 00348: طلبات التعيين التي قدّمتها — الحالة وعند من يقف الطلب وسبب الرفض */
+function MyHireRequests() {
+  const { data, isLoading, error } = useMyHireRequests()
+  const cancel = useCancelHireRequest()
+  if (isLoading) return <LoadingSpinner />
+  if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">{disclosureErrorMessage(error)}</p>
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="gp-hire-requests">
+      <h2 className="text-sm font-black text-slate-800">طلبات التعيين</h2>
+      {!data?.length ? <p className="mt-2 text-xs text-slate-500">لا طلبات تعيين بعد.</p> : (
+        <ul className="mt-2 divide-y divide-slate-100">
+          {data.map((r) => {
+            const st = HIRE_STATUS[r.status]
+            return (
+              <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2" data-testid={`gp-hire-req-${r.id}`}>
+                <div className="min-w-0">
+                  <div className="font-black text-slate-800">{r.full_name} <span className="text-[11px] font-semibold text-slate-500">· {r.job_title}{r.department ? ` · ${r.department}` : ''}</span></div>
+                  <div className="text-[11px] text-slate-500" dir="auto">مباشرة <span dir="ltr">{r.hire_date}</span> · {r.contract_type === 'daily' ? 'يومي' : 'شهري'}{r.shift_name ? ` · ${r.shift_name}` : ''}{r.employee_number ? ` · الرقم الوظيفي ${r.employee_number}` : ''}</div>
+                  {r.status === 'pending' && r.current_step && <div className="mt-0.5 text-[11px] font-bold text-amber-800" data-testid={`gp-hire-req-step-${r.id}`}>عند: {r.current_step}</div>}
+                  {r.status === 'rejected' && r.rejected_note && <div className="mt-0.5 text-[11px] font-bold text-red-700" data-testid={`gp-hire-req-reason-${r.id}`}>سبب الرفض: {r.rejected_note}</div>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={clsx('rounded-md px-2 py-0.5 text-[11px] font-black', st.cls)} data-testid={`gp-hire-req-status-${r.id}`}>{st.label}</span>
+                  {r.status === 'pending' && <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate(r.id)} className="h-8 rounded-lg border border-slate-300 px-2 text-[11px] font-bold text-slate-700 disabled:opacity-40" data-testid={`gp-hire-req-cancel-${r.id}`}>إلغاء</button>}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {cancel.error && <p role="alert" className="mt-2 rounded-xl bg-red-50 p-2 text-xs font-bold text-red-700">{disclosureErrorMessage(cancel.error)}</p>}
     </section>
   )
 }
