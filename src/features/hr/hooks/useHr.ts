@@ -4,7 +4,7 @@ import { hrKeys } from '@lib/query-keys/hr.keys'
 import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, BehaviorPeriodKind, DeputyDeductionKind, CreateEmployeeInput, DocType, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
+import type { AttendanceFilters, BehaviorPeriodKind, DeputyDeductionKind, CreateEmployeeInput, DocType, HrHireRequestStatusFilter, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -55,6 +55,22 @@ export function useCreateEmployee() {
   return useMutation({
     mutationFn: (v: CreateEmployeeInput) => hr.createEmployee(v),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('سُجّل الموظف وأُرسل ملف راتبه إلى المالية') },
+    onError: t.err,
+  })
+}
+/* ─── 00348 (B): طلبات التعيين المعتمدة ─── */
+export function useHrHireRequests(status: HrHireRequestStatusFilter = 'approved') {
+  return useQuery({ queryKey: hrKeys.hireRequests(status), queryFn: () => hr.hireRequests(status), staleTime: 15_000 })
+}
+export function useEmployeeNumberAvailable(number: string) {
+  const n = number.trim()
+  return useQuery({ queryKey: hrKeys.employeeNumberCheck(n), queryFn: () => hr.employeeNumberAvailable(n), enabled: n.length > 0, staleTime: 5_000 })
+}
+export function useCompleteHireRequest() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { requestId: string; input: CreateEmployeeInput }) => hr.completeHireRequest(v.requestId, v.input),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('نزل الموظف للنظام وأُرسل ملف راتبه إلى المالية وأُبلغ مقدّم الطلب') },
     onError: t.err,
   })
 }

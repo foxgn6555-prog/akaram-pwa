@@ -13,6 +13,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   ] }),
   useHrEmployees: () => ({ data: [], isLoading: false }),
   useCreateEmployee: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCompleteHireRequest: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSaveShift: () => ({ mutateAsync: h.save, isPending: false }),
   useTerminateEmployee: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),

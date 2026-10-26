@@ -2,6 +2,8 @@ export const hrKeys = {
   all: ['hr'] as const,
   shifts: () => [...hrKeys.all, 'shifts'] as const,
   employees: (f?: unknown) => [...hrKeys.all, 'employees', f ?? {}] as const,
+  hireRequests: (status: string) => [...hrKeys.all, 'hire-requests', status] as const,
+  employeeNumberCheck: (n: string) => [...hrKeys.all, 'employee-number-check', n] as const,
   employee: (id: string) => [...hrKeys.all, 'employee', id] as const,
   documents: (id: string) => [...hrKeys.all, 'documents', id] as const,
   assignments: (id: string) => [...hrKeys.all, 'assignments', id] as const,

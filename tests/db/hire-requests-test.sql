@@ -178,3 +178,44 @@ do $$ declare n int; begin
   raise notice 'H8 ✅ RLS';
 end $$;
 reset role; select set_config('auth.user_id','', false);
+
+-- ⑨ (00290 — الجولة B) الموارد البشرية تُكمل المعتمد: رقم يدوي، التكرار مرفوض، غير المعتمد لا يُكمَل، الموظف يُنشأ هنا فقط عبر hr_employee_create
+select auth.set_test_user('48000000-0000-0000-0000-000000000006');
+do $$ declare rid uuid; pid uuid; emp uuid; n int; r record; begin
+  select id into rid from public.hire_requests where full_name = 'كريم حسن' and status = 'approved';
+  select id into pid from public.hire_requests where full_name = 'سامر فني' and status = 'pending';
+  -- القائمة: المعتمدون بانتظار الإكمال
+  select count(*) into n from public.hire_requests_for_hr('approved') x where x.id = rid and x.job_title = 'وزّان 48' and x.source_label = 'المحطة التحويلية' and x.requester_name <> ''; assert n = 1, 'hr list approved';
+  assert (select count(*) from public.hire_requests_for_hr('approved') x where x.id = pid) = 0, 'pending not in approved list';
+  -- فحص الرقم
+  assert public.hr_employee_number_available('H48-NEW-1'), 'number free';
+  assert not public.hr_employee_number_available('H48-G'), 'number taken';
+  assert not public.hr_employee_number_available(''), 'empty number not available';
+  -- غير المعتمد لا يُكمَل؛ بلا رقم مرفوض؛ الرقم المكرر مرفوض
+  perform pg_temp.expect_error(format('select public.hire_request_complete(%L, %L::jsonb)', pid, '{"employee_number":"H48-NEW-9"}'), 'HIRE_NOT_APPROVED');
+  perform pg_temp.expect_error(format('select public.hire_request_complete(%L, %L::jsonb)', rid, '{}'), 'HR_NUMBER_REQUIRED');
+  perform pg_temp.expect_error(format('select public.hire_request_complete(%L, %L::jsonb)', rid, '{"employee_number":"H48-G"}'), 'HR_NUMBER_TAKEN');
+  assert not exists (select 1 from public.employees where full_name = 'كريم حسن'), 'still no employee after failed attempts';
+  -- الإكمال الفعلي مع بيانات إضافية من HR
+  emp := public.hire_request_complete(rid, '{"employee_number":"H48-NEW-1","biometric_pin":"4801","national_id_number":"123456789012","governorate":"بغداد"}'::jsonb);
+  select * into r from public.employees where id = emp;
+  assert r.employee_number = 'H48-NEW-1' and r.full_name = 'كريم حسن' and r.job_title_id = '48d00000-0000-0000-0000-0000000000b2' and r.department_id = '48d00000-0000-0000-0000-0000000000b1'
+     and r.hire_date = '2026-11-05' and r.contract_type = 'monthly' and r.biometric_pin = '4801' and r.national_id_number = '123456789012', 'employee created from request + hr data: ' || r::text;
+  assert (select status from public.employee_salary_profiles where employee_id = emp) = 'pending', 'salary pending for finance';
+  assert exists (select 1 from public.finance_hr_notices where employee_id = emp and kind = 'salary_pending'), 'finance notice';
+  select * into r from public.hire_requests where id = rid;
+  assert r.status = 'completed' and r.employee_id = emp and r.completed_by = '48000000-0000-0000-0000-000000000006' and r.completed_at is not null, 'request completed: ' || r.status;
+  select count(*) into n from public.notifications where user_id = '48000000-0000-0000-0000-000000000002' and title = 'نزل الموظف كريم حسن للنظام برقم H48-NEW-1'; assert n = 1, 'requester notified of completion';
+  perform pg_temp.expect_error(format('select public.hire_request_complete(%L, %L::jsonb)', rid, '{"employee_number":"H48-NEW-2"}'), 'HIRE_ALREADY_COMPLETED');
+  assert (select count(*) from public.employees where full_name = 'كريم حسن') = 1, 'exactly one employee';
+  assert (select count(*) from public.hire_requests_for_hr('completed') x where x.id = rid and x.employee_number = 'H48-NEW-1') = 1, 'completed list';
+  raise notice 'H9 ✅ إكمال الموارد البشرية';
+end $$;
+-- الطالب يرى الرقم في «طلباتي»؛ غير HR ممنوع من الإكمال والقائمة
+select auth.set_test_user('48000000-0000-0000-0000-000000000002');
+do $$ declare n int; begin
+  select count(*) into n from public.hire_requests_mine() m where m.status = 'completed' and m.employee_number = 'H48-NEW-1'; assert n = 1, 'requester sees completed with number';
+  perform pg_temp.expect_error($q$ select public.hire_requests_for_hr('approved') $q$, 'HR_FORBIDDEN');
+  perform pg_temp.expect_error($q$ select public.hire_request_complete('48000000-0000-0000-0000-000000000001', '{"employee_number":"x"}'::jsonb) $q$, 'HR_FORBIDDEN');
+  raise notice 'H10 ✅ صلاحيات الإكمال';
+end $$;

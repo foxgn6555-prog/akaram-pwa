@@ -949,3 +949,13 @@ export interface DeputyReviewAudit {
   action: 'waive' | 'amount' | 'clear' | 'percent' | 'approve' | 'reopen'; kind: DeputyDeductionKind | null
   before: Record<string, unknown> | null; after: Record<string, unknown> | null; reason: string | null; actor_name: string | null; created_at: string
 }
+
+/* ─── 00348 (B): طلبات التعيين لدى الموارد البشرية ─── */
+export type HrHireRequestStatusFilter = 'approved' | 'completed' | 'pending' | 'rejected' | 'all'
+export interface HrHireRequest {
+  id: string; full_name: string; phone: string | null; job_title_id: string; job_title: string; department_id: string | null; department: string | null
+  hire_date: string; contract_type: ContractType; shift_id: string | null; shift_name: string | null
+  source: 'garage' | 'station' | 'maintenance'; source_label: string; requester_name: string; note: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'; created_at: string; decided_at: string | null; completed_at: string | null
+  employee_id: string | null; employee_number: string | null; days_waiting: number
+}

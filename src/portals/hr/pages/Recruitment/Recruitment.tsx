@@ -13,7 +13,7 @@ import { useDepartments } from '@features/departments'
 import { useHrJobTitles } from '@features/hr'
 import {
   CONTRACT_LABELS, GOVERNORATES_IQ, TERMINATION_LABELS, WEEKDAYS_AR,
-  useCreateEmployee, useHrEmployees, useHrShifts, useSaveShift, useTerminateEmployee, useUploadDocument,
+  useCompleteHireRequest, useCreateEmployee, useHrEmployees, useHrShifts, useSaveShift, useTerminateEmployee, useUploadDocument,
 } from '@features/hr'
 import type { CreateEmployeeInput, HrShift, TerminationType } from '@features/hr'
 import { Button } from '@components/ui'
@@ -56,8 +56,10 @@ export default function Recruitment() {
 }
 
 // ───────────────────────── توظيف ─────────────────────────
-function HireForm() {
-  const [v, setV] = useState<CreateEmployeeInput>(EMPTY)
+/** 00348 (B): النموذج نفسه يُستخدم لإكمال «طلب تعيين» معتمد — يُعبَّأ من الطلب، والرقم الوظيفي يُكتب يدوياً، والحفظ يمرّ عبر hire_request_complete. */
+export interface HireFormProps { initial?: Partial<CreateEmployeeInput>; completeRequestId?: string; onCompleted?: (employeeId: string) => void }
+export function HireForm({ initial, completeRequestId, onCompleted }: HireFormProps = {}) {
+  const [v, setV] = useState<CreateEmployeeInput>({ ...EMPTY, ...initial })
   const [err, setErr] = useState<string | null>(null)
   const [createdId, setCreatedId] = useState<string | null>(null)
   const { data: departments = [] } = useDepartments()
@@ -69,7 +71,9 @@ function HireForm() {
   const departmentOptions = departments.filter((d) => !d.is_job_title)
   const titleGroups = Array.from(new Map(jobTitles.map((t) => [t.department_id, t.department_name])).entries())
   const { data: managers = [] } = useHrEmployees({ status: 'active' })
-  const create = useCreateEmployee()
+  const createNew = useCreateEmployee()
+  const complete = useCompleteHireRequest()
+  const create = completeRequestId ? complete : createNew
   const set = <K extends keyof CreateEmployeeInput>(k: K, val: CreateEmployeeInput[K]) => setV((s) => ({ ...s, [k]: val }))
   const shift = shifts.find((s) => s.id === v.shift_id)
 
@@ -84,8 +88,9 @@ function HireForm() {
     if (v.phone && !/^0?7\d{9}$/.test(v.phone.replace(/\s/g, ''))) return setErr('رقم الهاتف غير صالح (07XXXXXXXXX)')
     if (v.national_id_number && !/^\d{12}$/.test(v.national_id_number)) return setErr('رقم البطاقة الموحدة 12 رقماً')
     try {
-      const id = await create.mutateAsync({ ...v, department_id: selectedTitle ? selectedTitle.department_id : v.department_id, shift_grace_override: v.shift_grace_override ?? undefined })
-      setCreatedId(id)
+      const payload = { ...v, department_id: selectedTitle ? selectedTitle.department_id : v.department_id, shift_grace_override: v.shift_grace_override ?? undefined }
+      const id = completeRequestId ? await complete.mutateAsync({ requestId: completeRequestId, input: payload }) : await createNew.mutateAsync(payload)
+      setCreatedId(id); onCompleted?.(id)
     } catch { /* toast */ }
   }
 
@@ -93,11 +98,11 @@ function HireForm() {
     return (
       <div className="space-y-4" data-testid="hire-success">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="font-bold text-emerald-800">✓ سُجّل الموظف «{v.full_name}» برقم {v.employee_number}</p>
+          <p className="font-bold text-emerald-800">✓ سُجّل الموظف «{v.full_name}» برقم {v.employee_number}{completeRequestId ? ' — أُبلغ مقدّم طلب التعيين' : ''}</p>
           <p className="mt-1 text-xs text-emerald-700">أُنشئ ملف راتب «بانتظار المالية» وأُرسل إشعار لبوابة المالية لإدخال بيانات الراتب. ارفع المستمسكات الآن أو لاحقاً من ملف الموظف.</p>
           <div className="mt-3 flex gap-2">
             <Link to={`/hr/employees/${createdId}`} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white" data-testid="go-profile">فتح ملف الموظف</Link>
-            <Button size="sm" variant="secondary" onClick={() => { setCreatedId(null); setV(EMPTY) }} data-testid="hire-another">توظيف موظف آخر</Button>
+            {!completeRequestId && <Button size="sm" variant="secondary" onClick={() => { setCreatedId(null); setV(EMPTY) }} data-testid="hire-another">توظيف موظف آخر</Button>}
           </div>
         </div>
         <DocumentsPanel employeeId={createdId} />
@@ -201,8 +206,8 @@ function HireForm() {
       </div>
       {err && <p role="alert" className="text-sm font-semibold text-red-600" data-testid="hire-error">{err}</p>}
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={() => setV(EMPTY)}>مسح</Button>
-        <Button type="submit" isLoading={create.isPending} data-testid="hire-submit"><Icon name="user-plus" size={16} /> حفظ وتوظيف</Button>
+        <Button type="button" variant="ghost" onClick={() => setV({ ...EMPTY, ...initial })}>مسح</Button>
+        <Button type="submit" isLoading={create.isPending} data-testid="hire-submit"><Icon name="user-plus" size={16} /> {completeRequestId ? 'حفظ وإنزال الموظف للنظام' : 'حفظ وتوظيف'}</Button>
       </div>
     </form>
   )

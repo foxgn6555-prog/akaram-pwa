@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const HRDashboard = lazy(() => import('./pages/Dashboard/HRDashboard'))
 const Recruitment = lazy(() => import('./pages/Recruitment/Recruitment'))
+const HireRequestsPage = lazy(() => import('./pages/Recruitment/HireRequestsPage'))   // 00348 (B)
 const EmployeesList = lazy(() => import('./pages/Employees/EmployeesList'))
 const EmployeeDetail = lazy(() => import('./pages/Employees/EmployeeDetail'))
 const AttendanceLog = lazy(() => import('./pages/Attendance/AttendanceLog'))
@@ -23,6 +24,7 @@ const s = (node: ReactNode): ReactNode => (
 export const customRoutes: RouteObject[] = [
   { path: '', element: s(<HRDashboard />) },
   { path: 'recruitment', element: s(<Recruitment />) },
+  { path: 'hire-requests', element: s(<HireRequestsPage />) },
   { path: 'employees', element: s(<EmployeesList />) },
   { path: 'employees/:employeeId', element: s(<EmployeeDetail />) },
   { path: 'attendance', element: s(<AttendanceLog />) },

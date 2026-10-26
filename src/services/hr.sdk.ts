@@ -10,7 +10,7 @@ import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewR
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
-  MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation, RentedTaxOverview, RentedTaxAudit, RentedTaxPreviewRow} from '@features/hr/types'
+  MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation, RentedTaxOverview, RentedTaxAudit, RentedTaxPreviewRow, HrHireRequest, HrHireRequestStatusFilter } from '@features/hr/types'
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
@@ -23,6 +23,9 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_NAME_REQUIRED: 'اسم الموظف مطلوب',
   HR_NUMBER_REQUIRED: 'الرقم الوظيفي مطلوب',
   HR_NUMBER_TAKEN: 'الرقم الوظيفي مستخدم لموظف آخر',
+  HIRE_NOT_APPROVED: 'طلب التعيين غير معتمد بعد — لا يُكمَل قبل اكتمال الموافقات',
+  HIRE_ALREADY_COMPLETED: 'هذا الطلب أُكمل سابقاً ونزل موظفه للنظام',
+  PROCEDURE_NOT_FOUND: 'الطلب غير موجود',
   BIO_PIN_TAKEN: 'رقم البصمة مرتبط بموظف آخر',
   HR_FIELD_NOT_ALLOWED: 'حقل غير مسموح بتعديله من هنا',
   HR_NOT_FOUND: 'السجل غير موجود',
@@ -162,6 +165,18 @@ export const hr = {
   createEmployee(input: CreateEmployeeInput) {
     const clean = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== '' && v !== undefined))
     return rpc<string>('hr_employee_create', { p: clean })
+  },
+  /* ─── 00348 (B): طلبات التعيين المعتمدة — الإكمال من الموارد البشرية (الرقم الوظيفي يدوي) ─── */
+  hireRequests(status: HrHireRequestStatusFilter = 'approved') {
+    return rpc<HrHireRequest[]>('hire_requests_for_hr', { p_status: status })
+  },
+  employeeNumberAvailable(number: string) {
+    return rpc<boolean>('hr_employee_number_available', { p_number: number })
+  },
+  /** الموظف يُنشأ هنا فقط (عبر hr_employee_create في الخادم) ثم يُبلَّغ الطالب */
+  completeHireRequest(requestId: string, input: CreateEmployeeInput) {
+    const clean = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== '' && v !== undefined))
+    return rpc<string>('hire_request_complete', { p_id: requestId, p: clean })
   },
   updateEmployee(id: string, patch: Record<string, unknown>) {
     return sdkVoid(supabase.rpc('hr_employee_update', { p_id: id, p: patch } as never))

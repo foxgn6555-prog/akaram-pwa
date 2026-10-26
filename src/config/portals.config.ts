@@ -157,6 +157,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.HR]: [
     { path: '/hr', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/hr/recruitment', labelKey: 'nav.hr_recruitment', icon: 'user-plus' },
+    { path: '/hr/hire-requests', labelKey: 'nav.hr_hire_requests', icon: 'clipboard' },   // 00348 (B)
     { path: '/hr/employees', labelKey: 'nav.employees', icon: 'users' },
     { path: '/hr/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
     { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },

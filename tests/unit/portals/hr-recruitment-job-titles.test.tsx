@@ -16,6 +16,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useHrShifts: () => ({ data: [{ id: 's1', name: 'صباحي', start_time: '08:00', end_time: '16:00', grace_minutes: 15, work_days: [0, 1, 2, 3, 4], is_active: true }] }),
   useHrEmployees: () => ({ data: [], isLoading: false }),
   useCreateEmployee: () => ({ mutateAsync: h.create, isPending: false }),
+  useCompleteHireRequest: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSaveShift: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useTerminateEmployee: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
