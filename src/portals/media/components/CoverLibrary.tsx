@@ -19,7 +19,7 @@ import {
   type MediaCoverInput,
 } from '@features/media/hooks'
 import { PERIODS, PERIOD_LABEL, SECTOR_LABEL, type PeriodType, type SectorParent } from '@features/media/constants'
-import { COVER_TEMPLATES, SHIFT_LABEL, builtinCoverPath, rankTemplates, type CoverContext, type CoverShift } from '@features/media/lib/cover-templates'
+import { COVER_TEMPLATES, SHIFT_LABEL, builtinCoverId, builtinCoverPath, rankTemplates, type CoverContext, type CoverShift } from '@features/media/lib/cover-templates'
 import CoverTemplate from './CoverTemplate'
 
 /** ترشيح نقي (مُختبر): القاطع/الفترة «العامة» (null) تظهر دائماً؛ البحث في العنوان والوسوم */
@@ -140,7 +140,7 @@ export function CoverLibraryDialog({
   // فتظهر كل القوالب «بلدية الكرادة» حتى مع اختيار الزعفرانية، ما يوحي بأن قوالب الزعفرانية مفقودة
   const today = new Date().toISOString().slice(0, 10)
   const base: CoverContext = ctx ?? { periodType: 'daily', sector: 'karrada', periodStart: today, periodEnd: today, shift: null }
-  const previewCtx: CoverContext = { ...base, sector: (sector as SectorParent) || (ctx ? base.sector : null), periodType: (periodType as PeriodType) || base.periodType, shift: (shift as CoverShift) || null }
+  const previewCtx: CoverContext = { ...base, sector: (sector as SectorParent) || null, periodType: (periodType as PeriodType) || base.periodType, shift: (shift as CoverShift) || null }
   const templates = useMemo(() => rankTemplates(COVER_TEMPLATES, (shift as CoverShift) || null), [shift])
   const urls = useSignedPhotoUrls(list.map((c) => c.storage_path)).data ?? {}
 
@@ -232,8 +232,9 @@ export function CoverLibraryDialog({
             </h3>
             <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
               {templates.map((t) => {
-                const path = builtinCoverPath(t.id)
-                const isCurrent = current === path
+                // 00352: اللاحقة تحفظ القاطع المعروض في المعاينة (كل القواطع ⇒ both) فيكتب الغلاف ما شاهده المستخدم
+                const path = builtinCoverPath(t.id, (sector as SectorParent) || 'both')
+                const isCurrent = builtinCoverId(current) === t.id
                 return (
                   <li key={t.id} className={`overflow-hidden rounded-xl border ${isCurrent ? 'border-fuchsia-600 ring-2 ring-fuchsia-200' : 'border-slate-200'}`} data-testid={`template-item-${t.id}`}>
                     <button

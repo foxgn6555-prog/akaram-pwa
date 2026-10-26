@@ -88,7 +88,7 @@ import {
   type ReportStyle,
 } from './reportTemplates'
 import type { WordDataRef } from './DesignExportMenu'
-import { builtinCoverId, coverTemplateById, type CoverContext } from '@features/media/lib/cover-templates'
+import { builtinCoverId, coverCtxForPath, coverTemplateById, type CoverContext } from '@features/media/lib/cover-templates'
 import CoverTemplate from '../../components/CoverTemplate'
 
 export interface DesignReportData {
@@ -741,7 +741,7 @@ export default function DesignReportView({
           {/* الورقة 1: الغلاف اليدوي كما هو */}
           <section className="rp-page">
             {builtinDef ? (
-              <CoverTemplate def={builtinDef} ctx={coverCtx} className="rp-cover-img" />
+              <CoverTemplate def={builtinDef} ctx={coverCtxForPath(coverCtx, coverPath)} className="rp-cover-img" />
             ) : coverUrl ? (
               <img src={coverUrl} alt="غلاف التقرير" className="rp-cover-img" />
             ) : (

@@ -43,6 +43,8 @@ vi.mock('@features/media/hooks', () => ({
 
 import { CoverLibraryDialog, PickCoverButton, SaveCoverToLibraryButton, filterCovers } from '@portals/media/components/CoverLibrary'
 import MediaDesignsPage from '@portals/media/pages/Designs/MediaDesignsPage'
+import DesignCover from '@portals/media/components/DesignCover'
+import { builtinCoverId, builtinCoverSector, municipalityScale } from '@features/media/lib/cover-templates'
 import type { MediaCover } from '@features/media/hooks'
 
 const cover = (o: Partial<MediaCover>): MediaCover => ({ id: 'c', title: 'غلاف', storage_path: 'media-officer/c.jpg', sector_parent: null, period_type: null, tags: '', use_count: 0, status: 'active', created_at: '', updated_at: '', ...o })
@@ -144,15 +146,16 @@ describe('الأزرار المساعدة والتكامل', () => {
 
 describe('00351 — معاينة القوالب الجاهزة تتبع مرشّح القاطع حتى مع سياق تصميم', () => {
   const ctx = { periodType: 'daily' as const, sector: 'karrada' as const, periodStart: '2026-10-25', periodEnd: '2026-10-25', shift: 'night' as const }
-  it('اختيار الزعفرانية في المرشّح ⇒ كل القوالب تكتب «بلدية الزعفرانية»؛ والعودة لـ«عام» تعيد قاطع التصميم', () => {
+  it('اختيار الزعفرانية في المرشّح ⇒ كل القوالب تكتب «بلدية الزعفرانية»؛ والعودة لـ«كل القواطع» تكتب القاطعين', () => {
     render(<CoverLibraryDialog close={vi.fn()} onPick={vi.fn()} defaultSector={null} defaultPeriod="daily" current={null} ctx={ctx} />)
     const muni = () => screen.getAllByTestId('cover-municipality').map((e) => e.textContent)
-    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة']))
+    // المرشّح يبدأ على «كل القواطع» (defaultSector فارغ) ⇒ القاطعان
+    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة والزعفرانية']))
     fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: 'zaafaraniya' } })
     expect(muni().length).toBeGreaterThan(0)
     expect(new Set(muni())).toEqual(new Set(['بلدية الزعفرانية']))
     fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: '' } })
-    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة']))
+    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة والزعفرانية']))
   })
 })
 
@@ -163,5 +166,33 @@ describe('00351 — «كل القواطع» بلا سياق تصميم ⇒ «ب�
     expect(muni()).toEqual(new Set(['بلدية الكرادة والزعفرانية']))
     fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: 'karrada' } })
     expect(muni()).toEqual(new Set(['بلدية الكرادة']))
+  })
+})
+
+describe('00352 — الترابط بين المعاينة والتصميم + تصغير نص البلدية الطويل', () => {
+  it('داخل تصميم الكرادة: «كل القواطع» تعرض القاطعين، والاختيار يحفظ اللاحقة #both فيعرض التصميم نفس الشيء', () => {
+    const onPick = vi.fn()
+    const ctx = { periodType: 'daily' as const, sector: 'karrada' as const, periodStart: '2026-10-26', periodEnd: '2026-10-26', shift: null }
+    render(<CoverLibraryDialog close={vi.fn()} onPick={onPick} defaultSector="karrada" defaultPeriod="daily" current={null} ctx={ctx} />)
+    const muni = () => new Set(screen.getAllByTestId('cover-municipality').map((e) => e.textContent))
+    expect(muni()).toEqual(new Set(['بلدية الكرادة']))
+    fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: '' } })
+    expect(muni()).toEqual(new Set(['بلدية الكرادة والزعفرانية']))
+    fireEvent.click(screen.getByTestId('template-pick-c1'))
+    expect(onPick.mock.calls[0]?.[0]).toBe('builtin:c1#both')
+    // التصميم (قاطعه الكرادة) يعرض الغلاف المحفوظ بالقاطعين
+    render(<DesignCover coverPath="builtin:c1#both" ctx={ctx} />)
+    expect(screen.getAllByTestId('cover-municipality').at(-1)?.textContent).toBe('بلدية الكرادة والزعفرانية')
+    // مسار قديم بلا لاحقة ⇒ قاطع التصميم كما كان
+    render(<DesignCover coverPath="builtin:c1" ctx={ctx} />)
+    expect(screen.getAllByTestId('cover-municipality').at(-1)?.textContent).toBe('بلدية الكرادة')
+  })
+  it('نص البلدية الطويل يُصغَّر تلقائياً ليبقى داخل الشريط؛ القصير بحجمه الكامل', () => {
+    expect(municipalityScale('بلدية الكرادة')).toBe(1)
+    expect(municipalityScale('بلدية الزعفرانية')).toBe(1)
+    expect(municipalityScale('بلدية الكرادة والزعفرانية')).toBeLessThanOrEqual(0.65)
+    expect(builtinCoverId('builtin:x#both')).toBe('x')
+    expect(builtinCoverSector('builtin:x#zaafaraniya')).toBe('zaafaraniya')
+    expect(builtinCoverSector('builtin:x')).toBeNull()
   })
 })

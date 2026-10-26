@@ -3,7 +3,7 @@
  * الورقة بنسبة A4؛ القياسات كلها بوحدة cqw (نسبة من عرض الحاوية) فتبقى الطباعة والمصغّرات والتصدير بنفس التناسب.
  */
 import { CalendarDays, Moon, Sun } from 'lucide-react'
-import { coverTexts, type CoverContext, type CoverTemplateDef } from '@features/media/lib/cover-templates'
+import { coverTexts, municipalityScale, type CoverContext, type CoverTemplateDef } from '@features/media/lib/cover-templates'
 
 export default function CoverTemplate({ def, ctx, className = '', style }: { def: CoverTemplateDef; ctx: CoverContext; className?: string; style?: React.CSSProperties }) {
   const t = coverTexts(ctx)
@@ -12,6 +12,7 @@ export default function CoverTemplate({ def, ctx, className = '', style }: { def
   const ShiftIcon = ctx.shift === 'morning' ? Sun : Moon
   const plain = def.layout === 'plain'
   const fontScale = def.fontScale ?? 1
+  const mScale = municipalityScale(t.municipality)
   const rule = <span aria-hidden style={{ flex: '0 0 auto', width: '9cqw', height: '0.35cqw', background: p.rule, borderRadius: '1cqw' }} />
   return (
     <div
@@ -45,7 +46,7 @@ export default function CoverTemplate({ def, ctx, className = '', style }: { def
 
         {/* بلدية … */}
         {plain ? (
-          <span data-testid="cover-municipality" style={{ color: p.bandText, fontWeight: 900, fontSize: `${7.8 * fontScale}cqw`, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+          <span data-testid="cover-municipality" style={{ color: p.bandText, fontWeight: 900, fontSize: `${7.8 * fontScale * mScale}cqw`, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
             {t.municipality}
           </span>
         ) : (
@@ -55,10 +56,10 @@ export default function CoverTemplate({ def, ctx, className = '', style }: { def
               background: p.bandBg,
               color: p.bandText,
               fontWeight: 900,
-              fontSize: `${9 * fontScale}cqw`,
+              fontSize: `${9 * fontScale * mScale}cqw`,
               lineHeight: 1.15,
               whiteSpace: 'nowrap',
-              padding: '1.6cqw 7cqw',
+              padding: mScale < 1 ? '1.4cqw 4cqw' : '1.6cqw 7cqw',
               borderRadius: '2.2cqw',
               transform: 'skewX(-8deg)',
               boxShadow: `inset 1.1cqw 0 0 ${p.bandEdge}, 0 1cqw 2.5cqw rgba(0,0,0,.25)`,

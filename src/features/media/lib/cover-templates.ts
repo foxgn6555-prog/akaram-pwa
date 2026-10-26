@@ -17,8 +17,20 @@ export const SHIFT_OPTIONS: Array<{ value: CoverShift | ''; label: string }> = [
 
 export const BUILTIN_PREFIX = 'builtin:'
 export const isBuiltinCover = (path: string | null | undefined): path is string => !!path && path.startsWith(BUILTIN_PREFIX)
-export const builtinCoverId = (path: string | null | undefined): string | null => (isBuiltinCover(path) ? path.slice(BUILTIN_PREFIX.length) : null)
-export const builtinCoverPath = (id: string) => `${BUILTIN_PREFIX}${id}`
+/** 00352: المسار قد يحمل لاحقة القاطع المختار في المكتبة `builtin:<id>#both|karrada|zaafaraniya` — ليكتب الغلاف ما شاهده المستخدم في المعاينة */
+export type CoverSectorChoice = SectorParent | 'both'
+export const builtinCoverId = (path: string | null | undefined): string | null => (isBuiltinCover(path) ? path.slice(BUILTIN_PREFIX.length).split('#')[0] ?? null : null)
+export const builtinCoverPath = (id: string, sector: CoverSectorChoice | null = null) => `${BUILTIN_PREFIX}${id}${sector ? `#${sector}` : ''}`
+export const builtinCoverSector = (path: string | null | undefined): CoverSectorChoice | null => {
+  const s = isBuiltinCover(path) ? path.split('#')[1] : undefined
+  return s === 'both' || s === 'karrada' || s === 'zaafaraniya' ? s : null
+}
+/** سياق العرض بعد تطبيق لاحقة المسار: both ⇒ القاطعان؛ قاطع محدد ⇒ هو؛ بلا لاحقة ⇒ قاطع التصميم */
+export function coverCtxForPath(ctx: CoverContext, path: string | null | undefined): CoverContext {
+  const s = builtinCoverSector(path)
+  if (!s) return ctx
+  return { ...ctx, sector: s === 'both' ? null : s }
+}
 
 export interface CoverPalette {
   /** لون سطر «الانجاز اليومي» */
@@ -118,6 +130,9 @@ const HEADLINE: Record<PeriodType, string> = {
   monthly: 'الانجاز الشهري',
 }
 const MUNICIPALITY: Record<SectorParent, string> = { karrada: 'بلدية الكرادة', zaafaraniya: 'بلدية الزعفرانية' }
+export const MUNICIPALITY_BOTH = 'بلدية الكرادة والزعفرانية'
+/** 00352: نسبة تصغير خط البلدية كي يبقى النص الطويل («الكرادة والزعفرانية») داخل الشريط بشكل مرتب — القصير يبقى 1 */
+export const municipalityScale = (text: string): number => (text.length <= 16 ? 1 : Math.max(0.55, Math.round((16 / text.length) * 100) / 100))
 
 /** 2026-10-07 → 2026/10/7 (أرقام لاتينية كما في التصميم المعتمد) */
 export function slashYmd(iso: string): string {
@@ -131,7 +146,7 @@ export function coverTexts(ctx: CoverContext): CoverTexts {
   const daily = ctx.periodType === 'daily' || ctx.periodStart === ctx.periodEnd
   return {
     headline: HEADLINE[ctx.periodType],
-    municipality: ctx.sector ? MUNICIPALITY[ctx.sector] : 'بلدية الكرادة والزعفرانية',
+    municipality: ctx.sector ? MUNICIPALITY[ctx.sector] : MUNICIPALITY_BOTH,
     date: daily ? `ليوم ${slashYmd(ctx.periodStart)}` : `من ${slashYmd(ctx.periodStart)} إلى ${slashYmd(ctx.periodEnd)}`,
     shift: ctx.shift ? SHIFT_LABEL[ctx.shift] : null,
   }

@@ -148,7 +148,7 @@ describe('مكتبة الغلافات: الشفت', () => {
     const firstId = within(sec).getAllByRole('listitem')[0]!.getAttribute('data-testid')!.replace('template-item-', '')
     expect(coverTemplateById(firstId)?.shiftHint).toBe('night')
     fireEvent.click(within(sec).getByTestId('template-pick-c5'))
-    expect(onPick).toHaveBeenCalledWith('builtin:c5', expect.objectContaining({ storage_path: 'builtin:c5' }))
+    expect(onPick).toHaveBeenCalledWith('builtin:c5#both', expect.objectContaining({ storage_path: 'builtin:c5#both' }))
     expect(h.touch).not.toHaveBeenCalled()
     expect(close).toHaveBeenCalled()
   })
@@ -192,7 +192,7 @@ describe('المصمم: الشفت + القالب الجاهز', () => {
 
     fireEvent.click(screen.getByTestId('open-cover-library'))
     fireEvent.click(screen.getByTestId('template-pick-c1'))
-    expect(h.designUpdate).toHaveBeenCalledWith(['d1', expect.objectContaining({ coverPath: 'builtin:c1' })], expect.anything())
+    expect(h.designUpdate).toHaveBeenCalledWith(['d1', expect.objectContaining({ coverPath: 'builtin:c1#karrada' })], expect.anything())
     const thumb = screen.getByTestId('composer-builtin-cover')
     expect(within(thumb).getByTestId('cover-template-c1')).toBeInTheDocument()
     expect(within(thumb).getByTestId('cover-municipality').textContent).toBe('بلدية الكرادة')
