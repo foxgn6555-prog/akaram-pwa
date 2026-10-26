@@ -140,7 +140,7 @@ export function CoverLibraryDialog({
   // فتظهر كل القوالب «بلدية الكرادة» حتى مع اختيار الزعفرانية، ما يوحي بأن قوالب الزعفرانية مفقودة
   const today = new Date().toISOString().slice(0, 10)
   const base: CoverContext = ctx ?? { periodType: 'daily', sector: 'karrada', periodStart: today, periodEnd: today, shift: null }
-  const previewCtx: CoverContext = { ...base, sector: (sector as SectorParent) || base.sector, periodType: (periodType as PeriodType) || base.periodType, shift: (shift as CoverShift) || null }
+  const previewCtx: CoverContext = { ...base, sector: (sector as SectorParent) || (ctx ? base.sector : null), periodType: (periodType as PeriodType) || base.periodType, shift: (shift as CoverShift) || null }
   const templates = useMemo(() => rankTemplates(COVER_TEMPLATES, (shift as CoverShift) || null), [shift])
   const urls = useSignedPhotoUrls(list.map((c) => c.storage_path)).data ?? {}
 

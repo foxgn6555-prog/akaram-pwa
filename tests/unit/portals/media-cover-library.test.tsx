@@ -155,3 +155,13 @@ describe('00351 — معاينة القوالب الجاهزة تتبع مرشّ
     expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة']))
   })
 })
+
+describe('00351 — «كل القواطع» بلا سياق تصميم ⇒ «بلدية الكرادة والزعفرانية»', () => {
+  it('من صفحة القوالب (قالب عام): المعاينة تكتب القاطعين معاً ثم تتبع المرشّح', () => {
+    render(<CoverLibraryDialog close={vi.fn()} onPick={vi.fn()} defaultSector={null} defaultPeriod="daily" current={null} />)
+    const muni = () => new Set(screen.getAllByTestId('cover-municipality').map((e) => e.textContent))
+    expect(muni()).toEqual(new Set(['بلدية الكرادة والزعفرانية']))
+    fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: 'karrada' } })
+    expect(muni()).toEqual(new Set(['بلدية الكرادة']))
+  })
+})

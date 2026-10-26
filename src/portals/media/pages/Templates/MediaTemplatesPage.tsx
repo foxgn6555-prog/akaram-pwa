@@ -68,7 +68,7 @@ function TemplateCard({ template, onEdit }: { template: MediaDesignTemplate; onE
   const archive = useArchiveMediaTemplate()
   const cover = useSignedPhotoUrls(template.cover_path && !isBuiltinCover(template.cover_path) ? [template.cover_path] : [])
   const coverUrl = template.cover_path && !isBuiltinCover(template.cover_path) ? cover.data?.[template.cover_path] : null
-  const tplCtx = { periodType: template.period_type as PeriodType, sector: (template.sector_parent as SectorParent) || 'karrada', periodStart: '2026-01-01', periodEnd: '2026-01-01', shift: null }
+  const tplCtx = { periodType: template.period_type as PeriodType, sector: (template.sector_parent as SectorParent) || null, periodStart: '2026-01-01', periodEnd: '2026-01-01', shift: null }
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="relative h-32 bg-slate-100">
@@ -146,7 +146,7 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
 
   const cover = useSignedPhotoUrls(coverPath && !isBuiltinCover(coverPath) ? [coverPath] : [])
   const coverUrl = coverPath && !isBuiltinCover(coverPath) ? cover.data?.[coverPath] : null
-  const editCtx = { periodType: period, sector: (sector as SectorParent) || 'karrada', periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), shift: null }
+  const editCtx = { periodType: period, sector: (sector as SectorParent) || null, periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), shift: null }
   const busy = create.isPending || update.isPending || uploadCover.isPending
 
   const toggleType = (w: string) =>

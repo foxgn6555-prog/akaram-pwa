@@ -51,6 +51,7 @@ import PhotoGrid from '../../components/PhotoGrid'
 import { PickCoverButton, SaveCoverToLibraryButton } from '../../components/CoverLibrary'
 import DesignCover from '../../components/DesignCover'
 import { SHIFT_LABEL, SHIFT_OPTIONS, isBuiltinCover, type CoverShift } from '@features/media/lib/cover-templates'
+import { filterTickets, ticketWorkTypes, type TicketFilters } from '@features/media/lib/ticket-picker'
 import DesignExportMenu, { type WordDataRef } from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
@@ -689,6 +690,8 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
       {addOpen && (
         <AddPhotosDialog
           sector={sector}
+          periodStart={period.start}
+          periodEnd={period.end}
           excludePhotoIds={new Set(
             (data.photos ?? [])
               .map((p) => p.source_photo_id)
@@ -754,23 +757,35 @@ function DesignThumb({
   )
 }
 
-/* إضافة صور من تذكرات القاطع */
+/* إضافة صور من تذكرات القاطع — 00351: مرشّحات (بحث · نوع العمل · من/إلى · المؤرشفة) بدل قائمة بكل التذاكر */
 function AddPhotosDialog({
   sector,
+  periodStart,
+  periodEnd,
   excludePhotoIds,
   onAdd,
   close,
 }: {
   sector: SectorParent
+  periodStart: string
+  periodEnd: string
   excludePhotoIds: Set<string>
   onAdd: (photos: Array<{ photoId: string; workType: string; caption: string }>) => void
   close: () => void
 }) {
   const tickets = useSubmissions(sector, 'all')
   const [ticketId, setTicketId] = useState('')
-  const ticket = (tickets.data ?? []).find((t) => t.id === ticketId)
+  const [f, setF] = useState<TicketFilters>({ q: '', workType: '', from: periodStart, to: periodEnd, archived: false })
+  const all = useMemo(() => tickets.data ?? [], [tickets.data])
+  const list = useMemo(() => filterTickets(all, f), [all, f])
+  const workTypes = useMemo(() => ticketWorkTypes(all), [all])
+  const ticket = all.find((t) => t.id === ticketId)
   const photos = useSubmissionPhotos(ticketId || null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const pick = (id: string) => {
+    setTicketId(id)
+    setSelected(new Set())
+  }
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -782,21 +797,34 @@ function AddPhotosDialog({
 
   return (
     <DialogShell title="إضافة صور من تذكرات" close={close}>
-      <select
-        value={ticketId}
-        onChange={(e) => {
-          setTicketId(e.target.value)
-          setSelected(new Set())
-        }}
-        className="h-11 w-full rounded-xl border px-3 text-sm"
-      >
-        <option value="">اختر التذكرة…</option>
-        {(tickets.data ?? []).map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.title} ({t.work_type ?? 'دون نوع'} · {t.photo_count} صورة)
-          </option>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="ticket-filters">
+        <input value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} placeholder="بحث: العنوان/الموقع/المرسل" className="col-span-2 h-10 rounded-xl border px-3 text-sm" data-testid="ticket-q" />
+        <select value={f.workType} onChange={(e) => setF({ ...f, workType: e.target.value })} className="h-10 rounded-xl border bg-white px-2 text-sm" data-testid="ticket-work-type">
+          <option value="">كل أنواع العمل</option>
+          {workTypes.map((w) => <option key={w} value={w}>{w}</option>)}
+        </select>
+        <label className="flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-bold text-slate-600">
+          <input type="checkbox" checked={f.archived} onChange={(e) => setF({ ...f, archived: e.target.checked })} data-testid="ticket-archived" />
+          مع المؤرشفة
+        </label>
+        <label className="text-[11px] font-bold text-slate-600">من تاريخ<input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} className="mt-1 h-10 w-full rounded-xl border px-2 text-sm" dir="ltr" data-testid="ticket-from" /></label>
+        <label className="text-[11px] font-bold text-slate-600">إلى تاريخ<input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} className="mt-1 h-10 w-full rounded-xl border px-2 text-sm" dir="ltr" data-testid="ticket-to" /></label>
+        <button type="button" onClick={() => setF({ q: '', workType: '', from: '', to: '', archived: false })} className="col-span-2 h-10 self-end rounded-xl border text-xs font-bold text-slate-600" data-testid="ticket-clear">كل التذاكر (مسح المرشّحات)</button>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500" data-testid="ticket-count">{list.length} تذكرة مطابقة من {all.length}</p>
+      <ul className="mt-1 max-h-44 divide-y overflow-y-auto rounded-xl border" data-testid="ticket-list">
+        {list.length === 0 && <li className="p-3 text-center text-xs text-slate-500">لا تذاكر مطابقة — وسّع التاريخ أو امسح المرشّحات</li>}
+        {list.map((t) => (
+          <li key={t.id}>
+            <button type="button" onClick={() => pick(t.id)} aria-pressed={t.id === ticketId} data-testid={`ticket-pick-${t.id}`}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-start text-xs ${t.id === ticketId ? 'bg-fuchsia-50 font-black text-fuchsia-900' : 'hover:bg-slate-50'}`}>
+              <span className="w-20 shrink-0 text-[10px] text-slate-500" dir="ltr">{t.event_date}</span>
+              <span className="min-w-0 flex-1 truncate">{t.title}</span>
+              <span className="shrink-0 text-[10px] text-slate-500">{t.work_type ?? 'دون نوع'} · {t.photo_count} صورة{t.status === 'archived' ? ' · مؤرشفة' : ''}</span>
+            </button>
+          </li>
         ))}
-      </select>
+      </ul>
 
       {ticketId && (
         <div className="mt-3 max-h-72 overflow-y-auto">

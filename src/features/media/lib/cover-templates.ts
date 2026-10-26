@@ -97,7 +97,8 @@ export const coverTemplateById = (id: string | null | undefined): CoverTemplateD
 
 export interface CoverContext {
   periodType: PeriodType
-  sector: SectorParent
+  /** null = عام (كلا القاطعين) ⇒ «بلدية الكرادة والزعفرانية» */
+  sector: SectorParent | null
   periodStart: string
   periodEnd: string
   shift: CoverShift | null
@@ -130,7 +131,7 @@ export function coverTexts(ctx: CoverContext): CoverTexts {
   const daily = ctx.periodType === 'daily' || ctx.periodStart === ctx.periodEnd
   return {
     headline: HEADLINE[ctx.periodType],
-    municipality: MUNICIPALITY[ctx.sector],
+    municipality: ctx.sector ? MUNICIPALITY[ctx.sector] : 'بلدية الكرادة والزعفرانية',
     date: daily ? `ليوم ${slashYmd(ctx.periodStart)}` : `من ${slashYmd(ctx.periodStart)} إلى ${slashYmd(ctx.periodEnd)}`,
     shift: ctx.shift ? SHIFT_LABEL[ctx.shift] : null,
   }
