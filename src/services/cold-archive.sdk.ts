@@ -40,6 +40,7 @@ export interface ColdPackage {
 }
 
 export const COLD_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
   IT_FORBIDDEN: 'هذه الوحدة لبوابة التطوير المركزية فقط',
   COLD_ARCHIVE_INPUT_INVALID: 'قيمة غير صالحة في الإدخال',
   COLD_ARCHIVE_PERIOD_NOT_CLOSED: 'لا يمكن أرشفة فترة لم تنتهِ بعد — اختر تاريخ نهاية قبل اليوم',

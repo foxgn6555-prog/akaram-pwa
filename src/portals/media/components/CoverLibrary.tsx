@@ -294,11 +294,11 @@ export function CoverLibraryDialog({
                           <Pencil size={11} /> تعديل
                         </button>
                         {c.status === 'active' ? (
-                          <button type="button" onClick={() => setStatus.mutate([c.id, 'archived'])} className="flex h-7 items-center gap-1 rounded-md border px-2 font-bold text-red-600" aria-label={`أرشفة ${c.title}`}>
+                          <button disabled={setStatus.isPending} type="button" onClick={() => setStatus.mutate([c.id, 'archived'])} className="flex h-7 items-center gap-1 rounded-md border px-2 font-bold text-red-600" aria-label={`أرشفة ${c.title}`}>
                             <Archive size={11} /> أرشفة
                           </button>
                         ) : (
-                          <button type="button" onClick={() => setStatus.mutate([c.id, 'active'])} className="flex h-7 items-center gap-1 rounded-md border px-2 font-bold text-emerald-700" aria-label={`استعادة ${c.title}`}>
+                          <button disabled={setStatus.isPending} type="button" onClick={() => setStatus.mutate([c.id, 'active'])} className="flex h-7 items-center gap-1 rounded-md border px-2 font-bold text-emerald-700" aria-label={`استعادة ${c.title}`}>
                             <RotateCcw size={11} /> استعادة
                           </button>
                         )}

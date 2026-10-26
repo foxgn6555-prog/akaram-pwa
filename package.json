@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:db:concurrency": "node scripts/db-concurrency-test.mjs",
     "env:check": "tsx scripts/check-env.ts",
     "db:types": "supabase gen types typescript --local > src/types/database.types.ts",
     "db:reset": "bash scripts/db-reset.sh",

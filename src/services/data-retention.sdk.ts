@@ -31,6 +31,7 @@ export interface RetentionPolicy {
 }
 
 export const RETENTION_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
   IT_FORBIDDEN: 'هذه الوحدة لبوابة التطوير المركزية فقط',
   RETENTION_UNKNOWN_KEY: 'نوع بيانات غير معروف',
   RETENTION_INPUT_INVALID: 'قيمة غير صالحة — المدة بين 1 و120 شهراً، ومهلة الأمان بين 0 و90 يوماً',

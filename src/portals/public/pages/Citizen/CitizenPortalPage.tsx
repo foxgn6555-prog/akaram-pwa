@@ -483,7 +483,7 @@ function Support({ token }: { token: string }) {
               <span className={`h-2.5 w-2.5 rounded-full ${chat.status === 'active' ? 'bg-emerald-500' : 'animate-pulse bg-amber-400'}`} />
               {chat.status === 'active' ? `${chat.agent_name ?? 'الدعم الفني'} — متصل` : `بانتظار الرد${chat.queue_position ? ` · دورك ${chat.queue_position}` : ''}`}
             </div>
-            <button type="button" onClick={() => close.mutate()} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50" data-testid="chat-close"><X size={14} /> إنهاء</button>
+            <button disabled={close.isPending} type="button" onClick={() => close.mutate()} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50" data-testid="chat-close"><X size={14} /> إنهاء</button>
           </div>
           <div className="flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
             {chat.messages.map((msg) => (

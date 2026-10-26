@@ -191,8 +191,8 @@ function SupportTab() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <div><p className="text-sm font-black">{chat.citizen_name}</p><p className="text-[11px] text-slate-500" dir="ltr">{chat.phone}</p></div>
               <div className="flex gap-2">
-                {chat.status === 'waiting' && <button type="button" onClick={() => accept.mutate(sid)} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white" data-testid="chat-accept">استلام المحادثة</button>}
-                {chat.status !== 'closed' && <button type="button" onClick={() => close.mutate(sid)} className="rounded-xl bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">إغلاق</button>}
+                {chat.status === 'waiting' && <button disabled={accept.isPending} type="button" onClick={() => accept.mutate(sid)} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white" data-testid="chat-accept">استلام المحادثة</button>}
+                {chat.status !== 'closed' && <button disabled={close.isPending} type="button" onClick={() => close.mutate(sid)} className="rounded-xl bg-red-50 px-3 py-1.5 text-xs font-black text-red-700">إغلاق</button>}
                 {chat.status === 'closed' && <span className="text-xs font-bold text-slate-500">مغلقة{chat.rating ? ` · تقييم ${chat.rating}/5` : ''}</span>}
               </div>
             </div>

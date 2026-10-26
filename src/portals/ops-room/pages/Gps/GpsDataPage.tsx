@@ -433,7 +433,7 @@ export default function GpsDataPage() {
                     )}
                     <div className="mt-2 flex gap-2">
                       {!a.acknowledged_at ? (
-                        <button
+                        <button disabled={alertWorkflow.isPending}
                           onClick={() =>
                             alertWorkflow.mutate({ type: 'acknowledge', alertId: a.id })
                           }

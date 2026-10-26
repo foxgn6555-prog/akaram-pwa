@@ -166,7 +166,7 @@ export default function PermissionsMatrix() {
                   )}>
                     {o.effect === 'lock' ? '🔒 مقفول' : '🔓 مفتوح فردياً'}
                   </span>
-                  <button
+                  <button disabled={setOverride.isPending}
                     onClick={() =>
                       setOverride.mutate({ userId: o.user_id, pageKey: o.page_key, effect: null })
                     }
@@ -196,7 +196,7 @@ export default function PermissionsMatrix() {
               سيُمنع هذا المستخدم من الصفحة حتى لو ممنوحة لدوره — يُسجَّل باسمك.
             </p>
             <div className="flex gap-3">
-              <button
+              <button disabled={setOverride.isPending}
                 onClick={() => {
                   setOverride.mutate({ userId: confirmLock.userId, pageKey: confirmLock.pageKey, effect: 'lock' })
                   setConfirmLock(null)

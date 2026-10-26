@@ -161,7 +161,7 @@ function TypesManager() {
                 <span className={clsx('font-semibold', t.is_active ? 'text-slate-800' : 'text-slate-400 line-through')}>{t.name}</span>
                 <span className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => setEditing({ id: t.id, name: t.name })} data-testid={`type-edit-${t.id}`}>تعديل</Button>
-                  <Button variant="ghost" size="sm" onClick={() => save.mutate({ id: t.id, name: t.name, isActive: !t.is_active, sortOrder: t.sort_order })} data-testid={`type-toggle-${t.id}`}>{t.is_active ? 'إيقاف' : 'تفعيل'}</Button>
+                  <Button disabled={save.isPending} variant="ghost" size="sm" onClick={() => save.mutate({ id: t.id, name: t.name, isActive: !t.is_active, sortOrder: t.sort_order })} data-testid={`type-toggle-${t.id}`}>{t.is_active ? 'إيقاف' : 'تفعيل'}</Button>
                 </span>
               </>
             )}

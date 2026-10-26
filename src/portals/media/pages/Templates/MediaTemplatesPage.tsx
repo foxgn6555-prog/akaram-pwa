@@ -112,7 +112,7 @@ function TemplateCard({ template, onEdit }: { template: MediaDesignTemplate; onE
             تعديل
           </button>
           {template.status === 'active' && (
-            <button
+            <button disabled={archive.isPending}
               onClick={() => {
                 if (window.confirm('أرشفة القالب؟ لن يظهر في قوائم الإنشاء الجديدة.')) archive.mutate([template.id])
               }}

@@ -11,6 +11,8 @@ const run = async (label, sql) => { try { await c.query(sql); } catch (e) { cons
 await run('roles', `do $$ begin if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if; if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if; if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if; end $$;`);
 await run('appschema', 'create schema if not exists app; create extension if not exists pgcrypto;');
 await run('mock', fs.readFileSync('tests/db/supabase-mock.sql', 'utf8'));
+// 00291: حارس التكرار معطّل افتراضياً في الاختبارات (تستدعي الدوال نفسها بالمعاملات نفسها تباعاً) — اختبارات الحارس تفعّله صراحةً
+await run('dedup-off', "select set_config('app.dedup_window_seconds', '0', false)");
 const files = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql')).sort();
 for (const f of files) await run(f, fs.readFileSync('supabase/migrations/' + f, 'utf8'));
 console.log('migrations ok:', files.length);

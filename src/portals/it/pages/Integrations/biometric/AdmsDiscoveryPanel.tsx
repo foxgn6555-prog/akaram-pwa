@@ -39,7 +39,7 @@ export function AdmsEndpointsList({ functionUrl }: { functionUrl: string }) {
             <span className="text-slate-600">{ep.label}</span>
             <span className="flex items-center gap-2">
               <code dir="ltr" className="text-brand-700">{ep.host}</code>
-              <button type="button" className="text-red-500 hover:underline" onClick={() => remove.mutate(ep.id)} aria-label={`حذف ${ep.label}`} data-testid={`adms-endpoint-remove-${ep.host}`}>حذف</button>
+              <button disabled={remove.isPending} type="button" className="text-red-500 hover:underline" onClick={() => remove.mutate(ep.id)} aria-label={`حذف ${ep.label}`} data-testid={`adms-endpoint-remove-${ep.host}`}>حذف</button>
             </span>
           </li>
         ))}

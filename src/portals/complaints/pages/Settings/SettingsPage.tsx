@@ -92,7 +92,7 @@ export default function SettingsPage() {
                       <td className="p-3 text-center">{c.isActive ? 'مفعّل' : 'معطّل'}</td>
                       <td className="p-3 text-center">
                         <button type="button" onClick={() => { setDraft(c); setFeedback(null) }} className="ml-2 font-bold text-blue-700">تعديل</button>
-                        <button type="button" onClick={() => save.mutate({ ...c, isActive: !c.isActive }, {
+                        <button disabled={save.isPending} type="button" onClick={() => save.mutate({ ...c, isActive: !c.isActive }, {
                           onSuccess: () => setFeedback({ kind: 'ok', text: c.isActive ? 'تم تعطيل الجهة دون حذفها.' : 'تم تفعيل الجهة.' }),
                           onError: () => setFeedback({ kind: 'err', text: 'تعذر تحديث حالة الجهة؛ أعد المحاولة.' }),
                         })} className="font-bold text-rose-700">{c.isActive ? 'تعطيل' : 'تفعيل'}</button>

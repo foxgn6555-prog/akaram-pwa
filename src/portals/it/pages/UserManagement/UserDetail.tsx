@@ -619,7 +619,7 @@ export default function UserDetail() {
               هذا الدور يملك كل الصلاحيات. سيُسجَّل المنح باسمك في سجل التدقيق.
             </p>
             <div className="flex gap-3">
-              <Button
+              <Button disabled={setUserRole.isPending}
                 onClick={() => {
                   if (userId) setUserRole.mutate({ userId, role: 'super_admin', grant: true })
                   setConfirmRole(null)

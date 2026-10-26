@@ -192,7 +192,7 @@ function ItemsTab() {
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   <button type="button" data-testid={`act-in-${it.id}`} onClick={() => { setAct({ id: it.id, kind: 'in' }); setVal(''); setTxt('') }} className="h-9 rounded-lg bg-emerald-50 px-3 font-bold text-emerald-800">+ إدخال كمية</button>
                   <button type="button" data-testid={`act-adjust-${it.id}`} onClick={() => { setAct({ id: it.id, kind: 'adjust' }); setVal(String(it.qty_on_hand)); setTxt('') }} className="h-9 rounded-lg bg-amber-50 px-3 font-bold text-amber-800">تسوية جرد</button>
-                  <button type="button" data-testid={`act-toggle-${it.id}`} onClick={() => save.mutate({ id: it.id, name: it.name, unit: it.unit, minQty: it.min_qty, active: !it.is_active })} className="h-9 rounded-lg border px-3 font-bold">{it.is_active ? 'إيقاف' : 'تفعيل'}</button>
+                  <button disabled={save.isPending} type="button" data-testid={`act-toggle-${it.id}`} onClick={() => save.mutate({ id: it.id, name: it.name, unit: it.unit, minQty: it.min_qty, active: !it.is_active })} className="h-9 rounded-lg border px-3 font-bold">{it.is_active ? 'إيقاف' : 'تفعيل'}</button>
                 </div>
               )}
             </li>

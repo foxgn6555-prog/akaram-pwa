@@ -461,7 +461,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
             )}
             {coverPath && !isBuiltinCover(coverPath) && <SaveCoverToLibraryButton storagePath={coverPath} defaultTitle={title || data.design.title} defaultSector={sector} defaultPeriod={periodType} />}
             {!locked && hasCover && (
-              <button
+              <button disabled={update.isPending}
                 onClick={() => {
                   setCoverPath(null)
                   update.mutate([designId, { ...meta(), coverPath: null }], { onSuccess: () => detail.refetch() })
@@ -564,7 +564,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
                         ⠿
                       </span>
                       {!locked && (
-                        <button
+                        <button disabled={removePhoto.isPending}
                           aria-label="إزالة من التصميم"
                           onClick={() => removePhoto.mutate([p.rowId], { onSuccess: () => detail.refetch() })}
                           className="absolute -left-1.5 -top-1.5 rounded-full bg-red-600 p-1 text-white"

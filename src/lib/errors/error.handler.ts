@@ -80,6 +80,7 @@ const APP_ERROR_AR: Record<string, string> = {
   PROCEDURE_ALREADY_PENDING: 'يوجد طلب إنهاء خدمة معلّق لهذا الشخص.',
   PROCEDURE_NOT_FOUND: 'طلب إنهاء الخدمة غير موجود.',
   PROCEDURE_NOT_PENDING: 'الطلب لم يعد قيد الموافقة.',
+  DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.',
   HR_TERMINATION_TYPE_INVALID: 'نوع إنهاء الخدمة غير صالح.',
   FIELD_OPS_FORBIDDEN: 'هذه الصفحة للعمليات الميدانية فقط.',
   SECTOR_MANAGER_NOT_ASSIGNED: 'لم تُسنَد لك قواطع بعد — راجع التطوير المركزية.',

@@ -217,7 +217,7 @@ export function AlertsTable({ alerts, isLoading, testId = 'hr-alerts' }: { alert
             <td className="p-2 text-center text-xs font-bold tabular-nums">{Number(a.value)} / {Number(a.threshold)}</td>
             <td className="p-2 text-xs">{a.details}</td>
             <td className="p-2 text-center text-xs">{a.manager_name ?? '—'}</td>
-            <td className="p-2 text-center">{!a.acknowledged_at && <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => void ack.mutateAsync(a.id).catch(() => undefined)} data-testid={`${testId}-ack-${a.id}`}>إقرار</button>}</td>
+            <td className="p-2 text-center">{!a.acknowledged_at && <button disabled={ack.isPending} type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => void ack.mutateAsync(a.id).catch(() => undefined)} data-testid={`${testId}-ack-${a.id}`}>إقرار</button>}</td>
           </tr>))}</tbody>
       </table>
     </div>

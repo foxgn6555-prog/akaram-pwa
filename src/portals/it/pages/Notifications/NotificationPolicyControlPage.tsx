@@ -409,7 +409,7 @@ export default function NotificationPolicyControlPage() {
                       <Edit3 size={17} />
                     </button>
                     {!isDefault && (
-                      <button
+                      <button disabled={remove.isPending}
                         onClick={() => confirm('حذف السياسة المخصصة؟') && remove.mutate(row.id)}
                         aria-label="حذف السياسة"
                         className="rounded-xl border p-2 text-rose-700"

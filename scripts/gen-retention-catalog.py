@@ -98,7 +98,7 @@ D('hr', 'rented_vehicle_tax_audit', 'سجل تدقيق ضريبة المركبا
 D('hr', 'hr_alerts', 'تنبيهات الموارد البشرية', 'تنبيهات تجاوز العتبات (غياب/تأخير). المؤكَّدة فقط.', 'created_at', 24, False, keep='acknowledged_at is null', lock='التنبيهات غير المؤكَّدة محمية')
 D('hr', 'finance_hr_notices', 'إشعارات HR إلى المالية', 'تبليغات تغيّر الراتب/الإنهاء. المنجَزة فقط.', 'created_at', 24, False, keep='is_done is not true', lock='الإشعارات غير المنجَزة محمية')
 for t, lbl in [('employees', 'الموظفون'), ('departments', 'الأقسام'), ('branches', 'الفروع'), ('employee_documents', 'وثائق الموظفين'), ('hr_shifts', 'الورديات'), ('employee_shift_assignments', 'تعيين الورديات'),
-               ('hr_leave_types', 'أنواع الإجازات'), ('hr_leaves', 'الإجازات'), ('hr_leave_ledger', 'رصيد الإجازات'), ('termination_requests', 'طلبات إنهاء الخدمة'), ('requests', 'الطلبات العامة للموظفين')]:
+               ('hr_leave_types', 'أنواع الإجازات'), ('hr_leaves', 'الإجازات'), ('hr_leave_ledger', 'رصيد الإجازات'), ('termination_requests', 'طلبات إنهاء الخدمة'), ('hire_requests', 'طلبات تعيين الموظفين (00348)'), ('requests', 'الطلبات العامة للموظفين')]:
     L('hr', t, lbl, REF if t in ('employees', 'departments', 'branches', 'hr_shifts', 'hr_leave_types') else (ARCH if t == 'employee_documents' else REC))
 for t, lbl in [('attendance_records', 'سجلات الحضور (القديمة)'), ('hr_attendance_days', 'أيام الحضور المحسوبة'), ('hr_attendance_confirmations', 'تأكيدات شهر الحضور'), ('hr_attendance_pending_auto', 'الخصومات الآلية بانتظار التأكيد'),
                ('hr_attendance_deductions', 'خصومات الحضور'), ('hr_deduction_rules', 'قواعد الخصم'), ('hr_deduction_rule_targets', 'نطاق قواعد الخصم'), ('hr_deduction_exemptions', 'إعفاءات الخصم'),

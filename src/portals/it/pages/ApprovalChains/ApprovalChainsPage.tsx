@@ -303,7 +303,7 @@ export default function ApprovalChainsPage() {
                 </div>
                 <button type="button" data-testid={`chain-edit-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => load(c)} className="rounded-lg border px-3 py-1 text-xs font-bold">تعديل</button>
                 <button type="button" aria-label="سجل الإصدارات" data-testid={`chain-history-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => setVersionsOf(versionsOf?.id === c.id ? null : c)} className="rounded-lg border px-2 py-1 text-xs font-bold"><History size={14} /></button>
-                <button type="button" data-testid={`chain-delete-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => { if (window.confirm('حذف السلسلة؟ ستعود طلبات هذا الدور إلى الافتراضي.')) del.mutate(c.id) }} className="rounded-lg border px-3 py-1 text-xs font-bold text-rose-700">حذف</button>
+                <button disabled={del.isPending} type="button" data-testid={`chain-delete-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => { if (window.confirm('حذف السلسلة؟ ستعود طلبات هذا الدور إلى الافتراضي.')) del.mutate(c.id) }} className="rounded-lg border px-3 py-1 text-xs font-bold text-rose-700">حذف</button>
               </li>
             ))}
           </ul>

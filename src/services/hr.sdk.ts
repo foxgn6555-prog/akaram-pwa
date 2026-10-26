@@ -19,6 +19,7 @@ const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, pho
 
 /** رسائل عربية ثابتة لرموز HR_* */
 export const HR_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
   HR_FORBIDDEN: 'ليست لديك صلاحية هذا الإجراء',
   HR_NAME_REQUIRED: 'اسم الموظف مطلوب',
   HR_NUMBER_REQUIRED: 'الرقم الوظيفي مطلوب',

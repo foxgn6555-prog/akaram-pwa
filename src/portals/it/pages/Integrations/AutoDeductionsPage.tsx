@@ -341,7 +341,7 @@ function ExemptionsTab({ prefill, clearPrefill }: { prefill: TargetDraft | null;
                 <td className="p-2">{TYPE_LABEL[x.target_type]}</td><td className="p-2 font-semibold">{x.name ?? x.target_id}</td><td className="p-2">{x.reason}</td>
                 <td className="p-2 text-center" dir="ltr">{x.from_date}</td><td className="p-2 text-center" dir="ltr">{x.to_date ?? 'مفتوح'}</td>
                 <td className="p-2 text-center">{x.active ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">ساري</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">غير ساري</span>}</td>
-                <td className="p-2 text-center"><button type="button" className="text-red-600 hover:underline" onClick={() => { if (window.confirm('إلغاء هذا الاستثناء؟')) remove.mutate(x.id) }} data-testid={`exempt-remove-${x.id}`}>إلغاء</button></td>
+                <td className="p-2 text-center"><button disabled={remove.isPending} type="button" className="text-red-600 hover:underline" onClick={() => { if (window.confirm('إلغاء هذا الاستثناء؟')) remove.mutate(x.id) }} data-testid={`exempt-remove-${x.id}`}>إلغاء</button></td>
               </tr>))}
           </tbody>
         </table>

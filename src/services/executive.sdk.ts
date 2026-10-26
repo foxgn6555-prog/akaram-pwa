@@ -7,6 +7,7 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import type { Announcement, AnnouncementInput, AnnouncementRecipient, AnnouncementTargets, ExecFilterOptions, ExecOverview, ExecPeople } from '@features/executive/types'
 
 export const EXEC_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
   EXEC_FORBIDDEN: 'هذه اللوحة حصرية للإدارة العليا والمالية',
   EXEC_RANGE_INVALID: 'نطاق التاريخ غير صالح',
   EXEC_RANGE_TOO_WIDE: 'النطاق أوسع من 400 يوم — اختر فترة أقصر',

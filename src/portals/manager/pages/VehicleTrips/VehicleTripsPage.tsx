@@ -371,7 +371,7 @@ function OperationalActions({
   if (latest && !latest.arrivedAt) {
     if (latest.destinationType === 'work_site')
       return (
-        <button
+        <button disabled={site.isPending}
           onClick={() => site.mutate({ legId: latest.id })}
           className="mt-4 h-11 w-full rounded-xl bg-emerald-700 text-xs font-black text-white"
         >
@@ -405,7 +405,7 @@ function OperationalActions({
         </div>
       ) : (
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <button
+          <button disabled={station.isPending}
             onClick={() => station.mutate({ departureId: trip.id })}
             className="h-11 rounded-xl bg-orange-700 text-xs font-black text-white"
           >
