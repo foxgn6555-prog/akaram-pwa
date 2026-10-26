@@ -54,9 +54,9 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'employee.attendance': ['create'],
   'employee.photos': ['create'],
   // الموارد البشرية
-  'hr.recruitment': ['create'],
+  'hr.recruitment': ['create', 'execute'],
   'hr.hire-requests': ['execute'],
-  'hr.employees': ['edit', 'export', 'execute'],
+  'hr.employees': ['create', 'edit', 'export', 'execute'],
   'hr.attendance': ['edit', 'export'],
   'hr.leaves': ['create', 'decide', 'export'],
   'hr.biometric': ['export'],
@@ -68,12 +68,12 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'manager.breakdown': ['create'],
   'manager.vehicle-trips': ['execute'],
   'manager.support': ['create'],
-  'manager.complaints': ['create'],
+  'manager.complaints': ['create', 'execute'],
   'manager.citizen-complaints': ['execute'],
   'manager.photos': ['create'],
   // المالية
   'finance.reports': ['export'],
-  'finance.payroll': ['edit', 'decide', 'export'],
+  'finance.payroll': ['edit', 'decide', 'execute', 'export'],
   'finance.contractor-wages': ['edit', 'decide', 'export'],
   'finance.advances': ['execute', 'export'],
   'finance.purchases': ['decide'],
@@ -120,7 +120,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   // الصيانة
   'maintenance.purchases': ['create'],
   'maintenance.inventory': ['create', 'edit'],
-  'maintenance.vehicle-cases': ['create', 'execute'],
+  'maintenance.vehicle-cases': ['create', 'decide', 'execute'],
   'maintenance.employees': ['edit'],
   'maintenance.requests': ['create'],
   'maintenance.procedures': ['create', 'execute'],
@@ -178,8 +178,8 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   // الشكاوى
   'complaints.karrada-sector': ['create', 'edit'],
   'complaints.zaafaraniya-sector': ['create', 'edit'],
-  'complaints.assignment': ['edit'],
-  'complaints.processing': ['execute'],
+  'complaints.assignment': ['create', 'edit'],
+  'complaints.processing': ['decide', 'execute'],
   'complaints.templates': ['edit'],
   'complaints.data': ['export'],
   'complaints.database': ['export'],
@@ -195,7 +195,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'media.archive': ['delete'],
   // الكراج المركزي
   'central-garage.drivers-dispatch': ['create', 'execute'],
-  'central-garage.maintenance-coordination': ['create', 'execute'],
+  'central-garage.maintenance-coordination': ['create', 'decide', 'execute'],
   'central-garage.vehicles-database': ['create', 'edit'],
   'central-garage.fuel': ['create'],
   'central-garage.fuel.gas-oil': ['create'],
@@ -259,3 +259,96 @@ export function buildPermissionCatalog(): PermissionUnit[] {
 
 export const PERMISSION_CATALOG: readonly PermissionUnit[] = buildPermissionCatalog()
 export const PERMISSION_UNIT_KEYS: ReadonlySet<string> = new Set(PERMISSION_CATALOG.map((u) => u.key))
+
+/**
+ * 00350-B — ربط دوال الكتابة المحمية (00291) بوحدة+إجراء: الخادم يرفض الاستدعاء (PERMISSION_DENIED) إن لم يملك المستخدم الإجراء.
+ * تُربط فقط الدوال التي يستدعيها دور واحد من وحدة واحدة؛ الدوال المشتركة بين أدوار (سلاسل الموافقات، المواطن، المتعهد…) تبقى على
+ * فحوصاتها الأصلية وتُدرج في WRITE_BINDINGS_EXEMPT مع السبب — اختبار عقد يضمن أن كل دالة محمية إمّا مربوطة أو معفاة بسبب.
+ */
+export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, action: PermissionAction]>> = {
+  // الموارد البشرية
+  hr_employee_create: ['hr.employees', 'create'],
+  hr_employee_terminate: ['hr.recruitment', 'execute'],
+  hire_request_complete: ['hr.hire-requests', 'execute'],
+  // غرفة العمليات
+  supply_request_deliver: ['ops-room.store', 'execute'],
+  advance_request_create: ['ops-room.advances', 'create'],
+  ops_attendance_confirm: ['ops-room.attendance', 'decide'],
+  ops_contractor_month_approve: ['ops-room.contractor-headcounts', 'decide'],
+  // المالية
+  advance_deliver: ['finance.advances', 'execute'],
+  advance_settle_cash: ['finance.advances', 'execute'],
+  finance_payroll_approve: ['finance.payroll', 'decide'],
+  finance_payroll_adjust: ['finance.payroll', 'edit'],
+  finance_payroll_reconcile: ['finance.payroll', 'execute'],
+  finance_treasury_confirm: ['finance.budget', 'decide'],
+  // التطوير المركزية
+  cold_archive_package_create: ['it.cold-archive', 'create'],
+  cold_archive_purge_request: ['it.cold-archive', 'delete'],
+  cold_archive_purge_approve: ['it.cold-archive', 'decide'],
+  cold_archive_purge_confirm: ['it.cold-archive', 'delete'],
+  it_deduction_exemption_add: ['it.integrations.auto-deductions', 'edit'],
+  garage_decide_tank_zero: ['it.central-garage-approvals', 'decide'],
+  // الشكاوى
+  complaint_approve_report: ['complaints.processing', 'decide'],
+  complaint_create_item_from_inbox: ['complaints.assignment', 'create'],
+  complaint_batch_create_items_from_inbox: ['complaints.assignment', 'create'],
+  // مدير القاطع
+  complaint_start_assignment_ticket: ['manager.complaints', 'execute'],
+  complaint_complete_assignment_ticket: ['manager.complaints', 'execute'],
+  sector_confirm_vehicle_arrival: ['manager.vehicle-trips', 'execute'],
+  sector_confirm_vehicle_site_return: ['manager.vehicle-trips', 'execute'],
+  sector_submit_breakdown: ['manager.breakdown', 'create'],
+  sector_support_request_create: ['manager.support', 'create'],
+  // الكراج المركزي
+  garage_record_departure: ['central-garage.drivers-dispatch', 'execute'],
+  garage_record_return: ['central-garage.drivers-dispatch', 'execute'],
+  garage_record_shift_departure: ['central-garage.drivers-dispatch', 'execute'],
+  garage_decide_maintenance_dispatch: ['central-garage.maintenance-coordination', 'decide'],
+  // المحطة التحويلية
+  station_confirm_vehicle_arrival: ['transfer-station.vehicle-movements', 'execute'],
+  station_record_exit: ['transfer-station.vehicle-movements', 'execute'],
+  // الصيانة
+  maintenance_approve_readiness: ['maintenance.vehicle-cases', 'decide'],
+  maintenance_complete_case: ['maintenance.vehicle-cases', 'execute'],
+  maintenance_confirm_arrival: ['maintenance.vehicle-cases', 'execute'],
+  maintenance_inventory_create: ['maintenance.inventory', 'create'],
+  maintenance_purchase_create: ['maintenance.purchases', 'create'],
+  // الإعلام
+  media_template_create: ['media.design-templates', 'create'],
+}
+
+/** دوال محمية غير مربوطة بوحدة واحدة — السبب موثّق (تبقى على فحوصات الدور/السلسلة الأصلية) */
+export const WRITE_BINDINGS_EXEMPT: Readonly<Record<string, string>> = {
+  approval_decide_request: 'سلسلة موافقات — المعتمد يتحدد من السلسلة لا من وحدة',
+  hr_leave_decide: 'سلسلة موافقات الإجازات (مدير/عمليات/موارد)',
+  hr_leave_request: 'يستدعيها الموارد البشرية وغرفة العمليات ومدير القاطع',
+  hr_leave_cancel: 'يستدعيها الموارد البشرية وغرفة العمليات ومسؤولو الكراج/المحطة/الصيانة',
+  supply_request_decide: 'سلسلة موافقات',
+  supply_request_create: 'يستدعيها مسؤولو عدة أقسام',
+  termination_request_create: 'سلسلة موافقات — طلب من عدة بوابات',
+  termination_request_decide: 'سلسلة موافقات',
+  disclosure_submit: 'كشوفات من غرفة العمليات والكراج والمحطة ومديري القواطع (وحدة لكل بوابة)',
+  disclosure_decide: 'سلسلة موافقات الكشوفات (المعاون)',
+  advance_decide: 'سلسلة موافقات السلف',
+  hire_request_create: 'طلب تعيين من الكراج/المحطة/الصيانة (00348)',
+  hire_request_decide: 'سلسلة موافقات التعيين',
+  hire_request_cancel: 'صاحب الطلب أو super_admin',
+  cold_archive_purge_decide: 'سلسلة موافقات اختيارية',
+  complaint_report_decide: 'سلسلة موافقات التقارير',
+  complaint_decide_deletion: 'سلسلة موافقات الحذف',
+  complaint_start_item: 'منفّذ الشكوى (عدة أدوار ميدانية)',
+  complaint_complete_item: 'منفّذ الشكوى (عدة أدوار ميدانية)',
+  exec_treasury_record: 'المعاون أو المدير المفوض',
+  deputy_payroll_approve: 'سلسلة اعتماد الرواتب',
+  ops_deduction_add: 'معطّلة (super_admin فقط)',
+  contractor_checkin: 'حساب متعهد (ليس دوراً من بوابات الموظفين)',
+  sector_submit_supply: 'يستدعيها مدير القاطع وغرفة العمليات',
+  sector_supply_submit: 'مسار قديم (it_admin)',
+  ts_record_weighing: 'المحطة أو غرفة العمليات',
+  ts_complete_weighing: 'المحطة أو غرفة العمليات',
+  media_design_create: 'يُنشأ من فولدر قاطع (وحدتان)',
+  media_design_complete: 'يُنشأ من فولدر قاطع (وحدتان)',
+  citizen_complaint_submit: 'مواطن',
+  citizen_chat_request: 'مواطن',
+}

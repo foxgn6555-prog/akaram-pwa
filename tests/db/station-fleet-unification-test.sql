@@ -135,7 +135,7 @@ declare r jsonb; vn uuid := current_setting('t.v_nasafa')::uuid; vc uuid := curr
 begin
   insert into public.gps_vehicle_bindings (device_id, garage_vehicle_id, match_method) values ('ee0dc000-0000-0000-0000-000000000001', vn, 'manual');
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
-  perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'employee', '%s', 'ee0e0000-0000-0000-0000-000000000001')$q$, vn, dest), 'STATION_FORBIDDEN');
+  perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'employee', '%s', 'ee0e0000-0000-0000-0000-000000000001')$q$, vn, dest), 'PERMISSION_DENIED');
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
   perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'employee', '%s', 'ee0e0000-0000-0000-0000-000000000001')$q$, vk, dest), 'STATION_VEHICLE_NOT_STATION');
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001'); perform public.garage_set_station_vehicle(vk, true); perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');

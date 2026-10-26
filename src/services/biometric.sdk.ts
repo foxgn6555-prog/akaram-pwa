@@ -16,6 +16,7 @@ const DEVICE_COLUMNS = 'id, serial_number, name, branch_id, location_hint, is_ac
 /** رسائل عربية ثابتة لرموز الخطأ المرمّزة (قاعدة البيانات + Edge Function + المزوّدون) */
 export const BIOMETRIC_ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   BIO_FORBIDDEN: 'ليست لديك صلاحية هذا الإجراء',
   BIO_DEVICE_NOT_FOUND: 'المصدر غير موجود',
   BIO_DEVICE_INACTIVE: 'المصدر معطّل — فعّله أولاً',

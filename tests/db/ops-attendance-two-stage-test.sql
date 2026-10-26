@@ -101,7 +101,7 @@ end $$;
 -- الموظف العادي / المالية: لا اعتماد ولا إعادة فتح
 select auth.set_test_user('fc000000-0000-0000-0000-000000000007');
 do $$ declare ok boolean := false; begin
-  begin perform public.ops_attendance_confirm(current_setting('test.ts_m')::date); exception when others then ok := sqlerrm = 'HR_FORBIDDEN'; end; assert ok, 'S2 finance cannot confirm';
+  begin perform public.ops_attendance_confirm(current_setting('test.ts_m')::date); exception when others then ok := sqlerrm = 'PERMISSION_DENIED'; end; assert ok, 'S2 finance cannot confirm';
   ok := false; begin perform public.ops_attendance_reopen(current_setting('test.ts_m')::date, 'سبب'); exception when others then ok := sqlerrm = 'HR_FORBIDDEN'; end; assert ok, 'S2 finance cannot reopen';
   assert (public.ops_attendance_confirmation(current_setting('test.ts_m')::date) ->> 'confirmed')::boolean, 'S2 finance can read status';
 end $$;

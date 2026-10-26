@@ -81,6 +81,7 @@ const APP_ERROR_AR: Record<string, string> = {
   PROCEDURE_NOT_FOUND: 'طلب إنهاء الخدمة غير موجود.',
   PROCEDURE_NOT_PENDING: 'الطلب لم يعد قيد الموافقة.',
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.',
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   HR_TERMINATION_TYPE_INVALID: 'نوع إنهاء الخدمة غير صالح.',
   FIELD_OPS_FORBIDDEN: 'هذه الصفحة للعمليات الميدانية فقط.',
   SECTOR_MANAGER_NOT_ASSIGNED: 'لم تُسنَد لك قواطع بعد — راجع التطوير المركزية.',

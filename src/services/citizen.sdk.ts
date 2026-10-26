@@ -52,6 +52,7 @@ export interface CitizenReport {
 
 const ERRORS: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   CITIZEN_PHONE_INVALID: 'رقم الهاتف غير صحيح — اكتبه بصيغة 07XXXXXXXXX',
   CITIZEN_NAME_INVALID: 'اكتب اسمك الكامل (3 أحرف على الأقل)',
   CITIZEN_NAME_TRIPLE_REQUIRED: 'اكتب اسمك الثلاثي (الاسم واسم الأب واسم الجد)',

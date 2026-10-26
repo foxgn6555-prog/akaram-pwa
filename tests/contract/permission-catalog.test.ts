@@ -8,9 +8,9 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { PERMISSION_CATALOG, PERMISSION_UNIT_KEYS, PORTAL_ROLE, UNIT_ACTIONS, unitKeyForRoute, unitKeyFromPath } from '@/config/permission-catalog'
+import { PERMISSION_CATALOG, PERMISSION_UNIT_KEYS, PORTAL_ROLE, UNIT_ACTIONS, WRITE_BINDINGS, WRITE_BINDINGS_EXEMPT, unitKeyForRoute, unitKeyFromPath } from '@/config/permission-catalog'
 import { PORTAL_UNITS } from '@/config/portals.config'
-import { permissionSeedSql } from '../../scripts/gen-permission-catalog'
+import { permissionBindingsSql, permissionSeedSql } from '../../scripts/gen-permission-catalog'
 
 const ROOT = process.cwd()
 
@@ -66,5 +66,42 @@ describe('⚓ عقد كتالوج الصلاحيات', () => {
     const end = sql.indexOf('-- <<catalog/>>') + '-- <<catalog/>>'.length
     expect(start).toBeGreaterThan(0)
     expect(sql.slice(start, end)).toBe(permissionSeedSql().trim())
+  })
+
+  // ── 00350-B: ربط دوال الكتابة ──
+  const guardedFns = (): string[] => {
+    const src = readFileSync(join(ROOT, 'supabase/migrations/00291_write_guards_dedup_locks.sql'), 'utf8')
+    const body = src.split('app.guarded_write_functions() returns text[]')[1]!.split('$$;')[0]!
+    return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!)
+  }
+
+  it('كل دالة كتابة محمية (00291) إمّا مربوطة بوحدة+إجراء أو معفاة بسبب موثّق — لا كلاهما ولا لا شيء', () => {
+    const fns = guardedFns()
+    expect(fns.length).toBeGreaterThanOrEqual(60)
+    const bound = new Set(Object.keys(WRITE_BINDINGS))
+    const exempt = new Set(Object.keys(WRITE_BINDINGS_EXEMPT))
+    expect(fns.filter((f) => !bound.has(f) && !exempt.has(f)), 'غير مربوطة وغير معفاة').toEqual([])
+    expect(fns.filter((f) => bound.has(f) && exempt.has(f)), 'مربوطة ومعفاة معاً').toEqual([])
+    expect([...bound, ...exempt].filter((f) => !fns.includes(f)), 'تشير إلى دالة غير محمية').toEqual([])
+    for (const reason of Object.values(WRITE_BINDINGS_EXEMPT)) expect(reason.trim().length).toBeGreaterThan(3)
+  })
+
+  it('كل ربط يشير إلى وحدة موجودة وإجراء ينطبق عليها', () => {
+    const byKey = new Map(PERMISSION_CATALOG.map((u) => [u.key, u]))
+    for (const [fn, [unit, action]] of Object.entries(WRITE_BINDINGS)) {
+      expect(byKey.get(unit), `${fn}: ${unit}`).toBeTruthy()
+      expect(byKey.get(unit)!.actions, `${fn}: ${unit}:${action}`).toContain(action)
+    }
+  })
+
+  it('بذرة الربط في الهجرة الأحدث مطابقة لمخرجات المولّد', () => {
+    const dir = join(ROOT, 'supabase/migrations')
+    const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+    const withBlock = files.filter((f) => readFileSync(join(dir, f), 'utf8').includes('-- <<bindings>>'))
+    expect(withBlock.length).toBeGreaterThan(0)
+    const sql = readFileSync(join(dir, withBlock[withBlock.length - 1]!), 'utf8')
+    const start = sql.indexOf('-- <<bindings>>')
+    const end = sql.indexOf('-- <<bindings/>>') + '-- <<bindings/>>'.length
+    expect(sql.slice(start, end)).toBe(permissionBindingsSql().trim())
   })
 })

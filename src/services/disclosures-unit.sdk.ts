@@ -62,6 +62,7 @@ export const EVENT_LABEL: Record<string, string> = {
 
 const ERRORS: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   DISCLOSURE_FORBIDDEN: 'ليست لديك صلاحية على هذا الكشف',
   DISCLOSURE_NOT_FOUND: 'الكشف غير موجود',
   DISCLOSURE_TARGET_INVALID: 'حدّد: كشف على آلية أم على موظف',

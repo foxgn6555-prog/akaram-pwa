@@ -3,10 +3,12 @@
  *  · الافتراضي: كل الوحدات ظاهرة · التطوير المركزية قد تخفي وحدات محددة لحساب محدد (it_hidden_units_set)
  *  · مخزن zustand صغير (لا يعتمد على QueryClientProvider) يُحمَّل مرة من AppShell عبر `my_hidden_units()`
  *  · يُطبَّق في الشريط الجانبي والقائمة السفلية والهيدر — ولا يُطبَّق على المسارات (الأمان في RLS وليس في القائمة)
+ *  · 00350: يُضاف فوقه ترشيح الصلاحيات (my_permissions) — انظر @features/permissions/my-permissions
  */
 import { create } from 'zustand'
 import { disclosuresUnit } from '@sdk/disclosures-unit.sdk'
 import type { SidebarUnit } from '@config/portals.config'
+import { filterUnitsByPermissions, useMyPermissionsStore } from '@features/permissions/my-permissions'
 
 interface HiddenState { loaded: boolean; hidden: Record<string, string[]>; set: (h: Record<string, string[]>) => void; reset: () => void }
 export const useHiddenUnitsStore = create<HiddenState>((set) => ({
@@ -39,7 +41,9 @@ export function filterVisibleUnits(portal: string, units: readonly SidebarUnit[]
     .map((u) => (u.children ? { ...u, children: u.children.filter((c) => !set.has(c.path)) } : u))
 }
 
+/** الوحدات الظاهرة = (غير مخفية 00170) ∩ (مسموح عرضها حسب الصلاحيات 00350) */
 export function useVisibleUnits(portal: string, units: readonly SidebarUnit[]): readonly SidebarUnit[] {
   const hidden = useHiddenUnitsStore((s) => s.hidden)
-  return filterVisibleUnits(portal, units, hidden)
+  const perms = useMyPermissionsStore((s) => s.perms)
+  return filterUnitsByPermissions(portal, filterVisibleUnits(portal, units, hidden), perms)
 }

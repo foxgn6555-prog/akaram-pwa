@@ -42,6 +42,7 @@ export interface CompletedDesignRow {
 
 export const TREASURY_ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   EXEC_FORBIDDEN: 'هذه الوحدة حصرية للمدير التنفيذي والمالية',
   FINANCE_FORBIDDEN: 'التأكيد من صلاحية الشؤون المالية فقط',
   TREASURY_TYPE_NAME_INVALID: 'اسم النوع مطلوب (حرفان على الأقل)',

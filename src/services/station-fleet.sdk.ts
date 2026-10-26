@@ -128,6 +128,7 @@ export interface StationOutboundRow {
 
 export const STATION_ERRORS: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   OPS_ROOM_FORBIDDEN: 'هذه العملية لغرفة العمليات فقط',
   STATION_FORBIDDEN: 'غير مصرح لهذا الحساب',
   TS_KIND_CODE_INVALID: 'رمز الفئة: أحرف لاتينية صغيرة وأرقام و_ فقط (2–40)',

@@ -12,7 +12,7 @@
  *  · حشو سفلي للمحتوى يحترم شريط النظام (safe-area-inset)
  */
 import { useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 import clsx from 'clsx'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { portalThemes } from '@config/portals.config'
@@ -24,6 +24,8 @@ import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
 import { Header } from '@components/layout/Header/Header'
 import { loadMyHiddenUnits } from '@features/portal-visibility'
+import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
+import { useAuth } from '@features/auth/hooks/useAuth'
 
 export interface AppShellProps {
   portal: PortalId
@@ -42,6 +44,13 @@ export function AppShell({ portal }: AppShellProps) {
   // وحدات مخفية لهذا الحساب (تحددها التطوير المركزية) — تحميل مرة واحدة
   useEffect(() => { void loadMyHiddenUnits() }, [])
 
+  // 00350-B: صلاحياتي الفعلية — تُحمَّل مرة لكل مستخدم؛ المسار الممنوع ⇒ 403 (الخادم يرفض الكتابة على أي حال)
+  const { data: session } = useAuth()
+  const userId = session?.id ?? null
+  useEffect(() => { if (userId) void loadMyPermissions(userId) }, [userId])
+  const perms = useMyPermissionsStore((s) => (s.userId === userId ? s.perms : null))
+  const allowed = routeAllowed(location.pathname, perms)
+
   // الموبايل: الدرج مغلق افتراضياً — ويُغلق تلقائياً عند تجاوز حد الدسكتوب
   useEffect(() => {
     const sync = (): void => {
@@ -57,6 +66,8 @@ export function AppShell({ portal }: AppShellProps) {
   useEffect(() => {
     setMobileNav(false)
   }, [location.pathname, setMobileNav])
+
+  if (!allowed) return <Navigate to="/403" replace />
 
   return (
     <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full overflow-hidden')}>

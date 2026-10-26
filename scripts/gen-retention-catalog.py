@@ -50,6 +50,7 @@ L('it', 'permission_template_rules', 'قواعد قوالب الصلاحيات',
 L('it', 'user_permission_template', 'قالب الصلاحيات لكل مستخدم', CFG)
 L('it', 'user_permission_overrides', 'استثناءات الصلاحيات الفردية', CFG)
 L('it', 'permission_audit', 'سجل تدقيق الصلاحيات', PROOF)
+L('it', 'permission_write_bindings', 'ربط دوال الكتابة بالصلاحيات (00350-B)', CFG)
 L('it', 'user_roles', 'أدوار المستخدمين', IDENT)
 L('it', 'manager_profiles', 'ملفات المديرين', IDENT)
 L('it', 'documents', 'المستندات العامة', ARCH)

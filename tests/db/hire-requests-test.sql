@@ -216,6 +216,6 @@ select auth.set_test_user('48000000-0000-0000-0000-000000000002');
 do $$ declare n int; begin
   select count(*) into n from public.hire_requests_mine() m where m.status = 'completed' and m.employee_number = 'H48-NEW-1'; assert n = 1, 'requester sees completed with number';
   perform pg_temp.expect_error($q$ select public.hire_requests_for_hr('approved') $q$, 'HR_FORBIDDEN');
-  perform pg_temp.expect_error($q$ select public.hire_request_complete('48000000-0000-0000-0000-000000000001', '{"employee_number":"x"}'::jsonb) $q$, 'HR_FORBIDDEN');
+  perform pg_temp.expect_error($q$ select public.hire_request_complete('48000000-0000-0000-0000-000000000001', '{"employee_number":"x"}'::jsonb) $q$, 'PERMISSION_DENIED');
   raise notice 'H10 ✅ صلاحيات الإكمال';
 end $$;

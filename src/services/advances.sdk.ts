@@ -50,6 +50,7 @@ export const EVENT_LABEL: Record<string, string> = {
 
 export const ADVANCE_ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_SUBMIT: 'نُفِّذت هذه العملية قبل لحظات — لم تُكرَّر.', // 00349: حارس التكرار في قاعدة البيانات
+  PERMISSION_DENIED: 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية.', // 00350: إنفاذ الصلاحيات في الخادم
   ADVANCE_FORBIDDEN: 'ليست لديك صلاحية على السلف',
   ADVANCE_NOT_FOUND: 'السلفة غير موجودة',
   ADVANCE_EMPLOYEE_NOT_FOUND: 'الموظف غير موجود أو منتهية خدمته',

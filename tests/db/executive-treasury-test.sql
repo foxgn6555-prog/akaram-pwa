@@ -136,7 +136,7 @@ end $$;
 select auth.set_test_user('e9000000-0000-0000-0000-000000000005');
 do $$ begin
   begin perform public.treasury_list(null, null, null, null, null, null, null, 100); raise exception 'should fail'; exception when others then assert sqlerrm = 'EXEC_FORBIDDEN', sqlerrm; end;
-  begin perform public.finance_treasury_confirm(current_setting('test.ex_cash')::uuid, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'FINANCE_FORBIDDEN', sqlerrm; end;
+  begin perform public.finance_treasury_confirm(current_setting('test.ex_cash')::uuid, null); raise exception 'should fail'; exception when others then assert sqlerrm = 'PERMISSION_DENIED', sqlerrm; end;
   raise notice 'T7 ✅ القائمة والفلاتر والصلاحيات';
 end $$;
 

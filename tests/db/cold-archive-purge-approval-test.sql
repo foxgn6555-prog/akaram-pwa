@@ -46,7 +46,7 @@ begin
   perform pg_temp.expect_error(format('select public.cold_archive_purge_approve(%L)', pkid), 'COLD_ARCHIVE_SAME_APPROVER');
   -- T5: حساب IT آخر يوافق → can_purge true → البدء يعمل؛ غير IT ممنوع
   perform pg_temp.as_user(mgr);
-  perform pg_temp.expect_error(format('select public.cold_archive_purge_approve(%L)', pkid), 'IT_FORBIDDEN');
+  perform pg_temp.expect_error(format('select public.cold_archive_purge_approve(%L)', pkid), 'PERMISSION_DENIED');
   perform pg_temp.as_user(it2);
   pk := public.cold_archive_purge_approve(pkid);
   if not (pk ->> 'can_purge')::boolean then raise exception 'T5 can_purge after approval'; end if;
