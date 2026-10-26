@@ -19,6 +19,7 @@ import { portalThemes } from '@config/portals.config'
 import { useUiStore } from '@stores/ui.store'
 import { Toaster } from '@components/ui'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
+import { InstallBanner } from '@features/pwa/PwaBanners'
 import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
 import { Header } from '@components/layout/Header/Header'
@@ -76,6 +77,7 @@ export function AppShell({ portal }: AppShellProps) {
       {/* ── عمود المحتوى: ثابت الارتفاع، التمرير داخلي فقط ── */}
       <div className="relative z-0 flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
+        <InstallBanner />
         <Header portal={portal} />
         <main
           id="app-main-content"

@@ -29,9 +29,8 @@ if (IS_DEV) {
   console.info('[sw] وضع التطوير — SW شفاف بلا اعتراض (سلوك مقصود)')
 } else {
   // ── وضع الإنتاج ──
-  // skipWaiting فور التثبيت: التحديث الجديد يصل للمستخدم مباشرة
-  // (بدونها يبقى المتصفح على نسخة قديمة مخزنة حتى إغلاق كل التبويبات)
-  self.addEventListener('install', () => void self.skipWaiting())
+  // 00349 B: لا skipWaiting تلقائي — الإصدار الجديد ينتظر ضغط «حدّث الآن» في الواجهة
+  // (registerType = prompt؛ الرسالة SKIP_WAITING أدناه هي التي تفعّله)، ثم clientsClaim يسيطر ويعاد التحميل مرة واحدة.
   precacheAndRoute(manifest)
   cleanupOutdatedCaches()
   clientsClaim()
@@ -67,7 +66,9 @@ if (IS_DEV) {
 }
 
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') void self.skipWaiting()
+  // vite-plugin-pwa يرسل { type: 'SKIP_WAITING' }؛ الصيغة النصية للتوافق مع القديم
+  const data: unknown = event.data
+  if (data === 'SKIP_WAITING' || (typeof data === 'object' && data !== null && (data as { type?: unknown }).type === 'SKIP_WAITING')) void self.skipWaiting()
 })
 
 type PushPayload = {

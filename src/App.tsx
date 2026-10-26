@@ -6,6 +6,7 @@ import { queryClient } from '@config/query-client.config'
 import { router } from '@router/index'
 import { ErrorBoundary } from '@components/feedback/ErrorBoundary'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
+import { UpdateBanner } from '@features/pwa/PwaBanners'
 import { startSessionWatch } from '@features/auth/session-watch'
 import './i18n'
 
@@ -16,6 +17,7 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <OfflineBanner />
+        <UpdateBanner />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </ErrorBoundary>

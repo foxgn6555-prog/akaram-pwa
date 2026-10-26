@@ -5,6 +5,7 @@ import { initMonitoring } from '@lib/monitoring/sentry'
 import { installConsoleCapture } from '@lib/console/capture'
 import { system } from '@sdk/system.sdk'
 import { reloadOnce } from '@lib/router/lazy'
+import { installPwaListeners, pwaStore } from '@features/pwa/pwa.store'
 import App from './App'
 import './styles/globals.css'
 
@@ -22,10 +23,13 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   </StrictMode>,
 )
 
+// 00349 B: التقاط حدث التثبيت (Android/Chrome) ورصد اكتماله — يغذّي زر «ثبّت التطبيق»
+installPwaListeners()
+
 // تسجيل SW فقط في الإنتاج — في dev يتعارض مع HMR ويخزن ردوداً قديمة
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  // إعادة تحميل واحدة آمنة عندما يسيطر SW جديد — تضمن وصول تحديثات
-  // الواجهة (تصميم/إصلاحات) فوراً بدل البقاء على نسخة قديمة مخزنة
+  // 00349 B: registerType = prompt — الإصدار الجديد ينتظر حتى يضغط المستخدم «حدّث الآن»
+  // (كي لا يفقد نموذجاً يملؤه)؛ عندها يُرسل SKIP_WAITING ويسيطر الـ SW الجديد فنعيد التحميل مرة واحدة.
   let refreshing = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return
@@ -33,7 +37,12 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.location.reload()
   })
   void import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({ immediate: true })
+    const updateSW = registerSW({
+      immediate: true,
+      onNeedRefresh: () => pwaStore.setNeedRefresh(updateSW),
+      // فحص دوري للتحديثات كل ساعة (المتصفح يفحص عند كل تحميل؛ هذا للجلسات الطويلة المفتوحة)
+      onRegisteredSW: (_url, reg) => { if (reg) window.setInterval(() => void reg.update(), 60 * 60 * 1000) },
+    })
   })
 }
 

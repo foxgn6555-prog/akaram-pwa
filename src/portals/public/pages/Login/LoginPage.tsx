@@ -15,6 +15,7 @@ import { resolvePortal } from '@router/portal.router'
 import { toUserMessage } from '@lib/errors/error.handler'
 import LoginBackground from './kyvzon-style/LoginBackground'
 import LoginForm from './kyvzon-style/LoginForm'
+import { InstallAppButton } from '@features/pwa/InstallAppButton'
 import './kyvzon-style/login.css'
 
 export default function LoginPage() {
@@ -178,6 +179,11 @@ export default function LoginPage() {
             <ShieldCheck size={13} className="text-[#4db8e8]" />
             موثوق
           </span>
+        </div>
+
+        {/* 00349 B: تثبيت التطبيق — يختفي حين يعمل مثبّتاً */}
+        <div className="mt-4 flex justify-center">
+          <InstallAppButton tone="light" />
         </div>
       </div>
     </div>
