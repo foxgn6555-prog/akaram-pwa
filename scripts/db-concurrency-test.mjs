@@ -4,6 +4,7 @@
  *   2) مديران مفوضان يقرران الطلب نفسه معاً ⇒ قرار واحد، والآخر يحصل على «لم يعد معلّقاً».
  *   3) متعهد × تسجيل حضور مزدوج متزامن ⇒ سجل واحد.
  *   4) 50 نقرة متزامنة من المستخدم نفسه ⇒ سجل واحد.
+ *   5) (00349-C) بصمة أثناء قفل صف جهاز البصمة ⇒ لا تنتظر (biometric_touch تتخطى الصف المقفول).
  * التشغيل: node scripts/db-concurrency-test.mjs  (يستخدم قاعدة مضمّنة كـ db-migrations-test.mjs)
  */
 import EmbeddedPostgres from 'embedded-postgres';
@@ -86,6 +87,24 @@ const count = async (sql) => Number((await admin.query(sql)).rows[0].n);
   const n = await count(`select count(*) n from public.hire_requests where full_name = 'خمسون نقرة'`);
   if (oks !== 1 || dups !== 49 || n !== 1) await die(`S4 50 clicks: ok=${oks} dup=${dups} rows=${n}`); else console.log('S4 ✅ 50 نقرة متزامنة ⇒ سجل واحد و49 رفضاً');
   await Promise.all(sessions.map((c) => c.end()));
+}
+// ── 5) (00349-C) بصمة بينما معاملة أخرى (بصمة سابقة لم تُثبَّت بعد) تحدّث صف الجهاز: لا اصطفاف — app.biometric_touch تتخطى الصف المقفول (skip locked)
+{
+  await run('bio', `insert into public.biometric_devices (id, serial_number, name, timezone_offset, is_active) values ('4ad00000-0000-0000-0000-0000000000b1', 'CC-DEV-1', 'جهاز التزامن', '+03:00', true) on conflict (serial_number) do nothing;
+    update public.employees set biometric_pin = '77001' where id = '4ae00000-0000-0000-0000-000000000001';`);
+  const holder = conn(); await holder.connect();
+  await holder.query(`begin; update public.biometric_devices set last_seen_at = now() where serial_number = 'CC-DEV-1'`);
+  const puncher = conn(); await puncher.connect();
+  const t0 = Date.now();
+  const r = await Promise.race([
+    attempt(puncher, `select public.biometric_ingest('CC-DEV-1', $1, 'ATTLOG')`, ['77001\t' + new Date().toISOString().slice(0, 10) + ' 08:05:00\t0\t1']),
+    new Promise((res) => setTimeout(() => res({ ok: false, err: 'TIMEOUT_BLOCKED' }), 3000)),
+  ]);
+  const ms = Date.now() - t0;
+  await holder.query('rollback'); await holder.end(); await puncher.end();
+  const punches = await count(`select count(*) n from public.biometric_punches where device_serial = 'CC-DEV-1'`);
+  if (!r.ok || punches !== 1 || ms > 2500) await die(`S5 touch skip-locked: ok=${r.ok} err=${r.err ?? ''} punches=${punches} ms=${ms}`);
+  else console.log(`S5 ✅ بصمة أثناء قفل صف الجهاز ⇒ لم تنتظر (${ms} ms) وسُجِّلت`);
 }
 await admin.end(); await pgs.stop();
 fs.rmSync(dir, { recursive: true, force: true });
