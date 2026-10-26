@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import { DoorOpen, FolderOpen, LogIn, LogOut, MapPin, Search } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import {
   useGarageAreas,
   useGarageDepartureDays,
@@ -107,6 +108,7 @@ export default function DriversDispatchPage() {
   const dayFolders = useGarageDepartureDays()
   const departures = useGarageDeparturesForDay(selectedDay)
   const recordReturn = useRecordGarageReturn()
+  const canReturn = useCanCall('garage_record_return')
   const states = useMemo(() => departureState(departures.data ?? []), [departures.data])
   const allRows = vehicles.data?.rows ?? []
   const rows = selectedDay === today ? allRows : allRows.filter((v) => states.has(v.id))
@@ -234,7 +236,7 @@ export default function DriversDispatchPage() {
                       canGarageReceive(statusOf(state.departure)) ? (
                         <button
                           data-testid={`return-${vehicle.id}`}
-                          disabled={recordReturn.isPending}
+                          disabled={recordReturn.isPending || !canReturn.allowed} title={canReturn.title}
                           onClick={() => recordReturn.mutate({ departureId: state.departure.id })}
                           className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white disabled:opacity-60"
                         >
@@ -283,6 +285,7 @@ export default function DriversDispatchPage() {
 function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose: () => void }) {
   const assignments = useGarageShiftAssignments(vehicle.id)
   const departure = useRecordGarageShiftDeparture()
+  const canDepart = useCanCall('garage_record_shift_departure')
   const [shift, setShift] = useState<GarageShift>('morning')
   const recipients = useGarageShiftDispatchRecipients(vehicle.id, shift)
   const [notes, setNotes] = useState('')
@@ -445,8 +448,9 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
             <button
               data-testid="confirm-departure"
               disabled={
-                !selected || recipients.isLoading || !effectiveManager || departure.isPending
+                !selected || recipients.isLoading || !effectiveManager || departure.isPending || !canDepart.allowed
               }
+              title={canDepart.title}
               className="h-11 rounded-xl bg-cyan-700 font-black text-white disabled:opacity-50"
             >
               {departure.isPending

@@ -5,6 +5,7 @@
  *  الشفت يُستنتج من دوام HR للمستخدم المسجِّل. وقت الخروج تلقائي.
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { Icon } from '@components/ui/Icon/Icon'
 import { useStationDestinations, useStationDrivers, useStationFleet, useStationRecordExit } from '@features/station-fleet/hooks'
@@ -21,6 +22,7 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
   const drivers = useStationDrivers()
   const destinations = useStationDestinations(false)
   const record = useStationRecordExit()
+  const canRecord = useCanCall('station_record_exit')
   const [vehicleId, setVehicleId] = useState('')
   const [driverKind, setDriverKind] = useState<StationDriverKind>('employee')
   const [driverRef, setDriverRef] = useState('')
@@ -119,7 +121,7 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
           </div>
         </label>
         <div className="flex items-end sm:col-span-2">
-          <button type="submit" disabled={record.isPending} data-testid={`${kind}-submit`} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60">
+          <button type="submit" disabled={record.isPending || !canRecord.allowed} title={canRecord.title} data-testid={`${kind}-submit`} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60">
             <Icon name="check-square" size={16} /> تسجيل الخروج
           </button>
         </div>

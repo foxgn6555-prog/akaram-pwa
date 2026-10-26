@@ -1,5 +1,6 @@
 /** طلبات الدعم بين مسؤولي الأقسام (00154): طلب آليات من مسؤول آخر، قبول/رفض الوارد، إنهاء/استرجاع الدعم */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { ArrowLeftRight, Send, Truck, XCircle } from 'lucide-react'
 import {
   useAcceptSupportRequest,
@@ -173,6 +174,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 function NewRequestDialog({ mySectors, onClose }: { mySectors: Array<{ id: number; name: string }>; onClose: () => void }) {
   const managers = useSupportManagers()
   const create = useCreateSupportRequest()
+  const canCreate = useCanCall('sector_support_request_create')
   const [target, setTarget] = useState('')
   const [sectorId, setSectorId] = useState<number>(mySectors[0]?.id ?? 0)
   const [count, setCount] = useState(1)
@@ -212,7 +214,7 @@ function NewRequestDialog({ mySectors, onClose }: { mySectors: Array<{ id: numbe
           <span className="text-xs font-bold text-slate-600">سبب الطلب</span>
           <textarea data-testid="support-reason" required minLength={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1 min-h-24 w-full rounded-xl border p-3" placeholder="مثال: تراكم نفايات بعد سوق الجمعة ونحتاج كابسة إضافية حتى الظهر" />
         </label>
-        <button data-testid="support-submit" disabled={create.isPending || !target || !sectorId} className="h-11 w-full rounded-xl bg-violet-900 text-sm font-black text-white disabled:opacity-50">
+        <button data-testid="support-submit" disabled={create.isPending || !target || !sectorId || !canCreate.allowed} title={canCreate.title} className="h-11 w-full rounded-xl bg-violet-900 text-sm font-black text-white disabled:opacity-50">
           إرسال الطلب
         </button>
       </form>

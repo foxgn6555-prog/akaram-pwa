@@ -7,6 +7,7 @@
  *   ④ إدارة قوالب الشفتات (اسم/بداية/نهاية/سماحية/أيام العمل).
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { Link } from 'react-router'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
@@ -73,6 +74,8 @@ export function HireForm({ initial, completeRequestId, onCompleted }: HireFormPr
   const { data: managers = [] } = useHrEmployees({ status: 'active' })
   const createNew = useCreateEmployee()
   const complete = useCompleteHireRequest()
+  const canCreate = useCanCall('hr_employee_create'), canComplete = useCanCall('hire_request_complete')
+  const gate = completeRequestId ? canComplete : canCreate
   const create = completeRequestId ? complete : createNew
   const set = <K extends keyof CreateEmployeeInput>(k: K, val: CreateEmployeeInput[K]) => setV((s) => ({ ...s, [k]: val }))
   const shift = shifts.find((s) => s.id === v.shift_id)
@@ -207,7 +210,7 @@ export function HireForm({ initial, completeRequestId, onCompleted }: HireFormPr
       {err && <p role="alert" className="text-sm font-semibold text-red-600" data-testid="hire-error">{err}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={() => setV({ ...EMPTY, ...initial })}>مسح</Button>
-        <Button type="submit" isLoading={create.isPending} data-testid="hire-submit"><Icon name="user-plus" size={16} /> {completeRequestId ? 'حفظ وإنزال الموظف للنظام' : 'حفظ وتوظيف'}</Button>
+        <Button type="submit" isLoading={create.isPending} disabled={!gate.allowed || create.isPending} title={gate.title} data-testid="hire-submit"><Icon name="user-plus" size={16} /> {completeRequestId ? 'حفظ وإنزال الموظف للنظام' : 'حفظ وتوظيف'}</Button>
       </div>
     </form>
   )
@@ -234,6 +237,7 @@ function TerminatePanel() {
   const [done, setDone] = useState(false)
   const { data: employees = [] } = useHrEmployees({ status: 'active', search })
   const terminate = useTerminateEmployee()
+  const canTerminate = useCanCall('hr_employee_terminate')
   const upload = useUploadDocument()
   const emp = employees.find((e) => e.id === employeeId)
 
@@ -291,7 +295,7 @@ function TerminatePanel() {
         <Field id="t-reason" label="السبب *"><textarea id="t-reason" className="w-full rounded-xl border border-slate-300 p-2 text-sm" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="t-reason" /></Field>
         <Field id="t-file" label="مرفق (كتاب الاستقالة/الأمر الإداري) — اختياري"><input id="t-file" type="file" accept="image/*,application/pdf" className="text-xs" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
         {err && <p role="alert" className="text-xs font-semibold text-red-600" data-testid="t-error">{err}</p>}
-        <Button variant="danger" disabled={!employeeId} isLoading={terminate.isPending || upload.isPending} onClick={() => void submit()} data-testid="t-submit">تأكيد إنهاء الخدمة</Button>
+        <Button variant="danger" disabled={!employeeId || !canTerminate.allowed || terminate.isPending || upload.isPending} title={canTerminate.title} isLoading={terminate.isPending || upload.isPending} onClick={() => void submit()} data-testid="t-submit">تأكيد إنهاء الخدمة</Button>
       </div>
     </div>
   )

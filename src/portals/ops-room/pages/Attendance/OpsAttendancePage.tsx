@@ -7,6 +7,7 @@
  *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
@@ -61,6 +62,7 @@ export default function OpsAttendancePage() {
   const { data: hourBank = [] } = useHourBankMonth(month)
   const hourBankActive = hourBank.some((r) => r.enabled)
   const confirmMonth = useConfirmAttendanceMonth()
+  const canConfirm = useCanCall('ops_attendance_confirm')
   const reopenMonth = useReopenAttendanceMonth()
   const evaluate = useEvaluateAttendance()
   const exportMonth = useExportMonth()
@@ -120,7 +122,7 @@ export default function OpsAttendancePage() {
           <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
           {stage === 'detailed' && !locked && (
-            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={confirmed && (conf?.pending_auto ?? 0) === 0} data-testid="att-confirm-open" title={confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
+            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={!canConfirm.allowed || (confirmed && (conf?.pending_auto ?? 0) === 0)} data-testid="att-confirm-open" title={!canConfirm.allowed ? canConfirm.title : confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
               <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
             </Button>
           )}
@@ -293,7 +295,7 @@ export default function OpsAttendancePage() {
                 اعتمده <b>{conf?.confirmed_by_name ?? '—'}</b> في {conf?.confirmed_at ? new Date(conf.confirmed_at).toLocaleString('ar-IQ-u-nu-latn') : '—'}{(conf?.confirm_count ?? 0) > 1 ? ` (الاعتماد رقم ${conf?.confirm_count})` : ''} · {conf?.employees ?? grid.length} موظفاً
               </StatusLine>
               {(conf?.pending_auto ?? 0) > 0 && !locked && (
-                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="att-pending-banner" action={<Button size="sm" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-reconfirm">إعادة الاعتماد (تطبيق التغييرات)</Button>}>
+                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="att-pending-banner" action={<Button size="sm" isLoading={confirmMonth.isPending} disabled={!canConfirm.allowed || confirmMonth.isPending} title={canConfirm.title} onClick={() => void doConfirm()} data-testid="att-reconfirm">إعادة الاعتماد (تطبيق التغييرات)</Button>}>
                   <b>{conf!.pending_auto} يوم</b> وصلته تغييرات تلقائية بعد الاعتماد (بصمات متأخرة / إجازات اعتُمدت لاحقاً) ولم تُطبَّق: {conf!.pending_days.slice(0, 4).map((p) => `${p.full_name} ${p.work_date.slice(5)}`).join('، ')}{conf!.pending_days.length > 4 ? ' …' : ''} — التصدير للمالية متوقف حتى إعادة الاعتماد.
                 </StatusLine>
               )}
@@ -365,7 +367,7 @@ export default function OpsAttendancePage() {
                 </ul>
               )}
               {gridTotals.manual > 0 && <p className="text-slate-500">{gridTotals.manual} يوم عدّلته غرفة العمليات بسبب موثّق.</p>}
-              <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)}>إلغاء</Button><Button size="sm" isLoading={confirmMonth.isPending} onClick={() => void doConfirm()} data-testid="att-confirm-save">اعتماد الشهر</Button></div>
+              <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)}>إلغاء</Button><Button size="sm" isLoading={confirmMonth.isPending} disabled={!canConfirm.allowed || confirmMonth.isPending} title={canConfirm.title} onClick={() => void doConfirm()} data-testid="att-confirm-save">اعتماد الشهر</Button></div>
             </div>
           )}
         </Overlay>

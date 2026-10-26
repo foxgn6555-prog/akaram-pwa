@@ -4,6 +4,7 @@
  * يُستخدم القالب عند إنشاء تصميم جديد من وحدة التذاكر لتعبئة الغلاف والعنوان.
  */
 import { useRef, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { Archive, LayoutTemplate, Palette, Pencil, Plus, Upload, X } from 'lucide-react'
 import {
   PERIODS,
@@ -130,6 +131,7 @@ function TemplateCard({ template, onEdit }: { template: MediaDesignTemplate; onE
 
 function TemplateEditor({ template, close }: { template: MediaDesignTemplate | null; close: () => void }) {
   const create = useCreateMediaTemplate()
+  const canCreate = useCanCall('media_template_create')
   const update = useUpdateMediaTemplate()
   const uploadCover = useUploadCover()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -287,7 +289,8 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
         <div className="flex gap-2">
           <button
             onClick={save}
-            disabled={busy}
+            disabled={busy || (!template && !canCreate.allowed)}
+            title={!template ? canCreate.title : undefined}
             className="h-11 flex-1 rounded-xl bg-fuchsia-700 text-sm font-black text-white hover:bg-fuchsia-800 disabled:opacity-40"
           >
             {template ? 'حفظ التعديلات' : 'إنشاء القالب'}

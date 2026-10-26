@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Archive, CheckCircle2, Database, Download, FolderOpen, HardDrive, RefreshCw, Settings2, ShieldCheck, Trash2, UserCheck, X } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -133,6 +134,7 @@ function PackageCard({ p, expanded, onToggle }: { p: ColdPackage; expanded: bool
 /** لوحة الحذف من المنصة — IT فقط: جاهزية → (موافقة ثنائية اختيارية) → تأكيد بكتابة الرمز → تنفيذ دفعات قابل للاستئناف */
 function PurgePanel({ p }: { p: ColdPackage }) {
   const request = useRequestColdPurge(), approve = useApproveColdPurge(), run = useRunColdPurge()
+  const canRequest = useCanCall('cold_archive_purge_request'), canApprove = useCanCall('cold_archive_purge_approve'), canConfirm = useCanCall('cold_archive_purge_confirm')
   const [confirm, setConfirm] = useState('')
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const graceOver = Boolean(p.purge_available_at && new Date(p.purge_available_at) <= new Date())
@@ -166,7 +168,7 @@ function PurgePanel({ p }: { p: ColdPackage }) {
       {needApproval && !resuming && !approved && (
         <div className="mt-3 flex flex-wrap gap-2">
           {!p.purge_requested_at && (
-            <button type="button" disabled={request.isPending || !copiesOk} onClick={() => request.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-request">
+            <button type="button" disabled={request.isPending || !copiesOk || !canRequest.allowed} title={canRequest.title} onClick={() => request.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-request">
               <UserCheck size={14} />طلب الحذف
             </button>
           )}
@@ -175,7 +177,7 @@ function PurgePanel({ p }: { p: ColdPackage }) {
               ? <span className="text-xs text-slate-600" data-testid="cold-purge-chain-note">القرار يُتَّخذ من صفحة «طلبات الموافقة» لدى الموافقين في السلسلة — ستصلك إشعارات بالنتيجة.</span>
               : p.purge_requested_by_me
               ? <span className="text-xs text-slate-600">أنت طالب الحذف — الموافقة يجب أن تأتي من حساب IT آخر.</span>
-              : <button type="button" disabled={approve.isPending} onClick={() => approve.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-approve"><UserCheck size={14} />الموافقة على الحذف</button>
+              : <button type="button" disabled={approve.isPending || !canApprove.allowed} title={canApprove.title} onClick={() => approve.mutate(p.id)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-purge-approve"><UserCheck size={14} />الموافقة على الحذف</button>
           )}
         </div>
       )}
@@ -190,7 +192,7 @@ function PurgePanel({ p }: { p: ColdPackage }) {
           {resuming && <p className="text-xs font-bold text-red-800">توقف الحذف سابقاً عند {p.purged_count} / {p.file_count} — يمكنك الاستئناف.</p>}
           <div className="flex flex-wrap items-center gap-2">
             <input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={`اكتب رمز الحزمة للتأكيد: ${p.code}`} dir="ltr" className="h-10 flex-1 rounded-xl border border-red-300 bg-white px-3 font-mono text-sm" data-testid="cold-purge-confirm" disabled={busy} />
-            <button type="button" disabled={confirm.trim() !== p.code || busy}
+            <button type="button" disabled={confirm.trim() !== p.code || busy || !canConfirm.allowed} title={canConfirm.title}
               onClick={() => run.mutate({ id: p.id, onProgress: (done, total) => setProgress({ done, total }) })}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-700 px-5 text-sm font-black text-white disabled:opacity-50" data-testid="cold-purge-run">
               <Trash2 size={16} />{busy ? `جارٍ الحذف… ${progress ? `${progress.done}/${progress.total}` : ''}` : resuming ? 'استئناف الحذف' : `حذف ${p.file_count} ملف من المنصة`}
@@ -282,6 +284,7 @@ function NewPackageTab({ onCreated }: { onCreated: () => void }) {
   const valid = Boolean(from && to && to >= from)
   const preview = useColdPreview(from, to, valid && armed)
   const create = useCreateColdPackage()
+  const canCreate = useCanCall('cold_archive_package_create')
   const t = preview.data?.totals
   return (
     <div className="space-y-4" data-testid="cold-new">
@@ -321,7 +324,7 @@ function NewPackageTab({ onCreated }: { onCreated: () => void }) {
               </table>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ملاحظة (اختياري)" className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm" data-testid="cold-note" />
-                <button type="button" disabled={(t?.files ?? 0) === 0 || create.isPending}
+                <button type="button" disabled={(t?.files ?? 0) === 0 || create.isPending || !canCreate.allowed} title={canCreate.title}
                   onClick={() => create.mutate({ from, to, note: note.trim() || null }, { onSuccess: onCreated })}
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-700 px-5 text-sm font-bold text-white disabled:opacity-50" data-testid="cold-create-btn">
                   <Archive size={16} />إنشاء الحزمة ({t?.files ?? 0} ملف)

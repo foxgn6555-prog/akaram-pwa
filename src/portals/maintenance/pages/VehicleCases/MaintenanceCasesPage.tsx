@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Archive, ArrowLeftRight, CalendarDays, CheckCircle2, History, Lock, Package, Timer, UserCog, Wrench } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { Link } from 'react-router'
 import { MaintenanceCaseHistoryDialog } from '@features/vehicle-operations/components/MaintenanceCaseHistoryDialog'
 import {
@@ -59,6 +60,7 @@ export default function MaintenanceCasesPage() {
   const days = useMaintenanceDays(),
     q = useMaintenanceForDay(day),
     arrival = useMaintenanceConfirmArrival(),
+    canArrival = useCanCall('maintenance_confirm_arrival'),
     dispatch = useMaintenanceDispatch()
   // المكتملة (استلمها الكراج/الموقع) تختفي من هنا وتبقى في الأرشيف
   const open = (q.data ?? []).filter((c) => !c.completed_at),
@@ -90,7 +92,7 @@ export default function MaintenanceCasesPage() {
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         {open.map((c) => (
-          <CaseCard key={c.case_id} c={c} onArrival={() => arrival.mutate({ caseId: c.case_id })} onFinish={() => setFinishing(c)} onDetail={() => setDetail(c)} onDispatch={(destination) => dispatch.mutate({ caseId: c.case_id, destination })} onForward={() => setForwarding(c)} />
+          <CaseCard key={c.case_id} c={c} onArrival={() => arrival.mutate({ caseId: c.case_id })} canArrival={canArrival} onFinish={() => setFinishing(c)} onDetail={() => setDetail(c)} onDispatch={(destination) => dispatch.mutate({ caseId: c.case_id, destination })} onForward={() => setForwarding(c)} />
         ))}
       </div>
       {!open.length && <p className="rounded-2xl border bg-white p-12 text-center text-slate-500">لا توجد حالات مفتوحة في هذا اليوم.</p>}
@@ -101,7 +103,7 @@ export default function MaintenanceCasesPage() {
   )
 }
 
-function CaseCard({ c, onArrival, onFinish, onDetail, onDispatch, onForward }: { c: MaintenanceCase; onArrival: () => void; onFinish: () => void; onDetail: () => void; onDispatch: (d: 'work_site' | 'garage') => void; onForward: () => void }) {
+function CaseCard({ c, onArrival, canArrival, onFinish, onDetail, onDispatch, onForward }: { c: MaintenanceCase; onArrival: () => void; canArrival: { allowed: boolean; title: string | undefined }; onFinish: () => void; onDetail: () => void; onDispatch: (d: 'work_site' | 'garage') => void; onForward: () => void }) {
   const elapsed = useElapsed(c.arrived_at, c.departed_maintenance_at ?? c.completed_at)
   const done = Boolean(c.readiness_approved_at)
   // (00272) حالة محوَّلة إلى المركزية: الورشة المحوِّلة تراها للقراءة فقط؛ التحويل متاح فقط لورشة فرعية تملك الحالة وهي داخل الورشة
@@ -145,7 +147,7 @@ function CaseCard({ c, onArrival, onFinish, onDetail, onDispatch, onForward }: {
         السجل والمرفقات
       </button>
       {!readOnly && c.status === 'to_maintenance' && (
-        <button onClick={onArrival} className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white">تأكيد وصول الآلية إلى الصيانة</button>
+        <button onClick={onArrival} disabled={!canArrival.allowed} title={canArrival.title} className="mt-3 h-11 w-full rounded-xl bg-emerald-700 font-black text-white disabled:opacity-50">تأكيد وصول الآلية إلى الصيانة</button>
       )}
       {!readOnly && inWorkshop(c) && (
         <button data-testid={`finish-${c.case_id}`} onClick={onFinish} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-700 font-black text-white">
@@ -201,6 +203,7 @@ function ForwardDialog({ item, close }: { item: MaintenanceCase; close: () => vo
 /** نموذج الإنهاء الواحد: الفنيون + القطع من المخزن + التشخيص والأعمال + أجور خارجية (اختياري) */
 function FinishDialog({ item, close }: { item: MaintenanceCase; close: () => void }) {
   const complete = useMaintenanceCompleteCase(),
+    canComplete = useCanCall('maintenance_complete_case'),
     options = useMaintenanceTechnicianOptions(),
     inventory = useMaintenanceInventory()
   const [techIds, setTechIds] = useState<string[]>([]),
@@ -294,7 +297,7 @@ function FinishDialog({ item, close }: { item: MaintenanceCase; close: () => voi
         {missing.length > 0 && <p data-testid="finish-missing" className="mt-3 text-xs font-bold text-amber-800">المطلوب: {missing.join('، ')}</p>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" onClick={close} className="h-11 rounded-xl border">إلغاء</button>
-          <button disabled={missing.length > 0 || complete.isPending} className="h-11 rounded-xl bg-rose-700 font-black text-white disabled:opacity-50">إنهاء الصيانة</button>
+          <button disabled={missing.length > 0 || complete.isPending || !canComplete.allowed} title={canComplete.title} className="h-11 rounded-xl bg-rose-700 font-black text-white disabled:opacity-50">إنهاء الصيانة</button>
         </div>
       </form>
     </div>

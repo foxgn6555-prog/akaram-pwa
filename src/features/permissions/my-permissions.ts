@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { sdkGuard, supabase } from '@sdk/client'
 import type { SidebarUnit } from '@config/portals.config'
-import { PERMISSION_UNIT_KEYS, unitKeyForRoute, unitKeyFromPath, type PermissionAction } from '@config/permission-catalog'
+import { PERMISSION_UNIT_KEYS, WRITE_BINDINGS, unitKeyForRoute, unitKeyFromPath, type PermissionAction } from '@config/permission-catalog'
 
 export type MyPermissions = Readonly<Record<string, readonly string[]>>
 
@@ -64,4 +64,18 @@ export function routeAllowed(pathname: string, perms: MyPermissions | null): boo
   const key = unitKeyForRoute(pathname, PERMISSION_UNIT_KEYS)
   if (key === null) return true
   return canWith(perms, key, 'view')
+}
+
+/** 00350-D — هل يستطيع المستخدم الحالي استدعاء دالة كتابة مربوطة؟ (fn ⇒ وحدة+إجراء من WRITE_BINDINGS) — غير مربوطة ⇒ true */
+export function canCallWith(perms: MyPermissions | null, fn: string): boolean {
+  const b = WRITE_BINDINGS[fn]
+  if (!b) return true
+  return canWith(perms, b[0], b[1])
+}
+export const PERMISSION_DENIED_TITLE = 'ليست لديك صلاحية هذا الإجراء — راجع التطوير المركزية'
+/** للأزرار: `const g = useCanCall('finance_payroll_approve')` ثم `disabled={!g.allowed || …} title={g.title}` */
+export function useCanCall(fn: string): { allowed: boolean; title: string | undefined } {
+  const perms = useMyPermissionsStore((s) => s.perms)
+  const allowed = canCallWith(perms, fn)
+  return { allowed, title: allowed ? undefined : PERMISSION_DENIED_TITLE }
 }

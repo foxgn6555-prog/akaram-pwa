@@ -5,6 +5,7 @@
  *  · إلغاء طلب ما دام قيد الموافقة (بسبب)
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { Search } from 'lucide-react'
 import { useAdvanceEmployeeLookup, useAdvanceTypes, useAdvancesList, useCancelAdvance, useCreateAdvance } from '@features/advances/hooks'
@@ -79,6 +80,7 @@ function AdvanceCard({ a }: { a: Advance }) {
 
 function RequestForm({ onDone }: { onDone: () => void }) {
   const types = useAdvanceTypes(false), create = useCreateAdvance()
+  const canCreate = useCanCall('advance_request_create')
   const [q, setQ] = useState(''), [emp, setEmp] = useState<AdvanceEmployee | null>(null)
   const lookup = useAdvanceEmployeeLookup(q, q.trim().length >= 2 && !emp)
   const [typeId, setTypeId] = useState(''), [amount, setAmount] = useState(''), [method, setMethod] = useState<RepaymentMethod>('equal')
@@ -146,7 +148,7 @@ function RequestForm({ onDone }: { onDone: () => void }) {
       <label className="block text-xs font-bold">ملاحظة (اختياري)<textarea data-testid="adv-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border px-3 py-2 text-sm font-normal" /></label>
       <p className="text-[11px] text-slate-500">يبدأ الاستقطاع من راتب الشهر التالي لتسليم المبلغ. يُرفض الطلب تلقائياً إن تجاوز القسط الشهري النسبة المسموحة من الراتب (سياسة التطوير المركزية).</p>
       <div className="flex gap-2">
-        <button type="submit" data-testid="adv-submit" disabled={!valid || create.isPending} className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-black text-white disabled:opacity-40">إرسال الطلب إلى سلسلة الموافقات</button>
+        <button type="submit" data-testid="adv-submit" disabled={!valid || create.isPending || !canCreate.allowed} title={canCreate.title} className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-black text-white disabled:opacity-40">إرسال الطلب إلى سلسلة الموافقات</button>
         <button type="button" onClick={onDone} className="h-10 rounded-xl border bg-white px-4 text-sm font-bold">إلغاء</button>
       </div>
     </form>

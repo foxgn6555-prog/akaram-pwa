@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -32,6 +33,7 @@ const stateLabel = {
 export default function MaintenanceCoordinationPage() {
   const q = useGarageMaintenanceCoordination(),
     action = useGarageMaintenanceDecision(),
+    canDecide = useCanCall('garage_decide_maintenance_dispatch'),
     [search, setSearch] = useState(''),
     [onlyPending, setOnlyPending] = useState(true),
     [target, setTarget] = useState<{
@@ -236,7 +238,7 @@ export default function MaintenanceCoordinationPage() {
                 إلغاء
               </button>
               <button
-                disabled={action.isPending}
+                disabled={action.isPending || !canDecide.allowed} title={canDecide.title}
                 className={`h-11 rounded-xl font-black text-white ${target.decision === 'reject' ? 'bg-rose-700' : 'bg-emerald-700'}`}
               >
                 {action.isPending ? 'جارٍ الحفظ…' : 'تأكيد القرار'}

@@ -7,9 +7,9 @@ vi.mock('@sdk/client', () => ({
   sdkGuard: async (p: Promise<{ data: unknown; error: unknown }>) => { const r = await p; if (r.error) throw r.error; return r.data },
 }))
 
-import { canWith, filterUnitsByPermissions, loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
+import { PERMISSION_DENIED_TITLE, canCallWith, canWith, filterUnitsByPermissions, loadMyPermissions, routeAllowed, useCanCall, useMyPermissionsStore } from '@features/permissions/my-permissions'
 import { useVisibleUnits } from '@features/portal-visibility'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { SidebarUnit } from '@config/portals.config'
 
 const units: SidebarUnit[] = [
@@ -55,5 +55,34 @@ describe('⚓ صلاحياتي — الإنفاذ المرئي', () => {
     useMyPermissionsStore.getState().set('u1', { hr: ['view'], 'hr.leaves': ['view'] })
     const { result } = renderHook(() => useVisibleUnits('hr', units))
     expect(result.current.map((u) => u.path)).toEqual(['/hr', '/hr/leaves'])
+  })
+})
+
+describe('⚓ 00350-D — useCanCall: تعطيل أزرار الكتابة حسب ربط الدالة', () => {
+  beforeEach(() => { useMyPermissionsStore.getState().reset() })
+
+  it('قبل التحميل: مسموح بلا عنوان (fail-open كالقائمة)', () => {
+    expect(canCallWith(null, 'finance_payroll_approve')).toBe(true)
+    const { result } = renderHook(() => useCanCall('finance_payroll_approve'))
+    expect(result.current).toEqual({ allowed: true, title: undefined })
+  })
+
+  it('بعد التحميل: الدالة المربوطة تُفحص على وحدتها وإجرائها؛ وغير المربوطة مسموحة دائماً', () => {
+    useMyPermissionsStore.getState().set('u1', { 'finance.payroll': ['view', 'edit'], 'finance.advances': ['view'] })
+    expect(canCallWith(useMyPermissionsStore.getState().perms, 'finance_payroll_adjust')).toBe(true)   // edit ✓
+    expect(canCallWith(useMyPermissionsStore.getState().perms, 'finance_payroll_approve')).toBe(false) // decide ✗
+    expect(canCallWith(useMyPermissionsStore.getState().perms, 'advance_deliver')).toBe(false)         // execute ✗
+    expect(canCallWith(useMyPermissionsStore.getState().perms, 'some_unbound_fn')).toBe(true)
+    const { result } = renderHook(() => useCanCall('finance_payroll_approve'))
+    expect(result.current.allowed).toBe(false)
+    expect(result.current.title).toBe(PERMISSION_DENIED_TITLE)
+  })
+
+  it('تغيير الصلاحيات في المخزن يعيد تقييم الزر فوراً', () => {
+    useMyPermissionsStore.getState().set('u1', { 'ops-room.attendance': ['view'] })
+    const { result } = renderHook(() => useCanCall('ops_attendance_confirm'))
+    expect(result.current.allowed).toBe(false)
+    act(() => useMyPermissionsStore.getState().set('u1', { 'ops-room.attendance': ['view', 'decide'] }))
+    expect(result.current.allowed).toBe(true)
   })
 })

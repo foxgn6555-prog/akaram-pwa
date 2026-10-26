@@ -6,6 +6,7 @@
  *  · السجل الكامل مع فلاتر التاريخ/النوع/الحالة/بحث + Excel · الأرقام إنكليزية
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
 import { field, fmtMoney } from '@portals/hr/components/hr-format'
@@ -27,6 +28,7 @@ export default function BudgetOverview() {
   const pending = useTreasuryList({ status: 'pending' })
   const ledger = useTreasuryList({ from: range.from || null, to: range.to || null, kind: kind || null, status: status || null, search: search || null })
   const confirm = useTreasuryConfirm()
+  const canConfirm = useCanCall('finance_treasury_confirm')
   const cancel = useTreasuryCancel()
   const s = summary.data
   const pendingRows = useMemo(() => (pending.data ?? []).filter((t) => t.needs_finance), [pending.data])
@@ -113,7 +115,7 @@ export default function BudgetOverview() {
             <input className={field} placeholder="ملاحظة (اختياري)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="tr-confirm-note" />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setConfirmTx(null)}>إغلاق</Button>
-              <Button size="sm" disabled={confirm.isPending} onClick={() => confirm.mutate({ id: confirmTx.id, note: note.trim() || null }, { onSuccess: () => setConfirmTx(null) })} data-testid="tr-confirm-submit">{CONFIRM_LABEL[confirmTx.kind]}</Button>
+              <Button size="sm" disabled={confirm.isPending || !canConfirm.allowed} title={canConfirm.title} onClick={() => confirm.mutate({ id: confirmTx.id, note: note.trim() || null }, { onSuccess: () => setConfirmTx(null) })} data-testid="tr-confirm-submit">{CONFIRM_LABEL[confirmTx.kind]}</Button>
             </div>
           </div>
         </div>

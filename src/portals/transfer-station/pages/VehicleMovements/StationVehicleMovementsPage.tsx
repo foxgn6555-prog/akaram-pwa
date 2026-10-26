@@ -7,6 +7,7 @@
  * كل الأزمنة تُحسب وتظهر هنا وفي جدول غرفة العمليات.
  */
 import { useMemo, useState, type ReactNode } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { AlertTriangle, ArrowLeftRight, CheckCircle2, Clock3, Filter, FolderOpen, MapPin, Scale, Search, Truck } from 'lucide-react'
 import { useStationConfirmArrival, useStationDispatchVehicle, useStationMovementDays, useStationVisitsForDay } from '@features/vehicle-operations/hooks'
 import { useCompleteWeighing, useRecordWeighing, useVehicleKinds, kindsForDestination, kindByKey, kindRangeLabel, weighingViolation, DESTINATION_LABELS, type WeighingDestination } from '@features/transfer-station'
@@ -23,6 +24,7 @@ type Action = 'arrive' | 'work_site' | 'garage' | 'weigh' | 'complete'
 export default function StationVehicleMovementsPage() {
   const [selectedDay, setSelectedDay] = useState(today), [search, setSearch] = useState(''), [status, setStatus] = useState<'' | StationVisit['status']>(''), [sectorId, setSectorId] = useState('')
   const days = useStationMovementDays(), visits = useStationVisitsForDay(selectedDay, { search, status: status || undefined, sectorId: sectorId ? Number(sectorId) : undefined }), arrive = useStationConfirmArrival(), send = useStationDispatchVehicle()
+  const canArrive = useCanCall('station_confirm_vehicle_arrival')
   const [target, setTarget] = useState<{ row: StationVisit; action: Action } | null>(null), [notes, setNotes] = useState('')
   const rows = useMemo(() => visits.data ?? [], [visits.data])
   const sectors = useMemo(() => [...new Map(rows.map(row => [row.sector_id, row.area_name])).entries()], [rows])
@@ -49,7 +51,7 @@ export default function StationVehicleMovementsPage() {
 
     {target && (target.action === 'weigh' || target.action === 'complete'
       ? <WeighingDialog row={target.row} step={target.action} onClose={() => setTarget(null)} />
-      : <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-3xl bg-white p-6"><h2 className="text-lg font-black">تأكيد حركة الآلية DB {target.row.db_number}</h2><p className="mt-2 text-xs text-slate-500">الزيارة رقم {target.row.visit_number} · {actionTitle[target.action]}</p><textarea data-testid="station-action-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={1000} className="mt-4 w-full rounded-xl border p-3" placeholder="ملاحظات اختيارية" /><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setTarget(null)} className="h-11 rounded-xl border">إلغاء</button><button data-testid="confirm-station-action" onClick={submit} disabled={arrive.isPending || send.isPending} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-700 font-black text-white disabled:opacity-40"><CheckCircle2 size={16} />تأكيد وإبلاغ</button></div></div></div>)}
+      : <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-3xl bg-white p-6"><h2 className="text-lg font-black">تأكيد حركة الآلية DB {target.row.db_number}</h2><p className="mt-2 text-xs text-slate-500">الزيارة رقم {target.row.visit_number} · {actionTitle[target.action]}</p><textarea data-testid="station-action-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} maxLength={1000} className="mt-4 w-full rounded-xl border p-3" placeholder="ملاحظات اختيارية" /><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setTarget(null)} className="h-11 rounded-xl border">إلغاء</button><button data-testid="confirm-station-action" onClick={submit} disabled={arrive.isPending || send.isPending || (target.action === 'arrive' && !canArrive.allowed)} title={target.action === 'arrive' ? canArrive.title : undefined} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-orange-700 font-black text-white disabled:opacity-40"><CheckCircle2 size={16} />تأكيد وإبلاغ</button></div></div></div>)}
   </section>
 }
 

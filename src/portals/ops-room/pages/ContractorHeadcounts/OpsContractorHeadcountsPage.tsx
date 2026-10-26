@@ -5,6 +5,7 @@
  * لا بيانات مالية هنا — المالية تحسب من الجهة المعتمدة.
  */
 import { useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { Download, Lock, Unlock } from 'lucide-react'
 import { useApproveHeadcountMonth, useHeadcountCoverageGaps, useCorrectHeadcount, useHeadcountAudit, useHeadcountMonthStatus, useHeadcountSheet, useReopenHeadcountMonth } from '@features/ops-contractor-headcounts/hooks'
 import { buildPivot, workersOf, type Pivot, type PivotContractor } from '@features/ops-contractor-headcounts/pivot'
@@ -29,6 +30,7 @@ export default function OpsContractorHeadcountsPage() {
   const status = useHeadcountMonthStatus(month)
   const audit = useHeadcountAudit(month)
   const approve = useApproveHeadcountMonth(), reopen = useReopenHeadcountMonth()
+  const canApprove = useCanCall('ops_contractor_month_approve')
   const gaps = useHeadcountCoverageGaps(month, approveSrc)
   const gapCount = gaps.data?.length ?? 0
   const addToast = useUiStore((s) => s.addToast)
@@ -97,7 +99,7 @@ export default function OpsContractorHeadcountsPage() {
                 <option value="">اختر الجهة المعتمدة…</option>
                 {COUNT_SOURCES.map((s) => <option key={s} value={s}>{COUNT_SOURCE_AR[s]}</option>)}
               </select>
-              <button type="button" onClick={doApprove} disabled={!approveSrc || approve.isPending || gaps.isLoading} className={`h-10 rounded-xl px-4 text-xs font-black text-white disabled:opacity-40 ${gapCount > 0 ? 'bg-rose-700' : 'bg-emerald-700'}`} data-testid="approve-btn">{gapCount > 0 ? `اعتماد رغم ${gapCount} فجوة` : 'اعتماد الشهر وقفله'}</button>
+              <button type="button" onClick={doApprove} disabled={!approveSrc || approve.isPending || gaps.isLoading || !canApprove.allowed} title={canApprove.title} className={`h-10 rounded-xl px-4 text-xs font-black text-white disabled:opacity-40 ${gapCount > 0 ? 'bg-rose-700' : 'bg-emerald-700'}`} data-testid="approve-btn">{gapCount > 0 ? `اعتماد رغم ${gapCount} فجوة` : 'اعتماد الشهر وقفله'}</button>
             </div>
           )}
           {!locked && approveSrc && gapCount > 0 && (

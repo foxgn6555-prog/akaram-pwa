@@ -1,5 +1,6 @@
 import { resolveTripStatus, tripStatusMeta } from '@features/vehicle-operations/trip-status'
 import { useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { CheckCircle2, Clock3, FolderOpen, MapPin, RotateCcw } from 'lucide-react'
 import {
   useConfirmSectorVehicleArrival,
@@ -38,6 +39,7 @@ export default function VehicleTripsPage() {
   const days = useSectorVehicleTripDays()
   const trips = useSectorVehicleTripsForDay(selectedDay)
   const arrival = useConfirmSectorVehicleArrival()
+  const canArrival = useCanCall('sector_confirm_vehicle_arrival')
   const garage = useSendSectorVehicleToGarage()
   const [target, setTarget] = useState<{
     trip: SectorVehicleTrip
@@ -207,7 +209,8 @@ export default function VehicleTripsPage() {
               </button>
               <button
                 data-testid="confirm-trip-stage"
-                disabled={arrival.isPending || garage.isPending}
+                disabled={arrival.isPending || garage.isPending || !canArrival.allowed}
+                title={canArrival.title}
                 className="h-11 rounded-xl bg-cyan-700 font-black text-white"
               >
                 تأكيد وإبلاغ الطرف الآخر
@@ -350,6 +353,7 @@ function OperationalActions({
     station = useSendVehicleToStation(),
     maintenance = useSendVehicleToMaintenance(),
     site = useConfirmVehicleSiteReturn()
+  const canSite = useCanCall('sector_confirm_vehicle_site_return')
   const [fault, setFault] = useState(false)
   const latest = q.data?.at(-1),
     decision = dispatch.data?.decision_status
@@ -371,7 +375,7 @@ function OperationalActions({
   if (latest && !latest.arrivedAt) {
     if (latest.destinationType === 'work_site')
       return (
-        <button disabled={site.isPending}
+        <button disabled={site.isPending || !canSite.allowed} title={canSite.title}
           onClick={() => site.mutate({ legId: latest.id })}
           className="mt-4 h-11 w-full rounded-xl bg-emerald-700 text-xs font-black text-white"
         >

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { ArrowRight, CheckCircle2, Download, Eye, FileCheck2, GripVertical, LayoutTemplate, Mail, Save, Send, ShieldCheck, Sparkles } from 'lucide-react'
 import {
   useComplaintItemsMedia, useComplaintManagers, useComplaintReport, useComplaintReportDownload, useGenerateComplaintReport,
@@ -50,6 +51,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
   const save = useSaveComplaintReportDraft()
   const generate = useGenerateComplaintReport()
   const approve = useSetComplaintReportStatus()
+  const canApprove = useCanCall('complaint_approve_report')
   const download = useComplaintReportDownload()
   const send = useSendComplaintEmail()
   const managers = useComplaintManagers().data ?? []
@@ -145,7 +147,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
       {editable && <button disabled={generate.isPending || save.isPending || !canGenerate} onClick={generateNow} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Sparkles size={17} />توليد PowerPoint</button>}
       {initial.pptxPath && <button disabled={download.isPending} onClick={() => download.mutate(initial.pptxPath!, { onSuccess: triggerDownload, onError: () => setMessage('تعذر تجهيز رابط تنزيل PowerPoint؛ أعد المحاولة.') })} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-40"><Download size={17} />تنزيل ومراجعة</button>}
       {initial.status === 'quality_review' && initial.approvalChainId && <span className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900" data-testid="report-chain-pending"><ShieldCheck size={17} />بانتظار سلسلة الموافقات — ستصلك النتيجة إشعاراً</span>}
-      {initial.status === 'quality_review' && !initial.approvalChainId && <button disabled={approve.isPending || !reviewConfirmed || !initial.pptxPath} onClick={() => approve.mutate({ reportId: initial.id, status: 'approved', reviewedPptxPath: initial.pptxPath ?? undefined }, { onSuccess: () => setMessage('تم تسجيل الاعتماد — إن كانت هناك سلسلة موافقات مضبوطة فسيُعتمد التقرير بعد اكتمالها.'), onError: () => setMessage('تعذر الاعتماد؛ يشترط ملف PowerPoint مولّد وتأكيد المراجعة.') })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><ShieldCheck size={17} />اعتماد التقرير</button>}
+      {initial.status === 'quality_review' && !initial.approvalChainId && <button disabled={approve.isPending || !reviewConfirmed || !initial.pptxPath || !canApprove.allowed} title={canApprove.title} onClick={() => approve.mutate({ reportId: initial.id, status: 'approved', reviewedPptxPath: initial.pptxPath ?? undefined }, { onSuccess: () => setMessage('تم تسجيل الاعتماد — إن كانت هناك سلسلة موافقات مضبوطة فسيُعتمد التقرير بعد اكتمالها.'), onError: () => setMessage('تعذر الاعتماد؛ يشترط ملف PowerPoint مولّد وتأكيد المراجعة.') })} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><ShieldCheck size={17} />اعتماد التقرير</button>}
       {['approved', 'failed'].includes(initial.status) && initial.pptxPath && <button disabled={!emails.length || invalidEmails.length > 0 || send.isPending} onClick={() => send.mutate({ reportId: initial.id, to: emails, subject: title, text: `السلام عليكم، مرفق ${title}`, attachmentPaths: [initial.pptxPath!] }, { onSuccess: () => setMessage(initial.status === 'failed' ? 'قُبلت إعادة محاولة الإرسال، وستظهر نتيجتها في سجل التسليم.' : 'قُبل طلب الإرسال، وسيتم تحديث حالة التسليم تلقائياً.'), onError: () => setMessage('تعذر الإرسال؛ تحقق من إعداد Mailgun والمستلمين المعتمدين ثم أعد المحاولة.') })} className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"><Send size={17} />{initial.status === 'failed' ? 'إعادة محاولة الإرسال' : 'إرسال إلى الجهة المرسلة'}</button>}
     </div>
 

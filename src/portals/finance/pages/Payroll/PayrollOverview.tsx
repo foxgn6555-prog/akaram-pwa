@@ -5,6 +5,7 @@
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
 import { Fragment, useMemo, useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useMarkNoticeDone, useMonthExportStatus, usePayrollGate, usePayrollReconcile, usePayrollSheet } from '@features/hr'
 import type { PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
 import { downloadPayrollExcel, rowDeductions, rowGross } from '@features/hr/lib/payrollExcel'
@@ -81,6 +82,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const awaitingDeputy = !!gate?.exported && !gate.visible
   const { data: reconcile = [], isLoading: reconcileLoading } = usePayrollReconcile(month, rows.length > 0)
   const approve = useApprovePayroll()
+  const canApprove = useCanCall('finance_payroll_approve')
   const [editing, setEditing] = useState<PayrollSheetRow | null>(null)
   const [details, setDetails] = useState<PayrollSheetRow | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -143,7 +145,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           </div>
           <div className="ms-auto flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => void doExport()} isLoading={exporting} disabled={shown.length === 0} data-testid="ps-excel">تصدير Excel{filtered ? ` (${shown.length})` : ''}</Button>
-            <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending} disabled={!head || approved || !!blockReason} title={blockReason || undefined} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
+            <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending} disabled={!head || approved || !!blockReason || !canApprove.allowed} title={canApprove.title ?? (blockReason || undefined)} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
           </div>
         </div>
         {head && (
@@ -471,6 +473,7 @@ function DaysPanel({ row, month, onClose }: { row: PayrollSheetRow; month: strin
 
 function AdjustPanel({ row, onClose }: { row: PayrollSheetRow; onClose: () => void }) {
   const adjust = useAdjustPayroll()
+  const canAdjust = useCanCall('finance_payroll_adjust')
   const [net, setNet] = useState(String(row.final_net ?? row.proposed_net ?? 0)); const [note, setNote] = useState(row.finance_note ?? ''); const [err, setErr] = useState<string | null>(null)
   const save = async () => {
     const v = Number(net); if (!Number.isFinite(v) || v < 0) { setErr('قيمة غير صالحة'); return }
@@ -488,7 +491,7 @@ function AdjustPanel({ row, onClose }: { row: PayrollSheetRow; onClose: () => vo
           <Field id="adj-note" label="سبب التعديل *"><textarea id="adj-note" className={clsx(field, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} data-testid="adj-note" /></Field>
           {err && <p className="text-xs font-bold text-red-600" role="alert">{err}</p>}
         </div>
-        <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={adjust.isPending} data-testid="adj-save">حفظ</Button></div>
+        <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={adjust.isPending} disabled={!canAdjust.allowed || adjust.isPending} title={canAdjust.title} data-testid="adj-save">حفظ</Button></div>
       </div>
     </div>
   )

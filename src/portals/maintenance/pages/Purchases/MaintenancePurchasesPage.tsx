@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ClipboardList, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import {
   useMaintenancePurchaseCreate,
   useMaintenancePurchaseDetail,
@@ -121,6 +122,7 @@ function totalOf(orders?: MaintenancePurchaseOrder[]): number {
 
 function PurchaseCreateDialog({ close }: { close: () => void }) {
   const create = useMaintenancePurchaseCreate()
+  const canCreate = useCanCall('maintenance_purchase_create')
   const [supplier, setSupplier] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<DraftItem[]>([emptyItem()])
@@ -270,7 +272,7 @@ function PurchaseCreateDialog({ close }: { close: () => void }) {
             إلغاء
           </button>
           <button
-            disabled={!parsed.success || create.isPending}
+            disabled={!parsed.success || create.isPending || !canCreate.allowed} title={canCreate.title}
             onClick={() => {
               if (!parsed.success) return
               create.mutate(

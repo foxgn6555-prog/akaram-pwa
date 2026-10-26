@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Droplets, Link2, RefreshCw, ShieldCheck, X, XCircle } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import {
@@ -138,6 +139,7 @@ function UnassignedTanks({ tanks, isLoading }: { tanks: GarageTank[]; isLoading:
 function DecisionDialog({ decision, onClose }: { decision: NonNullable<Decision>; onClose: () => void }) {
   const [note, setNote] = useState('')
   const decide = useDecideGarageTankZero()
+  const canDecide = useCanCall('garage_decide_tank_zero')
   const valid = decision.approved || note.trim().length >= 3
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -150,7 +152,7 @@ function DecisionDialog({ decision, onClose }: { decision: NonNullable<Decision>
         <div className="flex justify-between gap-3"><h2 className="text-xl font-black">{decision.approved ? 'تأكيد الموافقة والتصفير' : 'رفض طلب التصفير'}</h2><button type="button" aria-label="إغلاق" onClick={onClose}><X /></button></div>
         <p className={`mt-4 rounded-xl p-3 text-sm ${decision.approved ? 'bg-amber-50 text-amber-900' : 'bg-red-50 text-red-800'}`}>{decision.approved ? 'سيُصفّر الخزان فوراً بعد التأكيد، ولن يمكن التراجع عن حركة المخزون.' : 'اكتب سبب الرفض ليصل إلى مسؤول الكراج.'}</p>
         <textarea autoFocus data-testid="decision-note" required={!decision.approved} value={note} onChange={(event) => setNote(event.target.value)} className="mt-4 min-h-24 w-full rounded-xl border p-3 text-sm" placeholder={decision.approved ? 'ملاحظة الموافقة (اختيارية)' : 'سبب الرفض'} />
-        <button data-testid="decision-submit" disabled={!valid || decide.isPending} className={`mt-4 h-11 w-full rounded-xl font-black text-white disabled:opacity-40 ${decision.approved ? 'bg-emerald-600' : 'bg-red-600'}`}>{decide.isPending ? 'جارٍ التنفيذ…' : decision.approved ? 'موافقة وتنفيذ التصفير' : 'تأكيد الرفض'}</button>
+        <button data-testid="decision-submit" disabled={!valid || decide.isPending || !canDecide.allowed} title={canDecide.title} className={`mt-4 h-11 w-full rounded-xl font-black text-white disabled:opacity-40 ${decision.approved ? 'bg-emerald-600' : 'bg-red-600'}`}>{decide.isPending ? 'جارٍ التنفيذ…' : decision.approved ? 'موافقة وتنفيذ التصفير' : 'تأكيد الرفض'}</button>
       </form>
     </div>
   )

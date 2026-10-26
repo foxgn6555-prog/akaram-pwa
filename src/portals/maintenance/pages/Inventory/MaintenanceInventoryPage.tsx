@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Boxes, PackagePlus, Search, TriangleAlert, Warehouse } from 'lucide-react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import {
   useMaintenanceCreateInventory,
   useMaintenanceInventory,
@@ -185,6 +186,7 @@ export default function MaintenanceInventoryPage() {
 
 function CreateDialog({ close }: { close: () => void }) {
   const create = useMaintenanceCreateInventory()
+  const canCreate = useCanCall('maintenance_inventory_create')
   const [sku, setSku] = useState('')
   const [name, setName] = useState('')
   const [unit, setUnit] = useState('قطعة')
@@ -247,7 +249,7 @@ function CreateDialog({ close }: { close: () => void }) {
             placeholder="حد التنبيه"
           />
         </div>
-        <button className="h-11 w-full rounded-xl bg-amber-700 font-black text-white">
+        <button disabled={create.isPending || !canCreate.allowed} title={canCreate.title} className="h-11 w-full rounded-xl bg-amber-700 font-black text-white disabled:opacity-50">
           حفظ الصنف في {partCategoryLabel(category)}
         </button>
       </form>

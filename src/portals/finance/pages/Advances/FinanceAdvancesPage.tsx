@@ -6,6 +6,7 @@
  *  · الأرقام إنكليزية (0-9) دائماً
  */
 import { useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { FileSpreadsheet, HandCoins, X } from 'lucide-react'
 import { useAdvance, useAdvancesList, useAdvancesSummary, useCancelAdvance, useDeliverAdvance, useSettleAdvanceCash } from '@features/advances/hooks'
@@ -79,6 +80,7 @@ export default function FinanceAdvancesPage() {
 
 function Row({ a, onOpen }: { a: Advance; onOpen: () => void }) {
   const deliver = useDeliverAdvance()
+  const canDeliver = useCanCall('advance_deliver')
   const [mode, setMode] = useState<'idle' | 'deliver'>('idle'), [note, setNote] = useState('')
   return (
     <li className="rounded-2xl border bg-white p-3 shadow-sm" data-testid={`adv-${a.id}`}>
@@ -102,7 +104,7 @@ function Row({ a, onOpen }: { a: Advance; onOpen: () => void }) {
       ) : (
         <div className="mt-2 flex flex-wrap items-end gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2">
           <label className="flex-1 text-[11px] font-bold text-emerald-900">ملاحظة التسليم (اختياري)<input data-testid={`adv-deliver-note-${a.id}`} value={note} onChange={(e) => setNote(e.target.value)} className={clsx(field, 'mt-1 h-9 font-normal')} /></label>
-          <button type="button" data-testid={`adv-deliver-confirm-${a.id}`} disabled={deliver.isPending} onClick={() => deliver.mutate({ id: a.id, note: note.trim() || null }, { onSuccess: () => setMode('idle') })} className="h-9 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">تأكيد التسليم وخصم {fmtMoney(a.amount)} من القاصة</button>
+          <button type="button" data-testid={`adv-deliver-confirm-${a.id}`} disabled={deliver.isPending || !canDeliver.allowed} title={canDeliver.title} onClick={() => deliver.mutate({ id: a.id, note: note.trim() || null }, { onSuccess: () => setMode('idle') })} className="h-9 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">تأكيد التسليم وخصم {fmtMoney(a.amount)} من القاصة</button>
           <button type="button" onClick={() => setMode('idle')} className="h-9 rounded-lg border bg-white px-3 text-xs font-bold">رجوع</button>
         </div>
       ))}
@@ -113,6 +115,7 @@ function Row({ a, onOpen }: { a: Advance; onOpen: () => void }) {
 function Detail({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: a, isLoading } = useAdvance(id)
   const settle = useSettleAdvanceCash(), cancel = useCancelAdvance()
+  const canSettle = useCanCall('advance_settle_cash')
   const [amt, setAmt] = useState(''), [note, setNote] = useState(''), [reason, setReason] = useState('')
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" data-testid="adv-detail">
@@ -164,7 +167,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
                 <div className="mt-2 flex flex-wrap items-end gap-2">
                   <label className="text-[11px] font-bold">المبلغ (حتى {fmtMoney(a.remaining)})<input data-testid="adv-settle-amount" type="number" inputMode="numeric" min={1} max={a.remaining ?? undefined} value={amt} onChange={(e) => setAmt(e.target.value)} className={clsx(field, 'mt-1 h-9 w-40 font-normal tabular-nums')} /></label>
                   <label className="flex-1 text-[11px] font-bold">ملاحظة<input data-testid="adv-settle-note" value={note} onChange={(e) => setNote(e.target.value)} className={clsx(field, 'mt-1 h-9 font-normal')} /></label>
-                  <button type="button" data-testid="adv-settle-confirm" disabled={!(Number(amt) > 0 && Number(amt) <= (a.remaining ?? 0)) || settle.isPending} onClick={() => settle.mutate({ id: a.id, amount: Math.round(Number(amt)), note: note.trim() || null }, { onSuccess: () => setAmt('') })} className="h-9 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">تسجيل التسديد (يدخل القاصة)</button>
+                  <button type="button" data-testid="adv-settle-confirm" disabled={!(Number(amt) > 0 && Number(amt) <= (a.remaining ?? 0)) || settle.isPending || !canSettle.allowed} title={canSettle.title} onClick={() => settle.mutate({ id: a.id, amount: Math.round(Number(amt)), note: note.trim() || null }, { onSuccess: () => setAmt('') })} className="h-9 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-40">تسجيل التسديد (يدخل القاصة)</button>
                 </div>
               </section>
             )}

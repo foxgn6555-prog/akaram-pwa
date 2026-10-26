@@ -1,6 +1,7 @@
 /** غرفة العمليات — المخزن (00162): طلبات المستلزمات الجاهزة للتسليم (الفاتورة المعلّقة حتى يستلمها أحد)، المواد والأرصدة، والحركات.
  * التسليم يُنقص المخزن بحركة مسجّلة؛ التسوية بسبب إلزامي. بلا أي بيانات مالية. */
 import { useState } from 'react'
+import { useCanCall } from '@features/permissions/my-permissions'
 import clsx from 'clsx'
 import { AlertTriangle, ClipboardList, History, Package, PackageCheck, Plus } from 'lucide-react'
 import { useCancelSupply, useDeliverSupply, useMarkSupplyReady, useSaveStoreItem, useStoreAdjust, useStoreItems, useStoreMovements, useStoreReceive, useSupplyRequests } from '@features/ops-store/hooks'
@@ -46,6 +47,7 @@ function ReadyTab() {
 
 function RequestCard({ r }: { r: SupplyRequestRow }) {
   const deliver = useDeliverSupply(), cancel = useCancelSupply(), markReady = useMarkSupplyReady()
+  const canDeliver = useCanCall('supply_request_deliver')
   const [mode, setMode] = useState<'idle' | 'deliver' | 'cancel' | 'path' | 'ready'>('idle')
   const [readyNote, setReadyNote] = useState('')
   const [receiver, setReceiver] = useState(''), [note, setNote] = useState(''), [reason, setReason] = useState('')
@@ -111,7 +113,7 @@ function RequestCard({ r }: { r: SupplyRequestRow }) {
             <input data-testid={`deliver-note-${r.id}`} value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 h-10 w-full rounded-xl border px-3 text-sm font-normal" />
           </label>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button type="button" data-testid={`deliver-confirm-${r.id}`} disabled={receiver.trim().length < 2 || !qtyValid || deliver.isPending}
+            <button type="button" data-testid={`deliver-confirm-${r.id}`} disabled={receiver.trim().length < 2 || !qtyValid || deliver.isPending || !canDeliver.allowed} title={canDeliver.title}
               onClick={() => deliver.mutate({ id: r.id, receiverName: receiver.trim(), items: r.items.map((i) => ({ item_id: i.item_id, delivered_qty: Number(qty[i.item_id]) })), note: note.trim() || null }, { onSuccess: () => setMode('idle') })}
               className="h-11 rounded-xl bg-emerald-700 text-sm font-black text-white disabled:opacity-40">تأكيد التسليم وإنقاص المخزن</button>
             <button type="button" onClick={() => setMode('idle')} className="h-11 rounded-xl border bg-white text-sm font-bold">رجوع</button>
