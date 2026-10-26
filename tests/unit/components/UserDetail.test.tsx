@@ -94,6 +94,9 @@ vi.mock('@features/follow-up/hooks', () => ({
   useUnassignFollowUp: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+// 00350: بطاقة الصلاحيات لها اختبارها المستقل (permissions-ui.test.tsx)
+vi.mock('@portals/it/pages/UserManagement/PermissionsCard', () => ({ PermissionsCard: () => <section data-testid="permissions-card" /> }))
+
 vi.mock('@features/sector', () => ({
   useManagerProfileForUser: () => ({
     data: { user_id: 'u1', shift: 'evening', sectors: [3] },

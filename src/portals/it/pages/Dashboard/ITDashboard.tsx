@@ -318,7 +318,7 @@ export default function ITDashboard() {
         <QuickAction icon="user-plus" title="إنشاء مستخدم" onClick={() => navigate('/it/user-management/create')} />
         <QuickAction icon="users" title="قائمة المستخدمين" onClick={() => navigate('/it/user-management/list')} />
         <QuickAction icon="layout-grid" title="فروع الشركة" onClick={() => navigate('/it/branches')} />
-        <QuickAction icon="shield" title="مصفوفة الصلاحيات" onClick={() => navigate('/it/permissions')} />
+        <QuickAction icon="shield" title="قوالب الصلاحيات" onClick={() => navigate('/it/permissions')} />
         <QuickAction icon="database" title="قاعدة البيانات" onClick={() => navigate('/it/database')} />
         <QuickAction icon="activity" title="أخطاء التطبيق" hint={`${openErrorsCount} مفتوح`} onClick={() => navigate('/it/console')} />
         <QuickAction icon="wifi-off" title="التكاملات" onClick={() => navigate('/it/integrations')} />

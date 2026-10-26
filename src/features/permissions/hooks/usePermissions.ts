@@ -1,49 +1,44 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+/** 00350 — خطافات إدارة الصلاحيات (التطوير المركزية): قوالب، إسناد، استثناءات، معاينة فعلية، تدقيق */
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { permissionsKeys } from '@lib/query-keys/permissions.keys'
-import { permissions } from '@sdk/permissions.sdk'
-import type { OverrideEffect, PermissionEffect } from '../types'
+import { permissionErrorMessage, permissions } from '@sdk/permissions.sdk'
+import type { PermissionEffect } from '@sdk/permissions.sdk'
+import type { PermissionAction } from '@config/permission-catalog'
+import { useUiStore } from '@stores/ui.store'
 
-export function useRolePermissions() {
-  return useQuery({
-    queryKey: permissionsKeys.roleMatrix(),
-    queryFn: () => permissions.listRolePermissions(),
-  })
+function useToast() {
+  const addToast = useUiStore((s) => s.addToast)
+  return { ok: (message: string) => addToast({ type: 'success', message }), err: (e: unknown) => addToast({ type: 'error', message: permissionErrorMessage(e) }) }
 }
+function useInvalidateAll() { const qc = useQueryClient(); return () => { void qc.invalidateQueries({ queryKey: permissionsKeys.all }) } }
 
-export function useUserOverrides() {
-  return useQuery({
-    queryKey: permissionsKeys.userOverrides(),
-    queryFn: () => permissions.listUserOverrides(),
-  })
+export function usePermissionTemplates() { return useQuery({ queryKey: permissionsKeys.templates(), queryFn: permissions.templates, staleTime: 60_000 }) }
+export function usePermissionTemplateRules(templateId: string | null) {
+  return useQuery({ queryKey: permissionsKeys.templateRules(templateId ?? ''), queryFn: () => permissions.templateRules(templateId as string), enabled: !!templateId })
 }
-
-export function useSetRoleEffect() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ role, pageKey, effect }: { role: string; pageKey: string; effect: PermissionEffect | null }) =>
-      permissions.setRoleEffect(role, pageKey, effect),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: permissionsKeys.roleMatrix() })
-    },
-  })
+export function useSavePermissionTemplate() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({ mutationFn: (v: { id?: string; name: string; description?: string | null; is_active?: boolean }) => permissions.templateSave(v), onSuccess: () => { inv(); t.ok('حُفظ القالب') }, onError: t.err })
 }
-
-export function useSetUserOverride() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (v: { userId: string; pageKey: string; effect: OverrideEffect | null; reason?: string }) =>
-      permissions.setUserOverride(v.userId, v.pageKey, v.effect, v.reason),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: permissionsKeys.userOverrides() })
-    },
-  })
+export function useSetPermissionTemplateRules() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({ mutationFn: (v: { templateId: string; rules: Array<{ unit_key: string; action: PermissionAction; effect: PermissionEffect }> }) => permissions.templateRulesSet(v.templateId, v.rules), onSuccess: () => { inv(); t.ok('حُفظت قواعد القالب — تسري فوراً على كل المستخدمين المسنَدين') }, onError: t.err })
 }
-
-export function useCanSee(pageKey: string | undefined) {
-  return useQuery({
-    queryKey: permissionsKeys.canSee(pageKey ?? ''),
-    queryFn: () => permissions.canSee(pageKey as string),
-    enabled: !!pageKey,
-    staleTime: 30_000,
-  })
+export function useDeletePermissionTemplate() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({ mutationFn: (templateId: string) => permissions.templateDelete(templateId), onSuccess: () => { inv(); t.ok('حُذف القالب') }, onError: t.err })
+}
+export function useUserPermissionTemplate(userId: string) { return useQuery({ queryKey: permissionsKeys.userTemplate(userId), queryFn: () => permissions.userTemplate(userId), enabled: !!userId }) }
+export function useSetUserPermissionTemplate() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({ mutationFn: (v: { userId: string; templateId: string | null }) => permissions.userTemplateSet(v.userId, v.templateId), onSuccess: (_d, v) => { inv(); t.ok(v.templateId ? 'أُسنِد القالب — يسري عند تحديث صفحة المستخدم' : 'أُزيل القالب — عاد إلى افتراضي دوره') }, onError: t.err })
+}
+export function useUserPermissionOverrides(userId: string) { return useQuery({ queryKey: permissionsKeys.userOverrides(userId), queryFn: () => permissions.userOverrides(userId), enabled: !!userId }) }
+export function useSetUserPermissionOverride() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({ mutationFn: (v: { userId: string; unit: string; action: PermissionAction; effect: PermissionEffect | null; reason?: string | null }) => permissions.userOverrideSet(v.userId, v.unit, v.action, v.effect, v.reason ?? null), onSuccess: (_d, v) => { inv(); t.ok(v.effect === null ? 'أُزيل الاستثناء' : v.effect === 'allow' ? 'أُضيف استثناء «مسموح»' : 'أُضيف استثناء «ممنوع»') }, onError: t.err })
+}
+export function useUserEffectivePermissions(userId: string) { return useQuery({ queryKey: permissionsKeys.userEffective(userId), queryFn: () => permissions.userEffective(userId), enabled: !!userId }) }
+export function usePermissionAudit(userId: string | null, templateId: string | null, enabled = true) {
+  return useQuery({ queryKey: permissionsKeys.audit(userId, templateId), queryFn: () => permissions.audit(userId, templateId, 100), enabled })
 }

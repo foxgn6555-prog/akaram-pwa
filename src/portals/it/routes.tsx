@@ -25,7 +25,7 @@ const ConsolePage = lazy(() => import('@portals/it/pages/Console/ConsolePage'))
 
 // ── الوحدات الجديدة (الجولة 4) ──
 const BranchesPage = lazy(() => import('@portals/it/pages/Branches/BranchesPage'))
-const PermissionsMatrix = lazy(() => import('@portals/it/pages/Permissions/PermissionsMatrix'))
+const PermissionTemplates = lazy(() => import('@portals/it/pages/Permissions/PermissionTemplates'))
 const BiometricPage = lazy(() => import('@portals/it/pages/Integrations/BiometricPage'))
 const UnmatchedPeoplePage = lazy(() => import('@portals/hr/pages/Biometric/UnmatchedPeoplePage'))
 const AttendanceAuditPage = lazy(() => import('@portals/it/pages/Integrations/biometric/AttendanceAuditPage'))
@@ -87,8 +87,8 @@ export const customRoutes: RouteObject[] = [
   // ── وحدة الفروع ──
   { path: 'branches', element: s(<BranchesPage />) },
 
-  // ── وحدة مصفوفة الصلاحيات ──
-  { path: 'permissions', element: s(<PermissionsMatrix />) },
+  // ── وحدة قوالب الصلاحيات (00350) ──
+  { path: 'permissions', element: s(<PermissionTemplates />) },
 
   // ── وحدة التكاملات ──
   { path: 'integrations', element: s(<BiometricPage />) },

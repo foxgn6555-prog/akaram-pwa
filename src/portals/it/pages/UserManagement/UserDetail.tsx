@@ -4,6 +4,7 @@ import { SectorManagerCard } from './SectorManagerCard'
 import { FollowUpAssignmentCard } from './FollowUpAssignmentCard'   // 00259
 import { MaintenanceWorkshopCard } from './MaintenanceWorkshopCard'   // 00271
 import { OpsUnitsCard } from './OpsUnitsCard'
+import { PermissionsCard } from './PermissionsCard'   // 00350
 import { useNavigate, useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -415,6 +416,7 @@ export default function UserDetail() {
       </div>
       {/*__PART4__*/}
 
+      {userId && <PermissionsCard userId={userId} roles={user.roles} isSelf={isSelf} />}
       {hasRole('employee') && userId && <ContractorAssignmentCard userId={userId} />}
       {hasRole('admin_ops') && userId && <SectorManagerCard userId={userId} />}
       {hasRole('follow_up') && userId && <FollowUpAssignmentCard userId={userId} />}

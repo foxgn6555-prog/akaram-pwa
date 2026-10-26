@@ -33,9 +33,9 @@ test.describe('البوابة التقنية — الرحلة الكاملة', (
     // صفحة القائمة
     await page.getByTestId('hub-card-list').click()
     await expect(page).toHaveURL(/\/it\/user-management\/list/)
-    // المصفوفة
-    await page.getByRole('button', { name: 'مصفوفة الصلاحيات' }).click()
-    await expect(page.getByTestId('perm-matrix')).toBeVisible()
+    // قوالب الصلاحيات (00350)
+    await page.getByRole('button', { name: 'قوالب الصلاحيات' }).click()
+    await expect(page.getByTestId('permission-templates-page')).toBeVisible()
   })
 
   test('الفروع: إنشاء فرع جديد', async ({ page }) => {

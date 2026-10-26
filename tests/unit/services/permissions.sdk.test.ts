@@ -1,10 +1,7 @@
-/** SDK المصفوفة: setRoleEffect بأثر null يحذف · canSee يستدعي can_i_see */
+/** 00350 — SDK الصلاحيات: القراءة عبر الجداول، الكتابة عبر RPC، الدوال الفارغة عبر sdkVoid، وخريطة الأخطاء العربية */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { rpcMock, fromMock } = vi.hoisted(() => ({
-  rpcMock: vi.fn(),
-  fromMock: vi.fn(),
-}))
+const { rpcMock, fromMock } = vi.hoisted(() => ({ rpcMock: vi.fn(), fromMock: vi.fn() }))
 
 vi.mock('@sdk/client', async () => {
   const { SDKError } = await import('@lib/errors/SDKError')
@@ -24,50 +21,46 @@ vi.mock('@sdk/client', async () => {
   }
 })
 
-import { permissions } from '@sdk/permissions.sdk'
+import { permissionErrorMessage, permissions } from '@sdk/permissions.sdk'
+
+const chain = (data: unknown) => {
+  const c: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'order']) c[m] = () => c
+  c.then = (res: (v: unknown) => unknown) => Promise.resolve({ data, error: null }).then(res)
+  return c
+}
 
 describe('permissions.sdk', () => {
-  beforeEach(() => {
-    fromMock.mockReset()
-    rpcMock.mockReset()
+  beforeEach(() => { fromMock.mockReset(); rpcMock.mockReset() })
+
+  it('الدوال الفارغة (إسناد قالب/استثناء/حذف) لا ترمي «لا بيانات» عند data=null', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: null })
+    await expect(permissions.userTemplateSet('u1', null)).resolves.toBeUndefined()
+    await expect(permissions.userOverrideSet('u1', 'hr.leaves', 'view', 'deny', 'سبب')).resolves.toBeUndefined()
+    await expect(permissions.templateDelete('t1')).resolves.toBeUndefined()
+    expect(rpcMock).toHaveBeenCalledWith('it_user_permission_override_set', { p_user: 'u1', p_unit: 'hr.leaves', p_action: 'view', p_effect: 'deny', p_reason: 'سبب' })
   })
 
-  it('setRoleEffect بـ null يحذف القاعدة', async () => {
-    const chain = { delete: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() }
-    fromMock.mockReturnValue(chain)
-
-    await permissions.setRoleEffect('hr_officer', 'it.db.tables', null)
-    expect(chain.delete).toHaveBeenCalled()
-    expect(chain.eq).toHaveBeenCalledWith('role', 'hr_officer')
-    expect(chain.eq).toHaveBeenCalledWith('page_key', 'it.db.tables')
+  it('قالب المستخدم: لا صف ⇒ null (بلا خطأ)', async () => {
+    fromMock.mockReturnValue(chain([]))
+    await expect(permissions.userTemplate('u1')).resolves.toBeNull()
+    fromMock.mockReturnValue(chain([{ user_id: 'u1', template_id: 't1', assigned_at: 'x' }]))
+    await expect(permissions.userTemplate('u1')).resolves.toMatchObject({ template_id: 't1' })
   })
 
-  it('setRoleEffect بـ grant يرفع upsert صحيح', async () => {
-    const chain = { upsert: vi.fn().mockResolvedValue({ error: null }) }
-    fromMock.mockReturnValue(chain)
-
-    await permissions.setRoleEffect('it_admin', 'hr.reports', 'grant')
-    expect(chain.upsert).toHaveBeenCalledWith(
-      { role: 'it_admin', page_key: 'hr.reports', effect: 'grant' },
-      { onConflict: 'role,page_key' },
-    )
+  it('القوالب تُرجع عدد المستخدمين المسنَدين', async () => {
+    fromMock.mockReturnValue(chain([{ id: 't1', name: 'أ', description: null, is_active: true, created_at: 'x', updated_at: 'x', user_permission_template: [{ count: 3 }] }]))
+    const t = await permissions.templates()
+    expect(t[0]).toMatchObject({ id: 't1', users_count: 3 })
+    expect('user_permission_template' in t[0]!).toBe(false)
   })
 
-  it('canSee يستدعي can_i_see RPC', async () => {
-    rpcMock.mockResolvedValue({ data: true, error: null })
-    const r = await permissions.canSee('it.users.list')
-    expect(rpcMock).toHaveBeenCalledWith('can_i_see', { p_page_key: 'it.users.list' })
-    expect(r).toBe(true)
-  })
-
-  it('setUserOverride بـ lock يرفع upsert مع سبب', async () => {
-    const chain = { upsert: vi.fn().mockResolvedValue({ error: null }) }
-    fromMock.mockReturnValue(chain)
-
-    await permissions.setUserOverride('u1', 'it.users.list', 'lock', 'إجازة')
-    expect(chain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'u1', page_key: 'it.users.list', effect: 'lock', reason: 'إجازة' }),
-      { onConflict: 'user_id,page_key' },
-    )
+  it('حفظ القالب يمرّر jsonb ويعيد المعرّف؛ رسائل الأخطاء عربية', async () => {
+    rpcMock.mockResolvedValue({ data: 't9', error: null })
+    await expect(permissions.templateSave({ name: 'جديد' })).resolves.toBe('t9')
+    expect(rpcMock).toHaveBeenCalledWith('it_permission_template_save', { p: { name: 'جديد' } })
+    expect(permissionErrorMessage(new Error('PERMISSION_TEMPLATE_IN_USE'))).toMatch(/مسنَد إلى مستخدمين/)
+    expect(permissionErrorMessage(new Error('PERMISSION_SELF_EDIT'))).toMatch(/حسابك/)
+    expect(permissionErrorMessage(new Error('duplicate key value'))).toMatch(/بهذا الاسم/)
   })
 })
