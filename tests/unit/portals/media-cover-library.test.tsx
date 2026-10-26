@@ -141,3 +141,17 @@ describe('الأزرار المساعدة والتكامل', () => {
     expect(screen.getByTestId('save-cover-to-library')).toBeInTheDocument()
   })
 })
+
+describe('00351 — معاينة القوالب الجاهزة تتبع مرشّح القاطع حتى مع سياق تصميم', () => {
+  const ctx = { periodType: 'daily' as const, sector: 'karrada' as const, periodStart: '2026-10-25', periodEnd: '2026-10-25', shift: 'night' as const }
+  it('اختيار الزعفرانية في المرشّح ⇒ كل القوالب تكتب «بلدية الزعفرانية»؛ والعودة لـ«عام» تعيد قاطع التصميم', () => {
+    render(<CoverLibraryDialog close={vi.fn()} onPick={vi.fn()} defaultSector={null} defaultPeriod="daily" current={null} ctx={ctx} />)
+    const muni = () => screen.getAllByTestId('cover-municipality').map((e) => e.textContent)
+    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة']))
+    fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: 'zaafaraniya' } })
+    expect(muni().length).toBeGreaterThan(0)
+    expect(new Set(muni())).toEqual(new Set(['بلدية الزعفرانية']))
+    fireEvent.change(screen.getByTestId('cover-filter-sector'), { target: { value: '' } })
+    expect(new Set(muni())).toEqual(new Set(['بلدية الكرادة']))
+  })
+})

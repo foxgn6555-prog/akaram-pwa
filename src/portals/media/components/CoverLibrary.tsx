@@ -136,7 +136,11 @@ export function CoverLibraryDialog({
   const touch = useTouchMediaCover()
 
   const list = useMemo(() => filterCovers(covers.data ?? [], { sector, periodType, shift, q }), [covers.data, sector, periodType, shift, q])
-  const previewCtx: CoverContext = ctx ?? { periodType: (periodType as PeriodType) || 'daily', sector: (sector as SectorParent) || 'karrada', periodStart: new Date().toISOString().slice(0, 10), periodEnd: new Date().toISOString().slice(0, 10), shift: (shift as CoverShift) || null }
+  // 00351: معاينة القوالب الجاهزة تتبع مرشّحات المكتبة (القاطع/نوع التقرير/الشفت) — كان القاطع المختار يُهمل عند وجود سياق تصميم
+  // فتظهر كل القوالب «بلدية الكرادة» حتى مع اختيار الزعفرانية، ما يوحي بأن قوالب الزعفرانية مفقودة
+  const today = new Date().toISOString().slice(0, 10)
+  const base: CoverContext = ctx ?? { periodType: 'daily', sector: 'karrada', periodStart: today, periodEnd: today, shift: null }
+  const previewCtx: CoverContext = { ...base, sector: (sector as SectorParent) || base.sector, periodType: (periodType as PeriodType) || base.periodType, shift: (shift as CoverShift) || null }
   const templates = useMemo(() => rankTemplates(COVER_TEMPLATES, (shift as CoverShift) || null), [shift])
   const urls = useSignedPhotoUrls(list.map((c) => c.storage_path)).data ?? {}
 
