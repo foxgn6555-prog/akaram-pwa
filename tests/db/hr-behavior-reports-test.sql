@@ -133,3 +133,80 @@ select auth.set_test_user('d9000000-0000-0000-0000-000000000001');
 do $$ declare ok boolean := false; begin
   begin perform public.hr_behavior_series('monthly', current_setting('test.bh_m')::date, 3); exception when others then ok := sqlerrm like '%HR_FORBIDDEN%'; end; assert ok, 'T6 ops forbidden on series';
 end $$;
+
+-- ═══ 00304 (00359) · تدقيق الدقة ═══
+-- T7 · الخروج المبكر داخل فترة السماح (10 د) لا يُعدّ يوم خروج مبكر؛ وما تجاوزها يُعدّ — ومجموع الدقائق من الأيام المعدودة فقط
+select auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+do $$ declare m date := current_setting('test.bh_m')::date; dim int := extract(day from (m + interval '1 month - 1 day'))::int; r jsonb; a jsonb; n int; begin
+  reset role; perform set_config('auth.user_id', '', true);
+  -- A: اليوم 1 خروج 15:55 (داخل السماح) · اليوم 2 خروج 15:30 (30 د مبكر)
+  update public.hr_attendance_days set check_out = ((m + 0) + time '15:55')::timestamp - app.hr_tz(), early_minutes = 5, status = 'present' where employee_id = 'd9000000-0000-0000-0000-0000000000e1' and work_date = m + 0;
+  update public.hr_attendance_days set check_out = ((m + 1) + time '15:30')::timestamp - app.hr_tz(), early_minutes = 30, status = 'early_leave' where employee_id = 'd9000000-0000-0000-0000-0000000000e1' and work_date = m + 1;
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m);
+  select x into a from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-A';
+  assert (a ->> 'early_days')::int = 1 and (a ->> 'early_minutes')::int = 30, 'T7 early within grace ignored: ' || a::text;
+  assert (a ->> 'perfect_days')::int = dim - 1, 'T7 perfect days: ' || (a ->> 'perfect_days');
+  -- أيام الأسبوع تتطابق مع مجاميع الموظفين
+  select sum((w ->> 'early_days')::int) into n from jsonb_array_elements(r -> 'weekdays') w;
+  assert n = (select sum((e ->> 'early_days')::int) from jsonb_array_elements(r -> 'employees') e), 'T7 weekdays == employees early: ' || n;
+  select sum((w ->> 'late_days')::int) into n from jsonb_array_elements(r -> 'weekdays') w;
+  assert n = (select sum((e ->> 'late_days')::int) from jsonb_array_elements(r -> 'employees') e), 'T7 weekdays == employees late: ' || n;
+  -- بطاقة الموظف: اليوم الأول غير معلَّم خروجاً مبكراً والثاني معلَّم، وفترة السماح ظاهرة
+  r := public.hr_behavior_employee('d9000000-0000-0000-0000-0000000000e1', 'monthly', m);
+  assert (r -> 'days' -> 0 ->> 'is_early')::boolean = false and (r -> 'days' -> 1 ->> 'is_early')::boolean = true and (r -> 'days' -> 0 ->> 'grace')::int = 10, 'T7 card flags: ' || (r -> 'days' -> 0)::text;
+  raise notice 'T7 ✅ الخروج المبكر وفترة السماح';
+end $$;
+
+-- T8 · مدة الخدمة: صف يدوي بعد آخر يوم عمل (أو قبل التعيين) لا يدخل في الحساب — كما في كشف الحضور
+do $$ declare m date := current_setting('test.bh_m')::date; dim int := extract(day from (m + interval '1 month - 1 day'))::int; r jsonb; c jsonb; before_abs int; begin
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m);
+  select x into c from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-C';
+  before_abs := (c ->> 'absent_days')::int; assert before_abs = 4, 'T8 baseline: ' || before_abs;
+  reset role; perform set_config('auth.user_id', '', true);
+  -- C أُنهيت خدمته في اليوم 20: يوم يدوي «غائب» في اليوم 25 يجب ألا يُحتسب
+  update public.employees set employment_status = 'terminated', terminated_at = m + 19 where id = 'd9000000-0000-0000-0000-0000000000e3';
+  update public.hr_attendance_days set source = 'manual', status = 'absent', check_in = null, check_out = null, late_minutes = 0, early_minutes = 0 where employee_id = 'd9000000-0000-0000-0000-0000000000e3' and work_date = m + 24;
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m);
+  select x into c from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-C';
+  assert (c ->> 'absent_days')::int = 4 and (c ->> 'scheduled_days')::int = 20, 'T8 after last day excluded: ' || c::text;
+  r := public.hr_behavior_employee('d9000000-0000-0000-0000-0000000000e3', 'monthly', m);
+  assert jsonb_array_length(r -> 'days') = 20, 'T8 card days: ' || jsonb_array_length(r -> 'days');
+  -- قبل التعيين: تعيين B في اليوم 3 ⇒ أول يومين لا يدخلان
+  reset role; perform set_config('auth.user_id', '', true);
+  update public.employees set hire_date = m + 2 where id = 'd9000000-0000-0000-0000-0000000000e2';
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m);
+  select x into c from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-B';
+  assert (c ->> 'scheduled_days')::int = dim - 2, 'T8 before hire excluded: ' || c::text;
+  reset role; perform set_config('auth.user_id', '', true);
+  update public.employees set hire_date = '2024-01-01' where id = 'd9000000-0000-0000-0000-0000000000e2';
+  update public.employees set employment_status = 'active', terminated_at = null where id = 'd9000000-0000-0000-0000-0000000000e3';
+  raise notice 'T8 ✅ مدة الخدمة';
+end $$;
+
+-- T9 · الاستقرار: الحضور قبل الموعد لا يُنقص المؤشر (A يبصم 7:30 و8:00 بالتناوب ⇒ استقرار = 1)
+do $$ declare m date := current_setting('test.bh_m')::date; r jsonb; a jsonb; i int; begin
+  reset role; perform set_config('auth.user_id', '', true);
+  update public.hr_attendance_days set check_in = check_in - interval '30 minutes' where employee_id = 'd9000000-0000-0000-0000-0000000000e1' and work_date between m and m + 27 and extract(day from work_date)::int % 2 = 0;
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m);
+  select x into a from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-A';
+  assert (a ->> 'sd_in_offset')::numeric = 0 and (a -> 'indices' ->> 'consistency')::numeric = 1 and (a ->> 'avg_in_offset')::numeric < 0, 'T9 early arrivals neutral: ' || a::text;
+  -- B متأخر 30 د في 60% من الأيام ⇒ تذبذب حقيقي ⇒ المؤشر أقل من 1
+  select x into a from jsonb_array_elements(r -> 'employees') x where x ->> 'employee_number' = 'BH-B';
+  assert (a -> 'indices' ->> 'consistency')::numeric < 1 and (a ->> 'sd_in_offset')::numeric > 10, 'T9 real jitter counted: ' || a::text;
+  raise notice 'T9 ✅ الاستقرار';
+end $$;
+
+-- T10 · صيغة واحدة لنسبة الالتزام بالحضور في التقرير والسلسلة
+do $$ declare m date := current_setting('test.bh_m')::date; r jsonb; s jsonb; begin
+  perform auth.set_test_user('d9000000-0000-0000-0000-000000000009');
+  r := public.hr_behavior_report('monthly', m); s := public.hr_behavior_series('monthly', m, 2);
+  assert (r -> 'summary' ->> 'attendance_rate')::numeric = (s -> 'periods' -> 1 ->> 'attendance_rate')::numeric, 'T10 same formula: ' || (r -> 'summary' ->> 'attendance_rate') || ' vs ' || (s -> 'periods' -> 1 ->> 'attendance_rate');
+  assert (r -> 'summary' ->> 'attendance_rate')::numeric = round(100 * (select sum((e ->> 'present_days')::int)::numeric / sum((e ->> 'expected_days')::int) from jsonb_array_elements(r -> 'employees') e), 1), 'T10 present/expected';
+  raise notice 'T10 ✅ صيغة الحضور';
+end $$;
+reset role; select set_config('auth.user_id','', false);

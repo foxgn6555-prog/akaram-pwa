@@ -854,7 +854,7 @@ export interface BehaviorReport {
   period: BehaviorPeriod; summary: BehaviorSummary | null; trend: BehaviorTrendPoint[]; weekdays: BehaviorWeekday[]; departments: BehaviorDepartment[]; employees: BehaviorEmployeeRow[]
   weights: Record<keyof BehaviorIndices, number>
 }
-export interface BehaviorDay { date: string; dow: number; status: AttendanceStatus; late: number; early: number; in: string | null; out: string | null; expected_in: string | null; expected_out: string | null; worked: number; in_offset: number | null; extra: number; source: 'auto' | 'manual' }
+export interface BehaviorDay { date: string; dow: number; status: AttendanceStatus; late: number; early: number; in: string | null; out: string | null; expected_in: string | null; expected_out: string | null; worked: number; in_offset: number | null; extra: number; source: 'auto' | 'manual'; grace?: number; is_late?: boolean; is_early?: boolean }
 export interface BehaviorEmployeeTrend { label: string; from: string; to: string; score: number; late_days: number; absent_days: number; early_days: number; late_minutes: number }
 export interface BehaviorEmployeeReport {
   period: BehaviorPeriod
