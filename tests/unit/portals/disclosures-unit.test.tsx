@@ -38,11 +38,17 @@ const h = vi.hoisted(() => ({
     top_vehicles: [{ db_number: 'DB-101', driver_name: 'كريم جبار', contractor_name: null, count: 3, approved: 1, amount: 15000 }],
     deductions: { with_amount: 2, posted: 1, awaiting_export: 1, exported: 0, approved_by_finance: 0, missing: 0, not_linked: 1, amount_posted: 10000 },
     rows: [{ id: 'd1', ref_no: 'DS-1', log_date: '2026-10-03', target_kind: 'vehicle', db_number: 'DB-101', driver_name: 'كريم جبار', employee_number: null, department_name: null, sector: 'الزعفرانية 1', shift: 'evening', violation_type: 'speeding', penalty_type: 'warning', status: 'approved', amount: 15000, prepared_by_name: 'موظف العمليات', deduction_state: 'awaiting_export', approved_at: '2026-10-04T08:00:00Z' }] }) as unknown),
+  preparers: vi.fn(async (_m: string | null) => ({ month: '2026-10', prev_month: '2026-09', months: [{ month: '2026-10', count: 5 }, { month: '2026-09', count: 2 }],
+    rows: [
+      { key: 'u1', user_id: 'u1', name: 'موظف العمليات', unit: 'غرفة العمليات', registered: 100, draft: 2, pending: 8, approved: 80, returned: 7, cancelled: 3, resubmitted: 4, amount_approved: 250000, approval_rate: 88.9, prev_registered: 60, prev_approved: 50, delta: 40, last_at: '2026-10-20T10:00:00Z' },
+      { key: 'u9', user_id: 'u9', name: 'موظف الكراج', unit: 'الكراج المركزي', registered: 5, draft: 0, pending: 5, approved: 0, returned: 0, cancelled: 0, resubmitted: 0, amount_approved: 0, approval_rate: null, prev_registered: 0, prev_approved: 0, delta: 5, last_at: null },
+    ],
+    totals: { preparers: 2, registered: 105, draft: 2, pending: 13, returned: 7, approved: 80, cancelled: 3, amount_approved: 250000, prev_registered: 60, prev_approved: 50 } })),
   myHidden: vi.fn(async () => ({}) as Record<string, string[]>), hiddenGet: vi.fn(async () => [] as string[]), hiddenSet: vi.fn(async (_u: string, _p: string, paths: string[]) => paths),
 }))
 vi.mock('@sdk/disclosures-unit.sdk', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
-  return { ...actual, disclosuresUnit: { types: h.types, saveType: h.saveType, vehicles: h.vehicles, employees: h.employees, save: h.save, submit: h.submit, decide: h.decide, cancel: h.cancel, get: h.get, list: h.list, inbox: h.inbox, stats: h.stats, report: h.report, myHiddenUnits: h.myHidden, hiddenUnitsGet: h.hiddenGet, hiddenUnitsSet: h.hiddenSet } }
+  return { ...actual, disclosuresUnit: { preparers: h.preparers, types: h.types, saveType: h.saveType, vehicles: h.vehicles, employees: h.employees, save: h.save, submit: h.submit, decide: h.decide, cancel: h.cancel, get: h.get, list: h.list, inbox: h.inbox, stats: h.stats, report: h.report, myHiddenUnits: h.myHidden, hiddenUnitsGet: h.hiddenGet, hiddenUnitsSet: h.hiddenSet } }
 })
 vi.mock('@features/auth/hooks/useAuth', () => ({ useAuth: () => ({ data: { id: 'u1', roles: ['ops_room'], full_name: 'موظف' } }), useLogout: () => ({ mutate: vi.fn() }) }))
 
@@ -166,6 +172,22 @@ describe('غرفة العمليات — وحدة الكشوفات', () => {
 })
 
 describe('المعاون والمدير المفوض — الوارد والقرار', () => {
+  it('00305: تبويب «المُعدّون» — الموظف وجهته وأعداده (مسجَّل/معتمد/مُعاد/ملغى) والفرق عن الشهر السابق، وتغيير الشهر يستدعي الدالة بالشهر المختار', async () => {
+    wrap(<IncomingStatements />, '/deputy/statements')
+    expect(await screen.findByTestId('deputy-statements')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('المُعدّون'))
+    const table = await screen.findByTestId('prep-table')
+    const row = within(table).getByTestId('prep-row-u1')
+    expect(row).toHaveTextContent('موظف العمليات'); expect(row).toHaveTextContent('غرفة العمليات')
+    const cells = within(row).getAllByRole('cell').map((c) => c.textContent?.trim())
+    expect(cells.slice(3, 9)).toEqual(['100', '2', '8', '80', '7', '3'])
+    expect(cells[9]).toBe('88.9٪'); expect(cells[10]).toBe('250,000 د.ع'); expect(cells[11]).toBe('60'); expect(cells[12]).toBe('+40')
+    const g = within(table).getByTestId('prep-row-u9'); expect(g).toHaveTextContent('الكراج المركزي'); expect(within(g).getAllByRole('cell')[9]).toHaveTextContent('—')
+    expect(screen.getByTestId('prep-kpis')).toHaveTextContent('105')
+    expect(h.preparers).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}$/))
+    fireEvent.change(screen.getByTestId('prep-month'), { target: { value: '2026-09' } })
+    await waitFor(() => expect(h.preparers).toHaveBeenCalledWith('2026-09'))
+  })
   it('المعاون: الوارد من disclosure_inbox، تحديد مبلغ 5000 واعتماد', async () => {
     wrap(<IncomingStatements />, '/deputy/statements')
     expect(await screen.findByTestId('deputy-statements')).toBeInTheDocument()

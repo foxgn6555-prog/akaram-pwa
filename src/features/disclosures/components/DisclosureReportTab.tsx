@@ -38,7 +38,7 @@ export async function downloadDisclosureReportExcel(r: DisclosureReport, typeLab
       { sheetName: 'حسب القاطع', title: 'توزيع الكشوفات حسب القاطع', meta, columns: [{ header: 'القاطع', key: 'sector', width: 26 }, cnt('العدد', 'count'), cnt('معتمد', 'approved'), amt('المبالغ المعتمدة', 'amount')], rows: r.by_sector },
       { sheetName: 'المكرِّرون — موظفون', title: 'أكثر الموظفين مخالفةً', meta, columns: [{ header: 'الرقم الوظيفي', key: 'employee_number', width: 14, align: 'center' }, { header: 'الاسم', key: 'name', width: 26 }, { header: 'القسم', key: 'department', width: 20 }, cnt('العدد', 'count'), cnt('معتمد', 'approved'), amt('المبالغ', 'amount')], rows: r.top_employees },
       { sheetName: 'المكرِّرون — آليات', title: 'أكثر الآليات مخالفةً', meta, columns: [{ header: 'DB', key: 'db_number', width: 12, align: 'center' }, { header: 'السائق', key: 'driver_name', width: 24 }, { header: 'المتعهد', key: 'contractor_name', width: 20 }, cnt('العدد', 'count'), cnt('معتمد', 'approved'), amt('المبالغ', 'amount')], rows: r.top_vehicles },
-      { sheetName: 'المُعدّون', title: 'الكشوفات حسب المُعدّ', meta, columns: [{ header: 'المُعدّ', key: 'name', width: 26 }, cnt('العدد', 'count'), cnt('أُعيد له', 'returned')], rows: r.by_preparer },
+      { sheetName: 'المُعدّون', title: 'الكشوفات حسب المُعدّ', meta, columns: [{ header: 'المُعدّ', key: 'name', width: 26 }, { header: 'الجهة', key: 'unit', width: 16 }, cnt('العدد', 'count'), cnt('معتمد', 'approved'), cnt('أُعيد له', 'returned'), amt('المبالغ المعتمدة', 'amount')], rows: r.by_preparer },
       { sheetName: 'سلسلة الاستقطاع', title: 'حالة استقطاعات الكشوفات المعتمدة', meta, columns: [{ header: 'البند', key: 'k', width: 34 }, cnt('العدد', 'v')],
         rows: [['كشوف معتمدة بمبلغ', r.deductions.with_amount], ['مُسجَّلة في الحضورية', r.deductions.posted], ['بانتظار إعادة التصدير', r.deductions.awaiting_export], ['في كشف مُصدَّر', r.deductions.exported], ['معتمدة من المالية', r.deductions.approved_by_finance], ['غير مرتبطة باستقطاع', r.deductions.not_linked], ['مفقودة', r.deductions.missing]].map(([k, v]) => ({ k, v })),
         totalRow: { k: 'مجموع المبالغ المُسجَّلة', v: num(r.deductions.amount_posted) } },
@@ -116,7 +116,7 @@ export function DisclosureReportTab({ testId = 'disc-report' }: { testId?: strin
               <p className="mt-2 text-[11px] text-slate-500">مجموع المبالغ المُسجَّلة: <b className="tabular-nums">{num(r.deductions.amount_posted)}</b> د.ع{(r.deductions.not_linked + r.deductions.missing) > 0 && <span className="ms-2 font-bold text-rose-700">— توجد كشوفات معتمدة بمبلغ بلا استقطاع مرتبط: راجعها</span>}</p>
             </Card>
             <Card title="المُعدّون · العقوبات · الهدف · الشفت" testId="rep-misc">
-              <Table head={['المُعدّ', 'العدد', 'أُعيد له']} rows={r.by_preparer.map((p) => [p.name, p.count, p.returned])} />
+              <Table head={['المُعدّ', 'الجهة', 'العدد', 'معتمد', 'أُعيد له', 'المبالغ']} rows={r.by_preparer.map((p) => [p.name, p.unit, p.count, p.approved, p.returned, num(p.amount)])} />
               <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
                 {r.by_penalty.map((p) => <span key={p.key} className="rounded-full bg-slate-100 px-2 py-0.5">{p.key === 'none' ? 'بلا عقوبة' : PENALTY_LABEL[p.key as keyof typeof PENALTY_LABEL] ?? p.key}: <b>{p.count}</b></span>)}
                 {Object.entries(r.by_target).map(([k, v]) => <span key={k} className="rounded-full bg-sky-50 px-2 py-0.5">{TARGET_LABEL[k] ?? k}: <b>{v}</b></span>)}

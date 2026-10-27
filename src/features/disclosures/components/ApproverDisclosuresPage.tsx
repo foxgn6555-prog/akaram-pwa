@@ -3,6 +3,7 @@
  *  · «الوارد»: الكشوفات التي تنتظر قراري (disclosure_inbox) — مبلغ + اعتماد / إعادة بسبب
  *  · «السجل»: كل الكشوفات (قيد الموافقة/معتمدة/مُعادة) مع فلاتر
  *  · «الملغاة»: ما ألغته غرفة العمليات (يُبلَّغ المدير المفوض)
+ *  · «المُعدّون» (00305): الموظفون الذين سجّلوا كشوفاً في الشهر — مسجَّل/معتمد/مُعاد/ملغى لكل موظف
  */
 import { useMemo, useState } from 'react'
 import { useDisclosureInbox, useDisclosureTypes, useDisclosuresList } from '../unit'
@@ -13,9 +14,10 @@ import { EMPTY_FILTERS, applyClientFilters, toServerFilter, type UiFilters } fro
 import { printDisclosureForm, printDisclosuresReport } from '../lib/export-v2'
 import { DisclosureDetailDrawer } from './DisclosureDetailDrawer'
 import { DisclosureReportTab } from './DisclosureReportTab'
+import { DisclosurePreparersTab } from './DisclosurePreparersTab'
 import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 
-type Tab = 'inbox' | 'history' | 'cancelled' | 'report'
+type Tab = 'inbox' | 'history' | 'cancelled' | 'preparers' | 'report'
 
 /** 00243: رأس موحد دائماً (أُزيل الشكل القديم غير المستخدم) */
 export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-disclosures' }: { title: string; subtitle: string; testId?: string }) {
@@ -34,7 +36,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
     <div className="space-y-4" data-testid={testId}>
       <ExecPageHeader icon="alert-triangle" title={title} subtitle={subtitle}
         stats={[{ label: 'بانتظار قراري', value: inbox.data?.length ?? '…', tone: (inbox.data?.length ?? 0) ? 'red' : 'green', testId: 'inbox-count' }, { label: 'مبالغ مقترحة في الوارد', value: fmtIqd(inboxAmount), tone: 'gold' }, { label: 'في السجل', value: historyBase.length || (history.isLoading ? '…' : 0) }, { label: 'ملغاة من العمليات', value: cancelled.data?.length ?? '—' }]} />
-      <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'inbox', label: 'الوارد', icon: 'bell', badge: inbox.data?.length ?? 0 }, { key: 'history', label: 'السجل', icon: 'archive-box' }, { key: 'cancelled', label: 'الملغاة', icon: 'x' }, { key: 'report', label: 'التقارير', icon: 'bar-chart' }]} />
+      <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'inbox', label: 'الوارد', icon: 'bell', badge: inbox.data?.length ?? 0 }, { key: 'history', label: 'السجل', icon: 'archive-box' }, { key: 'cancelled', label: 'الملغاة', icon: 'x' }, { key: 'preparers', label: 'المُعدّون', icon: 'users' }, { key: 'report', label: 'التقارير', icon: 'bar-chart' }]} />
       {tab === 'inbox' && (inbox.data?.length ?? 0) > 0 && (
         <div className="flex justify-end"><button type="button" className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" data-testid="print-inbox" onClick={() => printDisclosuresReport(inbox.data ?? [], { title: `وارد الكشوفات — ${title}`, scopeLabel: 'بانتظار قراري' })}>طباعة الوارد</button></div>
       )}
@@ -44,6 +46,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
               extra={(d) => <button type="button" className="h-8 rounded-lg bg-brand-600 px-3 text-xs font-black text-white" data-testid={`decide-${d.id}`} onClick={() => setOpenId(d.id)}>قرار</button>} />
       )}
       {tab === 'report' && <DisclosureReportTab testId="approver-report" />}
+      {tab === 'preparers' && <DisclosurePreparersTab testId="approver-preparers" />}
       {tab === 'history' && (
         <div className="space-y-3">
           <DisclosureFilters value={f} onChange={setF} types={types.data ?? []} rows={historyBase} filtered={historyRows} statuses={['pending', 'returned', 'approved', 'cancelled']} loading={history.isLoading} exportCtx={{ title: `سجل الكشوفات — ${title}`, scopeLabel: 'كل الكشوفات' }} />

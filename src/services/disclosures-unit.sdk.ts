@@ -120,12 +120,23 @@ export interface DisclosureReport {
   by_target: Record<string, number>
   by_sector: { sector: string; count: number; approved: number; amount: number }[]
   by_shift: Record<string, number>
-  by_preparer: { name: string; count: number; returned: number }[]
+  by_preparer: { user_id: string | null; name: string; unit: string; count: number; approved: number; returned: number; pending: number; cancelled: number; amount: number }[]
   by_month: { month: string; count: number; approved: number; amount: number }[]
   top_employees: { employee_id: string; name: string; employee_number: string | null; department: string | null; count: number; approved: number; amount: number }[]
   top_vehicles: { db_number: string; driver_name: string | null; contractor_name: string | null; count: number; approved: number; amount: number }[]
   deductions: { with_amount: number; posted: number; awaiting_export: number; exported: number; approved_by_finance: number; missing: number; not_linked: number; amount_posted: number }
   rows: { id: string; ref_no: string | null; log_date: string; target_kind: DisclosureTargetKind; db_number: string; driver_name: string; employee_number: string | null; department_name: string | null; sector: string | null; shift: string | null; violation_type: string; penalty_type: string | null; status: DisclosureStatusV2; amount: number | null; prepared_by_name: string | null; deduction_state: string | null; approved_at: string | null }[]
+}
+/** 00305 — المُعدّون: لكل موظف سجّل كشوفاً في الشهر (بالحساب لا بالاسم) */
+export interface DisclosurePreparerRow {
+  key: string; user_id: string | null; name: string; unit: string
+  registered: number; draft: number; pending: number; returned: number; approved: number; cancelled: number; resubmitted: number
+  amount_approved: number; approval_rate: number | null; prev_registered: number; prev_approved: number; delta: number; last_at: string | null
+}
+export interface DisclosurePreparers {
+  month: string; prev_month: string; rows: DisclosurePreparerRow[]
+  totals: { preparers: number; registered: number; draft: number; pending: number; returned: number; approved: number; cancelled: number; amount_approved: number; prev_registered: number; prev_approved: number }
+  months: { month: string; count: number }[]
 }
 export function disclosureErrorMessage(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
@@ -153,6 +164,8 @@ export const disclosuresUnit = {
   inbox() { return rpc<DisclosureV2[]>('disclosure_inbox', {}) },
   /** 00188 — تقرير شامل بمدى تاريخ (أنواع/قواطع/مكرِّرون/سلسلة الاستقطاع) */
   report(f: { from: string; to: string; type?: string | null; sector?: string | null }) { return rpc<DisclosureReport>('disclosure_report', { p_from: f.from, p_to: f.to, p_type: f.type ?? null, p_sector: f.sector ?? null }) },
+  /** 00305 — المُعدّون حسب الشهر (المعاون/المدير المفوض) */
+  preparers(month?: string | null) { return rpc<DisclosurePreparers>('disclosure_preparers', { p_month: month ? `${month.slice(0, 7)}-01` : null }) },
   stats(month?: string | null) { return rpc<DisclosureStats>('disclosure_stats', { p_month: month ? `${month.slice(0, 7)}-01` : null }) },
   // إخفاء الوحدات
   myHiddenUnits() { return rpc<Record<string, string[]>>('my_hidden_units', {}) },
