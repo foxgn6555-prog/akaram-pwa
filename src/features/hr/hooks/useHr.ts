@@ -275,6 +275,27 @@ export function useDeputyApprove() {
     onError: t.err,
   })
 }
+// 00353 — الساعات الإضافية المدفوعة (المعاون)
+export function useOvertimeOverview(month: string) { return useQuery({ queryKey: [...hrKeys.all, 'overtime', month], queryFn: () => hr.overtimeOverview(month), staleTime: 15_000 }) }
+export function useOvertimeDays(employeeId: string | null, month: string) { return useQuery({ queryKey: [...hrKeys.all, 'overtime-days', employeeId, month], queryFn: () => hr.overtimeDays(employeeId as string, month), enabled: !!employeeId }) }
+export function useOvertimeRates(enabled: boolean) { return useQuery({ queryKey: [...hrKeys.all, 'overtime-rates'], queryFn: () => hr.overtimeRates(), enabled }) }
+export function useOvertimeHistory(enabled: boolean) { return useQuery({ queryKey: [...hrKeys.all, 'overtime-history'], queryFn: () => hr.overtimeHistory(200), enabled }) }
+export function useOvertimePay() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; month: string; note: string | null }) => hr.overtimePay(v.employeeId, v.month, v.note), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('صُرفت الساعات — ستظهر سطراً مستقلاً في كشف الرواتب') }, onError: t.err })
+}
+export function useOvertimeReject() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; month: string; note: string }) => hr.overtimeReject(v.employeeId, v.month, v.note), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('سُجّل الرفض') }, onError: t.err })
+}
+export function useOvertimeCancel() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { payoutId: string; note: string }) => hr.overtimeCancel(v.payoutId, v.note), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُلغي القرار — عاد الموظف إلى «بانتظار القرار»') }, onError: t.err })
+}
+export function useOvertimeRateSet() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; enabled: boolean; amount: number; note: string | null }) => hr.overtimeRateSet(v.employeeId, v.enabled, v.amount, v.note), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.enabled ? 'حُفظ أجر الساعة الثابت' : 'أُلغي الأجر الثابت — يُحسب من الراتب') }, onError: t.err })
+}
 // 00251 — ضريبة الآليات المؤجرة
 export function useRentedTaxOverview() { return useQuery({ queryKey: [...hrKeys.all, 'rented-tax'], queryFn: () => hr.rentedTaxOverview(), staleTime: 30_000 }) }
 export function useRentedTaxAudit(enabled: boolean) { return useQuery({ queryKey: [...hrKeys.all, 'rented-tax-audit'], queryFn: () => hr.rentedTaxAudit(200), enabled }) }

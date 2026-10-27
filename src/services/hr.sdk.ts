@@ -5,7 +5,8 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
+import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout,
+  HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
@@ -33,6 +34,13 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_NOT_FOUND: 'السجل غير موجود',
   HR_REASON_REQUIRED: 'السبب مطلوب',
   HR_MONTH_LOCKED: 'هذا الشهر مقفول — اعتمدت المالية رواتبه ولا يمكن تعديله',
+  OVERTIME_DISABLED: 'نظام الساعات الإضافية المدفوعة متوقف — يفعّله التطوير المركزية من سياسة الموارد البشرية',
+  OVERTIME_NOTHING_TO_PAY: 'لا دقائق مستحقة للصرف لهذا الموظف في هذا الشهر',
+  OVERTIME_NO_RATE: 'لا يمكن احتساب أجر الساعة — لا ملف راتب معرَّف ولا أجر ثابت',
+  OVERTIME_ALREADY_DECIDED: 'سبق البتّ في ساعات هذا الموظف لهذا الشهر — ألغِ القرار أولاً',
+  OVERTIME_NO_OPEN_MONTH: 'لا شهر راتب مفتوح لصرف المبلغ فيه',
+  OVERTIME_REASON_REQUIRED: 'السبب إلزامي (3 أحرف على الأقل)',
+  OVERTIME_RATE_INVALID: 'أجر الساعة الثابت يجب أن يكون أكبر من صفر عند التفعيل',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
@@ -311,6 +319,15 @@ export const hr = {
   deputyApprove(exportId: string) { return rpc<{ export_id: string; rows: number; relief_total: number; rows_with_relief: number }>('deputy_payroll_approve', { p_export: exportId }) },
   deputyReopen(exportId: string, reason: string) { return sdkVoid(supabase.rpc('deputy_review_reopen', { p_export: exportId, p_reason: reason } as never)) },
   deputyAudit(exportId: string) { return rpc<DeputyReviewAudit[]>('deputy_review_audit', { p_export: exportId }) },
+  // 00353 — الساعات الإضافية المدفوعة (المعاون)
+  overtimeOverview(month: string) { return rpc<OvertimeOverview>('deputy_overtime_overview', { p_month: month }) },
+  overtimeDays(employeeId: string, month: string) { return rpc<OvertimeDay[]>('deputy_overtime_days', { p_employee: employeeId, p_month: month }) },
+  overtimePay(employeeId: string, month: string, note: string | null) { return rpc<OvertimePayout>('deputy_overtime_pay', { p_employee: employeeId, p_month: month, p_note: note }) },
+  overtimeReject(employeeId: string, month: string, note: string) { return rpc<OvertimePayout>('deputy_overtime_reject', { p_employee: employeeId, p_month: month, p_note: note }) },
+  overtimeCancel(payoutId: string, note: string) { return sdkVoid(supabase.rpc('deputy_overtime_cancel', { p_payout: payoutId, p_note: note } as never)) },
+  overtimeRateSet(employeeId: string, enabled: boolean, amount: number, note: string | null) { return rpc<unknown>('deputy_overtime_rate_set', { p_employee: employeeId, p_enabled: enabled, p_amount: amount, p_note: note }) },
+  overtimeRates() { return rpc<OvertimeRateRow[]>('deputy_overtime_rates', {}) },
+  overtimeHistory(limit = 200) { return rpc<OvertimeHistoryRow[]>('deputy_overtime_history', { p_limit: limit }) },
   // 00251 — ضريبة الآليات المؤجرة (المعاون)
   rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },
   rentedTaxSetPct(pct: number, reason: string) { return rpc<{ pct: number; previous: number }>('deputy_rented_tax_set_pct', { p_pct: pct, p_reason: reason }) },

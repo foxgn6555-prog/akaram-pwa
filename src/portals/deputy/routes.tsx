@@ -19,6 +19,7 @@ const DataAnalysisPage = lazy(() => import('./pages/DataAnalysis/DataAnalysisPag
 const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 const DeputyDeductionsPage = lazy(() => import('./pages/Deductions/DeputyDeductionsPage'))   // 00248: مراجعة الاستقطاعات قبل المالية
 const DeputyRentedTaxPage = lazy(() => import('./pages/RentedTax/DeputyRentedTaxPage'))   // 00251: ضريبة الآليات المؤجرة
+const DeputyOvertimePage = lazy(() => import('./pages/Overtime/DeputyOvertimePage'))   // 00353: الساعات الإضافية المدفوعة
 const DeputyRewardsPage = lazy(() => import('@portals/executive/pages/Treasury/ExecRewardsPage').then((m) => ({ default: () => <m.default actor="deputy" /> })))   // 00203: المكافآت (نفس وحدة التنفيذي)
 const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة)
 const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00162: طلبات الموافقة (خطوات «حساب محدد» في السلاسل)
@@ -35,6 +36,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'statements', element: s(<IncomingStatements />) },
   { path: 'deductions', element: s(<DeputyDeductionsPage />) },
   { path: 'rented-tax', element: s(<DeputyRentedTaxPage />) },
+  { path: 'overtime', element: s(<DeputyOvertimePage />) },
   { path: 'station-folders', element: s(<StationFoldersPage />) },
   { path: 'data-analysis', element: s(<DataAnalysisPage />) },
   { path: 'sector-supplies', element: s(<SectorSupplies />) },

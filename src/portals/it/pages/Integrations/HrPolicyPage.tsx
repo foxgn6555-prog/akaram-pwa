@@ -84,6 +84,17 @@ export default function HrPolicyPage() {
         <L label="دقائق الإضافي لكل يوم إجازة (فارغ = ساعات الشفت)"><input type="number" min={60} className={field} value={draft.overtime_minutes_per_leave_day ?? ''} onChange={(e) => set('overtime_minutes_per_leave_day', e.target.value === '' ? null : NUM(e.target.value))} data-testid="p-ot-per-day" /></L>
       </Section>
 
+      <Section title="الساعات الإضافية المدفوعة (00353)" hint={(draft.paid_overtime_enabled ?? false)
+        ? 'مفعّل: دقائق العمل قبل الشفت و/أو بعده تُصرف نقداً بقرار معاون المدير المفوض (وحدة «الساعات الإضافية المدفوعة»)، ويتوقف تحويل الإضافي إلى رصيد إجازات. أجر الساعة = أجر اليوم ÷ ساعات الشفت (أو أجر ثابت يحدده المعاون). المبلغ سطر مستقل في كشف الرواتب يُضاف إلى الصافي بلا ضريبة.'
+        : 'متوقف (الافتراضي): يبقى الإضافي رصيدَ إجازات كما هو. عند التفعيل يتوقف التحويل إلى رصيد ويبدأ الصرف النقدي بقرار المعاون.'}>
+        <L label="تفعيل الصرف النقدي للساعات الإضافية"><select className={field} value={String(draft.paid_overtime_enabled ?? false)} onChange={(e) => set('paid_overtime_enabled', e.target.value === 'true')} data-testid="p-pot"><option value="false">متوقف</option><option value="true">مفعّل</option></select></L>
+        <L label="وحدة الاحتساب"><select className={field} value={draft.paid_overtime_unit ?? 'hours'} onChange={(e) => set('paid_overtime_unit', e.target.value as 'minutes' | 'hours')} data-testid="p-pot-unit"><option value="hours">ساعات كاملة (كسور الساعة لا تُحتسب)</option><option value="minutes">بالدقيقة</option></select></L>
+        <L label="احتساب ما قبل بداية الشفت"><select className={field} value={String(draft.paid_overtime_before_shift ?? true)} onChange={(e) => set('paid_overtime_before_shift', e.target.value === 'true')} data-testid="p-pot-before"><option value="true">يُحتسب</option><option value="false">لا يُحتسب</option></select></L>
+        <L label="احتساب ما بعد نهاية الشفت"><select className={field} value={String(draft.paid_overtime_after_shift ?? true)} onChange={(e) => set('paid_overtime_after_shift', e.target.value === 'true')} data-testid="p-pot-after"><option value="true">يُحتسب</option><option value="false">لا يُحتسب</option></select></L>
+        <L label="أقل كتلة تُحتسب في اليوم (دقيقة)"><input type="number" min={0} max={480} className={field} value={draft.paid_overtime_min_block_minutes ?? 30} onChange={(e) => set('paid_overtime_min_block_minutes', NUM(e.target.value, 30))} data-testid="p-pot-block" /></L>
+        <p className="text-[11px] text-slate-500 sm:col-span-2 lg:col-span-4" data-testid="p-pot-example">مثال: شفت 8 ساعات، راتب 900,000 ÷ 30 = 30,000 لليوم ÷ 8 = 3,750 للساعة. موظف عمل 10 ساعات و40 دقيقة إضافية في الشهر ⇒ بالساعات الكاملة: 10 × 3,750 = <b>37,500</b> · بالدقيقة: 640 ÷ 60 × 3,750 = <b>40,000</b>.</p>
+      </Section>
+
       <Section title="عتبات التنبيه (شهرياً)" hint="عند تجاوزها يُنشأ تنبيه للمدير المباشر ولقائمة تنبيهات HR وغرفة العمليات">
         <L label="أيام التأخير"><input type="number" min={1} className={field} value={draft.alert_late_days_per_month} onChange={(e) => set('alert_late_days_per_month', NUM(e.target.value, 1))} data-testid="p-al-late" /></L>
         <L label="مجموع نقص الدقائق"><input type="number" min={1} className={field} value={draft.alert_shortfall_minutes_per_month} onChange={(e) => set('alert_shortfall_minutes_per_month', NUM(e.target.value, 1))} data-testid="p-al-short" /></L>

@@ -111,7 +111,7 @@ describe('00195 — الكشف المبسّط: المالية ترى الصاف�
     const ws = wb.getWorksheet(1)!
     const headers = (ws.getRow(4).values as string[]).slice(1)
     expect(headers.indexOf('ضريبة آلية مؤجرة') + 1).toBe(18)
-    expect(ws.getRow(5).getCell(18).value).toBe(40500); expect(ws.getRow(5).getCell(19).value).toBe(90500); expect(ws.getRow(5).getCell(20).value).toBe(1259500)
+    expect(ws.getRow(5).getCell(18).value).toBe(40500); expect(ws.getRow(5).getCell(19).value).toBe(90500); expect(ws.getRow(5).getCell(21).value).toBe(1259500)   // 00353: العمود 20 = ساعات العمل الإضافي
     expect(String(ws.getRow(5).getCell(18).note)).toContain('3٪ من الإجمالي المستحق')
     expect(ws.getRow(6).getCell(18).value).toBe(0)
   })
@@ -124,10 +124,10 @@ describe('00195 — الكشف المبسّط: المالية ترى الصاف�
     expect(screen.getByTestId('ps-uncollected-note')).toHaveTextContent('الاستقطاعات تجاوزت الراتب بمقدار 50,000')
     expect(screen.getByTestId('ps-uncollected-note')).toHaveTextContent('أول شهر مفتوح عند اعتماد المالية')
   })
-  it('Excel: الورقة الرئيسية 24 عموداً بقاعدة الاستقطاع، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
+  it('Excel: الورقة الرئيسية 25 عموداً بقاعدة الاستقطاع (00353: + ساعات العمل الإضافي)، وورقة «تفاصيل الحضور» تحمل الأعمدة التفصيلية', async () => {
     const wb = await buildPayrollWorkbook('2026-09-01', [row({ ...rows[0]!, auto_deduction_rule: 'صارمة' }), rows[1]!])
     const ws = wb.worksheets[0]!; const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
-    expect(headers).toHaveLength(24); expect(headers[17]).toBe('ضريبة آلية مؤجرة'); expect(headers).not.toContain('دقائق التأخير'); expect(ws.getRow(5).getCell(headers.indexOf('قاعدة الاستقطاع التلقائي') + 1).value).toBe('صارمة')
+    expect(headers).toHaveLength(25); expect(headers[17]).toBe('ضريبة آلية مؤجرة'); expect(headers[19]).toBe('ساعات العمل الإضافي'); expect(headers).not.toContain('دقائق التأخير'); expect(ws.getRow(5).getCell(headers.indexOf('قاعدة الاستقطاع التلقائي') + 1).value).toBe('صارمة')
     expect(ws.getRow(5).getCell(8).value).toBe(25)   // الأيام المدفوعة = حاضر 24 + إجازة مدفوعة 1
     expect(wb.worksheets[1]!.name).toBe('تفاصيل الحضور')
     const dh = (wb.worksheets[1]!.getRow(4).values as unknown[]).slice(1) as string[]
@@ -215,10 +215,10 @@ describe('00194 — Excel المالي', () => {
     const headers = (ws.getRow(4).values as unknown[]).slice(1) as string[]
     expect(headers.slice(-2)).toEqual(['تحقق الصافي', 'ملاحظات التدقيق'])
     expect(String(ws.getCell('A2').value)).toContain('الفرع: الكرخ')
-    expect((ws.getRow(5).getCell(23).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,L5-S5)-T5)<=1,"✓","✗")')   // 00251: L/S/T بعد عمود ضريبة الآلية المؤجرة
-    expect(ws.getRow(7).getCell(24).value).toBe('صافٍ معدَّل يدوياً')
-    expect(ws.getRow(10).getCell(23).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(24).value).toBe('بلا ملف راتب')
-    expect(String((ws.getRow(11).getCell(23).value as { formula: string }).formula)).toContain('COUNTIF(W5:W10,"✗")')
+    expect((ws.getRow(5).getCell(24).value as { formula: string }).formula).toBe('IF(ABS(MAX(0,L5-S5)+T5-U5)<=1,"✓","✗")')   // 00353: + T (ساعات العمل الإضافي) = U الصافي المقترح
+    expect(ws.getRow(7).getCell(25).value).toBe('صافٍ معدَّل يدوياً')
+    expect(ws.getRow(10).getCell(24).value).toBe('بلا راتب'); expect(ws.getRow(10).getCell(25).value).toBe('بلا ملف راتب')
+    expect(String((ws.getRow(11).getCell(24).value as { formula: string }).formula)).toContain('COUNTIF(X5:X10,"✗")')
     expect(ws.views[0]).toMatchObject({ xSplit: 3, ySplit: 4 })
   })
   it('ورقة «ملخص الفروع» هرمية (فرع ثم أقسامه) بمجاميع كل مستوى وإجمالي عام', async () => {

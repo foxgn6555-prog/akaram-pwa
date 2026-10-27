@@ -85,21 +85,21 @@ export function sortRows(rows: PayrollSheetRow[], sort: SortKey, dir: 'asc' | 'd
   return out
 }
 
-export interface SheetTotals { count: number; defined: number; missing: number; gross: number; fixed: number; ops: number; auto: number; advance: number; rented_tax: number; deductions: number; proposed: number; final: number; present: number; absent: number; leave: number; unevaluated: number; adjusted: number }
+export interface SheetTotals { count: number; defined: number; missing: number; gross: number; fixed: number; ops: number; auto: number; advance: number; rented_tax: number; overtime: number; deductions: number; proposed: number; final: number; present: number; absent: number; leave: number; unevaluated: number; adjusted: number }
 /** مجاميع دقيقة (تقريب إلى فلسين لتجنّب انجراف الفاصلة العائمة) */
 export function sheetTotals(rows: PayrollSheetRow[]): SheetTotals {
   const r2 = (n: number) => Math.round(n * 100) / 100
   const sum = (f: (r: PayrollSheetRow) => number) => r2(rows.reduce((s, r) => s + (f(r) || 0), 0))
   return {
     count: rows.length, defined: rows.filter((r) => r.pay_type != null).length, missing: rows.filter((r) => r.pay_type == null).length,
-    gross: sum(rowGross), fixed: sum((r) => r.fixed_deductions_total ?? 0), ops: sum(rowOps), auto: sum((r) => r.auto_deduction_amount ?? 0), advance: sum((r) => r.advance_installment ?? 0), rented_tax: sum((r) => r.rented_tax_amount ?? 0),
+    gross: sum(rowGross), fixed: sum((r) => r.fixed_deductions_total ?? 0), ops: sum(rowOps), auto: sum((r) => r.auto_deduction_amount ?? 0), advance: sum((r) => r.advance_installment ?? 0), rented_tax: sum((r) => r.rented_tax_amount ?? 0), overtime: sum((r) => r.overtime_amount ?? 0),
     deductions: sum(rowDeductions), proposed: sum((r) => r.proposed_net ?? 0), final: sum(rowNet),
     present: sum((r) => r.days_present), absent: sum((r) => r.days_absent), leave: sum((r) => r.days_leave), unevaluated: sum((r) => r.unevaluated_days ?? 0), adjusted: rows.filter(isAdjusted).length,
   }
 }
-/** معادلة الإجمالي: الإجمالي − الاستقطاعات = الصافي المقترح (على مستوى الكشف كله، بفارق تقريب ≤ 1 د.ع لكل صف) */
+/** معادلة الإجمالي: الإجمالي − الاستقطاعات + ساعات العمل الإضافي (00353) = الصافي المقترح (على مستوى الكشف كله، بفارق تقريب ≤ 1 د.ع لكل صف) */
 export function totalsConsistent(t: SheetTotals, rowsCount: number): boolean {
-  return Math.abs(t.gross - t.deductions - t.proposed) <= Math.max(1, rowsCount)
+  return Math.abs(t.gross - t.deductions + t.overtime - t.proposed) <= Math.max(1, rowsCount)
 }
 
 export interface BranchGroup { branch: string; rows: PayrollSheetRow[]; totals: SheetTotals; departments: Array<{ name: string; rows: PayrollSheetRow[]; totals: SheetTotals }> }
@@ -120,7 +120,7 @@ export function groupByBranchDept(rows: PayrollSheetRow[]): BranchGroup[] {
 export const RECONCILE_ISSUE_LABELS: Record<PayrollReconcileIssue, string> = {
   SALARY_MISSING: 'بلا ملف راتب', GROSS_MISMATCH: 'الإجمالي لا يطابق مكوّناته', DEDUCTIONS_MISMATCH: 'الاستقطاعات لا تطابق مكوّناتها', RENTED_TAX_MISMATCH: 'ضريبة الآلية المؤجرة ≠ الإجمالي × النسبة', NET_MISMATCH: 'الصافي ≠ الإجمالي − الاستقطاعات',
   FINAL_NEGATIVE: 'صافٍ معتمد سالب', NET_NOT_FLOORED: 'صافٍ غير مُصفَّر رغم تجاوز الاستقطاعات', DAYS_UNCLASSIFIED: 'أيام عمل غير مصنّفة', UNEVALUATED_DAYS: 'أيام غير محتسبة',
-  ATTENDANCE_CHANGED: 'تغيّرت الحضورية بعد التصدير', AUTO_DEDUCTION_CHANGED: 'تغيّر الاستقطاع التلقائي بعد التصدير', OPS_DEDUCTIONS_CHANGED: 'تغيّرت استقطاعات العمليات بعد التصدير', PAYABLE_DAYS_CHANGED: 'تغيّرت الأيام المستحقة بعد التصدير',
+  ATTENDANCE_CHANGED: 'تغيّرت الحضورية بعد التصدير', AUTO_DEDUCTION_CHANGED: 'تغيّر الاستقطاع التلقائي بعد التصدير', OPS_DEDUCTIONS_CHANGED: 'تغيّرت استقطاعات العمليات بعد التصدير', PAYABLE_DAYS_CHANGED: 'تغيّرت الأيام المستحقة بعد التصدير', OVERTIME_CHANGED: 'تغيّرت ساعات العمل الإضافي المصروفة بعد التصدير',
 }
 export const MONEY_ISSUES: PayrollReconcileIssue[] = ['GROSS_MISMATCH', 'DEDUCTIONS_MISMATCH', 'RENTED_TAX_MISMATCH', 'NET_MISMATCH', 'FINAL_NEGATIVE', 'NET_NOT_FLOORED']
 export function reconcileSummary(rows: PayrollReconcileRow[]) {
@@ -140,5 +140,5 @@ export function explainRow(r: PayrollReconcileRow): string {
       ? `أجر اليوم ${money(n('day_rate'))} × ${n('covered_days')} يوم مشمول من ${n('days_in_month')} (بسقف الأساسي ${money(n('base_salary'))}) + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`
       : `الأساسي ${money(n('base_salary'))} + مخصصات ${money(n('allowances'))} = ${money(r.gross_expected ?? 0)}`
   const ded = `ثابتة ${money(n('fixed_deductions'))} + عمليات ${money(n('ops_amount'))} + أيام عمليات ${money(n('ops_days_amount'))} + تلقائي ${money(n('auto_amount'))}${c.auto_basis === 'disabled' ? ' (متوقف)' : ''} + قسط سلفة ${money(n('advance'))}${n('rented_tax') > 0 ? ` + ضريبة آلية مؤجرة ${money(n('rented_tax'))} (${n('rented_tax_pct')}٪ من الإجمالي المستحق)` : ''} = ${money(r.deductions_expected ?? 0)}`
-  return `الإجمالي: ${gross} · الاستقطاعات: ${ded} · الصافي = ${money(r.gross_expected ?? 0)} − ${money(r.deductions_expected ?? 0)} = ${money(r.net_expected ?? 0)}`
+  return `الإجمالي: ${gross} · الاستقطاعات: ${ded} · الصافي = ${money(r.gross_expected ?? 0)} − ${money(r.deductions_expected ?? 0)}${n('overtime') > 0 ? ` + ساعات العمل الإضافي ${money(n('overtime'))} (بلا ضريبة)` : ''} = ${money(r.net_expected ?? 0)}`
 }

@@ -113,6 +113,9 @@ for t, lbl in [('attendance_records', 'سجلات الحضور (القديمة)'
                ('hr_month_exports', 'تصدير الشهر إلى المالية'), ('hr_month_export_rows', 'صفوف تصدير الشهر'), ('hr_policy', 'سياسة الموارد البشرية'), ('hr_settings', 'إعدادات الموارد البشرية'),
                ('rented_vehicle_tax_settings', 'إعدادات ضريبة المركبات المستأجرة'), ('rented_vehicle_tax_overrides', 'استثناءات ضريبة المركبات المستأجرة')]:
     L('hr', t, lbl, CFG if t in ('hr_policy', 'hr_settings', 'rented_vehicle_tax_settings', 'hr_deduction_rules', 'hr_deduction_rule_targets') else FIN)
+# 00353: الساعات الإضافية المدفوعة
+for t, lbl in [('hr_overtime_rates', 'أجر الساعة الثابت للإضافي المدفوع'), ('hr_overtime_payouts', 'صرف الساعات الإضافية')]:
+    L('hr', t, lbl, FIN)
 
 # ───── finance
 D('finance', 'advance_events', 'سجل أحداث السلف', 'مسار كل سلفة (طلب/موافقة/تسليم/تسديد). السلف غير المسدَّدة محمية.', 'created_at', 36, True,

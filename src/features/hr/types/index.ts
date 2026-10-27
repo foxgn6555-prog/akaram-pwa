@@ -448,6 +448,9 @@ export interface PayrollSheetRow extends OpsExportRow {
   rented_tax_amount?: number | null
   rented_tax_vehicle?: string | null
   rented_tax_source?: 'auto' | 'custom' | 'exempt' | null
+  /** 00353 — ساعات العمل الإضافي المصروفة بقرار المعاون: تُضاف إلى الصافي فقط (لا إجمالي ولا ضريبة) */
+  overtime_amount?: number | null
+  overtime_paid_minutes?: number | null
   /** 00300: ما زاد من الاستقطاعات على الإجمالي — يُرحَّل تلقائياً إلى أول شهر مفتوح عند اعتماد المالية */
   uncollected_amount?: number | null
   export_id: string
@@ -466,7 +469,7 @@ export interface PayrollSheetRow extends OpsExportRow {
 }
 
 /** 00194 — صف التحقق الحسابي لكشف الرواتب (المالية) */
-export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'RENTED_TAX_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED' | 'PAYABLE_DAYS_CHANGED'
+export type PayrollReconcileIssue = 'SALARY_MISSING' | 'GROSS_MISMATCH' | 'DEDUCTIONS_MISMATCH' | 'RENTED_TAX_MISMATCH' | 'NET_MISMATCH' | 'FINAL_NEGATIVE' | 'NET_NOT_FLOORED' | 'DAYS_UNCLASSIFIED' | 'UNEVALUATED_DAYS' | 'ATTENDANCE_CHANGED' | 'AUTO_DEDUCTION_CHANGED' | 'OPS_DEDUCTIONS_CHANGED' | 'PAYABLE_DAYS_CHANGED' | 'OVERTIME_CHANGED'
 export interface PayrollReconcileRow {
   row_id: string
   employee_id: string
@@ -651,6 +654,12 @@ export interface HrPolicy {
   overtime_enabled: boolean
   overtime_min_block_minutes: number
   overtime_minutes_per_leave_day: number | null
+  /** 00353: الساعات الإضافية المدفوعة (افتراضياً متوقفة) */
+  paid_overtime_enabled?: boolean
+  paid_overtime_unit?: 'minutes' | 'hours'
+  paid_overtime_before_shift?: boolean
+  paid_overtime_after_shift?: boolean
+  paid_overtime_min_block_minutes?: number
   alert_late_days_per_month: number
   alert_shortfall_minutes_per_month: number
   alert_absent_days_per_month: number
@@ -959,3 +968,18 @@ export interface HrHireRequest {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'; created_at: string; decided_at: string | null; completed_at: string | null
   employee_id: string | null; employee_number: string | null; days_waiting: number
 }
+
+// 00353 — الساعات الإضافية المدفوعة (المعاون)
+export interface OvertimeSettings { enabled: boolean; unit: 'minutes' | 'hours'; before_shift: boolean; after_shift: boolean; min_block_minutes: number }
+export interface OvertimePayout { id: string; status: 'paid' | 'rejected' | 'cancelled'; amount: number; payable_minutes: number; counted_minutes: number; hour_rate: number; rate_source: 'fixed' | 'salary' | 'none'; unit: 'minutes' | 'hours'; payroll_month: string; note: string | null; decided_at: string; decided_by_name: string | null; settled: boolean; changed_since: boolean }
+export interface OvertimeEmployee {
+  employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null
+  days_count: number; early_minutes: number; late_minutes: number; counted_minutes: number; payable_minutes: number
+  hour_rate: number; rate_source: 'fixed' | 'salary' | 'none'; shift_minutes: number; day_rate: number | null; amount: number
+  fixed_rate: { enabled: boolean; hourly_amount: number; note: string | null } | null
+  payout: OvertimePayout | null
+}
+export interface OvertimeOverview { month: string; settings: OvertimeSettings; payroll_month: string | null; month_locked: boolean; export_status: string | null; export_review_status: string | null; employees: OvertimeEmployee[] }
+export interface OvertimeDay { work_date: string; shift_name: string | null; expected_in: string | null; expected_out: string | null; check_in: string | null; check_out: string | null; status: string; early_minutes: number; late_minutes: number; counted_minutes: number; shortfall_minutes: number }
+export interface OvertimeRateRow { employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null; enabled: boolean; hourly_amount: number; note: string | null; updated_at: string | null; salary_hour_rate: number; salary_source: 'fixed' | 'salary' | 'none' }
+export interface OvertimeHistoryRow { id: string; employee_id: string; employee_number: string; full_name: string; period_month: string; payroll_month: string; status: 'paid' | 'rejected' | 'cancelled'; payable_minutes: number; hour_rate: number; rate_source: string; amount: number; note: string | null; decided_at: string; decided_by_name: string | null; cancelled_at: string | null; cancelled_by_name: string | null; cancel_note: string | null }

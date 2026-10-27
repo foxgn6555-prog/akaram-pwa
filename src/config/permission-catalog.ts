@@ -153,6 +153,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'deputy.statements': ['decide'],
   'deputy.deductions': ['decide', 'edit'],
   'deputy.rented-tax': ['edit'],
+  'deputy.overtime': ['decide', 'edit'],
   'deputy.sector-supplies': ['decide'],
   'deputy.rewards': ['create'],
   'deputy.approvals': ['decide'],

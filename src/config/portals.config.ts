@@ -407,6 +407,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'alert-triangle' },
     { path: '/deputy/deductions', labelKey: 'nav.deputy_deductions', icon: 'wallet' },   // 00248
     { path: '/deputy/rented-tax', labelKey: 'nav.deputy_rented_tax', icon: 'truck' },   // 00251
+    { path: '/deputy/overtime', labelKey: 'nav.deputy_overtime', icon: 'clock' },   // 00353
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'activity' },

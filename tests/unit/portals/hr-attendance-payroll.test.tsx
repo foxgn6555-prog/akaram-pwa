@@ -361,9 +361,9 @@ describe('المالية — الرواتب', () => {
     expect(ws.views[0]).toMatchObject({ rightToLeft: true })
     expect(String(ws.getCell('A1').value)).toContain('مسودة')
     expect(ws.getRow(4).getCell(3).value).toBe('الاسم')
-    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(20).value).toBe(855000)   // 00251: الصافي المقترح = العمود 20 (بعد عمود ضريبة الآلية المؤجرة)
-    expect(ws.getRow(6).getCell(21).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
-    expect((ws.getRow(7).getCell(21).value as { formula: string }).formula).toBe('SUM(U5:U6)')
+    expect(ws.getRow(5).getCell(3).value).toBe('أحمد علي'); expect(ws.getRow(5).getCell(21).value).toBe(855000)   // 00353: الصافي المقترح = العمود 21 (بعد عمودي ضريبة الآلية المؤجرة وساعات العمل الإضافي)
+    expect(ws.getRow(6).getCell(22).value).toBe(700000); expect(ws.getRow(6).getCell(7).value).toBe('أجر يومي')
+    expect((ws.getRow(7).getCell(22).value as { formula: string }).formula).toBe('SUM(V5:V6)')
     const approvedWb = await buildPayrollWorkbook('2026-09-01', [{ ...sheetRow, export_status: 'approved' } as never])
     expect(String(approvedWb.worksheets[0]!.getCell('A1').value)).toContain('معتمد')
     // 00179: ورقة ملخص الأقسام
