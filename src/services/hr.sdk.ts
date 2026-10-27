@@ -5,7 +5,7 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout,
+import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
@@ -41,6 +41,8 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   OVERTIME_NO_OPEN_MONTH: 'لا شهر راتب مفتوح لصرف المبلغ فيه',
   OVERTIME_REASON_REQUIRED: 'السبب إلزامي (3 أحرف على الأقل)',
   OVERTIME_RATE_INVALID: 'أجر الساعة الثابت يجب أن يكون أكبر من صفر عند التفعيل',
+  OVERTIME_NOT_MEMBER: 'هذا الموظف غير مشمول بالصرف النقدي — أدرجه أولاً من تبويب «المشمولون»',
+  OVERTIME_MEMBER_UNCHANGED: 'الحالة لم تتغير — الموظف بالفعل على هذه الحالة',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
@@ -327,6 +329,8 @@ export const hr = {
   overtimeCancel(payoutId: string, note: string) { return sdkVoid(supabase.rpc('deputy_overtime_cancel', { p_payout: payoutId, p_note: note } as never)) },
   overtimeRateSet(employeeId: string, enabled: boolean, amount: number, note: string | null) { return rpc<unknown>('deputy_overtime_rate_set', { p_employee: employeeId, p_enabled: enabled, p_amount: amount, p_note: note }) },
   overtimeRates() { return rpc<OvertimeRateRow[]>('deputy_overtime_rates', {}) },
+  overtimeMemberSet(employeeId: string, active: boolean, note: string | null) { return rpc<unknown>('deputy_overtime_member_set', { p_employee: employeeId, p_active: active, p_note: note }) },
+  overtimeMemberEvents(limit = 200) { return rpc<OvertimeMemberEvent[]>('deputy_overtime_member_events', { p_limit: limit }) },
   overtimeHistory(limit = 200) { return rpc<OvertimeHistoryRow[]>('deputy_overtime_history', { p_limit: limit }) },
   // 00251 — ضريبة الآليات المؤجرة (المعاون)
   rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },

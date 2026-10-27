@@ -1,4 +1,4 @@
--- 00353 · الساعات الإضافية المدفوعة (بادئة po): الدقائق الخام قبل/بعد الشفت، الإعداد (وحدة/نطاق/كتلة)، أجر الساعة من الراتب أو ثابت،
+-- 00353 · الساعات الإضافية المدفوعة (بادئة po): الدقائق الخام قبل/بعد الشفت، الإعداد (وحدة/نطاق/كتلة)، الشمول بالاسم (المعاون)، أجر الساعة من الراتب أو ثابت،
 --        صرف/رفض/إلغاء المعاون، السطر في الكشف يُضاف إلى الصافي دون الإجمالي/الضريبة، المطابقة والمعاون، توقّف رصيد الإجازات، شهر الراتب المرحَّل، الصلاحيات
 set client_min_messages = notice;
 reset role; select set_config('auth.user_id','', false);
@@ -58,7 +58,7 @@ end $$;
 select auth.set_test_user('d7000000-0000-0000-0000-000000000003');
 do $$ declare j jsonb; ok boolean := false; begin
   j := public.deputy_overtime_overview(current_setting('test.po_m')::date);
-  assert (j -> 'settings' ->> 'enabled')::boolean = false and j -> 'settings' ->> 'unit' = 'hours', 'T2 settings: ' || (j -> 'settings')::text;
+  assert (j -> 'settings' ->> 'enabled')::boolean = false and j -> 'settings' ->> 'unit' = 'hours' and (j ->> 'members_count')::int = 0, 'T2 settings: ' || (j -> 'settings')::text;
   begin perform public.deputy_overtime_pay('d7000000-0000-0000-0000-0000000000e1', current_setting('test.po_m')::date, null); exception when others then ok := sqlerrm like '%OVERTIME_DISABLED%'; end;
   assert ok, 'T2 pay must fail when disabled';
   raise notice 'T2 ✅ متوقف افتراضياً';
@@ -83,6 +83,34 @@ do $$ declare ok boolean := false; begin
   perform public.hr_policy_set('{"paid_overtime_enabled": true, "paid_overtime_unit": "hours", "paid_overtime_before_shift": true, "paid_overtime_after_shift": true, "paid_overtime_min_block_minutes": 30}'::jsonb);
   assert app.paid_overtime_enabled(), 'T3 enabled';
   raise notice 'T3 ✅ التفعيل من التطوير المركزية';
+end $$;
+
+-- ═══ T3b · الشمول بالاسم: النظام مفعّل لكن لا أحد مشمول ⇒ لا دقائق للصرف ولا يتغير رصيد أحد؛ المعاون يُدرج A وB (لا C) ═══
+reset role; select set_config('auth.user_id','', false);
+do $$ declare m date := current_setting('test.po_m')::date; n int; begin
+  assert not exists (select 1 from app.paid_overtime_month(m, null)), 'T3b nobody included ⇒ nothing to pay';
+  n := app.hr_overtime_credit(m);
+  assert exists (select 1 from public.hr_leave_ledger where employee_id = 'd7000000-0000-0000-0000-0000000000e1' and period_month = m and kind = 'overtime'), 'T3b leave credit must continue for non-members';
+end $$;
+select auth.set_test_user('d7000000-0000-0000-0000-000000000007');
+do $$ declare ok boolean := false; begin
+  begin perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e1', true, null); exception when others then ok := sqlerrm like '%HR_FORBIDDEN%' or sqlerrm like '%PERMISSION_DENIED%'; end;
+  assert ok, 'T3b finance must not add members';
+end $$;
+select auth.set_test_user('d7000000-0000-0000-0000-000000000003');
+do $$ declare ok boolean := false; j jsonb; begin
+  j := public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e1', true, 'مكلّف بحملة النظافة');
+  assert (j ->> 'active')::boolean, 'T3b add A';
+  perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e2', true, null);
+  begin perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e1', true, null); exception when others then ok := sqlerrm like '%OVERTIME_MEMBER_UNCHANGED%'; end;
+  assert ok, 'T3b re-adding is rejected';
+  ok := false;
+  begin perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e2', false, ''); exception when others then ok := sqlerrm like '%OVERTIME_REASON_REQUIRED%'; end;
+  assert ok, 'T3b removal needs a reason';
+  assert (select count(*) from public.deputy_overtime_rates() x where x.member) = 2, 'T3b members list = 2';
+  assert (select count(*) from public.deputy_overtime_member_events(50)) = 2, 'T3b events = 2';
+  assert app.paid_overtime_for('d7000000-0000-0000-0000-0000000000e1') and not app.paid_overtime_for('d7000000-0000-0000-0000-0000000000e3'), 'T3b predicate';
+  raise notice 'T3b ✅ الشمول بالاسم من المعاون فقط';
 end $$;
 
 -- ═══ T4 · الاحتساب: الوحدة ساعات كاملة، الكتلة 30، قبل+بعد؛ أجر الساعة من الراتب = (900,000 ÷ أيام الشهر) ÷ 8 ═══
@@ -119,11 +147,23 @@ end $$;
 reset role; select set_config('auth.user_id','', false);
 do $$ declare m date := current_setting('test.po_m')::date; n int; begin
   n := app.hr_overtime_credit(m);
-  assert n = 0 and not exists (select 1 from public.hr_leave_ledger where period_month = m and kind = 'overtime'), 'T6 no leave credit when paid';
+  assert not exists (select 1 from public.hr_leave_ledger where employee_id in ('d7000000-0000-0000-0000-0000000000e1', 'd7000000-0000-0000-0000-0000000000e2') and period_month = m and kind = 'overtime'), 'T6 members get no leave credit';
   n := app.hr_hour_bank_credit(m);
   assert n = 0, 'T6 hour bank credit must be 0';
-  raise notice 'T6 ✅ لا ازدواج مع رصيد الإجازات';
 end $$;
+-- إزالة B مؤقتاً ⇒ يعود رصيده فوراً عند إعادة الاحتساب، ولا يظهر في الصرف؛ ثم إعادته
+select auth.set_test_user('d7000000-0000-0000-0000-000000000003');
+do $$ declare m date := current_setting('test.po_m')::date; n int; begin
+  perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e2', false, 'انتهى تكليفه');
+  n := app.hr_overtime_credit(m);
+  assert exists (select 1 from public.hr_leave_ledger where employee_id = 'd7000000-0000-0000-0000-0000000000e2' and period_month = m and kind = 'overtime'), 'T6 removed member gets leave credit again';
+  assert not exists (select 1 from app.paid_overtime_month(m, 'd7000000-0000-0000-0000-0000000000e2')), 'T6 removed member not payable';
+  perform public.deputy_overtime_member_set('d7000000-0000-0000-0000-0000000000e2', true, 'عاد للتكليف');
+  n := app.hr_overtime_credit(m);
+  assert not exists (select 1 from public.hr_leave_ledger where employee_id = 'd7000000-0000-0000-0000-0000000000e2' and period_month = m and kind = 'overtime'), 'T6 re-added ⇒ credit removed';
+  raise notice 'T6 ✅ لا ازدواج: المشمول نقداً فقط، وغير المشمول رصيداً فقط';
+end $$;
+reset role; select set_config('auth.user_id','', false);
 
 -- ═══ T7 · الصلاحيات: غير المعاون لا يصرف؛ الرفض بلا سبب مرفوض؛ الصرف لمن لا دقائق له مرفوض ═══
 select auth.set_test_user('d7000000-0000-0000-0000-000000000007');
@@ -139,8 +179,8 @@ do $$ declare ok boolean := false; begin
   begin perform public.deputy_overtime_reject('d7000000-0000-0000-0000-0000000000e1', current_setting('test.po_m')::date, ''); exception when others then ok := sqlerrm like '%OVERTIME_REASON_REQUIRED%'; end;
   assert ok, 'T7 reject needs reason';
   ok := false;
-  begin perform public.deputy_overtime_pay('d7000000-0000-0000-0000-0000000000e3', current_setting('test.po_m')::date, null); exception when others then ok := sqlerrm like '%OVERTIME_NOTHING_TO_PAY%'; end;
-  assert ok, 'T7 nothing to pay for C';
+  begin perform public.deputy_overtime_pay('d7000000-0000-0000-0000-0000000000e3', current_setting('test.po_m')::date, null); exception when others then ok := sqlerrm like '%OVERTIME_NOT_MEMBER%'; end;
+  assert ok, 'T7 C is not a member';
   raise notice 'T7 ✅ الصلاحيات والتحقق';
 end $$;
 
@@ -246,7 +286,7 @@ do $$ declare r record; begin
 end $$;
 reset role; select set_config('auth.user_id','', false);
 do $$ begin
-  assert (select count(*) from app.data_retention_catalog() k where k.table_name in ('hr_overtime_rates', 'hr_overtime_payouts') and not k.deletable) = 2, 'T13 retention catalog';
+  assert (select count(*) from app.data_retention_catalog() k where k.table_name in ('hr_overtime_rates', 'hr_overtime_payouts', 'hr_overtime_members', 'hr_overtime_member_events') and not k.deletable) = 4, 'T13 retention catalog';
   assert exists (select 1 from public.permission_units where key = 'deputy.overtime' and actions @> '{view,decide,edit}'), 'T13 permission unit';
 end $$;
 -- إعادة الإعداد إلى الافتراضي كي لا تتأثر اختبارات أخرى

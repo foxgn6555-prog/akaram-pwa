@@ -1,7 +1,7 @@
 /**
  * 00353 — وحدة «الساعات الإضافية المدفوعة» في بوابة معاون المدير المفوض.
- *   النظام يفعّله/يوقفه التطوير المركزية من سياسة الموارد البشرية (افتراضياً متوقف). عند التفعيل تتوقف إضافة الإضافي إلى رصيد الإجازات،
- *   وتُعرض هنا دقائق كل موظف في الشهر (قبل الشفت / بعده بحسب الإعداد) مع أجر الساعة (من الراتب: أجر اليوم ÷ ساعات الشفت، أو ثابت بقرار المعاون)
+ *   النظام يفعّله/يوقفه التطوير المركزية من سياسة الموارد البشرية (افتراضياً متوقف)، ولا يسري إلا على موظفين يُدرجهم المعاون بالاسم من تبويب «المشمولون»
+ *   (غير المشمول يبقى على رصيد الإجازات كما هو). للمشمول تتوقف إضافة الإضافي إلى رصيد الإجازات وتُعرض هنا دقائقه في الشهر (قبل الشفت / بعده بحسب الإعداد) مع أجر الساعة (من الراتب: أجر اليوم ÷ ساعات الشفت، أو ثابت بقرار المعاون)
  *   والمبلغ المستحق. المعاون يصرف أو يرفض؛ المصروف يظهر في كشف الرواتب سطراً مستقلاً يُضاف إلى الصافي (لا ضريبة ولا استقطاع عليه).
  */
 import { useMemo, useState } from 'react'
@@ -12,7 +12,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMoney, fmtTime, monthStart } from '@portals/hr/components/hr-format'
-import { useOvertimeCancel, useOvertimeDays, useOvertimeHistory, useOvertimeOverview, useOvertimePay, useOvertimeRateSet, useOvertimeRates, useOvertimeReject, type OvertimeEmployee, type OvertimeRateRow } from '@features/hr'
+import { useOvertimeCancel, useOvertimeDays, useOvertimeHistory, useOvertimeMemberEvents, useOvertimeMemberSet, useOvertimeOverview, useOvertimePay, useOvertimeRateSet, useOvertimeRates, useOvertimeReject, type OvertimeEmployee, type OvertimeRateRow } from '@features/hr'
 
 const fmtMin = (m: number) => (m <= 0 ? '0' : m >= 60 ? `${Math.floor(m / 60)}س ${m % 60 ? `${m % 60}د` : ''}`.trim() : `${m}د`)
 const fmtHours = (m: number) => (Math.round((m / 60) * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })
@@ -30,10 +30,12 @@ export default function DeputyOvertimePage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState<OvertimeEmployee | null>(null)
-  const [tab, setTab] = useState<'month' | 'rates' | 'history'>('month')
+  const [tab, setTab] = useState<'month' | 'members' | 'history'>('month')
+  const [memberFilter, setMemberFilter] = useState<'all' | 'members' | 'others'>('all')
   const [rateEdit, setRateEdit] = useState<OvertimeRateRow | null>(null)
-  const pay = useOvertimePay(); const reject = useOvertimeReject(); const cancel = useOvertimeCancel(); const rateSet = useOvertimeRateSet()
-  const rates = useOvertimeRates(tab === 'rates')
+  const pay = useOvertimePay(); const reject = useOvertimeReject(); const cancel = useOvertimeCancel(); const rateSet = useOvertimeRateSet(); const memberSet = useOvertimeMemberSet()
+  const rates = useOvertimeRates(tab === 'members')
+  const memberEvents = useOvertimeMemberEvents(tab === 'members')
   const history = useOvertimeHistory(tab === 'history')
 
   const emps = useMemo(() => o?.employees ?? [], [o])
@@ -61,6 +63,14 @@ export default function DeputyOvertimePage() {
     if (!note || note.trim().length < 3) return
     try { await reject.mutateAsync({ employeeId: e.employee_id, month, note: note.trim() }) } catch { /* toast */ }
   }
+  const doMember = async (r: OvertimeRateRow) => {
+    const note = r.member
+      ? window.prompt(`إزالة ${r.full_name} من المشمولين — يعود إلى رصيد الإجازات من الشهر غير المقفل.\nالسبب (إلزامي):`)
+      : window.prompt(`إدراج ${r.full_name} في الساعات الإضافية المدفوعة — ساعاته تُصرف نقداً ولا تُضاف إلى رصيد إجازاته.\nملاحظة (اختيارية):`, '')
+    if (note === null) return
+    if (r.member && note.trim().length < 3) return
+    try { await memberSet.mutateAsync({ employeeId: r.employee_id, active: !r.member, note: note.trim() || null }) } catch { /* toast */ }
+  }
   const doCancel = async (e: OvertimeEmployee) => {
     if (!e.payout) return
     const note = window.prompt(`إلغاء قرار «${STATUS[e.payout.status].label}» لـ ${e.full_name} — يعود إلى «بانتظار القرار».\nالسبب (إلزامي):`)
@@ -70,16 +80,16 @@ export default function DeputyOvertimePage() {
 
   return (
     <div className="space-y-4" data-testid="deputy-overtime">
-      <ExecPageHeader icon="clock" title="الساعات الإضافية المدفوعة" subtitle="دقائق العمل قبل الشفت وبعده تُصرف نقداً بقرارك: أجر الساعة من الراتب (أجر اليوم ÷ ساعات الشفت) أو أجر ثابت تحدده للموظف. المصروف سطر مستقل في كشف الرواتب يُضاف إلى الصافي بلا ضريبة ولا استقطاع."
+      <ExecPageHeader icon="clock" title="الساعات الإضافية المدفوعة" subtitle="لموظفين تُدرجهم أنت بالاسم فقط: دقائق العمل قبل الشفت وبعده تُصرف نقداً بقرارك — أجر الساعة من الراتب (أجر اليوم ÷ ساعات الشفت) أو أجر ثابت تحدده للموظف. غير المشمول يبقى على رصيد الإجازات. المصروف سطر مستقل في كشف الرواتب يُضاف إلى الصافي بلا ضريبة ولا استقطاع."
         stats={[
           { label: 'حالة النظام', value: s ? (s.enabled ? 'مفعّل' : 'متوقف') : '—', tone: s?.enabled ? 'green' : 'red', testId: 'ot-enabled' },
+          { label: 'الموظفون المشمولون', value: o?.members_count ?? '—', tone: o?.members_count ? 'plain' : 'red', testId: 'ot-members' },
           { label: 'بانتظار القرار', value: pending.length, tone: pending.length ? 'gold' : 'plain', testId: 'ot-pending' },
           { label: 'مصروف هذا الشهر', value: fmtMoney(paidTotal), tone: 'green', testId: 'ot-paid-total' },
-          { label: 'مستحق غير مصروف', value: fmtMoney(pendingTotal), tone: 'plain', testId: 'ot-pending-total' },
         ]} />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-0.5">{([['month', 'ساعات الشهر'], ['rates', 'أجر الساعة الثابت'], ['history', 'سجل القرارات']] as const).map(([k, l]) => (
+        <div className="flex gap-1 rounded-xl bg-slate-100 p-0.5">{([['month', 'ساعات الشهر'], ['members', 'المشمولون وأجر الساعة'], ['history', 'سجل القرارات']] as const).map(([k, l]) => (
           <button key={k} type="button" onClick={() => setTab(k)} className={clsx('rounded-lg px-3 py-1 text-xs font-bold', tab === k ? 'bg-white shadow' : 'text-slate-600')} data-testid={`ot-tab-${k}`}>{l}</button>))}</div>
         {tab === 'month' && (
           <div className="flex items-center gap-1" data-testid="ot-month-nav">
@@ -98,13 +108,15 @@ export default function DeputyOvertimePage() {
       </div>
 
       {s && !s.enabled && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900" data-testid="ot-disabled-note">النظام متوقف حالياً: الدقائق تُعرض للاطلاع فقط ولا يمكن صرفها، ويستمر تحويل الإضافي إلى رصيد إجازات كالمعتاد. التفعيل من التطوير المركزية ← سياسة الموارد البشرية.</p>}
+      {s?.enabled && o && o.members_count === 0 && <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900" data-testid="ot-no-members-note">النظام مفعّل لكن لا أحد مشمول بعد — لن تُصرف ساعات لأي موظف حتى تُدرجه بالاسم من تبويب «المشمولون وأجر الساعة».</p>}
 
       {tab === 'month' && (q.isLoading || !o ? <LoadingSpinner /> : (
         <>
-          <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" data-testid="ot-stats">
-            <StatCard title="موظفون لديهم دقائق" value={emps.filter((e) => e.counted_minutes > 0).length} tone="slate" testId="ot-k-emps" />
+          <section className="grid grid-cols-2 gap-2 lg:grid-cols-5" data-testid="ot-stats">
+            <StatCard title="مشمولون لديهم دقائق" value={emps.filter((e) => e.counted_minutes > 0).length} tone="slate" hint="غير المشمولين لا يظهرون هنا — ساعاتهم رصيد إجازات" testId="ot-k-emps" />
             <StatCard title="مجموع الساعات القابلة للصرف" value={fmtHours(emps.reduce((a, e) => a + e.payable_minutes, 0))} tone="sky" hint={`دقائق خام: قبل ${fmtMin(emps.reduce((a, e) => a + e.early_minutes, 0))} · بعد ${fmtMin(emps.reduce((a, e) => a + e.late_minutes, 0))}`} testId="ot-k-hours" />
             <StatCard title="يُصرف ضمن راتب شهر" value={fmtMonth(o.payroll_month)} tone={o.payroll_month && o.payroll_month !== o.month ? 'amber' : 'emerald'} hint={o.month_locked ? 'شهر العمل معتمد من المالية ⇒ يُرحَّل لأول شهر مفتوح' : 'شهر العمل نفسه'} testId="ot-k-payroll" />
+            <StatCard title="مستحق غير مصروف" value={fmtMoney(pendingTotal)} tone={pendingTotal ? 'amber' : 'slate'} hint={`${pending.length} بانتظار القرار`} testId="ot-pending-total" />
             <StatCard title="حالة كشف الشهر" value={o.export_status === 'approved' ? 'معتمد' : o.export_status === 'exported' ? 'مُصدَّر' : 'لم يُصدَّر'} tone="violet" hint={o.export_review_status === 'approved' ? 'مراجعة المعاون معتمدة' : ''} testId="ot-k-export" />
           </section>
 
@@ -113,7 +125,7 @@ export default function DeputyOvertimePage() {
             <div className="flex gap-1">{(['all', 'pending', 'paid', 'rejected'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} className={clsx('rounded-lg px-2.5 py-1 text-[11px] font-bold', filter === f ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700')} data-testid={`ot-filter-${f}`}>{{ all: 'الكل', pending: 'بانتظار القرار', paid: 'مصروف', rejected: 'مرفوض' }[f]}</button>)}</div>
           </div>
 
-          {emps.length === 0 ? <EmptyState title="لا دقائق إضافية في هذا الشهر" hint="تظهر الأسماء تلقائياً عندما يبصم موظف قبل بداية شفته أو بعد نهايته (ويومه بلا نقص)." /> : (
+          {emps.length === 0 ? <EmptyState title="لا دقائق إضافية للمشمولين في هذا الشهر" hint="تظهر الأسماء تلقائياً عندما يبصم موظف مشمول قبل بداية شفته أو بعد نهايته (ويومه بلا نقص). أدرج الموظفين من تبويب «المشمولون وأجر الساعة»." /> : (
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="ot-table">
               <div className="overflow-x-auto"><table className="w-full min-w-[64rem] text-xs">
                 <thead className="bg-slate-50 text-[11px] text-slate-600"><tr>
@@ -123,7 +135,7 @@ export default function DeputyOvertimePage() {
                   const p = e.payout
                   return (
                     <tr key={e.employee_id} className="border-t border-slate-100" data-testid={`ot-row-${e.employee_number}`}>
-                      <td className="px-3 py-2"><button type="button" className="text-start" onClick={() => setDetail(e)} data-testid={`ot-open-${e.employee_number}`}><div className="font-bold underline decoration-dotted">{e.full_name}</div><div className="text-[10px] text-slate-500">{e.employee_number}{e.department_name ? ` · ${e.department_name}` : ''}</div></button></td>
+                      <td className="px-3 py-2"><button type="button" className="text-start" onClick={() => setDetail(e)} data-testid={`ot-open-${e.employee_number}`}><div className="font-bold underline decoration-dotted">{e.full_name}</div><div className="text-[10px] text-slate-500">{e.employee_number}{e.department_name ? ` · ${e.department_name}` : ''}{!e.member && <span className="ms-1 rounded bg-rose-100 px-1 font-bold text-rose-800" data-testid={`ot-notmember-${e.employee_number}`}>غير مشمول حالياً</span>}</div></button></td>
                       <td className="px-2 py-2 text-center tabular-nums">{e.days_count}</td>
                       <td className="px-2 py-2 text-center tabular-nums" data-testid={`ot-early-${e.employee_number}`}>{fmtMin(e.early_minutes)}</td>
                       <td className="px-2 py-2 text-center tabular-nums" data-testid={`ot-late-${e.employee_number}`}>{fmtMin(e.late_minutes)}</td>
@@ -138,7 +150,7 @@ export default function DeputyOvertimePage() {
                           : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800" data-testid={`ot-status-${e.employee_number}`}>{e.payable_minutes > 0 ? 'بانتظار القرار' : 'أقل من ساعة'}</span>}
                       </td>
                       <td className="px-2 py-2"><div className="flex justify-center gap-1">
-                        {!p && <Button size="sm" onClick={() => void doPay(e)} disabled={!s?.enabled || e.payable_minutes <= 0 || e.rate_source === 'none'} isLoading={pay.isPending} data-testid={`ot-pay-${e.employee_number}`}>صرف</Button>}
+                        {!p && <Button size="sm" onClick={() => void doPay(e)} disabled={!s?.enabled || !e.member || e.payable_minutes <= 0 || e.rate_source === 'none'} isLoading={pay.isPending} data-testid={`ot-pay-${e.employee_number}`}>صرف</Button>}
                         {!p && <Button size="sm" variant="secondary" onClick={() => void doReject(e)} disabled={!s?.enabled} isLoading={reject.isPending} data-testid={`ot-reject-${e.employee_number}`}>رفض</Button>}
                         {p && !p.settled && <Button size="sm" variant="secondary" onClick={() => void doCancel(e)} isLoading={cancel.isPending} data-testid={`ot-cancel-${e.employee_number}`}>إلغاء القرار</Button>}
                       </div></td>
@@ -153,22 +165,43 @@ export default function DeputyOvertimePage() {
         </>
       ))}
 
-      {tab === 'rates' && (rates.isLoading ? <LoadingSpinner /> : (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="ot-rates">
-          <div className="flex flex-wrap items-center gap-2 p-3"><input className={clsx(field, 'w-56')} placeholder="بحث: اسم، رقم، قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ot-rates-search" /><span className="text-[11px] text-slate-500">الافتراضي: يُحسب أجر الساعة من راتب الموظف. فعّل «أجر ثابت» لموظف بعينه إن أردت مبلغاً محدداً لكل ساعة.</span></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[48rem] text-xs">
-            <thead className="bg-slate-50 text-[11px] text-slate-600"><tr><th className="px-3 py-2 text-start">الموظف</th><th className="px-2 py-2">من الراتب</th><th className="px-2 py-2">أجر ثابت</th><th className="px-2 py-2">الفعّال</th><th className="px-2 py-2">ملاحظة</th><th className="px-2 py-2">إجراء</th></tr></thead>
-            <tbody>{(rates.data ?? []).filter((r) => !qq || r.full_name.includes(qq) || r.employee_number.includes(qq) || (r.department_name ?? '').includes(qq)).map((r) => (
-              <tr key={r.employee_id} className="border-t border-slate-100" data-testid={`ot-rate-row-${r.employee_number}`}>
-                <td className="px-3 py-2"><div className="font-bold">{r.full_name}</div><div className="text-[10px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</div></td>
-                <td className="px-2 py-2 text-center tabular-nums">{r.salary_source === 'none' && !r.enabled ? <span className="text-rose-700">بلا ملف راتب</span> : r.enabled ? '—' : fmtMoney(r.salary_hour_rate)}</td>
-                <td className="px-2 py-2 text-center tabular-nums" data-testid={`ot-rate-fixed-${r.employee_number}`}>{r.enabled ? fmtMoney(r.hourly_amount) : <span className="text-slate-400">متوقف</span>}</td>
-                <td className="px-2 py-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', SOURCE[r.enabled ? 'fixed' : r.salary_source].cls)}>{SOURCE[r.enabled ? 'fixed' : r.salary_source].label}</span></td>
-                <td className="px-2 py-2 text-[11px] text-slate-600">{r.note ?? ''}</td>
-                <td className="px-2 py-2 text-center"><Button size="sm" variant="secondary" onClick={() => setRateEdit(r)} data-testid={`ot-rate-edit-${r.employee_number}`}>{r.enabled ? 'تعديل' : 'أجر ثابت'}</Button></td>
-              </tr>))}</tbody>
-          </table></div>
-        </section>
+      {tab === 'members' && (rates.isLoading ? <LoadingSpinner /> : (
+        <>
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="ot-rates">
+            <div className="flex flex-wrap items-center gap-2 p-3">
+              <input className={clsx(field, 'w-56')} placeholder="بحث: اسم، رقم، قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ot-rates-search" />
+              <div className="flex gap-1">{(['all', 'members', 'others'] as const).map((f) => <button key={f} type="button" onClick={() => setMemberFilter(f)} className={clsx('rounded-lg px-2.5 py-1 text-[11px] font-bold', memberFilter === f ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700')} data-testid={`ot-mfilter-${f}`}>{{ all: 'الكل', members: 'المشمولون', others: 'غير المشمولين' }[f]}</button>)}</div>
+              <span className="text-[11px] text-slate-500">الصرف النقدي يسري فقط على من تُدرجه هنا بالاسم؛ الباقون يبقون على رصيد الإجازات. الافتراضي للمشمول: أجر الساعة من راتبه — ويمكنك تحديد أجر ثابت له.</span>
+            </div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[56rem] text-xs">
+              <thead className="bg-slate-50 text-[11px] text-slate-600"><tr><th className="px-3 py-2 text-start">الموظف</th><th className="px-2 py-2">الشمول</th><th className="px-2 py-2">من الراتب</th><th className="px-2 py-2">أجر ثابت</th><th className="px-2 py-2">الفعّال</th><th className="px-2 py-2">ملاحظة</th><th className="px-2 py-2">إجراء</th></tr></thead>
+              <tbody>{(rates.data ?? []).filter((r) => (memberFilter === 'all' || (memberFilter === 'members') === r.member) && (!qq || r.full_name.includes(qq) || r.employee_number.includes(qq) || (r.department_name ?? '').includes(qq))).map((r) => (
+                <tr key={r.employee_id} className={clsx('border-t border-slate-100', !r.member && 'bg-slate-50/60 text-slate-500')} data-testid={`ot-rate-row-${r.employee_number}`}>
+                  <td className="px-3 py-2"><div className="font-bold">{r.full_name}</div><div className="text-[10px] text-slate-500">{r.employee_number}{r.department_name ? ` · ${r.department_name}` : ''}</div></td>
+                  <td className="px-2 py-2 text-center"><span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', r.member ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600')} data-testid={`ot-member-${r.employee_number}`}>{r.member ? `مشمول منذ ${r.member_since ?? ''}` : 'غير مشمول'}</span>{r.member && r.member_note && <div className="text-[10px] text-slate-500">{r.member_note}</div>}</td>
+                  <td className="px-2 py-2 text-center tabular-nums">{r.salary_source === 'none' && !r.enabled ? <span className="text-rose-700">بلا ملف راتب</span> : r.enabled ? '—' : fmtMoney(r.salary_hour_rate)}</td>
+                  <td className="px-2 py-2 text-center tabular-nums" data-testid={`ot-rate-fixed-${r.employee_number}`}>{r.enabled ? fmtMoney(r.hourly_amount) : <span className="text-slate-400">متوقف</span>}</td>
+                  <td className="px-2 py-2 text-center">{r.member ? <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', SOURCE[r.enabled ? 'fixed' : r.salary_source].cls)}>{SOURCE[r.enabled ? 'fixed' : r.salary_source].label}</span> : <span className="text-[10px]">رصيد إجازات</span>}</td>
+                  <td className="px-2 py-2 text-[11px] text-slate-600">{r.note ?? ''}</td>
+                  <td className="px-2 py-2"><div className="flex justify-center gap-1">
+                    <Button size="sm" variant={r.member ? 'secondary' : 'primary'} onClick={() => void doMember(r)} isLoading={memberSet.isPending} data-testid={`ot-member-toggle-${r.employee_number}`}>{r.member ? 'إزالة من المشمولين' : 'إدراج'}</Button>
+                    {r.member && <Button size="sm" variant="secondary" onClick={() => setRateEdit(r)} data-testid={`ot-rate-edit-${r.employee_number}`}>{r.enabled ? 'تعديل الأجر' : 'أجر ثابت'}</Button>}
+                  </div></td>
+                </tr>))}</tbody>
+            </table></div>
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ot-member-events">
+            <h3 className="text-xs font-black">سجل الإدراج والإزالة</h3>
+            {memberEvents.isLoading ? <LoadingSpinner /> : !memberEvents.data?.length ? <p className="mt-2 text-[11px] text-slate-500">لا تغييرات بعد</p> : (
+              <ul className="mt-2 divide-y divide-slate-100 text-[11px]">{memberEvents.data.map((ev) => <li key={ev.id} className="flex flex-wrap items-center gap-2 py-1.5" data-testid="ot-member-event">
+                <span className={clsx('rounded px-1.5 py-0.5 font-black', ev.action === 'add' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800')}>{ev.action === 'add' ? 'إدراج' : 'إزالة'}</span>
+                <span className="font-bold">{ev.full_name}</span><span className="text-slate-500">{ev.employee_number}</span>
+                {ev.note && <span className="text-slate-600">— {ev.note}</span>}
+                <span className="ms-auto text-slate-400">{ev.actor_name ?? ''} · {fmtDate(ev.created_at)}</span>
+              </li>)}</ul>
+            )}
+          </section>
+        </>
       ))}
 
       {tab === 'history' && (history.isLoading ? <LoadingSpinner /> : !history.data?.length ? <EmptyState title="لا قرارات بعد" /> : (

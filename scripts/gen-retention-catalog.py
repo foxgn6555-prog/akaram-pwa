@@ -114,7 +114,7 @@ for t, lbl in [('attendance_records', 'سجلات الحضور (القديمة)'
                ('rented_vehicle_tax_settings', 'إعدادات ضريبة المركبات المستأجرة'), ('rented_vehicle_tax_overrides', 'استثناءات ضريبة المركبات المستأجرة')]:
     L('hr', t, lbl, CFG if t in ('hr_policy', 'hr_settings', 'rented_vehicle_tax_settings', 'hr_deduction_rules', 'hr_deduction_rule_targets') else FIN)
 # 00353: الساعات الإضافية المدفوعة
-for t, lbl in [('hr_overtime_rates', 'أجر الساعة الثابت للإضافي المدفوع'), ('hr_overtime_payouts', 'صرف الساعات الإضافية')]:
+for t, lbl in [('hr_overtime_rates', 'أجر الساعة الثابت للإضافي المدفوع'), ('hr_overtime_payouts', 'صرف الساعات الإضافية'), ('hr_overtime_members', 'الموظفون المشمولون بالإضافي المدفوع'), ('hr_overtime_member_events', 'سجل إدراج/إزالة المشمولين بالإضافي المدفوع')]:
     L('hr', t, lbl, FIN)
 
 # ───── finance

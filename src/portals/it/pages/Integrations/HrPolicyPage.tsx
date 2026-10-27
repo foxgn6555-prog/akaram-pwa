@@ -85,8 +85,8 @@ export default function HrPolicyPage() {
       </Section>
 
       <Section title="الساعات الإضافية المدفوعة (00353)" hint={(draft.paid_overtime_enabled ?? false)
-        ? 'مفعّل: دقائق العمل قبل الشفت و/أو بعده تُصرف نقداً بقرار معاون المدير المفوض (وحدة «الساعات الإضافية المدفوعة»)، ويتوقف تحويل الإضافي إلى رصيد إجازات. أجر الساعة = أجر اليوم ÷ ساعات الشفت (أو أجر ثابت يحدده المعاون). المبلغ سطر مستقل في كشف الرواتب يُضاف إلى الصافي بلا ضريبة.'
-        : 'متوقف (الافتراضي): يبقى الإضافي رصيدَ إجازات كما هو. عند التفعيل يتوقف التحويل إلى رصيد ويبدأ الصرف النقدي بقرار المعاون.'}>
+        ? 'مفعّل: يسري فقط على الموظفين الذين يُدرجهم معاون المدير المفوض بالاسم في وحدة «الساعات الإضافية المدفوعة» — دقائقهم قبل الشفت و/أو بعده تُصرف نقداً بقراره ويتوقف تحويلها إلى رصيد إجازات؛ غير المشمول يبقى على رصيد الإجازات كما هو. أجر الساعة = أجر اليوم ÷ ساعات الشفت (أو أجر ثابت يحدده المعاون). المبلغ سطر مستقل في كشف الرواتب يُضاف إلى الصافي بلا ضريبة.'
+        : 'متوقف (الافتراضي): يبقى الإضافي رصيدَ إجازات للجميع. عند التفعيل يختار المعاون الموظفين المشمولين بالاسم، ولهم وحدهم يبدأ الصرف النقدي ويتوقف الرصيد.'}>
         <L label="تفعيل الصرف النقدي للساعات الإضافية"><select className={field} value={String(draft.paid_overtime_enabled ?? false)} onChange={(e) => set('paid_overtime_enabled', e.target.value === 'true')} data-testid="p-pot"><option value="false">متوقف</option><option value="true">مفعّل</option></select></L>
         <L label="وحدة الاحتساب"><select className={field} value={draft.paid_overtime_unit ?? 'hours'} onChange={(e) => set('paid_overtime_unit', e.target.value as 'minutes' | 'hours')} data-testid="p-pot-unit"><option value="hours">ساعات كاملة (كسور الساعة لا تُحتسب)</option><option value="minutes">بالدقيقة</option></select></L>
         <L label="احتساب ما قبل بداية الشفت"><select className={field} value={String(draft.paid_overtime_before_shift ?? true)} onChange={(e) => set('paid_overtime_before_shift', e.target.value === 'true')} data-testid="p-pot-before"><option value="true">يُحتسب</option><option value="false">لا يُحتسب</option></select></L>

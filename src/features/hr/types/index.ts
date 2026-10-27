@@ -977,9 +977,12 @@ export interface OvertimeEmployee {
   days_count: number; early_minutes: number; late_minutes: number; counted_minutes: number; payable_minutes: number
   hour_rate: number; rate_source: 'fixed' | 'salary' | 'none'; shift_minutes: number; day_rate: number | null; amount: number
   fixed_rate: { enabled: boolean; hourly_amount: number; note: string | null } | null
+  /** مشمول بالاسم بقرار المعاون (غير المشمول لا يظهر إلا إن كان له قرار سابق) */
+  member: boolean
   payout: OvertimePayout | null
 }
-export interface OvertimeOverview { month: string; settings: OvertimeSettings; payroll_month: string | null; month_locked: boolean; export_status: string | null; export_review_status: string | null; employees: OvertimeEmployee[] }
+export interface OvertimeOverview { month: string; settings: OvertimeSettings; payroll_month: string | null; month_locked: boolean; members_count: number; export_status: string | null; export_review_status: string | null; employees: OvertimeEmployee[] }
 export interface OvertimeDay { work_date: string; shift_name: string | null; expected_in: string | null; expected_out: string | null; check_in: string | null; check_out: string | null; status: string; early_minutes: number; late_minutes: number; counted_minutes: number; shortfall_minutes: number }
-export interface OvertimeRateRow { employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null; enabled: boolean; hourly_amount: number; note: string | null; updated_at: string | null; salary_hour_rate: number; salary_source: 'fixed' | 'salary' | 'none' }
+export interface OvertimeRateRow { employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null; enabled: boolean; hourly_amount: number; note: string | null; updated_at: string | null; salary_hour_rate: number; salary_source: 'fixed' | 'salary' | 'none'; member: boolean; member_since: string | null; member_note: string | null }
+export interface OvertimeMemberEvent { id: string; employee_id: string; employee_number: string; full_name: string; action: 'add' | 'remove'; note: string | null; actor_name: string | null; created_at: string }
 export interface OvertimeHistoryRow { id: string; employee_id: string; employee_number: string; full_name: string; period_month: string; payroll_month: string; status: 'paid' | 'rejected' | 'cancelled'; payable_minutes: number; hour_rate: number; rate_source: string; amount: number; note: string | null; decided_at: string; decided_by_name: string | null; cancelled_at: string | null; cancelled_by_name: string | null; cancel_note: string | null }

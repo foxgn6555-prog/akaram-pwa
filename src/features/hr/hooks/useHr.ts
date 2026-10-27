@@ -292,6 +292,11 @@ export function useOvertimeCancel() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({ mutationFn: (v: { payoutId: string; note: string }) => hr.overtimeCancel(v.payoutId, v.note), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُلغي القرار — عاد الموظف إلى «بانتظار القرار»') }, onError: t.err })
 }
+export function useOvertimeMemberEvents(enabled: boolean) { return useQuery({ queryKey: [...hrKeys.all, 'overtime-member-events'], queryFn: () => hr.overtimeMemberEvents(200), enabled }) }
+export function useOvertimeMemberSet() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; active: boolean; note: string | null }) => hr.overtimeMemberSet(v.employeeId, v.active, v.note), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.active ? 'أُدرج الموظف — ساعاته تُصرف نقداً من الآن' : 'أُزيل الموظف — يعود إلى رصيد الإجازات') }, onError: t.err })
+}
 export function useOvertimeRateSet() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({ mutationFn: (v: { employeeId: string; enabled: boolean; amount: number; note: string | null }) => hr.overtimeRateSet(v.employeeId, v.enabled, v.amount, v.note), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.enabled ? 'حُفظ أجر الساعة الثابت' : 'أُلغي الأجر الثابت — يُحسب من الراتب') }, onError: t.err })

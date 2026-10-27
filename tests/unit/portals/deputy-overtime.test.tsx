@@ -17,7 +17,7 @@ const CUR = monthStart()   // الصفحة تفتح على الشهر الحال
 
 const h = vi.hoisted(() => ({
   overview: null as unknown, days: [] as unknown[], rates: [] as unknown[], history: [] as unknown[],
-  pay: vi.fn(async () => ({})), reject: vi.fn(async () => ({})), cancel: vi.fn(async () => undefined), rateSet: vi.fn(async () => ({})),
+  pay: vi.fn(async () => ({})), reject: vi.fn(async () => ({})), cancel: vi.fn(async () => undefined), rateSet: vi.fn(async () => ({})), memberSet: vi.fn(async () => ({})), memberEvents: [] as unknown[],
   policy: {} as Record<string, unknown>, setPolicy: vi.fn(async () => ({})),
 }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
@@ -25,13 +25,13 @@ vi.mock('@features/hr', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useOvertimeOverview: () => ({ data: h.overview, isLoading: false }), useOvertimeDays: (id: string | null) => ({ data: id ? h.days : undefined, isLoading: false }),
   useOvertimeRates: (on: boolean) => ({ data: on ? h.rates : undefined, isLoading: false }), useOvertimeHistory: (on: boolean) => ({ data: on ? h.history : undefined, isLoading: false }),
-  useOvertimePay: () => mut(h.pay), useOvertimeReject: () => mut(h.reject), useOvertimeCancel: () => mut(h.cancel), useOvertimeRateSet: () => mut(h.rateSet),
+  useOvertimePay: () => mut(h.pay), useOvertimeReject: () => mut(h.reject), useOvertimeCancel: () => mut(h.cancel), useOvertimeRateSet: () => mut(h.rateSet), useOvertimeMemberSet: () => mut(h.memberSet), useOvertimeMemberEvents: (on: boolean) => ({ data: on ? h.memberEvents : undefined, isLoading: false }),
   useHrPolicy: () => ({ data: h.policy, isLoading: false }), useSetHrPolicy: () => mut(h.setPolicy), useLeaveTypes: () => ({ data: [], isLoading: false }), useSaveLeaveType: () => mut(async () => undefined),
 }))
 
-const emp = (o: Partial<OvertimeEmployee>): OvertimeEmployee => ({ employee_id: 'e', employee_number: 'X', full_name: 'x', department_name: 'النظافة', job_title: 'عامل', days_count: 3, early_minutes: 60, late_minutes: 220, counted_minutes: 280, payable_minutes: 240, hour_rate: 3750, rate_source: 'salary', shift_minutes: 480, day_rate: 30000, amount: 15000, fixed_rate: null, payout: null, ...o })
+const emp = (o: Partial<OvertimeEmployee>): OvertimeEmployee => ({ employee_id: 'e', employee_number: 'X', full_name: 'x', department_name: 'النظافة', job_title: 'عامل', days_count: 3, early_minutes: 60, late_minutes: 220, counted_minutes: 280, payable_minutes: 240, hour_rate: 3750, rate_source: 'salary', shift_minutes: 480, day_rate: 30000, amount: 15000, fixed_rate: null, member: true, payout: null, ...o })
 const OV = (over: Partial<OvertimeOverview> = {}): OvertimeOverview => ({
-  month: '2026-09-01', settings: { enabled: true, unit: 'hours', before_shift: true, after_shift: true, min_block_minutes: 30 }, payroll_month: '2026-09-01', month_locked: false, export_status: 'exported', export_review_status: null,
+  month: '2026-09-01', settings: { enabled: true, unit: 'hours', before_shift: true, after_shift: true, min_block_minutes: 30 }, payroll_month: '2026-09-01', month_locked: false, members_count: 4, export_status: 'exported', export_review_status: null,
   employees: [
     emp({ employee_id: 'e1', employee_number: 'A-1', full_name: 'كرار' }),
     emp({ employee_id: 'e2', employee_number: 'A-2', full_name: 'حيدر', hour_rate: 7000, rate_source: 'fixed', amount: 28000, fixed_rate: { enabled: true, hourly_amount: 7000, note: 'اتفاق' }, payout: { id: 'p2', status: 'paid', amount: 28000, payable_minutes: 240, counted_minutes: 280, hour_rate: 7000, rate_source: 'fixed', unit: 'hours', payroll_month: '2026-09-01', note: null, decided_at: '2026-10-02T09:00:00Z', decided_by_name: 'المعاون', settled: false, changed_since: false } }),
@@ -41,7 +41,9 @@ const OV = (over: Partial<OvertimeOverview> = {}): OvertimeOverview => ({
 })
 beforeEach(() => {
   vi.clearAllMocks(); h.overview = OV(); h.days = [{ work_date: '2026-09-01', shift_name: 'صباحي', expected_in: '2026-09-01T05:00:00Z', expected_out: '2026-09-01T13:00:00Z', check_in: '2026-09-01T04:00:00Z', check_out: '2026-09-01T14:30:00Z', status: 'present', early_minutes: 60, late_minutes: 90, counted_minutes: 150, shortfall_minutes: 0 }]
-  h.rates = [{ employee_id: 'e1', employee_number: 'A-1', full_name: 'كرار', department_name: 'النظافة', job_title: 'عامل', enabled: false, hourly_amount: 0, note: null, updated_at: null, salary_hour_rate: 3750, salary_source: 'salary' }]
+  h.rates = [{ employee_id: 'e1', employee_number: 'A-1', full_name: 'كرار', department_name: 'النظافة', job_title: 'عامل', enabled: false, hourly_amount: 0, note: null, updated_at: null, salary_hour_rate: 3750, salary_source: 'salary', member: true, member_since: '2026-09-01', member_note: 'حملة' },
+    { employee_id: 'e9', employee_number: 'A-9', full_name: 'باسم', department_name: 'النقل', job_title: 'سائق', enabled: false, hourly_amount: 0, note: null, updated_at: null, salary_hour_rate: 4000, salary_source: 'salary', member: false, member_since: null, member_note: null }]
+  h.memberEvents = [{ id: 'ev1', employee_id: 'e1', employee_number: 'A-1', full_name: 'كرار', action: 'add', note: 'حملة', actor_name: 'المعاون', created_at: '2026-09-01T08:00:00Z' }]
   h.history = []; h.policy = { deduction_tiers: [{ from: 1, to: null, minutes: 0 }], overtime_enabled: false, overtime_min_block_minutes: 30, overtime_minutes_per_leave_day: null }
 })
 const open = () => render(<MemoryRouter><DeputyOvertimePage /></MemoryRouter>)
@@ -49,7 +51,7 @@ const open = () => render(<MemoryRouter><DeputyOvertimePage /></MemoryRouter>)
 describe('00353 — وحدة المعاون: الساعات الإضافية المدفوعة', () => {
   it('الرأس والجدول: مفعّل، 1 بانتظار القرار، مصروف 28,000، مستحق غير مصروف 15,000؛ الساعات 4 لكل من كرار وحيدر؛ المصادر والحالات؛ أرقام لاتينية', () => {
     open()
-    expect(screen.getByTestId('ot-enabled')).toHaveTextContent('مفعّل'); expect(screen.getByTestId('ot-pending')).toHaveTextContent('1')
+    expect(screen.getByTestId('ot-enabled')).toHaveTextContent('مفعّل'); expect(screen.getByTestId('ot-members')).toHaveTextContent('4'); expect(screen.getByTestId('ot-pending')).toHaveTextContent('1')
     expect(screen.getByTestId('ot-paid-total')).toHaveTextContent('28,000'); expect(screen.getByTestId('ot-pending-total')).toHaveTextContent('15,000')
     expect(screen.getByTestId('ot-settings')).toHaveTextContent('بالساعة الكاملة'); expect(screen.getByTestId('ot-settings')).toHaveTextContent('قبل الشفت + بعد الشفت'); expect(screen.getByTestId('ot-settings')).toHaveTextContent('30 د')
     expect(screen.getByTestId('ot-hours-A-1')).toHaveTextContent('4'); expect(screen.getByTestId('ot-early-A-1')).toHaveTextContent('1س'); expect(screen.getByTestId('ot-late-A-1')).toHaveTextContent('3س 40د')
@@ -58,6 +60,7 @@ describe('00353 — وحدة المعاون: الساعات الإضافية ا�
     expect(screen.getByTestId('ot-status-A-3')).toHaveTextContent('أقل من ساعة'); expect(screen.getByTestId('ot-pay-A-3')).toBeDisabled()
     expect(screen.getByTestId('ot-status-A-4')).toHaveTextContent('مرفوض'); expect(screen.getByTestId('ot-row-A-4')).toHaveTextContent('لم تُكلَّف بعمل إضافي')
     expect(screen.getByTestId('ot-k-payroll')).toHaveTextContent('2026-09'); expect(screen.getByTestId('ot-k-export')).toHaveTextContent('مُصدَّر')
+    expect(screen.queryByTestId('ot-no-members-note')).toBeNull()
     expect(screen.getByTestId('ot-formula')).toHaveTextContent('900,000 ÷ 30 يوماً = 30,000 لليوم ÷ 8 ساعات = 3,750 للساعة؛ 10 ساعات إضافية = 37,500')
     expect(screen.getByTestId('deputy-overtime').textContent).not.toMatch(/[\u0660-\u0669]/)
     fireEvent.click(screen.getByTestId('ot-filter-pending')); expect(screen.getAllByTestId(/^ot-row-/)).toHaveLength(2)   // كرار (مستحق) + علي (أقل من ساعة، بلا قرار)
@@ -93,7 +96,7 @@ describe('00353 — وحدة المعاون: الساعات الإضافية ا�
     const d = screen.getByTestId('ot-days-dialog')
     expect(d).toHaveTextContent('أجر اليوم 30,000 · دقائق الشفت 480 · أجر الساعة 3,750'); expect(within(d).getAllByTestId('ot-day-row')).toHaveLength(1)
     expect(within(d).getByTestId('ot-day-row')).toHaveTextContent('2س 30د')
-    fireEvent.click(screen.getByTestId('ot-tab-rates'))
+    fireEvent.click(screen.getByTestId('ot-tab-members'))
     expect(screen.getByTestId('ot-rate-fixed-A-1')).toHaveTextContent('متوقف')
     fireEvent.click(screen.getByTestId('ot-rate-edit-A-1'))
     const r = screen.getByTestId('ot-rate-dialog')
@@ -103,6 +106,33 @@ describe('00353 — وحدة المعاون: الساعات الإضافية ا�
     fireEvent.change(within(r).getByTestId('ot-rate-note'), { target: { value: 'اتفاق خاص' } })
     fireEvent.click(within(r).getByTestId('ot-rate-save'))
     await waitFor(() => expect(h.rateSet).toHaveBeenCalledWith({ employeeId: 'e1', enabled: true, amount: 7000, note: 'اتفاق خاص' }))
+  })
+})
+
+describe('00353 — الشمول بالاسم (المعاون فقط)', () => {
+  it('تبويب المشمولون: كرار مشمول منذ 2026-09-01 وله أزرار الإزالة والأجر؛ باسم غير مشمول (رصيد إجازات) وله زر إدراج فقط؛ الإدراج بملاحظة اختيارية والإزالة بسبب إلزامي؛ المرشّحات؛ السجل', async () => {
+    const prompt = vi.spyOn(window, 'prompt')
+    open()
+    fireEvent.click(screen.getByTestId('ot-tab-members'))
+    expect(screen.getByTestId('ot-member-A-1')).toHaveTextContent('مشمول منذ 2026-09-01'); expect(screen.getByTestId('ot-rate-row-A-1')).toHaveTextContent('حملة')
+    expect(screen.getByTestId('ot-member-A-9')).toHaveTextContent('غير مشمول'); expect(screen.getByTestId('ot-rate-row-A-9')).toHaveTextContent('رصيد إجازات')
+    expect(screen.queryByTestId('ot-rate-edit-A-9')).toBeNull(); expect(screen.getByTestId('ot-member-toggle-A-9')).toHaveTextContent('إدراج'); expect(screen.getByTestId('ot-member-toggle-A-1')).toHaveTextContent('إزالة من المشمولين')
+    prompt.mockReturnValueOnce(''); fireEvent.click(screen.getByTestId('ot-member-toggle-A-9'))
+    await waitFor(() => expect(h.memberSet).toHaveBeenCalledWith({ employeeId: 'e9', active: true, note: null }))
+    expect(prompt.mock.calls[0]?.[0]).toContain('إدراج باسم')
+    prompt.mockReturnValueOnce('لا'); fireEvent.click(screen.getByTestId('ot-member-toggle-A-1')); expect(h.memberSet).toHaveBeenCalledTimes(1)
+    prompt.mockReturnValueOnce('انتهى تكليفه'); fireEvent.click(screen.getByTestId('ot-member-toggle-A-1'))
+    await waitFor(() => expect(h.memberSet).toHaveBeenCalledWith({ employeeId: 'e1', active: false, note: 'انتهى تكليفه' }))
+    fireEvent.click(screen.getByTestId('ot-mfilter-members')); expect(screen.getAllByTestId(/^ot-rate-row-/)).toHaveLength(1)
+    fireEvent.click(screen.getByTestId('ot-mfilter-others')); expect(screen.getAllByTestId(/^ot-rate-row-/)).toHaveLength(1); expect(screen.getByTestId('ot-rate-row-A-9')).toBeInTheDocument()
+    expect(screen.getAllByTestId('ot-member-event')).toHaveLength(1); expect(screen.getByTestId('ot-member-events')).toHaveTextContent('إدراج')
+    prompt.mockRestore()
+  })
+  it('النظام مفعّل بلا مشمولين ⇒ تنبيه أحمر وعدّاد 0؛ موظف له قرار سابق لكنه أُزيل يظهر «غير مشمول حالياً» وزر الصرف معطّل', () => {
+    h.overview = OV({ members_count: 0, employees: [emp({ employee_id: 'e1', employee_number: 'A-1', full_name: 'كرار', member: false })] })
+    open()
+    expect(screen.getByTestId('ot-members')).toHaveTextContent('0'); expect(screen.getByTestId('ot-no-members-note')).toBeInTheDocument()
+    expect(screen.getByTestId('ot-notmember-A-1')).toHaveTextContent('غير مشمول حالياً'); expect(screen.getByTestId('ot-pay-A-1')).toBeDisabled()
   })
 })
 
