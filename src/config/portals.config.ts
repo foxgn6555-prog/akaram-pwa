@@ -189,6 +189,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
     { path: '/finance/contractor-wages', labelKey: 'nav.contractor_wages', icon: 'users' },
     { path: '/finance/advances', labelKey: 'nav.finance_advances', icon: 'wallet' },
+    { path: '/finance/settlements', labelKey: 'nav.finance_settlements', icon: 'user-x' },   // 00355
     { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
     { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },

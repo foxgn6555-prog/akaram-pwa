@@ -5,7 +5,7 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent,
+import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
@@ -43,6 +43,14 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   OVERTIME_RATE_INVALID: 'أجر الساعة الثابت يجب أن يكون أكبر من صفر عند التفعيل',
   OVERTIME_NOT_MEMBER: 'هذا الموظف غير مشمول بالصرف النقدي — أدرجه أولاً من تبويب «المشمولون»',
   OVERTIME_MEMBER_UNCHANGED: 'الحالة لم تتغير — الموظف بالفعل على هذه الحالة',
+  SETTLEMENT_NOT_FOUND: 'ملف التصفية غير موجود',
+  SETTLEMENT_FROZEN: 'ملف التصفية معتمد — بنوده مجمّدة ولا تُعاد',
+  SETTLEMENT_NOT_APPROVED: 'اعتمد التصفية أولاً قبل تأكيد التسليم',
+  SETTLEMENT_NOT_DEBT: 'هذا الملف ليس ذمة مفتوحة',
+  SETTLEMENT_NO_SALARY_PROFILE: 'لا ملف راتب معرَّف لهذا الموظف — عرِّفه من «ملفات الرواتب» ثم أعد الاحتساب',
+  SETTLEMENT_REASON_REQUIRED: 'سبب الإعفاء إلزامي (3 أحرف على الأقل)',
+  SETTLEMENT_DEBT_MODE_INVALID: 'إجراء الذمة غير صالح',
+  SETTLEMENT_NOT_TERMINATED: 'الموظف ليس منتهي الخدمة',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
@@ -331,6 +339,14 @@ export const hr = {
   overtimeRates() { return rpc<OvertimeRateRow[]>('deputy_overtime_rates', {}) },
   overtimeMemberSet(employeeId: string, active: boolean, note: string | null) { return rpc<unknown>('deputy_overtime_member_set', { p_employee: employeeId, p_active: active, p_note: note }) },
   overtimeMemberEvents(limit = 200) { return rpc<OvertimeMemberEvent[]>('deputy_overtime_member_events', { p_limit: limit }) },
+  // 00355 — التصفية النهائية (المالية)
+  settlementsList(status: string | null, q: string | null, limit = 300) { return rpc<SettlementRow[]>('finance_settlements_list', { p_status: status, p_q: q, p_limit: limit }) },
+  settlementsSummary() { return rpc<SettlementsSummary | null>('finance_settlements_summary', {}) },
+  settlementGet(id: string) { return rpc<SettlementDetail>('finance_settlement_get', { p_id: id }) },
+  settlementRecompute(id: string) { return rpc<SettlementDetail>('finance_settlement_recompute', { p_id: id }) },
+  settlementApprove(id: string, note: string | null) { return rpc<SettlementDetail>('finance_settlement_approve', { p_id: id, p_note: note }) },
+  settlementDeliver(id: string, note: string | null) { return rpc<SettlementDetail>('finance_settlement_deliver', { p_id: id, p_note: note }) },
+  settlementDebtClose(id: string, mode: 'paid' | 'waived', note: string | null) { return rpc<SettlementDetail>('finance_settlement_debt_close', { p_id: id, p_mode: mode, p_note: note }) },
   overtimeHistory(limit = 200) { return rpc<OvertimeHistoryRow[]>('deputy_overtime_history', { p_limit: limit }) },
   // 00251 — ضريبة الآليات المؤجرة (المعاون)
   rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },

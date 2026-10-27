@@ -559,3 +559,24 @@ export function useSimulateDeduction() {
 export function useDeductionAudit(limit = 200) {
   return useQuery({ queryKey: [...DED, 'audit', limit], queryFn: () => hr.deductionAudit(limit), staleTime: 15_000 })
 }
+
+// 00355 — المنتهية خدماتهم والتصفية النهائية (المالية)
+export function useSettlementsList(status: string | null, q: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'settlements', status ?? '', q ?? ''], queryFn: () => hr.settlementsList(status, q, 300) }) }
+export function useSettlementsSummary() { return useQuery({ queryKey: [...hrKeys.all, 'settlements-summary'], queryFn: () => hr.settlementsSummary() }) }
+export function useSettlement(id: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'settlement', id ?? ''], queryFn: () => hr.settlementGet(id as string), enabled: !!id }) }
+export function useSettlementRecompute() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (id: string) => hr.settlementRecompute(id), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُعيد احتساب البنود بآخر البيانات') }, onError: t.err })
+}
+export function useSettlementApprove() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { id: string; note: string | null }) => hr.settlementApprove(v.id, v.note), onSuccess: (d) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(d.status === 'debt_open' ? 'اعتُمدت التصفية — الصافي سالب فسُجّل ذمةً على الموظف' : 'اعتُمدت التصفية وجُمّدت بنودها — بانتظار التسليم') }, onError: t.err })
+}
+export function useSettlementDeliver() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { id: string; note: string | null }) => hr.settlementDeliver(v.id, v.note), onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('أُكّد التسليم وأُقفلت السلف المشمولة') }, onError: t.err })
+}
+export function useSettlementDebtClose() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { id: string; mode: 'paid' | 'waived'; note: string | null }) => hr.settlementDebtClose(v.id, v.mode, v.note), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.mode === 'paid' ? 'سُجّل تسديد الذمة' : 'سُجّل الإعفاء من الذمة') }, onError: t.err })
+}

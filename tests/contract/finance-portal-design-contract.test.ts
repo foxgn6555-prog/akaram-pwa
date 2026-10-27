@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const dir = join(process.cwd(), 'src/portals/finance/pages')
-const OWN = ['Budget/BudgetOverview', 'Payroll/PayrollOverview', 'Purchases/MaintenancePurchases', 'Contractors/ContractorWagesPage', 'Advances/FinanceAdvancesPage']
+const OWN = ['Budget/BudgetOverview', 'Payroll/PayrollOverview', 'Purchases/MaintenancePurchases', 'Contractors/ContractorWagesPage', 'Advances/FinanceAdvancesPage', 'Settlements/FinanceSettlementsPage']
 const SHARED = { 'Dashboard/FinanceDashboard': 'ExecHome', 'Reports/FinancialReports': 'ExecReports', 'Announcements/FinanceAnnouncements': 'AnnouncementsPage' }
 
 describe('عقد تصميم بوابة المالية (00235)', () => {

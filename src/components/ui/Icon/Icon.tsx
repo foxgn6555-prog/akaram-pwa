@@ -14,11 +14,12 @@ export type IconName =
   | 'fingerprint' | 'map-pin' | 'truck' | 'flow' | 'globe'
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
   | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
-  | 'shopping-cart' | 'chevron-up' | 'chevron-down' | 'gauge' | 'clock'
+  | 'shopping-cart' | 'chevron-up' | 'chevron-down' | 'gauge' | 'clock' | 'user-x'
 
 const paths: Record<IconName, React.ReactNode> = {
   gauge: <><path d="M4.5 17.5a8.5 8.5 0 1 1 15 0" /><path d="m12 14 3.8-5.2" /><circle cx="12" cy="14" r="1.4" /><path d="M4.5 17.5h15" /></>,
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
+  'user-x': <><circle cx="9.5" cy="8" r="3.5" /><path d="M3.5 20a6 6 0 0 1 12 0" /><path d="m16.5 9 4.5 4.5M21 9l-4.5 4.5" /></>,
   'chevron-up': <path d="m6 15 6-6 6 6" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   edit: <><path d="M12 20h9" /><path d="M16.7 3.8a2.05 2.05 0 0 1 2.9 2.9L7.5 18.8 3.2 19.9l1.1-4.3z" /></>,

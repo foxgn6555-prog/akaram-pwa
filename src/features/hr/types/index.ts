@@ -986,3 +986,30 @@ export interface OvertimeDay { work_date: string; shift_name: string | null; exp
 export interface OvertimeRateRow { employee_id: string; employee_number: string; full_name: string; department_name: string | null; job_title: string | null; enabled: boolean; hourly_amount: number; note: string | null; updated_at: string | null; salary_hour_rate: number; salary_source: 'fixed' | 'salary' | 'none'; member: boolean; member_since: string | null; member_note: string | null }
 export interface OvertimeMemberEvent { id: string; employee_id: string; employee_number: string; full_name: string; action: 'add' | 'remove'; note: string | null; actor_name: string | null; created_at: string }
 export interface OvertimeHistoryRow { id: string; employee_id: string; employee_number: string; full_name: string; period_month: string; payroll_month: string; status: 'paid' | 'rejected' | 'cancelled'; payable_minutes: number; hour_rate: number; rate_source: string; amount: number; note: string | null; decided_at: string; decided_by_name: string | null; cancelled_at: string | null; cancelled_by_name: string | null; cancel_note: string | null }
+
+// 00355 — المنتهية خدماتهم والتصفية النهائية (المالية)
+export type SettlementStatus = 'pending' | 'approved' | 'delivered' | 'debt_open' | 'debt_paid' | 'debt_waived'
+export interface SettlementAdvanceLine { id: string; ref_no: string; type_name: string; amount: number; repaid: number; remaining: number }
+export interface SettlementLines {
+  salary_month: string
+  salary: { source: 'computed' | 'paid_in_sheet' | 'no_profile'; gross: number; deductions: number; rented_tax: number; overtime: number; net: number; sheet_net?: number; covered_days: number; payable_days: number | null; day_rate: number; period_from: string | null; period_to: string | null; pay_type?: string | null; base_salary?: number | null; daily_rate?: number | null; days_in_month?: number | null; days_present?: number | null; days_absent?: number | null; days_leave_paid?: number | null; note: string | null; export_version?: number }
+  leave: { remaining_days: number; day_rate: number; amount: number; year: number }
+  advances: SettlementAdvanceLine[]
+  advances_total: number
+  prior_months_unexported: string[]
+  total_due: number
+  total_deduct: number
+  net: number
+  has_profile: boolean
+  computed_at: string
+}
+export interface SettlementRow {
+  id: string; ref_no: string; employee_id: string; employee_number: string | null; full_name: string; department_name: string | null; job_title: string | null
+  termination_type: TerminationType; termination_label: string; last_day: string; salary_month: string; status: SettlementStatus; status_label: string
+  net_amount: number; debt_amount: number; has_profile: boolean; computed_at: string | null; approved_at: string | null; delivered_at: string | null; debt_closed_at: string | null; manager_name: string | null; created_at: string
+}
+export interface SettlementEvent { id: number; action: string; actor_name: string | null; amount: number | null; note: string | null; created_at: string }
+export interface SettlementDetail extends Omit<SettlementRow, 'has_profile'> {
+  lines: SettlementLines | Record<string, never>; reason: string | null; approve_note: string | null; delivery_note: string | null; debt_note: string | null; month_locked: boolean; events: SettlementEvent[]
+}
+export interface SettlementsSummary { pending: number; approved: number; approved_amount: number; debt_open: number; debt_amount: number; delivered_total: number; closed: number }
