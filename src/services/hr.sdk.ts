@@ -5,7 +5,7 @@
  *   · المالية: ملفات الرواتب (حصراً) + كشف الشهر + تعديل/اعتماد.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
-import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary,
+import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary, LetterRow, OfficialLetter, LetterRef,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
   AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
@@ -51,6 +51,8 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   SETTLEMENT_REASON_REQUIRED: 'سبب الإعفاء إلزامي (3 أحرف على الأقل)',
   SETTLEMENT_DEBT_MODE_INVALID: 'إجراء الذمة غير صالح',
   SETTLEMENT_NOT_TERMINATED: 'الموظف ليس منتهي الخدمة',
+  LETTER_NOT_FOUND: 'الكتاب غير موجود',
+  LETTER_IMMUTABLE: 'الكتب الرسمية لا تُعدَّل ولا تُحذف بعد صدورها',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
@@ -347,6 +349,11 @@ export const hr = {
   settlementApprove(id: string, note: string | null) { return rpc<SettlementDetail>('finance_settlement_approve', { p_id: id, p_note: note }) },
   settlementDeliver(id: string, note: string | null) { return rpc<SettlementDetail>('finance_settlement_deliver', { p_id: id, p_note: note }) },
   settlementDebtClose(id: string, mode: 'paid' | 'waived', note: string | null) { return rpc<SettlementDetail>('finance_settlement_debt_close', { p_id: id, p_mode: mode, p_note: note }) },
+  // 00356 — الكتب الرسمية
+  lettersList(kind: string | null, year: number | null, q: string | null, limit = 300) { return rpc<LetterRow[]>('letters_list', { p_kind: kind, p_year: year, p_q: q, p_limit: limit }) },
+  letterGet(id: string) { return rpc<OfficialLetter>('letter_get', { p_id: id }) },
+  lettersForSource(sourceKind: string, sourceId: string) { return rpc<LetterRef[]>('letters_for_source', { p_source_kind: sourceKind, p_source_id: sourceId }) },
+  lettersYears() { return rpc<number[]>('letters_years', {}) },
   overtimeHistory(limit = 200) { return rpc<OvertimeHistoryRow[]>('deputy_overtime_history', { p_limit: limit }) },
   // 00251 — ضريبة الآليات المؤجرة (المعاون)
   rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },

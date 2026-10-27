@@ -77,6 +77,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'finance.contractor-wages': ['edit', 'decide', 'export'],
   'finance.advances': ['execute', 'export'],
   'finance.settlements': ['decide', 'execute', 'export'],
+  'finance.letters': ['export'],
   'finance.purchases': ['decide'],
   'finance.budget': ['create', 'edit', 'decide'],
   'finance.announcements': ['create'],

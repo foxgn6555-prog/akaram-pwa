@@ -13,7 +13,8 @@ import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { field, fmtMoney } from '@portals/hr/components/hr-format'
-import { useSettlement, useSettlementApprove, useSettlementDebtClose, useSettlementDeliver, useSettlementRecompute, useSettlementsList, useSettlementsSummary } from '@features/hr/hooks/useHr'
+import { useLettersForSource, useSettlement, useSettlementApprove, useSettlementDebtClose, useSettlementDeliver, useSettlementRecompute, useSettlementsList, useSettlementsSummary } from '@features/hr/hooks/useHr'
+import { LetterViewer } from '@features/letters/components/LetterViewer'
 import type { SettlementDetail, SettlementLines, SettlementRow, SettlementStatus } from '@features/hr/types'
 
 type Tab = 'open' | 'closed' | 'all'
@@ -95,6 +96,8 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const d = q.data
   const recompute = useSettlementRecompute(); const approve = useSettlementApprove(); const deliver = useSettlementDeliver(); const debt = useSettlementDebtClose()
   const busy = recompute.isPending || approve.isPending || deliver.isPending || debt.isPending
+  const letters = useLettersForSource('settlement', id)   // 00356
+  const [letterId, setLetterId] = useState<string | null>(null)
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose} data-testid="st-drawer">
       <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()} dir="rtl">
@@ -112,6 +115,17 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             </div>
 
             <Lines d={d} />
+
+            <section className="rounded-xl border border-amber-200 bg-amber-50/40 p-3" data-testid="st-letters">
+              <h3 className="mb-1 text-xs font-bold text-amber-900">الكتب الرسمية لهذا الملف</h3>
+              {(letters.data ?? []).length === 0 ? <div className="text-xs text-slate-600" data-testid="st-letters-none">لا كتب بعد — يصدر كتاب إنهاء الخدمة تلقائياً عند فتح الملف، وكتاب التصفية عند الاعتماد.</div> : (
+                <div className="flex flex-wrap gap-2">
+                  {(letters.data ?? []).map((l) => (
+                    <Button key={l.id} size="sm" variant="secondary" onClick={() => setLetterId(l.id)} data-testid={`st-letter-${l.kind}`}>{l.kind_label} — العدد {l.ref}</Button>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3" data-testid="st-actions">
               {d.status === 'pending' && <>
@@ -142,6 +156,7 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         )}
       </div>
+      {letterId && <LetterViewer id={letterId} onClose={() => setLetterId(null)} />}
     </div>
   )
 }

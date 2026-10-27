@@ -1013,3 +1013,9 @@ export interface SettlementDetail extends Omit<SettlementRow, 'has_profile'> {
   lines: SettlementLines | Record<string, never>; reason: string | null; approve_note: string | null; delivery_note: string | null; debt_note: string | null; month_locked: boolean; events: SettlementEvent[]
 }
 export interface SettlementsSummary { pending: number; approved: number; approved_amount: number; debt_open: number; debt_amount: number; delivered_total: number; closed: number }
+
+// 00356 — الكتب الرسمية
+export type LetterKind = 'resignation_accept' | 'termination' | 'dismissal' | 'contract_end' | 'retirement' | 'death' | 'settlement'
+export interface LetterRow { id: string; ref: string; letter_year: number; letter_no: number; kind: LetterKind; kind_label: string; subject: string; employee_id: string | null; employee_number: string | null; full_name: string; department_name: string | null; job_title: string | null; issued_at: string; issued_by_name: string | null; signer_name: string | null; source_kind: string; source_id: string }
+export interface OfficialLetter extends LetterRow { hire_date: string | null; body: string[]; payload: Record<string, unknown>; signer_title: string; issued_date?: string }
+export interface LetterRef { id: string; ref: string; kind: LetterKind; kind_label: string; issued_at: string }

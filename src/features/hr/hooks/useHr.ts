@@ -580,3 +580,9 @@ export function useSettlementDebtClose() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({ mutationFn: (v: { id: string; mode: 'paid' | 'waived'; note: string | null }) => hr.settlementDebtClose(v.id, v.mode, v.note), onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok(v.mode === 'paid' ? 'سُجّل تسديد الذمة' : 'سُجّل الإعفاء من الذمة') }, onError: t.err })
 }
+
+// 00356 — الكتب الرسمية
+export function useLettersList(kind: string | null, year: number | null, q: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letters', kind ?? '', year ?? 0, q ?? ''], queryFn: () => hr.lettersList(kind, year, q, 300) }) }
+export function useLetter(id: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letter', id ?? ''], queryFn: () => hr.letterGet(id as string), enabled: !!id }) }
+export function useLettersForSource(sourceKind: string, sourceId: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letters-src', sourceKind, sourceId ?? ''], queryFn: () => hr.lettersForSource(sourceKind, sourceId as string), enabled: !!sourceId }) }
+export function useLettersYears() { return useQuery({ queryKey: [...hrKeys.all, 'letters-years'], queryFn: () => hr.lettersYears() }) }

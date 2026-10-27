@@ -121,6 +121,8 @@ for t, lbl in [('hr_overtime_rates', 'أجر الساعة الثابت للإض�
 # 00355: التصفية النهائية للمنتهية خدماتهم
 for t, lbl in [('hr_settlements', 'تصفيات نهاية الخدمة'), ('hr_settlement_events', 'سجل أحداث تصفيات نهاية الخدمة')]:
     L('finance', t, lbl, FIN)
+# 00356: الكتب الرسمية
+L('finance', 'official_letters', 'الكتب الرسمية (إنهاء خدمة/تصفية)', FIN)
 D('finance', 'advance_events', 'سجل أحداث السلف', 'مسار كل سلفة (طلب/موافقة/تسليم/تسديد). السلف غير المسدَّدة محمية.', 'created_at', 36, True,
   keep='advance_id in (select a.id from public.advances a where a.settled_at is null and a.cancelled_at is null)', lock='أحداث السلف غير المسدَّدة محمية')
 D('finance', 'disclosure_events', 'سجل أحداث الكشوفات', 'مسار كل كشف (إرسال/موافقة/إرجاع). الكشوفات غير المنتهية محمية.', 'created_at', 36, True,

@@ -18,6 +18,7 @@ vi.mock('@features/hr/hooks/useHr', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useSettlementsList: () => ({ data: h.rows, isLoading: false }), useSettlementsSummary: () => ({ data: h.summary, isLoading: false }),
   useSettlement: (id: string | null) => ({ data: id ? h.detail : undefined, isLoading: false }),
+  useLettersForSource: () => ({ data: [{ id: 'l1', ref: '12/2026', kind: 'resignation_accept', kind_label: 'قبول استقالة', issued_at: '2026-09-16T08:00:00Z' }], isLoading: false }), useLetter: () => ({ data: undefined, isLoading: true }),
   useSettlementRecompute: () => mut(h.recompute), useSettlementApprove: () => mut(h.approve), useSettlementDeliver: () => mut(h.deliver), useSettlementDebtClose: () => mut(h.debt),
 }))
 
@@ -80,6 +81,8 @@ describe('00355 — المنتهية خدماتهم والتصفية (المال
     prompt.mockReturnValueOnce(null); fireEvent.click(screen.getByTestId('st-approve')); expect(h.approve).not.toHaveBeenCalled()
     prompt.mockReturnValueOnce('  '); fireEvent.click(screen.getByTestId('st-approve')); await waitFor(() => expect(h.approve).toHaveBeenCalledWith({ id: 's1', note: null }))
     expect(screen.getAllByTestId('st-event')).toHaveLength(1); expect(screen.getByTestId('st-events')).toHaveTextContent('فُتح الملف')
+    expect(screen.getByTestId('st-letter-resignation_accept')).toHaveTextContent('قبول استقالة — العدد 12/2026')
+    fireEvent.click(screen.getByTestId('st-letter-resignation_accept')); expect(screen.getByTestId('letter-viewer')).toBeInTheDocument()
     prompt.mockRestore()
   })
 

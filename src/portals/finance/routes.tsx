@@ -14,6 +14,7 @@ const MaintenancePurchases = lazy(() => import('./pages/Purchases/MaintenancePur
 const ContractorWagesPage = lazy(() => import('./pages/Contractors/ContractorWagesPage'))
 const FinanceAdvancesPage = lazy(() => import('./pages/Advances/FinanceAdvancesPage'))
 const FinanceSettlementsPage = lazy(() => import('./pages/Settlements/FinanceSettlementsPage'))   // 00355: المنتهية خدماتهم والتصفية
+const FinanceLettersPage = lazy(() => import('./pages/Letters/FinanceLettersPage'))   // 00356: سجل الكتب الرسمية
 
 const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -27,6 +28,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'contractor-wages', element: s(<ContractorWagesPage />) },
   { path: 'advances', element: s(<FinanceAdvancesPage />) },
   { path: 'settlements', element: s(<FinanceSettlementsPage />) },
+  { path: 'letters', element: s(<FinanceLettersPage />) },
   { path: 'reports', element: s(<FinancialReports />) },
   { path: 'announcements', element: s(<FinanceAnnouncements />) },
 ]
