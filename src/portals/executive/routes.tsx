@@ -12,6 +12,7 @@ const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/Pr
 const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00162: طلبات الموافقة
 const ExecReceivablesPage = lazy(() => import('./pages/Treasury/ExecReceivablesPage'))   // 00189
 const ExecRewardsPage = lazy(() => import('./pages/Treasury/ExecRewardsPage'))
+const ExecLettersPage = lazy(() => import('./pages/Letters/ExecLettersPage'))   // 00357
 const ExecGpsPaymentsPage = lazy(() => import('./pages/Treasury/ExecGpsPaymentsPage'))
 const ExecEventsPage = lazy(() => import('./pages/Treasury/ExecEventsPage'))
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -24,6 +25,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'procedures', element: s(<ProceduresPage />) },
   { path: 'receivables', element: s(<ExecReceivablesPage />) },
   { path: 'rewards', element: s(<ExecRewardsPage />) },
+  { path: 'letters', element: s(<ExecLettersPage />) },
   { path: 'gps-payments', element: s(<ExecGpsPaymentsPage />) },
   { path: 'events', element: s(<ExecEventsPage />) },
   { path: 'behavior', element: s(<BehaviorReportsPage />) },

@@ -147,6 +147,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'executive.receivables': ['create', 'edit', 'execute'],
   'executive.gps-payments': ['create', 'edit'],
   'executive.rewards': ['create'],
+  'executive.letters': ['create'],
   'executive.events': ['create'],
   'executive.behavior': ['export'],
   // معاون المدير المفوض
@@ -158,6 +159,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'deputy.overtime': ['decide', 'edit'],
   'deputy.sector-supplies': ['decide'],
   'deputy.rewards': ['create'],
+  'deputy.letters': ['create'],
   'deputy.approvals': ['decide'],
   'deputy.procedures': ['execute'],
   'deputy.behavior': ['export'],

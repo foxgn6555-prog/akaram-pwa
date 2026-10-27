@@ -13,7 +13,9 @@ export const LETTER_LOGOS = { company: 'report-assets/logo-company.png', baghdad
 
 export const LETTER_KIND_LABELS: Record<string, string> = {
   resignation_accept: 'قبول استقالة', termination: 'إنهاء خدمات', dismissal: 'فصل من الخدمة', contract_end: 'انتهاء عقد', retirement: 'إحالة إلى التقاعد', death: 'إنهاء خدمة (وفاة)', settlement: 'تصفية نهاية الخدمة',
+  thanks: 'شكر وتقدير', notice: 'تنبيه', warning: 'إنذار',   // 00357
 }
+const ADMIN_KINDS = new Set(['thanks', 'notice', 'warning'])
 
 function settlementTable(p: Record<string, unknown>): string {
   const adv = Array.isArray(p.advances) ? (p.advances as Array<Record<string, unknown>>) : []
@@ -37,7 +39,7 @@ export function letterBodyHtml(l: OfficialLetter): string {
   const body = Array.isArray(l.body) ? l.body : []
   const issued = l.issued_date ?? (l.issued_at ?? '').slice(0, 10)
   return `
-  <div class="doc" dir="rtl">
+  <div class="doc doc-${esc(l.kind)}" dir="rtl">
     <div class="masthead">
       <img class="logo" src="${base()}${LETTER_LOGOS.company}" alt="شعار شركة جزيرة الأكارم" />
       <div class="org">
@@ -61,7 +63,9 @@ export function letterBodyHtml(l: OfficialLetter): string {
     <table class="meta">
       <tr><th>اسم الموظف</th><td>${esc(l.full_name)}</td><th>الرقم الوظيفي</th><td class="num">${esc(l.employee_number ?? '—')}</td></tr>
       <tr><th>القسم</th><td>${esc(l.department_name ?? '—')}</td><th>العنوان الوظيفي</th><td>${esc(l.job_title ?? '—')}</td></tr>
-      <tr><th>تاريخ التعيين</th><td class="num">${esc(l.hire_date ?? '—')}</td><th>آخر يوم عمل</th><td class="num">${esc(p.last_day ?? '—')}</td></tr>
+      ${ADMIN_KINDS.has(l.kind)
+        ? `<tr><th>تاريخ التعيين</th><td class="num">${esc(l.hire_date ?? '—')}</td><th>${l.kind === 'thanks' ? 'رقم المكافأة' : 'التسلسل في السجل'}</th><td class="num">${l.kind === 'thanks' ? esc(p.reward_ref ?? '—') : String(Number(p.prior_count ?? 0) + 1)}</td></tr>`
+        : `<tr><th>تاريخ التعيين</th><td class="num">${esc(l.hire_date ?? '—')}</td><th>آخر يوم عمل</th><td class="num">${esc(p.last_day ?? '—')}</td></tr>`}
       ${p.service_years != null ? `<tr><th>مدة الخدمة</th><td class="num">${num(p.service_years)} سنة</td><th>نوع الإنهاء</th><td>${esc(p.termination_label ?? '—')}</td></tr>` : ''}
     </table>
     ${l.kind === 'settlement' ? settlementTable(p) : ''}
@@ -73,7 +77,7 @@ export function letterBodyHtml(l: OfficialLetter): string {
         <div class="sign-date">${esc(issued)}</div>
       </div>
     </div>
-    <div class="cc">نسخة منه إلى: الشؤون المالية · الموارد البشرية${p.manager_name ? ` · المدير المباشر (${esc(p.manager_name)})` : ''} · الإضبارة الشخصية</div>
+    <div class="cc">نسخة منه إلى: ${ADMIN_KINDS.has(l.kind) ? '' : 'الشؤون المالية · '}الموارد البشرية${p.manager_name ? ` · المدير المباشر (${esc(p.manager_name)})` : ''} · الإضبارة الشخصية</div>
     <p class="foot">كتاب رسمي صادر آلياً من نظام شركة جزيرة الأكارم — رقم ${esc(l.ref)} — لا يُعدَّل بعد صدوره</p>
   </div>`
 }
@@ -92,6 +96,10 @@ export const LETTER_CSS = `
   .refrow { display:flex; justify-content:space-between; align-items:center; margin:12px 0 10px; }
   .refbox { font-size:13px; color:#334155; } .refbox .k { font-weight:700; } .refbox .v { font-weight:800; direction:ltr; display:inline-block; font-family:monospace; font-size:14px; }
   .docbadge { font-size:15px; font-weight:900; color:#0b3d6b; border:2px solid #c9a227; border-radius:10px; padding:5px 18px; background:#fffaf0; }
+  .doc-thanks .docbadge { color:#7a5a00; background:linear-gradient(180deg,#fff8dc,#f7e7a8); border-color:#c9a227; }
+  .doc-thanks .body p:first-of-type + p { font-weight:700; }
+  .doc-notice .docbadge { color:#9a3412; border-color:#ea580c; background:#fff7ed; }
+  .doc-warning .docbadge { color:#991b1b; border-color:#dc2626; background:#fef2f2; }
   .to { font-size:14.5px; font-weight:700; margin:12px 0 2px; }
   .subject { font-size:14.5px; font-weight:800; margin:0 0 8px; text-decoration:underline; text-underline-offset:4px; }
   .body { font-size:14.5px; line-height:2.05; text-align:justify; }

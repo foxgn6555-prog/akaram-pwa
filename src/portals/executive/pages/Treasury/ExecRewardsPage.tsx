@@ -14,6 +14,8 @@ import { field, fmtMoney } from '@portals/hr/components/hr-format'
 import { useEmployeeLookup, useTreasuryCancel, useTreasuryList, useTreasuryRecord, useTreasurySummary } from '@features/treasury/hooks'
 import { DateRangeFilter, ReasonPrompt, TxList, defaultRange, downloadTreasuryExcel, type DateRange } from '@features/treasury/components/TreasuryShared'
 import { REWARD_TYPE_LABEL, type EmployeeLookupRow, type RewardType, type TreasuryStatus } from '@sdk/treasury.sdk'
+import { useLettersList } from '@features/hr/hooks/useHr'   // 00357: كتاب الشكر الرسمي المرتبط بالمكافأة
+import { LetterViewer } from '@features/letters/components/LetterViewer'
 
 const REWARD_TYPES = Object.keys(REWARD_TYPE_LABEL) as RewardType[]
 const NEEDS_FINANCE: Record<RewardType, boolean> = { cash: true, gift: true, thanks_letter: false, incentive_leave: false }
@@ -33,6 +35,9 @@ export default function ExecRewardsPage({ actor = 'executive' }: { actor?: keyof
   const cancel = useTreasuryCancel()
   const rows = (list.data ?? []).filter((r) => !rtype || r.reward_type === rtype)
   const s = summary.data
+  const thanksLetters = useLettersList('thanks', null, null, 2000)   // 00357
+  const letterByTx = new Map((thanksLetters.data ?? []).map((l) => [l.source_id, l]))
+  const [letterId, setLetterId] = useState<string | null>(null)
 
   return (
     <div className="space-y-4" data-testid="exec-rewards-page" data-actor={actor}>
@@ -62,8 +67,13 @@ export default function ExecRewardsPage({ actor = 'executive' }: { actor?: keyof
               onClick={async () => { setExporting(true); try { await downloadTreasuryExcel(rows, { title: `المكافآت ${range.from || ''} → ${range.to || ''}`, sub: `${ACTOR_LABEL[actor]} — المكافآت`, fileName: `المكافآت-${range.from || 'all'}.xlsx` }) } finally { setExporting(false) } }}>Excel</Button>
           </div>
         </div>
-        <TxList rows={rows} isLoading={list.isLoading} renderActions={(t) => t.status === 'pending' ? <Button variant="ghost" size="sm" className="text-red-700" onClick={() => setCancelId(t.id)} data-testid={`rw-cancel-${t.id}`}>إلغاء</Button> : null} />
+        <TxList rows={rows} isLoading={list.isLoading} renderActions={(t) => {
+          const letter = t.reward_type === 'thanks_letter' ? letterByTx.get(t.id) : undefined
+          if (letter) return <Button variant="secondary" size="sm" onClick={() => setLetterId(letter.id)} data-testid={`rw-letter-${t.id}`}>الكتاب {letter.ref} / PDF</Button>
+          return t.status === 'pending' ? <Button variant="ghost" size="sm" className="text-red-700" onClick={() => setCancelId(t.id)} data-testid={`rw-cancel-${t.id}`}>إلغاء</Button> : null
+        }} />
       </section>
+      {letterId && <LetterViewer id={letterId} onClose={() => setLetterId(null)} />}
       {cancelId && <ReasonPrompt title="إلغاء المكافأة المعلّقة — اكتب السبب" confirmLabel="تأكيد الإلغاء" busy={cancel.isPending} onClose={() => setCancelId(null)} onConfirm={(reason) => cancel.mutate({ id: cancelId, reason }, { onSuccess: () => setCancelId(null) })} />}
     </div>
   )

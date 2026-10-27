@@ -14,8 +14,8 @@ import { useLettersList, useLettersYears } from '@features/hr/hooks/useHr'
 import { LetterViewer } from '@features/letters/components/LetterViewer'
 import { LETTER_KIND_LABELS } from '@features/letters/lib/letter-html'
 
-type KindFilter = '' | 'termination_any' | 'settlement' | 'resignation_accept' | 'dismissal' | 'contract_end' | 'retirement' | 'death' | 'termination'
-const KIND_CLS: Record<string, string> = { settlement: 'bg-emerald-100 text-emerald-800', dismissal: 'bg-rose-100 text-rose-800', death: 'bg-slate-200 text-slate-800' }
+type KindFilter = '' | 'termination_any' | 'settlement' | 'admin_any' | 'thanks' | 'notice' | 'warning' | 'resignation_accept' | 'dismissal' | 'contract_end' | 'retirement' | 'death' | 'termination'
+const KIND_CLS: Record<string, string> = { settlement: 'bg-emerald-100 text-emerald-800', dismissal: 'bg-rose-100 text-rose-800', death: 'bg-slate-200 text-slate-800', thanks: 'bg-amber-100 text-amber-900', notice: 'bg-orange-100 text-orange-800', warning: 'bg-rose-100 text-rose-800' }
 
 export default function FinanceLettersPage() {
   const [kind, setKind] = useState<KindFilter>('')
@@ -25,17 +25,18 @@ export default function FinanceLettersPage() {
   const list = useLettersList(kind || null, year, q || null)
   const years = useLettersYears()
   const rows = list.data ?? []
-  const nTerm = rows.filter((r) => r.kind !== 'settlement').length, nSet = rows.length - nTerm
+  const nSet = rows.filter((r) => r.kind === 'settlement').length, nAdmin = rows.filter((r) => r.kind === 'thanks' || r.kind === 'notice' || r.kind === 'warning').length, nTerm = rows.length - nSet - nAdmin
   return (
     <div className="space-y-4 pb-6" data-testid="fin-letters">
       <ExecPageHeader icon="file-text" title="سجل الكتب الرسمية" stats={[
         { label: 'كتب معروضة', value: rows.length, testId: 'lt-stat-total' },
         { label: 'كتب إنهاء خدمة', value: nTerm, tone: 'gold', testId: 'lt-stat-term' },
         { label: 'كتب تصفية', value: nSet, tone: 'green', testId: 'lt-stat-set' },
+        { label: 'شكر / تنبيه', value: nAdmin, testId: 'lt-stat-admin' },
       ]} subtitle={<>تُصدر الكتب تلقائياً برقم تسلسلي سنوي باسم المدير المفوض عند اكتمال الإجراء (إنهاء الخدمة بنوعه، ثم كتاب التصفية عند اعتماد المالية) ولا تُعدَّل بعد صدورها. افتح أي كتاب للمعاينة بالتصميم الرسمي ثم «طباعة / حفظ PDF».</>} />
 
       <div className="flex flex-wrap items-center gap-2" data-testid="lt-filters">
-        {([['', 'الكل'], ['termination_any', 'إنهاء الخدمة'], ['settlement', 'التصفية']] as const).map(([k, l]) => (
+        {([['', 'الكل'], ['termination_any', 'إنهاء الخدمة'], ['settlement', 'التصفية'], ['admin_any', 'شكر / تنبيه']] as const).map(([k, l]) => (
           <button key={k} type="button" data-testid={`lt-tab-${k || 'all'}`} onClick={() => setKind(k)} className={clsx('h-9 rounded-full border px-4 text-xs font-bold', kind === k ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#1d6fa5] text-white' : 'border-slate-200 bg-white text-slate-700')}>{l}</button>
         ))}
         <select className={clsx(field, 'w-40')} value={kind} onChange={(e) => setKind(e.target.value as KindFilter)} data-testid="lt-kind" aria-label="نوع الكتاب">

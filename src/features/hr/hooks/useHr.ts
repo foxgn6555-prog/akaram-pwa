@@ -582,7 +582,11 @@ export function useSettlementDebtClose() {
 }
 
 // 00356 — الكتب الرسمية
-export function useLettersList(kind: string | null, year: number | null, q: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letters', kind ?? '', year ?? 0, q ?? ''], queryFn: () => hr.lettersList(kind, year, q, 300) }) }
+export function useLettersList(kind: string | null, year: number | null, q: string | null, limit = 300) { return useQuery({ queryKey: [...hrKeys.all, 'letters', kind ?? '', year ?? 0, q ?? '', limit], queryFn: () => hr.lettersList(kind, year, q, limit) }) }
 export function useLetter(id: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letter', id ?? ''], queryFn: () => hr.letterGet(id as string), enabled: !!id }) }
 export function useLettersForSource(sourceKind: string, sourceId: string | null) { return useQuery({ queryKey: [...hrKeys.all, 'letters-src', sourceKind, sourceId ?? ''], queryFn: () => hr.lettersForSource(sourceKind, sourceId as string), enabled: !!sourceId }) }
+export function useLetterIssueDisciplinary() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: (v: { employeeId: string; kind: 'notice' | 'warning'; reason: string }) => hr.letterIssueDisciplinary(v.employeeId, v.kind, v.reason), onSuccess: (d) => { void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'letters'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'letters-years'] }); t.ok(`صدر كتاب ${d.kind_label} بالعدد ${d.ref} وأُبلغ الموظف والمدير المباشر`) }, onError: t.err })
+}
 export function useLettersYears() { return useQuery({ queryKey: [...hrKeys.all, 'letters-years'], queryFn: () => hr.lettersYears() }) }

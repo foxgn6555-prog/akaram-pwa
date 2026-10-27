@@ -398,6 +398,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive/receivables', labelKey: 'nav.exec_receivables', icon: 'wallet' },
     { path: '/executive/gps-payments', labelKey: 'nav.exec_gps_payments', icon: 'map-pin' },
     { path: '/executive/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },
+    { path: '/executive/letters', labelKey: 'nav.exec_letters', icon: 'file-text' },   // 00357
     { path: '/executive/events', labelKey: 'nav.exec_events', icon: 'photo' },
     { path: '/executive/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة
   ],
@@ -414,6 +415,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/station-folders', labelKey: 'nav.deputy_station_folders', icon: 'folder' },
     { path: '/deputy/data-analysis', labelKey: 'nav.dep_data_analysis', icon: 'activity' },
     { path: '/deputy/rewards', labelKey: 'nav.exec_rewards', icon: 'user-plus' },   // 00203
+    { path: '/deputy/letters', labelKey: 'nav.exec_letters', icon: 'file-text' },   // 00357
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'flow' },
     { path: '/deputy/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة

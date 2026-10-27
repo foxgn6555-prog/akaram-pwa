@@ -50,6 +50,13 @@ describe('00356 — قالب الكتاب الرسمي', () => {
     const paid = letterBodyHtml(letter({ kind: 'settlement', kind_label: 'تصفية نهاية الخدمة', payload: { ...base.payload, salary_source: 'paid_in_sheet', salary_net: 0 } }))
     expect(paid).toContain('صُرف ضمن كشف الشهر المعتمد')
   })
+  it('00357 — كتاب الشكر: شارة ذهبية، رقم المكافأة بدل آخر يوم عمل، نسخة بلا المالية؛ الإنذار: التسلسل في السجل (prior_count+1)', () => {
+    const th = letterBodyHtml(letter({ kind: 'thanks', kind_label: 'شكر وتقدير', subject: 'شكر وتقدير / كرار علي', body: ['تثميناً لجهودكم… وذلك لقاء: إنجاز الحملة.'], payload: { reward_ref: 'TR-2026-0009', reason: 'إنجاز الحملة', manager_name: 'علي حسن' } }))
+    expect(th).toContain('class="doc doc-thanks"'); expect(th).toContain('<div class="docbadge">شكر وتقدير</div>'); expect(th).toContain('<th>رقم المكافأة</th><td class="num">TR-2026-0009</td>')
+    expect(th).not.toContain('آخر يوم عمل'); expect(th).toContain('نسخة منه إلى: الموارد البشرية · المدير المباشر (علي حسن)'); expect(th).not.toContain('الشؤون المالية ·')
+    const w = letterBodyHtml(letter({ kind: 'warning', kind_label: 'إنذار', payload: { reason: 'تكرار', prior_count: 1, manager_name: null } }))
+    expect(w).toContain('doc-warning'); expect(w).toContain('<th>التسلسل في السجل</th><td class="num">2</td>'); expect(w).toContain('نسخة منه إلى: الموارد البشرية · الإضبارة الشخصية')
+  })
   it('تهريب HTML في الأسماء والنصوص، والمستند الكامل A4 بعنوان الكتاب وزر الطباعة عند autoPrint فقط', () => {
     const html = letterDocumentHtml(letter({ full_name: 'كرار <b>x</b>', body: ['<script>alert(1)</script>'] }))
     expect(html).not.toContain('<b>x</b>'); expect(html).toContain('&lt;b&gt;x&lt;/b&gt;'); expect(html).not.toContain('<script>alert')

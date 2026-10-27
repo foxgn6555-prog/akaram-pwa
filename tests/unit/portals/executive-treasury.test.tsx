@@ -24,6 +24,11 @@ vi.mock('@features/treasury/hooks', () => ({
   useTreasuryConfirm: () => ({ mutate: h.confirm, isPending: false }),
   useTreasuryCancel: () => ({ mutate: h.cancel, isPending: false }),
 }))
+vi.mock('@features/hr/hooks/useHr', async (orig) => ({   // 00357: كتاب الشكر الرسمي المرتبط بالمكافأة
+  ...(await orig<Record<string, unknown>>()),
+  useLettersList: () => ({ data: [{ id: 'L1', ref: '7/2026', kind: 'thanks', kind_label: 'شكر وتقدير', source_kind: 'treasury', source_id: 'l', issued_at: '2026-10-01T08:00:00Z' }], isLoading: false }),
+  useLetter: () => ({ data: undefined, isLoading: true }),
+}))
 vi.mock('@features/media/hooks', () => ({
   useSignedPhotoUrls: () => ({ data: {} }),
   useDesignDetail: (id: string | null) => ({ isLoading: false, data: id ? { design: { id, title: 'حملة نظافة الكرادة', sector_parent: 'karrada', period_type: 'daily', period_start: '2026-10-01', period_end: '2026-10-01', cover_image_path: null, summary: null, template_colors: null, template_style: null }, sheets: [{ work_type: 'رفع أنقاض', sheet_text: 'نص الورقة' }], photos: [{ photo_id: 'p1', work_type: 'رفع أنقاض', storage_path: 'x/p1.jpg', caption: null, report_caption: null, display_fit: 'contain', display_zoom: 1 }] } : undefined }),
@@ -136,6 +141,8 @@ describe('المدير التنفيذي — المكافآت و GPS', () => {
     expect(screen.getByTestId('tx-c')).toHaveTextContent('علي مكافأة · مبلغ نقدي'); expect(screen.getByTestId('tx-amount-c')).toHaveTextContent('500,000')
     expect(screen.queryByTestId('tx-amount-g')).toBeNull(); expect(screen.getByTestId('tx-g')).toHaveTextContent('هدية')
     expect(screen.getByTestId('tx-l')).toHaveTextContent('مسجَّلة')
+    expect(screen.getByTestId('rw-letter-l')).toHaveTextContent('الكتاب 7/2026 / PDF'); expect(screen.queryByTestId('rw-letter-g')).toBeNull()   // 00357
+    fireEvent.click(screen.getByTestId('rw-letter-l')); expect(screen.getByTestId('letter-viewer')).toBeInTheDocument(); fireEvent.click(screen.getByTestId('letter-close'))
     expect(screen.getByTestId('rw-stat-count')).toHaveTextContent('3'); expect(screen.getByTestId('rw-stat-cash')).toHaveTextContent('500,000')
     fireEvent.change(screen.getByTestId('rw-filter-type'), { target: { value: 'gift' } })
     expect(screen.queryByTestId('tx-c')).toBeNull(); expect(screen.getByTestId('tx-g')).toBeInTheDocument()

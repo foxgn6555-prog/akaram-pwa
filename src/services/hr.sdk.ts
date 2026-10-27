@@ -53,6 +53,10 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   SETTLEMENT_NOT_TERMINATED: 'الموظف ليس منتهي الخدمة',
   LETTER_NOT_FOUND: 'الكتاب غير موجود',
   LETTER_IMMUTABLE: 'الكتب الرسمية لا تُعدَّل ولا تُحذف بعد صدورها',
+  LETTER_FORBIDDEN: 'إصدار كتب التنبيه والإنذار للمدير المفوض ومعاونه فقط',
+  LETTER_KIND_INVALID: 'نوع الكتاب غير صالح',
+  LETTER_REASON_REQUIRED: 'اكتب سبب الكتاب (5 أحرف على الأقل)',
+  LETTER_EMPLOYEE_INVALID: 'الموظف غير موجود أو منتهية خدمته',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
@@ -354,6 +358,8 @@ export const hr = {
   letterGet(id: string) { return rpc<OfficialLetter>('letter_get', { p_id: id }) },
   lettersForSource(sourceKind: string, sourceId: string) { return rpc<LetterRef[]>('letters_for_source', { p_source_kind: sourceKind, p_source_id: sourceId }) },
   lettersYears() { return rpc<number[]>('letters_years', {}) },
+  /** 00357: كتاب تنبيه/إنذار يدوي (المدير المفوض/المعاون) */
+  letterIssueDisciplinary(employeeId: string, kind: 'notice' | 'warning', reason: string) { return rpc<OfficialLetter>('letter_issue_disciplinary', { p_employee: employeeId, p_kind: kind, p_reason: reason }) },
   overtimeHistory(limit = 200) { return rpc<OvertimeHistoryRow[]>('deputy_overtime_history', { p_limit: limit }) },
   // 00251 — ضريبة الآليات المؤجرة (المعاون)
   rentedTaxOverview() { return rpc<RentedTaxOverview>('deputy_rented_tax_overview', {}) },
