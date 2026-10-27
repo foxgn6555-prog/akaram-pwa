@@ -43,7 +43,7 @@ export function DateRangeFilter({ value, onChange, testId = 'tr-range' }: { valu
 }
 
 const STATUS_TONE: Record<TreasuryStatus, string> = { pending: 'bg-amber-100 text-amber-800 border-amber-300', confirmed: 'bg-emerald-100 text-emerald-800 border-emerald-300', cancelled: 'bg-slate-100 text-slate-600 border-slate-300' }
-const KIND_TONE: Record<TreasuryKind, string> = { receipt: 'text-emerald-700', reward: 'text-violet-700', gps_payment: 'text-sky-700', advance: 'text-amber-700', advance_repayment: 'text-emerald-700' }
+const KIND_TONE: Record<TreasuryKind, string> = { receipt: 'text-emerald-700', reward: 'text-violet-700', gps_payment: 'text-sky-700', advance: 'text-amber-700', advance_repayment: 'text-emerald-700', expense: 'text-rose-700', purchase: 'text-orange-700' }
 
 export function StatusPill({ status, needsFinance = true }: { status: TreasuryStatus; needsFinance?: boolean }) {
   const label = status === 'pending' && !needsFinance ? 'مسجَّلة' : status === 'confirmed' && !needsFinance ? 'مسجَّلة' : TREASURY_STATUS_LABEL[status]
@@ -120,6 +120,6 @@ export async function downloadTreasuryExcel(rows: TreasuryTx[], opts: { title: s
     ],
     rows: rows.map((r, i) => ({ i: i + 1, ref: r.ref_no, kind: TREASURY_KIND_LABEL[r.kind], title: txTitle(r), rt: r.reward_type ? REWARD_TYPE_LABEL[r.reward_type] : '', amount: txHasAmount(r) ? r.amount : '', status: TREASURY_STATUS_LABEL[r.status],
       by: r.created_by_name ?? '', at: fmtDateTime(r.created_at), cby: r.confirmed_by_name ?? '', cat: r.confirmed_at ? fmtDateTime(r.confirmed_at) : '', details: [r.leave_days != null && Number(r.leave_days) > 0 ? `+${Number(r.leave_days)} يوم إجازة` : null, r.details, r.finance_note && `المالية: ${r.finance_note}`, r.cancel_reason && `الإلغاء: ${r.cancel_reason}`].filter(Boolean).join(' · ') })),
-    totalRow: { i: 'الإجمالي', title: `${rows.length} حركة`, amount: confirmed.reduce((s, r) => s + (r.kind === 'receipt' ? r.amount : -r.amount), 0), status: 'صافي المؤكَّد' },
+    totalRow: { i: 'الإجمالي', title: `${rows.length} حركة`, amount: confirmed.reduce((s, r) => s + (r.kind === 'receipt' || r.kind === 'advance_repayment' ? r.amount : -r.amount), 0), status: 'صافي المؤكَّد' },
   })
 }

@@ -15,6 +15,11 @@ const useAction = <T, R = unknown>(fn: (x: T) => Promise<R>, message: string | (
 
 export const useReceivableTypes = () => useQuery({ queryKey: [...TREASURY_ROOT, 'types'], queryFn: () => treasury.types(), staleTime: 5 * 60_000 })
 export const useSaveReceivableType = () => useAction((x: { id?: string | null; name: string; isActive?: boolean; sortOrder?: number }) => treasury.saveType(x), 'حُفظ نوع المستحقات')
+// 00358: المصاريف
+export const useExpenseTypes = () => useQuery({ queryKey: [...TREASURY_ROOT, 'expense-types'], queryFn: () => treasury.expenseTypes(), staleTime: 5 * 60_000 })
+export const useSaveExpenseType = () => useAction((x: { id?: string | null; name: string; isActive?: boolean; sortOrder?: number }) => treasury.saveExpenseType(x), 'حُفظ نوع المصروف')
+export const useExpenseRecord = () => useAction((x: { typeId: string; amount: number; details?: string | null }) => treasury.recordExpense(x), (r) => `سُجّل المصروف ${r.ref_no} وخُصم من القاصة`)
+export const useExpenseCancel = () => useAction((x: { id: string; reason: string }) => treasury.cancelExpense(x.id, x.reason), 'أُلغي المصروف وأُعيد المبلغ إلى رصيد القاصة')
 export const useTreasuryList = (f: TreasuryListFilter, enabled = true) =>
   useQuery({ queryKey: [...TREASURY_ROOT, 'list', f], queryFn: () => treasury.list(f), enabled, placeholderData: (prev) => prev })
 export const useTreasurySummary = (from?: string | null, to?: string | null, enabled = true) =>

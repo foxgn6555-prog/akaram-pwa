@@ -193,6 +193,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/letters', labelKey: 'nav.finance_letters', icon: 'file-text' },   // 00356
     { path: '/finance/purchases', labelKey: 'nav.maintenance_purchases', icon: 'shopping-cart' },
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
+    { path: '/finance/expenses', labelKey: 'nav.finance_expenses', icon: 'wallet' },   // 00358
     { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },
   ],
 

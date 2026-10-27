@@ -290,6 +290,14 @@ export interface MaintenanceFinancePurchaseRow {
   unit: string
   unit_price: number
   line_total: number
+  // 00358: حالة الدفع من القاصة (حركة purchase)
+  order_total: number
+  workshop_key: string | null
+  created_by_name: string | null
+  treasury_tx_id: string | null
+  treasury_status: 'pending' | 'confirmed' | 'cancelled' | null
+  treasury_ref: string | null
+  confirmed_at: string | null
 }
 export interface MaintenanceArchiveEntry {
   case_id: string

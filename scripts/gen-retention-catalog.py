@@ -128,8 +128,8 @@ D('finance', 'advance_events', 'سجل أحداث السلف', 'مسار كل س
 D('finance', 'disclosure_events', 'سجل أحداث الكشوفات', 'مسار كل كشف (إرسال/موافقة/إرجاع). الكشوفات غير المنتهية محمية.', 'created_at', 36, True,
   keep='disclosure_id in (select d.id from public.disclosures d where d.approved_at is null and d.cancelled_at is null)', lock='أحداث الكشوفات غير المنتهية محمية')
 for t, lbl in [('payrolls', 'الرواتب الشهرية'), ('payslips', 'قسائم الرواتب'), ('employee_salary_profiles', 'ملفات الرواتب'), ('advances', 'السلف'), ('advance_installments', 'أقساط السلف'), ('advance_types', 'أنواع السلف'),
-               ('budget_allocations', 'مخصصات الموازنة'), ('treasury_transactions', 'حركات الخزينة'), ('treasury_receivable_types', 'أنواع المقبوضات'), ('disclosures', 'الكشوفات'), ('disclosure_types', 'أنواع الكشوفات')]:
-    L('finance', t, lbl, CFG if t in ('advance_types', 'treasury_receivable_types', 'disclosure_types') else FIN)
+               ('budget_allocations', 'مخصصات الموازنة'), ('treasury_transactions', 'حركات الخزينة'), ('treasury_receivable_types', 'أنواع المقبوضات'), ('treasury_expense_types', 'أنواع المصاريف'), ('disclosures', 'الكشوفات'), ('disclosure_types', 'أنواع الكشوفات')]:
+    L('finance', t, lbl, CFG if t in ('advance_types', 'treasury_receivable_types', 'treasury_expense_types', 'disclosure_types') else FIN)
 
 # ───── approvals
 D('approvals', 'approval_delegations', 'تفويضات الموافقة', 'تفويض مؤقت لصلاحية الموافقة. السارية محمية.', 'created_at', 24, False, keep='cancelled_at is null and ends_on >= current_date', lock='التفويضات السارية محمية')

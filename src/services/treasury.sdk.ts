@@ -6,32 +6,35 @@
  */
 import { sdkGuard, supabase } from './client'
 
-export type TreasuryKind = 'receipt' | 'reward' | 'gps_payment' | 'advance' | 'advance_repayment'
+export type TreasuryKind = 'receipt' | 'reward' | 'gps_payment' | 'advance' | 'advance_repayment' | 'expense' | 'purchase'   // 00358: + مصروف / مشتريات صيانة
 export type TreasuryStatus = 'pending' | 'confirmed' | 'cancelled'
 export type RewardType = 'cash' | 'gift' | 'thanks_letter' | 'incentive_leave'
 
-export const TREASURY_KIND_LABEL: Record<TreasuryKind, string> = { receipt: 'استلام مبلغ', reward: 'مكافأة', gps_payment: 'تسديد مستحقات GPS', advance: 'تسليم سلفة', advance_repayment: 'تسديد سلفة نقداً' }
+export const TREASURY_KIND_LABEL: Record<TreasuryKind, string> = { receipt: 'استلام مبلغ', reward: 'مكافأة', gps_payment: 'تسديد مستحقات GPS', advance: 'تسليم سلفة', advance_repayment: 'تسديد سلفة نقداً', expense: 'مصروف', purchase: 'مشتريات صيانة' }
 export const TREASURY_STATUS_LABEL: Record<TreasuryStatus, string> = { pending: 'بانتظار المالية', confirmed: 'مؤكَّدة', cancelled: 'ملغاة' }
 export const REWARD_TYPE_LABEL: Record<RewardType, string> = { cash: 'مبلغ نقدي', gift: 'هدية', thanks_letter: 'كتاب شكر', incentive_leave: 'إجازة تشجيعية' }
 /** نص زر تأكيد المالية حسب نوع الحركة */
-export const CONFIRM_LABEL: Record<TreasuryKind, string> = { receipt: 'تأكيد الاستلام', reward: 'تم التسليم', gps_payment: 'تم الدفع', advance: 'تم التسليم', advance_repayment: 'تأكيد الاستلام' }
+export const CONFIRM_LABEL: Record<TreasuryKind, string> = { receipt: 'تأكيد الاستلام', reward: 'تم التسليم', gps_payment: 'تم الدفع', advance: 'تم التسليم', advance_repayment: 'تأكيد الاستلام', expense: 'سُجّل', purchase: 'تم التسليم' }
 export const GPS_TYPE_NAME = 'تسديد مستحقات GPS'
 
 export interface ReceivableType { id: string; name: string; is_active: boolean; sort_order: number; created_at: string }
+/** 00358: نوع مصروف (المالية تديره؛ النظامي «مشتريات صيانة» لا يُعطَّل) */
+export interface ExpenseType { id: string; name: string; is_active: boolean; is_system: boolean; sort_order: number; used: number; total_confirmed: number }
 export interface TreasuryTx {
   id: string; ref_no: string; kind: TreasuryKind; amount: number; type_id: string | null; type_name: string | null
   employee_id: string | null; employee_name: string | null; employee_number: string | null; reward_type: RewardType | null
-  details: string | null; leave_days?: number | null; status: TreasuryStatus; affects_balance: boolean; needs_finance: boolean
+  details: string | null; leave_days?: number | null; expense_type_id?: string | null; purchase_order_id?: string | null; status: TreasuryStatus; affects_balance: boolean; needs_finance: boolean
   created_by: string; created_by_name: string | null; created_at: string
   confirmed_by: string | null; confirmed_by_name: string | null; confirmed_at: string | null; finance_note: string | null
   cancelled_by: string | null; cancelled_by_name: string | null; cancelled_at: string | null; cancel_reason: string | null
 }
 export interface TreasurySummary {
   balance: number; frozen: number; pending_out: number; pending_count: number
-  range: { receipts_confirmed: number; receipts_pending: number; rewards_cash_confirmed: number; rewards_count: number; gps_confirmed: number; gps_pending: number; advances_confirmed?: number; advance_repayments?: number; count: number }
+  range: { receipts_confirmed: number; receipts_pending: number; rewards_cash_confirmed: number; rewards_count: number; gps_confirmed: number; gps_pending: number; advances_confirmed?: number; advance_repayments?: number; expenses_confirmed?: number; expenses_count?: number; purchases_confirmed?: number; purchases_pending?: number; count: number }
   by_type: { type_id: string | null; name: string | null; confirmed: number; pending: number; count: number }[]
+  expenses_by_type?: { type_id: string | null; name: string | null; confirmed: number; count: number }[]
   rewards_by_type: Partial<Record<RewardType, number>>
-  by_month: { month: string; receipts: number; rewards: number; gps: number; advances?: number }[]
+  by_month: { month: string; receipts: number; rewards: number; gps: number; advances?: number; expenses?: number; purchases?: number }[]
 }
 export interface TreasuryListFilter { from?: string | null; to?: string | null; kind?: TreasuryKind | null; status?: TreasuryStatus | null; typeId?: string | null; employeeId?: string | null; search?: string | null; limit?: number }
 export interface EmployeeLookupRow { id: string; full_name: string; employee_number: string | null; job_title: string | null; department_name: string | null }
@@ -60,6 +63,8 @@ export const TREASURY_ERROR_MESSAGES: Record<string, string> = {
   TREASURY_NOT_PENDING: 'هذه الحركة ليست معلّقة — لا يمكن تعديلها',
   TREASURY_REASON_REQUIRED: 'سبب الإعادة/الإلغاء مطلوب',
   TREASURY_INSUFFICIENT: 'رصيد القاصة غير كافٍ لهذا الصرف — سجِّل استلاماً يغطيه أولاً',
+  TREASURY_TYPE_SYSTEM: 'نوع «مشتريات صيانة» نظامي — لا يُعاد تسميته ولا يُعطَّل',
+  TREASURY_NOT_CONFIRMED: 'هذا المصروف ليس مسجَّلاً (ربما أُلغي سابقاً)',
   TREASURY_LEAVE_DAYS_INVALID: 'حدد عدد أيام الإجازة التشجيعية (0.5 إلى 30)',
   MEDIA_FORBIDDEN: 'ليست لديك صلاحية عرض هذا التصميم',
   MEDIA_DESIGN_NOT_FOUND: 'التصميم غير موجود',
@@ -85,6 +90,13 @@ export const treasury = {
   list(f: TreasuryListFilter = {}): Promise<TreasuryTx[]> {
     return rpc<TreasuryTx[]>('treasury_list', { p_from: f.from ?? null, p_to: f.to ?? null, p_kind: f.kind ?? null, p_status: f.status ?? null, p_type_id: f.typeId ?? null, p_employee_id: f.employeeId ?? null, p_search: f.search ?? null, p_limit: f.limit ?? 500 })
   },
+  // 00358: المصاريف
+  expenseTypes(): Promise<ExpenseType[]> { return rpc<ExpenseType[]>('finance_expense_types_list') },
+  saveExpenseType(v: { id?: string | null; name: string; isActive?: boolean; sortOrder?: number }): Promise<ExpenseType> {
+    return rpc<ExpenseType>('finance_expense_type_save', { p_id: v.id ?? null, p_name: v.name, p_is_active: v.isActive ?? true, p_sort_order: v.sortOrder ?? 100 })
+  },
+  recordExpense(v: { typeId: string; amount: number; details?: string | null }): Promise<TreasuryTx> { return rpc<TreasuryTx>('finance_expense_record', { p_type_id: v.typeId, p_amount: v.amount, p_details: v.details ?? null }) },
+  cancelExpense(id: string, reason: string): Promise<TreasuryTx> { return rpc<TreasuryTx>('finance_expense_cancel', { p_id: id, p_reason: reason }) },
   summary(from?: string | null, to?: string | null): Promise<TreasurySummary> { return rpc<TreasurySummary>('treasury_summary', { p_from: from ?? null, p_to: to ?? null }) },
   employeeLookup(q: string): Promise<EmployeeLookupRow[]> { return rpc<EmployeeLookupRow[]>('exec_employee_lookup', { p_q: q }) },
   completedDesigns(f: { from?: string | null; to?: string | null; sector?: string | null; periodType?: string | null } = {}): Promise<CompletedDesignRow[]> {

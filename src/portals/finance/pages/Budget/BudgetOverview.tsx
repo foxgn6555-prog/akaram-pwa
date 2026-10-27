@@ -36,10 +36,10 @@ export default function BudgetOverview() {
 
   return (
     <div className="space-y-4" data-testid="finance-treasury-page">
-      <ExecPageHeader icon="wallet" title="القاصة" subtitle="كل ما يسجّله المدير التنفيذي (مستحقات · مكافآت · GPS) يصل هنا — المبالغ تبقى مجمّدة حتى تؤكدها المالية" stats={[
+      <ExecPageHeader icon="wallet" title="القاصة" subtitle="كل ما يسجّله المدير التنفيذي (مستحقات · مكافآت · GPS) وأوامر شراء الصيانة تصل هنا — المبالغ تبقى مجمّدة/معلّقة حتى تؤكدها المالية · المصاريف تُسجَّل من وحدة «المصاريف»" stats={[
         { label: 'رصيد القاصة الحالي (د.ع — مؤكَّد فقط)', value: fmtMoney(s?.balance ?? 0), tone: 'green', testId: 'tr-stat-balance' },
         { label: 'مجمّد بانتظار تأكيد الاستلام (د.ع)', value: fmtMoney(s?.frozen ?? 0), tone: 'gold', testId: 'tr-stat-frozen' },
-        { label: 'مكافآت/GPS بانتظار التسليم (د.ع)', value: fmtMoney(s?.pending_out ?? 0), tone: 'plain', testId: 'tr-stat-pending-out' },
+        { label: 'مكافآت/GPS/مشتريات بانتظار التسليم (د.ع)', value: fmtMoney(s?.pending_out ?? 0), tone: 'plain', testId: 'tr-stat-pending-out' },
         { label: 'حركات تنتظر إجراءك', value: pendingRows.length, tone: pendingRows.length > 0 ? 'red' : 'plain', testId: 'tr-stat-pending-count' },
       ]} />
 
@@ -66,6 +66,9 @@ export default function BudgetOverview() {
               <Row k="مكافآت نقدية مسلَّمة" v={s.range.rewards_cash_confirmed} tone="text-violet-700" />
               <Row k="مدفوعات GPS" v={s.range.gps_confirmed} tone="text-sky-700" />
               <Row k="GPS بانتظار الدفع" v={s.range.gps_pending} tone="text-amber-700" />
+              <Row k="مصاريف مسجَّلة" v={s.range.expenses_confirmed ?? 0} tone="text-rose-700" />
+              <Row k="مشتريات صيانة مسلَّمة" v={s.range.purchases_confirmed ?? 0} tone="text-orange-700" />
+              <Row k="مشتريات بانتظار التسليم" v={s.range.purchases_pending ?? 0} tone="text-amber-700" />
               <div><dt className="text-slate-500">عدد الحركات</dt><dd className="font-black tabular-nums">{s.range.count} <span className="text-[10px] font-normal text-slate-400">({s.range.rewards_count} مكافأة)</span></dd></div>
             </dl>
           </div>
@@ -111,7 +114,7 @@ export default function BudgetOverview() {
           <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-4 shadow-xl">
             <h3 className="text-sm font-black text-slate-800">{CONFIRM_LABEL[confirmTx.kind]} — <span dir="ltr" className="font-mono">{confirmTx.ref_no}</span></h3>
             <p className="text-xs text-slate-600">{TREASURY_KIND_LABEL[confirmTx.kind]}: {confirmTx.kind === 'reward' ? confirmTx.employee_name : confirmTx.type_name}{confirmTx.affects_balance && <> · <b dir="ltr">{fmtMoney(confirmTx.amount)} د.ع</b></>}</p>
-            <p className="text-[11px] text-slate-500">{confirmTx.kind === 'receipt' ? 'سيُضاف المبلغ إلى رصيد القاصة' : confirmTx.affects_balance ? 'سيُخصم المبلغ من رصيد القاصة' : 'لا يؤثر في الرصيد'} · سيُبلَّغ المدير التنفيذي{confirmTx.kind === 'reward' && ' والموظف'}</p>
+            <p className="text-[11px] text-slate-500">{confirmTx.kind === 'receipt' ? 'سيُضاف المبلغ إلى رصيد القاصة' : confirmTx.affects_balance ? 'سيُخصم المبلغ من رصيد القاصة' : 'لا يؤثر في الرصيد'} · {confirmTx.kind === 'purchase' ? 'سيُبلَّغ قسم الصيانة صاحب الأمر' : <>سيُبلَّغ المدير التنفيذي{confirmTx.kind === 'reward' && ' والموظف'}</>}</p>
             <input className={field} placeholder="ملاحظة (اختياري)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="tr-confirm-note" />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setConfirmTx(null)}>إغلاق</Button>
