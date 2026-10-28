@@ -97,6 +97,7 @@ async function actor(req: Request) {
   return user
 }
 const ACTOR_CACHE_MS = 60_000
+const STALE_RUN_MS = 3 * 60_000
 const actorCache = new Map<string, { user: { id: string } | null; until: number }>()
 async function apply(
   providerId: string,
@@ -643,7 +644,7 @@ Deno.serve(async (req: Request) => {
         throw e
       }
     }
-    const { data: run, error: runError } = await admin
+    const insertRun = () => admin
       .from('gps_sync_runs')
       .insert({
         provider_id: provider.id,
@@ -652,6 +653,18 @@ Deno.serve(async (req: Request) => {
       })
       .select('id')
       .single()
+    let { data: run, error: runError } = await insertRun()
+    // 00368: سجل مزامنة «قيد التنفيذ» أقدم من 3 دقائق = تشغيل مات دون إغلاق (مهلة/انهيار) ⇒ يُغلق كفاشل ويُعاد الإدراج
+    if (runError?.code === '23505') {
+      const { data: stale } = await admin
+        .from('gps_sync_runs')
+        .update({ status: 'failed', finished_at: new Date().toISOString(), error_code: 'LVN_SYNC_STALE_RUN', error_message: 'LVN_SYNC_STALE_RUN' })
+        .eq('provider_id', provider.id)
+        .eq('status', 'running')
+        .lt('started_at', new Date(Date.now() - STALE_RUN_MS).toISOString())
+        .select('id')
+      if (stale?.length) ({ data: run, error: runError } = await insertRun())
+    }
     // 00366: التحديث الجزئي يُستدعى كل ثانية من الشاشة وكل دقيقة من المجدول؛ تصادمه مع مزامنة جارية ليس خطأ — يُتخطّى بهدوء (200) بدل 400 في كل ثانية
     if (runError?.code === '23505' && action === 'incremental')
       return response({ ok: true, action, skipped: true, reason: 'LVN_SYNC_ALREADY_RUNNING' })

@@ -294,6 +294,11 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
           labelKey: 'nav.data_retention',
           icon: 'database',
         },
+        {
+          path: '/it/dev-cleanup',
+          labelKey: 'nav.dev_cleanup',
+          icon: 'trash',
+        },
       ],
     },
     {

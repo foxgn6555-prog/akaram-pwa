@@ -103,6 +103,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'it.central-garage-approvals': ['decide'],
   'it.cold-archive': ['create', 'decide', 'delete'],
   'it.data-retention': ['edit', 'delete'],
+  'it.dev-cleanup': ['delete'],
   // المدير المفوض
   'admin.announcements': ['create'],
   'admin.approvals': ['decide'],

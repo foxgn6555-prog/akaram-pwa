@@ -207,7 +207,7 @@ for t, lbl, r in [('media_submissions', 'إرسالات الإعلام', REC), (
 
 # ───── archive (الأرشيف البارد والاحتفاظ)
 for t, lbl, r in [('cold_archive_settings', 'إعدادات الأرشيف البارد', CFG), ('cold_archive_packages', 'حزم الأرشيف البارد', PROOF), ('cold_archive_items', 'عناصر الأرشيف البارد', PROOF), ('cold_archive_copies', 'النسخ الموثَّقة', PROOF),
-                  ('cold_archive_events', 'سجل أحداث الأرشيف البارد', PROOF), ('data_retention_policies', 'سياسات الاحتفاظ', CFG), ('data_retention_requests', 'طلبات حذف الاحتفاظ', PROOF), ('data_retention_events', 'سجل أحداث الاحتفاظ', PROOF)]:
+                  ('cold_archive_events', 'سجل أحداث الأرشيف البارد', PROOF), ('data_retention_policies', 'سياسات الاحتفاظ', CFG), ('data_retention_requests', 'طلبات حذف الاحتفاظ', PROOF), ('data_retention_events', 'سجل أحداث الاحتفاظ', PROOF), ('dev_cleanup_runs', 'سجل تنظيف البيانات التجريبية', PROOF)]:
     L('archive', t, lbl, r)
 
 def q(s):
