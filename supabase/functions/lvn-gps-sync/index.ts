@@ -652,6 +652,9 @@ Deno.serve(async (req: Request) => {
       })
       .select('id')
       .single()
+    // 00366: التحديث الجزئي يُستدعى كل ثانية من الشاشة وكل دقيقة من المجدول؛ تصادمه مع مزامنة جارية ليس خطأ — يُتخطّى بهدوء (200) بدل 400 في كل ثانية
+    if (runError?.code === '23505' && action === 'incremental')
+      return response({ ok: true, action, skipped: true, reason: 'LVN_SYNC_ALREADY_RUNNING' })
     if (runError || !run)
       throw new Error(
         runError?.code === '23505' ? 'LVN_SYNC_ALREADY_RUNNING' : 'LVN_SYNC_RUN_CREATE_FAILED',
@@ -746,10 +749,6 @@ Deno.serve(async (req: Request) => {
       // 00342: مع كل دورة مزامنة (كل دقيقة من المجدول) تُسحب حتى 3 انطلاقيات مستحقة من طابور المسارات — فشلها لا يُفشل المزامنة
       if (action === 'incremental') {
         try { await processTripQueue(hash, 3) } catch { /* يُسجَّل في trip_routes.error_code لكل انطلاقية */ }
-        // 00366: المجدول الخادمي (service-role) يسحب مع كل دقيقة دفعة من طابور بقع التوقف (جهازان × ≤ 6 ساعات) — لا من المتصفح
-        if ((user as { scheduler?: boolean }).scheduler) {
-          try { await pullStopHistory(provider.id, hash, 2) } catch { /* يُسجَّل في gps_stop_scan_state.lvn_last_error لكل جهاز */ }
-        }
       }
       if (action === 'full')
         await admin
@@ -771,9 +770,16 @@ Deno.serve(async (req: Request) => {
           updated_count: updated,
         })
         .eq('id', run.id)
+      // 00366: المجدول الخادمي (service-role) يسحب دفعة من طابور بقع التوقف (جهازان × ≤ 6 ساعات) — بعد إغلاق سجل المزامنة
+      // كي لا يحتجز قفل المزامنة دقائق ويُفشل التحديث الجزئي من الشاشة (LVN_SYNC_ALREADY_RUNNING)
+      let stops: unknown = null
+      if (action === 'incremental' && (user as { scheduler?: boolean }).scheduler) {
+        try { stops = await pullStopHistory(provider.id, hash, 2) } catch { /* يُسجَّل في gps_stop_scan_state.lvn_last_error لكل جهاز */ }
+      }
       return response({
         ok: true,
         action,
+        stops,
         pages,
         received,
         inserted,

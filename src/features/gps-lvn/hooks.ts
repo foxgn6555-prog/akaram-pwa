@@ -426,6 +426,10 @@ export function useGpsSync() {
     mutationFn: (action: 'test' | 'full' | 'incremental') => gpsLvn.sync(action),
     onSuccess: (data) => {
       invalidate()
+      if (data.skipped) {
+        toast({ type: 'info', message: 'مزامنة أخرى جارية الآن — ستظهر نتيجتها في سجل المزامنة خلال لحظات.' })
+        return
+      }
       toast({
         type: 'success',
         message:

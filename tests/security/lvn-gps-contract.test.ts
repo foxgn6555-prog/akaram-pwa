@@ -90,7 +90,10 @@ describe('عقد أمان LVN GPS', () => {
     expect(precise).toContain('lvn_pulled_from')
     expect(precise).toContain("set statement_timeout = '25s'")
     expect(edge).toContain("p_from: from.toISOString(), p_until: to.toISOString()")
-    expect(edge).toContain("if ((user as { scheduler?: boolean }).scheduler) {\n          try { await pullStopHistory(provider.id, hash, 2) }")
+    expect(edge).toContain("if (action === 'incremental' && (user as { scheduler?: boolean }).scheduler) {\n        try { stops = await pullStopHistory(provider.id, hash, 2) }")
+    // سحب البقع بعد إغلاق سجل المزامنة (لا يحتجز القفل)، والتصادم مع مزامنة جارية في التحديث الجزئي = 200 skipped لا 400
+    expect(edge.indexOf("stops = await pullStopHistory")).toBeGreaterThan(edge.indexOf("status: 'success',\n          finished_at: new Date().toISOString(),\n          pages_count: pages"))
+    expect(edge).toContain("if (runError?.code === '23505' && action === 'incremental')\n      return response({ ok: true, action, skipped: true, reason: 'LVN_SYNC_ALREADY_RUNNING' })")
     expect(edge).toContain('actorCache.get(token)')
     const hooks = readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')
     expect(hooks).not.toMatch(/setInterval[\s\S]*pullStopsNow/)

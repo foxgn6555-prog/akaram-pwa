@@ -465,6 +465,9 @@ export interface GpsTripHistory {
 export interface GpsSyncResult {
   ok: boolean
   action: 'test' | 'full' | 'incremental' | 'history'
+  /** 00366: تحديث جزئي تُخطّي لأن مزامنة أخرى جارية (ليس خطأ) */
+  skipped?: boolean
+  reason?: string
   message?: string
   pages?: number
   received?: number
