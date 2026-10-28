@@ -122,6 +122,47 @@ export function useSaveGpsStopHotspotSettings() {
     onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsStopHotspots' }).message }),
   })
 }
+export const useGpsStopPullStatus = (enabled = true) =>
+  useQuery({ queryKey: ['gps-lvn', 'stop-pull-status'] as const, queryFn: gpsLvn.stopPullStatus, enabled, refetchInterval: enabled ? 60_000 : false })
+/**
+ * 00364 — سحب تلقائي من LVN عند تشغيل الطبقة (لغرفة العمليات/IT فقط): يبدأ فوراً ويكرر ما دام الطابور غير منتهٍ
+ * (حتى 40 دفعة)، ثم كل 3 دقائق. يُرجع حالة التقدم.
+ */
+export function useGpsStopsAutoPull(enabled: boolean) {
+  const qc = useQueryClient()
+  const [state, setState] = useState<{ running: boolean; batches: number; inserted: number; lastError: string | null }>({ running: false, batches: 0, inserted: 0, lastError: null })
+  const busy = useRef(false)
+  const runRef = useRef<() => Promise<void>>(async () => {})
+  runRef.current = async () => {
+    if (busy.current) return
+    busy.current = true
+    setState((s) => ({ ...s, running: true }))
+    let batches = 0, inserted = 0, lastError: string | null = null
+    try {
+      for (; batches < 40; batches++) {
+        const r = await gpsLvn.pullStopsNow(4)
+        inserted += r.inserted
+        if (r.failed > 0) lastError = r.results.find((x) => x.error)?.error ?? 'LVN_PULL_FAILED'
+        void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })
+        void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-pull-status'] })
+        if (!r.remaining) break
+        await new Promise((res) => setTimeout(res, 800))
+      }
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : 'LVN_PULL_FAILED'
+    } finally {
+      busy.current = false
+      setState({ running: false, batches, inserted, lastError })
+    }
+  }
+  useEffect(() => {
+    if (!enabled) return
+    void runRef.current()
+    const id = setInterval(() => void runRef.current(), 180_000)
+    return () => clearInterval(id)
+  }, [enabled])
+  return { ...state, pullNow: () => void runRef.current() }
+}
 export function useRefreshGpsStopHotspots() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)

@@ -133,7 +133,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsAutoSync: () => ({ lastAttempt: null }),
   useGpsStopHotspots: () => ({ data: undefined, isLoading: false }),   // 00362
   useGpsStopHotspotSettings: () => ({ data: undefined }),
-  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }),
+  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }), useGpsStopsAutoPull: () => ({ running: false, batches: 0, inserted: 0, lastError: null, pullNow: vi.fn() }), useGpsStopPullStatus: () => ({ data: undefined }),
   useGpsStopHotspotEvents: () => ({ data: [] }),
   useGpsRoute: () => ({ data: [], isLoading: false }),
   useGpsRouteWindow: (...args: unknown[]) => h.routeWindow(...args),

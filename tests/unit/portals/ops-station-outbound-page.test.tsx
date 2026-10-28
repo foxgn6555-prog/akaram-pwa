@@ -21,7 +21,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsLiveMap: () => ({ data: h.live, isLoading: false }),
   useGpsStopHotspots: () => ({ data: undefined, isLoading: false }),   // 00362
   useGpsStopHotspotSettings: () => ({ data: undefined }),
-  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }),
+  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }), useGpsStopsAutoPull: () => ({ running: false, batches: 0, inserted: 0, lastError: null, pullNow: vi.fn() }), useGpsStopPullStatus: () => ({ data: undefined }),
   useGpsStopHotspotEvents: () => ({ data: [] }),
   useGpsMapGeofences: () => ({ data: h.zones, isLoading: false }),
 }))

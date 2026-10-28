@@ -15,6 +15,8 @@ import {
 
 const h = vi.hoisted(() => ({
   refresh: vi.fn(),
+  autoPull: vi.fn(),
+  pullNow: vi.fn(),
   flyTo: vi.fn(),
   circles: [] as Array<Record<string, unknown>>,
   icons: [] as string[],
@@ -26,7 +28,7 @@ vi.mock('react-leaflet', () => ({
   TileLayer: () => null,
   Polygon: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Marker: ({ children, eventHandlers }: { children?: ReactNode; eventHandlers?: { click?: () => void } }) => <div data-testid="marker" onClick={() => eventHandlers?.click?.()}>{children}</div>,
-  Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Popup: ({ children, pane }: { children: ReactNode; pane?: string }) => <div data-pane={pane}>{children}</div>,
   Pane: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Tooltip: ({ children }: { children: ReactNode }) => <div data-testid="tip">{children}</div>,
   CircleMarker: ({ children, pathOptions, radius, eventHandlers }: { children: ReactNode; pathOptions: Record<string, unknown>; radius: number; eventHandlers?: { click?: () => void } }) => {
@@ -39,6 +41,8 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsStopHotspots: (hours: number, enabled: boolean) => ({ data: enabled ? result(hours) : undefined, isLoading: false }),
   useGpsStopHotspotSettings: (enabled = true) => ({ data: enabled ? { can_edit: true } : undefined }),
   useRefreshGpsStopHotspots: () => ({ mutate: h.refresh, isPending: false }),
+  useGpsStopsAutoPull: (enabled: boolean) => { h.autoPull(enabled); return { running: false, batches: 0, inserted: 0, lastError: null, pullNow: h.pullNow } },
+  useGpsStopPullStatus: () => ({ data: { devices: 12, caught_up: 9, never_pulled: 1, errors: 1, oldest_pulled_until: null, last_pull_at: new Date().toISOString(), points_total: 5000, last_error: 'LVN_TIMEOUT', pending_hours: 30.5 } }),
   useGpsStopHotspotEvents: () => ({ data: [{ id: 1, db_number: '101', vehicle_name: 'كابسة', started_at: '2026-10-28T06:00:00Z', ended_at: '2026-10-28T06:10:00Z', duration_seconds: 600, address: null }], isLoading: false }),
 }))
 import StopHotspotsPanel from '@components/gps/StopHotspotsPanel'
@@ -120,6 +124,18 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(h.refresh).toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('hotspots-open-settings'))
     expect(open).toHaveBeenCalled()
+    // 00364: السحب التلقائي من LVN مفعّل لمن يملك الصلاحية، وحالة السحب ظاهرة، وزر السحب اليدوي
+    expect(h.autoPull).toHaveBeenLastCalledWith(true)
+    expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('9/12 جهاز محدّث')
+    expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('متبقٍ 30.5 س')
+    fireEvent.click(screen.getByTestId('hotspots-pull-now'))
+    expect(h.pullNow).toHaveBeenCalled()
+  })
+  it('القراءة فقط (النائب): لا سحب تلقائي ولا زر سحب، لكن حالة السحب ظاهرة', () => {
+    render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={vi.fn()} selectedId={null} onSelect={vi.fn()} canEdit={false} />)
+    expect(h.autoPull).toHaveBeenLastCalledWith(false)
+    expect(screen.queryByTestId('hotspots-pull-now')).toBeNull()
+    expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('أخطاء 1')
   })
   it('الطبقة ترسم بقعة حرارية لكل موقع بلون الكثافة وحجم الوزن بلا أرقام، مع نبض للنشطة وهالة للأولى، وتُظهر التفاصيل', () => {
     h.icons.length = 0
@@ -137,6 +153,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(heatBlobHtml({ score: 0, level: 'low', active_now: false, rank: 5 }, false).size).toBe(26)
     expect(heatBlobHtml({ score: 0, level: 'low', active_now: false, rank: 5 }, false).html).not.toContain('akh-crown')
     const popup = screen.getByTestId('hotspot-popup-1')
+    expect(popup.parentElement!.getAttribute('data-pane')).toBe('popupPane')   // 00364: النافذة فوق طبقة البقع
     expect(popup.textContent).toContain('20 د')
     expect(popup.textContent).toContain('DB 101')
     expect(popup.textContent).toContain('12:00–13:00')

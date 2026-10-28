@@ -73,6 +73,19 @@ describe('عقد أمان LVN GPS', () => {
     expect(alertControl).toContain("':escalation'")
     expect(pushDispatcher).toContain("admin.rpc('notification_evaluate_gps_escalations')")
   })
+  it('00364: بقع التوقف تُسحب من LVN مباشرة لكل الأجهزة عبر طابور خادمي بصلاحية الخدمة فقط', () => {
+    const mig = readFileSync('supabase/migrations/00309_gps_stop_lvn_pull.sql', 'utf8'), all = readFileSync('supabase/migrations/00308_gps_stop_hotspots_all_devices.sql', 'utf8')
+    expect(edge).toContain("action === 'stops'")
+    expect(edge).toContain("admin.rpc('gps_stop_pull_queue'")
+    expect(edge).toContain("admin.rpc('gps_stop_pull_mark'")
+    expect(edge).toContain("admin.rpc('gps_stop_hotspots_refresh_service'")
+    expect(edge).toContain("request('/get_history', hash, {\n            device_id: item.external_id")
+    for (const fn of ['gps_stop_pull_queue(integer)', 'gps_stop_pull_mark(uuid, timestamptz, integer, text)', 'gps_stop_hotspots_refresh_service(integer)'])
+      expect(mig).toContain(`grant execute on function public.${fn} to service_role`)
+    expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
+    expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
+    expect(readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')).toContain("gpsLvn.pullStopsNow(4)")
+  })
   it('يحسب التوقفات والحركة من الخادم ويحد الطلبات الجماعية', () => {
     expect(routeEvents).toContain('gps_trip_route_events')
     expect(routeEvents).toContain('gps_trip_route_metrics_bulk')

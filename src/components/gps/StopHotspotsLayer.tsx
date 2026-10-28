@@ -106,6 +106,7 @@ export default function StopHotspotsLayer({
   onSelect?: (spot: GpsStopHotspot) => void
 }) {
   useEffect(ensureHeatCss, [])
+  // 00364: البقع في طبقة تحت الآليات، أما النافذة المنبثقة والتلميح ففي طبقاتهما القياسية كي تظهر فوق كل شيء
   return (
     <Pane name="akaram-hotspots" style={{ zIndex: 390 }}>
       {spots.map((spot) => {
@@ -119,11 +120,11 @@ export default function StopHotspotsLayer({
             zIndexOffset={selected ? 500 : Math.round(spot.score * 100)}
             eventHandlers={{ click: () => onSelect?.(spot) }}
           >
-            <Tooltip direction="top" className="akh-tip" opacity={0.96}>
+            <Tooltip direction="top" className="akh-tip" opacity={0.96} pane="tooltipPane">
               <span style={{ color }}>●</span> {spot.address ?? 'بقعة توقف'}
               {spot.active_now ? ' · نشطة الآن' : ''}
             </Tooltip>
-            <Popup maxWidth={300}>
+            <Popup maxWidth={300} pane="popupPane">
               <div dir="rtl" className="min-w-[230px] text-[11px]" data-testid={`hotspot-popup-${spot.rank}`}>
                 <div className="flex items-center justify-between gap-2">
                   <b className="text-sm">{spot.address ?? 'بقعة توقف'}</b>

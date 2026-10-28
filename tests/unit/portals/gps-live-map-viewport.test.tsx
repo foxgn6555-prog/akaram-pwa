@@ -12,7 +12,7 @@ vi.mock('react-leaflet', () => ({
 }))
 vi.mock('@portals/ops-room/pages/Gps/LandmarkIcon', () => ({ landmarkDivIcon: () => ({}) }))
 // 00362: طبقة بقع التوقف معطّلة افتراضياً — لا استعلامات
-vi.mock('@features/gps-lvn/hooks', () => ({ useGpsStopHotspots: () => ({ data: undefined, isLoading: false }), useGpsStopHotspotSettings: () => ({ data: undefined }), useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }), useGpsStopHotspotEvents: () => ({ data: [] }) }))
+vi.mock('@features/gps-lvn/hooks', () => ({ useGpsStopHotspots: () => ({ data: undefined, isLoading: false }), useGpsStopHotspotSettings: () => ({ data: undefined }), useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }), useGpsStopsAutoPull: () => ({ running: false, batches: 0, inserted: 0, lastError: null, pullNow: vi.fn() }), useGpsStopPullStatus: () => ({ data: undefined }), useGpsStopHotspotEvents: () => ({ data: [] }) }))
 import GpsLiveMap, { collectPoints, isPlausiblePoint, readSavedView } from '@portals/ops-room/pages/Gps/GpsLiveMap'
 import type { GpsLiveDevice, GpsMapGeofence } from '@sdk/gps-lvn.sdk'
 

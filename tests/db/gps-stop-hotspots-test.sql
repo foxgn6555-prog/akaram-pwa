@@ -4,6 +4,7 @@ insert into auth.users (id, email) values ('e8000000-0000-0000-0000-000000000001
 insert into public.user_roles (user_id, role) values ('e8000000-0000-0000-0000-000000000001', 'ops_room'), ('e8000000-0000-0000-0000-000000000002', 'it_admin'), ('e8000000-0000-0000-0000-000000000003', 'hr_officer'), ('e8000000-0000-0000-0000-000000000004', 'deputy_director') on conflict do nothing;
 insert into public.sectors (id, code, name, sort, parent_sector) values (98, 'S98', 'قاطع البقع', 98, 'karrada') on conflict (id) do nothing;
 create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false), set_config('auth.role', '', false) $$;
+create or replace function pg_temp.as_service() returns void language sql as $$ select set_config('auth.user_id', '', false), set_config('auth.role', 'service_role', false) $$;
 create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
 declare raised boolean := false; msg text;
 begin
@@ -220,5 +221,30 @@ begin
     if n <> 1 then raise exception 'H9 cron job'; end if;
   end if;
   raise notice 'H9 ok';
+end $$;
+-- H10 (00364): طابور سحب LVN لكل الأجهزة الفعّالة، العلامة «مسحوب حتى»، الأخطاء لا تتقدم، حالة السحب، وتحديث الخدمة
+do $$
+declare n int; q record; j jsonb;
+begin
+  perform pg_temp.as_user('e8000000-0000-0000-0000-000000000001');
+  perform pg_temp.expect_error('select * from public.gps_stop_pull_queue(5)', 'GPS_SERVICE_ROLE_REQUIRED');
+  perform pg_temp.as_service();
+  select count(*) into n from public.gps_stop_pull_queue(20) where device_id in ('e80dc000-0000-0000-0000-000000000001','e80dc000-0000-0000-0000-000000000002','e80dc000-0000-0000-0000-000000000003');
+  if n <> 3 then raise exception 'H10 queue must include bound+unbound devices (got %)', n; end if;
+  select * into q from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003';
+  if q.pulled_until is not null or q.pull_to - q.pull_from <> interval '24 hours' or q.pull_from > now() - interval '6 days 23 hours' then raise exception 'H10 first window %', to_jsonb(q); end if;
+  -- سحب ناجح حتى قبل دقيقة ⇒ يخرج من الطابور؛ ويعيد المسح من بداية النافذة
+  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now() - interval '1 minute', 120, null);
+  if exists (select 1 from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003') then raise exception 'H10 caught-up device must leave queue'; end if;
+  if not exists (select 1 from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003' and lvn_points_total = 120 and scan_from <= now() - interval '24 hours 1 minute') then raise exception 'H10 mark state'; end if;
+  -- خطأ لا يقدّم العلامة
+  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now(), 0, 'LVN_TIMEOUT');
+  if not exists (select 1 from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003' and lvn_last_error = 'LVN_TIMEOUT' and lvn_pulled_until <= now() - interval '1 minute') then raise exception 'H10 error must not advance'; end if;
+  j := public.gps_stop_hotspots_refresh_service(5000);
+  if (j ->> 'ok')::boolean is distinct from true then raise exception 'H10 refresh_service %', j; end if;
+  perform pg_temp.as_user('e8000000-0000-0000-0000-000000000004');
+  j := public.gps_stop_pull_status();
+  if (j ->> 'devices')::int < 3 or (j ->> 'errors')::int <> 1 or (j ->> 'last_error') <> 'LVN_TIMEOUT' or (j ->> 'points_total')::int <> 120 then raise exception 'H10 status %', j; end if;
+  raise notice 'H10 ok';
 end $$;
 select 'gps-stop-hotspots ok' as result;

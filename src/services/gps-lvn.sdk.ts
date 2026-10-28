@@ -555,6 +555,27 @@ export interface GpsStopHotspotSettings {
   can_edit: boolean
   updated_at: string
 }
+export interface GpsStopPullResult {
+  ok: boolean
+  action: 'stops'
+  devices: number
+  inserted: number
+  source: number
+  failed: number
+  remaining: boolean
+  results: Array<{ device: string; from: string; to: string; inserted: number; error?: string }>
+}
+export interface GpsStopPullStatus {
+  devices: number
+  caught_up: number
+  never_pulled: number
+  errors: number
+  oldest_pulled_until: string | null
+  last_pull_at: string | null
+  points_total: number
+  last_error: string | null
+  pending_hours: number
+}
 export type GpsStopHotspotSettingsPatch = Partial<
   Pick<GpsStopHotspotSettings, 'enabled' | 'max_days' | 'stop_speed_kmh' | 'stop_min_seconds' | 'gap_split_seconds' | 'cluster_radius_m' | 'refresh_minutes' | 'landmark_exclude_radius_m' | 'excluded_zone_ids' | 'excluded_landmark_ids'>
 >
@@ -618,6 +639,16 @@ export const gpsLvn = {
     (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_get'))) as unknown as GpsStopHotspotSettings,
   saveStopHotspotSettings: async (patch: GpsStopHotspotSettingsPatch) =>
     (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_save', { p_patch: patch }))) as unknown as GpsStopHotspotSettings,
+  /** 00364 — سحب نقاط التوقف من LVN مباشرة لكل الأجهزة (دفعة من الطابور) ثم إعادة الحساب */
+  pullStopsNow: async (limit = 4) => {
+    const { data, error } = await supabase.functions.invoke<GpsStopPullResult>('lvn-gps-sync', { body: { action: 'stops', limit } })
+    if (error) throw await toLvnError(error)
+    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'STOPS_PULL_FAILED')
+    if (data.action !== 'stops') throw new LvnSyncError('LVN_FUNCTION_OUTDATED')
+    return data
+  },
+  stopPullStatus: async () =>
+    (await sdkGuard(supabase.rpc('gps_stop_pull_status'))) as unknown as GpsStopPullStatus,
   refreshStopHotspots: async () =>
     (await sdkGuard(supabase.rpc('gps_stop_hotspots_refresh_now'))) as unknown as {
       ok: boolean

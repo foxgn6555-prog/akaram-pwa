@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import type { GpsStopHotspot, GpsStopHotspotsResult } from '@sdk/gps-lvn.sdk'
-import { useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
+import { useGpsStopPullStatus, useGpsStopsAutoPull, useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
 import {
   HOTSPOT_COLORS,
   HOTSPOT_SORT_LABELS,
@@ -41,6 +41,9 @@ export default function StopHotspotsPanel({
   const [sort, setSort] = useState<HotspotSort>('total')
   const [expanded, setExpanded] = useState(!compact)
   const refresh = useRefreshGpsStopHotspots()
+  // 00364: سحب نقاط التوقف من LVN مباشرة (كل الأجهزة) — تلقائي لمن يملك الصلاحية، وحالة السحب للجميع
+  const pull = useGpsStopsAutoPull(canEdit)
+  const pullStatus = useGpsStopPullStatus()
   const maxDays = data?.meta.max_days ?? 7
   const windows = hotspotWindows(maxDays)
   const spots = useMemo(() => sortHotspots(data?.spots ?? [], sort), [data, sort])
@@ -114,6 +117,26 @@ export default function StopHotspotsPanel({
           )}
         </div>
       </div>
+      <div className="mt-1 flex items-center justify-between gap-1 rounded-lg bg-slate-50 px-2 py-1 text-[9px] text-slate-600" data-testid="hotspots-pull-status">
+        <span>
+          {pull.running ? (
+            <span className="font-black text-cyan-800">⟳ يسحب من LVN… ({pull.batches} دفعة، {pull.inserted.toLocaleString('en-US')} نقطة)</span>
+          ) : pullStatus.data ? (
+            <>
+              LVN: {pullStatus.data.caught_up}/{pullStatus.data.devices} جهاز محدّث
+              {pullStatus.data.pending_hours > 0 ? ` · متبقٍ ${pullStatus.data.pending_hours.toLocaleString('en-US')} س` : ''}
+              {pullStatus.data.errors > 0 ? ` · أخطاء ${pullStatus.data.errors}` : ''}
+              {pullStatus.data.last_pull_at ? ` · آخر سحب ${formatAgo(pullStatus.data.last_pull_at)}` : ' · لم يُسحب بعد'}
+            </>
+          ) : '—'}
+        </span>
+        {canEdit && !pull.running && (
+          <button type="button" onClick={pull.pullNow} className="rounded-md bg-cyan-700 px-2 py-0.5 font-black text-white" data-testid="hotspots-pull-now">
+            سحب من LVN
+          </button>
+        )}
+      </div>
+      {pull.lastError && !pull.running && <div className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-800">تعذر سحب بعض الأجهزة من LVN ({pull.lastError}) — سيُعاد تلقائياً.</div>}
       {loading && <div className="mt-2 text-center text-slate-500">… تحميل</div>}
       {!loading && data && data.spots.length === 0 && (
         <div className="mt-2 rounded-lg bg-slate-50 p-2 text-center text-slate-500">لا توقفات ضمن النافذة المختارة (بعد استبعاد الزونات/المعالم المحددة).</div>
