@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import type { GpsStopHotspot, GpsStopHotspotsResult } from '@sdk/gps-lvn.sdk'
-import { useGpsStopPullStatus, useGpsStopsAutoPull, useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
+import { useGpsStopPullStatus, useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
 import {
   HOTSPOT_COLORS,
   HOTSPOT_SORT_LABELS,
@@ -46,8 +46,7 @@ export default function StopHotspotsPanel({
   const [sort, setSort] = useState<HotspotSort>('total')
   const [expanded, setExpanded] = useState(!compact)
   const refresh = useRefreshGpsStopHotspots()
-  // 00364: سحب نقاط التوقف من LVN مباشرة (كل الأجهزة) — تلقائي لمن يملك الصلاحية، وحالة السحب للجميع
-  const pull = useGpsStopsAutoPull(canEdit)
+  // 00371: السحب من LVN على الخادم فقط (لا زر للموظفين) — حالة السحب للعرض
   const pullStatus = useGpsStopPullStatus()
   const maxDays = data?.meta.max_days ?? 7
   const windows = hotspotWindows(maxDays)
@@ -124,9 +123,7 @@ export default function StopHotspotsPanel({
       </div>
       <div className="mt-1 flex items-center justify-between gap-1 rounded-lg bg-slate-50 px-2 py-1 text-[9px] text-slate-600" data-testid="hotspots-pull-status">
         <span>
-          {pull.running ? (
-            <span className="font-black text-cyan-800">⟳ يسحب دفعة من LVN (جهازان)…</span>
-          ) : pullStatus.data ? (
+          {pullStatus.data ? (
             <>
               LVN: {pullStatus.data.caught_up}/{pullStatus.data.devices} جهاز محدّث
               {pullStatus.data.full_depth !== undefined ? ` · مكتمل العمق ${pullStatus.data.full_depth}` : ''}
@@ -137,13 +134,8 @@ export default function StopHotspotsPanel({
             </>
           ) : '—'}
         </span>
-        {canEdit && !pull.running && (
-          <button type="button" onClick={pull.pullNow} className="rounded-md bg-cyan-700 px-2 py-0.5 font-black text-white" data-testid="hotspots-pull-now">
-            سحب من LVN
-          </button>
-        )}
+        <span className="font-bold text-slate-500" title="يسحب الخادم نقاط التوقف تلقائياً كل دقيقة">خادمي</span>
       </div>
-      {pull.lastError && !pull.running && <div className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-800">تعذر سحب بعض الأجهزة من LVN ({pull.lastError}) — يعيد المجدول الخادمي المحاولة كل دقيقة.</div>}
       {loading && <div className="mt-2 text-center text-slate-500">… تحميل</div>}
       {!loading && fetching && <div className="mt-1 text-center text-[9px] font-bold text-cyan-800" data-testid="hotspots-fetching">⟳ جارٍ تحديث النافذة…</div>}
       {!loading && data && data.spots.length === 0 && (

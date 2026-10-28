@@ -263,3 +263,58 @@ begin
   raise notice 'H10 ok';
 end $$;
 select 'gps-stop-hotspots ok' as result;
+
+-- H11 (00371): نوافذ بالدقائق مع قصّ دقيق: توقف بدأ قبل بداية النافذة يُحتسب منه الجزء الداخل فقط
+do $$
+declare j jsonb; a jsonb; n int; ev record; tot int;
+begin
+  perform pg_temp.as_user('e8000000-0000-0000-0000-000000000001');
+  j := public.gps_stop_hotspots_v2(50);
+  if (j -> 'meta' ->> 'minutes')::int <> 50 or (j -> 'meta' ->> 'hours')::numeric <> round(50 / 60.0, 4) then raise exception 'H11 meta %', j -> 'meta'; end if;
+  select s into a from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3201) < 0.001;
+  if a is null then raise exception 'H11 spot A missing %', j -> 'spots'; end if;
+  -- D3: توقف 30 د (1830 ث) بدأ قبل ~60 د و15 ث؛ النافذة تبدأ قبل 50 د ⇒ الجزء الداخل بين 1155 و 1215 ث؛ توقف D2 (انتهى قبل ~54 د) يسقط
+  tot := (a ->> 'total_seconds')::int;
+  if tot not between 1155 and 1215 then raise exception 'H11 clipped total % (wanted 1155..1215)', tot; end if;
+  if (a ->> 'stops')::int <> 1 or (a ->> 'vehicles')::int <> 1 then raise exception 'H11 stops/vehicles %', a; end if;
+  if (j -> 'totals' ->> 'total_seconds')::int < tot then raise exception 'H11 totals clipped %', j -> 'totals'; end if;
+  -- أحداث البقعة مقصوصة بالقدر نفسه
+  select count(*) into n from public.gps_stop_hotspot_events_v2(33.3201, 44.4200, 50, 10);
+  if n <> 1 then raise exception 'H11 events count % (wanted 1)', n; end if;
+  select * into ev from public.gps_stop_hotspot_events_v2(33.3201, 44.4200, 50, 10) limit 1;
+  if ev.duration_seconds <> tot then raise exception 'H11 events clip % vs %', ev.duration_seconds, tot; end if;
+  -- النافذة الأوسع (90 د) تعيد D3 كاملاً 1830 ث + D2 (390 ث) = 2220
+  j := public.gps_stop_hotspots_v2(90);
+  select s into a from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3201) < 0.001;
+  if (a ->> 'total_seconds')::int <> 2220 or (a ->> 'stops')::int <> 2 then raise exception 'H11 90m total % (wanted 2220/2)', a; end if;
+  -- 5 دقائق: لا شيء (آخر توقف انتهى قبل ~30 د)
+  j := public.gps_stop_hotspots_v2(5);
+  if jsonb_array_length(coalesce(j -> 'spots', '[]'::jsonb)) <> 0 then raise exception 'H11 5-minute window must be empty %', j -> 'spots'; end if;
+  if (j -> 'meta' ->> 'minutes')::int <> 5 then raise exception 'H11 5m meta'; end if;
+  -- الغلاف القديم بالساعات يعطي الأرقام نفسها، والقصّ إلى الحد الأقصى بالدقائق، والحد الأدنى دقيقة
+  if public.gps_stop_hotspots(2) -> 'totals' <> public.gps_stop_hotspots_v2(120) -> 'totals' then raise exception 'H11 wrapper mismatch'; end if;
+  if (public.gps_stop_hotspots_v2(999999) -> 'meta' ->> 'minutes')::int <> 7 * 1440 then raise exception 'H11 clamp max'; end if;
+  if (public.gps_stop_hotspots_v2(0) -> 'meta' ->> 'minutes')::int < 1 then raise exception 'H11 clamp min'; end if;
+  raise notice 'H11 ok (clipped=%)', tot;
+end $$;
+
+-- H12 (00371): الاحتفاظ 7 أيام — التنظيف الأسبوعي يحذف ما هو أقدم من max_days فقط، والمهمة مجدولة
+do $$
+declare n int; dev uuid := 'e80dc000-0000-0000-0000-000000000001'; old_id bigint; new_id bigint;
+begin
+  insert into public.gps_stop_events (device_id, latitude, longitude, started_at, ended_at, duration_seconds, excluded)
+  values (dev, 33.1, 44.1, now() - interval '8 days 20 minutes', now() - interval '8 days', 1200, false) returning id into old_id;
+  insert into public.gps_stop_events (device_id, latitude, longitude, started_at, ended_at, duration_seconds, excluded)
+  values (dev, 33.1, 44.1, now() - interval '6 days 20 minutes', now() - interval '6 days', 1200, false) returning id into new_id;
+  n := app.gps_stop_events_weekly_purge();
+  if n < 1 then raise exception 'H12 purge count %', n; end if;
+  if exists (select 1 from public.gps_stop_events where id = old_id) then raise exception 'H12 old event must be purged'; end if;
+  if not exists (select 1 from public.gps_stop_events where id = new_id) then raise exception 'H12 recent event must stay'; end if;
+  if (select max_days from public.gps_stop_hotspot_settings where id = 1) <> 7 then raise exception 'H12 default retention must be 7 days'; end if;
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    execute $q$select count(*) from cron.job where jobname = 'gps_stop_events_weekly_purge' and schedule = '30 0 * * 5'$q$ into n;
+    if n <> 1 then raise exception 'H12 cron job'; end if;
+  end if;
+  delete from public.gps_stop_events where id = new_id;
+  raise notice 'H12 ok';
+end $$;

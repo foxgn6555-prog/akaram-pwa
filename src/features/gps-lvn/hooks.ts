@@ -130,34 +130,7 @@ export function useSaveGpsStopHotspotSettings() {
 }
 export const useGpsStopPullStatus = (enabled = true) =>
   useQuery({ queryKey: ['gps-lvn', 'stop-pull-status'] as const, queryFn: gpsLvn.stopPullStatus, enabled, refetchInterval: enabled ? 60_000 : false })
-/**
- * 00364/00366 — سحب نقاط التوقف من LVN: يجري أساساً على الخادم (المجدول الدقيق بصلاحية الخدمة).
- * من المتصفح: دفعة واحدة يدوية فقط (زر «سحب من LVN») — لا حلقات تلقائية (كانت تستهلك حدود المصادقة ⇒ 403).
- */
-export function useGpsStopsAutoPull(_enabled: boolean) {
-  const qc = useQueryClient()
-  const [state, setState] = useState<{ running: boolean; batches: number; inserted: number; lastError: string | null }>({ running: false, batches: 0, inserted: 0, lastError: null })
-  const busy = useRef(false)
-  const pullNow = async () => {
-    if (busy.current) return
-    busy.current = true
-    setState((s) => ({ ...s, running: true }))
-    let inserted = 0, lastError: string | null = null
-    try {
-      const r = await gpsLvn.pullStopsNow(2)
-      inserted = r.inserted
-      if (r.failed > 0) lastError = r.results.find((x) => x.error)?.error ?? 'LVN_PULL_FAILED'
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : 'LVN_PULL_FAILED'
-    } finally {
-      busy.current = false
-      void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })
-      void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-pull-status'] })
-      setState({ running: false, batches: 1, inserted, lastError })
-    }
-  }
-  return { ...state, pullNow: () => void pullNow() }
-}
+// 00371: لا سحب من المتصفح — المجدول الخادمي فقط؛ حالة السحب للعرض (useGpsStopPullStatus)
 export function useRefreshGpsStopHotspots() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)

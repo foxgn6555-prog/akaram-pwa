@@ -11,13 +11,10 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import StopHotspotsLayer, { FlyToSpot } from './StopHotspotsLayer'
 import StopHotspotsPanel from './StopHotspotsPanel'
 import StopHotspotSettingsDialog from './StopHotspotSettingsDialog'
-import { clampHotspotWindow, formatStopDuration } from './stopHotspots'
+import { clampHotspotWindow, formatStopDuration, normalizeHotspotHours } from './stopHotspots'
 
 const HOURS_KEY = 'stop-hotspots:hours'
-export const readHotspotHours = () => {
-  const v = Number(sessionStorage.getItem(HOURS_KEY))
-  return [24, 72, 168].includes(v) ? v : 24
-}
+export const readHotspotHours = () => normalizeHotspotHours(sessionStorage.getItem(HOURS_KEY), 24)
 
 function FitOnce({ spots }: { spots: GpsStopHotspot[] }) {
   const map = useMap()

@@ -568,16 +568,8 @@ export interface GpsStopHotspotSettings {
   can_edit: boolean
   updated_at: string
 }
-export interface GpsStopPullResult {
-  ok: boolean
-  action: 'stops'
-  devices: number
-  inserted: number
-  source: number
-  failed: number
-  remaining: boolean
-  results: Array<{ device: string; from: string; to: string; direction?: 'forward' | 'backward'; inserted: number; error?: string }>
-}
+/** ساعات (قد تكون كسرية: 1/12 = 5 دقائق) → دقائق صحيحة ≥ 1 */
+export const hotspotMinutes = (hours: number) => Math.max(1, Math.round(hours * 60))
 export interface GpsStopPullStatus {
   devices: number
   caught_up: number
@@ -644,24 +636,18 @@ export const gpsLvn = {
   liveMap: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_live_map'))) ?? []) as unknown as GpsLiveDevice[],
   // 00362 — بقع التوقف
+  // 00371: النافذة بالدقائق (5 د … 7 أيام) مع قصّ دقيق للتوقفات التي تعبر بداية النافذة
   stopHotspots: async (hours: number) =>
-    (await sdkGuard(supabase.rpc('gps_stop_hotspots', { p_hours: hours }))) as unknown as GpsStopHotspotsResult,
+    (await sdkGuard(supabase.rpc('gps_stop_hotspots_v2', { p_minutes: hotspotMinutes(hours) }))) as unknown as GpsStopHotspotsResult,
   stopHotspotEvents: async (lat: number, lng: number, hours: number, limit = 30) =>
     ((await sdkGuard(
-      supabase.rpc('gps_stop_hotspot_events', { p_lat: lat, p_lng: lng, p_hours: hours, p_limit: limit }),
+      supabase.rpc('gps_stop_hotspot_events_v2', { p_lat: lat, p_lng: lng, p_minutes: hotspotMinutes(hours), p_limit: limit }),
     )) ?? []) as unknown as GpsStopHotspotEvent[],
   stopHotspotSettings: async () =>
     (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_get'))) as unknown as GpsStopHotspotSettings,
   saveStopHotspotSettings: async (patch: GpsStopHotspotSettingsPatch) =>
     (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_save', { p_patch: patch }))) as unknown as GpsStopHotspotSettings,
-  /** 00364 — سحب نقاط التوقف من LVN مباشرة لكل الأجهزة (دفعة من الطابور) ثم إعادة الحساب */
-  pullStopsNow: async (limit = 4) => {
-    const { data, error } = await supabase.functions.invoke<GpsStopPullResult>('lvn-gps-sync', { body: { action: 'stops', limit } })
-    if (error) throw await toLvnError(error)
-    if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'STOPS_PULL_FAILED')
-    if (data.action !== 'stops') throw new LvnSyncError('LVN_FUNCTION_OUTDATED')
-    return data
-  },
+  // 00371: سحب نقاط التوقف من LVN يجري على الخادم فقط (المجدول) — لا زر ولا استدعاء من المتصفح
   stopPullStatus: async () =>
     (await sdkGuard(supabase.rpc('gps_stop_pull_status'))) as unknown as GpsStopPullStatus,
   refreshStopHotspots: async () =>

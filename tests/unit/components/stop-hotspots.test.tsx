@@ -11,13 +11,12 @@ import {
   hotspotColor,
   hotspotRadiusPx,
   hotspotWindows,
+  normalizeHotspotHours,
   sortHotspots,
 } from '@components/gps/stopHotspots'
 
 const h = vi.hoisted(() => ({
   refresh: vi.fn(),
-  autoPull: vi.fn(),
-  pullNow: vi.fn(),
   flyTo: vi.fn(),
   circles: [] as Array<Record<string, unknown>>,
   icons: [] as string[],
@@ -42,11 +41,11 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsStopHotspots: (hours: number, enabled: boolean) => ({ data: enabled ? result(hours) : undefined, isLoading: false }),
   useGpsStopHotspotSettings: (enabled = true) => ({ data: enabled ? { can_edit: true } : undefined }),
   useRefreshGpsStopHotspots: () => ({ mutate: h.refresh, isPending: false }),
-  useGpsStopsAutoPull: (enabled: boolean) => { h.autoPull(enabled); return { running: false, batches: 0, inserted: 0, lastError: null, pullNow: h.pullNow } },
   useGpsStopPullStatus: () => ({ data: { devices: 12, caught_up: 9, never_pulled: 1, errors: 1, oldest_pulled_until: null, last_pull_at: new Date().toISOString(), points_total: 5000, last_error: 'LVN_TIMEOUT', pending_hours: 30.5 } }),
   useGpsStopHotspotEvents: () => ({ data: [{ id: 1, db_number: '101', vehicle_name: 'كابسة', started_at: '2026-10-28T06:00:00Z', ended_at: '2026-10-28T06:10:00Z', duration_seconds: 600, address: null }], isLoading: false }),
 }))
 import StopHotspotsPanel from '@components/gps/StopHotspotsPanel'
+import { hotspotMinutes } from '@sdk/gps-lvn.sdk'
 import StopHotspotsLayer, { heatBlobHtml } from '@components/gps/StopHotspotsLayer'
 import GpsLiveMap from '@portals/ops-room/pages/Gps/GpsLiveMap'
 
@@ -67,9 +66,17 @@ const result = (hours: number): GpsStopHotspotsResult => ({
 
 describe('بقع التوقف — الدوال المساعدة', () => {
   it('النوافذ تُقصّ حسب الحد الأقصى بالأيام', () => {
-    expect(hotspotWindows(7).map((w) => w.hours)).toEqual([24, 72, 168])
-    expect(hotspotWindows(3).map((w) => w.hours)).toEqual([24, 72])
-    expect(hotspotWindows(1).map((w) => w.hours)).toEqual([24])
+    expect(hotspotWindows(7).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24, 72, 168])
+    expect(hotspotWindows(3).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24, 72])
+    expect(hotspotWindows(1).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24])
+    // 00371: دقائق صحيحة للخادم + استعادة القيمة المخزّنة بتسامح كسري
+    expect(hotspotMinutes(5 / 60)).toBe(5)
+    expect(hotspotMinutes(15 / 60)).toBe(15)
+    expect(hotspotMinutes(168)).toBe(10080)
+    expect(normalizeHotspotHours(String(5 / 60))).toBe(5 / 60)
+    expect(normalizeHotspotHours('72')).toBe(72)
+    expect(normalizeHotspotHours('abc')).toBe(24)
+    expect(normalizeHotspotHours('2')).toBe(24)
     expect(clampHotspotWindow(168, 3)).toBe(72)
     expect(clampHotspotWindow(24, 3)).toBe(24)
   })
@@ -109,7 +116,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     const onHours = vi.fn(), onSelect = vi.fn()
     render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={onHours} selectedId={null} onSelect={onSelect} canEdit={false} />)
     const group = screen.getByRole('group', { name: 'النافذة الزمنية' })
-    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['24 ساعة', '3 أيام'])
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['5 د', '15 د', 'ساعة', '6 س', '24 س', '3 أيام'])   // max_days = 3 ⇒ بلا «7 أيام»
     fireEvent.click(within(group).getByText('3 أيام'))
     expect(onHours).toHaveBeenCalledWith(72)
     const items = within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')
@@ -124,8 +131,11 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(screen.getByText(/مستبعد 4/)).toBeTruthy()
   })
   it('فرز القائمة بعدد التوقفات، وأزرار التحديث/الإعدادات لمن يملك الصلاحية', () => {
-    const open = vi.fn()
-    render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={vi.fn()} selectedId={null} onSelect={vi.fn()} canEdit onOpenSettings={open} />)
+    const open = vi.fn(), onHours = vi.fn()
+    render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={onHours} selectedId={null} onSelect={vi.fn()} canEdit onOpenSettings={open} />)
+    // 00371: النقر على «5 د» يطلب نافذة 5 دقائق (1/12 ساعة)
+    fireEvent.click(within(screen.getByRole('group', { name: 'النافذة الزمنية' })).getByText('5 د'))
+    expect(onHours).toHaveBeenCalledWith(5 / 60)
     fireEvent.change(screen.getByLabelText('ترتيب البقع'), { target: { value: 'stops' } })
     const items = within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')
     expect(items[0]!.textContent).toContain('الكرادة')
@@ -133,16 +143,14 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(h.refresh).toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('hotspots-open-settings'))
     expect(open).toHaveBeenCalled()
-    // 00364: السحب التلقائي من LVN مفعّل لمن يملك الصلاحية، وحالة السحب ظاهرة، وزر السحب اليدوي
-    expect(h.autoPull).toHaveBeenLastCalledWith(true)
+    // 00371: حالة السحب ظاهرة لكن لا زر سحب حتى لمن يملك الصلاحية (الخادم فقط)
     expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('9/12 جهاز محدّث')
     expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('متبقٍ 30.5 س')
-    fireEvent.click(screen.getByTestId('hotspots-pull-now'))
-    expect(h.pullNow).toHaveBeenCalled()
+    expect(screen.queryByTestId('hotspots-pull-now')).toBeNull()
+    // 00371: النقر على «5 د» يطلب نافذة 5 دقائق (1/12 ساعة)
   })
-  it('القراءة فقط (النائب): لا سحب تلقائي ولا زر سحب، لكن حالة السحب ظاهرة', () => {
+  it('القراءة فقط (النائب): لا زر سحب، لكن حالة السحب ظاهرة', () => {
     render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={vi.fn()} selectedId={null} onSelect={vi.fn()} canEdit={false} />)
-    expect(h.autoPull).toHaveBeenLastCalledWith(false)
     expect(screen.queryByTestId('hotspots-pull-now')).toBeNull()
     expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('أخطاء 1')
   })

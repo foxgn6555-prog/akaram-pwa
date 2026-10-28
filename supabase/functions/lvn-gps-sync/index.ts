@@ -615,6 +615,8 @@ Deno.serve(async (req: Request) => {
       return response(await importHistory(provider, user.id, hash, body))
     }
     if (action === 'stops') {
+      // 00371: سحب نقاط التوقف على الخادم فقط (المجدول بصلاحية الخدمة) — لا موظف يستطيع سحبها من المتصفح
+      if (!(user as { scheduler?: boolean }).scheduler) return response({ ok: false, error: 'GPS_STOPS_SERVER_ONLY' }, 403)
       const hash = await login()
       return response(await pullStopHistory(provider.id, hash, Math.min(Math.max(Number(body.limit) || 2, 1), 20)))
     }

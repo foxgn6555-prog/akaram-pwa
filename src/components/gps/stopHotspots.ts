@@ -38,16 +38,29 @@ export const HOTSPOT_LEVEL_LABELS: Readonly<Record<GpsStopHotspot['level'], stri
 }
 
 /** خيارات النافذة الزمنية — تُقصّ حسب الحد الأقصى المضبوط في الإعدادات (أيام) */
+// 00371: نوافذ دقيقة من 5 دقائق حتى 7 أيام (بالساعات؛ الكسور = دقائق، وتُرسل للخادم كدقائق)
 export const HOTSPOT_WINDOWS = [
-  { hours: 24, label: '24 ساعة' },
+  { hours: 5 / 60, label: '5 د' },
+  { hours: 15 / 60, label: '15 د' },
+  { hours: 1, label: 'ساعة' },
+  { hours: 6, label: '6 س' },
+  { hours: 24, label: '24 س' },
   { hours: 72, label: '3 أيام' },
   { hours: 168, label: '7 أيام' },
 ] as const
+export const HOTSPOT_WINDOW_HOURS: readonly number[] = HOTSPOT_WINDOWS.map((w) => w.hours)
 export const hotspotWindows = (maxDays: number) => {
   const maxHours = Math.max(1, Math.round(maxDays)) * 24
   const list: Array<{ hours: number; label: string }> = HOTSPOT_WINDOWS.filter((w) => w.hours <= maxHours).map((w) => ({ ...w }))
   if (!list.length) list.push({ hours: maxHours, label: `${maxDays} يوم` })
   return list
+}
+/** قيمة مخزّنة → نافذة صالحة (تطابق بتسامح كسري) */
+export const normalizeHotspotHours = (v: unknown, fallback = 24) => {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
+  if (!Number.isFinite(n)) return fallback
+  const hit = HOTSPOT_WINDOW_HOURS.find((h) => Math.abs(h - n) < 1e-6)
+  return hit ?? fallback
 }
 /** إن كانت النافذة المختارة أكبر من المسموح يُرجَع أكبر خيار مسموح */
 export const clampHotspotWindow = (hours: number, maxDays: number) => {
