@@ -75,3 +75,27 @@ do $$ declare j jsonb; begin
   raise notice 'WG5 ✅ المستخدم والنافذة';
 end $$;
 select set_config('app.dedup_window_seconds', '0', false);
+
+-- WG6 (00306) · كل غلاف حارس security definer — وإلا يفشل حساب عادي بـ permission denied for function guard_duplicate (خطأ المحطة التحويلية)
+do $$ declare bad text; begin
+  select string_agg(p.proname, ', ') into bad from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosrc like '%app.guard_duplicate(%' and not p.prosecdef;
+  assert bad is null, 'invoker wrappers: ' || bad;
+  assert exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'ts_record_weighing' and p.prosecdef), 'ts_record_weighing secdef';
+  raise notice 'WG6 ✅ كل الأغلفة security definer';
+end $$;
+
+-- WG7 (00306) · بدور authenticated فعلاً (لا superuser): حساب المحطة يستدعي ts_record_weighing فلا يُرفض بـ permission denied
+reset role; select set_config('auth.user_id','', false);
+insert into auth.users (id, email) values ('49000000-0000-0000-0000-0000000000ee', 'wg-station@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('49000000-0000-0000-0000-0000000000ee', 'transfer_station') on conflict do nothing;
+select auth.set_test_user('49000000-0000-0000-0000-0000000000ee');
+set role authenticated;
+do $$ declare msg text := ''; begin
+  begin perform public.ts_record_weighing('00000000-0000-0000-0000-000000000000'::uuid, 5.5); exception when others then msg := sqlerrm; end;
+  assert msg not ilike '%permission denied%', 'WG7 station call: ' || msg;
+  begin perform public.ts_complete_weighing('00000000-0000-0000-0000-000000000000'::uuid, 'transfer_station', 'six'); exception when others then msg := sqlerrm; end;
+  assert msg not ilike '%permission denied%', 'WG7 station complete: ' || msg;
+  raise notice 'WG7 ✅ المحطة تستدعي الوزن بدور authenticated';
+end $$;
+reset role; select set_config('auth.user_id','', false);
