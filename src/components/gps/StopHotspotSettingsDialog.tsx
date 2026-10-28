@@ -75,7 +75,7 @@ export default function StopHotspotSettingsDialog({ settings, onClose }: { setti
           <button type="button" onClick={onClose} className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-black">✕</button>
         </div>
         <p className="mt-1 text-[11px] text-slate-600">
-          تُحسب البقع من توقفات الآليات المربوطة بأجهزة GPS طوال اليوم (داخل الانطلاقات وخارجها)، وتُحذف التوقفات الأقدم من الحد الأقصى تلقائياً.
+          تُحسب البقع من توقفات كل أجهزة GPS الفعّالة (المربوطة بآلية وغير المربوطة) طوال اليوم (داخل الانطلاقات وخارجها)، وتُحذف التوقفات الأقدم من الحد الأقصى تلقائياً.
           الأماكن المستبعدة (الكراج، المحطة…) لا تظهر كبقع.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm font-black">

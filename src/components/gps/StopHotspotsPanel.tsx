@@ -47,7 +47,7 @@ export default function StopHotspotsPanel({
   const shown = expanded ? spots.slice(0, compact ? 10 : 50) : []
   return (
     <div dir="rtl" className="w-[290px] max-w-full rounded-2xl border border-white/60 bg-white/95 p-2 text-[11px] shadow-xl backdrop-blur" data-testid="stop-hotspots-panel">
-      <div className="flex items-center justify-between gap-2">
+      <div className="-m-2 mb-0 flex items-center justify-between gap-2 rounded-t-2xl bg-gradient-to-l from-rose-700 via-rose-600 to-orange-500 px-3 py-2 text-white">
         <b className="text-xs">◉ بقع التوقف</b>
         <div className="flex gap-1" role="group" aria-label="النافذة الزمنية">
           {windows.map((w) => (
@@ -56,7 +56,7 @@ export default function StopHotspotsPanel({
               type="button"
               aria-pressed={hours === w.hours}
               onClick={() => onHours(w.hours)}
-              className={`rounded-lg px-2 py-1 font-black ${hours === w.hours ? 'bg-rose-700 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`rounded-lg px-2 py-1 font-black ${hours === w.hours ? 'bg-white text-rose-700 shadow' : 'bg-white/20 text-white'}`}
             >
               {w.label}
             </button>
@@ -75,7 +75,7 @@ export default function StopHotspotsPanel({
       <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[9px] text-slate-500">
         <span>
           <span style={{ color: HOTSPOT_COLORS.high }}>●</span> كثيفة <span style={{ color: HOTSPOT_COLORS.medium }}>●</span> متوسطة{' '}
-          <span style={{ color: HOTSPOT_COLORS.low }}>●</span> خفيفة · متقطّعة = نشطة الآن
+          <span style={{ color: HOTSPOT_COLORS.low }}>●</span> خفيفة · نابضة = نشطة الآن · هالة ذهبية = الأولى
         </span>
         <span title={data?.meta.last_refresh_at ?? ''}>آخر حساب {formatAgo(data?.meta.last_refresh_at)}{data?.totals.excluded ? ` · مستبعد ${data.totals.excluded}` : ''}</span>
       </div>
@@ -139,6 +139,9 @@ export default function StopHotspotsPanel({
                   <span className="flex justify-between gap-1 text-[9px] text-slate-500">
                     <span>{spot.stops} توقف · {spot.vehicles} آلية · ذروة {formatPeakHour(spot.peak_hour)}</span>
                     <span>{spot.active_now ? 'نشطة الآن' : formatAgo(spot.last_at)}</span>
+                  </span>
+                  <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(4, Math.round(spot.score * 100))}%`, background: HOTSPOT_COLORS[spot.level] }} />
                   </span>
                 </span>
               </button>

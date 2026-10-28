@@ -31,7 +31,7 @@ insert into public.gps_map_landmarks (id, name, category, latitude, longitude, c
 -- نقاط خام (خارج أي انطلاقة):
 --  D1: توقف 10 د عند A (33.3200,44.4200) قبل 3 ساعات، توقف 4 د عند A قبل 30 ساعة، توقف 20 د داخل زون الكراج قبل ساعتين، توقف 2 د فقط (أقل من الحد) عند B، حركة بين ذلك
 --  D2: توقف 6 د عند A (بُعد ~20م) قبل ساعة، توقف 8 د عند المعلم (المحطة) قبل ساعة، توقف قديم 30 د قبل 9 أيام (يُحذف)
---  D3: غير مربوط ⇒ يُهمل كلياً
+--  D3: غير مربوط ⇒ يُشمل أيضاً (00363) ويُعرض باسم الجهاز: توقف 30 د عند A قبل ساعة
 create or replace function pg_temp.stop_points(p_dev uuid, p_start timestamptz, p_lat float8, p_lng float8, p_minutes int, p_addr text default null) returns void language sql as $$
   insert into public.gps_device_position_history (device_id, latitude, longitude, speed, fix_time, address)
   select p_dev, p_lat + 0.00003 * (g % 2), p_lng + 0.00003 * (g % 3), 0, p_start + make_interval(secs => 30 * g), p_addr
@@ -70,15 +70,15 @@ declare r record; n int;
 begin
   update public.gps_stop_hotspot_settings set excluded_zone_ids = '{}', excluded_landmark_ids = '{}', max_days = 7, stop_min_seconds = 180, stop_speed_kmh = 3, cluster_radius_m = 60 where id = 1;
   select * into r from app.gps_stop_hotspots_refresh();
-  if r.devices < 2 then raise exception 'H1 devices %', r.devices; end if;
+  if r.devices < 3 then raise exception 'H1 devices %', r.devices; end if;
   select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000001';
   if n <> 3 then raise exception 'H1 d1 events % (wanted 3: A×2 + garage; the 2-min stop is below threshold)', n; end if;
   select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000002';
   if n <> 3 then raise exception 'H1 d2 events % (wanted 3: A + station + slice-boundary stop; the 9-day-old stop is beyond max_days)', n; end if;
   select count(*) into n from public.gps_stop_events e where e.device_id = 'e80dc000-0000-0000-0000-000000000002' and abs(e.latitude - 33.2000) < 0.001 and e.duration_seconds between 590 and 610;
   if n <> 1 then raise exception 'H1 slice-boundary stop must be ONE event of ~600s (got %)', n; end if;
-  select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000003';
-  if n <> 0 then raise exception 'H1 unbound device must be ignored'; end if;
+  select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000003' and garage_vehicle_id is null;
+  if n <> 1 then raise exception 'H1 unbound device must be included too (00363): %', n; end if;
   select count(*) into n from public.gps_stop_events e where e.duration_seconds between 590 and 610 and e.address = 'شارع فلسطين';
   if n <> 1 then raise exception 'H1 10-min stop duration/address %', n; end if;
   raise notice 'H1 ok (devices=% upserted=%)', r.devices, r.upserted;
@@ -144,12 +144,12 @@ begin
   if (j -> 'meta' ->> 'hours')::int <> 168 then raise exception 'H5 hours %', j -> 'meta'; end if;
   a := j -> 'spots' -> 0;
   if (a ->> 'rank')::int <> 1 or abs((a ->> 'lat')::float8 - 33.3201) > 0.001 then raise exception 'H5 top spot %', a; end if;
-  if (a ->> 'stops')::int <> 3 or (a ->> 'vehicles')::int <> 2 then raise exception 'H5 spot A stops/vehicles %', a; end if;
+  if (a ->> 'stops')::int <> 4 or (a ->> 'vehicles')::int <> 3 then raise exception 'H5 spot A stops/vehicles %', a; end if;
   tot := (a ->> 'total_seconds')::bigint;
-  if tot < 1150 or tot > 1250 then raise exception 'H5 total_seconds % (wanted ~1200)', tot; end if;
+  if tot < 2950 or tot > 3050 then raise exception 'H5 total_seconds % (wanted ~3000)', tot; end if;
   if (a ->> 'level') <> 'high' or (a ->> 'score')::numeric <> 1 then raise exception 'H5 level/score %', a; end if;
   if (a ->> 'address') <> 'شارع فلسطين' then raise exception 'H5 address %', a ->> 'address'; end if;
-  if jsonb_array_length(a -> 'top_vehicles') <> 2 or (a -> 'top_vehicles' -> 0 ->> 'db_number') <> 'DB-SH1' then raise exception 'H5 top vehicles %', a -> 'top_vehicles'; end if;
+  if jsonb_array_length(a -> 'top_vehicles') <> 3 or (a -> 'top_vehicles' -> 0 ->> 'vehicle_name') <> 'جهاز SH3 غير مربوط' or (a -> 'top_vehicles' -> 1 ->> 'db_number') <> 'DB-SH1' then raise exception 'H5 top vehicles %', a -> 'top_vehicles'; end if;
   if (a ->> 'peak_hour') is null then raise exception 'H5 peak_hour'; end if;
   -- لا بقعة داخل زون الكراج ولا عند المعلم
   if exists (select 1 from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3000) < 0.0005 and abs((s ->> 'lng')::float8 - 44.4000) < 0.0005) then raise exception 'H5 garage must be excluded'; end if;
@@ -158,7 +158,7 @@ begin
   -- نافذة 24 ساعة: التوقف قبل 30 ساعة يسقط ⇒ A = حدثان
   j := public.gps_stop_hotspots(24);
   a := j -> 'spots' -> 0;
-  if (a ->> 'stops')::int <> 2 then raise exception 'H5 24h stops % (wanted 2)', a; end if;
+  if (a ->> 'stops')::int <> 3 then raise exception 'H5 24h stops % (wanted 3)', a; end if;
   -- النافذة تُقصّ إلى الحد الأقصى
   j := public.gps_stop_hotspots(9999);
   if (j -> 'meta' ->> 'hours')::int <> 7 * 24 then raise exception 'H5 clamp %', j -> 'meta' ->> 'hours'; end if;
@@ -171,9 +171,9 @@ declare n int;
 begin
   perform pg_temp.as_user('e8000000-0000-0000-0000-000000000001');
   select count(*) into n from public.gps_stop_hotspot_events(33.3201, 44.4200, 168, 50);
-  if n <> 3 then raise exception 'H6 events % (wanted 3)', n; end if;
+  if n <> 4 then raise exception 'H6 events % (wanted 4)', n; end if;
   select count(*) into n from public.gps_stop_hotspot_events(33.3201, 44.4200, 24, 50);
-  if n <> 2 then raise exception 'H6 24h events %', n; end if;
+  if n <> 3 then raise exception 'H6 24h events %', n; end if;
   raise notice 'H6 ok';
 end $$;
 

@@ -59,7 +59,7 @@ export default function StopHotspotsPage({ testId = 'stop-hotspots-page' }: { te
       <ExecPageHeader
         icon="map-pin"
         title="بقع التوقف"
-        subtitle="أين تتوقف الآليات أكثر؟ تجميع تلقائي لتوقفات الآليات المربوطة بـ GPS طوال اليوم، مرتّبة بإجمالي زمن التوقف — تتحدّث كل دقيقة"
+        subtitle="أين تتوقف الآليات أكثر؟ تجميع تلقائي لتوقفات كل أجهزة GPS طوال اليوم، مرتّبة بإجمالي زمن التوقف — تتحدّث كل دقيقة"
         stats={stats}
       />
       <div className="relative overflow-hidden rounded-2xl border">

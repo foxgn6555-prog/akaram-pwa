@@ -17,15 +17,18 @@ const h = vi.hoisted(() => ({
   refresh: vi.fn(),
   flyTo: vi.fn(),
   circles: [] as Array<Record<string, unknown>>,
+  icons: [] as string[],
 }))
-vi.mock('leaflet', () => ({ default: { divIcon: vi.fn(() => ({})), latLngBounds: vi.fn((p: unknown) => p) } }))
+vi.mock('leaflet', () => ({ default: { divIcon: vi.fn((o: { html: string }) => { h.icons.push(o.html); return {} }), latLngBounds: vi.fn((p: unknown) => p) } }))
 vi.mock('react-leaflet', () => ({
   useMap: () => ({ flyTo: h.flyTo, getZoom: () => 12, fitBounds: vi.fn(), on: vi.fn(), off: vi.fn(), getCenter: () => ({ lat: 0, lng: 0 }), invalidateSize: vi.fn() }),
   MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   TileLayer: () => null,
   Polygon: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Marker: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Marker: ({ children, eventHandlers }: { children?: ReactNode; eventHandlers?: { click?: () => void } }) => <div data-testid="marker" onClick={() => eventHandlers?.click?.()}>{children}</div>,
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Pane: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Tooltip: ({ children }: { children: ReactNode }) => <div data-testid="tip">{children}</div>,
   CircleMarker: ({ children, pathOptions, radius, eventHandlers }: { children: ReactNode; pathOptions: Record<string, unknown>; radius: number; eventHandlers?: { click?: () => void } }) => {
     h.circles.push({ ...pathOptions, radius })
     return <div data-testid="circle" onClick={() => eventHandlers?.click?.()}>{children}</div>
@@ -39,7 +42,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsStopHotspotEvents: () => ({ data: [{ id: 1, db_number: '101', vehicle_name: 'كابسة', started_at: '2026-10-28T06:00:00Z', ended_at: '2026-10-28T06:10:00Z', duration_seconds: 600, address: null }], isLoading: false }),
 }))
 import StopHotspotsPanel from '@components/gps/StopHotspotsPanel'
-import StopHotspotsLayer from '@components/gps/StopHotspotsLayer'
+import StopHotspotsLayer, { heatBlobHtml } from '@components/gps/StopHotspotsLayer'
 import GpsLiveMap from '@portals/ops-room/pages/Gps/GpsLiveMap'
 
 const spot = (o: Partial<GpsStopHotspot>): GpsStopHotspot => ({
@@ -118,24 +121,32 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     fireEvent.click(screen.getByTestId('hotspots-open-settings'))
     expect(open).toHaveBeenCalled()
   })
-  it('الطبقة ترسم دائرة لكل بقعة بلون الكثافة وحجم الوزن، وتُظهر التفاصيل وآخر التوقفات', () => {
-    h.circles.length = 0
+  it('الطبقة ترسم بقعة حرارية لكل موقع بلون الكثافة وحجم الوزن بلا أرقام، مع نبض للنشطة وهالة للأولى، وتُظهر التفاصيل', () => {
+    h.icons.length = 0
     const onSelect = vi.fn()
     render(<StopHotspotsLayer spots={result(24).spots} hours={24} selectedId="2:2" onSelect={onSelect} />)
-    expect(h.circles).toHaveLength(3)
-    expect(h.circles[0]).toMatchObject({ fillColor: '#dc2626', radius: 32 })
-    expect(h.circles[1]).toMatchObject({ fillColor: '#f59e0b', color: '#0f172a', dashArray: '4 3' })
-    expect(h.circles[2]).toMatchObject({ fillColor: '#16a34a' })
+    expect(h.icons).toHaveLength(3)
+    expect(h.icons[0]).toContain('220,38,38')          // أحمر
+    expect(h.icons[0]).toContain('akh-crown')          // الأولى
+    expect(h.icons[0]).toContain('width:83px')         // الوزن 1 ⇒ أكبر حجم
+    expect(h.icons[1]).toContain('245,158,11')
+    expect(h.icons[1]).toContain('akh-ring')           // نشطة الآن
+    expect(h.icons[1]).toContain('akh-selected')
+    expect(h.icons[2]).toContain('22,163,74')
+    for (const html of h.icons) expect(html.replace(/[0-9.]+px|rgba?\([0-9,. ]+\)|[0-9]+%/g, '')).not.toMatch(/>\s*\d+\s*</)   // لا أرقام مرئية
+    expect(heatBlobHtml({ score: 0, level: 'low', active_now: false, rank: 5 }, false).size).toBe(26)
+    expect(heatBlobHtml({ score: 0, level: 'low', active_now: false, rank: 5 }, false).html).not.toContain('akh-crown')
     const popup = screen.getByTestId('hotspot-popup-1')
     expect(popup.textContent).toContain('20 د')
     expect(popup.textContent).toContain('DB 101')
     expect(popup.textContent).toContain('12:00–13:00')
     expect(within(popup).getByTestId('hotspot-events').textContent).toContain('10 د')
-    fireEvent.click(screen.getAllByTestId('circle')[2]!)
+    expect(screen.getAllByTestId('tip')[0]!.textContent).toContain('شارع فلسطين')
+    fireEvent.click(screen.getAllByTestId('marker')[2]!)
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '3:3' }))
   })
   it('الخريطة الحية: الطبقة معطّلة افتراضياً وتظهر اللوحة والدوائر عند التفعيل', () => {
-    h.circles.length = 0
+    h.icons.length = 0
     render(<GpsLiveMap rows={[]} zones={[]} landmarks={[]} />)
     expect(screen.queryByTestId('stop-hotspots-panel')).toBeNull()
     const toggle = screen.getByTestId('live-map-toggle-hotspots')
@@ -143,7 +154,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     fireEvent.click(toggle)
     expect(screen.getByTestId('stop-hotspots-panel')).toBeTruthy()
     expect(toggle.textContent).toContain('(3)')
-    expect(h.circles).toHaveLength(3)
+    expect(screen.getAllByTestId('marker')).toHaveLength(3)
     fireEvent.click(screen.getByText('عرض القائمة'))
     fireEvent.click(within(within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')[0]!).getByRole('button'))
     expect(h.flyTo).toHaveBeenCalledWith([33.32, 44.42], 16, expect.anything())

@@ -1,9 +1,9 @@
 /**
- * 00362 — طبقة «بقع التوقف» على خريطة Leaflet: دائرة لكل بقعة بلون كثافتها وحجم وزنها، ورقم ترتيبها،
+ * 00362/00363 — طبقة «بقع التوقف» على خريطة Leaflet: بقعة حرارية متوهّجة لكل موقع بلون كثافتها وحجم وزنها (بلا أرقام)،
  * ونافذة منبثقة بالتفاصيل (المدة الإجمالية، التوقفات، الآليات الأكثر توقفاً، ساعة الذروة، آخر التوقفات).
  */
 import { useEffect } from 'react'
-import { CircleMarker, Marker, Popup, useMap } from 'react-leaflet'
+import { Marker, Pane, Popup, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import type { GpsStopHotspot } from '@sdk/gps-lvn.sdk'
 import { useGpsStopHotspotEvents } from '@features/gps-lvn/hooks'
@@ -16,18 +16,51 @@ import {
   hotspotRadiusPx,
 } from './stopHotspots'
 
-const rankIconCache = new Map<string, L.DivIcon>()
-const rankIcon = (rank: number, level: GpsStopHotspot['level']) => {
-  const key = `${rank}-${level}`
-  const cached = rankIconCache.get(key)
+/** 00363 — «بقعة حرارية»: توهّج متدرّج بلون الكثافة وحجم الوزن، نواة مركزية، نبض للبقع النشطة الآن، هالة ذهبية للأولى — بلا أرقام على الخريطة */
+const HEAT_CSS = `
+@keyframes akh-pulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.6);opacity:0}}
+@keyframes akh-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.akh-blob{position:relative;border-radius:9999px;animation:akh-breathe 3.2s ease-in-out infinite;will-change:transform}
+.akh-core{position:absolute;inset:38%;border-radius:9999px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 2px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.35)}
+.akh-ring{position:absolute;inset:18%;border-radius:9999px;border:3px solid currentColor;animation:akh-pulse 1.8s ease-out infinite}
+.akh-crown{position:absolute;inset:8%;border-radius:9999px;border:2px dashed #f3d06a;box-shadow:0 0 12px rgba(243,208,106,.8)}
+.akh-selected{outline:3px solid #0f172a;outline-offset:-3px}
+.leaflet-tooltip.akh-tip{direction:rtl;font:800 11px system-ui;border-radius:12px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.25);padding:6px 10px}
+`
+let cssInjected = false
+const ensureHeatCss = () => {
+  if (cssInjected || typeof document === 'undefined') return
+  const el = document.createElement('style')
+  el.setAttribute('data-akh', '1')
+  el.textContent = HEAT_CSS
+  document.head.appendChild(el)
+  cssInjected = true
+}
+const hex2rgb = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16)
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`
+}
+const heatIconCache = new Map<string, L.DivIcon>()
+export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'level' | 'active_now' | 'rank'>, selected: boolean) => {
+  const rgb = hex2rgb(HOTSPOT_COLORS[spot.level])
+  const size = Math.round(hotspotRadiusPx(spot.score) * 2.6)
+  return {
+    size,
+    html:
+      `<div class="akh-blob${selected ? ' akh-selected' : ''}" style="width:${size}px;height:${size}px;color:rgb(${rgb});` +
+      `background:radial-gradient(circle, rgba(${rgb},.85) 0%, rgba(${rgb},.55) 28%, rgba(${rgb},.22) 58%, rgba(${rgb},0) 72%)">` +
+      (spot.rank === 1 ? '<div class="akh-crown"></div>' : '') +
+      (spot.active_now ? '<div class="akh-ring"></div>' : '') +
+      `<div class="akh-core" style="background:rgb(${rgb})"></div></div>`,
+  }
+}
+const heatIcon = (spot: GpsStopHotspot, selected: boolean) => {
+  const key = `${spot.level}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
+  const cached = heatIconCache.get(key)
   if (cached) return cached
-  const icon = L.divIcon({
-    className: '',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-    html: `<div style="width:22px;height:22px;border-radius:9999px;background:${HOTSPOT_COLORS[level]};color:#fff;font:900 11px/22px system-ui;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)">${rank}</div>`,
-  })
-  rankIconCache.set(key, icon)
+  const { size, html } = heatBlobHtml(spot, selected)
+  const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -size / 4], html })
+  heatIconCache.set(key, icon)
   return icon
 }
 
@@ -72,29 +105,28 @@ export default function StopHotspotsLayer({
   selectedId?: string | null
   onSelect?: (spot: GpsStopHotspot) => void
 }) {
+  useEffect(ensureHeatCss, [])
   return (
-    <>
+    <Pane name="akaram-hotspots" style={{ zIndex: 390 }}>
       {spots.map((spot) => {
         const color = HOTSPOT_COLORS[spot.level]
         const selected = selectedId === spot.id
         return (
-          <CircleMarker
+          <Marker
             key={spot.id}
-            center={[spot.lat, spot.lng]}
-            radius={hotspotRadiusPx(spot.score)}
-            pathOptions={{
-              color: selected ? '#0f172a' : color,
-              weight: selected ? 3 : spot.active_now ? 2.5 : 1.5,
-              fillColor: color,
-              fillOpacity: 0.28 + 0.35 * spot.score,
-              dashArray: spot.active_now ? '4 3' : undefined,
-            }}
+            position={[spot.lat, spot.lng]}
+            icon={heatIcon(spot, selected)}
+            zIndexOffset={selected ? 500 : Math.round(spot.score * 100)}
             eventHandlers={{ click: () => onSelect?.(spot) }}
           >
+            <Tooltip direction="top" className="akh-tip" opacity={0.96}>
+              <span style={{ color }}>●</span> {spot.address ?? 'بقعة توقف'}
+              {spot.active_now ? ' · نشطة الآن' : ''}
+            </Tooltip>
             <Popup maxWidth={300}>
               <div dir="rtl" className="min-w-[230px] text-[11px]" data-testid={`hotspot-popup-${spot.rank}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <b className="text-sm">بقعة #{spot.rank}</b>
+                  <b className="text-sm">{spot.address ?? 'بقعة توقف'}</b>
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-black text-white" style={{ background: color }}>
                     {HOTSPOT_LEVEL_LABELS[spot.level]}
                     {spot.active_now ? ' · نشطة الآن' : ''}
@@ -109,8 +141,6 @@ export default function StopHotspotsLayer({
                   متوسط التوقف {formatStopDuration(spot.avg_seconds)} · أطول توقف {formatStopDuration(spot.max_seconds)}
                   <br />
                   ساعة الذروة {formatPeakHour(spot.peak_hour)} · آخر توقف {formatAgo(spot.last_at)}
-                  <br />
-                  {spot.address ?? 'العنوان غير متوفر'}
                 </div>
                 {spot.top_vehicles.length > 0 && (
                   <div className="mt-1 border-t pt-1">
@@ -126,18 +156,9 @@ export default function StopHotspotsLayer({
                 <SpotEvents spot={spot} hours={hours} />
               </div>
             </Popup>
-          </CircleMarker>
+          </Marker>
         )
       })}
-      {spots.slice(0, 20).map((spot) => (
-        <Marker
-          key={`rank-${spot.id}`}
-          position={[spot.lat, spot.lng]}
-          icon={rankIcon(spot.rank, spot.level)}
-          interactive={false}
-          zIndexOffset={-100}
-        />
-      ))}
-    </>
+    </Pane>
   )
 }
