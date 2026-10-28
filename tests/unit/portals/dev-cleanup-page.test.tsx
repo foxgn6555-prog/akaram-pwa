@@ -58,6 +58,13 @@ describe('🧹 تنظيف البيانات التجريبية — بوابة ا�
     expect(mig).toContain('media_covers c where c.storage_path = p_name')
     expect(mig).toContain("raise exception 'DEV_CLEANUP_OBJECTS_REMAIN:%'")
     expect(mig).toContain('delete from public.gps_sync_runs')
+    // 00369: safeupdate على Supabase يرفض DELETE/UPDATE بلا WHERE داخل دوال المستخدمين — كل حذف شامل بشرط صريح
+    const fix = readFileSync('supabase/migrations/00313_dev_cleanup_safeupdate.sql', 'utf8')
+    expect(fix).toContain('create or replace function public.dev_cleanup_photos_finish(')
+    expect(fix).toContain('create or replace function public.dev_cleanup_gps_stops(')
+    expect(fix).not.toMatch(/delete from public\.[a-z_]+;/)
+    expect(fix).not.toMatch(/update public\.[a-z_]+ set [^;]*;(?<! where [^;]*;)/)
+    expect(fix.match(/delete from public\.[a-z_]+ where [a-z_]+ is not null;/g)?.length).toBe(10)
     const sdk = readFileSync('src/services/dev-cleanup.sdk.ts', 'utf8')
     expect(sdk).toContain('supabase.storage.from(bucket).remove(slice)')
     expect(sdk).toContain("throw new Error('DEV_CLEANUP_NO_PROGRESS')")
