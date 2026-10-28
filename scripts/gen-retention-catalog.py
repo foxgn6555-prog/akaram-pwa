@@ -54,6 +54,8 @@ L('it', 'permission_write_bindings', 'ربط دوال الكتابة بالصل�
 L('it', 'user_roles', 'أدوار المستخدمين', IDENT)
 L('it', 'manager_profiles', 'ملفات المديرين', IDENT)
 L('it', 'documents', 'المستندات العامة', ARCH)
+L('it', 'space_settings', 'إعدادات المساحة (حدود الخطة)', CFG)
+L('it', 'space_reclaim_log', 'سجل استرداد المساحة (الضغط)', PROOF)
 
 # ───── notifications
 D('notifications', 'notifications', 'الإشعارات', 'إشعارات الجرس لكل مستخدم.', 'created_at', 6, False, keep='is_read is not true and read_at is null and dismissed_at is null', lock='الإشعارات غير المقروءة محمية')

@@ -75,6 +75,7 @@ vi.mock('@features/portals', () => ({
   usePortals: () => ({ data: [{ id: 'p1', is_active: true }, { id: 'p2', is_active: true }] }),
 }))
 
+vi.mock('@components/it/SpacePanel', () => ({ default: () => <div data-testid="space-panel" /> }))
 vi.mock('@features/archive', () => ({
   useArchiveCounts: () => ({ data: [{ table: 'employees', count: 4 }, { table: 'vehicles', count: 1 }] }),
 }))

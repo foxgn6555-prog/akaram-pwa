@@ -29,6 +29,7 @@ import { truncate } from '@lib/utils/string.utils'
 import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ChartCard, ChartPlaceholder, QuickAction, StatCard } from './DashboardWidgets'
+import SpacePanel from '@components/it/SpacePanel'
 
 export default function ITDashboard() {
   const navigate = useNavigate()
@@ -181,6 +182,9 @@ export default function ITDashboard() {
         <StatCard icon="pie-chart" label="بوابات ديناميكية" value={`${fmtNum(activePortals)} / ${fmtNum(dynPortals?.length ?? 0)}`} />
         <StatCard icon="folder" label="سجلات مؤرشفة" value={fmtNum(archivedTotal)} onClick={() => navigate('/it/archive')} />
       </div>
+
+      {/* ── 00370: لوحة المساحة — قاعدة البيانات النصية والتخزين والقابل للاسترداد ── */}
+      <SpacePanel />
 
       {/* ── شريط معلومات النظام الحي ── */}
       <div className="flex flex-wrap gap-4 rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-2.5 text-[11px] text-slate-500">
