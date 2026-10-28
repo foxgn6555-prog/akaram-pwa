@@ -19,6 +19,10 @@ vi.mock('@features/station-fleet/hooks', () => ({
 }))
 vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsLiveMap: () => ({ data: h.live, isLoading: false }),
+  useGpsStopHotspots: () => ({ data: undefined, isLoading: false }),   // 00362
+  useGpsStopHotspotSettings: () => ({ data: undefined }),
+  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }),
+  useGpsStopHotspotEvents: () => ({ data: [] }),
   useGpsMapGeofences: () => ({ data: h.zones, isLoading: false }),
 }))
 import OpsStationOutboundPage from '@portals/ops-room/pages/StationFleet/OpsStationOutboundPage'

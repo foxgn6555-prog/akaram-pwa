@@ -483,6 +483,81 @@ export interface GpsSyncResult {
   nextWindowIndex?: number
 }
 
+/** 00362 — بقع التوقف على الخريطة الحية */
+export interface GpsStopHotspotVehicle {
+  vehicle_id: string | null
+  db_number: string | null
+  vehicle_name: string | null
+  stops: number
+  total_seconds: number
+}
+export interface GpsStopHotspot {
+  id: string
+  rank: number
+  lat: number
+  lng: number
+  stops: number
+  stops_24h: number
+  vehicles: number
+  total_seconds: number
+  avg_seconds: number
+  max_seconds: number
+  score: number
+  level: 'high' | 'medium' | 'low'
+  first_at: string
+  last_at: string
+  active_now: boolean
+  peak_hour: number | null
+  address: string | null
+  top_vehicles: GpsStopHotspotVehicle[]
+}
+export interface GpsStopHotspotsResult {
+  spots: GpsStopHotspot[]
+  totals: { stops: number; total_seconds: number; vehicles: number; excluded: number }
+  meta: {
+    hours: number
+    max_days: number
+    enabled: boolean
+    cluster_radius_m: number
+    last_refresh_at: string | null
+    refresh_minutes: number
+    generated_at: string
+    excluded_zone_ids: string[]
+    excluded_landmark_ids: string[]
+  }
+}
+export interface GpsStopHotspotEvent {
+  id: number
+  vehicle_id: string | null
+  db_number: string | null
+  vehicle_name: string | null
+  started_at: string
+  ended_at: string
+  duration_seconds: number
+  address: string | null
+}
+export interface GpsStopHotspotSettings {
+  enabled: boolean
+  max_days: number
+  stop_speed_kmh: number
+  stop_min_seconds: number
+  gap_split_seconds: number
+  cluster_radius_m: number
+  refresh_minutes: number
+  landmark_exclude_radius_m: number
+  excluded_zone_ids: string[]
+  excluded_landmark_ids: string[]
+  excluded_zones: Array<{ id: string; name: string }>
+  excluded_landmarks: Array<{ id: string; name: string; category: string }>
+  last_refresh_at: string | null
+  last_refresh_ms: number | null
+  events_count: number
+  can_edit: boolean
+  updated_at: string
+}
+export type GpsStopHotspotSettingsPatch = Partial<
+  Pick<GpsStopHotspotSettings, 'enabled' | 'max_days' | 'stop_speed_kmh' | 'stop_min_seconds' | 'gap_split_seconds' | 'cluster_radius_m' | 'refresh_minutes' | 'landmark_exclude_radius_m' | 'excluded_zone_ids' | 'excluded_landmark_ids'>
+>
 export const gpsLvn = {
   dashboard: async () =>
     (await sdkGuard(supabase.rpc('gps_lvn_dashboard'))) as unknown as GpsDashboard,
@@ -532,6 +607,26 @@ export const gpsLvn = {
   },
   liveMap: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_live_map'))) ?? []) as unknown as GpsLiveDevice[],
+  // 00362 — بقع التوقف
+  stopHotspots: async (hours: number) =>
+    (await sdkGuard(supabase.rpc('gps_stop_hotspots', { p_hours: hours }))) as unknown as GpsStopHotspotsResult,
+  stopHotspotEvents: async (lat: number, lng: number, hours: number, limit = 30) =>
+    ((await sdkGuard(
+      supabase.rpc('gps_stop_hotspot_events', { p_lat: lat, p_lng: lng, p_hours: hours, p_limit: limit }),
+    )) ?? []) as unknown as GpsStopHotspotEvent[],
+  stopHotspotSettings: async () =>
+    (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_get'))) as unknown as GpsStopHotspotSettings,
+  saveStopHotspotSettings: async (patch: GpsStopHotspotSettingsPatch) =>
+    (await sdkGuard(supabase.rpc('gps_stop_hotspot_settings_save', { p_patch: patch }))) as unknown as GpsStopHotspotSettings,
+  refreshStopHotspots: async () =>
+    (await sdkGuard(supabase.rpc('gps_stop_hotspots_refresh_now'))) as unknown as {
+      ok: boolean
+      busy?: boolean
+      devices?: number
+      upserted?: number
+      purged?: number
+      took_ms?: number
+    },
   openAlerts: async () =>
     ((await sdkGuard(supabase.rpc('gps_lvn_open_alerts', { p_limit: 100 }))) ??
       []) as unknown as GpsOperationalAlert[],

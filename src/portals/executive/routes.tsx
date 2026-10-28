@@ -15,6 +15,8 @@ const ExecRewardsPage = lazy(() => import('./pages/Treasury/ExecRewardsPage'))
 const ExecLettersPage = lazy(() => import('./pages/Letters/ExecLettersPage'))   // 00357
 const ExecGpsPaymentsPage = lazy(() => import('./pages/Treasury/ExecGpsPaymentsPage'))
 const ExecEventsPage = lazy(() => import('./pages/Treasury/ExecEventsPage'))
+const StopHotspotsPage = lazy(() => import('@components/gps/StopHotspotsPage').then((m) => ({ default: () => <m.default testId="executive-stop-hotspots" /> })))   // 00362: بقع التوقف (قراءة)
+
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
 export const customRoutes: RouteObject[] = [
@@ -29,4 +31,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'gps-payments', element: s(<ExecGpsPaymentsPage />) },
   { path: 'events', element: s(<ExecEventsPage />) },
   { path: 'behavior', element: s(<BehaviorReportsPage />) },
+  { path: 'stop-hotspots', element: s(<StopHotspotsPage />) },
 ]

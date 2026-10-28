@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const DeputyHome = lazy(() => import('./pages/DeputyHome'))
 const DeputyReports = lazy(() => import('./pages/DeputyReports'))
 const BehaviorReportsPage = lazy(() => import('@portals/hr/pages/Behavior/BehaviorReportsPage').then((m) => ({ default: () => <m.default readOnly /> })))   // 00249: قراءة فقط
+const StopHotspotsPage = lazy(() => import('@components/gps/StopHotspotsPage').then((m) => ({ default: () => <m.default testId="deputy-stop-hotspots" /> })))   // 00362: بقع التوقف (قراءة)
 const DeputyAnnouncements = lazy(() => import('./pages/DeputyAnnouncements'))
 const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))
@@ -40,6 +41,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'overtime', element: s(<DeputyOvertimePage />) },
   { path: 'station-folders', element: s(<StationFoldersPage />) },
   { path: 'data-analysis', element: s(<DataAnalysisPage />) },
+  { path: 'stop-hotspots', element: s(<StopHotspotsPage />) },
   { path: 'sector-supplies', element: s(<SectorSupplies />) },
   { path: 'approvals', element: s(<ApprovalTasks />) },
   { path: 'procedures', element: s(<ProceduresPage />) },

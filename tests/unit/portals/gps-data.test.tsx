@@ -131,6 +131,10 @@ const device = {
 }
 vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsAutoSync: () => ({ lastAttempt: null }),
+  useGpsStopHotspots: () => ({ data: undefined, isLoading: false }),   // 00362
+  useGpsStopHotspotSettings: () => ({ data: undefined }),
+  useRefreshGpsStopHotspots: () => ({ mutate: vi.fn(), isPending: false }),
+  useGpsStopHotspotEvents: () => ({ data: [] }),
   useGpsRoute: () => ({ data: [], isLoading: false }),
   useGpsRouteWindow: (...args: unknown[]) => h.routeWindow(...args),
   useGpsTripHistory: () => ({ data: hookState.trips, isLoading: false }),

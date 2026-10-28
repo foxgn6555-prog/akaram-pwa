@@ -402,6 +402,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/executive/letters', labelKey: 'nav.exec_letters', icon: 'file-text' },   // 00357
     { path: '/executive/events', labelKey: 'nav.exec_events', icon: 'photo' },
     { path: '/executive/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة
+    { path: '/executive/stop-hotspots', labelKey: 'nav.stop_hotspots', icon: 'globe' },   // 00362 قراءة
   ],
   // معاون المدير المفوض (00220): الرئيسية والتقارير والتبليغات، ثم وحدات الميدان الأربع، ثم المكافآت والموافقات والإجراءات
   [PORTALS.DEPUTY]: [
@@ -420,6 +421,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
     { path: '/deputy/procedures', labelKey: 'nav.procedures', icon: 'flow' },
     { path: '/deputy/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249 قراءة
+    { path: '/deputy/stop-hotspots', labelKey: 'nav.stop_hotspots', icon: 'globe' },   // 00362 قراءة
   ],
   [PORTALS.OPS_ROOM]: [
     { path: '/ops-room', labelKey: 'nav.dashboard', icon: 'home', exact: true },
