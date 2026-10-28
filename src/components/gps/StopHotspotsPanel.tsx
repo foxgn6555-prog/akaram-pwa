@@ -125,10 +125,12 @@ export default function StopHotspotsPanel({
       <div className="mt-1 flex items-center justify-between gap-1 rounded-lg bg-slate-50 px-2 py-1 text-[9px] text-slate-600" data-testid="hotspots-pull-status">
         <span>
           {pull.running ? (
-            <span className="font-black text-cyan-800">⟳ يسحب من LVN… ({pull.batches} دفعة، {pull.inserted.toLocaleString('en-US')} نقطة)</span>
+            <span className="font-black text-cyan-800">⟳ يسحب دفعة من LVN (جهازان)…</span>
           ) : pullStatus.data ? (
             <>
               LVN: {pullStatus.data.caught_up}/{pullStatus.data.devices} جهاز محدّث
+              {pullStatus.data.full_depth !== undefined ? ` · مكتمل العمق ${pullStatus.data.full_depth}` : ''}
+              {pullStatus.data.covered_hours ? ` · مُغطّى ${pullStatus.data.covered_hours.toLocaleString('en-US')} س` : ''}
               {pullStatus.data.pending_hours > 0 ? ` · متبقٍ ${pullStatus.data.pending_hours.toLocaleString('en-US')} س` : ''}
               {pullStatus.data.errors > 0 ? ` · أخطاء ${pullStatus.data.errors}` : ''}
               {pullStatus.data.last_pull_at ? ` · آخر سحب ${formatAgo(pullStatus.data.last_pull_at)}` : ' · لم يُسحب بعد'}
@@ -141,7 +143,7 @@ export default function StopHotspotsPanel({
           </button>
         )}
       </div>
-      {pull.lastError && !pull.running && <div className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-800">تعذر سحب بعض الأجهزة من LVN ({pull.lastError}) — سيُعاد تلقائياً.</div>}
+      {pull.lastError && !pull.running && <div className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-800">تعذر سحب بعض الأجهزة من LVN ({pull.lastError}) — يعيد المجدول الخادمي المحاولة كل دقيقة.</div>}
       {loading && <div className="mt-2 text-center text-slate-500">… تحميل</div>}
       {!loading && fetching && <div className="mt-1 text-center text-[9px] font-bold text-cyan-800" data-testid="hotspots-fetching">⟳ جارٍ تحديث النافذة…</div>}
       {!loading && data && data.spots.length === 0 && (

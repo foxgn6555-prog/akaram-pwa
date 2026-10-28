@@ -37,6 +37,9 @@ export default function StopHotspotSettingsDialog({ settings, onClose }: { setti
     landmark_exclude_radius_m: settings.landmark_exclude_radius_m,
     excluded_zone_ids: settings.excluded_zone_ids,
     excluded_landmark_ids: settings.excluded_landmark_ids,
+    map_style: (settings.map_style ?? 'glow') as 'glow' | 'heat',
+    heat_intensity: Math.round(Number(settings.heat_intensity ?? 0.7) * 100),
+    heat_size: Math.round(Number(settings.heat_size ?? 1) * 100),
   })
   const [zoneSearch, setZoneSearch] = useState('')
   useEffect(() => {
@@ -53,7 +56,8 @@ export default function StopHotspotSettingsDialog({ settings, onClose }: { setti
   const invalid =
     form.max_days < 1 || form.max_days > 30 || form.stop_min_minutes < 1 || form.stop_min_minutes > 120 ||
     form.cluster_radius_m < 20 || form.cluster_radius_m > 500 || form.stop_speed_kmh < 0 || form.stop_speed_kmh > 30 ||
-    form.landmark_exclude_radius_m < 20 || form.landmark_exclude_radius_m > 2000
+    form.landmark_exclude_radius_m < 20 || form.landmark_exclude_radius_m > 2000 ||
+    form.heat_intensity < 20 || form.heat_intensity > 100 || form.heat_size < 50 || form.heat_size > 250
   const submit = () => {
     const patch: GpsStopHotspotSettingsPatch = {
       enabled: form.enabled,
@@ -64,6 +68,9 @@ export default function StopHotspotSettingsDialog({ settings, onClose }: { setti
       landmark_exclude_radius_m: form.landmark_exclude_radius_m,
       excluded_zone_ids: form.excluded_zone_ids,
       excluded_landmark_ids: form.excluded_landmark_ids,
+      map_style: form.map_style,
+      heat_intensity: form.heat_intensity / 100,
+      heat_size: form.heat_size / 100,
     }
     save.mutate(patch, { onSuccess: onClose })
   }
@@ -95,6 +102,31 @@ export default function StopHotspotSettingsDialog({ settings, onClose }: { setti
             {settings.last_refresh_ms !== null ? ` (${settings.last_refresh_ms} مللي ث)` : ''}
           </div>
         </div>
+        <section className="mt-3 rounded-xl border p-2" data-testid="hotspot-style">
+          <b className="text-xs">شكل البقع على الخريطة (مشترك لكل المستخدمين)</b>
+          <div className="mt-1 grid grid-cols-2 gap-2 text-[11px]">
+            <label className={`flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 ${form.map_style === 'glow' ? 'border-slate-900 bg-slate-50' : ''}`}>
+              <input type="radio" name="map_style" checked={form.map_style === 'glow'} onChange={() => setForm((f) => ({ ...f, map_style: 'glow' }))} data-testid="hotspot-style-glow" />
+              <span><b>توهّج + نقطة</b><br /><span className="text-[9px] text-slate-500">نواة مركزية، نبض للنشطة، تاج للأولى</span></span>
+            </label>
+            <label className={`flex cursor-pointer items-center gap-2 rounded-lg border p-1.5 ${form.map_style === 'heat' ? 'border-slate-900 bg-slate-50' : ''}`}>
+              <input type="radio" name="map_style" checked={form.map_style === 'heat'} onChange={() => setForm((f) => ({ ...f, map_style: 'heat' }))} data-testid="hotspot-style-heat" />
+              <span><b>حرارة فقط</b><br /><span className="text-[9px] text-slate-500">مناطق غامقة متدرّجة بلا نقطة ولا حلقات</span></span>
+            </label>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <label className="block text-[11px]">
+              <span className="font-black text-slate-700">شدة اللون ({form.heat_intensity}%)</span>
+              <input type="range" dir="ltr" min={20} max={100} step={5} value={form.heat_intensity} onChange={(e) => setForm((f) => ({ ...f, heat_intensity: Number(e.target.value) }))} className="mt-0.5 w-full" data-testid="hotspot-heat-intensity" />
+              <span className="text-[9px] text-slate-500">20–100% · كلما زادت صار المركز أغمق</span>
+            </label>
+            <label className="block text-[11px]">
+              <span className="font-black text-slate-700">حجم البقعة ({form.heat_size}%)</span>
+              <input type="range" dir="ltr" min={50} max={250} step={10} value={form.heat_size} onChange={(e) => setForm((f) => ({ ...f, heat_size: Number(e.target.value) }))} className="mt-0.5 w-full" data-testid="hotspot-heat-size" />
+              <span className="text-[9px] text-slate-500">50–250% · مضاعف لحجم كل البقع</span>
+            </label>
+          </div>
+        </section>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <section className="rounded-xl border p-2">
             <div className="flex items-center justify-between">

@@ -40,29 +40,26 @@ create or replace function pg_temp.stop_points(p_dev uuid, p_start timestamptz, 
 create or replace function pg_temp.move_points(p_dev uuid, p_start timestamptz, p_lat float8, p_lng float8, p_count int) returns void language sql as $$
   insert into public.gps_device_position_history (device_id, latitude, longitude, speed, fix_time)
   select p_dev, p_lat + 0.002 * g, p_lng, 30, p_start + make_interval(secs => 30 * g) from generate_series(0, p_count - 1) g on conflict do nothing $$;
+-- 00366: كل توقف محاط بحركة متلاصقة (30 ث قبل/بعد) ⇒ المدة الدقيقة = الدقائق×60 + 15 ث من كل طرف (منتصف الفاصل)
+create or replace function pg_temp.episode(p_dev uuid, p_start timestamptz, p_lat float8, p_lng float8, p_minutes int, p_addr text default null) returns void language sql as $$
+  select pg_temp.move_points(p_dev, p_start - interval '150 seconds', p_lat - 0.01, p_lng, 5);
+  select pg_temp.stop_points(p_dev, p_start, p_lat, p_lng, p_minutes, p_addr);
+  select pg_temp.move_points(p_dev, p_start + make_interval(mins => p_minutes) + interval '30 seconds', p_lat, p_lng, 5);
+$$;
 do $$
 declare d1 uuid := 'e80dc000-0000-0000-0000-000000000001'; d2 uuid := 'e80dc000-0000-0000-0000-000000000002'; d3 uuid := 'e80dc000-0000-0000-0000-000000000003'; t0 timestamptz := date_trunc('minute', now());
 begin
   delete from public.gps_device_position_history where device_id in (d1, d2, d3);
-  perform pg_temp.move_points(d1, t0 - interval '3 hour 10 minute', 33.3000, 44.4200, 10);
-  perform pg_temp.stop_points(d1, t0 - interval '3 hour', 33.3200, 44.4200, 10, 'شارع فلسطين');
-  perform pg_temp.move_points(d1, t0 - interval '2 hour 40 minute', 33.3200, 44.4200, 10);
-  perform pg_temp.stop_points(d1, t0 - interval '2 hour', 33.3000, 44.4000, 20);
-  perform pg_temp.move_points(d1, t0 - interval '1 hour 30 minute', 33.3000, 44.4000, 10);
-  perform pg_temp.stop_points(d1, t0 - interval '1 hour', 33.2500, 44.3000, 2);
-  perform pg_temp.move_points(d1, t0 - interval '50 minute', 33.2500, 44.3000, 10);
-  perform pg_temp.stop_points(d1, t0 - interval '30 hour', 33.3200, 44.4200, 4);
-  perform pg_temp.move_points(d1, t0 - interval '29 hour 50 minute', 33.3200, 44.4200, 10);
-  perform pg_temp.move_points(d2, t0 - interval '1 hour 10 minute', 33.3000, 44.4200, 10);
-  perform pg_temp.stop_points(d2, t0 - interval '1 hour', 33.3202, 44.4200, 6, 'شارع فلسطين');
-  perform pg_temp.move_points(d2, t0 - interval '50 minute', 33.3202, 44.4200, 10);
-  perform pg_temp.stop_points(d2, t0 - interval '40 minute', 33.3500, 44.4500, 8);
-  perform pg_temp.move_points(d2, t0 - interval '25 minute', 33.3500, 44.4500, 10);
-  perform pg_temp.stop_points(d2, t0 - interval '9 day', 33.3200, 44.4200, 30);
-  -- توقف يعبر حدّ شريحة المسح (24 ساعة من أرضية النافذة): 10 د حول (الآن − 6 أيام) ⇒ حدث واحد ~600 ث
-  perform pg_temp.stop_points(d2, t0 - interval '6 day' - interval '5 minute', 33.2000, 44.2000, 10);
-  perform pg_temp.move_points(d2, t0 - interval '6 day' + interval '6 minute', 33.2000, 44.2000, 10);
-  perform pg_temp.stop_points(d3, t0 - interval '1 hour', 33.3200, 44.4200, 30);
+  perform pg_temp.episode(d1, t0 - interval '3 hour', 33.3200, 44.4200, 10, 'شارع فلسطين');
+  perform pg_temp.episode(d1, t0 - interval '2 hour', 33.3000, 44.4000, 20);
+  perform pg_temp.episode(d1, t0 - interval '1 hour', 33.2500, 44.3000, 2);
+  perform pg_temp.episode(d1, t0 - interval '30 hour', 33.3200, 44.4200, 4);
+  perform pg_temp.episode(d2, t0 - interval '1 hour', 33.3202, 44.4200, 6, 'شارع فلسطين');
+  perform pg_temp.episode(d2, t0 - interval '40 minute', 33.3500, 44.4500, 8);
+  perform pg_temp.episode(d2, t0 - interval '9 day', 33.3200, 44.4200, 30);
+  -- توقف يعبر حدّ شريحة المسح (24 ساعة من أرضية النافذة): 10 د حول (الآن − 6 أيام) ⇒ حدث واحد
+  perform pg_temp.episode(d2, t0 - interval '6 day' - interval '5 minute', 33.2000, 44.2000, 10);
+  perform pg_temp.episode(d3, t0 - interval '1 hour', 33.3200, 44.4200, 30);
 end $$;
 
 -- H1: الدوري يستخرج الأحداث؛ الاستبعاد يحتاج ضبط القائمة أولاً
@@ -76,12 +73,12 @@ begin
   if n <> 3 then raise exception 'H1 d1 events % (wanted 3: A×2 + garage; the 2-min stop is below threshold)', n; end if;
   select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000002';
   if n <> 3 then raise exception 'H1 d2 events % (wanted 3: A + station + slice-boundary stop; the 9-day-old stop is beyond max_days)', n; end if;
-  select count(*) into n from public.gps_stop_events e where e.device_id = 'e80dc000-0000-0000-0000-000000000002' and abs(e.latitude - 33.2000) < 0.001 and e.duration_seconds between 590 and 610;
+  select count(*) into n from public.gps_stop_events e where e.device_id = 'e80dc000-0000-0000-0000-000000000002' and abs(e.latitude - 33.2000) < 0.001 and e.duration_seconds = 630;
   if n <> 1 then raise exception 'H1 slice-boundary stop must be ONE event of ~600s (got %)', n; end if;
   select count(*) into n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000003' and garage_vehicle_id is null;
   if n <> 1 then raise exception 'H1 unbound device must be included too (00363): %', n; end if;
-  select count(*) into n from public.gps_stop_events e where e.duration_seconds between 590 and 610 and e.address = 'شارع فلسطين';
-  if n <> 1 then raise exception 'H1 10-min stop duration/address %', n; end if;
+  select count(*) into n from public.gps_stop_events e where e.duration_seconds = 630 and e.address = 'شارع فلسطين';
+  if n <> 1 then raise exception 'H1 10-min stop must be exactly 630s (600 + 15 + 15 midpoint) with address: %', n; end if;
   raise notice 'H1 ok (devices=% upserted=%)', r.devices, r.upserted;
 end $$;
 
@@ -153,7 +150,7 @@ begin
   if (a ->> 'rank')::int <> 1 or abs((a ->> 'lat')::float8 - 33.3201) > 0.001 then raise exception 'H5 top spot %', a; end if;
   if (a ->> 'stops')::int <> 4 or (a ->> 'vehicles')::int <> 3 then raise exception 'H5 spot A stops/vehicles %', a; end if;
   tot := (a ->> 'total_seconds')::bigint;
-  if tot < 2950 or tot > 3050 then raise exception 'H5 total_seconds % (wanted ~3000)', tot; end if;
+  if tot <> 3120 then raise exception 'H5 total_seconds % (wanted 3120 = 630+270+390+1830)', tot; end if;
   if (a ->> 'level') <> 'high' or (a ->> 'score')::numeric <> 1 then raise exception 'H5 level/score %', a; end if;
   if (a ->> 'address') <> 'شارع فلسطين' then raise exception 'H5 address %', a ->> 'address'; end if;
   if jsonb_array_length(a -> 'top_vehicles') <> 3 or (a -> 'top_vehicles' -> 0 ->> 'vehicle_name') <> 'جهاز SH3 غير مربوط' or (a -> 'top_vehicles' -> 1 ->> 'db_number') <> 'DB-SH1' then raise exception 'H5 top vehicles %', a -> 'top_vehicles'; end if;
@@ -202,7 +199,10 @@ begin
   j := public.gps_stop_hotspot_settings_save('{"enabled": false}');
   j := public.gps_stop_hotspots_refresh_now();
   if (j ->> 'devices')::int <> 0 then raise exception 'H7 disabled engine must not scan %', j; end if;
-  j := public.gps_stop_hotspot_settings_save('{"enabled": true, "max_days": 7}');
+  j := public.gps_stop_hotspot_settings_save('{"enabled": true, "max_days": 7, "map_style": "heat", "heat_intensity": 0.9, "heat_size": 1.5}');
+  if (j ->> 'map_style') <> 'heat' or (j ->> 'heat_size')::numeric <> 1.5 then raise exception 'H7 map style %', j; end if;
+  perform pg_temp.expect_error($q$select public.gps_stop_hotspot_settings_save('{"map_style": "neon"}')$q$, 'check');
+  if (public.gps_stop_hotspots(24) -> 'meta' ->> 'map_style') <> 'heat' then raise exception 'H7 meta map_style'; end if;
   j := public.gps_stop_hotspots_refresh_now();
   if (j ->> 'ok')::boolean is distinct from true then raise exception 'H7 refresh_now %', j; end if;
   raise notice 'H7 ok';
@@ -243,13 +243,17 @@ begin
   select count(*) into n from public.gps_stop_pull_queue(20) where device_id in ('e80dc000-0000-0000-0000-000000000001','e80dc000-0000-0000-0000-000000000002','e80dc000-0000-0000-0000-000000000003');
   if n <> 3 then raise exception 'H10 queue must include bound+unbound devices (got %)', n; end if;
   select * into q from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003';
-  if q.pulled_until is not null or q.pull_to - q.pull_from <> interval '6 hours' or q.pull_from > now() - interval '6 days 23 hours' then raise exception 'H10 first window %', to_jsonb(q); end if;
+  if q.pulled_until is not null or q.direction <> 'forward' or q.pull_to - q.pull_from <> interval '6 hours' or q.pull_to < now() - interval '3 minutes' then raise exception 'H10 first window must be the most recent 6h %', to_jsonb(q); end if;
   -- سحب ناجح حتى قبل دقيقة ⇒ يخرج من الطابور؛ ويعيد المسح من بداية النافذة
-  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now() - interval '1 minute', 120, null);
-  if exists (select 1 from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003') then raise exception 'H10 caught-up device must leave queue'; end if;
-  if not exists (select 1 from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003' and lvn_points_total = 120 and scan_from <= now() - interval '24 hours 1 minute') then raise exception 'H10 mark state'; end if;
+  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now() - interval '6 hours', now() - interval '1 minute', 120, null);
+  if exists (select 1 from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003' and direction = 'forward') then raise exception 'H10 caught-up device must leave forward queue'; end if;
+  select * into q from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003';
+  if q.direction <> 'backward' or q.pull_to <> (select lvn_pulled_from from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003') or q.pull_to - q.pull_from <> interval '6 hours' then raise exception 'H10 backward window %', to_jsonb(q); end if;
+  -- الأجهزة التي لم تُسحب تسبق التعميق للخلف
+  if (select direction from public.gps_stop_pull_queue(1)) <> 'forward' then raise exception 'H10 forward first'; end if;
+  if not exists (select 1 from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003' and lvn_points_total = 120 and scan_from <= now() - interval '6 hours') then raise exception 'H10 mark state'; end if;
   -- خطأ لا يقدّم العلامة
-  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now(), 0, 'LVN_TIMEOUT');
+  perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now() - interval '1 minute', now(), 0, 'LVN_TIMEOUT');
   if not exists (select 1 from public.gps_stop_scan_state where device_id = 'e80dc000-0000-0000-0000-000000000003' and lvn_last_error = 'LVN_TIMEOUT' and lvn_pulled_until <= now() - interval '1 minute') then raise exception 'H10 error must not advance'; end if;
   j := public.gps_stop_hotspots_refresh_service(5000);
   if (j ->> 'ok')::boolean is distinct from true then raise exception 'H10 refresh_service %', j; end if;

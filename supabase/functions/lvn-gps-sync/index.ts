@@ -80,13 +80,24 @@ async function actor(req: Request) {
   if (!token) return null
   // Supabase Cron invokes with the service-role token; interactive calls still require an authorized user.
   if (token === SERVICE_ROLE) return { id: null, scheduler: true }
+  // 00366: المزامنة التفاعلية تُستدعى كل ثانية؛ استدعاء auth.getUser لكل طلب يصطدم بحدّ معدل المصادقة ⇒ 403 متكررة.
+  // نخزّن نتيجة التحقق لكل رمز لمدة قصيرة (أقل من صلاحية الرمز) بدل إعادة التحقق في كل طلب.
+  const cached = actorCache.get(token)
+  if (cached && cached.until > Date.now()) return cached.user
   const { data, error } = await admin.auth.getUser(token)
-  if (error || !data.user) return null
+  if (error || !data.user) {
+    // خطأ معدل/شبكة مؤقت: لا نُسقط جلسة كانت صالحة قبل لحظات
+    if (cached?.user && error && (error.status === 429 || (error.status ?? 0) >= 500)) return cached.user
+    return null
+  }
   const { data: roles } = await admin.from('user_roles').select('role').eq('user_id', data.user.id)
-  return roles?.some(({ role }) => ['ops_room', 'it_admin', 'super_admin'].includes(role))
-    ? data.user
-    : null
+  const user = roles?.some(({ role }) => ['ops_room', 'it_admin', 'super_admin'].includes(role)) ? data.user : null
+  if (actorCache.size > 200) actorCache.clear()
+  actorCache.set(token, { user, until: Date.now() + ACTOR_CACHE_MS })
+  return user
 }
+const ACTOR_CACHE_MS = 60_000
+const actorCache = new Map<string, { user: { id: string } | null; until: number }>()
 async function apply(
   providerId: string,
   items: unknown[],
@@ -220,14 +231,14 @@ function historyPoints(value: unknown) {
  * 00364 — بقع التوقف: سحب سجل المواقع من LVN مباشرة لكل أجهزة GPS الفعّالة (المربوطة وغير المربوطة)
  * على دفعات من طابور خادمي (gps_stop_pull_queue)، ثم إعادة حساب البقع. كل نداء يعالج حتى `limit` أجهزة × نافذة ≤ 24 ساعة.
  */
-type StopPullItem = { device_id: string; external_id: string; device_name: string; pull_from: string; pull_to: string; pulled_until: string | null }
+type StopPullItem = { device_id: string; external_id: string; device_name: string; pull_from: string; pull_to: string; pulled_until: string | null; direction: 'forward' | 'backward' }
 async function pullStopHistory(providerId: string, hash: string, limit: number) {
   const { data: queue, error } = await admin.rpc('gps_stop_pull_queue', { p_limit: limit })
   if (error) throw new Error(`STOPS_QUEUE_FAILED:${error.code ?? 'DB'}`)
   const items = (Array.isArray(queue) ? queue : []) as StopPullItem[]
   const chunkMs = 3 * 3600000   // 00365: قطع صغيرة — حدود CPU/الوقت في الحافة
   let inserted = 0, source = 0, failed = 0
-  const results: Array<{ device: string; from: string; to: string; inserted: number; error?: string }> = []
+  const results: Array<{ device: string; from: string; to: string; direction: string; inserted: number; error?: string }> = []
   for (const item of items) {
     const from = new Date(item.pull_from), to = new Date(item.pull_to)
     let devInserted = 0, devSource = 0
@@ -248,13 +259,13 @@ async function pullStopHistory(providerId: string, hash: string, limit: number) 
         devInserted += Number(row.inserted_count ?? 0)
         devSource += extracted.sourcePoints
       }
-      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_until: to.toISOString(), p_points: devInserted, p_error: null })
-      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, inserted: devInserted })
+      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_from: from.toISOString(), p_until: to.toISOString(), p_points: devInserted, p_error: null })
+      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, direction: item.direction, inserted: devInserted })
     } catch (e) {
       failed++
       const code = safeError(e).split(':')[0]
-      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_until: to.toISOString(), p_points: devInserted, p_error: code })
-      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, inserted: devInserted, error: code })
+      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_from: from.toISOString(), p_until: to.toISOString(), p_points: devInserted, p_error: code })
+      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, direction: item.direction, inserted: devInserted, error: code })
     }
     inserted += devInserted
     source += devSource
@@ -735,6 +746,10 @@ Deno.serve(async (req: Request) => {
       // 00342: مع كل دورة مزامنة (كل دقيقة من المجدول) تُسحب حتى 3 انطلاقيات مستحقة من طابور المسارات — فشلها لا يُفشل المزامنة
       if (action === 'incremental') {
         try { await processTripQueue(hash, 3) } catch { /* يُسجَّل في trip_routes.error_code لكل انطلاقية */ }
+        // 00366: المجدول الخادمي (service-role) يسحب مع كل دقيقة دفعة من طابور بقع التوقف (جهازان × ≤ 6 ساعات) — لا من المتصفح
+        if ((user as { scheduler?: boolean }).scheduler) {
+          try { await pullStopHistory(provider.id, hash, 2) } catch { /* يُسجَّل في gps_stop_scan_state.lvn_last_error لكل جهاز */ }
+        }
       }
       if (action === 'full')
         await admin

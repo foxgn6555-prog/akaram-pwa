@@ -81,7 +81,7 @@ export default function StopHotspotsPage({ testId = 'stop-hotspots-page' }: { te
         )}
         <MapContainer center={[33.3152, 44.3661]} zoom={11} className="h-[72vh] min-h-[480px] w-full">
           <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <StopHotspotsLayer spots={q.data?.spots ?? []} hours={hours} selectedId={selected?.id ?? null} onSelect={setSelected} />
+          <StopHotspotsLayer style={q.data?.meta ?? null} spots={q.data?.spots ?? []} hours={hours} selectedId={selected?.id ?? null} onSelect={setSelected} />
           <FitOnce spots={q.data?.spots ?? []} />
           <FlyToSpot spot={selected} />
         </MapContainer>

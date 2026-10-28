@@ -16,6 +16,8 @@ import {
   hotspotColor,
   hotspotRadiusPx,
   hotspotRgb,
+  normalizeHeatStyle,
+  type HeatStyle,
 } from './stopHotspots'
 
 /** 00363 — «بقعة حرارية»: توهّج متدرّج بلون الكثافة وحجم الوزن، نواة مركزية، نبض للبقع النشطة الآن، هالة ذهبية للأولى — بلا أرقام على الخريطة */
@@ -26,6 +28,7 @@ const HEAT_CSS = `
 .akh-core{position:absolute;inset:38%;border-radius:9999px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 2px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.35)}
 .akh-ring{position:absolute;inset:18%;border-radius:9999px;border:3px solid currentColor;animation:akh-pulse 1.8s ease-out infinite}
 .akh-crown{position:absolute;inset:8%;border-radius:9999px;border:2px dashed #f3d06a;box-shadow:0 0 12px rgba(243,208,106,.8)}
+.akh-heat{animation:none;mix-blend-mode:multiply}
 .akh-selected{outline:3px solid #0f172a;outline-offset:-3px}
 .leaflet-tooltip.akh-tip{direction:rtl;font:800 11px system-ui;border-radius:12px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.25);padding:6px 10px}
 `
@@ -39,9 +42,19 @@ const ensureHeatCss = () => {
   cssInjected = true
 }
 const heatIconCache = new Map<string, L.DivIcon>()
-export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' | 'active_now' | 'rank'>, selected: boolean) => {
+export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' | 'active_now' | 'rank'>, selected: boolean, style: HeatStyle = normalizeHeatStyle(null)) => {
   const rgb = hotspotRgb(spot.percentile).join(',')
-  const size = Math.round(hotspotRadiusPx(spot.score) * 2.6)
+  const size = Math.round(hotspotRadiusPx(spot.score) * 2.6 * style.heat_size)
+  if (style.map_style === 'heat') {
+    // 00366: «حرارة فقط» — مناطق غامقة متدرّجة بلا نقطة مركزية ولا حلقات؛ الشدة تضبط عتامة المركز
+    const a = style.heat_intensity
+    return {
+      size,
+      html:
+        `<div class="akh-blob akh-heat${selected ? ' akh-selected' : ''}" style="width:${size}px;height:${size}px;color:rgb(${rgb});` +
+        `background:radial-gradient(circle, rgba(${rgb},${a.toFixed(2)}) 0%, rgba(${rgb},${(a * 0.6).toFixed(2)}) 35%, rgba(${rgb},${(a * 0.25).toFixed(2)}) 65%, rgba(${rgb},0) 80%)"></div>`,
+    }
+  }
   return {
     size,
     html:
@@ -52,11 +65,11 @@ export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' |
       `<div class="akh-core" style="background:rgb(${rgb})"></div></div>`,
   }
 }
-const heatIcon = (spot: GpsStopHotspot, selected: boolean) => {
-  const key = `${spot.percentile}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
+const heatIcon = (spot: GpsStopHotspot, selected: boolean, style: HeatStyle) => {
+  const key = `${style.map_style}-${style.heat_intensity}-${style.heat_size}-${spot.percentile}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
   const cached = heatIconCache.get(key)
   if (cached) return cached
-  const { size, html } = heatBlobHtml(spot, selected)
+  const { size, html } = heatBlobHtml(spot, selected, style)
   const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -size / 4], html })
   heatIconCache.set(key, icon)
   return icon
@@ -122,13 +135,17 @@ export default function StopHotspotsLayer({
   hours,
   selectedId,
   onSelect,
+  style,
 }: {
   spots: GpsStopHotspot[]
   hours: number
   selectedId?: string | null
   onSelect?: (spot: GpsStopHotspot) => void
+  /** 00366: نمط العرض من إعدادات قاعدة البيانات (meta) */
+  style?: Partial<HeatStyle> | null
 }) {
   useEffect(ensureHeatCss, [])
+  const heat = normalizeHeatStyle(style)
   // 00364: البقع في طبقة تحت الآليات، أما النافذة المنبثقة والتلميح ففي طبقاتهما القياسية كي تظهر فوق كل شيء
   return (
     <Pane name="akaram-hotspots" style={{ zIndex: 390 }}>
@@ -139,7 +156,7 @@ export default function StopHotspotsLayer({
           <Marker
             key={spot.id}
             position={[spot.lat, spot.lng]}
-            icon={heatIcon(spot, selected)}
+            icon={heatIcon(spot, selected, heat)}
             zIndexOffset={selected ? 500 : Math.round(spot.score * 100)}
             eventHandlers={{ click: () => onSelect?.(spot) }}
           >

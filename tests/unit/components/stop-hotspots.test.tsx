@@ -76,6 +76,9 @@ describe('بقع التوقف — الدوال المساعدة', () => {
   it('تنسيق المدد والساعات', () => {
     expect(formatStopDuration(40)).toBe('40 ث')
     expect(formatStopDuration(600)).toBe('10 د')
+    expect(formatStopDuration(260)).toBe('4 د 20 ث')   // 00366: دقة بالثواني تحت 10 دقائق
+    expect(formatStopDuration(120)).toBe('2 د')
+    expect(formatStopDuration(7199)).toBe('2 س')
     expect(formatStopDuration(3600)).toBe('1 س')
     expect(formatStopDuration(12300)).toBe('3 س 25 د')
     expect(formatPeakHour(23)).toBe('23:00–00:00')
@@ -164,6 +167,12 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     for (const html of h.icons) expect(html.replace(/[0-9.]+px|rgba?\([0-9,. ]+\)|[0-9]+%/g, '')).not.toMatch(/>\s*\d+\s*</)   // لا أرقام مرئية
     expect(heatBlobHtml({ score: 0, percentile: 0, active_now: false, rank: 5 }, false).size).toBe(26)
     expect(heatBlobHtml({ score: 0, percentile: 0, active_now: false, rank: 5 }, false).html).not.toContain('akh-crown')
+    // 00366: نمط «حرارة فقط» — بلا نقطة/حلقة/تاج، الحجم والشدة من الإعدادات
+    const heat = heatBlobHtml({ score: 1, percentile: 1, active_now: true, rank: 1 }, false, { map_style: 'heat', heat_intensity: 0.9, heat_size: 2 })
+    expect(heat.size).toBe(Math.round(32 * 2.6 * 2))
+    expect(heat.html).toContain('akh-heat')
+    expect(heat.html).toContain('rgba(220,38,38,0.90)')
+    for (const c of ['akh-core', 'akh-ring', 'akh-crown']) expect(heat.html).not.toContain(c)
     const popup = screen.getByTestId('hotspot-popup-1')
     expect(popup.parentElement!.getAttribute('data-pane')).toBe('popupPane')   // 00364: النافذة فوق طبقة البقع
     expect(popup.textContent).toContain('20 د')

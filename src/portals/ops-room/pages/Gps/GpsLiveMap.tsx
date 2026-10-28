@@ -353,7 +353,7 @@ export default function GpsLiveMap({
           ))}
         {layers.hotspots && (
           <>
-            <StopHotspotsLayer spots={hotspots.data?.spots ?? []} hours={hotspotHours} selectedId={selectedSpot?.id ?? null} onSelect={setSelectedSpot} />
+            <StopHotspotsLayer style={hotspots.data?.meta ?? null} spots={hotspots.data?.spots ?? []} hours={hotspotHours} selectedId={selectedSpot?.id ?? null} onSelect={setSelectedSpot} />
             <FlyToSpot spot={selectedSpot} />
           </>
         )}

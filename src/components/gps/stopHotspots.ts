@@ -60,15 +60,28 @@ export const clampHotspotWindow = (hours: number, maxDays: number) => {
 export const hotspotRadiusPx = (score: number) => Math.round(10 + 22 * Math.sqrt(Math.min(Math.max(score, 0), 1)))
 
 const ar = (n: number) => n.toLocaleString('en-US')
-/** «3 س 25 د» / «12 د» / «40 ث» */
+/** 00366 — دقة عالية: «40 ث» / «4 د 20 ث» (تحت 10 دقائق بالثواني) / «12 د» / «3 س 25 د» */
 export const formatStopDuration = (seconds: number) => {
   const s = Math.max(0, Math.round(seconds))
   if (s < 60) return `${ar(s)} ث`
+  if (s < 600) {
+    const m = Math.floor(s / 60), r = s % 60
+    return r === 0 ? `${ar(m)} د` : `${ar(m)} د ${ar(r)} ث`
+  }
   const h = Math.floor(s / 3600),
     m = Math.round((s % 3600) / 60)
   if (h === 0) return `${ar(m)} د`
+  if (m === 60) return `${ar(h + 1)} س`
   return m === 0 ? `${ar(h)} س` : `${ar(h)} س ${ar(m)} د`
 }
+/** 00366 — إعدادات الحرارة المشتركة من قاعدة البيانات (نمط العرض وشدته وحجمه) */
+export type HeatStyle = { map_style: 'glow' | 'heat'; heat_intensity: number; heat_size: number }
+export const DEFAULT_HEAT_STYLE: HeatStyle = { map_style: 'glow', heat_intensity: 0.7, heat_size: 1 }
+export const normalizeHeatStyle = (meta?: Partial<HeatStyle> | null): HeatStyle => ({
+  map_style: meta?.map_style === 'heat' ? 'heat' : 'glow',
+  heat_intensity: Math.min(1, Math.max(0.2, Number(meta?.heat_intensity ?? DEFAULT_HEAT_STYLE.heat_intensity) || DEFAULT_HEAT_STYLE.heat_intensity)),
+  heat_size: Math.min(2.5, Math.max(0.5, Number(meta?.heat_size ?? DEFAULT_HEAT_STYLE.heat_size) || DEFAULT_HEAT_STYLE.heat_size)),
+})
 export const formatPeakHour = (hour: number | null) =>
   hour === null || hour === undefined ? '—' : `${ar(hour).padStart(2, '0')}:00–${ar((hour + 1) % 24).padStart(2, '0')}:00`
 

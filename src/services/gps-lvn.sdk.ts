@@ -528,6 +528,9 @@ export interface GpsStopHotspotsResult {
     generated_at: string
     excluded_zone_ids: string[]
     excluded_landmark_ids: string[]
+    map_style?: 'glow' | 'heat'
+    heat_intensity?: number
+    heat_size?: number
   }
 }
 export interface GpsStopHotspotEvent {
@@ -549,6 +552,9 @@ export interface GpsStopHotspotSettings {
   cluster_radius_m: number
   refresh_minutes: number
   landmark_exclude_radius_m: number
+  map_style: 'glow' | 'heat'
+  heat_intensity: number
+  heat_size: number
   excluded_zone_ids: string[]
   excluded_landmark_ids: string[]
   excluded_zones: Array<{ id: string; name: string }>
@@ -567,7 +573,7 @@ export interface GpsStopPullResult {
   source: number
   failed: number
   remaining: boolean
-  results: Array<{ device: string; from: string; to: string; inserted: number; error?: string }>
+  results: Array<{ device: string; from: string; to: string; direction?: 'forward' | 'backward'; inserted: number; error?: string }>
 }
 export interface GpsStopPullStatus {
   devices: number
@@ -579,9 +585,11 @@ export interface GpsStopPullStatus {
   points_total: number
   last_error: string | null
   pending_hours: number
+  full_depth: number
+  covered_hours: number
 }
 export type GpsStopHotspotSettingsPatch = Partial<
-  Pick<GpsStopHotspotSettings, 'enabled' | 'max_days' | 'stop_speed_kmh' | 'stop_min_seconds' | 'gap_split_seconds' | 'cluster_radius_m' | 'refresh_minutes' | 'landmark_exclude_radius_m' | 'excluded_zone_ids' | 'excluded_landmark_ids'>
+  Pick<GpsStopHotspotSettings, 'enabled' | 'max_days' | 'stop_speed_kmh' | 'stop_min_seconds' | 'gap_split_seconds' | 'cluster_radius_m' | 'refresh_minutes' | 'landmark_exclude_radius_m' | 'map_style' | 'heat_intensity' | 'heat_size' | 'excluded_zone_ids' | 'excluded_landmark_ids'>
 >
 export const gpsLvn = {
   dashboard: async () =>
