@@ -8,6 +8,8 @@ import { useGpsStopPullStatus, useGpsStopsAutoPull, useRefreshGpsStopHotspots } 
 import {
   HOTSPOT_COLORS,
   HOTSPOT_SORT_LABELS,
+  formatShare,
+  hotspotColor,
   type HotspotSort,
   formatAgo,
   formatPeakHour,
@@ -26,9 +28,12 @@ export default function StopHotspotsPanel({
   canEdit,
   onOpenSettings,
   compact = false,
+  fetching = false,
 }: {
   data: GpsStopHotspotsResult | undefined
   loading: boolean
+  /** 00365: جلب نافذة جديدة أثناء عرض السابقة */
+  fetching?: boolean
   hours: number
   onHours: (hours: number) => void
   selectedId: string | null
@@ -78,7 +83,7 @@ export default function StopHotspotsPanel({
       <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[9px] text-slate-500">
         <span>
           <span style={{ color: HOTSPOT_COLORS.high }}>●</span> كثيفة <span style={{ color: HOTSPOT_COLORS.medium }}>●</span> متوسطة{' '}
-          <span style={{ color: HOTSPOT_COLORS.low }}>●</span> خفيفة · نابضة = نشطة الآن · هالة ذهبية = الأولى
+          <span style={{ color: HOTSPOT_COLORS.low }}>●</span> خفيفة (ترتيب نسبي بين البقع) · نابضة = نشطة الآن · هالة ذهبية = الأولى
         </span>
         <span title={data?.meta.last_refresh_at ?? ''}>آخر حساب {formatAgo(data?.meta.last_refresh_at)}{data?.totals.excluded ? ` · مستبعد ${data.totals.excluded}` : ''}</span>
       </div>
@@ -138,6 +143,7 @@ export default function StopHotspotsPanel({
       </div>
       {pull.lastError && !pull.running && <div className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-800">تعذر سحب بعض الأجهزة من LVN ({pull.lastError}) — سيُعاد تلقائياً.</div>}
       {loading && <div className="mt-2 text-center text-slate-500">… تحميل</div>}
+      {!loading && fetching && <div className="mt-1 text-center text-[9px] font-bold text-cyan-800" data-testid="hotspots-fetching">⟳ جارٍ تحديث النافذة…</div>}
       {!loading && data && data.spots.length === 0 && (
         <div className="mt-2 rounded-lg bg-slate-50 p-2 text-center text-slate-500">لا توقفات ضمن النافذة المختارة (بعد استبعاد الزونات/المعالم المحددة).</div>
       )}
@@ -151,7 +157,7 @@ export default function StopHotspotsPanel({
                 aria-pressed={selectedId === spot.id}
                 className={`flex w-full items-center gap-2 rounded-xl border p-1.5 text-right transition ${selectedId === spot.id ? 'border-slate-900 bg-slate-50' : 'border-transparent hover:bg-slate-50'}`}
               >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-black text-white" style={{ background: HOTSPOT_COLORS[spot.level] }}>
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-black text-white" style={{ background: hotspotColor(spot.percentile) }}>
                   {spot.rank}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -160,11 +166,11 @@ export default function StopHotspotsPanel({
                     <b className="shrink-0">{formatStopDuration(spot.total_seconds)}</b>
                   </span>
                   <span className="flex justify-between gap-1 text-[9px] text-slate-500">
-                    <span>{spot.stops} توقف · {spot.vehicles} آلية · ذروة {formatPeakHour(spot.peak_hour)}</span>
+                    <span>{spot.stops} توقف · {spot.vehicles} آلية · {formatShare(spot.share)} · ذروة {formatPeakHour(spot.peak_hour)}</span>
                     <span>{spot.active_now ? 'نشطة الآن' : formatAgo(spot.last_at)}</span>
                   </span>
                   <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
-                    <span className="block h-full rounded-full" style={{ width: `${Math.max(4, Math.round(spot.score * 100))}%`, background: HOTSPOT_COLORS[spot.level] }} />
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(4, Math.round(spot.percentile * 100))}%`, background: hotspotColor(spot.percentile) }} />
                   </span>
                 </span>
               </button>

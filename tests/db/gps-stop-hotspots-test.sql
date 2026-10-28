@@ -123,6 +123,10 @@ begin
   j := public.gps_stop_hotspot_settings_save(jsonb_build_object('excluded_zone_ids', jsonb_build_array('e80d9000-0000-0000-0000-000000000001'), 'excluded_landmark_ids', jsonb_build_array('e80d8000-0000-0000-0000-000000000001')));
   if jsonb_array_length(j -> 'excluded_zones') <> 1 or (j -> 'excluded_zones' -> 0 ->> 'name') <> 'زون الكراج SH' then raise exception 'H4 zones %', j -> 'excluded_zones'; end if;
   if jsonb_array_length(j -> 'excluded_landmarks') <> 1 then raise exception 'H4 landmarks %', j -> 'excluded_landmarks'; end if;
+  -- 00365: الحفظ خفيف (يرفع علم إعادة التقييم)؛ التطبيق في التحديث القادم
+  if not (select needs_reeval from public.gps_stop_hotspot_settings where id = 1) then raise exception 'H4 needs_reeval flag'; end if;
+  perform app.gps_stop_hotspots_refresh();
+  if (select needs_reeval from public.gps_stop_hotspot_settings where id = 1) then raise exception 'H4 flag must clear'; end if;
   select count(*) into n from public.gps_stop_events where excluded and excluded_reason like 'زون:%';
   if n <> 1 then raise exception 'H4 zone-excluded events % (wanted 1)', n; end if;
   select count(*) into n from public.gps_stop_events where excluded and excluded_reason like 'معلم:%';
@@ -130,9 +134,11 @@ begin
   -- معرّف زون غير موجود يُتجاهل بدل أن يفشل
   j := public.gps_stop_hotspot_settings_save(jsonb_build_object('excluded_zone_ids', jsonb_build_array('00000000-0000-0000-0000-00000000dead')));
   if jsonb_array_length(j -> 'excluded_zones') <> 0 then raise exception 'H4 unknown zone must be dropped'; end if;
+  perform app.gps_stop_hotspots_refresh();
   select count(*) into n from public.gps_stop_events where excluded and excluded_reason like 'زون:%';
   if n <> 0 then raise exception 'H4 re-evaluation failed %', n; end if;
   j := public.gps_stop_hotspot_settings_save(jsonb_build_object('excluded_zone_ids', jsonb_build_array('e80d9000-0000-0000-0000-000000000001')));
+  perform app.gps_stop_hotspots_refresh();
   raise notice 'H4 ok';
 end $$;
 
@@ -152,6 +158,11 @@ begin
   if (a ->> 'address') <> 'شارع فلسطين' then raise exception 'H5 address %', a ->> 'address'; end if;
   if jsonb_array_length(a -> 'top_vehicles') <> 3 or (a -> 'top_vehicles' -> 0 ->> 'vehicle_name') <> 'جهاز SH3 غير مربوط' or (a -> 'top_vehicles' -> 1 ->> 'db_number') <> 'DB-SH1' then raise exception 'H5 top vehicles %', a -> 'top_vehicles'; end if;
   if (a ->> 'peak_hour') is null then raise exception 'H5 peak_hour'; end if;
+  -- 00365: مئين وتوزيع ساعي وحصة؛ الأدنى «خفيفة» لا «كثيفة»، ومجموع التوزيع الساعي = الإجمالي
+  if (a ->> 'percentile')::numeric <> 1 or jsonb_array_length(a -> 'hourly') <> 24 then raise exception 'H5 percentile/hourly %', a; end if;
+  if (select sum(x::text::bigint) from jsonb_array_elements(a -> 'hourly') x) <> tot then raise exception 'H5 hourly sum'; end if;
+  if (select s2 ->> 'level' from jsonb_array_elements(j -> 'spots') s2 order by (s2 ->> 'rank')::int desc limit 1) <> 'low' then raise exception 'H5 last spot must be low'; end if;
+  if abs((select sum((s2 ->> 'share')::numeric) from jsonb_array_elements(j -> 'spots') s2) - 1) > 0.01 then raise exception 'H5 shares must sum to 1'; end if;
   -- لا بقعة داخل زون الكراج ولا عند المعلم
   if exists (select 1 from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3000) < 0.0005 and abs((s ->> 'lng')::float8 - 44.4000) < 0.0005) then raise exception 'H5 garage must be excluded'; end if;
   if exists (select 1 from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3500) < 0.0005) then raise exception 'H5 station must be excluded'; end if;
@@ -232,7 +243,7 @@ begin
   select count(*) into n from public.gps_stop_pull_queue(20) where device_id in ('e80dc000-0000-0000-0000-000000000001','e80dc000-0000-0000-0000-000000000002','e80dc000-0000-0000-0000-000000000003');
   if n <> 3 then raise exception 'H10 queue must include bound+unbound devices (got %)', n; end if;
   select * into q from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003';
-  if q.pulled_until is not null or q.pull_to - q.pull_from <> interval '24 hours' or q.pull_from > now() - interval '6 days 23 hours' then raise exception 'H10 first window %', to_jsonb(q); end if;
+  if q.pulled_until is not null or q.pull_to - q.pull_from <> interval '6 hours' or q.pull_from > now() - interval '6 days 23 hours' then raise exception 'H10 first window %', to_jsonb(q); end if;
   -- سحب ناجح حتى قبل دقيقة ⇒ يخرج من الطابور؛ ويعيد المسح من بداية النافذة
   perform public.gps_stop_pull_mark('e80dc000-0000-0000-0000-000000000003', now() - interval '1 minute', 120, null);
   if exists (select 1 from public.gps_stop_pull_queue(20) where device_id = 'e80dc000-0000-0000-0000-000000000003') then raise exception 'H10 caught-up device must leave queue'; end if;

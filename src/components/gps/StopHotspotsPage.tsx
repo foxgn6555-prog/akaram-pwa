@@ -67,6 +67,7 @@ export default function StopHotspotsPage({ testId = 'stop-hotspots-page' }: { te
           <StopHotspotsPanel
             data={q.data}
             loading={q.isLoading}
+            fetching={q.isFetching}
             hours={hours}
             onHours={setHours}
             selectedId={selected?.id ?? null}

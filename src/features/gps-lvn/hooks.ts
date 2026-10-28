@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { lvnErrorToast } from './lvn-errors'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   gpsLvn,
   type GpsFilters,
@@ -99,6 +99,7 @@ export const useGpsStopHotspots = (hours: number, enabled = true) =>
     enabled,
     refetchInterval: enabled ? 60_000 : false,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,   // 00365: تبديل النافذة بلا وميض
   })
 export const useGpsStopHotspotEvents = (spot: { lat: number; lng: number } | null, hours: number) =>
   useQuery({
@@ -113,11 +114,16 @@ export function useSaveGpsStopHotspotSettings() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (patch: GpsStopHotspotSettingsPatch) => gpsLvn.saveStopHotspotSettings(patch),
+    mutationFn: async (patch: GpsStopHotspotSettingsPatch) => {
+      const saved = await gpsLvn.saveStopHotspotSettings(patch)
+      // 00365: الحفظ خفيف؛ إعادة الحساب تُطلب بعده (بميزانية خادمية) ولا تعطّل الحفظ إن تأخرت
+      gpsLvn.refreshStopHotspots().then(() => void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })).catch(() => undefined)
+      return saved
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: gpsKeys.stopHotspotSettings() })
       void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })
-      toast({ type: 'success', message: 'حُفظت إعدادات بقع التوقف وأُعيد الحساب' })
+      toast({ type: 'success', message: 'حُفظت إعدادات بقع التوقف — تُطبَّق خلال لحظات' })
     },
     onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsStopHotspots' }).message }),
   })
@@ -140,7 +146,7 @@ export function useGpsStopsAutoPull(enabled: boolean) {
     let batches = 0, inserted = 0, lastError: string | null = null
     try {
       for (; batches < 40; batches++) {
-        const r = await gpsLvn.pullStopsNow(4)
+        const r = await gpsLvn.pullStopsNow(2)
         inserted += r.inserted
         if (r.failed > 0) lastError = r.results.find((x) => x.error)?.error ?? 'LVN_PULL_FAILED'
         void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })

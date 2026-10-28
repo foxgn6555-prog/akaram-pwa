@@ -8,12 +8,14 @@ import L from 'leaflet'
 import type { GpsStopHotspot } from '@sdk/gps-lvn.sdk'
 import { useGpsStopHotspotEvents } from '@features/gps-lvn/hooks'
 import {
-  HOTSPOT_COLORS,
   HOTSPOT_LEVEL_LABELS,
   formatAgo,
   formatPeakHour,
+  formatShare,
   formatStopDuration,
+  hotspotColor,
   hotspotRadiusPx,
+  hotspotRgb,
 } from './stopHotspots'
 
 /** 00363 — «بقعة حرارية»: توهّج متدرّج بلون الكثافة وحجم الوزن، نواة مركزية، نبض للبقع النشطة الآن، هالة ذهبية للأولى — بلا أرقام على الخريطة */
@@ -36,13 +38,9 @@ const ensureHeatCss = () => {
   document.head.appendChild(el)
   cssInjected = true
 }
-const hex2rgb = (hex: string) => {
-  const n = parseInt(hex.slice(1), 16)
-  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`
-}
 const heatIconCache = new Map<string, L.DivIcon>()
-export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'level' | 'active_now' | 'rank'>, selected: boolean) => {
-  const rgb = hex2rgb(HOTSPOT_COLORS[spot.level])
+export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' | 'active_now' | 'rank'>, selected: boolean) => {
+  const rgb = hotspotRgb(spot.percentile).join(',')
   const size = Math.round(hotspotRadiusPx(spot.score) * 2.6)
   return {
     size,
@@ -55,7 +53,7 @@ export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'level' | 'act
   }
 }
 const heatIcon = (spot: GpsStopHotspot, selected: boolean) => {
-  const key = `${spot.level}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
+  const key = `${spot.percentile}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
   const cached = heatIconCache.get(key)
   if (cached) return cached
   const { size, html } = heatBlobHtml(spot, selected)
@@ -85,6 +83,31 @@ function SpotEvents({ spot, hours }: { spot: GpsStopHotspot; hours: number }) {
   )
 }
 
+/** 00365 — «متى تتوقف هنا؟»: 24 عموداً لساعات اليوم بوزن زمن التوقف، ساعة الذروة مظلّلة */
+export function HourlyBars({ hourly, color, peak }: { hourly: number[]; color: string; peak: number | null }) {
+  if (!hourly?.length) return null
+  const max = Math.max(1, ...hourly)
+  return (
+    <div className="mt-1 border-t pt-1" data-testid="hotspot-hourly">
+      <div className="flex items-center justify-between text-[9px] font-black text-slate-500">
+        <span>متى تتوقف هنا؟ (ساعات اليوم)</span>
+        <span>الذروة {formatPeakHour(peak)}</span>
+      </div>
+      <div className="mt-0.5 flex h-8 items-end gap-px" dir="ltr">
+        {hourly.map((sec, h) => (
+          <span
+            key={h}
+            title={`${String(h).padStart(2, '0')}:00 — ${formatStopDuration(sec)}`}
+            className="flex-1 rounded-t-sm"
+            style={{ height: `${Math.max(sec > 0 ? 8 : 2, Math.round((sec / max) * 100))}%`, background: h === peak ? color : `${color}66` }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between text-[8px] text-slate-400" dir="ltr"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+    </div>
+  )
+}
+
 /** يطير إلى البقعة المختارة من القائمة الجانبية */
 export function FlyToSpot({ spot }: { spot: GpsStopHotspot | null }) {
   const map = useMap()
@@ -110,7 +133,7 @@ export default function StopHotspotsLayer({
   return (
     <Pane name="akaram-hotspots" style={{ zIndex: 390 }}>
       {spots.map((spot) => {
-        const color = HOTSPOT_COLORS[spot.level]
+        const color = hotspotColor(spot.percentile)
         const selected = selectedId === spot.id
         return (
           <Marker
@@ -142,7 +165,10 @@ export default function StopHotspotsLayer({
                   متوسط التوقف {formatStopDuration(spot.avg_seconds)} · أطول توقف {formatStopDuration(spot.max_seconds)}
                   <br />
                   ساعة الذروة {formatPeakHour(spot.peak_hour)} · آخر توقف {formatAgo(spot.last_at)}
+                  <br />
+                  تمثّل <b>{formatShare(spot.share)}</b> من كل زمن التوقف في النافذة
                 </div>
+                <HourlyBars hourly={spot.hourly} color={color} peak={spot.peak_hour} />
                 {spot.top_vehicles.length > 0 && (
                   <div className="mt-1 border-t pt-1">
                     <div className="text-[9px] font-black text-slate-500">الأكثر توقفاً هنا</div>

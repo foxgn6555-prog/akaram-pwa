@@ -8,6 +8,29 @@ export const HOTSPOT_COLORS: Readonly<Record<GpsStopHotspot['level'], string>> =
   medium: '#f59e0b',
   low: '#16a34a',
 }
+/** 00365: لون متصل بحسب المئين: أخضر → أصفر → برتقالي → أحمر */
+const STOPS: Array<[number, [number, number, number]]> = [
+  [0, [22, 163, 74]],
+  [0.5, [234, 179, 8]],
+  [0.8, [249, 115, 22]],
+  [1, [220, 38, 38]],
+]
+export const hotspotRgb = (percentile: number): [number, number, number] => {
+  const p = Math.min(Math.max(Number.isFinite(percentile) ? percentile : 0, 0), 1)
+  for (let i = 1; i < STOPS.length; i++) {
+    const [p0, c0] = STOPS[i - 1]!, [p1, c1] = STOPS[i]!
+    if (p <= p1) {
+      const t = (p - p0) / (p1 - p0)
+      return [0, 1, 2].map((k) => Math.round(c0[k]! + (c1[k]! - c0[k]!) * t)) as [number, number, number]
+    }
+  }
+  return STOPS[STOPS.length - 1]![1]
+}
+export const hotspotColor = (percentile: number) => {
+  const [r, g, b] = hotspotRgb(percentile)
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')}`
+}
+export const formatShare = (share: number) => `${(Math.max(0, share) * 100).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
 export const HOTSPOT_LEVEL_LABELS: Readonly<Record<GpsStopHotspot['level'], string>> = {
   high: 'كثيفة',
   medium: 'متوسطة',

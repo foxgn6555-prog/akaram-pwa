@@ -503,6 +503,10 @@ export interface GpsStopHotspot {
   avg_seconds: number
   max_seconds: number
   score: number
+  /** 00365: المئين 0..1 (للتدرج اللوني) وحصة البقعة من كل التوقفات 0..1 وتوزيع ساعي (24 خانة بالثواني) */
+  percentile: number
+  share: number
+  hourly: number[]
   level: 'high' | 'medium' | 'low'
   first_at: string
   last_at: string

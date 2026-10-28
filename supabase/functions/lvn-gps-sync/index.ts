@@ -225,7 +225,7 @@ async function pullStopHistory(providerId: string, hash: string, limit: number) 
   const { data: queue, error } = await admin.rpc('gps_stop_pull_queue', { p_limit: limit })
   if (error) throw new Error(`STOPS_QUEUE_FAILED:${error.code ?? 'DB'}`)
   const items = (Array.isArray(queue) ? queue : []) as StopPullItem[]
-  const chunkMs = 12 * 3600000
+  const chunkMs = 3 * 3600000   // 00365: قطع صغيرة — حدود CPU/الوقت في الحافة
   let inserted = 0, source = 0, failed = 0
   const results: Array<{ device: string; from: string; to: string; inserted: number; error?: string }> = []
   for (const item of items) {
@@ -604,7 +604,7 @@ Deno.serve(async (req: Request) => {
     }
     if (action === 'stops') {
       const hash = await login()
-      return response(await pullStopHistory(provider.id, hash, Math.min(Math.max(Number(body.limit) || 4, 1), 20)))
+      return response(await pullStopHistory(provider.id, hash, Math.min(Math.max(Number(body.limit) || 2, 1), 20)))
     }
     if (action === 'trips') {
       const hash = await login()

@@ -248,6 +248,7 @@ export default function GpsLiveMap({
           <StopHotspotsPanel
             data={hotspots.data}
             loading={hotspots.isLoading}
+            fetching={hotspots.isFetching}
             hours={hotspotHours}
             onHours={setHotspotHours}
             selectedId={selectedSpot?.id ?? null}

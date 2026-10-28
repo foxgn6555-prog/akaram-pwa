@@ -84,7 +84,11 @@ describe('عقد أمان LVN GPS', () => {
       expect(mig).toContain(`grant execute on function public.${fn} to service_role`)
     expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
     expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
-    expect(readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')).toContain("gpsLvn.pullStopsNow(4)")
+    expect(readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')).toContain("gpsLvn.pullStopsNow(2)")
+    const perf = readFileSync('supabase/migrations/00310_gps_stop_hotspots_perf.sql', 'utf8')   // 00365: لا عمل ثقيل في طلبات المستخدم
+    expect(perf).toContain("set statement_timeout = '60s'")
+    expect(perf).toContain('percent_rank() over (order by total_seconds)')
+    expect(perf).not.toContain("perform app.gps_stop_hotspots_refresh(3000)")
   })
   it('يحسب التوقفات والحركة من الخادم ويحد الطلبات الجماعية', () => {
     expect(routeEvents).toContain('gps_trip_route_events')
