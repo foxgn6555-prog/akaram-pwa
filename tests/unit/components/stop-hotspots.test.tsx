@@ -41,7 +41,7 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsStopHotspots: (hours: number, enabled: boolean) => ({ data: enabled ? result(hours) : undefined, isLoading: false }),
   useGpsStopHotspotSettings: (enabled = true) => ({ data: enabled ? { can_edit: true } : undefined }),
   useRefreshGpsStopHotspots: () => ({ mutate: h.refresh, isPending: false }),
-  useGpsStopPullStatus: () => ({ data: { devices: 12, caught_up: 9, never_pulled: 1, errors: 1, oldest_pulled_until: null, last_pull_at: new Date().toISOString(), points_total: 5000, last_error: 'LVN_TIMEOUT', pending_hours: 30.5 } }),
+  useGpsStopPullStatus: () => ({ data: { devices: 12, caught_up: 9, never_pulled: 1, errors: 1, oldest_pulled_until: null, last_pull_at: new Date().toISOString(), points_total: 5000, last_error: 'LVN_TIMEOUT', pending_hours: 30.5, covered_hours: 41.5 } }),
   useGpsStopHotspotEvents: () => ({ data: [{ id: 1, db_number: '101', vehicle_name: 'كابسة', started_at: '2026-10-28T06:00:00Z', ended_at: '2026-10-28T06:10:00Z', duration_seconds: 600, address: null }], isLoading: false }),
 }))
 import StopHotspotsPanel from '@components/gps/StopHotspotsPanel'
@@ -66,19 +66,15 @@ const result = (hours: number): GpsStopHotspotsResult => ({
 
 describe('بقع التوقف — الدوال المساعدة', () => {
   it('النوافذ تُقصّ حسب الحد الأقصى بالأيام', () => {
-    expect(hotspotWindows(7).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24, 72, 168])
-    expect(hotspotWindows(3).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24, 72])
-    expect(hotspotWindows(1).map((w) => w.hours)).toEqual([5 / 60, 15 / 60, 1, 6, 24])
-    // 00371: دقائق صحيحة للخادم + استعادة القيمة المخزّنة بتسامح كسري
-    expect(hotspotMinutes(5 / 60)).toBe(5)
-    expect(hotspotMinutes(15 / 60)).toBe(15)
-    expect(hotspotMinutes(168)).toBe(10080)
-    expect(normalizeHotspotHours(String(5 / 60))).toBe(5 / 60)
-    expect(normalizeHotspotHours('72')).toBe(72)
-    expect(normalizeHotspotHours('abc')).toBe(24)
-    expect(normalizeHotspotHours('2')).toBe(24)
+    // 00372: نافذة واحدة = الاحتفاظ
+    expect(hotspotWindows(3)).toEqual([{ hours: 72, label: '3 أيام' }])
+    expect(hotspotWindows(7)).toEqual([{ hours: 168, label: '7 أيام' }])
+    expect(hotspotWindows(1)).toEqual([{ hours: 24, label: 'يوم' }])
+    expect(hotspotMinutes(72)).toBe(4320)
+    expect(normalizeHotspotHours('24')).toBe(72)
+    expect(normalizeHotspotHours(null)).toBe(72)
     expect(clampHotspotWindow(168, 3)).toBe(72)
-    expect(clampHotspotWindow(24, 3)).toBe(24)
+    expect(clampHotspotWindow(24, 3)).toBe(72)
   })
   it('تنسيق المدد والساعات', () => {
     expect(formatStopDuration(40)).toBe('40 ث')
@@ -115,9 +111,9 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
   it('اللوحة تعرض النوافذ المسموحة فقط، القائمة مرتّبة، والاختيار يستدعي onSelect', () => {
     const onHours = vi.fn(), onSelect = vi.fn()
     render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={onHours} selectedId={null} onSelect={onSelect} canEdit={false} />)
-    const group = screen.getByRole('group', { name: 'النافذة الزمنية' })
-    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['5 د', '15 د', 'ساعة', '6 س', '24 س', '3 أيام'])   // max_days = 3 ⇒ بلا «7 أيام»
-    fireEvent.click(within(group).getByText('3 أيام'))
+    // 00372: نافذة واحدة = الاحتفاظ (max_days = 3) ولا أزرار اختيار؛ النافذة المخالفة تُصحَّح تلقائياً إلى 72 س
+    expect(screen.queryByRole('group', { name: 'النافذة الزمنية' })).toBeNull()
+    expect(screen.getByTestId('hotspots-window').textContent).toContain('آخر 3 أيام')
     expect(onHours).toHaveBeenCalledWith(72)
     const items = within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')
     expect(items).toHaveLength(3)
@@ -133,9 +129,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
   it('فرز القائمة بعدد التوقفات، وأزرار التحديث/الإعدادات لمن يملك الصلاحية', () => {
     const open = vi.fn(), onHours = vi.fn()
     render(<StopHotspotsPanel data={result(24)} loading={false} hours={24} onHours={onHours} selectedId={null} onSelect={vi.fn()} canEdit onOpenSettings={open} />)
-    // 00371: النقر على «5 د» يطلب نافذة 5 دقائق (1/12 ساعة)
-    fireEvent.click(within(screen.getByRole('group', { name: 'النافذة الزمنية' })).getByText('5 د'))
-    expect(onHours).toHaveBeenCalledWith(5 / 60)
+    expect(onHours).toHaveBeenCalledWith(72)
     fireEvent.change(screen.getByLabelText('ترتيب البقع'), { target: { value: 'stops' } })
     const items = within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')
     expect(items[0]!.textContent).toContain('الكرادة')
@@ -145,6 +139,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(open).toHaveBeenCalled()
     // 00371: حالة السحب ظاهرة لكن لا زر سحب حتى لمن يملك الصلاحية (الخادم فقط)
     expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('9/12 جهاز محدّث')
+    expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('مُغطّى 41.5/72 س')
     expect(screen.getByTestId('hotspots-pull-status').textContent).toContain('متبقٍ 30.5 س')
     expect(screen.queryByTestId('hotspots-pull-now')).toBeNull()
     // 00371: النقر على «5 د» يطلب نافذة 5 دقائق (1/12 ساعة)

@@ -14,7 +14,7 @@ import StopHotspotSettingsDialog from './StopHotspotSettingsDialog'
 import { clampHotspotWindow, formatStopDuration, normalizeHotspotHours } from './stopHotspots'
 
 const HOURS_KEY = 'stop-hotspots:hours'
-export const readHotspotHours = () => normalizeHotspotHours(sessionStorage.getItem(HOURS_KEY), 24)
+export const readHotspotHours = () => normalizeHotspotHours(sessionStorage.getItem(HOURS_KEY))
 
 function FitOnce({ spots }: { spots: GpsStopHotspot[] }) {
   const map = useMap()

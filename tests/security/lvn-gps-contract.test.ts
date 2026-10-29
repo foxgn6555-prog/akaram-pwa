@@ -108,6 +108,14 @@ describe('عقد أمان LVN GPS', () => {
     expect(win).toContain('greatest(e.started_at, w.from_at)')
     expect(win).toContain("cron.schedule('gps_stop_events_weekly_purge', '30 0 * * 5'")
     expect(readFileSync('src/services/gps-lvn.sdk.ts', 'utf8')).toContain("supabase.rpc('gps_stop_hotspots_v2', { p_minutes: hotspotMinutes(hours) })")
+    // 00372: أحداث التوقف دائمة (لا تُمسح بحذف النقاط الخام)، احتفاظ 3 أيام، تنظيف يومي، نافذة واحدة
+    const durable = readFileSync('supabase/migrations/00316_gps_stop_durable_events_3d.sql', 'utf8')
+    expect(durable).toContain('if v_points = 0 then')
+    expect(durable).toContain('e.ended_at >= v_first and e.started_at <= v_last')
+    expect(durable).not.toContain('e.ended_at >= p_from;')
+    expect(durable).toContain('alter column max_days set default 3')
+    expect(durable).toContain("cron.schedule('gps_stop_events_daily_purge', '30 0 * * *'")
+    expect(readFileSync('src/components/gps/stopHotspots.ts', 'utf8')).toContain('HOTSPOT_DEFAULT_DAYS = 3')
     expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
     expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
     const perf = readFileSync('supabase/migrations/00310_gps_stop_hotspots_perf.sql', 'utf8')   // 00365: لا عمل ثقيل في طلبات المستخدم

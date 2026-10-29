@@ -38,36 +38,17 @@ export const HOTSPOT_LEVEL_LABELS: Readonly<Record<GpsStopHotspot['level'], stri
 }
 
 /** خيارات النافذة الزمنية — تُقصّ حسب الحد الأقصى المضبوط في الإعدادات (أيام) */
-// 00371: نوافذ دقيقة من 5 دقائق حتى 7 أيام (بالساعات؛ الكسور = دقائق، وتُرسل للخادم كدقائق)
-export const HOTSPOT_WINDOWS = [
-  { hours: 5 / 60, label: '5 د' },
-  { hours: 15 / 60, label: '15 د' },
-  { hours: 1, label: 'ساعة' },
-  { hours: 6, label: '6 س' },
-  { hours: 24, label: '24 س' },
-  { hours: 72, label: '3 أيام' },
-  { hours: 168, label: '7 أيام' },
-] as const
-export const HOTSPOT_WINDOW_HOURS: readonly number[] = HOTSPOT_WINDOWS.map((w) => w.hours)
+// 00372: نافذة واحدة فقط = مدة الاحتفاظ (افتراضياً 3 أيام) — الخريطة تعرض دائماً آخر 72 ساعة كاملة
+export const HOTSPOT_DEFAULT_DAYS = 3
+const dayLabel = (d: number) => (d === 1 ? 'يوم' : d === 2 ? 'يومان' : d <= 10 ? `${d} أيام` : `${d} يوماً`)
 export const hotspotWindows = (maxDays: number) => {
-  const maxHours = Math.max(1, Math.round(maxDays)) * 24
-  const list: Array<{ hours: number; label: string }> = HOTSPOT_WINDOWS.filter((w) => w.hours <= maxHours).map((w) => ({ ...w }))
-  if (!list.length) list.push({ hours: maxHours, label: `${maxDays} يوم` })
-  return list
+  const days = Math.max(1, Math.round(maxDays))
+  return [{ hours: days * 24, label: dayLabel(days) }]
 }
-/** قيمة مخزّنة → نافذة صالحة (تطابق بتسامح كسري) */
-export const normalizeHotspotHours = (v: unknown, fallback = 24) => {
-  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
-  if (!Number.isFinite(n)) return fallback
-  const hit = HOTSPOT_WINDOW_HOURS.find((h) => Math.abs(h - n) < 1e-6)
-  return hit ?? fallback
-}
+/** أي قيمة مخزّنة سابقاً تُهمَل — النافذة دائماً = الاحتفاظ */
+export const normalizeHotspotHours = (_v: unknown, fallback = HOTSPOT_DEFAULT_DAYS * 24) => fallback
 /** إن كانت النافذة المختارة أكبر من المسموح يُرجَع أكبر خيار مسموح */
-export const clampHotspotWindow = (hours: number, maxDays: number) => {
-  const list = hotspotWindows(maxDays)
-  const last = list[list.length - 1]!
-  return hours > last.hours ? last.hours : hours
-}
+export const clampHotspotWindow = (_hours: number, maxDays: number) => hotspotWindows(maxDays)[0]!.hours
 
 /** نصف قطر الدائرة على الخريطة (بكسل) بحسب الوزن النسبي 0..1 */
 export const hotspotRadiusPx = (score: number) => Math.round(10 + 22 * Math.sqrt(Math.min(Math.max(score, 0), 1)))

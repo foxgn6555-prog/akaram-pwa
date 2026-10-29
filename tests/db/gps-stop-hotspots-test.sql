@@ -312,9 +312,43 @@ begin
   if not exists (select 1 from public.gps_stop_events where id = new_id) then raise exception 'H12 recent event must stay'; end if;
   if (select max_days from public.gps_stop_hotspot_settings where id = 1) <> 7 then raise exception 'H12 default retention must be 7 days'; end if;
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    execute $q$select count(*) from cron.job where jobname = 'gps_stop_events_weekly_purge' and schedule = '30 0 * * 5'$q$ into n;
+    execute $q$select count(*) from cron.job where jobname = 'gps_stop_events_daily_purge'$q$ into n;
     if n <> 1 then raise exception 'H12 cron job'; end if;
   end if;
   delete from public.gps_stop_events where id = new_id;
   raise notice 'H12 ok';
+end $$;
+
+-- H13 (00372): أحداث التوقف دائمة — حذف النقاط الخام (الاحتفاظ) ثم إعادة المسح لا يُنقص البقع
+do $$
+declare d3 uuid := 'e80dc000-0000-0000-0000-000000000003'; before_n int; after_n int; r record; j jsonb; a jsonb;
+begin
+  select count(*) into before_n from public.gps_stop_events where device_id = d3;
+  if before_n < 1 then raise exception 'H13 precondition: d3 has no events'; end if;
+  -- محاكاة احتفاظ النقاط الخام: حذف كل نقاط D3 ثم إعادة المسح من بداية الاحتفاظ
+  delete from public.gps_device_position_history where device_id = d3;
+  select * into r from app.gps_stop_scan_device(d3, now() - interval '3 days', now());
+  if r.points <> 0 or r.upserted <> 0 then raise exception 'H13 scan without points must be a no-op %', r; end if;
+  update public.gps_stop_scan_state set scan_from = now() - interval '3 days' where device_id = d3;
+  perform app.gps_stop_hotspots_refresh();
+  select count(*) into after_n from public.gps_stop_events where device_id = d3;
+  if after_n <> before_n then raise exception 'H13 events lost after raw purge: % -> %', before_n, after_n; end if;
+  -- حذف جزئي (الأقدم أولاً كما يفعل الاحتفاظ): نقاط D2 قبل 50 دقيقة تُحذف؛ توقف D2 عند A (قبل ساعة) يبقى، وتوقفه عند المحطة (قبل 40 د) يُعاد اشتقاقه
+  delete from public.gps_device_position_history where device_id = 'e80dc000-0000-0000-0000-000000000002' and fix_time < now() - interval '50 minutes';
+  select count(*) into before_n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000002';
+  select * into r from app.gps_stop_scan_device('e80dc000-0000-0000-0000-000000000002', now() - interval '3 days', now());
+  select count(*) into after_n from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000002';
+  if after_n <> before_n then raise exception 'H13 partial purge lost events: % -> %', before_n, after_n; end if;
+  if not exists (select 1 from public.gps_stop_events where device_id = 'e80dc000-0000-0000-0000-000000000002' and abs(latitude - 33.3202) < 0.001 and duration_seconds = 390) then
+    raise exception 'H13 D2 stop at A must survive (its raw points are gone)';
+  end if;
+  -- الاحتفاظ الافتراضي 3 أيام والتنظيف يومي
+  if (select column_default from information_schema.columns where table_name = 'gps_stop_hotspot_settings' and column_name = 'max_days') <> '3' then raise exception 'H13 default max_days'; end if;
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    execute $q$select count(*) from cron.job where jobname = 'gps_stop_events_daily_purge' and schedule = '30 0 * * *'$q$ into after_n;
+    if after_n <> 1 then raise exception 'H13 daily purge cron'; end if;
+    execute $q$select count(*) from cron.job where jobname = 'gps_stop_events_weekly_purge'$q$ into after_n;
+    if after_n <> 0 then raise exception 'H13 weekly job must be gone'; end if;
+  end if;
+  raise notice 'H13 ok';
 end $$;
