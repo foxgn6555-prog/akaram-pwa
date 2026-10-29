@@ -25,7 +25,8 @@ vi.mock('@features/gps-lvn/hooks', () => ({
   useGpsTripInvestigations: () => ({ data: h.inv }),
   useGpsTripInvestigationSave: () => ({ mutate: h.invSave, isPending: false }),
 }))
-vi.mock('@features/gps-lvn/trip-route-export', () => ({
+vi.mock('@features/gps-lvn/trip-route-export', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   exportTripRouteExcel: h.exp.excel, exportTripRoutePdf: h.exp.pdf, downloadTripRouteKml: h.exp.kml, downloadTripRouteGpx: h.exp.gpx, printTripRoute: h.exp.print, captureElementPng: h.exp.capture,
   tripTitle: () => 'DB 1 — كابسة · علي', summaryRows: () => [{ metric: 'المركبة', value: 'كابسة' }], fmtDateTime: (v: string | null) => v ?? '—', fmtTime: (v: string | null) => v ?? '—', fmtDur: (s: number) => `${s} ث`,
 }))
@@ -193,6 +194,40 @@ describe('TripRouteMapPage (00344)', () => {
     h.exp.print.mockImplementationOnce(() => { throw new Error('POPUP_BLOCKED') })
     fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-print'))
     await waitFor(() => expect((h.toasts.at(-1) as { message: string }).message).toContain('منع النافذة المنبثقة'))
+  })
+  it('00378: إخفاء مقطع يُزيله من الخريطة والتوقفات/الانقطاعات والتصدير؛ «فقط» يُظهر مقطعاً واحداً؛ «إظهار الكل» يعيد الجميع', async () => {
+    ui()
+    expect(screen.getByTestId('trm-legs').textContent).toContain('المراحل (2)')
+    expect(screen.queryByTestId('trm-legs-hidden')).toBeNull()
+    expect(screen.getAllByTestId('polyline')).toHaveLength(20)
+    // إخفاء المقطع 1 (نقاط 11..20 + الانقطاع) ⇒ 9 مقاطع سرعة للنقاط 1..10 وبلا خط انقطاع
+    fireEvent.click(screen.getByTestId('trm-leg-toggle-L1'))
+    expect(screen.getByTestId('trm-leg-L1').getAttribute('data-hidden')).toBe('1')
+    expect(screen.getByTestId('trm-legs-hidden').textContent).toContain('مخفي 1')
+    expect(screen.getAllByTestId('polyline')).toHaveLength(9)
+    expect(screen.queryByTestId('trm-gaps')).toBeNull()
+    expect(screen.getByTestId('trm-stops').textContent).toContain('1 من 1')
+    // التصدير يحترم الإخفاء: KML يستلم نقاط المقطع الصفري فقط، وExcel يصفّي ما جُلب
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-kml'))
+    await waitFor(() => expect(h.exp.kml).toHaveBeenCalled())
+    const kmlArg = h.exp.kml.mock.calls[0]?.[0] as { points: { seq: number }[]; gaps: unknown[]; legs: unknown[] }
+    expect(kmlArg.points.map((p) => p.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]); expect(kmlArg.gaps).toHaveLength(0); expect(kmlArg.legs).toHaveLength(0)
+    h.exp.fetch.mockResolvedValue(detail({ points: Array.from({ length: 20 }, (_, i) => pt(i + 1)) }))
+    fireEvent.click(screen.getByTestId('trm-export-toggle')); fireEvent.click(screen.getByTestId('trm-export-excel'))
+    await waitFor(() => expect(h.exp.excel).toHaveBeenCalled())
+    expect((h.exp.excel.mock.calls[0]?.[0] as { points: unknown[] }).points).toHaveLength(10)
+    // «فقط» على المقطع 1 ⇒ يُخفى الصفري ويظهر 1: 9 مقاطع سرعة (11..20) + خط الانقطاع، والتوقف (في الصفري) يختفي
+    fireEvent.click(screen.getByTestId('trm-leg-solo-L1'))
+    expect(screen.getByTestId('trm-leg-pre').getAttribute('data-hidden')).toBe('1')
+    expect(screen.getByTestId('trm-leg-L1').getAttribute('data-hidden')).toBe('0')
+    expect(screen.getAllByTestId('polyline')).toHaveLength(10)
+    expect(screen.getByTestId('trm-stops').textContent).toContain('0 من 1')
+    // «فقط» مرة أخرى على الوحيد الظاهر ⇒ يعيد الكل
+    fireEvent.click(screen.getByTestId('trm-leg-solo-L1'))
+    expect(screen.queryByTestId('trm-legs-hidden')).toBeNull()
+    fireEvent.click(screen.getByTestId('trm-leg-toggle-pre'))
+    fireEvent.click(screen.getByTestId('trm-legs-show-all'))
+    expect(screen.getAllByTestId('polyline')).toHaveLength(20)
   })
   it('00346: التحقيقات انتقلت إلى صفحة الخريطة — زر «تحقيق» بجانب كل توقف/انقطاع يفتح نافذة الحفظ، والقائمة تعرض التحقيقات القائمة', () => {
     h.detail = detail()

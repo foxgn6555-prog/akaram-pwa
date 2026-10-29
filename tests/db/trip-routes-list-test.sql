@@ -129,5 +129,22 @@ begin
   select x into r from jsonb_array_elements(opts -> 'vehicles') x where x ->> 'id' = 'e80da000-0000-0000-0000-000000000003';
   if r is null or (r ->> 'has_gps')::boolean then raise exception 'L7 vehicle has_gps'; end if;
   if not exists (select 1 from jsonb_array_elements(opts -> 'sectors') z where (z ->> 'id')::int = 96) then raise exception 'L7 sectors'; end if;
+  -- L8 (00378): فلاتر المقاطع — d1: موقع←محطة (وصلت) ثم محطة←صيانة (في الطريق)؛ d2: موقع←محطة (وصلت)؛ d3: بلا مقاطع
+  insert into public.vehicle_trip_legs (departure_id, sequence_no, origin_type, destination_type, departed_at, departed_by, arrived_at, arrived_by) values
+    (d1, 1, 'work_site', 'transfer_station', t1 + interval '10 minute', ops, t1 + interval '20 minute', ops),
+    (d1, 2, 'transfer_station', 'maintenance', t1 + interval '25 minute', ops, null, null),
+    (d2, 1, 'work_site', 'transfer_station', t2 + interval '3 minute', ops, t2 + interval '8 minute', ops);
+  js := public.trip_routes_list(jsonb_build_object('leg_type', 'transfer_station', 'date_from', day1)); if (js ->> 'total')::int <> 2 then raise exception 'L8 leg_type station %', js ->> 'total'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_type', 'maintenance', 'date_from', day1)); if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'departure_id' <> d1::text then raise exception 'L8 leg_type maintenance'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_type', 'garage', 'date_from', day1)); if (js ->> 'total')::int <> 0 then raise exception 'L8 leg_type garage'; end if;
+  js := public.trip_routes_list(jsonb_build_object('min_legs', 2, 'date_from', day1)); if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'departure_id' <> d1::text then raise exception 'L8 min_legs'; end if;
+  js := public.trip_routes_list(jsonb_build_object('min_legs', 1, 'date_from', day1)); if (js ->> 'total')::int <> 2 then raise exception 'L8 min_legs 1'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_state', 'none', 'date_from', day1)); if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'departure_id' <> d3::text then raise exception 'L8 leg_state none'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_state', 'en_route', 'date_from', day1)); if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'departure_id' <> d1::text then raise exception 'L8 leg_state en_route'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_state', 'arrived', 'date_from', day1)); if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'departure_id' <> d2::text then raise exception 'L8 leg_state arrived'; end if;
+  js := public.trip_routes_list(jsonb_build_object('leg_type', 'transfer_station', 'leg_state', 'arrived', 'date_from', day1)); if (js ->> 'total')::int <> 1 then raise exception 'L8 combined'; end if;
+  if (js -> 'rows' -> 0 ->> 'legs_count')::int <> 1 or js -> 'rows' -> 0 ->> 'last_destination' <> 'transfer_station' then raise exception 'L8 legs columns'; end if;
+  perform pg_temp.expect_error('select public.trip_routes_list(''{"leg_type":"moon"}'')', 'TRIP_ROUTES_LEG_TYPE_INVALID');
+  perform pg_temp.expect_error('select public.trip_routes_list(''{"leg_state":"x"}'')', 'TRIP_ROUTES_LEG_STATE_INVALID');
   raise notice 'trip routes list ok';
 end $$;

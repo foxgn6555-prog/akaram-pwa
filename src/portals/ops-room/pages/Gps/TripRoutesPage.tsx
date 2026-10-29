@@ -54,6 +54,9 @@ export function toRpcFilters(f: TripRoutesFilters): TripRoutesFilters {
   if (f.has_gaps != null) out.has_gaps = f.has_gaps
   if (f.min_stops) out.min_stops = f.min_stops
   if (f.min_km) out.min_km = f.min_km
+  if (f.leg_type) out.leg_type = f.leg_type
+  if (f.min_legs) out.min_legs = f.min_legs
+  if (f.leg_state) out.leg_state = f.leg_state
   for (const k of ['from_place', 'to_place', 'via_place'] as const) {
     const p = f[k]
     if (!p) continue
@@ -152,6 +155,15 @@ export default function TripRoutesPage() {
               </select></label>
             <label className={lbl}>أدنى عدد توقفات<input type="number" min={0} value={draft.min_stops ?? ''} onChange={(e) => set('min_stops', e.target.value ? Number(e.target.value) : null)} data-testid="tr-f-minstops" className={inp} /></label>
             <label className={lbl}>أدنى مسافة (كم)<input type="number" min={0} step="0.5" value={draft.min_km ?? ''} onChange={(e) => set('min_km', e.target.value ? Number(e.target.value) : null)} data-testid="tr-f-minkm" className={inp} /></label>
+            <label className={lbl}>مرّت بمقطع إلى
+              <select value={draft.leg_type ?? ''} onChange={(e) => set('leg_type', e.target.value as TripRoutesFilters['leg_type'])} data-testid="tr-f-legtype" className={inp}>
+                <option value="">الكل</option>{(Object.keys(DEST_AR) as string[]).map((k) => <option key={k} value={k}>{DEST_AR[k]}</option>)}
+              </select></label>
+            <label className={lbl}>حالة آخر مقطع
+              <select value={draft.leg_state ?? ''} onChange={(e) => set('leg_state', e.target.value as TripRoutesFilters['leg_state'])} data-testid="tr-f-legstate" className={inp}>
+                <option value="">الكل</option><option value="none">بلا مقاطع (كراج ← موقع فقط)</option><option value="arrived">آخر مقطع وصل</option><option value="en_route">آخر مقطع في الطريق</option>
+              </select></label>
+            <label className={lbl}>أدنى عدد مقاطع<input type="number" min={0} value={draft.min_legs ?? ''} onChange={(e) => set('min_legs', e.target.value ? Number(e.target.value) : null)} data-testid="tr-f-minlegs" className={inp} /></label>
           </div>
         )}
 

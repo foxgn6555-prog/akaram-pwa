@@ -1137,6 +1137,12 @@ export interface TripRoutesFilters {
   from_place?: TripRoutePlace | null
   to_place?: TripRoutePlace | null
   via_place?: TripRoutePlace | null
+  /** 00378: مرّت بمقطع إلى هذا النوع من الوجهات */
+  leg_type?: 'work_site' | 'transfer_station' | 'maintenance' | 'garage' | ''
+  /** 00378: أدنى عدد مقاطع بعد موقع العمل */
+  min_legs?: number | null
+  /** 00378: حالة آخر مقطع — بلا مقاطع / وصلت / في الطريق */
+  leg_state?: 'none' | 'arrived' | 'en_route' | ''
   order?: TripRoutesOrder
 }
 export interface TripRoutesRow {

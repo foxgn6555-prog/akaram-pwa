@@ -7,6 +7,22 @@ import { downloadBlob } from '@features/media/lib/design-export'
 import type { TripRouteDetail, TripRouteTripInfo } from '@sdk/gps-lvn.sdk'
 
 const tz = 'Asia/Baghdad'
+
+/** 00378: مفتاح المقطع لنقطة/توقف/انقطاع — المقطع الصفري (كراج ← موقع العمل) مفتاحه 'pre' */
+export const PRE_LEG_KEY = 'pre'
+export const legKeyOf = (legId: string | null | undefined) => legId ?? PRE_LEG_KEY
+/** 00378: نسخة من تفاصيل المسار بلا المقاطع المخفية (نقاط/توقفات/انقطاعات/مراحل) — تُستخدم للخريطة والتصدير معاً حتى يطابق الملف ما يُرى */
+export function filterTripRouteLegs<T extends Pick<TripRouteDetail, 'points' | 'stops' | 'gaps' | 'legs'>>(d: T, hidden: ReadonlySet<string>): T {
+  if (hidden.size === 0) return d
+  return {
+    ...d,
+    points: d.points.filter((p) => !hidden.has(legKeyOf(p.leg_id))),
+    stops: (d.stops ?? []).filter((s) => !hidden.has(legKeyOf(s.leg_id))),
+    gaps: (d.gaps ?? []).filter((g) => !hidden.has(legKeyOf(g.leg_id))),
+    legs: (d.legs ?? []).filter((l) => !hidden.has(l.leg_id)),
+  }
+}
+
 export const fmtDateTime = (iso: string | null | undefined) => (iso ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date(iso)) : '—')
 export const fmtTime = (iso: string | null | undefined) => (iso ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: tz }).format(new Date(iso)) : '—')
 export const fmtDur = (s: number | null | undefined) => { if (s == null) return '—'; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} س ${m} د` : `${m} د` }

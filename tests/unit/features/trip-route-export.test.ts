@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({ excel: vi.fn(), blobs: [] as { name: string; type: string }[] }))
 vi.mock('@lib/export/excel-report', () => ({ buildExcelReport: h.excel }))
 vi.mock('@features/media/lib/design-export', () => ({ downloadBlob: (b: Blob, name: string) => h.blobs.push({ name, type: b.type }) }))
-import { buildTripRouteGpx, buildTripRouteKml, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, summaryRows, tripFileBase } from '@features/gps-lvn/trip-route-export'
+import { PRE_LEG_KEY, buildTripRouteGpx, buildTripRouteKml, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, filterTripRouteLegs, legKeyOf, summaryRows, tripFileBase } from '@features/gps-lvn/trip-route-export'
 import type { TripRouteDetail } from '@sdk/gps-lvn.sdk'
 
 const T0 = Date.parse('2026-10-20T05:00:00Z')
@@ -81,5 +81,16 @@ describe('trip-route-export (00345)', () => {
     expect(summaryRows(d2)[0]!.value).toBe('—')
     expect(tripFileBase(d2)).toBe('مسار-انطلاقية-2026-10-20')
     expect(buildTripRouteKml(d2)).not.toContain('النهاية')
+  })
+
+  it('00378: filterTripRouteLegs يستبعد نقاط/توقفات/انقطاعات/مراحل المقاطع المخفية ويُعيد الكائن نفسه حين لا شيء مخفي', () => {
+    expect(legKeyOf(null)).toBe(PRE_LEG_KEY); expect(legKeyOf('L1')).toBe('L1')
+    expect(filterTripRouteLegs(d, new Set())).toBe(d)
+    const noPre = filterTripRouteLegs(d, new Set([PRE_LEG_KEY]))
+    expect(noPre.points.map((p) => p.seq)).toEqual([2, 3]); expect(noPre.gaps).toHaveLength(0); expect(noPre.stops).toHaveLength(1); expect(noPre.legs).toHaveLength(1)
+    const noL1 = filterTripRouteLegs(d, new Set(['L1']))
+    expect(noL1.points.map((p) => p.seq)).toEqual([1]); expect(noL1.gaps).toHaveLength(1); expect(noL1.stops).toHaveLength(0); expect(noL1.legs).toHaveLength(0)
+    expect(noL1.distance_m).toBe(d.distance_m)   // الملخّص الإجمالي للرحلة لا يتغيّر
+    expect(buildTripRouteKml(noL1)).not.toContain('<Folder><name>المراحل</name><Placemark')
   })
 })

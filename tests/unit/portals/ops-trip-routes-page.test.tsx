@@ -138,8 +138,13 @@ describe('TripRoutesPage (00343)', () => {
     fireEvent.change(screen.getByTestId('tr-f-minkm'), { target: { value: '5' } })
     fireEvent.change(screen.getByTestId('tr-f-shift'), { target: { value: 'evening' } })
     fireEvent.change(screen.getByTestId('tr-f-driver'), { target: { value: 'علي' } })
+    // 00378: فلاتر المقاطع
+    expect(screen.getByTestId('tr-f-legtype').querySelectorAll('option')).toHaveLength(5)
+    fireEvent.change(screen.getByTestId('tr-f-legtype'), { target: { value: 'transfer_station' } })
+    fireEvent.change(screen.getByTestId('tr-f-legstate'), { target: { value: 'en_route' } })
+    fireEvent.change(screen.getByTestId('tr-f-minlegs'), { target: { value: '2' } })
     fireEvent.click(screen.getByTestId('tr-apply'))
-    expect(h.args[0]).toMatchObject({ has_gaps: true, min_stops: 2, min_km: 5, shift: 'evening', driver: 'علي' })
+    expect(h.args[0]).toMatchObject({ has_gaps: true, min_stops: 2, min_km: 5, shift: 'evening', driver: 'علي', leg_type: 'transfer_station', leg_state: 'en_route', min_legs: 2 })
     expect(screen.getByTestId('tr-pager').textContent).toContain('1 / 3')
     expect((screen.getByTestId('tr-prev') as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByTestId('tr-next'))
@@ -161,7 +166,7 @@ describe('TripRoutesPage (00343)', () => {
     expect((h.toasts[1] as { message: string }).message).toContain('بلا جهاز GPS')
   })
   it('toRpcFilters/placeLabel: ينظّف الفارغ ويحذف الدائرة غير المكتملة والمكان بلا معرّف', () => {
-    expect(toRpcFilters({ date_from: '', search: '  ', sector_id: null, has_gaps: null, order: 'departed_desc', from_place: { kind: 'zone' }, via_place: { kind: 'circle', radius_m: 300 } })).toEqual({})
+    expect(toRpcFilters({ date_from: '', search: '  ', sector_id: null, has_gaps: null, order: 'departed_desc', from_place: { kind: 'zone' }, via_place: { kind: 'circle', radius_m: 300 }, leg_type: '', leg_state: '', min_legs: 0 })).toEqual({})
     expect(toRpcFilters({ has_gaps: false, order: 'stops_desc', to_place: { kind: 'circle', lat: 1, lng: 2, radius_m: 50, label: 'x' } })).toEqual({ has_gaps: false, order: 'stops_desc', to_place: { kind: 'circle', id: undefined, lat: 1, lng: 2, radius_m: 50 } })
     expect(placeLabel(null)).toBe('')
     expect(placeLabel({ kind: 'zone', id: 'zz' }, undefined)).toBe('')

@@ -4,7 +4,7 @@
  * علامات المراحل لكل مقطع (انطلاق/وصول)، الزونات الملوّنة، تشغيل الزمن (Play)، خريطة حرارية للتوقفات، ومقارنة مسارين.
  * البيانات من trip_route_get (محرّك 00342) — بلا لصق بالطرق: النقاط كما سجّلها الجهاز بعد التنظيف.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences, useGpsTripInvestigationSave, useGpsTripInvestigations, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
-import { captureElementPng, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, exportTripRoutePdf, printTripRoute, tripTitle } from '@features/gps-lvn/trip-route-export'
+import { PRE_LEG_KEY, captureElementPng, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, exportTripRoutePdf, filterTripRouteLegs, printTripRoute, tripTitle } from '@features/gps-lvn/trip-route-export'
 import { gpsLvn } from '@sdk/gps-lvn.sdk'
 import TripRouteReportSheet from './TripRouteReportSheet'
 import { useUiStore } from '@stores/ui.store'
@@ -90,8 +90,15 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
   const [invTarget, setInvTarget] = useState<{ type: 'stop' | 'gap'; at: string; title: string } | null>(null)
   const investigations = useGpsTripInvestigations(departureId)
   const invByKey = useMemo(() => new Map((investigations.data ?? []).map((i) => [`${i.event_type}:${new Date(i.event_at).getTime()}`, i])), [investigations.data])
-  const d = route.data
+  /** 00378: المقاطع المخفية (مفاتيح: 'pre' للمقطع الصفري ثم leg_id) — تُستبعد من الخريطة والقوائم والتصدير معاً */
+  const [hiddenLegs, setHiddenLegs] = useState<ReadonlySet<string>>(() => new Set())
+  const dAll = route.data
+  const d = useMemo(() => (dAll ? filterTripRouteLegs(dAll, hiddenLegs) : dAll), [dAll, hiddenLegs])
   const pts = useMemo(() => d?.points ?? [], [d])
+  const legKeys = useMemo(() => [PRE_LEG_KEY, ...(dAll?.legs ?? []).map((l) => l.leg_id)], [dAll])
+  const toggleLeg = (key: string) => setHiddenLegs((h) => { const n = new Set(h); if (n.has(key)) n.delete(key); else n.add(key); return n })
+  /** «هذا فقط»: يُخفي كل المقاطع عدا المختار؛ وإن كان وحده الظاهر يُعيد الكل */
+  const soloLeg = (key: string) => setHiddenLegs((h) => (h.size === legKeys.length - 1 && !h.has(key) ? new Set() : new Set(legKeys.filter((k) => k !== key))))
   const latlngs = useMemo(() => pts.map((p) => [p.lat, p.lng] as [number, number]), [pts])
   const cmpPts = useMemo(() => compare.data?.points ?? [], [compare.data])
   const allBounds = useMemo(() => [...latlngs, ...cmpPts.map((p) => [p.lat, p.lng] as [number, number])], [latlngs, cmpPts])
@@ -116,7 +123,7 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
     if (!d) return
     setExportOpen(false); setExporting(kind)
     try {
-      if (kind === 'excel') { await exportTripRouteExcel(await gpsLvn.tripRoute(departureId, 200000)); }
+      if (kind === 'excel') { await exportTripRouteExcel(filterTripRouteLegs(await gpsLvn.tripRoute(departureId, 200000), hiddenLegs)); }
       else if (kind === 'kml') downloadTripRouteKml(d)
       else if (kind === 'gpx') downloadTripRouteGpx(d)
       else {
@@ -136,6 +143,9 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
     } finally { setExporting(null) }
   }
   const playPoint = playIdx != null ? pts[playIdx] : undefined
+  // عند الانتقال إلى انطلاقية أخرى تُعاد المقاطع كلها إلى الظهور (لا يعمل عند أول تحميل)
+  const prevTrip = useRef(departureId)
+  useEffect(() => { if (prevTrip.current !== departureId) { prevTrip.current = departureId; setHiddenLegs(new Set()); setPlayIdx(null); setPlaying(false) } }, [departureId])
 
   if (route.isLoading) return <LoadingSpinner />
   if (route.isError || !d) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800" data-testid="trm-error">تعذّر تحميل المسار: {(route.error as Error | null)?.message ?? ''} <Link to="/ops-room/trip-routes" className="underline">عودة للقائمة</Link></div>
@@ -225,14 +235,18 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
         <aside className={`space-y-3 overflow-y-auto ${full ? 'min-h-0 p-1' : ''}`} data-testid="trm-side">
           {compare.data && <div className="rounded-2xl border border-violet-200 bg-violet-50 p-3 text-[11px]" data-testid="trm-compare-box"><b className="text-violet-800">المقارنة (بنفسجي):</b> {dateAr(compare.data.first_fix)} · {km(compare.data.distance_m)} كم · {compare.data.stops_count} توقف · حركة {dur(compare.data.moving_seconds)} · توقف {dur(compare.data.stopped_seconds)}<br /><span className="text-violet-700">الفرق: {(((d.distance_m - compare.data.distance_m) / 1000)).toFixed(1)} كم · {Math.round((d.moving_seconds + d.stopped_seconds - compare.data.moving_seconds - compare.data.stopped_seconds) / 60)} دقيقة</span></div>}
           <div className="rounded-2xl border bg-white p-3" data-testid="trm-legs">
-            <h2 className="mb-2 text-xs font-black text-slate-800">المراحل ({(d.legs ?? []).length + 1})</h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-xs font-black text-slate-800">المراحل ({legKeys.length}){hiddenLegs.size > 0 && <span className="mr-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800" data-testid="trm-legs-hidden">مخفي {hiddenLegs.size}</span>}</h2>
+              {hiddenLegs.size > 0 && <button type="button" onClick={() => setHiddenLegs(new Set())} className="rounded-lg border px-2 py-0.5 text-[10px] font-black text-slate-700 hover:bg-slate-50" data-testid="trm-legs-show-all">إظهار الكل</button>}
+            </div>
+            <p className="mb-2 text-[10px] text-slate-500">أخفِ أي مقطع لتصفية الخريطة والتوقفات والانقطاعات والتصدير؛ «فقط» يُظهر مقطعاً واحداً.</p>
             <ol className="space-y-1 text-[11px]">
-              <li className="rounded-lg bg-slate-50 p-2"><b>0 · الكراج ← موقع العمل</b><br />{timeAr(d.first_fix)} · {pts.filter((p) => !p.leg_id).length} نقطة</li>
-              {(d.legs ?? []).map((l) => <LegItem key={l.leg_id} l={l} />)}
+              <LegRow legKey={PRE_LEG_KEY} hidden={hiddenLegs.has(PRE_LEG_KEY)} onToggle={toggleLeg} onSolo={soloLeg}><b>0 · الكراج ← موقع العمل</b><br />{timeAr(dAll?.first_fix)} · {(dAll?.points ?? []).filter((p) => !p.leg_id).length} نقطة</LegRow>
+              {(dAll?.legs ?? []).map((l) => <LegRow key={l.leg_id} legKey={l.leg_id} hidden={hiddenLegs.has(l.leg_id)} onToggle={toggleLeg} onSolo={soloLeg}><LegItem l={l} /></LegRow>)}
             </ol>
           </div>
           <div className="rounded-2xl border bg-white p-3" data-testid="trm-stops">
-            <h2 className="mb-2 text-xs font-black text-slate-800">التوقفات ({d.stops_count})</h2>
+            <h2 className="mb-2 text-xs font-black text-slate-800">التوقفات ({hiddenLegs.size ? `${(d.stops ?? []).length} من ${d.stops_count}` : d.stops_count})</h2>
             {(d.stops ?? []).length === 0 ? <p className="text-[11px] text-slate-500">لا توقفات ≥ الحد المعتمد.</p> : (
               <ul className="space-y-1 text-[11px]">
                 {(d.stops ?? []).map((s) => (
@@ -245,7 +259,7 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
           </div>
           {(d.gaps ?? []).length > 0 && (
             <div className="rounded-2xl border bg-white p-3" data-testid="trm-gaps">
-              <h2 className="mb-2 text-xs font-black text-slate-800">انقطاعات الإشارة ({d.gaps_count})</h2>
+              <h2 className="mb-2 text-xs font-black text-slate-800">انقطاعات الإشارة ({hiddenLegs.size ? `${(d.gaps ?? []).length} من ${d.gaps_count}` : d.gaps_count})</h2>
               <ul className="space-y-1 text-[11px]">{(d.gaps ?? []).map((g) => <li key={g.seq} className="flex items-stretch gap-1"><button type="button" onClick={() => setFlyTarget([g.from_lat, g.from_lng])} className="flex-1 rounded-lg bg-slate-50 p-2 text-right">{dur(g.seconds)} · {timeAr(g.started_at)} ← {timeAr(g.ended_at)}</button><InvButton inv={invByKey.get(`gap:${new Date(g.started_at).getTime()}`)} onClick={() => setInvTarget({ type: 'gap', at: g.started_at, title: `انقطاع · ${dur(g.seconds)}` })} testId={`trm-inv-gap-${g.seq}`} /></li>)}</ul>
             </div>
           )}
@@ -277,8 +291,20 @@ function PointPopup({ p }: { p: TripRoutePoint }) {
 function StopPopup({ s }: { s: TripRouteStop }) {
   return <div className="text-[11px]" dir="rtl"><b>توقف #{s.seq} · {dur(s.duration_seconds)}</b><br />{timeAr(s.started_at)} ← {timeAr(s.ended_at)}<br />{s.address ?? '—'}{s.geofence_name ? <><br />داخل زون: {s.geofence_name}</> : null}<br /><span className="text-slate-400">المصدر: {s.address_source === 'lvn' ? 'LVN' : s.address_source === 'osm' ? 'OpenStreetMap' : s.address_source === 'zone' ? 'زون المنصة' : '—'}</span></div>
 }
+/** 00378: صف مقطع مع زرّي إظهار/إخفاء و«فقط» */
+function LegRow({ legKey, hidden, onToggle, onSolo, children }: { legKey: string; hidden: boolean; onToggle: (k: string) => void; onSolo: (k: string) => void; children: ReactNode }) {
+  return (
+    <li className={`flex items-stretch gap-1 rounded-lg p-2 ${hidden ? 'bg-slate-100 text-slate-400 line-through' : 'bg-slate-50'}`} data-testid={`trm-leg-${legKey}`} data-hidden={hidden ? '1' : '0'}>
+      <div className="min-w-0 flex-1 no-underline">{children}</div>
+      <div className="flex flex-col gap-1">
+        <button type="button" onClick={() => onToggle(legKey)} aria-pressed={!hidden} title={hidden ? 'إظهار المقطع' : 'إخفاء المقطع'} className={`rounded-lg border px-2 text-[10px] font-black no-underline ${hidden ? 'bg-white text-slate-500' : 'bg-slate-900 text-white'}`} data-testid={`trm-leg-toggle-${legKey}`}>{hidden ? 'مخفي' : 'ظاهر'}</button>
+        <button type="button" onClick={() => onSolo(legKey)} title="إظهار هذا المقطع فقط" className="rounded-lg border px-2 text-[10px] font-black text-slate-600 no-underline hover:bg-amber-50" data-testid={`trm-leg-solo-${legKey}`}>فقط</button>
+      </div>
+    </li>
+  )
+}
 function LegItem({ l }: { l: TripRouteLeg }) {
-  return <li className="rounded-lg bg-slate-50 p-2"><b>{l.sequence_no} · {DEST_AR[l.origin_type] ?? l.origin_type} ← {DEST_AR[l.destination_type] ?? l.destination_type}</b><br />{timeAr(l.departed_at)} ← {l.arrived_at ? timeAr(l.arrived_at) : 'لم يؤكَّد الوصول'} · {km(l.distance_m)} كم · حركة {dur(l.moving_seconds)} · توقف {dur(l.stopped_seconds)} · {l.stops_count} توقف{l.gaps_count ? ` · ${l.gaps_count} انقطاع` : ''}</li>
+  return <span className="block"><b>{l.sequence_no} · {DEST_AR[l.origin_type] ?? l.origin_type} ← {DEST_AR[l.destination_type] ?? l.destination_type}</b><br />{timeAr(l.departed_at)} ← {l.arrived_at ? timeAr(l.arrived_at) : 'لم يؤكَّد الوصول'} · {km(l.distance_m)} كم · حركة {dur(l.moving_seconds)} · توقف {dur(l.stopped_seconds)} · {l.stops_count} توقف{l.gaps_count ? ` · ${l.gaps_count} انقطاع` : ''}</span>
 }
 /** علامات المراحل: بداية المسار، ونهاية كل مقطع (موقع أول نقطة بعد زمن المغادرة / آخر نقطة قبل الوصول) */
 function StageMarkers({ d }: { d: TripRouteDetail }) {
