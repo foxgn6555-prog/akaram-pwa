@@ -195,7 +195,8 @@ export function useAssignGarageDriver() {
   return useMutation({
     mutationFn: (input: {
       vehicleId: string
-      driverEmployeeId: string
+      driverEmployeeId: string | null
+      driverExternalId?: string | null
       shift: GarageShift
       sectorId: number
       reason?: string
@@ -206,6 +207,7 @@ export function useAssignGarageDriver() {
         input.shift,
         input.sectorId,
         input.reason,
+        input.driverExternalId ?? null,
       ),
     onSuccess: (_data, input) => {
       void qc.invalidateQueries({ queryKey: centralGarageKeys.vehicle(input.vehicleId) })
@@ -335,14 +337,45 @@ export function useSetGarageShiftAssignment() {
     mutationFn: (x: {
       vehicleId: string
       shift: GarageShift
-      driverEmployeeId: string
+      driverEmployeeId: string | null
+      driverExternalId?: string | null
+      role?: 'primary' | 'backup'
       sectorId: number
       reason: string
     }) =>
-      centralGarage.setShiftAssignment(x.vehicleId, x.shift, x.driverEmployeeId, x.sectorId, x.reason),
+      centralGarage.setShiftAssignment(
+        x.vehicleId,
+        x.shift,
+        x.driverEmployeeId,
+        x.sectorId,
+        x.reason,
+        x.role ?? 'primary',
+        x.driverExternalId ?? null,
+      ),
     onSuccess: (_, x) => {
       void qc.invalidateQueries({ queryKey: ['central-garage', 'shift-assignments', x.vehicleId] })
-      toast({ type: 'success', message: 'تم حفظ سائق وموقع الشفت مع الاحتفاظ بالسجل' })
+      void qc.invalidateQueries({ queryKey: centralGarageKeys.vehicle(x.vehicleId) })
+      void qc.invalidateQueries({ queryKey: centralGarageKeys.vehicles() })
+      toast({
+        type: 'success',
+        message:
+          x.role === 'backup'
+            ? 'تم حفظ السائق الاحتياطي للشفت مع الاحتفاظ بالسجل'
+            : 'تم حفظ سائق وموقع الشفت مع الاحتفاظ بالسجل',
+      })
+    },
+  })
+}
+/** إنهاء إسناد سائق احتياطي */
+export function useEndGarageShiftAssignment() {
+  const qc = useQueryClient(),
+    toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (x: { assignmentId: string; vehicleId: string; reason: string }) =>
+      centralGarage.endShiftAssignment(x.assignmentId, x.reason),
+    onSuccess: (_, x) => {
+      void qc.invalidateQueries({ queryKey: ['central-garage', 'shift-assignments', x.vehicleId] })
+      toast({ type: 'success', message: 'أُنهي إسناد السائق الاحتياطي' })
     },
   })
 }
@@ -350,8 +383,14 @@ export function useRecordGarageShiftDeparture() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (x: { vehicleId: string; shift: GarageShift; notes?: string; managerId?: string }) =>
-      centralGarage.recordShiftDeparture(x.vehicleId, x.shift, x.notes, x.managerId),
+    mutationFn: (x: {
+      vehicleId: string
+      shift: GarageShift
+      notes?: string
+      managerId?: string
+      driverRole?: 'primary' | 'backup'
+    }) =>
+      centralGarage.recordShiftDeparture(x.vehicleId, x.shift, x.notes, x.managerId, x.driverRole ?? 'primary'),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['central-garage'] })
       toast({

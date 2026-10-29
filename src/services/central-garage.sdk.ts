@@ -307,6 +307,15 @@ export const centralGarage = {
           p_vehicle_color: input.vehicleColor || null,
           p_specifications: input.specifications || null,
           p_driver_external_id: input.driverExternalId || null,
+          p_drivers: input.drivers?.length
+            ? input.drivers.map((d) => ({
+                shift: d.shift,
+                role: d.role,
+                driver_employee_id: d.driverEmployeeId || null,
+                driver_external_id: d.driverExternalId || null,
+                sector_id: d.sectorId ?? null,
+              }))
+            : null,
         }),
       )
       return vehicleRow(data as unknown as Record<string, unknown>)
@@ -343,6 +352,15 @@ export const centralGarage = {
           p_vehicle_color: input.vehicleColor || null,
           p_specifications: input.specifications || null,
           p_driver_external_id: input.driverExternalId || null,
+          p_drivers: input.drivers?.length
+            ? input.drivers.map((d) => ({
+                shift: d.shift,
+                role: d.role,
+                driver_employee_id: d.driverEmployeeId || null,
+                driver_external_id: d.driverExternalId || null,
+                sector_id: d.sectorId ?? null,
+              }))
+            : null,
         }),
       )
       return vehicleRow(data as unknown as Record<string, unknown>)
@@ -354,18 +372,20 @@ export const centralGarage = {
 
   async assignDriver(
     vehicleId: string,
-    driverEmployeeId: string,
+    driverEmployeeId: string | null,
     shift: GarageShift,
     sectorId: number,
     reason?: string,
+    driverExternalId?: string | null,
   ): Promise<GarageDriverAssignment> {
     const data = await sdkGuard(
       supabase.rpc('garage_assign_driver', {
         p_vehicle_id: vehicleId,
-        p_driver_employee_id: driverEmployeeId,
+        p_driver_employee_id: driverEmployeeId || null,
         p_shift: shift,
         p_sector_id: sectorId,
         p_reason: reason?.trim() || null,
+        p_driver_external_id: driverExternalId || null,
       }),
     )
     return assignmentRow(data as unknown as Record<string, unknown>)
@@ -583,7 +603,16 @@ export const centralGarage = {
       startsAt: String(r.starts_at),
       endsAt: r.ends_at as string | null,
       changeReason: r.change_reason as string | null,
+      driverRole: (r.driver_role as 'primary' | 'backup' | undefined) ?? 'primary',
+      driverExternalId: (r.driver_external_id as string | null) ?? null,
+      contractorName: (r.contractor_name as string | null) ?? null,
     }))
+  },
+  /** إنهاء إسناد احتياطي (الأساسي يُستبدل ولا يُزال) */
+  async endShiftAssignment(assignmentId: string, reason: string) {
+    return sdkGuard(
+      supabase.rpc('garage_end_vehicle_shift_assignment', { p_assignment_id: assignmentId, p_reason: reason.trim() }),
+    )
   },
   /** قائمة السائقين (موظفو HR) لغرفة العمليات — بحث حر يشمل كل الموظفين */
   async driverOptions(search?: string, all = false): Promise<FleetDriverOption[]> {
@@ -614,17 +643,21 @@ export const centralGarage = {
   async setShiftAssignment(
     vehicleId: string,
     shift: GarageShift,
-    driverEmployeeId: string,
+    driverEmployeeId: string | null,
     sectorId: number,
     reason: string,
+    role: 'primary' | 'backup' = 'primary',
+    driverExternalId: string | null = null,
   ) {
     return sdkGuard(
       supabase.rpc('garage_set_vehicle_shift_assignment', {
         p_vehicle_id: vehicleId,
         p_shift: shift,
-        p_driver_employee_id: driverEmployeeId,
+        p_driver_employee_id: driverEmployeeId || null,
         p_sector_id: sectorId,
         p_reason: reason.trim(),
+        p_driver_role: role,
+        p_driver_external_id: driverExternalId || null,
       }),
     )
   },
@@ -649,6 +682,7 @@ export const centralGarage = {
     shift: GarageShift,
     notes?: string,
     managerId?: string,
+    driverRole: 'primary' | 'backup' = 'primary',
   ): Promise<GarageDeparture> {
     const data = await sdkGuard(
       supabase.rpc('garage_record_shift_departure', {
@@ -656,6 +690,7 @@ export const centralGarage = {
         p_shift: shift,
         p_notes: notes?.trim() || null,
         p_manager_id: managerId ?? null,
+        p_driver_role: driverRole,
       }),
     )
     return departureRow(data as unknown as Record<string, unknown>)

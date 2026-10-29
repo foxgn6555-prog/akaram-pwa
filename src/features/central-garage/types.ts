@@ -83,6 +83,18 @@ export interface CreateGarageVehicleInput {
   driverEmployeeId: string | null
   driverExternalId?: string | null
   sectorId: number
+  /** 00377: سائقون متعددون عند الإضافة (لكل شفت أساسي + احتياطي). إن وُجدت تُهمل driverEmployeeId/driverExternalId */
+  drivers?: VehicleDriverSlot[]
+}
+
+export type VehicleDriverRole = 'primary' | 'backup'
+/** خانة سائق عند إضافة الآلية: شفت + دور + (موظف أو سائق متعهد) */
+export interface VehicleDriverSlot {
+  shift: GarageShift
+  role: VehicleDriverRole
+  driverEmployeeId: string | null
+  driverExternalId: string | null
+  sectorId?: number | null
 }
 
 /** خيار سائق من قائمة الموظفين (fleet_driver_options) */
@@ -97,7 +109,7 @@ export interface FleetDriverOption {
   assignedVehicles: string[]
 }
 
-export interface GarageVehicleShiftAssignment {id:string;vehicleId:string;shift:GarageShift;driverName:string;driverEmployeeId:string|null;driverEmployeeNumber:string|null;sectorId:number;areaName:string;parentSector:GarageParentSector;startsAt:string;endsAt:string|null;changeReason:string|null}
+export interface GarageVehicleShiftAssignment {id:string;vehicleId:string;shift:GarageShift;driverName:string;driverEmployeeId:string|null;driverEmployeeNumber:string|null;sectorId:number;areaName:string;parentSector:GarageParentSector;startsAt:string;endsAt:string|null;changeReason:string|null;driverRole:VehicleDriverRole;driverExternalId:string|null;contractorName:string|null}
 
 export interface GarageDriverAssignment {
   id: string

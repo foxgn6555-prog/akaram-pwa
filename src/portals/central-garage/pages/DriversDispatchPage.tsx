@@ -285,8 +285,13 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
   const [notes, setNotes] = useState('')
   const [mode, setMode] = useState<'auto' | 'manual'>('auto')
   const [manualId, setManualId] = useState('')
+  // 00377: أساسي أو احتياطي في الشفت نفسه
+  const [driverRole, setDriverRole] = useState<'primary' | 'backup'>('primary')
   const active = (assignments.data ?? []).filter((assignment) => !assignment.endsAt)
-  const selected = active.find((assignment) => assignment.shift === shift)
+  const primaryOf = (code: string) => active.find((a) => a.shift === code && a.driverRole !== 'backup')
+  const backupOf = (code: string) => active.find((a) => a.shift === code && a.driverRole === 'backup')
+  const backup = backupOf(shift)
+  const selected = driverRole === 'backup' && backup ? backup : primaryOf(shift)
   const candidates = recipients.data ?? []
   const automaticManager = candidates.find((candidate) => candidate.pickRank === 1) ?? null
   const manualChoice = candidates.find((candidate) => candidate.userId === manualId) ?? null
@@ -300,6 +305,7 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
         shift,
         notes: notes || undefined,
         managerId: mode === 'manual' ? effectiveManager.userId : undefined,
+        driverRole: driverRole === 'backup' && backup ? 'backup' : 'primary',
       },
       { onSuccess: onClose },
     )
@@ -329,17 +335,32 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
           <select
             aria-label="شفت انطلاق الآلية"
             value={shift}
-            onChange={(event) => setShift(event.target.value as GarageShift)}
+            onChange={(event) => { setShift(event.target.value as GarageShift); setDriverRole('primary') }}
             className="mt-2 h-12 w-full rounded-xl border px-3"
           >
             {(shiftOptions.data ?? []).map((o) => o.code).map((value) => (
               <option key={value} value={value}>
                 {shiftName(value)} —{' '}
-                {active.find((assignment) => assignment.shift === value)?.driverName ??
-                  'لا يوجد إسناد'}
+                {primaryOf(value)?.driverName ?? 'لا يوجد إسناد'}
+                {backupOf(value) ? ` (+ احتياطي: ${backupOf(value)?.driverName})` : ''}
               </option>
             ))}
           </select>
+          {backup && (
+            <div className="mt-2 grid grid-cols-2 gap-2" data-testid="dispatch-driver-role">
+              {(['primary', 'backup'] as const).map((r) => {
+                const a = r === 'backup' ? backup : primaryOf(shift)
+                return (
+                  <button key={r} type="button" data-testid={`dispatch-driver-role-${r}`} aria-pressed={driverRole === r}
+                    onClick={() => setDriverRole(r)}
+                    className={`rounded-xl px-3 py-2 text-right text-xs font-black ring-1 ${driverRole === r ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300'}`}>
+                    <span className="block text-[10px] opacity-70">{r === 'backup' ? 'السائق الاحتياطي' : 'السائق الأساسي'}</span>
+                    {a?.driverName ?? '—'}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {selected ? (
             <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center gap-3">
@@ -349,7 +370,7 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                 <div>
                   <b className="block text-sm">{selected.areaName}</b>
                   <p className="text-[10px] text-emerald-800">
-                    السائق: {selected.driverName} · الشفت {shiftName(selected.shift)}
+                    السائق: {selected.driverName}{selected.driverRole === 'backup' ? ' (احتياطي)' : ''}{selected.contractorName ? ` · متعهد: ${selected.contractorName}` : ''} · الشفت {shiftName(selected.shift)}
                   </p>
                 </div>
               </div>

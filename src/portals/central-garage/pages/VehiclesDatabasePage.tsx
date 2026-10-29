@@ -30,6 +30,8 @@ import { FleetImportDialog } from '../components/FleetImportDialog'
 import { DriverPicker } from '../components/DriverPicker'
 import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { ExternalDriverPicker } from '../components/ExternalDriverPicker'
+import { VehicleDriversEditor } from '../components/VehicleDriversEditor'
+import { buildDriverSlots, validateExtraDrivers, type ExtraDriverRow } from '@features/central-garage/vehicle-drivers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
@@ -207,6 +209,8 @@ export default function VehiclesDatabasePage({
 function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: () => void }) {
   const [form, setForm] = useState(blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [extraDrivers, setExtraDrivers] = useState<ExtraDriverRow[]>([])
+  const [driverErrors, setDriverErrors] = useState<Record<string, string>>({})
   const [preview, setPreview] = useState<string | null>(null)
   const create = useCreateGarageVehicle()
   useEffect(
@@ -228,6 +232,9 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
     const parsed = garageVehicleSchema.safeParse(form)
+    // 00377: الصفوف الإضافية تُتحقق مع السائق الأول (الشفت الرئيسي) قبل الإرسال
+    const extraErrors = validateExtraDrivers(form, extraDrivers)
+    setDriverErrors(extraErrors)
     if (!parsed.success) {
       setErrors(
         Object.fromEntries(
@@ -236,7 +243,9 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
       )
       return
     }
-    create.mutate(parsed.data, { onSuccess: onClose })
+    if (Object.keys(extraErrors).length) return
+    const drivers = extraDrivers.length ? buildDriverSlots({ ...form, sectorId: parsed.data.sectorId }, extraDrivers) : undefined
+    create.mutate({ ...parsed.data, drivers }, { onSuccess: onClose })
   }
   return (
     <div
@@ -412,7 +421,7 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
           </Field>
           <div className="space-y-2 rounded-2xl border border-slate-200 p-3 sm:col-span-2" data-testid="vehicle-driver-kind">
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
-              <span>نوع السائق:</span>
+              <span>السائق الأساسي للشفت الرئيسي — نوعه:</span>
               {([['employee', 'موظف (HR)'], ['external', 'سائق متعهد']] as const).map(([k, label]) => (
                 <button key={k} type="button" data-testid={`vehicle-driver-kind-${k}`} aria-pressed={form.driverKind === k}
                   className={`rounded-xl px-3 py-1.5 text-xs font-black ${form.driverKind === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
@@ -430,6 +439,7 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
               <ExternalDriverPicker value={form.driverExternalId} onChange={(id) => update('driverExternalId', id)} error={errors.driverExternalId} />
             )}
           </div>
+          <VehicleDriversEditor rows={extraDrivers} onChange={(rows) => { setExtraDrivers(rows); setDriverErrors({}) }} mainShift={form.shift} errors={driverErrors} />
           <Field label="الشفت" error={errors.shift}>
             <ShiftSelect testId="vehicle-shift" className={inputClass} value={form.shift} onChange={(v) => update('shift', v)} />
           </Field>

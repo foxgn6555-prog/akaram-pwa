@@ -1,6 +1,7 @@
 /**
  * نموذج تسجيل خروج آلية من المحطة التحويلية (00330) — بالقوائم فقط، لا كتابة يدوية:
- *  آلية (من آليات المحطة المعلَّمة من غرفة العمليات) ← السائق (موظف سائق / خارجي / متعاقد) ← الوجهة.
+ *  آلية (من آليات المحطة المعلَّمة من غرفة العمليات) ← السائق (موظف سائق HR / سائق متعهد من السجل) ← الوجهة.
+ *  00377: لا اسم حر — سائق الآلية الحالي (موظف أو متعهد) يُقترح تلقائياً عند اختيار الآلية ويمكن تغييره.
  *  التتبع: إن كان للآلية جهاز GPS مرتبط يُسجَّل الوصول آلياً عند دخول زون الوجهة، وإلا يُوسم «بلا تتبع».
  *  الشفت يُستنتج من دوام HR للمستخدم المسجِّل. وقت الخروج تلقائي.
  */
@@ -13,7 +14,7 @@ import type { StationDriverKind } from '@sdk/station-fleet.sdk'
 import { categoryDefaultTons } from '@features/transfer-station/lib/unitCapacities'
 
 export type ExitKind = 'saksat' | 'carrier'
-const DRIVER_KIND_AR: Record<StationDriverKind, string> = { employee: 'موظف (سائق في HR)', external: 'سائق متعهد خارجي', contracted: 'سائق الآلية المتعاقدة' }
+const DRIVER_KIND_AR: Record<StationDriverKind, string> = { employee: 'موظف (سائق في HR)', external: 'سائق متعهد (من السجل)' }
 const field = 'h-11 w-full rounded-xl border bg-white px-3 text-sm outline-none focus:border-brand-500'
 
 export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defaultWeight: string }) {
@@ -26,7 +27,6 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
   const [vehicleId, setVehicleId] = useState('')
   const [driverKind, setDriverKind] = useState<StationDriverKind>('employee')
   const [driverRef, setDriverRef] = useState('')
-  const [driverName, setDriverName] = useState('')
   const [destinationId, setDestinationId] = useState('')
   const [weight, setWeight] = useState(defaultWeight)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -36,28 +36,34 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
   const pickVehicle = (id: string) => {
     setVehicleId(id); setErrors((er) => ({ ...er, vehicle: '', driver: '' }))
     const v = vehicles.find((x) => x.id === id)
-    if (v) setWeight(String(categoryDefaultTons(v.vehicle_category)))
+    if (v) {
+      setWeight(String(categoryDefaultTons(v.vehicle_category)))
+      // اقتراح سائق الآلية الحالي إن كان في القوائم (موظف أو سائق متعهد)
+      const all = drivers.data ?? []
+      const ext = v.driver_external_id && all.find((d) => d.driver_kind === 'external' && d.ref_id === v.driver_external_id)
+      const emp = v.driver_employee_id && all.find((d) => d.driver_kind === 'employee' && d.ref_id === v.driver_employee_id)
+      if (ext) { setDriverKind('external'); setDriverRef(ext.ref_id) }
+      else if (emp) { setDriverKind('employee'); setDriverRef(emp.ref_id) }
+      else setDriverRef('')
+    }
   }
   const driverOptions = useMemo(() => (drivers.data ?? []).filter((d) => d.driver_kind === driverKind), [drivers.data, driverKind])
   const weightRequired = kind === 'carrier'
 
-  const pickKind = (k: StationDriverKind) => { setDriverKind(k); setDriverRef(''); setDriverName(''); setErrors((er) => ({ ...er, driver: '' })) }
+  const pickKind = (k: StationDriverKind) => { setDriverKind(k); setDriverRef(''); setErrors((er) => ({ ...er, driver: '' })) }
   const submit = () => {
     const er: Record<string, string> = {}
     if (!vehicle) er.vehicle = 'اختر الآلية من قائمة آليات المحطة'
     if (!destinationId) er.destination = 'اختر الوجهة'
-    if (driverKind === 'contracted') {
-      if (vehicle && vehicle.ownership_type !== 'rented') er.driver = 'السائق المتعاقد يُسجَّل على آلية مؤجرة فقط'
-      else if (driverName.trim().length < 2) er.driver = 'اكتب اسم سائق الآلية المتعاقدة'
-    } else if (!driverRef) er.driver = 'اختر السائق من القائمة'
+    if (!driverRef) er.driver = driverKind === 'external' ? 'اختر سائق المتعهد من السجل (يضاف من غرفة العمليات)' : 'اختر السائق من القائمة'
     const w = weight.trim() === '' ? null : Number(weight)
     if (weightRequired && !(w !== null && w > 0)) er.weight = 'الوزن مطلوب بالطن (أكبر من صفر)'
     else if (w !== null && !(w > 0 && w < 1000)) er.weight = 'الوزن غير صحيح'
     setErrors(er)
     if (Object.keys(er).length > 0 || !vehicle) return
     record.mutate(
-      { vehicleId: vehicle.id, driverKind, destinationId, driverEmployeeId: driverKind === 'employee' ? driverRef : null, externalDriverId: driverKind === 'external' ? driverRef : null, driverName: driverKind === 'contracted' ? driverName.trim() : null, weightTons: w },
-      { onSuccess: () => { setVehicleId(''); setDriverRef(''); setDriverName(''); setWeight(defaultWeight) } },
+      { vehicleId: vehicle.id, driverKind, destinationId, driverEmployeeId: driverKind === 'employee' ? driverRef : null, externalDriverId: driverKind === 'external' ? driverRef : null, driverName: null, weightTons: w },
+      { onSuccess: () => { setVehicleId(''); setDriverRef(''); setWeight(defaultWeight) } },
     )
   }
   const err = (k: string) => errors[k] ? <span className="text-[11px] text-red-600" role="alert">{errors[k]}</span> : null
@@ -99,19 +105,17 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="نوع السائق">
             {(Object.keys(DRIVER_KIND_AR) as StationDriverKind[]).map((k) => (
               <button key={k} type="button" role="radio" aria-checked={driverKind === k} onClick={() => pickKind(k)} data-testid={`f-${kind}-dk-${k}`}
-                disabled={k === 'contracted' && vehicle !== null && vehicle.ownership_type !== 'rented'}
                 className={clsx('rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-40', driverKind === k ? 'bg-slate-950 text-white' : 'border border-slate-200 bg-white text-slate-700')}>
                 {DRIVER_KIND_AR[k]}
               </button>
             ))}
           </div>
-          {driverKind === 'contracted' ? (
-            <input value={driverName} onChange={(e) => { setDriverName(e.target.value); setErrors((er) => ({ ...er, driver: '' })) }} placeholder="اسم سائق الآلية المتعاقدة" data-testid={`f-${kind}-driver-name`} className={clsx(field, errors.driver ? 'border-red-400' : 'border-slate-200')} />
-          ) : (
-            <select value={driverRef} onChange={(e) => { setDriverRef(e.target.value); setErrors((er) => ({ ...er, driver: '' })) }} data-testid={`f-${kind}-driver`} className={clsx(field, errors.driver ? 'border-red-400' : 'border-slate-200')}>
-              <option value="">— اختر السائق —</option>
-              {driverOptions.map((d) => <option key={d.ref_id} value={d.ref_id}>{d.full_name} · {d.detail}</option>)}
-            </select>
+          <select value={driverRef} onChange={(e) => { setDriverRef(e.target.value); setErrors((er) => ({ ...er, driver: '' })) }} data-testid={`f-${kind}-driver`} className={clsx(field, errors.driver ? 'border-red-400' : 'border-slate-200')}>
+            <option value="">— اختر السائق —</option>
+            {driverOptions.map((d) => <option key={d.ref_id} value={d.ref_id}>{d.full_name} · {d.detail}</option>)}
+          </select>
+          {vehicle && driverRef && (vehicle.driver_external_id === driverRef || vehicle.driver_employee_id === driverRef) && (
+            <span className="text-[11px] font-bold text-emerald-700" data-testid={`f-${kind}-driver-auto`}>سائق الآلية الحالي — اقتُرح تلقائياً ويمكن تغييره</span>
           )}
           {err('driver')}
         </div>

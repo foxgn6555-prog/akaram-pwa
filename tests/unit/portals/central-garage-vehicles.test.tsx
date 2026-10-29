@@ -107,6 +107,7 @@ vi.mock('@features/central-garage/hooks', () => ({
     h.vehicleIdParam(id)
     return { data: h.vehicle, isLoading: false, isError: false }
   },
+  useEndGarageShiftAssignment: () => ({ mutate: vi.fn(), isPending: false }),
   useGarageAssignments: () => ({
     data: [
       {
@@ -327,6 +328,44 @@ describe('قاعدة بيانات آليات الكراج', () => {
       expect.anything(),
     )
   })
+
+  it('00377: سائق احتياطي للشفت الرئيسي + سائق شفت آخر عند الإضافة يُرسلان في drivers، ويُرفض الاحتياطي بلا سائق', async () => {
+    renderPage(<VehiclesDatabasePage managementMode />)
+    fireEvent.click(screen.getByTestId('open-add-vehicle'))
+    fireEvent.change(screen.getByTestId('vehicle-driver-search'), { target: { value: 'علي حسن' } })
+    fireEvent.click(await screen.findByTestId('vehicle-driver-option-EMP-1'))
+    fireEvent.change(screen.getByTestId('vehicle-name'), { target: { value: 'كابسة بسائقين' } })
+    fireEvent.change(screen.getByTestId('vehicle-db'), { target: { value: 'DB-301' } })
+    fireEvent.change(screen.getByTestId('vehicle-plate'), { target: { value: 'بغداد 301' } })
+    fireEvent.change(screen.getByTestId('vehicle-chassis'), { target: { value: 'CH-301' } })
+    fireEvent.change(screen.getByTestId('vehicle-area'), { target: { value: '8' } })
+    fireEvent.change(screen.getByTestId('vehicle-image'), { target: { files: [new File(['x'], 'v.png', { type: 'image/png' })] } })
+    // احتياطي بلا سائق ⇒ رسالة ولا إرسال
+    fireEvent.click(screen.getByTestId('add-backup-driver'))
+    fireEvent.click(screen.getByTestId('vehicle-submit'))
+    expect(screen.getByTestId('extra-driver-error-0')).toHaveTextContent('اختر السائق من قائمة الموظفين')
+    expect(h.createMutate).not.toHaveBeenCalled()
+    // الاحتياطي من سجل المتعهدين + سائق ليلي موظف
+    fireEvent.click(screen.getByTestId('extra-driver-kind-external-0'))
+    fireEvent.change(screen.getByTestId('extra-ext-driver-0-select'), { target: { value: 'ab000000-0000-0000-0000-000000000001' } })
+    fireEvent.click(screen.getByTestId('add-shift-driver'))
+    fireEvent.change(screen.getByTestId('extra-driver-shift-1'), { target: { value: 'night' } })
+    fireEvent.change(screen.getByTestId('extra-driver-1-search'), { target: { value: 'حسن كريم' } })
+    fireEvent.click(await screen.findByTestId('extra-driver-1-option-EMP-9'))
+    fireEvent.click(screen.getByTestId('vehicle-submit'))
+    expect(h.createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dbNumber: 'DB-301',
+        driverEmployeeId: 'e0000000-0000-0000-0000-000000000001',
+        drivers: [
+          { shift: 'morning', role: 'primary', driverEmployeeId: 'e0000000-0000-0000-0000-000000000001', driverExternalId: null, sectorId: 8 },
+          { shift: 'morning', role: 'backup', driverEmployeeId: null, driverExternalId: 'ab000000-0000-0000-0000-000000000001', sectorId: 8 },
+          { shift: 'night', role: 'primary', driverEmployeeId: 'e0000000-0000-0000-0000-000000000009', driverExternalId: null, sectorId: 8 },
+        ],
+      }),
+      expect.anything(),
+    )
+  })
 })
 
 describe('انطلاقية السائقين وتفاصيل الآلية', () => {
@@ -348,7 +387,7 @@ describe('انطلاقية السائقين وتفاصيل الآلية', () => 
     expect(screen.queryByTestId('departure-recipient')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('confirm-departure'))
     expect(h.recordDeparture).toHaveBeenCalledWith(
-      { vehicleId: 'v1', shift: 'morning', notes: undefined },
+      { vehicleId: 'v1', shift: 'morning', notes: undefined, driverRole: 'primary' },
       expect.any(Object),
     )
   })

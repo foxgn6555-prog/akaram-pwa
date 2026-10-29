@@ -68,7 +68,7 @@ describe('SaksatPage (00330)', () => {
     ui()
     fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v1' } })
     expect(screen.getByTestId('f-saksat-tracking')).toHaveTextContent('الوصول يُسجَّل آلياً')
-    expect(screen.getByTestId('f-saksat-dk-contracted')).toBeDisabled()
+    expect(screen.queryByTestId('f-saksat-dk-contracted')).toBeNull() // 00377: لا اسم حر
     fireEvent.change(screen.getByTestId('f-saksat-driver'), { target: { value: 'e1' } })
     fireEvent.change(screen.getByTestId('f-saksat-destination'), { target: { value: 'd1' } })
     fireEvent.click(screen.getByTestId('saksat-submit'))
@@ -91,22 +91,35 @@ describe('SaksatPage (00330)', () => {
     expect(screen.getByTestId('saksat-legacy').querySelector('input, select, button[type=submit]')).toBeNull()
   })
 
-  it('آلية مؤجرة بلا GPS: وسم «بلا تتبع»، سائق خارجي من القائمة أو متعاقد بالاسم', () => {
+  it('آلية مؤجرة بلا GPS: وسم «بلا تتبع»، سائق متعهد من السجل فقط (00377: لا خيار «متعاقد» بالاسم)', () => {
     ui()
     fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v2' } })
     expect(screen.getByTestId('f-saksat-tracking')).toHaveTextContent('بلا تتبع')
+    expect(screen.queryByTestId('f-saksat-dk-contracted')).toBeNull()
+    expect(screen.queryByTestId('f-saksat-driver-name')).toBeNull()
     fireEvent.click(screen.getByTestId('f-saksat-dk-external'))
     const drv = screen.getByTestId('f-saksat-driver') as HTMLSelectElement
     expect(within(drv).getByText(/حسن الخارجي/)).toBeInTheDocument()
     expect(within(drv).queryByText(/علي الموظف/)).toBeNull()
-    fireEvent.click(screen.getByTestId('f-saksat-dk-contracted'))
     fireEvent.change(screen.getByTestId('f-saksat-destination'), { target: { value: 'd2' } })
     fireEvent.click(screen.getByTestId('saksat-submit'))
-    expect(screen.getByText('اكتب اسم سائق الآلية المتعاقدة')).toBeInTheDocument()
-    fireEvent.change(screen.getByTestId('f-saksat-driver-name'), { target: { value: 'سائق المتعاقد' } })
+    expect(screen.getByText('اختر سائق المتعهد من السجل (يضاف من غرفة العمليات)')).toBeInTheDocument()
+    fireEvent.change(drv, { target: { value: 'x1' } })
     fireEvent.change(screen.getByTestId('f-saksat-weight'), { target: { value: '' } })
     fireEvent.click(screen.getByTestId('saksat-submit'))
-    expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ vehicleId: 'v2', driverKind: 'contracted', driverName: 'سائق المتعاقد', destinationId: 'd2', weightTons: null }), expect.anything())
+    expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ vehicleId: 'v2', driverKind: 'external', externalDriverId: 'x1', driverName: null, destinationId: 'd2', weightTons: null }), expect.anything())
+  })
+
+  it('00377: اختيار الآلية يقترح سائقها الحالي (موظف أو سائق متعهد) تلقائياً', () => {
+    h.fleet[0] = { ...(h.fleet[0] as Record<string, unknown>), driver_employee_id: 'e1', driver_name: 'علي الموظف' }
+    h.fleet[1] = { ...(h.fleet[1] as Record<string, unknown>), driver_external_id: 'x1', driver_name: 'حسن الخارجي' }
+    ui()
+    fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v1' } })
+    expect(screen.getByTestId('f-saksat-driver')).toHaveValue('e1')
+    expect(screen.getByTestId('f-saksat-driver-auto')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('f-saksat-vehicle'), { target: { value: 'v2' } })
+    expect(screen.getByTestId('f-saksat-dk-external')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('f-saksat-driver')).toHaveValue('x1')
   })
 
   it('بلا آليات معلَّمة: رسالة توجيه لغرفة العمليات', () => {

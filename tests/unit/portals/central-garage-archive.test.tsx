@@ -35,6 +35,9 @@ vi.mock('@features/central-garage/hooks', () => ({
     return { data: { rows: [h.vehicle], totalCount: 1 }, isLoading: false, isError: false }
   },
   useGarageVehicle: () => ({ data: h.vehicle, isLoading: false, isError: false }),
+  useGarageShiftAssignments: () => ({ data: [], isLoading: false }),
+  useSetGarageShiftAssignment: () => ({ mutate: vi.fn(), isPending: false }),
+  useEndGarageShiftAssignment: () => ({ mutate: vi.fn(), isPending: false }),
   useGarageAssignments: () => ({ data: [], isLoading: false }),
   useGarageVehicleMovements: () => ({ data: [], isLoading: false }),
   useGarageDepartures: () => ({ data: [], isLoading: false }),

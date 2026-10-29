@@ -30,6 +30,7 @@ import {
 } from '@features/central-garage/vehicle-details'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { AssignmentDialog } from '../components/AssignmentDialog'
+import { ShiftDriversPanel } from '../components/ShiftDriversPanel'
 import { EditVehicleDialog } from '../components/EditVehicleDialog'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
@@ -260,6 +261,7 @@ export default function VehicleDetailPage({
           </div>
         </div>
       </article>
+      <ShiftDriversPanel vehicle={v} areas={areas.data ?? []} canManage={managementMode} />
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="rounded-3xl border bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 font-black text-slate-900">

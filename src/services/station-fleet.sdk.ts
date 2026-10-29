@@ -59,6 +59,8 @@ export interface StationFleetVehicle {
   has_gps: boolean
   device_id: string | null
   ownership_type: 'owned' | 'rented'
+  /** 00377: سائق متعهد حالي (من السجل) */
+  driver_external_id?: string | null
 }
 export interface StationDestination {
   id: string
@@ -97,7 +99,8 @@ export interface StationExternalDriverInput {
   notes: string | null
   active: boolean
 }
-export type StationDriverKind = 'employee' | 'external' | 'contracted'
+/** 00377: «متعاقد» بالاسم الحر أُغلق — السائق موظف HR أو سائق متعهد من السجل */
+export type StationDriverKind = 'employee' | 'external'
 export interface StationDriverOption { driver_kind: 'employee' | 'external'; ref_id: string; full_name: string; detail: string; phone: string | null }
 export interface StationExitInput {
   vehicleId: string
@@ -105,6 +108,7 @@ export interface StationExitInput {
   destinationId: string
   driverEmployeeId?: string | null
   externalDriverId?: string | null
+  /** مهمل منذ 00377 (كان لاسم السائق المتعاقد الحر) */
   driverName?: string | null
   weightTons?: number | null
   logDate?: string | null
@@ -120,7 +124,8 @@ export interface StationOutboundRow {
   db_number: string | null
   vehicle_category: string | null
   category_label: string | null
-  driver_kind: 'legacy' | StationDriverKind
+  /** السجلات القديمة قد تحمل «contracted» (اسم حر قبل 00377) */
+  driver_kind: 'legacy' | 'contracted' | StationDriverKind
   driver_name: string
   destination_id: string | null
   destination_name: string | null

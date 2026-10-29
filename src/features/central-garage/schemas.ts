@@ -20,12 +20,15 @@ export const garageVehicleSchema=garageVehicleBase.superRefine(rentalRules).supe
 export const garageVehicleEditSchema=garageVehicleBase.omit({driverKind:true,driverEmployeeId:true,driverExternalId:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
 export const garageArchiveReasonSchema = z.string().trim().min(5,'السبب يجب ألا يقل عن 5 أحرف').max(500)
 
+// 00377: الإسناد الرئيسي يقبل موظف HR أو سائق متعهد من السجل (أحدهما)
 export const garageAssignmentSchema = z.object({
-  driverEmployeeId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i, 'اختر السائق من قائمة الموظفين'),
+  driverKind: z.enum(['employee','external']).default('employee'),
+  driverEmployeeId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i).optional().or(z.literal('')),
+  driverExternalId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i).optional().or(z.literal('')),
   shift,
   sectorId: z.coerce.number().int().min(1,'اختر المنطقة').max(8),
   reason: z.string().trim().max(300).optional(),
-})
+}).superRefine(driverRules).transform(v=>({shift:v.shift,sectorId:v.sectorId,reason:v.reason,driverEmployeeId:v.driverKind==='employee'?v.driverEmployeeId??'':null,driverExternalId:v.driverKind==='external'?v.driverExternalId??'':null}))
 
 export const garageTankSchema=z.object({fuelType:z.enum(['gas_oil','hydraulic','grease','c_oil']),tankName:z.string().trim().min(2,'اسم الخزان مطلوب').max(100),unit:z.enum(GARAGE_FUEL_UNITS).default('liter'),capacity:z.coerce.number().positive('السعة يجب أن تكون أكبر من صفر'),initialQuantity:z.coerce.number().min(0,'الكمية لا تكون سالبة'),lowStockThreshold:z.coerce.number().min(0).max(100)}).refine(v=>v.initialQuantity<=v.capacity,{path:['initialQuantity'],message:'الكمية الابتدائية تتجاوز سعة الخزان'})
 export const garageStockSchema=z.object({quantity:z.coerce.number().positive('أدخل كمية صحيحة أكبر من صفر'),notes:z.string().trim().max(300).optional()})

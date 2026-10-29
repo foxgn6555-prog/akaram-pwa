@@ -291,6 +291,7 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
       p_shift: 'evening',
       p_sector_id: 5,
       p_reason: 'نقل',
+      p_driver_external_id: null,
     })
     expect(assignment).toMatchObject({ driverName: 'حسن', sectorId: 5 })
     await centralGarage.archiveVehicle('v1', ' انتهاء الخدمة ')
@@ -672,6 +673,7 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
       p_shift: 'morning',
       p_notes: null,
       p_manager_id: 'm7',
+      p_driver_role: 'primary',
     })
     await centralGarage.recordShiftDeparture('v1', 'morning', 'ملاحظة')
     expect(h.rpc).toHaveBeenLastCalledWith('garage_record_shift_departure', {
@@ -679,6 +681,7 @@ describe('SDK الكراج — الخزانات والتعبئة والمواف�
       p_shift: 'morning',
       p_notes: 'ملاحظة',
       p_manager_id: null,
+      p_driver_role: 'primary',
     })
   })
 

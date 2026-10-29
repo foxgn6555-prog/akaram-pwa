@@ -171,11 +171,10 @@ begin
   select * into c from public.ts_carrier_records where id = (r->>'id')::uuid;
   assert c.external_driver_id = xd and c.weight_tons = 12.5 and c.driver_name = 'سائق خارجي', 'E5: الناقلة';
   select count(*) into n from public.notifications where title = 'خروج آلية بلا تتبع من المحطة' and user_id in ('ee000000-0000-0000-0000-000000000001','ee000000-0000-0000-0000-000000000004'); assert n = 2, 'E6: تنبيه غرفة العمليات = 2 got ' || n;
-  -- 3) متعاقد: يتطلب آلية مؤجرة + اسم
-  perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'contracted', '%s', null, null, 'سائق المتعاقد')$q$, vn, dest), 'STATION_CONTRACTED_REQUIRES_RENTED_VEHICLE');
-  perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'contracted', '%s', null, null, 'س', 5)$q$, vc, dest), 'STATION_DRIVER_NAME_INVALID');
-  r := public.station_record_exit(vc, 'contracted', dest, null, null, 'سائق المتعاقد', 9);
-  assert r->>'driver_name' = 'سائق المتعاقد', 'E7: متعاقد';
+  -- 3) متعاقد بالاسم الحر أُغلق في 00377 — السائق من سجل سائقي المتعهدين فقط
+  perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'contracted', '%s', null, null, 'سائق المتعاقد', 9)$q$, vc, dest), 'STATION_DRIVER_KIND_RETIRED');
+  r := public.station_record_exit(vc, 'external', dest, null, xd, null, 9);
+  assert r->>'driver_name' = 'سائق خارجي', 'E7: خروج ثانٍ بسائق المتعهد من السجل';
   -- 4) سائق خارجي موقوف يُرفض
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
   perform public.station_external_driver_save_v2(xd, 'سائق خارجي', 'ee000000-0000-0000-0000-00000000000c', '07801234567', 'L-1', null, null, false);

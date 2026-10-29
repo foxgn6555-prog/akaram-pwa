@@ -5,19 +5,28 @@ import { useAssignGarageDriver } from '@features/central-garage/hooks'
 import type { GarageArea, GarageShift, GarageVehicle } from '@features/central-garage/types'
 import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { DriverPicker } from './DriverPicker'
+import { ExternalDriverPicker } from './ExternalDriverPicker'
 
 const inputClass='h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 
 export function AssignmentDialog({ vehicle, areas, onClose }: { vehicle:GarageVehicle;areas:GarageArea[];onClose:()=>void }) {
-  const [form,setForm]=useState({driverEmployeeId:vehicle.driverEmployeeId??'',shift:vehicle.shift as GarageShift,sectorId:String(vehicle.sectorId),reason:''})
+  const [form,setForm]=useState({driverKind:'employee' as 'employee'|'external',driverEmployeeId:vehicle.driverEmployeeId??'',driverExternalId:'',shift:vehicle.shift as GarageShift,sectorId:String(vehicle.sectorId),reason:''})
   const [errors,setErrors]=useState<Record<string,string>>({})
   const assign=useAssignGarageDriver()
   const submit=(event:React.FormEvent)=>{event.preventDefault();const parsed=garageAssignmentSchema.safeParse(form);if(!parsed.success){setErrors(Object.fromEntries(parsed.error.issues.map(issue=>[String(issue.path[0]),issue.message])));return}assign.mutate({vehicleId:vehicle.id,...parsed.data},{onSuccess:onClose})}
+  const setKind=(k:'employee'|'external')=>setForm({...form,driverKind:k,driverEmployeeId:'',driverExternalId:''})
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="تحديث انطلاقية السائق" data-testid="assignment-dialog">
     <form onSubmit={submit} className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
       <div className="flex items-start justify-between"><div><h2 className="text-xl font-black text-slate-900">تحديث انطلاقية السائق</h2><p className="mt-1 text-sm text-slate-500">{vehicle.vehicleName} · DB {vehicle.dbNumber}</p></div><button type="button" onClick={onClose} aria-label="إغلاق" className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <DriverPicker testId="assignment-driver" value={form.driverEmployeeId} initialLabel={vehicle.driverName} onChange={id=>setForm({...form,driverEmployeeId:id})} error={errors.driverEmployeeId}/>
+        <div className="space-y-2 sm:col-span-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-600"><span>نوع السائق:</span>
+            {([['employee','موظف (HR)'],['external','سائق متعهد']] as const).map(([k,label])=><button key={k} type="button" data-testid={`assignment-driver-kind-${k}`} aria-pressed={form.driverKind===k} className={`rounded-xl px-3 py-1.5 text-xs font-black ${form.driverKind===k?'bg-slate-900 text-white':'bg-slate-100 text-slate-700'}`} onClick={()=>setKind(k)}>{label}</button>)}
+          </div>
+          {form.driverKind==='employee'
+            ? <DriverPicker testId="assignment-driver" value={form.driverEmployeeId} initialLabel={vehicle.driverName} onChange={id=>setForm({...form,driverEmployeeId:id})} error={errors.driverEmployeeId}/>
+            : <ExternalDriverPicker testId="assignment-ext-driver" value={form.driverExternalId} onChange={id=>setForm({...form,driverExternalId:id})} error={errors.driverExternalId}/>}
+        </div>
         <Field label="الشفت" error={errors.shift}><ShiftSelect testId="assignment-shift" className={inputClass} value={form.shift} onChange={v=>setForm({...form,shift:v})} /></Field>
         <Field label="موقع العمل" error={errors.sectorId}><select data-testid="assignment-area" className={inputClass} value={form.sectorId} onChange={e=>setForm({...form,sectorId:e.target.value})}><option value="">اختر المنطقة</option><optgroup label="قاطع الكرادة">{areas.filter(a=>a.parentSector==='karrada').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup><optgroup label="قاطع الزعفرانية">{areas.filter(a=>a.parentSector==='zaafaraniya').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup></select></Field>
         <Field label="سبب التغيير"><input data-testid="assignment-reason" className={inputClass} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})} placeholder="مثال: نقل إلى قاطع آخر"/></Field>

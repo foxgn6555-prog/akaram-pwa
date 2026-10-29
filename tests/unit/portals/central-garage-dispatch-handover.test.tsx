@@ -122,7 +122,7 @@ describe('تسليم الانطلاقية من الكراج', () => {
     expect(screen.getByTestId('confirm-departure')).toBeEnabled()
     fireEvent.click(screen.getByTestId('confirm-departure'))
     expect(h.depart).toHaveBeenCalledWith(
-      { vehicleId: 'v1', shift: 'morning', notes: undefined },
+      { vehicleId: 'v1', shift: 'morning', notes: undefined, driverRole: 'primary' },
       expect.any(Object),
     )
   })
