@@ -516,6 +516,16 @@ export interface GpsStopHotspot {
   class: GpsStopClass
   median_seconds: number
   buckets: Record<GpsStopClass | 'over3h', { stops: number; seconds: number }>
+  /** 00374: التكرار (0..3 نجوم)، الأيام النشطة، تعدّد الأنواع، وترتيب «تحتاج دعماً» */
+  days_active?: number
+  recurrence_tier?: 0 | 1 | 2 | 3
+  recurring_vehicles?: number
+  top_recurring?: (GpsStopHotspotVehicle & { days: number }) | null
+  type_count?: number
+  unbound_vehicles?: number
+  types?: Array<{ code: string; label: string; vehicles: number; stops: number; total_seconds: number }>
+  support_rank?: number
+  support_score?: number
   first_at: string
   last_at: string
   active_now: boolean
@@ -525,7 +535,7 @@ export interface GpsStopHotspot {
 }
 export interface GpsStopHotspotsResult {
   spots: GpsStopHotspot[]
-  totals: { stops: number; total_seconds: number; vehicles: number; excluded: number; light_stops?: number; loiter_stops?: number; long_stops?: number }
+  totals: { stops: number; total_seconds: number; vehicles: number; excluded: number; light_stops?: number; loiter_stops?: number; long_stops?: number; multi_type_spots?: number; recurring_spots?: number }
   meta: {
     hours: number
     max_days: number

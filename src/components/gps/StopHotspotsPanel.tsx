@@ -5,11 +5,15 @@
 import { useMemo, useState, useEffect } from 'react'
 import type { GpsStopHotspot, GpsStopHotspotsResult } from '@sdk/gps-lvn.sdk'
 import { useGpsStopPullStatus, useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
+import { printStopHotspotsReport } from './stopHotspotsReport'
 import {
   HOTSPOT_CLASS_COLORS,
   HOTSPOT_CLASS_LABELS,
   countByClass,
   hotspotClass,
+  isMultiType,
+  recurrenceLabel,
+  recurrenceStars,
   setShowLightSpots,
   useShowLightSpots,
   visibleHotspots,
@@ -78,6 +82,20 @@ export default function StopHotspotsPanel({
         <Stat label="توقفات" value={String(data?.totals.stops ?? 0)} />
         <Stat label="آليات" value={String(data?.totals.vehicles ?? 0)} />
         <Stat label="إجمالي" value={formatStopDuration(data?.totals.total_seconds ?? 0)} />
+      </div>
+      <div className="mt-1 grid grid-cols-3 gap-1 text-center" data-testid="hotspots-insights">
+        <Stat label="متعددة الأنواع" value={String(data?.totals.multi_type_spots ?? 0)} />
+        <Stat label="متكررة ⭐" value={String(data?.totals.recurring_spots ?? 0)} />
+        <button
+          type="button"
+          disabled={!data || data.spots.length === 0}
+          onClick={() => data && printStopHotspotsReport(data, { includeLight: showLight })}
+          className="rounded-lg bg-slate-900 p-1 text-[10px] font-black text-white disabled:opacity-40"
+          title="تقرير «الأماكن التي تحتاج دعماً» للطباعة أو الحفظ PDF"
+          data-testid="hotspots-print-report"
+        >
+          🖨 تقرير الدعم
+        </button>
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[9px] text-slate-500">
         <span className="flex flex-wrap items-center gap-1" data-testid="hotspots-classes">
@@ -168,11 +186,17 @@ export default function StopHotspotsPanel({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex justify-between gap-1">
-                    <b className="truncate">{spot.address ?? `${spot.lat.toFixed(4)}, ${spot.lng.toFixed(4)}`}</b>
+                    <b className="truncate">
+                      {spot.recurrence_tier ? <span title={recurrenceLabel(spot.recurrence_tier)}>{recurrenceStars(spot.recurrence_tier)} </span> : null}
+                      {spot.address ?? `${spot.lat.toFixed(4)}, ${spot.lng.toFixed(4)}`}
+                    </b>
                     <b className="shrink-0">{formatStopDuration(spot.total_seconds)}</b>
                   </span>
                   <span className="flex justify-between gap-1 text-[9px] text-slate-500">
-                    <span>{spot.stops} توقف · {spot.vehicles} آلية · أطول {formatStopDuration(spot.max_seconds)} · ذروة {formatPeakHour(spot.peak_hour)}</span>
+                    <span>
+                      {spot.support_rank ? <b className="text-slate-800">دعم #{spot.support_rank} · </b> : null}
+                      {spot.stops} توقف · {spot.vehicles} آلية{isMultiType(spot) ? <b className="text-cyan-800"> · {spot.type_count} أنواع</b> : null} · أطول {formatStopDuration(spot.max_seconds)} · ذروة {formatPeakHour(spot.peak_hour)}
+                    </span>
                     <span>{spot.active_now ? 'نشطة الآن' : formatAgo(spot.last_at)}</span>
                   </span>
                   <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>

@@ -128,10 +128,30 @@ export const formatAgo = (iso: string | null | undefined, now = Date.now()) => {
   return `قبل ${ar(Math.round(diff / 86400))} يوم`
 }
 
+/** 00374 — التكرار: نجوم بحسب المعيار المحقَّق لنفس الآلية في البقعة */
+export const recurrenceStars = (tier: number | undefined) => '⭐'.repeat(Math.min(Math.max(tier ?? 0, 0), 3))
+export const RECURRENCE_LABELS: Readonly<Record<0 | 1 | 2 | 3, string>> = {
+  0: 'غير متكررة',
+  1: 'متكررة: نفس الآلية 3 مرات أو أكثر',
+  2: 'متكررة بقوة: نفس الآلية 5 مرات أو أكثر',
+  3: 'عادة يومية: نفس الآلية في 3 أيام مختلفة',
+}
+export const recurrenceLabel = (tier: number | undefined) => RECURRENCE_LABELS[(Math.min(Math.max(tier ?? 0, 0), 3) as 0 | 1 | 2 | 3)]
+export const SUPPORT_HINT = 'ترتيب «تحتاج دعماً» = زمن التوقف × تنوّع أنواع الآليات × عدد الآليات × الأيام المتكررة — الأعلى أولاً'
+export const typesSummary = (spot: Pick<GpsStopHotspot, 'types' | 'unbound_vehicles'>) => {
+  const parts = (spot.types ?? []).map((t) => `${t.label} ×${t.vehicles}`)
+  if ((spot.unbound_vehicles ?? 0) > 0) parts.push(`غير مربوطة ×${spot.unbound_vehicles}`)
+  return parts.join(' · ')
+}
+export const isMultiType = (spot: Pick<GpsStopHotspot, 'type_count'>) => (spot.type_count ?? 0) >= 2
+
 /** ترتيب القائمة الجانبية: افتراضياً بإجمالي زمن التوقف؛ خيارات أخرى للتبصّر */
-export type HotspotSort = 'total' | 'stops' | 'vehicles' | 'recent'
+export type HotspotSort = 'total' | 'support' | 'recurrence' | 'types' | 'stops' | 'vehicles' | 'recent'
 export const HOTSPOT_SORT_LABELS: Readonly<Record<HotspotSort, string>> = {
   total: 'إجمالي زمن التوقف',
+  support: 'تحتاج دعماً',
+  recurrence: 'الأكثر تكراراً',
+  types: 'تعدّد الأنواع',
   stops: 'عدد التوقفات',
   vehicles: 'عدد الآليات',
   recent: 'الأحدث',
@@ -139,6 +159,12 @@ export const HOTSPOT_SORT_LABELS: Readonly<Record<HotspotSort, string>> = {
 export const sortHotspots = (spots: GpsStopHotspot[], sort: HotspotSort) => {
   const list = [...spots]
   switch (sort) {
+    case 'support':
+      return list.sort((a, b) => (a.support_rank ?? 1e9) - (b.support_rank ?? 1e9) || b.total_seconds - a.total_seconds)
+    case 'recurrence':
+      return list.sort((a, b) => (b.recurrence_tier ?? 0) - (a.recurrence_tier ?? 0) || (b.recurring_vehicles ?? 0) - (a.recurring_vehicles ?? 0) || b.total_seconds - a.total_seconds)
+    case 'types':
+      return list.sort((a, b) => (b.type_count ?? 0) - (a.type_count ?? 0) || b.vehicles - a.vehicles || b.total_seconds - a.total_seconds)
     case 'stops':
       return list.sort((a, b) => b.stops - a.stops || b.total_seconds - a.total_seconds)
     case 'vehicles':

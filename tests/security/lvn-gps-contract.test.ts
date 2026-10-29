@@ -122,6 +122,11 @@ describe('عقد أمان LVN GPS', () => {
     expect(classes).toContain('percentile_cont(0.5) within group (order by duration_seconds)')
     expect(classes).toContain('app.trip_route_haversine_m(q.lat, q.lng, q.prev_lat, q.prev_lng) > s.cluster_radius_m')
     expect(readFileSync('src/components/gps/StopHotspotsLayer.tsx', 'utf8')).toContain('visibleHotspots(spots, showLight)')
+    // 00374: التكرار (3 درجات) وتعدّد الأنواع و«تحتاج دعماً» من الخادم
+    const rec = readFileSync('supabase/migrations/00318_gps_stop_recurrence_types.sql', 'utf8')
+    expect(rec).toContain("max(case when days >= 3 then 3 when stops >= 5 then 2 when stops >= 3 then 1 else 0 end) tier")
+    expect(rec).toContain('count(distinct cat) filter (where cat is not null) type_count')
+    expect(rec).toContain('row_number() over (order by support_raw desc, total_seconds desc) support_rank')
     expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
     expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
     const perf = readFileSync('supabase/migrations/00310_gps_stop_hotspots_perf.sql', 'utf8')   // 00365: لا عمل ثقيل في طلبات المستخدم

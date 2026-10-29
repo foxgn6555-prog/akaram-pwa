@@ -395,3 +395,36 @@ begin
   if (j -> 'totals' ->> 'long_stops')::int < 1 or (j -> 'totals' ->> 'light_stops')::int < 2 or (j -> 'totals' ->> 'loiter_stops')::int < 2 then raise exception 'H14 totals %', j -> 'totals'; end if;
   raise notice 'H14 ok';
 end $$;
+
+-- H15 (00374): التكرار وتعدّد الأنواع و«تحتاج دعماً»
+do $$
+declare d1 uuid := 'e80dc000-0000-0000-0000-000000000001'; t0 timestamptz := date_trunc('minute', now()); j jsonb; a jsonb; g jsonb; r record; n int;
+begin
+  -- SH2 قلاب (نوع مختلف عن SH1 الكابسة) ⇒ البقعة A فيها نوعان + جهاز غير مربوط
+  update public.garage_vehicles set vehicle_category = 'tipper' where id = 'e80da000-0000-0000-0000-000000000002';
+  update public.garage_vehicles set vehicle_category = 'compactor_large' where id = 'e80da000-0000-0000-0000-000000000001';
+  -- D1 يتوقف عند G (33.2900,44.4600) 12 دقيقة في 3 أيام مختلفة ⇒ ⭐⭐⭐
+  perform pg_temp.episode(d1, t0 - interval '2 days 6 hours', 33.2900, 44.4600, 12, 'سوق G');
+  perform pg_temp.episode(d1, t0 - interval '1 day 6 hours', 33.2900, 44.4600, 12, 'سوق G');
+  perform pg_temp.episode(d1, t0 - interval '6 hours', 33.2900, 44.4600, 12, 'سوق G');
+  select * into r from app.gps_stop_scan_device(d1, t0 - interval '3 days', now());
+  perform pg_temp.as_user('e8000000-0000-0000-0000-000000000001');
+  j := public.gps_stop_hotspots_v2(3 * 1440);
+  select s into g from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.29) < 0.001;
+  if g is null then raise exception 'H15 spot G missing'; end if;
+  if (g ->> 'recurrence_tier')::int <> 3 or (g ->> 'days_active')::int <> 3 or (g ->> 'recurring_vehicles')::int <> 1 then raise exception 'H15 G recurrence %', g; end if;
+  if (g -> 'top_recurring' ->> 'db_number') <> 'DB-SH1' or (g -> 'top_recurring' ->> 'days')::int <> 3 then raise exception 'H15 G top_recurring %', g -> 'top_recurring'; end if;
+  if (g ->> 'type_count')::int <> 1 or (g -> 'types' -> 0 ->> 'code') <> 'compactor_large' then raise exception 'H15 G types %', g -> 'types'; end if;
+  -- A: كابسة (SH1) + قلاب (SH2) + جهاز غير مربوط (SH3) ⇒ نوعان، وغير مربوط 1، وبلا تكرار (كلٌّ مرة أو مرتين)
+  select s into a from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3201) < 0.001;
+  if (a ->> 'type_count')::int <> 2 or (a ->> 'unbound_vehicles')::int <> 1 then raise exception 'H15 A types % unbound %', a -> 'types', a ->> 'unbound_vehicles'; end if;
+  if (a ->> 'recurrence_tier')::int <> 0 then raise exception 'H15 A must not be recurring %', a ->> 'recurrence_tier'; end if;
+  if not exists (select 1 from jsonb_array_elements(a -> 'types') x where x ->> 'code' = 'tipper' and (x ->> 'vehicles')::int = 1) then raise exception 'H15 A tipper %', a -> 'types'; end if;
+  -- «تحتاج دعماً»: ترتيب متصل 1..n، والأولى درجتها 1، ومن له أنواع أكثر وأيام أكثر يتقدم على بقعة بزمن مماثل
+  select count(*) into n from jsonb_array_elements(j -> 'spots') s where (s ->> 'support_rank')::int between 1 and jsonb_array_length(j -> 'spots');
+  if n <> jsonb_array_length(j -> 'spots') then raise exception 'H15 support ranks'; end if;
+  if (select (s ->> 'support_score')::numeric from jsonb_array_elements(j -> 'spots') s where (s ->> 'support_rank')::int = 1) <> 1 then raise exception 'H15 top support score must be 1'; end if;
+  if (g ->> 'support_rank')::int > (select (s ->> 'support_rank')::int from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.26) < 0.001) then raise exception 'H15 G (3 days) must outrank light E'; end if;
+  if (j -> 'totals' ->> 'multi_type_spots')::int < 1 or (j -> 'totals' ->> 'recurring_spots')::int < 1 then raise exception 'H15 totals %', j -> 'totals'; end if;
+  raise notice 'H15 ok';
+end $$;

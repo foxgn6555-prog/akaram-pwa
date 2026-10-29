@@ -14,7 +14,12 @@ import {
   HOTSPOT_CLASS_RGB,
   HOTSPOT_LEVEL_LABELS,
   formatAgo,
+  SUPPORT_HINT,
   hotspotClass,
+  isMultiType,
+  recurrenceLabel,
+  recurrenceStars,
+  typesSummary,
   useShowLightSpots,
   visibleHotspots,
   formatPeakHour,
@@ -35,6 +40,7 @@ const HEAT_CSS = `
 .akh-crown{position:absolute;inset:8%;border-radius:9999px;border:2px dashed #f3d06a;box-shadow:0 0 12px rgba(243,208,106,.8)}
 .akh-heat{animation:none;mix-blend-mode:multiply}
 .akh-selected{outline:3px solid #0f172a;outline-offset:-3px}
+.akh-multi{position:absolute;inset:4%;border-radius:9999px;border:3px dotted #0891b2;box-shadow:0 0 0 2px rgba(255,255,255,.85) inset}
 .leaflet-tooltip.akh-tip{direction:rtl;font:800 11px system-ui;border-radius:12px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.25);padding:6px 10px}
 `
 let cssInjected = false
@@ -47,7 +53,7 @@ const ensureHeatCss = () => {
   cssInjected = true
 }
 const heatIconCache = new Map<string, L.DivIcon>()
-export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' | 'active_now' | 'rank'> & Partial<Pick<GpsStopHotspot, 'class'>>, selected: boolean, style: HeatStyle = normalizeHeatStyle(null)) => {
+export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' | 'active_now' | 'rank'> & Partial<Pick<GpsStopHotspot, 'class' | 'type_count'>>, selected: boolean, style: HeatStyle = normalizeHeatStyle(null)) => {
   // 00373: اللون بحسب الصنف (طويل/تلكؤ/خفيف) لا بحسب الترتيب النسبي؛ الحجم بحسب الوزن
   const rgb = HOTSPOT_CLASS_RGB[spot.class ?? 'loiter'].join(',')
   const size = Math.round(hotspotRadiusPx(spot.score) * 2.6 * style.heat_size)
@@ -67,12 +73,14 @@ export const heatBlobHtml = (spot: Pick<GpsStopHotspot, 'score' | 'percentile' |
       `<div class="akh-blob${selected ? ' akh-selected' : ''}" style="width:${size}px;height:${size}px;color:rgb(${rgb});` +
       `background:radial-gradient(circle, rgba(${rgb},.85) 0%, rgba(${rgb},.55) 28%, rgba(${rgb},.22) 58%, rgba(${rgb},0) 72%)">` +
       (spot.rank === 1 ? '<div class="akh-crown"></div>' : '') +
+      // 00374: حلقة منقّطة سماوية = أكثر من نوع آلية يتوقف هنا
+      (isMultiType(spot) ? '<div class="akh-multi"></div>' : '') +
       (spot.active_now ? '<div class="akh-ring"></div>' : '') +
       `<div class="akh-core" style="background:rgb(${rgb})"></div></div>`,
   }
 }
 const heatIcon = (spot: GpsStopHotspot, selected: boolean, style: HeatStyle) => {
-  const key = `${style.map_style}-${style.heat_intensity}-${style.heat_size}-${hotspotClass(spot)}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${selected}`
+  const key = `${style.map_style}-${style.heat_intensity}-${style.heat_size}-${hotspotClass(spot)}-${spot.score}-${spot.active_now}-${spot.rank === 1}-${isMultiType(spot)}-${selected}`
   const cached = heatIconCache.get(key)
   if (cached) return cached
   const { size, html } = heatBlobHtml(spot, selected, style)
@@ -98,6 +106,33 @@ function SpotEvents({ spot, hours }: { spot: GpsStopHotspot; hours: number }) {
           <span className="font-black text-slate-800">{formatStopDuration(e.duration_seconds)}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/** 00374 — التكرار وتعدّد الأنواع و«تحتاج دعماً» */
+export function RecurrenceAndTypes({ spot }: { spot: GpsStopHotspot }) {
+  const tier = spot.recurrence_tier ?? 0
+  const multi = isMultiType(spot)
+  const types = typesSummary(spot)
+  return (
+    <div className="mt-1 border-t pt-1 text-[10px]" data-testid="hotspot-recurrence">
+      <div className="flex flex-wrap items-center gap-1">
+        {spot.support_rank ? (
+          <span className="rounded-full bg-slate-900 px-2 py-0.5 font-black text-white" title={SUPPORT_HINT}>تحتاج دعماً #{spot.support_rank}</span>
+        ) : null}
+        <span className={`rounded-full px-2 py-0.5 font-black ${tier ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-500'}`} title={recurrenceLabel(tier)}>
+          {tier ? `${recurrenceStars(tier)} ` : ''}{recurrenceLabel(tier)}
+        </span>
+        {multi && <span className="rounded-full bg-cyan-100 px-2 py-0.5 font-black text-cyan-900">{spot.type_count} أنواع آليات</span>}
+      </div>
+      {spot.top_recurring && tier > 0 && (
+        <div className="mt-0.5 text-slate-700">
+          الأكثر تكراراً: <b>{spot.top_recurring.db_number ? `DB ${spot.top_recurring.db_number}` : spot.top_recurring.vehicle_name ?? '—'}</b> — {spot.top_recurring.stops} توقف في {spot.top_recurring.days} {spot.top_recurring.days === 1 ? 'يوم' : 'أيام'}
+        </div>
+      )}
+      {types && <div className="mt-0.5 text-slate-700">الأنواع: {types}</div>}
+      {typeof spot.days_active === 'number' && <div className="text-slate-500">نشطة في {spot.days_active} {spot.days_active === 1 ? 'يوم' : 'أيام'} من النافذة</div>}
     </div>
   )
 }
@@ -233,6 +268,7 @@ export default function StopHotspotsLayer({
                   <br />
                   تمثّل <b>{formatShare(spot.share)}</b> من كل زمن التوقف في النافذة
                 </div>
+                <RecurrenceAndTypes spot={spot} />
                 <DurationBuckets spot={spot} />
                 <HourlyBars hourly={spot.hourly} color={color} peak={spot.peak_hour} />
                 {spot.top_vehicles.length > 0 && (
