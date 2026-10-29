@@ -74,17 +74,23 @@ export interface StationExternalDriver {
   full_name: string
   phone: string | null
   contractor_name: string
+  /** 00375: حساب المتعهد في النظام (بوابة المتعهدين) — السجلات القديمة قد تكون بلا حساب */
+  contractor_user_id: string | null
   license_no: string | null
-  license_image_path: string | null
+  license_image_path?: string | null
   notes: string | null
   active: boolean
-  created_at: string
-  updated_at: string
+  /** أرقام DB للآليات المسندة إليه */
+  vehicles?: string[]
+  created_at?: string
+  updated_at?: string
 }
+/** 00375: حساب متعهد في النظام */
+export interface ContractorOption { user_id: string; full_name: string; sector_id: number | null; area_name: string | null; parent_sector: string | null; is_active: boolean; drivers_count: number }
 export interface StationExternalDriverInput {
   id: string | null
   fullName: string
-  contractorName: string
+  contractorUserId: string
   phone: string | null
   licenseNo: string | null
   licenseImagePath: string | null
@@ -180,11 +186,12 @@ export const stationFleet = {
   destinations: (includeInactive = false) => rpc<StationDestination[]>('station_destinations_list', { p_include_inactive: includeInactive }),
   saveDestination: (x: { id: string | null; name: string; geofenceId: string | null; sort: number; active: boolean }) =>
     rpc<unknown>('station_destination_save', { p_id: x.id, p_name: x.name, p_geofence_id: x.geofenceId, p_sort: x.sort, p_active: x.active }),
-  externalDrivers: async (): Promise<StationExternalDriver[]> =>
-    ((await sdkGuard(supabase.from('station_external_drivers' as never).select('*').order('active', { ascending: false }).order('full_name'))) ?? []) as unknown as StationExternalDriver[],
+  // 00375: سائقو المتعهدين مرتبطون بحسابات المتعهدين في النظام
+  externalDrivers: (includeInactive = true) => rpc<StationExternalDriver[]>('station_external_drivers_list', { p_include_inactive: includeInactive }),
+  contractorOptions: (includeInactive = false) => rpc<ContractorOption[]>('contractor_options', { p_include_inactive: includeInactive }),
   saveExternalDriver: (x: StationExternalDriverInput) =>
-    rpc<StationExternalDriver>('station_external_driver_save', {
-      p_id: x.id, p_full_name: x.fullName, p_contractor_name: x.contractorName, p_phone: x.phone, p_license_no: x.licenseNo,
+    rpc<StationExternalDriver>('station_external_driver_save_v2', {
+      p_id: x.id, p_full_name: x.fullName, p_contractor_user_id: x.contractorUserId, p_phone: x.phone, p_license_no: x.licenseNo,
       p_license_image_path: x.licenseImagePath, p_notes: x.notes, p_active: x.active,
     }),
   drivers: () => rpc<StationDriverOption[]>('station_drivers_list'),

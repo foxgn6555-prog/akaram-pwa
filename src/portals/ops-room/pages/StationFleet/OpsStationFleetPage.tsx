@@ -13,7 +13,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences } from '@features/gps-lvn/hooks'
 import {
-  useSaveExternalDriver, useSaveStationDestination, useSaveVehicleCategory, useSetStationVehicle,
+  useContractorOptions, useSaveExternalDriver, useSaveStationDestination, useSaveVehicleCategory, useSetStationVehicle,
   useStationDestinations, useStationExternalDrivers, useStationFleetCandidates, useVehicleCategories,
 } from '@features/station-fleet/hooks'
 import type { StationExternalDriver, VehicleCategory, WeighingDestination } from '@sdk/station-fleet.sdk'
@@ -172,22 +172,23 @@ function DestinationsPanel() {
 }
 
 /* ───────── ③ السائقون الخارجيون ───────── */
-type DrvDraft = { id: string | null; fullName: string; contractorName: string; phone: string; licenseNo: string; notes: string; active: boolean }
+type DrvDraft = { id: string | null; fullName: string; contractorUserId: string; phone: string; licenseNo: string; notes: string; active: boolean }
 const toDrvDraft = (d?: StationExternalDriver): DrvDraft => d
-  ? { id: d.id, fullName: d.full_name, contractorName: d.contractor_name, phone: d.phone ?? '', licenseNo: d.license_no ?? '', notes: d.notes ?? '', active: d.active }
-  : { id: null, fullName: '', contractorName: '', phone: '', licenseNo: '', notes: '', active: true }
+  ? { id: d.id, fullName: d.full_name, contractorUserId: d.contractor_user_id ?? '', phone: d.phone ?? '', licenseNo: d.license_no ?? '', notes: d.notes ?? '', active: d.active }
+  : { id: null, fullName: '', contractorUserId: '', phone: '', licenseNo: '', notes: '', active: true }
 function DriversPanel() {
   const list = useStationExternalDrivers()
+  const contractors = useContractorOptions()
   const save = useSaveExternalDriver()
   const [draft, setDraft] = useState<DrvDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
   const submit = () => {
     if (!draft) return
     if (draft.fullName.trim().length < 2) return setError('اسم السائق مطلوب')
-    if (draft.contractorName.trim().length < 2) return setError('اسم المتعهد مطلوب')
+    if (!draft.contractorUserId) return setError('اختر المتعهد من حسابات المتعهدين في النظام')
     if (draft.phone.trim() && !/^[0-9+]{7,20}$/.test(draft.phone.trim())) return setError('رقم الهاتف: أرقام فقط (7–20)')
     setError(null)
-    save.mutate({ id: draft.id, fullName: draft.fullName.trim(), contractorName: draft.contractorName.trim(), phone: draft.phone.trim() || null, licenseNo: draft.licenseNo.trim() || null, licenseImagePath: null, notes: draft.notes.trim() || null, active: draft.active },
+    save.mutate({ id: draft.id, fullName: draft.fullName.trim(), contractorUserId: draft.contractorUserId, phone: draft.phone.trim() || null, licenseNo: draft.licenseNo.trim() || null, licenseImagePath: null, notes: draft.notes.trim() || null, active: draft.active },
       { onSuccess: () => setDraft(null) })
   }
   return (
@@ -196,11 +197,17 @@ function DriversPanel() {
         <b className="flex items-center gap-2 text-sm text-slate-900"><UserPlus size={16} className="text-emerald-600" /> سائقو المتعهدين الخارجيون</b>
         <button type="button" className={btnDark} data-testid="sf-drv-add" onClick={() => { setError(null); setDraft(toDrvDraft()) }}><Plus size={14} /> سائق خارجي</button>
       </div>
-      <p className="mt-1 text-[11px] leading-5 text-slate-500">سائقو الشركة موظفون في HR (مسمّى سائق) ويظهرون للمحطة تلقائياً. هنا فقط سائقو المتعهدين. الموقوف لا يظهر للمحطة.</p>
+      <p className="mt-1 text-[11px] leading-5 text-slate-500">سائقو الشركة موظفون في HR (مسمّى سائق) ويظهرون للمحطة تلقائياً. هنا فقط سائقو المتعهدين، وكل سائق يُربط بحساب متعهد موجود في النظام (بوابة المتعهدين — تُنشئه IT). الموقوف لا يظهر للمحطة.</p>
       {draft && (
         <div className="mt-3 grid gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 md:grid-cols-4" data-testid="sf-drv-form">
           <label className="text-[11px] font-bold text-slate-600">الاسم الكامل<input className={input} value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })} data-testid="sf-drv-name" /></label>
-          <label className="text-[11px] font-bold text-slate-600">المتعهد<input className={input} value={draft.contractorName} onChange={(e) => setDraft({ ...draft, contractorName: e.target.value })} data-testid="sf-drv-contractor" /></label>
+          <label className="text-[11px] font-bold text-slate-600">المتعهد (حساب في النظام)
+            <select className={input} value={draft.contractorUserId} onChange={(e) => setDraft({ ...draft, contractorUserId: e.target.value })} data-testid="sf-drv-contractor">
+              <option value="">— اختر المتعهد —</option>
+              {(contractors.data ?? []).map((c) => <option key={c.user_id} value={c.user_id}>{c.full_name}{c.area_name ? ` · ${c.area_name}` : ''}</option>)}
+            </select>
+            {contractors.data && contractors.data.length === 0 && <span className="mt-1 block text-[10px] font-bold text-amber-700">لا حسابات متعهدين نشطة — تُنشأ من بوابة تقنية المعلومات.</span>}
+          </label>
           <label className="text-[11px] font-bold text-slate-600">الهاتف<input className={input} dir="ltr" inputMode="tel" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} data-testid="sf-drv-phone" /></label>
           <label className="text-[11px] font-bold text-slate-600">رقم إجازة السوق<input className={input} dir="ltr" value={draft.licenseNo} onChange={(e) => setDraft({ ...draft, licenseNo: e.target.value })} /></label>
           <label className="text-[11px] font-bold text-slate-600 md:col-span-3">ملاحظات<input className={input} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} /></label>
@@ -218,7 +225,8 @@ function DriversPanel() {
           <tbody>
             {list.data.map((d) => (
               <tr key={d.id} className="border-t" data-testid={`sf-drv-${d.full_name}`}>
-                <td className="p-2 font-bold">{d.full_name}</td><td className="p-2">{d.contractor_name}</td>
+                <td className="p-2 font-bold">{d.full_name}{d.vehicles?.length ? <span className="mr-1 text-[10px] font-bold text-slate-500">· {d.vehicles.map((x) => `DB ${x}`).join('، ')}</span> : null}</td>
+                <td className="p-2">{d.contractor_name}{!d.contractor_user_id && <span className="mr-1 rounded bg-amber-50 px-1 text-[10px] font-bold text-amber-800" title="سجل قديم بلا حساب — عدّله واختر الحساب">غير مرتبط</span>}</td>
                 <td className="p-2 tabular-nums" dir="ltr">{d.phone ?? '—'}</td><td className="p-2" dir="ltr">{d.license_no ?? '—'}</td>
                 <td className="p-2 text-center">{d.active ? <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">نشط</span> : <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">موقوف</span>}</td>
                 <td className="p-2 text-left"><button type="button" className={btnLight} onClick={() => { setError(null); setDraft(toDrvDraft(d)) }} data-testid={`sf-drv-edit-${d.full_name}`}>تعديل</button></td>

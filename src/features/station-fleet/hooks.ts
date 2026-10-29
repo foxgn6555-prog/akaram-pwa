@@ -36,7 +36,10 @@ export const useStationDestinations = (includeInactive = false) =>
 export const useSaveStationDestination = () => useAction(stationFleet.saveDestination, 'حُفظت الوجهة')
 export const useStationExternalDrivers = () =>
   useQuery({ queryKey: stationFleetKeys.externalDrivers(), queryFn: () => stationFleet.externalDrivers() })
-export const useSaveExternalDriver = () => useAction(stationFleet.saveExternalDriver, 'حُفظ السائق الخارجي')
+export const useSaveExternalDriver = () => useAction(stationFleet.saveExternalDriver, 'حُفظ سائق المتعهد')
+/** 00375: حسابات المتعهدين في النظام */
+export const useContractorOptions = (enabled = true) =>
+  useQuery({ queryKey: [...stationFleetKeys.all, 'contractor-options'] as const, queryFn: () => stationFleet.contractorOptions(), enabled })
 export const useStationDrivers = () => useQuery({ queryKey: stationFleetKeys.drivers(), queryFn: () => stationFleet.drivers(), staleTime: 60_000 })
 export const useStationRecordExit = () => {
   const qc = useQueryClient()

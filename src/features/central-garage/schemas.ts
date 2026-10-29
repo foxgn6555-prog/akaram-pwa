@@ -11,11 +11,13 @@ const garageVehicleBase = z.object({
   vehicleCategory: z.enum(GARAGE_VEHICLE_CATEGORIES,{message:'اختر نوع الآلية'}), ownershipType: z.enum(GARAGE_OWNERSHIP_TYPES,{message:'اختر ملكية الآلية'}),
   lessorName:z.string().trim().max(160).optional().or(z.literal('')),rentalContractNo:z.string().trim().max(80).optional().or(z.literal('')),rentalStartDate:z.string().date().optional().or(z.literal('')),rentalEndDate:z.string().date().optional().or(z.literal('')),
   modelYear:z.preprocess(v=>v===''?undefined:v,z.coerce.number().int().min(1950).max(new Date().getFullYear()+1).optional()),vehicleColor:z.string().trim().max(50).optional().or(z.literal('')),specifications:z.string().trim().max(1000).optional().or(z.literal('')),
-  driverEmployeeId:z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i,'اختر السائق من قائمة الموظفين'),shift,sectorId:z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),image:z.instanceof(File,{message:'صورة الآلية مطلوبة'}),
+  driverKind:z.enum(['employee','external']).default('employee'),driverEmployeeId:z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i).optional().or(z.literal('')),driverExternalId:z.string().regex(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i).optional().or(z.literal('')),shift,sectorId:z.coerce.number().int().min(1,'اختر المنطقة').max(8,'اختر المنطقة'),image:z.unknown().refine((v):v is File=>v instanceof File,{message:'صورة الآلية مطلوبة'}),
 })
 const rentalRules=(v:{ownershipType:'owned'|'rented';lessorName?:string;rentalStartDate?:string;rentalEndDate?:string},ctx:z.RefinementCtx)=>{if(v.ownershipType==='rented'&&(!v.lessorName||v.lessorName.length<2))ctx.addIssue({code:'custom',path:['lessorName'],message:'اسم الجهة المؤجرة مطلوب'});if(v.rentalEndDate&&(!v.rentalStartDate||v.rentalEndDate<v.rentalStartDate))ctx.addIssue({code:'custom',path:['rentalEndDate'],message:'تاريخ نهاية الإيجار يجب ألا يسبق البداية'})}
-export const garageVehicleSchema=garageVehicleBase.superRefine(rentalRules)
-export const garageVehicleEditSchema=garageVehicleBase.omit({driverEmployeeId:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
+// 00375: سائق واحد عند الإضافة — موظف HR أو سائق متعهد من السجل
+const driverRules=(v:{driverKind:'employee'|'external';driverEmployeeId?:string;driverExternalId?:string},ctx:z.RefinementCtx)=>{if(v.driverKind==='employee'&&!v.driverEmployeeId)ctx.addIssue({code:'custom',path:['driverEmployeeId'],message:'اختر السائق من قائمة الموظفين'});if(v.driverKind==='external'&&!v.driverExternalId)ctx.addIssue({code:'custom',path:['driverExternalId'],message:'اختر سائق المتعهد من السجل أو أضفه'})}
+export const garageVehicleSchema=garageVehicleBase.superRefine(rentalRules).superRefine(driverRules).transform(v=>({...v,driverEmployeeId:v.driverKind==='employee'?v.driverEmployeeId??'':null,driverExternalId:v.driverKind==='external'?v.driverExternalId??'':null}))
+export const garageVehicleEditSchema=garageVehicleBase.omit({driverKind:true,driverEmployeeId:true,driverExternalId:true,shift:true,sectorId:true,image:true}).extend({image:z.instanceof(File).optional()}).superRefine(rentalRules)
 export const garageArchiveReasonSchema = z.string().trim().min(5,'السبب يجب ألا يقل عن 5 أحرف').max(500)
 
 export const garageAssignmentSchema = z.object({

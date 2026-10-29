@@ -23,6 +23,7 @@ vi.mock('@features/station-fleet/hooks', () => ({
   useSaveStationDestination: () => ({ mutate: h.saveDest, isPending: false }),
   useStationExternalDrivers: () => ({ data: h.drivers, isLoading: false }),
   useSaveExternalDriver: () => ({ mutate: h.saveDrv, isPending: false }),
+  useContractorOptions: () => ({ data: [{ user_id: 'c-1', full_name: 'متعهد النقل السريع', sector_id: 1, area_name: 'الكرادة', parent_sector: 'zaafaraniya', is_active: true, drivers_count: 0 }], isLoading: false }),
   useVehicleCategories: () => ({ data: h.categories, isLoading: false }),
   useSaveVehicleCategory: () => ({ mutate: h.saveCat, isPending: false }),
 }))
@@ -43,7 +44,7 @@ describe('OpsStationFleetPage (00329)', () => {
       { id: 'd1', name: 'النهروان', geofence_id: 'z1', geofence_name: 'زون النهروان', has_zone: true, active: true, sort: 1 },
       { id: 'd2', name: 'النباعي', geofence_id: null, geofence_name: null, has_zone: false, active: true, sort: 2 },
     ]
-    h.drivers = [{ id: 'x1', full_name: 'سائق خارجي', phone: '07801234567', contractor_name: 'متعهد النقل', license_no: 'L-1', license_image_path: null, notes: null, active: true, created_at: '', updated_at: '' }]
+    h.drivers = [{ id: 'x1', full_name: 'سائق خارجي', phone: '07801234567', contractor_name: 'متعهد النقل', contractor_user_id: 'c-1', license_no: 'L-1', license_image_path: null, notes: null, active: true, vehicles: ['12'] }]
     h.categories = [
       { code: 'six', label: 'سكس', min_tons: 10, max_tons: null, weighing_destination: 'transfer_station', garage_usable: true, station_outbound: true, active: true, sort: 7, updated_at: null, updated_by: null },
       { code: 'other', label: 'أخرى', min_tons: null, max_tons: null, weighing_destination: null, garage_usable: true, station_outbound: false, active: true, sort: 99, updated_at: null, updated_by: null },
@@ -95,13 +96,18 @@ describe('OpsStationFleetPage (00329)', () => {
     fireEvent.click(screen.getByTestId('sf-tab-drivers'))
     fireEvent.click(screen.getByTestId('sf-drv-add'))
     fireEvent.change(screen.getByTestId('sf-drv-name'), { target: { value: 'حسن' } })
-    fireEvent.change(screen.getByTestId('sf-drv-contractor'), { target: { value: 'متعهد' } })
+    // 00375: المتعهد حساب في النظام (قائمة) لا نص حر
+    expect(screen.getByTestId('sf-drv-contractor').tagName).toBe('SELECT')
+    fireEvent.click(screen.getByTestId('sf-drv-save'))
+    expect(screen.getByRole('alert')).toHaveTextContent('اختر المتعهد')
+    expect(screen.getByText('DB 12', { exact: false })).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('sf-drv-contractor'), { target: { value: 'c-1' } })
     fireEvent.change(screen.getByTestId('sf-drv-phone'), { target: { value: 'abc' } })
     fireEvent.click(screen.getByTestId('sf-drv-save'))
     expect(screen.getByRole('alert')).toHaveTextContent('رقم الهاتف')
     fireEvent.change(screen.getByTestId('sf-drv-phone'), { target: { value: '07700000000' } })
     fireEvent.click(screen.getByTestId('sf-drv-save'))
-    expect(h.saveDrv).toHaveBeenCalledWith(expect.objectContaining({ id: null, fullName: 'حسن', contractorName: 'متعهد', phone: '07700000000', active: true }), expect.anything())
+    expect(h.saveDrv).toHaveBeenCalledWith(expect.objectContaining({ id: null, fullName: 'حسن', contractorUserId: 'c-1', phone: '07700000000', active: true }), expect.anything())
     fireEvent.click(screen.getByTestId('sf-drv-edit-سائق خارجي'))
     fireEvent.click(screen.getByTestId('sf-drv-active'))
     fireEvent.click(screen.getByTestId('sf-drv-save'))

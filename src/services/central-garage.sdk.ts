@@ -79,6 +79,7 @@ function vehicleRow(row: Record<string, unknown>): GarageVehicle {
     shift: row.shift as GarageShift,
     driverName: String(row.driver_name),
     driverEmployeeId: (row.driver_employee_id as string | null) ?? null,
+    driverExternalId: (row.driver_external_id as string | null) ?? null,
     driverEmployeeNumber: (row.driver_employee_number as string | null) ?? null,
     driverHasBiometric: typeof row.driver_has_biometric === 'boolean' ? row.driver_has_biometric : null,
     sectorId: Number(row.sector_id),
@@ -98,6 +99,7 @@ function assignmentRow(row: Record<string, unknown>): GarageDriverAssignment {
     vehicleId: String(row.vehicle_id),
     driverName: String(row.driver_name),
     driverEmployeeId: (row.driver_employee_id as string | null) ?? null,
+    driverExternalId: (row.driver_external_id as string | null) ?? null,
     shift: row.shift as GarageShift,
     sectorId: Number(row.sector_id),
     startsAt: String(row.starts_at),
@@ -293,7 +295,7 @@ export const centralGarage = {
           p_chassis_number: input.chassisNumber,
           p_image_path: imagePath,
           p_shift: input.shift,
-          p_driver_employee_id: input.driverEmployeeId,
+          p_driver_employee_id: input.driverEmployeeId || null,
           p_sector_id: input.sectorId,
           p_vehicle_category: input.vehicleCategory ?? 'other',
           p_ownership_type: input.ownershipType ?? 'owned',
@@ -304,6 +306,7 @@ export const centralGarage = {
           p_model_year: input.modelYear ?? null,
           p_vehicle_color: input.vehicleColor || null,
           p_specifications: input.specifications || null,
+          p_driver_external_id: input.driverExternalId || null,
         }),
       )
       return vehicleRow(data as unknown as Record<string, unknown>)
@@ -339,6 +342,7 @@ export const centralGarage = {
           p_model_year: input.modelYear ?? null,
           p_vehicle_color: input.vehicleColor || null,
           p_specifications: input.specifications || null,
+          p_driver_external_id: input.driverExternalId || null,
         }),
       )
       return vehicleRow(data as unknown as Record<string, unknown>)

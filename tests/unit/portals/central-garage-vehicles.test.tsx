@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
     { employeeId: 'e0000000-0000-0000-0000-000000000001', fullName: 'علي حسن', employeeNumber: 'EMP-1', jobTitle: 'سائق', departmentName: 'الآليات', hasBiometric: true, employmentStatus: 'active', assignedVehicles: ['DB-100'] },
   ],
   createMutate: vi.fn(),
+  saveExternalDriver: vi.fn(),
   updateMutate: vi.fn(),
   assignMutate: vi.fn(),
   archiveMutate: vi.fn(),
@@ -80,6 +81,11 @@ const h = vi.hoisted(() => ({
   departures: [] as Array<Record<string, unknown>>,
 }))
 
+vi.mock('@features/station-fleet/hooks', () => ({
+  useStationExternalDrivers: () => ({ data: [{ id: 'ab000000-0000-0000-0000-000000000001', full_name: 'كرار المتعهد', phone: null, contractor_name: 'متعهد النقل السريع', contractor_user_id: 'c-1', license_no: null, notes: null, active: true, vehicles: [] }], isLoading: false }),
+  useContractorOptions: () => ({ data: [{ user_id: 'c-1', full_name: 'متعهد النقل السريع', sector_id: 1, area_name: 'الكرادة', parent_sector: 'zaafaraniya', is_active: true, drivers_count: 1 }], isLoading: false }),
+  useSaveExternalDriver: () => ({ mutate: h.saveExternalDriver, isPending: false }),
+}))
 vi.mock('@features/central-garage/hooks', () => ({
   useGarageAreas: () => ({ data: h.areas, isLoading: false }),
   useFleetDriverOptions: (search: string) => ({
@@ -283,9 +289,42 @@ describe('قاعدة بيانات آليات الكراج', () => {
         shift: 'night',
         sectorId: 8,
         driverEmployeeId: 'e0000000-0000-0000-0000-000000000009',
+        driverExternalId: null,
         image: file,
       }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
+  })
+
+  it('00375: سائق متعهد من السجل عند إضافة الآلية، مع إضافة سريعة مرتبطة بحساب متعهد', async () => {
+    renderPage(<VehiclesDatabasePage managementMode />)
+    fireEvent.click(screen.getByTestId('open-add-vehicle'))
+    fireEvent.click(screen.getByTestId('vehicle-driver-kind-external'))
+    expect(screen.queryByTestId('vehicle-driver-search')).toBeNull()
+    fireEvent.click(screen.getByTestId('vehicle-submit'))
+    expect(screen.getByTestId('vehicle-ext-driver-error')).toHaveTextContent('اختر سائق المتعهد')
+    // إضافة سريعة: المتعهد قائمة حسابات لا نص حر
+    fireEvent.click(screen.getByTestId('vehicle-ext-driver-add'))
+    expect(screen.getByTestId('vehicle-ext-driver-contractor').tagName).toBe('SELECT')
+    fireEvent.change(screen.getByTestId('vehicle-ext-driver-name'), { target: { value: 'سائق جديد' } })
+    fireEvent.click(screen.getByTestId('vehicle-ext-driver-save'))
+    expect(h.saveExternalDriver).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('vehicle-ext-driver-contractor'), { target: { value: 'c-1' } })
+    fireEvent.click(screen.getByTestId('vehicle-ext-driver-save'))
+    expect(h.saveExternalDriver).toHaveBeenCalledWith(expect.objectContaining({ fullName: 'سائق جديد', contractorUserId: 'c-1', active: true }), expect.anything())
+    // الاختيار من السجل وإرسال الآلية بسائق متعهد (بلا موظف)
+    fireEvent.change(screen.getByTestId('vehicle-ext-driver-select'), { target: { value: 'ab000000-0000-0000-0000-000000000001' } })
+    expect(screen.getByTestId('vehicle-ext-driver-selected')).toHaveTextContent('كرار المتعهد · متعهد النقل السريع')
+    fireEvent.change(screen.getByTestId('vehicle-name'), { target: { value: 'قلاب متعهد' } })
+    fireEvent.change(screen.getByTestId('vehicle-db'), { target: { value: 'DB-201' } })
+    fireEvent.change(screen.getByTestId('vehicle-plate'), { target: { value: 'بغداد 201' } })
+    fireEvent.change(screen.getByTestId('vehicle-chassis'), { target: { value: 'CH-201' } })
+    fireEvent.change(screen.getByTestId('vehicle-area'), { target: { value: '8' } })
+    fireEvent.change(screen.getByTestId('vehicle-image'), { target: { files: [new File(['x'], 'v.png', { type: 'image/png' })] } })
+    fireEvent.click(screen.getByTestId('vehicle-submit'))
+    expect(h.createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ dbNumber: 'DB-201', driverEmployeeId: null, driverExternalId: 'ab000000-0000-0000-0000-000000000001' }),
+      expect.anything(),
     )
   })
 })

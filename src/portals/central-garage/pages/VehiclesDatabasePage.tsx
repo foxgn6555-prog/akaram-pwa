@@ -28,6 +28,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import { VehicleCard } from '../components/VehicleCard'
 import { FleetImportDialog } from '../components/FleetImportDialog'
 import { DriverPicker } from '../components/DriverPicker'
+import { ExternalDriverPicker } from '../components/ExternalDriverPicker'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
@@ -46,7 +47,9 @@ const blank = {
   modelYear: '',
   vehicleColor: '',
   specifications: '',
+  driverKind: 'employee' as 'employee' | 'external',
   driverEmployeeId: '',
+  driverExternalId: '',
   shift: 'morning' as GarageShift,
   sectorId: '',
   image: null as File | null,
@@ -416,12 +419,26 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
               placeholder="السعة، التجهيزات، الحالة أو أي تفاصيل تشغيلية"
             />
           </Field>
-          <DriverPicker
-            testId="vehicle-driver"
-            value={form.driverEmployeeId}
-            onChange={(id) => update('driverEmployeeId', id)}
-            error={errors.driverEmployeeId}
-          />
+          <div className="space-y-2 rounded-2xl border border-slate-200 p-3 sm:col-span-2" data-testid="vehicle-driver-kind">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
+              <span>نوع السائق:</span>
+              {([['employee', 'موظف (HR)'], ['external', 'سائق متعهد']] as const).map(([k, label]) => (
+                <button key={k} type="button" data-testid={`vehicle-driver-kind-${k}`} aria-pressed={form.driverKind === k}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-black ${form.driverKind === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                  onClick={() => setForm((c) => ({ ...c, driverKind: k, driverEmployeeId: '', driverExternalId: '' }))}>{label}</button>
+              ))}
+            </div>
+            {form.driverKind === 'employee' ? (
+              <DriverPicker
+                testId="vehicle-driver"
+                value={form.driverEmployeeId}
+                onChange={(id) => update('driverEmployeeId', id)}
+                error={errors.driverEmployeeId}
+              />
+            ) : (
+              <ExternalDriverPicker value={form.driverExternalId} onChange={(id) => update('driverExternalId', id)} error={errors.driverExternalId} />
+            )}
+          </div>
           <Field label="الشفت" error={errors.shift}>
             <select
               data-testid="vehicle-shift"

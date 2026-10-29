@@ -34,6 +34,8 @@ export interface GarageVehicle {
   driverName: string
   /** هوية السائق في الموارد البشرية (null = سجل قديم بلا رابط، تصححه غرفة العمليات) */
   driverEmployeeId: string | null
+  /** 00375: سائق متعهد من السجل (بديل عن الموظف) */
+  driverExternalId: string | null
   driverEmployeeNumber: string | null
   driverHasBiometric: boolean | null
   sectorId: number
@@ -76,7 +78,9 @@ export interface CreateGarageVehicleInput {
   specifications?: string | null
   image: File
   shift: GarageShift
-  driverEmployeeId: string
+  /** سائق موظف (HR) — أو سائق متعهد (00375)؛ واحد منهما فقط */
+  driverEmployeeId: string | null
+  driverExternalId?: string | null
   sectorId: number
 }
 
@@ -99,6 +103,7 @@ export interface GarageDriverAssignment {
   vehicleId: string
   driverName: string
   driverEmployeeId: string | null
+  driverExternalId: string | null
   shift: GarageShift
   sectorId: number
   startsAt: string

@@ -13,6 +13,12 @@ insert into public.user_roles (user_id, role) values
   ('ee000000-0000-0000-0000-000000000003', 'central_garage_officer'),
   ('ee000000-0000-0000-0000-000000000004', 'ops_room') on conflict do nothing;
 insert into public.garage_user_profiles (user_id, parent_sector) values ('ee000000-0000-0000-0000-000000000003', 'zaafaraniya') on conflict (user_id) do nothing;
+-- 00375: حساب متعهد في النظام (بوابة المتعهدين) لربط سائقي المتعهدين
+insert into auth.users (id, email) values ('ee000000-0000-0000-0000-00000000000c', 'cont-sf@t.iq'), ('ee000000-0000-0000-0000-00000000000d', 'mgr-sf@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('ee000000-0000-0000-0000-00000000000c', 'employee'), ('ee000000-0000-0000-0000-00000000000d', 'department_manager') on conflict do nothing;
+insert into public.manager_profiles (user_id, shift, sectors) values ('ee000000-0000-0000-0000-00000000000d', 'morning', '{1}') on conflict do nothing;
+insert into public.employees (id, user_id, employee_number, full_name, hire_date, phone) values ('ee0e0000-0000-0000-0000-00000000000c', 'ee000000-0000-0000-0000-00000000000c', 'SF-CT-1', 'متعهد النقل السريع', '2024-01-01', '0770') on conflict (id) do nothing;
+insert into public.contractor_profiles (user_id, manager_user_id, sector_id) values ('ee000000-0000-0000-0000-00000000000c', 'ee000000-0000-0000-0000-00000000000d', 1) on conflict (user_id) do nothing;
 insert into public.sectors (id, code, name, sort, parent_sector) values (94, 'S94', 'قاطع المحطة', 94::smallint, 'karrada') on conflict (id) do nothing;
 insert into public.departments (id, name, code) values ('ee0d0000-0000-0000-0000-0000000000a1', 'قسم المحطة SF', 'SFD') on conflict do nothing;
 insert into public.departments (id, name, code, parent_id, is_job_title, drives_vehicles) values
@@ -105,7 +111,7 @@ begin
   select count(*) into n from public.station_destinations where name in ('النهروان','النباعي') and active; assert n = 2, 'D1: الوجهتان الافتراضيتان';
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
   perform pg_temp.expect_error($q$select public.station_destination_save(null, 'وجهة', null, 0, true)$q$, 'OPS_ROOM_FORBIDDEN');
-  perform pg_temp.expect_error($q$select public.station_external_driver_save(null, 'س', 'م')$q$, 'OPS_ROOM_FORBIDDEN');
+  perform pg_temp.expect_error($q$select public.station_external_driver_save_v2(null, 'س', 'ee000000-0000-0000-0000-00000000000c')$q$, 'OPS_ROOM_FORBIDDEN');
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
   -- زون النهروان: مربع حول (33.30, 44.60)
   gid := public.gps_platform_geofence_save(null, 'زون النهروان', '[{"lat":33.29,"lng":44.59},{"lat":33.31,"lng":44.59},{"lat":33.31,"lng":44.61},{"lat":33.29,"lng":44.61}]'::jsonb, '#06b6d4');
@@ -113,9 +119,12 @@ begin
   assert d.geofence_id = gid, 'D2: ربط الزون';
   perform pg_temp.expect_error($q$select public.station_destination_save(null, 'النباعي', null, 0, true)$q$, 'STATION_DESTINATION_DUPLICATE');
   perform pg_temp.expect_error($q$select public.station_destination_save(null, 'وجهة', '00000000-0000-4000-8000-0000000000ff', 0, true)$q$, 'STATION_DESTINATION_ZONE_NOT_FOUND');
-  x := public.station_external_driver_save(null, 'سائق خارجي', 'متعهد النقل', '07801234567', 'L-1');
-  assert x.active, 'D3: سائق خارجي';
-  perform pg_temp.expect_error($q$select public.station_external_driver_save(null, 'سائق', 'متعهد', 'abc')$q$, 'STATION_DRIVER_PHONE_INVALID');
+  x := public.station_external_driver_save_v2(null, 'سائق خارجي', 'ee000000-0000-0000-0000-00000000000c', '07801234567', 'L-1');
+  assert x.active and x.contractor_name = 'متعهد النقل السريع' and x.contractor_user_id = 'ee000000-0000-0000-0000-00000000000c', 'D3: سائق خارجي مرتبط بحساب المتعهد';
+  perform pg_temp.expect_error($q$select public.station_external_driver_save_v2(null, 'سائق', 'ee000000-0000-0000-0000-00000000000c', 'abc')$q$, 'STATION_DRIVER_PHONE_INVALID');
+  -- 00375: لا متعهد نصّاً حراً ولا حساب غير متعهد
+  perform pg_temp.expect_error($q$select public.station_external_driver_save(null, 'سائق', 'متعهد نصي')$q$, 'STATION_DRIVER_CONTRACTOR_ACCOUNT_REQUIRED');
+  perform pg_temp.expect_error($q$select public.station_external_driver_save_v2(null, 'سائق', 'ee000000-0000-0000-0000-000000000003')$q$, 'STATION_DRIVER_CONTRACTOR_REQUIRED');
   perform set_config('t.x_driver', x.id::text, false);
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
   select count(*) into n from public.station_destinations_list() l where l.name = 'النهروان' and l.has_zone; assert n = 1, 'D4: المحطة ترى الوجهة مع زون';
@@ -169,7 +178,7 @@ begin
   assert r->>'driver_name' = 'سائق المتعاقد', 'E7: متعاقد';
   -- 4) سائق خارجي موقوف يُرفض
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
-  perform public.station_external_driver_save(xd, 'سائق خارجي', 'متعهد النقل', '07801234567', 'L-1', null, null, false);
+  perform public.station_external_driver_save_v2(xd, 'سائق خارجي', 'ee000000-0000-0000-0000-00000000000c', '07801234567', 'L-1', null, null, false);
   perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
   perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'external', '%s', null, '%s', null, 5)$q$, vc, dest, xd), 'STATION_DRIVER_INACTIVE');
   perform pg_temp.expect_error(format($q$select public.station_record_exit('%s', 'robot', '%s')$q$, vn, dest), 'STATION_DRIVER_KIND_INVALID');
@@ -260,3 +269,39 @@ end $$;
 
 reset role; select set_config('auth.user_id','', false);
 select 'STATION FLEET UNIFICATION TEST PASSED' as result;
+
+-- ═══ H) 00375: سجل المتعهدين من حسابات النظام، سائق متعهد عند إضافة الآلية ═══
+do $$
+declare n int; o record; x public.station_external_drivers; v public.garage_vehicles; d record;
+begin
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000003');   -- ضابط الكراج يرى المتعهدين ويضيف سائقاً
+  select count(*) into n from public.contractor_options() where user_id = 'ee000000-0000-0000-0000-00000000000c';
+  assert n = 1, 'H1: حساب المتعهد في الخيارات';
+  select * into o from public.contractor_options() where user_id = 'ee000000-0000-0000-0000-00000000000c';
+  assert o.full_name = 'متعهد النقل السريع' and o.is_active, 'H1b: اسم المتعهد من الحساب';
+  x := public.station_external_driver_save_v2(null, 'سائق المتعهد كرار', 'ee000000-0000-0000-0000-00000000000c', '07811111111');
+  assert x.contractor_user_id = 'ee000000-0000-0000-0000-00000000000c', 'H2: ضابط الكراج أضاف سائق متعهد';
+  select * into d from public.station_external_drivers_list() l where l.id = x.id;
+  assert d.contractor_name = 'متعهد النقل السريع' and cardinality(d.vehicles) = 0, 'H3: القائمة بالحساب';
+  -- إضافة آلية بسائق متعهد (غرفة العمليات)
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000001');
+  v := public.garage_add_vehicle('قلاب متعهد', 'DB-SF9', 'P-SF9', 'CH-SF0009', 'ee000000-0000-0000-0000-000000000001/q9.jpg', 'morning', null, 94::smallint, 'tipper', 'rented', 'متعهد النقل السريع', null, null, null, null, null, null, x.id);
+  assert v.driver_external_id = x.id and v.driver_employee_id is null and v.driver_name = 'سائق المتعهد كرار', 'H4: آلية بسائق متعهد';
+  select count(*) into n from public.garage_driver_assignments a where a.vehicle_id = v.id and a.driver_external_id = x.id and a.driver_employee_id is null;
+  assert n = 1, 'H5: الإسناد الأول بسائق المتعهد';
+  select * into d from public.station_external_drivers_list() l where l.id = x.id;
+  assert d.vehicles = array['DB-SF9'], 'H6: آليات السائق في القائمة';
+  -- لا سائقان معاً، ولا سائق متعهد موقوف، ولا بلا سائق
+  perform pg_temp.expect_error(format($q$select public.garage_add_vehicle('قلاب تجريبي', 'DB-SF10', 'P-SF10', 'CH-SF0010', 'ee000000-0000-0000-0000-000000000001/x.jpg', 'morning', 'ee0e0000-0000-0000-0000-000000000001', 94::smallint, 'tipper', 'owned', null, null, null, null, null, null, null, '%s')$q$, x.id), 'FLEET_DRIVER_ONE_ONLY');
+  perform pg_temp.expect_error($q$select public.garage_add_vehicle('قلاب تجريبي', 'DB-SF10', 'P-SF10', 'CH-SF0010', 'ee000000-0000-0000-0000-000000000001/x.jpg', 'morning', null, 94::smallint, 'tipper', 'owned')$q$, 'FLEET_DRIVER_REQUIRED');
+  perform public.station_external_driver_save_v2(x.id, 'سائق المتعهد كرار', 'ee000000-0000-0000-0000-00000000000c', '07811111111', null, null, null, false);
+  perform pg_temp.expect_error(format($q$select public.garage_add_vehicle('قلاب تجريبي', 'DB-SF10', 'P-SF10', 'CH-SF0010', 'ee000000-0000-0000-0000-000000000001/x.jpg', 'morning', null, 94::smallint, 'tipper', 'owned', null, null, null, null, null, null, null, '%s')$q$, x.id), 'FLEET_EXTERNAL_DRIVER_NOT_FOUND');
+  -- تعديل اسم السائق ينعكس على الآلية
+  perform public.station_external_driver_save_v2(x.id, 'كرار المتعهد', 'ee000000-0000-0000-0000-00000000000c', '07811111111', null, null, null, true);
+  select driver_name into d from public.garage_vehicles where id = v.id; assert d.driver_name = 'كرار المتعهد', 'H7: اسم السائق يتبع السجل';
+  -- المحطة ترى المتعهدين لكن لا تضيف
+  perform pg_temp.as_user('ee000000-0000-0000-0000-000000000002');
+  select count(*) into n from public.contractor_options(); assert n >= 1, 'H8: المحطة تقرأ';
+  perform pg_temp.expect_error($q$select public.station_external_driver_save_v2(null, 'س', 'ee000000-0000-0000-0000-00000000000c')$q$, 'OPS_ROOM_FORBIDDEN');
+  raise notice 'H ✓ 00375 سائقو المتعهدين';
+end $$;
