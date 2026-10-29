@@ -66,6 +66,13 @@ const CATALOG: Record<string, Omit<LvnErrorInfo, 'code'>> = {
   LVN_FUNCTION_OUTDATED: { kind: 'config', title: 'دالة مزامنة GPS على الخادم قديمة', cause: 'الدالة الخادمية lvn-gps-sync المنشورة لا تعرف سحب مسارات الانطلاقيات (لم تُنشر بعد التحديث 00342).', action: 'انشر الدالة: npx supabase functions deploy lvn-gps-sync — ثم أعد السحب؛ بعدها يسحب النظام تلقائياً.', owner: 'وحدة التطوير المركزية' },
   TRIP_ROUTE_NOT_QUEUED: { kind: 'config', title: 'لا شيء يُسحب لهذه الانطلاقية', cause: 'المسار نهائي ومكتمل أو بلا جهاز.', action: 'لا حاجة لإجراء.', owner: '—' },
   TRIP_ROUTE_RANGE_TOO_LONG: { kind: 'config', title: 'فترة الانطلاقية أطول من 7 أيام', cause: 'انطلاقية مفتوحة منذ أكثر من أسبوع.', action: 'سجّل عودتها أو صحّحها ثم أعد السحب.', owner: 'غرفة العمليات' },
+  // 00380: مستودع GPS التحليلي (المشروع الثاني)
+  GPS_WAREHOUSE_NOT_CONFIGURED: { kind: 'config', title: 'مستودع GPS غير مربوط بعد', cause: 'السرّان GPS_WAREHOUSE_URL / GPS_WAREHOUSE_SERVICE_KEY غير موجودين في إعدادات Edge Functions بالمشروع الأول.', action: 'من لوحة Supabase للمشروع الأول: Edge Functions ← Secrets ← أضف الرابط ومفتاح الخدمة الخاصين بالمشروع الثاني، ثم اضغط «فحص الاتصال».', owner: 'وحدة التطوير المركزية' },
+  GPS_WAREHOUSE_KEY_INVALID: { kind: 'credentials', title: 'مفتاح مستودع GPS مرفوض', cause: 'المشروع الثاني رفض المفتاح (ألغي أو نُسخ ناقصاً).', action: 'أنشئ مفتاح خدمة جديداً في المشروع الثاني وحدّث السرّ GPS_WAREHOUSE_SERVICE_KEY ثم أعد الفحص.', owner: 'وحدة التطوير المركزية' },
+  GPS_WAREHOUSE_SCHEMA_MISSING: { kind: 'config', title: 'المشروع الثاني بلا جداول المستودع', cause: 'لم تُطبَّق هجرات gps-warehouse/supabase/migrations على المشروع الثاني.', action: 'طبّق الهجرات على المشروع الثاني (db push بـ --workdir gps-warehouse أو لصق الملف في SQL Editor) ثم أعد الفحص.', owner: 'وحدة التطوير المركزية' },
+  GPS_WAREHOUSE_UNREACHABLE: { kind: 'provider', title: 'تعذّر الوصول إلى مستودع GPS', cause: 'المشروع الثاني لا يستجيب (متوقف مؤقتاً بعد خمول 7 أيام في الخطة المجانية، أو الرابط خاطئ).', action: 'افتح لوحة المشروع الثاني؛ إن كان Paused اضغط Restore ثم أعد الفحص. تحقق من GPS_WAREHOUSE_URL.', owner: 'وحدة التطوير المركزية' },
+  GPS_WAREHOUSE_FORBIDDEN: { kind: 'config', title: 'لا صلاحية لإدارة مستودع GPS', cause: 'الفحص لغرفة العمليات وIT؛ المزامنة والجدولة لـ IT فقط.', action: 'ادخل بحساب IT.', owner: '—' },
+  GPS_WAREHOUSE_RPC_FAILED: { kind: 'db', title: 'خطأ داخل مستودع GPS', cause: 'الدالة في المشروع الثاني فشلت.', action: 'راجع التفاصيل بعد الرمز؛ إن تكرر أعد تطبيق هجرات المستودع.', owner: 'وحدة التطوير المركزية' },
   LVN_HISTORY_ALREADY_RUNNING: {
     kind: 'busy',
     title: 'استيراد سجل سابق قيد التنفيذ',

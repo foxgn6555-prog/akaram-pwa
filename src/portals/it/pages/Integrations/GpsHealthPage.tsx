@@ -1,5 +1,6 @@
 /** 00211 — وحدة التطوير المركزية: سلامة تكامل GPS (LVN والمزامنة) — منقولة من غرفة العمليات */
 import LvnIntegrationWorkspace from '@features/gps-lvn/components/LvnIntegrationWorkspace'
+import GpsWarehouseCard from '@features/gps-warehouse/GpsWarehouseCard'
 
 export default function GpsHealthPage() {
   return (
@@ -9,6 +10,8 @@ export default function GpsHealthPage() {
         <p className="text-xs text-slate-500">خط البيانات، اختبار الاتصال، المزامنة، تشخيص المجدول الخادمي، وسجل المزامنة مع شرح أي فشل</p>
       </div>
       <LvnIntegrationWorkspace />
+      {/* 00380: مستودع GPS التحليلي (المشروع الثاني) */}
+      <GpsWarehouseCard />
     </section>
   )
 }

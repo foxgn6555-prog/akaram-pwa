@@ -1452,3 +1452,10 @@
 - كانت استعلامات لوحة GPS (المشهد التشغيلي، الخريطة الحية، التنبيهات، الأجهزة، أحداث الزونات، صحة المجدول) تتحدّث كل 30 ثانية؛ أصبحت كل **5 ثوانٍ** عبر ثابت واحد `GPS_SCREEN_REFRESH_MS`. المزامنة مع المزوّد (LVN) تبقى كل ثانية كما هي.
 - بطاقة «المزامنة التلقائية» في الرأس صارت تُظهر الحقيقة: «الشاشة كل 5 ثوانٍ · المزوّد كل ثانية».
 - اختبار `tests/unit/features/gps-screen-refresh.test.ts`.
+
+## الجولة 00380 — أساس مستودع GPS التحليلي (المشروع الثاني)
+- **مشروع ثانٍ** `gps-warehouse/` (هجرة `0001_warehouse_schema.sql`): إعدادات المحرّك (10–120 دقيقة، عطل بعد 24 ساعة، نصف قطر 60 م، خام 3 أيام، أرشيف 6 أشهر)، سجل الآليات، مهام السحب (جهاز × يوم)، النقاط الخام المؤقتة، التوقفات الشهرية، ملفات الأرشيف. **خادم فقط**: RLS بلا سياسات وسحب الصلاحيات. دوال `wh_ping` / `wh_upsert_vehicles` / `wh_enqueue_month`.
+- **المشروع الأول** (هجرة `00324`): جدول حالة الربط `gps_warehouse_link` (بلا أي مفاتيح) + `gps_warehouse_link_get` (عمليات/IT) + `gps_warehouse_registry` (خدمة/IT) + `gps_warehouse_link_record` (خدمة فقط).
+- **دالة حافة جديدة** `gps-warehouse`: ping / sync_registry / enqueue_month؛ الأسرار `GPS_WAREHOUSE_URL` و`GPS_WAREHOUSE_SERVICE_KEY` من لوحة Supabase؛ أخطاء مشروحة بالعربية (غير مربوط / مفتاح مرفوض / بلا جداول / لا يستجيب).
+- **بوابة IT** ← سلامة تكامل GPS: بطاقة «مستودع GPS التحليلي» بالحالة والأعداد والحدود وخطوات الربط وأزرار الفحص/السجل/الجدولة.
+- مشغّل اختبارات DB يدعم `MIGRATIONS_DIR`. اختبارات: `tests/db-warehouse/warehouse-schema-test.sql`، `tests/db/gps-warehouse-link-test.sql`، `gps-warehouse-card.test.tsx`، `gps-warehouse-contract.test.ts`.

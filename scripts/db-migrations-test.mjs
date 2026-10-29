@@ -13,8 +13,10 @@ await run('appschema', 'create schema if not exists app; create extension if not
 await run('mock', fs.readFileSync('tests/db/supabase-mock.sql', 'utf8'));
 // 00291: حارس التكرار معطّل افتراضياً في الاختبارات (تستدعي الدوال نفسها بالمعاملات نفسها تباعاً) — اختبارات الحارس تفعّله صراحةً
 await run('dedup-off', "select set_config('app.dedup_window_seconds', '0', false)");
-const files = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql')).sort();
-for (const f of files) await run(f, fs.readFileSync('supabase/migrations/' + f, 'utf8'));
+// 00380: MIGRATIONS_DIR=gps-warehouse/supabase/migrations لاختبار مستودع GPS (المشروع الثاني)
+const migDir = process.env.MIGRATIONS_DIR || 'supabase/migrations';
+const files = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort();
+for (const f of files) await run(f, fs.readFileSync(migDir + '/' + f, 'utf8'));
 console.log('migrations ok:', files.length);
 // أوامر psql الوصفية (\\set / \\echo / \\timing) ليست SQL — تُحذف عند التشغيل عبر pg
 const stripMeta = (sql) => sql.split('\n').filter((l) => !/^\\(set|echo|timing)\b/.test(l)).join('\n');

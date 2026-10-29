@@ -48,6 +48,7 @@ vi.mock('@sdk/gps-lvn.sdk', () => ({
     tripInvestigations: vi.fn().mockResolvedValue([]),
   },
 }))
+vi.mock('@features/gps-warehouse/GpsWarehouseCard', () => ({ default: () => <div data-testid="mock-gps-warehouse-card" /> }))
 vi.mock('@features/gps-lvn/export', () => ({
   exportGpsAlerts: h.exportAlerts,
   exportGpsTrips: h.exportTrips,

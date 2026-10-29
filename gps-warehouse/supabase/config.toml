@@ -1,0 +1,21 @@
+# مستودع GPS التحليلي — مشروع Supabase الثاني (00380). يُربط مرة واحدة: npx supabase link --workdir gps-warehouse --project-ref ujfwtbzvpshtxzsjtcxz
+project_id = "akaram-gps-warehouse"
+
+[api]
+enabled = true
+port = 54421
+schemas = ["public"]
+
+[db]
+port = 54422
+major_version = 17
+
+[studio]
+enabled = false
+
+[auth]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
