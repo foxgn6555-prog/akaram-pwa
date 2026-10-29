@@ -75,7 +75,7 @@ export async function toExcel(list: Disclosure[],options:DisclosureReportOptions
     vehicle_type: d.vehicle_type ?? '',
     contractor_name: d.contractor_name ?? '',
     sector: d.sector ?? '',
-    shift: SHIFT_LABELS[d.shift],
+    shift: (SHIFT_LABELS[d.shift] ?? d.shift),
     log_date: d.log_date,
     violation: VIOLATION_LABELS[d.violation_type],
     penalty: d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '—',
@@ -124,7 +124,7 @@ export async function toExcel(list: Disclosure[],options:DisclosureReportOptions
 
 /** بناء HTML بنفس تخطيط النموذج الورقي المرفق — ترويسة مؤسسة + حقول + تفاصيل + توقيع */
 export function disclosureHtml(d: Disclosure): string {
-  const shiftText = SHIFT_LABELS[d.shift]
+  const shiftText = (SHIFT_LABELS[d.shift] ?? d.shift)
   const penalty = d.penalty_type ? PENALTY_LABELS[d.penalty_type] : '—'
   const ref = d.ref_no ? esc(d.ref_no) : `م/كشف ${esc(d.log_date)}`
   const contractor = d.contractor_name ? esc(d.contractor_name) : ''

@@ -33,7 +33,7 @@ export const weightRecordSchema = z
     tare_weight: weight,
     entry_time: entryTime,
     log_date: z.string().min(1, 'التاريخ مطلوب'),
-    shift: z.enum(['morning', 'evening'], { message: 'اختر الشفت' }),
+    shift: z.string().trim().min(1, 'اختر الشفت').max(40),
   })
   // الصافي = الكلي − الفارغ يجب ألا يكون سالباً إن توفّر الاثنان
   .refine(

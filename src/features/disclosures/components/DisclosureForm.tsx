@@ -4,6 +4,7 @@
  *  · لا كتابة حرة للأسماء — الاختيار من النظام فقط
  *  · النوع من أنواع الكشوفات (IT) → العقوبات المسموحة + المبلغ الافتراضي
  */
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { PENALTY_LABEL, SHIFT_LABEL, type DisclosureInput, type DisclosureTargetKind, type DisclosureV2, type EmployeeOption, type PenaltyKey, type VehicleOption } from '@sdk/disclosures-unit.sdk'
@@ -154,7 +155,7 @@ export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = fals
         </Field>
         <Field label="تاريخ المخالفة" hint="يُحدَّد شهر الاستقطاع من هذا التاريخ"><input type="date" className={inputCls} value={logDate} max={today()} onChange={(e) => setLogDate(e.target.value)} data-testid="log-date" dir="ltr" /></Field>
         <Field label="الشفت">
-          <select className={inputCls} value={shift} onChange={(e) => setShift(e.target.value)} data-testid="shift-select">{Object.entries(SHIFT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+          <ShiftSelect className={inputCls} value={shift} onChange={setShift} testId="shift-select" />
         </Field>
         <Field label="المبلغ المقترح (د.ع — اختياري)" hint="يحدده المعاون/المدير المفوض نهائياً"><input className={inputCls} inputMode="numeric" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="بدون" data-testid="amount" /></Field>
         {kind === 'vehicle' && <Field label="المتعهد (اختياري)"><input className={inputCls} value={contractor} onChange={(e) => setContractor(e.target.value)} data-testid="contractor" /></Field>}

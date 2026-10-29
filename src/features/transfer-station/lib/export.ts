@@ -19,7 +19,7 @@ export function netOf(r: WeightRecord): number | null {
 }
 
 export function sheetTitle(date: string, shift: Shift): string {
-  return `سجل الأوزان ${SHIFT_LABELS[shift]} - ${date}`
+  return `سجل الأوزان ${(SHIFT_LABELS[shift] ?? shift)} - ${date}`
 }
 
 function escapeHtml(s: string): string {
@@ -83,7 +83,7 @@ export async function toExcel(
     meta: `تاريخ التصدير: ${today}   •   عدد السجلات: ${records.length}   •   إجمالي الصافي: ${totalNet.toFixed(2)} طن   •   وُلِّد آلياً من نظام بلدية جزيرة الأكارم`,
     columns: COLUMNS,
     rows,
-    fileName: `سجل-الأوزان-${SHIFT_LABELS[shift]}-${date}.xlsx`,
+    fileName: `سجل-الأوزان-${(SHIFT_LABELS[shift] ?? shift)}-${date}.xlsx`,
     orientation: 'landscape',
     totalRow: {
       driver_name: 'الإجمالي (طن)',
@@ -180,7 +180,7 @@ export function printPdf(records: WeightRecord[], date: string, shift: Shift): v
     </div>
     <div style="width:46px"></div>
   </div>
-  <div class="titlebar">سجل الأوزان — الشفت ${SHIFT_LABELS[shift]}</div>
+  <div class="titlebar">سجل الأوزان — الشفت ${(SHIFT_LABELS[shift] ?? shift)}</div>
   <div class="meta-row">
     <span>التاريخ: ${date}</span>
     <span>عدد السجلات: ${records.length}</span>

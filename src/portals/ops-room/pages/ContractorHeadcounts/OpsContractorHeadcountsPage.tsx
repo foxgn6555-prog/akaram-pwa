@@ -4,6 +4,7 @@
  * فلاتر: المصدر (الجميع/قاطع/متعهد/متابعة)، القاطع الأم، الشهر. تصحيح رقم بسبب إلزامي + تدقيق. اعتماد جهة واحدة للشهر تسري على كل المتعهدين وتقفله. تصدير Excel.
  * لا بيانات مالية هنا — المالية تحسب من الجهة المعتمدة.
  */
+import { useShiftOptions } from '@features/hr-shifts/hooks'
 import { useMemo, useState } from 'react'
 import { useCanCall } from '@features/permissions/my-permissions'
 import { Download, Lock, Unlock } from 'lucide-react'
@@ -34,7 +35,9 @@ export default function OpsContractorHeadcountsPage() {
   const gaps = useHeadcountCoverageGaps(month, approveSrc)
   const gapCount = gaps.data?.length ?? 0
   const addToast = useUiStore((s) => s.addToast)
-  const pivot = useMemo(() => buildPivot(sheet.data ?? [], source), [sheet.data, source])
+  const shiftOptions = useShiftOptions(true)
+  const shiftOrder = useMemo(() => shiftOptions.data.map((o) => o.code), [shiftOptions.data])
+  const pivot = useMemo(() => buildPivot(sheet.data ?? [], source, shiftOrder), [sheet.data, source, shiftOrder])
   const st = status.data
   const locked = Boolean(st?.is_locked)
   const doApprove = () => {
@@ -144,7 +147,6 @@ export default function OpsContractorHeadcountsPage() {
 
 function SheetTable({ pivot, locked, onEdit }: { pivot: Pivot; locked: boolean; onEdit: (c: PivotContractor, date: string, s: CountSource, current: number | null) => void }) {
   const span = pivot.sources.length
-  const hasMorning = pivot.contractors.some((c) => c.shift === 'morning'), hasEvening = pivot.contractors.some((c) => c.shift === 'evening')
   return (
     <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm" data-testid="sheet-wrap">
       <table className="min-w-max text-[11px]" data-testid="sheet">
@@ -157,14 +159,12 @@ function SheetTable({ pivot, locked, onEdit }: { pivot: Pivot; locked: boolean; 
                 <div className="text-[9px] font-normal text-slate-300">{c.area} · {PARENT_AR[c.parent]} · {c.shift ? SHIFT_AR[c.shift] ?? c.shift : '—'}</div>
               </th>
             ))}
-            {hasMorning && <th colSpan={span} className="border-r border-slate-600 px-2 py-1 text-center">مجموع الصباحي</th>}
-            {hasEvening && <th colSpan={span} className="border-r border-slate-600 px-2 py-1 text-center">مجموع المسائي</th>}
+            {pivot.shifts.map((x) => <th key={`sh-${x}`} colSpan={span} className="border-r border-slate-600 px-2 py-1 text-center" data-testid={`shift-head-${x}`}>مجموع {SHIFT_AR[x] ?? x}</th>)}
             <th colSpan={span} className="px-2 py-1 text-center">المجموع الكلي</th>
           </tr>
           <tr className="bg-slate-100 text-slate-700">
             {pivot.contractors.map((c) => pivot.sources.map((s) => <th key={`${c.id}-${s}`} className={`px-2 py-1 text-center font-bold ${SRC_TONE[s]}`}>{COUNT_SOURCE_AR[s]}</th>))}
-            {hasMorning && pivot.sources.map((s) => <th key={`m-${s}`} className={`px-2 py-1 text-center font-bold ${SRC_TONE[s]}`}>{COUNT_SOURCE_AR[s]}</th>)}
-            {hasEvening && pivot.sources.map((s) => <th key={`e-${s}`} className={`px-2 py-1 text-center font-bold ${SRC_TONE[s]}`}>{COUNT_SOURCE_AR[s]}</th>)}
+            {pivot.shifts.map((x) => pivot.sources.map((s) => <th key={`${x}-${s}`} className={`px-2 py-1 text-center font-bold ${SRC_TONE[s]}`}>{COUNT_SOURCE_AR[s]}</th>))}
             {pivot.sources.map((s) => <th key={`t-${s}`} className={`px-2 py-1 text-center font-bold ${SRC_TONE[s]}`}>{COUNT_SOURCE_AR[s]}</th>)}
           </tr>
         </thead>
@@ -184,8 +184,7 @@ function SheetTable({ pivot, locked, onEdit }: { pivot: Pivot; locked: boolean; 
                   </td>
                 )
               }))}
-              {hasMorning && pivot.sources.map((s) => <td key={`m-${s}`} className="px-2 py-1 text-center font-black" data-testid={`morning-${d.date}-${s}`}>{d.shiftTotals.morning[s]}</td>)}
-              {hasEvening && pivot.sources.map((s) => <td key={`e-${s}`} className="px-2 py-1 text-center font-black" data-testid={`evening-${d.date}-${s}`}>{d.shiftTotals.evening[s]}</td>)}
+              {pivot.shifts.map((x) => pivot.sources.map((s) => <td key={`${x}-${s}`} className="px-2 py-1 text-center font-black" data-testid={`${x}-${d.date}-${s}`}>{d.shiftTotals[x]?.[s] ?? 0}</td>))}
               {pivot.sources.map((s) => <td key={`t-${s}`} className="px-2 py-1 text-center font-black" data-testid={`total-${d.date}-${s}`}>{d.total[s]}</td>)}
             </tr>
           ))}
@@ -194,8 +193,7 @@ function SheetTable({ pivot, locked, onEdit }: { pivot: Pivot; locked: boolean; 
           <tr className="border-t-2 bg-slate-100 font-black">
             <td className="sticky right-0 z-10 bg-slate-100 px-2 py-1">المجموع</td>
             {pivot.contractors.map((c) => pivot.sources.map((s) => <td key={`${c.id}-${s}`} className="px-2 py-1 text-center" data-testid={`ctotal-${c.id}-${s}`}>{pivot.contractorTotals[c.id]?.[s] ?? 0}</td>))}
-            {hasMorning && pivot.sources.map((s) => <td key={`m-${s}`} className="px-2 py-1 text-center">{pivot.days.reduce((a, d) => a + d.shiftTotals.morning[s], 0)}</td>)}
-            {hasEvening && pivot.sources.map((s) => <td key={`e-${s}`} className="px-2 py-1 text-center">{pivot.days.reduce((a, d) => a + d.shiftTotals.evening[s], 0)}</td>)}
+            {pivot.shifts.map((x) => pivot.sources.map((s) => <td key={`${x}-${s}`} className="px-2 py-1 text-center">{pivot.days.reduce((a, d) => a + (d.shiftTotals[x]?.[s] ?? 0), 0)}</td>))}
             {pivot.sources.map((s) => <td key={`t-${s}`} className="px-2 py-1 text-center" data-testid={`grand-${s}`}>{pivot.grand[s]}</td>)}
           </tr>
           <tr className="bg-slate-50 text-[10px] text-slate-600">
@@ -204,8 +202,7 @@ function SheetTable({ pivot, locked, onEdit }: { pivot: Pivot; locked: boolean; 
               const w = pivot.days.reduce((a, d) => a + (workersOf(d.cells[c.id]?.[s]?.value ?? null) ?? 0), 0)
               return <td key={`${c.id}-${s}`} className="px-2 py-1 text-center" data-testid={`cworkers-${c.id}-${s}`}>{w}</td>
             }))}
-            {hasMorning && pivot.sources.map((s) => <td key={`m-${s}`} />)}
-            {hasEvening && pivot.sources.map((s) => <td key={`e-${s}`} />)}
+            {pivot.shifts.map((x) => pivot.sources.map((s) => <td key={`${x}-${s}`} />))}
             {pivot.sources.map((s) => <td key={`t-${s}`} />)}
           </tr>
         </tfoot>

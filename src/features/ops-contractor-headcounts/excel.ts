@@ -43,8 +43,7 @@ export async function exportHeadcountsExcel(pivot: Pivot, meta: HeadcountsExport
   const srcs = pivot.sources
   const groups: { label: string; sub: string; key: string }[] = [
     ...pivot.contractors.map((c) => ({ label: c.name, sub: `${c.area} · ${c.shift ? SHIFT_AR[c.shift] ?? c.shift : '—'}`, key: c.id })),
-    ...(pivot.contractors.some((c) => c.shift === 'morning') ? [{ label: 'مجموع الصباحي', sub: '', key: '__m' }] : []),
-    ...(pivot.contractors.some((c) => c.shift === 'evening') ? [{ label: 'مجموع المسائي', sub: '', key: '__e' }] : []),
+    ...pivot.shifts.map((x) => ({ label: `مجموع ${SHIFT_AR[x] ?? x}`, sub: '', key: `__s:${x}` })),
     { label: 'المجموع الكلي', sub: '', key: '__t' },
   ]
   const totalCols = 1 + groups.length * srcs.length
@@ -73,7 +72,7 @@ export async function exportHeadcountsExcel(pivot: Pivot, meta: HeadcountsExport
     col = 2
     for (const g of groups) {
       for (const s of srcs) {
-        const v = g.key === '__m' ? d.shiftTotals.morning[s] : g.key === '__e' ? d.shiftTotals.evening[s] : g.key === '__t' ? d.total[s] : d.cells[g.key]?.[s]?.value ?? null
+        const v = g.key.startsWith('__s:') ? d.shiftTotals[g.key.slice(4)]?.[s] ?? 0 : g.key === '__t' ? d.total[s] : d.cells[g.key]?.[s]?.value ?? null
         const cell = ws.getCell(r, col); cell.value = v; cell.alignment = { horizontal: 'center' }; cell.border = border; cell.fill = fillOf(s)
         if (g.key.startsWith('__')) cell.font = { bold: true }
         if (!g.key.startsWith('__') && d.cells[g.key]?.[s]?.reason) cell.note = `تصحيح غرفة العمليات: ${d.cells[g.key]![s].reason}`
@@ -89,9 +88,9 @@ export async function exportHeadcountsExcel(pivot: Pivot, meta: HeadcountsExport
     for (const g of groups) for (const s of srcs) { const c = ws.getCell(r, col++); c.value = pick(g.key, s); c.font = { bold: true }; c.alignment = { horizontal: 'center' }; c.border = border; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.totalFill}` } } }
     r++
   }
-  writeTotal('المجموع', (k, s) => k === '__m' ? pivot.days.reduce((a, d) => a + d.shiftTotals.morning[s], 0) : k === '__e' ? pivot.days.reduce((a, d) => a + d.shiftTotals.evening[s], 0) : k === '__t' ? pivot.grand[s] : pivot.contractorTotals[k]?.[s] ?? 0)
+  writeTotal('المجموع', (k, s) => k.startsWith('__s:') ? pivot.days.reduce((a, d) => a + (d.shiftTotals[k.slice(4)]?.[s] ?? 0), 0) : k === '__t' ? pivot.grand[s] : pivot.contractorTotals[k]?.[s] ?? 0)
   writeTotal('عمال (العدد − 1 لكل يوم مسجّل)', (k, s) => k.startsWith('__')
-    ? pivot.days.reduce((a, d) => a + pivot.contractors.filter((c) => k === '__t' || (k === '__m' ? c.shift === 'morning' : c.shift === 'evening')).reduce((b, c) => b + (workersOf(d.cells[c.id]?.[s]?.value ?? null) ?? 0), 0), 0)
+    ? pivot.days.reduce((a, d) => a + pivot.contractors.filter((c) => k === '__t' || c.shift === k.slice(4)).reduce((b, c) => b + (workersOf(d.cells[c.id]?.[s]?.value ?? null) ?? 0), 0), 0)
     : pivot.days.reduce((a, d) => a + (workersOf(d.cells[k]?.[s]?.value ?? null) ?? 0), 0))
   await saveWorkbook(wb, `حضوريات-العمال-${meta.month}.xlsx`)
   return wb

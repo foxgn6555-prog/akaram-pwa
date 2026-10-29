@@ -1,6 +1,9 @@
 /** أنواع سجلات الأوزان — المحطة التحويلية (جدول ts_weight_records · ميجريشن 00039) */
 
-export type Shift = 'morning' | 'evening'
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+
+/** 00376: رمز شفت من شفتات الموارد البشرية */
+export type Shift = string
 export type WeightStatus = 'draft' | 'submitted_to_ops'
 
 export interface WeightRecord {
@@ -58,10 +61,7 @@ export interface WeightSummary {
 }
 
 /** تسميات الشفت */
-export const SHIFT_LABELS: Record<Shift, string> = {
-  morning: 'الصباحي',
-  evening: 'المسائي',
-}
+export const SHIFT_LABELS: Record<Shift, string> = SHIFT_LABELS_LIVE
 
 /* ═══ السكسات الخارجة · النسافات الخارجة (00043) ═══ */
 

@@ -4,6 +4,7 @@
  *  · أُلغي الإدخال/التعديل اليدوي — الدفتر عرض وتدقيق وتصدير فقط
  *  · تصدير: Excel · PDF (طباعة) · إرسال إلى غرفة العمليات للتدقيق
  */
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { useState } from 'react'
 import clsx from 'clsx'
 import {
@@ -64,15 +65,7 @@ export default function WeightsPage() {
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
           الشفت
-          <select
-            value={filterShift}
-            onChange={(e) => setFilterShift(e.target.value as Shift)}
-            className={inputBase}
-            data-testid="filter-shift"
-          >
-            <option value="morning">الصباحي</option>
-            <option value="evening">المسائي</option>
-          </select>
+          <ShiftSelect value={filterShift} onChange={setFilterShift} className={inputBase} testId="filter-shift" />
         </label>
 
         <div className="relative ms-auto">

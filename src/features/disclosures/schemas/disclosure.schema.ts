@@ -11,7 +11,7 @@ export const disclosureSchema = z.object({
     .optional()
     .or(z.literal('')),
   sector: z.string().max(60).optional().or(z.literal('')),
-  shift: z.enum(['morning', 'evening', 'night'], { message: 'اختر الشفت' }),
+  shift: z.string().trim().min(1, 'اختر الشفت').max(40),
   log_date: z.string().min(1, 'التاريخ مطلوب'),
   violation_type: z.enum(
     ['delay', 'absence', 'collection', 'evasion', 'early_withdrawal', 'load_deficiency'],

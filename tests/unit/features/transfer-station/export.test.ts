@@ -31,10 +31,10 @@ describe('netOf — الوزن الصافي', () => {
 
 describe('sheetTitle', () => {
   it('عنوان عربي للشفت الصباحي', () => {
-    expect(sheetTitle('2026-08-31', 'morning')).toContain('الصباحي')
+    expect(sheetTitle('2026-08-31', 'morning')).toContain('صباحي')
   })
   it('عنوان عربي للشفت المسائي', () => {
-    expect(sheetTitle('2026-08-31', 'evening')).toContain('المسائي')
+    expect(sheetTitle('2026-08-31', 'evening')).toContain('مسائي')
   })
 })
 

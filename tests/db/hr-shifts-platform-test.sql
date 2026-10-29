@@ -106,3 +106,26 @@ begin
   select count(*) into n from public.hr_shifts where code = sh; assert n = 0, 'C2: حذف غير المستخدم';
   raise notice 'C ✓ مسؤولو الأقسام والحذف';
 end $$;
+
+-- ═══ D) 00321 الجزء الثاني: الأوزان (المحطة)، الكشوفات، تقارير العمليات على الشفت الجديد ═══
+do $$
+declare c text := (select code from public.hr_shifts where name = 'وجبة ثانية'); n int; j jsonb; st boolean;
+begin
+  -- أوزان المحطة على الشفت الجديد + إرسالها لغرفة العمليات
+  insert into public.ts_weight_records (db_number, driver_name, gross_weight, tare_weight, log_date, shift, created_by) values ('W-SH1', 'سائق وزن', 10, 4, current_date, c, 'e3000000-0000-0000-0000-000000000004');
+  perform pg_temp.expect_error($q$ insert into public.ts_weight_records (db_number, driver_name, gross_weight, tare_weight, log_date, shift) values ('W-SH2', 'سائق', 10, 4, current_date, 'afternoon') $q$, 'SHIFT_INVALID');
+  perform pg_temp.as_user('e3000000-0000-0000-0000-000000000004');
+  select public.ts_weight_send_to_ops(current_date, c) into n; assert n = 1, 'D1: إرسال أوزان شفت جديد: ' || n;
+  perform pg_temp.expect_error($q$ select public.ts_weight_send_to_ops(current_date, 'afternoon') $q$, 'INVALID_SHIFT');
+  -- كشف تأديبي على الشفت الجديد؛ المجهول مرفوض
+  perform pg_temp.as_user('e3000000-0000-0000-0000-000000000001');
+  j := public.disclosure_save(null, jsonb_build_object('target_kind', 'employee', 'employee_id', 'e30e0000-0000-0000-0000-000000000001', 'violation_type', 'delay', 'details', 'تأخر عن الدوام في الوجبة الثانية', 'log_date', current_date, 'shift', c));
+  select count(*) into n from public.disclosures where id = (j ->> 'id')::uuid and shift = c; assert n = 1, 'D2: كشف على الشفت الجديد: ' || j::text;
+  perform pg_temp.expect_error($q$ select public.disclosure_save(null, jsonb_build_object('target_kind', 'employee', 'employee_id', 'e30e0000-0000-0000-0000-000000000001', 'violation_type', 'delay', 'details', 'تأخر عن الدوام', 'log_date', current_date, 'shift', 'afternoon')) $q$, 'HR_SHIFT_INVALID');
+  -- تقارير العمليات تقبل الشفت الجديد وترفض المجهول
+  select count(*) into n from public.operational_vehicle_kpis(current_date - 30, current_date, null, null, c);
+  select count(*) into n from public.operational_live_alerts(null, c);
+  perform pg_temp.expect_error($q$ select count(*) from public.operational_vehicle_kpis(current_date - 30, current_date, null, null, 'afternoon') $q$, 'OPS_SHIFT_INVALID');
+  perform pg_temp.expect_error($q$ select count(*) from public.operational_live_alerts(null, 'afternoon') $q$, 'OPS_SHIFT_INVALID');
+  st := true; raise notice 'D ✓ الأوزان والكشوفات وتقارير العمليات';
+end $$;

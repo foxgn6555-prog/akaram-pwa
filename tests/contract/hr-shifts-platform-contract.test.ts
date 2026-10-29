@@ -7,12 +7,13 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => { const 
 const scope = [
   ...walk('src/portals/central-garage'), ...walk('src/features/central-garage'),
   'src/portals/it/pages/UserManagement/CreateUser.tsx', 'src/portals/it/pages/UserManagement/UserDetail.tsx',
+  ...walk('src/features/transfer-station'), ...walk('src/features/disclosures'), ...walk('src/features/ops-contractor-headcounts'), 'src/portals/transfer-station/pages/Weights/WeightsPage.tsx',
   'src/features/contractors/format.ts', 'src/features/sector-manager/format.ts', 'src/features/sector/types/index.ts', 'src/features/sector/schemas/sector.schema.ts',
 ].filter((p) => /\.(ts|tsx)$/.test(p))
 
 describe('00376 hr shifts platform-wide (part 1)', () => {
   it('لا <option value="morning"> ولا z.enum للشفت في النطاق', () => {
-    const offenders = scope.filter((p) => { const s = readFileSync(p, 'utf8'); return /<option value="morning">/.test(s) || /z\.enum\(\[\s*'morning'/.test(s) || /\['morning',\s*'evening',\s*'night'\]\s*as\s+GarageShift/.test(s) })
+    const offenders = scope.filter((p) => { const s = readFileSync(p, 'utf8'); return /<option value="morning">/.test(s) || /z\.enum\(\[\s*'morning'/.test(s) || /shiftTotals\.morning/.test(s) || /\['morning',\s*'evening',\s*'night'\]\s*as\s+GarageShift/.test(s) })
     expect(offenders).toEqual([])
   })
   it('الدالة الطرفية admin-users تتحقق من شفت مسؤول القسم عبر hr_shifts لا قائمة ثابتة', () => {
@@ -27,5 +28,14 @@ describe('00376 hr shifts platform-wide (part 1)', () => {
     expect(s).toContain('app.shift_resolve(t)')
     expect(s).toContain('trg_enforce_shift_code')
     expect(s).toContain('HR_SHIFT_IN_USE')
+  })
+})
+
+describe('00376 part 2', () => {
+  it('الميجريشن 00321: الأوزان والكشوفات وتقارير العمليات عبر hr_shifts', () => {
+    const s = readFileSync('supabase/migrations/00321_hr_shifts_platform_2.sql', 'utf8')
+    for (const fn of ['app.ts_weight_send_to_ops', 'public.disclosure_save', 'public.operational_live_alerts', 'public.operational_vehicle_kpis']) expect(s).toContain(`function ${fn}(`)
+    expect(s).toContain("array['ts_weight_records','disclosures']")
+    expect(s).not.toMatch(/not in \('morning'/)
   })
 })

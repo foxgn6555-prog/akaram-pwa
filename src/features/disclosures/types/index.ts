@@ -1,7 +1,9 @@
 /** أنواع الكشوفات التأديبية — وحدة الكشوفات (جدول disclosures · ميجريشن 00040/00041) */
 
-/** الشفت: التشغيل الذاتي بثلاث نوبات (صباحي / مسائي / ليلي) */
-export type Shift = 'morning' | 'evening' | 'night'
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+
+/** الشفت: رمز من شفتات الموارد البشرية (00376) */
+export type Shift = string
 
 /** نوع المخالفة (6 أنواع) */
 export type ViolationType =
@@ -87,8 +89,4 @@ export const PENALTY_LABELS: Record<PenaltyType, string> = {
   fine: 'غرامة مالية',
 }
 
-export const SHIFT_LABELS: Record<Shift, string> = {
-  morning: 'ذاتي · صباحي',
-  evening: 'ذاتي · مسائي',
-  night: 'ذاتي · ليلي',
-}
+export const SHIFT_LABELS: Record<Shift, string> = SHIFT_LABELS_LIVE
