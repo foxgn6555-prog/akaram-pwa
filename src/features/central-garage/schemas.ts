@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { GARAGE_FUEL_UNITS } from './fuel-units'
 import { GARAGE_OWNERSHIP_TYPES, GARAGE_VEHICLE_CATEGORIES } from './vehicle-details'
 
-const shift = z.enum(['morning','evening','night'])
+const shift = z.string().trim().min(1,'اختر الشفت').max(40)
 const garageVehicleBase = z.object({
   vehicleName: z.string().trim().min(2,'اسم السيارة مطلوب').max(120),
   dbNumber: z.string().trim().min(1,'رقم DB مطلوب').max(50),

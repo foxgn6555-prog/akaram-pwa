@@ -22,8 +22,9 @@ describe('عقود مسؤول القسم', () => {
       expect(workerSchema.safeParse({ ...base, sector_id: 9 }).success).toBe(false)
       expect(workerSchema.safeParse({ ...base, sector_id: 0 }).success).toBe(false)
     })
-    it('يرفض شفتاً غير معروف', () => {
-      expect(workerSchema.safeParse({ ...base, shift: 'weekend' }).success).toBe(false)
+    it('00376: الشفت رمز من شفتات HR — يُرفض الفارغ فقط (الخادم يتحقق من وجوده)', () => {
+      expect(workerSchema.safeParse({ ...base, shift: '' }).success).toBe(false)
+      expect(workerSchema.safeParse({ ...base, shift: 'shift_1a2b3c4d' }).success).toBe(true)
     })
     it('يقبل سلسلة رقم القاطع (إرسال select)', () => {
       expect(workerSchema.safeParse({ ...base, sector_id: '3' }).success).toBe(true)

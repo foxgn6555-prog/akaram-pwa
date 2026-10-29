@@ -418,7 +418,7 @@ export interface GpsAlertEscalationHistory {
 export interface GpsTripShiftExportContext {
   departure_id: string
   assignment_id: string
-  shift: 'morning' | 'evening' | 'night'
+  shift: string
   driver_name: string
   area_name: string
   overlap_from: string
@@ -428,7 +428,7 @@ export interface GpsTripShiftExportContext {
 }
 export interface GpsTripShiftContext {
   assignment_id: string
-  shift: 'morning' | 'evening' | 'night'
+  shift: string
   driver_name: string
   sector_id: number
   area_name: string

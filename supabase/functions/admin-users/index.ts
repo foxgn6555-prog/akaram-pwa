@@ -185,7 +185,11 @@ async function createUser(
     ),
   ].sort((a, b) => a - b)
   if (isManager) {
-    if (!['morning', 'evening', 'night'].includes(managerShift)) {
+    // 00376: الشفت من شفتات الموارد البشرية (hr_shifts.code) لا قائمة ثابتة
+    const { data: shiftRow } = managerShift
+      ? await admin.from('hr_shifts').select('code').eq('code', managerShift).eq('is_active', true).maybeSingle()
+      : { data: null }
+    if (!shiftRow) {
       return json({ error: 'MANAGER_SHIFT_REQUIRED' }, 400)
     }
     if (managerSectors.length < 1 || managerSectors.length > 8) {

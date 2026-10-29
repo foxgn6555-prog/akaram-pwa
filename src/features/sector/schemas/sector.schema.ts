@@ -1,7 +1,7 @@
 /** Zod — عقود وحدة «مسؤول القسم» */
 import { z } from 'zod'
 
-export const shiftEnum = z.enum(['morning', 'evening', 'night'])
+export const shiftEnum = z.string().trim().min(1, 'اختر الشفت').max(40)
 
 /** عامل فريق */
 export const workerSchema = z.object({

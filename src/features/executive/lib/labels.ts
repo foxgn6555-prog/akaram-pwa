@@ -1,11 +1,13 @@
 /** تسميات عربية موحّدة للرموز التي تصل من قاعدة البيانات (حالات/شفتات/قطاعات/أنواع) */
-export const STATUS_LABELS: Record<string, string> = {
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+
+const STATIC_LABELS: Record<string, string> = {
   other: 'أخرى',
   // الشكاوى
   new: 'جديدة', under_review: 'قيد المراجعة', assigned: 'مُحالة', in_progress: 'قيد التنفيذ', processed: 'مُعالجة',
   quality_review: 'مراجعة الجودة', ready_to_send: 'جاهزة للإرسال', sent: 'مُرسلة', archived: 'مؤرشفة',
   // القطاعات الأم والشفتات
-  karrada: 'الكرادة', zaafaraniya: 'الزعفرانية', morning: 'صباحي', evening: 'مسائي', night: 'ليلي',
+  karrada: 'الكرادة', zaafaraniya: 'الزعفرانية',
   // الكشوفات
   delay: 'تأخر', absence: 'غياب', collection: 'جباية', evasion: 'تهرّب', draft: 'مسودة', returned: 'مُعاد للتصحيح', cancelled: 'ملغى', submitted_to_deputy: 'مرفوع للمعاون',
   // الرواتب
@@ -24,3 +26,8 @@ export const ROLE_AR: Record<string, string> = {
 
 export const PRIORITY_AR = { normal: 'عادي', important: 'مهم', urgent: 'عاجل' } as const
 export const AUDIENCE_AR = { all: 'كل المنصة', roles: 'بوابات/أدوار محددة', departments: 'أقسام محددة', users: 'أشخاص محددون' } as const
+
+/** 00376: الشفتات من الموارد البشرية (سجل حيّ) + التسميات الثابتة */
+export const STATUS_LABELS: Record<string, string> = new Proxy(STATIC_LABELS, {
+  get: (t, k) => (typeof k === 'string' ? (t[k] ?? SHIFT_LABELS_LIVE[k]) : undefined),
+})

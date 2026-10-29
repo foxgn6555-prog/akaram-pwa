@@ -31,7 +31,8 @@ export const dur = (s: number | null | undefined) => {
 export const STATUS_AR: Record<TripRouteStatus, string> = { pending: 'بانتظار السحب', no_device: 'بلا جهاز', partial: 'جارٍ (مفتوحة)', complete: 'مكتمل', empty: 'بلا نقاط', failed: 'فشل السحب' }
 const STATUS_TONE: Record<TripRouteStatus, string> = { pending: 'bg-slate-100 text-slate-600', no_device: 'bg-amber-50 text-amber-800', partial: 'bg-sky-50 text-sky-700', complete: 'bg-emerald-50 text-emerald-700', empty: 'bg-slate-100 text-slate-500', failed: 'bg-rose-50 text-rose-700' }
 const DEST_AR: Record<string, string> = { work_site: 'موقع العمل', transfer_station: 'المحطة التحويلية', maintenance: 'الصيانة', garage: 'الكراج' }
-const SHIFT_AR: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+const SHIFT_AR = SHIFT_LABELS_LIVE
 const LANDMARK_CAT_AR: Record<string, string> = { landmark: 'معلم', garage: 'كراج', station: 'محطة', maintenance: 'ورشة', office: 'مكتب', checkpoint: 'سيطرة', hazard: 'خطر', other: 'أخرى' }
 const ORDER_AR: Record<TripRoutesOrder, string> = { departed_desc: 'الأحدث أولاً', departed_asc: 'الأقدم أولاً', distance_desc: 'الأطول مسافة', stops_desc: 'الأكثر توقفاً', duration_desc: 'الأطول زمناً', gaps_desc: 'الأكثر انقطاعاً' }
 const zonePoint = (pt: GpsMapGeofence['polygon'][number]): [number, number] => (Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng])

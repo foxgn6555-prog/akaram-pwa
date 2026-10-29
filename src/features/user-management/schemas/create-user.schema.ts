@@ -45,7 +45,7 @@ export const createSuperAdminSchema = z
     department_id: z.string().uuid('اختر القسم').optional().or(z.literal('')),
     job_title: z.string().max(100, 'المسمى طويل جداً').optional().or(z.literal('')),
     /** إسناد مسؤول القسم: الشفت (مطلوب فقط عندما الدور = department_manager) */
-    manager_shift: z.enum(['morning', 'evening', 'night']).optional(),
+    manager_shift: z.string().trim().min(1).max(40).optional(),
     /** مناطق العمل المسندة (1–8) ضمن قاطعي الكرادة والزعفرانية */
     manager_sectors: z.array(z.number().int().min(1).max(8)).max(8).optional(),
     /** القاطع المرتبط بحساب الكراج المركزي */

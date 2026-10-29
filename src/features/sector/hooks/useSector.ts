@@ -54,7 +54,7 @@ export function useSaveManagerProfile() {
   return useMutation({
     mutationFn: (input: {
       userId: string
-      shift: 'morning' | 'evening' | 'night'
+      shift: string
       sectors: number[]
     }) => sector.upsertManagerProfile(input.userId, input.shift, input.sectors),
     onSuccess: (_data, input) => {

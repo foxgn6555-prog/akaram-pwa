@@ -3,6 +3,7 @@
  *  · الأنواع (IT) · البحث عن آلية/موظف · حفظ/رفع/قرار/إلغاء · القائمة · صندوق الوارد · إحصاءات
  *  · إخفاء وحدات بوابة لحساب (IT) + وحداتي المخفية
  */
+import { SHIFT_LABELS_LIVE } from './hr-shifts.sdk'
 import { sdkGuard, supabase } from './client'
 
 export type DisclosureTargetKind = 'vehicle' | 'employee'
@@ -54,7 +55,7 @@ export interface DisclosureStats {
 
 export const DISCLOSURE_STATUS_LABEL: Record<DisclosureStatusV2, string> = { draft: 'مسودة', pending: 'قيد الموافقة', returned: 'مُعاد للتصحيح', approved: 'معتمد', cancelled: 'ملغى' }
 export const PENALTY_LABEL: Record<PenaltyKey, string> = { warning: 'إنذار', reprimand: 'توبيخ', termination: 'إنهاء خدمة', fine: 'غرامة مالية' }
-export const SHIFT_LABEL: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+export const SHIFT_LABEL: Record<string, string> = SHIFT_LABELS_LIVE
 export const EVENT_LABEL: Record<string, string> = {
   created: 'أُنشئ', updated: 'عُدّل', submitted: 'رُفع للموافقة', resubmitted: 'أُعيد رفعه بعد التصحيح', step_approved: 'وافق', returned: 'أُعيد بسبب', approved: 'اعتُمد نهائياً',
   cancelled: 'أُلغي', amount_set: 'حدّد/عدّل المبلغ', deduction_posted: 'أُضيف الاستقطاع للحضورية',

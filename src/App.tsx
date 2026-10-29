@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@components/feedback/ErrorBoundary'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
 import { UpdateBanner } from '@features/pwa/PwaBanners'
 import { startSessionWatch } from '@features/auth/session-watch'
+import { ShiftRegistryLoader } from '@features/hr-shifts/hooks'
 import './i18n'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <OfflineBanner />
         <UpdateBanner />
+        <ShiftRegistryLoader />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </ErrorBoundary>

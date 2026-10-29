@@ -12,7 +12,8 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 export const SUPPLY_STATUS_AR: Record<string, string> = { pending: 'قيد الموافقة', approved: 'موافَق عليه — غير جاهز للتسليم', ready: 'جاهز للتسليم', delivered: 'سُلّم', rejected: 'مرفوض', cancelled: 'مُلغى' }
-const SHIFT: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+const SHIFT = SHIFT_LABELS_LIVE
 type Tab = 'ready' | 'items' | 'movements' | 'done'
 
 export default function OpsStorePage() {

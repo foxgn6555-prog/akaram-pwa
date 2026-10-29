@@ -27,7 +27,7 @@ export const FLEET_COLUMNS: Array<{ key: keyof FleetImportRow; header: string; r
   { key: 'plate_number', header: 'رقم اللوحة', hint: 'يُولَّد مؤقتاً إن فُقد', width: 14 },
   { key: 'chassis_number', header: 'رقم الشاصي', hint: 'يُولَّد مؤقتاً إن فُقد', width: 18 },
   { key: 'area', header: 'المنطقة', required: true, hint: 'رقم المنطقة أو اسمها', width: 16 },
-  { key: 'shift', header: 'الشفت', hint: 'صباحي / مسائي / ليلي', width: 10 },
+  { key: 'shift', header: 'الشفت', hint: 'اسم الشفت كما في الموارد البشرية (صباحي / مسائي / ليلي / …)', width: 12 },
   { key: 'driver', header: 'السائق', hint: 'الاسم الكامل أو الرقم الوظيفي أو رقم البصمة', width: 22 },
   { key: 'driver_employee_number', header: 'الرقم الوظيفي للسائق', hint: 'يُفضَّل للربط الدقيق', width: 14 },
   { key: 'ownership_type', header: 'الملكية', hint: 'آلية ذاتية / آلية مؤجرة', width: 12 },
@@ -40,13 +40,13 @@ export const FLEET_COLUMNS: Array<{ key: keyof FleetImportRow; header: string; r
   { key: 'specifications', header: 'المواصفات', hint: '', width: 28 },
 ]
 const CATEGORY_AR: Record<string, string> = { compactor_small: 'كابسة صغيرة', compactor_large: 'كابسة كبيرة', truck: 'كميون', shovel: 'شفل', tipper: 'قلاب', tanker: 'تنكر', sweeper: 'كناسة', strat: 'استرات', other: 'أخرى' }
-const SHIFT_AR: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { shiftLabel, type ShiftOption } from '@sdk/hr-shifts.sdk'
 const OWN_AR: Record<string, string> = { owned: 'آلية ذاتية', rented: 'آلية مؤجرة' }
 const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
 
 export const FLEET_IMPORT_MESSAGES: Record<string, string> = {
   FLEET_IMPORT_DB_REQUIRED: 'رقم DB مفقود', FLEET_IMPORT_DUP_IN_FILE: 'رقم DB مكرر في الملف', FLEET_IMPORT_AREA_UNKNOWN: 'المنطقة غير معروفة (اكتب رقم المنطقة أو اسمها)',
-  FLEET_IMPORT_SHIFT_INVALID: 'الشفت غير صالح (صباحي/مسائي/ليلي)', FLEET_IMPORT_OWNERSHIP_INVALID: 'الملكية غير صالحة (ذاتية/مؤجرة)', GARAGE_LESSOR_REQUIRED: 'اسم المؤجّر إلزامي للآلية المؤجرة',
+  FLEET_IMPORT_SHIFT_INVALID: 'الشفت غير معروف — اكتب اسم شفت موجود في الموارد البشرية', FLEET_IMPORT_OWNERSHIP_INVALID: 'الملكية غير صالحة (ذاتية/مؤجرة)', GARAGE_LESSOR_REQUIRED: 'اسم المؤجّر إلزامي للآلية المؤجرة',
   FLEET_IMPORT_DATE_INVALID: 'تاريخ إيجار غير صالح', FLEET_IMPORT_YEAR_INVALID: 'سنة الموديل غير صالحة', FLEET_IMPORT_DB_ARCHIVED: 'رقم DB يعود لآلية مؤرشفة — استرجعها من الأرشيف أولاً',
   GARAGE_VEHICLE_IDENTIFIER_DUPLICATE: 'اللوحة أو الشاصي مستخدم لآلية أخرى', FLEET_IMPORT_EMPTY: 'الملف بلا صفوف', FLEET_IMPORT_TOO_LARGE: 'الملف أكبر من 3000 صف',
   FLEET_IMPORT_CATEGORY_UNKNOWN: 'تصنيف غير معروف → «أخرى»', FLEET_IMPORT_NAME_GENERATED: 'اسم الآلية وُلّد من التصنيف ورقم DB', FLEET_IMPORT_PLATE_PLACEHOLDER: 'بلا لوحة — وُضعت قيمة مؤقتة',
@@ -59,13 +59,13 @@ const HEAD_FILL = 'FF083344'
 const thin = () => { const s = { style: 'thin' as const, color: { argb: 'FFCBD5E1' } }; return { top: s, bottom: s, left: s, right: s } }
 
 /** صفوف التصدير → قيم الأعمدة (بنفس ترتيب FLEET_COLUMNS) */
-export function fleetExportValues(r: FleetExportRow): string[] {
-  return [r.db_number, r.vehicle_name, CATEGORY_AR[r.vehicle_category] ?? r.vehicle_category, r.plate_number, r.chassis_number, `${r.sector_id} - ${r.area_name}`, SHIFT_AR[r.shift] ?? r.shift,
+export function fleetExportValues(r: FleetExportRow, shifts?: readonly Pick<ShiftOption, 'code' | 'name'>[] | null): string[] {
+  return [r.db_number, r.vehicle_name, CATEGORY_AR[r.vehicle_category] ?? r.vehicle_category, r.plate_number, r.chassis_number, `${r.sector_id} - ${r.area_name}`, shiftLabel(r.shift, shifts),
     r.driver_name, r.driver_employee_number ?? '', OWN_AR[r.ownership_type] ?? r.ownership_type, r.lessor_name ?? '', r.rental_contract_no ?? '', r.rental_start_date ?? '', r.rental_end_date ?? '',
     r.model_year == null ? '' : String(r.model_year), r.vehicle_color ?? '', r.specifications ?? '']
 }
 
-export async function buildFleetWorkbook(rows: FleetExportRow[], opts: { template?: boolean } = {}): Promise<Workbook> {
+export async function buildFleetWorkbook(rows: FleetExportRow[], opts: { template?: boolean; shifts?: readonly Pick<ShiftOption, 'code' | 'name'>[] | null } = {}): Promise<Workbook> {
   const ExcelJS = await import('exceljs')
   const wb = new ExcelJS.Workbook(); wb.creator = 'شركة جزيرة الأكارم — غرفة العمليات'; wb.created = new Date()
   const ws = wb.addWorksheet('الآليات', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 2 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } })
@@ -79,7 +79,7 @@ export async function buildFleetWorkbook(rows: FleetExportRow[], opts: { templat
     ex.eachCell((c) => { c.font = { color: { argb: 'FF94A3B8' } } })
   }
   rows.forEach((r, i) => {
-    const row = ws.addRow(fleetExportValues(r))
+    const row = ws.addRow(fleetExportValues(r, opts.shifts))
     row.eachCell((c) => { c.border = thin(); c.alignment = { vertical: 'middle', horizontal: 'center' }; if (i % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
   })
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(2, 2 + rows.length), column: FLEET_COLUMNS.length } }

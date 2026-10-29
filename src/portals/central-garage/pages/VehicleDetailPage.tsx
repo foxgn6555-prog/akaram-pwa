@@ -1,3 +1,4 @@
+import { useShiftLabel } from '@features/hr-shifts/hooks'
 import { useState } from 'react'
 import {
   Archive,
@@ -50,6 +51,7 @@ export default function VehicleDetailPage({
   const movements = useGarageVehicleMovements(id)
   const departures = useGarageDepartures()
   const areas = useGarageAreas()
+  const shiftName = useShiftLabel()
   const archive = useArchiveGarageVehicle()
   const restore = useRestoreGarageVehicle()
   const [assignOpen, setAssignOpen] = useState(false)
@@ -224,7 +226,7 @@ export default function VehicleDetailPage({
               <Info
                 icon={<CalendarClock />}
                 label="الشفت"
-                value={v.shift === 'morning' ? 'صباحي' : v.shift === 'evening' ? 'مسائي' : 'ليلي'}
+                value={shiftName(v.shift)}
               />
               {v.modelYear && (
                 <Info icon={<CalendarClock />} label="سنة الصنع" value={String(v.modelYear)} />
@@ -285,11 +287,7 @@ export default function VehicleDetailPage({
                     {(areas.data ?? []).find((a) => a.id === entry.sectorId)?.name ??
                       `منطقة ${entry.sectorId}`}{' '}
                     ·{' '}
-                    {entry.shift === 'morning'
-                      ? 'صباحي'
-                      : entry.shift === 'evening'
-                        ? 'مسائي'
-                        : 'ليلي'}
+                    {shiftName(entry.shift)}
                   </p>
                   <p className="mt-1 text-[11px] text-slate-400">
                     من {arDate(entry.startsAt)}

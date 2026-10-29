@@ -195,7 +195,11 @@ const APP_ERROR_AR: Record<string, string> = {
   OPS_DRIVER_CHANGE_TOO_OLD: 'لا يمكن تغيير سائق انطلاقة مضى على إغلاقها أكثر من 3 أيام.',
   GARAGE_DEPARTURE_ALREADY_OPEN: 'توجد انطلاقية مفتوحة لهذه الآلية — أغلقها بتسجيل العودة أولاً.',
   GARAGE_SHIFT_ASSIGNMENT_NOT_FOUND: 'لا يوجد سائق ومنطقة مسندان لهذا الشفت — أكمل الإسناد أولاً.',
-  GARAGE_SHIFT_INVALID: 'الشفت المحدد غير صالح.',
+  GARAGE_SHIFT_INVALID: 'الشفت المحدد غير موجود أو موقوف في الموارد البشرية.',
+  SHIFT_INVALID: 'الشفت المحدد غير موجود في شفتات الموارد البشرية.',
+  HR_SHIFT_IN_USE: 'لا يمكن حذف هذا الشفت لأنه مستخدم في المنصة (آليات/إسنادات/مسؤولو أقسام/موظفون) — أوقفه بدل حذفه.',
+  HR_SHIFT_CODE_IMMUTABLE: 'رمز الشفت ثابت ولا يُعدَّل.',
+  MANAGER_SHIFT_REQUIRED: 'اختر شفت مسؤول القسم من شفتات الموارد البشرية.',
   GARAGE_VEHICLE_IN_MAINTENANCE: 'الآلية في الصيانة — لا يمكن إطلاقها حتى عودتها.',
   GARAGE_VEHICLE_SCOPE_FORBIDDEN: 'الآلية خارج نطاق صلاحياتك في الكراج.',
   GARAGE_RECIPIENT_NOT_ELIGIBLE:

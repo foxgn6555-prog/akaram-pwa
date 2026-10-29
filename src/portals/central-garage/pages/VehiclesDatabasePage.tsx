@@ -28,6 +28,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import { VehicleCard } from '../components/VehicleCard'
 import { FleetImportDialog } from '../components/FleetImportDialog'
 import { DriverPicker } from '../components/DriverPicker'
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { ExternalDriverPicker } from '../components/ExternalDriverPicker'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
@@ -136,17 +137,7 @@ export default function VehiclesDatabasePage({
               ))}
           </optgroup>
         </select>
-        <select
-          data-testid="vehicle-shift-filter"
-          value={shift}
-          onChange={(e) => setShift(e.target.value)}
-          className={inputClass}
-        >
-          <option value="">كل الشفتات</option>
-          <option value="morning">صباحي</option>
-          <option value="evening">مسائي</option>
-          <option value="night">ليلي</option>
-        </select>
+        <ShiftSelect testId="vehicle-shift-filter" value={shift} onChange={setShift} className={inputClass} allLabel="كل الشفتات" />
         <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 text-sm font-bold text-slate-700">
           <Filter size={16} />
           {total} آلية
@@ -440,16 +431,7 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
             )}
           </div>
           <Field label="الشفت" error={errors.shift}>
-            <select
-              data-testid="vehicle-shift"
-              className={inputClass}
-              value={form.shift}
-              onChange={(e) => update('shift', e.target.value)}
-            >
-              <option value="morning">صباحي</option>
-              <option value="evening">مسائي</option>
-              <option value="night">ليلي</option>
-            </select>
+            <ShiftSelect testId="vehicle-shift" className={inputClass} value={form.shift} onChange={(v) => update('shift', v)} />
           </Field>
           <Field label="موقع عمل السائق" error={errors.sectorId}>
             <select

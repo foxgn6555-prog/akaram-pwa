@@ -1,3 +1,4 @@
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { useEffect, useState } from 'react'
 import { ContractorAssignmentCard } from './ContractorAssignmentCard'
 import { SectorManagerCard } from './SectorManagerCard'
@@ -61,7 +62,7 @@ export default function UserDetail() {
 
   const [garageParentSector, setGarageParentSector] = useState<'karrada' | 'zaafaraniya'>('karrada')
   const [garageProfileReady, setGarageProfileReady] = useState(false)
-  const [managerShift, setManagerShift] = useState<'morning' | 'evening' | 'night'>('morning')
+  const [managerShift, setManagerShift] = useState<string>('morning')
   const [managerSectors, setManagerSectors] = useState<number[]>([])
   const [managerProfileReady, setManagerProfileReady] = useState(false)
   const [confirmRole, setConfirmRole] = useState<Role | null>(null)
@@ -487,16 +488,13 @@ export default function UserDetail() {
           </div>
           <label className="mt-4 block text-xs font-bold">
             الشفت الإداري
-            <select
-              aria-label="شفت مسؤول القسم"
+            <ShiftSelect
+              ariaLabel="شفت مسؤول القسم"
+              testId="manager-shift"
               value={managerShift}
-              onChange={(event) => setManagerShift(event.target.value as typeof managerShift)}
+              onChange={setManagerShift}
               className="mt-1 block h-11 w-full max-w-xs rounded-xl border px-3"
-            >
-              <option value="morning">صباحي</option>
-              <option value="evening">مسائي</option>
-              <option value="night">ليلي</option>
-            </select>
+            />
           </label>
           <p className="mt-2 text-[10px] text-slate-500">
             الشفت ينظم أعمال المسؤول، لكن الآليات تُنسب إليه حسب المنطقة في جميع شفتات السائقين.

@@ -2,7 +2,8 @@ import type { TripStatus } from '@features/vehicle-operations/trip-status'
 import type { GarageFuelUnit } from './fuel-units'
 import type { GarageOwnershipType, GarageVehicleCategory } from './vehicle-details'
 
-export type GarageShift = 'morning' | 'evening' | 'night'
+/** 00376: رمز شفت من شفتات الموارد البشرية (hr_shifts.code) — لم يعد قائمة ثابتة */
+export type GarageShift = string
 export type GarageFuelType = 'gas_oil' | 'hydraulic' | 'grease' | 'c_oil'
 export type GarageParentSector = 'karrada' | 'zaafaraniya'
 

@@ -9,6 +9,7 @@ import type { GarageReportFilter } from './reports'
 import type { GarageHireInput } from './types'
 import type { GarageFuelUnit } from './fuel-units'
 import { buildFleetWorkbook, downloadWorkbook, type FleetImportRow } from './fleet-excel'
+import { hrShifts } from '@sdk/hr-shifts.sdk'
 import type {
   CreateGarageVehicleInput,
   GarageDashboardFilter,
@@ -157,7 +158,8 @@ export function useFleetExport() {
   return useMutation({
     mutationFn: async (template: boolean) => {
       const rows = template ? [] : await centralGarage.fleetExport()
-      const wb = await buildFleetWorkbook(rows, { template })
+      const shifts = await hrShifts.options(true).catch(() => null)
+      const wb = await buildFleetWorkbook(rows, { template, shifts })
       await downloadWorkbook(wb, template ? 'قالب-قاعدة-بيانات-الآليات.xlsx' : `قاعدة-بيانات-الآليات-${new Date().toISOString().slice(0, 10)}.xlsx`)
       return rows.length
     },

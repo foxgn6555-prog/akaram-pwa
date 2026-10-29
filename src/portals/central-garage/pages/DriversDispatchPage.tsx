@@ -19,7 +19,8 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 const inputClass =
   'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
-const shiftLabels = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' } as const
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
+import { useShiftLabel, useShiftOptions } from '@features/hr-shifts/hooks'
 const clock = (value: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     hour: '2-digit',
@@ -88,6 +89,7 @@ function StatusChip({ state }: { state: DepartureState }) {
   )
 }
 export default function DriversDispatchPage() {
+  const shiftName = useShiftLabel()
   const [search, setSearch] = useState('')
   const [shift, setShift] = useState('')
   const [sector, setSector] = useState('')
@@ -135,17 +137,7 @@ export default function DriversDispatchPage() {
             placeholder="رقم DB أو اسم السائق أو السيارة"
           />
         </label>
-        <select
-          data-testid="dispatch-shift"
-          className={inputClass}
-          value={shift}
-          onChange={(e) => setShift(e.target.value)}
-        >
-          <option value="">كل الشفتات</option>
-          <option value="morning">صباحي</option>
-          <option value="evening">مسائي</option>
-          <option value="night">ليلي</option>
-        </select>
+        <ShiftSelect testId="dispatch-shift" value={shift} onChange={setShift} className={inputClass} allLabel="كل الشفتات" />
         <select
           data-testid="dispatch-area"
           className={inputClass}
@@ -205,7 +197,7 @@ export default function DriversDispatchPage() {
                     <p className="font-black text-slate-900">{vehicle.driverName}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {vehicle.vehicleName} · DB {vehicle.dbNumber} · وردة{' '}
-                      {shiftLabels[vehicle.shift]}
+                      {shiftName(vehicle.shift)}
                     </p>
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
                       <MapPin size={14} className="text-cyan-700" />
@@ -286,7 +278,9 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
   const assignments = useGarageShiftAssignments(vehicle.id)
   const departure = useRecordGarageShiftDeparture()
   const canDepart = useCanCall('garage_record_shift_departure')
-  const [shift, setShift] = useState<GarageShift>('morning')
+  const shiftOptions = useShiftOptions(false)
+  const shiftName = useShiftLabel()
+  const [shift, setShift] = useState<GarageShift>(vehicle.shift)
   const recipients = useGarageShiftDispatchRecipients(vehicle.id, shift)
   const [notes, setNotes] = useState('')
   const [mode, setMode] = useState<'auto' | 'manual'>('auto')
@@ -338,9 +332,9 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
             onChange={(event) => setShift(event.target.value as GarageShift)}
             className="mt-2 h-12 w-full rounded-xl border px-3"
           >
-            {(['morning', 'evening', 'night'] as GarageShift[]).map((value) => (
+            {(shiftOptions.data ?? []).map((o) => o.code).map((value) => (
               <option key={value} value={value}>
-                {shiftLabels[value]} —{' '}
+                {shiftName(value)} —{' '}
                 {active.find((assignment) => assignment.shift === value)?.driverName ??
                   'لا يوجد إسناد'}
               </option>
@@ -355,7 +349,7 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                 <div>
                   <b className="block text-sm">{selected.areaName}</b>
                   <p className="text-[10px] text-emerald-800">
-                    السائق: {selected.driverName} · الشفت {shiftLabels[selected.shift]}
+                    السائق: {selected.driverName} · الشفت {shiftName(selected.shift)}
                   </p>
                 </div>
               </div>
@@ -414,7 +408,7 @@ function DepartureDialog({ vehicle, onClose }: { vehicle: GarageVehicle; onClose
                           <option key={candidate.userId} value={candidate.userId}>
                             {candidate.managerName} ·{' '}
                             {candidate.resolution === 'direct' ? 'تغطية مباشرة' : 'ضمن القاطع'} ·
-                            شفت {shiftLabels[candidate.shift]}
+                            شفت {shiftName(candidate.shift)}
                           </option>
                         ))}
                       </select>

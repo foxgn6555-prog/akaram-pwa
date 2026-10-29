@@ -2,7 +2,8 @@
 import { compressImage } from '@lib/media/image-compress'
 import { sdkGuard, sdkVoid, supabase } from './client'
 
-export type Shift = 'morning' | 'evening' | 'night'
+/** 00376: رمز شفت من hr_shifts */
+export type Shift = string
 /** 00258: المتعهد يكتب «العدد» (يشمل نفسه) بدل قائمة العمال وحاضر/غائب */
 export interface ContractorMe {
   user_id: string; full_name: string; manager_user_id: string; manager_name: string; sector_id: number; area_name: string; parent_sector: string; shift: Shift

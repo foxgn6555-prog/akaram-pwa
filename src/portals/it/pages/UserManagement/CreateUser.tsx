@@ -11,6 +11,7 @@ import {
 } from '@features/user-management'
 import { useDepartments } from '@features/departments'
 import { useSectors, SHIFT_LABELS } from '@features/sector'
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import { useContractorManagerOptions } from '@features/contractors/hooks'
 import { PARENT_AR } from '@features/contractors/format'
@@ -24,7 +25,7 @@ export default function CreateUser() {
   const { data: departments } = useDepartments()
   const { data: sectors } = useSectors()
   const [showPassword, setShowPassword] = useState(false)
-  const [mgrShift, setMgrShift] = useState<'morning' | 'evening' | 'night'>('morning')
+  const [mgrShift, setMgrShift] = useState<string>('morning')
   const [mgrSectors, setMgrSectors] = useState<number[]>([])
 
   const {
@@ -336,22 +337,17 @@ export default function CreateUser() {
             </legend>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="الشفت" htmlFor="cu-mshift" error={errors.manager_shift?.message}>
-                <select
+                <ShiftSelect
                   id="cu-mshift"
-                  data-testid="manager-shift"
+                  testId="manager-shift"
                   value={mgrShift}
-                  onChange={(e) => {
-                    const v = e.target.value as 'morning' | 'evening' | 'night'
+                  onChange={(v) => {
                     setMgrShift(v)
                     setValue('manager_shift', v)
                     void trigger('manager_shift')
                   }}
                   className={inputClass(!!errors.manager_shift)}
-                >
-                  <option value="morning">{SHIFT_LABELS.morning}</option>
-                  <option value="evening">{SHIFT_LABELS.evening}</option>
-                  <option value="night">{SHIFT_LABELS.night}</option>
-                </select>
+                />
               </Field>
             </div>
             <div className="mt-4" data-testid="manager-sectors">

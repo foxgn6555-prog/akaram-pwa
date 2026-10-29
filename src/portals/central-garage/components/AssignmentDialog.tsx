@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { garageAssignmentSchema } from '@features/central-garage/schemas'
 import { useAssignGarageDriver } from '@features/central-garage/hooks'
 import type { GarageArea, GarageShift, GarageVehicle } from '@features/central-garage/types'
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { DriverPicker } from './DriverPicker'
 
 const inputClass='h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -17,7 +18,7 @@ export function AssignmentDialog({ vehicle, areas, onClose }: { vehicle:GarageVe
       <div className="flex items-start justify-between"><div><h2 className="text-xl font-black text-slate-900">تحديث انطلاقية السائق</h2><p className="mt-1 text-sm text-slate-500">{vehicle.vehicleName} · DB {vehicle.dbNumber}</p></div><button type="button" onClick={onClose} aria-label="إغلاق" className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <DriverPicker testId="assignment-driver" value={form.driverEmployeeId} initialLabel={vehicle.driverName} onChange={id=>setForm({...form,driverEmployeeId:id})} error={errors.driverEmployeeId}/>
-        <Field label="الشفت" error={errors.shift}><select data-testid="assignment-shift" className={inputClass} value={form.shift} onChange={e=>setForm({...form,shift:e.target.value as GarageShift})}><option value="morning">صباحي</option><option value="evening">مسائي</option><option value="night">ليلي</option></select></Field>
+        <Field label="الشفت" error={errors.shift}><ShiftSelect testId="assignment-shift" className={inputClass} value={form.shift} onChange={v=>setForm({...form,shift:v})} /></Field>
         <Field label="موقع العمل" error={errors.sectorId}><select data-testid="assignment-area" className={inputClass} value={form.sectorId} onChange={e=>setForm({...form,sectorId:e.target.value})}><option value="">اختر المنطقة</option><optgroup label="قاطع الكرادة">{areas.filter(a=>a.parentSector==='karrada').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup><optgroup label="قاطع الزعفرانية">{areas.filter(a=>a.parentSector==='zaafaraniya').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup></select></Field>
         <Field label="سبب التغيير"><input data-testid="assignment-reason" className={inputClass} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})} placeholder="مثال: نقل إلى قاطع آخر"/></Field>
       </div>

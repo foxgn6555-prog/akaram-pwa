@@ -1,12 +1,12 @@
 /** أنواع نظام «مسؤول القسم» حسب القاطع/الشفت (ميجريشن 00044) */
 
-export type Shift = 'morning' | 'evening' | 'night'
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
 
-export const SHIFT_LABELS: Record<Shift, string> = {
-  morning: 'الشفت الصباحي',
-  evening: 'الشفت المسائي',
-  night: 'الشفت الليلي',
-}
+/** 00376: رمز شفت من شفتات الموارد البشرية (hr_shifts.code) */
+export type Shift = string
+
+/** أسماء الشفتات من الموارد البشرية (سجل حيّ يتحدث فور إضافة شفت) */
+export const SHIFT_LABELS: Record<Shift, string> = SHIFT_LABELS_LIVE
 
 export type MunicipalitySector = 'karrada' | 'zaafaraniya'
 

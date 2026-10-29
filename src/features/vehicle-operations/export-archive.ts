@@ -12,7 +12,8 @@ export const finalLabels: Record<string, string> = {
   closed_at_garage: 'أُغلقت في الكراج',
 }
 export const priorityLabels: Record<string, string> = { low: 'منخفضة', normal: 'عادية', high: 'عالية', urgent: 'عاجلة', critical: 'حرجة' }
-const shiftLabels: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+const shiftLabels = SHIFT_LABELS_LIVE
 
 /** الصف الرئيسي لأرشيف الصيانة (ورقة «السجل») */
 export function archiveMainRow(r: MaintenanceArchiveEntry, index: number) {

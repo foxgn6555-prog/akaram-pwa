@@ -37,7 +37,7 @@ export interface CreateUserInput {
   department_id?: string
   job_title?: string
   /** إسناد مسؤول القسم (فقط مع role = department_manager) */
-  manager_shift?: 'morning' | 'evening' | 'night'
+  manager_shift?: string
   manager_sectors?: number[]
   garage_parent_sector?: 'karrada' | 'zaafaraniya'
   /** 00158: حساب متعهد — مسؤول القسم المسؤول ومنطقته (اختيارية إن كان للمسؤول منطقة واحدة) */

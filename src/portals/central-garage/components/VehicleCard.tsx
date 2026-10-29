@@ -6,11 +6,14 @@ import {
   GARAGE_VEHICLE_CATEGORY_LABELS,
 } from '@features/central-garage/vehicle-details'
 
-const shiftMeta = {
-  morning: { label: 'صباحي', icon: Sunrise, color: 'bg-amber-50 text-amber-800' },
-  evening: { label: 'مسائي', icon: Sun, color: 'bg-orange-50 text-orange-800' },
-  night: { label: 'ليلي', icon: Moon, color: 'bg-indigo-50 text-indigo-800' },
+import { useShiftLabel } from '@features/hr-shifts/hooks'
+
+const shiftMeta: Record<string, { icon: typeof Sunrise; color: string }> = {
+  morning: { icon: Sunrise, color: 'bg-amber-50 text-amber-800' },
+  evening: { icon: Sun, color: 'bg-orange-50 text-orange-800' },
+  night: { icon: Moon, color: 'bg-indigo-50 text-indigo-800' },
 }
+const otherShiftMeta = { icon: Sunrise, color: 'bg-cyan-50 text-cyan-800' }
 
 export function VehicleCard({
   vehicle,
@@ -21,7 +24,8 @@ export function VehicleCard({
   action?: React.ReactNode
   basePath?: string
 }) {
-  const shift = shiftMeta[vehicle.shift]
+  const shiftName = useShiftLabel()
+  const shift = shiftMeta[vehicle.shift] ?? otherShiftMeta
   const ShiftIcon = shift.icon
   return (
     <article
@@ -63,7 +67,7 @@ export function VehicleCard({
               className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${shift.color}`}
             >
               <ShiftIcon size={13} />
-              {shift.label}
+              {shiftName(vehicle.shift)}
             </span>
           </div>
           <div className="mt-3 space-y-2 text-xs text-slate-600">

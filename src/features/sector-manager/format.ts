@@ -1,6 +1,8 @@
 /** تنسيقات مشتركة لبوابة مسؤول القاطع */
 export const PARENT_AR: Record<string, string> = { karrada: 'قاطع الكرادة', zaafaraniya: 'قاطع الزعفرانية' }
-export const SHIFT_AR: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+/** 00376: أسماء الشفتات من الموارد البشرية (سجل حيّ) */
+export const SHIFT_AR: Record<string, string> = SHIFT_LABELS_LIVE
 export const STATUS_AR: Record<string, string> = { waiting: 'بانتظار دوره', pending: 'بانتظار القرار', approved: 'موافقة', rejected: 'رفض', skipped: 'تُخطّيت' }
 export const dateAr = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString('ar-IQ-u-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' }) : '—')
 export const timeAr = (s: string | null | undefined) => (s ? new Date(s).toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit' }) : '—')

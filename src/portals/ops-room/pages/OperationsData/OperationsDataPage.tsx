@@ -1,3 +1,5 @@
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
 import { useMemo, useState } from 'react'
 import {
   AlertTriangle,
@@ -413,9 +415,6 @@ const values: Record<string, string> = {
   normal: 'عادية',
   high: 'عالية',
   urgent: 'عاجلة',
-  morning: 'صباحي',
-  evening: 'مسائي',
-  night: 'ليلي',
   critical: 'حرج',
   warning: 'تحذير',
   garage: 'الكراج المركزي',
@@ -478,7 +477,7 @@ function readableValue(key: string, value: unknown) {
   if (key === 'sector_id') return `المنطقة رقم ${String(value)}`
   if (key === 'latitude' || key === 'longitude') return Number(value).toFixed(6)
   if (typeof value === 'boolean') return value ? 'نعم' : 'لا'
-  return values[String(value)] ?? String(value)
+  return values[String(value)] ?? SHIFT_LABELS_LIVE[String(value)] ?? String(value)
 }
 
 export default function OperationsDataPage() {
@@ -769,17 +768,7 @@ export default function OperationsDataPage() {
         </label>
         <label className="text-xs">
           الشفت
-          <select
-            aria-label="الشفت"
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
-            className="mt-1 h-11 w-full rounded-xl border px-3"
-          >
-            <option value="">الكل</option>
-            <option value="morning">صباحي</option>
-            <option value="evening">مسائي</option>
-            <option value="night">ليلي</option>
-          </select>
+          <ShiftSelect value={shift} onChange={setShift} className="mt-1 h-11 w-full rounded-xl border px-3" allLabel="الكل" />
         </label>
         <label className="text-xs">
           القاطع

@@ -11,7 +11,8 @@ export const fmtDateTime = (iso: string | null | undefined) => (iso ? new Intl.D
 export const fmtTime = (iso: string | null | undefined) => (iso ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: tz }).format(new Date(iso)) : '—')
 export const fmtDur = (s: number | null | undefined) => { if (s == null) return '—'; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h} س ${m} د` : `${m} د` }
 const DEST_AR: Record<string, string> = { work_site: 'موقع العمل', transfer_station: 'المحطة التحويلية', maintenance: 'الصيانة', garage: 'الكراج' }
-const SHIFT_AR: Record<string, string> = { morning: 'صباحي', evening: 'مسائي', night: 'ليلي' }
+import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+const SHIFT_AR = SHIFT_LABELS_LIVE
 const STATE_AR: Record<string, string> = { moving: 'متحركة', stopped: 'ساكنة', gap: 'بعد انقطاع' }
 const STATUS_AR: Record<string, string> = { pending: 'بانتظار السحب', no_device: 'بلا جهاز', partial: 'جارٍ', complete: 'مكتمل', empty: 'بلا نقاط', failed: 'فشل السحب' }
 const dayStamp = (iso: string | null | undefined) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(iso ? new Date(iso) : new Date())

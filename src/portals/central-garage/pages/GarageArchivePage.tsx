@@ -1,3 +1,4 @@
+import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { useDeferredValue, useEffect, useState } from 'react'
 import { Archive, ChevronLeft, ChevronRight, Clock3, Search } from 'lucide-react'
 import { Link } from 'react-router'
@@ -74,17 +75,7 @@ export default function GarageArchivePage({
             </optgroup>
           ))}
         </select>
-        <select
-          data-testid="archive-shift"
-          value={shift}
-          onChange={(e) => setShift(e.target.value)}
-          className={inputClass}
-        >
-          <option value="">كل الشفتات</option>
-          <option value="morning">صباحي</option>
-          <option value="evening">مسائي</option>
-          <option value="night">ليلي</option>
-        </select>
+        <ShiftSelect testId="archive-shift" value={shift} onChange={setShift} className={inputClass} allLabel="كل الشفتات" />
         <div className="flex items-center justify-center rounded-xl bg-slate-100 px-4 text-sm font-black">
           {total} مؤرشفة
         </div>
