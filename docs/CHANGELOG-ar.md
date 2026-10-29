@@ -1447,3 +1447,8 @@
 - **قائمة المسارات** (`trip_routes_list` — هجرة `00323`): فلاتر جديدة ضمن «الفلاتر الإضافية»: «مرّت بمقطع إلى» (موقع العمل/المحطة/الصيانة/الكراج)، «حالة آخر مقطع» (بلا مقاطع/وصل/في الطريق)، «أدنى عدد مقاطع». أخطاء `TRIP_ROUTES_LEG_TYPE_INVALID` / `TRIP_ROUTES_LEG_STATE_INVALID`.
 - مساعد مشترك `filterTripRouteLegs` في `trip-route-export.ts`.
 - اختبارات: `tests/db/trip-routes-list-test.sql` (L8)، `ops-trip-route-map-page.test.tsx`، `ops-trip-routes-page.test.tsx`، `trip-route-export.test.ts`.
+
+## الجولة 00379 — تحديث شاشات GPS كل 5 ثوانٍ
+- كانت استعلامات لوحة GPS (المشهد التشغيلي، الخريطة الحية، التنبيهات، الأجهزة، أحداث الزونات، صحة المجدول) تتحدّث كل 30 ثانية؛ أصبحت كل **5 ثوانٍ** عبر ثابت واحد `GPS_SCREEN_REFRESH_MS`. المزامنة مع المزوّد (LVN) تبقى كل ثانية كما هي.
+- بطاقة «المزامنة التلقائية» في الرأس صارت تُظهر الحقيقة: «الشاشة كل 5 ثوانٍ · المزوّد كل ثانية».
+- اختبار `tests/unit/features/gps-screen-refresh.test.ts`.

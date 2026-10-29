@@ -213,7 +213,7 @@ export default function GpsDataPage() {
           <button aria-label={`التنبيهات (${alerts.data?.length ?? 0})`} onClick={() => setView('operations')} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 text-rose-200"><AlertTriangle className="size-4" />التنبيهات ({alerts.data?.length ?? 0})</button>
           <button onClick={() => sync.mutate(d?.last_full_sync_at ? 'incremental' : 'full')} disabled={sync.isPending} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:opacity-50">{sync.isPending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}تحديث البيانات</button>
         </>}
-        stats={[{ label: 'آخر نجاح', value: <span className="text-sm">{fmt(d?.last_success_at ?? null)}</span>, tone: 'green' }, { label: 'المزامنة التلقائية', value: <span className="text-sm">كل 30 ثانية</span>, tone: 'plain' }, { label: 'LVN API', value: <span className="text-sm">{d?.api_version ?? '—'}</span>, tone: 'gold' }]} />
+        stats={[{ label: 'آخر نجاح', value: <span className="text-sm">{fmt(d?.last_success_at ?? null)}</span>, tone: 'green' }, { label: 'المزامنة التلقائية', value: <span className="text-sm">الشاشة كل 5 ثوانٍ · المزوّد كل ثانية</span>, tone: 'plain' }, { label: 'LVN API', value: <span className="text-sm">{d?.api_version ?? '—'}</span>, tone: 'gold' }]} />
 
       <nav
         className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm md:grid-cols-3 xl:grid-cols-5"

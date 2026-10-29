@@ -53,28 +53,30 @@ export const gpsKeys = {
   zones: (vehicleId: string) => ['gps-lvn', 'zones', vehicleId] as const,
   candidates: (q: string) => ['gps-lvn', 'candidates', q] as const,
 }
+/** 00379: تحديث شاشات GPS كل 5 ثوانٍ (كانت 30) — المزامنة مع المزوّد تبقى كل ثانية من useGpsAutoSync */
+export const GPS_SCREEN_REFRESH_MS = 5_000
 export const useGpsDashboard = () =>
-  useQuery({ queryKey: gpsKeys.dashboard(), queryFn: gpsLvn.dashboard, refetchInterval: 30_000 })
+  useQuery({ queryKey: gpsKeys.dashboard(), queryFn: gpsLvn.dashboard, refetchInterval: GPS_SCREEN_REFRESH_MS })
 export const useGpsMapGeofences = () =>
   useQuery({ queryKey: gpsKeys.mapGeofences(), queryFn: gpsLvn.mapGeofences, staleTime: 60_000 })
 export const useGpsMapLandmarks = () =>
   useQuery({ queryKey: gpsKeys.mapLandmarks(), queryFn: gpsLvn.mapLandmarks, staleTime: 60_000 })
 export const useGpsLiveMap = () =>
-  useQuery({ queryKey: gpsKeys.liveMap(), queryFn: gpsLvn.liveMap, refetchInterval: 30_000 })
+  useQuery({ queryKey: gpsKeys.liveMap(), queryFn: gpsLvn.liveMap, refetchInterval: GPS_SCREEN_REFRESH_MS })
 export const useGpsOpenAlerts = () =>
-  useQuery({ queryKey: gpsKeys.alerts(), queryFn: gpsLvn.openAlerts, refetchInterval: 30_000 })
+  useQuery({ queryKey: gpsKeys.alerts(), queryFn: gpsLvn.openAlerts, refetchInterval: GPS_SCREEN_REFRESH_MS })
 export const useGpsZoneEvents = (from: string, to: string) =>
   useQuery({
     queryKey: gpsKeys.zoneEvents(from, to),
     queryFn: () => gpsLvn.zoneEvents(from, to),
     enabled: Boolean(from && to),
-    refetchInterval: 30_000,
+    refetchInterval: GPS_SCREEN_REFRESH_MS,
   })
 export const useGpsSchedulerHealth = () =>
   useQuery({
     queryKey: gpsKeys.schedulerHealth,
     queryFn: gpsLvn.schedulerHealth,
-    refetchInterval: 30_000,
+    refetchInterval: GPS_SCREEN_REFRESH_MS,
   })
 /** 00154: ربط الزون بالمنطقة + مهلة تنبيه الخروج عن المسار */
 export function useGpsZoneSector() {
@@ -172,7 +174,7 @@ export const useGpsDevices = (filters: GpsFilters) =>
     queryKey: gpsKeys.devices(filters),
     queryFn: () => gpsLvn.devices(filters),
     placeholderData: (previous) => previous,
-    refetchInterval: 30_000,
+    refetchInterval: GPS_SCREEN_REFRESH_MS,
   })
 export const useGpsOptions = () =>
   useQuery({ queryKey: gpsKeys.options(), queryFn: gpsLvn.options })
