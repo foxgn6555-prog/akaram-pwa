@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest'
 const fn = readFileSync('supabase/functions/gps-warehouse/index.ts', 'utf8')
 const wh = readFileSync('gps-warehouse/supabase/migrations/0001_warehouse_schema.sql', 'utf8')
 const main = readFileSync('supabase/migrations/00324_gps_warehouse_link.sql', 'utf8')
-const all = [fn, wh, main, readFileSync('src/services/gps-warehouse.sdk.ts', 'utf8'), readFileSync('src/features/gps-warehouse/GpsWarehouseCard.tsx', 'utf8'), readFileSync('gps-warehouse/supabase/config.toml', 'utf8')].join('\n')
+const engine = readFileSync('gps-warehouse/supabase/migrations/0002_pull_engine.sql', 'utf8')
+const cronMig = readFileSync('supabase/migrations/00325_gps_warehouse_pull_cron.sql', 'utf8')
+const lvnShared = readFileSync('supabase/functions/_shared/lvn-history.ts', 'utf8')
+const all = [fn, wh, main, engine, cronMig, lvnShared, readFileSync('src/services/gps-warehouse.sdk.ts', 'utf8'), readFileSync('src/features/gps-warehouse/GpsWarehouseCard.tsx', 'utf8'), readFileSync('gps-warehouse/supabase/config.toml', 'utf8')].join('\n')
 
 describe('gps-warehouse contract (00380)', () => {
   it('لا مفتاح سرّي أو JWT مضمّن في أي ملف', () => {
@@ -19,6 +22,17 @@ describe('gps-warehouse contract (00380)', () => {
     expect(fn).toContain("admin.rpc('gps_warehouse_link_record'")
     expect(fn).toContain("'wh_ping'"); expect(fn).toContain("'wh_upsert_vehicles'"); expect(fn).toContain("'wh_enqueue_month'")
     expect(fn).toContain('GPS_WAREHOUSE_NOT_CONFIGURED')
+  })
+  it('00381: محرّك السحب — قطع ≤3 ساعات، استئناف من المؤشر، تحرير عند نفاد الميزانية، أرشفة مضغوطة، تحرير القفل دائماً، والمجدول عبر Vault بلا مفاتيح', () => {
+    expect(fn).toContain('const CHUNK_MS = 3 * 3600_000'); expect(fn).toContain("'wh_jobs_claim'"); expect(fn).toContain("'wh_ingest_points'"); expect(fn).toContain("'wh_job_finish'"); expect(fn).toContain("'wh_job_release'")
+    expect(fn).toContain("new CompressionStream('gzip')"); expect(fn).toContain("storage.from('gps-archive')"); expect(fn).toContain("finally {\n    await whRpc('wh_pull_release')")
+    expect(fn).toContain("if (action === 'pull')")
+    expect(lvnShared).not.toContain('snap_to_road'); expect(fn).toContain("snap_to_road: 'false'")   // المعامل يُمرَّر من المحرّك لا من المكتبة
+    expect(lvnShared).toContain("+03:00")
+    expect(cronMig).toContain("vault.decrypted_secrets where name = 'project_url'"); expect(cronMig).toContain('/functions/v1/gps-warehouse'); expect(cronMig).toContain('{"action":"pull"}')
+    expect(cronMig).not.toMatch(/eyJ|sb_secret_/)
+    expect(engine).toContain("for update skip locked"); expect(engine).toContain("pull_locked_until"); expect(engine).toContain("WH_JOB_STALE")
+    expect(engine).toMatch(/revoke all on function[\s\S]*wh_jobs_claim\(int\)[\s\S]*from public, anon, authenticated/)
   })
   it('هجرة المستودع: RLS على كل جدول wh_ وسحب الصلاحيات، وبلا سياسات', () => {
     expect(wh).toMatch(/enable row level security/); expect(wh).toContain('revoke all on table public.%I from anon, authenticated')

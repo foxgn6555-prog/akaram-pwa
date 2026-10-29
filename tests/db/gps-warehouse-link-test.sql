@@ -56,5 +56,8 @@ begin
   perform pg_temp.expect_error('select public.gps_warehouse_link_record(''x'', true)', 'GPS_WAREHOUSE_KIND_INVALID');
   perform pg_temp.as_user('e9000000-0000-0000-0000-000000000001'); js := public.gps_warehouse_link_get();
   if (js ->> 'registry_active')::int <> 2 or js ->> 'last_registry_sync_at' is null or js ->> 'last_error_code' is not null then raise exception 'K3 registry %', js; end if;
+  -- K4 (00381): حالة المجدول ضمن الحالة (بلا pg_cron في الاختبار ⇒ غير مجدول)
+  if (js -> 'cron' ->> 'scheduled')::boolean is distinct from false then raise exception 'K4 cron %', js -> 'cron'; end if;
+  perform pg_temp.as_user('e9000000-0000-0000-0000-000000000002'); perform pg_temp.expect_error('select public.gps_warehouse_cron_status()', 'GPS_FORBIDDEN');
   raise notice 'gps warehouse link ok';
 end $$;

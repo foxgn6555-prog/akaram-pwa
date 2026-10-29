@@ -1,10 +1,11 @@
 /**
  * 00380 — بطاقة «مستودع GPS التحليلي» في بوابة IT (سلامة تكامل GPS):
- * حالة الربط بالمشروع الثاني، فحص الاتصال، إرسال سجل الآليات، وجدولة شهر للسحب (المحرّك يأتي في 00381).
+ * حالة الربط بالمشروع الثاني، فحص الاتصال، إرسال سجل الآليات، جدولة شهر للسحب، و(00381) تقدّم السحب الشهري،
+ * حالة المجدول، سحب دفعة يدوياً، إيقاف/استئناف.
  * لا مفاتيح هنا: الأسرار تُضبط من لوحة Supabase فقط.
  */
 import { useState } from 'react'
-import { Database, RefreshCw } from 'lucide-react'
+import { Database, Pause, Play, RefreshCw } from 'lucide-react'
 import { useGpsWarehouseAction, useGpsWarehouseLink } from '@features/gps-warehouse/hooks'
 import { explainLvnError } from '@features/gps-lvn/lvn-errors'
 
@@ -22,7 +23,10 @@ export default function GpsWarehouseCard() {
   const tone = state === 'ok' ? 'bg-emerald-100 text-emerald-800' : state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-700'
   const err = link?.last_error_code ? explainLvnError(link.last_error_code) : null
   const busy = act.isPending
-  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month') => act.mutate(action === 'enqueue_month' ? { action, month } : { action })
+  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
+  const progress = ping?.progress ?? null
+  const paused = Boolean(progress?.paused ?? ping?.settings.paused)
+  const cron = link?.cron ?? null
   return (
     <article className="rounded-[1.75rem] border bg-white shadow-sm" data-testid="gps-warehouse-card" data-state={state}>
       <div className="flex items-center justify-between gap-3 p-4">
@@ -52,6 +56,45 @@ export default function GpsWarehouseCard() {
           <p className="col-span-full text-[10px] text-slate-500">الحدود: توقف من {ping.settings.min_stop_minutes} إلى {ping.settings.max_stop_minutes} دقيقة · عطل مشتبه بعد {ping.settings.fault_stop_hours} ساعة · نصف قطر التجميع {ping.settings.cluster_radius_m} م · الخام يُحفظ {ping.settings.raw_retention_days} أيام · الأرشيف {ping.settings.archive_retention_months} أشهر</p>
         </div>
       )}
+      {progress && (
+        <div className="mx-4 mt-3 rounded-2xl border bg-white p-3 text-[11px]" data-testid="gps-warehouse-progress">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <b className="text-slate-900">تقدّم السحب الشهري</b>
+            <span className="flex flex-wrap items-center gap-1">
+              <span className={`rounded-full px-2 py-0.5 font-black ${cron?.scheduled ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`} data-testid="gps-warehouse-cron">{cron?.scheduled ? `المجدول يعمل كل دقيقة${cron.last_run_at ? ` · آخر تشغيل ${fmt(cron.last_run_at)}` : ''}` : 'المجدول غير مفعّل — السحب يدوي فقط (راجع إعداد Vault/pg_cron)'}</span>
+              {paused && <span className="rounded-full bg-rose-100 px-2 py-0.5 font-black text-rose-800" data-testid="gps-warehouse-paused">متوقف مؤقتاً</span>}
+              {progress.locked && !paused && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-black text-sky-800">دورة تعمل الآن</span>}
+            </span>
+          </div>
+          {progress.months.length === 0 ? <p className="text-slate-500">لا مهام بعد — جدول شهراً من الأسفل.</p> : (
+            <table className="w-full text-right"><thead><tr className="text-[10px] text-slate-500"><th className="p-1">الشهر</th><th className="p-1">الإنجاز</th><th className="p-1">بانتظار</th><th className="p-1">فشل نهائي</th><th className="p-1">نقاط</th><th className="p-1">توقفات</th><th className="p-1">آليات</th><th className="p-1">السرعة</th><th className="p-1">المتبقي تقريباً</th></tr></thead>
+              <tbody>{progress.months.map((m) => {
+                const pct = m.total ? Math.round((m.done / m.total) * 100) : 0
+                const remaining = m.total - m.done - m.failed
+                const eta = m.done_last_hour > 0 ? remaining / m.done_last_hour : null
+                return (
+                  <tr key={m.month} className="border-t" data-testid={`gps-warehouse-month-${m.month}`}>
+                    <td className="p-1 font-black" dir="ltr">{m.month}</td>
+                    <td className="p-1"><span className="inline-block h-2 w-24 overflow-hidden rounded bg-slate-200 align-middle"><span className="block h-full bg-emerald-500" style={{ width: `${pct}%` }} /></span> <b>{pct}%</b> <span className="text-slate-500">({m.done}/{m.total})</span></td>
+                    <td className="p-1">{m.queued + m.running}</td>
+                    <td className={`p-1 ${m.failed ? 'font-black text-rose-700' : ''}`}>{m.failed}</td>
+                    <td className="p-1">{m.points.toLocaleString('en')}</td>
+                    <td className="p-1">{m.stops.toLocaleString('en')}</td>
+                    <td className="p-1">{m.devices}</td>
+                    <td className="p-1">{m.done_last_hour} يوم/ساعة</td>
+                    <td className="p-1">{remaining === 0 ? 'اكتمل' : eta == null ? '—' : eta < 1 ? 'أقل من ساعة' : eta < 48 ? `${Math.ceil(eta)} ساعة` : `${Math.ceil(eta / 24)} يوم`}</td>
+                  </tr>
+                )
+              })}</tbody></table>
+          )}
+          <p className="mt-2 text-[10px] text-slate-500">التوقفات حسب الصنف: صالحة {progress.stops_by_class.valid ?? 0} · طويلة (&gt; الحد الأقصى، مستبعدة) {progress.stops_by_class.long ?? 0} · عطل مشتبه (≥ يوم، مستبعدة) {progress.stops_by_class.fault ?? 0}</p>
+          {progress.errors.length > 0 && (
+            <details className="mt-2"><summary className="cursor-pointer font-bold text-rose-800">آخر الأخطاء ({progress.errors.length})</summary>
+              <ul className="mt-1 space-y-0.5" data-testid="gps-warehouse-errors">{progress.errors.map((e, i) => { const x = explainLvnError(e.error_code); return <li key={i}><span dir="ltr">{e.day}</span> · {e.device_external_id} · <b>{x.title}</b> <span className="text-slate-500">({e.error_code} · محاولة {e.attempts})</span></li> })}</ul>
+            </details>
+          )}
+        </div>
+      )}
       {err && (
         <div className="mx-4 mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-[11px]" data-testid="gps-warehouse-error">
           <b className="text-rose-900">{err.title}</b> <span className="text-rose-700">({link?.last_error_code})</span>
@@ -74,7 +117,12 @@ export default function GpsWarehouseCard() {
         <button type="button" onClick={() => run('sync_registry')} disabled={busy || state !== 'ok'} className="rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-registry-btn">إرسال سجل الآليات</button>
         <label className="flex items-center gap-1 text-[11px] font-bold text-slate-600">شهر السحب<input type="month" value={month} max={monthNow()} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border px-2 py-1.5 text-xs" data-testid="gps-warehouse-month" /></label>
         <button type="button" onClick={() => run('enqueue_month')} disabled={busy || state !== 'ok' || !link?.last_registry_sync_at || !month} className="rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-enqueue-btn">جدولة سحب الشهر</button>
-        <span className="text-[10px] font-normal text-slate-400">الجدولة تُنشئ المهام فقط؛ السحب الفعلي يبدأ مع محرّك 00381.</span>
+        <span className="mx-1 h-5 border-r" />
+        <button type="button" onClick={() => run('pull')} disabled={busy || state !== 'ok' || paused} className="rounded-xl bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" data-testid="gps-warehouse-pull-btn">سحب دفعة الآن</button>
+        {paused
+          ? <button type="button" onClick={() => run('resume')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-emerald-800 disabled:opacity-50" data-testid="gps-warehouse-resume-btn"><Play size={14} />استئناف السحب</button>
+          : <button type="button" onClick={() => run('pause')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-rose-800 disabled:opacity-50" data-testid="gps-warehouse-pause-btn"><Pause size={14} />إيقاف مؤقت</button>}
+        <span className="text-[10px] font-normal text-slate-400">السحب يجري تلقائياً كل دقيقة (3 أيام-جهاز في الدقيقة)؛ «سحب دفعة الآن» لا يلزم إلا للتجربة.</span>
       </div>
     </article>
   )

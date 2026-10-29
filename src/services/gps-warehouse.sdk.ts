@@ -17,6 +17,18 @@ export interface GpsWarehouseLink {
   last_error_code: string | null
   last_error_at: string | null
   updated_at: string
+  /** 00381: حالة مجدول السحب (pg_cron في المشروع الأول) */
+  cron?: { scheduled: boolean; last_run_at: string | null; last_status: string | null } | null
+}
+export interface GpsWarehouseMonthProgress {
+  month: string; total: number; done: number; queued: number; running: number; failed: number; points: number; stops: number; devices: number
+  first_started_at: string | null; last_finished_at: string | null; done_last_hour: number
+}
+export interface GpsWarehouseProgress {
+  months: GpsWarehouseMonthProgress[]
+  errors: { device_external_id: string; day: string; error_code: string; attempts: number; at: string | null }[]
+  paused: boolean; locked: boolean
+  stops_by_class: Partial<Record<'pending' | 'short' | 'valid' | 'long' | 'fault', number>>
 }
 export interface GpsWarehousePing {
   ok: boolean
@@ -27,11 +39,13 @@ export interface GpsWarehousePing {
   stops: number
   archive_files: number
   db_bytes: number
-  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number }
+  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number; paused?: boolean; max_attempts?: number }
+  /** 00381 */
+  progress?: GpsWarehouseProgress
   server_time: string
 }
-export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month'
-export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string }
+export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume'
+export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number }
 
 async function toError(error: unknown): Promise<LvnSyncError> {
   const context = (error as { context?: Response }).context
@@ -47,7 +61,7 @@ export const gpsWarehouse = {
     if (error) throw new LvnSyncError(error.message)
     return data as unknown as GpsWarehouseLink
   },
-  run: async (action: GpsWarehouseAction, extra: { month?: string } = {}): Promise<GpsWarehouseResult> => {
+  run: async (action: GpsWarehouseAction, extra: { month?: string; limit?: number } = {}): Promise<GpsWarehouseResult> => {
     const { data, error } = await supabase.functions.invoke<GpsWarehouseResult>('gps-warehouse', { body: { action, ...extra } })
     if (error) throw await toError(error)
     if (!data?.ok) throw new LvnSyncError(data?.error ?? 'GPS_WAREHOUSE_FAILED')

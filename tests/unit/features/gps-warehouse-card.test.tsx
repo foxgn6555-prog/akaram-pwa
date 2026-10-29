@@ -56,4 +56,29 @@ describe('GpsWarehouseCard (00380)', () => {
     await waitFor(() => expect(h.toasts[0]?.type).toBe('error'))
     expect(h.toasts[0]?.message).toContain('غير مربوط')
   })
+  it('00381: التقدّم الشهري والمجدول والإيقاف/الاستئناف وسحب دفعة', async () => {
+    const progress = { months: [{ month: '2026-09', total: 5850, done: 2925, queued: 2900, running: 3, failed: 22, points: 9_000_000, stops: 61_000, devices: 195, first_started_at: '2026-10-29T00:00:00Z', last_finished_at: '2026-10-29T09:00:00Z', done_last_hour: 150 }], errors: [{ device_external_id: 'd-9', day: '2026-09-03', error_code: 'LVN_TIMEOUT', attempts: 6, at: '2026-10-29T08:00:00Z' }], paused: false, locked: false, stops_by_class: { valid: 50_000, long: 9_000, fault: 2_000 } }
+    h.link = { ...base, warehouse_host: 'x.supabase.co', last_ping_at: '2026-10-29T09:00:00Z', last_ping_ok: true, schema_version: 2, last_registry_sync_at: '2026-10-29T08:00:00Z', registry_active: 195, ping: { ...ping, progress }, cron: { scheduled: true, last_run_at: '2026-10-29T09:00:30Z', last_status: 'succeeded' } }
+    ui()
+    await waitFor(() => expect(screen.getByTestId('gps-warehouse-progress')).toBeInTheDocument())
+    const row = screen.getByTestId('gps-warehouse-month-2026-09').textContent ?? ''
+    expect(row).toContain('50%'); expect(row).toContain('(2925/5850)'); expect(row).toContain('2903'); expect(row).toContain('22'); expect(row).toContain('9,000,000'); expect(row).toContain('150 يوم/ساعة'); expect(row).toContain('20 ساعة')
+    expect(screen.getByTestId('gps-warehouse-cron').textContent).toContain('المجدول يعمل كل دقيقة')
+    expect(screen.getByTestId('gps-warehouse-errors').textContent).toContain('LVN_TIMEOUT')
+    expect(screen.getByTestId('gps-warehouse-progress').textContent).toContain('عطل مشتبه (≥ يوم، مستبعدة) 2000')
+    h.run.mockResolvedValue({ ok: true, action: 'pull', jobs: 3, results: [{ job: 1 }, { job: 2, error: 'LVN_TIMEOUT' }, { job: 3, partial: true }] })
+    fireEvent.click(screen.getByTestId('gps-warehouse-pull-btn'))
+    await waitFor(() => expect(h.run).toHaveBeenCalledWith('pull', { month: undefined, limit: 3 }))
+    await waitFor(() => expect(h.toasts.at(-1)?.message).toContain('3 مهمة · 1 اكتملت · 1 فشلت'))
+    h.run.mockResolvedValue({ ok: true, action: 'pause', result: { paused: true } })
+    fireEvent.click(screen.getByTestId('gps-warehouse-pause-btn'))
+    await waitFor(() => expect(h.run).toHaveBeenCalledWith('pause', { month: undefined, limit: undefined }))
+    // متوقف: شارة + زر الاستئناف + «سحب دفعة» معطّل
+    h.link = { ...h.link, ping: { ...ping, progress: { ...progress, paused: true } }, cron: { scheduled: false, last_run_at: null, last_status: null } }
+    ui()
+    await waitFor(() => expect(screen.getAllByTestId('gps-warehouse-paused').length).toBeGreaterThan(0))
+    expect(screen.getAllByTestId('gps-warehouse-resume-btn').length).toBe(1)
+    expect((screen.getAllByTestId('gps-warehouse-pull-btn').at(-1) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getAllByTestId('gps-warehouse-cron').at(-1)?.textContent).toContain('غير مفعّل')
+  })
 })

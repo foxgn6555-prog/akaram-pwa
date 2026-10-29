@@ -4,7 +4,7 @@ do $$
 declare js jsonb; m date := date_trunc('month', (now() at time zone 'Asia/Baghdad'))::date; prev date := (m - interval '1 month')::date; days_prev int := extract(day from (m - interval '1 day'))::int; ok boolean;
 begin
   -- W1: الإصدار والإعدادات الافتراضية
-  if (select max(version) from public.wh_schema_version) <> 1 then raise exception 'W1 version'; end if;
+  if (select min(version) from public.wh_schema_version) <> 1 then raise exception 'W1 version'; end if;
   if (select min_stop_minutes || '/' || max_stop_minutes || '/' || fault_stop_hours from public.wh_settings where id = 1) <> '10/120/24' then raise exception 'W1 settings'; end if;
   begin update public.wh_settings set min_stop_minutes = 200 where id = 1; raise exception 'W1 order must fail'; exception when check_violation then null; end;
   -- W2: RLS مفعّل بلا سياسات وكل الجداول بلا صلاحيات للأدوار العامة
@@ -14,7 +14,7 @@ begin
   if has_function_privilege('authenticated', 'public.wh_ping()', 'execute') then raise exception 'W2 fn grant'; end if;
   -- W3: الفحص
   js := public.wh_ping();
-  if not (js ->> 'ok')::boolean or (js ->> 'schema_version')::int <> 1 or (js ->> 'vehicles')::int <> 0 or (js -> 'settings' ->> 'min_stop_minutes')::int <> 10 or (js ->> 'db_bytes')::bigint <= 0 then raise exception 'W3 ping %', js; end if;
+  if not (js ->> 'ok')::boolean or (js ->> 'schema_version')::int < 1 or (js ->> 'vehicles')::int <> 0 or (js -> 'settings' ->> 'min_stop_minutes')::int <> 10 or (js ->> 'db_bytes')::bigint <= 0 then raise exception 'W3 ping %', js; end if;
   -- W4: مزامنة الآليات — إدراج ثم تحديث ثم تعطيل من غاب
   js := public.wh_upsert_vehicles('[{"vehicle_id":"a0000000-0000-0000-0000-000000000001","db_number":"DB-1","vehicle_name":"كابسة 1","sector_id":3,"sector_name":"الكرادة","device_external_id":"d-1"},
                                     {"vehicle_id":"a0000000-0000-0000-0000-000000000002","db_number":"DB-2","vehicle_name":"كابسة 2","device_external_id":"d-2"},
