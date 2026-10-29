@@ -1,7 +1,46 @@
 /**
  * 00362 — بقع التوقف: دوال مساعدة نقية (ألوان/أحجام/نوافذ/تنسيق) تُختبر وحدياً.
  */
-import type { GpsStopHotspot } from '@sdk/gps-lvn.sdk'
+import { useSyncExternalStore } from 'react'
+import type { GpsStopClass, GpsStopHotspot } from '@sdk/gps-lvn.sdk'
+
+/** 00373 — الأصناف الثلاثة بحسب مدة التوقف الغالبة زمنياً */
+export const HOTSPOT_CLASS_COLORS: Readonly<Record<GpsStopClass, string>> = {
+  long: '#7f1d1d',
+  loiter: '#dc2626',
+  light: '#f59e0b',
+}
+export const HOTSPOT_CLASS_RGB: Readonly<Record<GpsStopClass, [number, number, number]>> = {
+  long: [127, 29, 29],
+  loiter: [220, 38, 38],
+  light: [245, 158, 11],
+}
+export const HOTSPOT_CLASS_LABELS: Readonly<Record<GpsStopClass, string>> = {
+  long: 'توقف طويل',
+  loiter: 'تلكؤ / موقع نفايات',
+  light: 'خفيف / ازدحام',
+}
+export const HOTSPOT_CLASS_HINTS: Readonly<Record<GpsStopClass, string>> = {
+  long: 'أغلب زمن التوقف هنا من توقفات ≥ 60 دقيقة',
+  loiter: 'أغلب زمن التوقف هنا من توقفات 10–60 دقيقة',
+  light: 'أغلب زمن التوقف هنا من توقفات أقل من 10 دقائق',
+}
+export const hotspotClass = (spot: Pick<GpsStopHotspot, 'class'>): GpsStopClass => spot.class ?? 'loiter'
+/** البقع الخفيفة مخفية افتراضياً (الخريطة تركّز على التلكؤ) — مخزن مشترك بين اللوحة والطبقة */
+const LIGHT_KEY = 'stop-hotspots:show-light'
+let showLight = typeof sessionStorage !== 'undefined' && sessionStorage.getItem(LIGHT_KEY) === '1'
+const lightListeners = new Set<() => void>()
+export const setShowLightSpots = (v: boolean) => {
+  showLight = v
+  try { sessionStorage.setItem(LIGHT_KEY, v ? '1' : '0') } catch { /* بيئة بلا تخزين */ }
+  lightListeners.forEach((l) => l())
+}
+export const useShowLightSpots = () =>
+  useSyncExternalStore((l) => { lightListeners.add(l); return () => lightListeners.delete(l) }, () => showLight, () => showLight)
+export const visibleHotspots = (spots: GpsStopHotspot[], includeLight: boolean) =>
+  includeLight ? spots : spots.filter((s) => hotspotClass(s) !== 'light')
+export const countByClass = (spots: GpsStopHotspot[]) =>
+  spots.reduce((acc, s) => { acc[hotspotClass(s)] += 1; return acc }, { long: 0, loiter: 0, light: 0 } as Record<GpsStopClass, number>)
 
 export const HOTSPOT_COLORS: Readonly<Record<GpsStopHotspot['level'], string>> = {
   high: '#dc2626',

@@ -12,6 +12,7 @@ import {
   hotspotRadiusPx,
   hotspotWindows,
   normalizeHotspotHours,
+  setShowLightSpots,
   sortHotspots,
 } from '@components/gps/stopHotspots'
 
@@ -51,14 +52,15 @@ import GpsLiveMap from '@portals/ops-room/pages/Gps/GpsLiveMap'
 
 const spot = (o: Partial<GpsStopHotspot>): GpsStopHotspot => ({
   id: '1:1', rank: 1, lat: 33.32, lng: 44.42, stops: 3, stops_24h: 2, vehicles: 2, total_seconds: 1200, avg_seconds: 400, max_seconds: 600,
+  class: 'long', median_seconds: 400, buckets: { light: { stops: 0, seconds: 0 }, loiter: { stops: 1, seconds: 400 }, long: { stops: 2, seconds: 800 }, over3h: { stops: 0, seconds: 0 } },
   score: 1, percentile: 1, share: 0.63, hourly: Array.from({ length: 24 }, (_, h) => (h === 12 ? 900 : h === 9 ? 300 : 0)), level: 'high', first_at: '2026-10-27T09:00:00Z', last_at: '2026-10-28T12:00:00Z', active_now: false, peak_hour: 12, address: 'شارع فلسطين',
   top_vehicles: [{ vehicle_id: 'v1', db_number: '101', vehicle_name: 'كابسة 101', stops: 2, total_seconds: 840 }], ...o,
 })
 const result = (hours: number): GpsStopHotspotsResult => ({
   spots: [
     spot({}),
-    spot({ id: '2:2', rank: 2, total_seconds: 500, stops: 5, vehicles: 1, score: 0.78, percentile: 0.5, share: 0.26, level: 'medium', last_at: '2026-10-28T13:00:00Z', address: 'الكرادة', active_now: true }),
-    spot({ id: '3:3', rank: 3, total_seconds: 200, stops: 1, vehicles: 1, score: 0.66, percentile: 0, share: 0.11, level: 'low', address: null }),
+    spot({ id: '2:2', rank: 2, total_seconds: 500, stops: 5, vehicles: 1, score: 0.78, percentile: 0.5, share: 0.26, level: 'medium', class: 'loiter', last_at: '2026-10-28T13:00:00Z', address: 'الكرادة', active_now: true }),
+    spot({ id: '3:3', rank: 3, total_seconds: 200, stops: 1, vehicles: 1, score: 0.66, percentile: 0, share: 0.11, level: 'low', class: 'light', address: null }),
   ],
   totals: { stops: 9, total_seconds: 1900, vehicles: 2, excluded: 4 },
   meta: { hours, max_days: 3, enabled: true, cluster_radius_m: 60, last_refresh_at: new Date().toISOString(), refresh_minutes: 30, generated_at: '', excluded_zone_ids: [], excluded_landmark_ids: [] },
@@ -116,7 +118,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(screen.getByTestId('hotspots-window').textContent).toContain('آخر 3 أيام')
     expect(onHours).toHaveBeenCalledWith(72)
     const items = within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(2)   // 00373: الخفيفة مخفية افتراضياً
     expect(items[0]!.textContent).toContain('شارع فلسطين')
     expect(items[0]!.textContent).toContain('20 د')
     expect(items[1]!.textContent).toContain('نشطة الآن')
@@ -152,21 +154,35 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
   it('00365: تبديل النافذة يُظهر مؤشر التحديث مع إبقاء البيانات السابقة', () => {
     render(<StopHotspotsPanel data={result(24)} loading={false} fetching hours={72} onHours={vi.fn()} selectedId={null} onSelect={vi.fn()} canEdit={false} />)
     expect(screen.getByTestId('hotspots-fetching')).toBeTruthy()
+    expect(within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')).toHaveLength(2)   // 00373: الخفيفة مخفية افتراضياً
+    expect(screen.getByTestId('hotspots-list').textContent).toContain('أطول 10 د')
+  })
+  it('00373: الخفيفة مخفية افتراضياً وزر الإظهار يعرضها في القائمة، والعدادات لكل صنف', () => {
+    setShowLightSpots(false)
+    render(<StopHotspotsPanel data={result(72)} loading={false} hours={72} onHours={vi.fn()} selectedId={null} onSelect={vi.fn()} canEdit={false} />)
+    expect(within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByTestId('hotspots-classes').textContent).toContain('توقف طويل 1')
+    expect(screen.getByTestId('hotspots-classes').textContent).toContain('تلكؤ / موقع نفايات 1')
+    expect(screen.getByTestId('hotspots-toggle-light').textContent).toContain('إظهار خفيف / ازدحام 1')
+    fireEvent.click(screen.getByTestId('hotspots-toggle-light'))
     expect(within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')).toHaveLength(3)
-    expect(screen.getByTestId('hotspots-list').textContent).toContain('63%')
+    expect(screen.getByTestId('hotspots-toggle-light').textContent).toContain('إخفاء')
+    setShowLightSpots(false)
   })
   it('الطبقة ترسم بقعة حرارية لكل موقع بلون الكثافة وحجم الوزن بلا أرقام، مع نبض للنشطة وهالة للأولى، وتُظهر التفاصيل', () => {
     h.icons.length = 0
     const onSelect = vi.fn()
+    setShowLightSpots(false)
     render(<StopHotspotsLayer spots={result(24).spots} hours={24} selectedId="2:2" onSelect={onSelect} />)
-    expect(h.icons).toHaveLength(3)
-    expect(h.icons[0]).toContain('220,38,38')          // أحمر
+    // 00373: الخفيفة مخفية افتراضياً ⇒ بقعتان؛ اللون بحسب الصنف
+    expect(h.icons).toHaveLength(2)
+    expect(h.icons[0]).toContain('127,29,29')          // توقف طويل (أحمر غامق)
     expect(h.icons[0]).toContain('akh-crown')          // الأولى
     expect(h.icons[0]).toContain('width:83px')         // الوزن 1 ⇒ أكبر حجم
-    expect(h.icons[1]).toContain('234,179,8')           // أصفر (المئين 0.5)
+    expect(h.icons[1]).toContain('220,38,38')          // تلكؤ (أحمر)
     expect(h.icons[1]).toContain('akh-ring')           // نشطة الآن
     expect(h.icons[1]).toContain('akh-selected')
-    expect(h.icons[2]).toContain('22,163,74')
+    expect(heatBlobHtml({ score: 0.5, percentile: 0, active_now: false, rank: 3, class: 'light' }, false).html).toContain('245,158,11')
     for (const html of h.icons) expect(html.replace(/[0-9.]+px|rgba?\([0-9,. ]+\)|[0-9]+%/g, '')).not.toMatch(/>\s*\d+\s*</)   // لا أرقام مرئية
     expect(heatBlobHtml({ score: 0, percentile: 0, active_now: false, rank: 5 }, false).size).toBe(26)
     expect(heatBlobHtml({ score: 0, percentile: 0, active_now: false, rank: 5 }, false).html).not.toContain('akh-crown')
@@ -183,10 +199,13 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     expect(popup.textContent).toContain('12:00–13:00')
     expect(within(popup).getByTestId('hotspot-events').textContent).toContain('10 د')
     expect(popup.textContent).toContain('63%')
+    expect(within(popup).getByTestId('hotspot-class').textContent).toContain('توقف طويل')
+    expect(popup.textContent).toContain('الوسيط 6 د 40 ث')
+    expect(within(popup).getByTestId('hotspot-buckets').textContent).toContain('2 توقف')
     expect(within(popup).getByTestId('hotspot-hourly').querySelectorAll('span[title]')).toHaveLength(24)
     expect(screen.getAllByTestId('tip')[0]!.textContent).toContain('شارع فلسطين')
-    fireEvent.click(screen.getAllByTestId('marker')[2]!)
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '3:3' }))
+    fireEvent.click(screen.getAllByTestId('marker')[1]!)
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '2:2' }))
   })
   it('الخريطة الحية: الطبقة معطّلة افتراضياً وتظهر اللوحة والدوائر عند التفعيل', () => {
     h.icons.length = 0
@@ -197,7 +216,7 @@ describe('بقع التوقف — اللوحة والطبقة', () => {
     fireEvent.click(toggle)
     expect(screen.getByTestId('stop-hotspots-panel')).toBeTruthy()
     expect(toggle.textContent).toContain('(3)')
-    expect(screen.getAllByTestId('marker')).toHaveLength(3)
+    expect(screen.getAllByTestId('marker')).toHaveLength(2)   // 00373: الخفيفة مخفية افتراضياً
     fireEvent.click(screen.getByText('عرض القائمة'))
     fireEvent.click(within(within(screen.getByTestId('hotspots-list')).getAllByRole('listitem')[0]!).getByRole('button'))
     expect(h.flyTo).toHaveBeenCalledWith([33.32, 44.42], 16, expect.anything())

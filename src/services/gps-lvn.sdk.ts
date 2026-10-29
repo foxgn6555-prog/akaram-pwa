@@ -494,6 +494,7 @@ export interface GpsStopHotspotVehicle {
   stops: number
   total_seconds: number
 }
+export type GpsStopClass = 'long' | 'loiter' | 'light'
 export interface GpsStopHotspot {
   id: string
   rank: number
@@ -511,6 +512,10 @@ export interface GpsStopHotspot {
   share: number
   hourly: number[]
   level: 'high' | 'medium' | 'low'
+  /** 00373: الصنف الغالب زمنياً (طويل ≥60 د / تلكؤ 10–60 د / خفيف <10 د)، الوسيط، وتوزيع المدد */
+  class: GpsStopClass
+  median_seconds: number
+  buckets: Record<GpsStopClass | 'over3h', { stops: number; seconds: number }>
   first_at: string
   last_at: string
   active_now: boolean
@@ -520,7 +525,7 @@ export interface GpsStopHotspot {
 }
 export interface GpsStopHotspotsResult {
   spots: GpsStopHotspot[]
-  totals: { stops: number; total_seconds: number; vehicles: number; excluded: number }
+  totals: { stops: number; total_seconds: number; vehicles: number; excluded: number; light_stops?: number; loiter_stops?: number; long_stops?: number }
   meta: {
     hours: number
     max_days: number

@@ -116,6 +116,12 @@ describe('عقد أمان LVN GPS', () => {
     expect(durable).toContain('alter column max_days set default 3')
     expect(durable).toContain("cron.schedule('gps_stop_events_daily_purge', '30 0 * * *'")
     expect(readFileSync('src/components/gps/stopHotspots.ts', 'utf8')).toContain('HOTSPOT_DEFAULT_DAYS = 3')
+    // 00373: الأصناف الثلاثة بالصنف الغالب زمنياً + الوسيط + الصمت في المكان نفسه لا يقطع التوقف
+    const classes = readFileSync('supabase/migrations/00317_gps_stop_classes_precision.sql', 'utf8')
+    expect(classes).toContain("case when e.duration_seconds >= 3600 then 'long' when e.duration_seconds >= 600 then 'loiter' else 'light' end cls")
+    expect(classes).toContain('percentile_cont(0.5) within group (order by duration_seconds)')
+    expect(classes).toContain('app.trip_route_haversine_m(q.lat, q.lng, q.prev_lat, q.prev_lng) > s.cluster_radius_m')
+    expect(readFileSync('src/components/gps/StopHotspotsLayer.tsx', 'utf8')).toContain('visibleHotspots(spots, showLight)')
     expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
     expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
     const perf = readFileSync('supabase/migrations/00310_gps_stop_hotspots_perf.sql', 'utf8')   // 00365: لا عمل ثقيل في طلبات المستخدم

@@ -352,3 +352,46 @@ begin
   end if;
   raise notice 'H13 ok';
 end $$;
+
+-- H14 (00373): الصمت الطويل في المكان نفسه لا يقطع التوقف؛ الأصناف الثلاثة والوسيط والتوزيع
+do $$
+declare d4 uuid := 'e80dc000-0000-0000-0000-000000000004'; t0 timestamptz := date_trunc('minute', now()); r record; n int; j jsonb; a jsonb; c jsonb;
+begin
+  insert into public.gps_devices (id, provider_id, external_id, name, online_status) values (d4, 'e80db000-0000-0000-0000-000000000001', 'SH-DEV4', 'جهاز SH4', 'online') on conflict (id) do nothing;
+  -- C (33.2800,44.3600): توقف 5 د ← صمت ساعتين (الجهاز نائم) ← توقف 5 د في المكان نفسه ← حركة  ⇒ حدث واحد ≈ 2 س 10 د
+  perform pg_temp.move_points(d4, t0 - interval '5 hours' - interval '150 seconds', 33.27, 44.36, 5);
+  perform pg_temp.stop_points(d4, t0 - interval '5 hours', 33.2800, 44.3600, 5, 'ساحة C');
+  perform pg_temp.stop_points(d4, t0 - interval '5 hours' + interval '2 hours 5 minutes', 33.2800, 44.3600, 5, 'ساحة C');
+  perform pg_temp.move_points(d4, t0 - interval '5 hours' + interval '2 hours 10 minutes' + interval '30 seconds', 33.28, 44.36, 5);
+  -- E (33.2600,44.3800) ثم صمت ساعتين ثم توقف عند F بعيداً (33.2400,44.3900) ⇒ حدثان منفصلان
+  perform pg_temp.move_points(d4, t0 - interval '2 hours' - interval '150 seconds', 33.25, 44.38, 5);
+  perform pg_temp.stop_points(d4, t0 - interval '2 hours', 33.2600, 44.3800, 5);
+  perform pg_temp.stop_points(d4, t0 - interval '2 hours' + interval '2 hours 5 minutes' - interval '70 minutes', 33.2400, 44.3900, 5);
+  perform pg_temp.move_points(d4, t0 - interval '2 hours' + interval '2 hours 5 minutes' - interval '70 minutes' + interval '5 minutes 30 seconds', 33.24, 44.39, 5);
+  select * into r from app.gps_stop_scan_device(d4, t0 - interval '6 hours', now());
+  select count(*) into n from public.gps_stop_events where device_id = d4 and abs(latitude - 33.28) < 0.001;
+  if n <> 1 then raise exception 'H14 same-place silence must stay ONE stop (got %)', n; end if;
+  select duration_seconds into n from public.gps_stop_events where device_id = d4 and abs(latitude - 33.28) < 0.001;
+  if n not between 7700 and 7900 then raise exception 'H14 bridged duration % (wanted ≈ 7800 = 2h10m)', n; end if;
+  select count(*) into n from public.gps_stop_events where device_id = d4 and latitude < 33.27;
+  if n <> 2 then raise exception 'H14 different places after silence must be TWO stops (got %)', n; end if;
+  if exists (select 1 from public.gps_stop_events where device_id = d4 and latitude < 33.27 and duration_seconds > 900) then raise exception 'H14 split stops must not absorb the silence'; end if;
+  -- الأصناف
+  perform pg_temp.as_user('e8000000-0000-0000-0000-000000000001');
+  j := public.gps_stop_hotspots_v2(3 * 1440);
+  select s into c from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.28) < 0.001;
+  if c is null or (c ->> 'class') <> 'long' then raise exception 'H14 spot C must be long: %', c; end if;
+  if (c -> 'buckets' -> 'long' ->> 'stops')::int <> 1 or (c -> 'buckets' -> 'light' ->> 'stops')::int <> 0 then raise exception 'H14 C buckets %', c -> 'buckets'; end if;
+  if (c ->> 'median_seconds')::int <> (c ->> 'max_seconds')::int then raise exception 'H14 C median %', c; end if;
+  select s into a from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.3201) < 0.001;
+  -- A (بعد تنظيفات الاختبارات السابقة): 1830 + 630 (تلكؤ) + 390 (خفيف 6.5 د) ⇒ الغالب زمنياً «تلكؤ»، الوسيط 630
+  if (a ->> 'class') <> 'loiter' then raise exception 'H14 A class % (wanted loiter) %', a ->> 'class', a -> 'buckets'; end if;
+  if (a -> 'buckets' -> 'loiter' ->> 'stops')::int <> 2 or (a -> 'buckets' -> 'light' ->> 'stops')::int <> 1 or (a -> 'buckets' -> 'long' ->> 'stops')::int <> 0 then raise exception 'H14 A buckets %', a -> 'buckets'; end if;
+  if (a ->> 'median_seconds')::int <> 630 then raise exception 'H14 A median % (wanted 630)', a ->> 'median_seconds'; end if;
+  if (a -> 'buckets' -> 'light' ->> 'seconds')::int + (a -> 'buckets' -> 'loiter' ->> 'seconds')::int <> (a ->> 'total_seconds')::int then raise exception 'H14 A bucket seconds must sum to total'; end if;
+  -- بقعة خفيفة: E أو F (5 د كلٌّ)
+  select s into c from jsonb_array_elements(j -> 'spots') s where abs((s ->> 'lat')::float8 - 33.26) < 0.001;
+  if (c ->> 'class') <> 'light' then raise exception 'H14 E must be light %', c; end if;
+  if (j -> 'totals' ->> 'long_stops')::int < 1 or (j -> 'totals' ->> 'light_stops')::int < 2 or (j -> 'totals' ->> 'loiter_stops')::int < 2 then raise exception 'H14 totals %', j -> 'totals'; end if;
+  raise notice 'H14 ok';
+end $$;

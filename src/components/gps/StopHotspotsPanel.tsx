@@ -6,9 +6,14 @@ import { useMemo, useState, useEffect } from 'react'
 import type { GpsStopHotspot, GpsStopHotspotsResult } from '@sdk/gps-lvn.sdk'
 import { useGpsStopPullStatus, useRefreshGpsStopHotspots } from '@features/gps-lvn/hooks'
 import {
-  HOTSPOT_COLORS,
+  HOTSPOT_CLASS_COLORS,
+  HOTSPOT_CLASS_LABELS,
+  countByClass,
+  hotspotClass,
+  setShowLightSpots,
+  useShowLightSpots,
+  visibleHotspots,
   HOTSPOT_SORT_LABELS,
-  formatShare,
   hotspotColor,
   type HotspotSort,
   formatAgo,
@@ -52,7 +57,9 @@ export default function StopHotspotsPanel({
   const windows = useMemo(() => hotspotWindows(maxDays), [maxDays])
   // النافذة تتبع الاحتفاظ تلقائياً (لا اختيار يدوي)
   useEffect(() => { if (data && hours !== windows[0]!.hours) onHours(windows[0]!.hours) }, [data, hours, windows, onHours])
-  const spots = useMemo(() => sortHotspots(data?.spots ?? [], sort), [data, sort])
+  const showLight = useShowLightSpots()
+  const byClass = useMemo(() => countByClass(data?.spots ?? []), [data])
+  const spots = useMemo(() => sortHotspots(visibleHotspots(data?.spots ?? [], showLight), sort), [data, sort, showLight])
   const shown = expanded ? spots.slice(0, compact ? 10 : 50) : []
   return (
     <div dir="rtl" className="w-[290px] max-w-full rounded-2xl border border-white/60 bg-white/95 p-2 text-[11px] shadow-xl backdrop-blur" data-testid="stop-hotspots-panel">
@@ -67,15 +74,27 @@ export default function StopHotspotsPanel({
         <div className="mt-2 rounded-lg bg-amber-50 p-2 font-bold text-amber-900">المحرك متوقف من الإعدادات — لا تُجمع بيانات جديدة.</div>
       )}
       <div className="mt-2 grid grid-cols-4 gap-1 text-center">
-        <Stat label="بقع" value={String(data?.spots.length ?? 0)} />
+        <Stat label="بقع" value={String(spots.length)} />
         <Stat label="توقفات" value={String(data?.totals.stops ?? 0)} />
         <Stat label="آليات" value={String(data?.totals.vehicles ?? 0)} />
         <Stat label="إجمالي" value={formatStopDuration(data?.totals.total_seconds ?? 0)} />
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[9px] text-slate-500">
-        <span>
-          <span style={{ color: HOTSPOT_COLORS.high }}>●</span> كثيفة <span style={{ color: HOTSPOT_COLORS.medium }}>●</span> متوسطة{' '}
-          <span style={{ color: HOTSPOT_COLORS.low }}>●</span> خفيفة (ترتيب نسبي بين البقع) · نابضة = نشطة الآن · هالة ذهبية = الأولى
+        <span className="flex flex-wrap items-center gap-1" data-testid="hotspots-classes">
+          <span className="rounded-full px-1.5 py-0.5 font-black text-white" style={{ background: HOTSPOT_CLASS_COLORS.long }} title="≥ 60 دقيقة">{HOTSPOT_CLASS_LABELS.long} {byClass.long}</span>
+          <span className="rounded-full px-1.5 py-0.5 font-black text-white" style={{ background: HOTSPOT_CLASS_COLORS.loiter }} title="10–60 دقيقة">{HOTSPOT_CLASS_LABELS.loiter} {byClass.loiter}</span>
+          <button
+            type="button"
+            onClick={() => setShowLightSpots(!showLight)}
+            aria-pressed={showLight}
+            className={`rounded-full px-1.5 py-0.5 font-black ${showLight ? 'text-white' : 'border text-amber-700'}`}
+            style={showLight ? { background: HOTSPOT_CLASS_COLORS.light } : { borderColor: HOTSPOT_CLASS_COLORS.light }}
+            title="أقل من 10 دقائق — مخفية افتراضياً"
+            data-testid="hotspots-toggle-light"
+          >
+            {showLight ? 'إخفاء' : 'إظهار'} {HOTSPOT_CLASS_LABELS.light} {byClass.light}
+          </button>
+          <span>· نابضة = نشطة الآن · هالة ذهبية = الأولى</span>
         </span>
         <span title={data?.meta.last_refresh_at ?? ''}>آخر حساب {formatAgo(data?.meta.last_refresh_at)}{data?.totals.excluded ? ` · مستبعد ${data.totals.excluded}` : ''}</span>
       </div>
@@ -144,7 +163,7 @@ export default function StopHotspotsPanel({
                 aria-pressed={selectedId === spot.id}
                 className={`flex w-full items-center gap-2 rounded-xl border p-1.5 text-right transition ${selectedId === spot.id ? 'border-slate-900 bg-slate-50' : 'border-transparent hover:bg-slate-50'}`}
               >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-black text-white" style={{ background: hotspotColor(spot.percentile) }}>
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-black text-white" style={{ background: HOTSPOT_CLASS_COLORS[hotspotClass(spot)] }} title={HOTSPOT_CLASS_LABELS[hotspotClass(spot)]}>
                   {spot.rank}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -153,7 +172,7 @@ export default function StopHotspotsPanel({
                     <b className="shrink-0">{formatStopDuration(spot.total_seconds)}</b>
                   </span>
                   <span className="flex justify-between gap-1 text-[9px] text-slate-500">
-                    <span>{spot.stops} توقف · {spot.vehicles} آلية · {formatShare(spot.share)} · ذروة {formatPeakHour(spot.peak_hour)}</span>
+                    <span>{spot.stops} توقف · {spot.vehicles} آلية · أطول {formatStopDuration(spot.max_seconds)} · ذروة {formatPeakHour(spot.peak_hour)}</span>
                     <span>{spot.active_now ? 'نشطة الآن' : formatAgo(spot.last_at)}</span>
                   </span>
                   <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
