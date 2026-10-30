@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveMapRow, LiveZoneRow } from '@sdk/live-tracking.sdk'
-import { filterLiveRows, liveMarkerStyle, minutesAgoLabel, summarizeLive, timeHM, zoneOccupancy, zoneOf, zoneStatusLabel } from '@features/live-tracking/live-map.logic'
+import { filterLiveRows, liveDotColor, sectorColor, SECTOR_PALETTE, liveMarkerStyle, minutesAgoLabel, summarizeLive, timeHM, zoneOccupancy, zoneOf, zoneStatusLabel } from '@features/live-tracking/live-map.logic'
 
 const row = (p: Partial<LiveMapRow>): LiveMapRow => ({
   session_id: 's', user_id: 'u', kind: 'manager', full_name: 'أحمد', sectors: [1], area_names: 'الكرادة', shift_name: 'صباحي', shift_start: '08:00:00', shift_end: '16:00:00',
@@ -38,5 +38,16 @@ describe('00287 · منطق خريطة البث', () => {
     expect(minutesAgoLabel('2026-10-18T05:59:40Z', now)).toBe('الآن')
     expect(minutesAgoLabel('2026-10-18T05:30:00Z', now)).toBe('قبل 30 دقيقة')
     expect(minutesAgoLabel('2026-10-18T03:50:00Z', now)).toBe('قبل 2 ساعة و 10 دقيقة')
+  })
+})
+
+describe('00388-ب · لون القسم', () => {
+  it('لون النقطة = لون أول قسم مُسنَد، وإلا لون النوع', () => {
+    expect(sectorColor(1)).toBe(SECTOR_PALETTE[0])
+    expect(sectorColor(13)).toBe(SECTOR_PALETTE[0])
+    expect(sectorColor(null)).toBeNull(); expect(sectorColor(0)).toBeNull()
+    expect(liveDotColor({ kind: 'manager', sectors: [3] })).toBe(SECTOR_PALETTE[2])
+    expect(liveDotColor({ kind: 'contractor', sectors: [] })).toBe('#047857')
+    expect(liveMarkerStyle({ kind: 'contractor', in_zone: false, stale: false, sectors: [2] })).toMatchObject({ fill: SECTOR_PALETTE[1], ring: '#dc2626' })
   })
 })

@@ -9,6 +9,11 @@ export const LIVE_FILTERS: { id: LiveFilter; label: string }[] = [
 ]
 export const LIVE_KIND_LABEL: Record<LiveKind, string> = { manager: 'مسؤول قسم', contractor: 'متعهد' }
 export const LIVE_KIND_COLOR: Record<LiveKind, string> = { manager: '#1d4ed8', contractor: '#047857' }
+/** 00388-ب: لون كل قسم (منطقة) — لوحة ثابتة متباينة؛ يتكرر بعد 12 */
+export const SECTOR_PALETTE = ['#3b82f6', '#f97316', '#10b981', '#e11d48', '#a855f7', '#eab308', '#06b6d4', '#84cc16', '#f43f5e', '#8b5cf6', '#14b8a6', '#fb923c'] as const
+export const sectorColor = (sectorId: number | null | undefined): string | null => (sectorId == null || sectorId < 1 ? null : SECTOR_PALETTE[(sectorId - 1) % SECTOR_PALETTE.length]!)
+/** لون علامة البث: لون قسم الشخص (أول قسم مُسنَد)، وإلا لون النوع */
+export const liveDotColor = (row: Pick<LiveMapRow, 'kind'> & Partial<Pick<LiveMapRow, 'sectors'>>): string => sectorColor(row.sectors?.[0]) ?? LIVE_KIND_COLOR[row.kind]
 
 export function filterLiveRows(rows: LiveMapRow[], filter: LiveFilter, search = ''): LiveMapRow[] {
   const q = search.trim()
@@ -31,9 +36,9 @@ export function summarizeLive(rows: LiveMapRow[]): LiveSummary {
 }
 
 export interface MarkerStyle { fill: string; ring: string; opacity: number; label: string }
-/** لون العلامة: أزرق لمسؤول القسم، أخضر للمتعهد؛ حلقة حمراء خارج الزون؛ باهت عند انقطاع التحديث. */
-export function liveMarkerStyle(row: Pick<LiveMapRow, 'kind' | 'in_zone' | 'stale'>): MarkerStyle {
-  const fill = LIVE_KIND_COLOR[row.kind]
+/** لون العلامة: لون القسم (00388-ب) وإلا أزرق لمسؤول القسم/أخضر للمتعهد؛ حلقة حمراء خارج الزون؛ باهت عند انقطاع التحديث. */
+export function liveMarkerStyle(row: Pick<LiveMapRow, 'kind' | 'in_zone' | 'stale'> & Partial<Pick<LiveMapRow, 'sectors'>>): MarkerStyle {
+  const fill = liveDotColor(row)
   const ring = row.in_zone === false ? '#dc2626' : '#ffffff'
   const label = row.stale ? 'منقطع' : row.in_zone === false ? 'خارج الزون' : row.in_zone === true ? 'داخل الزون' : 'بلا زون'
   return { fill, ring, opacity: row.stale ? 0.45 : 1, label }
