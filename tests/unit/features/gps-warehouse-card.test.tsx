@@ -4,15 +4,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GpsWarehouseLink } from '@sdk/gps-warehouse.sdk'
 
-const h = vi.hoisted(() => ({ link: null as GpsWarehouseLink | null, run: vi.fn(), toasts: [] as { type: string; message: string }[] }))
+const h = vi.hoisted(() => ({ link: null as GpsWarehouseLink | null, run: vi.fn(), toasts: [] as { type: string; message: string }[], space: null as unknown }))
 vi.mock('@sdk/gps-warehouse.sdk', () => ({ gpsWarehouse: { link: () => Promise.resolve(h.link), run: h.run } }))
+vi.mock('@features/space/hooks', () => ({ useSpaceOverview: () => ({ data: h.space }) }))
 vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: { type: string; message: string }) => void }) => unknown) => sel({ addToast: (t) => h.toasts.push(t) }) }))
 import GpsWarehouseCard from '@features/gps-warehouse/GpsWarehouseCard'
 
 const base: GpsWarehouseLink = { id: 1, warehouse_host: null, last_ping_at: null, last_ping_ok: null, schema_version: null, ping: null, last_registry_sync_at: null, registry_active: null, last_error_code: null, last_error_at: null, updated_at: '2026-10-29T10:00:00Z' }
 const ping = { ok: true, schema_version: 1, vehicles: 195, jobs: { queued: 30, running: 1, done: 500, failed: 2 }, raw_points: 1234567, stops: 8900, archive_files: 40, db_bytes: 52428800, settings: { min_stop_minutes: 10, max_stop_minutes: 120, fault_stop_hours: 24, cluster_radius_m: 60, raw_retention_days: 3, archive_retention_months: 6 }, server_time: '2026-10-29T10:00:00Z' }
 const ui = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><GpsWarehouseCard /></QueryClientProvider>)
-beforeEach(() => { h.run.mockReset(); h.toasts = []; h.link = { ...base } })
+beforeEach(() => { h.run.mockReset(); h.toasts = []; h.link = { ...base }; h.space = null })
 
 describe('GpsWarehouseCard (00380)', () => {
   it('قبل أول فحص: حالة «لم يُفحص بعد» + خطوات الربط، وزرا السجل/الجدولة معطّلان', async () => {
@@ -114,5 +115,44 @@ describe('GpsWarehouseCard (00380)', () => {
     ui()
     await screen.findByTestId('gps-warehouse-ping')
     expect(screen.queryByTestId('gps-warehouse-hotspots')).toBeNull()
+  })
+
+  it('00386-ب: الأخطاء حسب السبب مع الشرح، الأجهزة الأكثر فشلاً، السرعة/التقدير العام، المساحتان، إعادة محاولة الفاشلة بعد تأكيد، ونسخ تقرير التشخيص', async () => {
+    const progress = { window: { today: '2026-10-30', collecting_month: '2026-10-01', displayed_month: '2026-09-01', cutoff: '2026-09-01', keep_months: 1, auto_enqueue: true },
+      months: [{ month: '2026-10', role: 'collecting' as const, total: 6583, done: 6000, queued: 500, running: 3, failed: 80, points: 20_000_000, stops: 90_000, devices: 227, first_started_at: null, last_finished_at: null, done_last_hour: 120 }],
+      errors: [{ device_external_id: 'd-9', day: '2026-10-03', error_code: 'LVN_TIMEOUT', attempts: 6, at: '2026-10-29T08:00:00Z' }], paused: false, locked: false, stops_by_class: {},
+      error_summary: [{ error_code: 'LVN_TIMEOUT', failed: 70, retrying: 12, devices: 15, last_at: '2026-10-30T08:00:00Z' }, { error_code: 'LVN_HTTP_500', failed: 10, retrying: 0, devices: 2, last_at: '2026-10-30T07:00:00Z' }],
+      failed_devices: [{ device_external_id: 'd-9', failed_days: 20, last_error_code: 'LVN_TIMEOUT', last_at: '2026-10-30T08:00:00Z' }, { device_external_id: 'd-4', failed_days: 6, last_error_code: 'LVN_HTTP_500', last_at: null }],
+      failed_total: 80, stale_running: 2, throughput: { done_last_hour: 120, points_last_hour: 400_000, remaining: 503, eta_minutes: 252 } }
+    h.space = { db_bytes: 262144000, db_limit_bytes: 524288000, db_pct: 50, storage_bytes: 0, storage_limit_bytes: 1, storage_pct: 0, alerts: [{ level: 'warning', kind: 'warehouse_db', message: 'المستودع تجاوز 80%' }], warehouse: { configured: true, db_bytes: 440401920, db_limit_bytes: 524288000, db_pct: 84, storage_bytes: 0, storage_limit_bytes: 1, storage_pct: 0 } }
+    h.link = { ...base, warehouse_host: 'x', last_ping_at: '2026-10-30T09:00:00Z', last_ping_ok: true, schema_version: 6, last_registry_sync_at: '2026-10-29T08:00:00Z', registry_active: 227, ping: { ...ping, progress }, cron: { scheduled: true, last_run_at: null, last_status: null } }
+    ui()
+    const sum = (await screen.findByTestId('gps-warehouse-error-summary')).textContent!
+    expect(sum).toContain('فشل نهائي'); expect(sum).toContain('70'); expect(sum).toContain('بانتظار محاولة أخرى 12'); expect(sum).toContain('15 جهاز'); expect(sum).toContain('LVN_HTTP_500')
+    expect(screen.getByTestId('gps-warehouse-error-code-LVN_TIMEOUT').textContent).not.toMatch(/^LVN_TIMEOUT/)   // عنوان عربي أولاً
+    expect(screen.getByTestId('gps-warehouse-failed-devices').textContent).toContain('d-9 (20 يوم · LVN_TIMEOUT)')
+    const th = screen.getByTestId('gps-warehouse-throughput').textContent!
+    expect(th).toContain('120 يوم-جهاز/ساعة'); expect(th).toContain('400,000 نقطة'); expect(th).toContain('المتبقي 503'); expect(th).toContain('خلال 5 ساعة تقريباً'); expect(th).toContain('2 مهمة عالقة')
+    const sp = screen.getByTestId('gps-warehouse-spaces').textContent!
+    expect(sp).toContain('المشروع الأول 250.0 م.ب من 500.0 م.ب (50%)'); expect(sp).toContain('المستودع 420.0 م.ب من 500.0 م.ب (84%)'); expect(sp).toContain('تجاوز 80%')
+    // إعادة المحاولة: إلغاء ⇒ لا نداء؛ تأكيد ⇒ retry_failed
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false)
+    fireEvent.click(screen.getByTestId('gps-warehouse-retry-btn'))
+    expect(h.run).not.toHaveBeenCalled()
+    confirm.mockReturnValueOnce(true)
+    h.run.mockResolvedValue({ ok: true, action: 'retry_failed', result: { requeued: 80, month: null } })
+    fireEvent.click(screen.getByTestId('gps-warehouse-retry-btn'))
+    await waitFor(() => expect(h.run).toHaveBeenCalledWith('retry_failed', { month: undefined, limit: undefined }))
+    await waitFor(() => expect(h.toasts.at(-1)?.message).toContain('أُعيدت 80 مهمة'))
+    // تقرير التشخيص إلى الحافظة: بلا أسرار، يضم الأخطاء والمساحتين
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    fireEvent.click(screen.getByTestId('gps-warehouse-diag-btn'))
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
+    const text = writeText.mock.calls[0]![0] as string
+    expect(text).toContain('# GPS warehouse diagnostics'); expect(text).toContain('error LVN_TIMEOUT: failed=70 retrying=12 devices=15'); expect(text).toContain('month 2026-10 [collecting]: 6000/6583'); expect(text).toContain('space p2: db 420.0 MB/500.0 MB (84%)'); expect(text).toContain('throughput: 120 jobs/h')
+    expect(text).not.toMatch(/sb_secret|eyJ/)
+    await waitFor(() => expect(h.toasts.at(-1)?.message).toContain('نُسخ تقرير التشخيص'))
+    confirm.mockRestore()
   })
 })

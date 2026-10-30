@@ -18,6 +18,7 @@ export function useGpsWarehouseAction() {
         : r.action === 'pull' ? (r.skipped === 'paused' ? 'السحب متوقف مؤقتاً — اضغط «استئناف»' : r.skipped === 'locked' ? 'دورة سحب أخرى تعمل الآن — انتظر دقيقة' : `دفعة سحب: ${r.jobs ?? 0} مهمة · ${(r.results ?? []).filter((x) => !x.error && !x.partial).length} اكتملت · ${(r.results ?? []).filter((x) => x.error).length} فشلت`)
         : r.action === 'sync_hotspots' ? `نُسخت البقع: ${(r.rows ?? 0).toLocaleString('en')} بقعة${r.pending ? ` · ${r.pending} بانتظار التجميع في الدورة التالية` : ''}`
         : r.action === 'rebuild_hotspots' ? 'أُعيد بناء بقع الشهر — ستُجمَّع من جديد مع دورة الصيانة'
+        : r.action === 'retry_failed' ? `أُعيدت ${String(r.result?.requeued ?? 0)} مهمة فاشلة إلى الطابور — ستُسحب مع الدورات التالية`
         : r.action === 'pause' ? 'أُوقف السحب مؤقتاً' : 'استُؤنف السحب'
       toast({ type: 'success', message: msg })
     },

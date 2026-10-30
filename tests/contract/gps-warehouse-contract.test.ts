@@ -85,4 +85,20 @@ describe('gps-warehouse contract (00380)', () => {
     expect(fn).toContain("record('hotspots', true, result)")
     expect(fn).not.toMatch(/wh_raw_points|wh_day_points'\)[\s\S]*gps_hotspots/)                 // لا نقاط خام تُنسخ للمشروع الأول
   })
+
+  it('00386-ب: مراقبة السحب — ملخص الأخطاء/الأجهزة/العالقة/التقدير في wh_progress، إعادة المحاولة داخل النافذة وللخدمة فقط، إجراء الحافة لـ IT، والتشخيص بلا أسرار', () => {
+    const mon = readFileSync('gps-warehouse/supabase/migrations/0006_monitoring.sql', 'utf8')
+    const diag = readFileSync('src/features/gps-warehouse/diagnostics.ts', 'utf8')
+    const card = readFileSync('src/features/gps-warehouse/GpsWarehouseCard.tsx', 'utf8')
+    expect(mon).toContain("values (6,")
+    for (const k of ['error_summary', 'failed_devices', 'failed_total', 'stale_running', 'throughput', 'eta_minutes']) expect(mon).toContain(`'${k}'`)
+    expect(mon).toMatch(/wh_retry_failed[\s\S]*status = 'failed' and day >= cutoff/)          // لا يُعيد ما خرج من النافذة
+    expect(mon).toMatch(/revoke all on function public\.wh_retry_failed\(date\), public\.wh_progress\(\) from public, anon, authenticated/)
+    expect(fn).toContain("'retry_failed'"); expect(fn).toMatch(/action === 'retry_failed'[\s\S]*whRpc<Record<string, unknown>>\('wh_retry_failed'/)
+    expect(fn).toMatch(/const allowed = action === 'ping' \? READ_ROLES : WRITE_ROLES/)         // الإعادة كتابة ⇒ IT فقط
+    expect(card).toContain('window.confirm(')                                                      // إعادة المحاولة بتأكيد
+    expect(card).toContain('useSpaceOverview()'); expect(card).toContain('data-testid="gps-warehouse-spaces"')
+    expect(diag).not.toMatch(/service|secret|key/i)                                               // التقرير لا يعرف أي مفتاح
+    expect(mon).not.toMatch(/sb_secret_|eyJ[A-Za-z0-9_-]{10,}\./)
+  })
 })

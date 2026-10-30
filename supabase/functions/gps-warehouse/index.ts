@@ -15,7 +15,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
   WH_URL = (Deno.env.get('GPS_WAREHOUSE_URL') ?? '').replace(/\/$/, ''),
   WH_KEY = Deno.env.get('GPS_WAREHOUSE_SERVICE_KEY') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots'
+type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed'
 const READ_ROLES = ['ops_room', 'it_admin', 'super_admin'], WRITE_ROLES = ['it_admin', 'super_admin']
 
 const response = (body: unknown, status = 200) =>
@@ -225,6 +225,14 @@ Deno.serve(async (req) => {
     if (action === 'sync_hotspots') {
       // المجدول الليلي (مفتاح الخدمة) أو IT يدوياً — يُنسخ الملخص فقط، لا نقاط ولا توقفات خام
       return response(await syncHotspots())
+    }
+    if (action === 'retry_failed') {
+      // 00386-ب: إعادة المهام الفاشلة نهائياً (داخل النافذة) إلى الطابور — IT يدوياً فقط
+      if (body.month && !/^\d{4}-\d{2}(-\d{2})?$/.test(body.month)) return response({ error: 'GPS_WAREHOUSE_MONTH_INVALID' }, 400)
+      const month = body.month ? (body.month.length === 7 ? `${body.month}-01` : body.month) : null
+      const result = await whRpc<Record<string, unknown>>('wh_retry_failed', { p_month: month })
+      await whRpc<Record<string, unknown>>('wh_ping').then((p) => record('ping', true, p)).catch(() => null)
+      return response({ ok: true, action, result })
     }
     if (action === 'rebuild_hotspots') {
       if (!body.month || !/^\d{4}-\d{2}(-\d{2})?$/.test(body.month)) return response({ error: 'GPS_WAREHOUSE_MONTH_INVALID' }, 400)

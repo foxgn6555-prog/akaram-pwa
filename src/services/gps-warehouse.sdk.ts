@@ -40,6 +40,12 @@ export interface GpsWarehouseProgress {
   months: GpsWarehouseMonthProgress[]
   errors: { device_external_id: string; day: string; error_code: string; attempts: number; at: string | null }[]
   paused: boolean; locked: boolean
+  /** 00386-ب: مراقبة السحب */
+  error_summary?: { error_code: string; failed: number; retrying: number; devices: number; last_at: string | null }[]
+  failed_devices?: { device_external_id: string; failed_days: number; last_error_code: string | null; last_at: string | null }[]
+  failed_total?: number
+  stale_running?: number
+  throughput?: { done_last_hour: number; points_last_hour: number; remaining: number; eta_minutes: number | null }
   stops_by_class: Partial<Record<'pending' | 'short' | 'valid' | 'long' | 'fault', number>>
 }
 export interface GpsWarehousePing {
@@ -59,7 +65,7 @@ export interface GpsWarehousePing {
   progress?: GpsWarehouseProgress
   server_time: string
 }
-export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots'
+export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed'
 export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number; rows?: number; by_month?: Record<string, number>; pending?: number }
 
 async function toError(error: unknown): Promise<LvnSyncError> {

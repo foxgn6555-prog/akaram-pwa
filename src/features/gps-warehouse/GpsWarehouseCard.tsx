@@ -2,13 +2,17 @@
  * 00380 — بطاقة «مستودع GPS التحليلي» في بوابة IT (سلامة تكامل GPS):
  * حالة الربط بالمشروع الثاني، فحص الاتصال، إرسال سجل الآليات، جدولة شهر للسحب، و(00381) تقدّم السحب الشهري،
  * حالة المجدول، سحب دفعة يدوياً، إيقاف/استئناف.
+ * 00386-ب: الأخطاء حسب السبب، إعادة محاولة الفاشلة، المساحتان معاً، ونسخ تقرير التشخيص.
  * لا مفاتيح هنا: الأسرار تُضبط من لوحة Supabase فقط.
  */
 import { useState } from 'react'
-import { Database, Pause, Play, RefreshCw } from 'lucide-react'
+import { ClipboardCopy, Database, Pause, Play, RefreshCw, RotateCcw } from 'lucide-react'
 import { useGpsWarehouseAction, useGpsWarehouseLink } from '@features/gps-warehouse/hooks'
 import { explainLvnError } from '@features/gps-lvn/lvn-errors'
 import type { GpsWarehouseMonthProgress } from '@sdk/gps-warehouse.sdk'
+import { useSpaceOverview } from '@features/space/hooks'
+import { useUiStore } from '@stores/ui.store'
+import { buildWarehouseDiagnostics } from './diagnostics'
 
 const GPS_WAREHOUSE_MONTH_ROLE: Record<NonNullable<GpsWarehouseMonthProgress['role']>, string> = { displayed: 'المعروض', collecting: 'قيد التجميع', kept: 'محفوظ', expired: 'خارج النافذة — يُمسح' }
 
@@ -26,10 +30,19 @@ export default function GpsWarehouseCard() {
   const tone = state === 'ok' ? 'bg-emerald-100 text-emerald-800' : state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-700'
   const err = link?.last_error_code ? explainLvnError(link.last_error_code) : null
   const busy = act.isPending
-  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
+  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'retry_failed') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
   const progress = ping?.progress ?? null
   const paused = Boolean(progress?.paused ?? ping?.settings.paused)
   const cron = link?.cron ?? null
+  const spaceQ = useSpaceOverview()
+  const toast = useUiStore((st) => st.addToast)
+  const failedTotal = progress?.failed_total ?? progress?.months.reduce((a, m) => a + m.failed, 0) ?? 0
+  const retryFailed = () => { if (window.confirm(`إعادة ${failedTotal} مهمة فاشلة إلى الطابور؟ ستُسحب من جديد مع الدورات التالية.`)) run('retry_failed') }
+  const copyDiagnostics = async () => {
+    const text = buildWarehouseDiagnostics(link ?? null, spaceQ.data ?? null)
+    try { await navigator.clipboard.writeText(text); toast({ type: 'success', message: 'نُسخ تقرير التشخيص — الصقه في المحادثة' }) }
+    catch { window.prompt('انسخ النص التالي:', text) }
+  }
   return (
     <article className="rounded-[1.75rem] border bg-white shadow-sm" data-testid="gps-warehouse-card" data-state={state}>
       <div className="flex items-center justify-between gap-3 p-4">
@@ -106,6 +119,36 @@ export default function GpsWarehouseCard() {
               })}</tbody></table>
           )}
           <p className="mt-2 text-[10px] text-slate-500">التوقفات حسب الصنف: صالحة {progress.stops_by_class.valid ?? 0} · طويلة (&gt; الحد الأقصى، مستبعدة) {progress.stops_by_class.long ?? 0} · عطل مشتبه (≥ يوم، مستبعدة) {progress.stops_by_class.fault ?? 0}</p>
+          {progress.throughput && (
+            <p className="mt-2 rounded-xl bg-slate-50 p-2 text-[10px] text-slate-700" data-testid="gps-warehouse-throughput">
+              <b>الإجمالي:</b> السرعة الحالية {progress.throughput.done_last_hour} يوم-جهاز/ساعة ({progress.throughput.points_last_hour.toLocaleString('en')} نقطة) · المتبقي {progress.throughput.remaining.toLocaleString('en')} مهمة
+              {' · '}{progress.throughput.remaining === 0 ? 'لا شيء بانتظار' : progress.throughput.eta_minutes == null ? 'التقدير غير متاح بعد (لا إنجاز في الساعة الأخيرة)' : progress.throughput.eta_minutes < 60 ? `يكتمل خلال ${progress.throughput.eta_minutes} دقيقة تقريباً` : progress.throughput.eta_minutes < 2880 ? `يكتمل خلال ${Math.ceil(progress.throughput.eta_minutes / 60)} ساعة تقريباً` : `يكتمل خلال ${Math.ceil(progress.throughput.eta_minutes / 1440)} يوماً تقريباً`}
+              {(progress.stale_running ?? 0) > 0 ? ` · ${progress.stale_running} مهمة عالقة (تُحرَّر تلقائياً في الدورة التالية)` : ''}
+            </p>
+          )}
+          {spaceQ.data && (
+            <p className="mt-2 rounded-xl bg-slate-50 p-2 text-[10px] text-slate-700" data-testid="gps-warehouse-spaces">
+              <b>المساحتان:</b> المشروع الأول {mb(spaceQ.data.db_bytes)} من {mb(spaceQ.data.db_limit_bytes)} ({spaceQ.data.db_pct}%)
+              {spaceQ.data.warehouse.configured ? <> · المستودع {mb(spaceQ.data.warehouse.db_bytes)} من {mb(spaceQ.data.warehouse.db_limit_bytes)} ({spaceQ.data.warehouse.db_pct}%)</> : ' · المستودع غير مربوط'}
+              {spaceQ.data.alerts.length > 0 ? <span className="font-black text-rose-700"> · تنبيهات: {spaceQ.data.alerts.map((a) => a.message).join(' / ')}</span> : null}
+            </p>
+          )}
+          {(progress.error_summary?.length ?? 0) > 0 && (
+            <div className="mt-2 rounded-xl border border-rose-100 bg-rose-50/40 p-2" data-testid="gps-warehouse-error-summary">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <b className="text-rose-900">الأخطاء حسب السبب</b>
+                {failedTotal > 0 && <button type="button" onClick={retryFailed} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-2 py-1 text-[10px] font-black text-rose-800 disabled:opacity-50" data-testid="gps-warehouse-retry-btn"><RotateCcw size={12} />إعادة محاولة الفاشلة ({failedTotal})</button>}
+              </div>
+              <ul className="mt-1 space-y-1">{progress.error_summary!.map((e) => { const x = explainLvnError(e.error_code); return (
+                <li key={e.error_code} className="rounded-lg bg-white p-1.5" data-testid={`gps-warehouse-error-code-${e.error_code}`}>
+                  <b>{x.title}</b> <span className="text-slate-500">({e.error_code})</span> — فشل نهائي <b className="text-rose-700">{e.failed}</b> · بانتظار محاولة أخرى {e.retrying} · {e.devices} جهاز · آخرها {fmt(e.last_at)}
+                  <span className="block text-[10px] text-slate-600">{x.cause} <b>{x.action}</b></span>
+                </li>) })}</ul>
+              {(progress.failed_devices?.length ?? 0) > 0 && (
+                <p className="mt-1 text-[10px] text-slate-700" data-testid="gps-warehouse-failed-devices"><b>الأجهزة الأكثر فشلاً:</b> {progress.failed_devices!.map((d) => `${d.device_external_id} (${d.failed_days} يوم${d.last_error_code ? ` · ${d.last_error_code}` : ''})`).join(' · ')}</p>
+              )}
+            </div>
+          )}
           {progress.errors.length > 0 && (
             <details className="mt-2"><summary className="cursor-pointer font-bold text-rose-800">آخر الأخطاء ({progress.errors.length})</summary>
               <ul className="mt-1 space-y-0.5" data-testid="gps-warehouse-errors">{progress.errors.map((e, i) => { const x = explainLvnError(e.error_code); return <li key={i}><span dir="ltr">{e.day}</span> · {e.device_external_id} · <b>{x.title}</b> <span className="text-slate-500">({e.error_code} · محاولة {e.attempts})</span></li> })}</ul>
@@ -140,6 +183,7 @@ export default function GpsWarehouseCard() {
         {paused
           ? <button type="button" onClick={() => run('resume')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-emerald-800 disabled:opacity-50" data-testid="gps-warehouse-resume-btn"><Play size={14} />استئناف السحب</button>
           : <button type="button" onClick={() => run('pause')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-rose-800 disabled:opacity-50" data-testid="gps-warehouse-pause-btn"><Pause size={14} />إيقاف مؤقت</button>}
+        <button type="button" onClick={() => void copyDiagnostics()} disabled={!link} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-diag-btn"><ClipboardCopy size={14} />نسخ تقرير التشخيص</button>
         <button type="button" onClick={() => run('sync_hotspots')} disabled={busy || state !== 'ok'} className="rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-hotspots-btn">نسخ البقع الآن</button>
         <span className="text-[10px] font-normal text-slate-400">السحب يجري تلقائياً كل دقيقة (3 أيام-جهاز في الدقيقة)؛ «سحب دفعة الآن» لا يلزم إلا للتجربة.</span>
       </div>
