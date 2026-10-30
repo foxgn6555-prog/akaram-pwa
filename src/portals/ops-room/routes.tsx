@@ -17,6 +17,7 @@ const OpsContractorHeadcounts = lazy(() => import('./pages/ContractorHeadcounts/
 const OpsLeaves = lazy(() => import('./pages/Leaves/OpsLeavesPage'))   // 00239: طلبات الإجازة
 const OpsLiveTracking = lazy(() => import('./pages/LiveTracking/OpsLiveTrackingPage'))   // 00287: البث المباشر
 const OpsLiveData = lazy(() => import('./pages/LiveTracking/OpsLiveDataPage'))   // 00288: بيانات البث المباشر
+const OpsWasteMap = lazy(() => import('./pages/WasteMap/OpsWasteMapPage'))   // 00384: خريطة النفايات (بقع التوقف)
 const OpsStationFleet = lazy(() => import('./pages/StationFleet/OpsStationFleetPage'))   // 00329: أسطول المحطة التحويلية
 const OpsStationOutbound = lazy(() => import('./pages/StationFleet/OpsStationOutboundPage'))   // 00331: متابعة خروج آليات المحطة
 const FleetDatabase = lazy(() =>
@@ -58,4 +59,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'leaves', element: load(<OpsLeaves />) },
   { path: 'live-tracking', element: load(<OpsLiveTracking />) },
   { path: 'live-tracking/data', element: load(<OpsLiveData />) },
+  { path: 'waste-map', element: load(<OpsWasteMap />) },
 ]

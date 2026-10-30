@@ -182,6 +182,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'ops-room.advances': ['create'],
   'ops-room.contractor-headcounts': ['decide'],
   'ops-room.leaves': ['decide'],
+  'ops-room.waste-map': ['export'],   // 00384/00385
   // الشكاوى
   'complaints.karrada-sector': ['create', 'edit'],
   'complaints.zaafaraniya-sector': ['create', 'edit'],

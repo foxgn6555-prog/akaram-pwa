@@ -456,6 +456,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/leaves', labelKey: 'nav.ops_leaves', icon: 'calendar' },   // 00239
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
+    { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
   ],
 
   // ═══ وحدة الكشوفات ═══
