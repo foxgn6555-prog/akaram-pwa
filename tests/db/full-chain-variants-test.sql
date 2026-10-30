@@ -152,18 +152,18 @@ do $$ declare m date := current_setting('test.fv_m')::date; before_amt numeric; 
   raise notice 'S6 ✅ الاعتماد والقفل والثبات بعد تغيير السياسة';
 end $$;
 
--- ═══ S7 · الشهر الحالي الجزئي: الشهري يُتناسب حتى أمس؛ القسط الثابت يستمر؛ قسط النسبة يُحسب من إجمالي الشهر الجديد ═══
+-- ═══ S7 · الشهر الحالي الجزئي: الشهري لا يُتناسب (00392: الأيام المتبقية مفترضة ⇒ الشهر كامل)؛ القسط الثابت يستمر؛ قسط النسبة يُحسب من إجمالي الشهر الجديد ═══
 select auth.set_test_user('fd000000-0000-0000-0000-000000000001');
-do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; d record; cov int := greatest(0, current_date - m); begin
+do $$ declare m date := date_trunc('month', app.hr_local_date(now()))::date; x uuid; r record; d record; cov int := greatest(0, app.hr_local_date(now()) - m); begin
   perform public.ops_attendance_confirm(m);
   x := public.ops_month_export(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fd000000-0000-0000-0000-0000000000e9';
   assert r.covered_days = cov, 'S7 covered ' || r.covered_days || ' vs ' || cov;
   if cov > 0 then
-    assert r.gross_amount = least(900000, round(round(900000 / 30.0, 4) * cov, 2)), 'S7 prorated gross: ' || r.gross_amount;
+    assert r.proration_ratio = 1 and r.days_presumed > 0 and r.gross_amount = 900000, 'S7 full-month gross (00392): ' || row_to_json(r)::text;
     assert r.advance_installment = least(50000, r.proposed_net + r.advance_installment), 'S7 fixed installment continues: ' || r.advance_installment;
   else
-    assert r.gross_amount = 0 and r.advance_installment = 0, 'S7 day-1 month: nothing due';
+    assert r.gross_amount = 900000 and r.days_presumed = r.days_in_month, 'S7 day-1 month: full month presumed (00392)';
   end if;
   select * into d from public.hr_month_export_rows where export_id = x and employee_id = 'fd000000-0000-0000-0000-0000000000e6';
   assert d.gross_amount = 30000 + 25000 * d.days_present and d.advance_installment = least(87000, round(d.gross_amount * 0.10)), 'S7 daily percent: ' || row_to_json(d)::text;

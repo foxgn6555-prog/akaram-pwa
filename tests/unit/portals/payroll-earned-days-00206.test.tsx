@@ -138,6 +138,19 @@ describe('كشف المالية: معادلة نموذج الأيام المست
     expect(f.textContent).toContain('183,333.33')
     expect(screen.queryByTestId('ps-prorated')).toBeNull()
   })
+  it('00392: التصدير يوم 30 من شهر 31 يوماً — 29 حاضر + إجازة مدفوعة يوم 31 + يوم 30 مفترض ⇒ 31/31 والراتب كامل 500,000 لا 467,742', () => {
+    h.sheet = [row({ days_present: 29, days_absent: 0, auto_absence_days: 0, days_leave: 1, days_leave_paid: 1, days_presumed: 1, covered_days: 29, days_in_month: 31, day_rate: 16129.0323, proration_ratio: 1, payable_days: 31, period_from: '2026-10-01', period_to: '2026-10-29', shift_minutes: 360, allowances_total: 31000, gross_amount: 531000, proposed_net: 526000 })]
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    expect(screen.getByTestId('ps-payable-E-1').textContent).toBe('مستحق 31/31')
+    expect(screen.getByTestId('ps-gross-E-1').textContent).toContain('531,000')
+    fireEvent.click(screen.getByTestId('ps-days-E-1'))
+    const f = screen.getByTestId('ps-formula')
+    expect(within(f).getByTestId('ps-earned').textContent).toContain('31 يوم مستحق (حاضر 29 + إجازة مدفوعة 1 + 1 يوم متبقٍ من الشهر مفترض حضوره) من 31')
+    expect(within(f).getByTestId('ps-presumed').textContent).toContain('1 يوم بعد تاريخ التصدير (2026-10-29 ← آخر الشهر) تُفترض مدفوعة')
+    expect(f.textContent).toContain('= 500,000')
+    expect(f.textContent).not.toContain('467,742')
+    expect(screen.queryByTestId('ps-prorated')).toBeNull()
+  })
   it('شرح صف التحقق يذكر الأيام المستحقة وأيام الشهر', () => {
     const rc = { pay_type: 'monthly', gross_expected: 194333.33, deductions_expected: 5000, net_expected: 189333.33, components: { salary_model: 'earned_days', base_salary: 500000, day_rate: 16666.6667, payable_days: 11, days_in_month: 30, allowances: 11000, fixed_deductions: 5000, ops_amount: 0, ops_days_amount: 0, auto_amount: 0, advance: 0 } } as unknown as PayrollReconcileRow
     const t = explainRow(rc)

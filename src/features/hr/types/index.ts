@@ -473,6 +473,8 @@ export interface PayrollSheetRow extends OpsExportRow {
   /** 00353 — ساعات العمل الإضافي المصروفة بقرار المعاون: تُضاف إلى الصافي فقط (لا إجمالي ولا ضريبة) */
   overtime_amount?: number | null
   overtime_paid_minutes?: number | null
+  /** 00392: أيام الشهر المتبقية بعد يوم التصدير المفترض دفعها للشهري (لم تُقيَّم بعد) */
+  days_presumed?: number | null
   /** 00300: ما زاد من الاستقطاعات على الإجمالي — يُرحَّل تلقائياً إلى أول شهر مفتوح عند اعتماد المالية */
   uncollected_amount?: number | null
   export_id: string

@@ -44,7 +44,7 @@ vi.mock('@sdk/hr.sdk', () => ({ hr: { uploadLeaveAttachment: vi.fn(async () => '
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }) }))
 // 00391: معاينة سلسلة الموافقات داخل نموذج الطلب
 const diag = vi.hoisted(() => ({ data: { employee: { id: 'e1', full_name: 'أحمد', employee_number: 'E1', department_id: 'd1', department_name: 'النقل', has_account: true, roles: ['employee'], manager_id: 'm1', manager_name: 'سعد', manager_has_account: true },
-  type: 'leave', subtype: null, chain: null, steps: [], active_steps: 0, department_path: [], checks: [], ok: true, fallback: 'manager', reason: 'لا سلسلة — يعتمد الطلب المدير المباشر (سعد)', hints: [] }, calls: [] as unknown[] }))
+  type: 'leave', subtype: null, chain: null, steps: [], active_steps: 0, department_path: [], checks: [], ok: true, fallback: 'manager', reason: 'لا سلسلة — يعتمد الطلب المدير المباشر (سعد)', hints: [] }, calls: [] as unknown[][] }))
 vi.mock('@features/sector-manager/hooks', () => ({ useApprovalDiagnose: (...a: unknown[]) => { diag.calls.push(a); return { data: diag.data, isLoading: false, isError: false } } }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useHrPolicy: () => ({ data: h.policy, isLoading: false }),
