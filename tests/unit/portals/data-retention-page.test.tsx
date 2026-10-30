@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   save: vi.fn(), scan: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), exp: vi.fn(), run: vi.fn(), postpone: vi.fn(), runPending: false,
   settings: [] as Record<string, unknown>[], requests: [] as Record<string, unknown>[],
+  gpsSet: vi.fn(), gpsRun: vi.fn(), gps: null as Record<string, unknown> | null,
 }))
 vi.mock('@features/data-retention/hooks', () => ({
   useRetentionSettings: () => ({ data: h.settings, isLoading: false, isError: false, refetch: vi.fn() }),
@@ -15,6 +16,9 @@ vi.mock('@features/data-retention/hooks', () => ({
   useBrowserExport: () => ({ mutate: h.exp, isPending: false }),
   useRunRetentionDelete: () => ({ mutate: h.run, isPending: h.runPending }),
   usePostponeRetention: () => ({ mutate: h.postpone, isPending: false }),
+  useGpsHistoryPurge: () => ({ data: h.gps, isLoading: false }),
+  useSetGpsHistoryPurge: () => ({ mutate: h.gpsSet, isPending: false }),
+  useRunGpsHistoryPurge: () => ({ mutate: h.gpsRun, isPending: false }),
 }))
 import DataRetentionPage from '@portals/it/pages/DataRetention/DataRetentionPage'
 import { PORTAL_UNITS } from '@config/portals.config'
@@ -207,5 +211,39 @@ describe('DataRetentionPage (00325)', () => {
     render(<DataRetentionPage />)
     expect(screen.queryByTestId('ret-auto-banner')).toBeNull()
     expect(screen.queryByTestId('ret-postpone')).toBeNull()
+  })
+
+  it('00382-أ: بطاقة التفريغ اليومي داخل مجموعة GPS فقط: الحالة والأرقام، المفتاح ينادي الضبط، و«تفريغ الآن» بتأكيد', () => {
+    h.settings = [policy, gpsPolicy]
+    h.gps = { enabled: true, scheduled: true, runs_at: '00:00 بغداد', runs_count: 12, last_run_at: '2026-10-29T21:00:00Z', last_rows: 310000, last_bytes_before: 40 * 1024 * 1024, last_bytes_after: 8192, last_error: null,
+      last_freed_bytes: 40 * 1024 * 1024 - 8192, current_rows: 1500, current_bytes: 2 * 1024 * 1024, updated_at: '2026-10-29T21:00:00Z' }
+    render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    const card = screen.getByTestId('ret-gps-purge')
+    expect(screen.getByTestId('ret-portal-gps').contains(card)).toBe(true)
+    expect(screen.getByTestId('ret-portal-it').querySelector('[data-testid="ret-gps-purge"]')).toBeNull()
+    expect(screen.getByTestId('ret-gps-purge-current').textContent).toContain('1,500')
+    expect(card.textContent).toContain('310,000 نقطة'); expect(card.textContent).toContain('00:00 بغداد')
+    expect(screen.getByTestId('ret-gps-purge-cron').textContent).toContain('يعمل · 12 مرة')
+    fireEvent.click(screen.getByTestId('ret-gps-purge-enabled'))
+    expect(h.gpsSet).toHaveBeenCalledWith(false)
+    fireEvent.click(screen.getByTestId('ret-gps-purge-run'))
+    expect(h.gpsRun).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('ret-gps-purge-yes'))
+    expect(h.gpsRun).toHaveBeenCalledTimes(1)
+  })
+  it('00382-أ: المجدول غير مفعّل يظهر تحذيراً، والبطاقة لا تظهر قبل تحميل حالتها', () => {
+    h.settings = [policy, gpsPolicy]
+    h.gps = null
+    const { unmount } = render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    expect(screen.queryByTestId('ret-gps-purge')).toBeNull()
+    unmount()
+    h.gps = { enabled: false, scheduled: false, runs_at: '00:00 بغداد', runs_count: 0, last_run_at: null, last_rows: null, last_bytes_before: null, last_bytes_after: null, last_error: 'permission denied', last_freed_bytes: 0, current_rows: 0, current_bytes: 8192, updated_at: '2026-10-29T21:00:00Z' }
+    render(<DataRetentionPage />)
+    fireEvent.click(screen.getByTestId('ret-tab-policies'))
+    expect(screen.getByTestId('ret-gps-purge-cron').textContent).toContain('غير مفعّل')
+    expect(screen.getByTestId('ret-gps-purge-error').textContent).toContain('permission denied')
+    expect((screen.getByTestId('ret-gps-purge-run') as HTMLButtonElement).disabled).toBe(true)
   })
 })

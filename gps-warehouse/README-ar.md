@@ -20,6 +20,10 @@
 - كل دورة: 3 مهام (جهاز × يوم) على قطع 3 ساعات من LVN، إدخال في `wh_raw_points`، حساب توقفات اليوم فوراً في `wh_stops`، أرشفة الأيام المنجزة مضغوطة في دلو `gps-archive`، وحذف الخام الأقدم من 3 أيام.
 - الأرشيف: `YYYY/MM/YYYY-MM-DD/<device>.json.gz` — `{v, device, day, cols:[epoch,lat,lng,speed,course], points:[[...]]}`.
 
+## الجولة 00382-أ
+- طبّق `0003_ping_storage.sql` على المشروع الثاني (SQL Editor): الفحص يضم حجم التخزين وعدد الملفات ⇒ تظهر قاعدة المستودع وتخزينه في لوحة المساحة ببوابة IT.
+- في المشروع الأول (هجرة `00328`): نقاط GPS التفصيلية تُفرَّغ كلياً كل يوم 00:00 بغداد — البند في وحدة الأرشيف ← GPS.
+
 ## الاختبار محلياً
 ```
 rm -rf /tmp/epgdata; MIGRATIONS_DIR=gps-warehouse/supabase/migrations node scripts/db-migrations-test.mjs tests/db-warehouse/pull-engine-test.sql

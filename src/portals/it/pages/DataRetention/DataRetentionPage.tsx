@@ -5,7 +5,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { formatDate, formatDateTime } from '@lib/utils/date.utils'
 import { RETENTION_OPEN, RETENTION_STATUS_LABEL, type RetentionPolicy, type RetentionRequest } from '@sdk/data-retention.sdk'
-import { useBrowserExport, useCancelRetention, useConfirmRetention, useRetentionRequests, useRetentionScanNow, useRetentionSettings, usePostponeRetention, useRunRetentionDelete, useSetRetentionPolicy } from '@features/data-retention/hooks'
+import { useBrowserExport, useCancelRetention, useConfirmRetention, useGpsHistoryPurge, useRetentionRequests, useRetentionScanNow, useRetentionSettings, usePostponeRetention, useRunGpsHistoryPurge, useRunRetentionDelete, useSetGpsHistoryPurge, useSetRetentionPolicy } from '@features/data-retention/hooks'
 import { browserPullSupported } from '@features/cold-archive/browser-pull'
 import type { ExportProgress } from '@features/data-retention/browser-export'
 
@@ -210,6 +210,51 @@ function Stat({ label, value, strong = false, icon }: { label: string; value: st
 }
 
 /* ─────────────── السياسات (00340: كل الجداول مجمّعة حسب البوابة) ─────────────── */
+/* ─────────────── 00382-أ: التفريغ اليومي لنقاط GPS التفصيلية ─────────────── */
+const mb = (b: number) => `${(Math.max(0, b) / (1024 * 1024)).toLocaleString('en-US', { maximumFractionDigits: 1 })} م.ب`
+function GpsHistoryPurgeCard() {
+  const q = useGpsHistoryPurge()
+  const set = useSetGpsHistoryPurge()
+  const run = useRunGpsHistoryPurge()
+  const [confirm, setConfirm] = useState(false)
+  const d = q.data
+  if (!d) return null
+  return (
+    <article className={clsx('rounded-2xl p-4 ring-1', d.enabled ? 'bg-emerald-50/60 ring-emerald-200' : 'bg-amber-50/60 ring-amber-200')} data-testid="ret-gps-purge">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="inline-flex items-center gap-2 text-sm font-black text-slate-900"><Trash2 size={16} className={d.enabled ? 'text-emerald-700' : 'text-amber-700'} /> نقاط GPS التفصيلية — تفريغ كامل يومياً {d.runs_at}</h3>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-700">
+            موقع كل آلية كل دقيقة (<span dir="ltr" className="font-mono">gps_device_position_history</span>). لا قيمة له بعد يومه: مسارات الانطلاقيات في جدولها المستقل، وآخر موقع للخريطة محفوظ، ونقاط النفايات في المستودع.
+            يُفرَّغ الجدول كلياً (truncate) فتعود المساحة <b>فوراً</b> بلا بقايا ولا حاجة للضغط، ويُسجَّل كل تفريغ في سجل الأحداث كإثبات.
+          </p>
+        </div>
+        <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-800">
+          <input type="checkbox" checked={d.enabled} disabled={set.isPending} onChange={(e) => set.mutate(e.target.checked)} data-testid="ret-gps-purge-enabled" className="h-4 w-4" /> مفعّل
+        </label>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
+        <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">الآن في الجدول</div><div className="font-black text-slate-900" dir="ltr" data-testid="ret-gps-purge-current">{num(d.current_rows)} · {mb(d.current_bytes)}</div></div>
+        <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">آخر تفريغ</div><div className="font-black text-slate-900" data-testid="ret-gps-purge-last">{d.last_run_at ? formatDateTime(d.last_run_at) : '—'}</div></div>
+        <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">حُرِّر آخر مرة</div><div className="font-black text-emerald-800" dir="ltr">{d.last_run_at ? `${num(d.last_rows ?? 0)} نقطة · ${mb(d.last_freed_bytes)}` : '—'}</div></div>
+        <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">المجدول</div><div className={clsx('font-black', d.scheduled ? 'text-emerald-800' : 'text-amber-800')} data-testid="ret-gps-purge-cron">{d.scheduled ? `يعمل · ${num(d.runs_count)} مرة` : 'غير مفعّل (pg_cron)'}</div></div>
+      </div>
+      {d.last_error && <p className="mt-2 rounded-xl bg-rose-50 p-2 text-xs font-bold text-rose-900" data-testid="ret-gps-purge-error">آخر محاولة فشلت: {d.last_error}</p>}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {confirm ? (
+          <>
+            <span className="text-xs font-bold text-rose-800">سيُحذف كل ما في الجدول الآن ({num(d.current_rows)} نقطة) — متابعة؟</span>
+            <button type="button" disabled={run.isPending} onClick={() => { run.mutate(undefined); setConfirm(false) }} data-testid="ret-gps-purge-yes" className="h-9 rounded-xl bg-rose-700 px-3 text-xs font-bold text-white disabled:opacity-50">نعم، فرِّغ الآن</button>
+            <button type="button" onClick={() => setConfirm(false)} className="h-9 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-300">لا</button>
+          </>
+        ) : (
+          <button type="button" disabled={run.isPending || d.current_rows === 0} onClick={() => setConfirm(true)} data-testid="ret-gps-purge-run" className="inline-flex h-9 items-center gap-1 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50"><Trash2 size={14} /> تفريغ الآن</button>
+        )}
+      </div>
+    </article>
+  )
+}
+
 function PoliciesTab() {
   const q = useRetentionSettings()
   const [query, setQuery] = useState('')
@@ -259,7 +304,10 @@ function PoliciesTab() {
               {g.items.some((p) => !p.deletable) && <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600"><Lock size={11} /> مقفلة {num(g.items.filter((p) => !p.deletable).length)}</span>}
             </span>
           </summary>
-          <div className="space-y-3 px-4 pb-4">{g.items.map((p) => (p.deletable ? <PolicyCard key={p.data_key} p={p} /> : <LockedCard key={p.data_key} p={p} />))}</div>
+          <div className="space-y-3 px-4 pb-4">
+            {g.key === 'gps' && <GpsHistoryPurgeCard />}
+            {g.items.map((p) => (p.deletable ? <PolicyCard key={p.data_key} p={p} /> : <LockedCard key={p.data_key} p={p} />))}
+          </div>
         </details>
       ))}
     </div>

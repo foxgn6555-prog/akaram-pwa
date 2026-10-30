@@ -83,7 +83,7 @@ begin
   js := public.wh_progress();
   if (js -> 'months' -> 0 ->> 'done')::int < 3 or (js -> 'stops_by_class' ->> 'fault')::int <> 1 or (js -> 'stops_by_class' ->> 'long')::int <> 1 or (js -> 'stops_by_class' ->> 'valid')::int <> 2 or (js -> 'stops_by_class' ->> 'pending')::int <> 1 then raise exception 'E8 progress %', js; end if;
   if not exists (select 1 from jsonb_array_elements(js -> 'errors') e where e ->> 'error_code' in ('LVN_TIMEOUT', 'WH_JOB_STALE')) then raise exception 'E8 errors'; end if;
-  js := public.wh_ping(); if (js ->> 'schema_version')::int <> 2 or js -> 'progress' -> 'months' is null or (js ->> 'archive_files')::int <> 1 or js -> 'settings' ? 'pull_locked_until' then raise exception 'E8 ping %', js; end if;
+  js := public.wh_ping(); if (js ->> 'schema_version')::int < 2 or js -> 'progress' -> 'months' is null or (js ->> 'archive_files')::int <> 1 or js -> 'settings' ? 'pull_locked_until' then raise exception 'E8 ping %', js; end if;
   if has_function_privilege('authenticated', 'public.wh_jobs_claim(int)', 'execute') then raise exception 'E8 grant'; end if;
   raise notice 'pull engine ok';
 end $$;

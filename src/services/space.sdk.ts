@@ -12,12 +12,22 @@ export interface SpaceReclaimEntry {
   id: number; table: string; reason: 'bloat' | 'requested' | 'manual'; status: 'queued' | 'scheduled' | 'done' | 'skipped' | 'failed'
   requested_at: string; scheduled_for: string | null; before_bytes: number | null; after_bytes: number | null; finished_at: string | null; note: string | null
 }
+export type SpaceWarehouse =
+  | { configured: false }
+  | {
+      configured: true; host: string | null; as_of: string | null; ok: boolean | null; error_code: string | null
+      db_bytes: number | null; db_limit_bytes: number; db_free_bytes: number; db_pct: number
+      storage_bytes: number; storage_limit_bytes: number; storage_free_bytes: number; storage_pct: number; storage_objects: number | null
+      raw_points: number | null; stops: number | null; vehicles: number | null
+    }
 export interface SpaceOverview {
   plan: SpacePlan; db_limit_bytes: number; storage_limit_bytes: number; bloat_threshold_pct: number; settings_updated_at: string
   db_bytes: number; db_free_bytes: number; db_pct: number; db_reclaimable_bytes: number
   storage_bytes: number; storage_free_bytes: number; storage_pct: number
   buckets: SpaceBucket[]; tables: SpaceTable[]
-  alerts: Array<{ level: 'warning' | 'danger'; kind: 'db' | 'storage'; message: string }>
+  alerts: Array<{ level: 'warning' | 'danger'; kind: 'db' | 'storage' | 'warehouse_db' | 'warehouse_storage'; message: string }>
+  /** 00382-أ: مستودع GPS (المشروع الثاني) من آخر فحص مسجَّل — الحدود = حدود الخطة نفسها */
+  warehouse: SpaceWarehouse
   reclaim: { cron_available: boolean; queued: number; scheduled: number; nightly_at: string; log: SpaceReclaimEntry[] }
   generated_at: string
 }

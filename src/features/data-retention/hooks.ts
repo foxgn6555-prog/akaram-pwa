@@ -9,6 +9,7 @@ export const retentionKeys = {
   all: ['data-retention'] as const,
   settings: () => [...retentionKeys.all, 'settings'] as const,
   requests: () => [...retentionKeys.all, 'requests'] as const,
+  gpsPurge: () => [...retentionKeys.all, 'gps-purge'] as const,
 }
 
 const useAction = <T, R>(fn: (x: T) => Promise<R>, message: string | ((r: R) => string)) => {
@@ -21,6 +22,10 @@ const useAction = <T, R>(fn: (x: T) => Promise<R>, message: string | ((r: R) => 
 }
 
 export const useRetentionSettings = () => useQuery({ queryKey: retentionKeys.settings(), queryFn: () => dataRetention.settings() })
+/** 00382-أ: التفريغ اليومي لنقاط GPS التفصيلية */
+export const useGpsHistoryPurge = () => useQuery({ queryKey: retentionKeys.gpsPurge(), queryFn: () => dataRetention.gpsPurgeGet(), refetchInterval: 60_000 })
+export const useSetGpsHistoryPurge = () => useAction((enabled: boolean) => dataRetention.gpsPurgeSet(enabled), (r) => (r.enabled ? 'التفريغ اليومي مفعّل — يعمل كل يوم 00:00 بغداد' : 'أُوقف التفريغ اليومي — النقاط ستتراكم حتى تعيد تفعيله'))
+export const useRunGpsHistoryPurge = () => useAction(() => dataRetention.gpsPurgeRunNow(), (r) => `فُرِّغت ${(r.last_rows ?? 0).toLocaleString('en-US')} نقطة وأُعيدت ${(r.last_freed_bytes / (1024 * 1024)).toLocaleString('en-US', { maximumFractionDigits: 1 })} م.ب فوراً`)
 export const useRetentionRequests = () => useQuery({ queryKey: retentionKeys.requests(), queryFn: () => dataRetention.requests(), refetchInterval: 60_000 })
 export const useSetRetentionPolicy = () => useAction(dataRetention.setPolicy, 'حُفظت السياسة')
 export const useRetentionScanNow = () => useAction(() => dataRetention.scanNow(), (r) => (r.created > 0 ? `أُنشئ ${r.created} طلب حذف جديد — راجعه أدناه` : 'لا توجد بيانات تجاوزت مدتها الآن'))

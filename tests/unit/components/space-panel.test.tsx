@@ -18,6 +18,7 @@ const overview = {
   buckets: [{ bucket: 'media-photos', objects: 1200, bytes: 900 * MB }],
   tables: [{ table: 'gps_device_position_history', bytes: 200 * MB, rows: 1_000_000, dead_rows: 300_000, reclaimable_pct: 35, reclaimable_bytes: 70 * MB }],
   alerts: [{ level: 'danger', kind: 'storage', message: 'التخزين تجاوز 90% من حدّ الخطة' }],
+  warehouse: { configured: false },
   reclaim: { cron_available: true, queued: 0, scheduled: 0, nightly_at: '03:00 بغداد', log: [
     { id: 1, table: 'gps_stop_events', reason: 'bloat', status: 'done', requested_at: '2026-10-28T00:00:00Z', scheduled_for: '2026-10-28T00:05:00Z', before_bytes: 50 * MB, after_bytes: 5 * MB, finished_at: '2026-10-28T02:00:00Z', note: null },
     { id: 2, table: 'audit_logs', reason: 'bloat', status: 'skipped', requested_at: '2026-10-28T00:00:00Z', scheduled_for: null, before_bytes: null, after_bytes: null, finished_at: '2026-10-28T00:00:01Z', note: 'INSUFFICIENT_HEADROOM' },
@@ -62,5 +63,18 @@ describe('📦 لوحة المساحة — رئيسية التطوير المر�
     expect(mig).toContain("cron.schedule('space_reclaim_plan_nightly', '0 0 * * *'")
     expect(mig).toContain("when 'pro' then 8::bigint * 1024 * 1024 * 1024")
     expect(readFileSync('src/portals/it/pages/Dashboard/ITDashboard.tsx', 'utf8')).toContain('<SpacePanel />')
+  })
+  it('00382-أ: مستودع GPS يظهر بقاعدته وتخزينه عندما يكون مهيأً فقط، مع آخر قياس وفشل آخر فحص', () => {
+    render(<SpacePanel />)
+    expect(screen.queryByTestId('space-warehouse')).toBeNull()
+    h.data = { ...overview, warehouse: { configured: true, host: 'ujfwtbzvpshtxzsjtcxz.supabase.co', as_of: '2026-10-29T18:47:00Z', ok: false, error_code: 'GPS_WAREHOUSE_UNREACHABLE',
+      db_bytes: 450 * MB, db_limit_bytes: 500 * MB, db_free_bytes: 50 * MB, db_pct: 90, storage_bytes: 2 * MB, storage_limit_bytes: 1024 * MB, storage_free_bytes: 1022 * MB, storage_pct: 0.2, storage_objects: 28,
+      raw_points: 99615, stops: 500, vehicles: 227 } }
+    render(<SpacePanel />)
+    const wh = screen.getByTestId('space-warehouse').textContent!
+    expect(screen.getByTestId('space-warehouse-db').textContent).toContain('450 م.ب')
+    expect(screen.getByTestId('space-warehouse-db').textContent).toContain('50 م.ب')
+    expect(screen.getByTestId('space-warehouse-storage').textContent).toContain('28 ملف')
+    expect(wh).toContain('227 آلية'); expect(wh).toContain('500 توقف'); expect(wh).toContain('آخر فحص فشل')
   })
 })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Database, HardDrive, Settings2, Sparkles, Zap } from 'lucide-react'
+import { AlertTriangle, Database, HardDrive, Settings2, Sparkles, Warehouse, Zap } from 'lucide-react'
 import { formatDateTime } from '@lib/utils/date.utils'
 import { SPACE_BUCKET_LABEL, SPACE_RECLAIM_NOTE, SPACE_RECLAIM_STATUS, type SpaceOverview, type SpacePlan } from '@sdk/space.sdk'
 import { useSetSpacePlan, useSpaceOverview, useSpaceReclaimNow } from '@features/space/hooks'
@@ -68,6 +68,23 @@ export default function SpacePanel() {
           extra={d.db_reclaimable_bytes >= MB ? `قابل للاسترداد بالضغط: ${formatFileSize(d.db_reclaimable_bytes)} (يُنفَّذ تلقائياً ${d.reclaim.nightly_at})` : undefined} />
         <Gauge label="التخزين (الصور والملفات)" icon={<HardDrive size={16} className="text-violet-700" />} used={d.storage_bytes} limit={d.storage_limit_bytes} pct={d.storage_pct} free={d.storage_free_bytes} testId="space-storage" />
       </div>
+      {d.warehouse.configured && (
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-3" data-testid="space-warehouse">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 text-xs font-black text-teal-900"><Warehouse size={14} /> مستودع GPS التحليلي (المشروع الثاني)</h3>
+            <span className="text-[10px] text-teal-800" data-testid="space-warehouse-meta">
+              {d.warehouse.as_of ? `آخر قياس ${formatDateTime(d.warehouse.as_of)}` : 'لم يُقَس بعد'}
+              {d.warehouse.vehicles !== null ? ` · ${num(d.warehouse.vehicles)} آلية` : ''}{d.warehouse.stops !== null ? ` · ${num(d.warehouse.stops)} توقف` : ''}{d.warehouse.raw_points !== null ? ` · ${num(d.warehouse.raw_points)} نقطة خام مؤقتة` : ''}
+              {d.warehouse.ok === false && <span className="mr-2 rounded-full bg-red-100 px-2 py-0.5 font-black text-red-800">آخر فحص فشل{d.warehouse.error_code ? ` (${d.warehouse.error_code})` : ''}</span>}
+            </span>
+          </div>
+          <div className="mt-2 grid gap-3 lg:grid-cols-2">
+            <Gauge label="قاعدة المستودع" icon={<Database size={16} className="text-teal-700" />} used={d.warehouse.db_bytes ?? 0} limit={d.warehouse.db_limit_bytes} pct={d.warehouse.db_pct} free={d.warehouse.db_free_bytes} testId="space-warehouse-db" />
+            <Gauge label="تخزين المستودع (أرشيف مضغوط)" icon={<HardDrive size={16} className="text-teal-700" />} used={d.warehouse.storage_bytes} limit={d.warehouse.storage_limit_bytes} pct={d.warehouse.storage_pct} free={d.warehouse.storage_free_bytes} testId="space-warehouse-storage"
+              extra={d.warehouse.storage_objects !== null ? `${num(d.warehouse.storage_objects)} ملف` : undefined} />
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="space-plan">
           <div className="flex items-center justify-between">
@@ -87,7 +104,7 @@ export default function SpacePanel() {
               </div>
             </div>
           )}
-          <p className="mt-2 text-[10px] text-slate-500">الحدود لا تُقرأ من Supabase آلياً — تُضبط هنا بحسب الاشتراك. تنبيه عند 80% و90%.</p>
+          <p className="mt-2 text-[10px] text-slate-500">الحدود لا تُقرأ من Supabase آلياً — تُضبط هنا بحسب الاشتراك وتسري على المشروعين. تنبيه عند 80% و90%.</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:col-span-2" data-testid="space-reclaim">
           <div className="flex flex-wrap items-center justify-between gap-2">

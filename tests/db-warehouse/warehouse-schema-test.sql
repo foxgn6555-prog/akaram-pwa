@@ -15,6 +15,12 @@ begin
   -- W3: الفحص
   js := public.wh_ping();
   if not (js ->> 'ok')::boolean or (js ->> 'schema_version')::int < 1 or (js ->> 'vehicles')::int <> 0 or (js -> 'settings' ->> 'min_stop_minutes')::int <> 10 or (js ->> 'db_bytes')::bigint <= 0 then raise exception 'W3 ping %', js; end if;
+  -- W3b (0003): حجم التخزين وعدد الملفات ضمن الفحص
+  if (js ->> 'storage_bytes')::bigint <> 0 or (js ->> 'storage_objects')::bigint <> 0 or (js ->> 'schema_version')::int < 3 then raise exception 'W3b storage %', js; end if;
+  insert into storage.objects (bucket_id, name, metadata) values ('gps-archive', '2026/10/2026-10-01/x.json.gz', '{"size": 2048}'::jsonb);
+  js := public.wh_ping();
+  if (js ->> 'storage_bytes')::bigint <> 2048 or (js ->> 'storage_objects')::bigint <> 1 then raise exception 'W3b storage after %', js; end if;
+  delete from storage.objects where bucket_id = 'gps-archive' and name = '2026/10/2026-10-01/x.json.gz';
   -- W4: مزامنة الآليات — إدراج ثم تحديث ثم تعطيل من غاب
   js := public.wh_upsert_vehicles('[{"vehicle_id":"a0000000-0000-0000-0000-000000000001","db_number":"DB-1","vehicle_name":"كابسة 1","sector_id":3,"sector_name":"الكرادة","device_external_id":"d-1"},
                                     {"vehicle_id":"a0000000-0000-0000-0000-000000000002","db_number":"DB-2","vehicle_name":"كابسة 2","device_external_id":"d-2"},
