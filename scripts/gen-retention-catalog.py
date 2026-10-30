@@ -58,6 +58,8 @@ L('it', 'space_settings', 'إعدادات المساحة (حدود الخطة)',
 L('it', 'space_reclaim_log', 'سجل استرداد المساحة (الضغط)', PROOF)
 L('it', 'gps_warehouse_link', 'حالة ربط مستودع GPS التحليلي', STATE)
 L('gps', 'gps_history_purge_settings', 'إعداد التفريغ اليومي لنقاط GPS التفصيلية', CFG)
+L('gps', 'gps_hotspots', 'بقع التوقف الشهرية (ملخص منسوخ من المستودع)', STATE)
+L('gps', 'gps_hotspots_sync', 'حالة نسخ بقع التوقف لكل شهر', STATE)
 
 # ───── notifications
 D('notifications', 'notifications', 'الإشعارات', 'إشعارات الجرس لكل مستخدم.', 'created_at', 6, False, keep='is_read is not true and read_at is null and dismissed_at is null', lock='الإشعارات غير المقروءة محمية')

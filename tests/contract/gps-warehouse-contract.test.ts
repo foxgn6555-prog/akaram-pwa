@@ -64,4 +64,25 @@ describe('gps-warehouse contract (00380)', () => {
     expect(roll).toContain("raise exception 'WH_MONTH_EXPIRED'")
     expect(fn).toContain("whRpc<Record<string, unknown>>('wh_maintenance')")   // الصيانة (جدولة+تدوير) مع كل دورة للمجدول
   })
+
+  it('00383: محرّك البقع في المستودع والنسخة الملخّصة في المشروع الأول — صالحة فقط، 3 أصناف، تكرار، نصف قطر من الإعدادات، تدوير، خدمة فقط للكتابة، وقراءة لغير الموظفين', () => {
+    const hs = readFileSync('gps-warehouse/supabase/migrations/0005_hotspots.sql', 'utf8')
+    const p1 = readFileSync('supabase/migrations/00329_gps_hotspots.sql', 'utf8')
+    expect(hs).toContain("hotspot_radius_m"); expect(hs).toContain('class_light_max_min'); expect(hs).toContain('class_medium_max_min'); expect(hs).toContain('recur_mid_days'); expect(hs).toContain('recur_high_days')
+    expect(hs).toMatch(/class = 'valid'/)                                  // لا طويل ولا عطل
+    expect(hs).toContain('delete from public.wh_hotspots where month < c')   // التدوير يمسح البقع القديمة
+    expect(hs).toContain('wh_hotspots_refresh(1000)')                        // التحديث داخل الصيانة
+    expect(hs).toContain('wh_stops_hotspot_dirty')                           // إعادة حساب يوم ⇒ إعادة تجميع
+    expect(hs).toMatch(/revoke all on function[^;]*wh_hotspots_summary/)
+    expect(p1).toContain("app.has_role(array['ops_room','it_admin','super_admin'])")
+    expect(p1).not.toContain("'employee'")
+    expect(p1).toMatch(/gps_hotspots_replace_month[\s\S]*auth\.role\(\) <> 'service_role'/)
+    expect(p1).toContain("p_classes text[] default array['medium','heavy']")  // الخفيفة مخفية افتراضياً
+    expect(p1).toContain("cron.schedule('gps-warehouse-hotspots-nightly', '30 20 * * *'")
+    expect(p1).toContain('{"action":"sync_hotspots"}'); expect(p1).not.toMatch(/sb_secret_|eyJ[A-Za-z0-9_-]{10,}\./)
+    expect(p1).toContain("('gps_hotspots', 'gps'"); expect(p1).toContain("('gps_hotspots_sync', 'gps'")
+    expect(fn).toContain("whRpc<HotspotRefresh>('wh_hotspots_refresh'"); expect(fn).toContain("'wh_hotspots_summary'"); expect(fn).toContain("admin.rpc('gps_hotspots_replace_month'"); expect(fn).toContain("admin.rpc('gps_hotspots_prune'")
+    expect(fn).toContain("record('hotspots', true, result)")
+    expect(fn).not.toMatch(/wh_raw_points|wh_day_points'\)[\s\S]*gps_hotspots/)                 // لا نقاط خام تُنسخ للمشروع الأول
+  })
 })

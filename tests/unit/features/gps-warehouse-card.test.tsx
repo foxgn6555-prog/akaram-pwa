@@ -95,4 +95,24 @@ describe('GpsWarehouseCard (00380)', () => {
     expect(screen.getByTestId('gps-warehouse-card').textContent).toContain('الخام يُحذف فور حساب توقفات اليوم')
     expect(screen.getByTestId('gps-warehouse-card').textContent).toContain('بلا أرشيف مضغوط')
   })
+
+  it('00383: البقع — العدد لكل شهر والحدود الخمسة وآخر نسخ والمجدول الليلي، وزر «نسخ البقع الآن» يرسل sync_hotspots', async () => {
+    h.link = { ...base, warehouse_host: 'x', last_ping_at: '2026-10-29T10:00:00Z', last_ping_ok: true, schema_version: 5, last_registry_sync_at: '2026-10-29T09:00:00Z', last_hotspots_sync_at: '2026-10-29T20:30:00Z', hotspots_rows: 1234, hotspots_by_month: { '2026-10': 400, '2026-09': 834 },
+      hotspots_cron: { scheduled: true, last_run_at: '2026-10-29T20:30:00Z', last_status: 'succeeded' },
+      ping: { ...ping, hotspots: 1240, hotspots_by_month: { '2026-09': 834, '2026-10': 406 }, settings: { ...ping.settings, hotspot_radius_m: 80, class_light_max_min: 20, class_medium_max_min: 60, recur_mid_days: 3, recur_high_days: 10 } } }
+    h.run.mockResolvedValue({ ok: true, action: 'sync_hotspots', rows: 1240, by_month: {}, pending: 0 })
+    ui()
+    const t = (await screen.findByTestId('gps-warehouse-hotspots')).textContent!
+    expect(t).toContain('1,240 بقعة في المستودع'); expect(t).toContain('2026-10: 406 · 2026-09: 834')
+    expect(t).toContain('نصف قطر البقعة 80 م'); expect(t).toContain('خفيف ≤ 20 د'); expect(t).toContain('متوسط ≤ 60 د'); expect(t).toContain('متكرر من 3 أيام'); expect(t).toContain('شبه يومي من 10 أيام')
+    expect(t).toContain('(1,234 بقعة)'); expect(t).toContain('النسخ الليلي مجدول 23:30 بغداد')
+    fireEvent.click(screen.getByTestId('gps-warehouse-hotspots-btn'))
+    await waitFor(() => expect(h.run).toHaveBeenCalledWith('sync_hotspots', { month: undefined, limit: undefined }))
+  })
+  it('00383: بلا حدود بقع في الفحص (مخطط قديم) لا تظهر فقرة البقع', async () => {
+    h.link = { ...base, warehouse_host: 'x', last_ping_ok: true, schema_version: 4, ping }
+    ui()
+    await screen.findByTestId('gps-warehouse-ping')
+    expect(screen.queryByTestId('gps-warehouse-hotspots')).toBeNull()
+  })
 })

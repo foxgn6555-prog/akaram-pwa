@@ -26,7 +26,7 @@ export default function GpsWarehouseCard() {
   const tone = state === 'ok' ? 'bg-emerald-100 text-emerald-800' : state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-700'
   const err = link?.last_error_code ? explainLvnError(link.last_error_code) : null
   const busy = act.isPending
-  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
+  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
   const progress = ping?.progress ?? null
   const paused = Boolean(progress?.paused ?? ping?.settings.paused)
   const cron = link?.cron ?? null
@@ -56,6 +56,15 @@ export default function GpsWarehouseCard() {
           <Stat label="توقفات" value={ping.stops.toLocaleString('en')} />
           <Stat label="ملفات الأرشيف" value={String(ping.archive_files)} />
           <Stat label="حجم القاعدة" value={mb(ping.db_bytes)} />
+          {ping.settings.hotspot_radius_m != null && (
+            <p className="col-span-full rounded-xl bg-white p-2 text-[10px] text-slate-700" data-testid="gps-warehouse-hotspots">
+              <b>البقع:</b> {Number(ping.hotspots ?? 0).toLocaleString('en')} بقعة في المستودع
+              {ping.hotspots_by_month && Object.keys(ping.hotspots_by_month).length > 0 ? ` (${Object.entries(ping.hotspots_by_month).sort(([a], [b]) => b.localeCompare(a)).map(([m, n]) => `${m}: ${n.toLocaleString('en')}`).join(' · ')})` : ''}
+              {' · '}نصف قطر البقعة {ping.settings.hotspot_radius_m} م · خفيف ≤ {ping.settings.class_light_max_min} د · متوسط ≤ {ping.settings.class_medium_max_min} د · ثقيل أكثر · متكرر من {ping.settings.recur_mid_days} أيام · شبه يومي من {ping.settings.recur_high_days} أيام
+              {' · '}آخر نسخ للمشروع الأول: {fmt(link?.last_hotspots_sync_at)}{link?.hotspots_rows != null ? ` (${link.hotspots_rows.toLocaleString('en')} بقعة)` : ''}
+              {' · '}{link?.hotspots_cron?.scheduled ? 'النسخ الليلي مجدول 23:30 بغداد' : 'النسخ الليلي غير مجدول'}
+            </p>
+          )}
           <p className="col-span-full text-[10px] text-slate-500">الحدود: توقف من {ping.settings.min_stop_minutes} إلى {ping.settings.max_stop_minutes} دقيقة · عطل مشتبه بعد {ping.settings.fault_stop_hours} ساعة · نصف قطر التجميع {ping.settings.cluster_radius_m} م · {ping.settings.raw_retention_days === 0 ? 'الخام يُحذف فور حساب توقفات اليوم' : `الخام يُحفظ ${ping.settings.raw_retention_days} أيام`} · {ping.settings.archive_enabled === false ? 'بلا أرشيف مضغوط' : `الأرشيف ${ping.settings.archive_retention_months} أشهر`}</p>
         </div>
       )}
@@ -131,6 +140,7 @@ export default function GpsWarehouseCard() {
         {paused
           ? <button type="button" onClick={() => run('resume')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-emerald-800 disabled:opacity-50" data-testid="gps-warehouse-resume-btn"><Play size={14} />استئناف السحب</button>
           : <button type="button" onClick={() => run('pause')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-rose-800 disabled:opacity-50" data-testid="gps-warehouse-pause-btn"><Pause size={14} />إيقاف مؤقت</button>}
+        <button type="button" onClick={() => run('sync_hotspots')} disabled={busy || state !== 'ok'} className="rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-hotspots-btn">نسخ البقع الآن</button>
         <span className="text-[10px] font-normal text-slate-400">السحب يجري تلقائياً كل دقيقة (3 أيام-جهاز في الدقيقة)؛ «سحب دفعة الآن» لا يلزم إلا للتجربة.</span>
       </div>
     </article>

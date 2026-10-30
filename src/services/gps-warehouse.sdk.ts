@@ -19,6 +19,11 @@ export interface GpsWarehouseLink {
   updated_at: string
   /** 00381: حالة مجدول السحب (pg_cron في المشروع الأول) */
   cron?: { scheduled: boolean; last_run_at: string | null; last_status: string | null } | null
+  /** 00383: آخر نسخ ليلي لملخص البقع إلى المشروع الأول */
+  last_hotspots_sync_at?: string | null
+  hotspots_rows?: number | null
+  hotspots_by_month?: Record<string, number> | null
+  hotspots_cron?: { scheduled: boolean; last_run_at: string | null; last_status: string | null } | null
 }
 export interface GpsWarehouseMonthProgress {
   month: string; total: number; done: number; queued: number; running: number; failed: number; points: number; stops: number; devices: number
@@ -46,13 +51,16 @@ export interface GpsWarehousePing {
   stops: number
   archive_files: number
   db_bytes: number
-  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number; paused?: boolean; max_attempts?: number; keep_months?: number; archive_enabled?: boolean; auto_enqueue?: boolean }
+  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number; paused?: boolean; max_attempts?: number; keep_months?: number; archive_enabled?: boolean; auto_enqueue?: boolean; hotspot_radius_m?: number; class_light_max_min?: number; class_medium_max_min?: number; recur_mid_days?: number; recur_high_days?: number }
+  /** 00383 */
+  hotspots?: number
+  hotspots_by_month?: Record<string, number>
   /** 00381 */
   progress?: GpsWarehouseProgress
   server_time: string
 }
-export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume'
-export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number }
+export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots'
+export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number; rows?: number; by_month?: Record<string, number>; pending?: number }
 
 async function toError(error: unknown): Promise<LvnSyncError> {
   const context = (error as { context?: Response }).context
