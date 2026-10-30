@@ -122,6 +122,8 @@ describe('OpsWasteMapPage (00384)', () => {
     fireEvent.click(screen.getByTestId('waste-map-markers'))
     expect(document.querySelectorAll('.waste-spot').length).toBe(0)
     fireEvent.click(screen.getByTestId('waste-map-theme'))
-    expect(map.getAttribute('data-theme')).toBe('light'); expect(map.getAttribute('data-tiles')).toBe('osm'); expect(screen.getByTestId('waste-map-theme').textContent).toContain('داكنة')
+    expect(map.getAttribute('data-theme')).toBe('light'); expect(map.getAttribute('data-tiles')).toBe('osm'); expect(screen.getByTestId('waste-map-theme').textContent).toContain('ليلي')
+    expect(localStorage.getItem('akaram.map-theme')).toBe('light')   // الاختيار محفوظ لكل الخرائط
+    localStorage.removeItem('akaram.map-theme')
   })
 })

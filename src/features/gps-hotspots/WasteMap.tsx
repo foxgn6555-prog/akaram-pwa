@@ -6,7 +6,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
-import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Popup, Tooltip, useMap } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import 'leaflet/dist/leaflet.css'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
 import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, fmtMinutes, peakHours, rankTop, spotPlace } from './hotspots.logic'
@@ -14,20 +16,11 @@ import { HEAT_GRADIENT_CSS, isLandmarkSpot } from './heat'
 import HeatLayer from './HeatLayer'
 
 const BAGHDAD: [number, number] = [33.3152, 44.3661]
-/** سلسلة الخلفيات الداكنة: إن فشل مزوّد ننتقل للتالي؛ الأخير = OSM مع فلتر CSS داكن (لا يفشل ما دام OSM يعمل) */
-export const DARK_TILES = [
-  { id: 'carto-dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attribution: '&copy; OpenStreetMap &copy; CARTO', filter: false, maxZoom: 19 },
-  { id: 'esri-dark', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap', filter: false, maxZoom: 16 },
-  { id: 'osm-filtered', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: true, maxZoom: 19 },
-] as const
-export const LIGHT_TILES = { id: 'osm', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: false, maxZoom: 19 } as const
-const TILE_ERRORS_BEFORE_FALLBACK = 3
+export { DARK_TILES, LIGHT_TILES } from '@features/map-theme/map-theme'
 
 /** أنماط العلامات والفلتر الداكن — تُحقن مرة واحدة */
 const STYLE_ID = 'waste-map-style'
 const CSS = `
-.waste-tiles-filtered .leaflet-tile-pane { filter: invert(1) hue-rotate(195deg) brightness(.72) contrast(1.15) saturate(.55); }
-.waste-map-root .leaflet-container { background: #060b18; }
 .waste-heat-canvas { max-width: none !important; max-height: none !important; animation: waste-fade .9s ease-out; }
 @keyframes waste-fade { from { opacity: 0; } to { opacity: 1; } }
 .waste-spot__rank { position: absolute; right: -8px; top: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9999px; background: #fff; color: #0f172a; font: 900 10px/16px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--c), 0 2px 6px rgba(0,0,0,.6); }
@@ -35,6 +28,9 @@ const CSS = `
 .waste-tip::before { display: none !important; }   /* globals.css تحدّ canvas بـ 100% من أب عرضه صفر (pane) */
 .waste-spot { position: relative; width: 22px; height: 22px; }
 .waste-spot__ring { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid var(--c); box-shadow: 0 0 10px 1px var(--c), inset 0 0 6px rgba(255,255,255,.35); opacity: .95; }
+.akaram-map-light .waste-spot__ring { box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 2px 6px rgba(0,0,0,.35); }
+.akaram-map-light .waste-spot__dot { background: var(--c); box-shadow: 0 0 0 1.5px #fff; }
+.akaram-map-light .waste-spot__label { color: #0f172a; text-shadow: 0 0 3px #fff, 0 0 2px #fff; }
 .waste-spot__dot { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 9999px; background: #fff; box-shadow: 0 0 6px 2px rgba(255,255,255,.85); }
 .waste-spot__pulse { position: absolute; inset: -6px; border-radius: 9999px; border: 2px solid var(--c); opacity: 0; animation: waste-pulse 2.4s ease-out infinite; }
 .waste-spot--landmark .waste-spot__dot { display: none; }
@@ -92,13 +88,6 @@ function Resize({ dep }: { dep: boolean }) {
   useEffect(() => { const t = setTimeout(() => map.invalidateSize(), 60); return () => clearTimeout(t) }, [map, dep])
   return null
 }
-/** يضيف/يزيل صنف الفلتر الداكن على حاوية الخريطة */
-function TileFilterClass({ on }: { on: boolean }) {
-  const map = useMap()
-  useEffect(() => { const el = map.getContainer(); el.classList.toggle('waste-tiles-filtered', on) }, [map, on])
-  return null
-}
-
 export interface WasteMapProps {
   /** كل بقع الشهر (للإطار الثابت) */
   allRows: GpsHotspot[]
@@ -111,14 +100,14 @@ export interface WasteMapProps {
 }
 
 export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, heightClass = 'h-[72vh] min-h-[420px]' }: WasteMapProps) {
-  useInjectStyle()
+  useInjectMapThemeStyle(); useInjectStyle()
   const [full, setFull] = useState(false)
-  const [dark, setDark] = useState(true)
-  const [darkIdx, setDarkIdx] = useState(0)
+  const [theme, , toggleTheme] = useMapTheme('dark')
+  const dark = theme === 'dark'
+  const [provider, setProvider] = useState('')
   const [showHeat, setShowHeat] = useState(true)
   const [showMarkers, setShowMarkers] = useState(true)
   const [tileFailed, setTileFailed] = useState(false)
-  const errorsRef = useRef(0)
   const selected = rows.find((h) => h.id === selectedId) ?? null
   useEffect(() => {
     if (!full) return
@@ -126,21 +115,14 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [full])
-  const tiles = dark ? DARK_TILES[Math.min(darkIdx, DARK_TILES.length - 1)]! : LIGHT_TILES
-  const onTileError = () => {
-    errorsRef.current += 1
-    if (dark && darkIdx < DARK_TILES.length - 1 && errorsRef.current >= TILE_ERRORS_BEFORE_FALLBACK) { errorsRef.current = 0; setDarkIdx((i) => i + 1); return }
-    if (errorsRef.current >= TILE_ERRORS_BEFORE_FALLBACK) setTileFailed(true)
-  }
-  const onTileLoad = () => { errorsRef.current = 0; setTileFailed(false) }
   const ranks = useMemo(() => rankTop(rows, 5), [rows])
   const markers = useMemo(() => rows.map((h) => ({ h, icon: spotIcon(h, h.id === selectedId, undefined, ranks.get(h.id)) })), [rows, selectedId, ranks])
 
   const shell = (
-    <div className={`waste-map-root ${full ? 'fixed inset-0 z-[2200] bg-slate-950' : `relative isolate z-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 ${heightClass}`}`} data-testid="waste-map" data-fullscreen={full ? '1' : '0'} data-tiles={tiles.id} data-theme={dark ? 'dark' : 'light'}>
+    <div className={`waste-map-root ${full ? 'fixed inset-0 z-[2200] bg-slate-950' : `relative isolate z-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 ${heightClass}`}`} data-testid="waste-map" data-fullscreen={full ? '1' : '0'} data-tiles={provider} data-theme={theme}>
       <div className="absolute right-3 top-3 z-[1000] flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-slate-900/85 p-2 shadow-2xl backdrop-blur-md">
         <span className="rounded-xl bg-white/10 px-3 py-2 text-[11px] font-black text-white" data-testid="waste-map-counter">{rows.length.toLocaleString('en')} بقعة معروضة من {allRows.length.toLocaleString('en')}</span>
-        <button type="button" aria-pressed={dark} data-testid="waste-map-theme" onClick={() => { setDark((v) => !v); errorsRef.current = 0; setTileFailed(false) }} className="rounded-xl bg-white/10 px-3 py-2 text-[10px] font-black text-white hover:bg-white/20">{dark ? '☀ خريطة عادية' : '☾ خريطة داكنة'}</button>
+        <MapThemeToggle theme={theme} onToggle={toggleTheme} testId="waste-map-theme" />
         <button type="button" aria-pressed={showHeat} data-testid="waste-map-heat" onClick={() => setShowHeat((v) => !v)} className={`rounded-xl px-3 py-2 text-[10px] font-black text-white ${showHeat ? 'bg-orange-500/80' : 'bg-white/10 hover:bg-white/20'}`}>التوهّج الحراري</button>
         <button type="button" aria-pressed={showMarkers} data-testid="waste-map-markers" onClick={() => setShowMarkers((v) => !v)} className={`rounded-xl px-3 py-2 text-[10px] font-black text-white ${showMarkers ? 'bg-sky-500/80' : 'bg-white/10 hover:bg-white/20'}`}>العلامات</button>
         <button type="button" aria-pressed={full} data-testid="waste-map-fullscreen" onClick={() => setFull((v) => !v)} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black text-white hover:bg-emerald-500">{full ? '✕ إنهاء ملء الشاشة' : '⛶ ملء الشاشة'}</button>
@@ -152,12 +134,11 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
       {tileFailed && <div className="absolute inset-x-20 top-16 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900" data-testid="waste-map-tile-failed">تعذر تحميل خلفية الخريطة — البقع ما زالت ظاهرة.</div>}
       {allRows.length === 0 && <div data-testid="waste-map-empty" className="absolute inset-x-10 bottom-16 z-[1000] rounded-xl bg-white/95 p-3 text-center text-xs font-bold text-slate-700">لا بقع لهذا الشهر بعد — تُنسخ من المستودع كل ليلة 23:30.</div>}
       <MapContainer center={BAGHDAD} zoom={11} className="h-full w-full" scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <TileLayer key={tiles.id} attribution={tiles.attribution} url={tiles.url} maxZoom={tiles.maxZoom} maxNativeZoom={tiles.maxZoom} eventHandlers={{ tileerror: onTileError, tileload: onTileLoad }} />
-        <TileFilterClass on={dark && tiles.filter} />
+        <MapTiles theme={theme} onFailed={setTileFailed} onProvider={setProvider} />
         <FitOnce fitKey={fitKey} rows={allRows} />
         <FlyTo spot={selected} />
         <Resize dep={full} />
-        {showHeat && <HeatLayer rows={rows} />}
+        {showHeat && <HeatLayer rows={rows} intensity={dark ? 1 : 0.85} />}
         {showMarkers && markers.map(({ h, icon }) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={icon} zIndexOffset={h.id === selectedId ? 1000 : isLandmarkSpot(h) ? 200 : 0} eventHandlers={{ click: () => onSelect?.(h) }}>
             <Tooltip direction="top" offset={[0, -10]} opacity={1} className="waste-tip">{ranks.get(h.id) ? `#${ranks.get(h.id)} · ` : ''}{spotPlace(h)} · {fmtMinutes(h.total_minutes)} · {h.stops_count} توقف</Tooltip>
