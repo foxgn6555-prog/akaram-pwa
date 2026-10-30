@@ -29,13 +29,17 @@ export interface GpsHotspot {
   last_at: string | null
   sector_ids: number[]
   sector_names: string[]
+  /** 00387-ب: المنطقة جغرافياً من الزونات (null = خارج الزونات) */
+  geo_sector_id?: number | null
+  geo_sector_name?: string | null
+  geo_zone_name?: string | null
   vehicles: GpsHotspotVehicle[]
   days: string[]
   hours: number[]
 }
 export interface GpsHotspotsSync { month: string; rows_count: number; thresholds: Record<string, number>; synced_at: string }
 export interface GpsHotspotsMonth { month: string; rows: number; synced_at: string }
-export interface GpsHotspotsList { month: string; rows: GpsHotspot[]; total: number; sync: GpsHotspotsSync | null; months: GpsHotspotsMonth[] }
+export interface GpsHotspotsList { month: string; rows: GpsHotspot[]; total: number; sync: GpsHotspotsSync | null; months: GpsHotspotsMonth[]; /** 00387-ب: بقع خارج كل الزونات */ unlocated?: number }
 export interface GpsHotspotsFilters {
   /** YYYY-MM أو YYYY-MM-DD؛ null = آخر شهر منسوخ */
   month?: string | null

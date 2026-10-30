@@ -7,7 +7,7 @@ import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
 import { reverseGeocode } from './geocode'
-import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, daysByWeekday, fmtDay, fmtMinutes, googleMapsUrl, peakHours } from './hotspots.logic'
+import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, daysByWeekday, fmtDay, fmtMinutes, googleMapsUrl, peakHours, spotPlace } from './hotspots.logic'
 
 const n = (v: number) => v.toLocaleString('en-US')
 
@@ -23,7 +23,7 @@ export default function HotspotDetailPanel({ spot, onClose }: { spot: GpsHotspot
       <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-white px-3 py-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 font-black text-slate-900"><span className="size-3 rounded-full" style={{ background: CLASS_COLOR[spot.dominant_class] }} />{CLASS_LABEL[spot.dominant_class]} · {RECURRENCE_LABEL[spot.recurrence]}</div>
-          <div className="truncate text-[11px] text-slate-500">{spot.sector_names?.join('، ') || 'خارج القواطع'}</div>
+          <div className="truncate text-[11px] text-slate-500">{spotPlace(spot)}</div>
         </div>
         <button type="button" onClick={onClose} className="rounded-lg border px-2 py-1 text-[11px] font-black text-slate-600" data-testid="hotspot-panel-close">✕</button>
       </div>

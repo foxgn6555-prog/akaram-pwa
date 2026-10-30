@@ -30,6 +30,7 @@ export default function HeatLayer({ rows, intensity = 1 }: { rows: GpsHotspot[];
       const topLeft = map.containerPointToLayerPoint([0, 0])
       L.DomUtil.setPosition(canvas, topLeft)
       canvas.width = size.x; canvas.height = size.y
+      canvas.style.width = `${size.x}px`; canvas.style.height = `${size.y}px`; canvas.style.maxWidth = 'none'
       offscreen.width = size.x; offscreen.height = size.y
       const ctx = offscreen.getContext('2d', { willReadFrequently: true })
       const out = canvas.getContext('2d')

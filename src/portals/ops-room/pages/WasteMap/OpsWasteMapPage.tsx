@@ -12,7 +12,7 @@ import { downloadHotspotsExcel, filtersLabel, printHotspotsReport } from '@featu
 import { useUiStore } from '@stores/ui.store'
 import WasteMap from '@features/gps-hotspots/WasteMap'
 import { useGpsHotspots, useGpsHotspotsMonthStats } from '@features/gps-hotspots/hooks'
-import { CLASS_COLOR, CLASS_LABEL, DEFAULT_FILTERS, HOTSPOT_CLASSES, HOTSPOT_RECURRENCES, MIN_VEHICLES_OPTIONS, RECURRENCE_LABEL, applyFilters, classThresholdLabel, defaultMonth, fmtMinutes, monthLabel, recurrenceThresholdLabel, summarize, toggleIn, compareMonths, deltaLabel, type WasteMapFilters } from '@features/gps-hotspots/hotspots.logic'
+import { CLASS_COLOR, CLASS_LABEL, DEFAULT_FILTERS, HOTSPOT_CLASSES, HOTSPOT_RECURRENCES, MIN_VEHICLES_OPTIONS, RECURRENCE_LABEL, applyFilters, spotPlace, classThresholdLabel, defaultMonth, fmtMinutes, monthLabel, recurrenceThresholdLabel, summarize, toggleIn, compareMonths, deltaLabel, type WasteMapFilters } from '@features/gps-hotspots/hotspots.logic'
 import { useSectors } from '@features/sector'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
 
@@ -39,7 +39,7 @@ export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-
   const thresholds = q.data?.sync?.thresholds ?? null
   const sectorOptions = useMemo(() => {
     const inData = new Map<number, string>()
-    for (const h of all) h.sector_ids.forEach((id, i) => inData.set(id, h.sector_names[i] ?? String(id)))
+    for (const h of all) { if (h.geo_sector_id != null) inData.set(h.geo_sector_id, h.geo_sector_name ?? String(h.geo_sector_id)); else h.sector_ids.forEach((id, i) => inData.set(id, h.sector_names[i] ?? String(id))) }
     for (const s of sectorsQ.data ?? []) if (!inData.has(s.id)) inData.set(s.id, s.name)
     return [...inData.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'))
   }, [all, sectorsQ.data])
@@ -128,7 +128,7 @@ export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-
                   <span className="w-5 text-center text-[10px] font-black text-slate-400">{i + 1}</span>
                   <span className="size-3 shrink-0 rounded-full" style={{ background: CLASS_COLOR[h.dominant_class] }} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-black text-slate-800">{h.sector_names?.join('، ') || 'خارج القواطع'}</span>
+                    <span className="block truncate font-black text-slate-800">{spotPlace(h)}</span>
                     <span className="block text-[10px] text-slate-500">{RECURRENCE_LABEL[h.recurrence]} · {h.stops_count} توقف · {h.days_count} يوم · {h.vehicles_count} آلية</span>
                   </span>
                   <b className="shrink-0 text-slate-900">{fmtMinutes(h.total_minutes)}</b>

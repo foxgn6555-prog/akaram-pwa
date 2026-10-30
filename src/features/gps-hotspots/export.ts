@@ -1,7 +1,7 @@
 /** 00385 — تصدير خريطة النفايات: Excel (ورقة البقع + ورقة الآليات + ملخص) وتقرير HTML مستقل للطباعة/حفظ PDF */
 import type { GpsHotspot, GpsHotspotsMonthStats } from '@sdk/gps-hotspots.sdk'
 import { downloadWorkbook } from '@features/gbs/gbs-excel'
-import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, compareMonths, deltaLabel, fmtMinutes, monthLabel, peakHours, summarize, type WasteMapFilters } from './hotspots.logic'
+import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, compareMonths, deltaLabel, fmtMinutes, monthLabel, peakHours, spotPlace, summarize, type WasteMapFilters } from './hotspots.logic'
 
 const n = (v: number) => v.toLocaleString('en-US')
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
@@ -15,7 +15,7 @@ export const filtersLabel = (f: WasteMapFilters, sectorNames: Map<number, string
 ].join(' · ')
 
 export const HOTSPOT_COLUMNS = ['#', 'القاطع', 'الصنف الغالب', 'التكرار', 'التوقفات', 'الأيام', 'الآليات', 'إجمالي (دقيقة)', 'متوسط (دقيقة)', 'أقصى (دقيقة)', 'ثقيل', 'متوسط', 'خفيف', 'ذروة الساعات', 'خط العرض', 'خط الطول', 'رابط الخريطة'] as const
-export const hotspotRowValues = (h: GpsHotspot, i: number): (string | number)[] => [i + 1, h.sector_names?.join('، ') || '—', CLASS_LABEL[h.dominant_class], RECURRENCE_LABEL[h.recurrence], h.stops_count, h.days_count, h.vehicles_count, h.total_minutes, h.avg_minutes, h.max_minutes, h.heavy_count, h.medium_count, h.light_count, peakHours(h.hours), Number(h.lat.toFixed(6)), Number(h.lng.toFixed(6)), `https://www.google.com/maps?q=${h.lat.toFixed(6)},${h.lng.toFixed(6)}`]
+export const hotspotRowValues = (h: GpsHotspot, i: number): (string | number)[] => [i + 1, spotPlace(h), CLASS_LABEL[h.dominant_class], RECURRENCE_LABEL[h.recurrence], h.stops_count, h.days_count, h.vehicles_count, h.total_minutes, h.avg_minutes, h.max_minutes, h.heavy_count, h.medium_count, h.light_count, peakHours(h.hours), Number(h.lat.toFixed(6)), Number(h.lng.toFixed(6)), `https://www.google.com/maps?q=${h.lat.toFixed(6)},${h.lng.toFixed(6)}`]
 
 export async function buildHotspotsWorkbook(rows: GpsHotspot[], month: string, filtersText: string, stats: GpsHotspotsMonthStats[] = []) {
   const ExcelJS = await import('exceljs')
@@ -31,7 +31,7 @@ export async function buildHotspotsWorkbook(rows: GpsHotspot[], month: string, f
   ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3 + list.length, column: HOTSPOT_COLUMNS.length } }
   const vs = wb.addWorksheet('الآليات لكل بقعة', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] })
   vs.addRow(['# البقعة', 'القاطع', 'الآلية', 'رقم DB', 'قاطع الآلية', 'الجهاز', 'التوقفات', 'الدقائق']).font = { bold: true }
-  list.forEach((h, i) => (h.vehicles ?? []).forEach((v) => vs.addRow([i + 1, h.sector_names?.join('، ') || '—', v.name ?? '—', v.db_number ?? '—', v.sector ?? '—', v.device, v.stops, v.minutes])))
+  list.forEach((h, i) => (h.vehicles ?? []).forEach((v) => vs.addRow([i + 1, spotPlace(h), v.name ?? '—', v.db_number ?? '—', v.sector ?? '—', v.device, v.stops, v.minutes])))
   ;[9, 24, 22, 10, 16, 16, 10, 10].forEach((w, i) => { vs.getColumn(i + 1).width = w })
   const s = summarize(list), sum = wb.addWorksheet('ملخص', { views: [{ rightToLeft: true }] })
   sum.addRow(['البند', 'القيمة']).font = { bold: true }
@@ -48,7 +48,7 @@ export async function downloadHotspotsExcel(rows: GpsHotspot[], month: string, f
 /** HTML مستقل (A4 أفقي، ألوان مطبوعة) */
 export function hotspotsReportHtml(rows: GpsHotspot[], month: string, filtersText: string, stats: GpsHotspotsMonthStats[] = [], generatedAt = new Date()) {
   const list = sortedForExport(rows), s = summarize(list), cmp = compareMonths(stats, month)
-  const tr = list.map((h, i) => `<tr><td class="c">${i + 1}</td><td>${esc(h.sector_names?.join('، ') || '—')}</td><td class="c"><span class="pill" style="background:${CLASS_COLOR[h.dominant_class]}">${CLASS_LABEL[h.dominant_class]}</span></td><td class="c">${RECURRENCE_LABEL[h.recurrence]}</td><td class="c">${n(h.stops_count)}</td><td class="c">${n(h.days_count)}</td><td class="c">${n(h.vehicles_count)}</td><td class="c"><b>${esc(fmtMinutes(h.total_minutes))}</b></td><td class="c">${h.avg_minutes} / ${h.max_minutes}</td><td class="c">${h.heavy_count} / ${h.medium_count} / ${h.light_count}</td><td class="c">${esc(peakHours(h.hours))}</td><td class="c mono">${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</td></tr>`).join('\n')
+  const tr = list.map((h, i) => `<tr><td class="c">${i + 1}</td><td>${esc(spotPlace(h))}</td><td class="c"><span class="pill" style="background:${CLASS_COLOR[h.dominant_class]}">${CLASS_LABEL[h.dominant_class]}</span></td><td class="c">${RECURRENCE_LABEL[h.recurrence]}</td><td class="c">${n(h.stops_count)}</td><td class="c">${n(h.days_count)}</td><td class="c">${n(h.vehicles_count)}</td><td class="c"><b>${esc(fmtMinutes(h.total_minutes))}</b></td><td class="c">${h.avg_minutes} / ${h.max_minutes}</td><td class="c">${h.heavy_count} / ${h.medium_count} / ${h.light_count}</td><td class="c">${esc(peakHours(h.hours))}</td><td class="c mono">${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</td></tr>`).join('\n')
   const cmpHtml = cmp.available ? `<section><h2>مقارنة مع ${esc(monthLabel(cmp.previous))}</h2><div class="stats">${cmp.rows.map((d) => `<div class="stat"><b>${n(d.current)}</b><span>${esc(d.label)}</span><em class="${(d.delta ?? 0) > 0 ? 'up' : (d.delta ?? 0) < 0 ? 'down' : ''}">${esc(deltaLabel(d))}</em></div>`).join('')}</div></section>` : '<p class="sub">لا تتوفر بيانات الشهر السابق للمقارنة.</p>'
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>خريطة النفايات — بقع التوقف — ${esc(monthLabel(month))}</title>
 <style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}

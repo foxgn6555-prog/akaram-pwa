@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
 import { HEAT_STOPS, buildHeatPalette, colorizeHeat, heatCoreAlpha, heatRadiusMeters, heatWeight, isLandmarkSpot, metersToPixels } from '@features/gps-hotspots/heat'
 import { DARK_TILES, LIGHT_TILES, spotIcon } from '@features/gps-hotspots/WasteMap'
+import { applyFilters, DEFAULT_FILTERS, rankTop, spotPlace, spotSectorIds } from '@features/gps-hotspots/hotspots.logic'
 
 const spot = (o: Partial<GpsHotspot>): GpsHotspot => ({ id: 1, month: '2026-09-01', wh_id: 1, lat: 33.3, lng: 44.4, stops_count: 5, days_count: 3, vehicles_count: 1, total_minutes: 120, avg_minutes: 24, max_minutes: 40, light_count: 0, medium_count: 5, heavy_count: 0, dominant_class: 'medium', recurrence: 'once', hours: [], days: [], sector_ids: [], sector_names: [], ...o } as GpsHotspot)
 
@@ -54,5 +55,24 @@ describe('heat engine (00387)', () => {
     expect(DARK_TILES.at(-1)).toMatchObject({ id: 'osm-filtered', filter: true })
     expect(DARK_TILES.at(-1)!.url).toContain('tile.openstreetmap.org')
     expect(LIGHT_TILES).toMatchObject({ id: 'osm', filter: false })
+  })
+
+  it('00387-ب: فلتر القاطع يعتمد المنطقة الجغرافية أولاً ثم قاطع الآلية احتياطاً، والاسم يعرض المنطقة والزون', () => {
+    const geo = spot({ id: 1, sector_ids: [3], sector_names: ['قاطع ج'], geo_sector_id: 5, geo_sector_name: 'الكرادة', geo_zone_name: 'زون 12' })
+    const fallback = spot({ id: 2, sector_ids: [3], sector_names: ['قاطع ج'], geo_sector_id: null })
+    const none = spot({ id: 3, sector_ids: [], sector_names: [] })
+    expect(spotSectorIds(geo)).toEqual([5]); expect(spotSectorIds(fallback)).toEqual([3]); expect(spotSectorIds(none)).toEqual([])
+    const f = { ...DEFAULT_FILTERS, classes: [] as never[], sectorIds: [5] }
+    expect(applyFilters([geo, fallback, none], f).map((h) => h.id)).toEqual([1])
+    expect(applyFilters([geo, fallback, none], { ...f, sectorIds: [3] }).map((h) => h.id)).toEqual([2])   // الجغرافيا تغلب قاطع الآلية
+    expect(applyFilters([geo, fallback, none], { ...f, sectorIds: [] }).length).toBe(3)
+    expect(spotPlace(geo)).toBe('الكرادة · زون 12'); expect(spotPlace(fallback)).toBe('قاطع ج'); expect(spotPlace(none)).toBe('خارج القواطع')
+  })
+  it('00387-ب: ترتيب أثقل 5 بقع يظهر رقماً على العلامة، والتلميح يحمل المكان', () => {
+    const rows = Array.from({ length: 8 }, (_, i) => spot({ id: i + 1, total_minutes: (i + 1) * 100 }))
+    const r = rankTop(rows, 5)
+    expect(r.get(8)).toBe(1); expect(r.get(4)).toBe(5); expect(r.has(3)).toBe(false)
+    expect(spotIcon(rows[7]!, false, undefined, 1).options.html as string).toContain('waste-spot__rank">1<')
+    expect(spotIcon(rows[0]!, false).options.html as string).not.toContain('waste-spot__rank')
   })
 })

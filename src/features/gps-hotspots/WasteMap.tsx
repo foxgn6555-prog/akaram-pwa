@@ -6,10 +6,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
-import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, fmtMinutes, peakHours } from './hotspots.logic'
+import { CLASS_COLOR, CLASS_LABEL, RECURRENCE_LABEL, fmtMinutes, peakHours, rankTop, spotPlace } from './hotspots.logic'
 import { HEAT_GRADIENT_CSS, isLandmarkSpot } from './heat'
 import HeatLayer from './HeatLayer'
 
@@ -28,6 +28,11 @@ const STYLE_ID = 'waste-map-style'
 const CSS = `
 .waste-tiles-filtered .leaflet-tile-pane { filter: invert(1) hue-rotate(195deg) brightness(.72) contrast(1.15) saturate(.55); }
 .waste-map-root .leaflet-container { background: #060b18; }
+.waste-heat-canvas { max-width: none !important; max-height: none !important; animation: waste-fade .9s ease-out; }
+@keyframes waste-fade { from { opacity: 0; } to { opacity: 1; } }
+.waste-spot__rank { position: absolute; right: -8px; top: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9999px; background: #fff; color: #0f172a; font: 900 10px/16px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--c), 0 2px 6px rgba(0,0,0,.6); }
+.waste-tip { background: rgba(15,23,42,.92) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.15) !important; border-radius: 10px !important; box-shadow: 0 6px 20px rgba(0,0,0,.45) !important; font: 800 11px/1.3 system-ui, sans-serif !important; padding: 6px 9px !important; direction: rtl; text-align: right; }
+.waste-tip::before { display: none !important; }   /* globals.css تحدّ canvas بـ 100% من أب عرضه صفر (pane) */
 .waste-spot { position: relative; width: 22px; height: 22px; }
 .waste-spot__ring { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid var(--c); box-shadow: 0 0 10px 1px var(--c), inset 0 0 6px rgba(255,255,255,.35); opacity: .95; }
 .waste-spot__dot { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 9999px; background: #fff; box-shadow: 0 0 6px 2px rgba(255,255,255,.85); }
@@ -49,16 +54,16 @@ function useInjectStyle() {
 
 const BIN_SVG = '<svg class="waste-spot__bin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
 const iconCache = new Map<string, L.DivIcon>()
-export function spotIcon(h: GpsHotspot, selected: boolean, label?: string): L.DivIcon {
+export function spotIcon(h: GpsHotspot, selected: boolean, label?: string, rank?: number): L.DivIcon {
   const color = CLASS_COLOR[h.dominant_class]
   const landmark = isLandmarkSpot(h)
   const pulse = h.recurrence === 'frequent' || selected
-  const key = `${color}|${landmark ? 1 : 0}|${pulse ? 1 : 0}|${selected ? 1 : 0}|${label ?? ''}`
+  const key = `${color}|${landmark ? 1 : 0}|${pulse ? 1 : 0}|${selected ? 1 : 0}|${label ?? ''}|${rank ?? ''}`
   let icon = iconCache.get(key)
   if (!icon) {
     icon = L.divIcon({
       className: '',
-      html: `<div class="waste-spot${landmark ? ' waste-spot--landmark' : ''}${selected ? ' waste-spot--selected' : ''}" style="--c:${color}" data-class="${h.dominant_class}" data-recurrence="${h.recurrence}">${pulse ? '<span class="waste-spot__pulse"></span>' : ''}<span class="waste-spot__ring"></span><span class="waste-spot__dot"></span>${landmark ? BIN_SVG : ''}${label ? `<span class="waste-spot__label">${label}</span>` : ''}</div>`,
+      html: `<div class="waste-spot${landmark ? ' waste-spot--landmark' : ''}${selected ? ' waste-spot--selected' : ''}" style="--c:${color}" data-class="${h.dominant_class}" data-recurrence="${h.recurrence}">${pulse ? '<span class="waste-spot__pulse"></span>' : ''}<span class="waste-spot__ring"></span><span class="waste-spot__dot"></span>${landmark ? BIN_SVG : ''}${rank ? `<span class="waste-spot__rank">${rank}</span>` : ''}${label ? `<span class="waste-spot__label">${label}</span>` : ''}</div>`,
       iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -12],
     })
     iconCache.set(key, icon)
@@ -128,7 +133,8 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
     if (errorsRef.current >= TILE_ERRORS_BEFORE_FALLBACK) setTileFailed(true)
   }
   const onTileLoad = () => { errorsRef.current = 0; setTileFailed(false) }
-  const markers = useMemo(() => rows.map((h) => ({ h, icon: spotIcon(h, h.id === selectedId) })), [rows, selectedId])
+  const ranks = useMemo(() => rankTop(rows, 5), [rows])
+  const markers = useMemo(() => rows.map((h) => ({ h, icon: spotIcon(h, h.id === selectedId, undefined, ranks.get(h.id)) })), [rows, selectedId, ranks])
 
   const shell = (
     <div className={`waste-map-root ${full ? 'fixed inset-0 z-[2200] bg-slate-950' : `relative isolate z-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 ${heightClass}`}`} data-testid="waste-map" data-fullscreen={full ? '1' : '0'} data-tiles={tiles.id} data-theme={dark ? 'dark' : 'light'}>
@@ -141,7 +147,7 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
       </div>
       <div className="absolute bottom-3 left-3 z-[1000] grid gap-1.5 rounded-2xl border border-white/10 bg-slate-900/85 px-3 py-2 text-[10px] font-black text-white shadow-2xl backdrop-blur-md" data-testid="waste-map-legend">
         <div className="flex items-center gap-2"><span className="text-slate-300">كثافة التوقف</span><span className="h-2.5 w-28 rounded-full" style={{ background: HEAT_GRADIENT_CSS }} data-testid="waste-map-legend-gradient" /><span className="text-slate-300">منخفضة ← عالية جداً</span></div>
-        <div className="flex flex-wrap gap-2">{(['heavy', 'medium', 'light'] as const).map((c) => <span key={c} className="flex items-center gap-1"><span className="size-3 rounded-full border-2" style={{ borderColor: CLASS_COLOR[c], boxShadow: `0 0 6px ${CLASS_COLOR[c]}` }} />{CLASS_LABEL[c]}</span>)}<span className="flex items-center gap-1 text-slate-300"><span className="size-3 rounded-full border-2 border-white/60" />{RECURRENCE_LABEL.frequent} = نبض</span><span className="text-slate-300">· سلة = بقعة ثقيلة</span></div>
+        <div className="flex flex-wrap gap-2">{(['heavy', 'medium', 'light'] as const).map((c) => <span key={c} className="flex items-center gap-1"><span className="size-3 rounded-full border-2" style={{ borderColor: CLASS_COLOR[c], boxShadow: `0 0 6px ${CLASS_COLOR[c]}` }} />{CLASS_LABEL[c]}</span>)}<span className="flex items-center gap-1 text-slate-300"><span className="size-3 rounded-full border-2 border-white/60" />{RECURRENCE_LABEL.frequent} = نبض</span><span className="text-slate-300">· سلة = بقعة ثقيلة · الرقم = ترتيب أثقل 5 بقع</span></div>
       </div>
       {tileFailed && <div className="absolute inset-x-20 top-16 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900" data-testid="waste-map-tile-failed">تعذر تحميل خلفية الخريطة — البقع ما زالت ظاهرة.</div>}
       {allRows.length === 0 && <div data-testid="waste-map-empty" className="absolute inset-x-10 bottom-16 z-[1000] rounded-xl bg-white/95 p-3 text-center text-xs font-bold text-slate-700">لا بقع لهذا الشهر بعد — تُنسخ من المستودع كل ليلة 23:30.</div>}
@@ -154,10 +160,11 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
         {showHeat && <HeatLayer rows={rows} />}
         {showMarkers && markers.map(({ h, icon }) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={icon} zIndexOffset={h.id === selectedId ? 1000 : isLandmarkSpot(h) ? 200 : 0} eventHandlers={{ click: () => onSelect?.(h) }}>
+            <Tooltip direction="top" offset={[0, -10]} opacity={1} className="waste-tip">{ranks.get(h.id) ? `#${ranks.get(h.id)} · ` : ''}{spotPlace(h)} · {fmtMinutes(h.total_minutes)} · {h.stops_count} توقف</Tooltip>
             <Popup>
               <div dir="rtl" className="min-w-[200px] text-right text-xs" data-testid={`waste-spot-popup-${h.id}`}>
                 <b className="text-sm" style={{ color: CLASS_COLOR[h.dominant_class] }}>{CLASS_LABEL[h.dominant_class]} · {RECURRENCE_LABEL[h.recurrence]}</b>
-                <div className="text-[11px] text-slate-600">{h.sector_names?.join('، ') || '—'}</div>
+                <div className="text-[11px] text-slate-600">{spotPlace(h)}</div>
                 <div className="mt-1">التوقفات: <b>{h.stops_count}</b> · الأيام: <b>{h.days_count}</b> · الآليات: <b>{h.vehicles_count}</b></div>
                 <div>إجمالي التوقف: <b>{fmtMinutes(h.total_minutes)}</b> · المتوسط {h.avg_minutes} د · الأقصى {h.max_minutes} د</div>
                 <div>ذروة الساعات: {peakHours(h.hours)}</div>

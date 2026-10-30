@@ -32,12 +32,22 @@ export function hotspotStyle(h: GpsHotspot, selected = false) {
 export function toggleIn<T>(list: T[], v: T): T[] { return list.includes(v) ? list.filter((x) => x !== v) : [...list, v] }
 
 /** الفلترة المحلية (نفس شروط القاعدة) — تسمح بالتبديل الفوري بلا طلب جديد */
+/** 00387-ب: قواطع البقعة للفلترة: المنطقة الجغرافية إن عُرفت، وإلا قاطع الآلية احتياطاً */
+export const spotSectorIds = (h: GpsHotspot): number[] => (h.geo_sector_id != null ? [h.geo_sector_id] : h.sector_ids)
+/** اسم موقع البقعة للعرض: المنطقة (الزون) أو قاطع الآلية أو «خارج القواطع» */
+export const spotPlace = (h: GpsHotspot): string => (h.geo_sector_name ? `${h.geo_sector_name}${h.geo_zone_name ? ` · ${h.geo_zone_name}` : ''}` : h.sector_names?.join('، ') || 'خارج القواطع')
+/** ترتيب أثقل البقع (1..n) حسب إجمالي دقائق التوقف */
+export function rankTop(rows: GpsHotspot[], n = 5): Map<number, number> {
+  const m = new Map<number, number>()
+  ;[...rows].sort((a, b) => b.total_minutes - a.total_minutes || b.stops_count - a.stops_count).slice(0, n).forEach((h, i) => m.set(h.id, i + 1))
+  return m
+}
 export function applyFilters(rows: GpsHotspot[], f: WasteMapFilters): GpsHotspot[] {
   return rows.filter((h) =>
     (f.classes.length === 0 || f.classes.includes(h.dominant_class))
     && (f.recurrence.length === 0 || f.recurrence.includes(h.recurrence))
     && h.vehicles_count >= f.minVehicles
-    && (f.sectorIds.length === 0 || h.sector_ids.some((s) => f.sectorIds.includes(s))))
+    && (f.sectorIds.length === 0 || spotSectorIds(h).some((s) => f.sectorIds.includes(s))))
 }
 
 export interface WasteMapSummary { spots: number; stops: number; totalMinutes: number; vehicles: number; multi: number; byClass: Record<HotspotClass, number>; byRecurrence: Record<HotspotRecurrence, number> }

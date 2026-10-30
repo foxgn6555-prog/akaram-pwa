@@ -75,5 +75,18 @@ begin
   perform pg_temp.as_user('e9100000-0000-0000-0000-000000000001');
   -- G4: الكتالوج يعرف الجداول كحالة مقفلة
   if (select count(*) from app.data_retention_catalog() where table_name in ('gps_hotspots', 'gps_hotspots_sync', 'gps_hotspots_month_stats') and deletable = false) <> 3 then raise exception 'G4 catalog'; end if;
+  -- G7 (00387-ب): المنطقة جغرافياً من الزونات — زون للقاطع 5 يحتوي البقعة 13 فقط؛ فلتر 5 يُظهرها رغم أن قاطع آليتها 3،
+  --   والبقعة خارج الزونات تبقى على قاطع الآلية احتياطاً؛ unlocated يُحصي ما خرج عن الزونات
+  perform pg_temp.as_service();
+  update public.sectors set name = 'قاطع هـ' where id = 5; insert into public.sectors (id, code, name, sort, parent_sector) values (5, 'S5', 'قاطع هـ', 5, 'karrada') on conflict (id) do nothing;
+  insert into public.gps_geofences (name, source, polygon, sector_id) values ('زون الاختبار', 'platform', '[{"lat":33.315,"lng":44.415},{"lat":33.315,"lng":44.425},{"lat":33.325,"lng":44.425},{"lat":33.325,"lng":44.415}]'::jsonb, 5);
+  update public.gps_hotspots set lat = lat where month = m;
+  if (select geo_sector_id from public.gps_hotspots where month = m and wh_id = 13) <> 5 or (select geo_zone_name from public.gps_hotspots where month = m and wh_id = 13) <> 'زون الاختبار' then raise exception 'G7 locate'; end if;
+  if (select geo_sector_id from public.gps_hotspots where month = m and wh_id = 11) is not null then raise exception 'G7 outside'; end if;
+  perform pg_temp.as_user('e9100000-0000-0000-0000-000000000003');
+  js := public.gps_hotspots_list(m, null, null, 1, array[5]);
+  if (js ->> 'total')::int <> 1 or js -> 'rows' -> 0 ->> 'wh_id' <> '13' or js -> 'rows' -> 0 ->> 'geo_sector_name' <> 'قاطع هـ' or (js ->> 'unlocated')::int <> 2 then raise exception 'G7 list %', js; end if;
+  if (public.gps_hotspots_list(m, null, null, 1, array[3]) ->> 'total')::int <> 0 then raise exception 'G7 geo wins over vehicle sector'; end if;
+  if (public.gps_hotspots_list(m, null, null, 1, array[1]) ->> 'total')::int <> 2 then raise exception 'G7 fallback'; end if;
   raise notice 'gps hotspots ok';
 end $$;
