@@ -7,7 +7,7 @@ export const COUNT_SOURCE_AR: Record<CountSource, string> = { sector_manager: 'Ø
 export const COUNT_SOURCES: CountSource[] = ['sector_manager', 'contractor', 'follow_up']
 
 export interface HeadcountSheetRow {
-  contractor_user_id: string; contractor_name: string; sector_id: number; area_name: string; parent_sector: 'karrada' | 'zaafaraniya'; shift: string | null; is_active: boolean
+  contractor_user_id: string; contractor_name: string; sector_id: number; area_name: string; parent_sector: string; shift: string | null; is_active: boolean
   log_date: string; checked_in: boolean; in_zone: boolean | null
   contractor_headcount: number | null; follow_up_headcount: number | null; sector_manager_headcount: number | null
   contractor_edit_reason: string | null; follow_up_edit_reason: string | null; sector_manager_edit_reason: string | null
@@ -23,7 +23,7 @@ export interface HeadcountAudit { id: string; actor_name: string; action: string
 
 const first = (m: string) => `${m.slice(0, 7)}-01`
 export const opsContractorHeadcounts = {
-  async sheet(month: string, parent?: 'karrada' | 'zaafaraniya' | null): Promise<HeadcountSheetRow[]> {
+  async sheet(month: string, parent?: string | null): Promise<HeadcountSheetRow[]> {
     return ((await sdkGuard(supabase.rpc('ops_contractor_headcounts_sheet', { p_month: first(month), p_parent: parent ?? null }))) as HeadcountSheetRow[] | null) ?? []
   },
   async status(month: string): Promise<MonthStatus | null> {

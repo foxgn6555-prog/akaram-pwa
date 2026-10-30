@@ -73,6 +73,7 @@ import { useUiStore } from '@stores/ui.store'
 import type { ZoneShape } from './ZoneMapEditor'
 import { LandmarkGlyph, landmarkIconLabels } from './LandmarkIcon'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 const TripRoutesWorkspace = lazy(() => import('./TripRoutesPage'))
 const TripRouteMapWorkspace = lazy(() => import('./TripRouteMapPage'))
 const GpsLiveMap = lazy(() => import('./GpsLiveMap'))
@@ -1324,7 +1325,7 @@ function ZonesWorkspace({
                     <option value="">— غير مرتبط (لا مراقبة مسار) —</option>
                     {sectors.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name}{s.parent_sector ? ` — ${s.parent_sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}` : ''}
+                        {s.name}{s.parent_sector ? ` — ${parentSectorLabel(s.parent_sector)}` : ''}
                       </option>
                     ))}
                   </select>

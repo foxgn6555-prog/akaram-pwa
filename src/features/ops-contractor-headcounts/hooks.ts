@@ -12,7 +12,7 @@ const useAction = <T>(fn: (x: T) => Promise<void>, message: string) => {
     onError: (e) => toast({ type: 'error', message: handleAppError(e, { scope: 'ops-contractor-headcounts' }).message }),
   })
 }
-export const useHeadcountSheet = (month: string, parent?: 'karrada' | 'zaafaraniya' | null) =>
+export const useHeadcountSheet = (month: string, parent?: string | null) =>
   useQuery({ queryKey: [...ROOT, 'sheet', month, parent ?? ''], queryFn: () => opsContractorHeadcounts.sheet(month, parent), refetchInterval: 60_000 })
 export const useHeadcountMonthStatus = (month: string) => useQuery({ queryKey: [...ROOT, 'status', month], queryFn: () => opsContractorHeadcounts.status(month) })
 export const useHeadcountAudit = (month: string) => useQuery({ queryKey: [...ROOT, 'audit', month], queryFn: () => opsContractorHeadcounts.audit(month) })

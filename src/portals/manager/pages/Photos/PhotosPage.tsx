@@ -32,6 +32,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { CameraCapture } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 
 const todayBaghdad = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
@@ -382,7 +383,7 @@ export default function PhotosPage({ scope }: { scope?: PhotosScope } = {}) {
                   {s.work_type ? `النوع: ${s.work_type}` : 'دون نوع عمل'} · {s.photo_count} صورة
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  {s.sector_parent === 'karrada' ? SECTOR_LABEL.karrada : SECTOR_LABEL.zaafaraniya} · تنفيذ {s.exec_date ?? s.event_date}
+                  {parentSectorTitle(s.sector_parent)} · تنفيذ {s.exec_date ?? s.event_date}
                   {s.location ? ` · ${s.location}` : ''}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">

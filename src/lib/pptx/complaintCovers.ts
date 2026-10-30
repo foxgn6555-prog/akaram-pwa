@@ -81,12 +81,16 @@ export function formatCoverDate(reportDate: string, digits: CoverDigits): string
   return digits === 'arabic' ? toArabicDigits(text) : text
 }
 
-export const sectorLabelFor = (sector: string) => (sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية')
+/** 00395: اسم القطاع — في المتصفح يُحقن من السجل الحيّ للقطاعات (setSectorNameResolver)؛ في دالة الحافة الاحتياطي الثابت */
+let sectorNameResolver: (sector: string) => string = (sector) => (sector === 'karrada' ? 'الكرادة' : sector === 'zaafaraniya' ? 'الزعفرانية' : sector)
+export const setSectorNameResolver = (fn: (sector: string) => string): void => { sectorNameResolver = fn }
+export const sectorNameFor = (sector: string) => sectorNameResolver(sector)
+export const sectorLabelFor = (sector: string) => `قاطع ${sectorNameFor(sector)}`
 
 export const authorityLineFor = (layout: Record<string, unknown>, sector: string) => {
   const configured = String(layout.authorityLine ?? '')
   return !configured || configured === 'أمانة بغداد / دائرة بلدية الكرادة'
-    ? `أمانة بغداد / دائرة بلدية ${sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'}`
+    ? `أمانة بغداد / دائرة بلدية ${sectorNameFor(sector)}`
     : configured
 }
 

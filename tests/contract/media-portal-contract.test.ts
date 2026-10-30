@@ -44,7 +44,8 @@ describe('بوابة الإعلام', () => {
     const routePaths = customRoutes.map((route) => route.path)
     expect(routePaths).toEqual([
       '', 'karrada-sector', 'zaafaraniya-sector', 'karrada-folder',
-      'zaafaraniya-folder', 'designs', 'design-templates', 'archive',
+      'zaafaraniya-folder', 'sector/:code', 'folder/:code',   // 00395: مسارات ديناميكية لأي قطاع جديد
+      'designs', 'design-templates', 'archive',
     ])
   })
 

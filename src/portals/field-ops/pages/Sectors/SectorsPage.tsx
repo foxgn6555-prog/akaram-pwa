@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { Phone } from 'lucide-react'
 import { useFieldOpsSectorManagers, useSectorTeam } from '@features/sector-manager/hooks'
 import { PARENT_AR, SHIFT_AR, pct } from '@features/sector-manager/format'
+import { useParentSectors } from '@features/sectors'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
-type Parent = 'karrada' | 'zaafaraniya'
+type Parent = string
 export default function SectorsPage() {
   const sms = useFieldOpsSectorManagers(), team = useSectorTeam()
+  const { parents } = useParentSectors()   // 00395: القطاعات من القاعدة
   const [parent, setParent] = useState<Parent>('karrada')
   if (sms.isLoading || team.isLoading) return <LoadingSpinner />
   const managers = (sms.data ?? []).filter((m) => m.parent_sectors.includes(parent))
@@ -16,8 +18,8 @@ export default function SectorsPage() {
   return (
     <div className="space-y-4 pb-4" data-testid="fo-sectors">
       <ExecPageHeader icon="map-pin" title="القواطع والمسؤولون" subtitle="مسؤول القاطع يرأس مسؤولي أقسام قاطعه، وأنت تعلو الجميع." />
-      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-        {(['karrada', 'zaafaraniya'] as Parent[]).map((k) => (
+      <div className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm" style={{ gridTemplateColumns: `repeat(${Math.max(1, parents.length)}, minmax(0, 1fr))` }}>
+        {parents.map(({ code: k }) => (
           <button key={k} type="button" data-testid={`sectors-tab-${k}`} onClick={() => setParent(k)} className={`h-10 rounded-xl text-sm font-black ${parent === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600'}`}>{PARENT_AR[k]}</button>
         ))}
       </div>

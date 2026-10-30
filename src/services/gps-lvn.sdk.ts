@@ -152,7 +152,7 @@ export interface GpsMapGeofence {
   /** 00154: المنطقة التشغيلية المرتبطة بالزون (اتحاد زونات المنطقة = حدودها) */
   sector_id?: number | null
   area_name?: string | null
-  parent_sector?: 'karrada' | 'zaafaraniya' | null
+  parent_sector?: string | null
 }
 export type GpsAlertType = 'gps_offline' | 'gps_stale' | 'outside_zone' | 'engine_idle' | 'route_deviation'
 export interface GpsRouteDeviationSettings {

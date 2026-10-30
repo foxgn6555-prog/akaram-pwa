@@ -1,5 +1,6 @@
 /** SDK القطاعات والمناطق الديناميكية (00393) — المصدر الوحيد لشجرة القطاعات/المناطق؛ الكتابة للتطوير المركزية فقط */
 import { sdkGuard, supabase } from './client'
+import { setSectorNameResolver } from '@lib/pptx/complaintCovers'
 
 export interface SectorArea { id: number; code: string; name: string; sort: number; is_active: boolean }
 export interface ParentSectorNode { code: string; name: string; sort: number; is_active: boolean; areas: SectorArea[] }
@@ -31,6 +32,8 @@ export const parentSectorLabel = (code: string | null | undefined): string => {
   if (!code) return '—'
   return snapshot.find((p) => p.code === code)?.name ?? code
 }
+// 00395: أغلفة PowerPoint (ملف مشترك مع دالة الحافة بلا استيرادات) تأخذ الاسم من السجل الحيّ
+setSectorNameResolver((code) => parentSectorLabel(code))
 /** «قاطع الكرادة» */
 export const parentSectorTitle = (code: string | null | undefined): string => (code ? `قاطع ${parentSectorLabel(code)}` : '—')
 /** خريطة حيّة رمز → اسم (بديل الثوابت PARENT_AR) */

@@ -39,7 +39,7 @@ export interface TreasurySummary {
 export interface TreasuryListFilter { from?: string | null; to?: string | null; kind?: TreasuryKind | null; status?: TreasuryStatus | null; typeId?: string | null; employeeId?: string | null; search?: string | null; limit?: number }
 export interface EmployeeLookupRow { id: string; full_name: string; employee_number: string | null; job_title: string | null; department_name: string | null }
 export interface CompletedDesignRow {
-  id: string; title: string; sector_parent: 'karrada' | 'zaafaraniya'; period_type: 'daily' | 'weekly' | 'first_half' | 'second_half' | 'monthly'; period_start: string; period_end: string
+  id: string; title: string; sector_parent: string; period_type: 'daily' | 'weekly' | 'first_half' | 'second_half' | 'monthly'; period_start: string; period_end: string
   cover_image_path: string | null; photo_count: number; completed_at: string | null; completed_by_name: string | null; work_types: string[]
 }
 

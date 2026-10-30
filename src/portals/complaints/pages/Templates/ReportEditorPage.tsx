@@ -15,6 +15,7 @@ import { CoverPicker } from '../../components/CoverPicker'
 import { DEFAULT_SLOGAN, coverFor, coverTexts, formatCoverDate, reportTheme, sectorLabelFor, type ComplaintCoverId } from '@lib/pptx/complaintCovers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { parentSectorLabel, parentSectorTitle } from '@sdk/sectors.sdk'
+import { useParentSectors } from '@features/sectors'
 
 const deliveryLabels: Record<string, string> = {
   queued: 'في قائمة الإرسال', accepted: 'قبله مزود البريد', delivered: 'مُسلّم',
@@ -38,6 +39,7 @@ export default function ReportEditorPage() {
 }
 
 function Editor({ initial }: { initial: ComplaintReportDetail }) {
+  const { parents: sectorParents } = useParentSectors()   // 00395
   const [title, setTitle] = useState(initial.title)
   const [layout, setLayout] = useState(initial.layout)
   const [recipients, setRecipients] = useState(initial.recipients.join('\n'))
@@ -159,7 +161,7 @@ function Editor({ initial }: { initial: ComplaintReportDetail }) {
                     <CoverPicker value={cover.id} disabled={!editable} onChange={(id: ComplaintCoverId) => changeLayout('cover', id)} />
           {cover.id === 'official' && <label className="mt-3 flex items-center justify-between text-xs font-bold">اللون الرئيسي<input disabled={!editable} type="color" value={accent.toLowerCase()} onChange={event => changeLayout('accent', event.target.value)} /></label>}
           <label className="mt-3 block text-xs font-bold">عنوان الغلاف<input disabled={!editable} value={String(layout.title ?? 'تقرير معالجة التلكؤات ليوم')} onChange={event => changeLayout('title', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /></label>
-          <label className="mt-3 block text-xs font-bold">سطر القاطع على الغلاف<input disabled={!editable} aria-label="سطر القاطع على الغلاف" value={liveTexts.sectorLine} onChange={event => changeLayout('coverSectorLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /><span className="mt-1 flex gap-1">{(['karrada', 'zaafaraniya'] as const).map(code => <button key={code} type="button" disabled={!editable} onClick={() => changeLayout('coverSectorLine', sectorLabelFor(code))} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${liveTexts.sectorLine === sectorLabelFor(code) ? 'border-indigo-600 bg-indigo-50 text-indigo-800' : 'text-slate-600'}`}>{sectorLabelFor(code)}</button>)}</span></label>
+          <label className="mt-3 block text-xs font-bold">سطر القاطع على الغلاف<input disabled={!editable} aria-label="سطر القاطع على الغلاف" value={liveTexts.sectorLine} onChange={event => changeLayout('coverSectorLine', event.target.value)} className="mt-1 w-full rounded-xl border p-2.5" /><span className="mt-1 flex gap-1">{sectorParents.map(({ code }) => <button key={code} type="button" disabled={!editable} onClick={() => changeLayout('coverSectorLine', sectorLabelFor(code))} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${liveTexts.sectorLine === sectorLabelFor(code) ? 'border-indigo-600 bg-indigo-50 text-indigo-800' : 'text-slate-600'}`}>{sectorLabelFor(code)}</button>)}</span></label>
           <div className="mt-3 rounded-xl border p-2"><span className="text-xs font-bold">أرقام التاريخ على الغلاف</span><div className="mt-1 flex gap-1">{([['latin', 'لاتينية 2026/10/2'], ['arabic', 'عربية ٢٠٢٦/١٠/٢']] as const).map(([digits, text]) => <button key={digits} type="button" disabled={!editable} onClick={() => { changeLayout('coverDateDigits', digits); changeLayout('coverDateText', '') }} className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${(layout.coverDateDigits ?? 'latin') === digits ? 'border-indigo-600 bg-indigo-50 text-indigo-800' : 'text-slate-600'}`}>{text}</button>)}</div>
             <label className="mt-2 block text-xs font-bold">نص التاريخ<input disabled={!editable} aria-label="نص التاريخ على الغلاف" value={liveTexts.dateLine} onChange={event => changeLayout('coverDateText', event.target.value)} className="mt-1 w-full rounded-xl border p-2" /><span className="text-[10px] font-normal text-slate-500">الافتراضي: {formatCoverDate(initial.reportDate, layout.coverDateDigits === 'arabic' ? 'arabic' : 'latin')}</span></label></div>
           <label className="mt-3 block text-xs font-bold">الشعار أسفل الغلاف<input disabled={!editable} aria-label="شعار الغلاف" value={typeof layout.coverSlogan === 'string' ? layout.coverSlogan : DEFAULT_SLOGAN} onChange={event => changeLayout('coverSlogan', event.target.value)} placeholder="اتركه فارغاً لإخفائه" className="mt-1 w-full rounded-xl border p-2.5" /></label>

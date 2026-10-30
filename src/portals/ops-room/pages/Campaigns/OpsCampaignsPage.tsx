@@ -22,6 +22,7 @@ import type { OpsCampaignRow } from '@sdk/media.sdk'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
 
 const MODES: Array<{ key: MediaMode; label: string; icon: typeof Sparkles }> = [
   { key: 'campaign', label: 'الحملات', icon: Sparkles },
@@ -33,6 +34,7 @@ const vehTotal = (r: OpsCampaignRow) => VEHICLE_KINDS.reduce((s, v) => s + (r[VE
 const fmtDay = (d: string) => new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Baghdad' }).format(new Date(d))
 
 export default function OpsCampaignsPage() {
+  const { parents } = useParentSectors()   // 00395
   const [mode, setMode] = useState<MediaMode>('campaign')
   const [parent, setParent] = useState<'' | SectorParent>('')
   const [sectorId, setSectorId] = useState<number | ''>('')
@@ -107,8 +109,7 @@ export default function OpsCampaignsPage() {
         <label className="text-[11px] font-bold text-slate-600">القاطع
           <select data-testid="camp-parent" value={parent} onChange={(e) => { setParent(e.target.value as '' | SectorParent); setSectorId('') }} className="mt-1 block h-10 rounded-xl border bg-white px-3 text-sm">
             <option value="">كل القواطع</option>
-            <option value="karrada">{SECTOR_LABEL.karrada}</option>
-            <option value="zaafaraniya">{SECTOR_LABEL.zaafaraniya}</option>
+            {parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
           </select>
         </label>
         <label className="text-[11px] font-bold text-slate-600">القسم

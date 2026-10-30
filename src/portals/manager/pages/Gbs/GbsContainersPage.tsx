@@ -18,6 +18,7 @@ import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 
 export default function GbsContainersPage() {
   const [search, setSearch] = useState('')
@@ -179,7 +180,7 @@ export default function GbsContainersPage() {
                 <span className="text-xs font-black">
                   {container.code} · {container.label}
                   <span className="block text-[9px] font-bold text-slate-400">
-                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {parentSectorTitle(container.parentSector)} ·{' '}
                     {container.areaName}
                   </span>
                 </span>

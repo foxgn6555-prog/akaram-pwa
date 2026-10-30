@@ -6,7 +6,7 @@ import { PARENT_AR, SHIFT_AR } from '@features/contractors/format'
 import type { Pivot } from './pivot'
 import { workersOf } from './pivot'
 
-export interface HeadcountsExportMeta { month: string; parent: 'karrada' | 'zaafaraniya' | null; approvedSource: CountSource | null; locked: boolean }
+export interface HeadcountsExportMeta { month: string; parent: string | null; approvedSource: CountSource | null; locked: boolean }
 
 export async function exportHeadcountsExcel(pivot: Pivot, meta: HeadcountsExportMeta): Promise<ExcelJS.Workbook> {
   const scope = meta.parent ? PARENT_AR[meta.parent] ?? meta.parent : 'كل القواطع'

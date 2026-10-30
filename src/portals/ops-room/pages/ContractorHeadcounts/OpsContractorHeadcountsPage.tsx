@@ -16,13 +16,15 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useUiStore } from '@stores/ui.store'
+import { useParentSectors } from '@features/sectors'
 
 const todayBaghdad = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const SRC_TONE: Record<CountSource, string> = { sector_manager: 'bg-sky-50', contractor: 'bg-amber-50', follow_up: 'bg-emerald-50' }
 
 export default function OpsContractorHeadcountsPage() {
   const [month, setMonth] = useState(todayBaghdad().slice(0, 7))
-  const [parent, setParent] = useState<'' | 'karrada' | 'zaafaraniya'>('')
+  const [parent, setParent] = useState<string>('')
+  const { parents } = useParentSectors()   // 00395
   const [source, setSource] = useState<CountSource | 'all'>('all')
   const [edit, setEdit] = useState<{ c: PivotContractor; date: string; source: CountSource; current: number | null } | null>(null)
   const [approveSrc, setApproveSrc] = useState<CountSource | ''>('')
@@ -75,7 +77,7 @@ export default function OpsContractorHeadcountsPage() {
         <label className="text-xs font-bold text-slate-600">الشهر</label>
         <input type="month" value={month} max={todayBaghdad().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="month-filter" />
         <select value={parent} onChange={(e) => setParent(e.target.value as typeof parent)} className="rounded-xl border px-3 py-2 text-sm" data-testid="parent-filter">
-          <option value="">كل القواطع</option><option value="karrada">قاطع الكرادة</option><option value="zaafaraniya">قاطع الزعفرانية</option>
+          <option value="">كل القواطع</option>{parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
         </select>
         <div className="flex gap-1" data-testid="source-filter">
           {(['all', ...COUNT_SOURCES] as const).map((s) => (

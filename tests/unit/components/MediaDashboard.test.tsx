@@ -26,18 +26,15 @@ const today = baghdadDay()
 const yest = baghdadDay(-1)
 
 vi.mock('@features/media/hooks', () => ({
-  useSubmissions: (sector: string) => ({
+  // 00395: الرئيسية تطلب كل القطاعات بطلب واحد (sector=null) وتوزّعها بحقل sector_parent
+  useSubmissions: () => ({
     isLoading: false,
-    data:
-      sector === 'karrada'
-        ? [
-            { id: 'k1', title: 'كنس الكرادة', work_type: 'كنس الشوارع', photo_count: 3, event_date: `${today}T08:00:00`, created_at: `${today}T08:00:00`, status: 'active' },
-            { id: 'k2', title: 'حاويات الكرادة', work_type: 'رفع حاويات', photo_count: 2, event_date: `${yest}T08:00:00`, created_at: `${yest}T08:00:00`, status: 'active' },
-            { id: 'k3', title: 'مؤرشفة ك', work_type: 'كنس الشوارع', photo_count: 4, event_date: `${yest}T09:00:00`, created_at: `${yest}T09:00:00`, status: 'archived' },
-          ]
-        : [
-            { id: 'z1', title: 'غسل الزعفرانية', work_type: 'غسل الشارع', photo_count: 5, event_date: `${today}T07:00:00`, created_at: `${today}T07:00:00`, status: 'active' },
-          ],
+    data: [
+      { id: 'k1', title: 'كنس الكرادة', work_type: 'كنس الشوارع', photo_count: 3, event_date: `${today}T08:00:00`, created_at: `${today}T08:00:00`, status: 'active', sector_parent: 'karrada' },
+      { id: 'k2', title: 'حاويات الكرادة', work_type: 'رفع حاويات', photo_count: 2, event_date: `${yest}T08:00:00`, created_at: `${yest}T08:00:00`, status: 'active', sector_parent: 'karrada' },
+      { id: 'k3', title: 'مؤرشفة ك', work_type: 'كنس الشوارع', photo_count: 4, event_date: `${yest}T09:00:00`, created_at: `${yest}T09:00:00`, status: 'archived', sector_parent: 'karrada' },
+      { id: 'z1', title: 'غسل الزعفرانية', work_type: 'غسل الشارع', photo_count: 5, event_date: `${today}T07:00:00`, created_at: `${today}T07:00:00`, status: 'active', sector_parent: 'zaafaraniya' },
+    ],
   }),
   useDesigns: () => ({
     data: [

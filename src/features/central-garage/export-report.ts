@@ -1,6 +1,7 @@
 import { buildExcelReport } from '@lib/export/excel-report'
 import { garageUnitLabel } from './fuel-units'
 import type { GarageReportResult } from './reports'
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 
 const fuelLabels:Record<string,string>={gas_oil:'الكاز',hydraulic:'الهيدروليك',grease:'الدهن',c_oil:'C-Oil'}
 const movementLabels:Record<string,string>={stock_in:'إضافة مخزون',vehicle_fill:'تعبئة آلية',approved_reset:'تصفير معتمد'}
@@ -36,5 +37,5 @@ export async function exportGarageReport(result:GarageReportResult):Promise<void
   ]).filter(chart=>chart.data.length)
   await buildExcelReport({sheetName:'حركات المخزون',companySub:'بوابة الكراج المركزي',title:identity.title,meta:`${identity.detail} · الفترة: ${result.from} إلى ${result.to} · عدد الحركات: ${result.totalCount}`,fileName:`تقرير-${identity.slug}-${result.from}-${result.to}.xlsx`,orientation:'landscape',columns:[
     {header:'#',key:'#',width:7},{header:'نوع الحركة',key:'movement',width:18},{header:'المادة',key:'fuel',width:14},{header:'الخزان',key:'tank',width:20},{header:'الآلية',key:'vehicle',width:22},{header:'DB',key:'db',width:14},{header:'القاطع والمنطقة',key:'area',width:22},{header:'الكمية',key:'quantity',width:13,numFmt:'0.000'},{header:'الوحدة',key:'unit',width:14},{header:'الرصيد قبل',key:'before',width:14,numFmt:'0.000'},{header:'الرصيد بعد',key:'after',width:14,numFmt:'0.000'},{header:'الموعد التالي',key:'next',width:16},{header:'وقت العملية',key:'created',width:22},{header:'منفذ العملية',key:'actor',width:38},{header:'ملاحظات',key:'notes',width:30,wrap:true},
-  ],rows:result.rows.map(row=>({movement:movementLabels[row.movementType],fuel:fuelLabels[row.fuelType],tank:row.tankName,vehicle:row.vehicleName??'—',db:row.dbNumber??'—',area:row.areaName?`${row.parentSector==='karrada'?'الكرادة':'الزعفرانية'} · ${row.areaName}`:'—',quantity:Math.abs(row.quantity),unit:garageUnitLabel(row.unit),before:row.quantityBefore,after:row.quantityAfter,next:row.fuelType==='gas_oil'?'لا ينطبق':(row.nextRefillDate??'—'),created:arDate(row.createdAt),actor:row.actorName,notes:row.notes??''})),totalRow:{movement:'ملخص حسب الوحدة',notes:unitSummary||'لا توجد حركات'},charts})
+  ],rows:result.rows.map(row=>({movement:movementLabels[row.movementType],fuel:fuelLabels[row.fuelType],tank:row.tankName,vehicle:row.vehicleName??'—',db:row.dbNumber??'—',area:row.areaName?`${parentSectorLabel(row.parentSector)} · ${row.areaName}`:'—',quantity:Math.abs(row.quantity),unit:garageUnitLabel(row.unit),before:row.quantityBefore,after:row.quantityAfter,next:row.fuelType==='gas_oil'?'لا ينطبق':(row.nextRefillDate??'—'),created:arDate(row.createdAt),actor:row.actorName,notes:row.notes??''})),totalRow:{movement:'ملخص حسب الوحدة',notes:unitSummary||'لا توجد حركات'},charts})
 }

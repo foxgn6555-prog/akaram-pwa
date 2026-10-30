@@ -59,8 +59,10 @@ import DesignReportView, {
   type ReportSummary,
 } from './DesignReportView'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
 
 export default function MediaDesignsPage() {
+  const { parents } = useParentSectors()   // 00395
   const [params, setParams] = useSearchParams()
   const openId = params.get('open')
   const designs = useDesigns(null)
@@ -74,7 +76,7 @@ export default function MediaDesignsPage() {
 
       {/* 00200: ترشيح بالقاطع والشفت */}
       <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="designs-filters">
-        {([['', 'كل القواطع'], ['karrada', SECTOR_LABEL.karrada], ['zaafaraniya', SECTOR_LABEL.zaafaraniya]] as Array<['' | SectorParent, string]>).map(([v, l]) => (
+        {([['', 'كل القواطع'] as ['' | SectorParent, string], ...parents.map((p) => [p.code, p.title] as ['' | SectorParent, string])]).map(([v, l]) => (
           <button key={`s-${v}`} type="button" data-testid={`filter-sector-${v || 'all'}`} onClick={() => setSectorFilter(v)} className={`h-9 rounded-full border px-3 font-bold ${sectorFilter === v ? 'border-[#0b3d6b] bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'border-slate-200 bg-white text-slate-700'}`}>
             {l}
           </button>

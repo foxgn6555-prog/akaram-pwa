@@ -5,6 +5,7 @@
 import clsx from 'clsx'
 import { Link } from 'react-router'
 import { useMaintenanceWorkshopAccounts, useMaintenanceWorkshops, useSetMaintenanceWorkshopActive } from '@features/maintenance-workshops/hooks'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 
 export default function MaintenanceWorkshopsPage() {
   const workshops = useMaintenanceWorkshops(), accounts = useMaintenanceWorkshopAccounts(), setActive = useSetMaintenanceWorkshopActive()
@@ -22,7 +23,7 @@ export default function MaintenanceWorkshopsPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h2 className="text-sm font-black">{w.name}</h2>
-                <p className="text-[11px] text-slate-500">{w.parent_sector ? `قاطع ${w.parent_sector === 'zaafaraniya' ? 'الزعفرانية' : w.parent_sector}` : 'كل القواطع غير المسندة لورشة أخرى'}</p>
+                <p className="text-[11px] text-slate-500">{w.parent_sector ? parentSectorTitle(w.parent_sector) : 'كل القواطع غير المسندة لورشة أخرى'}</p>
               </div>
               <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-black', w.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700')} data-testid={`workshop-status-${w.key}`}>{w.is_active ? 'فعّالة' : 'موقوفة'}</span>
             </div>

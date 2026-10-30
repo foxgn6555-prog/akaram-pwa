@@ -24,7 +24,7 @@ export const builtinCoverId = (path: string | null | undefined): string | null =
 export const builtinCoverPath = (id: string, sector: CoverSectorChoice | null = null) => `${BUILTIN_PREFIX}${id}${sector ? `#${sector}` : ''}`
 export const builtinCoverSector = (path: string | null | undefined): CoverSectorChoice | null => {
   const s = isBuiltinCover(path) ? path.split('#')[1] : undefined
-  return s === 'both' || s === 'karrada' || s === 'zaafaraniya' ? s : null
+  return s && (s === 'both' || /^[a-z][a-z0-9_]{1,30}$/.test(s)) ? s : null   // 00395: أي رمز قطاع من القاعدة
 }
 /** سياق العرض بعد تطبيق لاحقة المسار: both ⇒ القاطعان؛ قاطع محدد ⇒ هو؛ بلا لاحقة ⇒ قاطع التصميم */
 export function coverCtxForPath(ctx: CoverContext, path: string | null | undefined): CoverContext {

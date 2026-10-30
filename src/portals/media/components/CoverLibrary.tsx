@@ -21,6 +21,7 @@ import {
 import { PERIODS, PERIOD_LABEL, SECTOR_LABEL, type PeriodType, type SectorParent } from '@features/media/constants'
 import { COVER_TEMPLATES, SHIFT_LABEL, builtinCoverId, builtinCoverPath, rankTemplates, type CoverContext, type CoverShift } from '@features/media/lib/cover-templates'
 import CoverTemplate from './CoverTemplate'
+import { useParentSectors } from '@features/sectors'
 
 /** ترشيح نقي (مُختبر): القاطع/الفترة «العامة» (null) تظهر دائماً؛ البحث في العنوان والوسوم */
 export function filterCovers(covers: MediaCover[], f: { sector?: string | null; periodType?: string | null; shift?: string | null; q?: string }): MediaCover[] {
@@ -34,11 +35,7 @@ export function filterCovers(covers: MediaCover[], f: { sector?: string | null; 
   )
 }
 
-const SECTOR_OPTIONS: Array<{ value: SectorParent | ''; label: string }> = [
-  { value: '', label: 'كل القواطع' },
-  { value: 'karrada', label: SECTOR_LABEL.karrada ?? 'قاطع الكرادة' },   // 00395: تتحول للقراءة من القاعدة
-  { value: 'zaafaraniya', label: SECTOR_LABEL.zaafaraniya ?? 'قاطع الزعفرانية' },
-]
+const useSectorOptions = (): Array<{ value: SectorParent | ''; label: string }> => { const { parents } = useParentSectors(); return [{ value: '', label: 'كل القواطع' }, ...parents.map((p) => ({ value: p.code, label: p.title }))] }   // 00395
 
 function CoverMetaForm({
   initial,
@@ -53,6 +50,7 @@ function CoverMetaForm({
   submitLabel: string
   cancel: () => void
 }) {
+  const { parents } = useParentSectors()   // 00395
   const [v, setV] = useState<MediaCoverInput>(initial)
   const valid = v.title.trim().length >= 2
   return (
@@ -72,8 +70,7 @@ function CoverMetaForm({
           <span className="mb-1 block font-bold text-slate-600">القاطع</span>
           <select data-testid="cover-sector" value={v.sector ?? ''} onChange={(e) => setV({ ...v, sector: e.target.value || null })} className="h-10 w-full rounded-lg border bg-white px-2">
             <option value="">عام (كل القواطع)</option>
-            <option value="karrada">{SECTOR_LABEL.karrada}</option>
-            <option value="zaafaraniya">{SECTOR_LABEL.zaafaraniya}</option>
+            {parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
           </select>
         </label>
         <label>
@@ -122,6 +119,7 @@ export function CoverLibraryDialog({
   /** 00200: سياق التصميم لمعاينة القوالب الجاهزة بنصوصها الحيّة */
   ctx?: CoverContext
 }) {
+  const SECTOR_OPTIONS = useSectorOptions()
   const [showArchived, setShowArchived] = useState(false)
   const [shift, setShift] = useState<string>(ctx?.shift ?? '')
   const covers = useMediaCovers(showArchived)

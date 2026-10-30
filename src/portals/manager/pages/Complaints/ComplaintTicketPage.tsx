@@ -5,6 +5,7 @@ import{CameraCapture}from'@components/ui'
 import{useCompleteComplaintAssignmentTicket,useComplaintItemsMedia,useManagerComplaintTicket,useStartComplaintAssignmentTicket}from'@features/complaints'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useCanCall } from '@features/permissions/my-permissions'
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 
 type Picked={id:string;file:File;url:string;source:'camera'|'gallery'}
 export default function ComplaintTicketPage(){
@@ -21,7 +22,7 @@ export default function ComplaintTicketPage(){
  const submit=()=>{if(files.length!==activeItems.length||files.some(value=>!value)){setMessage('أكمل صورة المعالجة المقابلة لكل تلكؤ قبل الإرسال.');return}complete.mutate({complaintId,files:activeItems.map((item,index)=>({itemId:item.id,file:files[index]!.file,source:files[index]!.source})),notes},{onSuccess:count=>{setMessage(`تم إرسال ${count} معالجة للتدقيق بنجاح.`);window.setTimeout(()=>navigate('/manager/complaints'),700)},onError:error=>setMessage(error instanceof Error?error.message:'تعذر إرسال التذكرة للتدقيق.')})}
  if(isLoading)return <div className="h-64 animate-pulse rounded-3xl bg-slate-100"/>;if(isError)return <section className="rounded-3xl border border-red-200 bg-red-50 p-10 text-center"><h2 className="font-black text-red-900">تعذر تحميل التذكرة</h2><p className="mt-2 text-sm text-red-700">تحقق من الاتصال ثم أعد المحاولة؛ لم تُعرض بيانات ناقصة.</p><button onClick={()=>void refetch()} className="mt-4 rounded-xl bg-red-800 px-4 py-2 font-bold text-white">إعادة المحاولة</button></section>;if(!items.length)return <section className="rounded-3xl border bg-white p-12 text-center"><h2 className="font-black">التذكرة غير موجودة أو غير مسندة إليك</h2><Link to="/manager/complaints" className="mt-4 inline-block text-blue-700">العودة للتذاكر</Link></section>
  const first=items[0]!;const completed=items.filter(item=>!['assigned','returned','in_progress'].includes(item.status)).length
- return <section className="space-y-6" dir="rtl"><ExecPageHeader icon="clipboard" title={first.ticketName} subtitle={<><span className="font-bold text-[#f3d06a]">{first.referenceNo}</span> · {new Date(first.receivedAt).toLocaleString('ar-IQ-u-nu-latn')} · {first.sector==='karrada'?'بلدية الكرادة':'بلدية الزعفرانية'} · {items.length} تلكؤ</>}
+ return <section className="space-y-6" dir="rtl"><ExecPageHeader icon="clipboard" title={first.ticketName} subtitle={<><span className="font-bold text-[#f3d06a]">{first.referenceNo}</span> · {new Date(first.receivedAt).toLocaleString('ar-IQ-u-nu-latn')} · {`بلدية ${parentSectorLabel(first.sector)}`} · {items.length} تلكؤ</>}
   stats={[{ label: 'أُرسل للتدقيق', value: `${completed}/${items.length}`, tone: 'gold' }]}
   actions={<Link to="/manager/complaints" className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20"><ArrowRight size={15}/>العودة إلى التذاكر</Link>} />
   {message&&<p role="status" className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-900">{message}</p>}

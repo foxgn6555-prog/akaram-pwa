@@ -36,6 +36,7 @@ import {
 import { useDesigns, useMediaTemplates, useSubmissions } from '@features/media/hooks'
 import { baghdadDay, designGroupLabel, ticketDay } from '@features/media/constants'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
 
 const PIE_COLORS = ['#0e7490', '#7c3aed', '#059669', '#db2777', '#d97706', '#334155']
 
@@ -48,18 +49,17 @@ type Ticket = {
   event_date: string | null
   created_at: string
   status: string
+  sector_parent: string
 }
 
 export default function MediaDashboardPage() {
-  const karrada = useSubmissions('karrada', 'all')
-  const zaafaraniya = useSubmissions('zaafaraniya', 'all')
+  const allSubmissions = useSubmissions(null, 'all')   // 00395: كل القطاعات بطلب واحد (ديناميكي)
+  const { parents } = useParentSectors()
   const designs = useDesigns(null)
   const templates = useMediaTemplates()
 
   const model = useMemo(() => {
-    const k = (karrada.data ?? []) as Ticket[]
-    const z = (zaafaraniya.data ?? []) as Ticket[]
-    const all = [...k, ...z]
+    const all = (allSubmissions.data ?? []) as Ticket[]
     const active = all.filter((t) => t.status !== 'archived')
     const archived = all.filter((t) => t.status === 'archived')
     const today = baghdadDay()
@@ -111,11 +111,10 @@ export default function MediaDashboardPage() {
       days,
       cumulative,
       byWork,
-      karrada: sectorStats(k),
-      zaafaraniya: sectorStats(z),
+      bySector: Object.fromEntries(parents.map((p) => [p.code, sectorStats(all.filter((t) => t.sector_parent === p.code))])),
       recent,
     }
-  }, [karrada.data, zaafaraniya.data, designs.data, templates.data])
+  }, [allSubmissions.data, designs.data, templates.data, parents])
 
   const kpis = [
     { label: 'تذاكر اليوم', value: model.today, tone: 'from-emerald-600 to-emerald-800', icon: Camera },
@@ -126,55 +125,28 @@ export default function MediaDashboardPage() {
     { label: 'قوالب', value: model.templatesCount, tone: 'from-indigo-600 to-indigo-800', icon: LayoutTemplate },
   ]
 
+  const legacy = (code: string) => code === 'karrada' || code === 'zaafaraniya'
+  const sectorTone = ['bg-cyan-50 text-cyan-800', 'bg-blue-50 text-blue-800', 'bg-teal-50 text-teal-800', 'bg-sky-50 text-sky-800']
+  const folderTone = ['bg-violet-50 text-violet-800', 'bg-indigo-50 text-indigo-800', 'bg-purple-50 text-purple-800', 'bg-fuchsia-50 text-fuchsia-800']
+  const empty = { tickets: 0, photos: 0, today: 0, total: 0, totalPhotos: 0, archived: 0 }
   const unitCards = [
-    {
-      id: 'karrada-sector',
-      title: 'قاطع الكرادة',
-      path: '/media/karrada-sector',
-      icon: MapPin,
-      tone: 'bg-cyan-50 text-cyan-800',
-      lines: [
-        `${model.karrada.tickets} تذكرة نشطة`,
-        `${model.karrada.photos} صورة نشطة`,
-        `${model.karrada.today} اليوم`,
-      ],
-    },
-    {
-      id: 'zaafaraniya-sector',
-      title: 'قاطع الزعفرانية',
-      path: '/media/zaafaraniya-sector',
-      icon: MapPin,
-      tone: 'bg-blue-50 text-blue-800',
-      lines: [
-        `${model.zaafaraniya.tickets} تذكرة نشطة`,
-        `${model.zaafaraniya.photos} صورة نشطة`,
-        `${model.zaafaraniya.today} اليوم`,
-      ],
-    },
-    {
-      id: 'karrada-folder',
-      title: 'فولدر الكرادة',
-      path: '/media/karrada-folder',
-      icon: Folder,
-      tone: 'bg-violet-50 text-violet-800',
-      lines: [
-        `${model.karrada.total} تذكرة كلية`,
-        `${model.karrada.totalPhotos} صورة`,
-        `${model.karrada.archived} مؤرشفة`,
-      ],
-    },
-    {
-      id: 'zaafaraniya-folder',
-      title: 'فولدر الزعفرانية',
-      path: '/media/zaafaraniya-folder',
-      icon: Folder,
-      tone: 'bg-indigo-50 text-indigo-800',
-      lines: [
-        `${model.zaafaraniya.total} تذكرة كلية`,
-        `${model.zaafaraniya.totalPhotos} صورة`,
-        `${model.zaafaraniya.archived} مؤرشفة`,
-      ],
-    },
+    // 00395: بطاقة «قاطع» و«فولدر» لكل قطاع فعّال من القاعدة
+    ...parents.map((p, i) => {
+      const st = model.bySector[p.code] ?? empty
+      return {
+        id: `${p.code}-sector`, title: p.title, path: legacy(p.code) ? `/media/${p.code}-sector` : `/media/sector/${p.code}`, icon: MapPin,
+        tone: sectorTone[i % sectorTone.length] ?? sectorTone[0]!,
+        lines: [`${st.tickets} تذكرة نشطة`, `${st.photos} صورة نشطة`, `${st.today} اليوم`],
+      }
+    }),
+    ...parents.map((p, i) => {
+      const st = model.bySector[p.code] ?? empty
+      return {
+        id: `${p.code}-folder`, title: `فولدر ${p.name}`, path: legacy(p.code) ? `/media/${p.code}-folder` : `/media/folder/${p.code}`, icon: Folder,
+        tone: folderTone[i % folderTone.length] ?? folderTone[0]!,
+        lines: [`${st.total} تذكرة كلية`, `${st.totalPhotos} صورة`, `${st.archived} مؤرشفة`],
+      }
+    }),
     {
       id: 'designs',
       title: 'التصاميم',

@@ -30,6 +30,7 @@ import { PickCoverButton } from '../../components/CoverLibrary'
 import DesignCover from '../../components/DesignCover'
 import { isBuiltinCover } from '@features/media/lib/cover-templates'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
 
 export default function MediaTemplatesPage() {
   const [editorFor, setEditorFor] = useState<MediaDesignTemplate | 'new' | null>(null)
@@ -130,6 +131,7 @@ function TemplateCard({ template, onEdit }: { template: MediaDesignTemplate; onE
 }
 
 function TemplateEditor({ template, close }: { template: MediaDesignTemplate | null; close: () => void }) {
+  const { parents } = useParentSectors()   // 00395
   const create = useCreateMediaTemplate()
   const canCreate = useCanCall('media_template_create')
   const update = useUpdateMediaTemplate()
@@ -191,8 +193,7 @@ function TemplateEditor({ template, close }: { template: MediaDesignTemplate | n
               className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm"
             >
               <option value="">عام (لكلا القاطعين)</option>
-              <option value="karrada">{SECTOR_LABEL.karrada}</option>
-              <option value="zaafaraniya">{SECTOR_LABEL.zaafaraniya}</option>
+              {parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
             </select>
           </label>
           <label>

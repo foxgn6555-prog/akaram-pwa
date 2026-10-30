@@ -1,7 +1,7 @@
 /** 00262 — تحويل صفوف الكشف إلى الشكل المعتمد في الشركة: صفوف = أيام الشهر، لكل متعهد ثلاثة أعمدة (قاطع/متعهد/متابعة)، ومجاميع كل شفت موجود (00376: شفتات HR ديناميكية). */
 import { COUNT_SOURCES, type CountSource, type HeadcountSheetRow } from '@sdk/ops-contractor-headcounts.sdk'
 
-export interface PivotContractor { id: string; name: string; area: string; parent: 'karrada' | 'zaafaraniya'; shift: string | null; isActive: boolean }
+export interface PivotContractor { id: string; name: string; area: string; parent: string; shift: string | null; isActive: boolean }
 export interface PivotCell { value: number | null; reason: string | null; checkedIn: boolean; inZone: boolean | null }
 export interface PivotDay { date: string; cells: Record<string, Record<CountSource, PivotCell>>; shiftTotals: Record<string, Record<CountSource, number>>; total: Record<CountSource, number> }
 export interface Pivot { contractors: PivotContractor[]; /** رموز الشفتات الموجودة بين المتعهدين بترتيب القائمة */ shifts: string[]; days: PivotDay[]; contractorTotals: Record<string, Record<CountSource, number>>; grand: Record<CountSource, number>; sources: CountSource[] }

@@ -6,6 +6,7 @@ import {
   type ComposeBrandImage, type ComposeItem, type LoadedPptxImage,
 } from '@lib/pptx/complaintPptx'
 import { coverBackgroundUrl, coverFor } from '@lib/pptx/complaintCovers'
+import { parentSectorTitle } from './sectors.sdk'
 import { SDKError } from '@lib/errors/SDKError'
 import { baghdadDayRange } from '@features/complaints/lib/baghdad-date'
 import type {
@@ -672,7 +673,7 @@ export const complaints = {
       authorityLine: authorityLineFor(layout, report.sector),
       contractorLine: String(layout.contractorLine ?? 'تحالف شركات جزيرة الأكارم وفيرست ترايد'),
       reportDate: report.reportDate,
-      sectorLabel: report.sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية',
+      sectorLabel: parentSectorTitle(report.sector),
       scopeLabel: report.scope === 'email' ? 'تقرير بريد مستقل' : 'تقرير يومي جامع',
       layout,
       items: composeItems,

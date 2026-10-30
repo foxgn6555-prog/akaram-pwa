@@ -38,6 +38,8 @@ import { SUPPORT_STATUS_LABEL } from '@features/sector/supportMeta'
 import { useOpsSupportRequests } from '@features/sector'
 import { MaintenanceCorrectionDialog, type MaintenanceCorrectionTarget } from './MaintenanceCorrectionDialog'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
+import { PARENT_SECTOR_LABELS_LIVE, getSectorsRegistrySnapshot } from '@sdk/sectors.sdk'
 
 export type OperationsTab =
   | 'alerts'
@@ -398,12 +400,13 @@ const reportKeys: Record<OperationsTab, string[]> = {
 const dateKeys = (key: string) =>
   key.endsWith('_at') || key === 'started_at' || key === 'completed_at'
 const minuteKeys = (key: string) => key.endsWith('_minutes')
-const parentLabels: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const parentLabels: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00395: من السجل الحيّ
 const parentOf = (row: Record<string, unknown>) => {
   const direct = String(row.parent_sector ?? '')
   if (direct) return direct
   const sid = Number(row.sector_id)
-  return Number.isFinite(sid) && sid > 0 ? (sid <= 4 ? 'karrada' : 'zaafaraniya') : ''
+  // 00395: قطاع المنطقة من السجل الحيّ (كان: ≤4 كرادة وإلا زعفرانية)
+  return Number.isFinite(sid) && sid > 0 ? (getSectorsRegistrySnapshot().find((p) => p.areas.some((a) => a.id === sid))?.code ?? '') : ''
 }
 const values: Record<string, string> = {
   arrival: 'الوصول',
@@ -458,8 +461,6 @@ const values: Record<string, string> = {
   at_maintenance: 'في الصيانة',
   active: 'نشطة',
   closed: 'مغلقة',
-  karrada: 'الكرادة',
-  zaafaraniya: 'الزعفرانية',
 }
 const links: Record<string, string> = {
   '/manager/vehicle-trips': 'مسؤول القسم — رحلات الآليات',
@@ -477,10 +478,11 @@ function readableValue(key: string, value: unknown) {
   if (key === 'sector_id') return `المنطقة رقم ${String(value)}`
   if (key === 'latitude' || key === 'longitude') return Number(value).toFixed(6)
   if (typeof value === 'boolean') return value ? 'نعم' : 'لا'
-  return values[String(value)] ?? SHIFT_LABELS_LIVE[String(value)] ?? String(value)
+  return values[String(value)] ?? PARENT_SECTOR_LABELS_LIVE[String(value)] ?? SHIFT_LABELS_LIVE[String(value)] ?? String(value)
 }
 
 export default function OperationsDataPage() {
+  const { parents } = useParentSectors()   // 00395
   const [from, setFrom] = useState(today()),
     [to, setTo] = useState(today()),
     [tab, setTab] = useState<OperationsTab>('summary'),
@@ -529,7 +531,7 @@ export default function OperationsDataPage() {
       weighings: (weighings.data ?? []) as unknown as Row[],
       sectors: (sectorsTonnage.data ?? []).map((row) => ({
         ...row,
-        parent_sector: row.parent_sector === 'karrada' ? 'الكرادة' : row.parent_sector === 'zaafaraniya' ? 'الزعفرانية' : row.parent_sector,
+        parent_sector: PARENT_SECTOR_LABELS_LIVE[String(row.parent_sector ?? '')] ?? row.parent_sector,
       })) as unknown as Row[],
       garage: garage.data ?? [],
       maintenance: (maintenance.data ?? []).map((row) => ({
@@ -784,8 +786,7 @@ export default function OperationsDataPage() {
             className="mt-1 h-11 w-full rounded-xl border px-3"
           >
             <option value="">الكل</option>
-            <option value="karrada">الكرادة</option>
-            <option value="zaafaraniya">الزعفرانية</option>
+            {parents.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
           </select>
         </label>
         {tab === 'maintenance' && (

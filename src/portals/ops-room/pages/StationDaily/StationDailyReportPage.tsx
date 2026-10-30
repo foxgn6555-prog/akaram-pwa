@@ -9,13 +9,14 @@ import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, FileSpreadsheet, Send,
 import { useOpsDailyReport, useSendDailyToDeputy, UNIT_CAPACITIES } from '@features/transfer-station'
 import { buildExcelReport, type ReportColumn } from '@lib/export/excel-report'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date())
 const time = (value: unknown) =>
   value ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(String(value))) : '—'
 const num = (value: unknown) => Number(value ?? 0)
 
-const PARENT_LABELS: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const PARENT_LABELS: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00395
 
 export default function StationDailyReportPage() {
   const [day, setDay] = useState(today())
