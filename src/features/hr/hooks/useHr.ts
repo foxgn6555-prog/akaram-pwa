@@ -4,7 +4,7 @@ import { hrKeys } from '@lib/query-keys/hr.keys'
 import { departmentsKeys } from '@lib/query-keys/departments.keys'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
 import { useUiStore } from '@stores/ui.store'
-import type { AttendanceFilters, BehaviorPeriodKind, DeputyDeductionKind, CreateEmployeeInput, DocType, HrHireRequestStatusFilter, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
+import type { AttendanceFilters, BehaviorPeriodKind, DeputyDeductionKind, CreateEmployeeInput, DocType, EmployeeDocument, HrHireRequestStatusFilter, HrPolicy, HrShift, ImportEmployeeRow, LeaveRequestInput, LeaveType, TerminationType } from '../types'
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
@@ -102,6 +102,25 @@ export function useUploadDocument() {
     onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.documents(v.employeeId) }); void qc.invalidateQueries({ queryKey: hrKeys.employee(v.employeeId) }); t.ok('رُفع المستمسك') },
     onError: t.err,
   })
+}
+// 00389-أ
+export function useSetDocumentDates() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { doc: EmployeeDocument; issuedOn: string | null; expiresOn: string | null }) => hr.setDocumentDates(v.doc.id, v.issuedOn, v.expiresOn),
+    onSuccess: (_d, v) => { void qc.invalidateQueries({ queryKey: hrKeys.documents(v.doc.employee_id) }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'documents-expiring'] }); void qc.invalidateQueries({ queryKey: hrKeys.documentsExpirySummary() }); t.ok('حُفظت تواريخ الوثيقة') },
+    onError: t.err,
+  })
+}
+export function useExpiringDocuments(withinDays: number | null, departmentId: string, search: string) {
+  return useQuery({ queryKey: hrKeys.documentsExpiring(withinDays, departmentId, search), queryFn: () => hr.documentsExpiring(withinDays, departmentId || null, search || null), staleTime: 30_000 })
+}
+export function useDocumentsExpirySummary() {
+  return useQuery({ queryKey: hrKeys.documentsExpirySummary(), queryFn: hr.documentsExpirySummary, staleTime: 30_000 })
+}
+export function useDocumentsExpiryRunNow() {
+  const qc = useQueryClient(); const t = useToast()
+  return useMutation({ mutationFn: hr.documentsExpiryRunNow, onSuccess: (n) => { void qc.invalidateQueries({ queryKey: ['notifications'] }); t.ok(`فُحصت ${n} وثيقة وأُرسلت التنبيهات اللازمة`) }, onError: t.err })
 }
 export function useDeleteDocument() {
   const qc = useQueryClient(); const t = useToast()

@@ -1535,6 +1535,15 @@
 - لمسات: ترتيب أثقل 5 بقع برقم على العلامة، تلميح داكن عند المرور (المكان · الدقائق · التوقفات)، ظهور تدريجي للتوهّج.
 - اختبارات: G7 في `tests/db/gps-hotspots-test.sql`، وحالات جديدة في `waste-map-heat.test.ts`.
 
+## الجولة 00389-أ — وثائق الموظفين وانتهاء الصلاحية (2026-10-30)
+
+- ترحيل `00334_employee_document_expiry.sql`: أعمدة `issued_on/expires_on` (قيد: الانتهاء ≥ الإصدار) + أنواع جديدة (إجازة السوق، العقد، الشهادة الصحية، جواز السفر) + إعداد `doc_expiry_alert_days` (1–365، افتراضي 30) في سياسة HR محقَّق بـ trigger.
+- RPC: `hr_document_set_dates` (HR فقط)، `hr_documents_expiring(within, department, search)` (منتهية/قريبة، موظفون غير منتهي الخدمة فقط)، `hr_documents_expiry_summary`، `hr_documents_expiry_run_now`.
+- تنبيه يومي `app.hr_documents_expiry_notify` (cron 08:00 بغداد): إشعار لمستخدمي HR مرة واحدة لكل وثيقة لكل مرحلة (قريبة/منتهية) عبر `dedupe_key`؛ الرابط `/hr/documents`. **لا حذف لأي وثيقة.**
+- HR: صفحة جديدة «وثائق الموظفين» `/hr/documents` (عدّادات منتهية/قريبة/60/90، فلاتر النافذة والقسم والبحث، المنتهية فقط، تصدير Excel، فحص التنبيهات الآن) + في لوحة المستمسكات: 4 خانات جديدة، تاريخ إصدار/انتهاء لكل وثيقة مع شارة الحالة.
+- IT: حقل «التنبيه قبل الانتهاء بـ (يوم)» في سياسة الموارد البشرية؛ وحدة `hr.documents` (edit + export) في كتالوج الصلاحيات (البذرة داخل الترحيل).
+- اختبارات: `tests/db/hr-document-expiry-test.sql` (قيود، قائمة، ملخص، صلاحيات، تنبيه بلا تكرار، سياسة)، `hr-employee-documents-00389a.test.tsx`، تحديث `hr-units`.
+
 ## الجولة 00388-د — بقية الخرائط على الوضع الموحّد نهاري/ليلي (2026-10-30)
 
 - `ZoneMapEditor.tsx` (`zone-editor-theme`) و`LandmarkMapPicker.tsx` (`landmark-picker-theme`) وخريطة محطة التحويل `OpsStationOutboundPage.tsx` (`so-map-theme`): بلاطات الوحدة المشتركة `map-theme` + زر التبديل؛ الاختيار واحد محفوظ لكل الخرائط.

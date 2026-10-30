@@ -161,6 +161,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/employees', labelKey: 'nav.employees', icon: 'users' },
     { path: '/hr/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
     { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },
+    { path: '/hr/documents', labelKey: 'nav.hr_documents', icon: 'file-text' },   // 00389-أ
     { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },
     { path: '/hr/org', labelKey: 'nav.hr_org', icon: 'folder' },
     { path: '/hr/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249

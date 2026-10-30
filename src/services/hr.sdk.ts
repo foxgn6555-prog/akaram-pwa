@@ -7,7 +7,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary, LetterRow, OfficialLetter, LetterRef,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
-  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, EmployeeDocument,
+  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, DocumentsExpirySummary, EmployeeDocument, ExpiringDocument,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
@@ -235,6 +235,15 @@ export const hr = {
     await supabase.storage.from('employee-documents').remove([doc.storage_path])
     await sdkVoid(supabase.from('employee_documents').delete().eq('id', doc.id))
   },
+  // 00389-أ: تواريخ الوثائق ولوحة الانتهاء
+  async setDocumentDates(id: string, issuedOn: string | null, expiresOn: string | null) {
+    return sdkVoid(supabase.rpc('hr_document_set_dates', { p_id: id, p_issued_on: issuedOn || null, p_expires_on: expiresOn || null } as never))
+  },
+  documentsExpiring(withinDays: number | null, departmentId: string | null, search: string | null) {
+    return rpc<ExpiringDocument[]>('hr_documents_expiring', { p_within_days: withinDays, p_department: departmentId || null, p_search: search || null })
+  },
+  documentsExpirySummary() { return rpc<DocumentsExpirySummary>('hr_documents_expiry_summary', {}) },
+  documentsExpiryRunNow() { return rpc<number>('hr_documents_expiry_run_now', {}) },
   async signedUrl(path: string, seconds = 600): Promise<string | null> {
     const { data } = await supabase.storage.from('employee-documents').createSignedUrl(path, seconds)
     return data?.signedUrl ?? null

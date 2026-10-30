@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const dir = join(process.cwd(), 'src/portals/hr/pages')
-const ROUTED = ['Dashboard/HRDashboard', 'Recruitment/Recruitment', 'Recruitment/HireRequestsPage', 'Employees/EmployeesList', 'Employees/EmployeeDetail', 'Attendance/AttendanceLog', 'Leaves/Leaves', 'Biometric/BiometricLedger', 'Biometric/UnmatchedPeoplePage', 'Org/OrgStructure', 'Behavior/BehaviorReportsPage']
+const ROUTED = ['Dashboard/HRDashboard', 'Recruitment/Recruitment', 'Recruitment/HireRequestsPage', 'Employees/EmployeesList', 'Employees/EmployeeDetail', 'Attendance/AttendanceLog', 'Leaves/Leaves', 'Employees/EmployeeDocumentsPage', 'Biometric/BiometricLedger', 'Biometric/UnmatchedPeoplePage', 'Org/OrgStructure', 'Behavior/BehaviorReportsPage']
 
 describe('عقد تصميم بوابة الموارد البشرية (00234)', () => {
   it('كل وحدة مسجّلة في مسارات HR موجودة في الاختبار', () => {

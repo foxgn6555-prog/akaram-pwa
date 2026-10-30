@@ -28,7 +28,7 @@ export interface ShiftAssignment {
 export type ContractType = 'monthly' | 'daily'
 export type EmploymentStatus = 'active' | 'on_leave' | 'suspended' | 'terminated'
 export type TerminationType = 'resignation' | 'dismissal' | 'contract_end' | 'retirement' | 'death'
-export type DocType = 'photo' | 'national_id_front' | 'national_id_back' | 'residence_front' | 'residence_back' | 'other'
+export type DocType = 'photo' | 'national_id_front' | 'national_id_back' | 'residence_front' | 'residence_back' | 'driving_license' | 'contract' | 'health_cert' | 'passport' | 'other'
 
 export interface HrEmployeeRow {
   id: string
@@ -85,7 +85,16 @@ export interface EmployeeDocument {
   mime_type: string | null
   size_bytes: number | null
   created_at: string
+  /** 00389-أ */
+  issued_on?: string | null
+  expires_on?: string | null
 }
+/** 00389-أ: صف في لوحة «وثائق تنتهي» */
+export interface ExpiringDocument {
+  id: string; employee_id: string; employee_number: string | null; full_name: string; department_id: string | null; department_name: string | null
+  doc_type: DocType; title: string | null; issued_on: string | null; expires_on: string; days_left: number; status: 'expired' | 'soon' | 'ok'
+}
+export interface DocumentsExpirySummary { expired: number; soon: number; d60: number; d90: number; alert_days: number }
 
 export interface CreateEmployeeInput {
   employee_number: string
@@ -550,7 +559,8 @@ export const TERMINATION_LABELS: Record<TerminationType, string> = {
 }
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   photo: 'الصورة الشخصية', national_id_front: 'البطاقة الموحدة — وجه', national_id_back: 'البطاقة الموحدة — ظهر',
-  residence_front: 'بطاقة السكن — وجه', residence_back: 'بطاقة السكن — ظهر', other: 'مستمسك آخر',
+  residence_front: 'بطاقة السكن — وجه', residence_back: 'بطاقة السكن — ظهر',
+  driving_license: 'إجازة السوق', contract: 'العقد', health_cert: 'الشهادة الصحية', passport: 'جواز السفر', other: 'مستمسك آخر',
 }
 export const CONTRACT_LABELS: Record<ContractType, string> = { monthly: 'راتب شهري', daily: 'أجر يومي' }
 export const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
@@ -642,6 +652,8 @@ export interface HrPolicy {
   permits_per_leave_day: number
   permit_max_minutes: number
   permits_max_per_month: number | null
+  /** 00389-أ: تنبيه HR قبل انتهاء وثيقة الموظف (أيام 1–365) */
+  doc_expiry_alert_days?: number
   /** 00197: الطلب بأثر رجعي */
   backdated_requests_enabled?: boolean
   backdated_max_days?: number

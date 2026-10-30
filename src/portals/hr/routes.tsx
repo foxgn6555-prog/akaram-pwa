@@ -14,6 +14,7 @@ const AttendanceLog = lazy(() => import('./pages/Attendance/AttendanceLog'))
 const BiometricLedger = lazy(() => import('./pages/Biometric/BiometricLedger'))
 const UnmatchedPeoplePage = lazy(() => import('./pages/Biometric/UnmatchedPeoplePage'))
 const Leaves = lazy(() => import('./pages/Leaves/Leaves'))
+const EmployeeDocumentsPage = lazy(() => import('./pages/Employees/EmployeeDocumentsPage'))   // 00389-أ
 const OrgStructure = lazy(() => import('./pages/Org/OrgStructure'))
 const BehaviorReportsPage = lazy(() => import('./pages/Behavior/BehaviorReportsPage'))   // 00249
 
@@ -29,6 +30,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'employees/:employeeId', element: s(<EmployeeDetail />) },
   { path: 'attendance', element: s(<AttendanceLog />) },
   { path: 'leaves', element: s(<Leaves />) },
+  { path: 'documents', element: s(<EmployeeDocumentsPage />) },
   { path: 'biometric', element: s(<BiometricLedger />) },
   { path: 'biometric/unmatched', element: s(<UnmatchedPeoplePage />) },
   { path: 'org', element: s(<OrgStructure />) },

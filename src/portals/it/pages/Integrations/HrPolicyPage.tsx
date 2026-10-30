@@ -52,6 +52,10 @@ export default function HrPolicyPage() {
         <L label="الحد الأقصى للترحيل (يوم)"><input type="number" min={0} className={field} value={draft.carry_over_max_days} disabled={!draft.carry_over} onChange={(e) => set('carry_over_max_days', NUM(e.target.value))} data-testid="p-carry-max" /></L>
       </Section>
 
+      <Section title="وثائق الموظفين (00389)" hint="تنبيه الموارد البشرية قبل انتهاء صلاحية وثيقة الموظف (إجازة سوق، جواز، عقد…) — لا تُحذف أي وثيقة تلقائيًا">
+        <L label="التنبيه قبل الانتهاء بـ (يوم، 1–365)"><input type="number" min={1} max={365} className={field} value={draft.doc_expiry_alert_days ?? 30} onChange={(e) => set('doc_expiry_alert_days', Math.min(365, Math.max(1, NUM(e.target.value, 30))))} data-testid="p-doc-expiry-days" /></L>
+      </Section>
+
       <Section title="الزمنيات" hint="الزمنية المدفوعة تُخصم من رصيد الإجازات بنسبة (1 ÷ عدد الزمنيات لكل يوم)">
         <L label="كم زمنية مدفوعة = يوم إجازة"><input type="number" min={1} max={20} className={field} value={draft.permits_per_leave_day} onChange={(e) => set('permits_per_leave_day', NUM(e.target.value, 1))} data-testid="p-permits-per-day" /></L>
         <L label="الحد الأقصى لمدة الزمنية (دقيقة)"><input type="number" min={15} step={15} className={field} value={draft.permit_max_minutes} onChange={(e) => set('permit_max_minutes', NUM(e.target.value, 15))} data-testid="p-permit-max" /></L>
