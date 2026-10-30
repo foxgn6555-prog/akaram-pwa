@@ -81,4 +81,18 @@ describe('GpsWarehouseCard (00380)', () => {
     expect((screen.getAllByTestId('gps-warehouse-pull-btn').at(-1) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getAllByTestId('gps-warehouse-cron').at(-1)?.textContent).toContain('غير مفعّل')
   })
+  it('00382-ب: النافذة المتجددة — المعروض/قيد التجميع، دور كل شهر، آخر مسح، والخام يُحذف فوراً بلا أرشيف', async () => {
+    const progress = { window: { today: '2026-10-30', collecting_month: '2026-10-01', displayed_month: '2026-09-01', cutoff: '2026-09-01', keep_months: 1, auto_enqueue: true }, last_rollover_at: '2026-10-01T00:01:00Z', last_rollover: { cutoff: '2026-09-01', jobs: 6200, raw: 0, stops: 110000 },
+      months: [{ month: '2026-10', role: 'collecting' as const, total: 6583, done: 6583, queued: 0, running: 0, failed: 0, points: 1, stops: 1, devices: 227, first_started_at: null, last_finished_at: null, done_last_hour: 0 },
+               { month: '2026-09', role: 'displayed' as const, total: 6810, done: 6810, queued: 0, running: 0, failed: 0, points: 1, stops: 1, devices: 227, first_started_at: null, last_finished_at: null, done_last_hour: 0 }],
+      errors: [], paused: false, locked: false, stops_by_class: {} }
+    h.link = { ...base, warehouse_host: 'x', last_ping_ok: true, schema_version: 4, ping: { ...ping, settings: { ...ping.settings, raw_retention_days: 0, archive_enabled: false }, progress }, cron: { scheduled: true, last_run_at: null, last_status: null } }
+    ui()
+    const w = (await screen.findByTestId('gps-warehouse-window')).textContent!
+    expect(w).toContain('المعروض 2026-09'); expect(w).toContain('قيد التجميع 2026-10'); expect(w).toContain('يُسحب تلقائياً'); expect(w).toContain('110,000 توقف')
+    expect(screen.getByTestId('gps-warehouse-role-2026-09').textContent).toBe('المعروض')
+    expect(screen.getByTestId('gps-warehouse-role-2026-10').textContent).toBe('قيد التجميع')
+    expect(screen.getByTestId('gps-warehouse-card').textContent).toContain('الخام يُحذف فور حساب توقفات اليوم')
+    expect(screen.getByTestId('gps-warehouse-card').textContent).toContain('بلا أرشيف مضغوط')
+  })
 })

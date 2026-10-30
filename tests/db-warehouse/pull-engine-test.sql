@@ -3,7 +3,7 @@
 create or replace function pg_temp.pts(p_from timestamptz, p_n int, p_step_s int, p_lat double precision, p_lng double precision, p_dlat double precision) returns jsonb
 language sql as $$ select coalesce(jsonb_agg(jsonb_build_object('t', p_from + (i * p_step_s) * interval '1 second', 'lat', p_lat + i * p_dlat, 'lng', p_lng, 'speed', case when p_dlat = 0 then 0 else 30 end, 'course', 90) order by i), '[]'::jsonb) from generate_series(0, p_n - 1) i $$;
 do $$
-declare js jsonb; j1 bigint; j2 bigint; d1 date := (date_trunc('month', (now() at time zone 'Asia/Baghdad')) - interval '1 month')::date + 4; d0 date; t0 timestamptz; prev_id bigint; n int;
+declare js jsonb; js2 jsonb; j1 bigint; j2 bigint; d1 date := (date_trunc('month', (now() at time zone 'Asia/Baghdad')) - interval '1 month')::date + 4; d0 date; t0 timestamptz; prev_id bigint; n int;
 begin
   -- تهيئة: الجهاز d-1 نشط (من اختبار المخطط) + مهام الشهر الماضي مجدولة؛ نأخذ يومين متتاليين d0, d1
   d0 := d1 - 1;
@@ -70,6 +70,7 @@ begin
   if (js -> 'jobs' -> 0 ->> 'id')::bigint <> j2 then raise exception 'E6 stale reclaim %', js; end if;
   begin perform public.wh_ingest_points(j1, '[]'::jsonb, null, 0); raise exception 'E6 must fail'; exception when others then if sqlerrm <> 'WH_JOB_NOT_RUNNING' then raise; end if; end;
   -- E7: الأرشفة والصيانة: الأيام المنجزة بلا أرشيف تُدرج؛ بعد التعليم تختفي؛ الخام الأقدم من المهلة يُحذف فقط للمنجز
+  update public.wh_settings set archive_enabled = true where id = 1;   -- (0004) الأرشيف معطّل افتراضياً؛ نفعّله لاختبار المسار
   js := public.wh_archive_pending(10);
   if not exists (select 1 from jsonb_array_elements(js) x where (x ->> 'day')::date = d0 and (x ->> 'points')::int = 217) then raise exception 'E7 pending %', js; end if;
   js := public.wh_day_points('d-1', d0); if jsonb_array_length(js) <> 217 or jsonb_array_length(js -> 0) <> 5 then raise exception 'E7 day points'; end if;
@@ -81,9 +82,40 @@ begin
   if (select count(*) from public.wh_stops where device_external_id = 'd-1' and day = d0) <> 2 then raise exception 'E7 stops kept'; end if;
   -- E8: التقدّم والفحص
   js := public.wh_progress();
-  if (js -> 'months' -> 0 ->> 'done')::int < 3 or (js -> 'stops_by_class' ->> 'fault')::int <> 1 or (js -> 'stops_by_class' ->> 'long')::int <> 1 or (js -> 'stops_by_class' ->> 'valid')::int <> 2 or (js -> 'stops_by_class' ->> 'pending')::int <> 1 then raise exception 'E8 progress %', js; end if;
+  select x into js2 from jsonb_array_elements(js -> 'months') x where x ->> 'role' = 'displayed';
+  if (js2 ->> 'done')::int < 3 or (js -> 'stops_by_class' ->> 'fault')::int <> 1 or (js -> 'stops_by_class' ->> 'long')::int <> 1 or (js -> 'stops_by_class' ->> 'valid')::int <> 2 or (js -> 'stops_by_class' ->> 'pending')::int <> 1 then raise exception 'E8 progress %', js; end if;
   if not exists (select 1 from jsonb_array_elements(js -> 'errors') e where e ->> 'error_code' in ('LVN_TIMEOUT', 'WH_JOB_STALE')) then raise exception 'E8 errors'; end if;
   js := public.wh_ping(); if (js ->> 'schema_version')::int < 2 or js -> 'progress' -> 'months' is null or (js ->> 'archive_files')::int <> 1 or js -> 'settings' ? 'pull_locked_until' then raise exception 'E8 ping %', js; end if;
   if has_function_privilege('authenticated', 'public.wh_jobs_claim(int)', 'execute') then raise exception 'E8 grant'; end if;
+  -- E9 (0004): النافذة الشهرية المتجددة — الأرشيف معطّل، التدوير يمسح ما قبل cutoff بلا أثر، الجدولة اليومية التلقائية، الشهر المنتهي لا يُجدول
+  update public.wh_settings set archive_enabled = false where id = 1;
+  if jsonb_array_length(public.wh_archive_pending(10)) <> 0 then raise exception 'E9 pending while disabled'; end if;
+  if not exists (select 1 from jsonb_array_elements(public.wh_archive_expired(10)) x where x ->> 'path' = format('%s/d-1.json.gz', d0)) then raise exception 'E9 expired all when disabled'; end if;
+  js := public.wh_window();
+  if (js ->> 'displayed_month')::date <> (date_trunc('month', (now() at time zone 'Asia/Baghdad')) - interval '1 month')::date or (js ->> 'cutoff')::date <> (js ->> 'displayed_month')::date or (js ->> 'keep_months')::int <> 1 then raise exception 'E9 window %', js; end if;
+  -- بيانات شهر أقدم من النافذة
+  insert into public.wh_pull_jobs (device_external_id, day, status, points, stops) values ('d-1', (js ->> 'cutoff')::date - 10, 'done', 5, 1);
+  insert into public.wh_raw_points (device_external_id, day, t, lat, lng, speed) values ('d-1', (js ->> 'cutoff')::date - 10, ((js ->> 'cutoff')::date - 10)::timestamp at time zone 'Asia/Baghdad' + interval '5 hour', 33.3, 44.4, 0);
+  insert into public.wh_stops (device_external_id, day, month, started_at, ended_at, duration_s, lat, lng, class)
+    values ('d-1', (js ->> 'cutoff')::date - 10, date_trunc('month', (js ->> 'cutoff')::date - 10)::date, now() - interval '40 days', now() - interval '40 days' + interval '30 minutes', 1800, 33.3, 44.4, 'valid');
+  js2 := public.wh_maintenance();
+  if (js2 -> 'rollover' ->> 'jobs')::int <> 1 or (js2 -> 'rollover' ->> 'stops')::int <> 1 then raise exception 'E9 rollover %', js2; end if;
+  if exists (select 1 from public.wh_pull_jobs where day < (js ->> 'cutoff')::date) or exists (select 1 from public.wh_stops where day < (js ->> 'cutoff')::date) or exists (select 1 from public.wh_raw_points where day < (js ->> 'cutoff')::date) then raise exception 'E9 trace left'; end if;
+  if (select last_rollover_at is null from public.wh_settings where id = 1) then raise exception 'E9 last_rollover'; end if;
+  -- الجدولة اليومية: يوم الأمس يُجدول تلقائياً لكل جهاز نشط؛ مع الإيقاف المؤقت أو إيقاف التلقائي لا يُجدول
+  delete from public.wh_pull_jobs where device_external_id = 'd-1' and day = (now() at time zone 'Asia/Baghdad')::date - 1;
+  js2 := public.wh_maintenance();
+  if (js2 -> 'enqueue' ->> 'queued')::int <> 1 or not exists (select 1 from public.wh_pull_jobs where device_external_id = 'd-1' and day = (now() at time zone 'Asia/Baghdad')::date - 1 and status = 'queued') then raise exception 'E9 daily enqueue %', js2; end if;
+  js2 := public.wh_maintenance(); if (js2 -> 'enqueue' ->> 'queued')::int <> 0 then raise exception 'E9 enqueue idempotent %', js2; end if;
+  if exists (select 1 from public.wh_pull_jobs where day >= (now() at time zone 'Asia/Baghdad')::date) then raise exception 'E9 today enqueued'; end if;
+  delete from public.wh_pull_jobs where device_external_id = 'd-1' and day = (now() at time zone 'Asia/Baghdad')::date - 1;
+  perform public.wh_set_paused(true); js2 := public.wh_maintenance(); if js2 -> 'enqueue' ->> 'skipped' <> 'paused' then raise exception 'E9 paused enqueue %', js2; end if; perform public.wh_set_paused(false);
+  update public.wh_settings set auto_enqueue = false where id = 1; js2 := public.wh_maintenance(); if js2 -> 'enqueue' ->> 'skipped' <> 'auto_enqueue_off' then raise exception 'E9 auto off %', js2; end if;
+  update public.wh_settings set auto_enqueue = true where id = 1; js2 := public.wh_maintenance(); if (js2 -> 'enqueue' ->> 'queued')::int <> 1 then raise exception 'E9 re-enqueue %', js2; end if;
+  -- شهر خارج النافذة لا يُجدول يدوياً؛ أدوار الأشهر في التقدّم
+  begin perform public.wh_enqueue_month(((js ->> 'cutoff')::date - 1)); raise exception 'E9 must fail'; exception when others then if sqlerrm <> 'WH_MONTH_EXPIRED' then raise; end if; end;
+  js2 := public.wh_progress();
+  if not exists (select 1 from jsonb_array_elements(js2 -> 'months') m where m ->> 'role' = 'displayed') or not exists (select 1 from jsonb_array_elements(js2 -> 'months') m where m ->> 'role' = 'collecting') or js2 -> 'window' ->> 'cutoff' is null then raise exception 'E9 roles %', js2 -> 'months'; end if;
+  if (select raw_retention_days from public.wh_settings where id = 1) <> 0 or (select archive_enabled from public.wh_settings where id = 1) then raise exception 'E9 defaults'; end if;
   raise notice 'pull engine ok';
 end $$;

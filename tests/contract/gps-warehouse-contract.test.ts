@@ -55,4 +55,13 @@ describe('gps-warehouse contract (00380)', () => {
     const ping = readFileSync('gps-warehouse/supabase/migrations/0003_ping_storage.sql', 'utf8')
     expect(ping).toContain("'storage_bytes'"); expect(ping).toContain("'storage_objects'")
   })
+  it('00382-ب: النافذة المتجددة — الخام 0 أيام، الأرشيف معطّل، التدوير يمسح قبل cutoff، الجدولة اليومية داخل الصيانة، والشهر المنتهي لا يُجدول', () => {
+    const roll = readFileSync('gps-warehouse/supabase/migrations/0004_rolling_window.sql', 'utf8')
+    expect(roll).toContain('alter column raw_retention_days set default 0')
+    expect(roll).toContain('archive_enabled boolean not null default false')
+    expect(roll).toContain('delete from public.wh_stops where day < c')
+    expect(roll).toContain('roll := public.wh_rollover()'); expect(roll).toContain('public.wh_daily_enqueue()')
+    expect(roll).toContain("raise exception 'WH_MONTH_EXPIRED'")
+    expect(fn).toContain("whRpc<Record<string, unknown>>('wh_maintenance')")   // الصيانة (جدولة+تدوير) مع كل دورة للمجدول
+  })
 })

@@ -23,8 +23,15 @@ export interface GpsWarehouseLink {
 export interface GpsWarehouseMonthProgress {
   month: string; total: number; done: number; queued: number; running: number; failed: number; points: number; stops: number; devices: number
   first_started_at: string | null; last_finished_at: string | null; done_last_hour: number
+  /** 00382-ب: دور الشهر في النافذة المتجددة */
+  role?: 'displayed' | 'collecting' | 'kept' | 'expired'
 }
+/** 00382-ب: النافذة الشهرية المتجددة — المعروض = الشهر السابق، الجاري يُجمَّع يوماً بيوم، ما قبل cutoff يُمسح */
+export interface GpsWarehouseWindow { today: string; collecting_month: string; displayed_month: string; cutoff: string; keep_months: number; auto_enqueue: boolean }
 export interface GpsWarehouseProgress {
+  window?: GpsWarehouseWindow
+  last_rollover_at?: string | null
+  last_rollover?: { cutoff: string; jobs: number; raw: number; stops: number } | null
   months: GpsWarehouseMonthProgress[]
   errors: { device_external_id: string; day: string; error_code: string; attempts: number; at: string | null }[]
   paused: boolean; locked: boolean
@@ -39,7 +46,7 @@ export interface GpsWarehousePing {
   stops: number
   archive_files: number
   db_bytes: number
-  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number; paused?: boolean; max_attempts?: number }
+  settings: { min_stop_minutes: number; max_stop_minutes: number; fault_stop_hours: number; cluster_radius_m: number; raw_retention_days: number; archive_retention_months: number; paused?: boolean; max_attempts?: number; keep_months?: number; archive_enabled?: boolean; auto_enqueue?: boolean }
   /** 00381 */
   progress?: GpsWarehouseProgress
   server_time: string

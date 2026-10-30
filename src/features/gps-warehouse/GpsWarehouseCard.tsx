@@ -8,6 +8,9 @@ import { useState } from 'react'
 import { Database, Pause, Play, RefreshCw } from 'lucide-react'
 import { useGpsWarehouseAction, useGpsWarehouseLink } from '@features/gps-warehouse/hooks'
 import { explainLvnError } from '@features/gps-lvn/lvn-errors'
+import type { GpsWarehouseMonthProgress } from '@sdk/gps-warehouse.sdk'
+
+const GPS_WAREHOUSE_MONTH_ROLE: Record<NonNullable<GpsWarehouseMonthProgress['role']>, string> = { displayed: 'المعروض', collecting: 'قيد التجميع', kept: 'محفوظ', expired: 'خارج النافذة — يُمسح' }
 
 const fmt = (v: string | null | undefined) => (v ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v)) : '—')
 const mb = (bytes: number | null | undefined) => `${((bytes ?? 0) / 1048576).toFixed(1)} م.ب`
@@ -53,7 +56,7 @@ export default function GpsWarehouseCard() {
           <Stat label="توقفات" value={ping.stops.toLocaleString('en')} />
           <Stat label="ملفات الأرشيف" value={String(ping.archive_files)} />
           <Stat label="حجم القاعدة" value={mb(ping.db_bytes)} />
-          <p className="col-span-full text-[10px] text-slate-500">الحدود: توقف من {ping.settings.min_stop_minutes} إلى {ping.settings.max_stop_minutes} دقيقة · عطل مشتبه بعد {ping.settings.fault_stop_hours} ساعة · نصف قطر التجميع {ping.settings.cluster_radius_m} م · الخام يُحفظ {ping.settings.raw_retention_days} أيام · الأرشيف {ping.settings.archive_retention_months} أشهر</p>
+          <p className="col-span-full text-[10px] text-slate-500">الحدود: توقف من {ping.settings.min_stop_minutes} إلى {ping.settings.max_stop_minutes} دقيقة · عطل مشتبه بعد {ping.settings.fault_stop_hours} ساعة · نصف قطر التجميع {ping.settings.cluster_radius_m} م · {ping.settings.raw_retention_days === 0 ? 'الخام يُحذف فور حساب توقفات اليوم' : `الخام يُحفظ ${ping.settings.raw_retention_days} أيام`} · {ping.settings.archive_enabled === false ? 'بلا أرشيف مضغوط' : `الأرشيف ${ping.settings.archive_retention_months} أشهر`}</p>
         </div>
       )}
       {progress && (
@@ -66,7 +69,13 @@ export default function GpsWarehouseCard() {
               {progress.locked && !paused && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-black text-sky-800">دورة تعمل الآن</span>}
             </span>
           </div>
-          {progress.months.length === 0 ? <p className="text-slate-500">لا مهام بعد — جدول شهراً من الأسفل.</p> : (
+          {progress.window && (
+            <p className="mb-2 rounded-xl bg-slate-50 p-2 text-[10px] text-slate-700" data-testid="gps-warehouse-window">
+              <b>النافذة المتجددة:</b> المعروض <span dir="ltr" className="font-black">{progress.window.displayed_month.slice(0, 7)}</span> · قيد التجميع <span dir="ltr" className="font-black">{progress.window.collecting_month.slice(0, 7)}</span>{progress.window.auto_enqueue ? ' (يوم الأمس يُسحب تلقائياً كل ليلة)' : ' (الجدولة التلقائية متوقفة)'} · ما قبل <span dir="ltr">{progress.window.cutoff}</span> يُمسح بلا أثر
+              {progress.last_rollover_at && progress.last_rollover ? ` · آخر مسح ${fmt(progress.last_rollover_at)}: ${progress.last_rollover.stops.toLocaleString('en')} توقف و${progress.last_rollover.jobs.toLocaleString('en')} مهمة` : ''}
+            </p>
+          )}
+          {progress.months.length === 0 ? <p className="text-slate-500">لا مهام بعد — تُجدول تلقائياً مع أول دورة للمجدول.</p> : (
             <table className="w-full text-right"><thead><tr className="text-[10px] text-slate-500"><th className="p-1">الشهر</th><th className="p-1">الإنجاز</th><th className="p-1">بانتظار</th><th className="p-1">فشل نهائي</th><th className="p-1">نقاط</th><th className="p-1">توقفات</th><th className="p-1">آليات</th><th className="p-1">السرعة</th><th className="p-1">المتبقي تقريباً</th></tr></thead>
               <tbody>{progress.months.map((m) => {
                 const pct = m.total ? Math.round((m.done / m.total) * 100) : 0
@@ -74,7 +83,7 @@ export default function GpsWarehouseCard() {
                 const eta = m.done_last_hour > 0 ? remaining / m.done_last_hour : null
                 return (
                   <tr key={m.month} className="border-t" data-testid={`gps-warehouse-month-${m.month}`}>
-                    <td className="p-1 font-black" dir="ltr">{m.month}</td>
+                    <td className="p-1 font-black"><span dir="ltr">{m.month}</span>{m.role && <span className={`mr-1 rounded-full px-1.5 py-0.5 text-[9px] font-black ${m.role === 'displayed' ? 'bg-emerald-100 text-emerald-800' : m.role === 'collecting' ? 'bg-sky-100 text-sky-800' : m.role === 'expired' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'}`} data-testid={`gps-warehouse-role-${m.month}`}>{GPS_WAREHOUSE_MONTH_ROLE[m.role]}</span>}</td>
                     <td className="p-1"><span className="inline-block h-2 w-24 overflow-hidden rounded bg-slate-200 align-middle"><span className="block h-full bg-emerald-500" style={{ width: `${pct}%` }} /></span> <b>{pct}%</b> <span className="text-slate-500">({m.done}/{m.total})</span></td>
                     <td className="p-1">{m.queued + m.running}</td>
                     <td className={`p-1 ${m.failed ? 'font-black text-rose-700' : ''}`}>{m.failed}</td>
