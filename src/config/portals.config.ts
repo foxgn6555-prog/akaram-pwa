@@ -242,6 +242,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'layout-grid',
       exact: true,
     },
+    // 00393: القطاعات والمناطق (ديناميكية)
+    {
+      path: '/it/sectors',
+      labelKey: 'nav.sectors_areas',
+      icon: 'map-pin',
+      exact: true,
+    },
     {
       path: '/it/permissions',
       labelKey: 'nav.page_permissions',

@@ -48,10 +48,10 @@ const gpsPolicy = { ...policy, data_key: 'gps_position_history', label: 'نقا�
 describe('DataRetentionPage (00325)', () => {
   beforeEach(() => { vi.clearAllMocks(); h.runPending = false; h.settings = [policy, gpsPolicy, lockedPolicy]; h.requests = [] })
 
-  it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 11)', () => {
+  it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 12)', () => {
     expect(customRoutes.some((r) => r.path === 'data-retention')).toBe(true)
     const units = PORTAL_UNITS[PORTALS.IT]
-    expect(units).toHaveLength(11)
+    expect(units).toHaveLength(12)   // 00393: + القطاعات والمناطق
     const archive = units.find((u) => u.path === '/it/archive')
     expect(archive?.children?.find((c) => c.path === '/it/data-retention')?.labelKey).toBe('nav.data_retention')
     expect((sidebar as { nav: Record<string, string> }).nav.data_retention).toBe('الاحتفاظ بالبيانات')

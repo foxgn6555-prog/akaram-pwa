@@ -92,6 +92,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'it.user-management.maintenance-workshops': ['edit'],
   'it.approvals': ['decide'],
   'it.branches': ['create', 'edit'],
+  'it.sectors': ['create', 'edit'],
   'it.permissions': ['edit'],
   'it.integrations.biometric': ['edit', 'execute'],
   'it.integrations.gps': ['edit', 'execute'],

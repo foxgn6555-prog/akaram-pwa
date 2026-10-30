@@ -20,13 +20,14 @@ const allPaths = new Set<string>()
 }
 
 describe('بنية البوابة التقنية v2', () => {
-  it('إحدى عشرة وحدة: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + الصلاحيات + التكاملات + التحديثات + الأرشيف + Console + دليل التشغيل التقني (00275)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(11)
+  it('اثنتا عشرة وحدة: الرئيسية + المستخدمون + قاعدة البيانات + الفروع + القطاعات والمناطق + الصلاحيات + التكاملات + التحديثات + الأرشيف + Console + دليل التشغيل التقني (00275)', () => {
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(12)   // 00393: + القطاعات والمناطق
     expect(PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)).toEqual([
       'nav.dashboard',
       'nav.user_management',
       'nav.database',
       'nav.branches',
+      'nav.sectors_areas',
       'nav.page_permissions',
       'nav.integrations',
       'nav.notification_policies',
@@ -81,7 +82,7 @@ describe('بنية البوابة التقنية v2', () => {
 
   it('المسارات المخصصة الكاملة: لوحة + كل الوحدات + صفحاتها الفرعية + مسارا التفاصيل', () => {
     const itPaths = [...allPaths].filter((p) => p !== '')
-    expect(itPaths).toHaveLength(37) // 00386-أ: − dev-cleanup · 38 (00368: + dev-cleanup · 37 (00338: + approvals · 36 (00337: + user-management/approval-performance · 35 (00325: + data-retention · 34 (00315: + cold-archive · 33 (00288: + integrations/live-tracking · 32 (00280: أطفال devops الأربعة يخدمهم devops/:slug بلا مسارات ثابتة · 36 (00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)))))))))))))
+    expect(itPaths).toHaveLength(38) // 00393: + sectors · 37 (00386-أ: − dev-cleanup · 38 (00368: + dev-cleanup · 37 (00338: + approvals · 36 (00337: + user-management/approval-performance · 35 (00325: + data-retention · 34 (00315: + cold-archive · 33 (00288: + integrations/live-tracking · 32 (00280: أطفال devops الأربعة يخدمهم devops/:slug بلا مسارات ثابتة · 36 (00278: + devops/status · 35 (00277: + hosting · 34 (00276: + database + tests · 32 (00275: دليل التشغيل التقني (hub + :slug + مسار الطفل devops/git المولَّد من الشريط) · 29 (00274: ورش الصيانة · 28 (00211: سلامة تكامل GPS · 27 (00195: الاستقطاعات التلقائية · 26 (00191: السلف — الأنواع والسياسة · 21 (00175: غير المطابقين للقراءة، 00178: سجل تعديلات الحضور) + وارد التبليغات وتفصيله (00146) + سلاسل الموافقات (00160) + أنواع الكشوفات (00170)))))))))))))
     expect(itPaths).toContain('user-management/approval-chains')
     expect(itPaths).toContain('user-management/approval-performance'); expect(itPaths).toContain('approvals')
     expect(itPaths).toContain('user-management/maintenance-workshops')   // 00274

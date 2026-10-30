@@ -61,7 +61,7 @@ begin
   perform pg_temp.as_user(it);
   perform pg_temp.expect_error($q$ select public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000003', '{karrada}') $q$, 'SECTOR_MANAGER_ROLE_REQUIRED');
   perform pg_temp.expect_error($q$ select public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000004', '{}') $q$, 'SECTOR_MANAGER_SECTORS_REQUIRED');
-  perform pg_temp.expect_error($q$ select public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000004', '{mars}') $q$, 'check');
+  perform pg_temp.expect_error($q$ select public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000004', '{mars}') $q$, 'PARENT_SECTOR_INVALID');   -- 00393: القطاعات من الجدول لا من قيد ثابت
   perform public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000004', '{karrada}');
   perform public.sector_manager_profile_save('d8000000-0000-0000-0000-000000000005', '{zaafaraniya}');
   select * into r from public.sector_manager_options() o where o.parent_sector = 'karrada';
