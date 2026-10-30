@@ -46,7 +46,15 @@ export interface GpsHotspotsFilters {
   sectorIds?: number[] | null
 }
 
+export interface GpsHotspotsMonthStats { month: string; spots: number; stops: number; total_minutes: number; multi_vehicle: number; by_class: Partial<Record<HotspotClass, number>>; by_recurrence: Partial<Record<HotspotRecurrence, number>>; by_sector: Array<{ sector_id: number; sector_name: string; spots: number }>; updated_at: string }
+
 export const gpsHotspots = {
+  /** 00385: إحصاء شهري دائم (يبقى بعد خروج الشهر من النافذة) — للمقارنة بين الأشهر */
+  monthStats: async (): Promise<GpsHotspotsMonthStats[]> => {
+    const { data, error } = await supabase.rpc('gps_hotspots_month_stats')
+    if (error) throw new LvnSyncError(error.message)
+    return (data ?? []) as unknown as GpsHotspotsMonthStats[]
+  },
   list: async (f: GpsHotspotsFilters = {}): Promise<GpsHotspotsList> => {
     const { data, error } = await supabase.rpc('gps_hotspots_list', {
       p_month: f.month ? (f.month.length === 7 ? `${f.month}-01` : f.month) : null,

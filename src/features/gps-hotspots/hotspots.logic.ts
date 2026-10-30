@@ -1,5 +1,5 @@
 /** 00384 — منطق خريطة النفايات (بقع التوقف): الألوان، التسميات، الفلاتر المحلية، والعدّادات — بلا React */
-import type { GpsHotspot, GpsHotspotsMonth, HotspotClass, HotspotRecurrence } from '@sdk/gps-hotspots.sdk'
+import type { GpsHotspot, GpsHotspotsMonth, GpsHotspotsMonthStats, HotspotClass, HotspotRecurrence } from '@sdk/gps-hotspots.sdk'
 
 export const HOTSPOT_CLASSES: readonly HotspotClass[] = ['light', 'medium', 'heavy']
 export const HOTSPOT_RECURRENCES: readonly HotspotRecurrence[] = ['once', 'recurring', 'frequent']
@@ -75,3 +75,37 @@ export const peakHours = (hours: number[]): string => {
   const top = hours.map((n, h) => ({ n, h })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 2)
   return top.length ? top.map((x) => `${String(x.h).padStart(2, '0')}:00`).join(' · ') : '—'
 }
+
+/* ───────────── 00385: المقارنة مع الشهر السابق ───────────── */
+export const prevMonthOf = (m: string): string => { const [y, mo] = m.split('-').map(Number); const d = new Date(y!, (mo ?? 1) - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+export interface MonthDelta { label: string; current: number; previous: number | null; delta: number | null; pct: number | null }
+export interface MonthComparison { month: string; previous: string; available: boolean; rows: MonthDelta[] }
+const delta = (label: string, cur: number, prev: number | null | undefined): MonthDelta =>
+  prev == null ? { label, current: cur, previous: null, delta: null, pct: null } : { label, current: cur, previous: prev, delta: cur - prev, pct: prev === 0 ? null : Math.round(((cur - prev) / prev) * 100) }
+/** يقارن إحصاء الشهر المعروض بالشهر الذي قبله (من الإحصاء الدائم، لا من الصفوف التي قد تكون حُذفت) */
+export function compareMonths(stats: GpsHotspotsMonthStats[], month: string): MonthComparison {
+  const cur = stats.find((s) => s.month === month), prevM = prevMonthOf(month), prev = stats.find((s) => s.month === prevM)
+  const c = (k: keyof GpsHotspotsMonthStats, sub?: string) => (x: GpsHotspotsMonthStats | undefined): number | null => {
+    if (!x) return null
+    const v = x[k]
+    if (sub && v && typeof v === 'object' && !Array.isArray(v)) return Number((v as Record<string, number>)[sub] ?? 0)
+    return typeof v === 'number' ? v : 0
+  }
+  const rows: MonthDelta[] = [
+    ['بقع', c('spots')], ['توقفات', c('stops')], ['دقائق التوقف', c('total_minutes')], ['بقع بأكثر من آلية', c('multi_vehicle')],
+    ['ثقيلة', c('by_class', 'heavy')], ['متوسطة', c('by_class', 'medium')], ['خفيفة', c('by_class', 'light')],
+    ['شبه يومية', c('by_recurrence', 'frequent')], ['متكررة', c('by_recurrence', 'recurring')],
+  ].map(([label, f]) => delta(label as string, (f as (x: GpsHotspotsMonthStats | undefined) => number | null)(cur) ?? 0, (f as (x: GpsHotspotsMonthStats | undefined) => number | null)(prev)))
+  return { month, previous: prevM, available: !!cur && !!prev, rows }
+}
+export const deltaLabel = (d: MonthDelta): string => (d.delta == null ? 'لا بيانات للشهر السابق' : d.delta === 0 ? 'بلا تغيير' : `${d.delta > 0 ? '▲ +' : '▼ '}${d.delta.toLocaleString('en')}${d.pct != null ? ` (${d.pct > 0 ? '+' : ''}${d.pct}%)` : ''}`)
+
+/** الأيام مرتبة وأعدادها بحسب يوم الأسبوع (الجمعة=5) لعرض «أي الأيام» */
+export const WEEKDAY_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+export function daysByWeekday(days: string[]): Array<{ day: string; count: number }> {
+  const c = [0, 0, 0, 0, 0, 0, 0]
+  for (const d of days ?? []) { const dt = new Date(`${d}T12:00:00Z`); if (!Number.isNaN(dt.getTime())) c[dt.getUTCDay()]!++ }
+  return c.map((count, i) => ({ day: WEEKDAY_AR[i]!, count }))
+}
+export const fmtDay = (d: string): string => { const dt = new Date(`${d}T12:00:00Z`); return Number.isNaN(dt.getTime()) ? d : `${WEEKDAY_AR[dt.getUTCDay()]} ${d.slice(8)}/${d.slice(5, 7)}` }
+export const googleMapsUrl = (h: Pick<GpsHotspot, 'lat' | 'lng'>): string => `https://www.google.com/maps?q=${h.lat.toFixed(6)},${h.lng.toFixed(6)}`

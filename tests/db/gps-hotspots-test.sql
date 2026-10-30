@@ -66,7 +66,14 @@ begin
   perform pg_temp.as_user('e9100000-0000-0000-0000-000000000001');
   js := public.gps_warehouse_link_get();
   if js ->> 'last_hotspots_sync_at' is null or (js ->> 'hotspots_rows')::int <> 3 or (js -> 'hotspots_by_month' ->> '2026-09')::int <> 3 or not (js ? 'hotspots_cron') or js -> 'hotspots_cron' ->> 'scheduled' is null then raise exception 'G3 link %', js; end if;
-  -- G4: الكتالوج يعرف الجدولين كحالة مقفلة
-  if (select count(*) from app.data_retention_catalog() where table_name in ('gps_hotspots', 'gps_hotspots_sync') and deletable = false) <> 2 then raise exception 'G4 catalog'; end if;
+  -- G5 (00385): الإحصاء الشهري يبقى بعد الحذف خارج النافذة ويُقرأ للمقارنة
+  js := public.gps_hotspots_month_stats();
+  if jsonb_array_length(js) <> 2 or js -> 0 ->> 'month' <> '2026-09' or (js -> 0 ->> 'spots')::int <> 3 or (js -> 0 ->> 'stops')::int <> 18 or (js -> 0 ->> 'multi_vehicle')::int <> 1
+     or (js -> 0 -> 'by_class' ->> 'heavy')::int <> 1 or (js -> 0 -> 'by_recurrence' ->> 'frequent')::int <> 1 or (js -> 1 ->> 'spots')::int <> 1 or js -> 0 -> 'by_sector' -> 0 ->> 'sector_id' <> '1' then raise exception 'G5 stats %', js; end if;
+  perform pg_temp.as_user('e9100000-0000-0000-0000-000000000002');
+  perform pg_temp.expect_error('select public.gps_hotspots_month_stats()', 'GPS_FORBIDDEN');
+  perform pg_temp.as_user('e9100000-0000-0000-0000-000000000001');
+  -- G4: الكتالوج يعرف الجداول كحالة مقفلة
+  if (select count(*) from app.data_retention_catalog() where table_name in ('gps_hotspots', 'gps_hotspots_sync', 'gps_hotspots_month_stats') and deletable = false) <> 3 then raise exception 'G4 catalog'; end if;
   raise notice 'gps hotspots ok';
 end $$;

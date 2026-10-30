@@ -60,6 +60,7 @@ L('it', 'gps_warehouse_link', 'حالة ربط مستودع GPS التحليلي
 L('gps', 'gps_history_purge_settings', 'إعداد التفريغ اليومي لنقاط GPS التفصيلية', CFG)
 L('gps', 'gps_hotspots', 'بقع التوقف الشهرية (ملخص منسوخ من المستودع)', STATE)
 L('gps', 'gps_hotspots_sync', 'حالة نسخ بقع التوقف لكل شهر', STATE)
+L('gps', 'gps_hotspots_month_stats', 'إحصاء بقع التوقف الشهري (للمقارنة بين الأشهر)', REC)
 
 # ───── notifications
 D('notifications', 'notifications', 'الإشعارات', 'إشعارات الجرس لكل مستخدم.', 'created_at', 6, False, keep='is_read is not true and read_at is null and dismissed_at is null', lock='الإشعارات غير المقروءة محمية')
