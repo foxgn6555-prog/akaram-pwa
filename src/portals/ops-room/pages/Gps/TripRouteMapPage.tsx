@@ -6,7 +6,10 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, useMap } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
+import { MAP_UI } from '@features/map-theme/map-theme'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TRIP_ROUTES_HREF } from '@features/gps-lvn/trip-route-links'
@@ -76,6 +79,8 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
   const toast = useUiStore((s) => s.addToast)
   const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS)
   const [full, setFull] = useState(false)
+  useInjectMapThemeStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')   // 00388-ج: نهاري/ليلي موحّد
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
   const [playIdx, setPlayIdx] = useState<number | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -184,14 +189,16 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
           <button key={k} type="button" onClick={() => toggle(k)} className={`rounded-full px-3 py-1 font-bold ${layers[k] ? 'bg-slate-900 text-white' : 'border text-slate-600'}`} data-testid={`trm-layer-${k}`} aria-pressed={layers[k]}>{LAYER_AR[k]}</button>
         ))}
         <span className="mx-2 h-4 border-r" />
+        <MapThemeToggle theme={theme} onToggle={toggleTheme} testId="trm-theme" />
+        <span className="mx-2 h-4 border-r" />
         <span className="flex items-center gap-1 text-slate-500">السرعة: <i className="inline-block h-2 w-5 rounded" style={{ background: '#16a34a' }} />&lt;30 <i className="inline-block h-2 w-5 rounded" style={{ background: '#eab308' }} />30–60 <i className="inline-block h-2 w-5 rounded" style={{ background: '#f97316' }} />60–90 <i className="inline-block h-2 w-5 rounded" style={{ background: '#dc2626' }} />&gt;90</span>
       </div>
 
       <div className={`grid gap-3 ${full ? 'min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_320px]'}`}>
-        <div ref={mapBox} className={`relative overflow-hidden rounded-2xl border ${full ? 'h-full min-h-[300px]' : 'h-[560px]'}`} data-testid="trm-map">
+        <div ref={mapBox} className={`relative overflow-hidden rounded-2xl border ${MAP_UI[theme].container} ${full ? 'h-full min-h-[300px]' : 'h-[560px]'}`} data-testid="trm-map" data-map-theme={theme}>
           {pts.length === 0 ? <EmptyState title="لا نقاط لهذا المسار بعد" hint={d.status === 'no_device' ? 'المركبة بلا جهاز GPS مربوط.' : 'اضغط «سحب الآن» أو انتظر دورة السحب التلقائية.'} /> : (
             <MapContainer center={center} zoom={13} className="h-full w-full">
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
+              <MapTiles theme={theme} />
               <FitBounds points={allBounds} />
               <FlyTo target={flyTarget} />
               {layers.zones && (zones.data ?? []).map((z) => <Polygon key={z.id} positions={(z.polygon ?? []).map(zonePoint)} pathOptions={{ color: z.color || '#06b6d4', weight: 1.5, fillOpacity: 0.08 }}><Popup>{z.name}</Popup></Polygon>)}
@@ -200,7 +207,7 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
                 const prev = pts[i]
                 if (!prev) return null
                 return <Polyline key={p.seq} positions={[[prev.lat, prev.lng], [p.lat, p.lng]]} pathOptions={{ color: p.state === 'gap' ? '#64748b' : speedColor(p.speed), weight: p.state === 'gap' ? 2 : 5, dashArray: p.state === 'gap' ? '6 8' : undefined, opacity: 0.9 }} />
-              }) : <Polyline positions={latlngs} pathOptions={{ color: '#2563eb', weight: 4 }} />}
+              }) : <Polyline positions={latlngs} pathOptions={{ color: theme === 'dark' ? '#60a5fa' : '#2563eb', weight: 4 }} />}
               {compare.data && cmpPts.length > 1 && <Polyline positions={cmpPts.map((p) => [p.lat, p.lng] as [number, number])} pathOptions={{ color: '#7c3aed', weight: 4, dashArray: '2 6', opacity: 0.9 }} />}
               {layers.arrows && pts.map((p, i) => (i % arrowEvery === Math.floor(arrowEvery / 2) && p.state === 'moving' ? <Marker key={`a${p.seq}`} position={[p.lat, p.lng]} icon={arrowIcon(arrowRotation(p.course, pts[i - 1], p), speedColor(p.speed))} interactive={false} /> : null))}
               {layers.points && pts.map((p) => (
@@ -208,7 +215,7 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
                   <Popup><PointPopup p={p} /></Popup>
                 </CircleMarker>
               ))}
-              {layers.gaps && (d.gaps ?? []).map((g) => <Polyline key={`g${g.seq}`} positions={[[g.from_lat, g.from_lng], [g.to_lat, g.to_lng]]} pathOptions={{ color: '#0f172a', weight: 2, dashArray: '4 10' }}><Popup>انقطاع إشارة {dur(g.seconds)}<br />{timeAr(g.started_at)} ← {timeAr(g.ended_at)}</Popup></Polyline>)}
+              {layers.gaps && (d.gaps ?? []).map((g) => <Polyline key={`g${g.seq}`} positions={[[g.from_lat, g.from_lng], [g.to_lat, g.to_lng]]} pathOptions={{ color: theme === 'dark' ? '#e2e8f0' : '#0f172a', weight: 2, dashArray: '4 10' }}><Popup>انقطاع إشارة {dur(g.seconds)}<br />{timeAr(g.started_at)} ← {timeAr(g.ended_at)}</Popup></Polyline>)}
               {layers.heat && (d.stops ?? []).map((s) => <Circle key={`h${s.seq}`} center={[s.lat, s.lng]} radius={stopRadius(s.duration_seconds)} pathOptions={{ color: 'transparent', fillColor: '#ef4444', fillOpacity: Math.min(0.6, 0.2 + s.duration_seconds / 3600) }} />)}
               {layers.stops && (d.stops ?? []).map((s) => (
                 <Marker key={`s${s.seq}`} position={[s.lat, s.lng]} icon={stopIcon(s.seq)}>

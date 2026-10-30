@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { MapContainer, Marker, Polygon, Popup, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Polygon, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
+import { MAP_UI } from '@features/map-theme/map-theme'
 import 'leaflet/dist/leaflet.css'
 import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark } from '@sdk/gps-lvn.sdk'
 import { landmarkDivIcon } from './LandmarkIcon'
@@ -124,16 +127,34 @@ function InvalidateSize({ dep }: { dep: unknown }) {
 }
 // ذاكرة أيقونات: نفس الأيقونة لكل (لون/اتجاه مقرّب/حجم) — لا إعادة إنشاء
 // كل مزامنة (يمنع الوميض ويثبّت الرسم)
+// 00388-ج: توهّج المركبات — هالة نابضة للمتحركة، توهّج ساكن للمتوقفة؛ أقوى في الوضع الليلي
+const GPS_CSS_ID = 'gps-live-map-style'
+const GPS_CSS = `
+.gps-arrow { position: relative; width: 100%; height: 100%; line-height: 0; }
+.gps-arrow__halo { position: absolute; inset: 15%; border-radius: 9999px; background: var(--c); opacity: .25; filter: blur(3px); }
+.gps-arrow--moving .gps-arrow__halo { animation: gps-pulse 1.8s ease-out infinite; }
+.gps-arrow__svg { position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+.akaram-map-dark .gps-arrow__svg { filter: drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 1px rgba(0,0,0,.9)); }
+.akaram-map-dark .gps-arrow__halo { opacity: .45; filter: blur(4px); }
+@keyframes gps-pulse { 0% { transform: scale(.7); opacity: .55; } 100% { transform: scale(1.9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gps-arrow--moving .gps-arrow__halo { animation: none; } }
+`
+function useInjectGpsStyle() {
+  useEffect(() => {
+    if (document.getElementById(GPS_CSS_ID)) return
+    const el = document.createElement('style'); el.id = GPS_CSS_ID; el.textContent = GPS_CSS; document.head.appendChild(el)
+  }, [])
+}
 const iconCache = new Map<string, L.DivIcon>()
-const arrowIcon = (color: string, course: number | null, active: boolean) => {
+export const arrowIcon = (color: string, course: number | null, active: boolean, moving = false) => {
   const deg = (Math.round((course ?? 0) / 10) * 10) % 360
-  const key = `${color}|${deg}|${active}`
+  const key = `${color}|${deg}|${active}|${moving}`
   const cached = iconCache.get(key)
   if (cached) return cached
   const size = active ? 30 : 24
   const icon = L.divIcon({
     className: 'gps-arrow-icon',
-    html: `<div style="transform:rotate(${deg}deg);line-height:0"><svg width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 1.5 L19.5 21 L12 16 L4.5 21 Z" fill="${color}" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>`,
+    html: `<div class="gps-arrow${moving ? ' gps-arrow--moving' : ''}" data-moving="${moving}" style="--c:${color};width:${size}px;height:${size}px"><span class="gps-arrow__halo"></span><svg class="gps-arrow__svg" width="${size}" height="${size}" viewBox="0 0 24 24" style="transform:rotate(${deg}deg)"><path d="M12 1.5 L19.5 21 L12 16 L4.5 21 Z" fill="${color}" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -size / 2],
@@ -150,6 +171,9 @@ export default function GpsLiveMap({
   zones: GpsMapGeofence[]
   landmarks: GpsMapLandmark[]
 }) {
+  useInjectMapThemeStyle(); useInjectGpsStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')
+  const ui = MAP_UI[theme]
   const [tileFailed, setTileFailed] = useState(false)
   const [saved] = useState(readSavedView)   // 00212: استعادة آخر إطار بعد تحديث الصفحة
   const [fitSignal, setFitSignal] = useState(0)
@@ -161,14 +185,15 @@ export default function GpsLiveMap({
   // ملء الشاشة عبر portal إلى body — يهرب من أي ancestor بـ transform/filter
   // كان يكسر position:fixed ويجعل الخريطة لا تملأ النافذة
   const shell = (
-    <div className={full ? 'fixed inset-0 z-[2000] bg-white' : 'relative overflow-hidden rounded-2xl border'}>
-      <div className="absolute right-3 top-3 z-[1000] max-w-[calc(100%-1.5rem)] rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl backdrop-blur">
+    <div className={full ? `fixed inset-0 z-[2000] ${ui.container}` : `relative overflow-hidden rounded-2xl border ${ui.container}`} data-testid="gps-live-map" data-map-theme={theme}>
+      <div className={`absolute right-3 top-3 z-[1000] max-w-[calc(100%-1.5rem)] rounded-2xl border p-2 shadow-xl ${ui.panel}`}>
         <div className="flex flex-wrap gap-1.5 text-[10px] font-black">
+          <MapThemeToggle theme={theme} onToggle={toggleTheme} testId="gps-live-map-theme" />
           <button
             type="button"
             aria-pressed={layers.vehicles}
             onClick={() => toggleLayer('vehicles')}
-            className={`rounded-xl px-3 py-2 transition ${layers.vehicles ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-400'}`}
+            className={`rounded-xl px-3 py-2 transition ${layers.vehicles ? 'bg-slate-950 text-white' : ui.chip}`}
           >
             ● الآليات ({rows.length})
           </button>
@@ -176,7 +201,7 @@ export default function GpsLiveMap({
             type="button"
             aria-pressed={layers.zones}
             onClick={() => toggleLayer('zones')}
-            className={`rounded-xl px-3 py-2 transition ${layers.zones ? 'bg-violet-700 text-white' : 'bg-slate-100 text-slate-400'}`}
+            className={`rounded-xl px-3 py-2 transition ${layers.zones ? 'bg-violet-700 text-white' : ui.chip}`}
           >
             ▧ الزونات ({zones.length})
           </button>
@@ -184,7 +209,7 @@ export default function GpsLiveMap({
             type="button"
             aria-pressed={layers.landmarks}
             onClick={() => toggleLayer('landmarks')}
-            className={`rounded-xl px-3 py-2 transition ${layers.landmarks ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+            className={`rounded-xl px-3 py-2 transition ${layers.landmarks ? 'bg-orange-600 text-white' : ui.chip}`}
           >
             ◆ المعالم ({landmarks.length})
           </button>
@@ -206,17 +231,16 @@ export default function GpsLiveMap({
           </button>
         </div>
         {layers.vehicles && (
-          <div className="mt-2 flex flex-wrap gap-2 border-t pt-2 text-[9px]">
-            <span className="text-emerald-700">● متحركة</span>
-            <span className="text-blue-700">● محرك يعمل</span>
-            <span className="text-amber-700">● محرك مطفأ</span>
-            <span className="text-slate-600">● غير معروفة</span>
+          <div className={`mt-2 flex flex-wrap gap-2 border-t pt-2 text-[9px] font-bold ${theme === 'dark' ? 'border-white/15' : ''}`}>
+            {(Object.keys(labels) as (keyof typeof labels)[]).map((k) => (
+              <span key={k} className="flex items-center gap-1"><span className="size-2.5 rounded-full" style={{ background: colors[k], boxShadow: theme === 'dark' ? `0 0 6px ${colors[k]}` : undefined }} />{k === 'idle' ? 'محرك يعمل' : k === 'parked' ? 'محرك مطفأ' : labels[k]}</span>
+            ))}
           </div>
         )}
       </div>
       {tileFailed && (
         <div className="absolute inset-x-16 bottom-3 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900">
-          تعذر تحميل خلفية OpenStreetMap؛ تحقق من الاتصال ثم أعد تحميل الصفحة.
+          تعذر تحميل خلفية الخريطة؛ تحقق من الاتصال ثم أعد تحميل الصفحة.
         </div>
       )}
       <MapContainer
@@ -224,14 +248,7 @@ export default function GpsLiveMap({
         zoom={saved?.zoom ?? 11}
         className={full ? 'h-full w-full' : 'h-[65vh] min-h-[460px] w-full'}
       >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            tileerror: () => setTileFailed(true),
-            tileload: () => setTileFailed(false),
-          }}
-        />
+        <MapTiles theme={theme} onFailed={setTileFailed} />
         {layers.zones &&
           zones.map((zone) => {
             const positions = zone.polygon.map((p) =>
@@ -280,6 +297,7 @@ export default function GpsLiveMap({
                 colors[row.operational_status],
                 row.course,
                 Boolean(row.departure_id),
+                row.operational_status === 'moving',
               )}
             >
               <Popup>

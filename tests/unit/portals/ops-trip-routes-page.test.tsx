@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({ rows: [] as unknown[], summary: {} as Record<strin
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
+  useMap: () => null,   // 00388-ج: MapTiles المشتركة تستدعيها (دفاعية)
   Polygon: () => <div data-testid="map-zone" />,
   Circle: ({ radius }: { radius: number }) => <div data-testid="map-circle" data-radius={radius} />,
   useMapEvents: (handlers: { click: (e: { latlng: { lat: number; lng: number } }) => void }) => { h.mapClick = handlers.click; return null },

@@ -6,7 +6,9 @@
  * 00347: تُعرض كتبويب داخل وحدة «بيانات أجهزة GPS» (GpsDataPage ?view=trips)؛ الخريطة التفصيلية تُفتح بـ ?trip=<id>.
  */
 import { useMemo, useState } from 'react'
-import { Circle, MapContainer, Polygon, TileLayer, useMapEvents } from 'react-leaflet'
+import { Circle, MapContainer, Polygon, useMapEvents } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router'
 import { tripMapHref } from '@features/gps-lvn/trip-route-links'
@@ -284,10 +286,13 @@ function Capture({ onPick }: { onPick: (lat: number, lng: number) => void }) {
 function CircleMap({ value, onChange, testId }: { value: TripRoutePlace; onChange: (p: TripRoutePlace) => void; testId: string }) {
   const zones = useGpsMapGeofences()
   const center: [number, number] = [value.lat ?? 33.3152, value.lng ?? 44.3661]
+  useInjectMapThemeStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')   // 00388-ج
   return (
-    <div className="mt-2 h-[300px] overflow-hidden rounded-xl border" data-testid={`${testId}-map`}>
+    <div className="relative mt-2 h-[300px] overflow-hidden rounded-xl border" data-testid={`${testId}-map`} data-map-theme={theme}>
+      <div className="absolute right-2 top-2 z-[1000]"><MapThemeToggle theme={theme} onToggle={toggleTheme} testId={`${testId}-theme`} /></div>
       <MapContainer center={center} zoom={value.lat != null ? 14 : 11} className="h-full w-full">
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
+        <MapTiles theme={theme} />
         <Capture onPick={(lat, lng) => onChange({ ...value, lat, lng })} />
         {(zones.data ?? []).map((z) => <Polygon key={z.id} positions={(z.polygon ?? []).map(zonePoint)} pathOptions={{ color: z.color || '#06b6d4', weight: 1, fillOpacity: 0.06 }} />)}
         {value.lat != null && value.lng != null && <Circle center={[value.lat, value.lng]} radius={value.radius_m ?? 300} pathOptions={{ color: '#e11d48', weight: 2, fillOpacity: 0.15 }} />}
