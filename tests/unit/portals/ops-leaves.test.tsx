@@ -8,6 +8,10 @@ import { PORTAL_UNITS } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 
 const opsLeavesSummary = vi.fn(); const lookup = vi.fn(); const listLeaveRequests = vi.fn(); const cancelLeave = vi.fn(); const balance = vi.fn()
+// 00391: معاينة مسار الموافقة للموظف المختار (سلسلة قسم)
+vi.mock('@features/sector-manager/hooks', () => ({ useApprovalDiagnose: (id: string) => ({ isLoading: false, isError: false, data: { employee: { id, full_name: 'كريم جاسم', employee_number: 'E-009', department_id: 'd1', department_name: 'النظافة', has_account: false, roles: [], manager_id: 'm1', manager_name: 'مدير القسم', manager_has_account: true },
+  type: 'leave', subtype: null, chain: { id: 'c1', scope: 'department', requester_role: 'department', requester_label: 'موظفو القسم', subtype: null, department_id: 'd1', department_name: 'النظافة', include_children: true },
+  steps: [{ step_no: 1, label: 'مسؤول قسم (حسب التسلسل)', mode: 'any', sla_days: null, escalate: 'none', condition: null, status: 'active', approvers: [{ user_id: 'm1', name: 'مدير القسم' }], delegates: [] }], active_steps: 1, department_path: [], checks: [], ok: true, fallback: 'chain', reason: null, hints: [] } }) }))
 vi.mock('@sdk/hr.sdk', () => ({
   hr: {
     opsLeavesSummary: () => opsLeavesSummary(), opsLeaveEmployeeLookup: (...a: unknown[]) => lookup(...a),
@@ -75,6 +79,9 @@ describe('OpsLeavesPage (00239)', () => {
     await waitFor(() => expect(lookup).toHaveBeenCalledWith('كريم'))
     fireEvent.click(hit)
     expect(await screen.findByTestId('ol-picked')).toHaveTextContent('المدير المباشر: مدير القسم')
+    expect(screen.getByTestId('ol-chain')).toHaveAttribute('data-ok', '1')
+    expect(screen.getByTestId('ol-chain-scope')).toHaveTextContent('سلسلة قسم «النظافة»')
+    expect(screen.getByTestId('ol-chain-step-1')).toHaveTextContent('مدير القسم')
     expect(await screen.findByTestId('ol-behalf-form')).toBeInTheDocument()
     expect(await screen.findByTestId('ol-behalf-balance')).toBeInTheDocument()
   })

@@ -42,6 +42,10 @@ vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null }] }) }))
 vi.mock('@sdk/hr.sdk', () => ({ hr: { uploadLeaveAttachment: vi.fn(async () => 'e2/leave-1.pdf'), signedUrl: vi.fn(async () => 'https://x') }, hrErrorMessage: (e: unknown) => String(e) }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }) }))
+// 00391: معاينة سلسلة الموافقات داخل نموذج الطلب
+const diag = vi.hoisted(() => ({ data: { employee: { id: 'e1', full_name: 'أحمد', employee_number: 'E1', department_id: 'd1', department_name: 'النقل', has_account: true, roles: ['employee'], manager_id: 'm1', manager_name: 'سعد', manager_has_account: true },
+  type: 'leave', subtype: null, chain: null, steps: [], active_steps: 0, department_path: [], checks: [], ok: true, fallback: 'manager', reason: 'لا سلسلة — يعتمد الطلب المدير المباشر (سعد)', hints: [] }, calls: [] as unknown[] }))
+vi.mock('@features/sector-manager/hooks', () => ({ useApprovalDiagnose: (...a: unknown[]) => { diag.calls.push(a); return { data: diag.data, isLoading: false, isError: false } } }))
 vi.mock('@features/hr/hooks/useHr', () => ({
   useHrPolicy: () => ({ data: h.policy, isLoading: false }),
   useSetHrPolicy: () => mut(h.setPolicy),
@@ -198,6 +202,10 @@ describe('بوابة الموظف — طلباتي', () => {
   it('الزمنية: تتحقق من الحد الأقصى والوقت، وتخصم ثلث يوم؛ المرضية تتطلب مرفقاً؛ بلا مدير لا نموذج', () => {
     render(<MyRequests />)
     fireEvent.change(screen.getByTestId('my-form-type'), { target: { value: 'permit' } })
+    // 00391: معاينة مسار الموافقة بنوع الطلب ونوعه الفرعي
+    expect(screen.getByTestId('my-form-chain')).toHaveAttribute('data-ok', '1')
+    expect(screen.getByTestId('my-form-chain-reason')).toHaveTextContent('المدير المباشر (سعد)')
+    expect(diag.calls.at(-1)?.slice(0, 3)).toEqual(['e2', 'time_permit', 'permit_paid'])
     fireEvent.change(screen.getByTestId('my-form-start-time'), { target: { value: '09:00' } })
     fireEvent.change(screen.getByTestId('my-form-end-time'), { target: { value: '13:00' } })
     expect(screen.getByTestId('my-form-summary')).toHaveTextContent('الحد الأقصى للزمنية 3س 0د')

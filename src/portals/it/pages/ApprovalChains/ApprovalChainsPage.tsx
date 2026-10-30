@@ -4,13 +4,17 @@
  *  - «حسب التسلسل» (النظام يحدد الشخص من الإسنادات) أو «حساب محدد».
  *  - خصائص اختيارية: نمط «الجميع»، شرط (المبلغ/الأيام/الدقائق ≥ أو ≤ قيمة)، مهلة بالأيام مع تذكير، تصعيد تلقائي.
  * أدوات: نسخ سلسلة لدور/نوع آخر، سجل الإصدارات، المحاكاة («لو طلب فلان كذا — من يوافق؟»).
+ * 00391: نطاق «قسم» من الشجرة التنظيمية (مع/بدون الأقسام الفرعية) يُطبَّق على كل موظفي القسم أياً كان دورهم وحتى بلا حساب،
+ *        ويتقدّم على سلاسل الأدوار (قسم الموظف ← الأب ← … ← الدور). + تشخيص «لماذا لا توجد سلسلة لهذا الموظف؟».
  */
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { ArrowDown, ArrowUp, Copy, History, Plus, Settings2, Trash2, Wand2 } from 'lucide-react'
-import { useApprovalChainVersions, useApprovalChains, useApprovalSimulate, useDeleteApprovalChain, useSaveApprovalChain } from '@features/sector-manager/hooks'
+import { useApprovalChainVersions, useApprovalChains, useApprovalEmployeeLookup, useApprovalSimulate, useDeleteApprovalChain, useSaveApprovalChain } from '@features/sector-manager/hooks'
 import { useUsers } from '@features/user-management'
 import { useLeaveTypes } from '@features/hr'
+import { useDepartments } from '@features/departments'
+import { ChainPreview } from '@components/approvals/ChainPreview'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
 import type { ApprovalChain, ApprovalRequestType, ApprovalStep, ApprovalStepOptions } from '@sdk/sector-manager.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -45,15 +49,21 @@ const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' |
 const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'المبلغ (د.ع)', days: 'الأيام', minutes: 'الدقائق' }
 const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)
 const sameStep = (a: ApprovalStep | undefined, b: ApprovalStep) => !!a && a.kind === b.kind && (b.kind === 'hierarchy' ? (a as { role?: string }).role === b.role : (a as { user_id?: string }).user_id === b.user_id)
-const scopeKey = (role: string, type: string, subtype: string | null | undefined) => `${role}|${type}|${subtype ?? ''}`
+const scopeKey = (role: string, type: string, subtype: string | null | undefined, department?: string | null) => `${department ? `dept:${department}` : role}|${type}|${subtype ?? ''}`
+const DEPT_TYPES: ApprovalRequestType[] = ['leave', 'time_permit', 'advance']
 const fmtDate = (v: string) => new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v))
 
 export default function ApprovalChainsPage() {
   const chains = useApprovalChains(), save = useSaveApprovalChain(), del = useDeleteApprovalChain()
   const users = useUsers()
   const leaveTypes = useLeaveTypes()
+  const departments = useDepartments()
   const simulate = useApprovalSimulate()
   const [role, setRole] = useState<string>('employee'), [type, setType] = useState<ApprovalRequestType>('leave'), [subtype, setSubtype] = useState<string>('')
+  // 00391: نطاق السلسلة — دور أو قسم (مع/بدون الفرعية)
+  const [scope, setScope] = useState<'role' | 'department'>('role'), [department, setDepartment] = useState<string>(''), [includeChildren, setIncludeChildren] = useState(true)
+  const [diag, setDiag] = useState<{ query: string; employeeId: string }>({ query: '', employeeId: '' })
+  const diagEmployees = useApprovalEmployeeLookup(diag.query)
   const [steps, setSteps] = useState<ApprovalStep[]>([]), [active, setActive] = useState(true), [editing, setEditing] = useState<string | null>(null)
   const [accountId, setAccountId] = useState(''), [accountQuery, setAccountQuery] = useState(''), [dup, setDup] = useState(false)
   const [openStep, setOpenStep] = useState<number | null>(null)
@@ -66,16 +76,30 @@ export default function ApprovalChainsPage() {
   const subtypeOptions = useMemo(() => (leaveTypes.data ?? []).filter((t) => t.kind === type), [leaveTypes.data, type])
   const subtypeAllowed = type === 'leave' || type === 'time_permit'
   const effSubtype = subtypeAllowed && subtype ? subtype : null
-  const existing = useMemo(() => (chains.data ?? []).find((c) => c.requester_role === role && c.request_type === type && (c.subtype ?? null) === effSubtype), [chains.data, role, type, effSubtype])
-  const withChain = useMemo(() => new Set((chains.data ?? []).filter((c) => c.is_active).map((c) => scopeKey(c.requester_role, c.request_type, c.subtype))), [chains.data])
+  const effDepartment = scope === 'department' && department ? department : null
+  const existing = useMemo(() => (chains.data ?? []).find((c) => c.request_type === type && (c.subtype ?? null) === effSubtype && (effDepartment ? c.department_id === effDepartment : (!c.department_id && c.requester_role === role))), [chains.data, role, type, effSubtype, effDepartment])
+  const withChain = useMemo(() => new Set((chains.data ?? []).filter((c) => c.is_active).map((c) => scopeKey(c.requester_role, c.request_type, c.subtype, c.department_id))), [chains.data])
+  const deptTree = useMemo(() => {
+    const list = departments.data ?? []
+    const byParent = new Map<string | null, typeof list>()
+    for (const d of list) { const k = d.parent_id ?? null; byParent.set(k, [...(byParent.get(k) ?? []), d]) }
+    const out: { id: string; name: string; depth: number }[] = []
+    const walk = (parent: string | null, depth: number) => { for (const d of byParent.get(parent) ?? []) { out.push({ id: d.id, name: d.name, depth }); if (depth < 10) walk(d.id, depth + 1) } }
+    walk(null, 0)
+    return out
+  }, [departments.data])
+  const deptTypeOk = DEPT_TYPES.includes(type)
   const accountOptions = useMemo(() => (users.data ?? []).filter((u) => (u.employee_name ?? u.email ?? '').includes(accountQuery)).slice(0, 30), [users.data, accountQuery])
   const simOptions = useMemo(() => (users.data ?? []).filter((u) => (u.employee_name ?? u.email ?? '').includes(sim.query)).slice(0, 30), [users.data, sim.query])
   const userName = (id: string) => { const u = (users.data ?? []).find((x) => x.id === id); return u?.employee_name ?? u?.email ?? id.slice(0, 8) }
 
   const reset = () => { setSteps([]); setActive(true); setEditing(null); setOpenStep(null); setDup(false) }
-  const load = (c: ApprovalChain) => { setRole(c.requester_role); setType(c.request_type); setSubtype(c.subtype ?? ''); setSteps(c.steps); setActive(c.is_active); setEditing(c.id); setOpenStep(null) }
+  const load = (c: ApprovalChain) => {
+    if (c.department_id) { setScope('department'); setDepartment(c.department_id); setIncludeChildren(c.include_children ?? true) } else { setScope('role'); setRole(c.requester_role) }
+    setType(c.request_type); setSubtype(c.subtype ?? ''); setSteps(c.steps); setActive(c.is_active); setEditing(c.id); setOpenStep(null)
+  }
   // السلسلة القائمة تُحمَّل تلقائياً — لا استبدال صامت
-  useEffect(() => { if (existing && editing !== existing.id) { setSteps(existing.steps); setActive(existing.is_active); setEditing(existing.id) } }, [existing, editing])
+  useEffect(() => { if (existing && editing !== existing.id) { setSteps(existing.steps); setActive(existing.is_active); setEditing(existing.id); if (existing.department_id) setIncludeChildren(existing.include_children ?? true) } }, [existing, editing])
   const addStep = (st: ApprovalStep) => { if (sameStep(steps[steps.length - 1], st)) { setDup(true); return } setDup(false); setSteps((s) => [...s, st]) }
   const move = (i: number, d: -1 | 1) => setSteps((s) => { const n = [...s]; const j = i + d; if (j < 0 || j >= n.length) return s; const t = n[i] as ApprovalStep; n[i] = n[j] as ApprovalStep; n[j] = t; return n })
   const patchStep = (i: number, patch: ApprovalStepOptions) => setSteps((s) => s.map((st, k) => (k === i ? { ...st, ...patch } : st)))
@@ -88,7 +112,9 @@ export default function ApprovalChainsPage() {
   const stepLabel = (s: ApprovalStep) => s.label ?? baseLabel(s)
   const typeLabel = (c: ApprovalChain) => `${TYPES.find((t) => t.key === c.request_type)?.label ?? c.request_type}${c.subtype_label ? ` — ${c.subtype_label}` : ''}`
 
-  const doSave = () => save.mutate({ requesterRole: role, requestType: type, steps, active, subtype: effSubtype }, { onSuccess: () => setEditing(null) })
+  const doSave = () => save.mutate({ requesterRole: effDepartment ? 'department' : role, requestType: type, steps, active, subtype: effSubtype, department: effDepartment, includeChildren }, { onSuccess: () => setEditing(null) })
+  const scopeLabel = (c: ApprovalChain) => (c.department_id ? `قسم «${c.department_name ?? '—'}»${c.include_children ? ' + الفرعية' : ''}` : roleLabel(c.requester_role))
+  const chainKey = (c: ApprovalChain) => `${c.department_id ? `dept-${c.department_id.slice(0, 8)}` : c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`
   const doCopy = () => {
     if (!copyTarget) return
     const st = (copyTarget.type === 'leave' || copyTarget.type === 'time_permit') && copyTarget.subtype ? copyTarget.subtype : null
@@ -107,34 +133,53 @@ export default function ApprovalChainsPage() {
         <p className="mt-1 text-xs text-slate-600">
           لكل دور طالب ونوع طلب (وللإجازات: نوع فرعي اختياري) سلسلة خطوات مرتبة. الخطوة إمّا <b>«حسب التسلسل»</b> أو <b>«حساب محدد»</b>، ولها خصائص اختيارية: <b>الجميع</b> (كل المعتمدين)، <b>شرط</b> (تُطبَّق فقط إذا تحقق)، <b>مهلة</b> بالأيام مع تذكير و<b>تصعيد</b> تلقائي.
           بلا سلسلة فعّالة يعمل الافتراضي (المدير المباشر / افتراضي الوحدة). لا يوافق أحد على طلب نفسه.
+          <br /><b>سلسلة القسم</b> (00391): تُطبَّق على كل موظفي القسم المختار — وأقسامه الفرعية إن شئت — أياً كان دورهم وحتى من لا حساب له (تطلب غرفة العمليات/HR نيابةً عنه).
+          الأولوية: قسم الموظف ← القسم الأب ← … ← سلسلة الدور. داخل كل مستوى: النوع الفرعي ثم العام.
         </p>
       </header>
 
       <section className="rounded-2xl border bg-white p-4 shadow-sm" data-testid="chain-editor">
+        <div className="mb-3 inline-flex rounded-xl border p-0.5 text-xs" role="tablist" data-testid="chain-scope">
+          {([['role', 'حسب دور الطالب'], ['department', 'حسب القسم (الشجرة التنظيمية)']] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={scope === k} data-testid={`chain-scope-${k}`} onClick={() => { setScope(k); if (k === 'department' && !deptTypeOk) { setType('leave'); setSubtype('') } reset() }}
+              className={clsx('h-9 rounded-lg px-3 font-black', scope === k ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50')}>{l}</button>
+          ))}
+        </div>
         <div className="grid gap-3 sm:grid-cols-4">
-          <label className="text-xs font-bold">دور الطالب
-            <select data-testid="chain-role" value={role} onChange={(e) => { setRole(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
-              {ROLE_GROUPS.map((g) => (
-                <optgroup key={g} label={g}>
-                  {REQUESTER_ROLES.filter((r) => r.group === g).map((r) => <option key={r.role} value={r.role}>{roleLabel(r.role)}{withChain.has(scopeKey(r.role, type, effSubtype)) ? ' ✓' : ''}</option>)}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          {scope === 'role' ? (
+            <label className="text-xs font-bold">دور الطالب
+              <select data-testid="chain-role" value={role} onChange={(e) => { setRole(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
+                {ROLE_GROUPS.map((g) => (
+                  <optgroup key={g} label={g}>
+                    {REQUESTER_ROLES.filter((r) => r.group === g).map((r) => <option key={r.role} value={r.role}>{roleLabel(r.role)}{withChain.has(scopeKey(r.role, type, effSubtype)) ? ' ✓' : ''}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="text-xs font-bold">القسم <span className="font-normal text-slate-500">(كل موظفيه أياً كان دورهم)</span>
+              <select data-testid="chain-department" value={department} onChange={(e) => { setDepartment(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
+                <option value="">اختر قسماً</option>
+                {deptTree.map((d) => <option key={d.id} value={d.id}>{'\u00a0\u00a0'.repeat(d.depth)}{d.depth > 0 ? '↳ ' : ''}{d.name}{withChain.has(scopeKey('department', type, effSubtype, d.id)) ? ' ✓' : ''}</option>)}
+              </select>
+              <label className="mt-1 flex items-center gap-2 text-[11px] font-bold"><input type="checkbox" data-testid="chain-include-children" checked={includeChildren} onChange={(e) => setIncludeChildren(e.target.checked)} /> تشمل الأقسام الفرعية (ما لم يكن للقسم الفرعي سلسلته الخاصة)</label>
+            </label>
+          )}
           <label className="text-xs font-bold">نوع الطلب
             <select data-testid="chain-type" value={type} onChange={(e) => { setType(e.target.value as ApprovalRequestType); setSubtype(''); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
-              {TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}{withChain.has(scopeKey(role, t.key, null)) ? ' ✓' : ''}</option>)}
+              {TYPES.filter((t) => scope === 'role' || DEPT_TYPES.includes(t.key)).map((t) => <option key={t.key} value={t.key}>{t.label}{withChain.has(scopeKey(role, t.key, null, effDepartment)) ? ' ✓' : ''}</option>)}
             </select>
           </label>
           <label className={clsx('text-xs font-bold', !subtypeAllowed && 'opacity-50')}>النوع الفرعي <span className="font-normal text-slate-500">(إجازات/زمنيات)</span>
             <select data-testid="chain-subtype" value={subtype} disabled={!subtypeAllowed} onChange={(e) => { setSubtype(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
               <option value="">— عام (كل الأنواع) —</option>
-              {subtypeOptions.map((t) => <option key={t.code} value={t.code}>{t.name}{withChain.has(scopeKey(role, type, t.code)) ? ' ✓' : ''}</option>)}
+              {subtypeOptions.map((t) => <option key={t.code} value={t.code}>{t.name}{withChain.has(scopeKey(role, type, t.code, effDepartment)) ? ' ✓' : ''}</option>)}
             </select>
           </label>
           <div className="flex items-end gap-2">
             {existing && <p className="pb-3 text-xs text-emerald-700" data-testid="chain-loaded">سلسلة قائمة ({existing.steps.length} خطوات · إصدار {existing.version_no ?? 1}) — محمَّلة للتعديل؛ الحفظ يستبدلها</p>}
-            {!existing && <p className="pb-3 text-xs text-amber-700" data-testid="chain-none">{effSubtype ? 'لا سلسلة خاصة بهذا النوع الفرعي — يعمل العام ثم الافتراضي' : 'لا سلسلة لهذا الدور/النوع — يعمل الافتراضي (المدير المباشر / افتراضي الوحدة)'} — ستُنشأ عند الحفظ</p>}
+            {!existing && scope === 'department' && !department && <p className="pb-3 text-xs text-slate-500" data-testid="chain-pick-dept">اختر القسم أولاً</p>}
+            {!existing && (scope === 'role' || department) && <p className="pb-3 text-xs text-amber-700" data-testid="chain-none">{effSubtype ? 'لا سلسلة خاصة بهذا النوع الفرعي — يعمل العام ثم الافتراضي' : 'لا سلسلة لهذا الدور/النوع — يعمل الافتراضي (المدير المباشر / افتراضي الوحدة)'} — ستُنشأ عند الحفظ</p>}
           </div>
         </div>
 
@@ -217,7 +262,7 @@ export default function ApprovalChainsPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" data-testid="chain-active" checked={active} onChange={(e) => setActive(e.target.checked)} /> السلسلة فعّالة</label>
-          <button type="button" data-testid="chain-save" disabled={steps.length === 0 || save.isPending} onClick={doSave} className="h-11 rounded-xl bg-slate-900 px-5 text-sm font-black text-white disabled:opacity-40">حفظ السلسلة</button>
+          <button type="button" data-testid="chain-save" disabled={steps.length === 0 || save.isPending || (scope === 'department' && !department)} onClick={doSave} className="h-11 rounded-xl bg-slate-900 px-5 text-sm font-black text-white disabled:opacity-40">حفظ السلسلة</button>
           <button type="button" data-testid="chain-copy" disabled={steps.length === 0} onClick={() => setCopyTarget({ role, type, subtype: '' })} className="flex h-11 items-center gap-1 rounded-xl border px-4 text-sm font-bold disabled:opacity-40"><Copy size={14} /> نسخ إلى دور/نوع آخر</button>
           {steps.length > 0 && <button type="button" onClick={reset} className="h-11 rounded-xl border px-4 text-sm font-bold">تفريغ</button>}
         </div>
@@ -266,7 +311,7 @@ export default function ApprovalChainsPage() {
           <div className="mt-3 rounded-xl border bg-slate-50 p-3 text-xs" data-testid="sim-result">
             {!simulate.data.chain_id ? <p className="font-bold text-amber-800">{simulate.data.note ?? 'لا سلسلة'}</p> : (
               <>
-                <p className="font-bold">السلسلة المطبَّقة: {simulate.data.requester_label}{simulate.data.subtype ? ` — ${subtypeOptions.find((t) => t.code === simulate.data?.subtype)?.name ?? simulate.data.subtype}` : ' — عامة'}</p>
+                <p className="font-bold">السلسلة المطبَّقة: {simulate.data.department_name ? `قسم «${simulate.data.department_name}»` : simulate.data.requester_label}{simulate.data.subtype ? ` — ${subtypeOptions.find((t) => t.code === simulate.data?.subtype)?.name ?? simulate.data.subtype}` : ' — عامة'}</p>
                 <ol className="mt-2 space-y-1">
                   {simulate.data.steps.map((st) => (
                     <li key={st.step_no} className={clsx('flex flex-wrap items-center gap-2 rounded-lg border bg-white px-2 py-1', st.status !== 'active' && 'opacity-60')} data-testid={`sim-step-${st.step_no}`}>
@@ -288,29 +333,47 @@ export default function ApprovalChainsPage() {
         )}
       </section>
 
+      {/* 00391: التشخيص — لماذا لا توجد سلسلة لهذا الموظف؟ */}
+      <section className="rounded-2xl border bg-white p-4 shadow-sm" data-testid="chain-diagnose">
+        <h2 className="text-sm font-black">تشخيص: ما الذي سيُطبَّق على موظف معيّن — ولماذا «لا توجد سلسلة»؟</h2>
+        <p className="mt-1 text-[11px] text-slate-500">يعمل لأي موظف في ملاك الموارد البشرية حتى بلا حساب. يفحص: القسم، سلسلة القسم/الأب، الحساب والأدوار، سلسلة الدور، المدير المباشر — ويقترح الحل.</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <input aria-label="بحث عن موظف" data-testid="diag-search" value={diag.query} onChange={(e) => setDiag({ query: e.target.value, employeeId: '' })} placeholder="ابحث بالاسم أو الرقم الوظيفي (حرفان على الأقل)" className="h-10 rounded-xl border px-3 text-sm" />
+          <select aria-label="الموظف" data-testid="diag-employee" value={diag.employeeId} onChange={(e) => setDiag({ ...diag, employeeId: e.target.value })} className="h-10 rounded-xl border px-2 text-sm md:col-span-2">
+            <option value="">{diag.query.trim().length < 2 ? 'اكتب في البحث أولاً' : (diagEmployees.data ?? []).length === 0 ? 'لا نتائج' : 'اختر الموظف'}</option>
+            {(diagEmployees.data ?? []).slice(0, 50).map((e) => <option key={e.id} value={e.id}>{e.full_name} — {e.employee_number}{e.department_name ? ` · ${e.department_name}` : ''}</option>)}
+          </select>
+        </div>
+        {diag.employeeId && (type === 'leave' || type === 'time_permit' || type === 'advance') && (
+          <div className="mt-3"><ChainPreview employeeId={diag.employeeId} type={type} subtype={effSubtype} detailed testId="diag-preview" /></div>
+        )}
+        {diag.employeeId && !(type === 'leave' || type === 'time_permit' || type === 'advance') && <p className="mt-2 text-xs text-amber-700" data-testid="diag-type-note">التشخيص متاح لأنواع الإجازة/الزمنية/السلفة — اختر أحدها في المحرر أعلاه.</p>}
+      </section>
+
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-black">السلاسل المضبوطة</h2>
         {chains.isLoading ? <LoadingSpinner /> : (chains.data ?? []).length === 0 ? <p className="mt-2 text-xs text-slate-500" data-testid="chains-empty">لا سلاسل بعد — كل الطلبات تمر بالافتراضي.</p> : (
           <ul className="mt-3 divide-y" data-testid="chains-list">
             {(chains.data ?? []).map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center gap-2 py-3" data-testid={`chain-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`}>
+              <li key={c.id} className="flex flex-wrap items-center gap-2 py-3" data-testid={`chain-${chainKey(c)}`}>
                 <div className="min-w-[12rem]">
-                  <div className="text-sm font-black">{roleLabel(c.requester_role)} · {typeLabel(c)}</div>
+                  <div className="text-sm font-black">{c.department_id && <span className="me-1 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-black text-sky-900">قسم</span>}{scopeLabel(c)} · {typeLabel(c)}</div>
+                  {c.department_path && c.department_path.includes('←') && <div className="text-[10px] text-slate-500" dir="rtl">{c.department_path}</div>}
                   <div className="text-[11px] text-slate-500">{c.is_active ? 'فعّالة' : 'معطّلة'} · إصدار {c.version_no ?? 1}{c.updated_by_name ? ` · آخر تعديل: ${c.updated_by_name}` : ''}</div>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-1 text-xs">
                   {c.steps.map((s, i) => <span key={i} className={clsx('rounded-full px-2 py-0.5 font-bold', s.kind === 'hierarchy' ? 'bg-indigo-100 text-indigo-900' : 'bg-emerald-100 text-emerald-900')}>{i + 1}. {stepLabel(s)}{optionBadges(s).length > 0 && <span className="text-amber-800"> [{optionBadges(s).join(' · ')}]</span>}</span>)}
                 </div>
-                <button type="button" data-testid={`chain-edit-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => load(c)} className="rounded-lg border px-3 py-1 text-xs font-bold">تعديل</button>
-                <button type="button" aria-label="سجل الإصدارات" data-testid={`chain-history-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => setVersionsOf(versionsOf?.id === c.id ? null : c)} className="rounded-lg border px-2 py-1 text-xs font-bold"><History size={14} /></button>
-                <button disabled={del.isPending} type="button" data-testid={`chain-delete-${c.requester_role}-${c.request_type}${c.subtype ? `-${c.subtype}` : ''}`} onClick={() => { if (window.confirm('حذف السلسلة؟ ستعود طلبات هذا الدور إلى الافتراضي.')) del.mutate(c.id) }} className="rounded-lg border px-3 py-1 text-xs font-bold text-rose-700">حذف</button>
+                <button type="button" data-testid={`chain-edit-${chainKey(c)}`} onClick={() => load(c)} className="rounded-lg border px-3 py-1 text-xs font-bold">تعديل</button>
+                <button type="button" aria-label="سجل الإصدارات" data-testid={`chain-history-${chainKey(c)}`} onClick={() => setVersionsOf(versionsOf?.id === c.id ? null : c)} className="rounded-lg border px-2 py-1 text-xs font-bold"><History size={14} /></button>
+                <button disabled={del.isPending} type="button" data-testid={`chain-delete-${chainKey(c)}`} onClick={() => { if (window.confirm('حذف السلسلة؟ ستعود طلبات هذا الدور إلى الافتراضي.')) del.mutate(c.id) }} className="rounded-lg border px-3 py-1 text-xs font-bold text-rose-700">حذف</button>
               </li>
             ))}
           </ul>
         )}
         {versionsOf && (
           <div className="mt-3 rounded-xl border bg-slate-50 p-3 text-xs" data-testid="chain-versions">
-            <div className="flex items-center justify-between"><p className="font-black">سجل إصدارات: {roleLabel(versionsOf.requester_role)} · {typeLabel(versionsOf)}</p><button type="button" onClick={() => setVersionsOf(null)} className="rounded-lg border bg-white px-2 py-0.5 font-bold">إغلاق</button></div>
+            <div className="flex items-center justify-between"><p className="font-black">سجل إصدارات: {scopeLabel(versionsOf)} · {typeLabel(versionsOf)}</p><button type="button" onClick={() => setVersionsOf(null)} className="rounded-lg border bg-white px-2 py-0.5 font-bold">إغلاق</button></div>
             {versions.isLoading ? <LoadingSpinner /> : (
               <ul className="mt-2 space-y-1">
                 {(versions.data ?? []).map((v) => (

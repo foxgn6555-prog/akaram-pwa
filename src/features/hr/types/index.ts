@@ -809,7 +809,7 @@ export type LeaveRequestedVia = 'self' | 'manager' | 'hr' | 'garage' | 'ops_room
 /** 00239: ملخص وحدة طلبات الإجازة في غرفة العمليات */
 export interface OpsLeavesSummary { pending: number; via_ops_pending: number; via_ops_month: number; on_leave_today: number }
 /** 00239: نتيجة بحث الموظف لغرفة العمليات — كل الملاك (حتى بلا حساب/بصمة) */
-export interface OpsLeaveEmployee { id: string; full_name: string; employee_number: string; job_title: string | null; department_name: string | null; has_account: boolean; has_biometric: boolean; manager_name: string | null }
+export interface OpsLeaveEmployee { id: string; full_name: string; employee_number: string; job_title: string | null; department_name: string | null; has_account: boolean; has_biometric: boolean; manager_name: string | null; manager_id?: string | null; department_id?: string | null }
 export interface LeaveRequestInput {
   employeeId: string
   typeId: string

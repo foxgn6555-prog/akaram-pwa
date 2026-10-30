@@ -55,8 +55,19 @@ export interface ApprovalPerfApprover { user_id: string; name: string; decided: 
 export interface ApprovalPerfOpenTask { task_id: string; kind: string; kind_label: string; step_no: number; step_label: string; hours: number; due_at: string | null; overdue: boolean; escalated: boolean; approvers: string | null }
 export interface ApprovalPerfEscalation { task_id: string; kind_label: string; step_label: string; escalated_at: string; status: string; approvers: string | null }
 export interface ApprovalPerformanceReport { from: string; to: string; summary: ApprovalPerfSummary; by_kind: ApprovalPerfKind[]; by_step: ApprovalPerfStep[]; by_approver: ApprovalPerfApprover[]; open_tasks: ApprovalPerfOpenTask[]; escalations: ApprovalPerfEscalation[] }
-export interface ApprovalSimulation { chain_id: string | null; requester_role?: string; requester_label?: string; subtype?: string | null; note?: string; steps: ApprovalSimulationStep[] }
-export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number }
+export interface ApprovalSimulation { chain_id: string | null; requester_role?: string; requester_label?: string; subtype?: string | null; department_id?: string | null; department_name?: string | null; note?: string; steps: ApprovalSimulationStep[] }
+/** 00391: تشخيص السلسلة لموظف — ما الذي سيُطبَّق ولماذا لا توجد سلسلة */
+export interface ApprovalEmployeeLookup { id: string; full_name: string; employee_number: string; job_title: string | null; department_name: string | null; has_account: boolean; manager_name: string | null }
+export interface ApprovalDiagnoseCheck { key: string; label: string; ok: boolean; detail: string }
+export interface ApprovalDiagnosePathNode { department_id: string; name: string; depth: number; chains: { id: string; subtype: string | null; is_active: boolean; include_children: boolean; applies: boolean }[] }
+export interface ApprovalDiagnosis {
+  employee: { id: string; full_name: string; employee_number: string; department_id: string | null; department_name: string | null; has_account: boolean; roles: string[]; manager_id: string | null; manager_name: string | null; manager_has_account: boolean }
+  type: string; subtype: string | null
+  chain: { id: string; scope: 'role' | 'department'; requester_role: string; requester_label: string; subtype: string | null; department_id: string | null; department_name: string | null; include_children: boolean } | null
+  steps: ApprovalSimulationStep[]; active_steps: number; department_path: ApprovalDiagnosePathNode[]; checks: ApprovalDiagnoseCheck[]
+  ok: boolean; fallback: 'chain' | 'manager' | 'hr_only' | 'none'; reason: string | null; hints: string[]
+}
+export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number; department_id?: string | null; department_name?: string | null; include_children?: boolean; department_path?: string | null }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
   task_id: string; request_kind: ApprovalRequestType; request_id: string; step_no: number; total_steps: number; step_label: string
@@ -135,8 +146,13 @@ export const sectorManager = {
 
 export const approvals = {
   chains: async () => (await sdkGuard(supabase.rpc('approval_chains_list'))) as ApprovalChain[],
-  saveChain: async (requesterRole: string, requestType: ApprovalRequestType, steps: ApprovalStep[], active = true, subtype: string | null = null) =>
-    (await sdkGuard(supabase.rpc('approval_chain_save', { p_requester_role: requesterRole, p_request_type: requestType, p_steps: steps.map(cleanStep), p_active: active, p_subtype: subtype }))) as string,
+  saveChain: async (requesterRole: string, requestType: ApprovalRequestType, steps: ApprovalStep[], active = true, subtype: string | null = null, department: string | null = null, includeChildren = true) =>
+    (await sdkGuard(supabase.rpc('approval_chain_save', { p_requester_role: requesterRole, p_request_type: requestType, p_steps: steps.map(cleanStep), p_active: active, p_subtype: subtype, p_department: department, p_include_children: includeChildren }))) as string,
+  /** 00391: بحث موظف للتشخيص */
+  employeeLookup: async (q: string) => (await sdkGuard(supabase.rpc('approval_employee_lookup', { p_q: q.trim() || null }))) as ApprovalEmployeeLookup[],
+  /** 00391: تشخيص سلسلة موظف (IT/HR/غرفة العمليات/الموظف نفسه/مديره) */
+  diagnose: async (employeeId: string, type: ApprovalRequestType, subtype: string | null = null, context: Record<string, number> = {}) =>
+    (await sdkGuard(supabase.rpc('approval_diagnose', { p_employee: employeeId, p_type: type, p_subtype: subtype, p_context: context }))) as ApprovalDiagnosis,
   deleteChain: async (id: string) => sdkVoid(supabase.rpc('approval_chain_delete', { p_id: id })),
   /** 00335: سجل إصدارات سلسلة */
   chainVersions: async (chainId: string) => (await sdkGuard(supabase.rpc('approval_chain_versions_list', { p_chain: chainId }))) as ApprovalChainVersion[],

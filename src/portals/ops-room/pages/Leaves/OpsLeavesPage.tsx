@@ -13,6 +13,7 @@ import { BalanceCard, LeaveRequestForm, LeaveRequestsTable } from '@portals/hr/c
 import { LEAVE_STATUS_LABELS } from '@portals/hr/components/leaves/leaveUtils'
 import { field, isoDay, monthStart } from '@portals/hr/components/hr-format'
 import { disclosureErrorMessage } from '@sdk/disclosures-unit.sdk'
+import { ChainPreview } from '@components/approvals/ChainPreview'
 
 type Tab = 'ops' | 'pending' | 'all'
 const n = (v: number) => v.toLocaleString('en-US')
@@ -80,7 +81,9 @@ export default function OpsLeavesPage() {
           {picked && (
             <div className="rounded-xl border border-slate-200 bg-white p-2 text-xs" data-testid="ol-picked">
               <p><b>{picked.full_name}</b> · {picked.employee_number}{picked.department_name ? ` · ${picked.department_name}` : ''}</p>
-              <p className="text-slate-500">المدير المباشر: {picked.manager_name ?? <span className="font-bold text-red-600">غير محدد — لن يُقبل الطلب إلا بسلسلة موافقات معرَّفة</span>}</p>
+              <p className="text-slate-500">المدير المباشر: {picked.manager_name ?? <span className="font-bold text-amber-700">غير محدد</span>}</p>
+              {/* 00391: معاينة مسار الموافقة الفعلي قبل الإرسال (سلسلة القسم/الدور أو المدير) وسبب غيابه */}
+              <div className="mt-2"><ChainPreview employeeId={picked.id} type="leave" testId="ol-chain" /></div>
             </div>
           )}
           {picked && <BalanceCard balance={balance} compact testId="ol-behalf-balance" />}

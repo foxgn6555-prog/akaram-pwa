@@ -20,7 +20,7 @@ export default function MyRequests() {
     <div className="space-y-4" data-testid="my-requests">
       <ExecPageHeader icon="calendar" title="طلباتي" subtitle={<>{me.full_name} · {me.job_title ?? ''}{me.department_name ? ` · ${me.department_name}` : ''} · المدير المباشر: <b data-testid="my-manager">{me.manager_name ?? 'غير محدد'}</b> — يمر طلبك بسلسلة الموافقات المضبوطة لدورك (إن وُجدت)، وإلا يذهب إلى مديرك المباشر.</>} />
       <BalanceCard balance={balance} isLoading={balLoading} testId="my-balance" />
-      {!me.manager_id && <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="my-no-manager">لا يوجد مدير مباشر مسجّل لك — سيُقبل طلبك فقط إن كانت لدورك سلسلة موافقات مضبوطة من التطوير المركزية.</p>}
+      {!me.manager_id && <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="my-no-manager">لا يوجد مدير مباشر مسجّل لك — يُقبل طلبك إن كانت لقسمك أو لدورك سلسلة موافقات؛ اختر نوع الطلب لترى مسار الموافقة الفعلي وسبب غيابه إن وُجد.</p>}
       <LeaveRequestForm employeeId={me.id} balance={balance} permitMaxMinutes={policy?.permit_max_minutes} testId="my-form" />
       <LeaveRequestsTable rows={rows} isLoading={isLoading} mode="employee" showEmployee={false} testId="my-req" />
     </div>

@@ -5,6 +5,7 @@
  *  · LeaveRequestsTable: جدول الطلبات مع إجراءات الموافقة/الرفض/الإلغاء حسب الصلاحية
  *  · AlertsTable: تنبيهات التأخير/النقص/الغياب مع الإقرار
  */
+import { ChainPreview } from '@components/approvals/ChainPreview'
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
@@ -93,6 +94,7 @@ export function LeaveRequestForm({ employeeId, balance, permitMaxMinutes, onDone
             <optgroup label="زمنيات (ساعات)">{types.filter((x) => x.kind === 'time_permit').map((x) => <option key={x.id} value={x.id}>{x.name}{x.is_paid ? '' : ' · تُستقطع من الراتب'}</option>)}</optgroup>
           </select>
         </label>
+        {t && employeeId && <div className="sm:col-span-2"><ChainPreview employeeId={employeeId} type={t.kind} subtype={t.code} testId={`${testId}-chain`} /></div>}
         <label className="text-xs font-semibold text-slate-600">{isPermit ? 'اليوم' : 'من'}
           <input type="date" className={clsx(field, 'mt-1')} value={start} onChange={(e) => { setStart(e.target.value); if (e.target.value > end) setEnd(e.target.value) }} data-testid={`${testId}-start`} />
         </label>

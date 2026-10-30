@@ -54,8 +54,9 @@ export default function TeamLeavesPage() {
           {!me ? <EmptyState title="حسابك غير مرتبط بسجل موظف" hint="اطلب من الموارد البشرية ربط حسابك لتقديم طلباتك" /> : (
             <>
               <BalanceCard balance={balance} isLoading={balLoading} testId="tl-balance" />
-              {me.manager_id ? <LeaveRequestForm employeeId={me.id} balance={balance} permitMaxMinutes={policy?.permit_max_minutes} testId="tl-form" />
-                : <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="tl-no-manager">لا يوجد مدير مباشر مسجّل لك — لا يمكن إرسال طلب حتى تحدده الموارد البشرية</p>}
+              {/* 00391: بلا مدير مباشر قد تنطبق سلسلة القسم/الدور — النموذج يعرض مسار الموافقة الفعلي عند اختيار النوع */}
+              {!me.manager_id && <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-800" data-testid="tl-no-manager">لا يوجد مدير مباشر مسجّل لك — يُقبل طلبك إن كانت لقسمك أو لدورك سلسلة موافقات؛ اختر نوع الطلب لترى مسار الموافقة.</p>}
+              <LeaveRequestForm employeeId={me.id} balance={balance} permitMaxMinutes={policy?.permit_max_minutes} testId="tl-form" />
               <LeaveRequestsTable rows={mine} isLoading={mineLoading} mode="employee" showEmployee={false} testId="tl-mine-table" />
             </>
           )}
