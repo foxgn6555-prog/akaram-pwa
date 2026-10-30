@@ -12,7 +12,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 const DeputyHome = lazy(() => import('./pages/DeputyHome'))
 const DeputyReports = lazy(() => import('./pages/DeputyReports'))
 const BehaviorReportsPage = lazy(() => import('@portals/hr/pages/Behavior/BehaviorReportsPage').then((m) => ({ default: () => <m.default readOnly /> })))   // 00249: قراءة فقط
-const StopHotspotsPage = lazy(() => import('@components/gps/StopHotspotsPage').then((m) => ({ default: () => <m.default testId="deputy-stop-hotspots" /> })))   // 00362: بقع التوقف (قراءة)
+const StopHotspotsPage = lazy(() => import('@portals/ops-room/pages/WasteMap/OpsWasteMapPage').then((m) => ({ default: () => <m.default readOnly testId="deputy-stop-hotspots" /> })))   // 00386-أ: خريطة النفايات (قراءة فقط) بدل المحرّك القديم
 const DeputyAnnouncements = lazy(() => import('./pages/DeputyAnnouncements'))
 const IncomingStatements = lazy(() => import('./pages/IncomingStatements'))
 const StationFoldersPage = lazy(() => import('./pages/StationFolders/StationFoldersPage'))

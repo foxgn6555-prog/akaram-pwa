@@ -19,7 +19,8 @@ import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
 const n = (v: number) => v.toLocaleString('en-US')
 const chip = (on: boolean, color?: string) => clsx('rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition', on ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50', on && !color && 'bg-slate-900')
 
-export default function OpsWasteMapPage() {
+/** readOnly (00386-أ): المدير المفوض/النائب — بلا تصدير */
+export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-map-page' }: { readOnly?: boolean; testId?: string } = {}) {
   const [month, setMonth] = useState<string | null>(null)
   const [filters, setFilters] = useState<WasteMapFilters>(DEFAULT_FILTERS)
   const [selected, setSelected] = useState<number | null>(null)
@@ -61,7 +62,7 @@ export default function OpsWasteMapPage() {
   }
 
   return (
-    <div className="space-y-3" dir="rtl" data-testid="ops-waste-map-page">
+    <div className="space-y-3" dir="rtl" data-testid={testId}>
       <ExecPageHeader icon="map-pin"
         title="خريطة النفايات — بقع التوقف"
         subtitle={<>أين تتوقف الكابسات فعلاً؟ بقع مجمَّعة من توقفات الشهر كاملاً (10 دقائق – ساعتين) تُنسخ من مستودع GPS كل ليلة. {shownMonth ? <b>الشهر المعروض: {monthLabel(shownMonth)}</b> : null}{q.data?.sync ? <span className="text-blue-100/80"> · آخر نسخ {new Date(q.data.sync.synced_at).toLocaleString('en-GB', { timeZone: 'Asia/Baghdad', hour12: false })}</span> : null}</>}
@@ -71,7 +72,7 @@ export default function OpsWasteMapPage() {
           { label: 'إجمالي التوقف', value: fmtMinutes(sum.totalMinutes) },
           { label: 'بقع بأكثر من آلية', value: n(sum.multi) },
         ]}
-        actions={<>
+        actions={readOnly ? undefined : <>
           <HeaderButton onClick={() => void exportExcel()} icon="file-spreadsheet" testId="waste-export-excel">{exporting ? 'يُصدَّر…' : 'تصدير Excel'}</HeaderButton>
           <HeaderButton onClick={exportPdf} icon="printer" primary={false} testId="waste-export-pdf">طباعة / PDF</HeaderButton>
         </>}

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { lvnErrorToast } from './lvn-errors'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   gpsLvn,
   type GpsFilters,
   type GpsMapLandmark,
-  type GpsStopHotspotSettingsPatch,
   type GpsTripInvestigation,
   type TripRoutesFilters,
 } from '@sdk/gps-lvn.sdk'
@@ -16,9 +15,6 @@ export const gpsKeys = {
   all: ['gps-lvn'] as const,
   dashboard: () => ['gps-lvn', 'dashboard'] as const,
   liveMap: () => ['gps-lvn', 'live-map'] as const,
-  stopHotspots: (hours: number) => ['gps-lvn', 'stop-hotspots', hours] as const,
-  stopHotspotEvents: (lat: number, lng: number, hours: number) => ['gps-lvn', 'stop-hotspot-events', lat, lng, hours] as const,
-  stopHotspotSettings: () => ['gps-lvn', 'stop-hotspot-settings'] as const,
   mapGeofences: () => ['gps-lvn', 'map-geofences'] as const,
   mapLandmarks: () => ['gps-lvn', 'map-landmarks'] as const,
   alerts: () => ['gps-lvn', 'alerts'] as const,
@@ -93,62 +89,6 @@ export function useGpsZoneSector() {
 }
 export const useGpsRouteDeviationSettings = () =>
   useQuery({ queryKey: ['gps-lvn', 'route-deviation-settings'] as const, queryFn: gpsLvn.routeDeviationSettings })
-// 00362 — بقع التوقف: تتحدّث تلقائياً كل دقيقة؛ تُفعَّل فقط عند تشغيل الطبقة
-export const useGpsStopHotspots = (hours: number, enabled = true) =>
-  useQuery({
-    queryKey: gpsKeys.stopHotspots(hours),
-    queryFn: () => gpsLvn.stopHotspots(hours),
-    enabled,
-    refetchInterval: enabled ? 60_000 : false,
-    staleTime: 30_000,
-    placeholderData: keepPreviousData,   // 00365: تبديل النافذة بلا وميض
-  })
-export const useGpsStopHotspotEvents = (spot: { lat: number; lng: number } | null, hours: number) =>
-  useQuery({
-    queryKey: gpsKeys.stopHotspotEvents(spot?.lat ?? 0, spot?.lng ?? 0, hours),
-    queryFn: () => gpsLvn.stopHotspotEvents(spot!.lat, spot!.lng, hours),
-    enabled: Boolean(spot),
-    staleTime: 30_000,
-  })
-export const useGpsStopHotspotSettings = (enabled = true) =>
-  useQuery({ queryKey: gpsKeys.stopHotspotSettings(), queryFn: gpsLvn.stopHotspotSettings, enabled, staleTime: 60_000 })
-export function useSaveGpsStopHotspotSettings() {
-  const qc = useQueryClient(),
-    toast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: async (patch: GpsStopHotspotSettingsPatch) => {
-      const saved = await gpsLvn.saveStopHotspotSettings(patch)
-      // 00365: الحفظ خفيف؛ إعادة الحساب تُطلب بعده (بميزانية خادمية) ولا تعطّل الحفظ إن تأخرت
-      gpsLvn.refreshStopHotspots().then(() => void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })).catch(() => undefined)
-      return saved
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: gpsKeys.stopHotspotSettings() })
-      void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })
-      toast({ type: 'success', message: 'حُفظت إعدادات بقع التوقف — تُطبَّق خلال لحظات' })
-    },
-    onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsStopHotspots' }).message }),
-  })
-}
-export const useGpsStopPullStatus = (enabled = true) =>
-  useQuery({ queryKey: ['gps-lvn', 'stop-pull-status'] as const, queryFn: gpsLvn.stopPullStatus, enabled, refetchInterval: enabled ? 60_000 : false })
-// 00371: لا سحب من المتصفح — المجدول الخادمي فقط؛ حالة السحب للعرض (useGpsStopPullStatus)
-export function useRefreshGpsStopHotspots() {
-  const qc = useQueryClient(),
-    toast = useUiStore((s) => s.addToast)
-  return useMutation({
-    mutationFn: () => gpsLvn.refreshStopHotspots(),
-    onSuccess: (r) => {
-      void qc.invalidateQueries({ queryKey: ['gps-lvn', 'stop-hotspots'] })
-      void qc.invalidateQueries({ queryKey: gpsKeys.stopHotspotSettings() })
-      toast({
-        type: r.ok ? 'success' : 'info',
-        message: r.ok ? `حُدّثت بقع التوقف: ${r.devices ?? 0} جهاز، ${r.upserted ?? 0} توقف` : 'التحديث جارٍ بالفعل — انتظر لحظات',
-      })
-    },
-    onError: (error) => toast({ type: 'error', message: handleAppError(error, { scope: 'gpsStopHotspots' }).message }),
-  })
-}
 export function useSaveGpsRouteDeviationSettings() {
   const qc = useQueryClient(),
     toast = useUiStore((s) => s.addToast)

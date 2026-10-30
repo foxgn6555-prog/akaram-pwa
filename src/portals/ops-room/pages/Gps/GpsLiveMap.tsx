@@ -3,13 +3,7 @@ import { createPortal } from 'react-dom'
 import { MapContainer, Marker, Polygon, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark, GpsStopHotspot } from '@sdk/gps-lvn.sdk'
-import { useGpsStopHotspotSettings, useGpsStopHotspots } from '@features/gps-lvn/hooks'
-import StopHotspotsLayer, { FlyToSpot } from '@components/gps/StopHotspotsLayer'
-import StopHotspotsPanel from '@components/gps/StopHotspotsPanel'
-import StopHotspotSettingsDialog from '@components/gps/StopHotspotSettingsDialog'
-import { clampHotspotWindow } from '@components/gps/stopHotspots'
-import { readHotspotHours } from '@components/gps/StopHotspotsPage'
+import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark } from '@sdk/gps-lvn.sdk'
 import { landmarkDivIcon } from './LandmarkIcon'
 const colors = { moving: '#16a34a', idle: '#2563eb', parked: '#eab308', unknown: '#64748b' }
 const landmarkLabels: Record<GpsMapLandmark['category'], string> = {
@@ -160,23 +154,10 @@ export default function GpsLiveMap({
   const [saved] = useState(readSavedView)   // 00212: استعادة آخر إطار بعد تحديث الصفحة
   const [fitSignal, setFitSignal] = useState(0)
   const [full, setFull] = useState(false)
-  const [layers, setLayers] = useState({ vehicles: true, zones: true, landmarks: true, hotspots: false })
+  const [layers, setLayers] = useState({ vehicles: true, zones: true, landmarks: true })   // 00386-أ: طبقة بقع التوقف القديمة أُزيلت (الخلف: وحدة خريطة النفايات)
   const toggleLayer = (key: keyof typeof layers) =>
     setLayers((current) => ({ ...current, [key]: !current[key] }))
   // 00362 — طبقة بقع التوقف: تُحمَّل فقط عند تشغيلها، وتتحدّث كل دقيقة
-  const [hotspotHours, setHotspotHoursState] = useState(readHotspotHours)
-  const setHotspotHours = (h: number) => {
-    sessionStorage.setItem('stop-hotspots:hours', String(h))
-    setHotspotHoursState(h)
-  }
-  const [selectedSpot, setSelectedSpot] = useState<GpsStopHotspot | null>(null)
-  const [hotspotSettingsOpen, setHotspotSettingsOpen] = useState(false)
-  const hotspots = useGpsStopHotspots(hotspotHours, layers.hotspots)
-  const hotspotSettings = useGpsStopHotspotSettings(layers.hotspots)
-  useEffect(() => {
-    if (hotspots.data && hotspotHours !== clampHotspotWindow(hotspotHours, hotspots.data.meta.max_days))
-      setHotspotHours(clampHotspotWindow(hotspotHours, hotspots.data.meta.max_days))
-  }, [hotspots.data, hotspotHours])
   // ملء الشاشة عبر portal إلى body — يهرب من أي ancestor بـ transform/filter
   // كان يكسر position:fixed ويجعل الخريطة لا تملأ النافذة
   const shell = (
@@ -209,16 +190,6 @@ export default function GpsLiveMap({
           </button>
           <button
             type="button"
-            aria-pressed={layers.hotspots}
-            onClick={() => toggleLayer('hotspots')}
-            title="بقع التوقف: أين تتوقف الآليات المربوطة أكثر (24 ساعة / 3 أيام / 7 أيام)"
-            className={`rounded-xl px-3 py-2 transition ${layers.hotspots ? 'bg-rose-700 text-white' : 'bg-slate-100 text-slate-400'}`}
-            data-testid="live-map-toggle-hotspots"
-          >
-            ◉ بقع التوقف{hotspots.data ? ` (${hotspots.data.spots.length})` : ''}
-          </button>
-          <button
-            type="button"
             onClick={() => setFitSignal((value) => value + 1)}
             title="إعادة توسيط الخريطة على كل الآليات والمعالم"
             className="rounded-xl bg-cyan-700 px-3 py-2 text-white transition hover:bg-cyan-800"
@@ -243,25 +214,6 @@ export default function GpsLiveMap({
           </div>
         )}
       </div>
-      {layers.hotspots && (
-        <div className="absolute bottom-6 left-3 z-[1000] max-w-[calc(100%-1.5rem)]">
-          <StopHotspotsPanel
-            data={hotspots.data}
-            loading={hotspots.isLoading}
-            fetching={hotspots.isFetching}
-            hours={hotspotHours}
-            onHours={setHotspotHours}
-            selectedId={selectedSpot?.id ?? null}
-            onSelect={setSelectedSpot}
-            canEdit={hotspotSettings.data?.can_edit ?? false}
-            onOpenSettings={() => setHotspotSettingsOpen(true)}
-            compact
-          />
-        </div>
-      )}
-      {hotspotSettingsOpen && hotspotSettings.data && (
-        <StopHotspotSettingsDialog settings={hotspotSettings.data} onClose={() => setHotspotSettingsOpen(false)} />
-      )}
       {tileFailed && (
         <div className="absolute inset-x-16 bottom-3 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900">
           تعذر تحميل خلفية OpenStreetMap؛ تحقق من الاتصال ثم أعد تحميل الصفحة.
@@ -351,12 +303,6 @@ export default function GpsLiveMap({
               </Popup>
             </Marker>
           ))}
-        {layers.hotspots && (
-          <>
-            <StopHotspotsLayer style={hotspots.data?.meta ?? null} spots={hotspots.data?.spots ?? []} hours={hotspotHours} selectedId={selectedSpot?.id ?? null} onSelect={setSelectedSpot} />
-            <FlyToSpot spot={selectedSpot} />
-          </>
-        )}
         <Fit rows={rows} landmarks={landmarks} zones={zones} fitSignal={fitSignal} />
         <InvalidateSize dep={full} />
       </MapContainer>

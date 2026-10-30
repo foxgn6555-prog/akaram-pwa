@@ -39,7 +39,6 @@ const UpdatesPage = lazy(() => import('@portals/it/pages/Updates/UpdatesPage'))
 const ArchivePage = lazy(() => import('@portals/it/pages/Archive/ArchivePage'))
 const ColdArchivePage = lazy(() => import('@portals/it/pages/ColdArchive/ColdArchivePage'))
 const DataRetentionPage = lazy(() => import('@portals/it/pages/DataRetention/DataRetentionPage'))
-const DevCleanupPage = lazy(() => import('@portals/it/pages/DevCleanup/DevCleanupPage'))
 const CentralGarageApprovalsPage = lazy(
   () => import('@portals/it/pages/CentralGarage/CentralGarageApprovalsPage'),
 )
@@ -112,6 +111,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'central-garage-approvals', element: s(<CentralGarageApprovalsPage />) },
   { path: 'cold-archive', element: s(<ColdArchivePage />) },
   { path: 'data-retention', element: s(<DataRetentionPage />) },
-  { path: 'dev-cleanup', element: s(<DevCleanupPage />) },
 
 ]

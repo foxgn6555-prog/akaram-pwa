@@ -15,7 +15,7 @@ const ExecRewardsPage = lazy(() => import('./pages/Treasury/ExecRewardsPage'))
 const ExecLettersPage = lazy(() => import('./pages/Letters/ExecLettersPage'))   // 00357
 const ExecGpsPaymentsPage = lazy(() => import('./pages/Treasury/ExecGpsPaymentsPage'))
 const ExecEventsPage = lazy(() => import('./pages/Treasury/ExecEventsPage'))
-const StopHotspotsPage = lazy(() => import('@components/gps/StopHotspotsPage').then((m) => ({ default: () => <m.default testId="executive-stop-hotspots" /> })))   // 00362: بقع التوقف (قراءة)
+const StopHotspotsPage = lazy(() => import('@portals/ops-room/pages/WasteMap/OpsWasteMapPage').then((m) => ({ default: () => <m.default readOnly testId="executive-stop-hotspots" /> })))   // 00386-أ: خريطة النفايات (قراءة فقط) بدل المحرّك القديم
 
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 

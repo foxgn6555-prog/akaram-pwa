@@ -100,9 +100,6 @@ L('gps', 'gps_vehicle_bindings', 'ربط الأجهزة بالآليات', CFG)
 L('gps', 'gps_map_landmarks', 'معالم الخريطة', REF)
 L('gps', 'gps_route_deviation_settings', 'إعدادات الانحراف عن المسار', CFG)
 L('gps', 'gps_route_presence_state', 'حالة التواجد على المسار', STATE)
-D('gps', 'gps_stop_events', 'أحداث التوقف (بقع التوقف)', 'نقطة ومدة كل توقف للآليات المربوطة (00362). يحذفها المحرك تلقائياً بعد الحد الأقصى بالأيام المضبوط في إعدادات بقع التوقف؛ هذا سقف أمان إضافي.', 'ended_at', 1)
-L('gps', 'gps_stop_hotspot_settings', 'إعدادات بقع التوقف', CFG)
-L('gps', 'gps_stop_scan_state', 'حالة مسح بقع التوقف (علامة مائية لكل جهاز)', STATE)
 L('gps', 'gps_zone_presence_state', 'حالة التواجد في المناطق', STATE)
 L('gps', 'gps_alert_notification_policies', 'سياسات إشعارات تنبيهات GPS', CFG)
 L('gps', 'gps_trip_investigations', 'تحقيقات الرحلات', REC)
@@ -214,7 +211,7 @@ for t, lbl, r in [('media_submissions', 'إرسالات الإعلام', REC), (
 
 # ───── archive (الأرشيف البارد والاحتفاظ)
 for t, lbl, r in [('cold_archive_settings', 'إعدادات الأرشيف البارد', CFG), ('cold_archive_packages', 'حزم الأرشيف البارد', PROOF), ('cold_archive_items', 'عناصر الأرشيف البارد', PROOF), ('cold_archive_copies', 'النسخ الموثَّقة', PROOF),
-                  ('cold_archive_events', 'سجل أحداث الأرشيف البارد', PROOF), ('data_retention_policies', 'سياسات الاحتفاظ', CFG), ('data_retention_requests', 'طلبات حذف الاحتفاظ', PROOF), ('data_retention_events', 'سجل أحداث الاحتفاظ', PROOF), ('dev_cleanup_runs', 'سجل تنظيف البيانات التجريبية', PROOF)]:
+                  ('cold_archive_events', 'سجل أحداث الأرشيف البارد', PROOF), ('data_retention_policies', 'سياسات الاحتفاظ', CFG), ('data_retention_requests', 'طلبات حذف الاحتفاظ', PROOF), ('data_retention_events', 'سجل أحداث الاحتفاظ', PROOF)]:
     L('archive', t, lbl, r)
 
 def q(s):

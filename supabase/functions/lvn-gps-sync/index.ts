@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
   SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   BASE = (Deno.env.get('LVN_API_BASE_URL') ?? 'https://track.gpslvn.iq/api').replace(/\/$/, '')
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-type Action = 'test' | 'full' | 'incremental' | 'history' | 'trips' | 'trip' | 'stops'
+type Action = 'test' | 'full' | 'incremental' | 'history' | 'trips' | 'trip'
 interface SyncBody {
   action?: Action
   deviceId?: string
@@ -228,52 +228,7 @@ function historyPoints(value: unknown) {
   }
   return { points, sourcePoints }
 }
-/**
- * 00364 — بقع التوقف: سحب سجل المواقع من LVN مباشرة لكل أجهزة GPS الفعّالة (المربوطة وغير المربوطة)
- * على دفعات من طابور خادمي (gps_stop_pull_queue)، ثم إعادة حساب البقع. كل نداء يعالج حتى `limit` أجهزة × نافذة ≤ 24 ساعة.
- */
-type StopPullItem = { device_id: string; external_id: string; device_name: string; pull_from: string; pull_to: string; pulled_until: string | null; direction: 'forward' | 'backward' }
-async function pullStopHistory(providerId: string, hash: string, limit: number) {
-  const { data: queue, error } = await admin.rpc('gps_stop_pull_queue', { p_limit: limit })
-  if (error) throw new Error(`STOPS_QUEUE_FAILED:${error.code ?? 'DB'}`)
-  const items = (Array.isArray(queue) ? queue : []) as StopPullItem[]
-  const chunkMs = 3 * 3600000   // 00365: قطع صغيرة — حدود CPU/الوقت في الحافة
-  let inserted = 0, source = 0, failed = 0
-  const results: Array<{ device: string; from: string; to: string; direction: string; inserted: number; error?: string }> = []
-  for (const item of items) {
-    const from = new Date(item.pull_from), to = new Date(item.pull_to)
-    let devInserted = 0, devSource = 0
-    try {
-      for (let start = from.getTime(); start < to.getTime(); start += chunkMs) {
-        const a = new Date(start), b = new Date(Math.min(start + chunkMs, to.getTime())),
-          fa = baghdadParts(a), fb = baghdadParts(b),
-          payload = await request('/get_history', hash, {
-            device_id: item.external_id, from_date: fa.date, from_time: fa.time, to_date: fb.date, to_time: fb.time, snap_to_road: 'false',
-          }),
-          extracted = historyPoints(payload),
-          applied = await admin.rpc('lvn_apply_history_points', {
-            p_provider_id: providerId, p_device_id: item.device_id, p_points: extracted.points, p_source_points: extracted.sourcePoints,
-            p_range_from: a.toISOString(), p_range_to: b.toISOString(),
-          })
-        if (applied.error) throw new Error(`LVN_HISTORY_APPLY_FAILED:${applied.error.code ?? 'DB'}`)
-        const row = (applied.data?.[0] ?? {}) as Record<string, number>
-        devInserted += Number(row.inserted_count ?? 0)
-        devSource += extracted.sourcePoints
-      }
-      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_from: from.toISOString(), p_until: to.toISOString(), p_points: devInserted, p_error: null })
-      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, direction: item.direction, inserted: devInserted })
-    } catch (e) {
-      failed++
-      const code = safeError(e).split(':')[0]
-      await admin.rpc('gps_stop_pull_mark', { p_device_id: item.device_id, p_from: from.toISOString(), p_until: to.toISOString(), p_points: devInserted, p_error: code })
-      results.push({ device: item.device_name, from: item.pull_from, to: item.pull_to, direction: item.direction, inserted: devInserted, error: code })
-    }
-    inserted += devInserted
-    source += devSource
-  }
-  const { data: refresh } = await admin.rpc('gps_stop_hotspots_refresh_service', { p_budget_ms: 15000 })
-  return { ok: true, action: 'stops' as const, devices: items.length, inserted, source, failed, remaining: items.length >= limit, refresh, results }
-}
+/* 00386-أ: أُزيل سحب بقع التوقف القديم (pullStopHistory) — الخلف: دالة الحافة gps-warehouse والمستودع التحليلي */
 
 function baghdadParts(date: Date) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -600,7 +555,7 @@ Deno.serve(async (req: Request) => {
   let action: Action = 'incremental'
   try {
     const body = (await req.json().catch(() => ({}))) as SyncBody
-    if (body.action && ['test', 'full', 'incremental', 'history', 'trips', 'trip', 'stops'].includes(body.action))
+    if (body.action && ['test', 'full', 'incremental', 'history', 'trips', 'trip'].includes(body.action))
       action = body.action
     const { data: provider, error: providerError } = await admin
       .from('gps_providers')
@@ -613,12 +568,6 @@ Deno.serve(async (req: Request) => {
     if (action === 'history') {
       const hash = await login()
       return response(await importHistory(provider, user.id, hash, body))
-    }
-    if (action === 'stops') {
-      // 00371: سحب نقاط التوقف على الخادم فقط (المجدول بصلاحية الخدمة) — لا موظف يستطيع سحبها من المتصفح
-      if (!(user as { scheduler?: boolean }).scheduler) return response({ ok: false, error: 'GPS_STOPS_SERVER_ONLY' }, 403)
-      const hash = await login()
-      return response(await pullStopHistory(provider.id, hash, Math.min(Math.max(Number(body.limit) || 2, 1), 20)))
     }
     if (action === 'trips') {
       const hash = await login()
@@ -785,16 +734,9 @@ Deno.serve(async (req: Request) => {
           updated_count: updated,
         })
         .eq('id', run.id)
-      // 00366: المجدول الخادمي (service-role) يسحب دفعة من طابور بقع التوقف (جهازان × ≤ 6 ساعات) — بعد إغلاق سجل المزامنة
-      // كي لا يحتجز قفل المزامنة دقائق ويُفشل التحديث الجزئي من الشاشة (LVN_SYNC_ALREADY_RUNNING)
-      let stops: unknown = null
-      if (action === 'incremental' && (user as { scheduler?: boolean }).scheduler) {
-        try { stops = await pullStopHistory(provider.id, hash, 2) } catch { /* يُسجَّل في gps_stop_scan_state.lvn_last_error لكل جهاز */ }
-      }
       return response({
         ok: true,
         action,
-        stops,
         pages,
         received,
         inserted,

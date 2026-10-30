@@ -54,8 +54,7 @@ describe('عقد أمان LVN GPS', () => {
   it('يستورد مناطق LVN ويدعم التحديث التلقائي وCron الموثوق', () => {
     expect(hooks).toContain("gpsLvn.sync('incremental')")
     // دورة المزامنة كل ثانية — حارس running يمنع تراكب الطلبات.
-    expect(hooks).toContain('1_000')
-    expect(hooks).toContain('30_000')
+    expect(hooks).toContain('1_000')   // (00386-أ: أُزيل شرط 30_000 — كان يخص خطافات بقع التوقف القديمة فقط)
     expect(edge).toContain("request('/add_report_data'")
     expect(edge).toContain("from('gps_geofences')")
     expect(edge).toContain('token === SERVICE_ROLE')
@@ -73,66 +72,18 @@ describe('عقد أمان LVN GPS', () => {
     expect(alertControl).toContain("':escalation'")
     expect(pushDispatcher).toContain("admin.rpc('notification_evaluate_gps_escalations')")
   })
-  it('00364: بقع التوقف تُسحب من LVN مباشرة لكل الأجهزة عبر طابور خادمي بصلاحية الخدمة فقط', () => {
-    const mig = readFileSync('supabase/migrations/00309_gps_stop_lvn_pull.sql', 'utf8'), all = readFileSync('supabase/migrations/00308_gps_stop_hotspots_all_devices.sql', 'utf8')
-    expect(edge).toContain("action === 'stops'")
-    expect(edge).toContain("admin.rpc('gps_stop_pull_queue'")
-    expect(edge).toContain("admin.rpc('gps_stop_pull_mark'")
-    expect(edge).toContain("admin.rpc('gps_stop_hotspots_refresh_service'")
-    expect(edge).toContain("request('/get_history', hash, {\n            device_id: item.external_id")
-    for (const fn of ['gps_stop_pull_queue(integer)', 'gps_stop_pull_mark(uuid, timestamptz, integer, text)', 'gps_stop_hotspots_refresh_service(integer)'])
-      expect(mig).toContain(`grant execute on function public.${fn} to service_role`)
-    // 00366: السحب من LVN على الخادم (المجدول بصلاحية الخدمة، الأحدث أولاً ثم للخلف) — لا حلقة تلقائية في المتصفح، ومدد دقيقة بمنتصف الفجوة
-    const precise = readFileSync('supabase/migrations/00311_gps_stop_precision_heat.sql', 'utf8')
-    expect(precise).toContain('drop function if exists public.gps_stop_pull_mark(uuid, timestamptz, integer, text)')
-    expect(precise).toContain('grant execute on function public.gps_stop_pull_mark(uuid, timestamptz, timestamptz, integer, text) to service_role')
-    expect(precise).toContain("check (map_style in ('glow', 'heat'))")
-    expect(precise).toContain('lvn_pulled_from')
-    expect(precise).toContain("set statement_timeout = '25s'")
-    expect(edge).toContain("p_from: from.toISOString(), p_until: to.toISOString()")
-    expect(edge).toContain("if (action === 'incremental' && (user as { scheduler?: boolean }).scheduler) {\n        try { stops = await pullStopHistory(provider.id, hash, 2) }")
-    // سحب البقع بعد إغلاق سجل المزامنة (لا يحتجز القفل)، والتصادم مع مزامنة جارية في التحديث الجزئي = 200 skipped لا 400
-    expect(edge.indexOf("stops = await pullStopHistory")).toBeGreaterThan(edge.indexOf("status: 'success',\n          finished_at: new Date().toISOString(),\n          pages_count: pages"))
-    expect(edge).toContain("if (runError?.code === '23505' && action === 'incremental')\n      return response({ ok: true, action, skipped: true, reason: 'LVN_SYNC_ALREADY_RUNNING' })")
-    expect(edge).toContain('actorCache.get(token)')
-    // 00371: لا سحب من المتصفح إطلاقاً — الحافة ترفض action=stops لغير المجدول، ولا زر/خطاف/دالة SDK
-    const hooks = readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')
-    expect(hooks).not.toContain('pullStopsNow')
-    expect(hooks).not.toContain('useGpsStopsAutoPull')
-    expect(readFileSync('src/services/gps-lvn.sdk.ts', 'utf8')).not.toContain("action: 'stops'")
-    expect(readFileSync('src/components/gps/StopHotspotsPanel.tsx', 'utf8')).not.toContain('hotspots-pull-now')
-    expect(edge).toContain("if (!(user as { scheduler?: boolean }).scheduler) return response({ ok: false, error: 'GPS_STOPS_SERVER_ONLY' }, 403)")
-    // 00371: نوافذ بالدقائق مع قصّ دقيق + تنظيف أسبوعي (7 أيام)
-    const win = readFileSync('supabase/migrations/00315_gps_stop_windows_minutes.sql', 'utf8')
-    expect(win).toContain('create or replace function public.gps_stop_hotspots_v2(p_minutes integer default 1440)')
-    expect(win).toContain('greatest(e.started_at, w.from_at)')
-    expect(win).toContain("cron.schedule('gps_stop_events_weekly_purge', '30 0 * * 5'")
-    expect(readFileSync('src/services/gps-lvn.sdk.ts', 'utf8')).toContain("supabase.rpc('gps_stop_hotspots_v2', { p_minutes: hotspotMinutes(hours) })")
-    // 00372: أحداث التوقف دائمة (لا تُمسح بحذف النقاط الخام)، احتفاظ 3 أيام، تنظيف يومي، نافذة واحدة
-    const durable = readFileSync('supabase/migrations/00316_gps_stop_durable_events_3d.sql', 'utf8')
-    expect(durable).toContain('if v_points = 0 then')
-    expect(durable).toContain('e.ended_at >= v_first and e.started_at <= v_last')
-    expect(durable).not.toContain('e.ended_at >= p_from;')
-    expect(durable).toContain('alter column max_days set default 3')
-    expect(durable).toContain("cron.schedule('gps_stop_events_daily_purge', '30 0 * * *'")
-    expect(readFileSync('src/components/gps/stopHotspots.ts', 'utf8')).toContain('HOTSPOT_DEFAULT_DAYS = 3')
-    // 00373: الأصناف الثلاثة بالصنف الغالب زمنياً + الوسيط + الصمت في المكان نفسه لا يقطع التوقف
-    const classes = readFileSync('supabase/migrations/00317_gps_stop_classes_precision.sql', 'utf8')
-    expect(classes).toContain("case when e.duration_seconds >= 3600 then 'long' when e.duration_seconds >= 600 then 'loiter' else 'light' end cls")
-    expect(classes).toContain('percentile_cont(0.5) within group (order by duration_seconds)')
-    expect(classes).toContain('app.trip_route_haversine_m(q.lat, q.lng, q.prev_lat, q.prev_lng) > s.cluster_radius_m')
-    expect(readFileSync('src/components/gps/StopHotspotsLayer.tsx', 'utf8')).toContain('visibleHotspots(spots, showLight)')
-    // 00374: التكرار (3 درجات) وتعدّد الأنواع و«تحتاج دعماً» من الخادم
-    const rec = readFileSync('supabase/migrations/00318_gps_stop_recurrence_types.sql', 'utf8')
-    expect(rec).toContain("max(case when days >= 3 then 3 when stops >= 5 then 2 when stops >= 3 then 1 else 0 end) tier")
-    expect(rec).toContain('count(distinct cat) filter (where cat is not null) type_count')
-    expect(rec).toContain('row_number() over (order by support_raw desc, total_seconds desc) support_rank')
-    expect(mig).toContain("if auth.role() <> 'service_role' then raise exception 'GPS_SERVICE_ROLE_REQUIRED'")
-    expect(all).toContain('where g.is_active')   // كل الأجهزة لا المربوطة فقط
-    const perf = readFileSync('supabase/migrations/00310_gps_stop_hotspots_perf.sql', 'utf8')   // 00365: لا عمل ثقيل في طلبات المستخدم
-    expect(perf).toContain("set statement_timeout = '60s'")
-    expect(perf).toContain('percent_rank() over (order by total_seconds)')
-    expect(perf).not.toContain("perform app.gps_stop_hotspots_refresh(3000)")
+  it('00386-أ: محرّك بقع التوقف القديم أُزيل من دالة الحافة والواجهة والقاعدة — والخلف هو مستودع GPS', () => {
+    expect(edge).not.toContain("action === 'stops'"); expect(edge).not.toContain('pullStopHistory('); expect(edge).not.toMatch(/gps_stop_/)
+    expect(edge).toContain("['test', 'full', 'incremental', 'history', 'trips', 'trip'].includes(body.action)")
+    expect(readFileSync('src/services/gps-lvn.sdk.ts', 'utf8')).not.toMatch(/gps_stop_|GpsStopHotspot/)
+    expect(readFileSync('src/features/gps-lvn/hooks.ts', 'utf8')).not.toMatch(/StopHotspot/)
+    expect(readFileSync('src/portals/ops-room/pages/Gps/GpsLiveMap.tsx', 'utf8')).not.toMatch(/hotspot/i)   // الخريطة الحية: الآليات/الزونات/المعالم فقط
+    expect(existsSync('src/components/gps/StopHotspotsPage.tsx')).toBe(false); expect(existsSync('src/portals/it/pages/DevCleanup')).toBe(false)
+    const retire = readFileSync('supabase/migrations/00332_retire_gps_stop_engine.sql', 'utf8')
+    for (const t of ['gps_stop_events', 'gps_stop_scan_state', 'gps_stop_hotspot_settings', 'dev_cleanup_runs']) expect(retire).toContain(`drop table if exists public.${t} cascade`)
+    for (const j of ['gps_stop_hotspots_refresh', 'gps_stop_events_weekly_purge', 'gps_stop_events_daily_purge']) expect(retire).toContain(`'${j}'`)
+    expect(retire).toContain("'engine_retired'"); expect(retire.split('كتالوج الاحتفاظ')[0]).not.toMatch(/drop[^\n]*(trip_route|gps_history|gps_geofences|gps_map_landmarks)/)   // لا يلمس الجيران
+    for (const p of ['src/portals/executive/routes.tsx', 'src/portals/deputy/routes.tsx']) expect(readFileSync(p, 'utf8')).toContain("import('@portals/ops-room/pages/WasteMap/OpsWasteMapPage').then((m) => ({ default: () => <m.default readOnly")
   })
   it('يحسب التوقفات والحركة من الخادم ويحد الطلبات الجماعية', () => {
     expect(routeEvents).toContain('gps_trip_route_events')
