@@ -16,7 +16,7 @@ export const gbsKeys = {
   containers: (
     search?: string | null,
     status?: GbsContainerStatus | null,
-    parent?: 'karrada' | 'zaafaraniya' | null,
+    parent?: string | null,
     sectorId?: number | null,
   ) => ['gbs', 'containers', search ?? '', status ?? '', parent ?? '', sectorId ?? 0] as const,
   zones: () => ['gbs', 'zones'] as const,
@@ -35,7 +35,7 @@ function useGbsError(scope: string) {
 export function useGbsContainers(
   search?: string | null,
   status?: GbsContainerStatus | null,
-  parent?: 'karrada' | 'zaafaraniya' | null,
+  parent?: string | null,
   sectorId?: number | null,
 ) {
   return useQuery({

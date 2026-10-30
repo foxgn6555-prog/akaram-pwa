@@ -1,9 +1,11 @@
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 /**
  * ثوابت بوابة الإعلام: طرق الإرسال، أنواع العمل، دورات التصميم
  */
 
 export type MediaMode = 'street' | 'campaign' | 'school'
-export type SectorParent = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي؛ تحويل واجهة الإعلام في 00395) */
+export type SectorParent = string
 export type PeriodType = 'daily' | 'weekly' | 'first_half' | 'second_half' | 'monthly'
 
 export const MEDIA_MODES: Array<{ value: MediaMode; label: string; hint: string }> = [
@@ -18,10 +20,8 @@ export const MODE_LABEL: Record<MediaMode, string> = {
   school: 'حملة مدارس',
 }
 
-export const SECTOR_LABEL: Record<SectorParent, string> = {
-  karrada: 'قاطع الكرادة',
-  zaafaraniya: 'قاطع الزعفرانية',
-}
+/** 00394: «قاطع …» من السجل الحيّ للقطاعات (الفهرسة بأي رمز تعيد نصاً دائماً) */
+export const SECTOR_LABEL: Record<SectorParent, string> = new Proxy({} as Record<string, string>, { get: (_t, k) => (typeof k === 'string' ? parentSectorTitle(k) : undefined) }) as Record<string, string>
 
 /** أنواع العمل العامة (الشارع + الحملات) */
 export const GENERAL_WORK_TYPES = [

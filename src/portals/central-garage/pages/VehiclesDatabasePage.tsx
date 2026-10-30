@@ -33,6 +33,7 @@ import { ExternalDriverPicker } from '../components/ExternalDriverPicker'
 import { VehicleDriversEditor } from '../components/VehicleDriversEditor'
 import { buildDriverSlots, validateExtraDrivers, type ExtraDriverRow } from '@features/central-garage/vehicle-drivers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle, parentCodesOf } from '@features/sectors'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -120,24 +121,7 @@ export default function VehiclesDatabasePage({
           className={inputClass}
         >
           <option value="">كل المواقع</option>
-          <optgroup label="قاطع الكرادة">
-            {(areas.data ?? [])
-              .filter((a) => a.parentSector === 'karrada')
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-          </optgroup>
-          <optgroup label="قاطع الزعفرانية">
-            {(areas.data ?? [])
-              .filter((a) => a.parentSector === 'zaafaraniya')
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-          </optgroup>
+          {/* 00394: القطاعات من بيانات المناطق نفسها */}{parentCodesOf((areas.data ?? [])).map((parent) => <optgroup key={parent} label={parentSectorTitle(parent)}>{(areas.data ?? []).filter((a) => a.parentSector === parent).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>)}
         </select>
         <ShiftSelect testId="vehicle-shift-filter" value={shift} onChange={setShift} className={inputClass} allLabel="كل الشفتات" />
         <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 text-sm font-bold text-slate-700">
@@ -451,24 +435,7 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
               onChange={(e) => update('sectorId', e.target.value)}
             >
               <option value="">اختر المنطقة</option>
-              <optgroup label="قاطع الكرادة">
-                {areas
-                  .filter((a) => a.parentSector === 'karrada')
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="قاطع الزعفرانية">
-                {areas
-                  .filter((a) => a.parentSector === 'zaafaraniya')
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-              </optgroup>
+              {/* 00394: القطاعات من بيانات المناطق نفسها */}{parentCodesOf(areas).map((parent) => <optgroup key={parent} label={parentSectorTitle(parent)}>{areas.filter((a) => a.parentSector === parent).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>)}
             </select>
           </Field>
         </div>

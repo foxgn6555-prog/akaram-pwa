@@ -6,6 +6,7 @@ import {
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { NeighborhoodsPanel } from './NeighborhoodsPanel'
 import { useSearchParams } from 'react-router'
+import { parentSectorLabel, useParentSectors } from '@features/sectors'
 
 type ContactDraft = Omit<ComplaintContact, 'id'> & { id?: string }
 type Feedback = { kind: 'ok' | 'err'; text: string }
@@ -18,6 +19,8 @@ function feedbackClass(kind: Feedback['kind']): string {
 }
 
 export default function SettingsPage() {
+
+  const { parents } = useParentSectors()   // 00394
   const { data: contacts = [], isLoading } = useComplaintContacts()
   const { data: settings = [] } = useComplaintSettings()
   const save = useSaveComplaintContact()
@@ -55,8 +58,7 @@ export default function SettingsPage() {
         <input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} placeholder="البريد" aria-label="بريد الجهة" className="rounded-lg border p-2" />
         <select value={draft.sector ?? ''} onChange={(e) => setDraft({ ...draft, sector: (e.target.value || null) as ContactDraft['sector'] })} aria-label="قاطع الجهة" className="rounded-lg border p-2">
           <option value="">كل القواطع</option>
-          <option value="karrada">الكرادة</option>
-          <option value="zaafaraniya">الزعفرانية</option>
+          {parents.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
         </select>
         <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as ContactDraft['kind'] })} aria-label="استخدام الجهة" className="rounded-lg border p-2">
           <option value="recipient">To — مستلم</option>
@@ -87,7 +89,7 @@ export default function SettingsPage() {
                     <tr key={c.id} className="border-t">
                       <td className="p-3 font-bold">{c.name}</td>
                       <td className="p-3" dir="ltr">{c.email}</td>
-                      <td className="p-3 text-center">{c.sector === 'karrada' ? 'الكرادة' : c.sector === 'zaafaraniya' ? 'الزعفرانية' : 'عام'}</td>
+                      <td className="p-3 text-center">{c.sector ? parentSectorLabel(c.sector) : 'عام'}</td>
                       <td className="p-3 text-center">{c.kind === 'recipient' ? 'To' : c.kind === 'cc' ? 'CC' : 'مرسل'}</td>
                       <td className="p-3 text-center">{c.isActive ? 'مفعّل' : 'معطّل'}</td>
                       <td className="p-3 text-center">

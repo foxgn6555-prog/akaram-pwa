@@ -1,7 +1,8 @@
 /** SDK مسؤول القاطع (00160) + سلاسل الموافقات. لا بيانات مالية هنا إطلاقاً. */
 import { sdkGuard, sdkVoid, supabase } from './client'
 
-export type ParentSector = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي) */
+export type ParentSector = string
 export interface SectorManagerOption { parent_sector: ParentSector; name: string; areas: number; department_managers: number; sector_managers: { user_id: string; name: string }[] }
 export interface SectorManagerProfile { user_id: string; parent_sectors: ParentSector[]; parent_names: string[]; notes: string | null; updated_at: string }
 export interface SectorManagerMe { user_id: string; full_name: string; parent_sectors: ParentSector[]; parent_names: string[]; areas: number; department_managers: number; contractors: number; employee_id: string | null; has_employee: boolean }
@@ -88,7 +89,7 @@ export interface AdvanceTaskDetails {
 export type TerminationType = 'resignation' | 'dismissal' | 'contract_end' | 'retirement' | 'death'
 export const TERMINATION_TYPE_AR: Record<TerminationType, string> = { resignation: 'استقالة', dismissal: 'فصل', contract_end: 'انتهاء عقد', retirement: 'تقاعد', death: 'وفاة' }
 /** 00339: تفاصيل مهمة اعتماد تقرير شكاوى */
-export interface ComplaintReportTaskDetails { title: string; sector: 'karrada' | 'zaafaraniya'; sector_label: string; report_date: string; scope: 'daily' | 'email'; items: number; recipients: string[]; pptx_path: string | null; review_confirmed_at: string | null }
+export interface ComplaintReportTaskDetails { title: string; sector: string; sector_label: string; report_date: string; scope: 'daily' | 'email'; items: number; recipients: string[]; pptx_path: string | null; review_confirmed_at: string | null }
 /** 00338: تفاصيل مهمة حذف أرشيف بارد */
 export interface ColdPurgeTaskDetails { code: string; period_from: string; period_to: string; file_count: number; total_bytes: number; verified_copies: number; required_copies: number; purge_available_at: string | null; copies: string | null; by_source: Array<{ source_key: string; files: number }> }
 /** 00348: تفاصيل طلب تعيين موظف (بلا رقم وظيفي — تكتبه الموارد البشرية بعد الاعتماد) */

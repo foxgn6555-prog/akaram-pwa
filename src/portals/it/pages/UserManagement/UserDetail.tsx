@@ -34,6 +34,7 @@ import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
+import { parentSectorTitle, useParentSectors } from '@features/sectors'
 
 /**
  * تفاصيل المستخدم — إدارة شاملة:
@@ -59,8 +60,9 @@ export default function UserDetail() {
   const managerProfile = useManagerProfileForUser(userId ?? '')
   const saveManagerProfile = useSaveManagerProfile()
   const { data: sectors = [] } = useSectors()
+  const { parents } = useParentSectors()   // 00394
 
-  const [garageParentSector, setGarageParentSector] = useState<'karrada' | 'zaafaraniya'>('karrada')
+  const [garageParentSector, setGarageParentSector] = useState<string>('karrada')
   const [garageProfileReady, setGarageProfileReady] = useState(false)
   const [managerShift, setManagerShift] = useState<string>('morning')
   const [managerSectors, setManagerSectors] = useState<number[]>([])
@@ -443,12 +445,11 @@ export default function UserDetail() {
                 aria-label="قاطع حساب الكراج"
                 value={garageParentSector}
                 onChange={(event) =>
-                  setGarageParentSector(event.target.value as 'karrada' | 'zaafaraniya')
+                  setGarageParentSector(event.target.value)
                 }
                 className="mt-1 h-11 w-full rounded-xl border px-3"
               >
-                <option value="karrada">كراج قاطع الكرادة</option>
-                <option value="zaafaraniya">كراج قاطع الزعفرانية</option>
+                {parents.map((p) => <option key={p.code} value={p.code}>كراج {p.title}</option>)}
               </select>
             </label>
             <button
@@ -500,7 +501,7 @@ export default function UserDetail() {
             الشفت ينظم أعمال المسؤول، لكن الآليات تُنسب إليه حسب المنطقة في جميع شفتات السائقين.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {(['karrada', 'zaafaraniya'] as const).map((parent) => {
+            {parents.map(({ code: parent }) => {
               const rows = sectors.filter((sector) => sector.parent_sector === parent)
               const allSelected =
                 rows.length > 0 && rows.every((sector) => managerSectors.includes(sector.id))
@@ -508,7 +509,7 @@ export default function UserDetail() {
                 <div key={parent} className="rounded-2xl border bg-slate-50 p-4">
                   <div className="flex items-center justify-between">
                     <b className="text-xs">
-                      {parent === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}
+                      {parentSectorTitle(parent)}
                     </b>
                     <button
                       type="button"

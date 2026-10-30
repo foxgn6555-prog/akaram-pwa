@@ -36,8 +36,8 @@ export function filterCovers(covers: MediaCover[], f: { sector?: string | null; 
 
 const SECTOR_OPTIONS: Array<{ value: SectorParent | ''; label: string }> = [
   { value: '', label: 'كل القواطع' },
-  { value: 'karrada', label: SECTOR_LABEL.karrada },
-  { value: 'zaafaraniya', label: SECTOR_LABEL.zaafaraniya },
+  { value: 'karrada', label: SECTOR_LABEL.karrada ?? 'قاطع الكرادة' },   // 00395: تتحول للقراءة من القاعدة
+  { value: 'zaafaraniya', label: SECTOR_LABEL.zaafaraniya ?? 'قاطع الزعفرانية' },
 ]
 
 function CoverMetaForm({

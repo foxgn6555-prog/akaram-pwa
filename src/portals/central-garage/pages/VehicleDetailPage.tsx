@@ -33,6 +33,7 @@ import { AssignmentDialog } from '../components/AssignmentDialog'
 import { ShiftDriversPanel } from '../components/ShiftDriversPanel'
 import { EditVehicleDialog } from '../components/EditVehicleDialog'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle } from '@features/sectors'
 
 const arDate = (value: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -222,7 +223,7 @@ export default function VehicleDetailPage({
               <Info
                 icon={<MapPin />}
                 label="موقع العمل"
-                value={`${v.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} · ${v.areaName}`}
+                value={`${parentSectorTitle(v.parentSector)} · ${v.areaName}`}
               />
               <Info
                 icon={<CalendarClock />}

@@ -1,5 +1,7 @@
 /** تنسيقات مشتركة لبوابة مسؤول القاطع */
-export const PARENT_AR: Record<string, string> = { karrada: 'قاطع الكرادة', zaafaraniya: 'قاطع الزعفرانية' }
+import { parentSectorTitle } from '@sdk/sectors.sdk'
+/** 00394: «قاطع …» من السجل الحيّ للقطاعات */
+export const PARENT_AR: Record<string, string> = new Proxy({} as Record<string, string>, { get: (_t, k) => (typeof k === 'string' ? parentSectorTitle(k) : undefined) })
 import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
 /** 00376: أسماء الشفتات من الموارد البشرية (سجل حيّ) */
 export const SHIFT_AR: Record<string, string> = SHIFT_LABELS_LIVE

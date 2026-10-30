@@ -21,6 +21,7 @@ import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus, GbsUpdateState } from '@features/gbs/types'
 import { useUiStore } from '@stores/ui.store'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle, useParentSectors } from '@features/sectors'
 
 type Draft = {
   id?: string
@@ -46,7 +47,8 @@ const emptyDraft = (): Draft => ({
 export default function GbsContainersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<GbsContainerStatus | ''>('')
-  const [parentFilter, setParentFilter] = useState<'karrada' | 'zaafaraniya' | ''>('')
+  const [parentFilter, setParentFilter] = useState<string>('')
+  const { parents } = useParentSectors()   // 00394
   const [sectorFilter, setSectorFilter] = useState<number | ''>('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -200,7 +202,7 @@ export default function GbsContainersPage() {
           data-testid="gbs-parent-filter"
           value={parentFilter}
           onChange={(event) => {
-            const value = event.target.value as 'karrada' | 'zaafaraniya' | ''
+            const value = event.target.value
             setParentFilter(value)
             setSectorFilter('')
           }}
@@ -208,8 +210,7 @@ export default function GbsContainersPage() {
           aria-label="فلتر القاطع"
         >
           <option value="">كل القواطع</option>
-          <option value="karrada">{GBS_PARENT_LABELS.karrada}</option>
-          <option value="zaafaraniya">{GBS_PARENT_LABELS.zaafaraniya}</option>
+          {parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
         </select>
         <select
           data-testid="gbs-sector-filter"
@@ -286,7 +287,7 @@ export default function GbsContainersPage() {
                 <span className="text-xs font-black">
                   {container.code} · {container.label}
                   <span className="block text-[9px] font-bold text-slate-400">
-                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {parentSectorTitle(container.parentSector)} ·{' '}
                     {container.areaName}
                   </span>
                 </span>
@@ -515,7 +516,7 @@ export default function GbsContainersPage() {
                 onChange={(event) => setDraft({ ...draft, sectorId: Number(event.target.value) })}
                 className="h-11 w-full rounded-xl border bg-white px-3 text-sm"
               >
-                {(['karrada', 'zaafaraniya'] as const).map((parent) => (
+                {parents.map(({ code: parent }) => (
                   <optgroup key={parent} label={GBS_PARENT_LABELS[parent]}>
                     {GBS_SECTOR_OPTIONS.filter((option) => option.parent === parent).map(
                       (option) => (

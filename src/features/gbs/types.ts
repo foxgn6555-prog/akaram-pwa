@@ -19,7 +19,7 @@ export interface GbsContainer {
   pendingCount: number
   sectorId: number
   areaName: string
-  parentSector: 'karrada' | 'zaafaraniya'
+  parentSector: string
 }
 
 export interface GbsZone {

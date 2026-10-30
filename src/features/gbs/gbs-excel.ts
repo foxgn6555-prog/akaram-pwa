@@ -1,3 +1,4 @@
+import { PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 /**
  * حاويات GBS ⇄ Excel (00183) — غرفة العمليات فقط
  * التصدير = قالب الاستيراد. الاستيراد يقبل أي Excel: يكتشف صف الرؤوس، يفهم المرادفات، ويقبل الإحداثيات في عمودين أو عمود واحد «33.31, 44.42».
@@ -19,7 +20,7 @@ export const GBS_COLUMNS: Array<{ key: keyof GbsImportRow; header: string; requi
   { key: 'notes', header: 'ملاحظات', hint: '', width: 28 },
 ]
 const STATUS_AR: Record<string, string> = { ok: 'سليمة', damaged: 'متضررة', replace: 'يجب استبدالها', missing: 'مفقودة' }
-const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
 export const GBS_IMPORT_MESSAGES: Record<string, string> = {
   GBS_LABEL_INVALID: 'الوصف/الموقع مفقود أو أقصر من حرفين', GBS_POINT_INVALID: 'الإحداثيات مفقودة أو غير صالحة', GBS_STATUS_INVALID: 'الحالة غير معروفة (سليمة/متضررة/يجب استبدالها/مفقودة)',
   GBS_IMPORT_AREA_UNKNOWN: 'المنطقة غير معروفة (رقمها أو اسمها)', GBS_IMPORT_DUP_IN_FILE: 'الرمز مكرر في الملف', GBS_IMPORT_CODE_DUPLICATE: 'الرمز مستخدم', GBS_IMPORT_EMPTY: 'الملف بلا صفوف', GBS_IMPORT_TOO_LARGE: 'أكثر من 5000 صف',

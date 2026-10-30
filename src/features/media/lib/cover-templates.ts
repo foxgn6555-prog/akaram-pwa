@@ -1,3 +1,4 @@
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 /**
  * 00200 — أغلفة القوالب الجاهزة (ديناميكية).
  * تسعة تصاميم اعتمدها المستخدم (الخلفيات في public/report-assets/covers/c1..c9.jpg بعد تفريغ منطقة النص منها)
@@ -146,7 +147,7 @@ export function coverTexts(ctx: CoverContext): CoverTexts {
   const daily = ctx.periodType === 'daily' || ctx.periodStart === ctx.periodEnd
   return {
     headline: HEADLINE[ctx.periodType],
-    municipality: ctx.sector ? MUNICIPALITY[ctx.sector] : MUNICIPALITY_BOTH,
+    municipality: ctx.sector ? (MUNICIPALITY[ctx.sector] ?? `بلدية ${parentSectorLabel(ctx.sector)}`) : MUNICIPALITY_BOTH,
     date: daily ? `ليوم ${slashYmd(ctx.periodStart)}` : `من ${slashYmd(ctx.periodStart)} إلى ${slashYmd(ctx.periodEnd)}`,
     shift: ctx.shift ? SHIFT_LABEL[ctx.shift] : null,
   }

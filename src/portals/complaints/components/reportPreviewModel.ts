@@ -8,7 +8,7 @@ import type { ComplaintReportDetail } from '@features/complaints'
 export type ReportEntry = ComplaintReportDetail['items'][number]
 export type ReportLayout = Record<string, unknown>
 
-export const sectorLabel = (sector: string) => (sector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية')
+export const sectorLabel = (sector: string) => parentSectorTitle(sector)   // 00394: من السجل الحيّ
 
 /** سطر الموقع أسفل شريحة قبل/بعد — مطابق لشريط التذييل في ملف PowerPoint. */
 export const siteCaption = (entry: ReportEntry) =>
@@ -20,6 +20,7 @@ export const coverDateLine = (sector: string, reportDate: string, digits: CoverD
 
 export { authorityLineFor } from '@lib/pptx/complaintCovers'
 import { formatCoverDate, type CoverDigits } from '@lib/pptx/complaintCovers'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 
 /** مفتاح مجموعة «البريد + مسؤول القسم» — مطابق لتجميع مولّد PowerPoint. */
 export const entryGroupKey = (entry: ReportEntry) =>

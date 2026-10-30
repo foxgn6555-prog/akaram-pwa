@@ -32,7 +32,7 @@ const LABELS: Record<string, string> = {
 vi.mock('@features/complaints', () => ({
   useComplaintTemplates: () => ({ data: h.templates, isLoading: false }),
   useComplaintReports: () => ({ data: h.reports, isLoading: false }),
-  useComplaintInbox: (sector: string) => ({ data: h.inbox.filter((item: unknown)=>(item as {sector:string}).sector===sector), isLoading: false }),
+  useComplaintInbox: (sector?: string) => ({ data: sector ? h.inbox.filter((item: unknown)=>(item as {sector:string}).sector===sector) : h.inbox, isLoading: false }),   // 00394: بلا قطاع ⇒ الكل
   useSaveComplaintTemplate: () => h.muts.saveTemplate,
   usePrepareComplaintReport: () => h.muts.prepare,
   usePrepareComplaintEmailReport: () => h.muts.prepareEmail,

@@ -22,6 +22,7 @@ import { useMapTheme } from '@features/map-theme/useMapTheme'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import { MAP_UI } from '@features/map-theme/map-theme'
 import { clusterPoints, clusterSizePx, conicByShare } from '@features/map-theme/cluster'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 
 const BAGHDAD: [number, number] = [33.3152, 44.3661]
 
@@ -275,7 +276,7 @@ export default function GbsMap({
                     الحالة: {meta.label}
                   </p>
                   <p className="text-[10px] font-bold text-slate-500">
-                    {container.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+                    {parentSectorTitle(container.parentSector)} ·{' '}
                     {container.areaName}
                   </p>
                   <p className="text-[10px] text-slate-500">

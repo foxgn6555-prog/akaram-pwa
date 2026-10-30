@@ -1,4 +1,5 @@
-export type ComplaintSector = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي) */
+export type ComplaintSector = string
 export type InboxStatus = 'new' | 'extracting' | 'ready' | 'needs_review' | 'imported' | 'failed' | 'duplicate'
 export type ComplaintItemStatus = 'under_review' | 'assigned' | 'in_progress' | 'processed' | 'quality_review' | 'approved' | 'returned'
 

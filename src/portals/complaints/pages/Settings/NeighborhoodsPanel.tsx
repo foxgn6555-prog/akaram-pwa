@@ -7,11 +7,11 @@ import { useMemo, useState } from 'react'
 import { MapPinned, Pencil, Plus, Save, X } from 'lucide-react'
 import {
   COMPLAINT_AREAS, normalizeArabicName, useComplaintManagers, useComplaintNeighborhoods, useSaveComplaintNeighborhood,
-  type ComplaintNeighborhood, type ComplaintSector,
+  type ComplaintNeighborhood,
 } from '@features/complaints'
+import { useParentSectors } from '@features/sectors'
 
 type Feedback = { kind: 'ok' | 'err'; text: string }
-const PARENTS: Array<{ id: ComplaintSector; label: string }> = [{ id: 'karrada', label: 'قاطع الكرادة' }, { id: 'zaafaraniya', label: 'قاطع الزعفرانية' }]
 
 function errorText(error: unknown): string {
   const raw = error instanceof Error ? `${error.message} ${String(error.cause ?? '')}` : String(error ?? '')
@@ -25,6 +25,8 @@ export function NeighborhoodsPanel() {
   const { data: registry = [], isLoading, isError } = useComplaintNeighborhoods()
   const { data: managers = [] } = useComplaintManagers()
   const save = useSaveComplaintNeighborhood()
+  const { parents } = useParentSectors()   // 00394: القطاعات والمناطق من القاعدة
+  const PARENTS = parents.map((p) => ({ id: p.code, label: p.title }))
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [search, setSearch] = useState('')
   const byArea = useMemo(() => {

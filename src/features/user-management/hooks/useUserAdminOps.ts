@@ -22,7 +22,7 @@ export function useSaveGarageProfile() {
       parentSector,
     }: {
       userId: string
-      parentSector: 'karrada' | 'zaafaraniya'
+      parentSector: string
     }) => users.saveGarageProfile(userId, parentSector),
     onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: ['users', 'garage-profile', input.userId] })

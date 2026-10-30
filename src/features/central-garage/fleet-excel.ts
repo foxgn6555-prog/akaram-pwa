@@ -1,3 +1,4 @@
+import { PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 /**
  * قاعدة بيانات الآليات ⇄ Excel (00182) — غرفة العمليات فقط
  * ─────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ export const FLEET_COLUMNS: Array<{ key: keyof FleetImportRow; header: string; r
 const CATEGORY_AR: Record<string, string> = { compactor_small: 'كابسة صغيرة', compactor_large: 'كابسة كبيرة', truck: 'كميون', shovel: 'شفل', tipper: 'قلاب', tanker: 'تنكر', sweeper: 'كناسة', strat: 'استرات', other: 'أخرى' }
 import { shiftLabel, type ShiftOption } from '@sdk/hr-shifts.sdk'
 const OWN_AR: Record<string, string> = { owned: 'آلية ذاتية', rented: 'آلية مؤجرة' }
-const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
 
 export const FLEET_IMPORT_MESSAGES: Record<string, string> = {
   FLEET_IMPORT_DB_REQUIRED: 'رقم DB مفقود', FLEET_IMPORT_DUP_IN_FILE: 'رقم DB مكرر في الملف', FLEET_IMPORT_AREA_UNKNOWN: 'المنطقة غير معروفة (اكتب رقم المنطقة أو اسمها)',

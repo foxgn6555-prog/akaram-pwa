@@ -15,6 +15,7 @@ import { CoverPicker } from '../../components/CoverPicker'
 import { ReportCoverPreview } from '../../components/reportPreview'
 import { DEFAULT_SLOGAN, isCoverId, reportTheme, type ComplaintCoverId } from '@lib/pptx/complaintCovers'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorLabel, useParentSectors } from '@features/sectors'
 
 type Tab = 'templates' | 'prepare' | 'reports'
 type ReportFilter = 'all' | ComplaintReport['status']
@@ -53,7 +54,7 @@ const reportFilters: Array<{ value: ReportFilter; label: string }> = [
 ]
 const value = (layout: Record<string, unknown>, key: string, fallback: string) =>
   typeof layout[key] === 'string' && layout[key] ? String(layout[key]) : fallback
-const sectorLabel = (sector: ComplaintSector) => sector === 'karrada' ? 'بلدية الكرادة' : 'بلدية الزعفرانية'
+const sectorLabel = (sector: ComplaintSector) => `بلدية ${parentSectorLabel(sector)}`   // 00394
 
 function friendlyError(error: unknown, fallback: string): string {
   const raw = error instanceof Error ? `${error.message} ${String(error.cause ?? '')}` : String(error ?? '')
@@ -82,11 +83,11 @@ export default function TemplatesPage() {
   const [date, setDate] = useState(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad' }).format(new Date()))
   const templatesQuery = useComplaintTemplates()
   const reportsQuery = useComplaintReports(date)
-  const karradaQuery = useComplaintInbox('karrada',date)
-  const zaafaraniyaQuery = useComplaintInbox('zaafaraniya',date)
+  const inboxQuery = useComplaintInbox(undefined, date)   // 00394: كل القطاعات بطلب واحد
+  const { parents } = useParentSectors()
   const templates = templatesQuery.data ?? EMPTY_TEMPLATES
   const reports = reportsQuery.data ?? EMPTY_REPORTS
-  const messages = [...(karradaQuery.data ?? []), ...(zaafaraniyaQuery.data ?? [])]
+  const messages = [...(inboxQuery.data ?? [])]
     .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
   const save = useSaveComplaintTemplate()
   const prepareDaily = usePrepareComplaintReport()
@@ -198,7 +199,7 @@ export default function TemplatesPage() {
         <label className="mt-3 block text-sm font-bold">رسالة البريد
           <select aria-label="اختر البريد" value={messageId} onChange={event => { setMessageId(event.target.value); setEmailTemplateId(''); setNotice(null) }} className="mt-2 w-full rounded-xl border bg-white p-3">
             <option value="">اختر رسالة واردة</option>
-            {messages.map(message => <option key={message.id} value={message.id}>{message.subject || 'دون موضوع'} — {message.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} — {new Date(message.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</option>)}
+            {messages.map(message => <option key={message.id} value={message.id}>{message.subject || 'دون موضوع'} — {parentSectorLabel(message.sector)} — {new Date(message.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</option>)}
           </select>
         </label>
         <TemplatePicker templates={emailTemplates} value={emailTemplateId} onChange={setEmailTemplateId} disabled={!selectedMessage} suggested={bestTemplate(templates, selectedMessage?.sector)} />
@@ -208,7 +209,7 @@ export default function TemplatesPage() {
 
       <ReportChoice icon={<CalendarDays />} title="التقرير اليومي الجامع" description="يجمع المواقع المعتمدة في قاطع ويوم واحد. المسودة القائمة تُفتح ولا يعاد ضبطها تلقائياً.">
         <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-bold">البلدية
-          <select value={sector} onChange={event => { setSector(event.target.value as ComplaintSector); setDailyTemplateId(''); setNotice(null) }} className="mt-2 w-full rounded-xl border bg-white p-3"><option value="karrada">بلدية الكرادة</option><option value="zaafaraniya">بلدية الزعفرانية</option></select>
+          <select value={sector} onChange={event => { setSector(event.target.value as ComplaintSector); setDailyTemplateId(''); setNotice(null) }} className="mt-2 w-full rounded-xl border bg-white p-3">{parents.map((p) => <option key={p.code} value={p.code}>بلدية {p.name}</option>)}</select>
         </label><label className="text-sm font-bold">التاريخ<input type="date" value={date} onChange={event => { setDate(event.target.value); setNotice(null) }} className="mt-2 w-full rounded-xl border bg-white p-3" /></label></div>
         <TemplatePicker templates={dailyTemplates} value={dailyTemplateId} onChange={setDailyTemplateId} suggested={bestTemplate(templates, sector)} />
         {existingDailyReport && <ExistingReportNotice report={existingDailyReport} />}
@@ -222,7 +223,7 @@ export default function TemplatesPage() {
         <div className="mt-4 grid gap-3">
           <label className="text-xs font-bold text-slate-600">اسم القالب<input aria-label="اسم القالب" value={form.name} onChange={event => patch('name', event.target.value)} placeholder="مثال: قالب الزعفرانية الرسمي" className="mt-1 w-full rounded-xl border p-3" /></label>
           <label className="text-xs font-bold text-slate-600">وصف الاستخدام<input aria-label="وصف القالب" value={form.description} onChange={event => patch('description', event.target.value)} placeholder="متى يستخدم هذا القالب؟" className="mt-1 w-full rounded-xl border p-3" /></label>
-          <label className="text-xs font-bold text-slate-600">نطاق القالب<select aria-label="قاطع القالب" value={form.sector} onChange={event => patch('sector', event.target.value as Form['sector'])} className="mt-1 w-full rounded-xl border p-3"><option value="">جميع البلديات</option><option value="karrada">الكرادة فقط</option><option value="zaafaraniya">الزعفرانية فقط</option></select></label>
+          <label className="text-xs font-bold text-slate-600">نطاق القالب<select aria-label="قاطع القالب" value={form.sector} onChange={event => patch('sector', event.target.value as Form['sector'])} className="mt-1 w-full rounded-xl border p-3"><option value="">جميع البلديات</option>{parents.map((p) => <option key={p.code} value={p.code}>{p.name} فقط</option>)}</select></label>
           <CoverPicker value={form.cover} onChange={cover => patch('cover', cover)} label="غلاف التقرير الافتراضي لهذا القالب" />
           {form.cover === 'official' ? <label className="flex items-center justify-between rounded-xl border p-3 text-sm font-bold">لون الهوية<input aria-label="لون الهوية" type="color" value={form.accent} onChange={event => patch('accent', event.target.value)} /></label>
             : <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">ألوان الجدول وصفحات الصور تتبع لوحة الغلاف المختار تلقائياً.</p>}
@@ -252,7 +253,7 @@ export default function TemplatesPage() {
       <div className="grid gap-3 rounded-2xl border bg-white p-3 shadow-sm lg:grid-cols-[1fr_auto_auto_auto]">
         <label className="flex items-center gap-2 rounded-xl bg-slate-50 px-3"><Search size={17} className="text-slate-400" /><input aria-label="بحث التقارير" value={reportQuery} onChange={event => setReportQuery(event.target.value)} placeholder="ابحث بعنوان التقرير أو التاريخ" className="min-h-11 w-full bg-transparent text-sm outline-none" /></label>
         <input aria-label="تاريخ التقارير" type="date" value={date} onChange={event=>setDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm font-bold"/>
-        <select aria-label="قاطع التقارير" value={reportSector} onChange={event => setReportSector(event.target.value as 'all' | ComplaintSector)} className="rounded-xl border px-3 py-2 text-sm font-bold"><option value="all">كل القواطع</option><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option></select>
+        <select aria-label="قاطع التقارير" value={reportSector} onChange={event => setReportSector(event.target.value as 'all' | ComplaintSector)} className="rounded-xl border px-3 py-2 text-sm font-bold"><option value="all">كل القواطع</option>{parents.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}</select>
         <select aria-label="حالة التقارير" value={reportStatus} onChange={event => setReportStatus(event.target.value as ReportFilter)} className="rounded-xl border px-3 py-2 text-sm font-bold">{reportFilters.map(filter => <option key={filter.value} value={filter.value}>{filter.label}</option>)}</select>
       </div>
       {reportsQuery.isLoading ? <div className="h-48 animate-pulse rounded-3xl bg-slate-100" /> : reportsQuery.isError ? <p className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-red-800">تعذر تحميل المسودات والتقارير.</p> : visibleReports.map(report => <article key={report.id} className="rounded-3xl border bg-white p-5 shadow-sm">

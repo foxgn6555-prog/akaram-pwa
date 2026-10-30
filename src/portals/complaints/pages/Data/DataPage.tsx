@@ -13,6 +13,7 @@ import {
 import {
   ComplaintEmpty, ComplaintPageHeader, ComplaintSearch, ComplaintStatusBadge,
 } from '../../components/ComplaintUi'
+import { useParentSectors } from '@features/sectors'
 
 const statusFilters: Array<{ value: 'all' | ComplaintItemStatus; label: string }> = [
   { value: 'all', label: 'كل الحالات' },
@@ -26,10 +27,7 @@ const statusFilters: Array<{ value: 'all' | ComplaintItemStatus; label: string }
 ]
 
 const EMPTY_ITEMS: ComplaintItem[] = []
-const sectors: Array<{ value: ComplaintSector; label: string; description: string }> = [
-  { value: 'karrada', label: 'قاطع الكرادة', description: 'رسائل ومواقع بلدية الكرادة' },
-  { value: 'zaafaraniya', label: 'قاطع الزعفرانية', description: 'رسائل ومواقع بلدية الزعفرانية' },
-]
+const useSectorCards = (): Array<{ value: ComplaintSector; label: string; description: string }> => { const { parents } = useParentSectors(); return parents.map((p) => ({ value: p.code, label: p.title, description: `رسائل ومواقع بلدية ${p.name}` })) }   // 00394
 
 function baghdadDateKey(value: string | null | undefined): string {
   if (!value) return 'unknown'
@@ -66,6 +64,8 @@ function matches(item: ComplaintItem, term: string): boolean {
 }
 
 export default function DataPage() {
+
+  const sectors = useSectorCards()
   const { data = [], isLoading, isError } = useComplaintItems(false)
   const [sector, setSector] = useState<ComplaintSector | null>(null)
   const [folder, setFolder] = useState<string | null>(null)

@@ -1,2 +1,5 @@
 export { useSectorsTree, useSaveParentSector, useSetParentSectorActive, useSaveArea, sectorsKeys } from './hooks/useSectors'
+export { useParentSectors, useSectorsRegistry, SectorsRegistryLoader, sectorsRegistryKey } from './labels'
+export type { ParentSectorOption, AreaOption } from './labels'
+export { parentSectorLabel, parentSectorTitle, areaLabel, parentCodesOf, PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 export type { ParentSectorNode, SectorArea } from '@sdk/sectors.sdk'

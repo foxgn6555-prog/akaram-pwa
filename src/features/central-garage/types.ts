@@ -5,7 +5,8 @@ import type { GarageOwnershipType, GarageVehicleCategory } from './vehicle-detai
 /** 00376: رمز شفت من شفتات الموارد البشرية (hr_shifts.code) — لم يعد قائمة ثابتة */
 export type GarageShift = string
 export type GarageFuelType = 'gas_oil' | 'hydraulic' | 'grease' | 'c_oil'
-export type GarageParentSector = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي) */
+export type GarageParentSector = string
 
 export interface GarageArea {
   id: number
@@ -135,7 +136,7 @@ export interface GarageTank {
   createdAt: string
   updatedAt: string
   archivedAt: string | null
-  parentSector: 'karrada' | 'zaafaraniya' | null
+  parentSector: string | null
 }
 
 export interface GarageInventoryMovement {

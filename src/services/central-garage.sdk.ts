@@ -425,7 +425,7 @@ export const centralGarage = {
 
   async assignTankSector(
     tankId: string,
-    parentSector: 'karrada' | 'zaafaraniya',
+    parentSector: string,
   ): Promise<GarageTank> {
     const data = await sdkGuard(
       supabase.rpc('admin_assign_garage_tank_sector', {

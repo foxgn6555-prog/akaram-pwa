@@ -39,12 +39,12 @@ export interface CreateUserInput {
   /** إسناد مسؤول القسم (فقط مع role = department_manager) */
   manager_shift?: string
   manager_sectors?: number[]
-  garage_parent_sector?: 'karrada' | 'zaafaraniya'
+  garage_parent_sector?: string
   /** 00158: حساب متعهد — مسؤول القسم المسؤول ومنطقته (اختيارية إن كان للمسؤول منطقة واحدة) */
   contractor_manager_id?: string
   contractor_sector_id?: number | null
   /** 00160: مسؤول القاطع — القواطع الأم */
-  sector_manager_parent_sectors?: Array<'karrada' | 'zaafaraniya'>
+  sector_manager_parent_sectors?: string[]
 }
 
 /** تعديل بيانات الموظف المرتبط بمستخدم (ينشئ السجل إن لم يوجد) */
@@ -89,12 +89,12 @@ export const users = {
     )
   },
 
-  async garageProfileForUser(userId: string): Promise<'karrada' | 'zaafaraniya' | null> {
+  async garageProfileForUser(userId: string): Promise<string | null> {
     const data = await sdkGuard(supabase.rpc('garage_profile_for_user', { p_user_id: userId }))
-    return data === 'karrada' || data === 'zaafaraniya' ? data : null
+    return typeof data === 'string' && data.length > 0 ? data : null
   },
 
-  async saveGarageProfile(userId: string, parentSector: 'karrada' | 'zaafaraniya'): Promise<void> {
+  async saveGarageProfile(userId: string, parentSector: string): Promise<void> {
     await sdkVoid(
       supabase.rpc('garage_profile_save', {
         p_user_id: userId,

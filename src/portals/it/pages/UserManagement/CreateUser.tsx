@@ -17,6 +17,7 @@ import { useContractorManagerOptions } from '@features/contractors/hooks'
 import { PARENT_AR } from '@features/contractors/format'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
+import { useParentSectors } from '@features/sectors'
 
 /** إنشاء مستخدم جديد: حساب auth + دور + ربط سجل موظف (اختياري) */
 export default function CreateUser() {
@@ -24,6 +25,7 @@ export default function CreateUser() {
   const create = useCreateUser()
   const { data: departments } = useDepartments()
   const { data: sectors } = useSectors()
+  const { parents } = useParentSectors()
   const [showPassword, setShowPassword] = useState(false)
   const [mgrShift, setMgrShift] = useState<string>('morning')
   const [mgrSectors, setMgrSectors] = useState<number[]>([])
@@ -87,23 +89,12 @@ export default function CreateUser() {
     )
   }
 
-  const sectorGroups = [
-    {
-      key: 'karrada',
-      label: 'قاطع الكرادة',
-      areas: (sectors ?? []).filter(
-        (sector) => sector.parent_sector === 'karrada' || (!sector.parent_sector && sector.id <= 4),
-      ),
-    },
-    {
-      key: 'zaafaraniya',
-      label: 'قاطع الزعفرانية',
-      areas: (sectors ?? []).filter(
-        (sector) =>
-          sector.parent_sector === 'zaafaraniya' || (!sector.parent_sector && sector.id >= 5),
-      ),
-    },
-  ]
+  // 00394: القطاعات من القاعدة (أي قطاع مضاف من «القطاعات والمناطق» يظهر هنا فوراً)
+  const sectorGroups = parents.map((p) => ({
+    key: p.code,
+    label: p.title,
+    areas: (sectors ?? []).filter((sector) => sector.parent_sector === p.code),
+  }))
 
   const onSubmit = async (data: CreateUserFormInput): Promise<void> => {
     if (data.role === 'employee' && chosenManagerAreas.length > 1 && !data.contractor_sector_id) {
@@ -257,8 +248,7 @@ export default function CreateUser() {
                 {...register('garage_parent_sector')}
               >
                 <option value="">اختر القاطع</option>
-                <option value="karrada">كراج قاطع الكرادة</option>
-                <option value="zaafaraniya">كراج قاطع الزعفرانية</option>
+                {parents.map((p) => <option key={p.code} value={p.code}>كراج {p.title}</option>)}
               </select>
             </Field>
           </fieldset>
@@ -311,7 +301,7 @@ export default function CreateUser() {
             <legend className="px-1 text-xs font-semibold text-indigo-700">قواطع مسؤول القاطع (مطلوب — يمكن اختيار أكثر من قاطع)</legend>
             <p className="mb-2 text-[11px] text-slate-600">سيكون مسؤولاً عن مسؤولي الأقسام في القواطع المختارة، وتصله طلباتهم وتقاريرهم. يلزم إدخال الرقم الوظيفي أدناه لربطه بسجل الموارد البشرية (ليتمكن من تقديم طلباته).</p>
             <div className="flex flex-wrap gap-2">
-              {(['karrada', 'zaafaraniya'] as const).map((ps) => {
+              {parents.map(({ code: ps }) => {
                 const on = smParents.includes(ps)
                 return (
                   <button key={ps} type="button" data-testid={`sm-parent-${ps}`} aria-pressed={on}

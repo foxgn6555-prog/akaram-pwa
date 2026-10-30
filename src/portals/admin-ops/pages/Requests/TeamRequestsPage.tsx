@@ -1,3 +1,4 @@
+import { PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 /** طلبات الموافقة (مشتركة: مسؤول القاطع، الميدانية، المعاون، المدير المفوض): مهام الموافقة المعلّقة لديّ (إجازات/زمنيات/مستلزمات 00162 /إنهاء خدمة 00163 /سلف 00191)
  * حسب سلاسل الموافقات؛ موافقة أو رفض بسبب إلزامي؛ مسار الطلب. السلفة: يمكن للمعتمِد تعديل المبلغ (وعدد الأقساط) قبل الموافقة. */
 import { lazy, Suspense, useState } from 'react'
@@ -14,7 +15,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
-const PARENT_AR: Record<string, string> = { karrada: 'الكرادة', zaafaraniya: 'الزعفرانية' }
+const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
 const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {

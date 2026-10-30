@@ -9,6 +9,7 @@ import { OfflineBanner } from '@components/feedback/OfflineBanner'
 import { UpdateBanner } from '@features/pwa/PwaBanners'
 import { startSessionWatch } from '@features/auth/session-watch'
 import { ShiftRegistryLoader } from '@features/hr-shifts/hooks'
+import { SectorsRegistryLoader } from '@features/sectors/labels'   // 00394: القطاعات من القاعدة
 import './i18n'
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
         <OfflineBanner />
         <UpdateBanner />
         <ShiftRegistryLoader />
+        <SectorsRegistryLoader />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </ErrorBoundary>

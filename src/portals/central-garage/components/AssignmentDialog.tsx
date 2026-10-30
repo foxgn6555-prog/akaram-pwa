@@ -6,6 +6,7 @@ import type { GarageArea, GarageShift, GarageVehicle } from '@features/central-g
 import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { DriverPicker } from './DriverPicker'
 import { ExternalDriverPicker } from './ExternalDriverPicker'
+import { parentSectorTitle, parentCodesOf } from '@features/sectors'
 
 const inputClass='h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 
@@ -28,7 +29,7 @@ export function AssignmentDialog({ vehicle, areas, onClose }: { vehicle:GarageVe
             : <ExternalDriverPicker testId="assignment-ext-driver" value={form.driverExternalId} onChange={id=>setForm({...form,driverExternalId:id})} error={errors.driverExternalId}/>}
         </div>
         <Field label="الشفت" error={errors.shift}><ShiftSelect testId="assignment-shift" className={inputClass} value={form.shift} onChange={v=>setForm({...form,shift:v})} /></Field>
-        <Field label="موقع العمل" error={errors.sectorId}><select data-testid="assignment-area" className={inputClass} value={form.sectorId} onChange={e=>setForm({...form,sectorId:e.target.value})}><option value="">اختر المنطقة</option><optgroup label="قاطع الكرادة">{areas.filter(a=>a.parentSector==='karrada').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup><optgroup label="قاطع الزعفرانية">{areas.filter(a=>a.parentSector==='zaafaraniya').map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup></select></Field>
+        <Field label="موقع العمل" error={errors.sectorId}><select data-testid="assignment-area" className={inputClass} value={form.sectorId} onChange={e=>setForm({...form,sectorId:e.target.value})}><option value="">اختر المنطقة</option>{parentCodesOf(areas).map(parent=><optgroup key={parent} label={parentSectorTitle(parent)}>{areas.filter(a=>a.parentSector===parent).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>)}</select></Field>
         <Field label="سبب التغيير"><input data-testid="assignment-reason" className={inputClass} value={form.reason} onChange={e=>setForm({...form,reason:e.target.value})} placeholder="مثال: نقل إلى قاطع آخر"/></Field>
       </div>
       <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="h-11 rounded-xl border border-slate-300 px-5 font-bold text-slate-700">إلغاء</button><button data-testid="assignment-submit" disabled={assign.isPending} className="h-11 rounded-xl bg-cyan-700 px-6 font-bold text-white disabled:opacity-60">{assign.isPending?'جارٍ الحفظ…':'حفظ الانطلاقية'}</button></div>

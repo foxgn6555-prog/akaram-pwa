@@ -1,9 +1,10 @@
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 import type{ComplaintAnalytics,ComplaintReportPeriod}from'../types'
 const labels:Record<ComplaintReportPeriod,string>={daily:'اليومي',weekly:'الأسبوعي',monthly:'الشهري',semiannual:'النصف سنوي',annual:'السنوي'}
 const statusLabels:Record<string,string>={under_review:'بانتظار الفرز',assigned:'مسندة',in_progress:'قيد المعالجة',processed:'بانتظار التدقيق',quality_review:'قيد التدقيق',approved:'معتمدة',returned:'معادة'}
 const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
 export function complaintAnalyticsHtml(data:ComplaintAnalytics,period:ComplaintReportPeriod){
- const max=Math.max(1,...data.daily.map(v=>v.total));const sector=data.sector==='karrada'?'الكرادة':data.sector==='zaafaraniya'?'الزعفرانية':'جميع القواطع'
+ const max=Math.max(1,...data.daily.map(v=>v.total));const sector=data.sector?parentSectorLabel(data.sector):'جميع القواطع'
  const rate=(value:number)=>data.summary.total?`${Math.round(value/data.summary.total*100)}%`:'0%'
  const cards=[['إجمالي الشكاوى',data.summary.total],['المعتمدة',data.summary.approved],['قيد العمل',data.summary.active],['بانتظار التدقيق',data.summary.review],['غير المسندة',data.summary.unassigned],['صور معالجة',data.summary.withAfter],['نسبة الاعتماد',rate(data.summary.approved)],['تغطية صور بعد',rate(data.summary.withAfter)],['المتبقي التشغيلي',Math.max(0,data.summary.total-data.summary.approved)]]
  const insights=[data.summary.unassigned>0?`توجد ${data.summary.unassigned} تذكرة غير مسندة وتحتاج توزيعاً.`:'كل التذاكر موزعة على المسؤولين.',data.summary.review>0?`توجد ${data.summary.review} تذكرة بانتظار التدقيق.`:'لا يوجد تراكم في طابور التدقيق.',data.summary.withAfter<data.summary.approved?'ينبغي تدقيق اكتمال صور المعالجة للتذاكر المعتمدة.':'تغطية صور المعالجة متوافقة مع الاعتمادات.']

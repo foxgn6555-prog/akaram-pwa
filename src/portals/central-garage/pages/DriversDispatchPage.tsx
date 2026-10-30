@@ -21,6 +21,7 @@ const inputClass =
   'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
 import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 import { useShiftLabel, useShiftOptions } from '@features/hr-shifts/hooks'
+import { parentSectorLabel, parentSectorTitle, parentCodesOf } from '@features/sectors'
 const clock = (value: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     hour: '2-digit',
@@ -145,24 +146,7 @@ export default function DriversDispatchPage() {
           onChange={(e) => setSector(e.target.value)}
         >
           <option value="">كل مواقع العمل</option>
-          <optgroup label="الكرادة">
-            {(areas.data ?? [])
-              .filter((a) => a.parentSector === 'karrada')
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-          </optgroup>
-          <optgroup label="الزعفرانية">
-            {(areas.data ?? [])
-              .filter((a) => a.parentSector === 'zaafaraniya')
-              .map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-          </optgroup>
+          {/* 00394: القطاعات من بيانات المناطق نفسها */}{parentCodesOf((areas.data ?? [])).map((parent) => <optgroup key={parent} label={parentSectorTitle(parent)}>{(areas.data ?? []).filter((a) => a.parentSector === parent).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>)}
         </select>
       </div>
       {vehicles.isLoading || departures.isLoading ? (
@@ -201,7 +185,7 @@ export default function DriversDispatchPage() {
                     </p>
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
                       <MapPin size={14} className="text-cyan-700" />
-                      {vehicle.parentSector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} ·{' '}
+                      {parentSectorLabel(vehicle.parentSector)} ·{' '}
                       {vehicle.areaName}
                     </p>
                     <div className="mt-2">

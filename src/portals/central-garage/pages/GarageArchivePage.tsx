@@ -7,6 +7,7 @@ import type { GarageShift } from '@features/central-garage/types'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { parentSectorTitle, parentCodesOf } from '@features/sectors'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -60,11 +61,8 @@ export default function GarageArchivePage({
           className={inputClass}
         >
           <option value="">كل المواقع</option>
-          {(['karrada', 'zaafaraniya'] as const).map((parent) => (
-            <optgroup
-              key={parent}
-              label={parent === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'}
-            >
+          {parentCodesOf(areas.data ?? []).map((parent) => (
+            <optgroup key={parent} label={parentSectorTitle(parent)}>
               {(areas.data ?? [])
                 .filter((a) => a.parentSector === parent)
                 .map((a) => (

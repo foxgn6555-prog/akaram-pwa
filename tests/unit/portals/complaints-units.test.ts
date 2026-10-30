@@ -28,7 +28,7 @@ describe('بوابة الشكاوى', () => {
     const paths = new Set(routes.map((route) => route.path).filter(Boolean))
     expect(routes.some((route) => route.index)).toBe(true)
     expect(paths).toEqual(new Set([
-      'karrada-sector', 'zaafaraniya-sector', 'assignment', 'processing', 'templates', 'database',
+      'karrada-sector', 'zaafaraniya-sector', 'sector/:code', 'assignment', 'processing', 'templates', 'database',
       'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
       'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
     ]))

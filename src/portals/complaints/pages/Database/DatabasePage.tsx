@@ -13,11 +13,12 @@ import { useComplaintDatabase } from '@features/complaints'
 import type { ComplaintDatabaseRow, ComplaintSector } from '@features/complaints'
 import { DATABASE_COLUMNS, databaseCell, downloadComplaintDatabaseExcel } from '@features/complaints/lib/database-excel'
 import { ComplaintEmpty, ComplaintPageHeader, ComplaintSearch } from '../../components/ComplaintUi'
+import { useParentSectors } from '@features/sectors'
 
 const COMPLETION_STYLE: Record<ComplaintDatabaseRow['completion'], string> = {
   'منجز': 'bg-emerald-50 text-emerald-700', 'منجز متأخر': 'bg-amber-50 text-amber-800', 'متأخر': 'bg-rose-50 text-rose-700', 'قيد المعالجة': 'bg-sky-50 text-sky-700',
 }
-const SECTOR_OPTIONS: { value: ComplaintSector | ''; label: string }[] = [{ value: '', label: 'كل القواطع' }, { value: 'karrada', label: 'قاطع الكرادة' }, { value: 'zaafaraniya', label: 'قاطع الزعفرانية' }]
+const useSectorOptions = (): { value: ComplaintSector | ''; label: string }[] => { const { parents } = useParentSectors(); return [{ value: '', label: 'كل القواطع' }, ...parents.map((p) => ({ value: p.code, label: p.title }))] }   // 00394
 const COMPLETION_OPTIONS: ('' | ComplaintDatabaseRow['completion'])[] = ['', 'منجز', 'منجز متأخر', 'متأخر', 'قيد المعالجة']
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -30,6 +31,7 @@ export function monthRange(ym: string): [string, string] {
 }
 
 export default function DatabasePage() {
+  const SECTOR_OPTIONS = useSectorOptions()
   const [month, setMonth] = useState(thisMonth())
   const [sector, setSector] = useState<ComplaintSector | ''>('')
   const [completion, setCompletion] = useState<'' | ComplaintDatabaseRow['completion']>('')

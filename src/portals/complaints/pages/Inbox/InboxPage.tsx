@@ -7,8 +7,9 @@ import {
 } from '@features/complaints'
 import { baghdadDateKey } from '@features/complaints/lib/baghdad-date'
 import { ComplaintPageHeader, ComplaintWorkflow } from '../../components/ComplaintUi'
+import { parentSectorLabel } from '@sdk/sectors.sdk'
 
-const sectorNames:Record<ComplaintSector,string>={karrada:'بلدية الكرادة',zaafaraniya:'بلدية الزعفرانية'}
+const sectorNames:Record<ComplaintSector,string>=new Proxy({} as Record<string,string>,{get:(_t,k)=>typeof k==='string'?`بلدية ${parentSectorLabel(k)}`:undefined})   // 00394
 const inboxStatusNames={new:'جديد',extracting:'جارٍ استخراج المرفقات',ready:'جاهز للفرز',needs_review:'يحتاج مراجعة',imported:'تم استيراده',failed:'فشل الاستيراد',duplicate:'بريد مكرر'} as const
 type Draft=Pick<ComplaintSortEntry,'title'|'neighborhood'|'alley'|'ocrText'>
 const DEFAULT_ISSUE_TYPE='تراكم نفايات'
@@ -22,7 +23,7 @@ export default function InboxPage({sector}:{sector:ComplaintSector}){
  const patch=(id:string,value:Partial<Draft>)=>setDrafts(old=>({...old,[id]:{...(old[id]??emptyDraft),...value}}))
  const applyTypeToAll=()=>{const type=bulkType.trim()||DEFAULT_ISSUE_TYPE;setDrafts(old=>{const next={...old};available.forEach(file=>{next[file.id]={...(old[file.id]??emptyDraft),title:type}});return next});setMessage(`تم تطبيق نوع التلكؤ «${type}» على ${available.length} صورة غير مفروزة.`)}
  const sort=()=>{if(!activeId||!selected.length||incomplete.length)return;batch.mutate({messageId:activeId,entries:selected.map(mediaId=>({mediaId,...(drafts[mediaId]??emptyDraft),municipalCenter:sectorNames[sector]}))},{onSuccess:r=>{setSelected([]);setMessage(`تم اعتماد بيانات ${r.createdCount} صورة. متبقي ${r.remainingCount} صورة من البريد.`)},onError:()=>setMessage('تعذر الفرز. لم تُنشأ أي تذكرة من الدفعة؛ راجع البيانات والتكرار.')})}
- return <section className="min-w-0 space-y-5" dir="rtl"><ComplaintPageHeader icon={Mail} eyebrow="البريد الوارد حسب اليوم" title={sectorNames[sector]} description="اختر التاريخ ثم البريد المطلوب؛ اكتب نوع التلكؤ والمحلة والزقاق لكل صورة، والمركز البلدي يُحدد تلقائياً." action={<div className="flex w-full flex-col gap-2 rounded-2xl bg-white/10 p-3 sm:w-auto sm:flex-row sm:items-end"><label className="text-xs font-bold text-white/80">تاريخ البريد<input aria-label="تاريخ البريد" type="date" value={date} onChange={event=>{setDate(event.target.value);setActiveId(null);setSelected([])}} className="mt-1 block h-11 w-full rounded-xl border border-white/20 bg-white px-3 text-slate-900 sm:w-auto"/></label><button disabled={isFetching} onClick={()=>void refetch()} className="h-11 rounded-xl bg-white px-4 font-bold text-sky-900 shadow-sm disabled:opacity-50">{isFetching?'جارٍ التحديث…':'تحديث الوارد'}</button></div>} />
+ return <section className="min-w-0 space-y-5" dir="rtl"><ComplaintPageHeader icon={Mail} eyebrow="البريد الوارد حسب اليوم" title={sectorNames[sector] ?? sector} description="اختر التاريخ ثم البريد المطلوب؛ اكتب نوع التلكؤ والمحلة والزقاق لكل صورة، والمركز البلدي يُحدد تلقائياً." action={<div className="flex w-full flex-col gap-2 rounded-2xl bg-white/10 p-3 sm:w-auto sm:flex-row sm:items-end"><label className="text-xs font-bold text-white/80">تاريخ البريد<input aria-label="تاريخ البريد" type="date" value={date} onChange={event=>{setDate(event.target.value);setActiveId(null);setSelected([])}} className="mt-1 block h-11 w-full rounded-xl border border-white/20 bg-white px-3 text-slate-900 sm:w-auto"/></label><button disabled={isFetching} onClick={()=>void refetch()} className="h-11 rounded-xl bg-white px-4 font-bold text-sky-900 shadow-sm disabled:opacity-50">{isFetching?'جارٍ التحديث…':'تحديث الوارد'}</button></div>} />
  <ComplaintWorkflow current="inbox" />
  {message&&<p aria-live="polite" className="rounded-lg bg-blue-50 p-3 text-sm font-bold text-blue-800">{message}</p>}
  <datalist id="complaint-neighborhoods">{suggestions.map(entry=><option key={entry.id} value={entry.name}>{entry.sectorName}</option>)}</datalist>

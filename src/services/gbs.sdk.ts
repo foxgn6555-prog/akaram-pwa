@@ -35,7 +35,7 @@ function normContainer(r: Record<string, unknown>): GbsContainer {
     pendingCount: Number(r.pending_count ?? 0),
     sectorId: Number(r.sector_id ?? 1),
     areaName: String(r.area_name ?? ''),
-    parentSector: (r.parent_sector as 'karrada' | 'zaafaraniya') ?? 'karrada',
+    parentSector: (r.parent_sector as string | null) ?? 'karrada',
   }
 }
 
@@ -69,7 +69,7 @@ export const gbs = {
   async containers(
     search?: string | null,
     status?: GbsContainerStatus | null,
-    parent?: 'karrada' | 'zaafaraniya' | null,
+    parent?: string | null,
     sectorId?: number | null,
   ): Promise<GbsContainer[]> {
     const data = await sdkGuard(

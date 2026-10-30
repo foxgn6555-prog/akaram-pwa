@@ -1,7 +1,8 @@
 /** SDK بوابة المتابعة (00259): نطاق المتابعة من التطوير المركزية + متابعة أعداد عمال المتعهدين. لا بيانات مالية هنا إطلاقاً. */
 import { sdkGuard, sdkVoid, supabase } from './client'
 
-export type ParentSector = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي) */
+export type ParentSector = string
 export interface FollowUpProfile { user_id: string; parent_sectors: ParentSector[]; sector_ids: number[]; is_active: boolean; scope_label: string | null; areas_count: number; assigned_at: string }
 export interface FollowUpScopeOption { parent_sector: ParentSector; parent_name: string; sector_id: number; area_name: string; contractor_name: string | null }
 export interface FollowUpArea { id: number; name: string; parent_sector: ParentSector }

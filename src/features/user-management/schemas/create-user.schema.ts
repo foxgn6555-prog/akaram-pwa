@@ -49,12 +49,12 @@ export const createSuperAdminSchema = z
     /** مناطق العمل المسندة (1–8) ضمن قاطعي الكرادة والزعفرانية */
     manager_sectors: z.array(z.number().int().min(1).max(8)).max(8).optional(),
     /** القاطع المرتبط بحساب الكراج المركزي */
-    garage_parent_sector: z.enum(['karrada', 'zaafaraniya']).optional(),
+    garage_parent_sector: z.string().min(2).optional(),   // 00394: رمز قطاع من القاعدة
     /** 00158: حساب المتعهد (role = employee) — مسؤول القسم المسؤول عنه ومنطقته (من مناطق المسؤول) */
     contractor_manager_id: z.string().optional().or(z.literal('')),
     contractor_sector_id: z.number().int().min(1).max(8).optional().nullable(),
     /** 00160: مسؤول القاطع (role = admin_ops) — القواطع الأم المسؤول عنها (متعددة) */
-    sector_manager_parent_sectors: z.array(z.enum(['karrada', 'zaafaraniya'])).optional(),
+    sector_manager_parent_sectors: z.array(z.string().min(2)).optional(),
   })
   // تحقق شرطي: مسؤول القسم يلزمه شفت + منطقة واحدة على الأقل
   .superRefine((val, ctx) => {

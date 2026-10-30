@@ -4,10 +4,13 @@ import { CalendarDays, ChevronDown, ChevronUp, Inbox, MapPin, Send, Sparkles, Us
 import { planAutoAssign, suggestManager, useAssignComplaintItems, useComplaintItems, useComplaintManagers, useComplaintNeighborhoods, type ComplaintItem, type ComplaintSector } from '@features/complaints'
 import { baghdadDateKey } from '@features/complaints/lib/baghdad-date'
 import { ComplaintEmpty, ComplaintPageHeader, ComplaintSearch, ComplaintStatusBadge, ComplaintWorkflow } from '../../components/ComplaintUi'
+import { parentSectorLabel, useParentSectors } from '@features/sectors'
 
 type MailFolder = { complaintId: string; referenceNo: string; name: string; sector: ComplaintSector; receivedAt: string; items: ComplaintItem[] }
 
 export default function AssignmentPage() {
+
+  const { parents } = useParentSectors()   // 00394
   const [date, setDate] = useState(baghdadDateKey())
   const { data: items = [], isLoading } = useComplaintItems(false,date)
   const { data: managers = [] } = useComplaintManagers()
@@ -88,7 +91,7 @@ export default function AssignmentPage() {
     <ComplaintSearch value={search} onChange={setSearch} placeholder="ابحث باسم البريد أو الرقم المرجعي">
       <label className="flex items-center gap-2 rounded-xl border bg-white px-3 text-xs font-bold"><CalendarDays size={15}/><input aria-label="تاريخ الإسناد" type="date" value={date} onChange={event=>{setDate(event.target.value);setSelected([]);setExpanded(null)}} className="py-2.5 outline-none"/></label>
       <select aria-label="تصفية القاطع" value={sector} onChange={event => setSector(event.target.value as 'all' | ComplaintSector)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold">
-        <option value="all">كل القواطع</option><option value="karrada">الكرادة</option><option value="zaafaraniya">الزعفرانية</option>
+        <option value="all">كل القواطع</option>{parents.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
       </select>
       <span className="rounded-xl bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-600">{shown.length} مجلد · {shownItemIds.length} تذكرة</span>
     </ComplaintSearch>
@@ -118,7 +121,7 @@ export default function AssignmentPage() {
             </label>
             <button type="button" aria-label={`فتح مجلد ${folder.referenceNo}`} onClick={() => setExpanded(open ? null : folder.complaintId)} className="flex min-w-0 flex-1 items-center gap-3 text-right">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700"><Inbox size={21} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-emerald-700">{folder.referenceNo}</span><strong className="block truncate text-base text-slate-900">{folder.name}</strong><span className="mt-1 block text-xs text-slate-500">{folder.sector === 'karrada' ? 'الكرادة' : 'الزعفرانية'} · {new Date(folder.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-emerald-700">{folder.referenceNo}</span><strong className="block truncate text-base text-slate-900">{folder.name}</strong><span className="mt-1 block text-xs text-slate-500">{parentSectorLabel(folder.sector)} · {new Date(folder.receivedAt).toLocaleDateString('ar-IQ-u-nu-latn')}</span></span>
               <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold">{selectedCount}/{folder.items.length} محددة</span>
               {open ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
             </button>

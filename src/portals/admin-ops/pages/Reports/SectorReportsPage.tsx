@@ -5,13 +5,15 @@ import { useSectorReports } from '@features/sector-manager/hooks'
 import { PARENT_AR, SHIFT_AR, isoDay, pct } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useParentSectors } from '@features/sectors'
 
 const PRESETS = [{ k: 7, l: 'آخر 7 أيام' }, { k: 30, l: 'آخر 30 يوماً' }, { k: 90, l: 'آخر 90 يوماً' }]
 const ago = (n: number) => { const d = new Date(); d.setDate(d.getDate() - (n - 1)); return isoDay(d) }
 
 export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boolean }) {
   const [from, setFrom] = useState(ago(30)), [to, setTo] = useState(isoDay()), [tab, setTab] = useState<'contractors' | 'managers'>('contractors')
-  const [parent, setParent] = useState<'all' | 'karrada' | 'zaafaraniya'>('all')
+  const [parent, setParent] = useState<string>('all')
+  const { parents } = useParentSectors()   // 00394
   const rep = useSectorReports(from, to)
   const r = rep.data ? { ...rep.data, contractors: rep.data.contractors.filter((c) => parent === 'all' || c.parent_sector === parent), managers: rep.data.managers.filter((m) => parent === 'all' || m.parent_sector === parent) } : undefined
   return (
@@ -25,7 +27,7 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
         ] : undefined} />
       {fieldOps && (
         <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" data-testid="rep-parent-filter">
-          {([['all', 'كل القواطع'], ['karrada', 'الكرادة'], ['zaafaraniya', 'الزعفرانية']] as const).map(([k, l]) => (
+          {([['all', 'كل القواطع'] as [string, string], ...parents.map((p) => [p.code, p.name] as [string, string])]).map(([k, l]) => (
             <button key={k} type="button" data-testid={`rep-parent-${k}`} onClick={() => setParent(k)} className={`h-9 rounded-lg text-xs font-black ${parent === k ? 'bg-white shadow' : 'text-slate-600'}`}>{l}</button>
           ))}
         </div>

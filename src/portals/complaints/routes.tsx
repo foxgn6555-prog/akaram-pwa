@@ -1,3 +1,4 @@
+import { useParams } from 'react-router'
 /** مسارات بوابة الشكاوى؛ كل صفحة تستخدم feature hooks ثم SDK فقط. */
 
 import { lazy } from '@lib/router/lazy'
@@ -23,10 +24,17 @@ const s = (node: ReactNode): ReactNode => (
   <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 )
 
+/** 00394: وارد قطاع ديناميكي حسب رمزه في المسار */
+function SectorInboxRoute() {
+  const { code = '' } = useParams()
+  return <InboxPage sector={code} />
+}
+
 export const customRoutes: RouteObject[] = [
   { path: '', element: s(<DashboardPage />) },
   { path: 'karrada-sector', element: s(<InboxPage sector="karrada" />) },
   { path: 'zaafaraniya-sector', element: s(<InboxPage sector="zaafaraniya" />) },
+  { path: 'sector/:code', element: s(<SectorInboxRoute />) },   // 00394: وارد أي قطاع مضاف من التطوير المركزية
   { path: 'assignment', element: s(<AssignmentPage />) },
   { path: 'processing', element: s(<ProcessingPage />) },
   { path: 'items/:id', element: s(<ComplaintDetailPage />) },

@@ -265,7 +265,7 @@ export function useAssignGarageTankSector() {
   return useMutation({
     mutationFn: (input: {
       tankId: string
-      parentSector: 'karrada' | 'zaafaraniya'
+      parentSector: string
     }) => centralGarage.assignTankSector(input.tankId, input.parentSector),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: centralGarageKeys.tanks() })

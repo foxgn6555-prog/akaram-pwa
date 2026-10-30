@@ -8,7 +8,8 @@ export type Shift = string
 /** أسماء الشفتات من الموارد البشرية (سجل حيّ يتحدث فور إضافة شفت) */
 export const SHIFT_LABELS: Record<Shift, string> = SHIFT_LABELS_LIVE
 
-export type MunicipalitySector = 'karrada' | 'zaafaraniya'
+/** 00394: رمز القطاع من جدول parent_sectors (ديناميكي) */
+export type MunicipalitySector = string
 
 /** منطقة تشغيلية ضمن قاطع الكرادة أو الزعفرانية */
 export interface Sector {
@@ -205,7 +206,7 @@ export interface SupportRequest {
   requester_name: string
   requester_sector_id: number
   requester_area_name: string
-  requester_parent_sector?: 'karrada' | 'zaafaraniya'
+  requester_parent_sector?: string
   target_user_id: string
   target_name: string
   needed_count: number

@@ -1,8 +1,10 @@
 /** تنسيقات مشتركة لبوابة المتعهد وغرفة العمليات */
 import { SHIFT_LABELS_LIVE } from '@sdk/hr-shifts.sdk'
+import { parentSectorTitle } from '@sdk/sectors.sdk'
 /** 00376: أسماء الشفتات من الموارد البشرية (سجل حيّ) */
 export const SHIFT_AR: Record<string, string> = SHIFT_LABELS_LIVE
-export const PARENT_AR: Record<string, string> = { karrada: 'قاطع الكرادة', zaafaraniya: 'قاطع الزعفرانية' }
+/** 00394: «قاطع …» من السجل الحيّ للقطاعات */
+export const PARENT_AR: Record<string, string> = new Proxy({} as Record<string, string>, { get: (_t, k) => (typeof k === 'string' ? parentSectorTitle(k) : undefined) })
 export const timeAr = (x: string | null | undefined) =>
   x ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(x)) : '—'
 export const dateAr = (x: string | null | undefined) =>

@@ -1,16 +1,16 @@
-/** مناطق التشغيل الثماني ضمن القاطعين (عقد 00068) — خيارات حقول حاويات GBS */
-export const GBS_PARENT_LABELS: Record<'karrada' | 'zaafaraniya', string> = {
-  karrada: 'قاطع الكرادة',
-  zaafaraniya: 'قاطع الزعفرانية',
-}
+/** مناطق التشغيل ضمن القطاعات — 00394: من السجل الحيّ للقطاعات (قاعدة البيانات) بدل القائمة الثابتة */
+import { getSectorsRegistrySnapshot, PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 
-export const GBS_SECTOR_OPTIONS: { id: number; name: string; parent: 'karrada' | 'zaafaraniya' }[] = [
-  { id: 1, name: 'أرخيته', parent: 'karrada' },
-  { id: 2, name: 'الرياض', parent: 'karrada' },
-  { id: 3, name: 'الواثق', parent: 'karrada' },
-  { id: 4, name: 'الجادرية', parent: 'karrada' },
-  { id: 5, name: 'السندباد', parent: 'zaafaraniya' },
-  { id: 6, name: 'الزعفرانية', parent: 'zaafaraniya' },
-  { id: 7, name: 'ديالى', parent: 'zaafaraniya' },
-  { id: 8, name: 'الوليد', parent: 'zaafaraniya' },
-]
+/** «قاطع …» لكل رمز قطاع (حيّ) */
+export const GBS_PARENT_LABELS: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get: (_t, k) => (typeof k === 'string' && PARENT_SECTOR_LABELS_LIVE[k] ? `قاطع ${PARENT_SECTOR_LABELS_LIVE[k]}` : undefined),
+})
+
+export interface GbsSectorOption { id: number; name: string; parent: string }
+/** المناطق الفعّالة (حيّة) */
+export const gbsSectorOptions = (): GbsSectorOption[] =>
+  getSectorsRegistrySnapshot().filter((p) => p.is_active).flatMap((p) => p.areas.filter((a) => a.is_active).map((a) => ({ id: a.id, name: a.name, parent: p.code })))
+/** قائمة حيّة بواجهة المصفوفة (للتوافق مع الاستخدامات القديمة) */
+export const GBS_SECTOR_OPTIONS: GbsSectorOption[] = new Proxy([] as GbsSectorOption[], {
+  get: (_t, k) => { const arr = gbsSectorOptions(); const v = (arr as unknown as Record<string | symbol, unknown>)[k]; return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(arr) : v },
+})

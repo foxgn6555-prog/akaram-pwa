@@ -4,19 +4,17 @@
  * التوحيد هنا مطابق لدالة `app.normalize_arabic_name` في قاعدة البيانات.
  */
 import type { ComplaintManager, ComplaintNeighborhood, ComplaintSector } from '../types'
+import { areaLabel, getSectorsRegistrySnapshot } from '@sdk/sectors.sdk'
 
-export const COMPLAINT_AREAS: ReadonlyArray<{ id: number; name: string; parent: ComplaintSector }> = [
-  { id: 1, name: 'أرخيته', parent: 'karrada' },
-  { id: 2, name: 'الرياض', parent: 'karrada' },
-  { id: 3, name: 'الواثق', parent: 'karrada' },
-  { id: 4, name: 'الجادرية', parent: 'karrada' },
-  { id: 5, name: 'السندباد', parent: 'zaafaraniya' },
-  { id: 6, name: 'الزعفرانية', parent: 'zaafaraniya' },
-  { id: 7, name: 'ديالى', parent: 'zaafaraniya' },
-  { id: 8, name: 'الوليد', parent: 'zaafaraniya' },
-]
+/** 00394: المناطق الفعّالة من السجل الحيّ للقطاعات (كانت ثابتة 1..8) */
+export const complaintAreas = (): ReadonlyArray<{ id: number; name: string; parent: ComplaintSector }> =>
+  getSectorsRegistrySnapshot().filter((p) => p.is_active).flatMap((p) => p.areas.filter((a) => a.is_active).map((a) => ({ id: a.id, name: a.name, parent: p.code })))
+/** قائمة حيّة (للتوافق مع الاستخدامات القديمة COMPLAINT_AREAS[...]) */
+export const COMPLAINT_AREAS: ReadonlyArray<{ id: number; name: string; parent: ComplaintSector }> = new Proxy([] as Array<{ id: number; name: string; parent: ComplaintSector }>, {
+  get: (_t, k) => { const arr = complaintAreas() as Array<{ id: number; name: string; parent: ComplaintSector }>; const v = (arr as unknown as Record<string | symbol, unknown>)[k]; return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(arr) : v },
+})
 
-export const areaName = (id: number) => COMPLAINT_AREAS.find(area => area.id === id)?.name ?? `منطقة ${id}`
+export const areaName = (id: number) => areaLabel(id)
 
 /** صيغة موحدة للمقارنة: بلا «محلة» بادئة ولا تشكيل، همزات/تاء مربوطة/ياء موحدة، مسافات مفردة. */
 export function normalizeArabicName(value: string | null | undefined): string {

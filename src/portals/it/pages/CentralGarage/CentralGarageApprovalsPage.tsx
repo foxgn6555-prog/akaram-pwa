@@ -11,14 +11,12 @@ import {
 } from '@features/central-garage/hooks'
 import { garageUnitLabel } from '@features/central-garage/fuel-units'
 import type { GarageTank, GarageTankZeroRequest } from '@features/central-garage/types'
+import { parentSectorLabel, useParentSectors } from '@features/sectors'
 
 type Decision = { request: GarageTankZeroRequest; approved: boolean } | null
-type ParentSector = 'karrada' | 'zaafaraniya'
-
-const sectorLabel: Record<ParentSector, string> = {
-  karrada: 'كراج الكرادة',
-  zaafaraniya: 'كراج الزعفرانية',
-}
+type ParentSector = string
+/** 00394: «كراج …» من السجل الحيّ للقطاعات */
+const sectorLabel: Record<ParentSector, string> = new Proxy({} as Record<string, string>, { get: (_t, k) => (typeof k === 'string' ? `كراج ${parentSectorLabel(k)}` : undefined) })
 
 export default function CentralGarageApprovalsPage() {
   const requests = useGarageZeroRequests('pending')
@@ -101,6 +99,7 @@ export default function CentralGarageApprovalsPage() {
 }
 
 function UnassignedTanks({ tanks, isLoading }: { tanks: GarageTank[]; isLoading: boolean }) {
+  const { parents } = useParentSectors()   // 00394
   const assign = useAssignGarageTankSector()
   const [selections, setSelections] = useState<Record<string, ParentSector>>({})
   if (isLoading) return null
@@ -117,14 +116,14 @@ function UnassignedTanks({ tanks, isLoading }: { tanks: GarageTank[]; isLoading:
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         {tanks.map((tank) => {
-          const selected = selections[tank.id] ?? 'karrada'
+          const selected = selections[tank.id] ?? parents[0]?.code ?? 'karrada'
           return (
             <article key={tank.id} className="rounded-2xl border border-orange-200 bg-white p-4" data-testid={`unassigned-tank-${tank.id}`}>
               <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-black text-slate-900">{tank.tankName}</h3><p className="text-xs text-slate-500">{tank.currentQuantity.toLocaleString('ar-IQ-u-nu-latn')} {garageUnitLabel(tank.unit)}</p></div><Link2 className="text-orange-600" size={20} /></div>
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                 <label className="sr-only" htmlFor={`tank-sector-${tank.id}`}>كراج الخزان {tank.tankName}</label>
                 <select id={`tank-sector-${tank.id}`} data-testid={`tank-sector-${tank.id}`} value={selected} onChange={(event) => setSelections((current) => ({ ...current, [tank.id]: event.target.value as ParentSector }))} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold">
-                  <option value="karrada">كراج الكرادة</option><option value="zaafaraniya">كراج الزعفرانية</option>
+                  {parents.map((p) => <option key={p.code} value={p.code}>كراج {p.name}</option>)}
                 </select>
                 <button type="button" disabled={assign.isPending} onClick={() => assign.mutate({ tankId: tank.id, parentSector: selected })} className="h-10 rounded-xl bg-orange-700 px-4 text-xs font-black text-white disabled:opacity-50">ربط الخزان</button>
               </div>

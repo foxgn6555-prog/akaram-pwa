@@ -7,6 +7,7 @@ import {
 } from '@features/central-garage/vehicle-details'
 
 import { useShiftLabel } from '@features/hr-shifts/hooks'
+import { parentSectorTitle } from '@features/sectors'
 
 const shiftMeta: Record<string, { icon: typeof Sunrise; color: string }> = {
   morning: { icon: Sunrise, color: 'bg-amber-50 text-amber-800' },
@@ -92,7 +93,7 @@ export function VehicleCard({
             </p>
             <p className="flex items-center gap-2">
               <MapPin size={14} className="text-cyan-700" />
-              {vehicle.parentSector === 'karrada' ? 'قاطع الكرادة' : 'قاطع الزعفرانية'} ·{' '}
+              {parentSectorTitle(vehicle.parentSector)} ·{' '}
               {vehicle.areaName}
             </p>
           </div>

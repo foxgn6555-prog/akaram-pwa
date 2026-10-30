@@ -204,7 +204,7 @@ function buildDefaultSummary(d: DesignReportData): ReportSummary {
     orgValue: 'شركة جزيرة الأكارم وفيرست ترايد',
     subjectLabel: 'موضوع التقرير',
     ...periodSummaryFields(d),
-    sectorName: SECTOR_LABEL[sector],
+    sectorName: SECTOR_LABEL[sector] ?? sector,
     rows: d.groups.map((g, i) => ({ t: String(i + 1), work: g.workType, src: g.workType })),
     footer: 'الجهة المتصرفة لجنة الإشراف والمراقبة والتقييم في أمانة بغداد',
   }

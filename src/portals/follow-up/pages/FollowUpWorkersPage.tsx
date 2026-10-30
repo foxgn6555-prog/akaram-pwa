@@ -12,7 +12,7 @@ const todayBaghdad = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ba
 
 export default function FollowUpWorkersPage() {
   const [date, setDate] = useState(todayBaghdad())
-  const [parent, setParent] = useState<'all' | 'karrada' | 'zaafaraniya'>('all')
+  const [parent, setParent] = useState<string>('all')
   const rows = useFollowUpContractors(date)
   const list = useMemo(() => (rows.data ?? []).filter((r) => parent === 'all' || r.parent_sector === parent), [rows.data, parent])
   const parents = useMemo(() => Array.from(new Set((rows.data ?? []).map((r) => r.parent_sector))), [rows.data])
@@ -25,7 +25,7 @@ export default function FollowUpWorkersPage() {
         <input type="date" value={date} max={todayBaghdad()} onChange={(e) => setDate(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="date-filter" />
         {parents.length > 1 && (
           <div className="flex gap-1" data-testid="parent-filter">
-            {(['all', ...parents] as const).map((p) => (
+            {(['all', ...parents] as string[]).map((p) => (
               <button key={p} type="button" onClick={() => setParent(p)} className={`rounded-full px-3 py-1 text-xs font-bold ${parent === p ? 'bg-[var(--portal-color)] text-white' : 'border bg-white text-slate-700'}`}>{p === 'all' ? 'الكل' : PARENT_AR[p] ?? p}</button>
             ))}
           </div>

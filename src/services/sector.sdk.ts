@@ -45,7 +45,7 @@ export const sector = {
       code: String(r.code ?? ''),
       name: String(r.name ?? ''),
       sort: Number(r.sort ?? 0),
-      parent_sector: r.parent_sector === 'zaafaraniya' ? 'zaafaraniya' : 'karrada',
+      parent_sector: (r.parent_sector as string | null) ?? 'karrada',
     }))
   },
 
