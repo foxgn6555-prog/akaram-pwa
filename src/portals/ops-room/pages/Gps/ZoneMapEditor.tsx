@@ -6,10 +6,11 @@ import {
   Polygon,
   Polyline,
   Popup,
-  TileLayer,
   useMap,
   useMapEvents,
 } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark } from '@sdk/gps-lvn.sdk'
@@ -145,6 +146,8 @@ export default function ZoneMapEditor({
   onChange: (points: Point[]) => void
 }) {
   const [tileFailed, setTileFailed] = useState(false)
+  useInjectMapThemeStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')   // 00388-د
   const [anchor, setAnchor] = useState<Point | null>(null)
   const chooseShape = (next: ZoneShape) => {
     setAnchor(null)
@@ -197,9 +200,10 @@ export default function ZoneMapEditor({
           مسح الرسم
         </button>
       </div>
+      <div className="absolute left-3 top-3 z-[1000]"><MapThemeToggle theme={theme} onToggle={toggleTheme} testId="zone-editor-theme" /></div>
       {tileFailed && (
         <div className="absolute inset-x-20 bottom-20 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900">
-          تعذر تحميل خلفية OpenStreetMap؛ يمكن متابعة الرسم بعد استعادة الاتصال.
+          تعذر تحميل خلفية الخريطة؛ يمكن متابعة الرسم بعد استعادة الاتصال.
         </div>
       )}
       <MapContainer
@@ -208,14 +212,7 @@ export default function ZoneMapEditor({
         className="h-full min-h-[520px] w-full"
         scrollWheelZoom
       >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            tileerror: () => setTileFailed(true),
-            tileload: () => setTileFailed(false),
-          }}
-        />
+        <MapTiles theme={theme} onFailed={setTileFailed} />
         {zones.map((zone) => (
           <Polygon
             key={`existing-${zone.id}`}

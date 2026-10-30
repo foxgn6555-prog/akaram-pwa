@@ -5,9 +5,10 @@ import {
   Marker,
   Polygon,
   Popup,
-  TileLayer,
   useMapEvents,
 } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import 'leaflet/dist/leaflet.css'
 import type {
   GpsLandmarkIcon,
@@ -46,14 +47,17 @@ export default function LandmarkMapPicker({
   onChange: (point: Point) => void
 }) {
   const [tileFailed, setTileFailed] = useState(false)
+  useInjectMapThemeStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')   // 00388-د
   return (
     <div className="relative h-full min-h-[520px] overflow-hidden bg-slate-900">
       <div className="absolute right-4 top-4 z-[1000] rounded-2xl bg-slate-950/90 px-4 py-3 text-xs font-black text-white shadow-2xl">
         انقر على موقع المعلم في الخريطة الحية
       </div>
+      <div className="absolute left-3 top-3 z-[1000]"><MapThemeToggle theme={theme} onToggle={toggleTheme} testId="landmark-picker-theme" /></div>
       {tileFailed && (
         <div className="absolute inset-x-20 bottom-5 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900">
-          تعذر تحميل خلفية OpenStreetMap.
+          تعذر تحميل خلفية الخريطة.
         </div>
       )}
       <MapContainer
@@ -62,14 +66,7 @@ export default function LandmarkMapPicker({
         className="h-full min-h-[520px] w-full"
         scrollWheelZoom
       >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            tileerror: () => setTileFailed(true),
-            tileload: () => setTileFailed(false),
-          }}
-        />
+        <MapTiles theme={theme} onFailed={setTileFailed} />
         {zones.map((zone) => {
           const positions = zone.polygon.map((item) =>
             Array.isArray(item) ? item : ([item.lat, item.lng] as [number, number]),

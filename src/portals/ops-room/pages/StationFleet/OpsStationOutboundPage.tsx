@@ -4,7 +4,9 @@
  * خريطة: زونات الوجهات + آخر موقع لكل آلية في الطريق (من GPS). رابط الإشعارات /ops-room/station-outbound.
  */
 import { useMemo, useState } from 'react'
-import { MapContainer, Marker, Polygon, Popup, TileLayer } from 'react-leaflet'
+import { MapContainer, Marker, Polygon, Popup } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router'
@@ -105,6 +107,8 @@ function OutboundMap({ rows }: { rows: StationOutboundRow[] }) {
     const dev = (liveMap.data ?? []).find((d) => d.garage_vehicle_id === r.vehicle_id)
     return dev && Number.isFinite(dev.latitude) && Number.isFinite(dev.longitude) ? [{ r, dev }] : []
   }), [enRoute, liveMap.data])
+  useInjectMapThemeStyle()
+  const [theme, , toggleTheme] = useMapTheme('light')   // 00388-د
   if (enRoute.length === 0 && destZones.length === 0) return null
   const first = markers[0]?.dev ?? null
   const firstZone = destZones[0]?.polygon?.[0]
@@ -113,11 +117,14 @@ function OutboundMap({ rows }: { rows: StationOutboundRow[] }) {
     <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" data-testid="so-map">
       <div className="flex items-center justify-between border-b px-4 py-2 text-xs font-bold text-slate-700">
         <span>الخريطة: {markers.length} آلية في الطريق لها موقع · {destZones.length} زون وجهة</span>
-        {enRoute.length > markers.length && <span className="text-amber-700" data-testid="so-map-missing">{enRoute.length - markers.length} في الطريق بلا موقع حديث</span>}
+        <span className="flex items-center gap-2">
+          {enRoute.length > markers.length && <span className="text-amber-700" data-testid="so-map-missing">{enRoute.length - markers.length} في الطريق بلا موقع حديث</span>}
+          <MapThemeToggle theme={theme} onToggle={toggleTheme} testId="so-map-theme" />
+        </span>
       </div>
       <div className="h-[340px]">
         <MapContainer center={center} zoom={11} className="h-full w-full">
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
+          <MapTiles theme={theme} />
           {destZones.map((z) => <Polygon key={z.id} positions={(z.polygon ?? []).map(zonePoint)} pathOptions={{ color: z.color || '#06b6d4', weight: 2, fillOpacity: 0.12 }}><Popup>{z.name}</Popup></Polygon>)}
           {markers.map(({ r, dev }) => (
             <Marker key={r.id} position={[dev.latitude, dev.longitude]} icon={vehicleIcon(`DB ${r.db_number ?? ''}`)}>

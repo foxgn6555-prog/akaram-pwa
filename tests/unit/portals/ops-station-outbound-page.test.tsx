@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router'
 const h = vi.hoisted(() => ({ rows: [] as unknown[], args: [] as unknown[], live: [] as unknown[], zones: [] as unknown[], dests: [] as unknown[] }))
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="map">{children}</div>,
-  TileLayer: () => null,
+  TileLayer: () => null, useMap: () => null,   // 00388-د
   Marker: ({ children }: { children: ReactNode }) => <div data-testid="so-marker">{children}</div>,
   Polygon: ({ children }: { children: ReactNode }) => <div data-testid="so-zone">{children}</div>,
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,

@@ -3,7 +3,9 @@
  * الصنف/التكرار، الأرقام، الآليات مرتبة بالدقائق، الأيام، توزيع الساعات، أيام الأسبوع، أقرب عنوان (OSM)، خريطة مصغّرة، رابط Google Maps.
  */
 import { useEffect, useState } from 'react'
-import { CircleMarker, MapContainer, TileLayer } from 'react-leaflet'
+import { CircleMarker, MapContainer } from 'react-leaflet'
+import { useMapTheme } from '@features/map-theme/useMapTheme'
+import MapTiles from '@features/map-theme/MapTiles'
 import 'leaflet/dist/leaflet.css'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
 import { reverseGeocode } from './geocode'
@@ -13,6 +15,7 @@ const n = (v: number) => v.toLocaleString('en-US')
 
 export default function HotspotDetailPanel({ spot, onClose }: { spot: GpsHotspot; onClose: () => void }) {
   const [address, setAddress] = useState<string | null | 'loading'>('loading')
+  const [theme] = useMapTheme('dark')   // 00388-د: الخريطة المصغّرة تتبع وضع خريطة النفايات
   useEffect(() => { let alive = true; setAddress('loading'); reverseGeocode(spot.lat, spot.lng).then((a) => { if (alive) setAddress(a) }); return () => { alive = false } }, [spot.lat, spot.lng])
   const hours = spot.hours?.length === 24 ? spot.hours : Array.from({ length: 24 }, () => 0)
   const maxH = Math.max(1, ...hours)
@@ -42,7 +45,7 @@ export default function HotspotDetailPanel({ spot, onClose }: { spot: GpsHotspot
       </div>
       <div className="mx-3 mt-3 h-40 overflow-hidden rounded-xl border" data-testid="hotspot-mini-map">
         <MapContainer key={spot.id} center={[spot.lat, spot.lng]} zoom={17} className="h-full w-full" zoomControl={false} dragging={false} scrollWheelZoom={false} doubleClickZoom={false} attributionControl={false} style={{ height: '100%', width: '100%' }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapTiles theme={theme} />
           <CircleMarker center={[spot.lat, spot.lng]} radius={22} pathOptions={{ stroke: false, fillColor: CLASS_COLOR[spot.dominant_class], fillOpacity: 0.25 }} />
           <CircleMarker center={[spot.lat, spot.lng]} radius={8} pathOptions={{ color: '#fff', weight: 2, fillColor: CLASS_COLOR[spot.dominant_class], fillOpacity: 0.95 }} />
         </MapContainer>
