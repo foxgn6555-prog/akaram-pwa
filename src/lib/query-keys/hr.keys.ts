@@ -7,6 +7,7 @@ export const hrKeys = {
   employee: (id: string) => [...hrKeys.all, 'employee', id] as const,
   documents: (id: string) => [...hrKeys.all, 'documents', id] as const,
   documentsExpiring: (within: number | null, dep: string, q: string) => [...hrKeys.all, 'documents-expiring', within, dep, q] as const,
+  nowBoard: (b: string, d: string, q: string) => [...hrKeys.all, 'now-board', b, d, q] as const,
   documentsExpirySummary: () => [...hrKeys.all, 'documents-expiry-summary'] as const,
   assignments: (id: string) => [...hrKeys.all, 'assignments', id] as const,
   attendance: (f?: unknown) => [...hrKeys.all, 'attendance', f ?? {}] as const,

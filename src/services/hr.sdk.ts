@@ -7,7 +7,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary, LetterRow, OfficialLetter, LetterRef,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
-  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, DocumentsExpirySummary, EmployeeDocument, ExpiringDocument,
+  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, DocumentsExpirySummary, EmployeeDocument, ExpiringDocument, NowBoardRow,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
@@ -241,6 +241,10 @@ export const hr = {
   },
   documentsExpiring(withinDays: number | null, departmentId: string | null, search: string | null) {
     return rpc<ExpiringDocument[]>('hr_documents_expiring', { p_within_days: withinDays, p_department: departmentId || null, p_search: search || null })
+  },
+  /** 00389-ب */
+  nowBoard(branchId: string | null, departmentId: string | null, search: string | null) {
+    return rpc<NowBoardRow[]>('hr_now_board', { p_branch: branchId || null, p_department: departmentId || null, p_search: search || null })
   },
   documentsExpirySummary() { return rpc<DocumentsExpirySummary>('hr_documents_expiry_summary', {}) },
   documentsExpiryRunNow() { return rpc<number>('hr_documents_expiry_run_now', {}) },

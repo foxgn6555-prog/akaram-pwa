@@ -16,13 +16,15 @@ const flat = (units: typeof PORTAL_UNITS[keyof typeof PORTAL_UNITS]) =>
 describe('بوابة الموارد البشرية — الوحدات السبع', () => {
   it('تسجل الوحدات السبع بالترتيب المعتمد', () => {
     const units = PORTAL_UNITS[PORTALS.HR]
-    expect(units).toHaveLength(10)   // 00249: + تقارير سلوك الموظفين · 00348: + تعيينات بانتظار الإكمال
+    expect(units).toHaveLength(12)   // 00249: + تقارير سلوك الموظفين · 00348: + تعيينات بانتظار الإكمال
     expect(units.map((u) => u.labelKey)).toEqual([
       'nav.dashboard',          // ① الرئيسية
       'nav.hr_recruitment',     // ② التوظيف وإنهاء الخدمات
       'nav.hr_hire_requests',   // ②ب تعيينات معتمدة بانتظار الإكمال (00348)
       'nav.employees',          // ③ بيانات الموظفين
       'nav.attendance',         // ④ الحضور والانصراف
+      'nav.hr_now',              // ④ب من في الدوام الآن (00389-ب)
+      'nav.hr_attendance_monthly', // ④ج تقرير الحضور الشهري (00389-ب)
       'nav.hr_leaves',          // ⑤ الإجازات والزمنيات
       'nav.hr_documents',       // ⑤ب وثائق الموظفين وانتهاء صلاحيتها (00389-أ)
       'nav.hr_biometric_ledger', // ⑥ دفتر البصمة (بيانات)
@@ -30,7 +32,7 @@ describe('بوابة الموارد البشرية — الوحدات السبع
       'nav.hr_behavior',         // ⑧ تقارير سلوك الموظفين (00249)
     ])
     expect(units.map((u) => u.path)).toEqual([
-      '/hr', '/hr/recruitment', '/hr/hire-requests', '/hr/employees', '/hr/attendance', '/hr/leaves', '/hr/documents', '/hr/biometric', '/hr/org', '/hr/behavior',
+      '/hr', '/hr/recruitment', '/hr/hire-requests', '/hr/employees', '/hr/attendance', '/hr/now', '/hr/attendance-monthly', '/hr/leaves', '/hr/documents', '/hr/biometric', '/hr/org', '/hr/behavior',
     ])
   })
 
@@ -42,6 +44,8 @@ describe('بوابة الموارد البشرية — الوحدات السبع
     expect(nav.attendance).toBe('الحضور والانصراف')
     expect(nav.hr_leaves).toBe('الإجازات والزمنيات')
     expect(nav.hr_documents).toBe('وثائق الموظفين')
+    expect(nav.hr_now).toBe('من في الدوام الآن')
+    expect(nav.hr_attendance_monthly).toBe('تقرير الحضور الشهري')
     expect(nav.hr_biometric_ledger).toBe('دفتر البصمة')
     expect(nav.hr_behavior).toBe('تقارير سلوك الموظفين')
     expect(nav.hr_org).toBe('الهيكل التنظيمي')
@@ -51,7 +55,7 @@ describe('بوابة الموارد البشرية — الوحدات السبع
     const routes = buildPortalRoutes(PORTALS.HR, customRoutes)
     const paths = new Set(routes.map((r) => r.path).filter(Boolean))
     expect(routes.some((r) => r.index)).toBe(true)
-    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId']))
+    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'now', 'attendance-monthly', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId']))
   })
 
   it('الفصل التقني/البياناتي: أجهزة البصمة في بوابة التطوير المركزية فقط، والدفتر في HR فقط', () => {

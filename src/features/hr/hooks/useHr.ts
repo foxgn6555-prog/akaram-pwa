@@ -115,6 +115,9 @@ export function useSetDocumentDates() {
 export function useExpiringDocuments(withinDays: number | null, departmentId: string, search: string) {
   return useQuery({ queryKey: hrKeys.documentsExpiring(withinDays, departmentId, search), queryFn: () => hr.documentsExpiring(withinDays, departmentId || null, search || null), staleTime: 30_000 })
 }
+export function useNowBoard(branchId: string, departmentId: string, search: string) {
+  return useQuery({ queryKey: hrKeys.nowBoard(branchId, departmentId, search), queryFn: () => hr.nowBoard(branchId || null, departmentId || null, search || null), refetchInterval: 30_000, staleTime: 10_000 })
+}
 export function useDocumentsExpirySummary() {
   return useQuery({ queryKey: hrKeys.documentsExpirySummary(), queryFn: hr.documentsExpirySummary, staleTime: 30_000 })
 }

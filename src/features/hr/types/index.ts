@@ -94,6 +94,17 @@ export interface ExpiringDocument {
   id: string; employee_id: string; employee_number: string | null; full_name: string; department_id: string | null; department_name: string | null
   doc_type: DocType; title: string | null; issued_on: string | null; expires_on: string; days_left: number; status: 'expired' | 'soon' | 'ok'
 }
+/** 00389-ب: «من في الدوام الآن» */
+export type NowState = 'missing' | 'absent' | 'late' | 'incomplete' | 'present' | 'done' | 'upcoming' | 'leave' | 'rest' | 'off'
+export interface NowBoardRow {
+  employee_id: string; employee_number: string | null; full_name: string; job_title: string | null; department_id: string | null; department_name: string | null; branch_name: string | null
+  shift_name: string | null; expected_in: string | null; expected_out: string | null; check_in: string | null; check_out: string | null; late_minutes: number; state: NowState; leave_type: string | null
+}
+export const NOW_STATE_ORDER: NowState[] = ['missing', 'absent', 'late', 'incomplete', 'present', 'done', 'upcoming', 'leave', 'rest', 'off']
+export const NOW_STATE_LABELS: Record<NowState, string> = {
+  missing: 'لم يحضر بعد', absent: 'غائب', late: 'حاضر متأخرًا', incomplete: 'بصمة ناقصة', present: 'حاضر', done: 'أكمل الدوام',
+  upcoming: 'قبل الدوام', leave: 'في إجازة', rest: 'يوم راحة', off: 'بلا شفت',
+}
 export interface DocumentsExpirySummary { expired: number; soon: number; d60: number; d90: number; alert_days: number }
 
 export interface CreateEmployeeInput {

@@ -58,6 +58,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'hr.hire-requests': ['execute'],
   'hr.employees': ['create', 'edit', 'export', 'execute'],
   'hr.attendance': ['edit', 'export'],
+  'hr.attendance-monthly': ['export'],   // 00389-ب
   'hr.leaves': ['create', 'decide', 'export'],
   'hr.documents': ['edit', 'export'],   // 00389-أ
   'hr.biometric': ['export'],
