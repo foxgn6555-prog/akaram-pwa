@@ -7,7 +7,7 @@
 import { sdkGuard, sdkVoid, supabase } from './client'
 import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow, OvertimePayout, OvertimeMemberEvent, SettlementRow, SettlementDetail, SettlementsSummary, LetterRow, OfficialLetter, LetterRef,
   HourBankRow, FinancePayrollGate, DeputyPayrollMonth, DeputyReviewRow, DeputyDeductionKind, DeputyReviewAudit,
-  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, DocumentsExpirySummary, EmployeeDocument, ExpiringDocument, NowBoardRow,
+  AttendanceAudit, AttendanceAuditRow, EmployeeMonthDay, AttendanceDayRow, AttendanceDeduction, AttendanceFilters, CreateEmployeeInput, DocType, DocumentsExpirySummary, EmployeeDocument, ExpiringDocument, ManagerCandidate, NowBoardRow,
   FinanceNotice, HrDashboardStats, HrEmployeeFull, HrEmployeeRow, HrLeave, HrShift, MonthExport, OpsExportRow, PayrollSheetRow, PayrollReconcileRow,
   SalaryProfile, ShiftAssignment, TerminationType, HrDepartment, HrJobTitle, ImportEmployeeRow, ImportResult,
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
@@ -123,6 +123,12 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_TIERS_INVALID: 'شرائح الاستقطاع غير صالحة: يجب أن تكون متتالية بلا فجوات تبدأ من الدقيقة 1 وآخرها مفتوح، ولكل شريحة دقائق أو كسر يوم',
   HR_LEAVE_TYPE_INVALID: 'نوع الإجازة غير صالح أو معطّل',
   HR_NO_BIOMETRIC: 'لا يوجد رقم بصمة مسجّل لهذا الموظف — رصيد الإجازات والطلبات لموظفي البصمة (الموارد البشرية تستطيع الإدخال نيابةً)',
+  HR_MANAGER_SELF: 'لا يمكن أن يكون الموظف مديرًا لنفسه',
+  HR_MANAGER_CYCLE: 'هذا الاختيار يُنشئ حلقة: المدير المختار هو أحد مرؤوسي الموظف',
+  HR_MANAGER_INVALID: 'المدير المختار غير فعّال أو منتهي الخدمة',
+  HR_CONTRACT_TYPE_INVALID: 'نوع العقد غير صالح',
+  HR_EMPLOYMENT_STATUS_INVALID: 'حالة التوظيف غير صالحة — إنهاء الخدمة له مساره الخاص',
+  HR_EMPLOYEE_TERMINATED: 'الموظف منتهي الخدمة — لا يمكن تغيير حالته من هنا',
   HR_NO_MANAGER: 'لا يوجد مدير مباشر مسجّل لهذا الموظف — اطلب من الموارد البشرية تحديده',
   HR_ATTACHMENT_REQUIRED: 'هذا النوع يتطلب مرفقاً (مثل تقرير طبي)',
   HR_BACKDATED_DISABLED: 'الطلب ليوم سابق موقوف من التطوير المركزية — راجع الموارد البشرية',
@@ -186,8 +192,12 @@ export const hr = {
       rpc<HrEmployeeRow[]>('hr_employees_list', { p_search: null, p_department: null, p_branch: null, p_status: null, p_shift: null, p_limit: 5000 }),
     ])
     const summary = list.find((e) => e.id === id)
-    return { ...(row as unknown as HrEmployeeFull), ...(summary ?? {}) } as HrEmployeeFull
+    const full = { ...(row as unknown as HrEmployeeFull), ...(summary ?? {}) } as HrEmployeeFull
+    full.manager_name = full.manager_id ? (list.find((e) => e.id === full.manager_id)?.full_name ?? null) : null   // 00390
+    return full
   },
+  /** 00390: المرشحون للمدير المباشر (يستثني الموظف ومرؤوسيه والمنتهين) */
+  managerCandidates(employeeId: string, q: string) { return rpc<ManagerCandidate[]>('hr_manager_candidates', { p_employee: employeeId, p_q: q.trim() || null }) },
   createEmployee(input: CreateEmployeeInput) {
     const clean = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== '' && v !== undefined))
     return rpc<string>('hr_employee_create', { p: clean })

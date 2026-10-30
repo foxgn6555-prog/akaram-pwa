@@ -6,8 +6,8 @@ import { Link, useParams } from 'react-router'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import {
-  ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, WEEKDAYS_AR,
-  useAssignShift, useAttendance, useHrEmployee, useHrLeaves, useHrShifts, useShiftAssignments, useUpdateEmployee, useHrJobTitles,
+  ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, EMPLOYMENT_STATUS_LABELS, TERMINATION_LABELS, WEEKDAYS_AR,
+  useAssignShift, useAttendance, useHrEmployee, useHrLeaves, useHrShifts, useShiftAssignments, useUpdateEmployee, useHrJobTitles, useManagerCandidates,
 } from '@features/hr'
 import type { AttendanceStatus } from '@features/hr'
 import { Button } from '@components/ui'
@@ -77,6 +77,36 @@ function Chip({ children, tone = 'slate', testId }: { children: React.ReactNode;
   return <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-bold', t[tone])} data-testid={testId}>{children}</span>
 }
 
+// ── 00390: اختيار المدير المباشر بالبحث (الخادم يستثني الموظف نفسه ومرؤوسيه والمنتهين) ──
+function ManagerPicker({ employeeId, value, currentName, onChange }: { employeeId: string; value: string; currentName: string | null; onChange: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const { data: candidates = [], isLoading } = useManagerCandidates(employeeId, q, open)
+  const [pickedName, setPickedName] = useState<string | null>(null)
+  const label = value ? (pickedName ?? currentName ?? '…') : 'بلا مدير مباشر'
+  return (
+    <div className="relative" data-testid="manager-picker">
+      <div className="flex gap-1">
+        <button type="button" className={clsx(field, 'flex items-center justify-between text-start')} onClick={() => setOpen((v) => !v)} data-testid="manager-toggle"><span className="truncate">{label}</span><span className="text-slate-400">▾</span></button>
+        {value && <Button size="sm" variant="ghost" onClick={() => { onChange(''); setPickedName(null) }} data-testid="manager-clear">إزالة</Button>}
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+          <input autoFocus className={field} placeholder="ابحث بالاسم أو الرقم الوظيفي" value={q} onChange={(ev) => setQ(ev.target.value)} data-testid="manager-search" />
+          <ul className="mt-1 max-h-56 overflow-y-auto text-xs">
+            {isLoading ? <li className="p-2 text-slate-400">جارٍ البحث…</li> : candidates.length === 0 ? <li className="p-2 text-slate-400">لا نتائج</li> : candidates.map((c) => (
+              <li key={c.id}><button type="button" className="w-full rounded-lg px-2 py-1.5 text-start hover:bg-slate-50" onClick={() => { onChange(c.id); setPickedName(c.full_name); setOpen(false) }} data-testid={`manager-opt-${c.employee_number}`}>
+                <span className="font-semibold">{c.full_name}</span><span className="ms-2 text-[10px] text-slate-500" dir="ltr">{c.employee_number}</span>{c.job_title && <span className="block text-[10px] text-slate-500">{c.job_title}{c.department_name ? ` · ${c.department_name}` : ''}</span>}
+              </button></li>
+            ))}
+          </ul>
+          <p className="mt-1 border-t pt-1 text-[10px] text-slate-400">لا يُعرض الموظف نفسه ولا مرؤوسوه ولا منتهو الخدمة (منع الحلقات).</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── البيانات ──
 type Full = NonNullable<ReturnType<typeof useHrEmployee>['data']>
 function DataTab({ e }: { e: Full }) {
@@ -92,19 +122,24 @@ function DataTab({ e }: { e: Full }) {
     const patch = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v === '' ? null : v]))
     await update.mutateAsync({ id: e.id, patch }); setEditing(false); setP({})
   }
-  const rows: Array<[string, keyof Full, 'text' | 'date' | 'select-dept' | 'select-branch' | 'select-title' | 'select-gender' | 'select-marital' | 'readonly']> = [
+  const rows: Array<[string, keyof Full, 'text' | 'date' | 'select-dept' | 'select-branch' | 'select-title' | 'select-gender' | 'select-marital' | 'select-manager' | 'select-contract' | 'select-status' | 'readonly']> = [
     ['الرقم الوظيفي', 'employee_number', 'readonly'], ['الاسم الرباعي', 'full_name', 'text'], ['اسم الأم', 'mother_name', 'text'], ['الجنس', 'gender', 'select-gender'],
     ['تاريخ الولادة', 'birth_date', 'date'], ['محل الولادة', 'birth_place', 'text'], ['الحالة الاجتماعية', 'marital_status', 'select-marital'], ['التحصيل الدراسي', 'education', 'text'],
     ['فصيلة الدم', 'blood_type', 'text'], ['البطاقة الموحدة', 'national_id_number', 'text'], ['بطاقة السكن', 'residence_card_number', 'text'], ['المحافظة', 'governorate', 'text'],
     ['العنوان', 'address', 'text'], ['الهاتف 1', 'phone', 'text'], ['الهاتف 2', 'phone2', 'text'], ['البريد', 'email', 'text'],
     ['قريب الطوارئ', 'emergency_contact_name', 'text'], ['هاتف الطوارئ', 'emergency_contact_phone', 'text'], ['المسمى الوظيفي', 'job_title_id', 'select-title'],
     ['القسم', 'department_id', 'select-dept'], ['الفرع', 'branch_id', 'select-branch'], ['تاريخ المباشرة', 'hire_date', 'date'], ['رقم البصمة', 'biometric_pin', 'text'],
+    // 00390: كانت غير قابلة للتعديل من الشاشة رغم أن الخادم يقبلها
+    ['المدير المباشر', 'manager_id', 'select-manager'], ['نوع العقد', 'contract_type', 'select-contract'], ['حالة التوظيف', 'employment_status', 'select-status'],
   ]
   const display = (k: keyof Full) => {
     const v = e[k] as string | null
     if (k === 'department_id') return e.department_name ?? '—'
     if (k === 'job_title_id') return e.job_title ? <>{e.job_title}{e.is_driver && <span className="ms-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800" data-testid="driver-badge">🚛 يقود آليات</span>}</> : <span className="text-amber-700" data-testid="no-title">بلا مسمى — عيّنه من الهيكل</span>
     if (k === 'branch_id') return e.branch_name ?? '—'
+    if (k === 'manager_id') return e.manager_id ? (e.manager_name ?? '—') : <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800" data-testid="no-manager-badge">غير محدد — طلبات الإجازة تحتاج مديرًا مباشرًا أو سلسلة موافقة</span>
+    if (k === 'contract_type') return v ? CONTRACT_LABELS[v as keyof typeof CONTRACT_LABELS] : '—'
+    if (k === 'employment_status') return v ? EMPLOYMENT_STATUS_LABELS[v as keyof typeof EMPLOYMENT_STATUS_LABELS] : '—'
     if (k === 'gender') return v ? GENDER[v] : '—'
     if (k === 'marital_status') return v ? MARITAL[v] : '—'
     return v || '—'
@@ -129,6 +164,9 @@ function DataTab({ e }: { e: Full }) {
                 : kind === 'select-dept' ? (val('job_title_id') ? <span className="text-xs text-slate-500">يُشتق من المسمى</span> : <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{departments.filter((d) => !d.is_job_title).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>)
                 : kind === 'select-branch' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
                 : kind === 'select-gender' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option><option value="male">ذكر</option><option value="female">أنثى</option></select>
+                : kind === 'select-manager' ? <ManagerPicker employeeId={e.id} value={val(k)} currentName={e.manager_name ?? null} onChange={(id) => set('manager_id', id)} />
+                : kind === 'select-contract' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)} data-testid="edit-contract">{Object.entries(CONTRACT_LABELS).map(([kk, ll]) => <option key={kk} value={kk}>{ll}</option>)}</select>
+                : kind === 'select-status' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)} data-testid="edit-status">{(['active', 'on_leave', 'suspended'] as const).map((kk) => <option key={kk} value={kk}>{EMPLOYMENT_STATUS_LABELS[kk]}</option>)}</select>
                 : kind === 'select-marital' ? <select className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)}><option value="">—</option>{Object.entries(MARITAL).map(([kk, ll]) => <option key={kk} value={kk}>{ll}</option>)}</select>
                 : <input type={kind === 'date' ? 'date' : 'text'} className={field} value={val(k)} onChange={(ev) => set(k as string, ev.target.value)} data-testid={`inp-${k as string}`} />}
             </dd>

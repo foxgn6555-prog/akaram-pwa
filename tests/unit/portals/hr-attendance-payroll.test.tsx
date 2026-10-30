@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 
-const h = vi.hoisted(() => ({ gate: null as unknown,
+const h = vi.hoisted(() => ({ gate: null as unknown, candidates: undefined as Array<{ id: string; employee_number: string; full_name: string; job_title: string | null; department_name: string | null }> | undefined,
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
   days: [] as unknown[], employees: [] as unknown[], attendance: [] as unknown[], attendanceFilters: null as unknown, exports: [] as unknown[], deductions: [] as unknown[], sheet: [] as unknown[],
   notices: [] as unknown[], profile: null as unknown, dashboard: null as unknown, unmatched: [] as unknown[], unmatchedFilters: null as unknown,
@@ -30,6 +30,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useEmployeeDocuments: () => ({ data: [], isLoading: false }), useUploadDocument: () => mut(async () => undefined), useDeleteDocument: () => mut(async () => undefined),
   useHrLeaves: () => ({ data: [], isLoading: false }),
   useHrJobTitles: () => ({ data: h.titles ?? [], isLoading: false }),
+  useManagerCandidates: (_id: string, q: string) => ({ data: (h.candidates ?? []).filter((c) => !q || c.full_name.includes(q)), isLoading: false }),
   useAttendance: (f: unknown) => { h.attendanceFilters = f; return { data: h.attendance, isLoading: false } },
   useEvaluateAttendance: () => mut(async () => 0), useHrDashboard: () => ({ data: h.dashboard, isLoading: false }),
   useEditAttendance: () => mut(h.edit), useResetAttendance: () => mut(h.reset), useDeductions: () => ({ data: h.deductions, isLoading: false }),
@@ -90,6 +91,25 @@ describe('HR — بيانات الموظفين', () => {
     expect(screen.getByTestId('shift-hist-2026-09-01')).toHaveTextContent('الحالي')
     fireEvent.click(screen.getByTestId('etab-docs'))
     for (const t of ['photo', 'national_id_front', 'national_id_back', 'residence_front', 'residence_back', 'other']) expect(screen.getByTestId(`doc-slot-${t}`)).toBeInTheDocument()
+  })
+  it('00390: ملف الموظف يتيح تعديل المدير المباشر (بحث) ونوع العقد وحالة التوظيف؛ شارة «غير محدد» بلا مدير', async () => {
+    h.candidates = [{ id: 'e9', employee_number: 'E900', full_name: 'سعد المدير', job_title: 'رئيس قسم', department_name: 'النقل' }, { id: 'e8', employee_number: 'E800', full_name: 'كريم', job_title: null, department_name: null }]
+    render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)
+    expect(screen.getByTestId('no-manager-badge')).toBeInTheDocument()
+    expect(screen.getByTestId('fld-contract_type')).toHaveTextContent('شهري')
+    expect(screen.getByTestId('fld-employment_status')).toHaveTextContent('نشط')
+    fireEvent.click(screen.getByTestId('edit-toggle'))
+    fireEvent.click(screen.getByTestId('manager-toggle'))
+    fireEvent.change(screen.getByTestId('manager-search'), { target: { value: 'سعد' } })
+    expect(screen.queryByTestId('manager-opt-E800')).toBeNull()
+    fireEvent.click(screen.getByTestId('manager-opt-E900'))
+    expect(screen.getByTestId('manager-toggle')).toHaveTextContent('سعد المدير')
+    fireEvent.change(screen.getByTestId('edit-contract'), { target: { value: 'daily' } })
+    fireEvent.change(screen.getByTestId('edit-status'), { target: { value: 'suspended' } })
+    expect(within(screen.getByTestId('edit-status')).queryByText('منتهية خدمته')).toBeNull()
+    fireEvent.click(screen.getByTestId('edit-save'))
+    await waitFor(() => expect(h.update).toHaveBeenCalledWith({ id: 'e1', patch: { manager_id: 'e9', contract_type: 'daily', employment_status: 'suspended' } }))
+    h.candidates = undefined
   })
   it('00174: «إرسال إلى أجهزة البصمة» يرسل الموظف بمعرّفه ويعرض عدد الأجهزة؛ معطّل بلا رقم بصمة رقمي؛ مخفي للمنتهية خدمته', async () => {
     const { unmount } = render(<MemoryRouter initialEntries={['/hr/employees/e1']}><Routes><Route path="/hr/employees/:employeeId" element={<EmployeeDetail />} /></Routes></MemoryRouter>)

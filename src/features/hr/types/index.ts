@@ -58,6 +58,8 @@ export interface HrEmployeeFull extends HrEmployeeRow {
   email: string | null
   phone2: string | null
   manager_id: string | null
+  /** 00390: اسم المدير المباشر (مشتق من قائمة الموظفين) */
+  manager_name?: string | null
   mother_name: string | null
   gender: 'male' | 'female' | null
   birth_date: string | null
@@ -573,6 +575,9 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   residence_front: 'بطاقة السكن — وجه', residence_back: 'بطاقة السكن — ظهر',
   driving_license: 'إجازة السوق', contract: 'العقد', health_cert: 'الشهادة الصحية', passport: 'جواز السفر', other: 'مستمسك آخر',
 }
+export const EMPLOYMENT_STATUS_LABELS: Record<EmploymentStatus, string> = { active: 'نشط', on_leave: 'في إجازة طويلة', suspended: 'موقوف', terminated: 'منتهية خدمته' }
+/** 00390 */
+export interface ManagerCandidate { id: string; employee_number: string; full_name: string; job_title: string | null; department_name: string | null }
 export const CONTRACT_LABELS: Record<ContractType, string> = { monthly: 'راتب شهري', daily: 'أجر يومي' }
 export const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
 export const GOVERNORATES_IQ = ['بغداد', 'البصرة', 'نينوى', 'أربيل', 'النجف', 'كربلاء', 'كركوك', 'الأنبار', 'ديالى', 'ذي قار', 'بابل', 'واسط', 'ميسان', 'المثنى', 'القادسية', 'صلاح الدين', 'السليمانية', 'دهوك']

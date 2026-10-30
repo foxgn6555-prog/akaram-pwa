@@ -95,6 +95,9 @@ export function useTerminateEmployee() {
 export function useEmployeeDocuments(employeeId: string) {
   return useQuery({ queryKey: hrKeys.documents(employeeId), queryFn: () => hr.listDocuments(employeeId), enabled: !!employeeId })
 }
+export function useManagerCandidates(employeeId: string, q: string, enabled = true) {
+  return useQuery({ queryKey: [...hrKeys.employee(employeeId), 'manager-candidates', q], queryFn: () => hr.managerCandidates(employeeId, q), enabled: enabled && !!employeeId, staleTime: 15_000 })
+}
 export function useUploadDocument() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
