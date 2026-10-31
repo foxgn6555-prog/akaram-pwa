@@ -127,6 +127,17 @@ begin
   select status into missing from public.platform_reset_requests where id = v_id; assert missing = 'cancelled', 'R6d cancelled';
   select count(*) into n from public.approval_tasks where request_kind = 'platform_reset' and request_id = v_id and status = 'pending'; assert n = 0, 'R6e tasks closed';
 
+  -- بيانات واقعية مترابطة قبل التصفير الكامل: تقرير ↔ إرسال + آلية ↔ جهاز GPS.
+  insert into public.complaint_reports(id,report_date,sector,title,created_by) values ('98000000-0000-0000-0000-0000000000c1','2020-01-01','karrada','تقرير حلقي',it1);
+  insert into public.complaint_email_deliveries(id,sender,recipients,subject,sent_by,report_id) values ('98000000-0000-0000-0000-0000000000c2','a@a.iq',array['b@b.iq'],'إرسال',it1,'98000000-0000-0000-0000-0000000000c1');
+  update public.complaint_reports set delivery_id='98000000-0000-0000-0000-0000000000c2' where id='98000000-0000-0000-0000-0000000000c1';
+  insert into public.gps_providers(id,name) values ('98000000-0000-0000-0000-0000000000c3','LVN تجريبي');
+  insert into public.gps_devices(id,provider_id,external_id,name) values ('98000000-0000-0000-0000-0000000000c4','98000000-0000-0000-0000-0000000000c3','test-device','جهاز اختبار');
+  insert into public.sectors(id,code,name,sort,parent_sector) values (981,'T981','قطاع تجريبي',981,'karrada');
+  insert into public.garage_vehicles(id,vehicle_name,db_number,plate_number,chassis_number,image_path,shift,driver_name,sector_id,created_by)
+    values ('98000000-0000-0000-0000-0000000000c5','آلية اختبار','T981','T981','CH981','test.jpg','morning','سائق',981,it1);
+  insert into public.gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) values ('98000000-0000-0000-0000-0000000000c4','98000000-0000-0000-0000-0000000000c5','manual');
+
   -- R7: التصفير الكامل (كل الفئات بما فيها الحسابات) عبر السلسلة: يبقى المنفِّذ (المعتمِد) والمدير المفوض فقط؛ كل جداول الكتالوج فارغة؛ بنية الصلاحيات باقية
   select count(*) into m from public.permission_units;
   j := public.platform_reset_request((select array_agg(c.key) from app.platform_reset_catalog() c), 'تصفير'); v_id := (j ->> 'id')::uuid;
