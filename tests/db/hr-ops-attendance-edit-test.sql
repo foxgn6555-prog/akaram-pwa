@@ -33,7 +33,8 @@ insert into public.employee_shift_assignments (employee_id, shift_id, effective_
 select auth.set_test_user('0e000000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := '0e000000-0000-0000-0000-0000000000e1'; a record; d date; begin
   d := m + 3;
-  perform public.ops_attendance_edit(e, d, (d + time '08:40')::timestamp - interval '3 hours', (d + time '15:30')::timestamp - interval '3 hours', 'late', 'بصمة الدخول لم تُسجَّل — تأكدنا من المسؤول');
+  insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method) values('OE-TEST','7201',e,((d+time '08:40')::timestamp-interval '3 hours') at time zone 'UTC','manual');
+  perform public.ops_attendance_edit(e, d, (d + time '08:40')::timestamp - interval '3 hours', (d + time '15:30')::timestamp - interval '3 hours', 'auto', 'بصمة الخروج لم تُسجَّل — تأكدنا من المسؤول');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = d;
   assert a.shift_name = 'oe صباحي' and a.expected_in = (d + time '08:00')::timestamp - interval '3 hours' and a.expected_out = (d + time '16:00')::timestamp - interval '3 hours', 'O1 expected from shift: ' || row_to_json(a)::text;
   assert a.late_minutes = 25 and a.early_minutes = 0 and a.worked_minutes = 410 and a.status = 'late' and a.source = 'manual', 'O1 metrics: ' || row_to_json(a)::text;
@@ -44,9 +45,10 @@ end $$;
 -- ═══ O2 · خروج مبكر ضمن السماح + «حاضر» يصفّر الدقائق + التاريخ المستقبلي مرفوض ═══
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := '0e000000-0000-0000-0000-0000000000e1'; a record; d date; ok boolean := false; begin
   d := m + 4;
-  perform public.ops_attendance_edit(e, d, (d + time '07:55')::timestamp - interval '3 hours', (d + time '15:52')::timestamp - interval '3 hours', 'present', 'تأكيد حضور');
+  insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method) values('OE-TEST','7201',e,((d+time '07:55')::timestamp-interval '3 hours') at time zone 'UTC','manual');
+  perform public.ops_attendance_edit(e, d, (d + time '07:55')::timestamp - interval '3 hours', (d + time '15:52')::timestamp - interval '3 hours', 'auto', 'تأكيد بصمة خروج ناقصة');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = d;
-  assert a.status = 'present' and a.late_minutes = 0 and a.early_minutes = 0 and a.worked_minutes = 477, 'O2 present: ' || row_to_json(a)::text;
+  assert a.status = 'early_leave' and a.late_minutes = 0 and a.early_minutes = 8 and a.worked_minutes = 477, 'O2 present: ' || row_to_json(a)::text;
   begin
     perform public.ops_attendance_edit(e, current_date + 5, null, null, 'absent', 'مستقبل');
   exception when others then ok := sqlerrm like '%HR_FUTURE_DATE%'; end;
@@ -65,7 +67,8 @@ end $$;
 select auth.set_test_user('0e000000-0000-0000-0000-00000000000a');
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid := '0e000000-0000-0000-0000-0000000000e1'; a record; d date; begin
   d := m + 5;
-  perform public.ops_attendance_edit(e, d, (d + time '09:30')::timestamp - interval '3 hours', (d + time '16:00')::timestamp - interval '3 hours', 'late', 'دخل بعد الزمنية بنصف ساعة');
+  insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method) values('OE-TEST','7201',e,((d+time '09:30')::timestamp-interval '3 hours') at time zone 'UTC','manual');
+  perform public.ops_attendance_edit(e, d, (d + time '09:30')::timestamp - interval '3 hours', (d + time '16:00')::timestamp - interval '3 hours', 'auto', 'دخل بعد الزمنية بنصف ساعة');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = d;
   -- 90 دقيقة بعد 08:00 − 60 زمنية − 15 سماح = 15
   assert a.late_minutes = 15 and a.permit_minutes = 60, 'O3 permit cover: ' || row_to_json(a)::text;

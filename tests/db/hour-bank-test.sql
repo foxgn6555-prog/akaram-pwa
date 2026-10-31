@@ -190,7 +190,7 @@ select auth.set_test_user('b7000000-0000-0000-0000-000000000001');
 do $$ declare m date := current_setting('test.hb_m')::date; ok boolean; begin
   ok := false; begin perform public.ops_deduction_waive('b7000000-0000-0000-0000-0000000000ec', m, true, 'سبب'); exception when others then ok := sqlerrm = 'HR_WAIVE_NOT_ALLOWED'; end; assert ok, 'S7 waive blocked';
   ok := false; begin perform public.ops_attendance_edit('b7000000-0000-0000-0000-0000000000ea', m, (m::timestamp + time '05:00')::timestamptz, (m::timestamp + time '13:00')::timestamptz, 'present', 'سبب'); exception when others then ok := sqlerrm = 'HR_EDIT_LIMITED'; end; assert ok, 'S7 edit present blocked';
-  perform public.ops_attendance_edit('b7000000-0000-0000-0000-0000000000ec', m + 25, (m + 25)::timestamp + time '05:00', (m + 25)::timestamp + time '13:00', 'present', 'حضر فعلاً والجهاز معطل');
+  ok := false; begin perform public.ops_attendance_edit('b7000000-0000-0000-0000-0000000000ec', m + 25, (m + 25)::timestamp + time '05:00', (m + 25)::timestamp + time '13:00', 'present', 'حضر فعلاً والجهاز معطل'); exception when others then ok := sqlerrm = 'HR_EDIT_APPROVAL_REQUIRED'; end; assert ok, 'S7 no punches require approval';
   raise notice 'S7 ✅';
 end $$;
 select auth.set_test_user('b7000000-0000-0000-0000-000000000004');

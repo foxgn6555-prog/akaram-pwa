@@ -68,7 +68,12 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_DEDUCTION_INVALID: 'الخصم يحتاج مبلغاً أو أياماً',
   HR_EXPORT_NOT_EDITABLE: 'هذا الكشف لم يعد قابلاً للتعديل (مُعتمد أو مُستبدل)',
   HR_WAIVE_NOT_ALLOWED: 'الإعفاء من الاستقطاع ليس من صلاحية غرفة العمليات — يقرّره معاون المدير المفوض في مرحلة المراجعة',
-  HR_EDIT_LIMITED: 'تعديل غرفة العمليات محصور بالبصمات الناقصة/الغياب — يوم مكتمل البصمتين لا يُعدَّل',
+  HR_EDIT_LIMITED: 'اليوم ليس بصمة واحدة ناقصة قابلة للتعديل؛ راجع سجل البصمات أو الإجازة',
+  HR_EDIT_APPROVAL_REQUIRED: 'الحضور بلا بصمة يحتاج طلباً وموافقة، ولا يُنفَّذ مباشرة',
+  HR_EDIT_SHIFT_BOUNDS: 'الوقت المضاف يجب أن يقع ضمن حدود الشفت الفعلي',
+  HR_EDIT_PUNCH_PRESERVE: 'لا يمكن تغيير البصمة الحقيقية؛ صحّح الطرف الناقص فقط',
+  HR_EDIT_STATUS_OR_TIME: 'اختر تصحيح البصمة الناقصة؛ لا يمكن تعيين الحالة يدوياً',
+  ATT_EDIT_CHANGED_SINCE_APPLY: 'تغيّر اليوم بعد تنفيذ الطلب؛ راجع التدقيق قبل التراجع',
   HR_DEPUTY_REVIEW_PENDING: 'كشف الشهر بانتظار اعتماد معاون المدير المفوض — لا يُعرض ولا يُعتمد في المالية قبل ذلك',
   HR_REVIEW_APPROVED: 'اعتُمدت المراجعة — أعد فتحها بسبب لتعديل الاستقطاعات',
   HR_REVIEW_NOT_APPROVED: 'المراجعة غير معتمدة أصلاً',
@@ -290,6 +295,9 @@ export const hr = {
   dashboard() { return rpc<HrDashboardStats | null>('hr_dashboard_stats', {}) },
 
   // ─────────── غرفة العمليات: التدقيق ───────────
+  correctionOptions(employeeId: string, date: string) {
+    return rpc<{ skipped?: string; count?: number; real?: string | null; shift_start?: string; shift_end?: string; expected_in?: string; expected_out?: string; flexible?: boolean }>('ops_attendance_correction_options', { p_employee: employeeId, p_date: date })
+  },
   editAttendance(v: { employeeId: string; date: string; checkIn: string | null; checkOut: string | null; status: string; reason: string }) {
     return sdkVoid(supabase.rpc('ops_attendance_edit', {
       p_employee: v.employeeId, p_date: v.date, p_check_in: v.checkIn, p_check_out: v.checkOut, p_status: v.status, p_reason: v.reason,

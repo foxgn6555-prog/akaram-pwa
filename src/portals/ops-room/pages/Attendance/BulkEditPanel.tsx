@@ -2,8 +2,8 @@
  * غرفة العمليات — «تعديل جماعي» (00397-ب): طلب واحد = نطاق × أيام × نوع التعديل.
  *   ① النطاق: موظفون محددون / فرع / قسم / قسم وأقسامه الفرعية.
  *   ② الأيام: من–إلى (حتى 62 يوماً) مع إمكانية استثناء أيام بالنقر.
- *   ③ نوع التعديل: حضور كامل بأوقات الشفت / تغيير حالة / تحديد أوقات.
- *   ④ معاينة إلزامية (كم موظف، كم يوم، كم دقيقة ستُصحَّح، قبل/بعد لكل صف) ثم: «تنفيذ مباشر» أو «إرسال طلباً إلى الموارد البشرية».
+ *   ③ تحديد الطرف الناقص: اقتراح بداية أو نهاية الشفت دون مس البصمة الحقيقية.
+ *   ④ معاينة إلزامية ثم تنفيذ الناقص مباشرة، أو طلب الموافقة عند عدم وجود بصمة.
  *   أسفلها: سجل طلبات التعديل (الكل) مع التفاصيل والإلغاء.
  */
 import { useMemo, useState } from 'react'
@@ -13,17 +13,14 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
-import { ATTENDANCE_STATUS_LABELS } from '@features/hr'
-import type { AttendanceStatus } from '@features/hr'
 import { field } from '@portals/hr/components/hr-format'
 import {
-  ATTENDANCE_EDIT_ACTION_HINTS, ATTENDANCE_EDIT_ACTION_LABELS, ATTENDANCE_EDIT_SCOPE_LABELS, enumerateDays, hmBaghdad,
+  ATTENDANCE_EDIT_SCOPE_LABELS, enumerateDays, hmBaghdad,
   useAttendanceEditCancel, useAttendanceEditCreate, useAttendanceEditEmployeeSearch, useAttendanceEditList, useAttendanceEditPreview,
-  type AttendanceEditAction, type AttendanceEditDraft, type AttendanceEditMode, type AttendanceEditPreview, type AttendanceEditScopeKind,
+  type AttendanceEditDraft, type AttendanceEditMode, type AttendanceEditPreview, type AttendanceEditScopeKind,
 } from '@features/attendance-edits'
 import { ListFilters, ReasonDialog, RequestDetailDialog, RequestsTable, fmtDate, useListFilters } from '@features/attendance-edits/components/AttendanceEditShared'
 
-const STATUS_CHOICES: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 const todayIso = () => new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10)   // تاريخ بغداد
 
 export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: { frozen?: boolean; canDirect?: boolean; canRequest?: boolean }) {
@@ -32,9 +29,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
   const [empSearch, setEmpSearch] = useState('')
   const [from, setFrom] = useState(''); const [to, setTo] = useState('')
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
-  const [action, setAction] = useState<AttendanceEditAction>('full_presence')
-  const [status, setStatus] = useState<AttendanceStatus>('leave')
-  const [cin, setCin] = useState(''); const [cout, setCout] = useState('')
+  const [missingSide, setMissingSide] = useState<'in' | 'out' | null>(null)
   const [reason, setReason] = useState('')
   const [preview, setPreview] = useState<AttendanceEditPreview | null>(null)
   const [confirmMode, setConfirmMode] = useState<AttendanceEditMode | null>(null)
@@ -51,9 +46,8 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
   const allDays = useMemo(() => enumerateDays(from, to || from), [from, to])
   const dates = useMemo(() => allDays.filter((d) => !excluded.has(d)), [allDays, excluded])
   const tooMany = allDays.length >= 62 && !!to && enumerateDays(from, to, 400).length > 62
-  const payload = action === 'set_status' ? { status, ...(cin && { check_in: cin }), ...(cout && { check_out: cout }) } : action === 'set_times' ? { check_in: cin, check_out: cout } : {}
-  const draft: AttendanceEditDraft = { scopeKind, scopeIds, dates, action, payload }
-  const ready = scopeIds.length > 0 && dates.length > 0 && (action !== 'set_times' || (!!cin && !!cout)) && !tooMany
+  const draft: AttendanceEditDraft = { scopeKind, scopeIds, dates, action: 'full_presence', payload: { missing_side: missingSide ?? undefined } }
+  const ready = scopeIds.length > 0 && dates.length > 0 && !!missingSide && !tooMany
   const reasonOk = reason.trim().length >= 5
   const invalidate = () => setPreview(null)
 
@@ -123,26 +117,12 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
             )}
           </div>
 
-          {/* ③ نوع التعديل */}
+          {/* ③ اختر الطرف الناقص؛ البصمة الموجودة لا تتغير */}
           <div className="space-y-2 rounded-xl border border-slate-100 p-3">
-            <div className="text-xs font-bold text-slate-700">③ نوع التعديل</div>
-            <div className="space-y-1">
-              {(Object.keys(ATTENDANCE_EDIT_ACTION_LABELS) as AttendanceEditAction[]).map((a) => (
-                <label key={a} className={clsx('flex cursor-pointer items-start gap-2 rounded-lg p-2 ring-1', action === a ? 'bg-brand-50 ring-brand-300' : 'ring-slate-200')}>
-                  <input type="radio" name="ae-action" checked={action === a} onChange={() => { setAction(a); invalidate() }} data-testid={`ae-action-${a}`} className="mt-0.5" />
-                  <span><span className="block text-xs font-bold">{ATTENDANCE_EDIT_ACTION_LABELS[a]}</span><span className="block text-[10px] leading-snug text-slate-500">{ATTENDANCE_EDIT_ACTION_HINTS[a]}</span></span>
-                </label>
-              ))}
-            </div>
-            {action === 'set_status' && (
-              <select className={field} value={status} onChange={(e) => { setStatus(e.target.value as AttendanceStatus); invalidate() }} data-testid="ae-status">{STATUS_CHOICES.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
-            )}
-            {action !== 'full_presence' && (
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-[11px] text-slate-500">دخول{action === 'set_status' && ' (اختياري)'}<input type="time" className={field} value={cin} onChange={(e) => { setCin(e.target.value); invalidate() }} data-testid="ae-cin" /></label>
-                <label className="text-[11px] text-slate-500">خروج{action === 'set_status' && ' (اختياري)'}<input type="time" className={field} value={cout} onChange={(e) => { setCout(e.target.value); invalidate() }} data-testid="ae-cout" /></label>
-              </div>
-            )}
+            <div className="text-xs font-bold text-slate-700">③ البصمة الناقصة</div>
+            <label className="block text-xs"><input type="radio" name="missing-side" checked={missingSide === 'out'} onChange={() => { setMissingSide('out'); invalidate() }} data-testid="ae-missing-out" /> خروج ناقص — اقترح نهاية الشفت</label>
+            <label className="block text-xs"><input type="radio" name="missing-side" checked={missingSide === 'in'} onChange={() => { setMissingSide('in'); invalidate() }} data-testid="ae-missing-in" /> دخول ناقص — اقترح بداية الشفت</label>
+            <p className="text-[11px] leading-relaxed text-slate-500">اختر الطرف بعد التحقق؛ الجهاز قد لا يحدد اتجاه البصمة. للأيام بلا بصمة لا يؤثر هذا الاختيار في الطلب. الحالات بلا بصمة تُرسل للموافقة فقط وتُستبعد من التنفيذ المباشر. الأيام المكتملة والإجازات لا تُعدّل.</p>
           </div>
         </div>
 
@@ -158,7 +138,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
             <span className="font-bold">{preview.scope_label}</span><span className="text-slate-400">·</span><span>{preview.action_label}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {[['موظف', preview.employees, 'ae-pv-emps'], ['يوم', preview.days, 'ae-pv-days'], ['يوم عمل سيُعدَّل', preview.items, 'ae-pv-items'], ['مستبعد', preview.skipped, 'ae-pv-skipped'], ['دقيقة ستُصحَّح', preview.minutes_to_fix, 'ae-pv-minutes']].map(([l, v, t]) => (
+            {[['موظف', preview.employees, 'ae-pv-emps'], ['يوم', preview.days, 'ae-pv-days'], ['بنود قابلة للمراجعة', preview.items - preview.skipped, 'ae-pv-items'], ['مستبعد', preview.skipped, 'ae-pv-skipped'], ['دقائق مسجّلة سابقاً', preview.minutes_to_fix, 'ae-pv-minutes']].map(([l, v, t]) => (
               <div key={t as string} className="rounded-xl bg-white p-2 text-center ring-1 ring-slate-200"><div className="text-lg font-black tabular-nums" data-testid={t as string}>{v as number}</div><div className="text-[10px] text-slate-500">{l as string}</div></div>
             ))}
           </div>
@@ -172,7 +152,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
                     <td className="p-1.5"><b>{r.full_name}</b> <span className="text-slate-400">{r.employee_number}</span></td>
                     <td className="p-1.5 tabular-nums">{fmtDate(r.work_date)}</td>
                     <td className="p-1.5">{r.before ? <>{r.before.status_label} <span className="tabular-nums text-slate-500">{hmBaghdad(r.before.check_in)}←{hmBaghdad(r.before.check_out)}</span>{(r.before.early_minutes ?? 0) > 0 && <span className="text-amber-700"> مبكر {r.before.early_minutes}د</span>}{(r.before.late_minutes ?? 0) > 0 && <span className="text-amber-700"> تأخير {r.before.late_minutes}د</span>}</> : <span className="text-slate-400">لا صف</span>}</td>
-                    <td className="p-1.5">{r.skipped ? <span className="text-slate-500">مستبعد — {r.skipped}</span> : <><b className="text-brand-700">{r.proposed?.status === 'auto' ? 'تُشتق من الأوقات' : r.proposed_status_label}</b> <span className="tabular-nums text-slate-500">{hmBaghdad(r.proposed?.check_in)}←{hmBaghdad(r.proposed?.check_out)}</span></>}</td>
+                    <td className="p-1.5">{r.skipped ? <span className="text-slate-500">مستبعد — {r.skipped}</span> : <><b className="text-brand-700">{r.proposed?.needs_approval ? 'بلا بصمة — بطلب وموافقة فقط' : r.proposed?.status === 'auto' ? 'تُشتق من الأوقات' : r.proposed_status_label}</b> <span className="tabular-nums text-slate-500">{hmBaghdad(r.proposed?.check_in)}←{hmBaghdad(r.proposed?.check_out)}</span></>}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -180,10 +160,10 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
           </details>
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end">
             <label className="text-[11px] text-slate-600">السبب (إلزامي، يظهر في سجل التدقيق وتبليغ المعاون)
-              <textarea className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 p-2 text-sm" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: أيام تجربة البصمة الجديدة — بُصم دخولاً وخروجاً خلال دقائق" data-testid="ae-reason" />
+              <textarea className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 p-2 text-sm" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: لم تُسجَّل بصمة الخروج بسبب عطل الجهاز" data-testid="ae-reason" />
             </label>
-            {canRequest && <Button size="sm" variant="secondary" disabled={!reasonOk || preview.items === 0} onClick={() => setConfirmMode('hr_request')} data-testid="ae-submit-hr"><Icon name="send" size={14} /> إرسال طلباً إلى الموارد البشرية</Button>}
-            {canDirect && <Button size="sm" disabled={!reasonOk || preview.items === 0} onClick={() => setConfirmMode('direct')} data-testid="ae-submit-direct"><Icon name="check" size={14} /> تنفيذ مباشر الآن</Button>}
+            {canRequest && <Button size="sm" variant="secondary" disabled={!reasonOk || preview.items - preview.skipped === 0} onClick={() => setConfirmMode('hr_request')} data-testid="ae-submit-hr"><Icon name="send" size={14} /> إرسال طلباً إلى الموارد البشرية</Button>}
+            {canDirect && <Button size="sm" disabled={!reasonOk || !preview.rows.some((r) => !r.skipped && !r.proposed?.needs_approval)} onClick={() => setConfirmMode('direct')} data-testid="ae-submit-direct"><Icon name="check" size={14} /> تنفيذ مباشر الآن</Button>}
           </div>
         </section>
       )}
@@ -193,8 +173,8 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
           <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
             <h3 className="text-sm font-bold">{confirmMode === 'direct' ? 'تأكيد التنفيذ المباشر' : 'تأكيد الإرسال إلى الموارد البشرية'}</h3>
             <p className="mt-2 text-xs text-slate-600">
-              {preview.employees} موظف × {preview.days} يوم = <b>{preview.items}</b> يوم عمل · {preview.action_label}.
-              {confirmMode === 'direct' ? ' سيُطبَّق فوراً ويُبلَّغ المعاون والتطوير المركزية بتبليغ مجمّع واحد.' : ' يمرّ بسلسلة الموافقات إن وُجدت، ثم تراجعه الموارد البشرية وتعتمده.'}
+              {preview.employees} موظف × {preview.days} يوم؛ <b>{confirmMode === 'direct' ? preview.rows.filter((r) => !r.skipped && !r.proposed?.needs_approval).length : preview.items - preview.skipped}</b> بند قابل للتنفيذ · {preview.action_label}.
+              {confirmMode === 'direct' ? ' تُستبعد الأيام بلا بصمة؛ تُنفَّذ الناقصة فقط ويُبلَّغ المعاون والتطوير.' : ' يمرّ بسلسلة الموافقات إن وُجدت، ثم تراجعه الموارد البشرية وتعتمده.'}
             </p>
             <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmMode(null)}>رجوع</Button><Button size="sm" isLoading={createM.isPending} onClick={() => doCreate(confirmMode)} data-testid="ae-confirm-go">{confirmMode === 'direct' ? 'نفّذ' : 'أرسل'}</Button></div>
           </div>

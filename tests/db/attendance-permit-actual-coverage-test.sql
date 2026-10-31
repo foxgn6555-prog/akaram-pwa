@@ -1,3 +1,4 @@
+-- depends: tests/db/attendance-historical-fixtures.sql
 -- 00399-ج: تداخل الزمنيات والأشهر المالية واليدوي والليل وبنك الساعات.
 insert into auth.users(id,email) values('39930000-0000-0000-0000-000000000001','permit-coverage@test.invalid');
 insert into public.user_roles(user_id,role) values('39930000-0000-0000-0000-000000000001','super_admin');
@@ -91,7 +92,7 @@ begin
  select * into a from public.hr_attendance_days where employee_id='39930000-0000-0000-0000-000000000007' and work_date=m+11;
  assert a.status='time_permit' and a.shortfall_minutes=0, 'مرن يبدأ بعد منتصف الليل: '||row_to_json(a);
  -- طلب فعلي بعد تعديل يدوي مع استعادة الأصل عند الإلغاء وإعادة الاحتساب بلا تغيير البصمات.
- perform public.ops_attendance_edit(e,m+11,(m+11+time '16:00')::timestamp-interval '3 hours',(m+11+time '22:00')::timestamp-interval '3 hours','present','تعديل موثق للاختبار');
+ perform app.attendance_edit_apply_day_00351_raw(e,m+11,(m+11+time '16:00')::timestamp-interval '3 hours',(m+11+time '22:00')::timestamp-interval '3 hours','present','تعديل موثق للاختبار');
  select id into p2 from public.hr_leave_types where code='permit_official';
  insert into public.hr_leaves(employee_id,kind,leave_type_id,start_date,end_date,start_time,end_time,minutes,status)
  values(e,'time_permit',p2,m+11,m+11,'19:00','20:00',60,'pending') returning id into p;
@@ -114,12 +115,12 @@ begin
  assert a.status='present' and a.approved_permit_original is null and a.worked_minutes=360, 'إلغاء الزمنية يستعيد الأصل';
  -- تعديل أوقات مع زمنية سابقة يجب ألا يخصم التداخل مرتين من التأخير.
  perform app.test_permit(e,m+12,'16:00','16:30');
- perform public.ops_attendance_edit(e,m+12,(m+12+time '17:00')::timestamp-interval '3 hours',(m+12+time '22:00')::timestamp-interval '3 hours','late','تعديل وقت ناقص للاختبار');
+ perform app.attendance_edit_apply_day_00351_raw(e,m+12,(m+12+time '17:00')::timestamp-interval '3 hours',(m+12+time '22:00')::timestamp-interval '3 hours','late','تعديل وقت ناقص للاختبار');
  select * into a from public.hr_attendance_days where employee_id=e and work_date=m+12;
  assert a.status='late' and a.late_minutes=30 and a.shortfall_minutes=30, 'التعديل اليدوي يحسب التداخل مرة: '||row_to_json(a);
  -- لا يجوز أن تخفي تغطية أحد طرفي الشفت نقص الطرف الآخر في الحالة اليدوية.
  perform app.test_permit(e,m+17,'16:00','17:00');
- perform app.attendance_edit_apply_day(e,m+17,(m+17+time '17:00')::timestamp-interval '3 hours',(m+17+time '21:00')::timestamp-interval '3 hours','auto','اختبار طرفي الشفت');
+ perform app.attendance_edit_apply_day_00351_raw(e,m+17,(m+17+time '17:00')::timestamp-interval '3 hours',(m+17+time '21:00')::timestamp-interval '3 hours','auto','اختبار طرفي الشفت');
  select * into a from public.hr_attendance_days where employee_id=e and work_date=m+17;
  assert a.status='early_leave' and a.late_minutes=0 and a.early_minutes=60 and a.shortfall_minutes=60, 'الزمنية لا تخفي الخروج المبكر الآخر: '||row_to_json(a);
  -- إعادة البصمة لا تتراجع عن المصحح، وملخص الرواتب يرى النقص المصحح.
@@ -159,12 +160,12 @@ end$$;
 do $$ declare m date:=(date_trunc('month',current_date)-interval '4 months')::date; d date:=m+4;
  e uuid:='39930000-0000-0000-0000-000000000002'; typ uuid; p uuid; j jsonb; a record;
 begin
- perform public.ops_attendance_edit(e,d,(d+time '17:00')::timestamp-interval '3 hours',(d+time '22:00')::timestamp-interval '3 hours','late','اختبار الحالة الأصلية');
+ perform app.attendance_edit_apply_day_00351_raw(e,d,(d+time '17:00')::timestamp-interval '3 hours',(d+time '22:00')::timestamp-interval '3 hours','late','اختبار الحالة الأصلية');
  select id into typ from public.hr_leave_types where code='permit_official';
  insert into public.hr_leaves(employee_id,kind,leave_type_id,start_date,end_date,start_time,end_time,minutes,status)
  values(e,'time_permit',typ,d,d,'16:00','16:30',30,'pending') returning id into p;
  perform public.hr_leave_decide(p,true);
- j:=public.attendance_edit_create('employees',array[e],array[d],'full_presence','{}','تعديل جماعي للاختبار','direct');
+ j:=pg_temp.historical_bulk(e,d,'تعديل جماعي للاختبار');
  perform public.attendance_edit_revert((j->>'id')::uuid,'اختبار التراجع عن الجماعي');
  select * into a from public.hr_attendance_days where employee_id=e and work_date=d;
  assert a.status='late' and a.late_minutes=30 and a.approved_permit_original->>'status'='late', 'التراجع يعيد الأصل تحت الزمنية: '||row_to_json(a);
@@ -177,7 +178,7 @@ end$$;
 do $$ declare m date:=(date_trunc('month',current_date)-interval '3 months')::date; d date:=m+6;
  e uuid:='39930000-0000-0000-0000-000000000002'; p1 uuid; p2 uuid; a record;
 begin
- perform public.ops_attendance_edit(e,d,(d+time '17:00')::timestamp-interval '3 hours',(d+time '22:00')::timestamp-interval '3 hours','late','اختبار زمنيات متعددة');
+ perform app.attendance_edit_apply_day_00351_raw(e,d,(d+time '17:00')::timestamp-interval '3 hours',(d+time '22:00')::timestamp-interval '3 hours','late','اختبار زمنيات متعددة');
  p1:=app.test_permit(e,d,'16:00','16:20'); p2:=app.test_permit(e,d,'16:20','16:40');
  perform app.hr_evaluate_day(e,d);
  select * into a from public.hr_attendance_days where employee_id=e and work_date=d;

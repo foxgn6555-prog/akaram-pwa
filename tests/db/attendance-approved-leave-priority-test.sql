@@ -1,3 +1,4 @@
+-- depends: tests/db/attendance-historical-fixtures.sql
 -- 00399-ب — تسلسل واقعي: تعديل جماعي ← موافقة ← إعادة بصمة ← إلغاء، وقفل واعتماد حضورية.
 insert into auth.users(id,email) values ('39920000-0000-0000-0000-000000000001','leave-priority@test.invalid');
 insert into public.user_roles(user_id,role) values ('39920000-0000-0000-0000-000000000001','super_admin');
@@ -15,7 +16,7 @@ begin
   insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method) values
     ('T','399201',e,(d+time '16:30')::timestamp - interval '3 hours','manual'),
     ('T','399201',e,(d+time '21:30')::timestamp - interval '3 hours','manual');
-  j := public.attendance_edit_create('employees',array[e],array[d],'full_presence','{}','اختبار تعديل جماعي سابق','direct');
+  j := pg_temp.historical_bulk(e,d,'اختبار تعديل جماعي سابق');
   select to_jsonb(z) into b from public.hr_attendance_days z where z.employee_id=e and z.work_date=d;
   assert b->>'status'='present' and b->>'source'='manual', 'التعديل الجماعي قبل الإجازة';
   select id into typ from public.hr_leave_types where code='official';
@@ -94,7 +95,7 @@ do $$ declare m date := (date_trunc('month',current_date)-interval '4 months')::
 begin
   insert into public.hr_attendance_days(employee_id,work_date,status,source,check_in,check_out,worked_minutes,late_minutes)
   values(e,d,'late','auto',(d+time '17:00')::timestamp-interval '3 hours',(d+time '22:00')::timestamp-interval '3 hours',300,60);
-  j:=public.attendance_edit_create('employees',array[e],array[d],'full_presence','{}','تعديل يجب التراجع عنه','direct');
+  j:=pg_temp.historical_bulk(e,d,'تعديل يجب التراجع عنه');
   select id into typ from public.hr_leave_types where code='official';
   insert into public.hr_leaves(employee_id,kind,leave_type_id,start_date,end_date,status) values(e,'leave',typ,d,d,'pending') returning id into l;
   perform public.hr_leave_decide(l,true);
@@ -109,7 +110,7 @@ end $$;
 do $$ declare m date := (date_trunc('month',current_date)-interval '8 months')::date; d date:=m+6;
  e uuid := '39920000-0000-0000-0000-000000000002'; typ uuid; l uuid; s record; a record; j jsonb;
 begin
-  j:=public.attendance_edit_create('employees',array[e],array[d],'full_presence','{}','اختبار الإجازة غير المدفوعة','direct');
+  j:=pg_temp.historical_bulk(e,d,'اختبار الإجازة غير المدفوعة');
   select id into typ from public.hr_leave_types where code='unpaid';
   insert into public.hr_leaves(employee_id,kind,leave_type_id,start_date,end_date,status) values(e,'leave',typ,d,d,'pending') returning id into l;
   perform public.hr_leave_decide(l,true);

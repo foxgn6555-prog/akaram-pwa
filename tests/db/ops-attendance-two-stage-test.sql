@@ -35,7 +35,8 @@ insert into public.employee_shift_assignments (employee_id, shift_id, effective_
   select id, 'fc000000-0000-0000-0000-0000000000a1', '2024-01-01' from public.employees where employee_number like 'TS-%' on conflict do nothing;
 insert into public.biometric_devices (id, serial_number, name, timezone_offset, is_active) values
   ('fc000000-0000-0000-0000-0000000000d1', 'TS-DEV-1', 'ts جهاز', '+03:00', true) on conflict (serial_number) do nothing;
-select set_config('test.ts_m', (date_trunc('month', current_date) - interval '1 month')::date::text, false);
+-- اختر شهراً تكون الأيام 1–5 فيه أيام عمل، فلا يعتمد الاختبار على مصادفة الجمعة.
+select set_config('test.ts_m', (select max(mm)::date::text from generate_series(date_trunc('month',current_date)-interval '12 months',date_trunc('month',current_date)-interval '1 month',interval '1 month') mm where extract(dow from mm) in (5,6)), false);
 select auth.set_test_user('fc000000-0000-0000-0000-000000000007');
 do $$ declare e record; begin
   for e in select id from public.employees where archived_at is null and id not in (select employee_id from public.employee_salary_profiles where status = 'defined') loop

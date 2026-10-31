@@ -122,6 +122,31 @@ try {
   err=await pending; if (!err || !err.message.includes('HR_MONTH_LOCKED')) throw new Error('إعادة الضبط لم ترفض بعد الإقفال: '+(err?.message ?? 'نجح'));
   state=await c.query("select status from public.hr_attendance_days where employee_id='39930000-0000-0000-0000-000000000002' and work_date=$1::date+5",[f.period_month]);
   if (state.rows[0]?.status !== 'late') throw new Error('إعادة الضبط حذفت صف الشهر المقفل');
-  console.log('test ok: attendance-leave-concurrency (finance, approval, manual edit, reevaluation, permit, reset)');
+  // التصحيح أولاً ووصول البصمة في معاملة ثانية: لا يجوز أن يبقى الوقت الافتراضي بعد وصول الحقيقي.
+  await c.query(`insert into public.hr_shifts(id,name,start_time,end_time,grace_minutes,work_days)
+    values('39930000-0000-0000-0000-000000000099','shift concurrency','16:00','22:00',0,'{0,1,2,3,4,5,6}');
+    insert into public.employee_shift_assignments(employee_id,shift_id,effective_from)
+    values('39930000-0000-0000-0000-000000000002','39930000-0000-0000-0000-000000000099','2024-01-01');`);
+  const dt=(await c.query("select (date_trunc('month',current_date)-interval '18 months')::date+5 as d")).rows[0].d;
+  const insertPunch = `insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method)
+    values('LOCK','399301','39930000-0000-0000-0000-000000000002',(($1::date+time '21:40')::timestamp-interval '3 hours') at time zone 'UTC','manual')`;
+  const firstPunch = `insert into public.biometric_punches(device_serial,pin,employee_id,punched_at,method)
+    values('LOCK','399301','39930000-0000-0000-0000-000000000002',(($1::date+time '16:30')::timestamp-interval '3 hours') at time zone 'UTC','manual')`;
+  const edit = `select public.ops_attendance_edit('39930000-0000-0000-0000-000000000002',$1::date,
+    (($1::date+time '16:30')::timestamp-interval '3 hours') at time zone 'UTC',(($1::date+time '22:00')::timestamp-interval '3 hours') at time zone 'UTC','auto','اختبار تصحيح متزامن')`;
+  const check = `select source,check_out=(($1::date+time '21:40')::timestamp-interval '3 hours') at time zone 'UTC' as actual
+    from public.hr_attendance_days where employee_id='39930000-0000-0000-0000-000000000002' and work_date=$1::date`;
+  await c.query(firstPunch,[dt]); await c.query('begin'); await c.query(edit,[dt]);
+  ({ p: pending }=await blocked(c2.query(insertPunch,[dt]),'وصول البصمة أثناء التصحيح'));
+  await c.query('commit'); err=await pending; if (err) throw new Error('فشل وصول البصمة: '+err.message);
+  state=await c.query(check,[dt]); if (state.rows[0]?.source!=='auto' || !state.rows[0]?.actual) throw new Error('أُخفيت البصمة الحقيقية بعد التصحيح المتزامن');
+  // البصمة أولاً: ينتظر التصحيح ثم يرفض اليوم المكتمل.
+  const dt2=(await c.query("select $1::date+1 as d",[dt])).rows[0].d;
+  await c.query(firstPunch,[dt2]); await c.query('begin'); await c.query(insertPunch,[dt2]);
+  ({ p: pending }=await blocked(c2.query(edit,[dt2]),'التصحيح أثناء وصول البصمة'));
+  await c.query('commit'); err=await pending;
+  if (!err || !err.message.includes('HR_EDIT_LIMITED')) throw new Error('لم يُرفض التصحيح بعد وصول الحقيقي: '+(err?.message ?? 'نجح'));
+  state=await c.query(check,[dt2]); if (state.rows[0]?.source!=='auto' || !state.rows[0]?.actual) throw new Error('مسّ التصحيح البصمة الحقيقية');
+  console.log('test ok: attendance-leave-concurrency (finance, approval, correction, real punch, reevaluation, permit, reset)');
 } catch (err) { console.error('FAIL concurrency',err); process.exitCode=1; }
 finally { await c.query('rollback').catch(() => {}); await c2.end(); await c.end(); await pgs.stop(); }

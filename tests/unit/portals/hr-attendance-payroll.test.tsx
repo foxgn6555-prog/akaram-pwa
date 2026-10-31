@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const h = vi.hoisted(() => ({ gate: null as unknown, candidates: undefined as Array<{ id: string; employee_number: string; full_name: string; job_title: string | null; department_name: string | null }> | undefined,
   titles: [] as Array<{ id: string; name: string; code: string; department_id: string; department_name: string; drives_vehicles: boolean; is_active: boolean; employees_active: number }>,
@@ -51,7 +52,7 @@ vi.mock('@features/integrations', () => ({
     { id: 'dv3', serial_number: 'LAN-1', name: 'شبكة', branch_id: 'b1', is_active: true, mode: 'lan_pull' },
   ], isLoading: false }),
 }))
-vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null, listDeductions: async () => [] } }))
+vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null, listDeductions: async () => [], correctionOptions: async () => ({ count: 1, real: '2026-09-05T05:40:00Z', shift_start: '2026-09-05T05:00:00Z', shift_end: '2026-09-05T13:00:00Z', expected_out: '2026-09-05T13:00:00Z' }) } }))
 
 import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
 import EmployeeDetail from '@portals/hr/pages/Employees/EmployeeDetail'
@@ -226,74 +227,75 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
 describe('غرفة العمليات — الحضوريات', () => {
   it('لوحة غير المطابقة تظهر في حضوريات غرفة العمليات أيضاً', () => {
     h.unmatched = [{ id: 'u1', device_serial: 'SFAA1', pin: '373', employee_id: null, punched_at: '2026-10-04T15:03:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: null }]
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     expect(screen.getByTestId('unmatched-count')).toHaveTextContent('1')
   })
-  it('التعديل يرفض بلا سبب ثم يرسل employeeId/date/الحالة/السبب', async () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+  it('التعديل يرفض بلا سبب ثم يرسل البصمة الأصلية والحساب الآلي', async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
+    fireEvent.click(await screen.findByTestId('e-side-out'))
     fireEvent.click(screen.getByTestId('e-save'))
     expect(screen.getByTestId('e-error')).toBeInTheDocument(); expect(h.edit).not.toHaveBeenCalled()
-    fireEvent.change(screen.getByTestId('e-status'), { target: { value: 'present' } })
     fireEvent.change(screen.getByTestId('e-reason'), { target: { value: 'تأكيد من مسؤول القسم' } })
     fireEvent.click(screen.getByTestId('e-save'))
-    await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'present', reason: 'تأكيد من مسؤول القسم' })))
+    await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ employeeId: 'e1', date: '2026-09-05', status: 'auto', reason: 'تأكيد من مسؤول القسم' })))
   })
   it('00256-ج: زر التصدير وحالته يذكران معاون المدير المفوض لا المالية مباشرة', () => {
     h.conf = { ...confirmedConf, export: { export_id: 'x1', version: 14, status: 'exported', review_status: 'pending', changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false } }
     h.exportStatus = { export_id: 'x1', version: 14, status: 'exported', review_status: 'pending', changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false }
     const cur = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })()
     h.exports = [{ id: 'x1', period_month: cur, version: 14, status: 'exported', rows_count: 40, exported_at: '2026-10-01T08:00:00Z', approved_at: null, review_status: 'pending' }]
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('stage-approved'))
     expect(screen.getByTestId('ops-export-month')).toHaveTextContent('إعادة تصدير بيانات الشهر إلى معاون المدير المفوض')
     expect(screen.getByTestId('att-export-state')).toHaveTextContent('بانتظار مراجعة معاون المدير المفوض')
     expect(screen.getByTestId('att-export-state').textContent).not.toMatch(/اعتماد المالية/)
   })
   it('00178/00256: تنبيه التبليغ في لوحة التعديل يذكر معاون المدير المفوض ووحدة التطوير المركزية', () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
-    expect(screen.getByTestId('it-notify-notice')).toHaveTextContent('سيتم تبليغ معاون المدير المفوض ووحدة التطوير المركزية')
+    expect(screen.getByTestId('it-notify-notice')).toHaveTextContent('يُبلَّغ معاون المدير المفوض ووحدة التطوير المركزية')
   })
   it('00178: أوقات التعديل تُعرض وتُحفظ بتوقيت بغداد بأرقام إنكليزية مهما كان توقيت المتصفح', async () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
-    // 05:40Z = 08:40 بغداد
-    expect((screen.getByTestId('e-in') as HTMLInputElement).value).toBe('08:40')
-    fireEvent.change(screen.getByTestId('e-out'), { target: { value: '15:52' } })
+    // 05:40Z = 08:40 بغداد؛ البصمة الأصلية لا تُعدّل.
+    fireEvent.click(await screen.findByTestId('e-side-out'))
+    expect(screen.getByTestId('ops-edit-panel')).toHaveTextContent('08:40')
+    fireEvent.change(screen.getByTestId('e-time'), { target: { value: '15:52' } })
     fireEvent.change(screen.getByTestId('e-reason'), { target: { value: 'بصمة الخروج لم تُسجَّل' } })
     fireEvent.click(screen.getByTestId('e-save'))
-    await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ checkIn: '2026-09-05T05:40:00.000Z', checkOut: '2026-09-05T12:52:00.000Z' })))
+    await waitFor(() => expect(h.edit).toHaveBeenCalledWith(expect.objectContaining({ checkIn: '2026-09-05T05:40:00Z', checkOut: '2026-09-05T12:52:00.000Z' })))
   })
   it('00218: يوم مكتمل البصمتين (حاضر/متأخر) لا تعدّله غرفة العمليات — التعديل للبصمات الناقصة فقط', () => {
     h.attendance = [{ ...day, id: 'r2', work_date: '2026-09-06', check_out: '2026-09-06T13:00:00Z', status: 'late', worked_minutes: 440 }, day]
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     expect(screen.getByTestId('ops-edit-E100-2026-09-06')).toBeDisabled()
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).not.toBeDisabled()
     expect(screen.queryByTestId('ops-waive-E100-2026-09-06')).toBeNull()
   })
   it('00178: الجدول يعرض الأوقات بأرقام إنكليزية (لا ٠-٩)', () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     const row = screen.getByTestId('ops-edit-E100-2026-09-05').closest('tr') as HTMLElement
     expect(row.textContent).toMatch(/08:40/)
     expect(row.textContent).not.toMatch(/[\u0660-\u0669]/)
   })
   it('00256: غرفة العمليات بلا زر استقطاع، ولوحة الاستقطاعات للاطلاع فقط، ورسالة التعديل تذكر المعاون والتطوير', () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     expect(screen.queryByTestId('ops-deduct-E100')).toBeNull()
     fireEvent.click(screen.getByTestId('ops-edit-E100-2026-09-05'))
     const notice = screen.getByTestId('it-notify-notice')
     expect(notice).toHaveTextContent('معاون المدير المفوض'); expect(notice).toHaveTextContent('وحدة التطوير المركزية')
   })
   it('سجل التدقيق يعرض السبب والفرق قبل/بعد', () => {
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('ops-audit-E100-2026-09-05'))
     expect(screen.getByTestId('audit-list')).toHaveTextContent('عطل جهاز'); expect(screen.getByTestId('audit-list')).toHaveTextContent('status: absent → present')
   })
   it('تصدير الشهر (من الكشف المعتمد فقط) يطلب تأكيداً ويستدعي ops_month_export؛ وبعد اعتماد المالية يُقفل الزر والتعديل', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     h.conf = confirmedConf
-    const { unmount } = render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    const { unmount } = render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     expect(screen.queryByTestId('ops-export-month')).toBeNull()   // لا زر تصدير في المرحلة 1
     fireEvent.click(screen.getByTestId('stage-approved'))
     fireEvent.click(screen.getByTestId('ops-export-month'))
@@ -302,7 +304,7 @@ describe('غرفة العمليات — الحضوريات', () => {
     h.conf = { ...confirmedConf, locked: true, can_export: false }
     const month = new Date(); const m = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
     h.exports = [{ id: 'x', period_month: m, version: 2, status: 'approved', rows_count: 40, exported_at: '2026-10-01T00:00:00Z', approved_at: '2026-10-02T00:00:00Z' }]
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).toBeDisabled()
     fireEvent.click(screen.getByTestId('stage-approved'))
     expect(screen.getByTestId('ops-export-month')).toBeDisabled(); expect(screen.getByTestId('ops-export-month')).toHaveTextContent('مقفل')
@@ -402,7 +404,7 @@ describe('00185 — سلامة سلسلة الكشوفات → الحضورية 
       { id: 'dd1', employee_id: 'e1', period_month: '2026-09-01', amount: 7000, days: 0, reason: 'كشف ك/2026/0003 — غياب (2026-09-05)', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: 'disc-1', employees: { full_name: 'أحمد', employee_number: 'E100' }, disclosure: { ref_no: 'ك/2026/0003' } },
       { id: 'dd2', employee_id: 'e1', period_month: '2026-09-01', amount: 1000, days: 0, reason: 'يدوي', created_at: '2026-10-02T09:00:00Z', source_disclosure_id: null, employees: { full_name: 'أحمد', employee_number: 'E100' }, disclosure: null },
     ]
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('stage-approved'))
     const banner = screen.getByTestId('ops-reexport-banner')
     expect(banner).toHaveTextContent('3 تغييرات'); expect(banner).toHaveTextContent('2 استقطاعات'); expect(banner).toHaveTextContent('1 من كشوفات معتمدة')
@@ -420,7 +422,7 @@ describe('00185 — سلامة سلسلة الكشوفات → الحضورية 
   it('الحضوريات: لا لافتة عندما لا تغييرات بعد التصدير', () => {
     h.exportStatus = { ...stale, changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false }
     h.conf = confirmedConf
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('stage-approved'))
     expect(screen.queryByTestId('ops-reexport-banner')).toBeNull()
   })
@@ -445,7 +447,7 @@ describe('00185 — سلامة سلسلة الكشوفات → الحضورية 
     expect(screen.getByTestId('ps-approve')).toBeDisabled()
     unmount()
     h.conf = confirmedConf
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     fireEvent.click(screen.getByTestId('stage-approved'))
     expect(screen.getByTestId('ops-reexport-advance')).toHaveTextContent('تغيّرت سلف 2 موظف')
   })
@@ -495,7 +497,7 @@ describe('00186 — اكتمال دورة الرواتب (سيناريو الم�
   })
   it('الحضوريات: لافتة الأيام غير المحتسبة بزر «احتساب الشهر كاملاً»', async () => {
     h.exportStatus = { export_id: null, status: null, changes_after: 0, deductions_after: 0, disclosure_deductions_after: 0, needs_reexport: false, unevaluated_days: 25, unevaluated_employees: 1 }
-    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
     const b = screen.getByTestId('ops-unevaluated-banner')
     expect(b).toHaveTextContent('25 يوم عمل غير محتسب'); expect(b).toHaveTextContent('1 موظف')
     fireEvent.click(screen.getByTestId('ops-evaluate-month'))

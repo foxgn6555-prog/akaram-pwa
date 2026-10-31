@@ -11,17 +11,14 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useCanCall } from '@features/permissions/my-permissions'
-import { ATTENDANCE_STATUS_LABELS, type AttendanceStatus } from '@features/hr'
 import { StatCard } from '@portals/hr/components/hr-ui'
-import { field } from '@portals/hr/components/hr-format'
 import {
-  composeBaghdad, hmBaghdad, useAttendanceEditHrApply, useAttendanceEditHrSkipItem, useAttendanceEditHrUpdateItem, useAttendanceEditList, useAttendanceEditStats,
+  useAttendanceEditHrApply, useAttendanceEditHrSkipItem, useAttendanceEditList, useAttendanceEditStats,
   type AttendanceEditDetail, type AttendanceEditItem,
 } from '@features/attendance-edits'
 import { ListFilters, Overlay, ReasonDialog, RequestDetailDialog, RequestsTable, fmtDate, useListFilters } from '@features/attendance-edits/components/AttendanceEditShared'
 
 type Tab = 'queue' | 'log'
-const STATUS_CHOICES: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 
 export default function AttendanceEditsPage() {
   const [tab, setTab] = useState<Tab>('queue')
@@ -65,7 +62,6 @@ export default function AttendanceEditsPage() {
 
 /** حوار المراجعة: تفاصيل + تعديل/استبعاد البنود + اعتماد (إن كان الطلب في مرحلة HR) */
 function HrReviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
-  const [editItem, setEditItem] = useState<AttendanceEditItem | null>(null)
   const [skipItem, setSkipItem] = useState<AttendanceEditItem | null>(null)
   const [applyFor, setApplyFor] = useState<AttendanceEditDetail | null>(null)
   const skipM = useAttendanceEditHrSkipItem(); const applyM = useAttendanceEditHrApply()
@@ -77,7 +73,6 @@ function HrReviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
         onClose={onClose}
         renderItemActions={(d) => d.can_hr_apply ? (it) => it.skipped_reason ? null : (
           <div className="flex flex-col gap-1">
-            <Button size="sm" variant="ghost" onClick={() => setEditItem(it)} data-testid={`ae-item-edit-${it.id}`}><Icon name="edit" size={12} /> تعديل</Button>
             <Button size="sm" variant="ghost" onClick={() => setSkipItem(it)} data-testid={`ae-item-skip-${it.id}`}><Icon name="x" size={12} /> استبعاد</Button>
           </div>
         ) : undefined}
@@ -88,41 +83,9 @@ function HrReviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
           </>
         ) : null}
       />
-      {editItem && <EditItemDialog it={editItem} onClose={() => setEditItem(null)} />}
       {skipItem && <ReasonDialog title={`استبعاد ${skipItem.full_name} — ${fmtDate(skipItem.work_date)}`} cta="استبعاد البند" min={3} testId="ae-skip-dialog" tone="danger" busy={skipM.isPending} onClose={() => setSkipItem(null)} onConfirm={(reason) => skipM.mutate({ itemId: skipItem.id, reason }, { onSuccess: () => setSkipItem(null) })} />}
       {applyFor && <ApplyDialog d={applyFor} busy={applyM.isPending} onClose={() => setApplyFor(null)} onConfirm={(note) => applyM.mutate({ id: applyFor.id, note }, { onSuccess: () => { setApplyFor(null); onClose() } })} />}
     </>
-  )
-}
-
-function EditItemDialog({ it, onClose }: { it: AttendanceEditItem; onClose: () => void }) {
-  const upd = useAttendanceEditHrUpdateItem()
-  const [status, setStatus] = useState<string>(it.proposed.status)
-  const [cin, setCin] = useState(it.proposed.check_in ? hmBaghdad(it.proposed.check_in) : '')
-  const [cout, setCout] = useState(it.proposed.check_out ? hmBaghdad(it.proposed.check_out) : '')
-  const noTimes = status === 'absent' || status === 'leave'
-  const overnight = !!cin && !!cout && cout < cin
-  const save = () => upd.mutate({ itemId: it.id, status, checkIn: noTimes ? null : composeBaghdad(it.work_date, cin), checkOut: noTimes ? null : composeBaghdad(it.work_date, cout, overnight) }, { onSuccess: onClose })
-  return (
-    <Overlay title={`تعديل بند: ${it.full_name} — ${fmtDate(it.work_date)}`} onClose={onClose} testId="ae-item-dialog">
-      <div className="space-y-2 text-xs">
-        <div className="rounded-lg bg-slate-50 p-2">قبل: <b>{it.before?.status_label ?? 'لا صف'}</b> {it.before && <span className="tabular-nums text-slate-500">{hmBaghdad(it.before.check_in)} ← {hmBaghdad(it.before.check_out)}</span>}</div>
-        <label className="block">الحالة
-          <select className={field} value={status} onChange={(e) => setStatus(e.target.value)} data-testid="ae-item-status">
-            <option value="auto">تُشتق من الأوقات (بقواعد الشفت)</option>
-            {STATUS_CHOICES.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}
-          </select>
-        </label>
-        {!noTimes && (
-          <div className="grid grid-cols-2 gap-2">
-            <label>دخول<input type="time" className={field} value={cin} onChange={(e) => setCin(e.target.value)} data-testid="ae-item-cin" /></label>
-            <label>خروج<input type="time" className={field} value={cout} onChange={(e) => setCout(e.target.value)} data-testid="ae-item-cout" /></label>
-          </div>
-        )}
-        {overnight && !noTimes && <div className="text-[11px] text-amber-700">الخروج قبل الدخول ⇒ يُعدّ في اليوم التالي (شفت ليلي).</div>}
-        <div className="flex justify-end gap-2 pt-1"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" isLoading={upd.isPending} disabled={status === 'auto' && (!cin || !cout)} onClick={save} data-testid="ae-item-save">حفظ البند</Button></div>
-      </div>
-    </Overlay>
   )
 }
 
@@ -131,7 +94,7 @@ function ApplyDialog({ d, busy, onClose, onConfirm }: { d: AttendanceEditDetail;
   const n = useMemo(() => d.items.filter((i) => !i.skipped_reason).length, [d.items])
   return (
     <Overlay title="اعتماد وتنفيذ طلب تعديل الحضور" onClose={onClose} testId="ae-apply-dialog">
-      <p className="text-xs text-slate-600">{d.scope_label} · {d.action_label} · سيُنفَّذ <b>{n}</b> يوم عمل الآن ويُبلَّغ الطالب والمعاون والتطوير المركزية.</p>
+      <p className="text-xs text-slate-600">{d.scope_label} · {d.action_label} · سيُنفَّذ <b>{n}</b> يوم عمل الآن بعد إعادة التحقق من البصمات والشفت؛ إذا تغيّرت البيانات يلزم استبعاد البند أو إعادة الطلب. يُبلَّغ الطالب والمعاون والتطوير المركزية.</p>
       <textarea className="mt-2 min-h-[70px] w-full rounded-xl border border-slate-300 p-2 text-sm" value={note} onChange={(e) => setNote(e.target.value)} placeholder="ملاحظة الموارد البشرية (اختياري)" data-testid="ae-apply-note" />
       <div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>رجوع</Button><Button size="sm" isLoading={busy} disabled={n === 0} onClick={() => onConfirm(note.trim() || null)} data-testid="ae-apply-confirm">اعتماد وتنفيذ</Button></div>
     </Overlay>

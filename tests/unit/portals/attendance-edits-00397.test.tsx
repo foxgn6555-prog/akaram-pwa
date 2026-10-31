@@ -80,10 +80,12 @@ describe('00397-ب · غرفة العمليات — تعديل جماعي', () =
     expect(screen.getByTestId('ae-days-count')).toHaveTextContent('3')
     fireEvent.click(screen.getByTestId('ae-day-2026-10-27'))
     expect(screen.getByTestId('ae-days-count')).toHaveTextContent('2')
-    // المعاينة
+    // اختر صراحة طرف البصمة الناقص قبل المعاينة
+    expect(screen.getByTestId('ae-preview')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('ae-missing-out'))
     fireEvent.click(screen.getByTestId('ae-preview'))
     await waitFor(() => expect(screen.getByTestId('ae-preview-box')).toBeInTheDocument())
-    expect(calls.preview![0]).toEqual({ scopeKind: 'department_tree', scopeIds: ['d1'], dates: ['2026-10-26', '2026-10-28'], action: 'full_presence', payload: {} })
+    expect(calls.preview![0]).toEqual({ scopeKind: 'department_tree', scopeIds: ['d1'], dates: ['2026-10-26', '2026-10-28'], action: 'full_presence', payload: { missing_side: 'out' } })
     expect(screen.getByTestId('ae-pv-emps')).toHaveTextContent('2')
     expect(screen.getByTestId('ae-pv-items')).toHaveTextContent('4')
     expect(screen.getByTestId('ae-pv-minutes')).toHaveTextContent('720')
@@ -95,24 +97,21 @@ describe('00397-ب · غرفة العمليات — تعديل جماعي', () =
     expect(screen.getByTestId('ae-confirm')).toHaveTextContent('تأكيد التنفيذ المباشر')
     fireEvent.click(screen.getByTestId('ae-confirm-go'))
     await waitFor(() => expect(calls.create).toBeTruthy())
-    expect(calls.create![0]).toEqual({ d: { scopeKind: 'department_tree', scopeIds: ['d1'], dates: ['2026-10-26', '2026-10-28'], action: 'full_presence', payload: {} }, reason: 'أيام تجربة البصمة الجديدة', mode: 'direct' })
+    expect(calls.create![0]).toEqual({ d: { scopeKind: 'department_tree', scopeIds: ['d1'], dates: ['2026-10-26', '2026-10-28'], action: 'full_presence', payload: { missing_side: 'out' } }, reason: 'أيام تجربة البصمة الجديدة', mode: 'direct' })
     await waitFor(() => expect(screen.queryByTestId('ae-preview-box')).toBeNull())
     expect((calls.toast![0] as { message: string }).message).toContain('نُفّذ التعديل')
   })
 
-  it('موظفون محددون × تحديد أوقات ⇒ الحمولة تحمل الأوقات، والإرسال إلى الموارد البشرية بوضع hr_request؛ تغيير أي مدخل يُلغي المعاينة', async () => {
+  it('اختيار الدخول الناقص والإرسال للموافقة؛ تغيير الطرف يُلغي المعاينة', async () => {
     wrap(<BulkEditPanel />)
     fireEvent.click(screen.getByTestId('ae-scope-employees'))
     fireEvent.click(await screen.findByTestId('ae-emp-e1'))
     expect(screen.getByTestId('ae-emp-count')).toHaveTextContent('1')
     fireEvent.change(screen.getByTestId('ae-from'), { target: { value: '2026-10-27' } })
-    fireEvent.click(screen.getByTestId('ae-action-set_times'))
-    expect(screen.getByTestId('ae-preview')).toBeDisabled()   // لا أوقات بعد
-    fireEvent.change(screen.getByTestId('ae-cin'), { target: { value: '16:05' } })
-    fireEvent.change(screen.getByTestId('ae-cout'), { target: { value: '22:00' } })
+    fireEvent.click(screen.getByTestId('ae-missing-in'))
     fireEvent.click(screen.getByTestId('ae-preview'))
     await waitFor(() => expect(screen.getByTestId('ae-preview-box')).toBeInTheDocument())
-    expect(calls.preview![0]).toMatchObject({ scopeKind: 'employees', scopeIds: ['e1'], dates: ['2026-10-27'], action: 'set_times', payload: { check_in: '16:05', check_out: '22:00' } })
+    expect(calls.preview![0]).toMatchObject({ scopeKind: 'employees', scopeIds: ['e1'], dates: ['2026-10-27'], action: 'full_presence', payload: { missing_side: 'in' } })
     fireEvent.change(screen.getByTestId('ae-reason'), { target: { value: 'مراجعة كاميرا الدوام' } })
     fireEvent.click(screen.getByTestId('ae-submit-hr'))
     expect(screen.getByTestId('ae-confirm')).toHaveTextContent('الموارد البشرية')
@@ -123,7 +122,7 @@ describe('00397-ب · غرفة العمليات — تعديل جماعي', () =
     fireEvent.click(screen.getByTestId('ae-emp-e1'))
     fireEvent.click(screen.getByTestId('ae-preview'))
     await waitFor(() => expect(screen.getByTestId('ae-preview-box')).toBeInTheDocument())
-    fireEvent.change(screen.getByTestId('ae-cout'), { target: { value: '21:00' } })
+    fireEvent.click(screen.getByTestId('ae-missing-out'))
     expect(screen.queryByTestId('ae-preview-box')).toBeNull()
   })
 
@@ -140,7 +139,7 @@ describe('00397-ب · غرفة العمليات — تعديل جماعي', () =
 describe('00397-ب · الموارد البشرية — طلبات تعديل الحضور', () => {
   beforeEach(() => { for (const k of Object.keys(calls)) delete calls[k] })
 
-  it('الطابور يعرض الطلب المعتمد؛ المراجعة تفتح البنود مع قبل/المقترح؛ تعديل بند يرسل الحالة والأوقات ببغداد؛ الاستبعاد بسبب؛ الاعتماد ينفّذ', async () => {
+  it('الطابور يعرض الطلب المعتمد؛ المراجعة تعرض البنود وتمنع تعديل الحالة؛ الاستبعاد بسبب؛ الاعتماد ينفّذ', async () => {
     wrap(<AttendanceEditsPage />)
     await waitFor(() => expect(screen.getByTestId('ae-review-R1')).toBeInTheDocument())
     expect(screen.getByTestId('ae-st-queue')).toHaveTextContent('1')
@@ -150,14 +149,8 @@ describe('00397-ب · الموارد البشرية — طلبات تعديل ا
     expect(screen.getByTestId('ae-item-I1')).toHaveTextContent('متأخر')
     expect(screen.getByTestId('ae-item-I1')).toHaveTextContent('تُشتق من الأوقات')
     expect(screen.getByTestId('ae-item-I2')).toHaveTextContent('لا صف')
-    // تعديل البند الأول إلى «حاضر» 16:00–22:00
-    fireEvent.click(screen.getByTestId('ae-item-edit-I1'))
-    fireEvent.change(screen.getByTestId('ae-item-status'), { target: { value: 'present' } })
-    fireEvent.change(screen.getByTestId('ae-item-cin'), { target: { value: '16:00' } })
-    fireEvent.change(screen.getByTestId('ae-item-cout'), { target: { value: '22:00' } })
-    fireEvent.click(screen.getByTestId('ae-item-save'))
-    await waitFor(() => expect(calls.hrUpdateItem).toBeTruthy())
-    expect(calls.hrUpdateItem![0]).toEqual({ itemId: 'I1', status: 'present', checkIn: '2026-10-27T13:00:00.000Z', checkOut: '2026-10-27T19:00:00.000Z' })
+    // لا يتيح تعديل الحالة أو الكتابة فوق البصمة عند المراجعة.
+    expect(screen.queryByTestId('ae-item-edit-I1')).toBeNull()
     // استبعاد البند الثاني
     fireEvent.click(screen.getByTestId('ae-item-skip-I2'))
     fireEvent.change(screen.getByTestId('ae-skip-dialog-reason'), { target: { value: 'لم يكن على رأس العمل' } })

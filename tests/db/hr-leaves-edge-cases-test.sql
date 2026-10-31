@@ -209,7 +209,8 @@ end $$;
 select auth.set_test_user('aaaa0000-0000-0000-0000-00000000000e');
 do $$ declare m date := (date_trunc('month', current_date) - interval '2 month')::date; e uuid := 'bbbb0000-0000-0000-0000-000000000021'; a record; begin
   -- اليوم 12 كان غياباً (زمنية بلا بصمة): غرفة العمليات تُثبت الحضور بسبب
-  perform public.ops_attendance_edit(e, m + 12, (m + 12 + time '08:00')::timestamp at time zone '+03:00'::interval, (m + 12 + time '16:00')::timestamp at time zone '+03:00'::interval, 'present', 'كان في مهمة خارجية موثقة');
+  -- صف يدوي تاريخي سبق فرض الموافقة على الحضور بلا بصمة.
+  perform app.attendance_edit_apply_day_00351_raw(e, m + 12, (m + 12 + time '08:00')::timestamp at time zone '+03:00'::interval, (m + 12 + time '16:00')::timestamp at time zone '+03:00'::interval, 'present', 'كان في مهمة خارجية موثقة');
   select * into a from public.hr_attendance_days where employee_id = e and work_date = m + 12;
   assert a.source = 'manual' and a.status = 'time_permit' and a.shortfall_minutes = 0 and a.proposed_deduction_days = 0 and a.deduction_reason is null, 'manual edit recomputes metrics: ' || row_to_json(a)::text;
   perform public.hr_attendance_evaluate(m + 12, m + 12, e);

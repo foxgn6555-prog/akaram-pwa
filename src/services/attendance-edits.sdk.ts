@@ -15,10 +15,10 @@ export const ATTENDANCE_EDIT_SCOPE_LABELS: Readonly<Record<AttendanceEditScopeKi
   employees: 'موظفون محددون', branch: 'فرع كامل', department: 'قسم (بلا فروعه)', department_tree: 'قسم وأقسامه الفرعية',
 }
 export const ATTENDANCE_EDIT_ACTION_LABELS: Readonly<Record<AttendanceEditAction, string>> = {
-  full_presence: 'حضور كامل بأوقات الشفت', set_status: 'تغيير حالة اليوم', set_times: 'تحديد أوقات الدخول/الخروج',
+  full_presence: 'إكمال البصمة الناقصة أو طلب حضور بلا بصمة', set_status: 'تغيير حالة اليوم (طلب سابق)', set_times: 'تحديد الأوقات (طلب سابق)',
 }
 export const ATTENDANCE_EDIT_ACTION_HINTS: Readonly<Record<AttendanceEditAction, string>> = {
-  full_presence: 'يُسجَّل كل موظف حاضراً من بداية شفته الفعلي إلى نهايته (لا تأخير ولا خروج مبكر). أيام الراحة بالشفت تُستبعد تلقائياً.',
+  full_presence: 'تُحفظ البصمة الحقيقية ويُقترح الطرف الناقص بحسب الشفت؛ الحضور بلا بصمة يحتاج طلباً وموافقة.',
   set_status: 'تُثبَّت الحالة التي تختارها (مثل إجازة أو غياب) لكل الأيام المختارة.',
   set_times: 'تُحدَّد أوقات دخول/خروج واحدة، وتُحتسب الحالة والتأخير آلياً بقواعد شفت كل موظف.',
 }
@@ -37,7 +37,7 @@ export const ATTENDANCE_EDIT_ERROR_MESSAGES: Record<string, string> = {
   ATT_EDIT_SCOPE_INVALID: 'نطاق غير صالح',
   ATT_EDIT_TOO_LARGE: 'الطلب كبير جداً (أكثر من 5000 يوم عمل) — قسّمه على طلبات أصغر',
   ATT_EDIT_MODE_INVALID: 'المعاون ينفّذ التعديل مباشرة ولا يرسله طلباً إلى الموارد البشرية',
-  ATT_EDIT_NOTHING_TO_APPLY: 'لا بنود صالحة للتنفيذ — كلها مستبعدة',
+  ATT_EDIT_NOTHING_TO_APPLY: 'لا بنود صالحة للتنفيذ؛ الأيام بلا بصمات تحتاج طلباً وموافقة',
   ATT_EDIT_NOT_EDITABLE: 'هذا الطلب ليس في مرحلة تسمح بهذا الإجراء',
   ATT_EDIT_NOT_APPLIED: 'لا يمكن التراجع إلا عن طلب نُفّذ فعلاً',
   HR_STATUS_INVALID: 'اختر حالة اليوم',
@@ -51,7 +51,7 @@ export function attendanceEditErrorMessage(error: unknown): string {
   return (code && all[code]) || text || 'خطأ غير معروف'
 }
 
-export interface AttendanceEditPayload { status?: string; check_in?: string; check_out?: string }
+export interface AttendanceEditPayload { status?: string; check_in?: string; check_out?: string; missing_side?: 'in' | 'out' }
 export interface AttendanceEditDraft {
   scopeKind: AttendanceEditScopeKind
   scopeIds: string[]
@@ -62,7 +62,7 @@ export interface AttendanceEditDraft {
 export interface AttendanceEditPreviewRow {
   employee_id: string; full_name: string; employee_number: string; work_date: string
   before: { status: string; status_label: string; check_in: string | null; check_out: string | null; late_minutes: number | null; early_minutes: number | null } | null
-  proposed: { status: string; check_in: string | null; check_out: string | null } | null
+  proposed: { status: string; check_in: string | null; check_out: string | null; needs_approval?: boolean } | null
   proposed_status_label: string | null
   skipped: string | null
 }

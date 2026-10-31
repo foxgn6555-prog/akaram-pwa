@@ -8,6 +8,8 @@
  *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
  */
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { hr } from '../../../../services/hr.sdk'
 import { useCanCall } from '@features/permissions/my-permissions'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
@@ -32,9 +34,8 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
 /** 00218: غرفة العمليات تعدّل فقط أيام البصمة الناقصة أو بلا بصمات (يوم ببصمتين لا يُعدَّل) */
-const canEditRow = (r: AttendanceDay) => !(['present', 'late', 'early_leave', 'time_permit'].includes(r.status) && !!r.check_in && !!r.check_out)
+const canEditRow = (r: AttendanceDay) => r.status !== 'leave' && (!!r.check_in !== !!r.check_out)
 const AUDIT_LABELS: Record<string, string> = { edit: 'تعديل', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع', deduction_delete: 'حذف استقطاع', export: 'تصدير شهر', approve: 'اعتماد المالية', waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', confirm: 'اعتماد حضورية الشهر', reopen: 'إعادة فتح الحضورية', auto_blocked: 'تغيير تلقائي مُعلَّق بعد الاعتماد' }
-const EDITABLE: AttendanceStatus[] = ['present', 'late', 'early_leave', 'absent', 'incomplete', 'leave', 'time_permit']
 
 export default function OpsAttendancePage() {
   const [stage, setStage] = useState<Stage>('detailed')
@@ -267,7 +268,7 @@ export default function OpsAttendancePage() {
                       <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
                       <td className="p-2">
                         <div className="flex justify-center gap-1">
-                          <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل محصور بالبصمة الناقصة أو يوم بلا بصمات' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
+                          <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل المباشر للبصمة الناقصة فقط؛ بلا بصمة يُرسل طلب للموافقة' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>سجل</button>
                         </div>
                       </td>
@@ -411,20 +412,27 @@ function Overlay({ title, onClose, children, testId }: { title: string; onClose:
   )
 }
 
-function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }) {
+export function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }) {
   const edit = useEditAttendance(); const reset = useResetAttendance()
-  const [err, setErr] = useState<string | null>(null)
-  // الأوقات تُعرض وتُحفظ بتوقيت بغداد (+03:00 ثابت بلا توقيت صيفي) مهما كان توقيت جهاز المدقّق
-  const toLocal = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' }) : ''
-  const [cin, setCin] = useState(toLocal(row.check_in)); const [cout, setCout] = useState(toLocal(row.check_out))
-  const [st, setSt] = useState<AttendanceStatus>(row.status); const [reason, setReason] = useState('')
-  const compose = (hm: string, dayOffset = 0) => { if (!hm) return null; const d = new Date(`${row.work_date}T${hm}:00+03:00`); d.setUTCDate(d.getUTCDate() + dayOffset); return d.toISOString() }
-  const overnight = !!cin && !!cout && cout < cin
+  const options = useQuery({ queryKey: ['attendance-correction-options', row.employee_id, row.work_date], queryFn: () => hr.correctionOptions(row.employee_id, row.work_date), staleTime: 0 })
+  const [side, setSide] = useState<'in' | 'out' | null>(null)
+  const [custom, setCustom] = useState(''); const [reason, setReason] = useState(''); const [err, setErr] = useState<string | null>(null)
+  const o = options.data
+  const toLocal = (ts?: string | null) => ts ? new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' }) : ''
+  const anchor = side === 'in' ? o?.shift_start : side === 'out' ? o?.expected_out : null
+  const value = custom || toLocal(anchor)
+  const compose = () => {
+    if (!anchor || !value) return null
+    const localDate = new Date(new Date(anchor).getTime() + 3 * 3600_000).toISOString().slice(0, 10)
+    return new Date(`${localDate}T${value}:00+03:00`).toISOString()
+  }
   const save = async () => {
     if (reason.trim().length < 3) { setErr('السبب إلزامي (3 أحرف على الأقل)'); return }
+    const synthetic = compose(); const real = o?.real
+    if (!side || !synthetic || !real || o?.count !== 1 || o.skipped) { setErr('تعذّر التحقق من البصمة والشفت؛ حدّث الصفحة وراجع السجل'); return }
     setErr(null)
     try {
-      await edit.mutateAsync({ employeeId: row.employee_id, date: row.work_date, checkIn: compose(cin), checkOut: compose(cout, overnight ? 1 : 0), status: st, reason: reason.trim() })
+      await edit.mutateAsync({ employeeId: row.employee_id, date: row.work_date, checkIn: side === 'in' ? synthetic : real, checkOut: side === 'out' ? synthetic : real, status: 'auto', reason: reason.trim() })
       onClose()
     } catch { /* toast in hook */ }
   }
@@ -434,21 +442,29 @@ function EditPanel({ row, onClose }: { row: AttendanceDay; onClose: () => void }
     try { await reset.mutateAsync({ employeeId: row.employee_id, date: row.work_date, reason: reason.trim() }); onClose() } catch { /* toast in hook */ }
   }
   return (
-    <Overlay title={`تعديل حضور ${row.full_name} — ${row.work_date}`} onClose={onClose} testId="ops-edit-panel">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="e-in" label="وقت الدخول"><input id="e-in" type="time" className={field} value={cin} onChange={(e) => setCin(e.target.value)} data-testid="e-in" /></Field>
-        <Field id="e-out" label={`وقت الخروج${overnight ? ' (اليوم التالي)' : ''}`}><input id="e-out" type="time" className={field} value={cout} onChange={(e) => setCout(e.target.value)} data-testid="e-out" /></Field>
-        <Field id="e-status" label="الحالة *" hint="التأخير/الخروج المبكر يُحسبان من الأوقات؛ حاضر/غائب/إجازة تصفّرهما"><select id="e-status" className={field} value={st} onChange={(e) => setSt(e.target.value as AttendanceStatus)} data-testid="e-status">{EDITABLE.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select></Field>
-        <div className="sm:col-span-2"><Field id="e-reason" label="سبب التعديل *"><textarea id="e-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: بصمة الخروج لم تُسجَّل بسبب عطل الجهاز — تم التأكد من مسؤول القسم" data-testid="e-reason" /></Field></div>
-      </div>
+    <Overlay title={`تصحيح البصمة الناقصة — ${row.full_name} — ${row.work_date}`} onClose={onClose} testId="ops-edit-panel">
+      {options.isLoading && <LoadingSpinner />}
+      {options.isError && <p role="alert" className="text-xs text-red-700">تعذّر جلب البصمة والشفت؛ أغلق النافذة وحاول مجدداً.</p>}
+      {o?.skipped && <p role="alert" className="text-xs text-amber-700">{o.skipped}</p>}
+      {o?.count === 0 && <p className="text-xs text-amber-700">لا توجد بصمة حقيقية؛ أرسل طلب حضور للموافقة من التعديل الجماعي.</p>}
+      {o?.count === 1 && !o.skipped && <div className="space-y-3">
+        <p className="text-xs">البصمة الحقيقية المحفوظة: <b dir="ltr" className="tabular-nums">{toLocal(o.real)}</b> — لن تتغيّر.</p>
+        <p className="text-xs text-slate-600">تأكد أي الطرفين مفقود؛ قد لا يحدد الجهاز اتجاه البصمة.</p>
+        <div className="flex flex-wrap gap-4 text-xs">
+          <label><input type="radio" name="edit-side" checked={side === 'out'} onChange={() => { setSide('out'); setCustom('') }} data-testid="e-side-out" /> خروج مفقود</label>
+          <label><input type="radio" name="edit-side" checked={side === 'in'} onChange={() => { setSide('in'); setCustom('') }} data-testid="e-side-in" /> دخول مفقود</label>
+        </div>
+        {side && <Field id="e-time" label={side === 'in' ? 'الدخول المضاف — المقترح بداية الشفت' : 'الخروج المضاف — المقترح نهاية الشفت'} hint="يجب ألا يتجاوز الوقت المضاف نهاية الشفت الفعلي. تُحسب الحالة تلقائياً."><input id="e-time" type="time" className={field} value={value} onChange={(e) => setCustom(e.target.value)} data-testid="e-time" /></Field>}
+      </div>}
+      <div className="mt-3"><Field id="e-reason" label="سبب التعديل *"><textarea id="e-reason" className={clsx(field, 'h-20 py-2')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثال: لم تُسجَّل البصمة بسبب عطل الجهاز" data-testid="e-reason" /></Field></div>
       <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] font-semibold text-amber-800" data-testid="it-notify-notice">
         <Icon name="alert-triangle" className="mt-0.5 h-4 w-4 shrink-0" />
-        <span><b>تنبيه:</b> سيتم تبليغ <b>معاون المدير المفوض</b> و<b>وحدة التطوير المركزية</b> بهذا التعديل تلقائياً (إشعار لكل منهما + قيد في سجل التدقيق باسمك والسبب) — التعديل لا يستقطع ولا يعفي؛ مراجعة الاستقطاعات عند المعاون.</span>
+        <span>يُبلَّغ معاون المدير المفوض ووحدة التطوير المركزية ويُسجَّل التعديل والسبب في التدقيق.</span>
       </p>
       {err && <p className="mt-2 text-xs font-bold text-red-600" role="alert" data-testid="e-error">{err}</p>}
       <div className="mt-3 flex flex-wrap justify-between gap-2">
         <Button size="sm" variant="ghost" onClick={() => void doReset()} isLoading={reset.isPending} data-testid="e-reset">إعادة الاحتساب من البصمات</Button>
-        <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} isLoading={edit.isPending} data-testid="e-save">حفظ التعديل</Button></div>
+        <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={onClose}>إلغاء</Button><Button size="sm" onClick={() => void save()} disabled={!side || o?.count !== 1 || !!o.skipped} isLoading={edit.isPending} data-testid="e-save">حفظ التصحيح</Button></div>
       </div>
     </Overlay>
   )
