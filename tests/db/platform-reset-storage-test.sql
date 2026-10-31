@@ -9,7 +9,8 @@ insert into public.platform_reset_requests(id,status,categories,requested_cats,r
 insert into storage.objects(id,bucket_id,name,created_at,updated_at) values
  ('98400000-0000-0000-0000-000000000003','reset-test','old/file.jpg',now()-interval '2 days',now()-interval '2 days'),
  ('98400000-0000-0000-0000-000000000004','reset-test','new/file.jpg',now()+interval '1 day',now()+interval '1 day'),
- ('98400000-0000-0000-0000-000000000005','reset-test','changed/file.jpg',now()-interval '2 days',now()+interval '1 day');
+ ('98400000-0000-0000-0000-000000000005','reset-test','changed/file.jpg',now()-interval '2 days',now()+interval '1 day'),
+ ('98400000-0000-0000-0000-000000000008','reset-test','unknown/file.jpg',null,null);
 do $$ declare j jsonb; n int; caught bool:=false; begin
  begin perform public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',0);
  exception when others then if sqlerrm not like '%RESET_NOT_EXECUTED%' then raise; end if; caught:=true; end;
@@ -22,7 +23,9 @@ do $$ declare j jsonb; n int; caught bool:=false; begin
  select count(*) into n from public.platform_reset_storage_objects('98400000-0000-0000-0000-000000000002'); assert n=1,'exactly old file';
  j:=public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',0); assert not (j->>'done')::bool,'unfinished remains';
  delete from storage.objects where id='98400000-0000-0000-0000-000000000003';
- j:=public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',1); assert (j->>'done')::bool,'finished';
+ j:=public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',1); assert not (j->>'done')::bool and (j->>'remaining')::int=1,'unknown date must not be falsely complete';
+ delete from storage.objects where id='98400000-0000-0000-0000-000000000008';
+ j:=public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',0); assert (j->>'done')::bool,'finished';
  assert (select count(*) from storage.objects where bucket_id='reset-test')=2,'new files kept';
  assert not app.platform_reset_storage_allowed('reset-test',now()-interval '2 days',now()-interval '2 days'),'authorization closed';
  j:=public.platform_reset_storage_finish('98400000-0000-0000-0000-000000000002',1); assert (j->>'done')::bool,'idempotent';
