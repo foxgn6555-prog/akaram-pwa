@@ -8,7 +8,7 @@ import clsx from 'clsx'
 import { useApprovalDiagnose } from '@features/sector-manager/hooks'
 import type { ApprovalRequestType } from '@sdk/sector-manager.sdk'
 
-const FALLBACK_LABEL: Record<string, string> = { chain: 'سلسلة موافقات', manager: 'المدير المباشر (بلا سلسلة)', hr_only: 'الموارد البشرية فقط', none: 'لا أحد — سيُرفض' }
+const FALLBACK_LABEL: Record<string, string> = { chain: 'سلسلة موافقات', manager: 'المدير المباشر (بلا سلسلة)', hr_only: 'يُحال إلى الموارد البشرية', none: 'لا أحد — سيُرفض' }
 
 export function ChainPreview({ employeeId, type, subtype = null, detailed = false, testId = 'chain-preview' }: { employeeId: string | null | undefined; type: ApprovalRequestType; subtype?: string | null; detailed?: boolean; testId?: string }) {
   const q = useApprovalDiagnose(employeeId, type, subtype)
@@ -27,7 +27,8 @@ export function ChainPreview({ employeeId, type, subtype = null, detailed = fals
             {d.chain.scope === 'department' ? <>سلسلة قسم «{d.chain.department_name}»{d.chain.include_children ? ' (تشمل الأقسام الفرعية)' : ''}</> : <>سلسلة دور «{d.chain.requester_label}»</>}
             {d.chain.subtype ? <span className="text-slate-500"> · النوع الفرعي: {d.chain.subtype}</span> : null}
           </span>
-        ) : d.fallback === 'manager' ? <span data-testid={`${testId}-scope`}>المدير المباشر: <b>{d.employee.manager_name}</b></span> : null}
+        ) : d.fallback === 'manager' ? <span data-testid={`${testId}-scope`}>المدير المباشر: <b>{d.employee.manager_name}</b></span>
+          : d.fallback === 'hr_only' ? <span data-testid={`${testId}-scope`}>تقرّره <b>الموارد البشرية</b> (بلا سلسلة وبلا مدير قادر على البتّ)</span> : null}
       </div>
       {d.chain && d.steps.length > 0 && (
         <ol className="mt-2 space-y-1" data-testid={`${testId}-steps`}>

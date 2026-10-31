@@ -56,16 +56,20 @@ do $$ declare r record; begin
   raise notice 'OL3 ✅ الاعتماد من السلسلة الاعتيادية';
 end $$;
 
--- ④ موظف بلا حساب ولا بصمة: غرفة العمليات تستطيع؛ بلا مدير ولا سلسلة ⇒ HR_NO_MANAGER؛ الملخص
+-- ④ موظف بلا حساب ولا بصمة: غرفة العمليات تستطيع؛ بلا مدير ولا سلسلة ⇒ إحالة إلى HR (00396)؛ الملخص
 select auth.set_test_user('a9000000-0000-0000-0000-000000000001');
 do $$ declare t uuid; lid uuid; d date := app.hr_local_date(now()) + 10; j jsonb; begin
   select id into t from public.hr_leave_types where code = 'unpaid';
   lid := public.hr_leave_request('b9000000-0000-0000-0000-000000000006', t, d, d);
   assert (select requested_via from public.hr_leaves where id = lid) = 'ops_room', 'no-account employee request';
-  begin perform public.hr_leave_request('b9000000-0000-0000-0000-000000000007', t, d, d); raise exception 'should fail';
-  exception when others then assert sqlerrm = 'HR_NO_MANAGER', 'orphan: ' || sqlerrm; end;
+  -- 00396: بلا مدير ولا سلسلة ⇒ لا رفض؛ يُقبل ويُحال إلى الموارد البشرية
+  declare lid2 uuid; begin
+    lid2 := public.hr_leave_request('b9000000-0000-0000-0000-000000000007', t, d, d);
+    assert (select hr_fallback from public.hr_leaves where id = lid2), 'orphan routed to HR (00396)';
+    assert exists (select 1 from public.notifications n where n.user_id = 'a9000000-0000-0000-0000-000000000005' and n.dedupe_key = 'leave_hr_fallback:' || lid2::text), 'HR notified (00396)';
+  end;
   j := public.ops_leaves_summary();
-  assert (j ->> 'via_ops_pending')::int >= 1 and (j ->> 'via_ops_month')::int >= 2, 'summary: ' || j::text;
+  assert (j ->> 'via_ops_pending')::int >= 1 and (j ->> 'via_ops_month')::int >= 3, 'summary: ' || j::text;
   -- إلغاء ما قدّمته وهو معلّق
   perform public.hr_leave_cancel(lid, 'خطأ في الإدخال');
   assert (select status from public.hr_leaves where id = lid) = 'cancelled', 'cancelled by requester';

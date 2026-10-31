@@ -193,8 +193,13 @@ export function LeaveRequestsTable({ rows, isLoading, mode, showEmployee = true,
 const VIA_LABEL: Record<string, string> = { ops_room: 'غرفة العمليات', garage: 'الكراج المركزي', hr: 'الموارد البشرية' }
 export function ViaBadge({ row }: { row: LeaveRequestRow }) {
   const label = row.requested_via ? VIA_LABEL[row.requested_via] : undefined
-  if (!label) return null
-  return <span className="mt-0.5 inline-block rounded-full bg-[#0b3d6b]/10 px-2 py-0.5 text-[10px] font-bold text-[#0b3d6b]" data-testid={`via-${row.id}`}>قُدِّم عبر {label}{row.requester_name ? ` · ${row.requester_name}` : ''}</span>
+  return (
+    <>
+      {label && <span className="mt-0.5 inline-block rounded-full bg-[#0b3d6b]/10 px-2 py-0.5 text-[10px] font-bold text-[#0b3d6b]" data-testid={`via-${row.id}`}>قُدِّم عبر {label}{row.requester_name ? ` · ${row.requester_name}` : ''}</span>}
+      {/* 00396: محال إلى الموارد البشرية (بلا سلسلة وبلا مدير قادر على البتّ) */}
+      {row.hr_fallback && <span className="mt-0.5 ms-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800" title={row.hr_fallback_reason ?? undefined} data-testid={`hr-fallback-${row.id}`}>تقرّره الموارد البشرية{row.hr_fallback_reason ? ` — ${row.hr_fallback_reason}` : ''}</span>}
+    </>
+  )
 }
 
 function AttachmentLink({ path }: { path: string }) {

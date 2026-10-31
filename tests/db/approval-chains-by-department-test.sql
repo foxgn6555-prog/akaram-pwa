@@ -33,11 +33,10 @@ declare it uuid := '39100000-0000-0000-0000-0000000000a1'; hr uuid := '39100000-
 begin
   select id into t_annual from public.hr_leave_types where code = 'annual';
 
-  -- ── قبل أي سلسلة: غرفة العمليات لا تستطيع الطلب لعامل بلا حساب وبلا مدير + التشخيص يشرح السبب ──
+  -- ── قبل أي سلسلة: عامل بلا حساب وبلا مدير — التشخيص يشرح أن الطلب يُحال إلى الموارد البشرية (00396: لا HR_NO_MANAGER) ──
   perform pg_temp.as_user(ops);
-  perform pg_temp.expect_err(format($q$select public.hr_leave_request(%L, %L, %L, %L)$q$, e1, t_annual, d0, d0), 'HR_NO_MANAGER');
   j := public.approval_diagnose(e1, 'leave');
-  assert (j ->> 'ok')::boolean = false and j ->> 'fallback' = 'hr_only', 'diag before: ' || j::text;
+  assert (j ->> 'ok')::boolean = true and j ->> 'fallback' = 'hr_only' and j ->> 'reason' like '%يُحال إلى الموارد البشرية%', 'diag before: ' || j::text;
   assert j -> 'chain' = 'null'::jsonb and jsonb_array_length(j -> 'hints') >= 2, 'hints: ' || j::text;
   assert (select count(*) from jsonb_array_elements(j -> 'checks') c where (c ->> 'ok')::boolean) = 1, 'only department check ok: ' || (j -> 'checks')::text;   -- منسوب إلى قسم فقط
   assert jsonb_array_length(j -> 'department_path') = 2 and (j -> 'department_path' -> 1 ->> 'name') = 'قسم النقل 391', 'path: ' || (j -> 'department_path')::text;

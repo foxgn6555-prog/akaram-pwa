@@ -202,15 +202,17 @@ begin
   perform public.approval_chain_save('deputy_director', 'leave', '[{"kind":"account","user_id":"d8000000-0000-0000-0000-000000000006"}]');
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000006');
   perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e6', '%s', current_date + 40, current_date + 40, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'APPROVAL_NO_APPROVER');
-  -- مسؤول القاطع بلا سلسلة وبلا مدير مباشر → HR_NO_MANAGER (السلوك القديم محفوظ)
+  -- مسؤول القاطع بلا سلسلة وبلا مدير مباشر → يُقبل ويُحال إلى الموارد البشرية (00396 — كان HR_NO_MANAGER)
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000004');
-  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e4', '%s', current_date + 40, current_date + 40, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'HR_NO_MANAGER');
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e4', t_annual, current_date + 40, current_date + 40, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
+  assert (select hr_fallback from public.hr_leaves where id = lid), 'sector manager request routed to HR (00396)';
   -- تعطيل السلسلة يعيد المتعهد إلى قاعدة المدير المباشر
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000001');
   perform public.approval_chain_save('employee', 'leave', '[{"kind":"hierarchy","role":"department_manager"}]', false);
   perform pg_temp.as_user('d8000000-0000-0000-0000-000000000002');
-  perform pg_temp.expect_error(format($q$ select public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', '%s', current_date + 50, current_date + 50, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)') $q$, t_annual), 'HR_NO_MANAGER');
-  raise notice 'S4 ✅ الرفض يُنهي، لا موافقة ذاتية، APPROVAL_NO_APPROVER، وبلا سلسلة يبقى المدير المباشر';
+  lid := public.hr_leave_request('d8000000-0000-0000-0000-0000000000e2', t_annual, current_date + 50, current_date + 50, null, null, null, null, 'أُبلغ المسؤول شفهياً ولم يُسجَّل الطلب في وقته (اختبار)');
+  assert (select hr_fallback and chain_id is null from public.hr_leaves where id = lid), 'contractor without manager routed to HR after chain disabled (00396)';
+  raise notice 'S4 ✅ الرفض يُنهي، لا موافقة ذاتية، APPROVAL_NO_APPROVER، وبلا سلسلة ولا مدير ⇒ إحالة إلى HR';
 end $$;
 
 -- ═══ S5 · اللوحة والتقارير والتبليغ (بلا بيانات مالية) ═══

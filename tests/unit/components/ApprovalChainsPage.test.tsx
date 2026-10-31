@@ -59,14 +59,16 @@ describe('سلاسل الموافقات', () => {
     h.diag = { employee: { id: 'e1', full_name: 'عامل بلا حساب', employee_number: 'E1', department_id: 'd2', department_name: 'الورشة', has_account: false, roles: [], manager_id: null, manager_name: null, manager_has_account: false },
       type: 'leave', subtype: null, chain: null, steps: [], active_steps: 0, department_path: [{ department_id: 'd2', name: 'الورشة', depth: 0, chains: [] }, { department_id: 'd1', name: 'النقل', depth: 1, chains: [{ id: 'x', subtype: null, is_active: true, include_children: false, applies: false }] }],
       checks: [{ key: 'department', label: 'الموظف منسوب إلى قسم', ok: true, detail: 'الورشة' }, { key: 'dept_chain', label: 'سلسلة لقسمه أو لقسم أعلى', ok: false, detail: 'لا سلسلة' }, { key: 'manager', label: 'مدير مباشر مسجّل في HR', ok: false, detail: 'غير محدد' }],
-      ok: false, fallback: 'hr_only', reason: 'لا سلسلة ولا مدير مباشر — لا يُقبل الطلب من الموظف أو غرفة العمليات (HR_NO_MANAGER)', hints: ['حدّد المدير المباشر من ملف الموظف', 'أو اضبط سلسلة لقسم «الورشة»'] }
+      ok: true, fallback: 'hr_only', reason: 'لا سلسلة ولا مدير مباشر مسجّل — يُقبل الطلب ويُحال إلى الموارد البشرية لتقرّره', hints: ['حدّد المدير المباشر من ملف الموظف', 'أو اضبط سلسلة لقسم «الورشة»'] }
     render(<Page />)
     fireEvent.change(screen.getByTestId('diag-search'), { target: { value: 'عامل' } })
     fireEvent.change(screen.getByTestId('diag-employee'), { target: { value: 'e1' } })
     expect(h.diagArgs[0]).toBe('e1'); expect(h.diagArgs[1]).toBe('leave')
-    expect(screen.getByTestId('diag-preview')).toHaveAttribute('data-ok', '0')
-    expect(screen.getByTestId('diag-preview-fallback')).toHaveTextContent('الموارد البشرية فقط')
-    expect(screen.getByTestId('diag-preview-reason')).toHaveTextContent('HR_NO_MANAGER')
+    // 00396: hr_only مسار مقبول (ok=1) — يُحال إلى الموارد البشرية بدل الرفض
+    expect(screen.getByTestId('diag-preview')).toHaveAttribute('data-ok', '1')
+    expect(screen.getByTestId('diag-preview-fallback')).toHaveTextContent('يُحال إلى الموارد البشرية')
+    expect(screen.getByTestId('diag-preview-scope')).toHaveTextContent('الموارد البشرية')
+    expect(screen.getByTestId('diag-preview-reason')).toHaveTextContent('يُحال إلى الموارد البشرية')
     expect(screen.getByTestId('diag-preview-hints').children).toHaveLength(2)
     expect(screen.getByTestId('diag-preview-check-dept_chain')).toHaveAttribute('data-ok', '0')
     expect(screen.getByTestId('diag-preview-path')).toHaveTextContent('النقل (0/1 سلسلة تنطبق)')

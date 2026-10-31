@@ -806,6 +806,9 @@ export interface LeaveRequestRow {
   /** 00239: جهة التقديم (self/manager/hr/garage/ops_room/admin) واسم المُقدِّم عندما لا يكون الموظف نفسه */
   requested_via?: LeaveRequestedVia | null
   requester_name?: string | null
+  /** 00396: بلا سلسلة وبلا مدير قادر على البتّ ⇒ أُحيل الطلب إلى الموارد البشرية (مع السبب) */
+  hr_fallback?: boolean | null
+  hr_fallback_reason?: string | null
 }
 export type LeaveRequestedVia = 'self' | 'manager' | 'hr' | 'garage' | 'ops_room' | 'admin'
 /** 00239: ملخص وحدة طلبات الإجازة في غرفة العمليات */
