@@ -10,7 +10,7 @@ import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type * as SdkMod from '@sdk/platform-reset.sdk'
 
-const h = vi.hoisted(() => ({ calls: {} as Record<string, unknown[]>, canApprove: true }))
+const h = vi.hoisted(() => ({ calls: {} as Record<string, unknown[]>, canApprove: true, detailOverride: null as Record<string, unknown> | null, countsOverride: null as SdkMod.PlatformResetCounts | null }))
 const rec = (k: string, v: unknown) => { (h.calls[k] ??= []).push(v) }
 
 const cat = (key: string, label: string, grp: string, sort: number, rows: number, extra: Partial<SdkMod.PlatformResetCategory> = {}): SdkMod.PlatformResetCategory =>
@@ -37,11 +37,12 @@ const detail: SdkMod.PlatformResetDetail = {
 vi.mock('@sdk/platform-reset.sdk', async (orig) => {
   const m = await orig<typeof SdkMod>()
   return { ...m, platformReset: { ...m.platformReset,
-    counts: () => Promise.resolve(counts),
+    counts: () => Promise.resolve(h.countsOverride ?? counts),
     list: () => Promise.resolve([]),
     closure: (c: string[]) => { rec('closure', c); return Promise.resolve(c.includes('employees') && !c.includes('letters') ? { categories: [...c, 'letters'], added: ['letters'] } : { categories: c, added: c.includes('letters') && c.includes('employees') && c.length === 2 ? ['letters'] : [] }) },
     request: (c: string[], pw: string) => { rec('request', { c, pw }); return Promise.resolve({ id: 'q1', status: 'pending_approval', via_chain: true, categories: c, added: [] }) },
-    detail: () => Promise.resolve({ ...detail, can_approve: h.canApprove }),
+    detail: () => Promise.resolve({ ...detail, ...h.detailOverride, can_approve: h.canApprove }),
+    wipeWarehouse: (id: string) => { rec('warehouse', id); return Promise.resolve({ ok: true, result: {} }) },
     approve: (id: string, pw: string) => { rec('approve', { id, pw }); return Promise.resolve({ id, status: 'done', final: true, result: { rows_deleted: 129 } }) },
     reject: (id: string, note: string) => { rec('reject', { id, note }); return Promise.resolve() },
   } }
@@ -60,6 +61,7 @@ vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unkno
 
 import PlatformResetPage from '@portals/it/pages/PlatformReset/PlatformResetPage'
 import TeamRequestsPage from '@portals/admin-ops/pages/Requests/TeamRequestsPage'
+import { PlatformResetDetailView } from '@features/platform-reset/PlatformResetDetailView'
 import { PORTAL_UNITS } from '@/config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/it/routes'
@@ -68,12 +70,27 @@ const wrap = (ui: React.ReactElement) => render(<MemoryRouter><QueryClientProvid
 const toasts = () => (h.calls.toast ?? []) as Array<{ type: string; message: string }>
 
 describe('00398-ب · وحدة «التصفير» في بوابة التطوير', () => {
-  beforeEach(() => { for (const k of Object.keys(h.calls)) delete h.calls[k]; h.canApprove = true })
+  beforeEach(() => { for (const k of Object.keys(h.calls)) delete h.calls[k]; h.canApprove = true; h.detailOverride = null; h.countsOverride = null })
 
   it('مسجّلة كوحدة في الشريط وكمسار IT', () => {
     const u = PORTAL_UNITS[PORTALS.IT].find((x) => x.path === '/it/platform-reset')
     expect(u?.labelKey).toBe('nav.platform_reset')
     expect(customRoutes.some((r) => r.path === 'platform-reset')).toBe(true)
+  })
+
+  it('المستودع مستقل؛ يتعذّر طلبه عندما يكون عدده غير متاح', async () => {
+    h.countsOverride = { ...counts, categories: [cat('gps_hotspots', 'بؤر التوقف المحلية', 'التتبع', 10, 5),
+      cat('gps_warehouse', 'مستودع GPS المستقل', 'التتبع', 20, 0, { rows: null, files: null })] }
+    wrap(<PlatformResetPage />)
+    fireEvent.change(screen.getByTestId('pr-lock-pw'), { target: { value: 'تصفير' } })
+    fireEvent.click(screen.getByTestId('pr-lock-enter'))
+    await screen.findByTestId('pr-grid')
+    fireEvent.click(screen.getByTestId('pr-cb-gps_hotspots'))
+    expect(screen.getByTestId('pr-submit')).not.toBeDisabled()
+    expect(screen.getByTestId('pr-cb-gps_warehouse')).not.toBeChecked()
+    fireEvent.click(screen.getByTestId('pr-cb-gps_warehouse'))
+    expect(screen.getByTestId('pr-submit')).toBeDisabled()
+    expect(screen.getByText(/عدد مستودع GPS غير متاح/)).toBeInTheDocument()
   })
 
   it('شاشة القفل: كلمة خاطئة ترفض، و«تصفير» تفتح الشبكة بكل الفئات وأعدادها', async () => {
@@ -119,7 +136,7 @@ describe('00398-ب · وحدة «التصفير» في بوابة التطوير
 })
 
 describe('00398-ب · مهمة «تصفير المنصة» في الموافقات', () => {
-  beforeEach(() => { for (const k of Object.keys(h.calls)) delete h.calls[k]; h.canApprove = true })
+  beforeEach(() => { for (const k of Object.keys(h.calls)) delete h.calls[k]; h.canApprove = true; h.detailOverride = null; h.countsOverride = null })
 
   it('لا زر موافقة مباشر — فقط «إظهار تفاصيل التصفير»؛ التفاصيل تعرض الفئات والاعتماد يتطلب «اعتماد تصفير»', async () => {
     wrap(<TeamRequestsPage />)
@@ -159,5 +176,26 @@ describe('00398-ب · مهمة «تصفير المنصة» في الموافقا
     fireEvent.click(screen.getAllByTestId('reset-detail-q1')[1]!)
     await waitFor(() => expect(screen.getAllByTestId('pr-categories').length).toBeGreaterThan(0))
     expect(screen.queryByTestId('pr-approve')).toBeNull()
+  })
+})
+
+
+describe('00398-د · المستودع مستقل عن حاويات المشروع الأول', () => {
+  beforeEach(() => { for (const k of Object.keys(h.calls)) delete h.calls[k]; h.canApprove = false; h.detailOverride = null; h.countsOverride = null })
+  it('يُظهر زر المستودع حتى لو لا توجد ملفات محلية، ويرسل رقم الطلب', async () => {
+    h.detailOverride = { status: 'done', status_label: 'نُفّذ', storage_buckets: [], warehouse_done_at: null,
+      result: { rows_deleted: 0, tables: 0, users_deleted: 0, protected_users: 1, duration_ms: 1, warehouse_wipe: true },
+      categories: [{ key: 'gps_warehouse', label: 'المستودع التحليلي', grp: 'التتبع', tables: [], buckets: [], rows: 12, files: 3, auto_added: false }] }
+    wrap(<PlatformResetDetailView id="q1" onClose={() => undefined} canWipeStorage />)
+    const button = await screen.findByTestId('pr-wipe-warehouse')
+    expect(screen.queryByTestId('pr-wipe-storage')).toBeNull()
+    fireEvent.click(button)
+    await waitFor(() => expect(h.calls.warehouse).toEqual(['q1']))
+  })
+  it('لا يتيح حذف المستودع عند كون الطلب معلقاً', async () => {
+    h.detailOverride = { categories: [{ key: 'gps_warehouse', label: 'المستودع التحليلي', grp: 'التتبع', tables: [], buckets: [], rows: 12, files: 3, auto_added: false }] }
+    wrap(<PlatformResetDetailView id="q1" onClose={() => undefined} canWipeStorage />)
+    await screen.findByTestId('pr-categories')
+    expect(screen.queryByTestId('pr-wipe-warehouse')).toBeNull()
   })
 })

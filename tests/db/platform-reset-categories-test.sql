@@ -3,6 +3,7 @@ set client_min_messages=warning;
 insert into auth.users(id,email) values('98200000-0000-0000-0000-000000000001','cat-reset@test.iq');
 insert into public.user_roles(user_id,role) values('98200000-0000-0000-0000-000000000001','it_admin');
 select set_config('auth.user_id','98200000-0000-0000-0000-000000000001',false);
+update public.gps_warehouse_link set last_ping_at=now(),last_ping_ok=true,ping='{"reset_rows":9,"reset_files":2,"reset_settings_rows":1}'::jsonb where id=1;
 do $$ declare r record; j jsonb; c text; t text; n bigint; before_units int; passed int:=0; begin
  select count(*) into before_units from public.permission_units;
  for r in select key from app.platform_reset_catalog() order by sort loop
@@ -23,5 +24,5 @@ do $$ declare r record; j jsonb; c text; t text; n bigint; before_units int; pas
    when others then raise exception 'category % failed: %',r.key,sqlerrm;
    end;
  end loop;
- assert passed=25, 'must test all 25';
+ assert passed=27, 'must test all 27';
 end $$;

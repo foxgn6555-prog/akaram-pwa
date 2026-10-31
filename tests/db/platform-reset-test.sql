@@ -19,6 +19,7 @@ update public.departments set manager_id = '98000000-0000-0000-0000-0000000000e1
 insert into public.ops_store_items (id, name, unit, qty_on_hand) values ('98000000-0000-0000-0000-0000000000f1', 'صنف 98', 'قطعة', 5), ('98000000-0000-0000-0000-0000000000f2', 'صنف 98 ب', 'قطعة', 1);
 insert into public.it_tickets (created_by, title) values ('98000000-0000-0000-0000-0000000000e1', 'تذكرة 98');
 insert into public.app_errors (message) values ('خطأ 98') on conflict do nothing;
+update public.gps_warehouse_link set last_ping_at=now(),last_ping_ok=true,ping='{"reset_rows":9,"reset_files":2,"reset_settings_rows":1}'::jsonb where id=1;
 
 create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false) $$;
 create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
@@ -43,7 +44,7 @@ begin
   select string_agg(t, '، ') into ghost from app.platform_reset_catalog() c, unnest(c.tables) t
     where not exists (select 1 from pg_class k join pg_namespace ns on ns.oid = k.relnamespace where ns.nspname = 'public' and k.relname = t and k.relkind = 'r');
   assert ghost is null, 'R1c جداول غير موجودة في الكتالوج: ' || ghost;
-  select count(*) into n from app.platform_reset_catalog(); assert n = 25, 'R1d فئات: ' || n;
+  select count(*) into n from app.platform_reset_catalog(); assert n = 27, 'R1d فئات: ' || n;
 
   -- R2: الصلاحية وكلمة السر
   perform pg_temp.as_user(ops);
@@ -54,7 +55,7 @@ begin
   perform pg_temp.expect_error($q$select public.platform_reset_request('{}'::text[], 'تصفير')$q$, 'RESET_NOTHING_SELECTED');
   perform pg_temp.expect_error($q$select public.platform_reset_request(array['x'], 'تصفير')$q$, 'RESET_CATEGORY_INVALID');
   j := public.platform_reset_counts();
-  assert jsonb_array_length(j -> 'categories') = 25, 'R2 counts';
+  assert jsonb_array_length(j -> 'categories') = 27, 'R2 counts';
   select (c ->> 'rows')::int into n from jsonb_array_elements(j -> 'categories') c where c ->> 'key' = 'warehouse';
   assert n >= 2, 'R2b warehouse rows: ' || n;
   select (c ->> 'protected_users')::int into n from jsonb_array_elements(j -> 'categories') c where c ->> 'key' = 'accounts';

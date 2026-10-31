@@ -8,6 +8,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
+import { runWarehouseReset } from '../_shared/platform-reset-warehouse.ts'
 import { baghdadDayRange, baghdadParts, historyToWarehousePoints, lvnLogin, lvnRequest } from '../_shared/lvn-history.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
@@ -190,12 +191,20 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return response({ error: 'METHOD_NOT_ALLOWED' }, 405)
   const user = await actor(req)
   if (!user) return response({ error: 'GPS_WAREHOUSE_FORBIDDEN' }, 403)
-  let body: { action?: Action; month?: string; limit?: number } = {}
+  let body: { action?: Action; month?: string; limit?: number; reset_id?: string } = {}
   try { body = await req.json() } catch { /* بلا جسم ⇒ ping */ }
   const action: Action = body.action ?? 'ping'
   const allowed = action === 'ping' ? READ_ROLES : WRITE_ROLES
-  if (!user.roles.some((r) => allowed.includes(r))) return response({ error: 'GPS_WAREHOUSE_FORBIDDEN' }, 403)
+  // عملية wipe تفوّض بالطلب نفسه: المنفّذ أو IT/المدير المفوض؛ لا تُتاح للمجدول.
+  if (action !== 'wipe' && !user.roles.some((r) => allowed.includes(r))) return response({ error: 'GPS_WAREHOUSE_FORBIDDEN' }, 403)
   try {
+    // بعد اعتماد مسح المستودع تتوقف الكتابات الجديدة حتى يكتمل المسح، فلا تُضاف بيانات جديدة بلا تنبيه.
+    if (action !== 'ping' && action !== 'wipe') {
+      const { count, error } = await admin.from('platform_reset_requests').select('id', { count: 'exact', head: true })
+        .eq('status', 'done').is('warehouse_done_at', null).overlaps('categories', ['gps_warehouse', 'gps_warehouse_settings'])
+      if (error) throw new Error('GPS_WAREHOUSE_RESET_CHECK_FAILED')
+      if ((count ?? 0) > 0) return response({ error: 'GPS_WAREHOUSE_RESET_PENDING' }, 409)
+    }
     if (action === 'ping') {
       const ping = await whRpc<Record<string, unknown>>('wh_ping')
       await record('ping', true, ping)
@@ -241,23 +250,27 @@ Deno.serve(async (req) => {
       return response({ ok: true, action, result })
     }
     if (action === 'wipe') {
-      // 00398: مسح مستودع GPS بالكامل (جداول wh_* + ملفات الأرشيف) — يُستدعى من وحدة «التصفير» بعد تنفيذ تصفير بؤر التوقف
-      const result = await whRpc<Record<string, unknown>>('wh_wipe_all')
-      const wh = warehouse()
-      let files = 0
-      const { data: buckets } = await wh.storage.listBuckets()
-      for (const b of buckets ?? []) {
-        for (let guard = 0; guard < 200; guard++) {
-          const { data: objs } = await wh.storage.from(b.name).list('', { limit: 1000 })
-          const names = (objs ?? []).filter((o) => o.id).map((o) => o.name)
-          if (names.length === 0) break
-          const { error } = await wh.storage.from(b.name).remove(names)
-          if (error) break
-          files += names.length
-        }
-      }
-      await record('registry', true, { wipe: true, files })
-      return response({ ok: true, action, result: { ...result, files_deleted: files } })
+      const result = await runWarehouseReset(user, body.reset_id, {
+        claim: async (id) => {
+          const { data, error } = await admin.rpc('platform_reset_warehouse_claim', { p_id: id, p_actor: user.id })
+          if (error || !data) throw new Error('GPS_WAREHOUSE_RESET_NOT_AUTHORIZED')
+          return data
+        },
+        finish: async (id, token, ok, result) => {
+          const { error } = await admin.rpc('platform_reset_warehouse_finish', { p_id: id, p_token: token, p_success: ok, p_result: result })
+          if (error) throw new Error('GPS_WAREHOUSE_RESET_SAVE_FAILED')
+        },
+        prepare: (id, wipeData, resetSettings) => whRpc('wh_reset_prepare', { p_id: id, p_wipe_data: wipeData, p_reset_settings: resetSettings }),
+        files: (id) => whRpc('wh_reset_files_batch', { p_id: id, p_limit: 500 }),
+        remove: async (names) => {
+          const { data, error } = await warehouse().storage.from('gps-archive').remove(names)
+          if (error) throw new Error(`GPS_WAREHOUSE_RESET_STORAGE_FAILED: ${safeError(error.message)}`)
+          return data?.length ?? 0
+        },
+        execute: (id) => whRpc('wh_reset_execute', { p_id: id }),
+        now: () => Date.now(),
+      })
+      return response({ ok: true, action, result })
     }
     return response({ error: 'GPS_WAREHOUSE_ACTION_INVALID' }, 400)
   } catch (e) {

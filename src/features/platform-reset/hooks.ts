@@ -1,7 +1,7 @@
 /** خطافات «التصفير» (00398) — بوابة التطوير المركزية + صفحة التفاصيل للمعتمِدين في أي بوابة */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUiStore } from '@stores/ui.store'
-import { PLATFORM_RESET_ERROR_MESSAGES, platformReset } from '@sdk/platform-reset.sdk'
+import { PLATFORM_RESET_ERROR_MESSAGES, platformReset, type PlatformResetResult } from '@sdk/platform-reset.sdk'
 
 export * from '@sdk/platform-reset.sdk'
 
@@ -20,7 +20,7 @@ export function platformResetErrorMessage(error: unknown): string {
 
 function useToast() {
   const addToast = useUiStore((s) => s.addToast)
-  return { ok: (message: string) => addToast({ type: 'success', message }), err: (e: unknown) => addToast({ type: 'error', message: platformResetErrorMessage(e) }) }
+  return { ok: (message: string) => addToast({ type: 'success', message }), warn: (message: string) => addToast({ type: 'warning', message }), err: (e: unknown) => addToast({ type: 'error', message: platformResetErrorMessage(e) }) }
 }
 function useInvalidateAll() {
   const qc = useQueryClient()
@@ -32,11 +32,28 @@ export const usePlatformResetList = (enabled = true) => useQuery({ queryKey: pla
 export const usePlatformResetDetail = (id: string | null | undefined) =>
   useQuery({ queryKey: platformResetKeys.detail(id ?? ''), queryFn: () => platformReset.detail(id as string), enabled: !!id })
 
+/** بعد نجاح قاعدة البيانات نبدأ التنظيف فوراً؛ الفشل لا يلغي نجاح القاعدة ويظل قابلاً للإعادة. */
+export async function completePlatformReset(id: string, result?: PlatformResetResult): Promise<string[]> {
+  const errors: string[] = []
+  if (result?.buckets?.length) {
+    try { const r = await platformReset.wipeStorage(id); if (r.remaining) errors.push('بقيت ملفات تخزين') }
+    catch { errors.push('تعذر حذف بعض ملفات التخزين') }
+  }
+  if (result?.warehouse_wipe) {
+    try { const r = await platformReset.wipeWarehouse(id); if (!r.ok) errors.push(platformResetErrorMessage(r.error)) }
+    catch { errors.push('تعذر إكمال تصفير مستودع GPS') }
+  }
+  return errors
+}
+
 export function usePlatformResetRequest() {
   const t = useToast(), inv = useInvalidateAll()
   return useMutation({
-    mutationFn: (x: { categories: string[]; password: string }) => platformReset.request(x.categories, x.password),
-    onSuccess: (r) => { inv(); t.ok(r.via_chain ? 'تم إرسال طلب التصفير' : `نُفِّذ التصفير — حُذف ${r.result?.rows_deleted ?? 0} سجل`) },
+    mutationFn: async (x: { categories: string[]; password: string }) => {
+      const r = await platformReset.request(x.categories, x.password)
+      return { ...r, cleanupErrors: r.via_chain ? [] : await completePlatformReset(r.id, r.result) }
+    },
+    onSuccess: (r) => { inv(); if (r.cleanupErrors.length) t.warn(`صُفّرت قاعدة البيانات لكن بقيت مهام: ${r.cleanupErrors.join('، ')} — أعد المحاولة من التفاصيل`); else t.ok(r.via_chain ? 'تم إرسال طلب التصفير' : `اكتمل التصفير — حُذف ${r.result?.rows_deleted ?? 0} سجل`) },
     onError: t.err,
   })
 }
@@ -47,8 +64,11 @@ export function usePlatformResetCancel() {
 export function usePlatformResetApprove() {
   const t = useToast(), inv = useInvalidateAll()
   return useMutation({
-    mutationFn: (x: { id: string; password: string }) => platformReset.approve(x.id, x.password),
-    onSuccess: (r) => { inv(); t.ok(r.final ? `نُفِّذ التصفير — حُذف ${r.result?.rows_deleted ?? 0} سجل` : 'سُجّلت موافقتك — بانتظار بقية الخطوات') },
+    mutationFn: async (x: { id: string; password: string }) => {
+      const r = await platformReset.approve(x.id, x.password)
+      return { ...r, cleanupErrors: r.final ? await completePlatformReset(r.id, r.result) : [] }
+    },
+    onSuccess: (r) => { inv(); if (r.cleanupErrors.length) t.warn(`صُفّرت قاعدة البيانات لكن بقيت مهام: ${r.cleanupErrors.join('، ')} — أعد المحاولة من التفاصيل`); else t.ok(r.final ? `اكتمل التصفير — حُذف ${r.result?.rows_deleted ?? 0} سجل` : 'سُجّلت موافقتك — بانتظار بقية الخطوات') },
     onError: t.err,
   })
 }
@@ -56,16 +76,24 @@ export function usePlatformResetReject() {
   const t = useToast(), inv = useInvalidateAll()
   return useMutation({ mutationFn: (x: { id: string; note: string }) => platformReset.reject(x.id, x.note), onSuccess: () => { inv(); t.ok('رُفض طلب التصفير') }, onError: t.err })
 }
-/** حذف ملفات التخزين (ومسح مستودع GPS إن لزم) بعد تنفيذ التصفير — من المتصفح */
+/** حذف الملفات المحلية على دفعات؛ حالة المستودع مستقلة تماماً. */
 export function usePlatformResetWipeStorage() {
   const t = useToast(), inv = useInvalidateAll()
   return useMutation({
-    mutationFn: async (x: { id: string; warehouse: boolean; onProgress?: (n: number) => void }) => {
-      const s = await platformReset.wipeStorage(x.id, x.onProgress)
-      const w = x.warehouse ? await platformReset.wipeWarehouse() : null
-      return { ...s, warehouse: w }
+    mutationFn: (x: { id: string; onProgress?: (n: number) => void }) => platformReset.wipeStorage(x.id, x.onProgress),
+    onSuccess: (r) => { inv(); t.ok(`حُذف ${r.deleted} ملف${r.remaining ? ` — بقي ${r.remaining}، أعد المحاولة` : ''}`) },
+    onError: (e) => { inv(); t.err(e) },
+  })
+}
+export function usePlatformResetWipeWarehouse() {
+  const t = useToast(), inv = useInvalidateAll()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await platformReset.wipeWarehouse(id)
+      if (!r.ok) throw new Error(r.error ?? 'تعذر تصفير المستودع — أعد المحاولة')
+      return r
     },
-    onSuccess: (r) => { inv(); t.ok(`حُذف ${r.deleted} ملف${r.remaining ? ` — بقي ${r.remaining}` : ''}${r.warehouse ? (r.warehouse.ok ? ' · مُسح مستودع GPS' : ` · تعذر مسح المستودع (${r.warehouse.error ?? ''})`) : ''}`) },
-    onError: t.err,
+    onSuccess: () => { inv(); t.ok('اكتمل تصفير مستودع GPS وأرشيفه') },
+    onError: (e) => { inv(); t.err(e) },
   })
 }

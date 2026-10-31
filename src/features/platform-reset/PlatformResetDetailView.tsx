@@ -7,18 +7,19 @@ import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Database, HardDrive, ShieldCheck, XCircle } from 'lucide-react'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { dateAr, timeAr } from '@features/sector-manager/format'
-import { PLATFORM_RESET_APPROVE_PASSWORD, usePlatformResetApprove, usePlatformResetDetail, usePlatformResetReject, usePlatformResetWipeStorage } from './hooks'
+import { PLATFORM_RESET_APPROVE_PASSWORD, usePlatformResetApprove, usePlatformResetDetail, usePlatformResetReject, usePlatformResetWipeStorage, usePlatformResetWipeWarehouse } from './hooks'
 
 const num = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US')
 const STEP_AR: Record<string, string> = { approved: 'موافَق', rejected: 'مرفوض', pending: 'بانتظار القرار', waiting: 'لاحقاً', skipped: 'أُلغيت' }
 
 export function PlatformResetDetailView({ id, onClose, canWipeStorage = false }: { id: string; onClose: () => void; canWipeStorage?: boolean }) {
   const d = usePlatformResetDetail(id)
-  const approve = usePlatformResetApprove(), reject = usePlatformResetReject(), wipe = usePlatformResetWipeStorage()
+  const approve = usePlatformResetApprove(), reject = usePlatformResetReject(), wipe = usePlatformResetWipeStorage(), wipeWarehouse = usePlatformResetWipeWarehouse()
   const [mode, setMode] = useState<'idle' | 'approve' | 'reject'>('idle'), [pw, setPw] = useState(''), [note, setNote] = useState(''), [progress, setProgress] = useState(0)
   const x = d.data
   const groups = x ? [...new Set(x.categories.map((c) => c.grp))] : []
   const storagePending = !!x && x.status === 'done' && x.storage_buckets.length > 0 && !x.storage_done_at
+  const warehousePending = !!x && x.status === 'done' && x.categories.some((c) => c.key === 'gps_warehouse' || c.key === 'gps_warehouse_settings') && !x.warehouse_done_at
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto bg-slate-900/60 p-2 sm:p-6" dir="rtl" data-testid="pr-detail" role="dialog" aria-modal="true" aria-labelledby="pr-detail-title">
       <div className="mx-auto max-w-3xl rounded-3xl bg-white shadow-2xl">
@@ -52,7 +53,7 @@ export function PlatformResetDetailView({ id, onClose, canWipeStorage = false }:
                       <li key={c.key} className="rounded-xl border bg-slate-50 px-3 py-2 text-sm" data-testid={`pr-cat-${c.key}`}>
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-bold">{c.label}{c.auto_added && <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">أُضيفت تلقائياً (اعتمادية)</span>}</span>
-                          <span className="text-xs text-slate-700"><Database size={12} className="inline" /> <b className="tabular-nums">{num(c.rows)}</b> سجل{c.buckets.length > 0 && <> · <HardDrive size={12} className="inline" /> <b className="tabular-nums">{num(c.files)}</b> ملف</>}</span>
+                          <span className="text-xs text-slate-700"><Database size={12} className="inline" /> <b className="tabular-nums">{c.rows == null ? 'غير متاح' : num(c.rows)}</b> سجل{(c.buckets.length > 0 || c.key === 'gps_warehouse') && <> · <HardDrive size={12} className="inline" /> <b className="tabular-nums">{num(c.files)}</b> ملف</>}</span>
                         </div>
                         <div className="mt-0.5 text-[11px] text-slate-500" dir="ltr">{c.tables.join(' · ')}</div>
                       </li>
@@ -75,15 +76,21 @@ export function PlatformResetDetailView({ id, onClose, canWipeStorage = false }:
             {x.result && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900" data-testid="pr-result">
                 نُفِّذ {dateAr(x.executed_at)} {timeAr(x.executed_at)} · حُذف <b className="tabular-nums">{num(x.result.rows_deleted)}</b> سجل من <b>{x.result.tables}</b> جدول
-                {x.result.users_deleted > 0 && <> · <b>{x.result.users_deleted}</b> حساب (بقي {x.result.protected_users})</>} · خلال {Math.round(x.result.duration_ms / 100) / 10} ث · استرداد المساحة مجدول تلقائياً.
+                {x.result.users_deleted > 0 && <> · <b>{x.result.users_deleted}</b> حساب (بقي {x.result.protected_users})</>} · خلال {Math.round(x.result.duration_ms / 100) / 10} ث · استرداد مساحة قاعدة البيانات يعتمد على مهمة الصيانة.
                 {x.storage_done_at ? <div className="mt-1">ملفات التخزين: حُذفت ({num(x.storage_deleted)} ملف).</div> : x.storage_buckets.length > 0 ? <div className="mt-1 font-bold text-amber-900">ملفات التخزين ({x.storage_buckets.length} حاوية) لم تُحذف بعد — تُحذف من وحدة التصفير بحساب التطوير المركزية.</div> : null}
               </div>
             )}
-            {storagePending && canWipeStorage && (
-              <button type="button" data-testid="pr-wipe-storage" disabled={wipe.isPending} onClick={() => wipe.mutate({ id: x.id, warehouse: !!x.result?.warehouse_wipe, onProgress: setProgress })}
+            {storagePending && (canWipeStorage || x.can_cleanup) && (
+              <button type="button" data-testid="pr-wipe-storage" disabled={wipe.isPending} onClick={() => wipe.mutate({ id: x.id, onProgress: setProgress })}
                 className="h-11 w-full rounded-xl bg-amber-600 text-sm font-black text-white disabled:opacity-50">
-                {wipe.isPending ? `جارٍ حذف الملفات… ${num(progress)}` : `حذف ملفات التخزين الآن (${num(x.total_files)} ملف${x.result?.warehouse_wipe ? ' + مسح مستودع GPS' : ''})`}
+                {wipe.isPending ? `جارٍ حذف الملفات… ${num(progress)}` : `حذف ملفات التخزين الآن (${num(x.total_files)} ملف)`}
               </button>
+            )}
+            {warehousePending && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900" data-testid="pr-warehouse-pending">
+                تصفير فئات مستودع GPS المختارة ما زال بانتظار الإكمال. اضغط الزر من حساب المنفّذ أو التطوير أو المدير المفوض. يتوقف السحب مؤقتاً حتى انتهاء المسح. إن تأخر الإكمال فستُحذف بيانات المستودع الموجودة عند ضغط الزر، بما فيها أي بيانات وصلت قبل توقف السحب.
+                {(canWipeStorage || x.can_cleanup) && <button type="button" data-testid="pr-wipe-warehouse" disabled={wipeWarehouse.isPending} onClick={() => wipeWarehouse.mutate(x.id)} className="mt-2 h-11 w-full rounded-xl bg-amber-700 text-sm font-black text-white disabled:opacity-50">{wipeWarehouse.isPending ? 'جارٍ مسح المستودع…' : 'إكمال تصفير فئات مستودع GPS المختارة'}</button>}
+              </div>
             )}
             {x.status === 'pending_approval' && x.can_approve && (
               mode === 'idle' ? (

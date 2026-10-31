@@ -3,12 +3,13 @@
  * سلسلة «تصفير المنصة»، الاعتماد من صفحة التفاصيل بكلمة سر «اعتماد تصفير»، الرفض/الإلغاء، حذف ملفات التخزين من المتصفح، السجل.
  */
 import { sdkGuard, sdkVoid, supabase } from './client'
+import { gpsWarehouse } from './gps-warehouse.sdk'
 
 export type PlatformResetStatus = 'pending_approval' | 'approved' | 'executing' | 'done' | 'rejected' | 'cancelled' | 'failed'
 
 export interface PlatformResetCategory {
   key: string; label: string; grp: string; sort: number; tables: string[]; buckets: string[]
-  rows: number; files: number; protected_users: number | null
+  rows: number | null; files: number | null; protected_users: number | null
 }
 export interface PlatformResetCounts {
   categories: PlatformResetCategory[]
@@ -27,7 +28,7 @@ export interface PlatformResetDetail {
   total_rows: number; total_files: number; requested_by: string; requested_by_name: string | null
   created_at: string; approved_at: string | null; executed_at: string | null; result: PlatformResetResult | null
   rejected_note: string | null; storage_buckets: string[]; storage_done_at: string | null; storage_deleted: number
-  via_chain: boolean; timeline: PlatformResetTimelineStep[]; can_approve: boolean; includes_accounts: boolean
+  via_chain: boolean; timeline: PlatformResetTimelineStep[]; can_approve: boolean; includes_accounts: boolean; warehouse_done_at?: string | null; can_cleanup?: boolean
 }
 export interface PlatformResetListRow {
   id: string; status: PlatformResetStatus; status_label: string; categories: string[]; categories_count: number
@@ -50,6 +51,13 @@ export const PLATFORM_RESET_ERROR_MESSAGES: Record<string, string> = {
   RESET_NOT_FOUND: 'طلب التصفير غير موجود',
   RESET_NOT_PENDING: 'الطلب لم يعد معلّقاً',
   RESET_NOT_APPROVED: 'الطلب غير معتمد',
+  RESET_NOT_EXECUTED: 'لا يمكن حذف الملفات قبل تنفيذ التصفير',
+  RESET_WAREHOUSE_PENDING: 'يوجد طلب تصفير سابق للمستودع لم يكتمل — افتح تفاصيله وأكمل المسح أولاً',
+  RESET_WAREHOUSE_COUNTS_UNAVAILABLE: 'تعذر الحصول على أعداد مستودع GPS — تحقق من اتصال المشروع الثاني ثم أعد المحاولة',
+  GPS_WAREHOUSE_RESET_WAITING_FOR_PULL: 'السحب السابق لم ينته بعد — أعد محاولة المسح بعد قليل',
+  GPS_WAREHOUSE_RESET_RETRY_REQUIRED: 'ما زالت ملفات المستودع قيد الحذف — أعد المحاولة لمتابعة الدفعات',
+  GPS_WAREHOUSE_RESET_STORAGE_INCOMPLETE: 'لم تُحذف كل الملفات — أعد محاولة المسح',
+  GPS_WAREHOUSE_RESET_NOT_AUTHORIZED: 'الطلب غير معتمد للمستودع أو أن مسحه قيد التنفيذ',
   RESET_FORBIDDEN: 'لا صلاحية لعرض هذا الطلب',
   RESET_DEPENDENCY: 'جداول خارج الاختيار تعتمد على المختارة — أضف الفئات المطلوبة',
   RESET_TABLE_UNMAPPED: 'جدول غير مصنَّف في كتالوج التصفير — راجع التطوير',
@@ -63,7 +71,11 @@ export const PLATFORM_RESET_ERROR_MESSAGES: Record<string, string> = {
 }
 
 export const platformReset = {
-  counts: async () => (await sdkGuard(supabase.rpc('platform_reset_counts'))) as PlatformResetCounts,
+  counts: async () => {
+    // تحديث العدد عبر الجسر؛ عند تعذر الاتصال تُعرض الأعداد كغير متاحة، ولا يُسمح بطلب تصفير المستودع.
+    try { await gpsWarehouse.run('ping') } catch { /* لا نمنع معاينة الفئات المحلية */ }
+    return (await sdkGuard(supabase.rpc('platform_reset_counts'))) as PlatformResetCounts
+  },
   closure: async (categories: string[]) => (await sdkGuard(supabase.rpc('platform_reset_closure', { p_categories: categories }))) as PlatformResetClosure,
   request: async (categories: string[], password: string) =>
     (await sdkGuard(supabase.rpc('platform_reset_request', { p_categories: categories, p_password: password }))) as PlatformResetRequestResult,
@@ -82,25 +94,36 @@ export const platformReset = {
     let deleted = 0
     for (let guard = 0; guard < 400; guard++) {
       const objs = await platformReset.storageObjects(id, 500)
-      if (objs.length === 0) break
+      if (objs.length === 0) {
+        const fin = await platformReset.storageFinish(id, 0)
+        return { deleted, remaining: fin.remaining }
+      }
       const byBucket = new Map<string, string[]>()
       for (const o of objs) byBucket.set(o.bucket_id, [...(byBucket.get(o.bucket_id) ?? []), o.name])
       for (const [bucket, names] of byBucket) {
-        const { error } = await supabase.storage.from(bucket).remove(names)
+        const { data, error } = await supabase.storage.from(bucket).remove(names)
         if (error) throw new Error(`STORAGE_REMOVE_FAILED: ${bucket} — ${error.message}`)
-        deleted += names.length
+        const actual = data?.length ?? 0
+        deleted += actual
+        const fin = await platformReset.storageFinish(id, actual)
+        onProgress?.(deleted)
+        if (actual < names.length && !fin.done) throw new Error(`STORAGE_REMOVE_INCOMPLETE: ${bucket}`)
+        if (fin.done) return { deleted, remaining: 0 }
       }
-      onProgress?.(deleted)
-      const r = await platformReset.storageFinish(id, 0)
-      if (r.done) break
     }
-    const fin = await platformReset.storageFinish(id, deleted)
+    const fin = await platformReset.storageFinish(id, 0)
     return { deleted, remaining: fin.remaining }
   },
   /** مسح مستودع GPS (المشروع الثاني) عبر دالة الحافة — يُستدعى عندما تشمل النتيجة بؤر التوقف */
-  wipeWarehouse: async (): Promise<{ ok: boolean; error?: string; result?: Record<string, unknown> }> => {
-    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string; result?: Record<string, unknown> }>('gps-warehouse', { body: { action: 'wipe' } })
-    if (error) return { ok: false, error: error.message }
+  wipeWarehouse: async (id: string): Promise<{ ok: boolean; error?: string; result?: Record<string, unknown> }> => {
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; error?: string; result?: Record<string, unknown> }>('gps-warehouse', { body: { action: 'wipe', reset_id: id } })
+    if (error) {
+      const context = (error as { context?: Response }).context
+      if (context && typeof context.json === 'function') {
+        try { const body = (await context.json()) as { error?: string }; if (body.error) return { ok: false, error: body.error } } catch { /* استخدم رسالة الشبكة */ }
+      }
+      return { ok: false, error: error.message }
+    }
     return data ?? { ok: false, error: 'EMPTY' }
   },
 }

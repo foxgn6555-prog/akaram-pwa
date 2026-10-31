@@ -68,7 +68,7 @@ function ResetConsole() {
 
   const toggle = (c: PlatformResetCategory) => setSel((s) => { const n = new Set(s); if (n.has(c.key)) { n.delete(c.key); for (const a of auto) n.delete(a) } else n.add(c.key); return n })
   const all = cats.length > 0 && sel.size === cats.length
-  const totalRows = cats.filter((c) => sel.has(c.key)).reduce((s, c) => s + c.rows, 0), totalFiles = cats.filter((c) => sel.has(c.key)).reduce((s, c) => s + c.files, 0)
+  const totalRows = cats.filter((c) => sel.has(c.key)).reduce((s, c) => s + (c.rows ?? 0), 0), totalFiles = cats.filter((c) => sel.has(c.key)).reduce((s, c) => s + (c.files ?? 0), 0)
   const submit = () => request.mutate({ categories: [...sel], password: pw.trim() }, { onSuccess: (r) => { setAsk(false); setPw(''); setSel(new Set()); if (!r.via_chain) setOpenId(r.id) } })
 
   return (
@@ -85,6 +85,7 @@ function ResetConsole() {
       <div className="rounded-3xl border bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-black">اختر أنواع البيانات التي تريد تصفيرها</div>
+          <button type="button" data-testid="pr-refresh-counts" disabled={counts.isFetching} onClick={() => void counts.refetch()} className="rounded-xl border px-3 py-1.5 text-xs font-bold disabled:opacity-50">{counts.isFetching ? 'جارٍ التحديث…' : 'تحديث الأعداد'}</button>
           <button type="button" data-testid="pr-select-all" onClick={() => setSel(all ? new Set() : new Set(cats.map((c) => c.key)))} className="inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-bold">
             {all ? <CheckSquare size={14} /> : <Square size={14} />} {all ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
           </button>
@@ -102,8 +103,8 @@ function ResetConsole() {
                         <input type="checkbox" checked={on} onChange={() => toggle(c)} className="mt-1 size-4 accent-rose-700" data-testid={`pr-cb-${c.key}`} />
                         <span className="min-w-0 flex-1">
                           <span className="block font-bold leading-snug">{c.label}{isAuto && <span className="mr-1 rounded-full bg-amber-200 px-1.5 text-[10px] font-bold text-amber-900">اعتمادية</span>}</span>
-                          <span className="mt-0.5 block text-[11px] text-slate-600"><Database size={11} className="inline" /> <b className="tabular-nums" data-testid={`pr-rows-${c.key}`}>{num(c.rows)}</b> سجل{c.buckets.length > 0 && <> · <HardDrive size={11} className="inline" /> <b className="tabular-nums">{num(c.files)}</b> ملف</>}{c.protected_users != null && <> · <ShieldCheck size={11} className="inline" /> يبقى {c.protected_users} حساب</>}</span>
-                          <span className="mt-0.5 block text-[10px] text-slate-400">{c.tables.length} جدول</span>
+                          <span className="mt-0.5 block text-[11px] text-slate-600"><Database size={11} className="inline" /> <b className="tabular-nums" data-testid={`pr-rows-${c.key}`}>{c.rows == null ? 'غير متاح' : num(c.rows)}</b> سجل{(c.buckets.length > 0 || c.key === 'gps_warehouse') && <> · <HardDrive size={11} className="inline" /> <b className="tabular-nums">{c.files == null ? 'غير متاح' : num(c.files)}</b> ملف</>}{c.protected_users != null && <> · <ShieldCheck size={11} className="inline" /> يبقى {c.protected_users} حساب</>}</span>
+                          <span className="mt-0.5 block text-[10px] text-slate-400">{c.key === 'gps_warehouse' ? 'فئة مستقلة — المشروع الثاني وأرشيفه فقط' : c.key === 'gps_warehouse_settings' ? 'إعدادات المشروع الثاني فقط' : `${c.tables.length} جدول`}</span>
                         </span>
                       </label>
                     )
@@ -113,9 +114,10 @@ function ResetConsole() {
             ))}
           </div>
         )}
+        {cats.some((c) => sel.has(c.key) && (c.key === 'gps_warehouse' || c.key === 'gps_warehouse_settings') && (c.rows == null || c.files == null)) && <div className="mt-3 rounded-xl bg-amber-50 p-2 text-xs font-bold text-amber-900">عدد مستودع GPS غير متاح. تحقّق من الاتصال بالمشروع الثاني واضغط «تحديث الأعداد»، أو ألغِ اختيار المستودع.</div>}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
           <div className="text-xs text-slate-600" data-testid="pr-summary">المحدد: <b>{sel.size}</b> فئة · <b className="tabular-nums">{num(totalRows)}</b> سجل · <b className="tabular-nums">{num(totalFiles)}</b> ملف{sel.has('accounts') && <span className="mr-2 font-bold text-rose-800">· يشمل الحسابات (يبقى حسابك وحسابات المدير المفوض)</span>}</div>
-          <button type="button" data-testid="pr-submit" disabled={sel.size === 0 || !!pending || !canRequest.allowed} title={canRequest.title} onClick={() => setAsk(true)}
+          <button type="button" data-testid="pr-submit" disabled={sel.size === 0 || !!pending || !canRequest.allowed || cats.some((c) => sel.has(c.key) && (c.key === 'gps_warehouse' || c.key === 'gps_warehouse_settings') && (c.rows == null || c.files == null))} title={canRequest.title} onClick={() => setAsk(true)}
             className="inline-flex h-11 items-center gap-1 rounded-xl bg-rose-700 px-5 text-sm font-black text-white disabled:opacity-40"><Trash2 size={16} /> تصفير</button>
         </div>
         {ask && (
