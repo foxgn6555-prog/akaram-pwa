@@ -58,6 +58,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'hr.hire-requests': ['execute'],
   'hr.employees': ['create', 'edit', 'export', 'execute'],
   'hr.attendance': ['edit', 'export'],
+  'hr.attendance-edits': ['edit', 'decide'],   // 00397: مراجعة بنود طلبات التعديل الجماعي واعتمادها
   'hr.attendance-monthly': ['export'],   // 00389-ب
   'hr.leaves': ['create', 'decide', 'export'],
   'hr.documents': ['edit', 'export'],   // 00389-أ
@@ -280,6 +281,7 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
   hr_employee_create: ['hr.employees', 'create'],
   hr_employee_terminate: ['hr.recruitment', 'execute'],
   hire_request_complete: ['hr.hire-requests', 'execute'],
+  attendance_edit_hr_apply: ['hr.attendance-edits', 'decide'],   // 00397
   // غرفة العمليات
   supply_request_deliver: ['ops-room.store', 'execute'],
   advance_request_create: ['ops-room.advances', 'create'],
@@ -344,6 +346,9 @@ export const WRITE_BINDINGS_EXEMPT: Readonly<Record<string, string>> = {
   hire_request_create: 'طلب تعيين من الكراج/المحطة/الصيانة (00348)',
   hire_request_decide: 'سلسلة موافقات التعيين',
   hire_request_cancel: 'صاحب الطلب أو super_admin',
+  attendance_edit_create: 'تعديل حضور جماعي — غرفة العمليات أو المعاون (00397)',
+  attendance_edit_decide: 'سلسلة موافقات تعديل الحضور (00397)',
+  attendance_edit_revert: 'المعاون أو المدير المفوض (00397)',
   cold_archive_purge_decide: 'سلسلة موافقات اختيارية',
   complaint_report_decide: 'سلسلة موافقات التقارير',
   complaint_decide_deletion: 'سلسلة موافقات الحذف',

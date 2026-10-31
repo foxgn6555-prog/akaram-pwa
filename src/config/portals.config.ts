@@ -162,6 +162,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/attendance', labelKey: 'nav.attendance', icon: 'calendar' },
     { path: '/hr/now', labelKey: 'nav.hr_now', icon: 'clock' },   // 00389-ب
     { path: '/hr/attendance-monthly', labelKey: 'nav.hr_attendance_monthly', icon: 'bar-chart' },   // 00389-ب
+    { path: '/hr/attendance-edits', labelKey: 'nav.hr_attendance_edits', icon: 'check-square' },   // 00397-ب
     { path: '/hr/leaves', labelKey: 'nav.hr_leaves', icon: 'clipboard' },
     { path: '/hr/documents', labelKey: 'nav.hr_documents', icon: 'file-text' },   // 00389-أ
     { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },

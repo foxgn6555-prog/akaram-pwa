@@ -13,6 +13,7 @@ export const UI_SITES: Readonly<Record<string, readonly string[]>> = {
   hr_employee_create: [P + 'hr/pages/Recruitment/Recruitment.tsx'],
   hr_employee_terminate: [P + 'hr/pages/Recruitment/Recruitment.tsx'],
   hire_request_complete: [P + 'hr/pages/Recruitment/Recruitment.tsx'],
+  attendance_edit_hr_apply: [P + 'hr/pages/AttendanceEdits/AttendanceEditsPage.tsx'],   // 00397-ب
   supply_request_deliver: [P + 'ops-room/pages/Store/OpsStorePage.tsx'],
   advance_request_create: [P + 'ops-room/pages/Advances/OpsAdvancesPage.tsx'],
   ops_attendance_confirm: [P + 'ops-room/pages/Attendance/OpsAttendancePage.tsx'],

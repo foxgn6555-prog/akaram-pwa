@@ -70,7 +70,11 @@ describe('⚓ عقد كتالوج الصلاحيات', () => {
 
   // ── 00350-B: ربط دوال الكتابة ──
   const guardedFns = (): string[] => {
-    const src = readFileSync(join(ROOT, 'supabase/migrations/00291_write_guards_dedup_locks.sql'), 'utf8')
+    // 00397: آخر ترحيل يعيد تعريف القائمة هو المرجع (00291 ثم ما يوسّعها)
+    const dir = join(ROOT, 'supabase/migrations')
+    const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+    const withList = files.filter((f) => readFileSync(join(dir, f), 'utf8').includes('app.guarded_write_functions() returns text[]'))
+    const src = readFileSync(join(dir, withList[withList.length - 1]!), 'utf8')
     const body = src.split('app.guarded_write_functions() returns text[]')[1]!.split('$$;')[0]!
     return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!)
   }

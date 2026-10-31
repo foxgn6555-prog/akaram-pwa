@@ -135,7 +135,8 @@ do $$ declare j jsonb; d1 date := current_setting('test.ae_d1')::date; d2 date :
   assert exists (select 1 from public.notifications x where x.user_id = '97000000-0000-0000-0000-0000000000a2' and x.dedupe_key = 'att_edit_hr:' || (j ->> 'id') and x.body like '%بلا سلسلة موافقات — مباشر%'), 'HR notified';
   select i.id into it from public.attendance_edit_items i where i.request_id = (j ->> 'id')::uuid and i.work_date = d1;
   select i.id into it2 from public.attendance_edit_items i where i.request_id = (j ->> 'id')::uuid and i.work_date = d2;
-  perform pg_temp.expect_err(format('select public.attendance_edit_hr_apply(%L, null)', j ->> 'id'), 'HR_FORBIDDEN');
+  -- 00342: الاعتماد مربوط بوحدة hr.attendance-edits:decide ⇒ غرفة العمليات تُرفض من حارس الصلاحيات قبل الدالة
+  perform pg_temp.expect_err(format('select public.attendance_edit_hr_apply(%L, null)', j ->> 'id'), 'PERMISSION_DENIED');
   perform pg_temp.expect_err(format('select public.attendance_edit_hr_update_item(%L, %L, null, null)', it, 'present'), 'HR_FORBIDDEN');
   -- HR: تعديل اليوم الأول إلى دخول 16:00 (بدل 16:05) واستبعاد اليوم الثاني ثم الاعتماد
   perform pg_temp.as_user('97000000-0000-0000-0000-0000000000a2');

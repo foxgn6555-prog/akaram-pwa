@@ -4,6 +4,7 @@
  *     · استقطاعات للاطلاع فقط (لا إضافة/حذف — 00256) · تصدير Excel تفصيلي (ورقة لكل قسم) · «اعتماد حضورية الشهر».
  *   المرحلة 2 «الكشف المعتمد»: بعد الاعتماد فقط — كل يوم حاضر/غائب/مجاز + ملخص كل موظف (ساعات العمل، أيام الحضور/الغياب/الإجازة)
  *     · تصدير Excel معتمد (ورقة لكل قسم) · «تصدير بيانات الشهر إلى معاون المدير المفوض» ثم المالية (ممنوع قبل الاعتماد) · إعادة الفتح بسبب (يُبلَّغ التطوير).
+ *   00397-ب: قسم «تعديل جماعي» — طلب واحد (نطاق × أيام × نوع) مباشر أو بطلب إلى الموارد البشرية، بمعاينة قبل التنفيذ.
  *   00198: تنقّل واحد (شريط المراحل) · شريحة حالة الشهر · بطاقة «حالة الشهر» موحّدة بدل اللافتات المتناثرة · «جاهزية الاعتماد» · بطاقة «التصدير إلى المالية» بحالة صريحة.
  */
 import { useMemo, useState } from 'react'
@@ -26,6 +27,7 @@ import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel
 import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
 import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
 import { HourBankPanel } from './HourBankPanel'
+import { BulkEditPanel } from './BulkEditPanel'   // 00397-ب
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
@@ -45,7 +47,7 @@ export default function OpsAttendancePage() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<AttendanceDay | null>(null)
   const [auditFor, setAuditFor] = useState<AttendanceDay | null>(null)
-  const [panel, setPanel] = useState<'rows' | 'grid' | 'deductions' | 'exports'>('rows')
+  const [panel, setPanel] = useState<'rows' | 'grid' | 'bulk' | 'deductions' | 'exports'>('rows')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [busyExcel, setBusyExcel] = useState(false)
@@ -195,7 +197,7 @@ export default function OpsAttendancePage() {
           <div className="sticky top-0 z-20 space-y-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur" data-testid="ops-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
-                {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
+                {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
                   <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
                     {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
                   </button>
@@ -275,6 +277,7 @@ export default function OpsAttendancePage() {
               </table>
             </div>
           ))}
+          {panel === 'bulk' && <BulkEditPanel frozen={frozen} />}   {/* 00397-ب */}
           {panel === 'deductions' && <DeductionsPanel month={month} />}
           {panel === 'exports' && <ExportsPanel />}
         </>
