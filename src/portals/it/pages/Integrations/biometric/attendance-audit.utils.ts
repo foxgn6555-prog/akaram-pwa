@@ -5,7 +5,7 @@ import { fmtTime } from '@portals/hr/components/hr-format'
 export const AUDIT_ACTION_LABELS: Record<AttendanceAuditRow['action'], string> = {
   edit: 'تعديل يوم حضور', reset_auto: 'إعادة احتساب', deduction_add: 'إضافة استقطاع يدوي', deduction_delete: 'حذف استقطاع يدوي',
   waive: 'إلغاء استقطاع مقترح', unwaive: 'إعادة استقطاع مقترح', export: 'تصدير شهر إلى المالية', approve: 'اعتماد المالية',
-  confirm: 'اعتماد حضورية الشهر (غرفة العمليات)', reopen: 'إعادة فتح حضورية معتمدة', auto_blocked: 'تغيير تلقائي محجوز (شهر معتمد)', leave_sync: 'تصحيح حضور لإجازة معتمدة',
+  confirm: 'اعتماد حضورية الشهر (غرفة العمليات)', reopen: 'إعادة فتح حضورية معتمدة', auto_blocked: 'تغيير تلقائي محجوز للمراجعة', leave_sync: 'تصحيح حضور لإجازة أو زمنية معتمدة',
 }
 export const ACTION_TONE: Record<AttendanceAuditRow['action'], string> = {
   edit: 'bg-amber-50 text-amber-800', reset_auto: 'bg-sky-50 text-sky-800', deduction_add: 'bg-red-50 text-red-700', deduction_delete: 'bg-red-50 text-red-700',

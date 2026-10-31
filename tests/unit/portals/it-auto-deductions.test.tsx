@@ -103,7 +103,7 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
     fireEvent.change(screen.getByTestId('r-sample'), { target: { value: '10' } }); expect(screen.getByTestId('r-preview')).toHaveTextContent('ضمن السماحية')
     fireEvent.change(screen.getByTestId('r-sample'), { target: { value: '20' } }); expect(screen.getByTestId('r-preview')).toHaveTextContent('30د')
     // 00196: المعادلة واضحة + معنى كل شريحة بمبلغ تقريبي + طرق أخرى
-    expect(screen.getByTestId('r-formula')).toHaveTextContent('أجر اليوم = مبلغ ثابت 7,500 د.ع'); expect(screen.getByTestId('r-formula')).toHaveTextContent('الإجازة/الزمنية المدفوعة = صفر')
+    expect(screen.getByTestId('r-formula')).toHaveTextContent('أجر اليوم = مبلغ ثابت 7,500 د.ع'); expect(screen.getByTestId('r-formula')).toHaveTextContent('الزمنية المدفوعة تعذر وقتها المتداخل مع النقص فقط')
     expect(screen.getByTestId('r-tier-1-meaning')).toHaveTextContent('نقص 16–30 د ⇒ 30 دقيقة ≈ 3,750 د.ع')
     expect(screen.getByTestId('r-preview-amount')).toHaveTextContent('3,750')
     fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'multiplier' } })
@@ -204,6 +204,8 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
 
   it('00196: المحاكاة التفصيلية — حالة جاهزة (زمنية مدفوعة) تُرسل كاملة، وتعرض الحالة «زمنية» والخطوات والسلّم والمبلغ بالأرقام اللاتينية', async () => {
     open(); fireEvent.click(screen.getByTestId('ad-tab-simulate'))
+    expect(screen.getByTestId('ad-simulate')).toHaveTextContent('لا تقرأ أوقات البصمة أو الزمنية الفعلية')
+    expect(screen.getByTestId('ad-simulate')).toHaveTextContent('الجزء المتداخل من الزمنية المدفوعة')
     fireEvent.change(screen.getByTestId('sim-rule'), { target: { value: 'strict' } })
     fireEvent.click(screen.getByTestId('sim-preset-paid-permit'))
     expect(screen.getByTestId('sim-early')).toHaveValue(240); expect(screen.getByTestId('sim-paid-permit')).toHaveValue(240); expect(screen.getByTestId('sim-absent')).toHaveValue(0)

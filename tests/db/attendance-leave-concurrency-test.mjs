@@ -86,6 +86,42 @@ try {
   err=await pending; if (err) throw new Error('إعادة الاحتساب فشلت: '+err.message);
   state=await c.query("select status from public.hr_attendance_days where employee_id='39930000-0000-0000-0000-000000000002' and work_date=$1::date+5",[f.period_month]);
   if (state.rows[0].status !== 'present') throw new Error('تغيرت بيانات الشهر بعد إقفال المالية');
-  console.log('test ok: attendance-leave-concurrency (finance, approval, manual edit, reevaluation)');
+  // الزمنية تستخدم قفل الشهر نفسه: المالية أولاً، ثم الزمنية أولاً.
+  async function permitFixture(offset) {
+    const v=await fixture(offset);
+    await c.query(`update public.hr_leaves set kind='time_permit', leave_type_id=(select id from public.hr_leave_types where code='permit_official'),
+      start_time='19:00',end_time='20:00',minutes=60 where id=$1`,[v.leave_id]);
+    await c.query(`update public.hr_attendance_days set expected_in=($1::date+5+time '16:00')::timestamp-interval '3 hours',
+      expected_out=($1::date+5+time '22:00')::timestamp-interval '3 hours',
+      check_in=($1::date+5+time '17:00')::timestamp-interval '3 hours',check_out=($1::date+5+time '22:00')::timestamp-interval '3 hours',
+      worked_minutes=300,status='late',late_minutes=60 where employee_id='39930000-0000-0000-0000-000000000002' and work_date=$1::date+5`,[v.period_month]);
+    return v;
+  }
+  f=await permitFixture(14);
+  await c.query('begin');
+  await c.query('select public.finance_payroll_approve($1,false)',[f.export_id]);
+  ({ p: pending }=await blocked(c2.query('select public.hr_leave_decide($1,true)',[f.leave_id]),'قرار الزمنية'));
+  await c.query('commit');
+  err=await pending; if (!err || !err.message.includes('HR_MONTH_LOCKED')) throw new Error('الزمنية لم ترفض بعد الإقفال: '+(err?.message ?? 'نجح'));
+  state=await c.query('select status from public.hr_leaves where id=$1',[f.leave_id]);
+  if (state.rows[0].status !== 'pending') throw new Error('الزمنية تغيرت بعد الإقفال');
+  f=await permitFixture(15);
+  await c.query('begin');
+  await c.query('select public.hr_leave_decide($1,true)',[f.leave_id]);
+  ({ p: pending }=await blocked(c2.query('select public.finance_payroll_approve($1,false)',[f.export_id]),'مالية بعد الزمنية'));
+  await c.query('commit');
+  err=await pending; if (!err || !err.message.includes('HR_EXPORT_STALE')) throw new Error('لم يمنع التصدير القديم بعد الزمنية: '+(err?.message ?? 'نجح'));
+  state=await c.query('select status from public.hr_month_exports where id=$1',[f.export_id]);
+  if (state.rows[0].status !== 'exported') throw new Error('تصدير الزمنية القديم أُقفل');
+  // إعادة ضبط الحضور يجب أن تنتظر الإقفال قبل حذف أي صف.
+  f=await permitFixture(16);
+  await c.query('begin');
+  await c.query('select public.finance_payroll_approve($1,false)',[f.export_id]);
+  ({ p: pending }=await blocked(c2.query("select public.ops_attendance_reset('39930000-0000-0000-0000-000000000002',$1::date+5,'اختبار التزامن')",[f.period_month]),'إعادة ضبط الحضور'));
+  await c.query('commit');
+  err=await pending; if (!err || !err.message.includes('HR_MONTH_LOCKED')) throw new Error('إعادة الضبط لم ترفض بعد الإقفال: '+(err?.message ?? 'نجح'));
+  state=await c.query("select status from public.hr_attendance_days where employee_id='39930000-0000-0000-0000-000000000002' and work_date=$1::date+5",[f.period_month]);
+  if (state.rows[0]?.status !== 'late') throw new Error('إعادة الضبط حذفت صف الشهر المقفل');
+  console.log('test ok: attendance-leave-concurrency (finance, approval, manual edit, reevaluation, permit, reset)');
 } catch (err) { console.error('FAIL concurrency',err); process.exitCode=1; }
 finally { await c.query('rollback').catch(() => {}); await c2.end(); await c.end(); await pgs.stop(); }

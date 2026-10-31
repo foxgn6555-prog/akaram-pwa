@@ -161,6 +161,23 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
     expect(screen.getByTestId('cell-2026-09-01')).toHaveTextContent('زمنية')
     expect(screen.getByTestId('cell-2026-09-02')).toHaveTextContent('مجاز')
   })
+  it('الزمنية تُشار مع حالة ناقصة أو غياب دون محو الحالة في الكشف وExcel', async () => {
+    const permitRow = row({ days: [cell('2026-09-01', 'incomplete', { in: '08:00', has_permit: true }), cell('2026-09-02', 'absent', { has_permit: true })] })
+    expect(detailCellText(permitRow.days[0]!)).toBe('08:00→؟ ز')
+    expect(detailCellText(permitRow.days[1]!)).toBe('غ · ز')
+    const detailed = await buildAttendanceDetailedWorkbook([permitRow], meta)
+    expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('08:00→؟ ز')
+    expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غ · ز')
+    const approved = await buildAttendanceApprovedWorkbook([permitRow], meta)
+    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('حاضر · ز')
+    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غائب · ز')
+    h.grid = [permitRow]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('panel-grid'))
+    expect(screen.getByTestId('cell-2026-09-01')).toHaveAttribute('data-status', 'incomplete')
+    expect(within(screen.getByTestId('cell-2026-09-01')).getByLabelText('زمنية معتمدة')).toBeInTheDocument()
+    expect(screen.getByTestId('cell-2026-09-02')).toHaveTextContent('غائب')
+  })
   it('التفصيلي: «الملخص» ثم ورقة لكل قسم مرتبة، الخلايا بالأوقات، وأعمدة المجاميع', async () => {
     const wb = await buildAttendanceDetailedWorkbook(rows, meta)
     expect(wb.worksheets.map((w) => w.name)).toEqual(['الملخص', 'الإدارة', 'النقل'])

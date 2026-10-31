@@ -100,6 +100,21 @@ do $$ declare m date := current_setting('test.fx_m')::date; a record; begin
   raise notice 'S2 ✅ الزمنية المعتمدة تلغي النقص';
 end $$;
 
+-- زمنية في وسط الشفت لا تمحو تأخير البداية، وتنتقل الدقائق إلى تصدير المالية.
+select auth.set_test_user('fe000000-0000-0000-0000-000000000004');
+do $$ declare m date:=current_setting('test.fx_m')::date; e uuid:='fe000000-0000-0000-0000-0000000000e6'; p uuid; typ uuid; a record;
+begin
+ perform public.biometric_ingest('FX-DEV-1', '8101' || E'\t' || (m + 12)::text || ' 09:00:00' || E'\t0\n' || '8101' || E'\t' || (m + 12)::text || ' 16:00:00' || E'\t1', 'ATTLOG');
+ select id into typ from public.hr_leave_types where code='permit_official';
+ insert into public.hr_leaves(employee_id,kind,leave_type_id,start_date,end_date,start_time,end_time,minutes,status)
+ values(e,'time_permit',typ,m+12,m+12,'12:00','13:00',60,'pending') returning id into p;
+ perform public.hr_leave_decide(p,true);
+ select * into a from public.hr_attendance_days where employee_id=e and work_date=m+12;
+ assert a.status='late' and a.shortfall_minutes=60 and a.proposed_deduction_minutes>0, 'التأخير خارج الزمنية يبقى للاستقطاع';
+ perform public.biometric_ingest('FX-DEV-1', '8101' || E'\t' || (m + 12)::text || ' 09:00:00' || E'\t0\n' || '8101' || E'\t' || (m + 12)::text || ' 16:00:00' || E'\t1', 'ATTLOG');
+ assert (select shortfall_minutes from public.hr_attendance_days where employee_id=e and work_date=m+12)=60, 'إعادة سحب البصمة لا تمحو النقص';
+end $$;
+
 -- ═══ S3 · إجازة اعتيادية يومين (مدفوعة) + إجازة بدون راتب يوم: تُعتمد → الأيام تتحول إلى «إجازة» والمدفوعة بلا استقطاع ═══
 select auth.set_test_user('fe000000-0000-0000-0000-000000000006');
 do $$ declare m date := current_setting('test.fx_m')::date; t uuid; l1 uuid; l2 uuid; begin
@@ -185,13 +200,14 @@ do $$ declare m date := current_setting('test.fx_m')::date; x uuid; r record; e 
   assert r.id is not null, 'S7 row';
   -- أيام الشهر كلها محتسبة (لا يوم مجدول بلا احتساب)
   assert r.unevaluated_days = 0 and r.scheduled_days = (select count(*) from public.hr_attendance_days where employee_id = e and date_trunc('month', work_date) = m and not is_rest_day), 'S7 coverage: ' || r.unevaluated_days;
-  -- الحضور: حاضر + متأخر + خروج مبكر (الزمنية غطّته) = 3؛ ناقص 1؛ إجازة مدفوعة 2 وغير مدفوعة 1؛ الغياب = غياب صريح + بقية الأيام بلا بصمة
-  assert r.days_present = 3 and r.days_late = 1 and r.days_incomplete = 1 and r.days_leave_paid = 2 and r.days_leave_unpaid = 1, 'S7 counts: ' || row_to_json(r)::text;
+  -- الحضور: حاضر + يومان متأخران + خروج مبكر غطّته الزمنية = 4؛ ناقص 1؛ إجازة مدفوعة 2 وغير مدفوعة 1؛ الغياب = غياب صريح + بقية الأيام بلا بصمة
+  assert r.days_present = 4 and r.days_late = 2 and r.days_incomplete = 1 and r.days_leave_paid = 2 and r.days_leave_unpaid = 1, 'S7 counts: ' || row_to_json(r)::text;
   assert r.days_absent = (select count(*) from public.hr_attendance_days where employee_id = e and date_trunc('month', work_date) = m and status = 'absent'), 'S7 absent count';
   -- الاستقطاع التلقائي = مجموع المقترح غير المُعفى (يوم التأخير مُعفى ⇒ لا دقائقه)
   select coalesce(sum(proposed_deduction_minutes), 0), coalesce(sum(proposed_deduction_days), 0) into exp_auto_min, exp_auto_days
   from public.hr_attendance_days where employee_id = e and date_trunc('month', work_date) = m and not deduction_waived;
   assert r.auto_deduction_minutes = exp_auto_min and r.auto_deduction_days = exp_auto_days, 'S7 auto: ' || r.auto_deduction_minutes || '/' || r.auto_deduction_days || ' vs ' || exp_auto_min || '/' || exp_auto_days;
+  assert exp_auto_min=(select proposed_deduction_minutes from public.hr_attendance_days where employee_id=e and work_date=m+12) and exp_auto_min>0, 'S7 ينقل نقص الزمنية غير المتداخلة إلى التصدير';
   assert exp_auto_days >= 2, 'S7 auto days include absent + unpaid leave';
   assert (select deduction_waived from public.hr_attendance_days where employee_id = e and work_date = m + 2), 'S7 waived day stays waived';
   -- استقطاعات غرفة العمليات = 5,000 يدوي + 7,000 كشف، والأسباب تذكر الكشف

@@ -114,7 +114,7 @@ const isFriday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 5
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
 function DetailCell({ c, onClick }: { c: AttendanceGridCell; onClick?: () => void }) {
-  const title = `${c.d} · ${DETAIL_LABEL[c.s]}${c.in ? ` · ${c.in}→${c.out ?? '؟'}` : ''}${c.late ? ` · تأخير ${c.late} د` : ''}${c.early ? ` · مبكر ${c.early} د` : ''}${c.short ? ` · نقص ${c.short} د` : ''}${c.permit ? ` · زمنية ${c.permit} د` : ''}${c.src === 'manual' ? ` · تعديل: ${c.note ?? ''}` : ''}${c.waived ? ' · استقطاع مُلغى' : ''}${onClick ? '\nانقر لفتح سجل اليوم' : ''}`
+  const title = `${c.d} · ${DETAIL_LABEL[c.s]}${c.in ? ` · ${c.in}→${c.out ?? '؟'}` : ''}${c.late ? ` · تأخير ${c.late} د` : ''}${c.early ? ` · مبكر ${c.early} د` : ''}${c.short ? ` · نقص ${c.short} د` : ''}${c.has_permit && c.s !== 'time_permit' && c.s !== 'leave' ? ' · زمنية معتمدة' : ''}${c.permit ? ` · زمنية ${c.permit} د` : ''}${c.src === 'manual' ? ` · تعديل: ${c.note ?? ''}` : ''}${c.waived ? ' · استقطاع مُلغى' : ''}${onClick ? '\nانقر لفتح سجل اليوم' : ''}`
   const clickable = !!onClick && c.s !== 'future' && c.s !== 'none'
   const body = c.s === 'absent' ? <span className="text-[11px] font-black">غائب</span>
     : c.s === 'leave' ? <span className="text-[10px] font-bold">إجازة</span>
@@ -128,6 +128,7 @@ function DetailCell({ c, onClick }: { c: AttendanceGridCell; onClick?: () => voi
       <button type="button" disabled={!clickable} onClick={onClick} className={clsx('relative flex h-11 w-full min-w-[3.4rem] flex-col items-center justify-center leading-none transition', clickable && 'hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-400', c.src === 'manual' && 'ring-1 ring-inset ring-amber-400')} dir="ltr" aria-label={title} data-testid={`cell-btn-${c.d}`}>
         <span className={clsx('absolute inset-x-0 top-0 h-0.5', BAR[c.s])} aria-hidden />
         {body}
+        {c.has_permit && c.s !== 'time_permit' && c.s !== 'leave' && <span className="absolute end-0.5 top-1 rounded bg-blue-700 px-0.5 text-[9px] font-black text-white" aria-label="زمنية معتمدة">ز</span>}
         {(c.pm > 0 || c.pd > 0) && !c.waived && c.s !== 'absent' && <span className="absolute bottom-0.5 h-1.5 w-1.5 rounded-full bg-rose-500" aria-label="استقطاع مقترح" />}
         {c.waived && <span className="absolute bottom-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-label="استقطاع مُلغى" />}
       </button>
@@ -137,8 +138,8 @@ function DetailCell({ c, onClick }: { c: AttendanceGridCell; onClick?: () => voi
 function ApprovedCell({ c }: { c: AttendanceGridCell }) {
   const k = approvedKind(c.s)
   return (
-    <td className={clsx('border-s border-slate-100 p-0 text-center align-middle', KIND[k], c.d === todayIso() && 'shadow-[inset_0_0_0_1px_#2563eb]')} title={`${c.d} · ${APPROVED_LABEL[k]}`} data-testid={`cell-${c.d}`} data-kind={k}>
-      <div className="relative flex h-9 min-w-[3rem] items-center justify-center text-[11px] font-bold"><span className={clsx('absolute inset-x-0 top-0 h-0.5', KIND_BAR[k])} aria-hidden />{k === 'none' ? '·' : APPROVED_LABEL[k]}</div>
+    <td className={clsx('border-s border-slate-100 p-0 text-center align-middle', KIND[k], c.d === todayIso() && 'shadow-[inset_0_0_0_1px_#2563eb]')} title={`${c.d} · ${APPROVED_LABEL[k]}${c.has_permit && k !== 'time_permit' && k !== 'leave' ? ' · زمنية معتمدة' : ''}`} data-testid={`cell-${c.d}`} data-kind={k}>
+      <div className="relative flex h-9 min-w-[3rem] items-center justify-center text-[11px] font-bold"><span className={clsx('absolute inset-x-0 top-0 h-0.5', KIND_BAR[k])} aria-hidden />{k === 'none' ? '·' : APPROVED_LABEL[k]}{c.has_permit && k !== 'time_permit' && k !== 'leave' && <span className="ms-1 rounded bg-blue-700 px-0.5 text-[9px] text-white" aria-label="زمنية معتمدة">ز</span>}</div>
     </td>
   )
 }

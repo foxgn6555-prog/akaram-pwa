@@ -33,13 +33,13 @@ export interface AttendanceExportMeta { month: string; branchLabel: string; depa
 
 /** يوم الخلية التفصيلية: «08:02→16:05» · ناقصة «08:00→؟» · غائب «غ» · إجازة «إجازة» */
 export function detailCellText(c: AttendanceGridCell): string {
-  if (c.s === 'absent') return 'غ'
+  if (c.s === 'absent') return c.has_permit ? 'غ · ز' : 'غ'
   if (c.s === 'leave') return 'إجازة'
   if (c.s === 'time_permit') return c.in ? `${c.in}→${c.out ?? '؟'} ز` : 'زمنية'
-  if (c.s === 'rest') return 'راحة'
-  if (c.s === 'pending') return '؟'
-  if (c.s === 'future' || c.s === 'none') return ''
-  return `${c.in ?? '؟'}→${c.out ?? '؟'}`
+  if (c.s === 'rest') return c.has_permit ? 'راحة · ز' : 'راحة'
+  if (c.s === 'pending') return c.has_permit ? '؟ · ز' : '؟'
+  if (c.s === 'future' || c.s === 'none') return c.has_permit ? 'ز' : ''
+  return `${c.in ?? '؟'}→${c.out ?? '؟'}${c.has_permit ? ' ز' : ''}`
 }
 
 const safeSheetName = (name: string, used: Set<string>) => {
@@ -165,7 +165,7 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
       const kinds = r.days.map((c) => approvedKind(c.s))
       const row = ws.addRow([
         i + 1, r.full_name, r.employee_number, r.job_title ?? '—',
-        ...kinds.map((k) => APPROVED_LABEL[k]),
+        ...kinds.map((k, index) => `${APPROVED_LABEL[k]}${r.days[index]?.has_permit && k !== 'time_permit' && k !== 'leave' ? ' · ز' : ''}`),
         r.present_days + r.late_days + r.early_days + r.incomplete_days, r.absent_days, r.leave_days, fmtHM(r.worked_minutes),
       ])
       row.eachCell({ includeEmpty: true }, (cell, col) => {
@@ -183,7 +183,7 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
     days.forEach((_, i) => { ws.getColumn(fixed.length + 1 + i).width = 7 })
     totals.forEach((_, i) => { ws.getColumn(fixed.length + days.length + 1 + i).width = 11 })
     const legend = ws.addRow([]); ws.mergeCells(legend.number, 1, legend.number, colCount)
-    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · مجاز · زمنية · راحة (رمادي) — التفاصيل (الأوقات، التأخير، البصمات الناقصة) في كشف المرحلة الأولى'
+    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · مجاز · زمنية · راحة (رمادي) · ز: زمنية معتمدة مع حالة أخرى — التفاصيل (الأوقات، التأخير، البصمات الناقصة) في كشف المرحلة الأولى'
     legend.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } }; legend.getCell(1).alignment = { wrapText: true }; legend.height = 22
   }
   return wb

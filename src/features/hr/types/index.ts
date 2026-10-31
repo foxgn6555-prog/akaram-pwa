@@ -256,6 +256,7 @@ export interface AttendanceGridCell {
   short: number
   ot: number
   permit: number
+  has_permit?: boolean
   pm: number
   pd: number
   waived: boolean

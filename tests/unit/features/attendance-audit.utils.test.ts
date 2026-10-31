@@ -22,7 +22,7 @@ describe('attendance audit utils (00178)', () => {
     expect(auditDiff({ status: 'present' }, null)).toEqual([])
   })
   it('تصحيح الإجازة المعتمدة له اسم واضح في التدقيق', () => {
-    expect(AUDIT_ACTION_LABELS.leave_sync).toBe('تصحيح حضور لإجازة معتمدة')
+    expect(AUDIT_ACTION_LABELS.leave_sync).toBe('تصحيح حضور لإجازة أو زمنية معتمدة')
   })
   it('every action has an Arabic label', () => {
     for (const k of ['edit', 'reset_auto', 'deduction_add', 'deduction_delete', 'waive', 'unwaive', 'export', 'approve'] as const) expect(AUDIT_ACTION_LABELS[k]).toBeTruthy()
