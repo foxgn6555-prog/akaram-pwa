@@ -13,13 +13,12 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
-import { useHrEmployees } from '@features/hr'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr'
 import type { AttendanceStatus } from '@features/hr'
 import { field } from '@portals/hr/components/hr-format'
 import {
   ATTENDANCE_EDIT_ACTION_HINTS, ATTENDANCE_EDIT_ACTION_LABELS, ATTENDANCE_EDIT_SCOPE_LABELS, enumerateDays, hmBaghdad,
-  useAttendanceEditCancel, useAttendanceEditCreate, useAttendanceEditList, useAttendanceEditPreview,
+  useAttendanceEditCancel, useAttendanceEditCreate, useAttendanceEditEmployeeSearch, useAttendanceEditList, useAttendanceEditPreview,
   type AttendanceEditAction, type AttendanceEditDraft, type AttendanceEditMode, type AttendanceEditPreview, type AttendanceEditScopeKind,
 } from '@features/attendance-edits'
 import { ListFilters, ReasonDialog, RequestDetailDialog, RequestsTable, fmtDate, useListFilters } from '@features/attendance-edits/components/AttendanceEditShared'
@@ -44,7 +43,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
 
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
-  const { data: employees = [], isLoading: empLoading } = useHrEmployees({ search: empSearch, status: 'active' })
+  const { data: employees = [], isLoading: empLoading } = useAttendanceEditEmployeeSearch(empSearch, scopeKind === 'employees')
   const previewM = useAttendanceEditPreview(); const createM = useAttendanceEditCreate(); const cancelM = useAttendanceEditCancel()
   const { f, setF, query } = useListFilters()
   const { data: rows = [], isLoading: listLoading } = useAttendanceEditList(query)
@@ -97,7 +96,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
                   {empLoading ? <LoadingSpinner /> : employees.slice(0, 200).map((e) => (
                     <label key={e.id} className={clsx('flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-1.5', scopeIds.includes(e.id) && 'bg-brand-50')}>
                       <input type="checkbox" checked={scopeIds.includes(e.id)} onChange={() => toggleEmp(e.id)} data-testid={`ae-emp-${e.id}`} />
-                      <span className="font-bold">{e.full_name}</span><span className="text-[10px] text-slate-500">{e.employee_number}</span>
+                      <span className="font-bold">{e.full_name}</span><span className="text-[10px] text-slate-500">{e.employee_number}{e.department_name ? ` · ${e.department_name}` : ''}</span>
                     </label>
                   ))}
                 </div>

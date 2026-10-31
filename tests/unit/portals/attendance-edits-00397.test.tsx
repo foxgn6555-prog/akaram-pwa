@@ -5,7 +5,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as SdkMod from '@sdk/attendance-edits.sdk'
-import type * as HrMod from '@features/hr'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -48,6 +47,7 @@ vi.mock('@sdk/attendance-edits.sdk', async (orig) => {
       preview: (d: unknown) => { rec('preview', d); return Promise.resolve(preview) },
       create: (d: unknown, reason: string, mode: string) => { rec('create', { d, reason, mode }); return Promise.resolve({ id: 'N1', status: mode === 'direct' ? 'applied' : 'approved', via_chain: false, items: 4, minutes_fixed: 720 }) },
       list: (f: unknown) => { rec('list', f); return Promise.resolve([row]) },
+      searchEmployees: () => Promise.resolve([{ id: 'e1', full_name: 'كرار يوسف', employee_number: 'AE-1', department_name: 'الأشغال' }]),
       detail: () => Promise.resolve(detail),
       stats: () => Promise.resolve({ month: '2026-10', total: 3, direct: 2, by_request: 1, pending_approval: 1, awaiting_hr: 1, rejected: 0, reverted: 0, employees: 3, work_days: 5, minutes_fixed: 500, by_action: {}, top_requesters: [] }),
       hrUpdateItem: (itemId: string, status: string, checkIn: string | null, checkOut: string | null) => { rec('hrUpdateItem', { itemId, status, checkIn, checkOut }); return Promise.resolve() },
@@ -58,10 +58,6 @@ vi.mock('@sdk/attendance-edits.sdk', async (orig) => {
 })
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'الأشغال', code: 'A', parent_id: null, is_active: true }, { id: 'd2', name: 'شعبة النظافة', code: 'B', parent_id: 'd1', is_active: true }] }) }))
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'فرع 1' }] }) }))
-vi.mock('@features/hr', async (orig) => {
-  const m = await orig<typeof HrMod>()
-  return { ...m, useHrEmployees: () => ({ data: [{ id: 'e1', full_name: 'كرار يوسف', employee_number: 'AE-1' }], isLoading: false }) }
-})
 vi.mock('@features/permissions/my-permissions', () => ({ useCanCall: () => ({ allowed: true, title: undefined }) }))
 vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unknown) => void }) => unknown) => sel({ addToast: (t) => rec('toast', t) }) }))
 
@@ -107,7 +103,7 @@ describe('00397-ب · غرفة العمليات — تعديل جماعي', () =
   it('موظفون محددون × تحديد أوقات ⇒ الحمولة تحمل الأوقات، والإرسال إلى الموارد البشرية بوضع hr_request؛ تغيير أي مدخل يُلغي المعاينة', async () => {
     wrap(<BulkEditPanel />)
     fireEvent.click(screen.getByTestId('ae-scope-employees'))
-    fireEvent.click(screen.getByTestId('ae-emp-e1'))
+    fireEvent.click(await screen.findByTestId('ae-emp-e1'))
     expect(screen.getByTestId('ae-emp-count')).toHaveTextContent('1')
     fireEvent.change(screen.getByTestId('ae-from'), { target: { value: '2026-10-27' } })
     fireEvent.click(screen.getByTestId('ae-action-set_times'))

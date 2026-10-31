@@ -33,6 +33,9 @@ function useInvalidateAll() {
 export function useAttendanceEditList(f: AttendanceEditFilters, enabled = true) {
   return useQuery({ queryKey: attendanceEditKeys.list(f), queryFn: () => attendanceEdits.list(f), enabled, staleTime: 10_000 })
 }
+export function useAttendanceEditEmployeeSearch(search: string, enabled = true) {
+  return useQuery({ queryKey: [...attendanceEditKeys.all, 'employees', search], queryFn: () => attendanceEdits.searchEmployees(search), enabled, staleTime: 30_000 })
+}
 export function useAttendanceEditDetail(id: string | null) {
   return useQuery({ queryKey: attendanceEditKeys.detail(id ?? ''), queryFn: () => attendanceEdits.detail(id!), enabled: !!id })
 }

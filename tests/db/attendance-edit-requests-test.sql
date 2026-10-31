@@ -265,3 +265,18 @@ do $$ declare d1 date := current_setting('test.ae_d1')::date; m date := date_tru
   perform pg_temp.expect_err(format('select public.attendance_edit_revert(%L, %L)', current_setting('test.ae_r2'), 'تراجع بعد اعتماد الشهر'), 'HR_ATTENDANCE_CONFIRMED');
   raise warning 'A8 ✅ الشهر المعتمد محمي والمحرك الفردي سليم';
 end $$;
+
+-- ═══ A9 (00397-ج) · بحث الموظفين لاختيار النطاق: المعاون وغرفة العمليات نعم (بلا منتهين)، HR والمالية والموظف لا ═══
+do $$ declare n int; begin
+  perform pg_temp.as_user('97000000-0000-0000-0000-0000000000a3');
+  select count(*) into n from public.attendance_edit_employee_search('97'); assert n = 3, 'deputy sees 3 active (not terminated): ' || n;
+  select count(*) into n from public.attendance_edit_employee_search('AE-2'); assert n = 1, 'search by number';
+  assert (select department_name from public.attendance_edit_employee_search('AE-2')) = 'شعبة النظافة 97', 'department name';
+  perform pg_temp.as_user('97000000-0000-0000-0000-0000000000a1');
+  select count(*) into n from public.attendance_edit_employee_search('97'); assert n = 3, 'ops sees 3';
+  perform pg_temp.as_user('97000000-0000-0000-0000-0000000000a2');
+  select count(*) into n from public.attendance_edit_employee_search('97'); assert n = 0, 'hr not (uses its own lists)';
+  perform pg_temp.as_user('97000000-0000-0000-0000-0000000000a6');
+  select count(*) into n from public.attendance_edit_employee_search('97'); assert n = 0, 'finance not';
+  raise warning 'A9 ✅ بحث الموظفين محصور بمن ينشئ الطلب';
+end $$;

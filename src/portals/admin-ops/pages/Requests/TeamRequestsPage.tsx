@@ -6,7 +6,7 @@ import { Archive, CheckCircle2, FileText, Download, Clock, Package, UserCheck, U
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
-import type { AdvanceTaskDetails, ApprovalTask, BackdatedTaskDetails, ColdPurgeTaskDetails, ComplaintReportTaskDetails, HireTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import type { AdvanceTaskDetails, ApprovalTask, AttendanceEditTaskDetails, BackdatedTaskDetails, ColdPurgeTaskDetails, ComplaintReportTaskDetails, HireTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
 import { useComplaintReportDownload } from '@features/complaints/hooks/useComplaints'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -16,7 +16,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
-const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']]]
+const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']], ['تعديل حضور', ['attendance_edit']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
@@ -58,18 +58,19 @@ function AdvanceTaskCard({ t }: { t: ApprovalTask }) {
 function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const [mode, setMode] = useState<'idle' | 'reject'>('idle'), [note, setNote] = useState(''), [showPath, setShowPath] = useState(false)
   const timeline = useApprovalTimeline(showPath ? t.request_kind : undefined, showPath ? t.request_id : undefined)
-  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge', isReport = t.request_kind === 'complaint_report', isHire = t.request_kind === 'hire'
+  const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge', isReport = t.request_kind === 'complaint_report', isHire = t.request_kind === 'hire', isAttEdit = t.request_kind === 'attendance_edit'
   const cold = isCold ? (t.details as ColdPurgeTaskDetails | null) : null
   const rep = isReport ? (t.details as ComplaintReportTaskDetails | null) : null
   const term = isTermination ? (t.details as TerminationTaskDetails | null) : null
   const hireD = isHire ? (t.details as HireTaskDetails | null) : null
+  const attD = isAttEdit ? (t.details as AttendanceEditTaskDetails | null) : null
   const adv = isAdvance ? (t.details as AdvanceTaskDetails | null) : null
   const bd = (t.request_kind === 'leave' || t.request_kind === 'time_permit') && (t.details as BackdatedTaskDetails | null)?.backdated ? (t.details as BackdatedTaskDetails) : null
   const [editAmount, setEditAmount] = useState(false), [amount, setAmount] = useState(''), [inst, setInst] = useState('')
   const pending = d.pending
   const approve = () => d.approve({ amount: isAdvance && editAmount && amount.trim() !== '' ? Number(amount) : null, installments: isAdvance && editAmount && inst.trim() !== '' ? Number(inst) : null })
   const reject = () => d.reject(note.trim(), () => setMode('idle'))
-  const period = isSupply || isTermination || isAdvance || isCold || isReport || isHire ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
+  const period = isSupply || isTermination || isAdvance || isCold || isReport || isHire || isAttEdit ? '' : t.request_kind === 'time_permit' ? `${dateAr(t.start_date)} · ${hm(t.start_time)}–${hm(t.end_time)} (${t.minutes} دقيقة)` : t.start_date === t.end_date ? `${dateAr(t.start_date)} (يوم واحد)` : `${dateAr(t.start_date)} → ${dateAr(t.end_date)} (${t.days} أيام)`
   return (
     <li className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`task-${t.request_id}`}>
       <div className="flex items-start justify-between gap-2">
@@ -96,7 +97,14 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
             <div className="mt-1 font-bold text-red-800">الموافقة تعني السماح بحذف هذه الصور من سحابة المنصة نهائياً (تبقى على القرص فقط). السجلات النصية لا تُمسّ.</div>
           </div>
         )}
-        {hireD ? (
+        {attD ? (
+          <div className="mt-1 rounded-lg border border-emerald-100 bg-white p-2 text-xs text-slate-800" data-testid={`task-attedit-${t.request_id}`}>
+            <div className="font-black">{attD.scope_label}</div>
+            <div className="text-slate-600">{attD.action_label}{attD.payload?.check_in ? ` · ${attD.payload.check_in} ← ${attD.payload.check_out ?? '—'}` : ''}{attD.payload?.status ? ` · ${attD.payload.status}` : ''}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-slate-700"><span className="flex items-center gap-1"><Clock size={12} /> {attD.dates.length <= 3 ? attD.dates.map((x) => dateAr(x)).join('، ') : `${dateAr(attD.dates[0] ?? null)} → ${dateAr(attD.dates[attD.dates.length - 1] ?? null)}`}</span><span>{attD.employees} موظف × {attD.days} يوم = <b>{attD.items}</b> يوم عمل</span></div>
+            <div className="mt-1 text-[11px] text-slate-500">بعد موافقتك يصل الطلب إلى الموارد البشرية لمراجعة البنود واعتماد التنفيذ.</div>
+          </div>
+        ) : hireD ? (
           <div className="mt-1 rounded-lg border border-sky-100 bg-white p-2 text-xs text-slate-800" data-testid={`task-hire-${t.request_id}`}>
             <div className="font-black">{hireD.full_name}</div>
             <div className="text-slate-600">{hireD.job_title}{hireD.department ? ` · ${hireD.department}` : ''} · {hireD.source_label}</div>

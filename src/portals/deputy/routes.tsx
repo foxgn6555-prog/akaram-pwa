@@ -21,6 +21,7 @@ const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 const DeputyDeductionsPage = lazy(() => import('./pages/Deductions/DeputyDeductionsPage'))   // 00248: مراجعة الاستقطاعات قبل المالية
 const DeputyRentedTaxPage = lazy(() => import('./pages/RentedTax/DeputyRentedTaxPage'))   // 00251: ضريبة الآليات المؤجرة
 const DeputyOvertimePage = lazy(() => import('./pages/Overtime/DeputyOvertimePage'))   // 00353: الساعات الإضافية المدفوعة
+const DeputyAttendanceEditsPage = lazy(() => import('./pages/AttendanceEdits/DeputyAttendanceEditsPage'))   // 00397-ج
 const DeputyRewardsPage = lazy(() => import('@portals/executive/pages/Treasury/ExecRewardsPage').then((m) => ({ default: () => <m.default actor="deputy" /> })))   // 00203: المكافآت (نفس وحدة التنفيذي)
 const DeputyLettersPage = lazy(() => import('@portals/executive/pages/Letters/ExecLettersPage').then((m) => ({ default: () => <m.default actor="deputy" /> })))   // 00357
 const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة)
@@ -39,6 +40,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'deductions', element: s(<DeputyDeductionsPage />) },
   { path: 'rented-tax', element: s(<DeputyRentedTaxPage />) },
   { path: 'overtime', element: s(<DeputyOvertimePage />) },
+  { path: 'attendance-edits', element: s(<DeputyAttendanceEditsPage />) },   // 00397-ج
   { path: 'station-folders', element: s(<StationFoldersPage />) },
   { path: 'data-analysis', element: s(<DataAnalysisPage />) },
   { path: 'stop-hotspots', element: s(<StopHotspotsPage />) },

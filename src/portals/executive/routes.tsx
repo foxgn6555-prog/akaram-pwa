@@ -15,6 +15,7 @@ const ExecRewardsPage = lazy(() => import('./pages/Treasury/ExecRewardsPage'))
 const ExecLettersPage = lazy(() => import('./pages/Letters/ExecLettersPage'))   // 00357
 const ExecGpsPaymentsPage = lazy(() => import('./pages/Treasury/ExecGpsPaymentsPage'))
 const ExecEventsPage = lazy(() => import('./pages/Treasury/ExecEventsPage'))
+const ExecAttendanceEditsPage = lazy(() => import('./pages/AttendanceEdits/ExecAttendanceEditsPage'))   // 00397-ج
 const StopHotspotsPage = lazy(() => import('@portals/ops-room/pages/WasteMap/OpsWasteMapPage').then((m) => ({ default: () => <m.default readOnly testId="executive-stop-hotspots" /> })))   // 00386-أ: خريطة النفايات (قراءة فقط) بدل المحرّك القديم
 
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
@@ -31,5 +32,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'gps-payments', element: s(<ExecGpsPaymentsPage />) },
   { path: 'events', element: s(<ExecEventsPage />) },
   { path: 'behavior', element: s(<BehaviorReportsPage />) },
+  { path: 'attendance-edits', element: s(<ExecAttendanceEditsPage />) },   // 00397-ج قراءة
   { path: 'stop-hotspots', element: s(<StopHotspotsPage />) },
 ]

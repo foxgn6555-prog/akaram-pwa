@@ -97,6 +97,7 @@ export interface AttendanceEditStats {
   month: string; total: number; direct: number; by_request: number; pending_approval: number; awaiting_hr: number; rejected: number; reverted: number
   employees: number; work_days: number; minutes_fixed: number; by_action: Record<string, number>; top_requesters: { name: string | null; n: number }[]
 }
+export interface AttendanceEditEmployeeOption { id: string; full_name: string; employee_number: string; department_name: string | null }
 export interface AttendanceEditFilters {
   from?: string | null; to?: string | null; mode?: AttendanceEditMode | null; status?: AttendanceEditStatus | null
   departmentId?: string | null; employeeId?: string | null; actorId?: string | null; search?: string | null; limit?: number
@@ -116,6 +117,8 @@ export const attendanceEdits = {
       p_department: f.departmentId || null, p_employee: f.employeeId || null, p_actor: f.actorId || null, p_search: f.search?.trim() || null, p_limit: f.limit ?? 300,
     })
   },
+  /** 00397-ج: بحث خفيف عن الموظفين الفعليين لاختيار النطاق (غرفة العمليات/المعاون) — لا بيانات حساسة */
+  searchEmployees(search: string) { return rpc<AttendanceEditEmployeeOption[]>('attendance_edit_employee_search', { p_search: search.trim() || null }) },
   detail(id: string) { return rpc<AttendanceEditDetail>('attendance_edit_detail', { p_id: id }) },
   stats(month?: string | null) { return rpc<AttendanceEditStats>('attendance_edit_stats', { p_month: month || null }) },
   cancel(id: string, reason?: string | null) { return sdkVoid(supabase.rpc('attendance_edit_cancel', { p_id: id, p_reason: reason || null } as never)) },

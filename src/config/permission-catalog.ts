@@ -59,6 +59,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'hr.employees': ['create', 'edit', 'export', 'execute'],
   'hr.attendance': ['edit', 'export'],
   'hr.attendance-edits': ['edit', 'decide'],   // 00397: مراجعة بنود طلبات التعديل الجماعي واعتمادها
+  'deputy.attendance-edits': ['create', 'execute'],   // 00397-ج: تعديل مباشر + تراجع
   'hr.attendance-monthly': ['export'],   // 00389-ب
   'hr.leaves': ['create', 'decide', 'export'],
   'hr.documents': ['edit', 'export'],   // 00389-أ

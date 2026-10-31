@@ -91,8 +91,8 @@ describe('بوابات الإدارة العليا', () => {
   })
 
   it('00220 — ترتيب الشريط الجانبي: التنفيذي كالمفوض ثم القاصة؛ المعاون: الميدان ثم المكافآت ثم الموافقات والإجراءات؛ وأيقونات بلا تكرار داخل البوابة', () => {
-    expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/letters', '/executive/events', '/executive/behavior', '/executive/stop-hotspots'])
-    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/rented-tax', '/deputy/overtime', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/letters', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior', '/deputy/stop-hotspots'])
+    expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/letters', '/executive/events', '/executive/behavior', '/executive/stop-hotspots', '/executive/attendance-edits'])
+    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/rented-tax', '/deputy/overtime', '/deputy/attendance-edits', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/letters', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior', '/deputy/stop-hotspots'])
     for (const portal of [PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY]) {
       const icons = PORTAL_UNITS[portal].map((u) => u.icon)
       expect(new Set(icons).size, `أيقونات ${portal}`).toBe(icons.length)
