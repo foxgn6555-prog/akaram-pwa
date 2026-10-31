@@ -51,7 +51,7 @@ describe('DataRetentionPage (00325)', () => {
   it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 12)', () => {
     expect(customRoutes.some((r) => r.path === 'data-retention')).toBe(true)
     const units = PORTAL_UNITS[PORTALS.IT]
-    expect(units).toHaveLength(12)   // 00393: + القطاعات والمناطق
+    expect(units).toHaveLength(13)   // 00398: + التصفير · 12 (00393: + القطاعات والمناطق)
     const archive = units.find((u) => u.path === '/it/archive')
     expect(archive?.children?.find((c) => c.path === '/it/data-retention')?.labelKey).toBe('nav.data_retention')
     expect((sidebar as { nav: Record<string, string> }).nav.data_retention).toBe('الاحتفاظ بالبيانات')

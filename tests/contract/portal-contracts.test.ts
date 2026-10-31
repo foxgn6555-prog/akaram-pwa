@@ -14,7 +14,7 @@ const allRoutes = customRoutes.map((r) => r.path).filter(Boolean) as string[]
 
 describe('⚓ عقد البوابة التقنية', () => {
   it('الوحدات الاثنتا عشرة مسجلة بالترتيب الصحيح (00275: + دليل التشغيل التقني · 00393: + القطاعات والمناطق)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(12)
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(13)   // 00398: + التصفير
     const labels = PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)
     expect(labels).toEqual([
       'nav.dashboard',
@@ -29,6 +29,7 @@ describe('⚓ عقد البوابة التقنية', () => {
       'nav.archive',
       'nav.console',
       'nav.devops_guide',
+      'nav.platform_reset',   // 00398
     ])
   })
 

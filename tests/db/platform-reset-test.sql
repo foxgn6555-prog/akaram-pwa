@@ -48,7 +48,7 @@ begin
   -- R2: الصلاحية وكلمة السر
   perform pg_temp.as_user(ops);
   perform pg_temp.expect_error('select public.platform_reset_counts()', 'IT_FORBIDDEN');
-  perform pg_temp.expect_error($q$select public.platform_reset_request(array['warehouse'], 'تصفير')$q$, 'IT_FORBIDDEN');
+  perform pg_temp.expect_error($q$select public.platform_reset_request(array['warehouse'], 'تصفير')$q$, 'PERMISSION_DENIED');   -- 00345: مربوطة بوحدة it.platform-reset
   perform pg_temp.as_user(it1);
   perform pg_temp.expect_error($q$select public.platform_reset_request(array['warehouse'], 'خطأ')$q$, 'RESET_PASSWORD_WRONG');
   perform pg_temp.expect_error($q$select public.platform_reset_request('{}'::text[], 'تصفير')$q$, 'RESET_NOTHING_SELECTED');

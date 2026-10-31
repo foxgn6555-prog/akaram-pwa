@@ -95,6 +95,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'it.approvals': ['decide'],
   'it.branches': ['create', 'edit'],
   'it.sectors': ['create', 'edit'],
+  'it.platform-reset': ['execute'],   // 00398: طلب التصفير وإلغاؤه
   'it.permissions': ['edit'],
   'it.integrations.biometric': ['edit', 'execute'],
   'it.integrations.gps': ['edit', 'execute'],
@@ -283,6 +284,8 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
   hr_employee_terminate: ['hr.recruitment', 'execute'],
   hire_request_complete: ['hr.hire-requests', 'execute'],
   attendance_edit_hr_apply: ['hr.attendance-edits', 'decide'],   // 00397
+  platform_reset_request: ['it.platform-reset', 'execute'],   // 00398
+  platform_reset_cancel: ['it.platform-reset', 'execute'],   // 00398
   // غرفة العمليات
   supply_request_deliver: ['ops-room.store', 'execute'],
   advance_request_create: ['ops-room.advances', 'create'],
@@ -333,6 +336,8 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
 
 /** دوال محمية غير مربوطة بوحدة واحدة — السبب موثّق (تبقى على فحوصات الدور/السلسلة الأصلية) */
 export const WRITE_BINDINGS_EXEMPT: Readonly<Record<string, string>> = {
+  platform_reset_approve: 'سلسلة موافقات «تصفير المنصة» — المعتمد يتحدد من السلسلة (كلمة سر «اعتماد تصفير») (00398)',
+  platform_reset_decide: 'رفض طلب التصفير عبر محرك الموافقات (00398)',
   approval_decide_request: 'سلسلة موافقات — المعتمد يتحدد من السلسلة لا من وحدة',
   hr_leave_decide: 'سلسلة موافقات الإجازات (مدير/عمليات/موارد)',
   hr_leave_request: 'يستدعيها الموارد البشرية وغرفة العمليات ومدير القاطع',

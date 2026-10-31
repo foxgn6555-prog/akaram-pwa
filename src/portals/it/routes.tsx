@@ -13,6 +13,7 @@ const UserManagementHub = lazy(() => import('@portals/it/pages/UserManagement/Us
 const UsersList = lazy(() => import('@portals/it/pages/UserManagement/UsersList'))
 const CreateUser = lazy(() => import('@portals/it/pages/UserManagement/CreateUser'))
 const ApprovalChainsPage = lazy(() => import('@portals/it/pages/ApprovalChains/ApprovalChainsPage'))
+const PlatformResetPage = lazy(() => import('./pages/PlatformReset/PlatformResetPage'))   // 00398
 const ItApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage').then((m) => ({ default: () => <m.default title="طلبات الموافقة" hero /> })))   // 00338
 const ApprovalPerformancePage = lazy(() => import('@components/approvals/ApprovalPerformancePage').then((m) => ({ default: () => <m.ApprovalPerformancePage testId="it-approval-performance" /> })))   // 00337
 const DisclosureTypesPage = lazy(() => import('@portals/it/pages/UserManagement/DisclosureTypesPage'))   // 00170: أنواع الكشوفات
@@ -113,5 +114,8 @@ export const customRoutes: RouteObject[] = [
   { path: 'central-garage-approvals', element: s(<CentralGarageApprovalsPage />) },
   { path: 'cold-archive', element: s(<ColdArchivePage />) },
   { path: 'data-retention', element: s(<DataRetentionPage />) },
+
+  // ── وحدة التصفير (00398) ──
+  { path: 'platform-reset', element: s(<PlatformResetPage />) },
 
 ]

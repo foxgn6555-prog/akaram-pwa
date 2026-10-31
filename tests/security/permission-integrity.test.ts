@@ -17,7 +17,7 @@ describe('⚓ تكامل الصلاحيات', () => {
   })
 
   it('بوابة IT بها 12 وحدة (الأكثر شمولية؛ 00275: + دليل التشغيل التقني)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(12)   // 00393: + القطاعات والمناطق
+    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(13)   // 00398: + التصفير
   })
 
   it('كل بوابة لها على الأقل وحدة واحدة', () => {

@@ -65,7 +65,7 @@ export interface GpsWarehousePing {
   progress?: GpsWarehouseProgress
   server_time: string
 }
-export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed'
+export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed' | 'wipe'
 export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number; rows?: number; by_month?: Record<string, number>; pending?: number }
 
 async function toError(error: unknown): Promise<LvnSyncError> {

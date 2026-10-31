@@ -43,7 +43,7 @@ export interface SectorNotice { id: string; title: string; body: string; recipie
 /** 00334: خصائص الخطوة الاختيارية — نمط «الجميع»، شرط، مهلة بالأيام، تصعيد */
 export interface ApprovalStepOptions { mode?: 'any' | 'all'; condition?: { field: 'amount' | 'days' | 'minutes'; op: 'gte' | 'lte'; value: number } | null; sla_days?: number | null; escalate?: 'none' | 'next' }
 export type ApprovalStep = ({ kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }) & ApprovalStepOptions
-export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance' | 'cold_archive_purge' | 'complaint_report' | 'hire' | 'attendance_edit'
+export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance' | 'cold_archive_purge' | 'complaint_report' | 'hire' | 'attendance_edit' | 'platform_reset'
 export interface ApprovalChainVersion { id: string; version_no: number; action: 'created' | 'updated' | 'deleted'; steps: ApprovalStep[]; is_active: boolean; changed_by_name: string | null; changed_at: string }
 export interface ApprovalSimulationStep { step_no: number; label: string; mode: 'any' | 'all'; sla_days: number | null; escalate: 'none' | 'next'; condition: string | null; status: 'active' | 'skipped_condition' | 'skipped_nobody'; approvers: { user_id: string; name: string }[]; delegates: { to_name: string; from_name: string }[] }
 /** 00336: تفويض موافقات (من مستخدم إلى آخر لفترة ≤ 90 يوماً) */
@@ -79,7 +79,7 @@ export interface ApprovalTask {
   items: SupplyItem[] | null; ref_no: string | null
   /** 00163: طلب إنهاء خدمة — تفاصيل الهدف · 00191: طلب سلفة — الموظف والمبلغ وطريقة التسديد */
   /** 00197: إجازة/زمنية بأثر رجعي */
-  details: TerminationTaskDetails | AdvanceTaskDetails | BackdatedTaskDetails | ColdPurgeTaskDetails | ComplaintReportTaskDetails | HireTaskDetails | AttendanceEditTaskDetails | null
+  details: TerminationTaskDetails | AdvanceTaskDetails | BackdatedTaskDetails | ColdPurgeTaskDetails | ComplaintReportTaskDetails | HireTaskDetails | AttendanceEditTaskDetails | PlatformResetTaskDetails | null
 }
 export interface BackdatedTaskDetails { backdated: true; reason: string; days_late: number; prior_status: string | null; month_count: number; alert_threshold: number }
 export interface AdvanceTaskDetails {
@@ -94,6 +94,8 @@ export interface ComplaintReportTaskDetails { title: string; sector: string; sec
 export interface ColdPurgeTaskDetails { code: string; period_from: string; period_to: string; file_count: number; total_bytes: number; verified_copies: number; required_copies: number; purge_available_at: string | null; copies: string | null; by_source: Array<{ source_key: string; files: number }> }
 /** 00348: تفاصيل طلب تعيين موظف (بلا رقم وظيفي — تكتبه الموارد البشرية بعد الاعتماد) */
 /** 00397: مهمة موافقة على طلب تعديل حضور جماعي */
+/** 00398: مهمة تصفير المنصة — بلا اعتماد مباشر؛ التفاصيل والاعتماد من صفحة التفاصيل */
+export interface PlatformResetTaskDetails { categories: string[]; categories_count: number; includes_accounts: boolean; labels: string[] | null; total_rows: number; detail_only: true }
 export interface AttendanceEditTaskDetails { scope_label: string; scope_kind: string; action: string; action_label: string; payload: { status?: string; check_in?: string; check_out?: string }; employees: number; days: number; items: number; dates: string[]; reason: string }
 export interface HireTaskDetails { full_name: string; phone: string | null; job_title: string; department: string | null; hire_date: string; contract_type: 'monthly' | 'daily'; contract_label: string; shift_name: string | null; source: 'garage' | 'station' | 'maintenance'; source_label: string }
 export interface TerminationTaskDetails { target_name: string; target_label: string; target_kind: 'employee' | 'worker'; type: TerminationType; type_label: string; last_day: string }

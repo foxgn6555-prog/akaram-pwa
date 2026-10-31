@@ -326,6 +326,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/devops/status', labelKey: 'nav.devops_status', icon: 'activity' },
       ],
     },
+    {
+      // 00398: التصفير — تصفير بيانات المنصة بالفئات (كلمة سر + سلسلة «تصفير المنصة»)
+      path: '/it/platform-reset',
+      labelKey: 'nav.platform_reset',
+      icon: 'trash',
+      exact: true,
+    },
   ],
 
   // بوابة المدير المفوض — أعمال صافية (لا شيء تقني؛ التقني كله في /it)

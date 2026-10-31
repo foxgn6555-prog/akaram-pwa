@@ -54,7 +54,7 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
   it('مسجّلة كمسار IT وكعنصر فرعي تحت وحدة الأرشيف (لا تغيّر عدد الوحدات 12)', () => {
     expect(customRoutes.some((r) => r.path === 'cold-archive')).toBe(true)
     const units = PORTAL_UNITS[PORTALS.IT]
-    expect(units).toHaveLength(12)   // 00393: + القطاعات والمناطق
+    expect(units).toHaveLength(13)   // 00398: + التصفير · 12 (00393: + القطاعات والمناطق)
     const archive = units.find((u) => u.path === '/it/archive')
     expect(archive?.children?.map((c) => c.path)).toContain('/it/cold-archive')
     expect(archive?.children?.find((c) => c.path === '/it/cold-archive')?.labelKey).toBe('nav.cold_archive')

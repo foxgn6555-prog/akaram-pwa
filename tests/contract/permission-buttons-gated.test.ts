@@ -28,6 +28,7 @@ export const UI_SITES: Readonly<Record<string, readonly string[]>> = {
   cold_archive_purge_approve: [P + 'it/pages/ColdArchive/ColdArchivePage.tsx'],
   cold_archive_purge_confirm: [P + 'it/pages/ColdArchive/ColdArchivePage.tsx'],
   garage_decide_tank_zero: [P + 'it/pages/CentralGarage/CentralGarageApprovalsPage.tsx'],
+  platform_reset_request: [P + 'it/pages/PlatformReset/PlatformResetPage.tsx'],   // 00398
   complaint_approve_report: [P + 'complaints/pages/Templates/ReportEditorPage.tsx'],
   complaint_batch_create_items_from_inbox: [P + 'complaints/pages/Inbox/InboxPage.tsx'],
   complaint_start_assignment_ticket: [P + 'manager/pages/Complaints/ComplaintTicketPage.tsx'],
@@ -54,6 +55,7 @@ export const NO_UI_BUTTON: Readonly<Record<string, string>> = {
   garage_record_departure: 'لا تستدعيها أي صفحة (الواجهة تستخدم انطلاق الشفت)',
   maintenance_approve_readiness: 'لا تستدعيها أي صفحة حالياً',
   it_deduction_exemption_add: 'لا تستدعيها أي صفحة حالياً',
+  platform_reset_cancel: 'إلغاء طلب التصفير المعلّق — زر صغير في شريط التنبيه؛ الخادم يحكم (00398)',
 }
 
 const read = (f: string) => readFileSync(resolve(process.cwd(), f), 'utf8')

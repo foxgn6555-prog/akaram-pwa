@@ -2,11 +2,12 @@ import { PARENT_SECTOR_LABELS_LIVE } from '@sdk/sectors.sdk'
 /** طلبات الموافقة (مشتركة: مسؤول القاطع، الميدانية، المعاون، المدير المفوض): مهام الموافقة المعلّقة لديّ (إجازات/زمنيات/مستلزمات 00162 /إنهاء خدمة 00163 /سلف 00191)
  * حسب سلاسل الموافقات؛ موافقة أو رفض بسبب إلزامي؛ مسار الطلب. السلفة: يمكن للمعتمِد تعديل المبلغ (وعدد الأقساط) قبل الموافقة. */
 import { lazy, Suspense, useState } from 'react'
+import { PlatformResetDetailView } from '@features/platform-reset'
 import { Archive, CheckCircle2, FileText, Download, Clock, Package, UserCheck, UserX, Wallet, XCircle } from 'lucide-react'
 import { useApprovalTimeline, useDecideApproval, useMyApprovalTasks } from '@features/sector-manager/hooks'
 import { useDecideAdvance } from '@features/advances/hooks'
 import { STATUS_AR, dateAr, hm, timeAr } from '@features/sector-manager/format'
-import type { AdvanceTaskDetails, ApprovalTask, AttendanceEditTaskDetails, BackdatedTaskDetails, ColdPurgeTaskDetails, ComplaintReportTaskDetails, HireTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
+import type { AdvanceTaskDetails, ApprovalTask, AttendanceEditTaskDetails, BackdatedTaskDetails, ColdPurgeTaskDetails, ComplaintReportTaskDetails, HireTaskDetails, PlatformResetTaskDetails, TerminationTaskDetails } from '@sdk/sector-manager.sdk'
 import { useComplaintReportDownload } from '@features/complaints/hooks/useComplaints'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr/types'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -16,7 +17,7 @@ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
-const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']], ['تعديل حضور', ['attendance_edit']]]
+const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']], ['تعديل حضور', ['attendance_edit']], ['تصفير المنصة', ['platform_reset']]]
 /** `hero` مقبول للتوافق فقط — الرأس الموحد صار الوضع الوحيد (00227). */
 export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { title?: string; hero?: boolean }) {
   const tasks = useMyApprovalTasks()
@@ -44,7 +45,31 @@ export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { 
 type Decider = { pending: boolean; approve: (x: { amount: number | null; installments: number | null }) => void; reject: (note: string, onSuccess: () => void) => void }
 /** بطاقة المهمة: السلفة تستخدم advance_decide (مع تعديل المبلغ)؛ البقية approval_decide_request — الخطاف يُستدعى في المغلّف المناسب فقط */
 function TaskCard({ t }: { t: ApprovalTask }) {
-  return t.request_kind === 'advance' ? <AdvanceTaskCard t={t} /> : <GenericTaskCard t={t} />
+  return t.request_kind === 'advance' ? <AdvanceTaskCard t={t} /> : t.request_kind === 'platform_reset' ? <PlatformResetTaskCard t={t} /> : <GenericTaskCard t={t} />
+}
+/** 00398: مهمة «تصفير المنصة» — لا زر موافقة مباشر إطلاقاً؛ «إظهار تفاصيل التصفير» يفتح صفحة التفاصيل حيث الاعتماد بكلمة سر «اعتماد تصفير» أو الرفض بسبب */
+function PlatformResetTaskCard({ t }: { t: ApprovalTask }) {
+  const [open, setOpen] = useState(false)
+  const d = t.details as PlatformResetTaskDetails | null
+  return (
+    <li className="rounded-2xl border-2 border-rose-300 bg-rose-50 p-4 shadow-sm" data-testid={`task-${t.request_id}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-sm font-black">{t.requester_name} <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700">{t.requester_role_label}</span></div>
+          <div className="mt-1 text-sm font-black text-rose-900">⚠ طلب تصفير المنصة</div>
+        </div>
+        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[#0b3d6b]" data-testid={`task-step-${t.request_id}`}>خطوة {t.step_no} من {t.total_steps}</span>
+      </div>
+      <div className="mt-2 rounded-xl bg-white p-3 text-xs text-slate-800" data-testid={`task-reset-${t.request_id}`}>
+        <div><b>{d?.categories_count ?? 0}</b> فئة بيانات · <b className="tabular-nums">{(d?.total_rows ?? 0).toLocaleString('en-US')}</b> سجل سيُحذف نهائياً{d?.includes_accounts ? ' · يشمل الحسابات' : ''}</div>
+        {d?.labels && d.labels.length > 0 && <div className="mt-1 text-slate-600">{d.labels.slice(0, 6).join('، ')}{d.labels.length > 6 ? ` … و${d.labels.length - 6} أخرى` : ''}</div>}
+        <div className="mt-1 text-[11px] font-bold text-rose-800">لا موافقة من هنا — افتح التفاصيل وراجع القائمة كاملة ثم اعتمد بكلمة السر أو ارفض.</div>
+        <div className="mt-1 text-[11px] text-slate-500">قُدّم {timeAr(t.created_at)} · {dateAr(t.created_at)}</div>
+      </div>
+      <button type="button" data-testid={`reset-detail-${t.request_id}`} onClick={() => setOpen(true)} className="mt-3 h-11 w-full rounded-xl bg-rose-700 text-sm font-black text-white">إظهار تفاصيل التصفير</button>
+      {open && <PlatformResetDetailView id={t.request_id} onClose={() => setOpen(false)} />}
+    </li>
+  )
 }
 function GenericTaskCard({ t }: { t: ApprovalTask }) {
   const decide = useDecideApproval()

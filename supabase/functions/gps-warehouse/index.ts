@@ -15,7 +15,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
   WH_URL = (Deno.env.get('GPS_WAREHOUSE_URL') ?? '').replace(/\/$/, ''),
   WH_KEY = Deno.env.get('GPS_WAREHOUSE_SERVICE_KEY') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed'
+type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed' | 'wipe'
 const READ_ROLES = ['ops_room', 'it_admin', 'super_admin'], WRITE_ROLES = ['it_admin', 'super_admin']
 
 const response = (body: unknown, status = 200) =>
@@ -239,6 +239,25 @@ Deno.serve(async (req) => {
       const month = body.month.length === 7 ? `${body.month}-01` : body.month
       const result = await whRpc<Record<string, unknown>>('wh_hotspots_rebuild', { p_month: month })
       return response({ ok: true, action, result })
+    }
+    if (action === 'wipe') {
+      // 00398: مسح مستودع GPS بالكامل (جداول wh_* + ملفات الأرشيف) — يُستدعى من وحدة «التصفير» بعد تنفيذ تصفير بؤر التوقف
+      const result = await whRpc<Record<string, unknown>>('wh_wipe_all')
+      const wh = warehouse()
+      let files = 0
+      const { data: buckets } = await wh.storage.listBuckets()
+      for (const b of buckets ?? []) {
+        for (let guard = 0; guard < 200; guard++) {
+          const { data: objs } = await wh.storage.from(b.name).list('', { limit: 1000 })
+          const names = (objs ?? []).filter((o) => o.id).map((o) => o.name)
+          if (names.length === 0) break
+          const { error } = await wh.storage.from(b.name).remove(names)
+          if (error) break
+          files += names.length
+        }
+      }
+      await record('registry', true, { wipe: true, files })
+      return response({ ok: true, action, result: { ...result, files_deleted: files } })
     }
     return response({ error: 'GPS_WAREHOUSE_ACTION_INVALID' }, 400)
   } catch (e) {

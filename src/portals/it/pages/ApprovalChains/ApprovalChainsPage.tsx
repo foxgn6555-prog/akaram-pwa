@@ -46,6 +46,7 @@ const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' |
   { key: 'cold_archive_purge', label: 'حذف أرشيف بارد (طالبه حساب التطوير المركزية — بلا سلسلة: موافقة حساب IT آخر إن فُعّلت)', fields: [] },
   { key: 'hire', label: 'طلب تعيين موظف (من إجراءات الكراج/المحطة/الصيانة — بلا سلسلة: المدير المفوض؛ الرقم الوظيفي تكتبه الموارد البشرية بعد الاعتماد)', fields: [] },
   { key: 'attendance_edit', label: 'تعديل حضور جماعي (طالبه غرفة العمليات — بلا سلسلة: يصل الموارد البشرية مباشرة؛ بعد الموافقات تراجعه HR وتعتمده)', fields: [] },   // 00397
+  { key: 'platform_reset', label: 'تصفير المنصة (طالبه حساب التطوير المركزية من وحدة «التصفير» — بلا سلسلة: تنفيذ فوري؛ المعتمِد يعتمد من صفحة التفاصيل بكلمة سر)', fields: [] },   // 00398
 ]
 const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'المبلغ (د.ع)', days: 'الأيام', minutes: 'الدقائق' }
 const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)
