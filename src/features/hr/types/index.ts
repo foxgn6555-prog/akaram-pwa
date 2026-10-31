@@ -338,7 +338,7 @@ export interface AttendanceAudit {
   id: string
   employee_id: string
   work_date: string
-  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto' | 'waive' | 'unwaive' | 'confirm' | 'reopen' | 'auto_blocked'
+  action: 'edit' | 'deduction_add' | 'deduction_delete' | 'export' | 'approve' | 'reset_auto' | 'waive' | 'unwaive' | 'confirm' | 'reopen' | 'auto_blocked' | 'leave_sync'
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
   reason: string

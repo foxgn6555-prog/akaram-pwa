@@ -202,7 +202,7 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
     expect(h.setTargets.mock.calls[0]![0]).toEqual(['strict', [{ target_type: 'department', target_id: 'd1' }]])
   })
 
-  it('00196: المحاكاة التفصيلية — حالة جاهزة (زمنية مدفوعة) تُرسل كاملة، وتعرض الحالة «حاضر (زمنية)» والخطوات والسلّم والمبلغ بالأرقام اللاتينية', async () => {
+  it('00196: المحاكاة التفصيلية — حالة جاهزة (زمنية مدفوعة) تُرسل كاملة، وتعرض الحالة «زمنية» والخطوات والسلّم والمبلغ بالأرقام اللاتينية', async () => {
     open(); fireEvent.click(screen.getByTestId('ad-tab-simulate'))
     fireEvent.change(screen.getByTestId('sim-rule'), { target: { value: 'strict' } })
     fireEvent.click(screen.getByTestId('sim-preset-paid-permit'))
@@ -215,7 +215,7 @@ describe('00195 — الاستقطاعات التلقائية في التطوي�
     const sent = h.simulate.mock.calls[0]![0] as { settings: Record<string, unknown>; scenario: Record<string, unknown> }
     expect(sent.settings.fixed_absent_day_amount).toBe(5000)
     expect(sent.scenario).toMatchObject({ early_minutes: 240, paid_permit_minutes: 240, unpaid_permit_minutes: 0, base_salary: 600000, paid_leave_days: 3, pay_type: 'daily', shift_minutes: 480 })
-    expect(screen.getByTestId('sim-status')).toHaveTextContent('حاضر (زمنية)')
+    expect(screen.getByTestId('sim-status')).toHaveTextContent('زمنية')
     expect(screen.getByTestId('sim-amount')).toHaveTextContent('7,500 د.ع')
     expect(screen.getByTestId('sim-steps').querySelectorAll('li')).toHaveLength(5)
     expect(screen.getByTestId('sim-step-method')).toHaveTextContent('غطّت كل الدقائق الناقصة')

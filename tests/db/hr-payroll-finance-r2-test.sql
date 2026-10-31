@@ -41,6 +41,8 @@ create or replace function pg_temp.pf_day(p_emp uuid, p_day date, p_status text,
   on conflict (employee_id, work_date) do nothing
 $$;
 do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')::date; e uuid; t_paid uuid; t_unpaid uuid; begin
+  -- إدخال بيانات اختبار مباشرة، لا تمثيل لتعديل يدوي عبر الواجهة.
+  perform set_config('app.hr_leave_sync','on',true);
   select id into t_paid from public.hr_leave_types where code = 'annual';
   select id into t_unpaid from public.hr_leave_types where code = 'unpaid';
   foreach e in array array['f6000000-0000-0000-0000-0000000000e1'::uuid, 'f6000000-0000-0000-0000-0000000000e2'::uuid] loop
@@ -54,6 +56,7 @@ do $$ declare m date := (date_trunc('month', current_date) - interval '1 month')
     perform pg_temp.pf_day(e, m + 5, 'leave', null, null);
   end loop;
   perform pg_temp.pf_day('f6000000-0000-0000-0000-0000000000e3', m + 1, 'present', '08:00', '16:00');
+  perform set_config('app.hr_leave_sync','off',true);
   -- استقطاع عمليات: يوم واحد على الشهري
   insert into public.hr_attendance_deductions (employee_id, period_month, amount, days, reason) values ('f6000000-0000-0000-0000-0000000000e1', m, 0, 1, 'pf مخالفة');
 end $$;

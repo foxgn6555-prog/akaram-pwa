@@ -60,7 +60,7 @@ export const fmtClock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB
 
 export const auditSource = (r: AttendanceAuditRow): string => {
   const src = (r.after as Record<string, unknown> | null)?.source ?? (r.before as Record<string, unknown> | null)?.source
-  return r.action === 'auto_blocked' ? 'تلقائي' : src === 'auto' ? 'تلقائي' : src === 'manual' ? 'يدوي' : '—'
+  return r.action === 'auto_blocked' || r.action === 'leave_sync' ? 'تلقائي' : src === 'auto' ? 'تلقائي' : src === 'manual' ? 'يدوي' : '—'
 }
 
 /** قيمة خلية لعمود معيّن — نقي */

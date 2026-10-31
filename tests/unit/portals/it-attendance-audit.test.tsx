@@ -121,7 +121,7 @@ describe('الدوال النقية (00283)', () => {
     expect(presetRange('quarter', now)).toEqual({ from: '2026-08-01', to: '2026-10-18' })
   })
   it('auditSource: يدوي/تلقائي/—', () => {
-    expect(auditSource(rows[0]!)).toBe('يدوي'); expect(auditSource(rows[3]!)).toBe('تلقائي'); expect(auditSource(rows[1]!)).toBe('—')
+    expect(auditSource({ ...rows[0]!, action: 'leave_sync' })).toBe('تلقائي'); expect(auditSource(rows[0]!)).toBe('يدوي'); expect(auditSource(rows[3]!)).toBe('تلقائي'); expect(auditSource(rows[1]!)).toBe('—')
   })
   it('buildAuditSheet: الأعمدة بالترتيب المختار، الفرق نصاً متعدد الأسطر أو مفصّلاً قبل/بعد (الحقول غير المتغيرة فارغة)، أرقام إنكليزية وتوقيت بغداد', () => {
     const t = buildAuditSheet(rows, { columns: ['seq', 'created_at', 'full_name', 'diff'], diffMode: 'text' })

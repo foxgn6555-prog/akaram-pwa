@@ -328,16 +328,12 @@ select auth.set_test_user('fe000000-0000-0000-0000-000000000005');
 select public.hr_leave_decide(current_setting('test.fx_l3')::uuid, true, null);
 select auth.set_test_user('fe000000-0000-0000-0000-000000000001');
 do $$ declare m date := date_trunc('month', current_date)::date; x uuid; r record; ok boolean := false; t uuid; cf jsonb; begin
-  -- الإجازة اعتُمدت بعد اعتماد الحضورية ⇒ أيامها مُعلَّقة (لم تُطبَّق صامتةً) والتصدير ممنوع حتى إعادة الفتح ثم الاعتماد
+  -- الإجازة تغيّر الشهر غير المقفل مالياً، مع إعادة فتح الحضورية تلقائياً للتدقيق قبل التصدير.
   cf := public.ops_attendance_confirmation(m);
-  if current_date > m then
-    assert (cf ->> 'pending_auto')::int > 0 and not (cf ->> 'can_export')::boolean, 'S12 pending auto after confirmation: ' || cf::text;
-    assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'absent', 'S12 day untouched while confirmed';
-    begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
-    assert ok, 'S12 export blocked with pending auto changes';
-    perform public.ops_attendance_reopen(m, 'إجازة رسمية اعتُمدت بعد الاعتماد');
-    assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'leave', 'S12 reopen applies pending leave';
-  end if;
+  assert cf ->> 'status' = 'reopened' and not (cf ->> 'can_export')::boolean, 'S12 automatic reopen: ' || cf::text;
+  assert (select status from public.hr_attendance_days where employee_id = 'fe000000-0000-0000-0000-0000000000e6' and work_date = m) = 'leave', 'S12 approved leave applied';
+  begin perform public.ops_month_export(m); exception when others then ok := sqlerrm = 'HR_ATTENDANCE_NOT_CONFIRMED'; end;
+  assert ok, 'S12 export blocked until re-confirmation';
   perform public.ops_attendance_confirm(m);
   x := public.ops_month_export_reviewed(m);
   select * into r from public.hr_month_export_rows where export_id = x and employee_id = 'fe000000-0000-0000-0000-0000000000e6';

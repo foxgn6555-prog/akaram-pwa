@@ -57,7 +57,7 @@ const PAGE = 100
 const ACTION_KEYS = Object.keys(AUDIT_ACTION_LABELS) as AttendanceAuditRow['action'][]
 const K_GROUPS: Array<{ id: string; label: string; actions: AttendanceAuditRow['action'][] }> = [
   { id: 'edits', label: 'تعديلات أيام', actions: ['edit'] },
-  { id: 'resets', label: 'إعادة احتساب', actions: ['reset_auto'] },
+  { id: 'resets', label: 'إعادة احتساب', actions: ['reset_auto', 'leave_sync'] },
   { id: 'deductions', label: 'استقطاعات يدوية', actions: ['deduction_add', 'deduction_delete'] },
   { id: 'waives', label: 'إلغاء/إعادة استقطاع', actions: ['waive', 'unwaive'] },
   { id: 'month', label: 'اعتماد/تصدير شهر', actions: ['confirm', 'reopen', 'export', 'approve'] },

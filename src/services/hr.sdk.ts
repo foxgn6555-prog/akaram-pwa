@@ -58,6 +58,7 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   LETTER_REASON_REQUIRED: 'اكتب سبب الكتاب (5 أحرف على الأقل)',
   LETTER_EMPLOYEE_INVALID: 'الموظف غير موجود أو منتهية خدمته',
   HR_MONTH_FUTURE: 'لا يمكن تصدير شهر لم يبدأ',
+  HR_APPROVED_LEAVE_CONFLICT: 'هذا اليوم لديه إجازة معتمدة؛ لا يمكن استبدالها بتعديل حضور يدوي',
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
   HR_ATTENDANCE_UNEVALUATED: 'توجد أيام غير محتسبة — أعد المحاولة بعد اكتمال الاحتساب',
