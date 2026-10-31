@@ -140,10 +140,26 @@ describe('00193 — الحضوريات بمرحلتين', () => {
 describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
   const rows = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_name: 'الإدارة' }), row({ employee_id: 'e3', employee_number: 'E300', full_name: 'كريم', department_name: 'النقل' })]
   const meta = { month: '2026-09-01', branchLabel: 'كل الفروع', departmentLabel: 'كل الأقسام', confirmedBy: 'مدقق الحضور', confirmedAt: '2026-10-01T08:00:00Z' }
-  it('اختزال الحالات: متأخر/مبكر/ناقصة = حاضر · إجازة/زمنية = مجاز · غائب = غائب', () => {
+  it('اختزال الحالات: متأخر/مبكر/ناقصة = حاضر · إجازة = مجاز · زمنية = زمنية · غائب = غائب', () => {
     expect(approvedKind('late')).toBe('present'); expect(approvedKind('incomplete')).toBe('present'); expect(approvedKind('early_leave')).toBe('present')
-    expect(approvedKind('time_permit')).toBe('leave'); expect(approvedKind('absent')).toBe('absent'); expect(approvedKind('rest')).toBe('rest'); expect(approvedKind('pending')).toBe('none')
+    expect(approvedKind('time_permit')).toBe('time_permit'); expect(approvedKind('absent')).toBe('absent'); expect(approvedKind('rest')).toBe('rest'); expect(approvedKind('pending')).toBe('none')
     expect(detailCellText(cell('x', 'present', { in: '08:02', out: '16:05' }))).toBe('08:02→16:05'); expect(detailCellText(cell('x', 'incomplete', { in: '08:00' }))).toBe('08:00→؟'); expect(detailCellText(cell('x', 'absent'))).toBe('غ')
+  })
+  it('الزمنية تظهر منفصلة عن الإجازة في الكشف المعتمد وملف Excel', async () => {
+    const permitRow = row({ days: [cell('2026-09-01', 'time_permit'), cell('2026-09-02', 'leave')], present_days: 1, late_days: 0, early_days: 0, incomplete_days: 0, leave_days: 1 })
+    const wb = await buildAttendanceApprovedWorkbook([permitRow], meta)
+    const r = wb.getWorksheet('النقل')!.getRow(6)
+    expect(r.getCell(5).value).toBe('زمنية')
+    expect(r.getCell(6).value).toBe('مجاز')
+    expect(r.getCell(7).value).toBe(1)
+    expect(r.getCell(9).value).toBe(1)
+    h.conf = confirmed
+    h.grid = [permitRow]
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('stage-approved'))
+    expect(screen.getByTestId('cell-2026-09-01')).toHaveAttribute('data-kind', 'time_permit')
+    expect(screen.getByTestId('cell-2026-09-01')).toHaveTextContent('زمنية')
+    expect(screen.getByTestId('cell-2026-09-02')).toHaveTextContent('مجاز')
   })
   it('التفصيلي: «الملخص» ثم ورقة لكل قسم مرتبة، الخلايا بالأوقات، وأعمدة المجاميع', async () => {
     const wb = await buildAttendanceDetailedWorkbook(rows, meta)

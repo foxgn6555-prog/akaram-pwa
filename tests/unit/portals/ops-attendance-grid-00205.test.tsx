@@ -78,7 +78,7 @@ describe('GridLegend', () => {
   it('دليل بمربعات ملوّنة يشمل التعديل اليدوي والاستقطاع المقترح/المُلغى واليوم', () => {
     render(<GridLegend mode="detailed" />)
     const l = screen.getByTestId('grid-legend-detailed')
-    for (const t of ['حاضر (أول / آخر بصمة)', 'متأخر', 'خروج مبكر', 'بصمة ناقصة', 'غائب', 'إجازة / زمنية', 'راحة', '؟ غير محتسب', 'تعديل غرفة العمليات', 'استقطاع مقترح', 'استقطاع مُلغى بسبب', 'اليوم']) expect(l.textContent).toContain(t)
+    for (const t of ['حاضر (أول / آخر بصمة)', 'متأخر', 'خروج مبكر', 'بصمة ناقصة', 'غائب', 'إجازة', 'زمنية', 'راحة', '؟ غير محتسب', 'تعديل غرفة العمليات', 'استقطاع مقترح', 'استقطاع مُلغى بسبب', 'اليوم']) expect(l.textContent).toContain(t)
     render(<GridLegend mode="approved" />)
     expect(screen.getByTestId('grid-legend-approved').textContent).not.toContain('متأخر')
   })

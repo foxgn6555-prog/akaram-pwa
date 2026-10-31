@@ -566,7 +566,7 @@ export interface HrDashboardStats {
 }
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
-  present: 'حاضر', late: 'متأخر', early_leave: 'خروج مبكر', absent: 'غائب', incomplete: 'بصمة ناقصة', leave: 'إجازة', time_permit: 'حاضر (زمنية)',
+  present: 'حاضر', late: 'متأخر', early_leave: 'خروج مبكر', absent: 'غائب', incomplete: 'بصمة ناقصة', leave: 'إجازة', time_permit: 'زمنية',
 }
 export const ATTENDANCE_STATUS_ORDER: AttendanceStatus[] = ['late', 'absent', 'incomplete', 'early_leave', 'present', 'leave', 'time_permit']
 export const TERMINATION_LABELS: Record<TerminationType, string> = {
