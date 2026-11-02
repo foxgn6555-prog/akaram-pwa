@@ -93,6 +93,8 @@ const APP_ERROR_AR: Record<string, string> = {
   APPROVAL_STEP_ACCOUNT_INVALID: 'الحساب المحدد في إحدى الخطوات غير موجود.',
   APPROVAL_STEP_KIND_INVALID: 'نوع الخطوة غير معروف.',
   APPROVAL_TYPE_INVALID: 'نوع الطلب غير مدعوم.',
+  APPROVAL_ALL_OVERLAP: 'توجد سلسلة فعّالة للإجازة أو الزمنية في هذا الدور أو القسم؛ عطّلها قبل تفعيل سلسلة كل الأنواع، أو عطّل المشتركة أولاً.',
+  APPROVAL_ALL_CONDITION_NOT_ALLOWED: 'السلسلة المشتركة لا تقبل شرط الأيام أو الدقائق؛ استخدم سلسلة منفصلة للنوع الذي يحتاج شرطاً.',
   // 00393: القطاعات والمناطق
   PARENT_SECTOR_CODE_INVALID: 'رمز القطاع: حروف إنجليزية صغيرة وأرقام وشرطة سفلية فقط (2–31 خانة) ويبدأ بحرف.',
   PARENT_SECTOR_NAME_REQUIRED: 'اسم القطاع مطلوب (حرفان على الأقل).',

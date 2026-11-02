@@ -44,6 +44,8 @@ export interface SectorNotice { id: string; title: string; body: string; recipie
 export interface ApprovalStepOptions { mode?: 'any' | 'all'; condition?: { field: 'amount' | 'days' | 'minutes'; op: 'gte' | 'lte'; value: number } | null; sla_days?: number | null; escalate?: 'none' | 'next' }
 export type ApprovalStep = ({ kind: 'hierarchy'; role: string; label?: string } | { kind: 'account'; user_id: string; label?: string }) & ApprovalStepOptions
 export type ApprovalRequestType = 'leave' | 'time_permit' | 'supplies' | 'termination' | 'disclosure' | 'advance' | 'cold_archive_purge' | 'complaint_report' | 'hire' | 'attendance_edit' | 'platform_reset'
+/** نطاق تهيئة فقط؛ ليس نوع طلب فعلياً. */
+export type ApprovalChainRequestType = ApprovalRequestType | 'leave_time_all'
 export interface ApprovalChainVersion { id: string; version_no: number; action: 'created' | 'updated' | 'deleted'; steps: ApprovalStep[]; is_active: boolean; changed_by_name: string | null; changed_at: string }
 export interface ApprovalSimulationStep { step_no: number; label: string; mode: 'any' | 'all'; sla_days: number | null; escalate: 'none' | 'next'; condition: string | null; status: 'active' | 'skipped_condition' | 'skipped_nobody'; approvers: { user_id: string; name: string }[]; delegates: { to_name: string; from_name: string }[] }
 /** 00336: تفويض موافقات (من مستخدم إلى آخر لفترة ≤ 90 يوماً) */
@@ -68,7 +70,7 @@ export interface ApprovalDiagnosis {
   steps: ApprovalSimulationStep[]; active_steps: number; department_path: ApprovalDiagnosePathNode[]; checks: ApprovalDiagnoseCheck[]
   ok: boolean; fallback: 'chain' | 'manager' | 'hr_only' | 'none'; reason: string | null; hints: string[]
 }
-export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number; department_id?: string | null; department_name?: string | null; include_children?: boolean; department_path?: string | null }
+export interface ApprovalChain { id: string; requester_role: string; requester_label: string; request_type: ApprovalChainRequestType; subtype?: string | null; subtype_label?: string | null; steps: ApprovalStep[]; is_active: boolean; updated_at: string; updated_by_name: string | null; version_no?: number; department_id?: string | null; department_name?: string | null; include_children?: boolean; department_path?: string | null }
 export interface SupplyItem { item_id: string; name: string; unit: string; qty: number; delivered_qty: number | null }
 export interface ApprovalTask {
   task_id: string; request_kind: ApprovalRequestType; request_id: string; step_no: number; total_steps: number; step_label: string
@@ -151,7 +153,7 @@ export const sectorManager = {
 
 export const approvals = {
   chains: async () => (await sdkGuard(supabase.rpc('approval_chains_list'))) as ApprovalChain[],
-  saveChain: async (requesterRole: string, requestType: ApprovalRequestType, steps: ApprovalStep[], active = true, subtype: string | null = null, department: string | null = null, includeChildren = true) =>
+  saveChain: async (requesterRole: string, requestType: ApprovalChainRequestType, steps: ApprovalStep[], active = true, subtype: string | null = null, department: string | null = null, includeChildren = true) =>
     (await sdkGuard(supabase.rpc('approval_chain_save', { p_requester_role: requesterRole, p_request_type: requestType, p_steps: steps.map(cleanStep), p_active: active, p_subtype: subtype, p_department: department, p_include_children: includeChildren }))) as string,
   /** 00391: بحث موظف للتشخيص */
   employeeLookup: async (q: string) => (await sdkGuard(supabase.rpc('approval_employee_lookup', { p_q: q.trim() || null }))) as ApprovalEmployeeLookup[],

@@ -38,7 +38,7 @@ describe('سلاسل الموافقات', () => {
     expect(screen.queryByTestId('chain-role')).toBeNull()
     expect(screen.getByTestId('chain-pick-dept')).toBeInTheDocument()
     const typeSel = screen.getByTestId('chain-type') as HTMLSelectElement
-    expect(Array.from(typeSel.options).map((o) => o.value)).toEqual(['leave', 'time_permit', 'advance'])
+    expect(Array.from(typeSel.options).map((o) => o.value)).toEqual(['leave_time_all', 'leave', 'time_permit', 'advance'])
     const deptSel = screen.getByTestId('chain-department') as HTMLSelectElement
     expect(Array.from(deptSel.options).map((o) => o.textContent)).toEqual(['اختر قسماً', 'النقل', '\u00a0\u00a0↳ الورشة ✓', 'المالية'])
     expect(screen.getByTestId('chain-save')).toBeDisabled()
@@ -81,6 +81,34 @@ describe('سلاسل الموافقات', () => {
     expect(screen.getByTestId('diag-preview-scope')).toHaveTextContent('سلسلة قسم «النقل» (تشمل الأقسام الفرعية)')
     expect(screen.getByTestId('diag-preview-step-1')).toHaveTextContent('تُخطّى — لا يوجد معتمِد')
     expect(screen.getByTestId('diag-preview-step-2')).toHaveTextContent('معاون المدير')
+  })
+  it('السلسلة المشتركة للإجازات والزمنيات فقط ويمكن محاكاتها بكل نوع', () => {
+    render(<Page />)
+    fireEvent.change(screen.getByTestId('chain-type'), { target: { value: 'leave_time_all' } })
+    expect(screen.getByTestId('chain-subtype')).toBeDisabled()
+    expect(screen.getByText(/تشمل الإجازات والزمنيات فقط، ولا تقبل شروط/)).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('add-hier-deputy_director'))
+    fireEvent.click(screen.getByTestId('chain-save'))
+    expect(h.save).toHaveBeenCalledWith(expect.objectContaining({ requestType: 'leave_time_all', subtype: null }), expect.anything())
+    fireEvent.change(screen.getByTestId('sim-user'), { target: { value: 'u-dep' } })
+    fireEvent.click(screen.getByTestId('sim-run'))
+    expect(h.sim).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'leave' }))
+    fireEvent.change(screen.getByTestId('combined-sim-type'), { target: { value: 'time_permit' } })
+    fireEvent.click(screen.getByTestId('sim-run'))
+    expect(h.sim).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'time_permit' }))
+  })
+  it('يمنع التداخل في النطاق نفسه دون حذف السلاسل ويتيح حفظ المسودة المعطلة', () => {
+    h.chains = [{ id: 'existing', requester_role: 'employee', requester_label: 'متعهد', request_type: 'time_permit', subtype: 'permit_paid', steps: [{ kind: 'hierarchy', role: 'hr_officer' }], is_active: true, updated_at: 'x', updated_by_name: 'IT' }]
+    render(<Page />)
+    fireEvent.change(screen.getByTestId('chain-type'), { target: { value: 'leave_time_all' } })
+    fireEvent.click(screen.getByTestId('add-hier-deputy_director'))
+    expect(screen.getByTestId('chain-overlap')).toHaveTextContent('عطّل السلسلة الأخرى أولاً')
+    expect(screen.getByTestId('chain-save')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('chain-active'))
+    expect(screen.getByTestId('chain-save')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('chain-save'))
+    expect(h.save).toHaveBeenCalledWith(expect.objectContaining({ active: false, requestType: 'leave_time_all' }), expect.anything())
+    expect(h.del).not.toHaveBeenCalled()
   })
   it('يبني سلسلة متعهد/إجازة: مسؤول قسمه → مسؤول قاطعه → معاون (حساب) ويحفظها بالترتيب', () => {
     render(<Page />)

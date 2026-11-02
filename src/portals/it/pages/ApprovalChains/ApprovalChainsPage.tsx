@@ -16,7 +16,7 @@ import { useLeaveTypes } from '@features/hr'
 import { useDepartments } from '@features/departments'
 import { ChainPreview } from '@components/approvals/ChainPreview'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
-import type { ApprovalChain, ApprovalRequestType, ApprovalStep, ApprovalStepOptions } from '@sdk/sector-manager.sdk'
+import type { ApprovalChain, ApprovalRequestType, ApprovalChainRequestType, ApprovalStep, ApprovalStepOptions } from '@sdk/sector-manager.sdk'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { DelegationPanel } from '@components/approvals/DelegationPanel'
 
@@ -38,7 +38,8 @@ const HIERARCHY_ROLES: { role: string; label: string; hint: string }[] = [
   { role: 'executive_director', label: 'المدير التنفيذي', hint: 'أي حساب بهذا الدور' },
   { role: 'super_admin', label: 'المدير المفوض', hint: 'أي حساب بهذا الدور' },
 ]
-const TYPES: { key: ApprovalRequestType; label: string; fields: Array<'amount' | 'days' | 'minutes'> }[] = [
+const TYPES: { key: ApprovalChainRequestType; label: string; fields: Array<'amount' | 'days' | 'minutes'> }[] = [
+  { key: 'leave_time_all', label: 'كل أنواع الإجازات والزمنيات', fields: [] },
   { key: 'leave', label: 'إجازة', fields: ['days'] }, { key: 'time_permit', label: 'زمنية (إذن وقتي)', fields: ['minutes'] },
   { key: 'supplies', label: 'مستلزمات القواطع (من مخزن غرفة العمليات)', fields: [] }, { key: 'termination', label: 'إنهاء خدمة (وحدة الإجراءات)', fields: [] },
   { key: 'disclosure', label: 'كشف (وحدة الكشوفات — غرفة العمليات)', fields: ['amount'] }, { key: 'advance', label: 'سلفة (تُدخلها غرفة العمليات لموظف — الافتراضي: المعاون ثم المدير المفوض)', fields: ['amount'] },
@@ -52,7 +53,7 @@ const FIELD_LABEL: Record<'amount' | 'days' | 'minutes', string> = { amount: 'ا
 const roleLabel = (r: string) => (r === 'employee' ? 'متعهد (موظف ميداني)' : (ROLE_LABELS as Record<string, string>)[r] ?? r)
 const sameStep = (a: ApprovalStep | undefined, b: ApprovalStep) => !!a && a.kind === b.kind && (b.kind === 'hierarchy' ? (a as { role?: string }).role === b.role : (a as { user_id?: string }).user_id === b.user_id)
 const scopeKey = (role: string, type: string, subtype: string | null | undefined, department?: string | null) => `${department ? `dept:${department}` : role}|${type}|${subtype ?? ''}`
-const DEPT_TYPES: ApprovalRequestType[] = ['leave', 'time_permit', 'advance']
+const DEPT_TYPES: ApprovalChainRequestType[] = ['leave_time_all', 'leave', 'time_permit', 'advance']
 const fmtDate = (v: string) => new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v))
 
 export default function ApprovalChainsPage() {
@@ -61,7 +62,7 @@ export default function ApprovalChainsPage() {
   const leaveTypes = useLeaveTypes()
   const departments = useDepartments()
   const simulate = useApprovalSimulate()
-  const [role, setRole] = useState<string>('employee'), [type, setType] = useState<ApprovalRequestType>('leave'), [subtype, setSubtype] = useState<string>('')
+  const [role, setRole] = useState<string>('employee'), [type, setType] = useState<ApprovalChainRequestType>('leave'), [subtype, setSubtype] = useState<string>('')
   // 00391: نطاق السلسلة — دور أو قسم (مع/بدون الفرعية)
   const [scope, setScope] = useState<'role' | 'department'>('role'), [department, setDepartment] = useState<string>(''), [includeChildren, setIncludeChildren] = useState(true)
   const [diag, setDiag] = useState<{ query: string; employeeId: string }>({ query: '', employeeId: '' })
@@ -69,9 +70,11 @@ export default function ApprovalChainsPage() {
   const [steps, setSteps] = useState<ApprovalStep[]>([]), [active, setActive] = useState(true), [editing, setEditing] = useState<string | null>(null)
   const [accountId, setAccountId] = useState(''), [accountQuery, setAccountQuery] = useState(''), [dup, setDup] = useState(false)
   const [openStep, setOpenStep] = useState<number | null>(null)
-  const [copyTarget, setCopyTarget] = useState<{ role: string; type: ApprovalRequestType; subtype: string } | null>(null)
+  const [copyTarget, setCopyTarget] = useState<{ role: string; type: ApprovalChainRequestType; subtype: string } | null>(null)
   const [versionsOf, setVersionsOf] = useState<ApprovalChain | null>(null)
   const versions = useApprovalChainVersions(versionsOf?.id ?? null)
+  const [combinedSimType, setCombinedSimType] = useState<'leave' | 'time_permit'>('leave')
+  const simType: ApprovalRequestType = type === 'leave_time_all' ? combinedSimType : type
   const [sim, setSim] = useState<{ userId: string; query: string; amount: string; days: string; minutes: string }>({ userId: '', query: '', amount: '', days: '', minutes: '' })
 
   const typeMeta = TYPES.find((t) => t.key === type) as (typeof TYPES)[number]
@@ -91,6 +94,11 @@ export default function ApprovalChainsPage() {
     return out
   }, [departments.data])
   const deptTypeOk = DEPT_TYPES.includes(type)
+  const scopeConflicts = (chains.data ?? []).filter((c) => c.is_active && c.id !== existing?.id &&
+    (scope === 'department' ? Boolean(department) && c.department_id === department : !c.department_id && c.requester_role === role) &&
+    (type === 'leave_time_all' ? c.request_type === 'leave' || c.request_type === 'time_permit' : (type === 'leave' || type === 'time_permit') && c.request_type === 'leave_time_all'))
+  const blockedOverlap = active && scopeConflicts.length > 0
+  const combinedHasConditions = type === 'leave_time_all' && steps.some((step) => Boolean(step.condition))
   const accountOptions = useMemo(() => (users.data ?? []).filter((u) => (u.employee_name ?? u.email ?? '').includes(accountQuery)).slice(0, 30), [users.data, accountQuery])
   const simOptions = useMemo(() => (users.data ?? []).filter((u) => (u.employee_name ?? u.email ?? '').includes(sim.query)).slice(0, 30), [users.data, sim.query])
   const userName = (id: string) => { const u = (users.data ?? []).find((x) => x.id === id); return u?.employee_name ?? u?.email ?? id.slice(0, 8) }
@@ -125,7 +133,7 @@ export default function ApprovalChainsPage() {
   const runSim = () => {
     const ctx: Record<string, number> = {}
     if (sim.amount) ctx.amount = Number(sim.amount); if (sim.days) ctx.days = Number(sim.days); if (sim.minutes) ctx.minutes = Number(sim.minutes)
-    simulate.mutate({ userId: sim.userId, type, subtype: effSubtype, context: ctx })
+    simulate.mutate({ userId: sim.userId, type: simType, subtype: effSubtype, context: ctx })
   }
 
   return (
@@ -136,7 +144,7 @@ export default function ApprovalChainsPage() {
           لكل دور طالب ونوع طلب (وللإجازات: نوع فرعي اختياري) سلسلة خطوات مرتبة. الخطوة إمّا <b>«حسب التسلسل»</b> أو <b>«حساب محدد»</b>، ولها خصائص اختيارية: <b>الجميع</b> (كل المعتمدين)، <b>شرط</b> (تُطبَّق فقط إذا تحقق)، <b>مهلة</b> بالأيام مع تذكير و<b>تصعيد</b> تلقائي.
           بلا سلسلة فعّالة يعمل الافتراضي (المدير المباشر / افتراضي الوحدة). لا يوافق أحد على طلب نفسه.
           <br /><b>سلسلة القسم</b> (00391): تُطبَّق على كل موظفي القسم المختار — وأقسامه الفرعية إن شئت — أياً كان دورهم وحتى من لا حساب له (تطلب غرفة العمليات/HR نيابةً عنه).
-          الأولوية: قسم الموظف ← القسم الأب ← … ← سلسلة الدور. داخل كل مستوى: النوع الفرعي ثم العام.
+          الأولوية: قسم الموظف ← القسم الأب ← … ← سلسلة الدور. داخل كل مستوى: النوع الفرعي ثم العام. «كل أنواع الإجازات والزمنيات» لا يشمل السلف أو بقية الطلبات، ولا يُفعّل مع سلسلة إجازة أو زمنية في الدور أو القسم نفسه.
         </p>
       </header>
 
@@ -168,13 +176,13 @@ export default function ApprovalChainsPage() {
             </label>
           )}
           <label className="text-xs font-bold">نوع الطلب
-            <select data-testid="chain-type" value={type} onChange={(e) => { setType(e.target.value as ApprovalRequestType); setSubtype(''); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
+            <select data-testid="chain-type" value={type} onChange={(e) => { setType(e.target.value as ApprovalChainRequestType); setSubtype(''); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
               {TYPES.filter((t) => scope === 'role' || DEPT_TYPES.includes(t.key)).map((t) => <option key={t.key} value={t.key}>{t.label}{withChain.has(scopeKey(role, t.key, null, effDepartment)) ? ' ✓' : ''}</option>)}
             </select>
           </label>
           <label className={clsx('text-xs font-bold', !subtypeAllowed && 'opacity-50')}>النوع الفرعي <span className="font-normal text-slate-500">(إجازات/زمنيات)</span>
             <select data-testid="chain-subtype" value={subtype} disabled={!subtypeAllowed} onChange={(e) => { setSubtype(e.target.value); reset() }} className="mt-1 h-11 w-full rounded-xl border px-3 font-normal">
-              <option value="">— عام (كل الأنواع) —</option>
+              <option value="">— عام ضمن نوع الطلب المحدد —</option>
               {subtypeOptions.map((t) => <option key={t.code} value={t.code}>{t.name}{withChain.has(scopeKey(role, type, t.code, effDepartment)) ? ' ✓' : ''}</option>)}
             </select>
           </label>
@@ -262,9 +270,12 @@ export default function ApprovalChainsPage() {
         </div>
         {dup && <p className="mt-2 text-xs font-bold text-rose-700" role="alert" data-testid="chain-dup">الخطوة نفسها لا تُكرَّر مباشرة بعد نفسها — المعتمِد نفسه لن يوافق مرتين متتاليتين</p>}
 
+        {blockedOverlap && <p role="alert" data-testid="chain-overlap" className="mt-3 text-xs font-bold text-rose-700">توجد سلسلة فعّالة متداخلة في هذا الدور أو القسم. عطّل السلسلة الأخرى أولاً؛ لن تُحذف أو تُستبدل تلقائياً.</p>}
+        {type === 'leave_time_all' && <p className="mt-3 text-xs text-amber-800">تشمل الإجازات والزمنيات فقط، ولا تقبل شروط الأيام أو الدقائق حتى لا تُتخطى خطوة أحد النوعين.</p>}
+        {combinedHasConditions && <p role="alert" className="text-xs text-rose-700">أزل شروط الخطوات قبل حفظ السلسلة المشتركة.</p>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" data-testid="chain-active" checked={active} onChange={(e) => setActive(e.target.checked)} /> السلسلة فعّالة</label>
-          <button type="button" data-testid="chain-save" disabled={steps.length === 0 || save.isPending || (scope === 'department' && !department)} onClick={doSave} className="h-11 rounded-xl bg-slate-900 px-5 text-sm font-black text-white disabled:opacity-40">حفظ السلسلة</button>
+          <button type="button" data-testid="chain-save" disabled={steps.length === 0 || save.isPending || blockedOverlap || combinedHasConditions || (scope === 'department' && !department)} onClick={doSave} className="h-11 rounded-xl bg-slate-900 px-5 text-sm font-black text-white disabled:opacity-40">حفظ السلسلة</button>
           <button type="button" data-testid="chain-copy" disabled={steps.length === 0} onClick={() => setCopyTarget({ role, type, subtype: '' })} className="flex h-11 items-center gap-1 rounded-xl border px-4 text-sm font-bold disabled:opacity-40"><Copy size={14} /> نسخ إلى دور/نوع آخر</button>
           {steps.length > 0 && <button type="button" onClick={reset} className="h-11 rounded-xl border px-4 text-sm font-bold">تفريغ</button>}
         </div>
@@ -277,7 +288,7 @@ export default function ApprovalChainsPage() {
               </select>
             </label>
             <label className="font-bold">إلى نوع
-              <select data-testid="copy-type" value={copyTarget.type} onChange={(e) => setCopyTarget({ ...copyTarget, type: e.target.value as ApprovalRequestType, subtype: '' })} className="mt-1 h-10 w-full rounded-lg border px-2 font-normal">
+              <select data-testid="copy-type" value={copyTarget.type} onChange={(e) => setCopyTarget({ ...copyTarget, type: e.target.value as ApprovalChainRequestType, subtype: '' })} className="mt-1 h-10 w-full rounded-lg border px-2 font-normal">
                 {TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
               </select>
             </label>
@@ -288,9 +299,10 @@ export default function ApprovalChainsPage() {
               </select>
             </label>
             <div className="flex items-end gap-2">
-              <button type="button" data-testid="copy-confirm" onClick={doCopy} className="h-10 rounded-lg bg-slate-900 px-4 font-black text-white">نسخ</button>
+              <button type="button" data-testid="copy-confirm" disabled={copyTarget.type === 'leave_time_all' && steps.some((step) => Boolean(step.condition))} onClick={doCopy} className="h-10 rounded-lg bg-slate-900 px-4 font-black text-white">نسخ</button>
               <button type="button" onClick={() => setCopyTarget(null)} className="h-10 rounded-lg border px-3 font-bold">إلغاء</button>
               {withChain.has(scopeKey(copyTarget.role, copyTarget.type, copyTarget.subtype || null)) && <span className="pb-2 text-amber-700" data-testid="copy-overwrite">الهدف له سلسلة — ستُستبدل</span>}
+              {copyTarget.type === 'leave_time_all' && steps.some((step) => Boolean(step.condition)) && <span className="pb-2 text-rose-700">أزل شروط الخطوات قبل نسخها إلى السلسلة المشتركة.</span>}
             </div>
           </div>
         )}
@@ -300,6 +312,8 @@ export default function ApprovalChainsPage() {
       <section className="rounded-2xl border bg-white p-4 shadow-sm" data-testid="chain-sim">
         <h2 className="flex items-center gap-2 text-sm font-black"><Wand2 size={16} /> محاكاة: لو طلب فلان «{typeMeta.label.split(' (')[0]}{effSubtype ? ` — ${subtypeOptions.find((t) => t.code === effSubtype)?.name ?? ''}` : ''}» — من يوافق؟</h2>
         <p className="mt-1 text-[11px] text-slate-500">تُجرى على السلاسل <b>المحفوظة</b> (احفظ أولاً). الأشخاص الفعليون حسب إسنادات الطالب والتفويضات النافذة اليوم.</p>
+        {type === 'leave_time_all' && <label className="mt-2 block text-xs font-bold">نوع الطلب للاختبار
+          <select data-testid="combined-sim-type" value={combinedSimType} onChange={(e) => setCombinedSimType(e.target.value as 'leave' | 'time_permit')} className="ms-2 rounded-lg border px-2 py-1"><option value="leave">إجازة</option><option value="time_permit">زمنية</option></select></label>}
         <div className="mt-3 grid gap-2 md:grid-cols-5">
           <input aria-label="بحث عن طالب" data-testid="sim-search" value={sim.query} onChange={(e) => setSim({ ...sim, query: e.target.value })} placeholder="ابحث عن الطالب" className="h-10 rounded-xl border px-3 text-sm" />
           <select aria-label="الطالب" data-testid="sim-user" value={sim.userId} onChange={(e) => setSim({ ...sim, userId: e.target.value })} className="h-10 rounded-xl border px-2 text-sm md:col-span-2">
@@ -346,10 +360,10 @@ export default function ApprovalChainsPage() {
             {(diagEmployees.data ?? []).slice(0, 50).map((e) => <option key={e.id} value={e.id}>{e.full_name} — {e.employee_number}{e.department_name ? ` · ${e.department_name}` : ''}</option>)}
           </select>
         </div>
-        {diag.employeeId && (type === 'leave' || type === 'time_permit' || type === 'advance') && (
-          <div className="mt-3"><ChainPreview employeeId={diag.employeeId} type={type} subtype={effSubtype} detailed testId="diag-preview" /></div>
+        {diag.employeeId && (simType === 'leave' || simType === 'time_permit' || simType === 'advance') && (
+          <div className="mt-3"><ChainPreview employeeId={diag.employeeId} type={simType} subtype={effSubtype} detailed testId="diag-preview" /></div>
         )}
-        {diag.employeeId && !(type === 'leave' || type === 'time_permit' || type === 'advance') && <p className="mt-2 text-xs text-amber-700" data-testid="diag-type-note">التشخيص متاح لأنواع الإجازة/الزمنية/السلفة — اختر أحدها في المحرر أعلاه.</p>}
+        {diag.employeeId && !(simType === 'leave' || simType === 'time_permit' || simType === 'advance') && <p className="mt-2 text-xs text-amber-700" data-testid="diag-type-note">التشخيص متاح لأنواع الإجازة/الزمنية/السلفة — اختر أحدها في المحرر أعلاه.</p>}
       </section>
 
       <section className="rounded-2xl border bg-white p-4 shadow-sm">

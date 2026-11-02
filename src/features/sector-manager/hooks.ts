@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { approvals, procedures, sectorManager, type TerminationType, type ApprovalRequestType, type ApprovalStep, type ParentSector } from '@sdk/sector-manager.sdk'
+import { approvals, procedures, sectorManager, type TerminationType, type ApprovalRequestType, type ApprovalChainRequestType, type ApprovalStep, type ParentSector } from '@sdk/sector-manager.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
 
@@ -34,7 +34,7 @@ export const useSmContractorMonth = (contractorUserId: string | null, month?: st
 export const useSmContractorsSummary = () => useQuery({ queryKey: [...ROOT, 'contractors-summary'], queryFn: () => sectorManager.contractorsSummary(), refetchInterval: 60_000 })
 // سلاسل الموافقات
 export const useApprovalChains = (enabled = true) => useQuery({ queryKey: [...ROOT, 'chains'], queryFn: () => approvals.chains(), enabled })
-export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalRequestType; steps: ApprovalStep[]; active?: boolean; subtype?: string | null; department?: string | null; includeChildren?: boolean }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true, x.subtype ?? null, x.department ?? null, x.includeChildren ?? true), 'حُفظت سلسلة الموافقات')
+export const useSaveApprovalChain = () => useAction((x: { requesterRole: string; requestType: ApprovalChainRequestType; steps: ApprovalStep[]; active?: boolean; subtype?: string | null; department?: string | null; includeChildren?: boolean }) => approvals.saveChain(x.requesterRole, x.requestType, x.steps, x.active ?? true, x.subtype ?? null, x.department ?? null, x.includeChildren ?? true), 'حُفظت سلسلة الموافقات')
 /** 00391 */
 export const useApprovalEmployeeLookup = (q: string) => useQuery({ queryKey: [...ROOT, 'employee-lookup', q.trim()], queryFn: () => approvals.employeeLookup(q), enabled: q.trim().length >= 2, staleTime: 30_000 })
 export const useApprovalDiagnose = (employeeId: string | null | undefined, type: ApprovalRequestType, subtype: string | null = null, enabled = true) =>
