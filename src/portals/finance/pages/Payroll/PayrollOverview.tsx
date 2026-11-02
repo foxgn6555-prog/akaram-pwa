@@ -121,7 +121,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
       let discardMissingDraft = false
       try {
         if (await hrSdk.financeMissingPunchDraftExists(month)) {
-          if (!window.confirm('توجد مسودة غير مرسلة لكشف البصمات الناقصة. عند تأكيد الإقفال ستُحذف المسودة وكل نسخها نهائياً دون خصم. هل توافق على حذفها مع قفل الشهر؟')) return
+          if (!window.confirm('توجد مسودة أو كشف بصمات ناقصة غير معتمد. عند تأكيد الإقفال سيُحذف الكشف وكل نسخه نهائياً دون خصم. هل توافق على حذفها مع قفل الشهر؟')) return
           discardMissingDraft = true
         }
       } catch { window.alert('تعذر التحقق من مسودة البصمات الناقصة. لم يُقفل الشهر؛ حاول مجدداً.'); return }

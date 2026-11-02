@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import clsx from 'clsx'
+import { useLocation } from 'react-router'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -16,13 +17,22 @@ import { monthStart } from '@portals/hr/components/hr-format'
 import { ATTENDANCE_EDIT_ACTION_LABELS, useAttendanceEditList, useAttendanceEditRevert, useAttendanceEditStats, type AttendanceEditAction, type AttendanceEditStats } from '@features/attendance-edits'
 import { ListFilters, ReasonDialog, RequestDetailDialog, RequestsTable, useListFilters } from '@features/attendance-edits/components/AttendanceEditShared'
 import { MissingPunchReviewPanel } from './MissingPunchReviewPanel'
+import { MissingPunchReportPanel } from './MissingPunchReportPanel'
 import { BulkEditPanel } from '@portals/ops-room/pages/Attendance/BulkEditPanel'
 
-type Tab = 'log' | 'direct' | 'missing-punch'
+type Tab = 'log' | 'direct' | 'missing-punch' | 'missing-punch-report'
 
 export default function DeputyAttendanceEditsPage() {
-  const [tab, setTab] = useState<Tab>('log')
-  const [month, setMonth] = useState(monthStart())
+  const { search } = useLocation()
+  return <AttendanceEditsPage key={search} search={search} />
+}
+
+function AttendanceEditsPage({ search }: { search: string }) {
+  const params = new URLSearchParams(search)
+  const linkedMonth = params.get('month') ?? ''
+  const reportLink = params.get('tab') === 'missing-punch-report'
+  const [tab, setTab] = useState<Tab>(reportLink ? 'missing-punch-report' : 'log')
+  const [month, setMonth] = useState(reportLink && /^\d{4}-(0[1-9]|1[0-2])-01$/.test(linkedMonth) ? linkedMonth : monthStart())
   const [openId, setOpenId] = useState<string | null>(null)
   const [revertId, setRevertId] = useState<string | null>(null)
   const { data: stats } = useAttendanceEditStats(month)
@@ -36,8 +46,8 @@ export default function DeputyAttendanceEditsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <MonthPicker value={month} onChange={setMonth} testId="ae-month" />
         <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام">
-          {([['log', 'السجل والمؤشرات'], ['direct', 'تعديل مباشر'], ['missing-punch', 'مراجعة البصمة الناقصة']] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setTab(k)} className={clsx('rounded-lg px-3 py-1.5', tab === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`ae-tab-${k}`} aria-pressed={tab === k}>{l}</button>
+          {([['log', 'السجل والمؤشرات'], ['direct', 'تعديل مباشر'], ['missing-punch', 'مراجعة البصمة الناقصة'], ['missing-punch-report', 'وارد كشف البصمة الناقصة']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => { setTab(k); if (k === 'missing-punch-report' && month === monthStart()) { const now = new Date(); setMonth(monthStart(new Date(now.getFullYear(), now.getMonth() - 1, 1))) } }} className={clsx('rounded-lg px-3 py-1.5', tab === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`ae-tab-${k}`} aria-pressed={tab === k}>{l}</button>
           ))}
         </nav>
       </div>
@@ -51,6 +61,7 @@ export default function DeputyAttendanceEditsPage() {
       )}
       {tab === 'direct' && <BulkEditPanel canRequest={false} />}
       {tab === 'missing-punch' && <MissingPunchReviewPanel month={month} />}
+      {tab === 'missing-punch-report' && <MissingPunchReportPanel month={month} />}
 
       {openId && <RequestDetailDialog id={openId} onClose={() => setOpenId(null)} footer={(d) => d.can_revert ? <Button size="sm" variant="danger" onClick={() => { setRevertId(d.id); setOpenId(null) }} data-testid="ae-detail-revert"><Icon name="refresh" size={14} /> تراجع عن هذا التعديل</Button> : null} />}
       {revertId && <ReasonDialog title="التراجع عن تعديل الحضور" cta="تراجع الآن" testId="ae-revert-dialog" tone="danger" busy={revert.isPending} onClose={() => setRevertId(null)} onConfirm={(reason) => revert.mutate({ id: revertId, reason }, { onSuccess: () => setRevertId(null) })} />}

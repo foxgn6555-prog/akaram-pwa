@@ -33,7 +33,9 @@ export interface MissingPunchPreviewResult {
   total_review_days: number; total_pending_days: number; total_proposed_amount: number | null; rows: MissingPunchPreviewRow[]
 }
 
-export type MissingPunchDraftResult = { month: string; exists: false; finance_locked: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; saved_at: string })
+export type MissingPunchDraftResult = { month: string; exists: false; finance_locked: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; saved_at: string; status: 'draft' | 'sent'; sent_at: string | null })
+
+export type MissingPunchReportResult = { month: string; exists: false; finance_locked: boolean; automatic_send_scheduled: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; sent_at: string; results_changed: boolean; automatic_send_scheduled: boolean })
 
 export interface MissingPunchReviewRow {
   id: string; employee_id: string; employee_number: string; full_name: string; work_date: string
@@ -68,7 +70,8 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_NOT_FOUND: 'السجل غير موجود',
   HR_REASON_REQUIRED: 'السبب مطلوب',
   HR_MONTH_LOCKED: 'هذا الشهر مقفول — اعتمدت المالية رواتبه ولا يمكن تعديله',
-  HR_MISSING_DRAFT_DELETE_CONFIRM: 'توجد مسودة بصمات ناقصة؛ أعد محاولة الاعتماد واختر حذفها عند قفل المالية.',
+  HR_MISSING_DRAFT_DELETE_CONFIRM: 'يوجد كشف أو مسودة بصمات ناقصة غير معتمدة؛ أعد محاولة الاعتماد واختر الحذف عند قفل المالية.',
+  HR_CRON_UNAVAILABLE: 'إضافة pg_cron غير مفعّلة. فعّلها أولاً في Supabase ثم أعد تفعيل الجدولة.',
   HR_MISSING_MONTH_NOT_ENDED: 'لا يمكن حفظ مسودة نهاية الشهر قبل انتهاء الشهر.',
   HR_MISSING_SETTINGS_REQUIRED: 'يجب ضبط الحد والمبلغ في التطوير قبل حفظ المسودة.',
   OVERTIME_DISABLED: 'نظام الساعات الإضافية المدفوعة متوقف — يفعّله التطوير المركزية من سياسة الموارد البشرية',
@@ -506,7 +509,9 @@ export const hr = {
   },
   deductionAudit(limit = 200) { return rpc<DeductionAuditRow[]>('it_deduction_audit', { p_limit: limit }) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
+  repairMissingPunchSchedule() { return sdkVoid(supabase.rpc('it_missing_punch_schedule_repair' as never)) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
+  deputyMissingPunchReport(month: string, limit = 100, offset = 0) { return rpc<MissingPunchReportResult>('deputy_missing_punch_report', { p_month: month, p_limit: limit, p_offset: offset }) },
   missingPunchDraftGet(month: string, limit = 100, offset = 0) { return rpc<MissingPunchDraftResult>('ops_missing_punch_draft_get', { p_month: month, p_limit: limit, p_offset: offset }) },
   missingPunchDraftSave(month: string) { return rpc<{ id: string; revision: number }>('ops_missing_punch_draft_save', { p_month: month }) },
   missingPunchRegister(month: string, limit = 100, offset = 0) { return rpc<MissingPunchRegisterResult>('ops_missing_punch_register', { p_month: month, p_limit: limit, p_offset: offset }) },

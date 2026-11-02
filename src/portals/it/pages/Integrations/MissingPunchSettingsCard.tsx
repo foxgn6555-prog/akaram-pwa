@@ -5,12 +5,14 @@ import { useHrPolicy } from '@features/hr'
 import { hrKeys } from '@lib/query-keys/hr.keys'
 import { field } from '@portals/hr/components/hr-format'
 import { hr, hrErrorMessage } from '@sdk/hr.sdk'
+import { useCanI } from '@features/permissions/my-permissions'
 
 type Draft = { threshold: string; amount: string }
 
 /** إعداد مستقل لا ينشئ كشفاً ولا يخصم من الراتب. */
 export function MissingPunchSettingsCard() {
   const policy = useHrPolicy()
+  const canEdit = useCanI('it.integrations.auto-deductions', 'edit')
   const qc = useQueryClient()
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saved, setSaved] = useState(false)
@@ -23,6 +25,7 @@ export function MissingPunchSettingsCard() {
       setSaved(true)
     },
   })
+  const schedule = useMutation({ mutationFn: () => hr.repairMissingPunchSchedule() })
   if (policy.isLoading) return <section className="rounded-2xl border p-4 text-xs">جارٍ تحميل إعداد البصمات الناقصة…</section>
   if (!policy.data) return <section className="rounded-2xl border p-4 text-xs text-rose-700">تعذر تحميل إعداد البصمات الناقصة. أعد فتح الصفحة.</section>
   const current: Draft = {
@@ -40,7 +43,7 @@ export function MissingPunchSettingsCard() {
     <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm" data-testid="missing-punch-settings">
       <h2 className="text-sm font-black">إعداد كشف البصمات الناقصة</h2>
       <p className="mt-1 text-xs text-slate-700">حدّ شهري ومبلغ ثابت لكل بلوغ للحد. مثال: إذا كان الحد 3، يتكرر المبلغ عند 3 و6 و9 بصمات ناقصة.</p>
-      <p className="mt-1 text-xs font-bold text-amber-800">هذه الجولة تحفظ الإعداد فقط؛ الكشف والاحتساب واعتماد المعاون وربطه بالراتب لم تُفعّل بعد.</p>
+      <p className="mt-1 text-xs font-bold text-amber-800">يُرسل الكشف بعد نهاية الشهر للمراجعة إذا كانت الجدولة مفعّلة. اعتماد المعاون والربط بالراتب غير مفعّلين بعد.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-xs font-bold">الحد الشهري (عدد البصمات)
           <input className={field} type="number" min="1" max="31" step="1" dir="ltr" value={v.threshold} onChange={(e) => change({ threshold: e.target.value })} data-testid="missing-punch-threshold" />
@@ -49,6 +52,10 @@ export function MissingPunchSettingsCard() {
           <input className={field} type="number" min="0" max="999999999999.99" step="0.01" dir="ltr" value={v.amount} onChange={(e) => change({ amount: e.target.value })} data-testid="missing-punch-amount" />
         </label>
       </div>
+      <p className="mt-2 text-xs text-slate-700">إذا ظهر تحذير بأن الجدولة غير مفعّلة، فعّل إضافة pg_cron في Supabase أولاً ثم اضغط إعادة تفعيل الجدولة. لا يؤدي الزر إلى إرسال فوري أو خصم.</p>
+      <Button size="sm" variant="secondary" disabled={!canEdit || schedule.isPending} onClick={() => schedule.mutate()} data-testid="missing-punch-schedule">إعادة تفعيل الجدولة</Button>
+      {schedule.isError && <p role="alert" className="mt-2 text-xs text-rose-700">تعذر تفعيل الجدولة: {hrErrorMessage(schedule.error)}</p>}
+      {schedule.isSuccess && <p role="status" className="mt-2 text-xs text-green-700">سُجّلت مهمة الجدولة. الإرسال يخضع لمواعيدها والإعدادات ولا يخصم راتباً.</p>}
       {!valid && <p className="mt-2 text-xs text-slate-600">أدخل حداً صحيحاً من 1 إلى 31 ومبلغاً غير سالب بمنزلتين عشريتين كحد أقصى.</p>}
       {save.isError && <p role="alert" className="mt-2 text-xs text-rose-700">تعذر حفظ الإعداد: {hrErrorMessage(save.error)}</p>}
       {saved && <p role="status" className="mt-2 text-xs text-green-700">حُفظ الإعداد. لم يُفعّل أي استقطاع.</p>}

@@ -213,7 +213,7 @@ describe('00194 — صفحة كشف الرواتب', () => {
     render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
     fireEvent.click(screen.getByTestId('ps-approve'))
     await vi.waitFor(() => expect(confirm).toHaveBeenCalled())
-    expect(confirm.mock.calls[0]![0]).toMatch(/تُحذف المسودة وكل نسخها/)
+    expect(confirm.mock.calls[0]![0]).toMatch(/سيُحذف الكشف وكل نسخه/)
     expect(h.approve).not.toHaveBeenCalled()
     confirm.mockReturnValue(true); fireEvent.click(screen.getByTestId('ps-approve'))
     await vi.waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: false, discardMissingDraft: true }))

@@ -11,9 +11,9 @@ function open(canSave = true) { return render(<QueryClientProvider client={new Q
 describe('مسودة نهاية الشهر', () => {
   afterEach(() => useMyPermissionsStore.getState().reset())
   beforeEach(() => { vi.clearAllMocks(); h.get.mockResolvedValue({ exists: false, finance_locked: false, month: '2026-10-01' }); h.save.mockResolvedValue({ id: 'd1', revision: 1 }); vi.spyOn(window, 'confirm').mockReturnValue(true) })
-  it('لا تحفظ دون تأكيد وتوضح عدم الإرسال أو الخصم', async () => {
+  it('لا تحفظ دون تأكيد وتوضح الإرسال الآلي وعدم الخصم', async () => {
     open(); expect(await screen.findByText(/لا توجد مسودة محفوظة/)).toBeInTheDocument()
-    expect(screen.getByText(/لا تُرسل للمعاون ولا تعتمد غرامة ولا تخصم/)).toBeInTheDocument()
+    expect(screen.getByText(/يُعاد احتسابها عند الإرسال الآلي للمعاون/)).toBeInTheDocument()
     vi.mocked(window.confirm).mockReturnValueOnce(false); fireEvent.click(screen.getByRole('button', { name: 'حفظ مسودة نهاية الشهر' }))
     expect(h.save).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'حفظ مسودة نهاية الشهر' }))
@@ -23,6 +23,11 @@ describe('مسودة نهاية الشهر', () => {
     h.get.mockResolvedValue(saved); open(); expect(await screen.findByText('موظف اختبار')).toBeInTheDocument()
     expect(screen.getByText(/2026-10-02/).parentElement).toHaveTextContent('للمراجعة')
     expect(screen.getByRole('button', { name: 'تحديث المسودة' })).toBeEnabled()
+  })
+  it('يعرض حالة الإرسال ويمنع تحديث النسخة المرسلة', async () => {
+    h.get.mockResolvedValue({ ...saved, status: 'sent', sent_at: saved.saved_at }); open()
+    expect(await screen.findByText(/أُرسل إلى المعاون للمراجعة/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'تحديث المسودة' })).toBeNull()
   })
   it('يعطل الحفظ للشهر غير الجاهز أو المقفل', async () => {
     open(false); expect(await screen.findByRole('button', { name: 'حفظ مسودة نهاية الشهر' })).toBeDisabled()

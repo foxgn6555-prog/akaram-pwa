@@ -43,6 +43,7 @@ vi.mock('@sdk/attendance-edits.sdk', async (orig) => {
     searchEmployees: () => Promise.resolve([]),
   } }
 })
+vi.mock('@portals/deputy/pages/AttendanceEdits/MissingPunchReportPanel', () => ({ MissingPunchReportPanel: ({ month }: { month: string }) => <div data-testid="mock-missing-report">{month}</div> }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [] }) }))
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
 vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unknown) => void }) => unknown) => sel({ addToast: (t) => rec('toast', t) }) }))
@@ -86,6 +87,11 @@ describe('00397-ج · صفحة المعاون', () => {
     await waitFor(() => expect(h.calls.revert).toBeTruthy())
     expect(h.calls.revert![0]).toEqual({ id: 'R1', reason: 'شمل موظفاً لم يكن على رأس العمل' })
     expect((h.calls.toast!.at(-1) as { message: string }).message).toContain('4 يوم عمل')
+  })
+  it('رابط الإشعار يفتح وارد الكشف للشهر الصحيح', () => {
+    render(<MemoryRouter initialEntries={['/deputy/attendance-edits?tab=missing-punch-report&month=2026-10-01']}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><DeputyAttendanceEditsPage /></QueryClientProvider></MemoryRouter>)
+    expect(screen.getByTestId('ae-tab-missing-punch-report')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('mock-missing-report')).toHaveTextContent('2026-10-01')
   })
   it('تبويب «تعديل مباشر» يعرض المعالج بلا زر «إرسال إلى الموارد البشرية»', async () => {
     wrap(<DeputyAttendanceEditsPage />)
