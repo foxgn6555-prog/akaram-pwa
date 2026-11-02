@@ -66,15 +66,15 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
     <div className="space-y-4" data-testid="ae-bulk-panel">
       {frozen && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800" data-testid="ae-frozen">حضورية الشهر المعروض معتمدة/مقفولة — التعديل الجماعي يعمل على الأشهر المفتوحة فقط.</div>}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-bold">طلب تعديل بيانات الحضور</h3>
+      <section className="rounded-2xl border border-sky-100 bg-white p-4 shadow-sm shadow-slate-200/50">
+        <div className="mb-4 border-b border-slate-100 pb-3"><h3 className="text-sm font-black text-slate-800">طلب تعديل بيانات الحضور</h3><p className="mt-1 text-xs text-slate-500">حدد النطاق والأيام والبصمة الناقصة، ثم راجع المعاينة قبل التنفيذ.</p></div>
         <div className="grid gap-4 lg:grid-cols-3">
           {/* ① النطاق */}
-          <div className="space-y-2 rounded-xl border border-slate-100 p-3">
+          <div className="min-w-0 space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
             <div className="text-xs font-bold text-slate-700">① النطاق</div>
             <div className="flex flex-wrap gap-1 text-[11px]">
               {(Object.keys(ATTENDANCE_EDIT_SCOPE_LABELS) as AttendanceEditScopeKind[]).map((k) => (
-                <button key={k} type="button" onClick={() => pickScope(k)} className={clsx('rounded-lg px-2 py-1 font-bold ring-1', scopeKind === k ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200')} data-testid={`ae-scope-${k}`} aria-pressed={scopeKind === k}>{ATTENDANCE_EDIT_SCOPE_LABELS[k]}</button>
+                <button key={k} type="button" onClick={() => pickScope(k)} className={clsx('min-h-9 rounded-lg px-3 py-1.5 font-bold ring-1 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600', scopeKind === k ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200')} data-testid={`ae-scope-${k}`} aria-pressed={scopeKind === k}>{ATTENDANCE_EDIT_SCOPE_LABELS[k]}</button>
               ))}
             </div>
             {scopeKind === 'branch' && (
@@ -100,7 +100,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
           </div>
 
           {/* ② الأيام */}
-          <div className="space-y-2 rounded-xl border border-slate-100 p-3">
+          <div className="min-w-0 space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
             <div className="text-xs font-bold text-slate-700">② الأيام <span className="font-normal text-slate-500">(حتى 62 يوماً، لا مستقبل)</span></div>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-[11px] text-slate-500">من<input type="date" className={field} max={todayIso()} value={from} onChange={(e) => { setFrom(e.target.value); if (!to || to < e.target.value) setTo(e.target.value); setExcluded(new Set()); invalidate() }} data-testid="ae-from" /></label>
@@ -118,7 +118,7 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
           </div>
 
           {/* ③ اختر الطرف الناقص؛ البصمة الموجودة لا تتغير */}
-          <div className="space-y-2 rounded-xl border border-slate-100 p-3">
+          <div className="min-w-0 space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
             <div className="text-xs font-bold text-slate-700">③ البصمة الناقصة</div>
             <label className="block text-xs"><input type="radio" name="missing-side" checked={missingSide === 'out'} onChange={() => { setMissingSide('out'); invalidate() }} data-testid="ae-missing-out" /> خروج ناقص — اقترح نهاية الشفت</label>
             <label className="block text-xs"><input type="radio" name="missing-side" checked={missingSide === 'in'} onChange={() => { setMissingSide('in'); invalidate() }} data-testid="ae-missing-in" /> دخول ناقص — اقترح بداية الشفت</label>

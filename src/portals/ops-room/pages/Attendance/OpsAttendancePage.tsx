@@ -227,11 +227,11 @@ export default function OpsAttendancePage() {
           )}
 
           {/* 00205 — شريط واحد: أقسام التدقيق + الفلاتر + أدوات (بدل شريطين) */}
-          <div className="sticky top-0 z-20 space-y-3 rounded-2xl border border-sky-100 bg-white/95 p-3 shadow-md shadow-slate-200/50 backdrop-blur" data-testid="ops-toolbar">
+          <div className="relative z-20 space-y-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-md shadow-slate-200/50 lg:sticky lg:top-0 lg:bg-white/95 lg:backdrop-blur" data-testid="ops-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
                 {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['missing', 'سجل البصمات الناقصة', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
-                  <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex min-h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 transition', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600 hover:bg-white/70')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
+                  <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600 hover:bg-white/70')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
                     {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
                   </button>
                 ))}
@@ -242,18 +242,18 @@ export default function OpsAttendancePage() {
               </div>
             </div>
             {(panel === 'rows' || panel === 'grid') && (
-              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5" data-testid="ops-filters">
+              <div className="grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2 xl:grid-cols-5" data-testid="ops-filters">
                 {panel === 'rows' ? (
-                  <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
+                  <div className="flex min-w-0 items-center gap-1 self-end rounded-xl bg-slate-100 p-1 text-xs font-bold" role="group" aria-label="فترة عرض السجلات">
                     <button type="button" onClick={() => setMode('day')} className={clsx('rounded-lg px-3 py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
                     <button type="button" onClick={() => setMode('month')} className={clsx('rounded-lg px-3 py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
-                    {mode === 'day' ? <input type="date" className={clsx(field, 'h-8 flex-1 py-0')} value={day} onChange={(e) => selectDay(e.target.value)} data-testid="ops-day" /> : <span className="flex-1 px-2 text-center text-slate-600" data-testid="ops-month-label">{month.slice(0, 7)}</span>}
+                    {mode === 'day' ? <input type="date" aria-label="تاريخ السجلات" className={clsx(field, 'h-9 min-w-0 flex-1 py-0')} value={day} onChange={(e) => selectDay(e.target.value)} data-testid="ops-day" /> : <span className="flex-1 px-2 text-center text-slate-600" data-testid="ops-month-label">{month.slice(0, 7)}</span>}
                   </div>
                 ) : <span className="flex items-center rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-600" data-testid="ops-month-label">شهر {month.slice(0, 7)}</span>}
-                <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-                <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
-                {panel === 'rows' ? <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select> : <span />}
-                <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" />
+                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">الفرع<select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">القسم<select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="ops-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select></label>
+                {panel === 'rows' ? <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">الحالة<select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="ops-status"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select></label> : <span className="hidden xl:block" />}
+                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">بحث عن موظف<input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ops-search" /></label>
               </div>
             )}
           </div>
@@ -266,14 +266,16 @@ export default function OpsAttendancePage() {
             </div>
           ))}
           {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-sm" data-testid="ops-table">
-                <thead className="bg-slate-50 text-xs text-slate-600">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-black text-slate-800">سجلات الحضور</h2><p className="text-xs text-slate-500">مرّر الجدول أفقياً لعرض بقية التفاصيل والإجراءات</p></div>
+              <div className="overflow-x-auto" role="region" aria-label="جدول سجلات الحضور" tabIndex={0}>
+              <table className="w-full min-w-[1100px] text-sm" data-testid="ops-table">
+                <thead className="bg-slate-100 text-xs font-bold text-slate-700">
                   <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">نقص</th><th className="p-2">إضافي</th><th className="p-2">استقطاع مقترح</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.id} className={clsx('border-t border-slate-100', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
+                    <tr key={r.id} className={clsx('border-t border-slate-100 transition-colors hover:bg-sky-50/60', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
                       <td className="p-2 text-xs">{r.work_date}<span className="block text-[10px] text-slate-400">{WEEKDAYS_AR[new Date(r.work_date).getDay()]}</span></td>
                       <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}</p></td>
                       <td className="p-2 text-xs">{r.department_name ?? '—'}<span className="block text-[10px] text-slate-400">{r.branch_name ?? ''}</span></td>
@@ -308,6 +310,7 @@ export default function OpsAttendancePage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
           {panel === 'bulk' && <BulkEditPanel frozen={frozen} />}   {/* 00397-ب */}
@@ -366,10 +369,10 @@ export default function OpsAttendancePage() {
                 </div>
               </div>
             </SectionCard>
-            <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3" data-testid="att-approved-filters">
-              <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="app-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-              <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="app-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
-              <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="app-search" />
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3" data-testid="att-approved-filters">
+              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">الفرع<select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="app-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">القسم<select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="app-dept"><option value="">كل الأقسام (بفروعها)</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select></label>
+              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-600">بحث عن موظف<input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="app-search" /></label>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" data-testid="att-approved-stats">
               <StatCard title="الموظفون" value={gridTotals.emp} tone="slate" testId="app-emp" />

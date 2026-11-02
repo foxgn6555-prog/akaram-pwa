@@ -40,8 +40,9 @@ export function HourBankPanel({ rows, month, search }: { rows: HourBankRow[]; mo
         ))}
         <span className="text-slate-500">القاعدة: نقص كل يوم بذاته = (تأخير فوق السماحية − بقاء بعد النهاية بنفس اليوم) + خروج مبكر ⇒ يُستقطع بالدقيقة · البقاء الزائد والمجيء المبكر فائض ⇒ رصيد إجازة بسقف · الغياب يوم كامل خارج البنك.</span>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
-        <table className="w-full text-xs" data-testid="ops-hb-table" dir="rtl">
+      <p className="text-xs text-slate-500">مرّر الجدول أفقياً لعرض ميزان الساعات كاملاً.</p>
+      <div className="overflow-x-auto rounded-xl border border-slate-200" role="region" aria-label="جدول ميزان الساعات" tabIndex={0}>
+        <table className="w-full min-w-[860px] text-xs" data-testid="ops-hb-table" dir="rtl">
           <thead className="bg-slate-50 text-slate-600">
             <tr><th className="p-2 text-start">الموظف</th><th className="p-2">أيام الحضور</th><th className="p-2">غياب</th><th className="p-2">إجازة</th><th className="p-2">المطلوب</th><th className="p-2">المعمول</th><th className="p-2">أيام بنقص</th><th className="p-2">النقص</th><th className="p-2">الفائض</th><th className="p-2 text-start">النتيجة</th></tr>
           </thead>

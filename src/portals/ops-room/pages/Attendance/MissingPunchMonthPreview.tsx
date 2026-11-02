@@ -22,9 +22,9 @@ export function MissingPunchMonthPreview({ month }: { month: string }) {
   })
   const data = query.data
   return (
-    <section className="space-y-3 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm" data-testid="missing-month-preview">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-black">معاينة حساب البصمات الناقصة — {month.slice(0, 7)}</h2>
+    <section className="space-y-4 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm shadow-indigo-100/50" data-testid="missing-month-preview">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 pb-3">
+        <h2 className="text-sm font-black text-slate-800">معاينة حساب البصمات الناقصة — {month.slice(0, 7)}</h2>
         <Button size="sm" variant="secondary" onClick={() => setOpened((v) => !v)}>{opened ? 'إخفاء المعاينة' : 'عرض المعاينة'}</Button>
       </div>
       {opened && <>
@@ -37,7 +37,7 @@ export function MissingPunchMonthPreview({ month }: { month: string }) {
           <p className="text-xs text-slate-600" data-testid="missing-preview-totals">أيام محسوبة: <b dir="ltr">{fmt(data.total_confirmed_days)}</b> · أيام للمراجعة: <b dir="ltr">{fmt(data.total_review_days)}</b> · إجمالي تقديري: <b dir="ltr">{fmt(data.total_proposed_amount)}</b> د.ع</p>
           <p className="text-xs text-slate-500">الإجازة المعتمدة والحالات الملتبسة واستبعاد المعاون خارج الحساب؛ القرار بشأن الدليل لا يعني اعتماد الكشف. الأيام الحالية غير الملتقطة تظهر منفصلة؛ السجل قد يكون ناقصاً إذا تعطل السحب أو المجدول، ولا يمكن استعادة تاريخ بلا دليل.</p>
           {data.total_employees === 0 ? <p className="text-xs text-slate-500">لا توجد أدلة مسجلة أو حالات ظاهرة لهذا الشهر.</p> : <>
-            <div className="overflow-x-auto"><table className="w-full text-xs" data-testid="missing-preview-table">
+            <p className="text-xs text-slate-500">مرّر الجدول أفقياً لعرض تفاصيل الأيام.</p><div className="overflow-x-auto rounded-xl border border-slate-200" role="region" aria-label="جدول معاينة البصمات الناقصة" tabIndex={0}><table className="w-full min-w-[720px] text-xs" data-testid="missing-preview-table">
               <thead className="bg-slate-50"><tr><th className="p-2 text-start">الموظف / القسم</th><th className="p-2">أيام محسوبة</th><th className="p-2">مرات الحد</th><th className="p-2">مبلغ تقديري (د.ع)</th><th className="p-2 text-start">تفاصيل الأيام</th></tr></thead>
               <tbody>{data.rows.map((row) => <tr key={row.employee_id} className="border-t align-top">
                 <td className="p-2"><b>{row.full_name}</b><span className="block text-slate-500" dir="ltr">{row.employee_number}</span><span>{row.department_name ?? '—'} / {row.branch_name ?? '—'}</span></td>

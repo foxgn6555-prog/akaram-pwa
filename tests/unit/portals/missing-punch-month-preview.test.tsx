@@ -17,6 +17,7 @@ describe('معاينة شهر البصمة الناقصة', () => {
     expect(h.preview).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'عرض المعاينة' }))
     expect(await screen.findByText('موظف اختبار')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'جدول معاينة البصمات الناقصة' })).toHaveAttribute('tabindex', '0')
     expect(h.preview).toHaveBeenCalledWith('2026-10-01', 100, 0)
     expect(screen.getByText(/وليست كشفاً مرسلاً أو غرامة معتمدة/)).toBeInTheDocument()
     const tr = screen.getByText('موظف اختبار').closest('tr') as HTMLElement

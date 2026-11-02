@@ -129,6 +129,7 @@ describe('00193 — الحضوريات بمرحلتين', () => {
     h.attendance = [{ id: 'a1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', branch_name: null, work_date: '2026-09-05', shift_name: 'صباحي', expected_in: null, expected_out: null, check_in: null, check_out: null, late_minutes: 0, early_minutes: 0, worked_minutes: 0, is_rest_day: false, status: 'absent', source: 'auto', edited_by: null, edited_at: null, edit_reason: null, required_minutes: 480, permit_minutes: 0, shortfall_minutes: 480, overtime_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 1, deduction_reason: 'غياب', deduction_waived: false, waive_reason: null }]
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.getByTestId('att-confirmed-banner')).toHaveTextContent('مدقق الحضور')
+    expect(screen.getByRole('region', { name: 'جدول سجلات الحضور' })).toHaveAttribute('tabindex', '0')
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).toBeDisabled()
     expect(screen.getByTestId('att-confirm-open')).toBeDisabled()
     fireEvent.click(screen.getByTestId('stage-approved'))
@@ -268,6 +269,7 @@ describe('00245 — ميزان بنك الساعات في الحضوريات', (
     expect(screen.queryByTestId('ops-proposed-summary')).toBeNull()
     expect(screen.getByTestId('ops-proposed-replaced')).toHaveTextContent('يُصفّى شهرياً')
     const panel = screen.getByTestId('ops-hour-bank')
+    expect(within(panel).getByRole('region', { name: 'جدول ميزان الساعات' })).toHaveAttribute('tabindex', '0')
     expect(within(panel).getByTestId('ops-hb-count')).toHaveTextContent('2 موظفاً · السماحية 10 د · لا تعويض بين الأيام')
     expect(within(panel).getByTestId('ops-hb-required')).toHaveTextContent('400س 0د')
     expect(within(panel).getByTestId('ops-hb-deficit')).toHaveTextContent('1')

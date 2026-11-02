@@ -15,6 +15,7 @@ describe('سجل البصمات الناقصة', () => {
     expect(screen.getByText('إجازة معتمدة — مستبعدة')).toBeInTheDocument()
     expect(screen.getByText(/لم يُنشأ كشف ولم يُفعّل الخصم/)).toBeInTheDocument()
     expect(screen.getByTestId('missing-register-total')).toHaveTextContent('3')
+    expect(screen.getByRole('region', { name: 'جدول البصمات الناقصة' })).toHaveAttribute('tabindex', '0')
     expect(h.list).toHaveBeenCalledWith('2026-10-01', 100, 0)
   })
   it('يعرض وصول البصمة اللاحقة للمراجعة دون اعتماد غرامة', async () => {

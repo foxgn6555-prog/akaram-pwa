@@ -93,7 +93,7 @@ export function StatusLine({ tone, icon, children, action, testId, role }: { ton
 export function SectionCard({ title, badge, children, testId, className }: { title: string; badge?: React.ReactNode; children: React.ReactNode; testId?: string; className?: string }) {
   return (
     <section className={clsx('space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50', className)} data-testid={testId}>
-      <header className="flex items-center justify-between gap-2"><h2 className="text-xs font-black text-slate-700">{title}</h2>{badge}</header>
+      <header className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-black text-slate-800">{title}</h2>{badge}</header>
       {children}
     </section>
   )
@@ -167,12 +167,14 @@ export function MonthGrid({ rows, mode, onRowClick, onCellClick }: { rows: Atten
   const presentOf = (r: AttendanceGridRow) => r.present_days + r.late_days + r.early_days + r.incomplete_days
   const today = todayIso()
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid={`att-grid-${mode}`}>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid={`att-grid-${mode}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-black text-slate-800">{detailed ? 'شبكة الحضور التفصيلية' : 'شبكة الكشف المعتمد'}</h3><p className="text-xs text-slate-500">مرّر الشبكة أفقياً لعرض جميع الأيام والملخص</p></div>
+      <div className="overflow-x-auto" role="region" aria-label={detailed ? 'شبكة الحضور التفصيلية' : 'شبكة الكشف المعتمد'} tabIndex={0}>
       <table className="w-max min-w-full border-separate border-spacing-0 text-xs">
         <thead className="sticky top-0 z-10">
           <tr className="bg-slate-900 text-white">
             <th className="sticky right-0 z-20 bg-slate-900 px-3 py-2 text-start" rowSpan={2}><span className="block text-[11px] font-black">الموظف</span><span className="block text-[9px] font-normal text-slate-400">{rows.length} موظفاً · {groups.length} قسم</span></th>
-            <th colSpan={days.length} className="border-b border-slate-700 px-2 py-1 text-center text-[10px] font-bold text-slate-300">أيام الشهر — انقر أي يوم لفتح سجله</th>
+            <th colSpan={days.length} className="border-b border-slate-700 px-2 py-1 text-center text-[10px] font-bold text-slate-300">{detailed && onCellClick ? 'أيام الشهر — انقر أي يوم لفتح سجله' : 'أيام الشهر'}</th>
             <th colSpan={totalsHead.length} className="border-b border-slate-600 bg-slate-800 px-2 py-1 text-center text-[10px] font-bold text-slate-300">ملخص الشهر</th>
           </tr>
           <tr className="bg-slate-900 text-white">
@@ -190,6 +192,7 @@ export function MonthGrid({ rows, mode, onRowClick, onCellClick }: { rows: Atten
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

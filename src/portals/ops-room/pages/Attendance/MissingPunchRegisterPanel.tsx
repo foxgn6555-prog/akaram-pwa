@@ -18,16 +18,17 @@ export function MissingPunchRegisterPanel({ month }: { month: string }) {
   })
   const total = query.data?.total ?? 0
   return (
-    <section className="space-y-3 rounded-2xl border border-violet-200 bg-white p-4 shadow-sm" data-testid="missing-punch-register">
-      <h2 className="text-sm font-black">سجل البصمات الناقصة — {month.slice(0, 7)}</h2>
+    <section className="space-y-4 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm shadow-violet-100/50" data-testid="missing-punch-register">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-violet-100 pb-3"><h2 className="text-sm font-black text-slate-800">سجل البصمات الناقصة — {month.slice(0, 7)}</h2><span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-800">للمراجعة فقط</span></div>
       <p className="text-xs text-slate-600">يعرض النقص المسجّل حتى بعد التصحيح، والحالات الحالية بعد انتهاء الشفت. السجل للمراجعة فقط؛ لم يُنشأ كشف ولم يُفعّل الخصم من الراتب بعد.</p>
       <p className="text-xs text-amber-800">البصمتان المختلفتان أو غياب الشفت أو الإجازة المعتمدة تُعرض للمراجعة، ولا يعني ظهورها اعتماد غرامة. التصحيحات القديمة التي لا تحتوي دليلاً على البصمة الأصلية لا تُخمن.</p>
       {query.data && !query.data.automatic_capture_scheduled && <p role="status" className="text-xs font-bold text-rose-700">التسجيل اليومي التلقائي غير مجدول في قاعدة البيانات؛ أخبر التطوير. تُحفظ التصحيحات اليدوية، لكن السجل التلقائي قد يكون غير مكتمل.</p>}
       {query.isLoading ? <LoadingSpinner /> : query.isError ? <p role="alert" className="text-xs text-rose-700">تعذر تحميل السجل. حاول مجدداً.</p> : total === 0 ? <p className="text-xs text-slate-500">لا توجد حالات مسجّلة لهذا الشهر.</p> : (
         <>
           <p className="text-xs text-slate-600" data-testid="missing-register-total">عدد الحالات للعرض: <b dir="ltr">{total}</b> — تشمل الحالات التي تحتاج مراجعة وليست قيمة غرامة.</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs" data-testid="missing-register-table">
+          <p className="text-xs text-slate-500">مرّر الجدول أفقياً لعرض تفاصيل الحالات.</p>
+          <div className="overflow-x-auto rounded-xl border border-slate-200" role="region" aria-label="جدول البصمات الناقصة" tabIndex={0}>
+            <table className="w-full min-w-[720px] text-xs" data-testid="missing-register-table">
               <thead className="bg-slate-50"><tr><th className="p-2 text-start">التاريخ</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2 text-start">البصمة الحقيقية</th><th className="p-2 text-start">الحالة</th></tr></thead>
               <tbody>{(query.data?.rows ?? []).map((r) => (
                 <tr key={`${r.employee_id}-${r.work_date}`} className="border-t border-slate-100">

@@ -41,6 +41,8 @@ describe('MonthGrid (تفصيلي)', () => {
   it('النقر على يوم يستدعي onCellClick بالموظف والخلية؛ الأيام المستقبلية غير قابلة للنقر', () => {
     const onCell = vi.fn()
     render(<MonthGrid rows={rows} mode="detailed" onCellClick={onCell} />)
+    expect(screen.getByText('أيام الشهر — انقر أي يوم لفتح سجله')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'شبكة الحضور التفصيلية' })).toHaveAttribute('tabindex', '0')
     const r1 = screen.getByTestId('grid-row-E1')
     fireEvent.click(within(r1).getByTestId(`cell-btn-${days[1]}`))
     expect(onCell).toHaveBeenCalledTimes(1)
@@ -58,7 +60,7 @@ describe('MonthGrid (تفصيلي)', () => {
     const g = screen.getByTestId('grid-dept-الأشغال')
     expect(g.textContent).toContain('حضور')
     expect(g.textContent).toContain('غياب')
-    expect(screen.getByText('أيام الشهر — انقر أي يوم لفتح سجله')).toBeInTheDocument()
+    expect(screen.getByText('أيام الشهر')).toBeInTheDocument()
     expect(screen.getByText('ملخص الشهر')).toBeInTheDocument()
     // الأحرف الأولى للموظف
     expect(within(screen.getByTestId('grid-row-E1')).getByText('اع')).toBeInTheDocument()
@@ -71,6 +73,8 @@ describe('MonthGrid (تفصيلي)', () => {
     expect(within(screen.getByTestId('grid-row-E2')).getByTestId(`cell-${days[0]}`).textContent).toBe('مجاز')
     expect(screen.getByTestId('grid-absent-E1').textContent).toBe('2')
     expect(screen.queryAllByText('08:00')).toHaveLength(0)
+    expect(screen.getByRole('region', { name: 'شبكة الكشف المعتمد' })).toHaveAttribute('tabindex', '0')
+    expect(screen.queryByText('أيام الشهر — انقر أي يوم لفتح سجله')).toBeNull()
   })
 })
 
@@ -110,6 +114,12 @@ describe('صفحة الحضوريات (00205)', () => {
     expect(within(tb).getByTestId('panel-grid')).toBeInTheDocument()
     expect(within(tb).getByTestId('ops-filters')).toBeInTheDocument()
     expect(within(tb).getByTestId('ops-status')).toBeInTheDocument()
+    expect(within(tb).getByLabelText('الفرع')).toBe(screen.getByTestId('ops-branch'))
+    expect(within(tb).getByLabelText('القسم')).toBe(screen.getByTestId('ops-dept'))
+    expect(within(tb).getByLabelText('الحالة')).toBe(screen.getByTestId('ops-status'))
+    expect(within(tb).getByLabelText('بحث عن موظف')).toBe(screen.getByTestId('ops-search'))
+    expect(within(tb).getByLabelText('تاريخ السجلات')).toBe(screen.getByTestId('ops-day'))
+    expect(tb.className).toContain('lg:sticky')
     expect(screen.getAllByTestId('att-month')).toHaveLength(1)
     // عرض الشهر: لا حقل تاريخ، بل شارة الشهر
     fireEvent.click(screen.getByTestId('mode-month'))
