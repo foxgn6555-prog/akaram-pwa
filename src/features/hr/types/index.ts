@@ -682,6 +682,9 @@ export interface HrPolicy {
   deduction_tiers: DeductionTier[]
   absent_day_deduction_days: number
   incomplete_punch_as_absent: boolean
+  /** إعداد كشف البصمات الناقصة المستقل؛ لا يعني تفعيل الخصم. */
+  missing_punch_threshold?: number
+  missing_punch_fixed_amount?: number
   overtime_enabled: boolean
   overtime_min_block_minutes: number
   overtime_minutes_per_leave_day: number | null
@@ -944,7 +947,7 @@ export interface DeductionSimulationV2 {
   amount_shortfall: number; amount_absence: number; amount_incomplete: number; amount_unpaid_leave: number; amount: number; capped: boolean
   steps: DeductionSimStep[]; ladder: DeductionSimLadderRow[]
 }
-export interface DeductionAuditRow { id: number; action: 'rule_save' | 'rule_delete' | 'target_set' | 'exemption_add' | 'exemption_remove'; rule_id: string | null; rule_name: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; actor: string | null; actor_name: string | null; created_at: string }
+export interface DeductionAuditRow { id: number; action: 'rule_save' | 'rule_delete' | 'target_set' | 'exemption_add' | 'exemption_remove' | 'missing_punch_settings'; rule_id: string | null; rule_name: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; actor: string | null; actor_name: string | null; created_at: string }
 
 /** 00247 — بوابة المالية: هل الشهر مصدَّر وهل اعتمده معاون المدير المفوض (المالية لا ترى الكشف قبل ذلك) */
 export interface FinancePayrollGate {

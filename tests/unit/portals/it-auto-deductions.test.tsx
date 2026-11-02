@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const h = vi.hoisted(() => ({
   rules: [] as Array<Record<string, unknown>>,
@@ -46,7 +47,7 @@ const EMP = (o: Record<string, unknown>) => ({
   rule_id: 'strict', rule_name: 'صارمة', source: 'department', exempt: false, exempt_reason: null, exempt_until: null, enabled: true, amount_mode: 'fixed',
   month_minutes: 90, month_days: 1.5, month_absent: 1, month_shortfall: 140, month_waived: 1, ...o,
 })
-const open = () => render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+const open = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AutoDeductionsPage /></MemoryRouter></QueryClientProvider>)
 
 beforeEach(() => {
   h.rules = RULES(); h.exemptions = []; h.employees = [EMP({}), EMP({ employee_id: 'e2', employee_number: 'E2', full_name: 'سارة', job_title: null, department_id: 'd2', department_name: 'الإدارة', rule_id: null, rule_name: 'مستثنى', source: 'exempt', exempt: true, exempt_reason: 'ظرف صحي', exempt_until: '2026-12-31', enabled: false, amount_mode: 'salary' })]
@@ -235,7 +236,7 @@ describe('00202 — معادلة الصفحة تطابق محرّك التصدي
   it('أساس أجر اليوم = أيام الشهر الفعلية (نموذج الأيام المستحقة) والغياب لا يُستقطع؛ المحاكاة تعرض أيام الشهر والأيام غير المدفوعة', async () => {
     h.simulate.mockReturnValueOnce({ enabled: true, method: 'tiers', amount_mode: 'salary', status: 'absent', missing_minutes: 0, covered_minutes: 0, shortfall_minutes: 0, grace_minutes: 15, minutes: 0, shortfall_days: 0, absent_days: 0, incomplete_days: 0, unpaid_leave_days: 0, paid_leave_days: 0, days: 0,
       day_rate: 16129.03, minute_rate: 33.6, salary_model: 'earned_days', days_in_month: 31, unpaid_days_amount: 145161.29, amount_shortfall: 0, amount_absence: 0, amount_incomplete: 0, amount_unpaid_leave: 0, amount: 0, capped: false, steps: [{ key: 'rates', title: 'أساس', text: 'x' }], ladder: [] })
-    render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+    open()
     fireEvent.click(screen.getByTestId('rule-new'))
     const dim = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
     expect(screen.getByTestId('r-day-basis')).toHaveTextContent(`أيام الشهر الفعلية (هذا الشهر ${dim})`)
@@ -250,7 +251,7 @@ describe('00202 — معادلة الصفحة تطابق محرّك التصدي
 
 describe('00216/00218 — بنك الساعات في محرر القاعدة', () => {
   it('اختيار الطريقة يُظهر السقف والمعادلة اليومية بمثال حي، والحفظ يرسلها', async () => {
-    render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+    open()
     fireEvent.click(screen.getByTestId('rule-new'))
     expect(screen.queryByTestId('r-hb-cap')).toBeNull()
     fireEvent.change(screen.getByTestId('r-method'), { target: { value: 'hour_bank' } })
@@ -268,7 +269,7 @@ describe('00216/00218 — بنك الساعات في محرر القاعدة', (
     expect(h.saveRule.mock.calls[0]?.[0].settings).toMatchObject({ shortfall_method: 'hour_bank', hour_bank_credit_cap_days: 1 })
   })
   it('00248: بطاقة الشرائح العامة — الافتراضي مبكر 0% ومتأخر 100%؛ إضافة شرائح تدريجية تُعاين حيّاً وتُحفظ؛ الترتيب غير التصاعدي يمنع الحفظ', async () => {
-    render(<MemoryRouter><AutoDeductionsPage /></MemoryRouter>)
+    open()
     const card = screen.getByTestId('credit-tiers-card')
     expect(within(card).getByTestId('credit-tiers-early-empty')).toBeInTheDocument()
     expect(within(card).getByTestId('credit-tiers-preview-early')).toHaveTextContent('0')

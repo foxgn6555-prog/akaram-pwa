@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { MissingPunchSettingsCard } from './MissingPunchSettingsCard'
 import { useBranches } from '@features/branches/hooks/useBranches'
 import {
   useAddDeductionExemption, useDeductionAudit, useDeductionEmployees, useDeductionExemptions, useCreditTiers, useDeductionRules, useDeleteDeductionRule, useHrDepartments, useHrEmployees,
@@ -29,7 +30,7 @@ const TABS: { id: Tab; label: string }[] = [
 const NUM = (v: string, fallback = 0) => (v === '' || Number.isNaN(Number(v)) ? fallback : Number(v))
 const SOURCE_LABEL: Record<DeductionRuleSource, string> = { exempt: 'مستثنى', employee: 'تعيين مباشر للموظف', department: 'عبر القسم/المسمى', branch: 'عبر الفرع', default: 'الافتراضية' }
 const TYPE_LABEL: Record<DeductionTargetType, string> = { branch: 'فرع', department: 'قسم / مسمى', employee: 'موظف' }
-const ACTION_LABEL = { rule_save: 'حفظ قاعدة', rule_delete: 'حذف قاعدة', target_set: 'تعديل نطاق', exemption_add: 'إضافة استثناء', exemption_remove: 'إلغاء استثناء' } as const
+const ACTION_LABEL = { rule_save: 'حفظ قاعدة', rule_delete: 'حذف قاعدة', target_set: 'تعديل نطاق', exemption_add: 'إضافة استثناء', exemption_remove: 'إلغاء استثناء', missing_punch_settings: 'إعداد البصمات الناقصة' } as const
 const DEFAULT_RULE_SETTINGS: DeductionRuleSettings = {
   grace_minutes_default: 15, absent_day_deduction_days: 1, incomplete_punch_as_absent: false,
   deduction_tiers: [{ from: 1, to: 15, minutes: 0, day_fraction: null }, { from: 16, to: 30, minutes: 30, day_fraction: null }, { from: 31, to: 60, minutes: 60, day_fraction: null }, { from: 61, to: 120, minutes: 120, day_fraction: null }, { from: 121, to: null, minutes: null, day_fraction: 0.5 }],
@@ -87,6 +88,7 @@ function RulesTab({ rules, onScope }: { rules: DeductionRule[]; onScope: (id: st
   if (editing) return <RuleEditor rule={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
   return (
     <div className="space-y-3" data-testid="ad-rules">
+      <MissingPunchSettingsCard />
       <CreditTiersCard />
       <div className="flex justify-end"><Button size="sm" onClick={() => setEditing('new')} data-testid="rule-new">+ قاعدة جديدة</Button></div>
       {rules.map((r) => (

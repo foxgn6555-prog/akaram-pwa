@@ -467,6 +467,7 @@ export const hr = {
   },
   deductionAudit(limit = 200) { return rpc<DeductionAuditRow[]>('it_deduction_audit', { p_limit: limit }) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
+  setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
   async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
     let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')
     if (!includeInactive) q = q.eq('is_active', true)
