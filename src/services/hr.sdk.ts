@@ -13,6 +13,15 @@ import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow
   HrPolicy, BehaviorEmployeeReport, BehaviorPeriodKind, BehaviorReport, BehaviorSeries, CreditTiers, DeductionRule, DeductionRuleSettings, DeductionTargetType, DeductionExemption, DeductionEmployeeRow, DeductionSimulation, DeductionSimulationV2, DeductionSimCase, DeductionAuditRow, LeaveType, LeaveBalance, LeaveLedgerEntry, LeaveRequestRow, LeaveRequestInput, LeaveScope, OpsLeavesSummary, OpsLeaveEmployee, HrAlert, LeavesDashboard, MyEmployee,
   MonthExportStatus, EmployeeMonthDeduction, AttendanceGridRow, AttendanceConfirmation, RentedTaxOverview, RentedTaxAudit, RentedTaxPreviewRow, HrHireRequest, HrHireRequestStatusFilter } from '@features/hr/types'
 
+export interface MissingPunchRegisterRow {
+  employee_id: string; employee_number: string; full_name: string; work_date: string
+  department_name: string | null; branch_name: string | null; original_punch: string | null
+  missing_side: 'in' | 'out' | null; detected_by: 'manual_correction' | 'daily_snapshot' | 'audit_backfill' | 'current'
+  detected_at: string | null; correction_audit_id: string | null; needs_review: boolean
+  current_status: string | null; approved_leave: boolean
+}
+export interface MissingPunchRegisterResult { month: string; total: number; rows: MissingPunchRegisterRow[]; automatic_capture_scheduled: boolean }
+
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
   residence_card_number, governorate, address, emergency_contact_name, emergency_contact_phone, blood_type, biometric_pin, photo_path,
@@ -468,6 +477,7 @@ export const hr = {
   deductionAudit(limit = 200) { return rpc<DeductionAuditRow[]>('it_deduction_audit', { p_limit: limit }) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
+  missingPunchRegister(month: string, limit = 100, offset = 0) { return rpc<MissingPunchRegisterResult>('ops_missing_punch_register', { p_month: month, p_limit: limit, p_offset: offset }) },
   async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
     let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')
     if (!includeInactive) q = q.eq('is_active', true)

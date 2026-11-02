@@ -30,6 +30,7 @@ import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPa
 import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
 import { HourBankPanel } from './HourBankPanel'
 import { BulkEditPanel } from './BulkEditPanel'   // 00397-ب
+import { MissingPunchRegisterPanel } from './MissingPunchRegisterPanel'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
@@ -48,7 +49,7 @@ export default function OpsAttendancePage() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<AttendanceDay | null>(null)
   const [auditFor, setAuditFor] = useState<AttendanceDay | null>(null)
-  const [panel, setPanel] = useState<'rows' | 'grid' | 'bulk' | 'deductions' | 'exports'>('rows')
+  const [panel, setPanel] = useState<'rows' | 'grid' | 'bulk' | 'missing' | 'deductions' | 'exports'>('rows')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [busyExcel, setBusyExcel] = useState(false)
@@ -198,7 +199,7 @@ export default function OpsAttendancePage() {
           <div className="sticky top-0 z-20 space-y-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur" data-testid="ops-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
-                {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
+                {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['missing', 'سجل البصمات الناقصة', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
                   <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
                     {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
                   </button>
@@ -279,6 +280,7 @@ export default function OpsAttendancePage() {
             </div>
           ))}
           {panel === 'bulk' && <BulkEditPanel frozen={frozen} />}   {/* 00397-ب */}
+          {panel === 'missing' && <MissingPunchRegisterPanel month={month} />}
           {panel === 'deductions' && <DeductionsPanel month={month} />}
           {panel === 'exports' && <ExportsPanel />}
         </>
