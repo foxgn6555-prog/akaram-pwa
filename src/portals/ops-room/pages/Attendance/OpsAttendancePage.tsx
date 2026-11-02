@@ -31,6 +31,7 @@ import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLin
 import { HourBankPanel } from './HourBankPanel'
 import { BulkEditPanel } from './BulkEditPanel'   // 00397-ب
 import { MissingPunchRegisterPanel } from './MissingPunchRegisterPanel'
+import { MissingPunchMonthPreview } from './MissingPunchMonthPreview'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Mode = 'day' | 'month'
@@ -280,7 +281,7 @@ export default function OpsAttendancePage() {
             </div>
           ))}
           {panel === 'bulk' && <BulkEditPanel frozen={frozen} />}   {/* 00397-ب */}
-          {panel === 'missing' && <MissingPunchRegisterPanel month={month} />}
+          {panel === 'missing' && <><MissingPunchRegisterPanel month={month} /><MissingPunchMonthPreview month={month} /></>}
           {panel === 'deductions' && <DeductionsPanel month={month} />}
           {panel === 'exports' && <ExportsPanel />}
         </>

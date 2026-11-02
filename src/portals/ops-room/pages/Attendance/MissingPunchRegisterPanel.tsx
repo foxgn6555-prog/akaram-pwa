@@ -20,7 +20,7 @@ export function MissingPunchRegisterPanel({ month }: { month: string }) {
   return (
     <section className="space-y-3 rounded-2xl border border-violet-200 bg-white p-4 shadow-sm" data-testid="missing-punch-register">
       <h2 className="text-sm font-black">سجل البصمات الناقصة — {month.slice(0, 7)}</h2>
-      <p className="text-xs text-slate-600">يعرض النقص المسجّل حتى بعد التصحيح، والحالات الحالية بعد انتهاء الشفت. السجل للمراجعة فقط؛ لم يُفعّل حساب الغرامة أو الخصم من الراتب بعد.</p>
+      <p className="text-xs text-slate-600">يعرض النقص المسجّل حتى بعد التصحيح، والحالات الحالية بعد انتهاء الشفت. السجل للمراجعة فقط؛ لم يُنشأ كشف ولم يُفعّل الخصم من الراتب بعد.</p>
       <p className="text-xs text-amber-800">البصمتان المختلفتان أو غياب الشفت أو الإجازة المعتمدة تُعرض للمراجعة، ولا يعني ظهورها اعتماد غرامة. التصحيحات القديمة التي لا تحتوي دليلاً على البصمة الأصلية لا تُخمن.</p>
       {query.data && !query.data.automatic_capture_scheduled && <p role="status" className="text-xs font-bold text-rose-700">التسجيل اليومي التلقائي غير مجدول في قاعدة البيانات؛ أخبر التطوير. تُحفظ التصحيحات اليدوية، لكن السجل التلقائي قد يكون غير مكتمل.</p>}
       {query.isLoading ? <LoadingSpinner /> : query.isError ? <p role="alert" className="text-xs text-rose-700">تعذر تحميل السجل. حاول مجدداً.</p> : total === 0 ? <p className="text-xs text-slate-500">لا توجد حالات مسجّلة لهذا الشهر.</p> : (

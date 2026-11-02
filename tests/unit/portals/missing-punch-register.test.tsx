@@ -13,7 +13,7 @@ describe('سجل البصمات الناقصة', () => {
     expect(await screen.findByText('صُحّحت يدوياً — خروج ناقص')).toBeInTheDocument()
     expect(screen.getByText('البصمات تحتاج مراجعة')).toBeInTheDocument()
     expect(screen.getByText('إجازة معتمدة — للمراجعة')).toBeInTheDocument()
-    expect(screen.getByText(/لم يُفعّل حساب الغرامة أو الخصم/)).toBeInTheDocument()
+    expect(screen.getByText(/لم يُنشأ كشف ولم يُفعّل الخصم/)).toBeInTheDocument()
     expect(screen.getByTestId('missing-register-total')).toHaveTextContent('3')
     expect(h.list).toHaveBeenCalledWith('2026-10-01', 100, 0)
   })
@@ -21,7 +21,7 @@ describe('سجل البصمات الناقصة', () => {
     h.list.mockResolvedValue({ month: '2026-10-01', automatic_capture_scheduled: true, total: 1, rows: [row('E4', { detected_by: 'real_arrival', correction_audit_id: null, needs_review: true, later_punch: '2026-10-05T13:00:00Z' })] })
     open()
     expect(await screen.findByText('وصلت بصمة أخرى بعد حالة ناقصة — راجع سحب الجهاز')).toBeInTheDocument()
-    expect(screen.getByText(/لم يُفعّل حساب الغرامة أو الخصم/)).toBeInTheDocument()
+    expect(screen.getByText(/لم يُنشأ كشف ولم يُفعّل الخصم/)).toBeInTheDocument()
     const punchCell = screen.getByText('موظف E4').closest('tr')?.querySelectorAll('td')[3]
     expect(punchCell?.querySelector('span')).toHaveTextContent(/\d/)
   })

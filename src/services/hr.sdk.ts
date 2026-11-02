@@ -21,6 +21,17 @@ export interface MissingPunchRegisterRow {
   current_status: string | null; approved_leave: boolean
 }
 export interface MissingPunchRegisterResult { month: string; total: number; rows: MissingPunchRegisterRow[]; automatic_capture_scheduled: boolean }
+export interface MissingPunchPreviewDay { date: string; classification: 'confirmed' | 'review' | 'leave' | 'pending'; source: string }
+export interface MissingPunchPreviewRow {
+  employee_id: string; employee_number: string; full_name: string; department_name: string | null; branch_name: string | null
+  confirmed_days: number; review_days: number; excluded_leave_days: number; pending_days: number; current_unrecorded_days: number
+  threshold_reached: number | null; proposed_amount: number | null; dates: MissingPunchPreviewDay[]
+}
+export interface MissingPunchPreviewResult {
+  month: string; month_ended: boolean; finance_locked: boolean; settings_configured: boolean
+  threshold: number | null; fixed_amount: number | null; total_employees: number; total_confirmed_days: number
+  total_review_days: number; total_pending_days: number; total_proposed_amount: number | null; rows: MissingPunchPreviewRow[]
+}
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
@@ -478,6 +489,7 @@ export const hr = {
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
   missingPunchRegister(month: string, limit = 100, offset = 0) { return rpc<MissingPunchRegisterResult>('ops_missing_punch_register', { p_month: month, p_limit: limit, p_offset: offset }) },
+  missingPunchMonthPreview(month: string, limit = 100, offset = 0) { return rpc<MissingPunchPreviewResult>('ops_missing_punch_month_preview', { p_month: month, p_limit: limit, p_offset: offset }) },
   async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
     let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')
     if (!includeInactive) q = q.eq('is_active', true)
