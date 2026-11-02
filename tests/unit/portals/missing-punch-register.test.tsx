@@ -12,7 +12,7 @@ describe('سجل البصمات الناقصة', () => {
     open()
     expect(await screen.findByText('صُحّحت يدوياً — خروج ناقص')).toBeInTheDocument()
     expect(screen.getByText('البصمات تحتاج مراجعة')).toBeInTheDocument()
-    expect(screen.getByText('إجازة معتمدة — للمراجعة')).toBeInTheDocument()
+    expect(screen.getByText('إجازة معتمدة — مستبعدة')).toBeInTheDocument()
     expect(screen.getByText(/لم يُنشأ كشف ولم يُفعّل الخصم/)).toBeInTheDocument()
     expect(screen.getByTestId('missing-register-total')).toHaveTextContent('3')
     expect(h.list).toHaveBeenCalledWith('2026-10-01', 100, 0)
@@ -24,6 +24,12 @@ describe('سجل البصمات الناقصة', () => {
     expect(screen.getByText(/لم يُنشأ كشف ولم يُفعّل الخصم/)).toBeInTheDocument()
     const punchCell = screen.getByText('موظف E4').closest('tr')?.querySelectorAll('td')[3]
     expect(punchCell?.querySelector('span')).toHaveTextContent(/\d/)
+  })
+  it('يعرض قرار المعاون دون اعتباره اعتماد كشف', async () => {
+    h.list.mockResolvedValue({ month: '2026-10-01', automatic_capture_scheduled: true, total: 2, rows: [row('E4', { needs_review: true, deputy_decision: 'confirmed' }), row('E5', { needs_review: true, deputy_decision: 'excluded' })] })
+    open()
+    expect(await screen.findByText('أكد المعاون النقص — ليس اعتماد كشف')).toBeInTheDocument()
+    expect(screen.getByText('استبعد المعاون الحالة من الحساب')).toBeInTheDocument()
   })
   it('يتنقل بين صفحات السجل دون إخفاء العدد الكلي', async () => {
     h.list.mockImplementation(async (_month: string, _limit: number, offset: number) => ({ month: '2026-10-01', automatic_capture_scheduled: true, total: 101, rows: [row(offset === 0 ? 'E1' : 'E101')] }))

@@ -15,9 +15,10 @@ import { StatCard, MonthPicker } from '@portals/hr/components/hr-ui'
 import { monthStart } from '@portals/hr/components/hr-format'
 import { ATTENDANCE_EDIT_ACTION_LABELS, useAttendanceEditList, useAttendanceEditRevert, useAttendanceEditStats, type AttendanceEditAction, type AttendanceEditStats } from '@features/attendance-edits'
 import { ListFilters, ReasonDialog, RequestDetailDialog, RequestsTable, useListFilters } from '@features/attendance-edits/components/AttendanceEditShared'
+import { MissingPunchReviewPanel } from './MissingPunchReviewPanel'
 import { BulkEditPanel } from '@portals/ops-room/pages/Attendance/BulkEditPanel'
 
-type Tab = 'log' | 'direct'
+type Tab = 'log' | 'direct' | 'missing-punch'
 
 export default function DeputyAttendanceEditsPage() {
   const [tab, setTab] = useState<Tab>('log')
@@ -35,7 +36,7 @@ export default function DeputyAttendanceEditsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <MonthPicker value={month} onChange={setMonth} testId="ae-month" />
         <nav className="flex gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام">
-          {([['log', 'السجل والمؤشرات'], ['direct', 'تعديل مباشر']] as const).map(([k, l]) => (
+          {([['log', 'السجل والمؤشرات'], ['direct', 'تعديل مباشر'], ['missing-punch', 'مراجعة البصمة الناقصة']] as const).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setTab(k)} className={clsx('rounded-lg px-3 py-1.5', tab === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`ae-tab-${k}`} aria-pressed={tab === k}>{l}</button>
           ))}
         </nav>
@@ -49,6 +50,7 @@ export default function DeputyAttendanceEditsPage() {
         </>
       )}
       {tab === 'direct' && <BulkEditPanel canRequest={false} />}
+      {tab === 'missing-punch' && <MissingPunchReviewPanel month={month} />}
 
       {openId && <RequestDetailDialog id={openId} onClose={() => setOpenId(null)} footer={(d) => d.can_revert ? <Button size="sm" variant="danger" onClick={() => { setRevertId(d.id); setOpenId(null) }} data-testid="ae-detail-revert"><Icon name="refresh" size={14} /> تراجع عن هذا التعديل</Button> : null} />}
       {revertId && <ReasonDialog title="التراجع عن تعديل الحضور" cta="تراجع الآن" testId="ae-revert-dialog" tone="danger" busy={revert.isPending} onClose={() => setRevertId(null)} onConfirm={(reason) => revert.mutate({ id: revertId, reason }, { onSuccess: () => setRevertId(null) })} />}

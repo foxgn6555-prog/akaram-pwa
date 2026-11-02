@@ -34,7 +34,7 @@ export function MissingPunchMonthPreview({ month }: { month: string }) {
           {data.total_pending_days > 0 && <p role="status" className="text-xs font-bold text-amber-800">توجد شفتات لم تنتهِ بعد؛ لم تُحسب ضمن الأيام.</p>}
           {!data.settings_configured ? <p role="status" className="text-xs font-bold text-rose-700">لم يُضبط الحد والمبلغ في التطوير المركزية؛ تُعرض الأيام بلا مبالغ مفترضة.</p> : <p className="text-xs text-slate-600">الحد: <b dir="ltr">{fmt(data.threshold)}</b> أيام · المبلغ الحالي لكل بلوغ: <b dir="ltr">{fmt(data.fixed_amount)}</b> د.ع · يتكرر الحساب عند كل بلوغ للحد؛ ليست هذه إثباتاً للإعداد التاريخي.</p>}
           <p className="text-xs text-slate-600" data-testid="missing-preview-totals">أيام محسوبة: <b dir="ltr">{fmt(data.total_confirmed_days)}</b> · أيام للمراجعة: <b dir="ltr">{fmt(data.total_review_days)}</b> · إجمالي تقديري: <b dir="ltr">{fmt(data.total_proposed_amount)}</b> د.ع</p>
-          <p className="text-xs text-slate-500">الإجازة المعتمدة والحالات الملتبسة خارج الحساب. الأيام الحالية غير الملتقطة تظهر منفصلة؛ السجل قد يكون ناقصاً إذا تعطل السحب أو المجدول، ولا يمكن استعادة تاريخ بلا دليل.</p>
+          <p className="text-xs text-slate-500">الإجازة المعتمدة والحالات الملتبسة واستبعاد المعاون خارج الحساب؛ القرار بشأن الدليل لا يعني اعتماد الكشف. الأيام الحالية غير الملتقطة تظهر منفصلة؛ السجل قد يكون ناقصاً إذا تعطل السحب أو المجدول، ولا يمكن استعادة تاريخ بلا دليل.</p>
           {data.total_employees === 0 ? <p className="text-xs text-slate-500">لا توجد أدلة مسجلة أو حالات ظاهرة لهذا الشهر.</p> : <>
             <div className="overflow-x-auto"><table className="w-full text-xs" data-testid="missing-preview-table">
               <thead className="bg-slate-50"><tr><th className="p-2 text-start">الموظف / القسم</th><th className="p-2">أيام محسوبة</th><th className="p-2">مرات الحد</th><th className="p-2">مبلغ تقديري (د.ع)</th><th className="p-2 text-start">تفاصيل الأيام</th></tr></thead>
@@ -45,6 +45,7 @@ export function MissingPunchMonthPreview({ month }: { month: string }) {
                 <td className="p-2 text-center tabular-nums" dir="ltr">{fmt(row.proposed_amount)}</td>
                 <td className="p-2"><span>محسوبة: <span dir="ltr">{listDates(row.dates, 'confirmed')}</span></span>
                   {row.review_days > 0 && <span className="block text-amber-800">للمراجعة ({fmt(row.review_days)}): <span dir="ltr">{listDates(row.dates, 'review')}</span></span>}
+                  {row.excluded_review_days > 0 && <span className="block text-slate-500">استبعدها المعاون: <span dir="ltr">{listDates(row.dates, 'excluded')}</span></span>}
                   {row.excluded_leave_days > 0 && <span className="block text-slate-500">إجازة مستبعدة: <span dir="ltr">{listDates(row.dates, 'leave')}</span></span>}
                   {row.pending_days > 0 && <span className="block text-amber-800">شفت مستمر: <span dir="ltr">{listDates(row.dates, 'pending')}</span></span>}
                 </td>

@@ -18,13 +18,13 @@ export interface MissingPunchRegisterRow {
   department_name: string | null; branch_name: string | null; original_punch: string | null
   missing_side: 'in' | 'out' | null; detected_by: 'manual_correction' | 'daily_snapshot' | 'audit_backfill' | 'real_arrival' | 'current'
   detected_at: string | null; correction_audit_id: string | null; needs_review: boolean; later_punch: string | null
-  current_status: string | null; approved_leave: boolean
+  current_status: string | null; approved_leave: boolean; deputy_decision: 'confirmed' | 'excluded' | null
 }
 export interface MissingPunchRegisterResult { month: string; total: number; rows: MissingPunchRegisterRow[]; automatic_capture_scheduled: boolean }
-export interface MissingPunchPreviewDay { date: string; classification: 'confirmed' | 'review' | 'leave' | 'pending'; source: string }
+export interface MissingPunchPreviewDay { date: string; classification: 'confirmed' | 'review' | 'leave' | 'pending' | 'excluded'; source: string }
 export interface MissingPunchPreviewRow {
   employee_id: string; employee_number: string; full_name: string; department_name: string | null; branch_name: string | null
-  confirmed_days: number; review_days: number; excluded_leave_days: number; pending_days: number; current_unrecorded_days: number
+  confirmed_days: number; review_days: number; excluded_leave_days: number; excluded_review_days: number; pending_days: number; current_unrecorded_days: number
   threshold_reached: number | null; proposed_amount: number | null; dates: MissingPunchPreviewDay[]
 }
 export interface MissingPunchPreviewResult {
@@ -32,6 +32,18 @@ export interface MissingPunchPreviewResult {
   threshold: number | null; fixed_amount: number | null; total_employees: number; total_confirmed_days: number
   total_review_days: number; total_pending_days: number; total_proposed_amount: number | null; rows: MissingPunchPreviewRow[]
 }
+
+export interface MissingPunchReviewRow {
+  id: string; employee_id: string; employee_number: string; full_name: string; work_date: string
+  department_name: string | null; branch_name: string | null; original_punch: string; later_punch: string | null
+  detected_by: string; evidence_hash: string; evidence: {
+    leave: boolean; context: { skipped?: string; count?: number; real?: string | null; last?: string | null }
+    punches: { id: string; at: string; device: string; direction: string; method: string; received_at: string }[]
+  }
+  current_decision: 'confirmed' | 'excluded' | null; last_decision: 'confirmed' | 'excluded' | null
+  last_reason: string | null; last_decided_at: string | null; last_actor_name: string | null
+}
+export interface MissingPunchReviewResult { month: string; finance_locked: boolean; total: number; rows: MissingPunchReviewRow[] }
 
 const EMPLOYEE_FULL_COLUMNS = `id, employee_number, full_name, email, phone, phone2, department_id, branch_id, manager_id, job_title, job_title_id, is_driver, hire_date,
   employment_status, contract_type, mother_name, gender, birth_date, birth_place, marital_status, education, national_id_number,
@@ -489,6 +501,8 @@ export const hr = {
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
   missingPunchRegister(month: string, limit = 100, offset = 0) { return rpc<MissingPunchRegisterResult>('ops_missing_punch_register', { p_month: month, p_limit: limit, p_offset: offset }) },
+  deputyMissingPunchReviews(month: string, limit = 50, offset = 0) { return rpc<MissingPunchReviewResult>('deputy_missing_punch_reviews', { p_month: month, p_limit: limit, p_offset: offset }) },
+  deputyMissingPunchReviewDecide(id: string, decision: 'confirmed' | 'excluded', reason: string, evidenceHash: string) { return sdkVoid(supabase.rpc('deputy_missing_punch_review_decide', { p_id: id, p_decision: decision, p_reason: reason, p_evidence_hash: evidenceHash } as never)) },
   missingPunchMonthPreview(month: string, limit = 100, offset = 0) { return rpc<MissingPunchPreviewResult>('ops_missing_punch_month_preview', { p_month: month, p_limit: limit, p_offset: offset }) },
   async listLeaveTypes(includeInactive = false): Promise<LeaveType[]> {
     let q = supabase.from('hr_leave_types').select('*').order('sort_order').order('name')
