@@ -361,7 +361,7 @@ export function useEmployeeMonthDeductions(employeeId: string | null, month: str
 export function useApprovePayroll() {
   const qc = useQueryClient(); const t = useToast()
   return useMutation({
-    mutationFn: (v: string | { exportId: string; force?: boolean }) => typeof v === 'string' ? hr.approvePayroll(v) : hr.approvePayroll(v.exportId, v.force ?? false),
+    mutationFn: (v: string | { exportId: string; force?: boolean; discardMissingDraft?: boolean }) => typeof v === 'string' ? hr.approvePayroll(v) : v.discardMissingDraft ? hr.approvePayrollDiscardMissingDraft(v.exportId, v.force ?? false) : hr.approvePayroll(v.exportId, v.force ?? false),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: hrKeys.all }); t.ok('اعتُمدت رواتب الشهر وأُقفل') },
     onError: t.err,
   })

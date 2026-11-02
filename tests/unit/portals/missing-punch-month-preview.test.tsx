@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-const h = vi.hoisted(() => ({ preview: vi.fn() }))
-vi.mock('@sdk/hr.sdk', () => ({ hr: { missingPunchMonthPreview: h.preview } }))
+const h = vi.hoisted(() => ({ preview: vi.fn(), draft: vi.fn() }))
+vi.mock('@sdk/hr.sdk', () => ({ hr: { missingPunchMonthPreview: h.preview, missingPunchDraftGet: h.draft } }))
 import { MissingPunchMonthPreview } from '@portals/ops-room/pages/Attendance/MissingPunchMonthPreview'
 const row = { employee_id: 'e1', employee_number: 'MP-9', full_name: 'موظف اختبار', department_name: 'العمليات', branch_name: null,
   confirmed_days: 9, review_days: 1, excluded_leave_days: 1, pending_days: 0, current_unrecorded_days: 1, threshold_reached: 3, proposed_amount: 4500,
@@ -10,7 +10,7 @@ const row = { employee_id: 'e1', employee_number: 'MP-9', full_name: 'موظف �
 const result = { month: '2026-10-01', month_ended: true, finance_locked: false, settings_configured: true, threshold: 3, fixed_amount: 1500, total_employees: 1, total_confirmed_days: 9, total_review_days: 1, total_pending_days: 0, total_proposed_amount: 4500, rows: [row] }
 function open() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MissingPunchMonthPreview month="2026-10-01" /></QueryClientProvider>) }
 describe('معاينة شهر البصمة الناقصة', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks(); h.draft.mockResolvedValue({ month: '2026-10-01', exists: false, finance_locked: false }) })
   it('لا تحمل البيانات حتى الطلب، وتعرض الحد المتكرر والمرشحين دون اعتماد أو خصم', async () => {
     h.preview.mockResolvedValue(result)
     open()

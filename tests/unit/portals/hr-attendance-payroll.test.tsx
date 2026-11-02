@@ -52,7 +52,7 @@ vi.mock('@features/integrations', () => ({
     { id: 'dv3', serial_number: 'LAN-1', name: 'شبكة', branch_id: 'b1', is_active: true, mode: 'lan_pull' },
   ], isLoading: false }),
 }))
-vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null, listDeductions: async () => [], correctionOptions: async () => ({ count: 1, real: '2026-09-05T05:40:00Z', shift_start: '2026-09-05T05:00:00Z', shift_end: '2026-09-05T13:00:00Z', expected_out: '2026-09-05T13:00:00Z' }) } }))
+vi.mock('@sdk/hr.sdk', async (orig) => ({ ...(await orig<Record<string, unknown>>()), hr: { signedUrl: async () => null, listDeductions: async () => [], financeMissingPunchDraftExists: async () => false, correctionOptions: async () => ({ count: 1, real: '2026-09-05T05:40:00Z', shift_start: '2026-09-05T05:00:00Z', shift_end: '2026-09-05T13:00:00Z', expected_out: '2026-09-05T13:00:00Z' }) } }))
 
 import EmployeesList from '@portals/hr/pages/Employees/EmployeesList'
 import EmployeeDetail from '@portals/hr/pages/Employees/EmployeeDetail'

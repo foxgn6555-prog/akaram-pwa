@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { hr, type MissingPunchPreviewDay } from '@sdk/hr.sdk'
+import { MissingPunchMonthDraft } from './MissingPunchMonthDraft'
 
 const PAGE_SIZE = 100
 const fmt = (v: number | null) => v == null ? '—' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(v)
@@ -56,6 +57,7 @@ export function MissingPunchMonthPreview({ month }: { month: string }) {
               <Button size="sm" variant="secondary" disabled={(page + 1) * PAGE_SIZE >= data.total_employees} onClick={() => setPage({ month, page: page + 1 })}>التالي</Button></div>
           </>}
         </>}
+        <MissingPunchMonthDraft month={month} canSave={!!data?.month_ended && !!data.settings_configured && !data.finance_locked} />
       </>}
     </section>
   )

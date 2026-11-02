@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 
-const h = vi.hoisted(() => ({ gate: null as unknown, sheet: [] as unknown[], reconcile: [] as unknown[], approve: vi.fn(async () => undefined), adjust: vi.fn(async () => undefined), exportStatus: null as unknown }))
+const h = vi.hoisted(() => ({ gate: null as unknown, sheet: [] as unknown[], reconcile: [] as unknown[], approve: vi.fn(async () => undefined), draftExists: vi.fn(async () => false), adjust: vi.fn(async () => undefined), exportStatus: null as unknown }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/hr', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -15,7 +15,7 @@ vi.mock('@features/hr', async (orig) => ({
   useApprovePayroll: () => mut(h.approve), useAdjustPayroll: () => mut(h.adjust), useEmployeeMonthDays: () => ({ data: [], isLoading: false }), useEmployeeMonthDeductions: () => ({ data: [], isLoading: false }),
   useFinanceNotices: () => ({ data: [] }), useHrEmployees: () => ({ data: [], isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined), useSalaryProfile: () => ({ data: null, isLoading: false }), useSetSalary: () => mut(async () => undefined),
 }))
-vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [] } }))
+vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [], financeMissingPunchDraftExists: h.draftExists } }))
 
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 import { applyFilters, branchOptions, DEFAULT_FILTERS, departmentOptions, explainRow, groupByBranchDept, reconcileSummary, rowFlags, sheetTotals, sortRows, totalsConsistent } from '@features/hr/lib/payrollSheetModel'
@@ -37,7 +37,7 @@ const missingRow = row({ row_id: 'r6', employee_id: 'e6', employee_number: 'E-6'
 const rc = (o: Partial<PayrollReconcileRow>): PayrollReconcileRow => ({ row_id: 'r1', employee_id: 'e1', employee_number: 'E-2', full_name: 'أحمد', department_name: 'النقل', branch_name: 'الكرخ', pay_type: 'monthly', gross_stored: 600000, gross_expected: 600000, deductions_stored: 20000, deductions_expected: 20000, net_stored: 580000, net_expected: 580000, final_net: 580000,
   components: { base_salary: 600000, allowances: 0, fixed_deductions: 0, ops_amount: 0, ops_days_amount: 0, auto_amount: 20000, auto_basis: 'salary', advance: 0, present: 24, absent: 1, leave: 1, proration_ratio: 1 }, live: { present: 24, absent: 1, leave: 1 }, issues: [], money_ok: true, attendance_ok: true, ok: true, ...o })
 
-beforeEach(() => { h.sheet = rows; h.reconcile = rows.map((r) => rc({ row_id: r.row_id, employee_id: r.employee_id, employee_number: r.employee_number, full_name: r.full_name })); h.exportStatus = null; vi.clearAllMocks(); vi.spyOn(window, 'confirm').mockReturnValue(true) })
+beforeEach(() => { h.sheet = rows; h.reconcile = rows.map((r) => rc({ row_id: r.row_id, employee_id: r.employee_id, employee_number: r.employee_number, full_name: r.full_name })); h.exportStatus = null; vi.clearAllMocks(); h.draftExists.mockResolvedValue(false); vi.spyOn(window, 'confirm').mockReturnValue(true) })
 
 describe('00194 — نموذج الكشف (دوال نقية)', () => {
   it('الفروع والأقسام: أقسام الفرع المختار فقط، و«بلا قسم» آخراً', () => {
@@ -206,6 +206,27 @@ describe('00194 — صفحة كشف الرواتب', () => {
     await vi.waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: false }))
     expect(confirm.mock.calls.at(-1)![0]).toMatch(/5 موظفاً/); expect(confirm.mock.calls.at(-1)![0]).toMatch(/2,955,000/)
   })
+
+  it('لا يقفل عند رفض حذف المسودة؛ وبعد الموافقة يرسل التأكيد الصريح', async () => {
+    h.draftExists.mockResolvedValue(true)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-approve'))
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalled())
+    expect(confirm.mock.calls[0]![0]).toMatch(/تُحذف المسودة وكل نسخها/)
+    expect(h.approve).not.toHaveBeenCalled()
+    confirm.mockReturnValue(true); fireEvent.click(screen.getByTestId('ps-approve'))
+    await vi.waitFor(() => expect(h.approve).toHaveBeenCalledWith({ exportId: 'x1', force: false, discardMissingDraft: true }))
+  })
+  it('يوقف القفل عند فشل فحص وجود المسودة', async () => {
+    h.draftExists.mockRejectedValue(new Error('offline'))
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    render(<MemoryRouter><PayrollOverview /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('ps-approve'))
+    await vi.waitFor(() => expect(alert).toHaveBeenCalledWith(expect.stringContaining('لم يُقفل الشهر')))
+    expect(h.approve).not.toHaveBeenCalled()
+  })
+
 })
 
 describe('00194 — Excel المالي', () => {

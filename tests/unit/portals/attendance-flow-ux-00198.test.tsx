@@ -22,7 +22,7 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useFinanceNotices: () => ({ data: [] }), useHrEmployees: () => ({ data: [], isLoading: false }), useMarkNoticeDone: () => mut(async () => undefined), useSalaryProfile: () => ({ data: null, isLoading: false }), useSetSalary: () => mut(async () => undefined),
 }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }), usePushEmployeeToDevices: () => ({ mutate: vi.fn(), isPending: false }), useDevices: () => ({ data: [], isLoading: false }) }))
-vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [] } }))
+vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [], financeMissingPunchDraftExists: async () => false } }))
 
 import OpsAttendancePage from '@portals/ops-room/pages/Attendance/OpsAttendancePage'
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'

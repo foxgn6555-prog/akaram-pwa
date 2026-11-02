@@ -33,6 +33,8 @@ export interface MissingPunchPreviewResult {
   total_review_days: number; total_pending_days: number; total_proposed_amount: number | null; rows: MissingPunchPreviewRow[]
 }
 
+export type MissingPunchDraftResult = { month: string; exists: false; finance_locked: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; saved_at: string })
+
 export interface MissingPunchReviewRow {
   id: string; employee_id: string; employee_number: string; full_name: string; work_date: string
   department_name: string | null; branch_name: string | null; original_punch: string; later_punch: string | null
@@ -66,6 +68,9 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_NOT_FOUND: 'السجل غير موجود',
   HR_REASON_REQUIRED: 'السبب مطلوب',
   HR_MONTH_LOCKED: 'هذا الشهر مقفول — اعتمدت المالية رواتبه ولا يمكن تعديله',
+  HR_MISSING_DRAFT_DELETE_CONFIRM: 'توجد مسودة بصمات ناقصة؛ أعد محاولة الاعتماد واختر حذفها عند قفل المالية.',
+  HR_MISSING_MONTH_NOT_ENDED: 'لا يمكن حفظ مسودة نهاية الشهر قبل انتهاء الشهر.',
+  HR_MISSING_SETTINGS_REQUIRED: 'يجب ضبط الحد والمبلغ في التطوير قبل حفظ المسودة.',
   OVERTIME_DISABLED: 'نظام الساعات الإضافية المدفوعة متوقف — يفعّله التطوير المركزية من سياسة الموارد البشرية',
   OVERTIME_NOTHING_TO_PAY: 'لا دقائق مستحقة للصرف لهذا الموظف في هذا الشهر',
   OVERTIME_NO_RATE: 'لا يمكن احتساب أجر الساعة — لا ملف راتب معرَّف ولا أجر ثابت',
@@ -383,6 +388,8 @@ export const hr = {
     return sdkVoid(supabase.rpc('finance_payroll_adjust', { p_row: rowId, p_final_net: finalNet, p_note: note } as never))
   },
   approvePayroll(exportId: string, force = false) { return sdkVoid(supabase.rpc('finance_payroll_approve', { p_export: exportId, p_force: force } as never)) },
+  financeMissingPunchDraftExists(month: string) { return rpc<boolean>('finance_missing_punch_draft_exists', { p_month: month }) },
+  approvePayrollDiscardMissingDraft(exportId: string, force = false) { return sdkVoid(supabase.rpc('finance_payroll_approve_discard_missing_draft', { p_export: exportId, p_force: force, p_discard: true } as never)) },
   /** 00247 — بوابة المالية: الكشف غير مرئي قبل اعتماد معاون المدير المفوض */
   payrollGate(month: string) { return rpc<FinancePayrollGate>('finance_payroll_gate', { p_month: month }) },
   /** 00247 — وحدة معاون المدير المفوض: مراجعة الاستقطاعات قبل المالية */
@@ -500,6 +507,8 @@ export const hr = {
   deductionAudit(limit = 200) { return rpc<DeductionAuditRow[]>('it_deduction_audit', { p_limit: limit }) },
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
+  missingPunchDraftGet(month: string, limit = 100, offset = 0) { return rpc<MissingPunchDraftResult>('ops_missing_punch_draft_get', { p_month: month, p_limit: limit, p_offset: offset }) },
+  missingPunchDraftSave(month: string) { return rpc<{ id: string; revision: number }>('ops_missing_punch_draft_save', { p_month: month }) },
   missingPunchRegister(month: string, limit = 100, offset = 0) { return rpc<MissingPunchRegisterResult>('ops_missing_punch_register', { p_month: month, p_limit: limit, p_offset: offset }) },
   deputyMissingPunchReviews(month: string, limit = 50, offset = 0) { return rpc<MissingPunchReviewResult>('deputy_missing_punch_reviews', { p_month: month, p_limit: limit, p_offset: offset }) },
   deputyMissingPunchReviewDecide(id: string, decision: 'confirmed' | 'excluded', reason: string, evidenceHash: string) { return sdkVoid(supabase.rpc('deputy_missing_punch_review_decide', { p_id: id, p_decision: decision, p_reason: reason, p_evidence_hash: evidenceHash } as never)) },

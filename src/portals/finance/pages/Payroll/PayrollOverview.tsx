@@ -4,7 +4,7 @@
  * ② ملفات الرواتب (المالية فقط): نوع التعاقد، الأساسي/أجر اليوم، المخصصات، الاستقطاعات الثابتة.
  * ③ إشعارات الموارد البشرية: رواتب بانتظار التعريف + تسويات نهاية الخدمة.
  */
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import { useCanCall } from '@features/permissions/my-permissions'
 import { ATTENDANCE_STATUS_LABELS, CONTRACT_LABELS, TERMINATION_LABELS, useAdjustPayroll, useApprovePayroll, useEmployeeMonthDays, useEmployeeMonthDeductions, useFinanceNotices, useMarkNoticeDone, useMonthExportStatus, usePayrollGate, usePayrollReconcile, usePayrollSheet } from '@features/hr'
 import type { PayrollReconcileRow, PayrollSheetRow, TerminationType } from '@features/hr'
@@ -82,6 +82,8 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const awaitingDeputy = !!gate?.exported && !gate.visible
   const { data: reconcile = [], isLoading: reconcileLoading } = usePayrollReconcile(month, rows.length > 0)
   const approve = useApprovePayroll()
+  const approvalBusy = useRef(false)
+  const [checkingApproval, setCheckingApproval] = useState(false)
   const canApprove = useCanCall('finance_payroll_approve')
   const [editing, setEditing] = useState<PayrollSheetRow | null>(null)
   const [details, setDetails] = useState<PayrollSheetRow | null>(null)
@@ -110,12 +112,22 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const blockReason = !head ? 'لا كشف' : approved ? '' : (exportStatus?.advance_changes ?? 0) > 0 ? `تغيّرت سلف ${exportStatus!.advance_changes} موظف بعد التصدير — اطلب إعادة التصدير من غرفة العمليات` : missing > 0 ? `${missing} موظفاً بلا ملف راتب — لا يمكن الاعتماد قبل تعريف رواتبهم (أو إنهاء خدمتهم)` : !rc.canApprove ? `${rc.money} صف غير متطابق حسابياً — راجع «التحقق الحسابي»` : !consistent ? 'مجاميع الكشف غير متسقة (الإجمالي − الاستقطاعات ≠ الصافي)' : ''
 
   const doApprove = async () => {
-    if (!head || blockReason) return
-    const stale = !!exportStatus?.needs_reexport
-    if (stale && !window.confirm(`تنبيه: حدثت ${exportStatus?.changes_after ?? 0} تغييرات في الحضورية بعد هذا التصدير${(exportStatus?.disclosure_deductions_after ?? 0) > 0 ? ` (منها ${exportStatus?.disclosure_deductions_after} استقطاعات كشوفات معتمدة)` : ''} وهي غير مشمولة في هذا الكشف.\nالأفضل الطلب من غرفة العمليات إعادة التصدير. هل تريد الاعتماد رغم ذلك؟`)) return
-    if (unevaluated > 0 && !window.confirm(`الكشف يحتوي ${unevaluated} يوم عمل غير محتسب — الصافي فيه أعلى من الصحيح. اعتماد رغم ذلك؟`)) return
-    if (!window.confirm(`اعتماد الكشف يقفل الشهر نهائياً ولا يمكن لغرفة العمليات إعادة تصديره.\n${totalsAll.count} موظفاً · إجمالي الصافي المعتمد ${fmtMoney(totalsAll.final)} د.ع.\nتأكيد الاعتماد؟`)) return
-    try { await approve.mutateAsync({ exportId: head.export_id, force: stale }) } catch { /* toast in hook */ }
+    if (!head || blockReason || approvalBusy.current) return
+    approvalBusy.current = true; setCheckingApproval(true)
+    try {
+      const stale = !!exportStatus?.needs_reexport
+      if (stale && !window.confirm(`تنبيه: حدثت ${exportStatus?.changes_after ?? 0} تغييرات في الحضورية بعد هذا التصدير${(exportStatus?.disclosure_deductions_after ?? 0) > 0 ? ` (منها ${exportStatus?.disclosure_deductions_after} استقطاعات كشوفات معتمدة)` : ''} وهي غير مشمولة في هذا الكشف.\nالأفضل الطلب من غرفة العمليات إعادة التصدير. هل تريد الاعتماد رغم ذلك؟`)) return
+      if (unevaluated > 0 && !window.confirm(`الكشف يحتوي ${unevaluated} يوم عمل غير محتسب — الصافي فيه أعلى من الصحيح. اعتماد رغم ذلك؟`)) return
+      let discardMissingDraft = false
+      try {
+        if (await hrSdk.financeMissingPunchDraftExists(month)) {
+          if (!window.confirm('توجد مسودة غير مرسلة لكشف البصمات الناقصة. عند تأكيد الإقفال ستُحذف المسودة وكل نسخها نهائياً دون خصم. هل توافق على حذفها مع قفل الشهر؟')) return
+          discardMissingDraft = true
+        }
+      } catch { window.alert('تعذر التحقق من مسودة البصمات الناقصة. لم يُقفل الشهر؛ حاول مجدداً.'); return }
+      if (!window.confirm(`اعتماد الكشف يقفل الشهر نهائياً ولا يمكن لغرفة العمليات إعادة تصديره.\n${totalsAll.count} موظفاً · إجمالي الصافي المعتمد ${fmtMoney(totalsAll.final)} د.ع.\nتأكيد الاعتماد؟`)) return
+      try { await approve.mutateAsync(discardMissingDraft ? { exportId: head.export_id, force: stale, discardMissingDraft: true } : { exportId: head.export_id, force: stale }) } catch { /* toast in hook */ }
+    } finally { approvalBusy.current = false; setCheckingApproval(false) }
   }
   const doExport = async () => {
     setExporting(true)
@@ -145,7 +157,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           </div>
           <div className="ms-auto flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => void doExport()} isLoading={exporting} disabled={shown.length === 0} data-testid="ps-excel">تصدير Excel{filtered ? ` (${shown.length})` : ''}</Button>
-            <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending} disabled={!head || approved || !!blockReason || !canApprove.allowed} title={canApprove.title ?? (blockReason || undefined)} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
+            <Button size="sm" onClick={() => void doApprove()} isLoading={approve.isPending || checkingApproval} disabled={!head || approved || !!blockReason || !canApprove.allowed} title={canApprove.title ?? (blockReason || undefined)} data-testid="ps-approve">{approved ? '✓ معتمد ومقفل' : 'اعتماد الكشف وقفل الشهر'}</Button>
           </div>
         </div>
         {head && (
