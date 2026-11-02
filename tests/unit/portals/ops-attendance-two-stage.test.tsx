@@ -9,17 +9,17 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router'
 
 const h = vi.hoisted(() => ({ gate: null as unknown,
-  conf: null as unknown, grid: [] as unknown[], gridFilters: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, hourBank: [] as unknown[],
+  conf: null as unknown, confirmationMonth: null as unknown, attendanceFilters: null as unknown, grid: [] as unknown[], gridFilters: null as unknown, attendance: [] as unknown[], exportStatus: null as unknown, hourBank: [] as unknown[],
   confirmMonth: vi.fn(async () => ({ confirm_count: 1 })), reopenMonth: vi.fn(async () => ({})), exportMonth: vi.fn(async () => 'x'),
 }))
 const mut = (fn: (...a: never[]) => Promise<unknown>) => ({ mutate: (v: never) => void fn(v), mutateAsync: fn, isPending: false })
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'فرع بغداد' }] }) }))
 vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [{ id: 'd1', name: 'النقل', parent_id: null }, { id: 'd2', name: 'الإدارة', parent_id: null }] }) }))
 vi.mock('@features/hr/hooks/useHr', () => ({
-  useAttendance: () => ({ data: h.attendance, isLoading: false }), useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
+  useAttendance: (f: unknown) => { h.attendanceFilters = f; return { data: h.attendance, isLoading: false } }, useEvaluateAttendance: () => mut(async () => 0), useEditAttendance: () => mut(async () => undefined), useResetAttendance: () => mut(async () => undefined),
   useDeductions: () => ({ data: [], isLoading: false }), useAddDeduction: () => mut(async () => 'd'), useDeleteDeduction: () => mut(async () => undefined), useWaiveDeduction: () => mut(async () => undefined),
   useAttendanceAudit: () => ({ data: [], isLoading: false }), useMonthExports: () => ({ data: [] }), useExportMonth: () => mut(h.exportMonth), usePayrollGate: () => ({ data: h.gate ?? null }), useMonthExportStatus: () => ({ data: h.exportStatus }), useEvaluateMonth: () => mut(async () => 0),
-  useHourBankMonth: () => ({ data: h.hourBank ?? [] }), useAttendanceConfirmation: () => ({ data: h.conf }), useAttendanceGrid: (f: unknown) => { h.gridFilters = f; return { data: h.grid, isLoading: false } },
+  useHourBankMonth: () => ({ data: h.hourBank ?? [] }), useAttendanceConfirmation: (m: unknown) => { h.confirmationMonth = m; return { data: h.conf } }, useAttendanceGrid: (f: unknown) => { h.gridFilters = f; return { data: h.grid, isLoading: false } },
   useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth),
 }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }), usePushEmployeeToDevices: () => ({ mutate: vi.fn(), isPending: false }), useDevices: () => ({ data: [], isLoading: false }) }))
@@ -43,6 +43,49 @@ const open = { month, status: 'open', confirmed: false, confirmed_at: null, conf
 const confirmed = { ...open, status: 'confirmed', confirmed: true, confirmed_at: '2026-10-01T08:00:00Z', confirmed_by_name: 'مدقق الحضور', confirm_count: 1, unevaluated_days: 0, can_export: true }
 
 beforeEach(() => { h.hourBank = []; h.conf = open; h.grid = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_id: 'd2', department_name: 'الإدارة', present_days: 1, late_days: 0, early_days: 0, incomplete_days: 0, absent_days: 0, leave_days: 0, rest_days: 0, worked_minutes: 480, late_minutes: 0, early_minutes: 0, shortfall_minutes: 0, proposed_minutes: 0, proposed_days: 0, days: [cell('2026-09-01', 'present', { in: '08:00', out: '16:00', w: 480 })] })]; h.attendance = []; h.exportStatus = null; vi.clearAllMocks() })
+
+describe('اختيار شهر الحضور في غرفة العمليات', () => {
+  it('يتنقل من نوفمبر إلى أكتوبر ويحمّل نطاق الشهر ثم يعود عبر بداية السنة', () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.change(screen.getByTestId('att-month'), { target: { value: '2026-11' } })
+    fireEvent.click(screen.getByTestId('ops-prev-month'))
+    expect(screen.getByTestId('att-month')).toHaveValue('2026-10')
+    expect(h.attendanceFilters).toEqual(expect.objectContaining({ from: '2026-10-01', to: '2026-10-31' }))
+    expect(h.gridFilters).toEqual(expect.objectContaining({ month: '2026-10-01' }))
+    expect(h.confirmationMonth).toBe('2026-10-01')
+    fireEvent.change(screen.getByTestId('att-month'), { target: { value: '2026-01' } })
+    fireEvent.click(screen.getByTestId('ops-prev-month'))
+    expect(screen.getByTestId('att-month')).toHaveValue('2025-12')
+    fireEvent.click(screen.getByTestId('ops-next-month'))
+    expect(screen.getByTestId('att-month')).toHaveValue('2026-01')
+    fireEvent.change(screen.getByTestId('att-month'), { target: { value: '2024-02' } })
+    expect(h.attendanceFilters).toEqual(expect.objectContaining({ from: '2024-02-01', to: '2024-02-29' }))
+    fireEvent.click(screen.getByTestId('ops-current-month'))
+    expect(screen.getByTestId('att-month')).toHaveValue(month.slice(0, 7))
+  })
+  it('يبقى اليوم والشهر وحالة الإقفال للفترة نفسها عند التبديل بين العرضين', () => {
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.change(screen.getByTestId('att-month'), { target: { value: '2026-10' } })
+    fireEvent.click(screen.getByTestId('mode-day'))
+    expect(screen.getByTestId('ops-day')).toHaveValue('2026-10-01')
+    fireEvent.change(screen.getByTestId('ops-day'), { target: { value: '2026-09-15' } })
+    expect(screen.getByTestId('att-month')).toHaveValue('2026-09')
+    expect(h.confirmationMonth).toBe('2026-09-01')
+    expect(h.attendanceFilters).toEqual(expect.objectContaining({ from: '2026-09-15', to: '2026-09-15' }))
+    fireEvent.click(screen.getByTestId('mode-month'))
+    expect(h.attendanceFilters).toEqual(expect.objectContaining({ from: '2026-09-01', to: '2026-09-30' }))
+  })
+  it('يعرض الشهر المقفل للاطلاع دون إتاحة الاعتماد أو إعادة الفتح', () => {
+    h.conf = { ...confirmed, locked: true, can_export: false }
+    render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    fireEvent.change(screen.getByTestId('att-month'), { target: { value: '2026-10' } })
+    expect(screen.getByTestId('att-locked-line')).toHaveTextContent('للاطلاع فقط')
+    expect(screen.queryByTestId('att-confirm-open')).toBeNull()
+    fireEvent.click(screen.getByTestId('stage-approved'))
+    expect(screen.queryByTestId('att-reopen-open')).toBeNull()
+    expect(screen.getByTestId('ops-export-month')).toBeDisabled()
+  })
+})
 
 describe('00193 — الحضوريات بمرحلتين', () => {
   it('شريط المراحل: قبل الاعتماد المرحلة 1 نشطة والكشف المعتمد مقفل مع زر عودة؛ لا زر تصدير للمالية', () => {

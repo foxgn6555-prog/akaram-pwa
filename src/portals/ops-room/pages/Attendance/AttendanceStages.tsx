@@ -56,7 +56,7 @@ export function StageBar({ conf, stage, onStage }: { conf: AttendanceConfirmatio
         const tone = p.key === 'detailed' ? 'brand' : 'emerald'
         return (
           <button key={p.key} type="button" role="tab" aria-selected={current} onClick={() => onStage(p.key)} data-testid={p.testId}
-            className={clsx('rounded-2xl border p-3 text-start shadow-sm transition', current ? (tone === 'brand' ? 'border-brand-500 bg-white ring-2 ring-brand-200' : 'border-emerald-500 bg-white ring-2 ring-emerald-200') : 'border-slate-200 bg-slate-50 hover:bg-white')}>
+            className={clsx('rounded-2xl border p-4 text-start shadow-sm transition', current ? (tone === 'brand' ? 'border-brand-400 bg-gradient-to-bl from-white to-sky-50 ring-2 ring-brand-100' : 'border-emerald-400 bg-gradient-to-bl from-white to-emerald-50 ring-2 ring-emerald-100') : 'border-slate-200 bg-white hover:border-sky-200 hover:shadow-md')}>
             <span className="flex items-center gap-2">
               <span className={clsx('grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black', current ? (tone === 'brand' ? 'bg-brand-600 text-white' : 'bg-emerald-600 text-white') : 'bg-slate-200 text-slate-600')}>{p.locked ? <Icon name="lock" size={14} /> : p.n}</span>
               <span className="min-w-0"><span className={clsx('block text-sm font-black', current ? 'text-slate-900' : 'text-slate-600')}>{p.title}</span><span className="block truncate text-[11px] text-slate-500">{p.sub}</span></span>
@@ -92,7 +92,7 @@ export function StatusLine({ tone, icon, children, action, testId, role }: { ton
 /** بطاقة مجمّعة بعنوان صغير — تُستخدم لحالة الشهر وجاهزية الاعتماد وبطاقة التصدير */
 export function SectionCard({ title, badge, children, testId, className }: { title: string; badge?: React.ReactNode; children: React.ReactNode; testId?: string; className?: string }) {
   return (
-    <section className={clsx('space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm', className)} data-testid={testId}>
+    <section className={clsx('space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50', className)} data-testid={testId}>
       <header className="flex items-center justify-between gap-2"><h2 className="text-xs font-black text-slate-700">{title}</h2>{badge}</header>
       {children}
     </section>

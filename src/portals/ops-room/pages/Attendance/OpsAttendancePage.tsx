@@ -55,6 +55,22 @@ export default function OpsAttendancePage() {
   const [reopenOpen, setReopenOpen] = useState(false)
   const [busyExcel, setBusyExcel] = useState(false)
 
+  // اليوم والشهر يجب أن يشيرا إلى الفترة نفسها، بما فيها حالة إقفال المالية.
+  const selectMonth = (value: string) => {
+    setMonth(value)
+    setDay(value)
+    setMode('month')
+  }
+  const selectDay = (value: string) => {
+    if (!value) return
+    setDay(value)
+    setMonth(`${value.slice(0, 7)}-01`)
+  }
+  const moveMonth = (offset: number) => {
+    const [year, m] = month.split('-').map(Number)
+    selectMonth(monthStart(new Date(year!, m! - 1 + offset, 1)))
+  }
+
   const { data: departments = [] } = useDepartments()
   const { data: branches = [] } = useBranches()
   const range = useMemo(() => mode === 'day' ? { from: day, to: day } : { from: month, to: isoDay(new Date(new Date(month).getFullYear(), new Date(month).getMonth() + 1, 0)) }, [mode, day, month])
@@ -123,7 +139,6 @@ export default function OpsAttendancePage() {
     <div className="space-y-4" data-testid="ops-attendance">
       <ExecPageHeader icon="activity" title="الحضوريات" subtitle="تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير إلى معاون المدير المفوض ← المالية · كل تعديل بسبب موثّق باسم المدقق" actions={
         <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker value={month} onChange={(v) => { setMonth(v); if (mode === 'day') setMode('month') }} testId="att-month" />
           <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
           {stage === 'detailed' && !locked && (
@@ -133,6 +148,21 @@ export default function OpsAttendancePage() {
           )}
         </div>
       } />
+
+      <section className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-sky-100 bg-gradient-to-l from-white to-sky-50 p-4 shadow-sm" aria-label="اختيار شهر الحضور" data-testid="ops-month-navigation">
+        <div className="min-w-0">
+          <h2 className="text-sm font-black text-slate-800">شهر الحضور</h2>
+          <p className="mt-1 text-xs text-slate-600">اختر أي شهر لعرض سجلاته، أو استخدم أزرار التنقل بين الأشهر.</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <button type="button" onClick={() => moveMonth(-1)} className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-sky-50" data-testid="ops-prev-month">الشهر السابق</button>
+          <label className="grid gap-1 text-xs font-bold text-slate-700">الشهر المعروض
+            <MonthPicker value={month} onChange={selectMonth} testId="att-month" />
+          </label>
+          <button type="button" onClick={() => moveMonth(1)} className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-sky-50" data-testid="ops-next-month">الشهر التالي</button>
+          <button type="button" onClick={() => selectMonth(monthStart())} className="min-h-10 rounded-xl bg-sky-800 px-3 text-xs font-bold text-white hover:bg-sky-900" data-testid="ops-current-month">الشهر الحالي</button>
+        </div>
+      </section>
 
       <StageBar conf={conf} stage={stage} onStage={setStage} />
 
@@ -197,11 +227,11 @@ export default function OpsAttendancePage() {
           )}
 
           {/* 00205 — شريط واحد: أقسام التدقيق + الفلاتر + أدوات (بدل شريطين) */}
-          <div className="sticky top-0 z-20 space-y-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur" data-testid="ops-toolbar">
+          <div className="sticky top-0 z-20 space-y-3 rounded-2xl border border-sky-100 bg-white/95 p-3 shadow-md shadow-slate-200/50 backdrop-blur" data-testid="ops-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <nav className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
+              <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
                 {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['missing', 'سجل البصمات الناقصة', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
-                  <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex items-center gap-1 rounded-lg px-3 py-1.5', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
+                  <button key={k} type="button" onClick={() => setPanel(k)} className={clsx('inline-flex min-h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 transition', panel === k ? 'bg-white text-brand-700 shadow' : 'text-slate-600 hover:bg-white/70')} data-testid={`panel-${k}`} aria-pressed={panel === k}>
                     {l}{n != null && n > 0 && <span className={clsx('rounded-full px-1.5 text-[10px] tabular-nums', panel === k ? 'bg-brand-50 text-brand-700' : 'bg-white text-slate-600')}>{n}</span>}
                   </button>
                 ))}
@@ -217,7 +247,7 @@ export default function OpsAttendancePage() {
                   <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
                     <button type="button" onClick={() => setMode('day')} className={clsx('rounded-lg px-3 py-1.5', mode === 'day' && 'bg-white shadow')} data-testid="mode-day">يوم</button>
                     <button type="button" onClick={() => setMode('month')} className={clsx('rounded-lg px-3 py-1.5', mode === 'month' && 'bg-white shadow')} data-testid="mode-month">شهر</button>
-                    {mode === 'day' ? <input type="date" className={clsx(field, 'h-8 flex-1 py-0')} value={day} onChange={(e) => setDay(e.target.value)} data-testid="ops-day" /> : <span className="flex-1 px-2 text-center text-slate-600" data-testid="ops-month-label">{month.slice(0, 7)}</span>}
+                    {mode === 'day' ? <input type="date" className={clsx(field, 'h-8 flex-1 py-0')} value={day} onChange={(e) => selectDay(e.target.value)} data-testid="ops-day" /> : <span className="flex-1 px-2 text-center text-slate-600" data-testid="ops-month-label">{month.slice(0, 7)}</span>}
                   </div>
                 ) : <span className="flex items-center rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-600" data-testid="ops-month-label">شهر {month.slice(0, 7)}</span>}
                 <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="ops-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
@@ -232,7 +262,7 @@ export default function OpsAttendancePage() {
           {panel === 'grid' && (gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين ببصمة في هذا النطاق" hint="وسّع الفلاتر" /> : (
             <div className="space-y-2">
               <GridLegend mode="detailed" />
-              <MonthGrid rows={grid} mode="detailed" onCellClick={(r, c) => { setMode('day'); setDay(c.d); setSearch(r.employee_number); setStatus(''); setPanel('rows') }} />
+              <MonthGrid rows={grid} mode="detailed" onCellClick={(r, c) => { setMode('day'); selectDay(c.d); setSearch(r.employee_number); setStatus(''); setPanel('rows') }} />
             </div>
           ))}
           {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
