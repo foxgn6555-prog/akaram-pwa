@@ -35,7 +35,14 @@ export interface MissingPunchPreviewResult {
 
 export type MissingPunchDraftResult = { month: string; exists: false; finance_locked: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; saved_at: string; status: 'draft' | 'sent'; sent_at: string | null })
 
-export type MissingPunchReportResult = { month: string; exists: false; finance_locked: boolean; automatic_send_scheduled: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; sent_at: string; results_changed: boolean; automatic_send_scheduled: boolean })
+export type MissingPunchReportResult = { month: string; exists: false; finance_locked: boolean; automatic_send_scheduled: boolean } | (MissingPunchPreviewResult & { exists: true; id: string; revision: number; sent_at: string; results_changed: boolean; automatic_send_scheduled: boolean; has_evidence: boolean; evidence_changed: boolean; rechecked_at: string | null })
+
+export interface MissingPunchReportCase {
+  employee_id: string; work_date: string; register_id: string | null; source: string
+  shift: { shift_name: string; start_time: string; end_time: string; kind: string } | null
+  evidence: { register: { original: string; later: string | null } | null; context: { skipped?: string; count?: number; real?: string | null; last?: string | null }; leave: boolean; attendance: { check_in: string | null; check_out: string | null; expected_in: string | null; expected_out: string | null } | null; punches: { id: string; at: string; device: string; direction: string; method: string; received_at: string }[] }
+  last_decision: { decision: 'confirmed' | 'excluded'; reason: string; decided_at: string } | null
+}
 
 export interface MissingPunchReviewRow {
   id: string; employee_id: string; employee_number: string; full_name: string; work_date: string
@@ -511,6 +518,8 @@ export const hr = {
   setPolicy(patch: Partial<HrPolicy>) { return rpc<HrPolicy>('hr_policy_set', { p_patch: patch }) },
   repairMissingPunchSchedule() { return sdkVoid(supabase.rpc('it_missing_punch_schedule_repair' as never)) },
   setMissingPunchSettings(threshold: number, amount: number) { return rpc<HrPolicy>('it_missing_punch_settings_set', { p_threshold: threshold, p_amount: amount }) },
+  deputyMissingPunchReportRecheck(month: string, revision: number) { return rpc<{ id: string; revision: number; saved_at: string }>('deputy_missing_punch_report_recheck', { p_month: month, p_revision: revision }) },
+  deputyMissingPunchReportCase(month: string, revision: number, employee: string, date: string) { return rpc<MissingPunchReportCase>('deputy_missing_punch_report_case', { p_month: month, p_revision: revision, p_employee: employee, p_date: date }) },
   deputyMissingPunchReport(month: string, limit = 100, offset = 0) { return rpc<MissingPunchReportResult>('deputy_missing_punch_report', { p_month: month, p_limit: limit, p_offset: offset }) },
   missingPunchDraftGet(month: string, limit = 100, offset = 0) { return rpc<MissingPunchDraftResult>('ops_missing_punch_draft_get', { p_month: month, p_limit: limit, p_offset: offset }) },
   missingPunchDraftSave(month: string) { return rpc<{ id: string; revision: number }>('ops_missing_punch_draft_save', { p_month: month }) },
