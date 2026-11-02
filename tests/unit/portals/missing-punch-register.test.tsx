@@ -17,6 +17,14 @@ describe('سجل البصمات الناقصة', () => {
     expect(screen.getByTestId('missing-register-total')).toHaveTextContent('3')
     expect(h.list).toHaveBeenCalledWith('2026-10-01', 100, 0)
   })
+  it('يعرض وصول البصمة اللاحقة للمراجعة دون اعتماد غرامة', async () => {
+    h.list.mockResolvedValue({ month: '2026-10-01', automatic_capture_scheduled: true, total: 1, rows: [row('E4', { detected_by: 'real_arrival', correction_audit_id: null, needs_review: true, later_punch: '2026-10-05T13:00:00Z' })] })
+    open()
+    expect(await screen.findByText('وصلت بصمة أخرى بعد حالة ناقصة — راجع سحب الجهاز')).toBeInTheDocument()
+    expect(screen.getByText(/لم يُفعّل حساب الغرامة أو الخصم/)).toBeInTheDocument()
+    const punchCell = screen.getByText('موظف E4').closest('tr')?.querySelectorAll('td')[3]
+    expect(punchCell?.querySelector('span')).toHaveTextContent(/\d/)
+  })
   it('يتنقل بين صفحات السجل دون إخفاء العدد الكلي', async () => {
     h.list.mockImplementation(async (_month: string, _limit: number, offset: number) => ({ month: '2026-10-01', automatic_capture_scheduled: true, total: 101, rows: [row(offset === 0 ? 'E1' : 'E101')] }))
     open()

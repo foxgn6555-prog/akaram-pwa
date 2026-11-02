@@ -34,8 +34,8 @@ export function MissingPunchRegisterPanel({ month }: { month: string }) {
                   <td className="p-2 tabular-nums" dir="ltr">{r.work_date}</td>
                   <td className="p-2"><b>{r.full_name}</b><span className="block text-slate-500" dir="ltr">{r.employee_number}</span></td>
                   <td className="p-2">{r.department_name ?? '—'} / {r.branch_name ?? '—'}</td>
-                  <td className="p-2 tabular-nums" dir="ltr">{fmtTime(r.original_punch)}</td>
-                  <td className="p-2">{r.approved_leave ? 'إجازة معتمدة — للمراجعة' : r.needs_review ? 'البصمات تحتاج مراجعة' : r.correction_audit_id ? `صُحّحت يدوياً — ${r.missing_side === 'in' ? 'دخول' : 'خروج'} ناقص` : r.detected_by === 'current' ? 'ناقصة حالياً — لم تُسجّل باللقطة بعد' : r.current_status === 'incomplete' ? 'ناقصة — مسجّلة' : 'كانت ناقصة — تغيّر الحضور لاحقاً'}</td>
+                  <td className="p-2 tabular-nums" dir="ltr">{fmtTime(r.original_punch)}{r.later_punch && <span className="block text-slate-500">{fmtTime(r.later_punch)}</span>}</td>
+                  <td className="p-2">{r.approved_leave ? 'إجازة معتمدة — للمراجعة' : r.needs_review ? (r.detected_by === 'real_arrival' ? 'وصلت بصمة أخرى بعد حالة ناقصة — راجع سحب الجهاز' : 'البصمات تحتاج مراجعة') : r.correction_audit_id ? `صُحّحت يدوياً — ${r.missing_side === 'in' ? 'دخول' : 'خروج'} ناقص` : r.detected_by === 'current' ? 'ناقصة حالياً — لم تُسجّل باللقطة بعد' : r.current_status === 'incomplete' ? 'ناقصة — مسجّلة' : 'كانت ناقصة — تغيّر الحضور لاحقاً'}</td>
                 </tr>
               ))}</tbody>
             </table>

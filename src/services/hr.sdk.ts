@@ -16,8 +16,8 @@ import type { OvertimeOverview, OvertimeDay, OvertimeRateRow, OvertimeHistoryRow
 export interface MissingPunchRegisterRow {
   employee_id: string; employee_number: string; full_name: string; work_date: string
   department_name: string | null; branch_name: string | null; original_punch: string | null
-  missing_side: 'in' | 'out' | null; detected_by: 'manual_correction' | 'daily_snapshot' | 'audit_backfill' | 'current'
-  detected_at: string | null; correction_audit_id: string | null; needs_review: boolean
+  missing_side: 'in' | 'out' | null; detected_by: 'manual_correction' | 'daily_snapshot' | 'audit_backfill' | 'real_arrival' | 'current'
+  detected_at: string | null; correction_audit_id: string | null; needs_review: boolean; later_punch: string | null
   current_status: string | null; approved_leave: boolean
 }
 export interface MissingPunchRegisterResult { month: string; total: number; rows: MissingPunchRegisterRow[]; automatic_capture_scheduled: boolean }

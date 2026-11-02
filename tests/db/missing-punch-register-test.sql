@@ -56,7 +56,7 @@ do $$ declare d date:=app.hr_local_date(now())-2; e uuid:='39940000-0000-0000-00
  perform pg_temp.punch(e,d,'16:32','399412');
  assert (select status='incomplete' from public.hr_attendance_days where employee_id=e and work_date=d),'fixture engine sees incomplete';
  perform app.hr_capture_missing_punch_daily();
- assert not exists(select 1 from public.hr_missing_punch_register where employee_id=e and work_date=d),'ambiguous punches not auto recorded';
+ assert not exists(select 1 from public.hr_missing_punch_register where employee_id=e and work_date=d and not requires_review),'ambiguous punches are never recorded as confirmed';
  j:=public.ops_missing_punch_register(d,500,0);
  assert exists(select 1 from jsonb_array_elements(j->'rows') x where x->>'employee_id'=e::text and x->>'work_date'=d::text and (x->>'needs_review')::boolean),'ambiguous shown for review';
 end$$;
