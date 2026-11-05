@@ -63,6 +63,38 @@ describe('UnmatchedPeoplePage', () => {
     expect(screen.getByTestId('um-row-UM-1-901')).toBeInTheDocument()
   })
 
+  it('فلاتر الجهاز وPIN والحالة تعمل معاً وتحافظ على عرض جميع أيام الشخص', () => {
+    h.report.mockReturnValue({ data: [...ROWS, { ...ROWS[0], device_serial: 'UM-2', device_name: 'بصمة الرصافة' }], isLoading: false, error: null })
+    render(<MemoryRouter><UnmatchedPeoplePage /></MemoryRouter>)
+    fireEvent.change(screen.getByTestId('um-device'), { target: { value: 'UM-2' } })
+    fireEvent.change(screen.getByTestId('um-pin'), { target: { value: '901' } })
+    fireEvent.change(screen.getByTestId('um-status'), { target: { value: 'absent' } })
+    expect(screen.queryByTestId('um-row-UM-1-901')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('um-row-UM-2-902')).not.toBeInTheDocument()
+    expect(screen.getByTestId('um-row-UM-2-901')).toHaveTextContent('كريم جاسم')
+    expect(screen.getByTestId('um-row-UM-2-901')).toHaveTextContent('ح 8:30')
+    expect(screen.getByText(/يظهر الأشخاص الذين لديهم هذه الحالة/)).toBeInTheDocument()
+    expect(screen.getByTestId('um-stat-people')).toHaveTextContent('1')
+  })
+
+  it('التصدير يحترم فلاتر الجهاز والرقم والحالة ويذكرها في الملف', async () => {
+    render(<MemoryRouter><UnmatchedPeoplePage /></MemoryRouter>)
+    fireEvent.change(screen.getByTestId('um-device'), { target: { value: 'UM-1' } })
+    fireEvent.change(screen.getByTestId('um-pin'), { target: { value: '901' } })
+    fireEvent.change(screen.getByTestId('um-status'), { target: { value: 'missing' } })
+    fireEvent.click(screen.getByTestId('unmatched-export'))
+    await vi.waitFor(() => expect(h.download).toHaveBeenCalledTimes(1))
+    const wb = h.download.mock.calls[0]![0]
+    const ws = wb.getWorksheet('غير المطابقين')
+    expect(ws.getCell('A2').value).toContain('الجهاز: بصمة الكرخ (UM-1)')
+    expect(ws.getCell('A2').value).toContain('PIN: 901')
+    expect(ws.getCell('A2').value).toContain('بصمة ناقصة')
+    expect(ws.getRow(6).getCell(3).value).toBe('901')
+    expect(ws.getRow(7).getCell(3).value).not.toBe('902')
+    expect(wb.getWorksheet('التفاصيل اليومية').rowCount).toBe(8)
+    expect(wb.getWorksheet('التفاصيل اليومية').getRow(5).getCell(10).value).toBe('بصمة الكرخ · UM-1')
+  })
+
   it('فترة أوسع من 62 يوماً تُظهر تنبيهاً؛ النسخة للقراءة (IT) بلا عمود الإجراء', () => {
     render(<MemoryRouter><UnmatchedPeoplePage readOnly /></MemoryRouter>)
     expect(screen.queryByTestId('um-link-901')).toBeNull()

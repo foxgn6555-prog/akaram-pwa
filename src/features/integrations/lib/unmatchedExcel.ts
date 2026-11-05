@@ -29,7 +29,7 @@ function header(ws: Worksheet, title: string, subtitle: string, cols: number) {
   ws.getRow(3).height = 6
 }
 
-export interface UnmatchedExportMeta { from: string; to: string; branchLabel: string; search?: string }
+export interface UnmatchedExportMeta { from: string; to: string; branchLabel: string; search?: string; deviceLabel?: string; pin?: string; status?: UnmatchedDay['status']; onlyIssues?: boolean }
 
 export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: UnmatchedExportMeta): Promise<Workbook> {
   const ExcelJS = await import('exceljs')
@@ -41,7 +41,7 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
 
   // ── الورقة 1: الشبكة الشهرية ──
   const ws = wb.addWorksheet('غير المطابقين', { views: [{ rightToLeft: true, state: 'frozen', xSplit: fixed.length, ySplit: 5 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } })
-  const filters = [`الفترة: ${meta.from} → ${meta.to}`, `الفرع: ${meta.branchLabel}`, meta.search ? `بحث: ${meta.search}` : ''].filter(Boolean).join(' · ')
+  const filters = [`الفترة: ${meta.from} → ${meta.to}`, `الفرع: ${meta.branchLabel}`, meta.search ? `بحث: ${meta.search}` : '', meta.deviceLabel ? `الجهاز: ${meta.deviceLabel}` : '', meta.pin ? `PIN: ${meta.pin}` : '', meta.status ? `أشخاص لديهم حالة: ${UNMATCHED_STATUS_LABELS[meta.status]}` : '', meta.onlyIssues ? 'غياب أو نقص فقط' : ''].filter(Boolean).join(' · ')
   header(ws, 'الأشخاص غير المطابقين — سجل الحضور اليومي من أجهزة البصمة', `${filters} · ${rows.length} شخصاً · أُنشئ ${new Date().toLocaleString('ar-IQ-u-nu-latn')}`, colCount)
   // صفّان للترويسة: اليوم (رقم) + اسم اليوم
   const h1 = ws.getRow(4); const h2 = ws.getRow(5)
@@ -59,7 +59,7 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
 
   rows.forEach((r, i) => {
     const row = ws.addRow([
-      i + 1, r.person_name ?? '— بلا اسم —', r.pin, r.branch_name ?? '—', r.device_name,
+      i + 1, r.person_name ?? '— بلا اسم —', r.pin, r.branch_name ?? '—', `${r.device_name} · ${r.device_serial}`,
       ...r.days.map(dayCellText),
       r.present_days, r.missing_days, r.absent_days, fmtHours(r.total_minutes),
     ])
@@ -83,15 +83,15 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
 
   // ── الورقة 2: التفاصيل اليومية (صف لكل شخص/يوم) ──
   const det = wb.addWorksheet('التفاصيل اليومية', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }] })
-  header(det, 'التفاصيل اليومية — غير المطابقين', filters, 9)
-  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'أول بصمة', 'آخر بصمة', 'ساعات العمل']
+  header(det, 'التفاصيل اليومية — غير المطابقين', filters, 10)
+  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'أول بصمة', 'آخر بصمة', 'ساعات العمل', 'الجهاز · الرقم التسلسلي']
   dh.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center' }; c.border = thin() })
   let k = 0
   for (const r of rows) for (const d of r.days) {
-    const row = det.addRow([++k, r.person_name ?? '— بلا اسم —', r.pin, r.branch_name ?? '—', d.d, UNMATCHED_STATUS_LABELS[d.status], d.first ?? '', d.last ?? '', d.status === 'present' ? fmtHours(d.minutes) : ''])
+    const row = det.addRow([++k, r.person_name ?? '— بلا اسم —', r.pin, r.branch_name ?? '—', d.d, UNMATCHED_STATUS_LABELS[d.status], d.first ?? '', d.last ?? '', d.status === 'present' ? fmtHours(d.minutes) : '', `${r.device_name} · ${r.device_serial}`])
     row.eachCell({ includeEmpty: true }, (cell, col) => { cell.border = thin(); cell.alignment = { horizontal: col === 2 ? 'right' : 'center' }; if (col === 6) { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILL[d.status] } }; cell.font = { color: { argb: FONT[d.status] }, bold: true } } })
   }
-  ;[5, 26, 10, 14, 12, 12, 10, 10, 11].forEach((w, i) => { det.getColumn(i + 1).width = w })
-  if (k) det.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + k, column: 9 } }
+  ;[5, 26, 10, 14, 12, 12, 10, 10, 11, 24].forEach((w, i) => { det.getColumn(i + 1).width = w })
+  if (k) det.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + k, column: 10 } }
   return wb
 }

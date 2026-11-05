@@ -40,12 +40,22 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
   const [branchId, setBranchId] = useState('')
   const [search, setSearch] = useState('')
   const [onlyIssues, setOnlyIssues] = useState(false)
+  const [deviceSerial, setDeviceSerial] = useState('')
+  const [pin, setPin] = useState('')
+  const [status, setStatus] = useState<'' | UnmatchedDay['status']>('')
   const { data: branches } = useBranches()
   const { data, isLoading, error } = useUnmatchedReport({ from, to, branchId: branchId || null, search: search.trim() || null })
-  const rows = useMemo(() => (data ?? []).filter((r) => !onlyIssues || r.missing_days > 0 || r.absent_days > 0), [data, onlyIssues])
+  const devices = useMemo(() => Array.from(new Map((data ?? []).map((r) => [r.device_serial, r.device_name])).entries()), [data])
+  const rows = useMemo(() => (data ?? []).filter((r) =>
+    (!onlyIssues || r.missing_days > 0 || r.absent_days > 0) &&
+    (!deviceSerial || r.device_serial === deviceSerial) &&
+    (!pin.trim() || r.pin.includes(pin.trim())) &&
+    (!status || r.days.some((d) => d.status === status)),
+  ), [data, onlyIssues, deviceSerial, pin, status])
   const days = rows[0]?.days ?? data?.[0]?.days ?? []
   const totals = useMemo(() => rows.reduce((a, r) => ({ p: a.p + r.present_days, m: a.m + r.missing_days, ab: a.ab + r.absent_days, min: a.min + r.total_minutes }), { p: 0, m: 0, ab: 0, min: 0 }), [rows])
   const branchLabel = branchId ? (branches?.find((b) => b.id === branchId)?.name ?? '—') : 'كل الفروع'
+  const deviceLabel = deviceSerial ? (devices.find(([serial]) => serial === deviceSerial)?.[1] ?? deviceSerial) : ''
   const rangeTooWide = (new Date(to).getTime() - new Date(from).getTime()) / 86400000 > 62
 
   const pickMonth = (ym: string) => {
@@ -58,7 +68,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
     <section aria-label="الأشخاص غير المطابقين" className="space-y-4" data-testid="unmatched-page">
       <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle="أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد — نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم."
         actions={<ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
-          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined }), `غير-المطابقين-${from}_${to}.xlsx`)} />} />
+          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined, deviceLabel: deviceSerial ? `${deviceLabel} (${deviceSerial})` : undefined, pin: pin.trim() || undefined, status: status || undefined, onlyIssues }), `غير-المطابقين-${from}_${to}.xlsx`)} />} />
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="max-w-3xl text-xs leading-5 text-slate-500">
             أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد. نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم:
@@ -87,11 +97,28 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
         <label className="text-[11px] text-slate-600">بحث (اسم / PIN / جهاز)
           <input className={clsx(field, 'mt-1 w-full')} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="مثال: 901" data-testid="um-search" />
         </label>
+        <label className="text-[11px] text-slate-600">الجهاز
+          <select className={clsx(field, 'mt-1 w-full')} value={deviceSerial} onChange={(e) => setDeviceSerial(e.target.value)} data-testid="um-device">
+            <option value="">كل الأجهزة</option>
+            {deviceSerial && !devices.some(([serial]) => serial === deviceSerial) && <option value={deviceSerial}>{deviceSerial}</option>}
+            {devices.map(([serial, name]) => <option key={serial} value={serial}>{name} · {serial}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-slate-600">رقم البصمة PIN
+          <input className={clsx(field, 'mt-1 w-full')} value={pin} onChange={(e) => setPin(e.target.value)} dir="ltr" data-testid="um-pin" />
+        </label>
+        <label className="text-[11px] text-slate-600">الحالة خلال الفترة
+          <select className={clsx(field, 'mt-1 w-full')} value={status} onChange={(e) => setStatus(e.target.value as '' | UnmatchedDay['status'])} data-testid="um-status">
+            <option value="">كل الحالات</option>
+            <option value="present">حاضر</option><option value="missing">بصمة ناقصة</option><option value="absent">غائب</option>
+          </select>
+        </label>
         <label className="flex items-end gap-2 pb-2 text-[11px] text-slate-600">
           <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} data-testid="um-only-issues" /> من لديهم غياب أو نقص فقط
         </label>
       </div>
 
+      {status && <p className="text-xs text-slate-500">يظهر الأشخاص الذين لديهم هذه الحالة في يوم واحد على الأقل، مع جميع أيام الفترة ومجاميعها.</p>}
       {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 62 يوماً — اختر شهراً أو فترة أقصر</p>}
 
       <div className="grid gap-3 sm:grid-cols-4">
@@ -103,7 +130,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
 
       {isLoading && <LoadingSpinner />}
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">تعذر تحميل التقرير</p>}
-      {!isLoading && !error && rows.length === 0 && <EmptyState title="لا أشخاص غير مطابقين في هذه الفترة" hint="كل البصمات الواصلة مرتبطة بموظفين — أو لم تصل بصمات بعد" />}
+      {!isLoading && !error && rows.length === 0 && <EmptyState title="لا أشخاص غير مطابقين في هذه الفترة" hint="جرّب تعديل الفترة أو الفلاتر، أو تأكد من وصول البصمات." />}
 
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -126,7 +153,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
                 <tr key={`${r.device_serial}-${r.pin}`} data-testid={`um-row-${r.device_serial}-${r.pin}`}>
                   <td className="sticky start-0 z-10 bg-white p-2 font-semibold text-slate-800">{r.person_name ?? <span className="text-slate-400">— بلا اسم —</span>}</td>
                   <td className="p-2 text-center font-mono" dir="ltr">{r.pin}</td>
-                  <td className="p-2 text-center text-slate-500">{r.branch_name ?? '—'} · {r.device_name}</td>
+                  <td className="p-2 text-center text-slate-500">{r.branch_name ?? '—'} · {r.device_name}<span className="block font-mono text-[10px]" dir="ltr">{r.device_serial}</span></td>
                   {r.days.map((d) => (
                     <td key={d.d} className={clsx('p-1 text-center text-[10px] font-semibold', CELL[d.status])} data-testid={`um-cell-${r.pin}-${d.d}`}
                         title={`${d.d} · ${UNMATCHED_STATUS_LABELS[d.status]}${d.first ? ` · أول ${d.first}` : ''}${d.last ? ` · آخر ${d.last}` : ''}${d.status === 'present' ? ` · ${fmtHours(d.minutes)} ساعة` : ''}`}>
