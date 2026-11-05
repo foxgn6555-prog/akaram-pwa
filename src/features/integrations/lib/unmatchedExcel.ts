@@ -7,15 +7,15 @@ import type { Workbook, Worksheet } from 'exceljs'
 import type { UnmatchedDay, UnmatchedPersonRow } from '../types'
 import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from '../types'
 
-const FILL = { present: 'FFDCFCE7', missing: 'FFFEF3C7', absent: 'FFFEE2E2' } as const
-const FONT = { present: 'FF166534', missing: 'FF92400E', absent: 'FFB91C1C' } as const
+const FILL = { present: 'FFDCFCE7', missing: 'FFFEF3C7', absent: 'FFFEE2E2', leave: 'FFDBEAFE', review: 'FFFFEDD5', previous_exit: 'FFE0E7FF', pending: 'FFF1F5F9', future: 'FFF1F5F9', unknown: 'FFE2E8F0' } as const
+const FONT = { present: 'FF166534', missing: 'FF92400E', absent: 'FFB91C1C', leave: 'FF1E40AF', review: 'FF9A3412', previous_exit: 'FF3730A3', pending: 'FF475569', future: 'FF475569', unknown: 'FF475569' } as const
 const WEEKDAY_AR = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت']
 
 export const fmtHours = (minutes: number) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
 export function dayCellText(d: UnmatchedDay): string {
   if (d.status === 'present') return `${UNMATCHED_STATUS_SHORT.present} ${fmtHours(d.minutes)}`
   if (d.status === 'missing') return `${UNMATCHED_STATUS_SHORT.missing} ${d.first ?? ''}`.trim()
-  return UNMATCHED_STATUS_SHORT.absent
+  return UNMATCHED_STATUS_SHORT[d.status]
 }
 
 const thin = () => ({ top: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } }, left: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } }, right: { style: 'thin' as const, color: { argb: 'FFCBD5E1' } } })
@@ -78,13 +78,13 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
   days.forEach((_, i) => { ws.getColumn(fixed.length + 1 + i).width = 8 })
   totals.forEach((_, i) => { ws.getColumn(fixed.length + days.length + 1 + i).width = 11 })
   const legend = ws.addRow([]); ws.mergeCells(legend.number, 1, legend.number, colCount)
-  legend.getCell(1).value = `الدليل: ${UNMATCHED_STATUS_SHORT.present} = ${UNMATCHED_STATUS_LABELS.present} (ساعات العمل من أول بصمة إلى آخرها) · ${UNMATCHED_STATUS_SHORT.missing} = ${UNMATCHED_STATUS_LABELS.missing} (بصمة واحدة فقط ووقتها) · ${UNMATCHED_STATUS_SHORT.absent} = ${UNMATCHED_STATUS_LABELS.absent} · كل أيام الفترة أيام عمل · هؤلاء لم يُربطوا بموظفين بعد؛ اربط كل PIN من دفتر البصمة لينتقل حضوره إلى سجل الحضور الرسمي`
+  legend.getCell(1).value = `الدليل: ${UNMATCHED_STATUS_SHORT.present} = ${UNMATCHED_STATUS_LABELS.present} (ساعات العمل من أول بصمة إلى آخرها) · ${UNMATCHED_STATUS_SHORT.missing} = ${UNMATCHED_STATUS_LABELS.missing} (بصمة واحدة فقط ووقتها) · ${UNMATCHED_STATUS_SHORT.absent} = ${UNMATCHED_STATUS_LABELS.absent} · إ = مجاز · مراجعة = بصمات ملتبسة · غير محدد = بعد الربط حين لا يُعرف تاريخ الربط · تعديلات الوحدة لا تغير الحضور الرسمي`
   legend.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } }; legend.getCell(1).alignment = { wrapText: true }; legend.height = 30
 
   // ── الورقة 2: التفاصيل اليومية (صف لكل شخص/يوم) ──
   const det = wb.addWorksheet('التفاصيل اليومية', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }] })
   header(det, 'التفاصيل اليومية — غير المطابقين', filters, 10)
-  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'أول بصمة', 'آخر بصمة', 'ساعات العمل', 'الجهاز · الرقم التسلسلي']
+  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'الدخول المعروض', 'الخروج المعروض', 'ساعات العمل', 'الجهاز · الرقم التسلسلي']
   dh.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center' }; c.border = thin() })
   let k = 0
   for (const r of rows) for (const d of r.days) {

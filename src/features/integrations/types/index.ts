@@ -233,7 +233,7 @@ export interface BiometricUnregisteredDevice { serial_number: string; first_seen
 export interface BiometricAdmsEndpoint { id: string; label: string; host: string; note: string | null; sort_order: number; is_active: boolean }
 
 // ─── 00175: وحدة «الأشخاص غير المطابقين» ───
-export type UnmatchedDayStatus = 'present' | 'missing' | 'absent'
+export type UnmatchedDayStatus = UnmatchedUnitStatus
 export interface UnmatchedDay { d: string; status: UnmatchedDayStatus; n: number; minutes: number; first: string | null; last: string | null }
 export interface UnmatchedPersonRow {
   pin: string
@@ -250,8 +250,8 @@ export interface UnmatchedPersonRow {
   first_seen: string
   last_seen: string
 }
-export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب' }
-export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ' }
+export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: 'للمراجعة', previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط' }
+export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ', leave: 'إ', review: 'مراجعة', previous_exit: 'خروج سابق', pending: 'جارٍ', future: 'مستقبل', unknown: 'غير محدد' }
 
 /** سجلات محفوظة من مرحلة عدم المطابقة، قد يبقى الشخص فيها بعد ربطه. */
 export interface UnmatchedArchivePerson {
@@ -266,3 +266,25 @@ export interface UnmatchedArchivePunch {
 export interface ArchivePeopleFilters { search?: string; deviceSerial?: string; branchId?: string }
 export interface ArchivePersonCursor { device: string; pin: string }
 export interface ArchivePunchCursor { at: string; id: string }
+
+export type UnmatchedUnitStatus = 'present' | 'missing' | 'absent' | 'leave' | 'review' | 'previous_exit' | 'pending' | 'future' | 'unknown'
+export interface UnmatchedUnitDay {
+  date: string; status: UnmatchedUnitStatus; punch_count: number
+  entry: string | null; exit: string | null; raw_first: string | null; raw_last: string | null
+  manual_revision: number; manual: boolean
+}
+export interface UnmatchedUnitPerson {
+  device_serial: string; pin: string; person_name: string | null; device_name: string | null
+  branch_id: string | null; current_pin_linked: boolean; days: UnmatchedUnitDay[]
+}
+export interface UnmatchedUnitFilters {
+  from: string; to: string; branch?: string; device?: string; name?: string; search?: string; pin?: string; status?: UnmatchedUnitStatus; issues?: boolean
+}
+export interface UnmatchedUnitAccess { can_edit: boolean; can_manage: boolean }
+export interface UnmatchedUnitHrPermission { user_id: string; display_name: string; email: string | null; can_edit: boolean }
+export interface UnmatchedUnitHistory { id: number; work_day: string | null; action: string; old_value: Record<string, unknown> | null; new_value: Record<string, unknown>; actor: string; actor_name: string; created_at: string }
+export interface UnmatchedUnitEdits { person: { display_name: string; revision: number } | null; days: Array<{ work_day: string; status: string; entry_time: string | null; exit_time: string | null; exit_next_day: boolean; revision: number }> }
+export interface UnmatchedIndependentCandidate {
+  device_serial: string; pin: string; device_name: string; device_user_name: string | null
+  employee_name: string; source_punch_count: number; already_confirmed: boolean
+}

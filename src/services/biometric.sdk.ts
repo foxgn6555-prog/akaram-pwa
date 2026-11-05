@@ -8,6 +8,7 @@ import { SDKError } from '@lib/errors/SDKError'
 import type {
   BiometricAdmsEndpoint, BiometricCommand, BiometricUnregisteredDevice, UnmatchedPersonRow,
   UnmatchedArchivePerson, UnmatchedArchivePunch, ArchivePeopleFilters, ArchivePersonCursor, ArchivePunchCursor,
+  UnmatchedUnitPerson, UnmatchedUnitFilters, UnmatchedUnitAccess, UnmatchedUnitHrPermission, UnmatchedUnitHistory, UnmatchedUnitEdits, UnmatchedIndependentCandidate,
   BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
   BiometricPunch, BiometricPunchFilters, BiometricTestResult, BiometricDiagnostics,
 } from '@features/integrations/types'
@@ -157,6 +158,44 @@ export const biometric = {
       p_device_serial: device, p_pin: pin, p_from: from || null, p_to: to || null,
       p_limit: limit, p_after_at: cursor?.at ?? null, p_after_id: cursor?.id ?? null,
     } as never))) ?? []) as UnmatchedArchivePunch[]
+  },
+
+  async unmatchedUnitReport(f: UnmatchedUnitFilters, cursor: ArchivePersonCursor | null, limit = 51): Promise<UnmatchedUnitPerson[]> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_daily_report_v2', {
+      p_from: f.from, p_to: f.to, p_branch_id: f.branch || null, p_device: f.device || null,
+      p_search: f.search || null, p_status: f.status || null, p_name: f.name || null, p_pin: f.pin || null, p_issues: !!f.issues,
+      p_limit: limit, p_after_device: cursor?.device ?? null, p_after_pin: cursor?.pin ?? null,
+    } as never))) as UnmatchedUnitPerson[]
+  },
+  async unmatchedUnitDevices(): Promise<Array<{ device_serial: string; device_name: string }>> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_devices' as never))) as Array<{ device_serial: string; device_name: string }>
+  },
+  async unmatchedIndependentCandidate(device: string, pin: string): Promise<UnmatchedIndependentCandidate> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_independent_candidate', { p_device: device, p_pin: pin } as never))) as UnmatchedIndependentCandidate
+  },
+  async unmatchedConfirmIndependent(device: string, pin: string): Promise<void> {
+    await sdkVoid(supabase.rpc('unmatched_unit_confirm_independent', { p_device: device, p_pin: pin } as never))
+  },
+  async unmatchedUnitAccess(): Promise<UnmatchedUnitAccess> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_my_access' as never))) as UnmatchedUnitAccess
+  },
+  async unmatchedUnitPermissions(): Promise<UnmatchedUnitHrPermission[]> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_hr_permissions' as never))) as UnmatchedUnitHrPermission[]
+  },
+  async unmatchedUnitSetPermission(user: string, canEdit: boolean): Promise<void> {
+    await sdkVoid(supabase.rpc('unmatched_unit_set_hr_permission', { p_user: user, p_can_edit: canEdit } as never))
+  },
+  async unmatchedUnitEdits(device: string, pin: string, from: string, to: string): Promise<UnmatchedUnitEdits> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_edits', { p_device: device, p_pin: pin, p_from: from, p_to: to } as never))) as UnmatchedUnitEdits
+  },
+  async unmatchedUnitEditName(device: string, pin: string, name: string, revision: number): Promise<void> {
+    await sdkGuard(supabase.rpc('unmatched_unit_person_edit', { p_device: device, p_pin: pin, p_name: name, p_expected_revision: revision } as never))
+  },
+  async unmatchedUnitEditDay(device: string, pin: string, day: string, status: string, entry: string | null, exit: string | null, nextDay: boolean, revision: number): Promise<void> {
+    await sdkGuard(supabase.rpc('unmatched_unit_day_edit', { p_device: device, p_pin: pin, p_day: day, p_status: status, p_entry: entry, p_exit: exit, p_exit_next_day: nextDay, p_expected_revision: revision } as never))
+  },
+  async unmatchedUnitHistory(device: string, pin: string, before: number | null = null, limit = 51): Promise<UnmatchedUnitHistory[]> {
+    return (await sdkGuard(supabase.rpc('unmatched_unit_history_v2', { p_device: device, p_pin: pin, p_limit: limit, p_before_id: before } as never))) as UnmatchedUnitHistory[]
   },
 
   async rotateBridgeKey(deviceId: string): Promise<string> {

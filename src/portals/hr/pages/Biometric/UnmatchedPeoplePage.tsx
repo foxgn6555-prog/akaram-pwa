@@ -1,19 +1,16 @@
-/**
- * وحدة «الأشخاص غير المطابقين» (00175)
- * ─────────────────────────────────────
- * كل شخص بصم على جهاز ولم يُربط بموظف بعد — لا يظهر في الحضور الرسمي، فنحفظ له هنا سجلاً يومياً كاملاً
- * حتى لا تضيع بيانات أحد أثناء التطوير: لكل يوم أول/آخر بصمة، ساعات العمل (أول → آخر بصمة)،
- * والحالة: حاضر (بصمتان+) / بصمة ناقصة (واحدة) / غائب (لا شيء — كل أيام الفترة أيام عمل).
- * فلاتر: فترة (شهر أو أيام محددة) · فرع · بحث. تصدير Excel: صف لكل شخص وعمود لكل يوم.
- * تُستخدم في HR (مع رابط الربط) وفي IT للقراءة.
- */
-import { useMemo, useState } from 'react'
+/** تقرير غير المطابقين: الشكل الأصلي بثلاثة عروض وأرشيف، وحساب موحد لا يغير الحضور الرسمي. */
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { biometric } from '@sdk/biometric.sdk'
 import { Link } from 'react-router'
 import clsx from 'clsx'
 import { useBranches } from '@features/branches'
-import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT, useUnmatchedReport } from '@features/integrations'
+import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from '@features/integrations'
 import type { UnmatchedDay, UnmatchedPersonRow } from '@features/integrations'
+import type { ArchivePersonCursor, UnmatchedUnitFilters } from '@features/integrations/types'
 import { buildUnmatchedWorkbook, dayCellText, fmtHours } from '@features/integrations/lib/unmatchedExcel'
+import { collectUnitRows } from '@features/integrations/lib/unmatchedUnitExcel'
+import { summaryRows } from '@features/integrations/lib/unmatchedSummary'
 import { downloadWorkbook } from '@features/hr/lib/hrExcel'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
@@ -21,20 +18,21 @@ import { ExportButton } from '../../components/ExportButton'
 import { StatCard } from '../../components/hr-ui'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import UnmatchedArchive from './UnmatchedArchive'
+import UnmatchedUnitWorkspace from './UnmatchedUnitWorkspace'
 
-const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+const isoDay = (d: Date) => new Date(d.getTime() + 3 * 3_600_000).toISOString().slice(0, 10)
 const monthBounds = (ym: string): [string, string] => {
   const [y, m] = ym.split('-').map(Number)
   const last = new Date(Date.UTC(y!, m!, 0)).getUTCDate()
   return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`]
 }
 const CELL: Record<UnmatchedDay['status'], string> = {
-  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700',
+  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700', leave: 'bg-blue-50 text-blue-800', review: 'bg-orange-50 text-orange-800', previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
 }
 const field = 'h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs'
 
 export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/hr/biometric' }: { readOnly?: boolean; ledgerPath?: string }) {
-  const [view, setView] = useState<'report' | 'archive'>('report')
+  const [view, setView] = useState<'report' | 'grid' | 'details' | 'archive'>('report')
   const today = new Date()
   const [month, setMonth] = useState(isoDay(today).slice(0, 7))
   const [from, setFrom] = useState(monthBounds(isoDay(today).slice(0, 7))[0])
@@ -46,18 +44,23 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
   const [pin, setPin] = useState('')
   const [status, setStatus] = useState<'' | UnmatchedDay['status']>('')
   const { data: branches } = useBranches()
-  const { data, isLoading, error } = useUnmatchedReport({ from, to, branchId: branchId || null, search: search.trim() || null }, view === 'report')
-  const devices = useMemo(() => Array.from(new Map((data ?? []).map((r) => [r.device_serial, r.device_name])).entries()), [data])
-  const rows = useMemo(() => (data ?? []).filter((r) =>
-    (!onlyIssues || r.missing_days > 0 || r.absent_days > 0) &&
-    (!deviceSerial || r.device_serial === deviceSerial) &&
-    (!pin.trim() || r.pin.includes(pin.trim())) &&
-    (!status || r.days.some((d) => d.status === status)),
-  ), [data, onlyIssues, deviceSerial, pin, status])
-  const days = rows[0]?.days ?? data?.[0]?.days ?? []
+  const deviceQuery = useQuery({ queryKey: ['unmatched-unit-devices'], queryFn: () => biometric.unmatchedUnitDevices(), enabled: view === 'report' })
+  const [exportError, setExportError] = useState('')
+  const [pages, setPages] = useState<Array<ArchivePersonCursor | null>>([null])
+  useEffect(() => { setPages([null]) }, [from, to, branchId, search, deviceSerial, pin, status, onlyIssues])
+  const filters: UnmatchedUnitFilters = { from, to, branch: branchId || undefined, search: search.trim() || undefined,
+    device: deviceSerial.trim() || undefined, pin: pin.trim() || undefined, status: status || undefined, issues: onlyIssues }
+  const valid = !!from && !!to && from <= to && (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) <= 62 * 86400000
+  const report = useQuery({ queryKey: ['unmatched-unit-report', 'summary', filters, pages[pages.length - 1]],
+    queryFn: () => biometric.unmatchedUnitReport(filters, pages[pages.length - 1] ?? null, 26), enabled: view === 'report' && valid })
+  const data = report.data
+  const isLoading = report.isLoading && valid
+  const error = report.error
+  const rows = useMemo(() => summaryRows((data ?? []).slice(0, 25), branches ?? []), [data, branches])
+  const days = rows[0]?.days ?? []
   const totals = useMemo(() => rows.reduce((a, r) => ({ p: a.p + r.present_days, m: a.m + r.missing_days, ab: a.ab + r.absent_days, min: a.min + r.total_minutes }), { p: 0, m: 0, ab: 0, min: 0 }), [rows])
   const branchLabel = branchId ? (branches?.find((b) => b.id === branchId)?.name ?? '—') : 'كل الفروع'
-  const deviceLabel = deviceSerial ? (devices.find(([serial]) => serial === deviceSerial)?.[1] ?? deviceSerial) : ''
+  const deviceLabel = deviceSerial ? (deviceQuery.data?.find(d => d.device_serial === deviceSerial)?.device_name ?? deviceSerial) : ''
   const rangeTooWide = (new Date(to).getTime() - new Date(from).getTime()) / 86400000 > 62
 
   const pickMonth = (ym: string) => {
@@ -68,19 +71,20 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
 
   return (
     <section aria-label="الأشخاص غير المطابقين" className="space-y-4" data-testid="unmatched-page">
-      <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle={view === 'report' ? 'أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد — نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم.' : 'بيانات محفوظة من مرحلة عدم المطابقة، بما فيها من رُبطوا لاحقاً.'}
-        actions={view === 'report' ? <ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
-          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined, deviceLabel: deviceSerial ? `${deviceLabel} (${deviceSerial})` : undefined, pin: pin.trim() || undefined, status: status || undefined, onlyIssues }), `غير-المطابقين-${from}_${to}.xlsx`)} /> : undefined} />
+      <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle="أرشيف مستقل لحضور غير المطابقين، بما فيهم من رُبطوا لاحقاً."
+        actions={view === 'report' ? <ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0 || !valid || report.isError}
+          onExport={async () => { setExportError(''); try { await downloadWorkbook(await buildUnmatchedWorkbook(summaryRows(await collectUnitRows(filters), branches ?? []), { from, to, branchLabel, search: search.trim() || undefined, deviceLabel: deviceSerial ? `${deviceLabel} (${deviceSerial})` : undefined, pin: pin.trim() || undefined, status: status || undefined, onlyIssues }), `غير-المطابقين-${from}_${to}.xlsx`) } catch (e) { setExportError(e instanceof Error ? e.message : 'تعذر تصدير التقرير.') } }} /> : undefined} />
       <nav className="flex flex-wrap gap-2" aria-label="أقسام غير المطابقين">
         <button type="button" onClick={() => setView('report')} aria-pressed={view === 'report'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'report' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>التقرير الحالي</button>
+        <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'grid' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>الدخول والخروج</button>
+        <button type="button" onClick={() => setView('details')} aria-pressed={view === 'details'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'details' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>التفاصيل اليومية</button>
         <button type="button" onClick={() => setView('archive')} aria-pressed={view === 'archive'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'archive' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>الأرشيف</button>
       </nav>
-      {view === 'archive' ? <UnmatchedArchive branches={branches ?? []} /> : <>
+      {view === 'archive' ? <UnmatchedArchive branches={branches ?? []} /> : view === 'grid' || view === 'details' ? <UnmatchedUnitWorkspace mode={view} branches={branches ?? []} /> : <>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="max-w-3xl text-xs leading-5 text-slate-500">
-            أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد. نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم:
-            «حاضر» = بصمتان فأكثر (ساعات العمل من أول بصمة إلى آخرها)، «بصمة ناقصة» = بصمة واحدة فقط، «غائب» = لا بصمة في ذلك اليوم.
-            {!readOnly && <> اربط كل رقم بموظف من <Link to={ledgerPath} className="font-semibold text-brand-700 hover:underline">دفتر البصمة</Link> لينتقل حضوره تلقائياً إلى سجل الحضور الرسمي.</>}
+            التقرير يعرض حالات المحرك نفسه في الدخول والخروج والتفاصيل، ومنها الإجازة والمراجعة والاقتران الليلي حتى 16 ساعة. اليوم الخالي بعد الربط قد يكون غير محدد إذا لم يُعرف تاريخ الربط. تعديلات الوحدة لا تغيّر الحضور الرسمي.
+            {!readOnly && <> الربط الرسمي للرقم يتم من <Link to={ledgerPath} className="font-semibold text-brand-700 hover:underline">دفتر البصمة</Link> وفق الآلية الحالية، ويشمل الرقم على الأجهزة؛ تحقق من الرقم المكرر قبل الربط.</>}
           </p>
       </div>
 
@@ -105,11 +109,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
           <input className={clsx(field, 'mt-1 w-full')} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="مثال: 901" data-testid="um-search" />
         </label>
         <label className="text-[11px] text-slate-600">الجهاز
-          <select className={clsx(field, 'mt-1 w-full')} value={deviceSerial} onChange={(e) => setDeviceSerial(e.target.value)} data-testid="um-device">
-            <option value="">كل الأجهزة</option>
-            {deviceSerial && !devices.some(([serial]) => serial === deviceSerial) && <option value={deviceSerial}>{deviceSerial}</option>}
-            {devices.map(([serial, name]) => <option key={serial} value={serial}>{name} · {serial}</option>)}
-          </select>
+          <select className={clsx(field, 'mt-1 w-full')} value={deviceSerial} onChange={(e) => setDeviceSerial(e.target.value)} data-testid="um-device"><option value="">كل الأجهزة</option>{deviceSerial && !deviceQuery.data?.some(d => d.device_serial === deviceSerial) && <option value={deviceSerial}>{deviceSerial}</option>}{deviceQuery.data?.map(d => <option key={d.device_serial} value={d.device_serial}>{d.device_name} · {d.device_serial}</option>)}</select>
         </label>
         <label className="text-[11px] text-slate-600">رقم البصمة PIN
           <input className={clsx(field, 'mt-1 w-full')} value={pin} onChange={(e) => setPin(e.target.value)} dir="ltr" data-testid="um-pin" />
@@ -117,7 +117,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
         <label className="text-[11px] text-slate-600">الحالة خلال الفترة
           <select className={clsx(field, 'mt-1 w-full')} value={status} onChange={(e) => setStatus(e.target.value as '' | UnmatchedDay['status'])} data-testid="um-status">
             <option value="">كل الحالات</option>
-            <option value="present">حاضر</option><option value="missing">بصمة ناقصة</option><option value="absent">غائب</option>
+            {(Object.keys(UNMATCHED_STATUS_LABELS) as UnmatchedDay['status'][]).map(s => <option key={s} value={s}>{UNMATCHED_STATUS_LABELS[s]}</option>)}
           </select>
         </label>
         <label className="flex items-end gap-2 pb-2 text-[11px] text-slate-600">
@@ -126,8 +126,12 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
       </div>
 
       {status && <p className="text-xs text-slate-500">يظهر الأشخاص الذين لديهم هذه الحالة في يوم واحد على الأقل، مع جميع أيام الفترة ومجاميعها.</p>}
+      {deviceQuery.isError && <p role="alert" className="text-sm text-red-700">تعذر تحميل قائمة الأجهزة.</p>}
+      {exportError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{exportError}</p>}
+      {!valid && !rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">اختر فترة صحيحة.</p>}
       {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 62 يوماً — اختر شهراً أو فترة أقصر</p>}
 
+      <p className="text-xs text-slate-500">المجاميع أدناه تخص الصفحة المعروضة فقط؛ التصدير يشمل كل النتائج حسب الفلاتر.</p>
       <div className="grid gap-3 sm:grid-cols-4">
         <StatCard title="أشخاص غير مطابقين" value={rows.length} tone="amber" testId="um-stat-people" />
         <StatCard title="أيام حضور" value={totals.p} tone="emerald" testId="um-stat-present" />
@@ -137,7 +141,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
 
       {isLoading && <LoadingSpinner />}
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">تعذر تحميل التقرير</p>}
-      {!isLoading && !error && rows.length === 0 && <EmptyState title="لا أشخاص غير مطابقين في هذه الفترة" hint="جرّب تعديل الفترة أو الفلاتر، أو تأكد من وصول البصمات." />}
+      {valid && !isLoading && !error && rows.length === 0 && <EmptyState title="لا أشخاص غير مطابقين في هذه الفترة" hint="جرّب تعديل الفترة أو الفلاتر، أو تأكد من وصول البصمات." />}
 
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -183,10 +187,11 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
           <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
             الدليل: <span className="rounded bg-emerald-50 px-1 text-emerald-800">ح 8:30</span> حاضر وساعات العمل ·
             <span className="ms-1 rounded bg-amber-50 px-1 text-amber-800">ن 08:05</span> بصمة ناقصة ووقتها ·
-            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · الأعمدة الداكنة = الجمعة
+            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · إ = مجاز · مراجعة = ملتبس · الأعمدة الداكنة = الجمعة
           </p>
         </div>
       )}
+      <div className="flex items-center gap-2"><button type="button" disabled={pages.length === 1 || report.isFetching} className={field} onClick={() => setPages(p => p.slice(0, -1))}>السابق</button><button type="button" disabled={!data || data.length <= 25 || report.isFetching} className={field} onClick={() => { const r = data?.[24]; if (r) setPages(p => [...p, { device: r.device_serial, pin: r.pin }]) }}>التالي</button><span className="text-xs text-slate-500">الصفحة {pages.length}</span></div>
       </>}
     </section>
   )
