@@ -15,9 +15,11 @@ export interface UserMenuProps {
   accountPath?: string
   /** مسار صفحة الإعدادات — يظهر فقط لمن يملك صفحة إعدادات فعلية */
   settingsPath?: string
+  /** يرفع طبقة الهيدر عند فتح القائمة حتى لا تحجبها/تتداخل معها أعمدة التخطيط */
+  onOpenChange?: (open: boolean) => void
 }
 
-export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsPath }: UserMenuProps) {
+export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsPath, onOpenChange }: UserMenuProps) {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
   const { data: access } = usePortalAccess()
@@ -25,12 +27,23 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    onOpenChange?.(open)
+  }, [open, onOpenChange])
+
+  useEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent): void => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
     document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [open])
 
   const portals = access?.portals ?? []
@@ -54,7 +67,15 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
       </button>
 
       {open && (
-        <div className="absolute end-0 top-12 w-64 max-w-[calc(100vw-1.5rem)] max-h-[80vh] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-slate-100 z-50">
+        <>
+        <button
+          type="button"
+          data-testid="user-menu-backdrop"
+          aria-label="إغلاق قائمة المستخدم"
+          className="fixed inset-0 z-40 cursor-default bg-slate-950/20 backdrop-blur-[1px]"
+          onClick={() => setOpen(false)}
+        />
+        <div className="absolute end-0 top-12 z-50 max-h-[min(80vh,40rem)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-100 bg-white shadow-2xl">
           {/* الرأس */}
           <div className="p-4 bg-gradient-to-br from-brand-50 to-brand-100/50 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -119,6 +140,7 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
             </button>
           </div>
         </div>
+        </>
       )}
     </div>
   )

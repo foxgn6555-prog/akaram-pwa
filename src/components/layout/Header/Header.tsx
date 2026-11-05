@@ -55,6 +55,7 @@ export function Header({ portal }: HeaderProps) {
 
   // ── البحث السريع ──
   const [showSearch, setShowSearch] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const headerRef = useRef<HTMLElement>(null)
 
@@ -120,7 +121,7 @@ export function Header({ portal }: HeaderProps) {
     <header
       ref={headerRef}
       data-testid="app-header"
-      className="relative z-20 flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6"
+      className={clsx('relative flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6', userMenuOpen ? 'z-[80]' : 'z-20')}
     >
       {/* ── القائمة (الموبايل: تفتح الدرج) ── */}
       <button
@@ -249,6 +250,7 @@ export function Header({ portal }: HeaderProps) {
         accountPath={accountPath}
         settingsPath={settingsPath}
         onLogout={handleLogout}
+        onOpenChange={setUserMenuOpen}
       />
     </header>
   )

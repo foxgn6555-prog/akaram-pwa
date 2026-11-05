@@ -19,7 +19,7 @@ vi.mock('@features/auth/hooks/usePortalAccess', () => ({
 import { UserMenu } from '@components/layout/Header/UserMenu'
 
 function renderMenu(
-  props?: Partial<{ fullName: string; roleLabel: string; accountPath: string; settingsPath: string }>,
+  props?: Partial<{ fullName: string; roleLabel: string; accountPath: string; settingsPath: string; onOpenChange: (open: boolean) => void }>,
 ) {
   return render(
     <MemoryRouter>
@@ -57,6 +57,18 @@ describe('UserMenu — مبدّل البوابات', () => {
     expect(screen.getByText('الانتقال بين البوابات')).toBeInTheDocument()
     expect(screen.getAllByText('مدير مفوض').length).toBeGreaterThan(0)
     expect(screen.getAllByText('التطوير المركزية').length).toBeGreaterThan(0)
+  })
+
+  it('يعرض خلفية واضحة تمنع التباس القائمة مع محتوى الصفحة، وتغلق بالنقر خارجاً أو Escape', async () => {
+    mockPortalAccess.mockReturnValue(MULTI_ACCESS)
+    const onOpenChange = vi.fn()
+    renderMenu({ onOpenChange })
+    await await_userClick_open()
+    expect(screen.getByTestId('user-menu-backdrop')).toBeInTheDocument()
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await userEvent.click(screen.getByTestId('user-menu-backdrop'))
+    expect(screen.queryByTestId('user-menu-backdrop')).not.toBeInTheDocument()
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
   })
 
   it('الضغط على بوابة يوجّه إليها', async () => {
