@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { biometric } from '@sdk/biometric.sdk'
-import { Link } from 'react-router'
 import clsx from 'clsx'
 import { useBranches } from '@features/branches'
 import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from '@features/integrations'
@@ -19,6 +18,7 @@ import { StatCard } from '../../components/hr-ui'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import UnmatchedArchive from './UnmatchedArchive'
 import UnmatchedUnitWorkspace from './UnmatchedUnitWorkspace'
+import UnmatchedLinkPerson from './UnmatchedLinkPerson'
 
 const isoDay = (d: Date) => new Date(d.getTime() + 3 * 3_600_000).toISOString().slice(0, 10)
 const monthBounds = (ym: string): [string, string] => {
@@ -27,11 +27,11 @@ const monthBounds = (ym: string): [string, string] => {
   return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`]
 }
 const CELL: Record<UnmatchedDay['status'], string> = {
-  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700', leave: 'bg-blue-50 text-blue-800', review: 'bg-orange-50 text-orange-800', previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
+  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700', leave: 'bg-blue-50 text-blue-800', review: 'bg-slate-50 text-slate-700', previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
 }
 const field = 'h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs'
 
-export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/hr/biometric' }: { readOnly?: boolean; ledgerPath?: string }) {
+export default function UnmatchedPeoplePage({ readOnly = false }: { readOnly?: boolean; ledgerPath?: string }) {
   const [view, setView] = useState<'report' | 'grid' | 'details' | 'archive'>('report')
   const today = new Date()
   const [month, setMonth] = useState(isoDay(today).slice(0, 7))
@@ -40,6 +40,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
   const [branchId, setBranchId] = useState('')
   const [search, setSearch] = useState('')
   const [onlyIssues, setOnlyIssues] = useState(false)
+  const [linkPerson, setLinkPerson] = useState<{ pin: string; personName: string | null; device: string } | null>(null)
   const [deviceSerial, setDeviceSerial] = useState('')
   const [pin, setPin] = useState('')
   const [status, setStatus] = useState<'' | UnmatchedDay['status']>('')
@@ -81,12 +82,8 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
         <button type="button" onClick={() => setView('archive')} aria-pressed={view === 'archive'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'archive' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>الأرشيف</button>
       </nav>
       {view === 'archive' ? <UnmatchedArchive branches={branches ?? []} /> : view === 'grid' || view === 'details' ? <UnmatchedUnitWorkspace mode={view} branches={branches ?? []} /> : <>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="max-w-3xl text-xs leading-5 text-slate-500">
-            التقرير يعرض حالات المحرك نفسه في الدخول والخروج والتفاصيل، ومنها الإجازة والمراجعة والاقتران الليلي حتى 16 ساعة. اليوم الخالي بعد الربط قد يكون غير محدد إذا لم يُعرف تاريخ الربط. تعديلات الوحدة لا تغيّر الحضور الرسمي.
-            {!readOnly && <> الربط الرسمي للرقم يتم من <Link to={ledgerPath} className="font-semibold text-brand-700 hover:underline">دفتر البصمة</Link> وفق الآلية الحالية، ويشمل الرقم على الأجهزة؛ تحقق من الرقم المكرر قبل الربط.</>}
-          </p>
-      </div>
+      {linkPerson && !readOnly && <UnmatchedLinkPerson key={JSON.stringify([linkPerson.device, linkPerson.pin])} {...linkPerson} onClose={() => setLinkPerson(null)} />}
+      <p className="text-xs text-slate-500">عند عرض وقتين فقط، هما أول وآخر بصمة ولا يُحتسبان حضوراً أو ساعات.</p>
 
       {/* الفلاتر */}
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-6" data-testid="unmatched-filters">
@@ -117,7 +114,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
         <label className="text-[11px] text-slate-600">الحالة خلال الفترة
           <select className={clsx(field, 'mt-1 w-full')} value={status} onChange={(e) => setStatus(e.target.value as '' | UnmatchedDay['status'])} data-testid="um-status">
             <option value="">كل الحالات</option>
-            {(Object.keys(UNMATCHED_STATUS_LABELS) as UnmatchedDay['status'][]).map(s => <option key={s} value={s}>{UNMATCHED_STATUS_LABELS[s]}</option>)}
+            {(['present', 'missing', 'absent', 'leave'] as UnmatchedDay['status'][]).map(s => <option key={s} value={s}>{UNMATCHED_STATUS_LABELS[s]}</option>)}
           </select>
         </label>
         <label className="flex items-end gap-2 pb-2 text-[11px] text-slate-600">
@@ -129,7 +126,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
       {deviceQuery.isError && <p role="alert" className="text-sm text-red-700">تعذر تحميل قائمة الأجهزة.</p>}
       {exportError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{exportError}</p>}
       {!valid && !rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">اختر فترة صحيحة.</p>}
-      {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 62 يوماً — اختر شهراً أو فترة أقصر</p>}
+      {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 63 يوماً — اختر شهراً أو فترة أقصر</p>}
 
       <p className="text-xs text-slate-500">المجاميع أدناه تخص الصفحة المعروضة فقط؛ التصدير يشمل كل النتائج حسب الفلاتر.</p>
       <div className="grid gap-3 sm:grid-cols-4">
@@ -156,18 +153,17 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
                   return <th key={d.d} className={clsx('p-1 text-center font-bold', dt.getUTCDay() === 5 && 'bg-slate-600')} title={d.d}>{Number(d.d.slice(8, 10))}</th>
                 })}
                 <th className="p-2">حضور</th><th className="p-2">ناقص</th><th className="p-2">غياب</th><th className="p-2">الساعات</th>
-                {!readOnly && <th className="p-2">الإجراء</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r: UnmatchedPersonRow) => (
-                <tr key={`${r.device_serial}-${r.pin}`} data-testid={`um-row-${r.device_serial}-${r.pin}`}>
-                  <td className="sticky start-0 z-10 bg-white p-2 font-semibold text-slate-800">{r.person_name ?? <span className="text-slate-400">— بلا اسم —</span>}</td>
+                <tr key={JSON.stringify([r.device_serial, r.pin])} data-testid={`um-row-${r.device_serial}-${r.pin}`}>
+                  <td className="sticky start-0 z-10 min-w-36 bg-white p-2 font-semibold text-slate-800"><div>{r.person_name ?? <span className="text-slate-400">— بلا اسم —</span>}</div>{!readOnly && <button type="button" className="mt-1 whitespace-nowrap text-[11px] font-bold text-brand-700 underline" onClick={() => setLinkPerson({ pin: r.pin, personName: r.person_name, device: r.device_serial })} data-testid={`um-link-${r.pin}`}>ربط بموظف</button>}</td>
                   <td className="p-2 text-center font-mono" dir="ltr">{r.pin}</td>
                   <td className="p-2 text-center text-slate-500">{r.branch_name ?? '—'} · {r.device_name}<span className="block font-mono text-[10px]" dir="ltr">{r.device_serial}</span></td>
                   {r.days.map((d) => (
-                    <td key={d.d} className={clsx('p-1 text-center text-[10px] font-semibold', CELL[d.status])} data-testid={`um-cell-${r.pin}-${d.d}`}
-                        title={`${d.d} · ${UNMATCHED_STATUS_LABELS[d.status]}${d.first ? ` · أول ${d.first}` : ''}${d.last ? ` · آخر ${d.last}` : ''}${d.status === 'present' ? ` · ${fmtHours(d.minutes)} ساعة` : ''}`}>
+                    <td key={d.d} className={clsx('whitespace-pre-line p-1 text-center text-[10px] font-semibold', CELL[d.status])} data-testid={`um-cell-${r.pin}-${d.d}`}
+                        title={`${d.d} · ${d.status === 'review' ? 'أول وآخر بصمة، دون احتساب حضور أو ساعات' : UNMATCHED_STATUS_LABELS[d.status]}${d.first ? ` · أول ${d.first}` : ''}${d.last ? ` · آخر ${d.last}` : ''}${d.status === 'present' ? ` · ${fmtHours(d.minutes)} ساعة` : ''}`}>
                       {d.status === 'absent' ? UNMATCHED_STATUS_SHORT.absent : dayCellText(d)}
                     </td>
                   ))}
@@ -175,11 +171,6 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
                   <td className="p-2 text-center font-bold text-amber-700">{r.missing_days}</td>
                   <td className="p-2 text-center font-bold text-red-700">{r.absent_days}</td>
                   <td className="p-2 text-center font-mono" dir="ltr">{fmtHours(r.total_minutes)}</td>
-                  {!readOnly && (
-                    <td className="p-2 text-center">
-                      <Link to={`${ledgerPath}?pin=${encodeURIComponent(r.pin)}`} className="font-semibold text-brand-700 hover:underline" data-testid={`um-link-${r.pin}`}>ربط بموظف</Link>
-                    </td>
-                  )}
                 </tr>
               ))}
             </tbody>
@@ -187,7 +178,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
           <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
             الدليل: <span className="rounded bg-emerald-50 px-1 text-emerald-800">ح 8:30</span> حاضر وساعات العمل ·
             <span className="ms-1 rounded bg-amber-50 px-1 text-amber-800">ن 08:05</span> بصمة ناقصة ووقتها ·
-            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · إ = مجاز · مراجعة = ملتبس · الأعمدة الداكنة = الجمعة
+            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · إ = مجاز · الأعمدة الداكنة = الجمعة
           </p>
         </div>
       )}

@@ -250,8 +250,8 @@ export interface UnmatchedPersonRow {
   first_seen: string
   last_seen: string
 }
-export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: 'للمراجعة', previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط' }
-export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ', leave: 'إ', review: 'مراجعة', previous_exit: 'خروج سابق', pending: 'جارٍ', future: 'مستقبل', unknown: 'غير محدد' }
+export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: '—', previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط' }
+export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ', leave: 'إ', review: '—', previous_exit: 'خروج سابق', pending: 'جارٍ', future: 'مستقبل', unknown: 'غير محدد' }
 
 /** سجلات محفوظة من مرحلة عدم المطابقة، قد يبقى الشخص فيها بعد ربطه. */
 export interface UnmatchedArchivePerson {

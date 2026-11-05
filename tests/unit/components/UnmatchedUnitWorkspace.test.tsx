@@ -10,7 +10,7 @@ vi.mock('@sdk/biometric.sdk', () => ({ biometric: {
 vi.mock('@features/hr/lib/hrExcel', () => ({ downloadWorkbook: m.download }))
 
 import UnmatchedUnitWorkspace from '@portals/hr/pages/Biometric/UnmatchedUnitWorkspace'
-import { buildUnitWorkbook, collectUnitRows, unitLocalTime } from '@features/integrations/lib/unmatchedUnitExcel'
+import { buildUnitWorkbook, collectUnitRows, unitCellText, unitLocalTime, unitShownTimes } from '@features/integrations/lib/unmatchedUnitExcel'
 import type { UnmatchedUnitDay, UnmatchedUnitFilters, UnmatchedUnitPerson } from '@features/integrations/types'
 
 const day = (date: string, status: UnmatchedUnitDay['status'], extra: Partial<UnmatchedUnitDay> = {}): UnmatchedUnitDay => ({ date, status, punch_count: 0, entry: null, exit: null, raw_first: null, raw_last: null, manual_revision: 0, manual: false, ...extra })
@@ -51,6 +51,23 @@ describe('واجهة وحدة غير المطابقين الجديدة', () => {
     expect(grid).toHaveTextContent('مجاز')
     expect(grid).toHaveTextContent('D1'); expect(grid).toHaveTextContent('D2')
     expect(grid).toHaveTextContent('سالم')
+  })
+  it('يعرض الأوقات الخام للحالات غير المحسومة بلا عبارة مراجعة أو احتساب حضور', async () => {
+    const ambiguous = { ...rows[0]!, days: [day('2025-05-01', 'review', { punch_count: 3, raw_first: '2025-05-01T08:00:00', raw_last: '2025-05-01T17:00:00' })] }
+    m.report.mockResolvedValue([ambiguous]); setup()
+    const grid = await screen.findByTestId('unit-grid')
+    expect(grid).toHaveTextContent('08:00 صباحاً'); expect(grid).toHaveTextContent('05:00 مساءً'); expect(grid).not.toHaveTextContent('مراجعة')
+    const wb = await buildUnitWorkbook([ambiguous], { from: '2025-05-01', to: '2025-05-01' }, branches, 'details')
+    const line = wb.getWorksheet('تفاصيل يومية')!.getRow(4)
+    const gridExport = await buildUnitWorkbook([ambiguous], { from: '2025-05-01', to: '2025-05-01' }, branches, 'grid')
+    expect(gridExport.getWorksheet('دخول وخروج')!.getRow(4).getCell(6).value).toBe('08:00 صباحاً\n05:00 مساءً')
+    const unknownDirection = day('2025-05-02', 'missing', { punch_count: 1, raw_first: '2025-05-02T09:20:00', raw_last: '2025-05-02T09:20:00' })
+    expect(unitCellText(unknownDirection)).toContain('09:20 صباحاً'); expect(unitShownTimes(unknownDirection).first).toBe(unknownDirection.raw_first)
+    expect(line.getCell(7).value).toBe('—'); expect(line.getCell(8).value).toBe('08:00 صباحاً'); expect(line.getCell(9).value).toBe('05:00 مساءً')
+    fireEvent.click(screen.getByRole('button', { name: 'علي 2025-05-01 —' }))
+    const panel = await screen.findByTestId('unit-person-panel')
+    expect(within(panel).getByTestId('unit-edit-status')).toHaveValue('')
+    expect(within(panel).getByRole('button', { name: 'حفظ اليوم' })).toBeDisabled()
   })
   it('يُظهر الأصل والتدقيق ويسجل إجازة يدوية منفصلة', async () => {
     setup()

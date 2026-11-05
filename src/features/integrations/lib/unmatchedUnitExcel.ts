@@ -3,11 +3,11 @@ import { biometric } from '@sdk/biometric.sdk'
 import type { ArchivePersonCursor, UnmatchedUnitDay, UnmatchedUnitFilters, UnmatchedUnitPerson, UnmatchedUnitStatus } from '../types'
 
 export const UNIT_STATUS: Record<UnmatchedUnitStatus, string> = {
-  present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: 'للمراجعة',
+  present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: '—',
   previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط',
 }
 export const UNIT_COLOR: Record<UnmatchedUnitStatus, string> = {
-  present: 'DCFCE7', missing: 'FEF3C7', absent: 'FEE2E2', leave: 'DBEAFE', review: 'FFEDD5',
+  present: 'DCFCE7', missing: 'FEF3C7', absent: 'FEE2E2', leave: 'DBEAFE', review: 'F1F5F9',
   previous_exit: 'E0E7FF', pending: 'F1F5F9', future: 'F1F5F9', unknown: 'E2E8F0',
 }
 /** الوقت محلي للجهاز كما أعاده الخادم، لا يُحوّل بتوقيت متصفح المستخدم. */
@@ -19,7 +19,17 @@ export function unitLocalTime(value: string | null, date?: string): string {
   const suffix = date && m[1] !== date ? ` (${m[1]})` : ''
   return `${String(h % 12 || 12).padStart(2, '0')}:${m[3]} ${h < 12 ? 'صباحاً' : 'مساءً'}${suffix}`
 }
+/** عند تعدد أو تعارض البصمات نعرض أوقاتها الخام فقط، لا دخولاً وخروجاً مؤكّدين. */
+export function unitShownTimes(day: UnmatchedUnitDay): { first: string | null; last: string | null } {
+  if (day.status === 'review') return { first: day.raw_first, last: day.raw_last === day.raw_first ? null : day.raw_last }
+  if (day.status === 'missing' && !day.entry && !day.exit) return { first: day.raw_first, last: null }
+  return { first: day.entry, last: day.exit }
+}
 export function unitCellText(day: UnmatchedUnitDay): string {
+  if (day.status === 'review') {
+    const { first, last } = unitShownTimes(day)
+    return [first && unitLocalTime(first, day.date), last && unitLocalTime(last, day.date)].filter(Boolean).join('\n') || '—'
+  }
   const label = UNIT_STATUS[day.status]
   if (day.entry || day.exit) return `${label}\nد: ${unitLocalTime(day.entry, day.date)}\nخ: ${unitLocalTime(day.exit, day.date)}`
   if (day.status === 'missing' && day.raw_first) return `${label}\n${unitLocalTime(day.raw_first, day.date)}`
@@ -71,11 +81,11 @@ export async function buildUnitWorkbook(rows: UnmatchedUnitPerson[], f: Unmatche
   const total = rows.reduce((n, r) => n + r.days.filter(d => !f.status || d.status === f.status).length, 0)
   if (total > 30_000) throw new Error('تفاصيل الأيام كثيرة للتصدير؛ اختر فترة أو فلاتر أضيق.')
   const { wb, ws } = await sheet('تفاصيل يومية', subtitle, 11)
-  ws.getRow(3).values = ['ت', 'الاسم', 'PIN', 'الجهاز', 'الفرع', 'اليوم', 'الحالة', 'الدخول', 'الخروج', 'عدد بصمات اليوم الأصلية', 'تعديل يدوي']; heading(ws)
+  ws.getRow(3).values = ['ت', 'الاسم', 'PIN', 'الجهاز', 'الفرع', 'اليوم', 'الحالة', 'الوقت الأول المعروض', 'الوقت الأخير المعروض', 'عدد بصمات اليوم الأصلية', 'تعديل يدوي']; heading(ws)
   let i = 0
   for (const r of rows) for (const d of r.days) {
     if (f.status && d.status !== f.status) continue
-    const line = ws.addRow([++i, r.person_name || '—', r.pin, `${r.device_name || '—'} · ${r.device_serial}`, branch(r), d.date, UNIT_STATUS[d.status], unitLocalTime(d.entry, d.date), unitLocalTime(d.exit, d.date), d.punch_count, d.manual ? 'نعم' : 'لا'])
+    const line = ws.addRow([++i, r.person_name || '—', r.pin, `${r.device_name || '—'} · ${r.device_serial}`, branch(r), d.date, UNIT_STATUS[d.status], unitLocalTime(unitShownTimes(d).first, d.date), unitLocalTime(unitShownTimes(d).last, d.date), d.punch_count, d.manual ? 'نعم' : 'لا'])
     line.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${UNIT_COLOR[d.status]}` } }
   }
   ;[7, 24, 14, 28, 20, 14, 22, 26, 26, 22, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w })
