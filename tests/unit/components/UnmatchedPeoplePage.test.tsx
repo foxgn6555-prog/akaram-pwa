@@ -13,6 +13,7 @@ vi.mock('@features/integrations', async () => {
   }
 })
 vi.mock('@features/hr/lib/hrExcel', () => ({ downloadWorkbook: h.download }))
+vi.mock('@portals/hr/pages/Biometric/UnmatchedArchive', () => ({ default: () => <div data-testid="mock-archive">الأرشيف</div> }))
 
 import UnmatchedPeoplePage from '@portals/hr/pages/Biometric/UnmatchedPeoplePage'
 import { buildUnmatchedWorkbook, dayCellText, fmtHours } from '@features/integrations/lib/unmatchedExcel'
@@ -93,6 +94,15 @@ describe('UnmatchedPeoplePage', () => {
     expect(ws.getRow(7).getCell(3).value).not.toBe('902')
     expect(wb.getWorksheet('التفاصيل اليومية').rowCount).toBe(8)
     expect(wb.getWorksheet('التفاصيل اليومية').getRow(5).getCell(10).value).toBe('بصمة الكرخ · UM-1')
+  })
+
+  it('ينتقل إلى الأرشيف ويعود للتقرير دون تغيير شاشة التقرير', () => {
+    render(<MemoryRouter><UnmatchedPeoplePage /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'الأرشيف' }))
+    expect(screen.getByTestId('mock-archive')).toBeInTheDocument()
+    expect(screen.queryByTestId('unmatched-grid')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'التقرير الحالي' }))
+    expect(screen.getByTestId('unmatched-grid')).toBeInTheDocument()
   })
 
   it('فترة أوسع من 62 يوماً تُظهر تنبيهاً؛ النسخة للقراءة (IT) بلا عمود الإجراء', () => {

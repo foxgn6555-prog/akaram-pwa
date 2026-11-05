@@ -20,6 +20,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import { ExportButton } from '../../components/ExportButton'
 import { StatCard } from '../../components/hr-ui'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import UnmatchedArchive from './UnmatchedArchive'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 const monthBounds = (ym: string): [string, string] => {
@@ -33,6 +34,7 @@ const CELL: Record<UnmatchedDay['status'], string> = {
 const field = 'h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs'
 
 export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/hr/biometric' }: { readOnly?: boolean; ledgerPath?: string }) {
+  const [view, setView] = useState<'report' | 'archive'>('report')
   const today = new Date()
   const [month, setMonth] = useState(isoDay(today).slice(0, 7))
   const [from, setFrom] = useState(monthBounds(isoDay(today).slice(0, 7))[0])
@@ -44,7 +46,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
   const [pin, setPin] = useState('')
   const [status, setStatus] = useState<'' | UnmatchedDay['status']>('')
   const { data: branches } = useBranches()
-  const { data, isLoading, error } = useUnmatchedReport({ from, to, branchId: branchId || null, search: search.trim() || null })
+  const { data, isLoading, error } = useUnmatchedReport({ from, to, branchId: branchId || null, search: search.trim() || null }, view === 'report')
   const devices = useMemo(() => Array.from(new Map((data ?? []).map((r) => [r.device_serial, r.device_name])).entries()), [data])
   const rows = useMemo(() => (data ?? []).filter((r) =>
     (!onlyIssues || r.missing_days > 0 || r.absent_days > 0) &&
@@ -66,9 +68,14 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
 
   return (
     <section aria-label="الأشخاص غير المطابقين" className="space-y-4" data-testid="unmatched-page">
-      <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle="أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد — نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم."
-        actions={<ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
-          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined, deviceLabel: deviceSerial ? `${deviceLabel} (${deviceSerial})` : undefined, pin: pin.trim() || undefined, status: status || undefined, onlyIssues }), `غير-المطابقين-${from}_${to}.xlsx`)} />} />
+      <ExecPageHeader icon="alert-triangle" title="الأشخاص غير المطابقين" subtitle={view === 'report' ? 'أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد — نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم.' : 'بيانات محفوظة من مرحلة عدم المطابقة، بما فيها من رُبطوا لاحقاً.'}
+        actions={view === 'report' ? <ExportButton label="تصدير Excel (صف لكل شخص)" testId="unmatched-export" disabled={rows.length === 0}
+          onExport={async () => downloadWorkbook(await buildUnmatchedWorkbook(rows, { from, to, branchLabel, search: search.trim() || undefined, deviceLabel: deviceSerial ? `${deviceLabel} (${deviceSerial})` : undefined, pin: pin.trim() || undefined, status: status || undefined, onlyIssues }), `غير-المطابقين-${from}_${to}.xlsx`)} /> : undefined} />
+      <nav className="flex flex-wrap gap-2" aria-label="أقسام غير المطابقين">
+        <button type="button" onClick={() => setView('report')} aria-pressed={view === 'report'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'report' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>التقرير الحالي</button>
+        <button type="button" onClick={() => setView('archive')} aria-pressed={view === 'archive'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'archive' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>الأرشيف</button>
+      </nav>
+      {view === 'archive' ? <UnmatchedArchive branches={branches ?? []} /> : <>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="max-w-3xl text-xs leading-5 text-slate-500">
             أشخاص بصموا على الأجهزة ولم يُربطوا بموظف في المنصة بعد. نحفظ حضورهم يوماً بيوم هنا حتى لا تضيع بياناتهم:
@@ -180,6 +187,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
           </p>
         </div>
       )}
+      </>}
     </section>
   )
 }

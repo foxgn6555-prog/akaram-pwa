@@ -7,6 +7,7 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type {
   BiometricAdmsEndpoint, BiometricCommand, BiometricUnregisteredDevice, UnmatchedPersonRow,
+  UnmatchedArchivePerson, UnmatchedArchivePunch, ArchivePeopleFilters, ArchivePersonCursor, ArchivePunchCursor,
   BiometricDeviceConfig, BiometricDeviceUser, BiometricMode, BiometricPullLog, BiometricPullResult,
   BiometricPunch, BiometricPunchFilters, BiometricTestResult, BiometricDiagnostics,
 } from '@features/integrations/types'
@@ -142,6 +143,20 @@ export const biometric = {
   /** 00175 · تقرير الأشخاص غير المطابقين (يوم بيوم) لفترة ≤ 62 يوماً */
   async unmatchedReport(f: { from: string; to: string; branchId?: string | null; search?: string | null }): Promise<UnmatchedPersonRow[]> {
     return ((await sdkGuard(supabase.rpc('biometric_unmatched_report', { p_from: f.from, p_to: f.to, p_branch_id: f.branchId ?? null, p_search: f.search ?? null } as never))) ?? []) as UnmatchedPersonRow[]
+  },
+
+  /** أرشيف مستقل: التصفح والبحث على الخادم قبل التجزئة. */
+  async unmatchedArchivePeople(filters: ArchivePeopleFilters, cursor: ArchivePersonCursor | null, limit = 51): Promise<UnmatchedArchivePerson[]> {
+    return ((await sdkGuard(supabase.rpc('biometric_unmatched_archive_search', {
+      p_search: filters.search || null, p_device_serial: filters.deviceSerial || null, p_branch_id: filters.branchId || null,
+      p_limit: limit, p_after_device: cursor?.device ?? null, p_after_pin: cursor?.pin ?? null,
+    } as never))) ?? []) as UnmatchedArchivePerson[]
+  },
+  async unmatchedArchivePunches(device: string, pin: string, from: string, to: string, cursor: ArchivePunchCursor | null, limit = 51): Promise<UnmatchedArchivePunch[]> {
+    return ((await sdkGuard(supabase.rpc('biometric_unmatched_archive_punches_range', {
+      p_device_serial: device, p_pin: pin, p_from: from || null, p_to: to || null,
+      p_limit: limit, p_after_at: cursor?.at ?? null, p_after_id: cursor?.id ?? null,
+    } as never))) ?? []) as UnmatchedArchivePunch[]
   },
 
   async rotateBridgeKey(deviceId: string): Promise<string> {

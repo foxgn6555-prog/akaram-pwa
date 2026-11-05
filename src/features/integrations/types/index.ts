@@ -252,3 +252,17 @@ export interface UnmatchedPersonRow {
 }
 export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب' }
 export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ' }
+
+/** سجلات محفوظة من مرحلة عدم المطابقة، قد يبقى الشخص فيها بعد ربطه. */
+export interface UnmatchedArchivePerson {
+  device_serial: string; pin: string; device_person_name: string | null; device_name: string | null
+  branch_id: string | null; punch_count: number; first_punch: string | null; last_punch: string | null
+}
+export interface UnmatchedArchivePunch {
+  source_punch_id: string; punched_at: string
+  original_punch: { direction?: string; method?: string; person_name?: string | null }
+  original_device: { timezone_offset?: string | null } | null
+}
+export interface ArchivePeopleFilters { search?: string; deviceSerial?: string; branchId?: string }
+export interface ArchivePersonCursor { device: string; pin: string }
+export interface ArchivePunchCursor { at: string; id: string }
