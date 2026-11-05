@@ -1,3 +1,4 @@
+import '@portals/shared/workspace-refresh.css'
 /**
  * 00248 — وحدة «مراجعة الاستقطاعات» في بوابة معاون المدير المفوض.
  *   المرحلة الإلزامية بين تصدير غرفة العمليات والمالية: كل موظف مع استقطاعاته مفكّكة (نقص ساعات · غياب · يدوي غرفة العمليات · غرامات الكشوفات)،
@@ -57,8 +58,8 @@ export default function DeputyDeductionsPage() {
   }
 
   return (
-    <div className="space-y-4" data-testid="deputy-deductions">
-      <ExecPageHeader icon="wallet" title="مراجعة الاستقطاعات" subtitle="المرحلة الإلزامية قبل المالية: راجع استقطاعات كل موظف (نقص ساعات · غياب · غرفة العمليات · غرامات الكشوفات)، أعفِ بسبب أو عدّل المبلغ أو خفّض نسبة للجميع، ثم اعتمد ليصل الكشف إلى المالية"
+    <div className="workspace-refresh space-y-5" data-testid="deputy-deductions">
+      <ExecPageHeader icon="wallet" title="مراجعة الاستقطاعات" subtitle="راجع استقطاعات الموظفين، ثم اعتمد الكشف لإرساله إلى المالية."
         stats={[
           { label: 'أشهر بانتظار المراجعة', value: pendingMonths, tone: pendingMonths ? 'red' : 'green', testId: 'dd-pending-months' },
           { label: 'موظفون باستقطاع', value: totals.withDeductions, tone: 'gold', testId: 'dd-with-deductions' },
@@ -68,7 +69,7 @@ export default function DeputyDeductionsPage() {
 
       {months.isLoading ? <LoadingSpinner /> : list.length === 0 ? <EmptyState title="لا كشوف مصدَّرة بعد" hint="تظهر الأشهر هنا فور تصدير غرفة العمليات حضورية الشهر" /> : (
         <>
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="workspace-card flex flex-wrap items-center gap-3 p-4 sm:p-5">
             <label className="text-xs font-bold text-slate-600">الشهر
               <select className={clsx(field, 'ms-2 inline-block w-auto')} value={month} onChange={(e) => { setMonth(e.target.value); setOpen(null) }} data-testid="dd-month">
                 {list.map((m) => <option key={m.export_id} value={m.period_month}>{monthLabel(m.period_month)} · {m.review_status === 'pending' ? 'بانتظار المراجعة' : m.export_status === 'approved' ? 'معتمد من المالية' : 'معتمد — عند المالية'}</option>)}
@@ -87,26 +88,34 @@ export default function DeputyDeductionsPage() {
           </div>
 
           {cur && (
-            <section className="grid grid-cols-2 gap-2 lg:grid-cols-4" data-testid="dd-stats">
-              <StatCard title="نقص ساعات / تأخير" value={fmtMoney(totals.shortfall)} tone="amber" hint={`${pctOf(totals.shortfall, totals.before)}% من الإجمالي`} testId="dd-k-shortfall" />
-              <StatCard title="غياب" value={fmtMoney(totals.absence)} tone="red" hint={`${pctOf(totals.absence, totals.before)}% من الإجمالي`} testId="dd-k-absence" />
-              <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="slate" hint={`${pctOf(totals.ops, totals.before)}% من الإجمالي`} testId="dd-k-ops" />
-              <StatCard title="غرامات الكشوفات" value={fmtMoney(totals.fines)} tone="violet" hint={`${pctOf(totals.fines, totals.before)}% من الإجمالي`} testId="dd-k-fines" />
+            <section className="space-y-3" data-testid="dd-stats">
+              <div className="workspace-compact-stats grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard title="قبل المراجعة" value={fmtMoney(totals.before)} tone="slate" testId="dd-t-before" />
               <StatCard title="التخفيف" value={fmtMoney(totals.relief)} tone="emerald" hint={`${pctOf(totals.relief, totals.before)}% · ${totals.relieved} موظفاً`} testId="dd-t-relief" />
               <StatCard title="بعد المراجعة" value={fmtMoney(totals.after)} tone="sky" testId="dd-t-after" />
               <StatCard title="صافي الرواتب بعد المراجعة" value={fmtMoney(totals.net)} tone="emerald" testId="dd-t-net" />
+              </div>
+              <details className="workspace-card p-4" data-testid="dd-category-details">
+                <summary className="cursor-pointer text-xs font-bold text-sky-800">تفاصيل أنواع الاستقطاعات</summary>
+                <div className="workspace-compact-stats mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard title="نقص ساعات / تأخير" value={fmtMoney(totals.shortfall)} tone="amber" hint={`${pctOf(totals.shortfall, totals.before)}% من الإجمالي`} testId="dd-k-shortfall" />
+              <StatCard title="غياب" value={fmtMoney(totals.absence)} tone="red" hint={`${pctOf(totals.absence, totals.before)}% من الإجمالي`} testId="dd-k-absence" />
+              <StatCard title="استقطاعات غرفة العمليات" value={fmtMoney(totals.ops)} tone="slate" hint={`${pctOf(totals.ops, totals.before)}% من الإجمالي`} testId="dd-k-ops" />
+              <StatCard title="غرامات الكشوفات" value={fmtMoney(totals.fines)} tone="violet" hint={`${pctOf(totals.fines, totals.before)}% من الإجمالي`} testId="dd-k-fines" />
+                </div>
+              </details>
             </section>
           )}
 
           {cur && (
-            <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="dd-percent-box">
-              <div className="text-xs font-bold text-slate-700">تخفيض عام على ما تبقى من استقطاعات الجميع</div>
+            <details className="workspace-card p-4" data-testid="dd-percent-box">
+              <summary className="cursor-pointer text-sm font-bold text-slate-800">تخفيض عام على استقطاعات الجميع{cur.review_pct > 0 && <span className="ms-2 text-xs text-emerald-700" data-testid="dd-pct-current">النسبة الحالية {cur.review_pct}%</span>}</summary>
+              <div className="mt-4 flex flex-wrap items-end gap-3">
               <label className="text-[11px] text-slate-600">النسبة %<input type="number" min={0} max={100} step={0.5} className={clsx(field, 'block w-24')} value={pct} onChange={(e) => setPct(e.target.value)} disabled={!editable} data-testid="dd-pct" /></label>
               <label className="min-w-[14rem] flex-1 text-[11px] text-slate-600">السبب<input className={clsx(field, 'block')} value={pctReason} onChange={(e) => setPctReason(e.target.value)} placeholder="إلزامي عند نسبة أكبر من صفر" disabled={!editable} data-testid="dd-pct-reason" /></label>
               <Button size="sm" variant="secondary" onClick={() => void doPercent()} disabled={!editable} isLoading={percent.isPending} data-testid="dd-pct-apply">تطبيق على الجميع</Button>
-              {cur.review_pct > 0 && <span className="text-[11px] text-emerald-700" data-testid="dd-pct-current">النسبة الحالية {cur.review_pct}%</span>}
-            </div>
+              </div>
+            </details>
           )}
 
           {showAudit && cur && (
@@ -130,18 +139,19 @@ export default function DeputyDeductionsPage() {
             </section>
           )}
 
-          <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
+          <section className="workspace-card space-y-4 p-4 sm:p-5">
+            <header className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-base font-black text-slate-800">استقطاعات الموظفين</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">اختر موظفاً لعرض التفاصيل ومراجعة الاستقطاع.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{shown.length} موظفاً</span></header>
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
               <div className="flex flex-wrap gap-1.5 text-[11px]" data-testid="dd-filters">
                 {([['deductions', `باستقطاع (${totals.withDeductions})`], ['relieved', `بتخفيف (${totals.relieved})`], ['all', `الكل (${totals.count})`]] as const).map(([k, l]) => (
-                  <button key={k} type="button" onClick={() => setFilter(k)} className={clsx('rounded-full px-2.5 py-1 font-bold ring-1', filter === k ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200')} data-testid={`dd-f-${k}`}>{l}</button>
+                  <button key={k} type="button" onClick={() => setFilter(k)} className={clsx('rounded-full px-2.5 py-1 font-bold ring-1', filter === k ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200')} data-testid={`dd-f-${k}`} aria-pressed={filter === k}>{l}</button>
                 ))}
               </div>
-              <input className={clsx(field, 'ms-auto max-w-xs')} placeholder="بحث: اسم / رقم / قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="dd-search" />
+              <input aria-label="البحث عن موظف في الاستقطاعات" className={clsx(field, 'ms-auto max-w-xs')} placeholder="بحث: اسم / رقم / قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="dd-search" />
             </div>
             {review.isLoading ? <LoadingSpinner /> : shown.length === 0 ? <EmptyState title="لا صفوف" hint={rows.length === 0 ? 'لا موظفين في هذا التصدير' : 'غيّر الفلتر أو البحث'} /> : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1080px] text-xs" data-testid="dd-table">
+              <div className="workspace-table-region rounded-xl border border-slate-200" role="region" aria-label="جدول مراجعة الاستقطاعات" tabIndex={0}>
+                <table className="workspace-records min-w-[1080px] text-xs" data-testid="dd-table">
                   <thead>
                     <tr className="bg-slate-50 text-[11px] text-slate-500">
                       <th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم</th>
@@ -200,27 +210,27 @@ function RowBlock({ r, open, onToggle, editable, onAdjust, onEmployeeWaive, busy
   }
   return (
     <>
-      <tr className={clsx('border-t border-slate-100', r.employee_waived ? 'bg-emerald-100/60' : r.relief_total > 0 && 'bg-emerald-50/40')} data-testid={`dd-row-${n}`} data-waived={r.employee_waived ? 'true' : undefined}>
-        <td className="p-2"><div className="font-bold">{r.full_name}{r.employee_waived && <span className="ms-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white" data-testid={`dd-waived-badge-${n}`}>معفى كلياً</span>}</div><div className="text-[10px] text-slate-500" dir="ltr">{n}{r.hour_bank_enabled ? ' · بنك الساعات' : ''}</div></td>
-        <td className="p-2 text-slate-600">{r.department_name ?? '—'}</td>
-        <td className="p-2 text-center tabular-nums" data-testid={`dd-short-${n}`}>{r.shortfall_amount > 0 ? <>{fmtMoney(r.shortfall_amount)}<div className="text-[10px] text-slate-500">{fmtMinutes(r.shortfall_minutes)}</div></> : '—'}</td>
-        <td className="p-2 text-center tabular-nums" data-testid={`dd-abs-${n}`}>{r.absence_amount > 0 ? <>{fmtMoney(r.absence_amount)}<div className="text-[10px] text-slate-500">{r.absence_days} يوم</div></> : '—'}</td>
-        <td className="p-2 text-center tabular-nums" data-testid={`dd-ops-${n}`} title={r.ops_reasons ?? undefined}>{r.ops_amount > 0 ? fmtMoney(r.ops_amount) : '—'}</td>
-        <td className="p-2 text-center tabular-nums" data-testid={`dd-fines-${n}`}>{r.fines_amount > 0 ? <>{fmtMoney(r.fines_amount)}<div className="text-[10px] text-slate-500">{r.fines_count} كشف</div></> : '—'}</td>
-        <td className="p-2 text-center font-bold tabular-nums" data-testid={`dd-total-${n}`}>{fmtMoney(r.reviewable_total)}</td>
-        <td className={clsx('p-2 text-center font-bold tabular-nums', r.relief_total > 0 ? 'text-emerald-700' : 'text-slate-400')} data-testid={`dd-relief-${n}`}>{r.relief_total > 0 ? `−${fmtMoney(r.relief_total)}` : '0'}</td>
-        <td className="p-2 text-center font-bold tabular-nums" data-testid={`dd-after-${n}`}>{fmtMoney(Math.max(0, r.reviewable_total - r.relief_total))}</td>
-        <td className="p-2 text-center font-black tabular-nums" data-testid={`dd-net-${n}`}>{r.final_net == null ? <span className="text-red-600">بلا راتب</span> : fmtMoney(r.final_net)}</td>
-        <td className="p-2 text-center">
+      <tr className={clsx('workspace-record border-t border-slate-100', r.employee_waived ? 'bg-emerald-100/60' : r.relief_total > 0 && 'bg-emerald-50/40')} data-testid={`dd-row-${n}`} data-waived={r.employee_waived ? 'true' : undefined}>
+        <td data-label="الموظف" className="workspace-primary p-2"><div className="font-bold">{r.full_name}{r.employee_waived && <span className="ms-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white" data-testid={`dd-waived-badge-${n}`}>معفى كلياً</span>}</div><div className="text-[10px] text-slate-500" dir="ltr">{n}{r.hour_bank_enabled ? ' · بنك الساعات' : ''}</div></td>
+        <td data-label="القسم" className="p-2 text-slate-600">{r.department_name ?? '—'}</td>
+        <td data-label="نقص ساعات" className="p-2 text-center tabular-nums" data-testid={`dd-short-${n}`}>{r.shortfall_amount > 0 ? <>{fmtMoney(r.shortfall_amount)}<div className="text-[10px] text-slate-500">{fmtMinutes(r.shortfall_minutes)}</div></> : '—'}</td>
+        <td data-label="غياب" className="p-2 text-center tabular-nums" data-testid={`dd-abs-${n}`}>{r.absence_amount > 0 ? <>{fmtMoney(r.absence_amount)}<div className="text-[10px] text-slate-500">{r.absence_days} يوم</div></> : '—'}</td>
+        <td data-label="غرفة العمليات" className="p-2 text-center tabular-nums" data-testid={`dd-ops-${n}`} title={r.ops_reasons ?? undefined}>{r.ops_amount > 0 ? fmtMoney(r.ops_amount) : '—'}</td>
+        <td data-label="غرامات" className="p-2 text-center tabular-nums" data-testid={`dd-fines-${n}`}>{r.fines_amount > 0 ? <>{fmtMoney(r.fines_amount)}<div className="text-[10px] text-slate-500">{r.fines_count} كشف</div></> : '—'}</td>
+        <td data-label="الإجمالي" className="p-2 text-center font-bold tabular-nums" data-testid={`dd-total-${n}`}>{fmtMoney(r.reviewable_total)}</td>
+        <td data-label="التخفيف" className={clsx('p-2 text-center font-bold tabular-nums', r.relief_total > 0 ? 'text-emerald-700' : 'text-slate-400')} data-testid={`dd-relief-${n}`}>{r.relief_total > 0 ? `−${fmtMoney(r.relief_total)}` : '0'}</td>
+        <td data-label="بعد المراجعة" className="p-2 text-center font-bold tabular-nums" data-testid={`dd-after-${n}`}>{fmtMoney(Math.max(0, r.reviewable_total - r.relief_total))}</td>
+        <td data-label="الصافي النهائي" className="p-2 text-center font-black tabular-nums" data-testid={`dd-net-${n}`}>{r.final_net == null ? <span className="text-red-600">بلا راتب</span> : fmtMoney(r.final_net)}</td>
+        <td data-label="الإجراءات" className="workspace-actions p-2 text-center">
           <div className="flex items-center justify-center gap-1">
             {editable && r.reviewable_total > 0 && !r.employee_waived && <button type="button" className="rounded-lg bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50" onClick={() => void waiveEmployee()} disabled={busy} title="إعفاء هذا الموظف وحده من كل استقطاعات الشهر" data-testid={`dd-waive-emp-${n}`}>إعفاء الموظف</button>}
             {editable && r.employee_waived && <button type="button" className="rounded-lg bg-red-50 px-2 py-1 font-bold text-red-700 ring-1 ring-red-200 disabled:opacity-50" onClick={() => void restoreEmployee()} disabled={busy} data-testid={`dd-restore-emp-${n}`}>إلغاء الإعفاء</button>}
-            <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-700" onClick={onToggle} data-testid={`dd-open-${n}`}>{open ? 'إغلاق' : 'تفاصيل'}</button>
+            <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-700" onClick={onToggle} aria-expanded={open} data-testid={`dd-open-${n}`}>{open ? 'إغلاق' : 'تفاصيل'}</button>
           </div>
         </td>
       </tr>
       {open && (
-        <tr className="border-t border-slate-100 bg-slate-50/60" data-testid={`dd-detail-${n}`}>
+        <tr className="workspace-detail border-t border-slate-100 bg-slate-50/60" data-testid={`dd-detail-${n}`}>
           <td colSpan={11} className="p-3">
             <div className="grid gap-2 sm:grid-cols-4">
               {KINDS.map((k) => (

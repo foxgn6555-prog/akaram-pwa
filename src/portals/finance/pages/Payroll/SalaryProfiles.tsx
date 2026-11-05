@@ -40,13 +40,14 @@ export function ProfilesTab() {
   const selected = employees.find((e) => e.id === sel) ?? null
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]" data-testid="profiles-tab">
-      <aside className="flex max-h-[calc(100vh-14rem)] min-h-[24rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="space-y-2 border-b border-slate-100 p-3">
+      <aside className="workspace-card flex max-h-[22rem] min-h-[16rem] flex-col overflow-hidden lg:max-h-[calc(100vh-14rem)] lg:min-h-[24rem]">
+        <div className="space-y-3 border-b border-slate-100 p-4">
+          <div><h2 className="text-sm font-black text-slate-800">ملفات الموظفين</h2><p className="mt-1 text-xs text-slate-500">اختر موظفاً لعرض ملفه المالي أو تحديثه.</p></div>
           <div className="grid grid-cols-2 gap-2 text-center text-xs">
             <div className="rounded-xl bg-emerald-50 px-2 py-1.5 text-emerald-900 ring-1 ring-emerald-100"><b className="block text-lg tabular-nums" data-testid="pr-count-defined">{counts.defined}</b>مُعرَّف</div>
             <div className={clsx('rounded-xl px-2 py-1.5 ring-1', counts.pending ? 'bg-amber-50 text-amber-900 ring-amber-200' : 'bg-slate-50 text-slate-500 ring-slate-100')}><b className="block text-lg tabular-nums" data-testid="pr-count-pending">{counts.pending}</b>بانتظار التعريف</div>
           </div>
-          <input className={clsx(field, 'w-full')} placeholder="بحث بالاسم أو الرقم الوظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="pr-search" />
+          <input aria-label="البحث في ملفات الرواتب" className={clsx(field, 'w-full')} placeholder="بحث بالاسم أو الرقم الوظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="pr-search" />
           <div className="flex flex-wrap gap-1 text-[11px] font-bold">
             {([['all', 'الكل'], ['pending', 'بانتظار التعريف'], ['monthly', 'شهري'], ['daily', 'أجر يومي']] as const).map(([k, l]) => (
               <button key={k} type="button" onClick={() => setFilter(k)} className={clsx('rounded-full border px-2.5 py-1', filter === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 bg-white text-slate-600')} data-testid={`pr-filter-${k}`} aria-pressed={filter === k}>{l}</button>
@@ -62,7 +63,7 @@ export function ProfilesTab() {
         )}
       </aside>
       {selected ? <SalaryForm key={selected.id} employee={selected} /> : (
-        <div className="grid place-items-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 p-10 text-center" data-testid="pr-empty">
+        <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-sky-200 bg-gradient-to-b from-white to-sky-50/50 p-8 text-center" data-testid="pr-empty">
           <div>
             <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-brand-50 text-xl font-black text-brand-700">د.ع</div>
             <p className="text-sm font-black text-slate-800">اختر موظفاً لعرض ملف راتبه أو تعريفه</p>

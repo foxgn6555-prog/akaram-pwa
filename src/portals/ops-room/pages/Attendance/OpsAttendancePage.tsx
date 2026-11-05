@@ -1,3 +1,4 @@
+import '@portals/shared/workspace-refresh.css'
 /**
  * غرفة العمليات — وحدة «الحضوريات» بمرحلتين (00193)
  *   المرحلة 1 «التدقيق التفصيلي»: سجلات اليوم/الشهر + شبكة الشهر بالأوقات (موظف × أيام) · تعديل أي صف بسبب إلزامي + سجل تدقيق
@@ -136,8 +137,8 @@ export default function OpsAttendancePage() {
   }
 
   return (
-    <div className="space-y-4" data-testid="ops-attendance">
-      <ExecPageHeader icon="activity" title="الحضوريات" subtitle="تدقيق تفصيلي بالأوقات ← اعتماد الشهر ← كشف معتمد (حاضر / غائب / مجاز) ← تصدير إلى معاون المدير المفوض ← المالية · كل تعديل بسبب موثّق باسم المدقق" actions={
+    <div className="workspace-refresh space-y-5" data-testid="ops-attendance">
+      <ExecPageHeader icon="activity" title="الحضوريات" subtitle="راجع سجلات الحضور، ثم اعتمد الشهر وأرسل الكشف للمراجعة." actions={
         <div className="flex flex-wrap items-center gap-2">
           <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
@@ -188,46 +189,8 @@ export default function OpsAttendancePage() {
               )}
             </SectionCard>
           )}
-          <SectionCard title={mode === 'day' ? `ملخص يوم ${day}` : `ملخص شهر ${month.slice(0, 7)}`} badge={<span className="text-[11px] text-slate-500" data-testid="ops-rows-count">{rows.length} سجلاً{status ? ` · مُرشَّح: ${ATTENDANCE_STATUS_LABELS[status]}` : ''}</span>}>
-            <div className="flex flex-wrap gap-1.5" data-testid="ops-status-chips">
-              {ATTENDANCE_STATUS_ORDER.map((s) => {
-                const tone = s === 'absent' ? 'bg-rose-50 text-rose-800 ring-rose-200' : s === 'late' || s === 'early_leave' ? 'bg-amber-50 text-amber-800 ring-amber-200' : s === 'present' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : s === 'incomplete' ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-sky-50 text-sky-800 ring-sky-200'
-                return (
-                  <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition', tone, status === s ? 'ring-2 ring-brand-500' : counts[s] === 0 && 'opacity-50')} data-testid={`ops-stat-${s}`} aria-pressed={status === s}>
-                    <span>{ATTENDANCE_STATUS_LABELS[s]}</span><span className="rounded-full bg-white/80 px-1.5 tabular-nums">{counts[s]}</span>
-                  </button>
-                )
-              })}
-            </div>
-            {hourBankActive ? (
-              <p className="border-t border-slate-100 pt-2 text-[11px] text-slate-600" data-testid="ops-proposed-replaced">الاستقطاع المقترح اليومي على النقص متوقف — يُصفّى شهرياً في «ميزان بنك الساعات» أدناه (يبقى الغياب بلا إجازة يوماً كاملاً).</p>
-            ) : (
-            <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 sm:grid-cols-4" data-testid="ops-proposed-summary">
-              <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
-              <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
-              <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
-              <StatCard title="استقطاعات معفاة" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="الإعفاء من صلاحية معاون المدير المفوض" />
-            </div>)}
-          </SectionCard>
-
-          {mode === 'month' && <HourBankPanel rows={hourBank} month={month} search={search} />}
-
-          {!frozen && (
-            <SectionCard title="جاهزية الاعتماد" testId="att-readiness" badge={<span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', readiness.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')} data-testid="att-readiness-state">{readiness.ok ? '✓ جاهز للاعتماد' : `${readiness.open} نقاط تحتاج مراجعة`}</span>}>
-              <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                {readiness.items.map((it) => (
-                  <li key={it.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] ring-1', it.ok ? 'bg-emerald-50/60 text-emerald-900 ring-emerald-100' : 'bg-amber-50/60 text-amber-900 ring-amber-200')} data-testid={`att-ready-${it.key}`} data-ok={it.ok}>
-                    <span className={clsx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-black', it.ok ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white')}>{it.ok ? '✓' : '!'}</span>
-                    <span className="min-w-0 flex-1"><span className="block font-bold">{it.label}</span><span className="block text-[10px] opacity-80">{it.hint}</span></span>
-                    {!it.ok && it.go && <button type="button" className="shrink-0 rounded-lg bg-white px-2 py-1 font-bold text-amber-900 ring-1 ring-amber-300" onClick={it.go}>{it.goLabel}</button>}
-                  </li>
-                ))}
-              </ul>
-            </SectionCard>
-          )}
-
           {/* 00205 — شريط واحد: أقسام التدقيق + الفلاتر + أدوات (بدل شريطين) */}
-          <div className="relative z-20 space-y-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-md shadow-slate-200/50 lg:sticky lg:top-0 lg:bg-white/95 lg:backdrop-blur" data-testid="ops-toolbar">
+          <div className="relative z-20 space-y-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-md shadow-slate-200/50 " data-testid="ops-toolbar">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-xs font-bold" aria-label="أقسام التدقيق">
                 {([['rows', 'سجلات الحضور', rows.length], ['grid', 'شبكة الشهر (الأوقات)', null], ['bulk', 'تعديل جماعي', null], ['missing', 'سجل البصمات الناقصة', null], ['deductions', 'الاستقطاعات', proposedTotals.count || null], ['exports', 'تصديرات الأشهر', null]] as const).map(([k, l, n]) => (
@@ -258,6 +221,45 @@ export default function OpsAttendancePage() {
             )}
           </div>
 
+
+          <SectionCard title={mode === 'day' ? `ملخص يوم ${day}` : `ملخص شهر ${month.slice(0, 7)}`} badge={<span className="text-[11px] text-slate-500" data-testid="ops-rows-count">{rows.length} سجلاً{status ? ` · مُرشَّح: ${ATTENDANCE_STATUS_LABELS[status]}` : ''}</span>}>
+            <div className="flex flex-wrap gap-1.5" data-testid="ops-status-chips">
+              {ATTENDANCE_STATUS_ORDER.map((s) => {
+                const tone = s === 'absent' ? 'bg-rose-50 text-rose-800 ring-rose-200' : s === 'late' || s === 'early_leave' ? 'bg-amber-50 text-amber-800 ring-amber-200' : s === 'present' ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : s === 'incomplete' ? 'bg-violet-50 text-violet-800 ring-violet-200' : 'bg-sky-50 text-sky-800 ring-sky-200'
+                return (
+                  <button key={s} type="button" onClick={() => setStatus(status === s ? '' : s)} className={clsx('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition', tone, status === s ? 'ring-2 ring-brand-500' : counts[s] === 0 && 'opacity-50')} data-testid={`ops-stat-${s}`} aria-pressed={status === s}>
+                    <span>{ATTENDANCE_STATUS_LABELS[s]}</span><span className="rounded-full bg-white/80 px-1.5 tabular-nums">{counts[s]}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {hourBankActive ? (
+              <p className="border-t border-slate-100 pt-2 text-[11px] text-slate-600" data-testid="ops-proposed-replaced">الاستقطاع المقترح اليومي على النقص متوقف — يُصفّى شهرياً في «ميزان بنك الساعات» أدناه (يبقى الغياب بلا إجازة يوماً كاملاً).</p>
+            ) : (
+            <details className="border-t border-slate-100 pt-3"><summary className="cursor-pointer text-xs font-bold text-sky-800">تفاصيل الاستقطاعات المقترحة</summary><div className="workspace-compact-stats mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="ops-proposed-summary">
+              <StatCard title="أيام بها استقطاع مقترح" value={proposedTotals.count} tone="amber" testId="ops-proposed-count" />
+              <StatCard title="دقائق مقترحة (غير ملغاة)" value={fmtMinutes(proposedTotals.minutes)} tone="amber" testId="ops-proposed-minutes" />
+              <StatCard title="أيام مقترحة (غير ملغاة)" value={proposedTotals.days} tone="red" testId="ops-proposed-days" />
+              <StatCard title="استقطاعات معفاة" value={proposedTotals.waived} tone="emerald" testId="ops-proposed-waived" hint="الإعفاء من صلاحية معاون المدير المفوض" />
+            </div></details>)}
+          </SectionCard>
+
+          {mode === 'month' && <HourBankPanel rows={hourBank} month={month} search={search} />}
+
+          {!frozen && (
+            <SectionCard title="جاهزية الاعتماد" testId="att-readiness" badge={<span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', readiness.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800')} data-testid="att-readiness-state">{readiness.ok ? '✓ جاهز للاعتماد' : `${readiness.open} نقاط تحتاج مراجعة`}</span>}>
+              <ul className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+                {readiness.items.map((it) => (
+                  <li key={it.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] ring-1', it.ok ? 'bg-emerald-50/60 text-emerald-900 ring-emerald-100' : 'bg-amber-50/60 text-amber-900 ring-amber-200')} data-testid={`att-ready-${it.key}`} data-ok={it.ok}>
+                    <span className={clsx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-black', it.ok ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white')}>{it.ok ? '✓' : '!'}</span>
+                    <span className="min-w-0 flex-1"><span className="block font-bold">{it.label}</span><span className="block text-[10px] opacity-80">{it.hint}</span></span>
+                    {!it.ok && it.go && <button type="button" className="shrink-0 rounded-lg bg-white px-2 py-1 font-bold text-amber-900 ring-1 ring-amber-300" onClick={it.go}>{it.goLabel}</button>}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+
           {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
           {panel === 'grid' && (gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين ببصمة في هذا النطاق" hint="وسّع الفلاتر" /> : (
             <div className="space-y-2">
@@ -266,27 +268,27 @@ export default function OpsAttendancePage() {
             </div>
           ))}
           {panel === 'rows' && (isLoading ? <LoadingSpinner /> : rows.length === 0 ? <EmptyState title="لا سجلات في هذا النطاق" hint="جرّب «إعادة الاحتساب» أو وسّع الفلاتر" /> : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-black text-slate-800">سجلات الحضور</h2><p className="text-xs text-slate-500">مرّر الجدول أفقياً لعرض بقية التفاصيل والإجراءات</p></div>
-              <div className="overflow-x-auto" role="region" aria-label="جدول سجلات الحضور" tabIndex={0}>
-              <table className="w-full min-w-[1100px] text-sm" data-testid="ops-table">
+            <div className="workspace-card overflow-hidden">
+              <div className="workspace-card-head"><div><h2>سجلات الحضور</h2><p>تفاصيل الأيام والإجراءات المتاحة لكل موظف.</p></div></div>
+              <div className="workspace-table-region" role="region" aria-label="جدول سجلات الحضور" tabIndex={0}>
+              <table className="workspace-records min-w-[1100px] text-sm" data-testid="ops-table">
                 <thead className="bg-slate-100 text-xs font-bold text-slate-700">
                   <tr><th className="p-2 text-start">اليوم</th><th className="p-2 text-start">الموظف</th><th className="p-2 text-start">القسم / الفرع</th><th className="p-2">الشفت</th><th className="p-2">دخول</th><th className="p-2">خروج</th><th className="p-2">تأخير</th><th className="p-2">مبكر</th><th className="p-2">نقص</th><th className="p-2">إضافي</th><th className="p-2">استقطاع مقترح</th><th className="p-2">الحالة</th><th className="p-2">إجراءات</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.id} className={clsx('border-t border-slate-100 transition-colors hover:bg-sky-50/60', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
-                      <td className="p-2 text-xs">{r.work_date}<span className="block text-[10px] text-slate-400">{WEEKDAYS_AR[new Date(r.work_date).getDay()]}</span></td>
-                      <td className="p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}</p></td>
-                      <td className="p-2 text-xs">{r.department_name ?? '—'}<span className="block text-[10px] text-slate-400">{r.branch_name ?? ''}</span></td>
-                      <td className="p-2 text-center text-xs">{r.shift_name ?? '—'}<span className="block text-[10px] text-slate-400" dir="ltr">{r.expected_in ? `${fmtTime(r.expected_in)}–${fmtTime(r.expected_out)}` : ''}</span></td>
-                      <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_in)}</td>
-                      <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
-                      <td className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
-                      <td className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
-                      <td className={clsx('p-2 text-center text-xs tabular-nums', r.shortfall_minutes > 0 && 'font-bold text-red-700')} title={r.permit_minutes > 0 ? `زمنية معتمدة ${fmtMinutes(r.permit_minutes)}` : ''} data-testid={`ops-shortfall-${r.employee_number}-${r.work_date}`}>{fmtMinutes(r.shortfall_minutes)}{r.permit_minutes > 0 && <span className="block text-[10px] text-violet-600">زمنية {fmtMinutes(r.permit_minutes)}</span>}</td>
-                      <td className={clsx('p-2 text-center text-xs tabular-nums', r.overtime_minutes > 0 && 'font-bold text-emerald-700')}>{fmtMinutes(r.overtime_minutes)}</td>
-                      <td className="p-2 text-center text-xs" data-testid={`ops-proposed-${r.employee_number}-${r.work_date}`}>
+                    <tr key={r.id} className={clsx('workspace-record border-t border-slate-100 transition-colors hover:bg-sky-50/60', r.source === 'manual' && 'bg-amber-50/40')} data-testid={`ops-row-${r.employee_number}-${r.work_date}`}>
+                      <td data-label="اليوم" className="p-2 text-xs">{r.work_date}<span className="block text-[10px] text-slate-400">{WEEKDAYS_AR[new Date(r.work_date).getDay()]}</span></td>
+                      <td data-label="الموظف" className="workspace-primary p-2"><p className="font-semibold">{r.full_name}</p><p className="text-[11px] text-slate-500">{r.employee_number}</p></td>
+                      <td data-label="القسم / الفرع" className="p-2 text-xs">{r.department_name ?? '—'}<span className="block text-[10px] text-slate-400">{r.branch_name ?? ''}</span></td>
+                      <td data-label="الشفت" className="p-2 text-center text-xs">{r.shift_name ?? '—'}<span className="block text-[10px] text-slate-400" dir="ltr">{r.expected_in ? `${fmtTime(r.expected_in)}–${fmtTime(r.expected_out)}` : ''}</span></td>
+                      <td data-label="دخول" className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_in)}</td>
+                      <td data-label="خروج" className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
+                      <td data-label="تأخير" className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
+                      <td data-label="خروج مبكر" className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
+                      <td data-label="نقص" className={clsx('p-2 text-center text-xs tabular-nums', r.shortfall_minutes > 0 && 'font-bold text-red-700')} title={r.permit_minutes > 0 ? `زمنية معتمدة ${fmtMinutes(r.permit_minutes)}` : ''} data-testid={`ops-shortfall-${r.employee_number}-${r.work_date}`}>{fmtMinutes(r.shortfall_minutes)}{r.permit_minutes > 0 && <span className="block text-[10px] text-violet-600">زمنية {fmtMinutes(r.permit_minutes)}</span>}</td>
+                      <td data-label="إضافي" className={clsx('p-2 text-center text-xs tabular-nums', r.overtime_minutes > 0 && 'font-bold text-emerald-700')}>{fmtMinutes(r.overtime_minutes)}</td>
+                      <td data-label="استقطاع مقترح" className="p-2 text-center text-xs" data-testid={`ops-proposed-${r.employee_number}-${r.work_date}`}>
                         {r.proposed_deduction_minutes > 0 || r.proposed_deduction_days > 0 ? (
                           <div>
                             <span className={clsx('font-bold', r.deduction_waived ? 'text-slate-400 line-through' : 'text-red-700')}>{proposedLabel(r)}</span>
@@ -299,8 +301,8 @@ export default function OpsAttendancePage() {
                           <span className="block max-w-[10rem] truncate text-[10px] font-bold text-slate-500" title={r.deduction_reason} data-testid={`ops-unpaid-${r.employee_number}-${r.work_date}`}>{r.deduction_reason}</span>
                         ) : '—'}
                       </td>
-                      <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
-                      <td className="p-2">
+                      <td data-label="الحالة" className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
+                      <td data-label="إجراءات" className="workspace-actions p-2">
                         <div className="flex justify-center gap-1">
                           <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل المباشر للبصمة الناقصة فقط؛ بلا بصمة يُرسل طلب للموافقة' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
                           <button type="button" className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700" onClick={() => setAuditFor(r)} data-testid={`ops-audit-${r.employee_number}-${r.work_date}`}>سجل</button>

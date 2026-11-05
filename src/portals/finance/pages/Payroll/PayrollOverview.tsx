@@ -1,3 +1,4 @@
+import '@portals/shared/workspace-refresh.css'
 /**
  * بوابة الشؤون المالية — وحدة «الرواتب»
  * ① كشف الشهر المستلم من غرفة العمليات (أيام/تأخير/استقطاعات) + الصافي المقترح، تعديل صف بسبب، اعتماد يقفل الشهر، تصدير Excel.
@@ -28,11 +29,11 @@ export default function PayrollOverview() {
   const [tab, setTab] = useState<Tab>('sheet')
   const { data: notices = [] } = useFinanceNotices()
   return (
-    <div className="space-y-4" data-testid="finance-payroll">
-      <ExecPageHeader icon="wallet" title="الرواتب" subtitle="بيانات الراتب تُدخل وتُعدَّل هنا حصراً — لا تظهر لأي بوابة أخرى" />
-      <nav className="flex flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-1 text-xs font-black shadow-sm" role="tablist">
+    <div className="workspace-refresh space-y-5" data-testid="finance-payroll">
+      <ExecPageHeader icon="wallet" title="الرواتب" subtitle="إدارة كشف الشهر وملفات الرواتب في مساحة مالية خاصة وآمنة." />
+      <nav className="workspace-card flex gap-1 overflow-x-auto p-1.5 text-xs font-black" role="tablist" aria-label="أقسام الرواتب">
         {([['sheet', 'كشف الشهر'], ['profiles', 'ملفات الرواتب'], ['notices', `إشعارات الموارد البشرية${notices.length ? ` (${notices.length})` : ''}`]] as const).map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={clsx('h-9 rounded-xl px-3', tab === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600 hover:bg-slate-100')} data-testid={`ftab-${k}`}>{l}</button>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={clsx('min-h-11 shrink-0 rounded-xl px-4 transition sm:flex-1', tab === k ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow' : 'text-slate-600 hover:bg-slate-100')} data-testid={`ftab-${k}`}>{l}</button>
         ))}
       </nav>
       {tab === 'sheet' && <SheetTab onDefine={() => setTab('profiles')} />}
@@ -61,7 +62,7 @@ function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }:
         {steps.map((s, i) => (
           <li key={s.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 ring-1', cls[s.state])} data-testid={`ps-step-${s.key}`} data-state={s.state}>
             <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', dot[s.state])}>{mark[s.state] || i + 1}</span>
-            <span className="min-w-0"><span className="block truncate text-[11px] font-black">{s.label}</span><span className={clsx('block truncate text-[10px]', s.state === 'active' ? 'text-white/80' : 'opacity-80')}>{s.hint}</span></span>
+            <span className="min-w-0"><span className="block text-[11px] font-black leading-snug">{s.label}</span><span className={clsx('block text-[10px] leading-snug', s.state === 'active' ? 'text-white/80' : 'opacity-80')}>{s.hint}</span></span>
           </li>
         ))}
       </ol>
@@ -146,9 +147,9 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
 
   return (
     <div className="space-y-3" data-testid="sheet-tab">
-      <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthPicker value={month} onChange={setMonth} />
+      <div className="workspace-card space-y-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-1 text-xs font-bold text-slate-600">شهر الكشف<MonthPicker value={month} onChange={setMonth} /></label>
           <div className="flex rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
             <button type="button" className={clsx('rounded-lg px-3 py-1', view === 'sheet' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} onClick={() => setView('sheet')} data-testid="ps-view-sheet">الكشف</button>
             <button type="button" className={clsx('rounded-lg px-3 py-1', view === 'verify' ? 'bg-white text-brand-700 shadow' : 'text-slate-600')} onClick={() => setView('verify')} data-testid="ps-view-verify">
@@ -161,16 +162,19 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
           </div>
         </div>
         {head && (
-          <div className="flex flex-wrap items-end gap-2" data-testid="ps-filters">
+          <details className="rounded-xl border border-slate-200 bg-slate-50/50 p-3" data-testid="ps-filter-details">
+            <summary className="cursor-pointer text-xs font-bold text-slate-700">البحث والفلاتر{activeFilters > 0 ? ` · ${activeFilters} مفعّلة` : ''}</summary>
+          <div className="mt-3 flex flex-wrap items-end gap-2" data-testid="ps-filters">
             <label className="text-[11px] font-semibold text-slate-600">الفرع<select className={clsx(FILTER_SELECT, 'block min-w-[9rem]')} value={filters.branch} onChange={(e) => setF('branch', e.target.value)} data-testid="ps-f-branch"><option value="">كل الفروع ({branches.length})</option>{branches.map((b) => <option key={b} value={b}>{b}</option>)}</select></label>
             <label className="text-[11px] font-semibold text-slate-600">القسم{filters.branch ? ` (أقسام ${filters.branch})` : ''}<select className={clsx(FILTER_SELECT, 'block min-w-[9rem]')} value={filters.department} onChange={(e) => setF('department', e.target.value)} data-testid="ps-f-dept"><option value="">كل الأقسام ({departments.length})</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
             <label className="text-[11px] font-semibold text-slate-600">التعاقد<select className={clsx(FILTER_SELECT, 'block')} value={filters.contract} onChange={(e) => setF('contract', e.target.value as SheetFilters['contract'])} data-testid="ps-f-contract"><option value="">الكل</option><option value="monthly">شهري</option><option value="daily">أجر يومي</option></select></label>
             <label className="text-[11px] font-semibold text-slate-600">الحالة<select className={clsx(FILTER_SELECT, 'block')} value={filters.profile} onChange={(e) => setF('profile', e.target.value as ProfileFilter)} data-testid="ps-f-profile">{(Object.keys(PROFILE_LABELS) as ProfileFilter[]).map((k) => <option key={k} value={k}>{PROFILE_LABELS[k]}</option>)}</select></label>
             <label className="text-[11px] font-semibold text-slate-600">الترتيب<span className="flex gap-1"><select className={clsx(FILTER_SELECT, 'block')} value={filters.sort} onChange={(e) => setF('sort', e.target.value as SortKey)} data-testid="ps-f-sort">{(Object.keys(SORT_LABELS) as SortKey[]).map((k) => <option key={k} value={k}>{SORT_LABELS[k]}</option>)}</select><button type="button" className={clsx(FILTER_SELECT, 'font-bold')} onClick={() => setF('dir', filters.dir === 'asc' ? 'desc' : 'asc')} title={filters.dir === 'asc' ? 'تصاعدي' : 'تنازلي'} data-testid="ps-f-dir">{filters.dir === 'asc' ? '▲' : '▼'}</button></span></label>
-            <input className={clsx(field, 'max-w-xs')} placeholder="بحث: اسم / رقم / قسم / فرع / عنوان" value={filters.search} onChange={(e) => setF('search', e.target.value)} data-testid="ps-search" />
+            <input aria-label="البحث في كشف الرواتب" className={clsx(field, 'max-w-xs')} placeholder="بحث: اسم / رقم / قسم / فرع / عنوان" value={filters.search} onChange={(e) => setF('search', e.target.value)} data-testid="ps-search" />
             {activeFilters > 0 && <button type="button" className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700" onClick={() => setFilters(DEFAULT_FILTERS)} data-testid="ps-f-reset">إعادة الضبط ({activeFilters})</button>}
             <span className="ms-auto text-[11px] text-slate-500" data-testid="ps-shown">{filtered ? `يُعرض ${shown.length} من ${rows.length}` : `${rows.length} موظفاً`}</span>
           </div>
+          </details>
         )}
       </div>
       {awaitingDeputy && (
@@ -187,9 +191,9 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
         <PipelineStrip head={head} approved={approved} stale={!!exportStatus?.needs_reexport} rc={rc} hasReconcile={reconcile.length > 0} blockReason={blockReason} />
       )}
       {head && (
-        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>
+        <section className="workspace-card space-y-4 p-4 sm:p-5" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>
           <header className="flex items-center justify-between gap-2"><h2 className="text-xs font-black text-slate-700">{filtered ? `ملخص الكشف (حسب الفلتر · ${shown.length} من ${rows.length})` : `ملخص كشف ${month.slice(0, 7)}`}</h2><span className="text-[11px] text-slate-500">الصافي = الإجمالي المستحق − إجمالي الاستقطاعات</span></header>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+          <div className="workspace-compact-stats grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard title={filtered ? 'الموظفون (حسب الفلتر)' : 'الموظفون في الكشف'} value={totals.count} hint={filtered ? `من أصل ${rows.length}` : undefined} testId="ps-count" />
             <StatCard title="الإجمالي المستحق" value={fmtMoney(totals.gross)} tone="slate" hint="الأساسي + المخصصات (اليومي: الأيام المدفوعة × أجر اليوم)" testId="ps-gross" />
             <StatCard title="إجمالي الاستقطاعات" value={fmtMoney(totals.deductions)} tone="red" hint={`ثابتة ${fmtMoney(totals.fixed)} · عمليات ${fmtMoney(totals.ops)} · تلقائي ${fmtMoney(totals.auto)} · سلف ${fmtMoney(totals.advance)}`} testId="ps-deductions" />
@@ -205,7 +209,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
         </section>
       )}
       {head && !approved && (
-        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-readiness">
+        <section className="workspace-card space-y-3 p-4 sm:p-5" data-testid="ps-readiness">
           <header className="flex items-center justify-between gap-2">
             <h2 className="text-xs font-black text-slate-700">جاهزية الاعتماد</h2>
             <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-bold', blockReason ? 'bg-red-100 text-red-800' : exportStatus?.needs_reexport || unevaluated > 0 ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800')} data-testid="ps-readiness-state">
@@ -261,8 +265,10 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
 
       {view === 'verify' ? <VerifyPanel rows={reconcile} loading={reconcileLoading} filteredIds={filtered ? new Set(shown.map((r) => r.employee_id)) : null} /> : isLoading ? <LoadingSpinner /> : rows.length === 0 ? (awaitingDeputy ? <EmptyState title="الكشف بانتظار اعتماد معاون المدير المفوض" hint={`صدّرت غرفة العمليات الشهر (إصدار ${gate?.version ?? 1}) ويُراجع معاون المدير المفوض الاستقطاعات الآن — يظهر الكشف هنا فور اعتماده`} />
         : <EmptyState title="لم تُصدّر غرفة العمليات بيانات هذا الشهر بعد" hint="يظهر الكشف هنا فور الضغط على «تصدير بيانات الشهر» في وحدة الحضوريات ثم اعتماد معاون المدير المفوض" />) : shown.length === 0 ? <EmptyState title="لا صفوف تطابق الفلاتر" hint="غيّر الفرع/القسم أو أعد ضبط الفلاتر" /> : tableRows.length === 0 ? <EmptyState title="كل الموظفين في هذا النطاق بلا ملف راتب" hint="عرّف رواتبهم من تبويب «ملفات الرواتب» — يتحدّث الكشف تلقائياً" /> : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-xs" data-testid="ps-table" data-layout="net-first">
+        <div className="workspace-card overflow-hidden">
+          <div className="workspace-card-head"><div><h2>كشف الموظفين</h2><p>راجع المبالغ والتفاصيل لكل موظف ضمن الفلاتر المختارة.</p></div><span className="text-xs font-bold text-slate-500">{tableRows.length} موظفاً</span></div>
+          <div className="workspace-table-region" role="region" aria-label="جدول كشف الرواتب" tabIndex={0}>
+          <table className="workspace-records min-w-[920px] text-xs" data-testid="ps-table" data-layout="net-first">
             <thead className="bg-slate-50 text-[11px] text-slate-600">
               <tr className="border-b border-slate-200">
                 <Th k="name" label="الموظف" className="text-start" />
@@ -280,12 +286,12 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
               {groups.map((b) => (
                 <Fragment key={b.branch}>
                   {multiBranch && (
-                    <tr className="border-t-2 border-sky-200 bg-sky-50" data-testid={`ps-branch-${b.branch}`}>
-                      <td className="px-3 py-2 text-xs font-black text-sky-900" colSpan={4}>{b.branch} <span className="font-normal text-sky-700">· {b.rows.length} موظفاً · {b.departments.length} قسماً</span></td>
-                      <td className="px-3 py-2 text-end font-bold tabular-nums text-sky-900">{fmtMoney(b.totals.gross)}</td>
-                      <td className="px-3 py-2 text-end font-bold tabular-nums text-red-700">{fmtMoney(b.totals.deductions)}</td>
-                      <td className="px-3 py-2 text-end font-bold tabular-nums text-sky-900">{fmtMoney(b.totals.proposed)}</td>
-                      <td className="px-3 py-2 text-end font-black tabular-nums text-sky-900">{fmtMoney(b.totals.final)}</td><td></td>
+                    <tr className="workspace-record workspace-total border-t-2 border-sky-200 bg-sky-50" data-testid={`ps-branch-${b.branch}`}>
+                      <td data-label="الفرع" className="workspace-primary px-3 py-2 text-xs font-black text-sky-900" colSpan={4}>{b.branch} <span className="font-normal text-sky-700">· {b.rows.length} موظفاً · {b.departments.length} قسماً</span></td>
+                      <td data-label="الإجمالي المستحق" className="px-3 py-2 text-end font-bold tabular-nums text-sky-900">{fmtMoney(b.totals.gross)}</td>
+                      <td data-label="الاستقطاعات" className="px-3 py-2 text-end font-bold tabular-nums text-red-700">{fmtMoney(b.totals.deductions)}</td>
+                      <td data-label="الصافي المقترح" className="px-3 py-2 text-end font-bold tabular-nums text-sky-900">{fmtMoney(b.totals.proposed)}</td>
+                      <td data-label="الصافي المعتمد" className="px-3 py-2 text-end font-black tabular-nums text-sky-900">{fmtMoney(b.totals.final)}</td><td data-label=""></td>
                     </tr>
                   )}
                   {b.departments.map((g) => (
@@ -309,21 +315,21 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
                         const finalNet = r.final_net ?? proposedNet
                         const adjusted = r.final_net != null && r.final_net !== proposedNet
                         return (
-                          <tr key={r.row_id} className={clsx('border-t border-slate-100 odd:bg-white even:bg-slate-50/40 hover:bg-brand-50/30', r.pay_type == null && 'bg-amber-50/50')} data-testid={`ps-row-${r.employee_number}`}>
-                            <td className="px-3 py-2"><p className="text-sm font-semibold leading-tight">{r.full_name}</p><p className="text-[10px] text-slate-500" dir="ltr">{r.employee_number}{r.job_title ? ` · ${r.job_title}` : ''}</p></td>
-                            <td className="px-3 py-2 text-center text-[11px] text-slate-600">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
-                            <td className="px-3 py-2 text-center tabular-nums" data-testid={`ps-days-count-${r.employee_number}`} title="حاضر (+ إجازة مدفوعة) / المجدولة / أيام الشهر">
+                          <tr key={r.row_id} className={clsx('workspace-record border-t border-slate-100 odd:bg-white even:bg-slate-50/40 hover:bg-brand-50/30', r.pay_type == null && 'bg-amber-50/50')} data-testid={`ps-row-${r.employee_number}`}>
+                            <td data-label="الموظف" className="workspace-primary px-3 py-2"><p className="text-sm font-semibold leading-tight">{r.full_name}</p><p className="text-[10px] text-slate-500" dir="ltr">{r.employee_number}{r.job_title ? ` · ${r.job_title}` : ''}</p></td>
+                            <td data-label="التعاقد" className="px-3 py-2 text-center text-[11px] text-slate-600">{r.pay_type ? CONTRACT_LABELS[r.pay_type] : <span className="font-bold text-amber-700">غير مُعرَّف</span>}</td>
+                            <td data-label="الأيام" className="px-3 py-2 text-center tabular-nums" data-testid={`ps-days-count-${r.employee_number}`} title="حاضر (+ إجازة مدفوعة) / المجدولة / أيام الشهر">
                               <span className="font-bold text-emerald-700">{r.days_present}</span>{(r.days_leave_paid ?? r.days_leave) > 0 && <span className="text-sky-700" title="إجازة مدفوعة"> +{r.days_leave_paid ?? r.days_leave}</span>}<span className="text-slate-400"> / {r.scheduled_days != null ? `${r.scheduled_days} / ${r.working_days}` : r.working_days}</span>
                               {r.salary_model === 'earned_days' && r.pay_type === 'monthly' && r.payable_days != null && <span className="mx-auto mt-0.5 block w-fit rounded bg-emerald-100 px-1 text-[10px] font-bold text-emerald-800" title="الأيام المستحقة (حضور + إجازة مدفوعة) من أيام الشهر — الراتب = أجر اليوم × هذه الأيام" data-testid={`ps-payable-${r.employee_number}`}>مستحق {r.payable_days}/{r.days_in_month}</span>}
                               {r.salary_model !== 'earned_days' && r.covered_days != null && r.days_in_month != null && r.covered_days < r.days_in_month && r.pay_type === 'monthly' && <span className="mx-auto mt-0.5 block w-fit rounded bg-sky-100 px-1 text-[10px] font-bold text-sky-800" title="الراتب الشهري محتسب بالنسبة والتناسب للفترة المشمولة فقط">مشمول {r.covered_days}/{r.days_in_month}</span>}
                               {(r.unevaluated_days ?? 0) > 0 && <span className="mx-auto mt-0.5 block w-fit rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-700" title="أيام مجدولة بلا احتساب — اطلب من غرفة العمليات إعادة التصدير">{r.unevaluated_days} غير محتسب</span>}
                             </td>
-                            <td className={clsx('px-3 py-2 text-center tabular-nums', r.days_absent > 0 ? 'font-bold text-red-700' : 'text-slate-400')}>{r.days_absent}{(r.days_leave_unpaid ?? 0) > 0 && <span className="block text-[10px] font-normal text-slate-500" data-testid={`ps-leave-${r.employee_number}`}>+{r.days_leave_unpaid} إجازة غير مدفوعة</span>}</td>
-                            <td className="px-3 py-2 text-end tabular-nums" data-testid={`ps-gross-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : <><b>{fmtMoney(rowGross(r))}</b><span className="block text-[10px] text-slate-500">{r.pay_type === 'daily' ? `${fmtMoney(r.daily_rate)} × ${paidDays} يوم` : `أساسي ${fmtMoney(r.base_salary)}`}{(r.allowances_total ?? 0) > 0 ? ` + مخصصات ${fmtMoney(r.allowances_total)}` : ''}</span></>}</td>
-                            <td className="px-3 py-2 text-end tabular-nums" data-testid={`ps-ded-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : rowDeductions(r) === 0 ? <span className="text-slate-400">0</span> : <><b className="text-red-700">{fmtMoney(rowDeductions(r))}</b><span className="flex flex-wrap justify-end gap-x-1.5 text-[10px] text-slate-500">{dedParts}</span></>}</td>
-                            <td className="px-3 py-2 text-end tabular-nums text-slate-700" data-testid={`ps-proposed-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : fmtMoney(r.proposed_net)}</td>
-                            <td className="px-3 py-2 text-end tabular-nums" title={r.finance_note ?? ''}>{r.pay_type == null ? <span className="text-slate-300">—</span> : <><span className={clsx('text-sm font-black', adjusted ? 'text-amber-700' : 'text-slate-900')}>{fmtMoney(finalNet)}</span>{adjusted && <span className="block text-[10px] font-bold text-amber-700">{finalNet > proposedNet ? '+' : '−'}{fmtMoney(Math.abs(finalNet - proposedNet))}{r.finance_note ? ` · ${r.finance_note}` : ''}</span>}</>}</td>
-                            <td className="whitespace-nowrap px-2 py-2 text-center">
+                            <td data-label="غائب" className={clsx('px-3 py-2 text-center tabular-nums', r.days_absent > 0 ? 'font-bold text-red-700' : 'text-slate-400')}>{r.days_absent}{(r.days_leave_unpaid ?? 0) > 0 && <span className="block text-[10px] font-normal text-slate-500" data-testid={`ps-leave-${r.employee_number}`}>+{r.days_leave_unpaid} إجازة غير مدفوعة</span>}</td>
+                            <td data-label="الإجمالي المستحق" className="px-3 py-2 text-end tabular-nums" data-testid={`ps-gross-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : <><b>{fmtMoney(rowGross(r))}</b><span className="block text-[10px] text-slate-500">{r.pay_type === 'daily' ? `${fmtMoney(r.daily_rate)} × ${paidDays} يوم` : `أساسي ${fmtMoney(r.base_salary)}`}{(r.allowances_total ?? 0) > 0 ? ` + مخصصات ${fmtMoney(r.allowances_total)}` : ''}</span></>}</td>
+                            <td data-label="الاستقطاعات" className="px-3 py-2 text-end tabular-nums" data-testid={`ps-ded-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : rowDeductions(r) === 0 ? <span className="text-slate-400">0</span> : <><b className="text-red-700">{fmtMoney(rowDeductions(r))}</b><span className="flex flex-wrap justify-end gap-x-1.5 text-[10px] text-slate-500">{dedParts}</span></>}</td>
+                            <td data-label="الصافي المقترح" className="px-3 py-2 text-end tabular-nums text-slate-700" data-testid={`ps-proposed-${r.employee_number}`}>{r.pay_type == null ? <span className="text-slate-300">—</span> : fmtMoney(r.proposed_net)}</td>
+                            <td data-label="الصافي المعتمد" className="px-3 py-2 text-end tabular-nums" title={r.finance_note ?? ''}>{r.pay_type == null ? <span className="text-slate-300">—</span> : <><span className={clsx('text-sm font-black', adjusted ? 'text-amber-700' : 'text-slate-900')}>{fmtMoney(finalNet)}</span>{adjusted && <span className="block text-[10px] font-bold text-amber-700">{finalNet > proposedNet ? '+' : '−'}{fmtMoney(Math.abs(finalNet - proposedNet))}{r.finance_note ? ` · ${r.finance_note}` : ''}</span>}</>}</td>
+                            <td data-label="الإجراءات" className="workspace-actions whitespace-nowrap px-2 py-2 text-center">
                               <button type="button" className="rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100" onClick={() => setDetails(r)} data-testid={`ps-days-${r.employee_number}`}>التفاصيل</button>
                               {!approved && <button type="button" className="rounded-lg px-2 py-1 text-[11px] font-bold text-brand-700 hover:bg-brand-50" onClick={() => setEditing(r)} data-testid={`ps-edit-${r.employee_number}`}>تعديل</button>}
                             </td>
@@ -331,12 +337,12 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
                         )
                       })}
                       {g.rows.length > 1 && (
-                        <tr className="border-t border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700" data-testid={`ps-subtotal-${g.name}`}>
-                          <td className="px-3 py-1.5" colSpan={2}>مجموع {g.name}</td>
-                          <td className="px-3 py-1.5 text-center tabular-nums text-emerald-700">{g.totals.present}</td><td className="px-3 py-1.5 text-center tabular-nums text-red-700">{g.totals.absent}</td>
-                          <td className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.gross)}</td>
-                          <td className="px-3 py-1.5 text-end tabular-nums text-red-700">{fmtMoney(g.totals.deductions)}</td>
-                          <td className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.proposed)}</td><td className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.final)}</td><td></td>
+                        <tr className="workspace-record workspace-total border-t border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700" data-testid={`ps-subtotal-${g.name}`}>
+                          <td data-label="القسم" className="workspace-primary px-3 py-1.5" colSpan={2}>مجموع {g.name}</td>
+                          <td data-label="الحضور" className="px-3 py-1.5 text-center tabular-nums text-emerald-700">{g.totals.present}</td><td data-label="الغياب" className="px-3 py-1.5 text-center tabular-nums text-red-700">{g.totals.absent}</td>
+                          <td data-label="الإجمالي المستحق" className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.gross)}</td>
+                          <td data-label="الاستقطاعات" className="px-3 py-1.5 text-end tabular-nums text-red-700">{fmtMoney(g.totals.deductions)}</td>
+                          <td data-label="الصافي المقترح" className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.proposed)}</td><td data-label="الصافي المعتمد" className="px-3 py-1.5 text-end tabular-nums">{fmtMoney(g.totals.final)}</td><td data-label=""></td>
                         </tr>
                       )}
                     </Fragment>
@@ -345,15 +351,16 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-slate-300 bg-slate-100 text-xs font-black" data-testid="ps-grand-total">
-                <td className="px-3 py-2.5" colSpan={2}>الإجمالي العام{filtered ? ' (حسب الفلتر)' : ''} · {tableTotals.count} موظفاً{missing > 0 && filters.profile !== 'missing' && !filtered ? <span className="font-normal text-slate-500"> (+ {missing} بلا ملف راتب خارج الجدول)</span> : null}</td>
-                <td className="px-3 py-2.5 text-center tabular-nums text-emerald-700">{tableTotals.present}</td><td className="px-3 py-2.5 text-center tabular-nums text-red-700">{tableTotals.absent}</td>
-                <td className="px-3 py-2.5 text-end tabular-nums">{fmtMoney(tableTotals.gross)}</td>
-                <td className="px-3 py-2.5 text-end tabular-nums text-red-700">{fmtMoney(tableTotals.deductions)}{[['ثابتة', tableTotals.fixed], ['عمليات', tableTotals.ops], ['تلقائي', tableTotals.auto], ['سلف', tableTotals.advance]].filter(([, v]) => Number(v) > 0).length > 0 && <span className="block text-[10px] font-normal text-slate-500">{[['ثابتة', tableTotals.fixed], ['عمليات', tableTotals.ops], ['تلقائي', tableTotals.auto], ['سلف', tableTotals.advance]].filter(([, v]) => Number(v) > 0).map(([l, v]) => `${l} ${fmtMoney(Number(v))}`).join(' · ')}</span>}</td>
-                <td className="px-3 py-2.5 text-end tabular-nums">{fmtMoney(tableTotals.proposed)}</td><td className="px-3 py-2.5 text-end text-sm tabular-nums text-emerald-800">{fmtMoney(tableTotals.final)}</td><td></td>
+              <tr className="workspace-record workspace-total border-t-2 border-slate-300 bg-slate-100 text-xs font-black" data-testid="ps-grand-total">
+                <td data-label="الإجمالي العام" className="workspace-primary px-3 py-2.5" colSpan={2}>الإجمالي العام{filtered ? ' (حسب الفلتر)' : ''} · {tableTotals.count} موظفاً{missing > 0 && filters.profile !== 'missing' && !filtered ? <span className="font-normal text-slate-500"> (+ {missing} بلا ملف راتب خارج الجدول)</span> : null}</td>
+                <td data-label="الحضور" className="px-3 py-2.5 text-center tabular-nums text-emerald-700">{tableTotals.present}</td><td data-label="الغياب" className="px-3 py-2.5 text-center tabular-nums text-red-700">{tableTotals.absent}</td>
+                <td data-label="الإجمالي المستحق" className="px-3 py-2.5 text-end tabular-nums">{fmtMoney(tableTotals.gross)}</td>
+                <td data-label="الاستقطاعات" className="px-3 py-2.5 text-end tabular-nums text-red-700">{fmtMoney(tableTotals.deductions)}{[['ثابتة', tableTotals.fixed], ['عمليات', tableTotals.ops], ['تلقائي', tableTotals.auto], ['سلف', tableTotals.advance]].filter(([, v]) => Number(v) > 0).length > 0 && <span className="block text-[10px] font-normal text-slate-500">{[['ثابتة', tableTotals.fixed], ['عمليات', tableTotals.ops], ['تلقائي', tableTotals.auto], ['سلف', tableTotals.advance]].filter(([, v]) => Number(v) > 0).map(([l, v]) => `${l} ${fmtMoney(Number(v))}`).join(' · ')}</span>}</td>
+                <td data-label="الصافي المقترح" className="px-3 py-2.5 text-end tabular-nums">{fmtMoney(tableTotals.proposed)}</td><td data-label="الصافي المعتمد" className="px-3 py-2.5 text-end text-sm tabular-nums text-emerald-800">{fmtMoney(tableTotals.final)}</td><td data-label=""></td>
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       )}
       {editing && <AdjustPanel row={editing} onClose={() => setEditing(null)} />}

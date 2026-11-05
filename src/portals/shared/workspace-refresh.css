@@ -1,0 +1,88 @@
+/* Scoped to the three workspaces. No global palette or component overrides. */
+.workspace-refresh { min-width: 0; color: #172b40; }
+.workspace-refresh :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid #1673a5;
+  outline-offset: 2px;
+}
+.workspace-refresh .workspace-card {
+  border: 1px solid #dce7ef;
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 5px 22px rgb(14 51 79 / 5%);
+}
+.workspace-refresh .workspace-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: 1rem 1.125rem;
+  border-bottom: 1px solid #edf2f6;
+}
+.workspace-refresh .workspace-card-head h2 { color: #153957; font-size: .95rem; font-weight: 800; }
+.workspace-refresh .workspace-card-head p { color: #637d91; font-size: .75rem; line-height: 1.6; }
+.workspace-refresh .workspace-compact-stats > div { min-width: 0; padding: 1rem; }
+.workspace-refresh .workspace-compact-stats > div > p:nth-child(2) { font-size: clamp(1.15rem, 2vw, 1.55rem); overflow-wrap: anywhere; }
+.workspace-refresh .workspace-compact-stats > div > p:nth-child(3) { color: #60778b; line-height: 1.5; }
+.workspace-refresh .workspace-table-region { overflow-x: auto; }
+.workspace-refresh .workspace-records { width: 100%; }
+.workspace-refresh .workspace-records thead { background: #eef4f8; color: #416078; }
+.workspace-refresh .workspace-records thead th { font-weight: 800; white-space: nowrap; }
+.workspace-refresh .workspace-records tbody tr.workspace-record:hover { background: #f5fafc; }
+
+/* On narrow screens each employee is a readable card, while the original table,
+   actions, ordering and data are retained. On wider screens it remains a table. */
+@media (max-width: 1023px) {
+  .workspace-refresh .workspace-table-region { overflow-x: visible; }
+  .workspace-refresh .workspace-records { display: block; min-width: 0 !important; }
+  .workspace-refresh .workspace-records thead { display: none; }
+  .workspace-refresh .workspace-records :is(tbody, tfoot) { display: block; }
+  .workspace-refresh .workspace-records tr.workspace-record {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .15rem .75rem;
+    margin: .75rem;
+    padding: .75rem;
+    border: 1px solid #dce8ef;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 3px 12px rgb(20 56 81 / 5%);
+  }
+  .workspace-refresh .workspace-records tr.workspace-record > td {
+    display: block;
+    min-width: 0;
+    padding: .45rem .25rem;
+    text-align: start;
+    overflow-wrap: anywhere;
+  }
+  .workspace-refresh .workspace-records tr.workspace-record > td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    direction: rtl;
+    text-align: right;
+    margin-bottom: .2rem;
+    color: #617a8c;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .workspace-refresh .workspace-records tr.workspace-record > td.workspace-primary,
+  .workspace-refresh .workspace-records tr.workspace-record > td.workspace-actions { grid-column: 1 / -1; }
+  .workspace-refresh .workspace-records tr.workspace-record > td.workspace-primary { order: -1; border-bottom: 1px solid #edf2f6; padding-bottom: .7rem; }
+  .workspace-refresh .workspace-records tr.workspace-record > td.workspace-actions { border-top: 1px solid #edf2f6; padding-top: .7rem; }
+  .workspace-refresh .workspace-records tr.workspace-record > td.workspace-actions > div { justify-content: flex-start; flex-wrap: wrap; }
+  .workspace-refresh .workspace-records tr.workspace-record button { min-height: 2.25rem; }
+  .workspace-refresh .workspace-records tr:not(.workspace-record) { display: block; }
+  .workspace-refresh .workspace-records tr:not(.workspace-record) > td { display: block; }
+  .workspace-refresh .workspace-records tr.workspace-detail { margin: -.4rem .75rem .75rem; border: 1px solid #dce8ef; border-radius: 0 0 1rem 1rem; }
+  .workspace-refresh .workspace-records tfoot tr { margin: .75rem; border-radius: .8rem; }
+  .workspace-refresh .workspace-records tfoot td { text-align: start; }
+}
+
+/* Readability is deliberately scoped to these workspaces only. */
+.workspace-refresh [class~='text-[10px]'] { font-size: .75rem; line-height: 1.45; }
+.workspace-refresh [class~='text-[11px]'] { font-size: .8rem; line-height: 1.45; }
+@media (max-width: 1023px) {
+  .workspace-refresh .workspace-records tr.workspace-record > td[data-label='']::before { display: none; }
+  .workspace-refresh .workspace-records tr.workspace-record > td:empty { display: none; }
+}

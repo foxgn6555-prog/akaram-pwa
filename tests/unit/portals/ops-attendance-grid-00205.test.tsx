@@ -119,7 +119,7 @@ describe('صفحة الحضوريات (00205)', () => {
     expect(within(tb).getByLabelText('الحالة')).toBe(screen.getByTestId('ops-status'))
     expect(within(tb).getByLabelText('بحث عن موظف')).toBe(screen.getByTestId('ops-search'))
     expect(within(tb).getByLabelText('تاريخ السجلات')).toBe(screen.getByTestId('ops-day'))
-    expect(tb.className).toContain('lg:sticky')
+    expect(tb.className).not.toContain('lg:sticky')
     expect(screen.getAllByTestId('att-month')).toHaveLength(1)
     // عرض الشهر: لا حقل تاريخ، بل شارة الشهر
     fireEvent.click(screen.getByTestId('mode-month'))

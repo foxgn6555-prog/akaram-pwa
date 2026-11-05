@@ -65,7 +65,7 @@ export function StageBar({ conf, stage, onStage }: { conf: AttendanceConfirmatio
               {steps.filter((s) => s.phase === p.key).map((s) => (
                 <li key={s.n} className={clsx('flex items-center gap-1.5 rounded-xl px-2 py-1.5', s.active ? 'bg-brand-600 text-white' : s.done ? 'bg-emerald-50 text-emerald-900' : 'bg-white text-slate-500 ring-1 ring-slate-100')} data-testid={`att-stage-${s.n}`} data-done={s.done} data-active={s.active}>
                   <span className={clsx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-black', s.active ? 'bg-white/25' : s.done ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600')}>{s.done && !s.active ? '✓' : s.n}</span>
-                  <span className="min-w-0"><span className="block truncate text-[11px] font-black">{s.label}</span><span className={clsx('block truncate text-[10px]', s.active ? 'text-white/80' : 'text-slate-500')}>{s.hint}</span></span>
+                  <span className="min-w-0"><span className="block text-[11px] font-black leading-snug">{s.label}</span><span className={clsx('block text-[10px] leading-snug', s.active ? 'text-white/80' : 'text-slate-500')}>{s.hint}</span></span>
                 </li>
               ))}
             </ol>
@@ -83,7 +83,7 @@ export function StatusLine({ tone, icon, children, action, testId, role }: { ton
   return (
     <div className={clsx('flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-xs', t)} role={role} data-testid={testId}>
       {icon && <Icon name={icon} size={15} className={clsx('shrink-0', ic)} />}
-      <span className="min-w-0 flex-1">{children}</span>
+      <span className="min-w-0 basis-full sm:basis-0 sm:flex-1">{children}</span>
       {action && <span className="ms-auto flex shrink-0 flex-wrap gap-1.5">{action}</span>}
     </div>
   )

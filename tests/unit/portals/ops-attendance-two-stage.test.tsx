@@ -130,6 +130,7 @@ describe('00193 — الحضوريات بمرحلتين', () => {
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
     expect(screen.getByTestId('att-confirmed-banner')).toHaveTextContent('مدقق الحضور')
     expect(screen.getByRole('region', { name: 'جدول سجلات الحضور' })).toHaveAttribute('tabindex', '0')
+    expect(screen.getByTestId('ops-row-E100-2026-09-05').querySelector('[data-label="الموظف"]')).toHaveTextContent('أحمد')
     expect(screen.getByTestId('ops-edit-E100-2026-09-05')).toBeDisabled()
     expect(screen.getByTestId('att-confirm-open')).toBeDisabled()
     fireEvent.click(screen.getByTestId('stage-approved'))
