@@ -37,6 +37,7 @@ const MOBILE_MAX_WIDTH = 1024
 export function AppShell({ portal }: AppShellProps) {
   const location = useLocation()
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen)
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
   const setMobileNav = useUiStore((s) => s.setMobileNav)
   const fullBleed = useUiStore((s) => s.contentFullBleed)
   const theme = portalThemes[portal]
@@ -70,10 +71,10 @@ export function AppShell({ portal }: AppShellProps) {
   if (!allowed) return <Navigate to="/403" replace />
 
   return (
-    <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full overflow-hidden')}>
+    <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')}>
       <a href="#app-main-content" className="fixed start-3 top-3 z-[100] -translate-y-20 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl transition-transform focus:translate-y-0">تجاوز التنقل إلى المحتوى</a>
       {/* ── الشريط: طبقة مستقلة لا يمكن لمحتوى الصفحات تجاوزها ── */}
-      <div className="relative z-30 h-dvh shrink-0 max-lg:hidden">
+      <div className={clsx('relative z-30 h-dvh flex-none max-lg:hidden', sidebarCollapsed ? 'w-20' : 'w-72')} data-testid="desktop-sidebar-slot">
         <Sidebar portal={portal} variant="desktop" />
       </div>
 
@@ -95,7 +96,7 @@ export function AppShell({ portal }: AppShellProps) {
           tabIndex={-1}
           data-testid="app-main"
           className={clsx(
-            'flex-1',
+            'min-w-0 flex-1',
             fullBleed
               ? 'flex min-h-0 flex-col overflow-hidden p-0'
               : // حشو سفلي على الموبايل لتفادي تغطية الشريط السفلي (~64px) + شريط النظام

@@ -62,10 +62,11 @@ describe('AppShell — سلوك الدسكتوب', () => {
     expect(screen.queryByTestId('mobile-bottom-nav')).not.toBeInTheDocument()
   })
 
-  it('يعزل طبقة الشريط الجانبي ويمنع المحتوى من التسرب أفقياً فوقه', () => {
+  it('يحجز عرض الشريط صراحةً ويمنع عمود المحتوى من التداخل أو التسرب أفقياً', () => {
     renderShell()
+    expect(screen.getByTestId('desktop-sidebar-slot')).toHaveClass('w-72', 'flex-none')
     expect(screen.getByTestId('app-sidebar')).toHaveClass('z-30', 'shrink-0')
-    expect(screen.getByTestId('app-main')).toHaveClass('overflow-x-hidden', 'min-h-0', 'overflow-y-auto')
+    expect(screen.getByTestId('app-main')).toHaveClass('min-w-0', 'overflow-x-hidden', 'min-h-0', 'overflow-y-auto')
   })
 
   it('يوفر رابط تجاوز التنقل ومنطقة محتوى قابلة للتركيز', () => {
@@ -128,6 +129,7 @@ describe('AppShell — فصل حالتي الطي والدرج', () => {
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
     act(() => useUiStore.getState().toggleSidebarCollapsed())
     expect(useUiStore.getState().sidebarCollapsed).toBe(true)
+    expect(screen.getByTestId('desktop-sidebar-slot')).toHaveClass('w-20')
     // درج الموبايل لم يتأثر
     expect(useUiStore.getState().mobileNavOpen).toBe(false)
   })
