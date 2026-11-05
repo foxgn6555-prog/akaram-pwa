@@ -108,7 +108,7 @@ export default function OpsAttendancePage() {
     const scope = mode === 'day' ? `في يوم ${day}` : `في شهر ${month.slice(0, 7)}`
     const items = [
       { key: 'unevaluated', ok: uneval === 0, label: uneval === 0 ? 'كل الأيام محتسبة' : `${uneval} يوم غير محتسب`, hint: uneval === 0 ? 'لا أيام بلا احتساب في الشهر' : `لدى ${exportStatus?.unevaluated_employees ?? 0} موظف — يُحتسب تلقائياً عند الاعتماد`, go: () => evaluateMonth.mutate(month), goLabel: 'احتسب الآن' },
-      { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — ستُعدّ «حاضر» إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
+      { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — تظهر «بصمة ناقصة» في الكشف المعتمد إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
       { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — للاطلاع؛ الإعفاء أو التخفيض من صلاحية معاون المدير المفوض بعد التصدير`, go: () => setPanel('deductions'), goLabel: 'عرض' },
       { key: 'scope', ok: mode === 'month', label: mode === 'month' ? 'عرض الشهر كاملاً' : 'العرض الحالي يوم واحد', hint: mode === 'month' ? 'الأرقام أعلاه تغطي الشهر كله' : 'انتقل إلى عرض الشهر للتحقق من كامل الشهر قبل الاعتماد', go: () => setMode('month'), goLabel: 'عرض الشهر' },
     ]
@@ -404,7 +404,7 @@ export default function OpsAttendancePage() {
               </div>
               {(gridTotals.incomplete > 0 || gridTotals.unevaluated > 0) && (
                 <ul className="list-inside list-disc rounded-xl border border-amber-200 bg-amber-50 p-2 text-amber-900" data-testid="cf-warnings">
-                  {gridTotals.incomplete > 0 && <li><b>{gridTotals.incomplete}</b> بصمة ناقصة غير محسومة — ستظهر في الكشف المعتمد «حاضر» (راجعها من شبكة الشهر إن لزم).</li>}
+                  {gridTotals.incomplete > 0 && <li><b>{gridTotals.incomplete}</b> بصمة ناقصة غير محسومة — ستظهر في الكشف المعتمد «بصمة ناقصة» (راجعها من شبكة الشهر إن لزم).</li>}
                   {gridTotals.unevaluated > 0 && <li><b>{gridTotals.unevaluated}</b> يوم غير محتسب — سيُحتسب الآن عند الاعتماد.</li>}
                 </ul>
               )}

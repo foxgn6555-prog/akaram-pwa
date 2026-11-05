@@ -107,8 +107,8 @@ const CELL: Record<string, string> = {
 const BAR: Record<string, string> = {
   present: 'bg-emerald-500', late: 'bg-amber-500', early_leave: 'bg-orange-500', incomplete: 'bg-violet-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-sky-400', rest: 'bg-slate-300', pending: 'bg-slate-200', future: 'bg-transparent', none: 'bg-transparent',
 }
-const KIND: Record<string, string> = { present: 'bg-emerald-100 text-emerald-900', absent: 'bg-rose-100 text-rose-800', leave: 'bg-sky-100 text-sky-900', time_permit: 'bg-blue-100 text-blue-900', rest: 'bg-slate-100 text-slate-400', none: 'bg-white text-slate-200' }
-const KIND_BAR: Record<string, string> = { present: 'bg-emerald-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-blue-500', rest: 'bg-slate-300', none: 'bg-transparent' }
+const KIND: Record<string, string> = { present: 'bg-emerald-100 text-emerald-900', absent: 'bg-rose-100 text-rose-800', leave: 'bg-sky-100 text-sky-900', time_permit: 'bg-blue-100 text-blue-900', rest: 'bg-slate-100 text-slate-400', none: 'bg-white text-slate-200', incomplete: 'bg-violet-100 text-violet-900' }
+const KIND_BAR: Record<string, string> = { present: 'bg-emerald-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-blue-500', rest: 'bg-slate-300', none: 'bg-transparent', incomplete: 'bg-violet-500' }
 
 const isFriday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 5
 const todayIso = () => new Date().toISOString().slice(0, 10)

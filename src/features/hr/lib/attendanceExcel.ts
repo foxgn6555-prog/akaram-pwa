@@ -6,13 +6,14 @@
 import type { Workbook, Worksheet } from 'exceljs'
 import type { AttendanceGridCell, AttendanceGridRow, AttendanceGridStatus } from '../types'
 
-export type ApprovedKind = 'present' | 'absent' | 'leave' | 'time_permit' | 'rest' | 'none'
-export const APPROVED_LABEL: Record<ApprovedKind, string> = { present: 'حاضر', absent: 'غائب', leave: 'مجاز', time_permit: 'زمنية', rest: 'راحة', none: '—' }
-export const APPROVED_SHORT: Record<ApprovedKind, string> = { present: 'ح', absent: 'غ', leave: 'م', time_permit: 'ز', rest: 'ر', none: '—' }
-/** تصنيف حالة اليوم إلى حاضر/غائب/مجاز/زمنية (المرحلة 2): المتأخر والخروج المبكر والبصمة الناقصة = حاضر (تفاصيلها في المرحلة 1 فقط) */
+export type ApprovedKind = 'present' | 'absent' | 'leave' | 'time_permit' | 'rest' | 'none' | 'incomplete'
+export const APPROVED_LABEL: Record<ApprovedKind, string> = { present: 'حاضر', absent: 'غائب', leave: 'مجاز', time_permit: 'زمنية', rest: 'راحة', none: '—', incomplete: 'بصمة ناقصة' }
+export const APPROVED_SHORT: Record<ApprovedKind, string> = { present: 'ح', absent: 'غ', leave: 'م', time_permit: 'ز', rest: 'ر', none: '—', incomplete: 'ن' }
+/** تصنيف حالة اليوم (المرحلة 2): المتأخر والخروج المبكر = حاضر، والبصمة الناقصة تظهر بصفتها «بصمة ناقصة» لا «حاضر» حتى لا يُفهم أن اليوم مكتمل */
 export function approvedKind(s: AttendanceGridStatus): ApprovedKind {
   switch (s) {
-    case 'present': case 'late': case 'early_leave': case 'incomplete': return 'present'
+    case 'present': case 'late': case 'early_leave': return 'present'
+    case 'incomplete': return 'incomplete'
     case 'absent': return 'absent'
     case 'leave': return 'leave'
     case 'time_permit': return 'time_permit'
@@ -154,8 +155,8 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
   const fixed = ['ت', 'الموظف', 'الرقم الوظيفي', 'العنوان الوظيفي']
   const totals = ['أيام الحضور', 'أيام الغياب', 'أيام الإجازة', 'ساعات العمل']
   const used = new Set<string>(['الملخص'])
-  const KF: Record<ApprovedKind, string> = { present: 'FFDCFCE7', absent: 'FFFEE2E2', leave: 'FFE0F2FE', time_permit: 'FFDBEAFE', rest: 'FFF1F5F9', none: 'FFFFFFFF' }
-  const KC: Record<ApprovedKind, string> = { present: 'FF166534', absent: 'FFB91C1C', leave: 'FF075985', time_permit: 'FF1D4ED8', rest: 'FF94A3B8', none: 'FFCBD5E1' }
+  const KF: Record<ApprovedKind, string> = { present: 'FFDCFCE7', absent: 'FFFEE2E2', leave: 'FFE0F2FE', time_permit: 'FFDBEAFE', rest: 'FFF1F5F9', none: 'FFFFFFFF', incomplete: 'FFEDE9FE' }
+  const KC: Record<ApprovedKind, string> = { present: 'FF166534', absent: 'FFB91C1C', leave: 'FF075985', time_permit: 'FF1D4ED8', rest: 'FF94A3B8', none: 'FFCBD5E1', incomplete: 'FF5B21B6' }
   for (const [dept, xs] of groupByDepartment(rows)) {
     const ws = wb.addWorksheet(safeSheetName(dept, used), { views: [{ rightToLeft: true, state: 'frozen', xSplit: fixed.length, ySplit: 5 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } })
     const colCount = fixed.length + days.length + totals.length
@@ -183,7 +184,7 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
     days.forEach((_, i) => { ws.getColumn(fixed.length + 1 + i).width = 7 })
     totals.forEach((_, i) => { ws.getColumn(fixed.length + days.length + 1 + i).width = 11 })
     const legend = ws.addRow([]); ws.mergeCells(legend.number, 1, legend.number, colCount)
-    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · مجاز · زمنية · راحة (رمادي) · ز: زمنية معتمدة مع حالة أخرى — التفاصيل (الأوقات، التأخير، البصمات الناقصة) في كشف المرحلة الأولى'
+    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · بصمة ناقصة (بنفسجي — تُحتسب ضمن أيام الحضور في المجموع، ومعاملتها المالية حسب قاعدة الموظف) · مجاز · زمنية · راحة (رمادي) · ز: زمنية معتمدة مع حالة أخرى — التفاصيل في كشف المرحلة الأولى'
     legend.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } }; legend.getCell(1).alignment = { wrapText: true }; legend.height = 22
   }
   return wb

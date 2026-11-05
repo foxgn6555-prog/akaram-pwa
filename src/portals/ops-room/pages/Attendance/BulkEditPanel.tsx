@@ -6,7 +6,7 @@
  *   ④ معاينة إلزامية ثم تنفيذ الناقص مباشرة، أو طلب الموافقة عند عدم وجود بصمة.
  *   أسفلها: سجل طلبات التعديل (الكل) مع التفاصيل والإلغاء.
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -49,15 +49,25 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
   const draft: AttendanceEditDraft = { scopeKind, scopeIds, dates, action: 'full_presence', payload: { missing_side: missingSide ?? undefined } }
   const ready = scopeIds.length > 0 && dates.length > 0 && !!missingSide && !tooMany
   const reasonOk = reason.trim().length >= 5
-  const invalidate = () => setPreview(null)
+  // بصمة المسودة الحالية: أي تغيير بعد طلب المعاينة يجعل نتيجتها المتأخرة قديمة فتُهمل، ولا يُرسل إلا ما عُوين فعلاً
+  const draftKey = JSON.stringify(draft)
+  const latestDraftKey = useRef(draftKey); latestDraftKey.current = draftKey
+  const previewKey = useRef<string | null>(null)
+  const invalidate = () => { previewKey.current = null; setPreview(null); setConfirmMode(null) }
 
   const pickScope = (kind: AttendanceEditScopeKind) => { setScopeKind(kind); setScopeIds([]); invalidate() }
   const toggleEmp = (id: string) => { setScopeIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); invalidate() }
   const toggleDay = (d: string) => { setExcluded((p) => { const n = new Set(p); if (n.has(d)) n.delete(d); else n.add(d); return n }); invalidate() }
-  const doPreview = () => previewM.mutate(draft, { onSuccess: setPreview })
-  const doCreate = (mode: AttendanceEditMode) => createM.mutate({ draft, reason: reason.trim(), mode }, {
-    onSuccess: () => { setConfirmMode(null); setPreview(null); setReason(''); setScopeIds([]); setExcluded(new Set()) },
-  })
+  const doPreview = () => {
+    const key = draftKey; const requested = draft
+    previewM.mutate(requested, { onSuccess: (r) => { if (latestDraftKey.current === key) { previewKey.current = key; setPreview(r) } } })
+  }
+  const doCreate = (mode: AttendanceEditMode) => {
+    if (!preview || previewKey.current !== draftKey) { setConfirmMode(null); setPreview(null); return }
+    createM.mutate({ draft, reason: reason.trim(), mode }, {
+    onSuccess: () => { setConfirmMode(null); setPreview(null); previewKey.current = null; setReason(''); setScopeIds([]); setExcluded(new Set()) },
+    })
+  }
 
   const activeDepts = departments.filter((d) => d.is_active && !d.is_job_title)
   const deptLabel = (id: string) => { const d = departments.find((x) => x.id === id); const p = d?.parent_id ? departments.find((x) => x.id === d.parent_id) : null; return d ? `${d.name}${p ? ` ← ${p.name}` : ''}` : id }

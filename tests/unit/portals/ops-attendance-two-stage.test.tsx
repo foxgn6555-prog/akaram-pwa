@@ -124,7 +124,7 @@ describe('00193 — الحضوريات بمرحلتين', () => {
     expect(grid.textContent).not.toMatch(/[\u0660-\u0669]/)
     expect(h.gridFilters).toEqual(expect.objectContaining({ month }))
   })
-  it('بعد الاعتماد: المرحلة 1 مقفلة للتعديل (لافتة + زر معطّل)، والكشف المعتمد يعرض حاضر/غائب/مجاز فقط مع الملخص', () => {
+  it('بعد الاعتماد: المرحلة 1 مقفلة للتعديل (لافتة + زر معطّل)، والكشف المعتمد يعرض حاضر/غائب/مجاز/بصمة ناقصة مع الملخص', () => {
     h.conf = confirmed
     h.attendance = [{ id: 'a1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', branch_name: null, work_date: '2026-09-05', shift_name: 'صباحي', expected_in: null, expected_out: null, check_in: null, check_out: null, late_minutes: 0, early_minutes: 0, worked_minutes: 0, is_rest_day: false, status: 'absent', source: 'auto', edited_by: null, edited_at: null, edit_reason: null, required_minutes: 480, permit_minutes: 0, shortfall_minutes: 480, overtime_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 1, deduction_reason: 'غياب', deduction_waived: false, waive_reason: null }]
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
@@ -136,10 +136,10 @@ describe('00193 — الحضوريات بمرحلتين', () => {
     fireEvent.click(screen.getByTestId('stage-approved'))
     const grid = screen.getByTestId('att-grid-approved')
     const r = within(grid).getByTestId('grid-row-E100')
-    // كل الخلايا مختزلة: لا أوقات، لا «متأخر»، لا «ناقصة»
-    expect(r.textContent).not.toMatch(/08:0|متأخر|ناقصة|مبكر/)
+    // الخلايا مختزلة بلا أوقات؛ البصمة الناقصة تظهر بصفتها لا «حاضر» (00406)
+    expect(r.textContent).not.toMatch(/08:0|متأخر|مبكر/)
     expect(within(r).getByTestId('cell-2026-09-02')).toHaveAttribute('data-kind', 'present'); expect(within(r).getByTestId('cell-2026-09-02')).toHaveTextContent('حاضر')
-    expect(within(r).getByTestId('cell-2026-09-03')).toHaveTextContent('حاضر')
+    expect(within(r).getByTestId('cell-2026-09-03')).toHaveAttribute('data-kind', 'incomplete'); expect(within(r).getByTestId('cell-2026-09-03')).toHaveTextContent('بصمة ناقصة')
     expect(within(r).getByTestId('cell-2026-09-05')).toHaveTextContent('غائب')
     expect(within(r).getByTestId('cell-2026-09-06')).toHaveTextContent('مجاز')
     expect(within(r).getByTestId('cell-2026-09-04')).toHaveTextContent('راحة')
@@ -185,8 +185,8 @@ describe('00193 — الحضوريات بمرحلتين', () => {
 describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
   const rows = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_name: 'الإدارة' }), row({ employee_id: 'e3', employee_number: 'E300', full_name: 'كريم', department_name: 'النقل' })]
   const meta = { month: '2026-09-01', branchLabel: 'كل الفروع', departmentLabel: 'كل الأقسام', confirmedBy: 'مدقق الحضور', confirmedAt: '2026-10-01T08:00:00Z' }
-  it('اختزال الحالات: متأخر/مبكر/ناقصة = حاضر · إجازة = مجاز · زمنية = زمنية · غائب = غائب', () => {
-    expect(approvedKind('late')).toBe('present'); expect(approvedKind('incomplete')).toBe('present'); expect(approvedKind('early_leave')).toBe('present')
+  it('اختزال الحالات: متأخر/مبكر = حاضر · ناقصة = بصمة ناقصة · إجازة = مجاز · زمنية = زمنية · غائب = غائب', () => {
+    expect(approvedKind('late')).toBe('present'); expect(approvedKind('incomplete')).toBe('incomplete'); expect(approvedKind('early_leave')).toBe('present')
     expect(approvedKind('time_permit')).toBe('time_permit'); expect(approvedKind('absent')).toBe('absent'); expect(approvedKind('rest')).toBe('rest'); expect(approvedKind('pending')).toBe('none')
     expect(detailCellText(cell('x', 'present', { in: '08:02', out: '16:05' }))).toBe('08:02→16:05'); expect(detailCellText(cell('x', 'incomplete', { in: '08:00' }))).toBe('08:00→؟'); expect(detailCellText(cell('x', 'absent'))).toBe('غ')
   })
@@ -214,7 +214,7 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
     expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('08:00→؟ ز')
     expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غ · ز')
     const approved = await buildAttendanceApprovedWorkbook([permitRow], meta)
-    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('حاضر · ز')
+    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('بصمة ناقصة · ز')
     expect(approved.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غائب · ز')
     h.grid = [permitRow]
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
@@ -244,12 +244,12 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
     expect(sum.getCell('A2').value).toContain('مدقق الحضور')
     expect(ws.views[0]?.rightToLeft).toBe(true)
   })
-  it('المعتمد: الخلايا حاضر/غائب/مجاز/راحة فقط (لا أوقات) وأعمدة الحضور/الغياب/الإجازة/الساعات', async () => {
+  it('المعتمد: الخلايا حاضر/غائب/مجاز/راحة/بصمة ناقصة (لا أوقات) وأعمدة الحضور/الغياب/الإجازة/الساعات', async () => {
     const wb = await buildAttendanceApprovedWorkbook(rows, meta)
     expect(wb.worksheets.map((w) => w.name)).toEqual(['الملخص', 'الإدارة', 'النقل'])
     const ws = wb.getWorksheet('النقل')!
     const r = ws.getRow(6)
-    expect([5, 6, 7, 8, 9, 10, 11].map((c) => r.getCell(c).value)).toEqual(['حاضر', 'حاضر', 'حاضر', 'راحة', 'غائب', 'مجاز', 'حاضر'])
+    expect([5, 6, 7, 8, 9, 10, 11].map((c) => r.getCell(c).value)).toEqual(['حاضر', 'حاضر', 'بصمة ناقصة', 'راحة', 'غائب', 'مجاز', 'حاضر'])
     expect([12, 13, 14, 15].map((c) => r.getCell(c).value)).toEqual([4, 1, 1, '21:18'])
     expect(String(ws.getCell('A2').value)).toContain('اعتمده مدقق الحضور')
     for (let c = 5; c <= 11; c++) expect(String(r.getCell(c).value)).not.toMatch(/\d\d:\d\d/)
