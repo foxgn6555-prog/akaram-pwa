@@ -1,5 +1,6 @@
 /** 00336: لوحة تفويض الموافقات — الموافِق يفوّض نفسه، التطوير المركزية تفوّض نيابةً عن حساب، إلغاء بتأكيد، حدود المدة */
 import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({ set: vi.fn(), cancel: vi.fn(), rows: [] as Record<string, unknown>[], allFlag: null as boolean | null }))
 vi.mock('@features/sector-manager/hooks', () => ({
@@ -7,21 +8,19 @@ vi.mock('@features/sector-manager/hooks', () => ({
   useSetApprovalDelegation: () => ({ mutate: h.set, isPending: false }),
   useCancelApprovalDelegation: () => ({ mutate: h.cancel, isPending: false }),
 }))
-vi.mock('@features/user-management', () => ({
-  useUsers: () => ({ data: [
-    { id: 'u-dep', email: 'dep@x.iq', employee_name: 'معاون المدير' },
-    { id: 'u-ops', email: 'ops@x.iq', employee_name: 'مسؤول القاطع' },
-  ] }),
-}))
+const choices = [{ id: 'u-dep', email: 'dep@x.iq', employee_name: 'معاون المدير' }, { id: 'u-ops', email: 'ops@x.iq', employee_name: 'مسؤول القاطع' }]
+vi.mock('@sdk/users.sdk', () => ({ users: { list: async () => choices } }))
+vi.mock('@sdk/sector-manager.sdk', () => ({ approvals: { delegationCandidates: async (q: string) => choices.filter((u) => u.employee_name.includes(q)).map((u) => ({ id: u.id, label: u.employee_name })) } }))
 import { DelegationPanel } from '@components/approvals/DelegationPanel'
 
+const renderPanel = (admin = false) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><DelegationPanel admin={admin} /></QueryClientProvider>)
 const today = new Date().toISOString().slice(0, 10)
 const plus = (n: number) => { const d = new Date(today + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 describe('تفويض الموافقات', () => {
   beforeEach(() => { vi.clearAllMocks(); h.rows = []; h.allFlag = null })
-  it('الموافِق: يفوّض حساباً لمدة محددة ويُرسل بلا «نيابةً عن»', () => {
-    render(<DelegationPanel />)
+  it('الموافِق: يفوّض حساباً لمدة محددة ويُرسل بلا «نيابةً عن»', async () => {
+    renderPanel()
     expect(h.allFlag).toBe(false)
     expect(screen.getByTestId('delegation-empty')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('delegation-open'))
@@ -29,7 +28,7 @@ describe('تفويض الموافقات', () => {
     expect(screen.getByTestId('delegation-submit')).toBeDisabled()
     fireEvent.change(screen.getByTestId('delegation-to-search'), { target: { value: 'معاون' } })
     expect(screen.queryByTestId('delegation-to-opt-u-ops')).toBeNull()
-    fireEvent.click(screen.getByTestId('delegation-to-opt-u-dep'))
+    fireEvent.click(await screen.findByTestId('delegation-to-opt-u-dep'))
     expect(screen.getByTestId('delegation-to-selected')).toHaveTextContent('معاون المدير')
     fireEvent.change(screen.getByTestId('delegation-end'), { target: { value: plus(4) } })
     expect(screen.getByTestId('delegation-days')).toHaveTextContent('المدة: 5 يوم')
@@ -37,10 +36,11 @@ describe('تفويض الموافقات', () => {
     fireEvent.click(screen.getByTestId('delegation-submit'))
     expect(h.set).toHaveBeenCalledWith({ toUser: 'u-dep', startsOn: today, endsOn: plus(4), note: 'إجازة', fromUser: null }, expect.any(Object))
   })
-  it('يمنع مدة تتجاوز 90 يوماً أو نهاية قبل البداية', () => {
-    render(<DelegationPanel />)
+  it('يمنع مدة تتجاوز 90 يوماً أو نهاية قبل البداية', async () => {
+    renderPanel()
     fireEvent.click(screen.getByTestId('delegation-open'))
-    fireEvent.click(screen.getByTestId('delegation-to-opt-u-dep'))
+    fireEvent.change(screen.getByTestId('delegation-to-search'), { target: { value: 'معاون' } })
+    fireEvent.click(await screen.findByTestId('delegation-to-opt-u-dep'))
     fireEvent.change(screen.getByTestId('delegation-end'), { target: { value: plus(120) } })
     expect(screen.getByTestId('delegation-days')).toHaveTextContent('الحد 90')
     expect(screen.getByTestId('delegation-submit')).toBeDisabled()
@@ -50,14 +50,14 @@ describe('تفويض الموافقات', () => {
     expect(screen.getByTestId('delegation-submit')).toBeDisabled()
     expect(h.set).not.toHaveBeenCalled()
   })
-  it('التطوير المركزية: يطلب الكل، يفوّض نيابةً عن حساب، ولا يسمح بنفس الحساب في الطرفين', () => {
-    render(<DelegationPanel admin />)
+  it('التطوير المركزية: يطلب الكل، يفوّض نيابةً عن حساب، ولا يسمح بنفس الحساب في الطرفين', async () => {
+    renderPanel(true)
     expect(h.allFlag).toBe(true)
     fireEvent.click(screen.getByTestId('delegation-open'))
-    fireEvent.click(screen.getByTestId('delegation-from-opt-u-ops'))
+    fireEvent.click(await screen.findByTestId('delegation-from-opt-u-ops'))
     expect(screen.queryByTestId('delegation-to-opt-u-ops')).toBeNull()
     expect(screen.getByTestId('delegation-submit')).toBeDisabled()
-    fireEvent.click(screen.getByTestId('delegation-to-opt-u-dep'))
+    fireEvent.click(await screen.findByTestId('delegation-to-opt-u-dep'))
     fireEvent.click(screen.getByTestId('delegation-submit'))
     expect(h.set).toHaveBeenCalledWith(expect.objectContaining({ toUser: 'u-dep', fromUser: 'u-ops' }), expect.any(Object))
   })
@@ -67,7 +67,7 @@ describe('تفويض الموافقات', () => {
       { id: 'd2', from_user: 'c', from_name: 'المالية', to_user: 'b', to_name: 'معاون المدير', starts_on: plus(10), ends_on: plus(12), note: null, is_active: true, is_current: false, created_at: 'x' },
       { id: 'd3', from_user: 'c', from_name: 'المالية', to_user: 'b', to_name: 'معاون المدير', starts_on: '2026-01-01', ends_on: '2026-01-05', note: null, is_active: false, is_current: false, created_at: 'x' },
     ]
-    render(<DelegationPanel admin />)
+    renderPanel(true)
     expect(screen.getByTestId('delegation-d1')).toHaveTextContent('نافذ الآن')
     expect(screen.getByTestId('delegation-d2')).toHaveTextContent('مجدول')
     expect(screen.queryByTestId('delegation-d3')).toBeNull()

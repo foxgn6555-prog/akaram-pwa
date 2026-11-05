@@ -7,7 +7,7 @@ import { customRoutes } from '@portals/complaints/routes'
 describe('بوابة الشكاوى', () => {
   it('تسجل وحدات الدورة بالترتيب المطلوب', () => {
     const units = PORTAL_UNITS[PORTALS.COMPLAINTS]
-    expect(units).toHaveLength(11)
+    expect(units).toHaveLength(12)
     expect(units.map((unit) => unit.labelKey)).toEqual([
       'nav.dashboard',
       'nav.complaints_karrada',
@@ -20,6 +20,7 @@ describe('بوابة الشكاوى', () => {
       'nav.complaints_pages_contact',
       'nav.complaints_archive',
       'nav.complaints_support',
+      'nav.approval_tasks',
     ])
   })
 
@@ -30,7 +31,7 @@ describe('بوابة الشكاوى', () => {
     expect(paths).toEqual(new Set([
       'karrada-sector', 'zaafaraniya-sector', 'sector/:code', 'assignment', 'processing', 'templates', 'database',
       'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
-      'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
+      'approvals', 'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
     ]))
   })
 })

@@ -40,12 +40,13 @@ export function useDisclosurePreparers(month: string | null, enabled = true) { r
 export function useDisclosureStats(month: string | null) { return useQuery({ queryKey: unitKeys.stats(month), queryFn: () => disclosuresUnit.stats(month), refetchInterval: 30_000 }) }
 
 export function useDisclosureActions() {
-  const inv = useInvalidate(); const t = useToast()
+  const inv = useInvalidate(); const t = useToast(); const qc = useQueryClient()
+  const refreshApprovals = () => { void qc.invalidateQueries({ queryKey: ['sector-manager', 'tasks'] }) }
   const save = useMutation({ mutationFn: (v: { id: string | null; input: DisclosureInput }) => disclosuresUnit.save(v.id, v.input), onSuccess: (_d, v) => { inv(); t.ok(v.id ? 'حُفظت تعديلات الكشف' : 'أُنشئ الكشف كمسودة') }, onError: t.err })
-  const submit = useMutation({ mutationFn: (id: string) => disclosuresUnit.submit(id), onSuccess: (d) => { inv(); t.ok(`رُفع الكشف ${d.ref_no ?? ''} إلى ${d.current_step ?? 'الموافقة'}`) }, onError: t.err })
+  const submit = useMutation({ mutationFn: (id: string) => disclosuresUnit.submit(id), onSuccess: (d) => { inv(); refreshApprovals(); t.ok(`رُفع الكشف ${d.ref_no ?? ''} إلى ${d.current_step ?? 'الموافقة'}`) }, onError: t.err })
   const decide = useMutation({ mutationFn: (v: { id: string; approve: boolean; note?: string | null; amount?: number | null }) => disclosuresUnit.decide(v.id, v.approve, v.note, v.amount),
-    onSuccess: (d) => { inv(); t.ok(d.status === 'approved' ? `اعتُمد الكشف ${d.ref_no ?? ''}${d.deduction_posted ? ' وأُضيف الاستقطاع للحضورية' : ''}` : d.status === 'returned' ? 'أُعيد الكشف إلى غرفة العمليات' : 'سُجّلت موافقتك — انتقل للخطوة التالية') }, onError: t.err })
-  const cancel = useMutation({ mutationFn: (v: { id: string; reason: string }) => disclosuresUnit.cancel(v.id, v.reason), onSuccess: () => { inv(); t.ok('أُلغي الكشف وبُلّغ المدير المفوض') }, onError: t.err })
+    onSuccess: (d) => { inv(); refreshApprovals(); t.ok(d.status === 'approved' ? `اعتُمد الكشف ${d.ref_no ?? ''}${d.deduction_posted ? ' وأُضيف الاستقطاع للحضورية' : ''}` : d.status === 'returned' ? 'أُعيد الكشف إلى غرفة العمليات' : 'سُجّلت موافقتك — انتقل للخطوة التالية') }, onError: t.err })
+  const cancel = useMutation({ mutationFn: (v: { id: string; reason: string }) => disclosuresUnit.cancel(v.id, v.reason), onSuccess: () => { inv(); refreshApprovals(); t.ok('أُلغي الكشف وبُلّغ المدير المفوض') }, onError: t.err })
   return { save, submit, decide, cancel }
 }
 

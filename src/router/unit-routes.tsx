@@ -11,6 +11,7 @@ import { PORTAL_UNITS } from '@config/portals.config'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
+const ApprovalInbox = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage'))
 const UnitPlaceholder = lazy(() => import('@components/layout/UnitPlaceholder'))
 const AnnouncementInbox = lazy(() => import('@components/executive/AnnouncementInbox'))
 const AnnouncementDetail = lazy(() => import('@components/executive/AnnouncementInbox').then((m) => ({ default: m.AnnouncementDetail })))
@@ -34,6 +35,11 @@ export function buildPortalRoutes(
     // الرئيسية تأتي بمسار '' (فارغ) — typeof يميّزها عن undefined، وإلا فلا تدخل الخريطة
     // وتستبدل صفحتها الحقيقية بـ UnitPlaceholder (ثغرة «قيد التطوير» على الرئيسية)
     if (typeof route.path === 'string') byRel.set(route.path, route)
+  }
+
+  // أي حساب مُعيّن في سلسلة يحتاج وارداً في بوابته، مع بقاء المسارات المخصصة كما هي.
+  if (portal !== 'public' && !byRel.has('approvals')) {
+    byRel.set('approvals', { path: 'approvals', element: suspense(<ApprovalInbox title="طلبات الموافقة" />) })
   }
 
   const children: RouteObject[] = []

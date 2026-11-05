@@ -167,6 +167,7 @@ export const approvals = {
   simulate: async (userId: string, type: ApprovalRequestType, subtype: string | null, context: Record<string, number>) =>
     (await sdkGuard(supabase.rpc('approval_simulate', { p_user: userId, p_type: type, p_subtype: subtype, p_context: context }))) as ApprovalSimulation,
   /** 00336: تفويضاتي (أو الكل لـ IT) */
+  delegationCandidates: async (query: string) => (await sdkGuard(supabase.rpc('approval_delegate_candidates', { p_query: query.trim() } as never))) as { id: string; label: string }[],
   delegations: async (all = false) => (await sdkGuard(supabase.rpc('approval_delegations_list', { p_all: all }))) as ApprovalDelegation[],
   delegationSet: async (x: { toUser: string; startsOn: string; endsOn: string; note?: string | null; fromUser?: string | null }) =>
     (await sdkGuard(supabase.rpc('approval_delegation_set', { p_to_user: x.toUser, p_starts_on: x.startsOn, p_ends_on: x.endsOn, p_note: x.note ?? null, p_from_user: x.fromUser ?? null }))) as string,

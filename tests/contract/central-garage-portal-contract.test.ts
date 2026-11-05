@@ -36,7 +36,7 @@ const sidebar = JSON.parse(readFileSync('src/i18n/ar/sidebar.json', 'utf8')) as 
 describe('بوابة الكراج المركزي', () => {
   it('تسجل وحدات التشغيل والتقارير بالترتيب', () => {
     const units = PORTAL_UNITS[PORTALS.CENTRAL_GARAGE]
-    expect(units).toHaveLength(11)   // 00206: + الكشوفات · 00207: + الموظفون · 00208: + الطلبات · 00209: + الإجراءات
+    expect(units).toHaveLength(12)   // 00206: + الكشوفات · 00207: + الموظفون · 00208: + الطلبات · 00209: + الإجراءات
     expect(units.map((unit) => unit.path)).toEqual([
       '/central-garage',
       '/central-garage/drivers-dispatch',
@@ -49,6 +49,7 @@ describe('بوابة الكراج المركزي', () => {
       '/central-garage/disclosures',
       '/central-garage/reports',
       '/central-garage/archive',
+      '/central-garage/approvals',
     ])
   })
 

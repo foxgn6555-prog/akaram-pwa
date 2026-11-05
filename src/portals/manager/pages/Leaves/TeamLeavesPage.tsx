@@ -27,7 +27,7 @@ export default function TeamLeavesPage() {
 
   return (
     <div className="space-y-4" data-testid="team-leaves">
-      <ExecPageHeader icon="calendar" title="إجازات فريقي" subtitle={`أنت المعتمد الوحيد لطلبات موظفيك المباشرين (${me?.reports_count ?? 0} موظف) · الرفض يتطلب سبباً يصل إلى الموظف`} stats={[
+      <ExecPageHeader icon="calendar" title="إجازات فريقي" subtitle={`سجل إجازات فريقك (${me?.reports_count ?? 0} موظف) · الطلبات الموجّهة لك حسب السلسلة تظهر في وحدة طلبات الموافقة`} stats={[
         { label: 'بانتظار قرارك', value: inbox.length, tone: inbox.length ? 'gold' : 'green', testId: 'tl-inbox-count' },
         { label: 'في إجازة اليوم', value: onLeaveToday, tone: 'plain', testId: 'tl-today' },
         { label: 'تنبيهات الفريق', value: alerts.length, tone: alerts.length ? 'red' : 'plain', testId: 'tl-alerts-count' },

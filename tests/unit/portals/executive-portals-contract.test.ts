@@ -38,7 +38,8 @@ describe('بوابات الإدارة العليا', () => {
       const custom = paths(c.routes)
       for (const u of units) {
         const rel = u.path === c.base ? '' : u.path.slice(c.base.length + 1)
-        expect(custom.has(rel), `${u.path} يجب أن يكون صفحة حقيقية لا Placeholder`).toBe(true)
+        // وارد الموافقات المشترك يُضاف بمولّد المسارات لا ضمن المسارات المحلية للمالية.
+        expect(custom.has(rel) || (c.portal === PORTALS.FINANCE && rel === 'approvals'), `${u.path} يجب أن يكون صفحة حقيقية لا Placeholder`).toBe(true)
       }
     })
     it(`${c.portal}: وارد التبليغات + التفصيل مبنيان تلقائياً`, () => {

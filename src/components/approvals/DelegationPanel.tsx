@@ -5,7 +5,9 @@ import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { UserCheck, XCircle } from 'lucide-react'
 import { useApprovalDelegations, useCancelApprovalDelegation, useSetApprovalDelegation } from '@features/sector-manager/hooks'
-import { useUsers } from '@features/user-management'
+import { useQuery } from '@tanstack/react-query'
+import { users } from '@sdk/users.sdk'
+import { approvals } from '@sdk/sector-manager.sdk'
 import { dateAr } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
@@ -13,10 +15,14 @@ const today = () => new Date().toISOString().slice(0, 10)
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 type UserOpt = { id: string; label: string }
-function UserPicker({ testId, label, value, onChange, exclude }: { testId: string; label: string; value: UserOpt | null; onChange: (u: UserOpt | null) => void; exclude?: string[] }) {
+function UserPicker({ testId, label, value, onChange, exclude, admin }: { testId: string; label: string; value: UserOpt | null; onChange: (u: UserOpt | null) => void; exclude?: string[]; admin: boolean }) {
   const [q, setQ] = useState('')
-  const users = useUsers()
-  const options = useMemo(() => (users.data ?? []).filter((u) => !(exclude ?? []).includes(u.id)).filter((u) => (u.employee_name ?? u.email ?? '').includes(q)).slice(0, 30), [users.data, q, exclude])
+  const candidates = useQuery({
+    queryKey: ['approval-delegation-candidates', admin, q.trim()],
+    queryFn: async (): Promise<UserOpt[]> => admin ? (await users.list(q)).map((u) => ({ id: u.id, label: u.employee_name ?? u.email ?? u.id })) : approvals.delegationCandidates(q),
+    enabled: admin || q.trim().length >= 2, staleTime: 15_000,
+  })
+  const options = useMemo(() => (candidates.data ?? []).filter((u) => !(exclude ?? []).includes(u.id)).slice(0, 30), [candidates.data, exclude])
   return (
     <div className="space-y-1">
       <label className="text-xs font-bold text-slate-600">{label}</label>
@@ -29,8 +35,8 @@ function UserPicker({ testId, label, value, onChange, exclude }: { testId: strin
         <>
           <input aria-label={label} data-testid={`${testId}-search`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم" className="h-10 w-full rounded-xl border px-3 text-sm" />
           <div className="max-h-40 overflow-auto rounded-xl border bg-white">
-            {options.length === 0 ? <div className="p-2 text-xs text-slate-500">لا نتائج.</div> : options.map((u) => (
-              <button key={u.id} type="button" data-testid={`${testId}-opt-${u.id}`} className="block w-full px-3 py-2 text-right text-sm hover:bg-slate-50" onClick={() => onChange({ id: u.id, label: u.employee_name ?? u.email ?? u.id })}>{u.employee_name ?? u.email}</button>
+            {candidates.isError ? <div role="alert" className="p-2 text-xs text-red-700">تعذر البحث عن الحسابات.</div> : options.length === 0 ? <div className="p-2 text-xs text-slate-500">{!admin && q.trim().length < 2 ? 'اكتب حرفين على الأقل للبحث.' : 'لا نتائج.'}</div> : options.map((u) => (
+              <button key={u.id} type="button" data-testid={`${testId}-opt-${u.id}`} className="block w-full px-3 py-2 text-right text-sm hover:bg-slate-50" onClick={() => onChange(u)}>{u.label}</button>
             ))}
           </div>
         </>
@@ -65,8 +71,8 @@ export function DelegationPanel({ admin = false }: { admin?: boolean }) {
 
       {open && (
         <div className="mt-3 grid gap-3 rounded-xl border bg-slate-50 p-3 md:grid-cols-2" data-testid="delegation-form">
-          {admin && <UserPicker testId="delegation-from" label="نيابةً عن (الموافِق الغائب)" value={from} onChange={setFrom} exclude={to ? [to.id] : []} />}
-          <UserPicker testId="delegation-to" label="المفوَّض إليه" value={to} onChange={setTo} exclude={from ? [from.id] : []} />
+          {admin && <UserPicker admin={admin} testId="delegation-from" label="نيابةً عن (الموافِق الغائب)" value={from} onChange={setFrom} exclude={to ? [to.id] : []} />}
+          <UserPicker admin={admin} testId="delegation-to" label="المفوَّض إليه" value={to} onChange={setTo} exclude={from ? [from.id] : []} />
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs font-bold text-slate-600">من<input type="date" data-testid="delegation-start" value={startsOn} min={today()} onChange={(e) => setStartsOn(e.target.value)} className="mt-1 h-10 w-full rounded-xl border px-2 text-sm" /></label>
             <label className="text-xs font-bold text-slate-600">إلى<input type="date" data-testid="delegation-end" value={endsOn} min={startsOn} onChange={(e) => setEndsOn(e.target.value)} className="mt-1 h-10 w-full rounded-xl border px-2 text-sm" /></label>

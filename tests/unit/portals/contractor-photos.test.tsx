@@ -39,7 +39,7 @@ beforeEach(() => {
 describe('إرسال الصور — بوابة المتعهد (00257)', () => {
   it('الشريط الجانبي للمتعهد يحوي: الرئيسية · إثبات التواجد والعدد · إرسال الصور (00258)', () => {
     const units = PORTAL_UNITS[PORTALS.EMPLOYEE]
-    expect(units.map((u) => u.path)).toEqual(['/employee', '/employee/attendance', '/employee/photos'])
+    expect(units.map((u) => u.path)).toEqual(['/employee', '/employee/attendance', '/employee/photos', '/employee/approvals'])
     expect((sidebarAr as { nav: Record<string, string> }).nav.contractor_photos).toBe('إرسال الصور')
   })
 

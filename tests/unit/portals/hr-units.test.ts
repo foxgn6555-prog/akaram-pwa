@@ -16,7 +16,7 @@ const flat = (units: typeof PORTAL_UNITS[keyof typeof PORTAL_UNITS]) =>
 describe('بوابة الموارد البشرية — الوحدات السبع', () => {
   it('تسجل الوحدات السبع بالترتيب المعتمد', () => {
     const units = PORTAL_UNITS[PORTALS.HR]
-    expect(units).toHaveLength(13)   // 00249: + تقارير سلوك الموظفين · 00348: + تعيينات بانتظار الإكمال
+    expect(units).toHaveLength(14)   // 00249: + تقارير سلوك الموظفين · 00348: + تعيينات بانتظار الإكمال
     expect(units.map((u) => u.labelKey)).toEqual([
       'nav.dashboard',          // ① الرئيسية
       'nav.hr_recruitment',     // ② التوظيف وإنهاء الخدمات
@@ -31,9 +31,10 @@ describe('بوابة الموارد البشرية — الوحدات السبع
       'nav.hr_biometric_ledger', // ⑥ دفتر البصمة (بيانات)
       'nav.hr_org',              // ⑦ الهيكل التنظيمي
       'nav.hr_behavior',         // ⑧ تقارير سلوك الموظفين (00249)
+      'nav.approval_tasks',      // وارد الموافقات المُسنَدة
     ])
     expect(units.map((u) => u.path)).toEqual([
-      '/hr', '/hr/recruitment', '/hr/hire-requests', '/hr/employees', '/hr/attendance', '/hr/now', '/hr/attendance-monthly', '/hr/attendance-edits', '/hr/leaves', '/hr/documents', '/hr/biometric', '/hr/org', '/hr/behavior',
+      '/hr', '/hr/recruitment', '/hr/hire-requests', '/hr/employees', '/hr/attendance', '/hr/now', '/hr/attendance-monthly', '/hr/attendance-edits', '/hr/leaves', '/hr/documents', '/hr/biometric', '/hr/org', '/hr/behavior', '/hr/approvals',
     ])
   })
 
@@ -57,7 +58,7 @@ describe('بوابة الموارد البشرية — الوحدات السبع
     const routes = buildPortalRoutes(PORTALS.HR, customRoutes)
     const paths = new Set(routes.map((r) => r.path).filter(Boolean))
     expect(routes.some((r) => r.index)).toBe(true)
-    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'now', 'attendance-monthly', 'attendance-edits', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId']))
+    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'now', 'attendance-monthly', 'attendance-edits', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId', 'approvals']))
   })
 
   it('الفصل التقني/البياناتي: أجهزة البصمة في بوابة التطوير المركزية فقط، والدفتر في HR فقط', () => {

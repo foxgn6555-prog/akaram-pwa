@@ -15,6 +15,7 @@ import { fmtMoney } from '@portals/hr/components/hr-format'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 /** 00336: لوحة التفويض تُحمَّل عند الطلب فقط */
+const DisclosureDetailDrawer = lazy(() => import('@features/disclosures/components/DisclosureDetailDrawer').then((m) => ({ default: m.DisclosureDetailDrawer })))
 const DelegationPanel = lazy(() => import('@components/approvals/DelegationPanel').then((m) => ({ default: m.DelegationPanel })))
 const PARENT_AR: Record<string, string> = PARENT_SECTOR_LABELS_LIVE   // 00394
 const KIND_GROUPS: Array<[string, ApprovalTask['request_kind'][]]> = [['إجازات وزمنيات', ['leave', 'time_permit']], ['سلف', ['advance']], ['إنهاء خدمة ومستلزمات', ['termination', 'supplies', 'disclosure']], ['حذف أرشيف', ['cold_archive_purge']], ['تقارير الشكاوى', ['complaint_report']], ['تعيين موظف', ['hire']], ['تعديل حضور', ['attendance_edit']], ['تصفير المنصة', ['platform_reset']]]
@@ -26,12 +27,14 @@ export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { 
   return (
     <div className="space-y-4 pb-4" data-testid="sm-requests">
       <ExecPageHeader icon="check-square" title={title} subtitle="الطلبات التي وصلت إلى دورك في سلسلة الموافقات — الرفض يُنهي الطلب، والموافقة تنقله للخطوة التالية أو تُنفّذه"
-        stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : list.length, tone: list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
+        stats={[{ label: 'بانتظار قرارك', value: tasks.isLoading ? '…' : tasks.isError ? '—' : list.length, tone: tasks.isError ? 'plain' : list.length ? 'red' : 'green', testId: 'approvals-pending' }, ...KIND_GROUPS.map(([label, kinds]) => ({ label, value: list.filter((t) => kinds.includes(t.request_kind)).length }))]} />
       <div className="flex justify-end">
         <button type="button" data-testid="delegation-toggle" className="inline-flex items-center gap-1 rounded-xl border bg-white px-3 py-2 text-sm font-bold text-emerald-800" onClick={() => setShowDelegation((v) => !v)}><UserCheck className="h-4 w-4" /> {showDelegation ? 'إخفاء التفويض' : 'تفويض موافقاتي أثناء غيابي'}</button>
       </div>
       {showDelegation && <Suspense fallback={<LoadingSpinner />}><DelegationPanel /></Suspense>}
-      {tasks.isLoading ? <LoadingSpinner /> : (tasks.data ?? []).length === 0 ? (
+      {tasks.isLoading ? <LoadingSpinner /> : tasks.isError ? (
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">تعذر تحميل طلبات الموافقة. <button type="button" className="font-bold underline" onClick={() => void tasks.refetch()}>إعادة المحاولة</button></div>
+      ) : (tasks.data ?? []).length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-white p-8 text-center text-sm text-slate-500" data-testid="sm-requests-empty">لا طلبات بانتظار قرارك الآن.</div>
       ) : (
         <ul className="space-y-3" data-testid="sm-requests-list">
@@ -45,7 +48,20 @@ export default function TeamRequestsPage({ title = 'طلبات فريقي' }: { 
 type Decider = { pending: boolean; approve: (x: { amount: number | null; installments: number | null }) => void; reject: (note: string, onSuccess: () => void) => void }
 /** بطاقة المهمة: السلفة تستخدم advance_decide (مع تعديل المبلغ)؛ البقية approval_decide_request — الخطاف يُستدعى في المغلّف المناسب فقط */
 function TaskCard({ t }: { t: ApprovalTask }) {
-  return t.request_kind === 'advance' ? <AdvanceTaskCard t={t} /> : t.request_kind === 'platform_reset' ? <PlatformResetTaskCard t={t} /> : <GenericTaskCard t={t} />
+  return t.request_kind === 'disclosure' ? <DisclosureTaskCard t={t} /> : t.request_kind === 'advance' ? <AdvanceTaskCard t={t} /> : t.request_kind === 'platform_reset' ? <PlatformResetTaskCard t={t} /> : <GenericTaskCard t={t} />
+}
+/** الكشف يُفتح في درج القرار المعتمد، ولا يعتمد من بطاقة عامة. */
+function DisclosureTaskCard({ t }: { t: ApprovalTask }) {
+  const [open, setOpen] = useState(false)
+  const details = t.details as { target_label?: string; amount?: number | null } | null
+  return (
+    <li className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`task-${t.request_id}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2"><b>كشف {t.ref_no ?? ''} — {t.type_name}</b><span className="text-xs font-bold">خطوة {t.step_no} من {t.total_steps}</span></div>
+      <p className="mt-2 text-sm">{details?.target_label} {details?.amount != null ? `· ${fmtMoney(details.amount)} د.ع` : ''}</p>
+      <button type="button" className="mt-3 rounded-xl bg-[#0b3d6b] px-4 py-2 text-sm font-bold text-white" data-testid={`disclosure-detail-${t.request_id}`} onClick={() => setOpen(true)}>عرض الكشف واتخاذ القرار</button>
+      {open && <Suspense fallback={<LoadingSpinner />}><DisclosureDetailDrawer id={t.request_id} onClose={() => setOpen(false)} /></Suspense>}
+    </li>
+  )
 }
 /** 00398: مهمة «تصفير المنصة» — لا زر موافقة مباشر إطلاقاً؛ «إظهار تفاصيل التصفير» يفتح صفحة التفاصيل حيث الاعتماد بكلمة سر «اعتماد تصفير» أو الرفض بسبب */
 function PlatformResetTaskCard({ t }: { t: ApprovalTask }) {
@@ -82,7 +98,8 @@ function AdvanceTaskCard({ t }: { t: ApprovalTask }) {
 
 function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
   const [mode, setMode] = useState<'idle' | 'reject'>('idle'), [note, setNote] = useState(''), [showPath, setShowPath] = useState(false)
-  const timeline = useApprovalTimeline(showPath ? t.request_kind : undefined, showPath ? t.request_id : undefined)
+  const fallback = Boolean((t.details as { approval_fallback?: boolean } | null)?.approval_fallback)
+  const timeline = useApprovalTimeline(showPath && !fallback ? t.request_kind : undefined, showPath && !fallback ? t.request_id : undefined)
   const isSupply = t.request_kind === 'supplies', isTermination = t.request_kind === 'termination', isAdvance = t.request_kind === 'advance', isCold = t.request_kind === 'cold_archive_purge', isReport = t.request_kind === 'complaint_report', isHire = t.request_kind === 'hire', isAttEdit = t.request_kind === 'attendance_edit'
   const cold = isCold ? (t.details as ColdPurgeTaskDetails | null) : null
   const rep = isReport ? (t.details as ComplaintReportTaskDetails | null) : null
@@ -220,6 +237,7 @@ function TaskCardInner({ t, d }: { t: ApprovalTask; d: Decider }) {
       <button type="button" data-testid={`path-${t.request_id}`} onClick={() => setShowPath((v) => !v)} className="mt-2 text-[11px] font-bold text-[#0b3d6b] underline">{showPath ? 'إخفاء مسار الطلب' : 'عرض مسار الطلب كاملاً'}</button>
       {showPath && (
         <ol className="mt-2 space-y-1 rounded-xl border p-2 text-[11px]" data-testid={`path-list-${t.request_id}`}>
+          {fallback && <li>1. {t.step_label} — بانتظار القرار</li>}
           {(timeline.data ?? []).map((s) => (
             <li key={s.step_no} className="flex flex-wrap items-center gap-1">
               <b>{s.step_no}.</b> {s.step_label} — <span className={s.status === 'approved' ? 'text-emerald-700' : s.status === 'rejected' ? 'text-rose-700' : s.status === 'pending' ? 'text-amber-700' : 'text-slate-500'}>{STATUS_AR[s.status]}</span>

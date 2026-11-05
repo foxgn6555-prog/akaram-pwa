@@ -23,10 +23,9 @@ export function permissionSeedSql(): string {
     '-- upsert (لا حذف+إدراج) كي لا تُفقد قواعد القوالب والاستثناءات المرتبطة بالوحدات الباقية',
     'insert into public.permission_units (key, portal, path, label, parent_key, actions, sort) values',
     rows.join(',\n') + '\non conflict (key) do update set portal = excluded.portal, path = excluded.path, label = excluded.label, parent_key = excluded.parent_key, actions = excluded.actions, sort = excluded.sort;',
-    `delete from public.permission_units where key not in (${PERMISSION_CATALOG.map((u) => q(u.key)).join(', ')});`,
+    '-- لا تُحذف الوحدات الأخرى أو قواعدها أثناء تحديث الكتالوج.',
     'insert into public.permission_portal_roles (portal, role) values',
     roles.join(',\n') + '\non conflict (portal) do update set role = excluded.role;',
-    `delete from public.permission_portal_roles where portal not in (${Object.keys(PORTAL_ROLE).map((p) => q(p)).join(', ')});`,
     '-- <<catalog/>>',
   ].join('\n')
 }

@@ -150,6 +150,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/employee', labelKey: 'nav.dashboard', icon: 'home' },
     { path: '/employee/attendance', labelKey: 'nav.contractor_attendance', icon: 'check-square' },
     { path: '/employee/photos', labelKey: 'nav.contractor_photos', icon: 'camera' },
+    { path: '/employee/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // بوابة الموارد البشرية
@@ -168,6 +169,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/hr/biometric', labelKey: 'nav.hr_biometric_ledger', icon: 'fingerprint' },
     { path: '/hr/org', labelKey: 'nav.hr_org', icon: 'folder' },
     { path: '/hr/behavior', labelKey: 'nav.hr_behavior', icon: 'gauge' },   // 00249
+    { path: '/hr/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // بوابة مسؤول القسم (قواطع/شفتات)
@@ -184,6 +186,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/manager/citizen-complaints', labelKey: 'nav.mgr_citizen_complaints', icon: 'life-buoy' },
     { path: '/manager/photos', labelKey: 'nav.mgr_photos', icon: 'photo' },
     { path: '/manager/archive', labelKey: 'nav.mgr_archive', icon: 'archive-box' },
+    { path: '/manager/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // بوابة المالية
@@ -199,6 +202,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/budget', labelKey: 'nav.budget', icon: 'pie-chart' },
     { path: '/finance/expenses', labelKey: 'nav.finance_expenses', icon: 'wallet' },   // 00358
     { path: '/finance/announcements', labelKey: 'nav.announcements', icon: 'send' },
+    { path: '/finance/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // بوابة التطوير المركزية (تقنية المعلومات سابقاً) — مركز التحكم الكامل:
@@ -378,6 +382,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/maintenance/requests', labelKey: 'nav.ts_requests', icon: 'calendar' },   // 00223
     { path: '/maintenance/procedures', labelKey: 'nav.procedures', icon: 'flow' },   // 00223
     { path: '/maintenance/archive', labelKey: 'nav.maintenance_archive', icon: 'archive-box' },
+    { path: '/maintenance/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
   [PORTALS.TRANSFER_STATION]: [
     { path: '/transfer-station', labelKey: 'nav.dashboard', icon: 'home', exact: true },
@@ -406,6 +411,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/transfer-station/disclosures', labelKey: 'nav.sm_disclosures', icon: 'clipboard' },   // 00214
     { path: '/transfer-station/fines', labelKey: 'nav.ts_fines', icon: 'alert-triangle' },
     { path: '/transfer-station/archive', labelKey: 'nav.ts_archive', icon: 'archive-box' },
+    { path: '/transfer-station/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
   // المدير التنفيذي (00220): نفس ترتيب المدير المفوض ثم وحدات القاصة الأربع
   [PORTALS.EXECUTIVE]: [
@@ -472,6 +478,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
     { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
+    { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // ═══ وحدة الكشوفات ═══
@@ -527,6 +534,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'life-buoy',
       exact: true,
     },
+    { path: '/complaints/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // ═══ بوابة الإعلام ═══
@@ -563,6 +571,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       exact: true,
     },
     { path: '/media/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
+    { path: '/media/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // ═══ بوابة الكراج المركزي ═══
@@ -613,6 +622,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       exact: true,
     },
     { path: '/central-garage/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
+    { path: '/central-garage/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
   // 00259/00260: بوابة المتابعة — الرئيسية · متابعة الحاويات · متابعة العمال
@@ -620,6 +630,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/follow-up', labelKey: 'nav.dashboard', icon: 'home', exact: true },
     { path: '/follow-up/containers', labelKey: 'nav.follow_up_containers', icon: 'box' },
     { path: '/follow-up/workers', labelKey: 'nav.follow_up_workers', icon: 'users' },
+    { path: '/follow-up/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 }
 

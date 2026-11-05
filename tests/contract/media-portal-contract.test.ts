@@ -13,7 +13,7 @@ const sidebar = JSON.parse(readFileSync('src/i18n/ar/sidebar.json', 'utf8')) as 
 describe('بوابة الإعلام', () => {
   it('تسجل الوحدات السبع المطلوبة بالترتيب', () => {
     const units = PORTAL_UNITS[PORTALS.MEDIA]
-    expect(units).toHaveLength(7)
+    expect(units).toHaveLength(8)
     expect(units.map((unit) => unit.path)).toEqual([
       '/media',
       '/media/karrada-sector',
@@ -22,6 +22,7 @@ describe('بوابة الإعلام', () => {
       '/media/karrada-folder',
       '/media/design-templates',
       '/media/archive',
+      '/media/approvals',
     ])
   })
 
