@@ -22,6 +22,14 @@ begin
     where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
       and not exists (select 1 from app.data_retention_catalog() k where k.table_name = t.table_name);
   if missing is not null then raise exception 'A1 tables missing from retention catalog: %', missing; end if;
+  -- الجداول البنيوية وسجلات الإثبات المضافة حديثاً يجب أن تكون ظاهرة ومقفلة، لا مجهولة ولا قابلة للحذف العام.
+  select string_agg(table_name, ', ' order by table_name) into bad
+    from app.data_retention_catalog()
+    where table_name = any(array['attendance_edit_items','attendance_edit_requests','parent_sectors','platform_reset_requests',
+      'unmatched_archive_device_users','unmatched_archive_punches','unmatched_unit_audit','unmatched_unit_day_edits',
+      'unmatched_unit_independent_people','unmatched_unit_people_edits','unmatched_unit_permissions'])
+      and (deletable or time_column is not null);
+  if bad is not null then raise exception 'A1b protected tables must stay locked: %', bad; end if;
   -- A2: لا جدول في الكتالوج غير موجود فعلاً، ولا تكرار
   select string_agg(k.table_name, ', ') into extra from app.data_retention_catalog() k
     where not exists (select 1 from information_schema.tables t where t.table_schema = 'public' and t.table_name = k.table_name);

@@ -52,11 +52,11 @@ const run = (args) => {
 console.log(`① ربط المشروع: ${REF}`)
 run(['link', '--project-ref', REF])
 
-console.log('② حالة المهاجرات (المطبق/المعلق):')
-try { run(['migration', 'list']) } catch { /* بعض الإصدارات تفشل هنا — ليست حرجة */ }
+console.log('② حالة المهاجرات البعيدة (المطبق/المعلق):')
+run(['migration', 'list', '--remote'])
 
-console.log('③ التطبيق: npx supabase db push')
-run(['db', 'push', ...extra])
+console.log('③ التطبيق على قاعدة المشروع البعيدة: npx supabase db push --remote')
+run(['db', 'push', '--remote', ...extra])
 
 console.log('\n✅ اكتمل — تحقق: Dashboard → Database → Migrations')
 console.log('   اختياري: فعّل custom_access_token_hook من Authentication → Hooks')

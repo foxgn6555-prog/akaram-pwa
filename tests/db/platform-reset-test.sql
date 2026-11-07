@@ -39,6 +39,13 @@ begin
     where ns.nspname = 'public' and c.relkind = 'r' and c.relname not like 'zz\_%'
       and app.platform_reset_category_of(c.relname) is null and not (c.relname = any(app.platform_reset_never_tables()));
   assert missing is null, 'R1 جداول غير مصنَّفة: ' || missing;
+  assert app.platform_reset_category_of('unmatched_archive_device_users') = 'attendance'
+    and app.platform_reset_category_of('unmatched_archive_punches') = 'attendance'
+    and app.platform_reset_category_of('unmatched_unit_people_edits') = 'attendance'
+    and app.platform_reset_category_of('unmatched_unit_day_edits') = 'attendance'
+    and app.platform_reset_category_of('unmatched_unit_audit') = 'attendance'
+    and app.platform_reset_category_of('unmatched_unit_independent_people') = 'attendance'
+    and app.platform_reset_category_of('unmatched_unit_permissions') = 'accounts', 'R1e unmatched reset categories';
   select string_agg(t, '، ') into dup from (select t from app.platform_reset_catalog() c, unnest(c.tables) t group by t having count(*) > 1) x;
   assert dup is null, 'R1b جداول مكررة: ' || dup;
   select string_agg(t, '، ') into ghost from app.platform_reset_catalog() c, unnest(c.tables) t

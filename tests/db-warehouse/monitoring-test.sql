@@ -36,10 +36,10 @@ begin
   js := public.wh_retry_failed();
   if (js ->> 'requeued')::int <> 0 or js -> 'month' <> 'null'::jsonb then raise exception 'M4 all %', js; end if;
   if (select status from public.wh_pull_jobs where device_external_id = 'm-2' and day = old + 1) <> 'failed' then raise exception 'M4 expired kept failed'; end if;
-  -- M5: الملخص صار فارغاً من الفاشلة داخل النافذة؛ wh_ping يحمل الإصدار 6
+  -- M5: الملخص صار فارغاً من الفاشلة داخل النافذة؛ wh_ping يحمل أحدث إصدار مخطط
   js := public.wh_progress();
   if (select coalesce(sum((x ->> 'failed')::int), 0) from jsonb_array_elements(js -> 'error_summary') x) <> 1 then raise exception 'M5 summary after retry %', js -> 'error_summary'; end if;
-  if (public.wh_ping() ->> 'schema_version')::int <> 6 then raise exception 'M5 ping'; end if;
+  if (public.wh_ping() ->> 'schema_version')::int <> (select max(version) from public.wh_schema_version) then raise exception 'M5 ping'; end if;
   -- M6: الصلاحيات — خدمة فقط
   if has_function_privilege('authenticated', 'public.wh_retry_failed(date)', 'execute') or has_function_privilege('anon', 'public.wh_progress()', 'execute') then raise exception 'M6 grants'; end if;
   raise notice 'warehouse monitoring ok';

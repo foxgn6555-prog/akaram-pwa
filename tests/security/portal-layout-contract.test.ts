@@ -11,8 +11,8 @@ const processing = read('src/portals/complaints/pages/Processing/ProcessingPage.
 /** عقد يمنع عودة تداخل الصفحات مع التنقل أو تغطية إجراءات الموبايل. */
 describe('عقد التخطيط المتجاوب للبوابات', () => {
   it('يجعل الشريط والمحتوى عمودين في التدفق ويقصر التمرير على main', () => {
-    expect(shell).toContain('isolate flex h-dvh min-h-0 w-full overflow-hidden')
-    expect(shell).toContain('h-dvh shrink-0 max-lg:hidden')
+    expect(shell).toContain('isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')
+    expect(shell).toContain('h-dvh flex-none max-lg:hidden')
     expect(shell).toContain('min-h-0 min-w-0 flex-1 flex-col overflow-hidden')
     expect(shell).toContain('overflow-x-hidden overflow-y-auto')
     expect(shell).not.toMatch(/<main[\s\S]{0,250}className=["'{][^\n]*(?:fixed|absolute)/)

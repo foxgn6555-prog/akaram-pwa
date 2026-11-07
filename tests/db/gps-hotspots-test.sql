@@ -33,6 +33,15 @@ begin
   -- إعادة النسخ تستبدل الشهر كلّه (لا تراكم)
   js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1, row2, row3), true, true);
   if (select count(*) from public.gps_hotspots where month = m) <> 3 then raise exception 'G1 replace'; end if;
+  -- أثناء إعادة النسخ تُبطل علامة النشر؛ لا تُعرض الصفحة الأولى جزئياً قبل اكتمال الدفعات.
+  js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1), true, false);
+  if exists (select 1 from public.gps_hotspots_sync where month = m) then raise exception 'G1 partial sync marker not cleared'; end if;
+  perform pg_temp.as_user('e9100000-0000-0000-0000-000000000003');
+  js := public.gps_hotspots_list(m, null);
+  if (js ->> 'total')::int <> 0 or jsonb_array_length(js -> 'rows') <> 0 or js -> 'sync' <> 'null'::jsonb then raise exception 'G1 partial sync exposed %', js; end if;
+  perform pg_temp.as_service();
+  js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1, row2, row3), false, true);
+  if (js ->> 'total')::int <> 3 or (select rows_count from public.gps_hotspots_sync where month = m) <> 3 then raise exception 'G1 final publish %', js; end if;
   perform public.gps_hotspots_replace_month(prev, jsonb_build_array(row2), true, true);
   -- G2: القراءة: HR والموظف ممنوعان (RPC + RLS)؛ العمليات وIT يقرآن
   perform pg_temp.as_user('e9100000-0000-0000-0000-000000000002');
