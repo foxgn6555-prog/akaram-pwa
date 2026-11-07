@@ -8,10 +8,9 @@ export type PortalResolution =
 
 /**
  * البوابة الافتراضية الصريحة لكل دور — تتقدم على منطق الأولوية العام.
- * مدير النظام (super_admin) بوابته «التطوير المركزية» (/it): من خلالها
- * يُضاف المستخدمون والفروع ويُتحكم بالتطبيق كاملاً.
+ * المدير المفوض (super_admin) يبدأ في /admin، وتقنية المعلومات (it_admin) تبدأ في /it.
  */
-// المدير المفوض (super_admin) يهبط في بوابته /admin (أعمال صافية)؛ ويصل إلى /it وكل البوابات من المبدّل
+// مبدّل المدير المفوض يعرض /admin فقط؛ وتقنية المعلومات ترى كل البوابات وتبدأ في /it.
 const ROLE_DEFAULT_PORTAL: Partial<Record<Role, PortalId>> = {
   super_admin: PORTALS.ADMIN,
 }
@@ -21,7 +20,7 @@ export function resolvePortal(roles: readonly Role[]): PortalResolution {
 
   if (portals.length === 0) return { type: 'denied' }
 
-  // ① الافتراضية الصريحة من الخريطة أعلاه (super_admin → /it)
+  // ① الافتراضية الصريحة من الخريطة أعلاه (super_admin → /admin)
   const primary = ROLE_PRIORITY.find((r) => roles.includes(r))
   const explicitId = primary ? ROLE_DEFAULT_PORTAL[primary] : undefined
   const explicit = explicitId ? portals.find((p) => p.id === explicitId) : undefined

@@ -53,14 +53,14 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
   { id: PORTALS.FOLLOW_UP, path: '/follow-up', allowedRoles: ['follow_up'], colorVar: '--portal-follow-up' },
 ] as const
 
-/** البوابات التي تقابل الأدوار المسندة فعلياً؛ تُستخدم في مبدّل البوابات. */
-export function portalsForAssignedRoles(roles: readonly string[]): PortalDefinition[] {
+/** البوابات التي تظهر في مبدّل الحساب؛ it_admin يرى كل البوابات للإدارة والتنقل. */
+export function portalsVisibleInSwitcher(roles: readonly string[]): PortalDefinition[] {
+  if (roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
 }
 
-/** البوابات التي يجوز دخولها؛ امتياز super_admin الواسع يبقى للحارس ومسارات النظام. */
+/** صلاحية فتح مسارات البوابات للحارس؛ لا تغيّر صلاحيات البيانات التي تقررها قاعدة البيانات. */
 export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
-  // صلاحية مدير النظام لا تجعل مبدّل البوابات يعرض أدواراً لم تُسند إلى الحساب.
-  if (roles.includes('super_admin')) return [...PORTAL_DEFINITIONS]
-  return portalsForAssignedRoles(roles)
+  if (roles.includes('super_admin') || roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
+  return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
 }

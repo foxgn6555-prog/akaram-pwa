@@ -1,20 +1,20 @@
 /** خريطة البوابات: صلاحيات الدخول منفصلة عن البوابات الظاهرة في المبدّل */
 import { describe, it, expect } from 'vitest'
-import { accessiblePortals, portalsForAssignedRoles, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
+import { accessiblePortals, portalsVisibleInSwitcher, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
 
 describe('accessiblePortals', () => {
-  it('مبدّل المدير المفوض يعرض بوابته فقط، مع بقاء امتياز الدخول العام للحارس', () => {
-    expect(portalsForAssignedRoles(['super_admin']).map((p) => p.id)).toEqual(['admin'])
+  it('مبدّل المدير المفوض يعرض بوابته فقط، دون تغيير صلاحية الحارس الحالية', () => {
+    expect(portalsVisibleInSwitcher(['super_admin']).map((p) => p.id)).toEqual(['admin'])
     expect(accessiblePortals(['super_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
   })
 
-  it('بوابة التطوير المركزية تبقى مرتبطة بدور it_admin', () => {
-    expect(portalsForAssignedRoles(['it_admin']).map((p) => p.id)).toEqual(['it'])
-    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
+  it('مبدّل تقنية المعلومات يعرض كل البوابات، مع بقاء بوابة IT الافتراضية', () => {
+    expect(portalsVisibleInSwitcher(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
+    expect(accessiblePortals(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
   })
 
-  it('الحساب ذو الدورين يرى بوابتي الدورين المسندين فقط في المبدّل', () => {
-    expect(portalsForAssignedRoles(['super_admin', 'it_admin']).map((p) => p.id)).toEqual(['it', 'admin'])
+  it('إذا كان الحساب تقنياً ومديراً مفوضاً، صلاحية تقنية المعلومات تعرض كل البوابات', () => {
+    expect(portalsVisibleInSwitcher(['super_admin', 'it_admin'])).toEqual([...PORTAL_DEFINITIONS])
   })
 
   it('super_admin يرى كل البوابات المسجلة للصلاحية العامة', () => {
@@ -61,10 +61,9 @@ describe('accessiblePortals', () => {
     expect(portals[0]?.id).toBe('complaints')
   })
 
-  it('it_admin يرى بوابة IT فقط', () => {
-    const portals = accessiblePortals(['it_admin'])
-    expect(portals).toHaveLength(1)
-    expect(portals[0]?.id).toBe('it')
+  it('it_admin يمكنه فتح كل البوابات عبر الحارس', () => {
+    expect(accessiblePortals(['it_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
+    expect(portalsVisibleInSwitcher(['it_admin']).map((p) => p.id)).toContain('it')
   })
 
   it('موظف عادي يرى بوابة الموظف فقط', () => {

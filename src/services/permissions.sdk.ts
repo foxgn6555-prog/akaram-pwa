@@ -16,7 +16,6 @@ export interface PermissionAuditRow { id: number; actor_id: string | null; actor
 
 const ERRORS: Record<string, string> = {
   PERMISSION_SELF_EDIT: 'لا يمكنك تعديل صلاحيات حسابك أنت — اطلب ذلك من زميل في التطوير المركزية.',
-  PERMISSION_TARGET_SUPER_ADMIN: 'صلاحيات مدير النظام الأعلى لا تُعدَّل إلا من مدير نظام أعلى آخر.',
   PERMISSION_TEMPLATE_NOT_FOUND: 'القالب غير موجود.',
   PERMISSION_TEMPLATE_IN_USE: 'القالب مسنَد إلى مستخدمين — أزل إسناده أولاً ثم احذفه.',
   PERMISSION_TEMPLATE_NAME_INVALID: 'اسم القالب يجب أن يكون بين حرفين و80 حرفاً.',

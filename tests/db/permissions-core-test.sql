@@ -105,7 +105,12 @@ do $$ declare it uuid := '9c000000-0000-0000-0000-000000000002'; hr uuid := '9c0
   perform auth.set_test_user(it);
   perform pg_temp.expect_error(format($q$select public.it_user_permission_override_set('%s', 'it.permissions', 'edit', 'allow')$q$, it), 'PERMISSION_SELF_EDIT');
   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, it, tpl), 'PERMISSION_SELF_EDIT');
-  perform pg_temp.expect_error(format($q$select public.it_user_permission_override_set('%s', 'finance.payroll', 'view', 'deny')$q$, sa), 'PERMISSION_TARGET_SUPER_ADMIN');
+  perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', 'deny', 'إدارة تقنية المعلومات');
+  assert exists (select 1 from public.user_permission_overrides where user_id = sa and unit_key = 'finance.payroll' and action = 'view' and effect = 'deny'), 'IT can manage super_admin permission settings';
+  -- يبقى دور super_admin ذا الصلاحيات الشاملة بطبيعته؛ الإعداد لا يسحب امتياز الدور الأساسي.
+  assert app.can(sa, 'finance.payroll', 'view'), 'super_admin role remains globally privileged';
+  perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', null);
+  perform public.it_user_permission_template_set(sa, tpl);
   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, '9c000000-0000-0000-0000-0000000000ff', tpl), 'IT_USER_NOT_FOUND');
   -- super_admin يستطيع استهداف super_admin آخر لكن لا أثر على الحسم (① يغلب)
   perform auth.set_test_user(sa);
@@ -124,6 +129,7 @@ do $$ declare it uuid := '9c000000-0000-0000-0000-000000000002'; hr uuid := '9c0
   assert exists (select 1 from public.it_permission_audit_list(hr) a where a.kind = 'override_set' and a.detail->>'unit' = 'hr.leaves' and a.actor_name is not null), 'audit detail';
   -- حذف قالب غير مستخدم
   perform public.it_user_permission_template_set(hr, null);
+  perform public.it_user_permission_template_set(sa, null);
   perform public.it_permission_template_delete(tpl);
   assert not exists (select 1 from public.permission_templates where id = tpl), 'template deleted';
   assert app.can(hr, 'hr.employees', 'edit'), 'back to role default';

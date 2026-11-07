@@ -1,9 +1,9 @@
 /**
- * ⚓ العقد الصارم: كل دور يفتح بوابته فقط
- *  · it_admin → /it حصراً (أي بوابة أخرى → إعادة توجيه إلى /it)
- *  · hr_officer → /hr حصراً … وهكذا
- *  · super_admin → إشراف على كل البوابات
- *  · متعدد الأدوار → بوابة الدور ذي الأولوية العليا + السماح لبواباته فقط
+ * ⚓ عقد الدخول إلى البوابات
+ *  · it_admin → /it افتراضياً، ويمكنه فتح كل البوابات من المبدّل
+ *  · الأدوار العادية → بوابتها فقط
+ *  · super_admin → /admin افتراضياً؛ بوابته الوحيدة في المبدّل
+ *  · بيانات الوحدات وصلاحياتها لا تتغير بهذا الحارس
  */
 import { describe, it, expect } from 'vitest'
 import { resolvePortal } from '@router/portal.router'
@@ -48,22 +48,15 @@ function canEnter(roles: Role[], portal: keyof typeof PORTALS): boolean {
   return decision.decision === 'allow'
 }
 
-describe('⚓ العقد الصارم: دور → بوابة واحدة فقط', () => {
-  it('it_admin: يفتح /it فقط — وكل بوابة أخرى ترجعه إلى /it', () => {
+describe('⚓ عقد الوصول والتنقّل بين البوابات حسب الدور', () => {
+  it('it_admin: الافتراضي /it ويستطيع فتح كل البوابات من بوابة التقنية', () => {
     const roles: Role[] = ['it_admin']
     expect(resolvePortal(roles)).toEqual({ type: 'single', portal: 'it', path: '/it' })
 
-    expect(canEnter(roles, 'it')).toBe(true)
-    expect(canEnter(roles, 'hr')).toBe(false)
-    expect(canEnter(roles, 'finance')).toBe(false)
-    expect(canEnter(roles, 'employee')).toBe(false)
-    expect(canEnter(roles, 'manager')).toBe(false)
-    expect(canEnter(roles, 'admin')).toBe(false)
-
-    // سلوك التحويل: محاولة /hr بأدوار IT → redirect إلى /it
-    const decision = portalGuard(sessionWith(...roles), 'hr')
-    expect(decision.decision).toBe('redirect')
-    expect(decision.redirectTo).toBe('/it')
+    for (const portal of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
+      expect(canEnter(roles, portal), `it_admin → ${portal}`).toBe(true)
+    }
+    expect(portalGuard(sessionWith(...roles), 'hr').decision).toBe('allow')
   })
 
   it('hr_officer: يفتح /hr فقط', () => {
@@ -143,16 +136,16 @@ describe('⚓ العقد الصارم: دور → بوابة واحدة فقط',
 
   it('مصادر الـ routes نفسها صارمة (لا تكرار متساهل)', () => {
     const byPath = new Map(PORTAL_ROUTES.map((r) => [r.path, r.allowedRoles]))
-    expect(byPath.get('/employee')).toEqual(['employee', 'super_admin'])
-    expect(byPath.get('/hr')).toEqual(['hr_officer', 'super_admin'])
-    expect(byPath.get('/manager')).toEqual(['department_manager', 'super_admin'])
-    expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin'])
+    expect(byPath.get('/employee')).toEqual(['employee', 'super_admin', 'it_admin'])
+    expect(byPath.get('/hr')).toEqual(['hr_officer', 'super_admin', 'it_admin'])
+    expect(byPath.get('/manager')).toEqual(['department_manager', 'super_admin', 'it_admin'])
+    expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin', 'it_admin'])
     expect(byPath.get('/it')).toEqual(['it_admin', 'super_admin'])
-    expect(byPath.get('/admin')).toEqual(['super_admin'])
-    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin'])
-    expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin'])
-    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin'])
-    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin'])
+    expect(byPath.get('/admin')).toEqual(['super_admin', 'it_admin'])
+    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin', 'it_admin'])
+    expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin', 'it_admin'])
+    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin', 'it_admin'])
+    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin', 'it_admin'])
   })
 
   it('بلا جلسة → تحويل إلى /login', () => {

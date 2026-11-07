@@ -5,6 +5,7 @@
  */
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
+import { useAuth } from '@features/auth/hooks/useAuth'
 import { usePermissionAudit, usePermissionTemplates, useSetUserPermissionOverride, useSetUserPermissionTemplate, useUserEffectivePermissions, useUserPermissionTemplate } from '@features/permissions'
 import type { EffectivePermissionRow } from '@features/permissions'
 import { PERMISSION_ACTION_LABELS, PORTAL_ROLE, type PermissionAction, type PermissionUnit } from '@config/permission-catalog'
@@ -15,7 +16,10 @@ import { GridLegend, PermissionGrid, portalLabel, type CellState } from '../Perm
 import { AUDIT_KIND } from '../Permissions/PermissionTemplates'
 
 export function PermissionsCard({ userId, roles, isSelf }: { userId: string; roles: readonly Role[]; isSelf: boolean }) {
+  const { data: session } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
+  const canManageSuperAdmin = session?.roles.some((role) => role === 'it_admin' || role === 'super_admin') ?? false
+  const canManageSettings = !isSuperAdmin || canManageSuperAdmin
   const templates = usePermissionTemplates()
   const userTpl = useUserPermissionTemplate(userId)
   const effective = useUserEffectivePermissions(userId)
@@ -50,7 +54,7 @@ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; rol
     setOv.mutate({ userId, unit: u.key, action: a, effect: next, reason: reason.trim() || null })
   }
 
-  const locked = isSelf || isSuperAdmin
+  const locked = isSelf || (isSuperAdmin && !canManageSuperAdmin)
   return (
     <section className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm" aria-label="الصلاحيات" data-testid="permissions-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -58,11 +62,16 @@ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; rol
           <h2 className="text-sm font-black">الصلاحيات</h2>
           <p className="mt-1 text-xs text-slate-500">افتراضياً يملك المستخدم كل وحدات بوابته. القالب يحجب/يضيف، والاستثناء الفردي يغلب القالب. التغيير يسري في الخادم فوراً وفي قوائمه عند تحديث صفحته.</p>
         </div>
-        {isSuperAdmin && <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">مدير النظام الأعلى — كل الصلاحيات دائماً</span>}
-        {isSelf && !isSuperAdmin && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكنك تعديل صلاحيات حسابك</span>}
+        {isSuperAdmin && <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">super_admin يملك كل الصلاحيات افتراضياً</span>}
+        {isSelf && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكنك تعديل صلاحيات حسابك</span>}
       </div>
+      {isSuperAdmin && canManageSuperAdmin && !isSelf && (
+        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900" role="note">
+          هذا الدور يملك كل الصلاحيات تلقائياً؛ القوالب والاستثناءات تُسجَّل لكنها لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً.
+        </p>
+      )}
 
-      {!isSuperAdmin && (
+      {canManageSettings && (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="text-xs font-bold">القالب
             <select data-testid="perm-template-select" disabled={locked || setTpl.isPending || !templates.data} value={userTpl.data?.template_id ?? ''} onChange={(e) => setTpl.mutate({ userId, templateId: e.target.value || null })} className="mt-1 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
@@ -85,7 +94,7 @@ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; rol
             {portalLabel(p)}
           </button>
         ))}
-        {!isSuperAdmin && (
+        {canManageSettings && (
           <button type="button" data-testid="perm-show-all" onClick={() => setShowAll((v) => !v)} className="h-9 rounded-lg px-2 text-[11px] font-bold text-violet-700 underline">
             {showAll ? 'بوابات دوره فقط' : 'كل البوابات (لمنح وحدة من بوابة أخرى)'}
           </button>

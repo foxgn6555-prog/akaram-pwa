@@ -55,6 +55,7 @@ export interface PortalRouteConfig {
   portal: string
   path: string
   shell: LazyExoticComponent<ComponentType>
+  /** أدوار دخول البوابة؛ it_admin له تنقل شامل ولا تتغير صلاحيات البيانات */
   allowedRoles: readonly string[]
   children: RouteObject[]
 }
@@ -62,22 +63,22 @@ export interface PortalRouteConfig {
 export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
   {
     portal: PORTALS.EMPLOYEE, path: '/employee', shell: EmployeePortal,
-    allowedRoles: ['employee', 'super_admin'],
+    allowedRoles: ['employee', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.EMPLOYEE, employeeRoutes),
   },
   {
     portal: PORTALS.HR, path: '/hr', shell: HRPortal,
-    allowedRoles: ['hr_officer', 'super_admin'],   // HR فقط (+ إشراف الإدارة العليا)
+    allowedRoles: ['hr_officer', 'super_admin', 'it_admin'],   // HR فقط (+ إشراف الإدارة العليا)
     children: buildPortalRoutes(PORTALS.HR, hrRoutes),
   },
   {
     portal: PORTALS.MANAGER, path: '/manager', shell: ManagerPortal,
-    allowedRoles: ['department_manager', 'super_admin'],   // المدير فقط
+    allowedRoles: ['department_manager', 'super_admin', 'it_admin'],   // المدير فقط
     children: buildPortalRoutes(PORTALS.MANAGER, managerRoutes),
   },
   {
     portal: PORTALS.FINANCE, path: '/finance', shell: FinancePortal,
-    allowedRoles: ['finance_officer', 'super_admin'],   // المالية فقط
+    allowedRoles: ['finance_officer', 'super_admin', 'it_admin'],   // المالية فقط
     children: buildPortalRoutes(PORTALS.FINANCE, financeRoutes),
   },
   {
@@ -87,63 +88,63 @@ export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
   },
   {
     portal: PORTALS.ADMIN, path: '/admin', shell: AdminPortal,
-    allowedRoles: ['super_admin'],
+    allowedRoles: ['super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.ADMIN, adminRoutes),
   },
   // ── البوابات السبع الجديدة (هيكل جاهز — صفحة رئيسية Placeholder فقط) ──
   {
     portal: PORTALS.FIELD_OPS, path: '/field-ops', shell: FieldOpsPortal,
-    allowedRoles: ['field_ops', 'super_admin'],
+    allowedRoles: ['field_ops', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.FIELD_OPS, fieldOpsRoutes),
   },
   {
     portal: PORTALS.ADMIN_OPS, path: '/admin-ops', shell: AdminOpsPortal,
-    allowedRoles: ['admin_ops', 'super_admin'],
+    allowedRoles: ['admin_ops', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.ADMIN_OPS, adminOpsRoutes),
   },
   {
     portal: PORTALS.MAINTENANCE, path: '/maintenance', shell: MaintenancePortal,
-    allowedRoles: ['maintenance', 'super_admin'],
+    allowedRoles: ['maintenance', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.MAINTENANCE, maintenanceRoutes),
   },
   {
     portal: PORTALS.TRANSFER_STATION, path: '/transfer-station', shell: TransferStationPortal,
-    allowedRoles: ['transfer_station', 'super_admin'],
+    allowedRoles: ['transfer_station', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.TRANSFER_STATION, transferStationRoutes),
   },
   {
     portal: PORTALS.EXECUTIVE, path: '/executive', shell: ExecutivePortal,
-    allowedRoles: ['executive_director', 'super_admin'],
+    allowedRoles: ['executive_director', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.EXECUTIVE, executiveRoutes),
   },
   {
     portal: PORTALS.DEPUTY, path: '/deputy', shell: DeputyPortal,
-    allowedRoles: ['deputy_director', 'super_admin'],
+    allowedRoles: ['deputy_director', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.DEPUTY, deputyRoutes),
   },
   {
     portal: PORTALS.OPS_ROOM, path: '/ops-room', shell: OpsRoomPortal,
-    allowedRoles: ['ops_room', 'super_admin'],
+    allowedRoles: ['ops_room', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.OPS_ROOM, opsRoomRoutes),
   },
   {
     portal: PORTALS.COMPLAINTS, path: '/complaints', shell: ComplaintsPortal,
-    allowedRoles: ['complaints_officer', 'super_admin'],
+    allowedRoles: ['complaints_officer', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.COMPLAINTS, complaintsRoutes),
   },
   {
     portal: PORTALS.MEDIA, path: '/media', shell: MediaPortal,
-    allowedRoles: ['media_officer', 'super_admin'],
+    allowedRoles: ['media_officer', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.MEDIA, mediaRoutes),
   },
   {
     portal: PORTALS.CENTRAL_GARAGE, path: '/central-garage', shell: CentralGaragePortal,
-    allowedRoles: ['central_garage_officer', 'super_admin'],
+    allowedRoles: ['central_garage_officer', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.CENTRAL_GARAGE, centralGarageRoutes),
   },
   {
     portal: PORTALS.FOLLOW_UP, path: '/follow-up', shell: FollowUpPortal,
-    allowedRoles: ['follow_up', 'super_admin'],
+    allowedRoles: ['follow_up', 'super_admin', 'it_admin'],
     children: buildPortalRoutes(PORTALS.FOLLOW_UP, followUpRoutes),
   },
 ] as const

@@ -16,6 +16,10 @@ const EFFECTIVE = [
   eff('hr.employees', 'الموظفون', 'view', true, 'role'), eff('hr.employees', 'الموظفون', 'edit', false, 'template'),
   eff('hr.leaves', 'الإجازات', 'view', false, 'override', 'لا يتعامل مع الإجازات'),
 ]
+vi.mock('@features/auth/hooks/useAuth', () => ({
+  useAuth: () => ({ data: { id: 'it-operator', roles: ['it_admin'] } }),
+}))
+
 const h = vi.hoisted(() => ({
   templates: vi.fn(async () => [] as unknown[]), templateRules: vi.fn(async () => [] as unknown[]),
   templateSave: vi.fn(async () => 't9'), templateRulesSet: vi.fn(async () => 1), templateDelete: vi.fn(async () => undefined),
@@ -67,7 +71,7 @@ describe('⚓ بطاقة صلاحيات المستخدم', () => {
     expect(h.userOverrideSet).not.toHaveBeenCalled()
   })
 
-  it('تغيير القالب يستدعي الإسناد؛ الحساب نفسه ومدير النظام الأعلى عرض فقط', async () => {
+  it('تغيير القالب متاح للإدارة التقنية، مع حماية الذات وإتاحة إدارة حساب super_admin', async () => {
     const { unmount } = wrap(<PermissionsCard userId="u1" roles={['hr_officer']} isSelf={false} />)
     await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
     fireEvent.change(screen.getByTestId('perm-template-select'), { target: { value: '' } })
@@ -78,8 +82,10 @@ describe('⚓ بطاقة صلاحيات المستخدم', () => {
     expect(screen.queryByTestId('perm-reason')).toBeNull()
     r2.unmount()
     wrap(<PermissionsCard userId="sa" roles={['super_admin']} isSelf={false} />)
-    expect(screen.queryByTestId('perm-template-select')).toBeNull()
-    expect(screen.getByText(/كل الصلاحيات دائماً/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
+    expect(screen.getByTestId('perm-show-all')).toBeInTheDocument()
+    expect(screen.getByText(/كل الصلاحيات افتراضياً/)).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent(/لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً/)
   })
 })
 
