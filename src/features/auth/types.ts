@@ -7,6 +7,6 @@ export type { Role } from '@lib/constants/roles.constants'
 export interface PortalAccess {
   /** أدوار المستخدم الفعلية */
   roles: Role[]
-  /** البوابات المسموح بها */
+  /** البوابات المقابلة لأدوار الحساب والمُعروضة في مبدّل البوابات */
   portals: PortalDefinition[]
 }

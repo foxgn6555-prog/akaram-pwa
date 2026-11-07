@@ -1,9 +1,23 @@
-/** خريطة البوابات: super_admin يرى الكل · الأدوار الأخرى بحسب صلاحيتها */
+/** خريطة البوابات: صلاحيات الدخول منفصلة عن البوابات الظاهرة في المبدّل */
 import { describe, it, expect } from 'vitest'
-import { accessiblePortals, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
+import { accessiblePortals, portalsForAssignedRoles, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
 
 describe('accessiblePortals', () => {
-  it('super_admin يرى كل البوابات المسجلة', () => {
+  it('مبدّل المدير المفوض يعرض بوابته فقط، مع بقاء امتياز الدخول العام للحارس', () => {
+    expect(portalsForAssignedRoles(['super_admin']).map((p) => p.id)).toEqual(['admin'])
+    expect(accessiblePortals(['super_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
+  })
+
+  it('بوابة التطوير المركزية تبقى مرتبطة بدور it_admin', () => {
+    expect(portalsForAssignedRoles(['it_admin']).map((p) => p.id)).toEqual(['it'])
+    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
+  })
+
+  it('الحساب ذو الدورين يرى بوابتي الدورين المسندين فقط في المبدّل', () => {
+    expect(portalsForAssignedRoles(['super_admin', 'it_admin']).map((p) => p.id)).toEqual(['it', 'admin'])
+  })
+
+  it('super_admin يرى كل البوابات المسجلة للصلاحية العامة', () => {
     const portals = accessiblePortals(['super_admin'])
     expect(portals).toHaveLength(PORTAL_DEFINITIONS.length)
     expect(portals.map((p) => p.id)).toContain('it')

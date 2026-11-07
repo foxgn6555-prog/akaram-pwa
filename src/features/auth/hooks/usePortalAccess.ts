@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { authKeys } from '@lib/query-keys/auth.keys'
 import { useAuth } from './useAuth'
-import { accessiblePortals, type PortalDefinition } from '@lib/constants/portals.constants'
+import { portalsForAssignedRoles, type PortalDefinition } from '@lib/constants/portals.constants'
 import type { PortalAccess } from '../types'
 
 export function usePortalAccess(): ReturnType<typeof useQuery<PortalAccess | null>> {
@@ -13,7 +13,7 @@ export function usePortalAccess(): ReturnType<typeof useQuery<PortalAccess | nul
     enabled: !!session,
     queryFn: async (): Promise<PortalAccess | null> => {
       if (!session) return null
-      const portals: PortalDefinition[] = accessiblePortals(session.roles)
+      const portals: PortalDefinition[] = portalsForAssignedRoles(session.roles)
       return {
         roles: session.roles,
         portals,
