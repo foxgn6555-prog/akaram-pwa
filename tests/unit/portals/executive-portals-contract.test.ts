@@ -84,8 +84,9 @@ describe('بوابات الإدارة العليا', () => {
     }
   })
 
-  it('المدير المفوض (super_admin) يهبط في بوابته /admin ويبقى له الوصول لكل البوابات', () => {
+  it('المدير المفوض يهبط في بوابته /admin؛ وصوله محصور بها', () => {
     expect(resolvePortal(['super_admin'])).toEqual({ type: 'single', portal: 'admin', path: '/admin' })
+    expect(resolvePortal(['it_admin'])).toEqual({ type: 'single', portal: 'it', path: '/it' })
     expect(resolvePortal(['executive_director'])).toEqual({ type: 'single', portal: 'executive', path: '/executive' })
     expect(resolvePortal(['deputy_director'])).toEqual({ type: 'single', portal: 'deputy', path: '/deputy' })
     expect(resolvePortal(['finance_officer'])).toEqual({ type: 'single', portal: 'finance', path: '/finance' })

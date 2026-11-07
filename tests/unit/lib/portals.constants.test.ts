@@ -3,9 +3,9 @@ import { describe, it, expect } from 'vitest'
 import { accessiblePortals, portalsVisibleInSwitcher, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
 
 describe('accessiblePortals', () => {
-  it('مبدّل المدير المفوض يعرض بوابته فقط، دون تغيير صلاحية الحارس الحالية', () => {
+  it('المدير المفوض يرى بوابته فقط', () => {
     expect(portalsVisibleInSwitcher(['super_admin']).map((p) => p.id)).toEqual(['admin'])
-    expect(accessiblePortals(['super_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
+    expect(accessiblePortals(['super_admin']).map((p) => p.id)).toEqual(['admin'])
   })
 
   it('مبدّل تقنية المعلومات يعرض كل البوابات، مع بقاء بوابة IT الافتراضية', () => {
@@ -17,24 +17,9 @@ describe('accessiblePortals', () => {
     expect(portalsVisibleInSwitcher(['super_admin', 'it_admin'])).toEqual([...PORTAL_DEFINITIONS])
   })
 
-  it('super_admin يرى كل البوابات المسجلة للصلاحية العامة', () => {
-    const portals = accessiblePortals(['super_admin'])
-    expect(portals).toHaveLength(PORTAL_DEFINITIONS.length)
-    expect(portals.map((p) => p.id)).toContain('it')
-    expect(portals.map((p) => p.id)).toContain('hr')
-    // البوابات السبع الجديدة ظاهرة أيضاً
-    expect(portals.map((p) => p.id)).toEqual(
-      expect.arrayContaining([
-        'field-ops',
-        'admin-ops',
-        'maintenance',
-        'transfer-station',
-        'executive',
-        'deputy',
-        'ops-room',
-        'complaints',
-      ]),
-    )
+  it('super_admin محصور ببوابة المدير المفوض، وIT وحدها ترى جميع البوابات', () => {
+    expect(accessiblePortals(['super_admin']).map((p) => p.id)).toEqual(['admin'])
+    expect(accessiblePortals(['it_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
   })
 
   it('دور الكراج المركزي يرى بوابته فقط', () => {

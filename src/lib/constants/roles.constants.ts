@@ -21,10 +21,10 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
 
-/** أولوية الدور الأساسي في JWT — mirror لـ app.custom_access_token_hook (محدّث في 00035) */
+/** أولوية الدور الأساسي في JWT — mirror لـ app.custom_access_token_hook (محدّث في 00371) */
 export const ROLE_PRIORITY: readonly Role[] = [
-  ROLES.SUPER_ADMIN,
   ROLES.IT_ADMIN,
+  ROLES.SUPER_ADMIN,
   ROLES.EXECUTIVE_DIRECTOR,
   ROLES.DEPUTY_DIRECTOR,
   ROLES.OPS_ROOM,

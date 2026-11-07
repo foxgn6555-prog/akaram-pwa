@@ -83,18 +83,19 @@ describe('⚓ عقد الوصول والتنقّل بين البوابات حس�
     expect(canEnter(['employee'], 'manager')).toBe(false)
   })
 
-  it('super_admin: إشراف على كل البوابات — والافتراضية بوابة المدير المفوض /admin', () => {
+  it('super_admin بوابة عادية محصورة بـ /admin؛ IT وحدها تعبر البوابات', () => {
     expect(resolvePortal(['super_admin'])).toEqual({ type: 'single', portal: 'admin', path: '/admin' })
-    for (const p of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
-      expect(canEnter(['super_admin'], p), `super_admin → ${p}`).toBe(true)
-    }
+    expect(canEnter(['super_admin'], 'admin')).toBe(true)
+    expect(canEnter(['super_admin'], 'it')).toBe(false)
+    expect(canEnter(['super_admin'], 'hr')).toBe(false)
+    expect(resolvePortal(['it_admin'])).toEqual({ type: 'single', portal: 'it', path: '/it' })
   })
 
-  it('super_admin + it_admin معاً: الافتراضية بوابة المدير المفوض (الأعلى رتبة) — والتقنية متاحة من المبدّل', () => {
+  it('super_admin + it_admin معاً: IT الأعلى وتكون بوابة الدخول الافتراضية', () => {
     expect(resolvePortal(['it_admin', 'super_admin'])).toEqual({
       type: 'single',
-      portal: 'admin',
-      path: '/admin',
+      portal: 'it',
+      path: '/it',
     })
   })
 
@@ -136,16 +137,16 @@ describe('⚓ عقد الوصول والتنقّل بين البوابات حس�
 
   it('مصادر الـ routes نفسها صارمة (لا تكرار متساهل)', () => {
     const byPath = new Map(PORTAL_ROUTES.map((r) => [r.path, r.allowedRoles]))
-    expect(byPath.get('/employee')).toEqual(['employee', 'super_admin', 'it_admin'])
-    expect(byPath.get('/hr')).toEqual(['hr_officer', 'super_admin', 'it_admin'])
-    expect(byPath.get('/manager')).toEqual(['department_manager', 'super_admin', 'it_admin'])
-    expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin', 'it_admin'])
-    expect(byPath.get('/it')).toEqual(['it_admin', 'super_admin'])
+    expect(byPath.get('/employee')).toEqual(['employee', 'it_admin'])
+    expect(byPath.get('/hr')).toEqual(['hr_officer', 'it_admin'])
+    expect(byPath.get('/manager')).toEqual(['department_manager', 'it_admin'])
+    expect(byPath.get('/finance')).toEqual(['finance_officer', 'it_admin'])
+    expect(byPath.get('/it')).toEqual(['it_admin'])
     expect(byPath.get('/admin')).toEqual(['super_admin', 'it_admin'])
-    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin', 'it_admin'])
-    expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin', 'it_admin'])
-    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin', 'it_admin'])
-    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin', 'it_admin'])
+    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'it_admin'])
+    expect(byPath.get('/media')).toEqual(['media_officer', 'it_admin'])
+    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'it_admin'])
+    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'it_admin'])
   })
 
   it('بلا جلسة → تحويل إلى /login', () => {

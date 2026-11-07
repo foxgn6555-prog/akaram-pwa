@@ -137,7 +137,7 @@ describe('users.sdk', () => {
     })
     await expect(
       users.create({ email: 'a@b.iq', password: 'Passw0rd1', full_name: 'أحمد', role: 'super_admin' }),
-    ).rejects.toThrow('يتطلب صلاحية المدير المفوض')
+    ).rejects.toThrow('متاح لتقنية المعلومات فقط')
   })
 
   it('جسم غير JSON أو كود مجهول يعطي الرسالة العامة دون انفجار', async () => {

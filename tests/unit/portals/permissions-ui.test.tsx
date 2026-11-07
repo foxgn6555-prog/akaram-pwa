@@ -71,7 +71,7 @@ describe('⚓ بطاقة صلاحيات المستخدم', () => {
     expect(h.userOverrideSet).not.toHaveBeenCalled()
   })
 
-  it('تغيير القالب متاح للإدارة التقنية، مع حماية الذات وإتاحة إدارة حساب super_admin', async () => {
+  it('تغيير القالب متاح لـ IT مع حماية الذات وإتاحة إدارة حساب المدير المفوض', async () => {
     const { unmount } = wrap(<PermissionsCard userId="u1" roles={['hr_officer']} isSelf={false} />)
     await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
     fireEvent.change(screen.getByTestId('perm-template-select'), { target: { value: '' } })
@@ -84,8 +84,8 @@ describe('⚓ بطاقة صلاحيات المستخدم', () => {
     wrap(<PermissionsCard userId="sa" roles={['super_admin']} isSelf={false} />)
     await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
     expect(screen.getByTestId('perm-show-all')).toBeInTheDocument()
-    expect(screen.getByText(/كل الصلاحيات افتراضياً/)).toBeInTheDocument()
-    expect(screen.getByRole('note')).toHaveTextContent(/لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً/)
+    expect(screen.getByText(/المدير المفوض: صلاحيات بوابته فقط/)).toBeInTheDocument()
+    expect(screen.queryByRole('note')).toBeNull()
   })
 })
 

@@ -30,12 +30,13 @@ do $$ declare n int; begin
 end $$;
 
 -- ═══ P2 الافتراضي (الدور الثابت) ═══
-do $$ declare hr uuid := '9c000000-0000-0000-0000-000000000001'; sa uuid := '9c000000-0000-0000-0000-000000000003'; nr uuid := '9c000000-0000-0000-0000-000000000005'; begin
+do $$ declare hr uuid := '9c000000-0000-0000-0000-000000000001'; it uuid := '9c000000-0000-0000-0000-000000000002'; sa uuid := '9c000000-0000-0000-0000-000000000003'; nr uuid := '9c000000-0000-0000-0000-000000000005'; begin
   assert app.can(hr, 'hr.employees', 'view') and app.can(hr, 'hr.employees', 'edit') and app.can(hr, 'hr', 'view'), 'hr officer sees HR';
   assert not app.can(hr, 'finance.payroll', 'view'), 'hr officer cannot see finance';
   assert not app.can(hr, 'hr.employees', 'delete'), 'action not applicable ⇒ false';
   assert not app.can(hr, 'no.such.unit', 'view'), 'unknown unit ⇒ false';
-  assert app.can(sa, 'finance.payroll', 'decide') and app.can(sa, 'it.permissions', 'edit'), 'super_admin everything';
+  assert app.can(it, 'finance.payroll', 'decide') and app.can(it, 'it.permissions', 'edit'), 'IT system-wide permission';
+  assert app.can(sa, 'admin.reports', 'view') and not app.can(sa, 'finance.payroll', 'view') and not app.can(sa, 'it.permissions', 'edit'), 'super_admin restricted to its portal';
   assert not app.can(nr, 'hr', 'view'), 'no role ⇒ nothing';
   assert not app.can(null, 'hr', 'view'), 'null user ⇒ false';
   assert app.effective_permissions(hr) ? 'hr.employees' and not (app.effective_permissions(hr) ? 'finance.payroll'), 'effective map';
@@ -107,16 +108,14 @@ do $$ declare it uuid := '9c000000-0000-0000-0000-000000000002'; hr uuid := '9c0
   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, it, tpl), 'PERMISSION_SELF_EDIT');
   perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', 'deny', 'إدارة تقنية المعلومات');
   assert exists (select 1 from public.user_permission_overrides where user_id = sa and unit_key = 'finance.payroll' and action = 'view' and effect = 'deny'), 'IT can manage super_admin permission settings';
-  -- يبقى دور super_admin ذا الصلاحيات الشاملة بطبيعته؛ الإعداد لا يسحب امتياز الدور الأساسي.
-  assert app.can(sa, 'finance.payroll', 'view'), 'super_admin role remains globally privileged';
+  -- تجاوز IT العام يلغي صلاحيات بوابة المدير المفوض على بقية البوابات.
+  assert not app.can(sa, 'finance.payroll', 'view'), 'super_admin does not bypass permissions';
   perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', null);
   perform public.it_user_permission_template_set(sa, tpl);
   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, '9c000000-0000-0000-0000-0000000000ff', tpl), 'IT_USER_NOT_FOUND');
-  -- super_admin يستطيع استهداف super_admin آخر لكن لا أثر على الحسم (① يغلب)
+  -- المدير المفوض لا يستطيع إدارة إعدادات الصلاحيات أو استهداف حسابات IT.
   perform auth.set_test_user(sa);
-  perform public.it_user_permission_override_set('9c000000-0000-0000-0000-000000000002', 'it.permissions', 'edit', 'deny', 'اختبار');
-  assert not app.can('9c000000-0000-0000-0000-000000000002', 'it.permissions', 'edit'), 'deny on it_admin works';
-  perform public.it_user_permission_override_set('9c000000-0000-0000-0000-000000000002', 'it.permissions', 'edit', null);
+  perform pg_temp.expect_error(format($q$select public.it_user_permission_override_set('%s', 'it.permissions', 'edit', 'deny', 'اختبار')$q$, '9c000000-0000-0000-0000-000000000002'), 'IT_FORBIDDEN');
   -- الجداول لا تُكتب مباشرة من المصادقين (RPC فقط)
   set role authenticated; perform set_config('auth.user_id', '9c000000-0000-0000-0000-000000000002', false);
   perform pg_temp.expect_error($q$insert into public.permission_templates (name) values ('مباشر')$q$, 'row-level security');

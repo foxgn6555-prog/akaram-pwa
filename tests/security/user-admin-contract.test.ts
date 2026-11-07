@@ -78,6 +78,23 @@ describe('مهاجرة 00051 — تعيين الأدوار من Edge Function (s
   })
 })
 
+describe('00371 — IT أعلى دور وإدارة الذات مضبوطة في قاعدة البيانات', () => {
+  const MIGRATION = read('supabase/migrations/00371_it_admin_supreme_authority.sql')
+
+  it('IT وحدها تملك الاستثناء العام لمحرك الصلاحيات وبوابة require_it', () => {
+    expect(MIGRATION).toContain("role = 'it_admin') then return true")
+    expect(MIGRATION).toContain("app.has_role(array['it_admin'])")
+    expect(MIGRATION).not.toContain("app.has_role(array['it_admin','super_admin'])")
+  })
+
+  it('IT تستطيع تعديل أدوار الذات مع منع حذف آخر مسؤول IT', () => {
+    expect(MIGRATION).toContain('if p_user_id = v_actor and not v_is_it then')
+    expect(MIGRATION).toContain("raise exception 'LAST_IT_ADMIN:")
+    expect(MIGRATION).toContain('pg_advisory_xact_lock')
+    expect(MIGRATION).not.toContain('LAST_SUPER_ADMIN')
+  })
+})
+
 describe('admin-users يتعامل مع service_role (رفع الأدوار)', () => {
   it('يمرر p_actor: callerId في استدعاء set_user_role', () => {
     expect(SERVER).toContain('p_actor: callerId')
@@ -85,9 +102,10 @@ describe('admin-users يتعامل مع service_role (رفع الأدوار)', (
 })
 
 describe('حواجز الخادم في admin-users (إنشاء المستخدمين)', () => {
-  it('منح الإدارة العليا حصراً بالمدير المفوض — قبل أي إنشاء', () => {
+  it('دور IT وحده يمنح الأدوار الإدارية؛ super_admin ليس حاجزاً أو صلاحية أعلى', () => {
     expect(SERVER).toContain("['it_admin', 'super_admin'].includes(role)")
-    expect(SERVER).toContain("callerRoles.includes('super_admin')")
+    expect(SERVER).toContain("callerRoles.includes('it_admin')")
+    expect(SERVER).not.toContain("callerRoles.includes('super_admin')")
     expect(SERVER).toContain("error: 'FORBIDDEN_ROLE'")
   })
 

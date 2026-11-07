@@ -24,7 +24,7 @@ export const PERMISSION_ACTION_LABELS: Readonly<Record<PermissionAction, string>
   delete: 'حذف/أرشفة',
 }
 
-/** الدور الثابت الذي يفتح كل بوابة (super_admin يفتح الكل دائماً) — مرآة routes.config */
+/** الدور الثابت لكل بوابة؛ it_admin يتجاوز الحارس العام — مرآة routes.config */
 export const PORTAL_ROLE: Readonly<Record<Exclude<PortalId, 'public'>, Role>> = {
   [PORTALS.EMPLOYEE]: 'employee',
   [PORTALS.HR]: 'hr_officer',

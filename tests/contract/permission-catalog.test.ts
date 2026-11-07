@@ -45,8 +45,8 @@ describe('⚓ عقد كتالوج الصلاحيات', () => {
     for (let m = re.exec(src); m; m = re.exec(src)) seen[m[1]!] = [...m[2]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!)
     for (const [portal, role] of Object.entries(PORTAL_ROLE)) {
       expect(seen[portal], `route for ${portal}`).toBeTruthy()
-      const own = seen[portal]!.filter((r) => r !== 'super_admin')
-      expect(role === 'super_admin' ? [...own, 'super_admin'] : own, portal).toEqual([role])
+      const own = portal === 'it' ? seen[portal]! : seen[portal]!.filter((r) => r !== 'it_admin')
+      expect(own, portal).toEqual([role])
     }
   })
 

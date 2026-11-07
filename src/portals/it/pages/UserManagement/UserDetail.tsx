@@ -74,6 +74,7 @@ export default function UserDetail() {
   const [newEmail, setNewEmail] = useState('')
 
   const isSelf = !!userId && userId === session?.id
+  const isITAdmin = session?.roles.includes('it_admin') ?? false
   const isBanned = !!user?.banned_until
 
   // نموذج تعديل بيانات الموظف — يُملأ من بيانات المستخدم عند وصولها
@@ -133,9 +134,9 @@ export default function UserDetail() {
   const hasRole = (role: Role): boolean => user.roles.includes(role)
 
   const toggle = (role: Role): void => {
-    if (!userId || isSelf) return
-    // تأكيد إضافي للمنح العالي (super_admin)
-    if (role === 'super_admin' && !hasRole(role)) {
+    if (!userId || (isSelf && !isITAdmin)) return
+    // تأكيد إضافي لمنح أعلى دور (it_admin)
+    if (role === 'it_admin' && !hasRole(role)) {
       setConfirmRole(role)
       return
     }
@@ -228,7 +229,7 @@ export default function UserDetail() {
           className="rounded-xl bg-sky-50 px-4 py-3 text-xs text-sky-800"
           data-testid="self-notice"
         >
-          ℹ️ هذا حسابك — الخادم يمنع تعديل الأدوار والبريد وتعطيل حسابك بنفسك.
+          ℹ️ هذا حسابك. تستطيع تقنية المعلومات تعديل بريدها وأدوارها؛ يبقى تعطيل الحساب ممنوعاً، ولا يمكن سحب دور IT من آخر مسؤول.
         </p>
       )}
 
@@ -409,7 +410,7 @@ export default function UserDetail() {
             <Button
               type="button"
               onClick={submitEmail}
-              disabled={updateEmail.isPending || isSelf || !newEmail.includes('@')}
+              disabled={updateEmail.isPending || (isSelf && !isITAdmin) || !newEmail.includes('@')}
               data-testid="update-email-btn"
             >
               تغيير البريد
@@ -568,7 +569,7 @@ export default function UserDetail() {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-1 text-sm font-bold">أدوار البوابات</h2>
         <p className="mb-4 text-xs text-slate-500">
-          المنح/السحب فوري ومؤرشف باسمك — لا يمكنك تعديل أدوارك بنفسك (حماية خادمية)
+          المنح/السحب فوري ومؤرشف باسمك — IT تستطيع تعديل أدوارها، مع منع سحب دور آخر مسؤول IT.
         </p>
         <ul className="space-y-2" data-testid="roles-list">
           {ASSIGNABLE_ROLES.map((role) => {
@@ -591,7 +592,7 @@ export default function UserDetail() {
                 </div>
                 <button
                   onClick={() => toggle(role)}
-                  disabled={setUserRole.isPending || isSelf}
+                  disabled={setUserRole.isPending || (isSelf && !isITAdmin)}
                   data-testid={`role-toggle-${role}`}
                   className={
                     granted
@@ -607,7 +608,7 @@ export default function UserDetail() {
         </ul>
       </div>
 
-      {/* تأكيد منح الإدارة العليا */}
+      {/* تأكيد منح أعلى دور IT */}
       {confirmRole && (
         <div
           role="dialog"
@@ -615,17 +616,17 @@ export default function UserDetail() {
           className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4"
         >
           <div className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-8 shadow-xl sm:rounded-2xl sm:pb-6">
-            <h3 className="mb-2 font-bold">منح دور الإدارة العليا؟</h3>
+            <h3 className="mb-2 font-bold">منح أعلى دور (IT)؟</h3>
             <p className="mb-5 text-sm text-slate-500">
-              هذا الدور يملك كل الصلاحيات. سيُسجَّل المنح باسمك في سجل التدقيق.
+              تقنية المعلومات هي أعلى صلاحية بالنظام. سيُسجَّل المنح باسمك في سجل التدقيق.
             </p>
             <div className="flex gap-3">
               <Button disabled={setUserRole.isPending}
                 onClick={() => {
-                  if (userId) setUserRole.mutate({ userId, role: 'super_admin', grant: true })
+                  if (userId) setUserRole.mutate({ userId, role: confirmRole, grant: true })
                   setConfirmRole(null)
                 }}
-                data-testid="confirm-super-admin"
+                data-testid="confirm-it-admin"
               >
                 تأكيد المنح
               </Button>

@@ -1,7 +1,7 @@
 /**
  * SDK إدارة المستخدمين (البوابة التقنية — وحدة إدارة المستخدمين)
  *  · list: RPC آمنة تتحقق من الدور على الخادم
- *  · setUserRole: RPC مع تدقيق إلزامي ومنع تعديل الذات
+ *  · setUserRole: RPC مع تدقيق إلزامي؛ IT تستطيع تعديل أدوارها الذاتية مع حماية آخر حساب IT
  *  · updateEmployeeProfile: RPC set_employee_profile (تعديل بيانات الموظف المرتبط)
  *  · create / updateEmail / setBanned / resetPassword: Edge Function admin-users
  *    (عمليات auth تتطلب admin API عبر service_role — لا يلمسه العميل أبداً)
@@ -117,7 +117,7 @@ export const users = {
     await invokeAdmin({ action: 'reset_password', user_id: userId, password })
   },
 
-  /** تغيير بريد مستخدم (الخادم يمنع تغيير الذات) */
+  /** تغيير بريد مستخدم بواسطة IT، بما فيه بريد حسابها */
   async updateEmail(userId: string, email: string): Promise<void> {
     await invokeAdmin({ action: 'update_email', user_id: userId, email })
   },
@@ -167,7 +167,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   EMPLOYEE_LINK_FAILED: 'فشل ربط سجل الموظف — أُجهض الإنشاء أو أُنجز جزئياً؛ أعد المحاولة',
   SELF_FORBIDDEN: 'لا يمكنك تنفيذ هذه العملية على حسابك — استخدم قنواتك الشخصية',
   FORBIDDEN: 'لا تملك صلاحية إدارة المستخدمين',
-  FORBIDDEN_ROLE: 'منح دور الإدارة العليا يتطلب صلاحية المدير المفوض',
+  FORBIDDEN_ROLE: 'إسناد دور IT أو المدير المفوض متاح لتقنية المعلومات فقط',
   CREATE_FAILED: 'فشل إنشاء المستخدم — حاول مجدداً',
   UPDATE_FAILED: 'فشل تحديث الحساب — حاول مجدداً',
   BAN_FAILED: 'فشل تغيير حالة الحساب — حاول مجدداً',

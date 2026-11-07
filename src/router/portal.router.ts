@@ -13,6 +13,7 @@ export type PortalResolution =
 // مبدّل المدير المفوض يعرض /admin فقط؛ وتقنية المعلومات ترى كل البوابات وتبدأ في /it.
 const ROLE_DEFAULT_PORTAL: Partial<Record<Role, PortalId>> = {
   super_admin: PORTALS.ADMIN,
+  it_admin: PORTALS.IT,
 }
 
 export function resolvePortal(roles: readonly Role[]): PortalResolution {

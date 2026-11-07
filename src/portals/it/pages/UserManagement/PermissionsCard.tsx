@@ -1,7 +1,7 @@
 /**
  * 00350-C — بطاقة صلاحيات المستخدم (صفحة المستخدم، التطوير المركزية):
  *  · القالب (واحد لكل مستخدم) · المعاينة «كما يراه» بمصدر كل إجراء · الاستثناءات الفردية (تغلب القالب) · سجل التدقيق.
- *  · الترتيب في الخادم: مدير النظام الأعلى ← استثناء ← قالب ← افتراضي الدور ← ممنوع.
+ *  · الترتيب في الخادم: IT ← استثناء ← قالب ← افتراضي الدور ← ممنوع.
  */
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
@@ -18,8 +18,7 @@ import { AUDIT_KIND } from '../Permissions/PermissionTemplates'
 export function PermissionsCard({ userId, roles, isSelf }: { userId: string; roles: readonly Role[]; isSelf: boolean }) {
   const { data: session } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
-  const canManageSuperAdmin = session?.roles.some((role) => role === 'it_admin' || role === 'super_admin') ?? false
-  const canManageSettings = !isSuperAdmin || canManageSuperAdmin
+  const canManageSettings = session?.roles.includes('it_admin') ?? false
   const templates = usePermissionTemplates()
   const userTpl = useUserPermissionTemplate(userId)
   const effective = useUserEffectivePermissions(userId)
@@ -54,7 +53,7 @@ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; rol
     setOv.mutate({ userId, unit: u.key, action: a, effect: next, reason: reason.trim() || null })
   }
 
-  const locked = isSelf || (isSuperAdmin && !canManageSuperAdmin)
+  const locked = isSelf
   return (
     <section className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm" aria-label="الصلاحيات" data-testid="permissions-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -62,14 +61,9 @@ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; rol
           <h2 className="text-sm font-black">الصلاحيات</h2>
           <p className="mt-1 text-xs text-slate-500">افتراضياً يملك المستخدم كل وحدات بوابته. القالب يحجب/يضيف، والاستثناء الفردي يغلب القالب. التغيير يسري في الخادم فوراً وفي قوائمه عند تحديث صفحته.</p>
         </div>
-        {isSuperAdmin && <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">super_admin يملك كل الصلاحيات افتراضياً</span>}
-        {isSelf && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكنك تعديل صلاحيات حسابك</span>}
+        {isSuperAdmin && <span className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700">المدير المفوض: صلاحيات بوابته فقط</span>}
+        {isSelf && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكن تعديل صلاحياتك التفصيلية من حسابك</span>}
       </div>
-      {isSuperAdmin && canManageSuperAdmin && !isSelf && (
-        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900" role="note">
-          هذا الدور يملك كل الصلاحيات تلقائياً؛ القوالب والاستثناءات تُسجَّل لكنها لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً.
-        </p>
-      )}
 
       {canManageSettings && (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">

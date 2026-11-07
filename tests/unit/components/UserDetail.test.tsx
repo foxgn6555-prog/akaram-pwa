@@ -234,12 +234,21 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     })
   })
 
-  it('حماية الذات: تنبيه + تعطيل عمليات الحساب والأدوار على الحساب الشخصي', () => {
-    SESSION.value = 'u1' // نفس المستخدم
+  it('IT تستطيع تعديل بريدها وأدوارها؛ لا تستطيع تعطيل حسابها بنفسها', async () => {
+    const user = userEvent.setup()
+    SESSION.value = 'u1' // حساب IT نفسه
     renderPage()
     expect(screen.getByTestId('self-notice')).toBeInTheDocument()
     expect(screen.getByTestId('toggle-ban')).toBeDisabled()
-    expect(screen.getByTestId('update-email-btn')).toBeDisabled()
-    expect(screen.getByTestId('role-toggle-employee')).toBeDisabled()
+    expect(screen.getByTestId('role-toggle-employee')).toBeEnabled()
+    await user.click(screen.getByTestId('role-toggle-employee'))
+    expect(mockSetRole).toHaveBeenCalledWith({ userId: 'u1', role: 'employee', grant: false })
+    await user.type(screen.getByTestId('new-email'), 'it-new@akram.iq')
+    expect(screen.getByTestId('update-email-btn')).toBeEnabled()
+    await user.click(screen.getByTestId('update-email-btn'))
+    expect(mockUpdateEmail).toHaveBeenCalledWith(
+      { userId: 'u1', email: 'it-new@akram.iq' },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
   })
 })

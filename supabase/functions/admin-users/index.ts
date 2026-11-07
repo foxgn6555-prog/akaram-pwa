@@ -2,12 +2,12 @@
  * Edge Function: admin-users — عمليات إدارة المستخدمين (وحدة إدارة المستخدمين)
  * الأكشنات (body.action):
  *  · create         (افتراضي) — إنشاء حساب + دور + ربط موظف
- *  · update_email   — تغيير بريد حساب قائم (منع الذات)
- *  · set_ban        — تعطيل/تفعيل حساب (منع الذات)
- *  · reset_password — إعادة تعيين كلمة مرور (يُسمح للذات)
+ *  · update_email   — تغيير بريد الحساب بواسطة تقنية المعلومات، بما فيه حسابها
+ *  · set_ban        — تعطيل/تفعيل حساب بواسطة تقنية المعلومات (منع الذات)
+ *  · reset_password — إعادة تعيين كلمة المرور بواسطة تقنية المعلومات، بما فيه حسابها
  * الأمان:
  *  1) JWT إلزامي من المتصل (supabase.functions.invoke يرسله)
- *  2) التحقق من دور المتصل: it_admin / super_admin / hr_officer (مصدره user_roles وليس JWT)
+ *  2) إدارة النظام لتقنية المعلومات؛ HR ينشئ الحسابات العادية فقط
  *  3) service_role مستخدم داخل الدالة فقط — لا يلمسه العميل أبداً
  *  4) تدقيق: كل عملية تُسجَّل في audit_logs
  */
@@ -69,16 +69,19 @@ Deno.serve(async (req: Request) => {
     // ② هل يملك دوراً مصرحاً؟
     const { data: roleRows } = await admin.from('user_roles').select('role').eq('user_id', callerId)
     const callerRoles: string[] = (roleRows ?? []).map((r: { role: string }) => r.role)
-    if (!callerRoles.some((r) => ['it_admin', 'super_admin', 'hr_officer'].includes(r))) {
+    if (!callerRoles.some((r) => ['it_admin', 'hr_officer'].includes(r))) {
       return json({ error: 'FORBIDDEN' }, 403)
     }
 
-    // ③ التوجيه حسب الأكشن
+    // ③ التوجيه حسب الأكشن: صلاحيات الحسابات الحساسة لتقنية المعلومات الأعلى فقط.
     const body: Body = await req.json()
     const action = String(body.action ?? 'create')
 
     if (action === 'create') return await createUser(admin, callerId, callerRoles, body)
-    if (action === 'update_email') return await updateEmail(admin, callerId, body)
+    if (['update_email', 'set_ban', 'reset_password'].includes(action) && !callerRoles.includes('it_admin')) {
+      return json({ error: 'FORBIDDEN' }, 403)
+    }
+    if (action === 'update_email') return await updateEmail(admin, callerId, callerRoles, body)
     if (action === 'set_ban') return await setBan(admin, callerId, body)
     if (action === 'reset_password') return await resetPassword(admin, callerId, body)
     return json({ error: 'BAD_ACTION' }, 400)
@@ -146,8 +149,8 @@ async function createUser(
   if (departmentId && !UUID_RE.test(departmentId)) return json({ error: 'BAD_DEPARTMENT' }, 400)
   if (jobTitle && jobTitle.length > 100) return json({ error: 'JOB_TITLE_TOO_LONG' }, 400)
 
-  // منح الإدارة العليا (it_admin / super_admin) حصراً بالمدير المفوض — منع تصعيد الصلاحيات
-  if (['it_admin', 'super_admin'].includes(role) && !callerRoles.includes('super_admin')) {
+  // IT هي أعلى صلاحية؛ المدير المفوض دور بوابة عادي ولا يمنح الأدوار العليا.
+  if (['it_admin', 'super_admin'].includes(role) && !callerRoles.includes('it_admin')) {
     return json({ error: 'FORBIDDEN_ROLE' }, 403)
   }
 
@@ -318,15 +321,15 @@ async function createUser(
   return json({ user_id: userId, email, role }, 200)
 }
 
-/** update_email — تغيير بريد حساب قائم (الذات ممنوع — له مساره الخاص) */
-async function updateEmail(admin: AdminClient, callerId: string, body: Body): Promise<Response> {
+/** update_email — تغيير بريد أي حساب، بما فيه حساب IT نفسها */
+async function updateEmail(admin: AdminClient, callerId: string, callerRoles: string[], body: Body): Promise<Response> {
   const userId = String(body.user_id ?? '')
   const email = String(body.email ?? '')
     .trim()
     .toLowerCase()
+  if (!callerRoles.includes('it_admin')) return json({ error: 'FORBIDDEN' }, 403)
   if (!userId) return json({ error: 'USER_REQUIRED' }, 400)
   if (!EMAIL_RE.test(email)) return json({ error: 'BAD_EMAIL' }, 400)
-  if (userId === callerId) return json({ error: 'SELF_FORBIDDEN' }, 403)
 
   const { error } = await admin.auth.admin.updateUserById(userId, {
     email,

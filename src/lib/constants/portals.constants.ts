@@ -61,6 +61,6 @@ export function portalsVisibleInSwitcher(roles: readonly string[]): PortalDefini
 
 /** صلاحية فتح مسارات البوابات للحارس؛ لا تغيّر صلاحيات البيانات التي تقررها قاعدة البيانات. */
 export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
-  if (roles.includes('super_admin') || roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
+  if (roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
 }
