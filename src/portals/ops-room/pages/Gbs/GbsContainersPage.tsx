@@ -16,6 +16,7 @@ import {
   useGbsSaveContainer,
   useGbsUpdates,
   useGbsZones,
+  useGbsVisualPreviewOnly,
 } from '@features/gbs/hooks'
 import { gbs } from '@sdk/gbs.sdk'
 import type { GbsContainer, GbsContainerStatus, GbsUpdateState } from '@features/gbs/types'
@@ -45,6 +46,7 @@ const emptyDraft = (): Draft => ({
 })
 
 export default function GbsContainersPage() {
+  const previewOnly = useGbsVisualPreviewOnly()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<GbsContainerStatus | ''>('')
   const [parentFilter, setParentFilter] = useState<string>('')
@@ -147,14 +149,16 @@ export default function GbsContainersPage() {
             type="button"
             data-testid="gbs-add-container"
             onClick={() => setDraft(emptyDraft())}
-            className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50"
+            disabled={previewOnly}
+            title={previewOnly ? 'المعاينة لا تسمح بتعديل بيانات البوابة' : undefined}
+            className="inline-flex h-9 items-center gap-1 rounded-xl bg-white px-3 text-xs font-black text-[#0b3d6b] shadow hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             إضافة حاوية
           </button>
-          <button type="button" data-testid="gbs-export" onClick={() => gbsExport.mutate(false)} disabled={gbsExport.isPending} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:opacity-50">
+          <button type="button" data-testid="gbs-export" onClick={() => gbsExport.mutate(false)} disabled={previewOnly || gbsExport.isPending} title={previewOnly ? 'المعاينة لا تسمح بتصدير بيانات البوابة' : undefined} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50">
             {gbsExport.isPending ? 'جارٍ التصدير…' : 'تصدير Excel'}
           </button>
-          <button type="button" data-testid="gbs-import-open" onClick={() => setImportOpen(true)} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20">
+          <button type="button" data-testid="gbs-import-open" onClick={() => setImportOpen(true)} disabled={previewOnly} title={previewOnly ? 'المعاينة لا تسمح باستيراد بيانات البوابة' : undefined} className="inline-flex h-9 items-center gap-1 rounded-xl bg-white/10 px-3 text-xs font-black text-white ring-1 ring-white/25 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50">
             استرداد من Excel
           </button>
         </div>

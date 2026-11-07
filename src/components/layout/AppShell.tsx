@@ -26,10 +26,6 @@ import { Header } from '@components/layout/Header/Header'
 import { loadMyHiddenUnits } from '@features/portal-visibility'
 import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
 import { useAuth } from '@features/auth/hooks/useAuth'
-import type { SessionUser } from '@sdk/auth.sdk'
-import { PORTALS } from '@lib/constants/portals.constants'
-import { PortalVisualPreview } from './PortalVisualPreview'
-import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 export interface AppShellProps {
   portal: PortalId
@@ -39,14 +35,6 @@ export interface AppShellProps {
 const MOBILE_MAX_WIDTH = 1024
 
 export function AppShell({ portal }: AppShellProps) {
-  const auth = useAuth()
-  if (auth.isLoading || auth.data === undefined) return <LoadingSpinner fullScreen />
-  if (!auth.data) return <Navigate to="/login" replace />
-  if (auth.data.roles.includes('it_admin') && portal !== PORTALS.IT) return <PortalVisualPreview portal={portal} />
-  return <AppShellLayout portal={portal} session={auth.data} />
-}
-
-function AppShellLayout({ portal, session }: { portal: PortalId; session: SessionUser }) {
   const location = useLocation()
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen)
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
@@ -58,7 +46,8 @@ function AppShellLayout({ portal, session }: { portal: PortalId; session: Sessio
   useEffect(() => { void loadMyHiddenUnits() }, [])
 
   // 00350-B: صلاحياتي الفعلية — تُحمَّل مرة لكل مستخدم؛ المسار الممنوع ⇒ 403 (الخادم يرفض الكتابة على أي حال)
-  const userId = session.id
+  const { data: session } = useAuth()
+  const userId = session?.id ?? null
   useEffect(() => { if (userId) void loadMyPermissions(userId) }, [userId])
   const perms = useMyPermissionsStore((s) => (s.userId === userId ? s.perms : null))
   const allowed = routeAllowed(location.pathname, perms)

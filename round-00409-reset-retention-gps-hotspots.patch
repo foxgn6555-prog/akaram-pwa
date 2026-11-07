@@ -1,0 +1,212 @@
+diff --git a/supabase/migrations/00369_audit_catalog_and_hotspot_publish.sql b/supabase/migrations/00369_audit_catalog_and_hotspot_publish.sql
+new file mode 100644
+index 00000000..3a0e59f5
+--- /dev/null
++++ b/supabase/migrations/00369_audit_catalog_and_hotspot_publish.sql
+@@ -0,0 +1,117 @@
++-- 00369: اكتمال تصنيفات التصفير والاحتفاظ، ونشر البقع الشهرية بصورة مغلقة حتى اكتمال النسخ.
++
++-- كل أرشيف/تعديل للمطابقين غير المعروفين يتبع تصفير الحضور؛ صلاحيات الوحدة تتبع الحسابات.
++alter function app.platform_reset_catalog() rename to platform_reset_catalog_00368;
++create function app.platform_reset_catalog()
++returns table(key text, label text, grp text, sort int, tables text[], buckets text[])
++language sql immutable as $$
++  select c.key, c.label, c.grp, c.sort,
++    case
++      when c.key = 'attendance' then c.tables || array[
++        'unmatched_archive_device_users', 'unmatched_archive_punches',
++        'unmatched_unit_people_edits', 'unmatched_unit_day_edits',
++        'unmatched_unit_audit', 'unmatched_unit_independent_people']
++      when c.key = 'accounts' then c.tables || array['unmatched_unit_permissions']
++      else c.tables
++    end,
++    c.buckets
++  from app.platform_reset_catalog_00368() c
++$$;
++
++-- כל الجداول الجديدة ظاهرة في شاشة الاحتفاظ، ومقفلة زمنياً لأنها بنية/سجل إثبات
++-- أو لا تملك مفتاح id وعمود زمن يدعمان محرك الحذف العام.
++alter function app.data_retention_catalog() rename to data_retention_catalog_00368;
++create function app.data_retention_catalog()
++returns table(data_key text, portal_key text, label text, description text, table_name text, time_column text, keep_where text,
++              safety_lock text, deletable boolean, default_months int, default_export_required boolean)
++language sql immutable as $$
++  select * from app.data_retention_catalog_00368()
++  union all values
++    ('attendance_edit_requests', 'hr', 'طلبات تعديل الحضور', 'طلبات وسجل موافقات تعديلات الحضور.', 'attendance_edit_requests', null::text, null::text, 'سجل طلبات وموافقات محمي من الحذف الزمني', false, 0, false),
++    ('attendance_edit_items', 'hr', 'بنود تعديل الحضور', 'تفاصيل الطلبات المعتمدة أو المرفوضة.', 'attendance_edit_items', null::text, null::text, 'تفاصيل إثبات مرتبطة بطلبات الحضور؛ محمية من الحذف الزمني', false, 0, false),
++    ('parent_sectors', 'sectors', 'القطاعات الرئيسية', 'هيكل مرجعي؛ الإيقاف بدلاً من الحذف.', 'parent_sectors', null::text, null::text, 'بيانات هيكلية مرجعية محمية من الحذف الزمني', false, 0, false),
++    ('platform_reset_requests', 'archive', 'طلبات التصفير', 'سجل طلبات واعتمادات ونتائج التصفير.', 'platform_reset_requests', null::text, null::text, 'سجل إثبات وأثر تدقيقي محمي من الحذف الزمني', false, 0, false),
++    ('unmatched_archive_device_users', 'hr', 'أرشيف مستخدمي الأجهزة غير المطابقين', 'لقطة تاريخية لمستخدمي أجهزة البصمة غير المرتبطين بموظف.', 'unmatched_archive_device_users', null::text, null::text, 'أرشيف بصمات/هوية محمي؛ لا حذف زمني آلي', false, 0, false),
++    ('unmatched_archive_punches', 'hr', 'أرشيف بصمات غير المطابقين', 'أدلة بصمة محفوظة حتى بعد تغيّر ربط الموظف.', 'unmatched_archive_punches', null::text, null::text, 'دليل حضور محفوظ ومحمي من الحذف الزمني الآلي', false, 0, false),
++    ('unmatched_unit_permissions', 'hr', 'صلاحيات وحدة غير المطابقين', 'صلاحيات وصول حالية لموظفي الموارد البشرية.', 'unmatched_unit_permissions', null::text, null::text, 'إعداد صلاحيات حالية محمي من الحذف الزمني', false, 0, false),
++    ('unmatched_unit_people_edits', 'hr', 'تعديلات أسماء غير المطابقين', 'تعديلات عرض الأسماء مع رقم المراجعة.', 'unmatched_unit_people_edits', null::text, null::text, 'تعديل موثق محمي من الحذف الزمني الآلي', false, 0, false),
++    ('unmatched_unit_day_edits', 'hr', 'تعديلات أيام غير المطابقين', 'تعديلات الحضور اليومية المنفصلة عن الحضور الرسمي.', 'unmatched_unit_day_edits', null::text, null::text, 'تعديل حضور موثق محمي من الحذف الزمني الآلي', false, 0, false),
++    ('unmatched_unit_audit', 'hr', 'تدقيق وحدة غير المطابقين', 'سجل تغييرات الأسماء والأيام والصلاحيات.', 'unmatched_unit_audit', null::text, null::text, 'سجل تدقيق محمي من الحذف الزمني الآلي', false, 0, false),
++    ('unmatched_unit_independent_people', 'hr', 'الأشخاص المستقلون المؤكدون', 'إثباتات الأشخاص غير المنسوبين إلى موظف.', 'unmatched_unit_independent_people', null::text, null::text, 'إثبات هوية/حضور محمي من الحذف الزمني الآلي', false, 0, false)
++$$;
++
++-- إبطال علامة النشر عند بدء إعادة النسخ؛ لا تعرض الواجهة صفوفاً جزئية حتى اكتمال آخر صفحة.
++alter function public.gps_hotspots_replace_month(date, jsonb, boolean, boolean, jsonb)
++  rename to gps_hotspots_replace_month_00368;
++create function public.gps_hotspots_replace_month(p_month date, p_rows jsonb, p_first boolean default false,
++                                                    p_final boolean default false, p_thresholds jsonb default '{}'::jsonb)
++returns jsonb language plpgsql security definer set search_path = public, app as $$
++declare m date := date_trunc('month', p_month)::date;
++begin
++  if auth.role() <> 'service_role' then raise exception 'GPS_FORBIDDEN'; end if;
++  if p_first then delete from public.gps_hotspots_sync where month = m; end if;
++  return public.gps_hotspots_replace_month_00368(p_month, p_rows, p_first, p_final, p_thresholds);
++end $$;
++revoke all on function public.gps_hotspots_replace_month(date, jsonb, boolean, boolean, jsonb) from public, anon, authenticated;
++grant execute on function public.gps_hotspots_replace_month(date, jsonb, boolean, boolean, jsonb) to service_role;
++-- الـEdge Function يستعمل service_role مباشرةً لحذف الأشهر خارج النافذة.
++grant execute on function public.gps_hotspots_prune(date[]) to service_role;
++
++-- استمرارية القراءة: أخفِ النسخة غير المكتملة حتى تُنشأ علامة المزامنة النهائية.
++alter function public.gps_hotspots_list(date, text[], text[], integer, integer[])
++  rename to gps_hotspots_list_00368;
++create function public.gps_hotspots_list(p_month date default null, p_classes text[] default array['medium','heavy'], p_recurrence text[] default null,
++                                         p_min_vehicles integer default 1, p_sector_ids integer[] default null)
++returns jsonb language plpgsql stable security definer set search_path = public, app as $$
++declare result jsonb;
++begin
++  result := public.gps_hotspots_list_00368(p_month, p_classes, p_recurrence, p_min_vehicles, p_sector_ids);
++  if result -> 'sync' is null or result -> 'sync' = 'null'::jsonb then
++    result := jsonb_set(result, '{rows}', '[]'::jsonb, true);
++    result := jsonb_set(result, '{total}', '0'::jsonb, true);
++  end if;
++  return result;
++end $$;
++revoke all on function public.gps_hotspots_list(date, text[], text[], integer, integer[]) from public, anon;
++grant execute on function public.gps_hotspots_list(date, text[], text[], integer, integer[]) to authenticated, service_role;
++
++-- إعادة محاولة جدولة فحص الاحتفاظ اليومي إذا كان pg_cron قد فُعّل بعد الترحيل القديم.
++do $$
++begin
++  if exists (select 1 from pg_extension where extname = 'pg_cron') then
++    perform cron.unschedule(jobid) from cron.job where jobname = 'data_retention_scan_daily';
++    perform cron.schedule('data_retention_scan_daily', '0 1 * * *', $job$ select app.data_retention_scan() $job$);
++  else
++    raise notice 'Data retention cron skipped: pg_cron is not enabled';
++  end if;
++end $$;
++
++-- إعادة محاولة إنشاء مجدولي GPS عند وجود الأسرار/الإضافات وقت تطبيق هذا الترحيل.
++-- الأسرار تُقرأ من Vault فقط، ولا تُحفظ داخل المستودع.
++do $$
++begin
++  if not exists (select 1 from pg_extension where extname = 'pg_cron')
++     or not exists (select 1 from pg_extension where extname = 'pg_net') then
++    raise notice 'GPS warehouse cron skipped: pg_cron/pg_net are not enabled'; return;
++  end if;
++  if not exists (select 1 from pg_namespace where nspname = 'vault') then
++    raise notice 'GPS warehouse cron skipped: Vault is unavailable'; return;
++  end if;
++  if not exists (select 1 from vault.decrypted_secrets where name in ('project_url', 'edge_service_role') having count(*) = 2) then
++    raise notice 'GPS warehouse cron skipped: Vault secrets are missing'; return;
++  end if;
++
++  perform cron.unschedule(jobid) from cron.job where jobname in ('gps-warehouse-pull-minute', 'gps-warehouse-hotspots-nightly');
++  perform cron.schedule('gps-warehouse-pull-minute', '* * * * *', $job$
++    select net.http_post(
++      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/gps-warehouse',
++      headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_service_role')),
++      body := '{"action":"pull"}'::jsonb, timeout_milliseconds := 120000);
++  $job$);
++  perform cron.schedule('gps-warehouse-hotspots-nightly', '30 20 * * *', $job$
++    select net.http_post(
++      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/gps-warehouse',
++      headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_service_role')),
++      body := '{"action":"sync_hotspots"}'::jsonb, timeout_milliseconds := 120000);
++  $job$);
++end $$;
+diff --git a/tests/db-warehouse/monitoring-test.sql b/tests/db-warehouse/monitoring-test.sql
+index 4bc44c4f..764dba2e 100644
+--- a/tests/db-warehouse/monitoring-test.sql
++++ b/tests/db-warehouse/monitoring-test.sql
+@@ -36,10 +36,10 @@ begin
+   js := public.wh_retry_failed();
+   if (js ->> 'requeued')::int <> 0 or js -> 'month' <> 'null'::jsonb then raise exception 'M4 all %', js; end if;
+   if (select status from public.wh_pull_jobs where device_external_id = 'm-2' and day = old + 1) <> 'failed' then raise exception 'M4 expired kept failed'; end if;
+-  -- M5: الملخص صار فارغاً من الفاشلة داخل النافذة؛ wh_ping يحمل الإصدار 6
++  -- M5: الملخص صار فارغاً من الفاشلة داخل النافذة؛ wh_ping يحمل أحدث إصدار مخطط
+   js := public.wh_progress();
+   if (select coalesce(sum((x ->> 'failed')::int), 0) from jsonb_array_elements(js -> 'error_summary') x) <> 1 then raise exception 'M5 summary after retry %', js -> 'error_summary'; end if;
+-  if (public.wh_ping() ->> 'schema_version')::int <> 6 then raise exception 'M5 ping'; end if;
++  if (public.wh_ping() ->> 'schema_version')::int <> (select max(version) from public.wh_schema_version) then raise exception 'M5 ping'; end if;
+   -- M6: الصلاحيات — خدمة فقط
+   if has_function_privilege('authenticated', 'public.wh_retry_failed(date)', 'execute') or has_function_privilege('anon', 'public.wh_progress()', 'execute') then raise exception 'M6 grants'; end if;
+   raise notice 'warehouse monitoring ok';
+diff --git a/tests/db/data-retention-catalog-test.sql b/tests/db/data-retention-catalog-test.sql
+index 85c298ef..67e7538f 100644
+--- a/tests/db/data-retention-catalog-test.sql
++++ b/tests/db/data-retention-catalog-test.sql
+@@ -22,6 +22,14 @@ begin
+     where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+       and not exists (select 1 from app.data_retention_catalog() k where k.table_name = t.table_name);
+   if missing is not null then raise exception 'A1 tables missing from retention catalog: %', missing; end if;
++  -- الجداول البنيوية وسجلات الإثبات المضافة حديثاً يجب أن تكون ظاهرة ومقفلة، لا مجهولة ولا قابلة للحذف العام.
++  select string_agg(table_name, ', ' order by table_name) into bad
++    from app.data_retention_catalog()
++    where table_name = any(array['attendance_edit_items','attendance_edit_requests','parent_sectors','platform_reset_requests',
++      'unmatched_archive_device_users','unmatched_archive_punches','unmatched_unit_audit','unmatched_unit_day_edits',
++      'unmatched_unit_independent_people','unmatched_unit_people_edits','unmatched_unit_permissions'])
++      and (deletable or time_column is not null);
++  if bad is not null then raise exception 'A1b protected tables must stay locked: %', bad; end if;
+   -- A2: لا جدول في الكتالوج غير موجود فعلاً، ولا تكرار
+   select string_agg(k.table_name, ', ') into extra from app.data_retention_catalog() k
+     where not exists (select 1 from information_schema.tables t where t.table_schema = 'public' and t.table_name = k.table_name);
+diff --git a/tests/db/gps-hotspots-test.sql b/tests/db/gps-hotspots-test.sql
+index 7154df31..22489207 100644
+--- a/tests/db/gps-hotspots-test.sql
++++ b/tests/db/gps-hotspots-test.sql
+@@ -33,6 +33,15 @@ begin
+   -- إعادة النسخ تستبدل الشهر كلّه (لا تراكم)
+   js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1, row2, row3), true, true);
+   if (select count(*) from public.gps_hotspots where month = m) <> 3 then raise exception 'G1 replace'; end if;
++  -- أثناء إعادة النسخ تُبطل علامة النشر؛ لا تُعرض الصفحة الأولى جزئياً قبل اكتمال الدفعات.
++  js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1), true, false);
++  if exists (select 1 from public.gps_hotspots_sync where month = m) then raise exception 'G1 partial sync marker not cleared'; end if;
++  perform pg_temp.as_user('e9100000-0000-0000-0000-000000000003');
++  js := public.gps_hotspots_list(m, null);
++  if (js ->> 'total')::int <> 0 or jsonb_array_length(js -> 'rows') <> 0 or js -> 'sync' <> 'null'::jsonb then raise exception 'G1 partial sync exposed %', js; end if;
++  perform pg_temp.as_service();
++  js := public.gps_hotspots_replace_month(m, jsonb_build_array(row1, row2, row3), false, true);
++  if (js ->> 'total')::int <> 3 or (select rows_count from public.gps_hotspots_sync where month = m) <> 3 then raise exception 'G1 final publish %', js; end if;
+   perform public.gps_hotspots_replace_month(prev, jsonb_build_array(row2), true, true);
+   -- G2: القراءة: HR والموظف ممنوعان (RPC + RLS)؛ العمليات وIT يقرآن
+   perform pg_temp.as_user('e9100000-0000-0000-0000-000000000002');
+diff --git a/tests/db/platform-reset-test.sql b/tests/db/platform-reset-test.sql
+index 528dca7f..c05753c8 100644
+--- a/tests/db/platform-reset-test.sql
++++ b/tests/db/platform-reset-test.sql
+@@ -39,6 +39,13 @@ begin
+     where ns.nspname = 'public' and c.relkind = 'r' and c.relname not like 'zz\_%'
+       and app.platform_reset_category_of(c.relname) is null and not (c.relname = any(app.platform_reset_never_tables()));
+   assert missing is null, 'R1 جداول غير مصنَّفة: ' || missing;
++  assert app.platform_reset_category_of('unmatched_archive_device_users') = 'attendance'
++    and app.platform_reset_category_of('unmatched_archive_punches') = 'attendance'
++    and app.platform_reset_category_of('unmatched_unit_people_edits') = 'attendance'
++    and app.platform_reset_category_of('unmatched_unit_day_edits') = 'attendance'
++    and app.platform_reset_category_of('unmatched_unit_audit') = 'attendance'
++    and app.platform_reset_category_of('unmatched_unit_independent_people') = 'attendance'
++    and app.platform_reset_category_of('unmatched_unit_permissions') = 'accounts', 'R1e unmatched reset categories';
+   select string_agg(t, '، ') into dup from (select t from app.platform_reset_catalog() c, unnest(c.tables) t group by t having count(*) > 1) x;
+   assert dup is null, 'R1b جداول مكررة: ' || dup;
+   select string_agg(t, '، ') into ghost from app.platform_reset_catalog() c, unnest(c.tables) t
+diff --git a/tests/security/portal-layout-contract.test.ts b/tests/security/portal-layout-contract.test.ts
+index 27b43bed..172860ae 100644
+--- a/tests/security/portal-layout-contract.test.ts
++++ b/tests/security/portal-layout-contract.test.ts
+@@ -11,8 +11,8 @@ const processing = read('src/portals/complaints/pages/Processing/ProcessingPage.
+ /** عقد يمنع عودة تداخل الصفحات مع التنقل أو تغطية إجراءات الموبايل. */
+ describe('عقد التخطيط المتجاوب للبوابات', () => {
+   it('يجعل الشريط والمحتوى عمودين في التدفق ويقصر التمرير على main', () => {
+-    expect(shell).toContain('isolate flex h-dvh min-h-0 w-full overflow-hidden')
+-    expect(shell).toContain('h-dvh shrink-0 max-lg:hidden')
++    expect(shell).toContain('isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')
++    expect(shell).toContain('h-dvh flex-none max-lg:hidden')
+     expect(shell).toContain('min-h-0 min-w-0 flex-1 flex-col overflow-hidden')
+     expect(shell).toContain('overflow-x-hidden overflow-y-auto')
+     expect(shell).not.toMatch(/<main[\s\S]{0,250}className=["'{][^\n]*(?:fixed|absolute)/)

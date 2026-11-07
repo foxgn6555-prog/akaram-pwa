@@ -1,0 +1,597 @@
+diff --git a/src/lib/constants/portals.constants.ts b/src/lib/constants/portals.constants.ts
+--- a/src/lib/constants/portals.constants.ts
++++ b/src/lib/constants/portals.constants.ts
+@@ -53,14 +53,14 @@
+   { id: PORTALS.FOLLOW_UP, path: '/follow-up', allowedRoles: ['follow_up'], colorVar: '--portal-follow-up' },
+ ] as const
+ 
+-/** البوابات التي تقابل الأدوار المسندة فعلياً؛ تُستخدم في مبدّل البوابات. */
+-export function portalsForAssignedRoles(roles: readonly string[]): PortalDefinition[] {
++/** البوابات التي تظهر في مبدّل الحساب؛ it_admin يرى كل البوابات للإدارة والتنقل. */
++export function portalsVisibleInSwitcher(roles: readonly string[]): PortalDefinition[] {
++  if (roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
+   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
+ }
+ 
+-/** البوابات التي يجوز دخولها؛ امتياز super_admin الواسع يبقى للحارس ومسارات النظام. */
++/** صلاحية فتح مسارات البوابات للحارس؛ لا تغيّر صلاحيات البيانات التي تقررها قاعدة البيانات. */
+ export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
+-  // صلاحية مدير النظام لا تجعل مبدّل البوابات يعرض أدواراً لم تُسند إلى الحساب.
+-  if (roles.includes('super_admin')) return [...PORTAL_DEFINITIONS]
+-  return portalsForAssignedRoles(roles)
++  if (roles.includes('super_admin') || roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
++  return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
+ }
+diff --git a/src/features/auth/hooks/usePortalAccess.ts b/src/features/auth/hooks/usePortalAccess.ts
+--- a/src/features/auth/hooks/usePortalAccess.ts
++++ b/src/features/auth/hooks/usePortalAccess.ts
+@@ -2,7 +2,7 @@
+ import { useQuery } from '@tanstack/react-query'
+ import { authKeys } from '@lib/query-keys/auth.keys'
+ import { useAuth } from './useAuth'
+-import { portalsForAssignedRoles, type PortalDefinition } from '@lib/constants/portals.constants'
++import { portalsVisibleInSwitcher, type PortalDefinition } from '@lib/constants/portals.constants'
+ import type { PortalAccess } from '../types'
+ 
+ export function usePortalAccess(): ReturnType<typeof useQuery<PortalAccess | null>> {
+@@ -13,7 +13,7 @@
+     enabled: !!session,
+     queryFn: async (): Promise<PortalAccess | null> => {
+       if (!session) return null
+-      const portals: PortalDefinition[] = portalsForAssignedRoles(session.roles)
++      const portals: PortalDefinition[] = portalsVisibleInSwitcher(session.roles)
+       return {
+         roles: session.roles,
+         portals,
+diff --git a/src/features/auth/types.ts b/src/features/auth/types.ts
+--- a/src/features/auth/types.ts
++++ b/src/features/auth/types.ts
+@@ -7,6 +7,6 @@
+ export interface PortalAccess {
+   /** أدوار المستخدم الفعلية */
+   roles: Role[]
+-  /** البوابات المقابلة لأدوار الحساب والمُعروضة في مبدّل البوابات */
++  /** البوابات التي تظهر في مبدّل الحساب بحسب دور المستخدم وصلاحيات الإدارة */
+   portals: PortalDefinition[]
+ }
+diff --git a/src/router/routes.config.ts b/src/router/routes.config.ts
+--- a/src/router/routes.config.ts
++++ b/src/router/routes.config.ts
+@@ -55,6 +55,7 @@
+   portal: string
+   path: string
+   shell: LazyExoticComponent<ComponentType>
++  /** أدوار دخول البوابة؛ it_admin له تنقل شامل ولا تتغير صلاحيات البيانات */
+   allowedRoles: readonly string[]
+   children: RouteObject[]
+ }
+@@ -62,22 +63,22 @@
+ export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
+   {
+     portal: PORTALS.EMPLOYEE, path: '/employee', shell: EmployeePortal,
+-    allowedRoles: ['employee', 'super_admin'],
++    allowedRoles: ['employee', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.EMPLOYEE, employeeRoutes),
+   },
+   {
+     portal: PORTALS.HR, path: '/hr', shell: HRPortal,
+-    allowedRoles: ['hr_officer', 'super_admin'],   // HR فقط (+ إشراف الإدارة العليا)
++    allowedRoles: ['hr_officer', 'super_admin', 'it_admin'],   // HR فقط (+ إشراف الإدارة العليا)
+     children: buildPortalRoutes(PORTALS.HR, hrRoutes),
+   },
+   {
+     portal: PORTALS.MANAGER, path: '/manager', shell: ManagerPortal,
+-    allowedRoles: ['department_manager', 'super_admin'],   // المدير فقط
++    allowedRoles: ['department_manager', 'super_admin', 'it_admin'],   // المدير فقط
+     children: buildPortalRoutes(PORTALS.MANAGER, managerRoutes),
+   },
+   {
+     portal: PORTALS.FINANCE, path: '/finance', shell: FinancePortal,
+-    allowedRoles: ['finance_officer', 'super_admin'],   // المالية فقط
++    allowedRoles: ['finance_officer', 'super_admin', 'it_admin'],   // المالية فقط
+     children: buildPortalRoutes(PORTALS.FINANCE, financeRoutes),
+   },
+   {
+@@ -87,63 +88,63 @@
+   },
+   {
+     portal: PORTALS.ADMIN, path: '/admin', shell: AdminPortal,
+-    allowedRoles: ['super_admin'],
++    allowedRoles: ['super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.ADMIN, adminRoutes),
+   },
+   // ── البوابات السبع الجديدة (هيكل جاهز — صفحة رئيسية Placeholder فقط) ──
+   {
+     portal: PORTALS.FIELD_OPS, path: '/field-ops', shell: FieldOpsPortal,
+-    allowedRoles: ['field_ops', 'super_admin'],
++    allowedRoles: ['field_ops', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.FIELD_OPS, fieldOpsRoutes),
+   },
+   {
+     portal: PORTALS.ADMIN_OPS, path: '/admin-ops', shell: AdminOpsPortal,
+-    allowedRoles: ['admin_ops', 'super_admin'],
++    allowedRoles: ['admin_ops', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.ADMIN_OPS, adminOpsRoutes),
+   },
+   {
+     portal: PORTALS.MAINTENANCE, path: '/maintenance', shell: MaintenancePortal,
+-    allowedRoles: ['maintenance', 'super_admin'],
++    allowedRoles: ['maintenance', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.MAINTENANCE, maintenanceRoutes),
+   },
+   {
+     portal: PORTALS.TRANSFER_STATION, path: '/transfer-station', shell: TransferStationPortal,
+-    allowedRoles: ['transfer_station', 'super_admin'],
++    allowedRoles: ['transfer_station', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.TRANSFER_STATION, transferStationRoutes),
+   },
+   {
+     portal: PORTALS.EXECUTIVE, path: '/executive', shell: ExecutivePortal,
+-    allowedRoles: ['executive_director', 'super_admin'],
++    allowedRoles: ['executive_director', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.EXECUTIVE, executiveRoutes),
+   },
+   {
+     portal: PORTALS.DEPUTY, path: '/deputy', shell: DeputyPortal,
+-    allowedRoles: ['deputy_director', 'super_admin'],
++    allowedRoles: ['deputy_director', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.DEPUTY, deputyRoutes),
+   },
+   {
+     portal: PORTALS.OPS_ROOM, path: '/ops-room', shell: OpsRoomPortal,
+-    allowedRoles: ['ops_room', 'super_admin'],
++    allowedRoles: ['ops_room', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.OPS_ROOM, opsRoomRoutes),
+   },
+   {
+     portal: PORTALS.COMPLAINTS, path: '/complaints', shell: ComplaintsPortal,
+-    allowedRoles: ['complaints_officer', 'super_admin'],
++    allowedRoles: ['complaints_officer', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.COMPLAINTS, complaintsRoutes),
+   },
+   {
+     portal: PORTALS.MEDIA, path: '/media', shell: MediaPortal,
+-    allowedRoles: ['media_officer', 'super_admin'],
++    allowedRoles: ['media_officer', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.MEDIA, mediaRoutes),
+   },
+   {
+     portal: PORTALS.CENTRAL_GARAGE, path: '/central-garage', shell: CentralGaragePortal,
+-    allowedRoles: ['central_garage_officer', 'super_admin'],
++    allowedRoles: ['central_garage_officer', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.CENTRAL_GARAGE, centralGarageRoutes),
+   },
+   {
+     portal: PORTALS.FOLLOW_UP, path: '/follow-up', shell: FollowUpPortal,
+-    allowedRoles: ['follow_up', 'super_admin'],
++    allowedRoles: ['follow_up', 'super_admin', 'it_admin'],
+     children: buildPortalRoutes(PORTALS.FOLLOW_UP, followUpRoutes),
+   },
+ ] as const
+diff --git a/src/router/portal.router.ts b/src/router/portal.router.ts
+--- a/src/router/portal.router.ts
++++ b/src/router/portal.router.ts
+@@ -8,10 +8,9 @@
+ 
+ /**
+  * البوابة الافتراضية الصريحة لكل دور — تتقدم على منطق الأولوية العام.
+- * مدير النظام (super_admin) بوابته «التطوير المركزية» (/it): من خلالها
+- * يُضاف المستخدمون والفروع ويُتحكم بالتطبيق كاملاً.
++ * المدير المفوض (super_admin) يبدأ في /admin، وتقنية المعلومات (it_admin) تبدأ في /it.
+  */
+-// المدير المفوض (super_admin) يهبط في بوابته /admin (أعمال صافية)؛ ويصل إلى /it وكل البوابات من المبدّل
++// مبدّل المدير المفوض يعرض /admin فقط؛ وتقنية المعلومات ترى كل البوابات وتبدأ في /it.
+ const ROLE_DEFAULT_PORTAL: Partial<Record<Role, PortalId>> = {
+   super_admin: PORTALS.ADMIN,
+ }
+@@ -21,7 +20,7 @@
+ 
+   if (portals.length === 0) return { type: 'denied' }
+ 
+-  // ① الافتراضية الصريحة من الخريطة أعلاه (super_admin → /it)
++  // ① الافتراضية الصريحة من الخريطة أعلاه (super_admin → /admin)
+   const primary = ROLE_PRIORITY.find((r) => roles.includes(r))
+   const explicitId = primary ? ROLE_DEFAULT_PORTAL[primary] : undefined
+   const explicit = explicitId ? portals.find((p) => p.id === explicitId) : undefined
+diff --git a/tests/unit/lib/portals.constants.test.ts b/tests/unit/lib/portals.constants.test.ts
+--- a/tests/unit/lib/portals.constants.test.ts
++++ b/tests/unit/lib/portals.constants.test.ts
+@@ -1,20 +1,20 @@
+ /** خريطة البوابات: صلاحيات الدخول منفصلة عن البوابات الظاهرة في المبدّل */
+ import { describe, it, expect } from 'vitest'
+-import { accessiblePortals, portalsForAssignedRoles, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
++import { accessiblePortals, portalsVisibleInSwitcher, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
+ 
+ describe('accessiblePortals', () => {
+-  it('مبدّل المدير المفوض يعرض بوابته فقط، مع بقاء امتياز الدخول العام للحارس', () => {
+-    expect(portalsForAssignedRoles(['super_admin']).map((p) => p.id)).toEqual(['admin'])
++  it('مبدّل المدير المفوض يعرض بوابته فقط، دون تغيير صلاحية الحارس الحالية', () => {
++    expect(portalsVisibleInSwitcher(['super_admin']).map((p) => p.id)).toEqual(['admin'])
+     expect(accessiblePortals(['super_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
+   })
+ 
+-  it('بوابة التطوير المركزية تبقى مرتبطة بدور it_admin', () => {
+-    expect(portalsForAssignedRoles(['it_admin']).map((p) => p.id)).toEqual(['it'])
+-    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
++  it('مبدّل تقنية المعلومات يعرض كل البوابات، مع بقاء بوابة IT الافتراضية', () => {
++    expect(portalsVisibleInSwitcher(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
++    expect(accessiblePortals(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
+   })
+ 
+-  it('الحساب ذو الدورين يرى بوابتي الدورين المسندين فقط في المبدّل', () => {
+-    expect(portalsForAssignedRoles(['super_admin', 'it_admin']).map((p) => p.id)).toEqual(['it', 'admin'])
++  it('إذا كان الحساب تقنياً ومديراً مفوضاً، صلاحية تقنية المعلومات تعرض كل البوابات', () => {
++    expect(portalsVisibleInSwitcher(['super_admin', 'it_admin'])).toEqual([...PORTAL_DEFINITIONS])
+   })
+ 
+   it('super_admin يرى كل البوابات المسجلة للصلاحية العامة', () => {
+@@ -61,10 +61,9 @@
+     expect(portals[0]?.id).toBe('complaints')
+   })
+ 
+-  it('it_admin يرى بوابة IT فقط', () => {
+-    const portals = accessiblePortals(['it_admin'])
+-    expect(portals).toHaveLength(1)
+-    expect(portals[0]?.id).toBe('it')
++  it('it_admin يمكنه فتح كل البوابات عبر الحارس', () => {
++    expect(accessiblePortals(['it_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
++    expect(portalsVisibleInSwitcher(['it_admin']).map((p) => p.id)).toContain('it')
+   })
+ 
+   it('موظف عادي يرى بوابة الموظف فقط', () => {
+diff --git a/tests/unit/router/portal-access.test.ts b/tests/unit/router/portal-access.test.ts
+--- a/tests/unit/router/portal-access.test.ts
++++ b/tests/unit/router/portal-access.test.ts
+@@ -1,9 +1,9 @@
+ /**
+- * ⚓ العقد الصارم: كل دور يفتح بوابته فقط
+- *  · it_admin → /it حصراً (أي بوابة أخرى → إعادة توجيه إلى /it)
+- *  · hr_officer → /hr حصراً … وهكذا
+- *  · super_admin → إشراف على كل البوابات
+- *  · متعدد الأدوار → بوابة الدور ذي الأولوية العليا + السماح لبواباته فقط
++ * ⚓ عقد الدخول إلى البوابات
++ *  · it_admin → /it افتراضياً، ويمكنه فتح كل البوابات من المبدّل
++ *  · الأدوار العادية → بوابتها فقط
++ *  · super_admin → /admin افتراضياً؛ بوابته الوحيدة في المبدّل
++ *  · بيانات الوحدات وصلاحياتها لا تتغير بهذا الحارس
+  */
+ import { describe, it, expect } from 'vitest'
+ import { resolvePortal } from '@router/portal.router'
+@@ -48,22 +48,15 @@
+   return decision.decision === 'allow'
+ }
+ 
+-describe('⚓ العقد الصارم: دور → بوابة واحدة فقط', () => {
+-  it('it_admin: يفتح /it فقط — وكل بوابة أخرى ترجعه إلى /it', () => {
++describe('⚓ عقد الوصول والتنقّل بين البوابات حسب الدور', () => {
++  it('it_admin: الافتراضي /it ويستطيع فتح كل البوابات من بوابة التقنية', () => {
+     const roles: Role[] = ['it_admin']
+     expect(resolvePortal(roles)).toEqual({ type: 'single', portal: 'it', path: '/it' })
+ 
+-    expect(canEnter(roles, 'it')).toBe(true)
+-    expect(canEnter(roles, 'hr')).toBe(false)
+-    expect(canEnter(roles, 'finance')).toBe(false)
+-    expect(canEnter(roles, 'employee')).toBe(false)
+-    expect(canEnter(roles, 'manager')).toBe(false)
+-    expect(canEnter(roles, 'admin')).toBe(false)
+-
+-    // سلوك التحويل: محاولة /hr بأدوار IT → redirect إلى /it
+-    const decision = portalGuard(sessionWith(...roles), 'hr')
+-    expect(decision.decision).toBe('redirect')
+-    expect(decision.redirectTo).toBe('/it')
++    for (const portal of Object.keys(PORTALS) as Array<keyof typeof PORTALS>) {
++      expect(canEnter(roles, portal), `it_admin → ${portal}`).toBe(true)
++    }
++    expect(portalGuard(sessionWith(...roles), 'hr').decision).toBe('allow')
+   })
+ 
+   it('hr_officer: يفتح /hr فقط', () => {
+@@ -143,16 +136,16 @@
+ 
+   it('مصادر الـ routes نفسها صارمة (لا تكرار متساهل)', () => {
+     const byPath = new Map(PORTAL_ROUTES.map((r) => [r.path, r.allowedRoles]))
+-    expect(byPath.get('/employee')).toEqual(['employee', 'super_admin'])
+-    expect(byPath.get('/hr')).toEqual(['hr_officer', 'super_admin'])
+-    expect(byPath.get('/manager')).toEqual(['department_manager', 'super_admin'])
+-    expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin'])
++    expect(byPath.get('/employee')).toEqual(['employee', 'super_admin', 'it_admin'])
++    expect(byPath.get('/hr')).toEqual(['hr_officer', 'super_admin', 'it_admin'])
++    expect(byPath.get('/manager')).toEqual(['department_manager', 'super_admin', 'it_admin'])
++    expect(byPath.get('/finance')).toEqual(['finance_officer', 'super_admin', 'it_admin'])
+     expect(byPath.get('/it')).toEqual(['it_admin', 'super_admin'])
+-    expect(byPath.get('/admin')).toEqual(['super_admin'])
+-    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin'])
+-    expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin'])
+-    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin'])
+-    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin'])
++    expect(byPath.get('/admin')).toEqual(['super_admin', 'it_admin'])
++    expect(byPath.get('/complaints')).toEqual(['complaints_officer', 'super_admin', 'it_admin'])
++    expect(byPath.get('/media')).toEqual(['media_officer', 'super_admin', 'it_admin'])
++    expect(byPath.get('/central-garage')).toEqual(['central_garage_officer', 'super_admin', 'it_admin'])
++    expect(byPath.get('/follow-up')).toEqual(['follow_up', 'super_admin', 'it_admin'])
+   })
+ 
+   it('بلا جلسة → تحويل إلى /login', () => {
+diff --git a/src/portals/it/pages/UserManagement/PermissionsCard.tsx b/src/portals/it/pages/UserManagement/PermissionsCard.tsx
+--- a/src/portals/it/pages/UserManagement/PermissionsCard.tsx
++++ b/src/portals/it/pages/UserManagement/PermissionsCard.tsx
+@@ -5,6 +5,7 @@
+  */
+ import { useMemo, useState } from 'react'
+ import clsx from 'clsx'
++import { useAuth } from '@features/auth/hooks/useAuth'
+ import { usePermissionAudit, usePermissionTemplates, useSetUserPermissionOverride, useSetUserPermissionTemplate, useUserEffectivePermissions, useUserPermissionTemplate } from '@features/permissions'
+ import type { EffectivePermissionRow } from '@features/permissions'
+ import { PERMISSION_ACTION_LABELS, PORTAL_ROLE, type PermissionAction, type PermissionUnit } from '@config/permission-catalog'
+@@ -15,7 +16,10 @@
+ import { AUDIT_KIND } from '../Permissions/PermissionTemplates'
+ 
+ export function PermissionsCard({ userId, roles, isSelf }: { userId: string; roles: readonly Role[]; isSelf: boolean }) {
++  const { data: session } = useAuth()
+   const isSuperAdmin = roles.includes('super_admin')
++  const canManageSuperAdmin = session?.roles.some((role) => role === 'it_admin' || role === 'super_admin') ?? false
++  const canManageSettings = !isSuperAdmin || canManageSuperAdmin
+   const templates = usePermissionTemplates()
+   const userTpl = useUserPermissionTemplate(userId)
+   const effective = useUserEffectivePermissions(userId)
+@@ -50,7 +54,7 @@
+     setOv.mutate({ userId, unit: u.key, action: a, effect: next, reason: reason.trim() || null })
+   }
+ 
+-  const locked = isSelf || isSuperAdmin
++  const locked = isSelf || (isSuperAdmin && !canManageSuperAdmin)
+   return (
+     <section className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm" aria-label="الصلاحيات" data-testid="permissions-card">
+       <div className="flex flex-wrap items-start justify-between gap-3">
+@@ -58,11 +62,16 @@
+           <h2 className="text-sm font-black">الصلاحيات</h2>
+           <p className="mt-1 text-xs text-slate-500">افتراضياً يملك المستخدم كل وحدات بوابته. القالب يحجب/يضيف، والاستثناء الفردي يغلب القالب. التغيير يسري في الخادم فوراً وفي قوائمه عند تحديث صفحته.</p>
+         </div>
+-        {isSuperAdmin && <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">مدير النظام الأعلى — كل الصلاحيات دائماً</span>}
+-        {isSelf && !isSuperAdmin && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكنك تعديل صلاحيات حسابك</span>}
++        {isSuperAdmin && <span className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white">super_admin يملك كل الصلاحيات افتراضياً</span>}
++        {isSelf && <span className="rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">لا يمكنك تعديل صلاحيات حسابك</span>}
+       </div>
++      {isSuperAdmin && canManageSuperAdmin && !isSelf && (
++        <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900" role="note">
++          هذا الدور يملك كل الصلاحيات تلقائياً؛ القوالب والاستثناءات تُسجَّل لكنها لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً.
++        </p>
++      )}
+ 
+-      {!isSuperAdmin && (
++      {canManageSettings && (
+         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+           <label className="text-xs font-bold">القالب
+             <select data-testid="perm-template-select" disabled={locked || setTpl.isPending || !templates.data} value={userTpl.data?.template_id ?? ''} onChange={(e) => setTpl.mutate({ userId, templateId: e.target.value || null })} className="mt-1 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
+@@ -85,7 +94,7 @@
+             {portalLabel(p)}
+           </button>
+         ))}
+-        {!isSuperAdmin && (
++        {canManageSettings && (
+           <button type="button" data-testid="perm-show-all" onClick={() => setShowAll((v) => !v)} className="h-9 rounded-lg px-2 text-[11px] font-bold text-violet-700 underline">
+             {showAll ? 'بوابات دوره فقط' : 'كل البوابات (لمنح وحدة من بوابة أخرى)'}
+           </button>
+diff --git a/src/services/permissions.sdk.ts b/src/services/permissions.sdk.ts
+--- a/src/services/permissions.sdk.ts
++++ b/src/services/permissions.sdk.ts
+@@ -16,7 +16,6 @@
+ 
+ const ERRORS: Record<string, string> = {
+   PERMISSION_SELF_EDIT: 'لا يمكنك تعديل صلاحيات حسابك أنت — اطلب ذلك من زميل في التطوير المركزية.',
+-  PERMISSION_TARGET_SUPER_ADMIN: 'صلاحيات مدير النظام الأعلى لا تُعدَّل إلا من مدير نظام أعلى آخر.',
+   PERMISSION_TEMPLATE_NOT_FOUND: 'القالب غير موجود.',
+   PERMISSION_TEMPLATE_IN_USE: 'القالب مسنَد إلى مستخدمين — أزل إسناده أولاً ثم احذفه.',
+   PERMISSION_TEMPLATE_NAME_INVALID: 'اسم القالب يجب أن يكون بين حرفين و80 حرفاً.',
+diff --git a/tests/unit/portals/permissions-ui.test.tsx b/tests/unit/portals/permissions-ui.test.tsx
+--- a/tests/unit/portals/permissions-ui.test.tsx
++++ b/tests/unit/portals/permissions-ui.test.tsx
+@@ -16,6 +16,10 @@
+   eff('hr.employees', 'الموظفون', 'view', true, 'role'), eff('hr.employees', 'الموظفون', 'edit', false, 'template'),
+   eff('hr.leaves', 'الإجازات', 'view', false, 'override', 'لا يتعامل مع الإجازات'),
+ ]
++vi.mock('@features/auth/hooks/useAuth', () => ({
++  useAuth: () => ({ data: { id: 'it-operator', roles: ['it_admin'] } }),
++}))
++
+ const h = vi.hoisted(() => ({
+   templates: vi.fn(async () => [] as unknown[]), templateRules: vi.fn(async () => [] as unknown[]),
+   templateSave: vi.fn(async () => 't9'), templateRulesSet: vi.fn(async () => 1), templateDelete: vi.fn(async () => undefined),
+@@ -67,7 +71,7 @@
+     expect(h.userOverrideSet).not.toHaveBeenCalled()
+   })
+ 
+-  it('تغيير القالب يستدعي الإسناد؛ الحساب نفسه ومدير النظام الأعلى عرض فقط', async () => {
++  it('تغيير القالب متاح للإدارة التقنية، مع حماية الذات وإتاحة إدارة حساب super_admin', async () => {
+     const { unmount } = wrap(<PermissionsCard userId="u1" roles={['hr_officer']} isSelf={false} />)
+     await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
+     fireEvent.change(screen.getByTestId('perm-template-select'), { target: { value: '' } })
+@@ -78,8 +82,10 @@
+     expect(screen.queryByTestId('perm-reason')).toBeNull()
+     r2.unmount()
+     wrap(<PermissionsCard userId="sa" roles={['super_admin']} isSelf={false} />)
+-    expect(screen.queryByTestId('perm-template-select')).toBeNull()
+-    expect(screen.getByText(/كل الصلاحيات دائماً/)).toBeInTheDocument()
++    await waitFor(() => expect(screen.getByTestId('perm-template-select')).not.toBeDisabled())
++    expect(screen.getByTestId('perm-show-all')).toBeInTheDocument()
++    expect(screen.getByText(/كل الصلاحيات افتراضياً/)).toBeInTheDocument()
++    expect(screen.getByRole('note')).toHaveTextContent(/لا تقيّد الصلاحيات ما دام دور super_admin ممنوحاً/)
+   })
+ })
+ 
+diff --git a/tests/db/it-role-escalation-test.sql b/tests/db/it-role-escalation-test.sql
+--- a/tests/db/it-role-escalation-test.sql
++++ b/tests/db/it-role-escalation-test.sql
+@@ -1,35 +1,32 @@
+--- 00309: لا تصعيد صلاحيات عبر set_user_role · خطوة «حساب» محذوف تُخطّى
++-- 00370: تقنية المعلومات تدير جميع الأدوار، مع منع تعديل الذات وحماية آخر super_admin.
+ set client_min_messages = notice;
+ reset role; select set_config('auth.user_id','', false);
+ insert into auth.users (id, email) values ('90900000-0000-0000-0000-000000000001','sa.it9@t.iq'),('90900000-0000-0000-0000-000000000002','it.it9@t.iq'),('90900000-0000-0000-0000-000000000003','hr.it9@t.iq'),('90900000-0000-0000-0000-000000000004','x.it9@t.iq'),('90900000-0000-0000-0000-000000000005','ghost.it9@t.iq') on conflict (id) do nothing;
+ insert into public.user_roles (user_id, role) values ('90900000-0000-0000-0000-000000000001','super_admin'),('90900000-0000-0000-0000-000000000002','it_admin'),('90900000-0000-0000-0000-000000000003','hr_officer'),('90900000-0000-0000-0000-000000000004','employee') on conflict do nothing;
+ do $$ declare msg text; who uuid[]; begin
+-  -- HR يحاول منح super_admin لحساب آخر
++  -- HR ما زال ممنوعاً من منح الأدوار العالية
+   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000003', false);
+   begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
+   if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R1 %', msg; end if;
+   begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'it_admin', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
+   if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R2 %', msg; end if;
+-  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'department_manager', true);   -- الأدوار العادية ما زالت متاحة
+-  -- IT يحاول منح super_admin / سحبه من المدير المفوض
++  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'department_manager', true);
++
++  -- IT يمنح ويسحب super_admin من الآخرين؛ لا يستطيع تعديل أدواره بنفسه.
+   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000002', false);
+-  begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
+-  if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R3 %', msg; end if;
+-  begin perform public.set_user_role('90900000-0000-0000-0000-000000000001', 'super_admin', false); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
+-  if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R4 %', msg; end if;
+-  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'it_admin', true);   -- IT يمنح IT
+-  if not exists (select 1 from public.user_roles where user_id = '90900000-0000-0000-0000-000000000004' and role = 'it_admin') then raise exception 'FAIL R5'; end if;
+-  -- المدير المفوض يمنح super_admin ثم لا يمكن سحب الأخير
++  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true);
++  if not exists (select 1 from public.user_roles where user_id = '90900000-0000-0000-0000-000000000004' and role = 'super_admin') then raise exception 'FAIL R3 grant'; end if;
++  perform public.set_user_role('90900000-0000-0000-0000-000000000001', 'super_admin', false);
++  if exists (select 1 from public.user_roles where user_id = '90900000-0000-0000-0000-000000000001' and role = 'super_admin') then raise exception 'FAIL R4 revoke'; end if;
++  begin perform public.set_user_role('90900000-0000-0000-0000-000000000002', 'it_admin', false); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
++  if msg not like 'SELF_MODIFY_FORBIDDEN%' then raise exception 'FAIL R5 self-edit %', msg; end if;
++  begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', false); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
++  if msg not like 'LAST_SUPER_ADMIN%' then raise exception 'FAIL R6 last super_admin %', msg; end if;
++
++  -- IT يعيد دور المدير المفوض؛ ثم يظل المدير المفوض قادراً على إدارة الدور.
++  perform public.set_user_role('90900000-0000-0000-0000-000000000001', 'super_admin', true);
+   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000001', false);
+-  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true);
+-  delete from public.user_roles where role = 'super_admin' and user_id <> '90900000-0000-0000-0000-000000000004' and user_id <> '90900000-0000-0000-0000-000000000001';
+   perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', false);
+-  perform set_config('auth.user_id','90900000-0000-0000-0000-000000000004', false);
+-  perform public.set_user_role('90900000-0000-0000-0000-000000000001', 'super_admin', false);   -- هو IT؛ يجب أن يفشل
+-  raise exception 'FAIL R6 IT removed super admin';
+-exception when others then
+-  if sqlerrm like 'FAIL%' then raise; end if;
+-  if sqlerrm not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R6b %', sqlerrm; end if;
+ end $$;
+ do $$ declare who uuid[]; begin
+   -- خطوة «حساب» لمستخدم حُذف لاحقاً تُحلّ إلى لا أحد (تُخطّى) بدل خطوة معلّقة بلا مُعتمِد
+@@ -38,5 +35,5 @@
+   delete from auth.users where id = '90900000-0000-0000-0000-000000000005';
+   who := app.approval_resolve_step(jsonb_build_object('kind','account','user_id','90900000-0000-0000-0000-000000000005'), '90900000-0000-0000-0000-000000000004');
+   if cardinality(who) <> 0 then raise exception 'FAIL A2 orphan approver kept'; end if;
+-  raise notice 'it role escalation test ok';
++  raise notice 'it role management test ok';
+ end $$;
+diff --git a/tests/db/permissions-core-test.sql b/tests/db/permissions-core-test.sql
+--- a/tests/db/permissions-core-test.sql
++++ b/tests/db/permissions-core-test.sql
+@@ -105,7 +105,12 @@
+   perform auth.set_test_user(it);
+   perform pg_temp.expect_error(format($q$select public.it_user_permission_override_set('%s', 'it.permissions', 'edit', 'allow')$q$, it), 'PERMISSION_SELF_EDIT');
+   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, it, tpl), 'PERMISSION_SELF_EDIT');
+-  perform pg_temp.expect_error(format($q$select public.it_user_permission_override_set('%s', 'finance.payroll', 'view', 'deny')$q$, sa), 'PERMISSION_TARGET_SUPER_ADMIN');
++  perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', 'deny', 'إدارة تقنية المعلومات');
++  assert exists (select 1 from public.user_permission_overrides where user_id = sa and unit_key = 'finance.payroll' and action = 'view' and effect = 'deny'), 'IT can manage super_admin permission settings';
++  -- يبقى دور super_admin ذا الصلاحيات الشاملة بطبيعته؛ الإعداد لا يسحب امتياز الدور الأساسي.
++  assert app.can(sa, 'finance.payroll', 'view'), 'super_admin role remains globally privileged';
++  perform public.it_user_permission_override_set(sa, 'finance.payroll', 'view', null);
++  perform public.it_user_permission_template_set(sa, tpl);
+   perform pg_temp.expect_error(format($q$select public.it_user_permission_template_set('%s', '%s')$q$, '9c000000-0000-0000-0000-0000000000ff', tpl), 'IT_USER_NOT_FOUND');
+   -- super_admin يستطيع استهداف super_admin آخر لكن لا أثر على الحسم (① يغلب)
+   perform auth.set_test_user(sa);
+@@ -124,6 +129,7 @@
+   assert exists (select 1 from public.it_permission_audit_list(hr) a where a.kind = 'override_set' and a.detail->>'unit' = 'hr.leaves' and a.actor_name is not null), 'audit detail';
+   -- حذف قالب غير مستخدم
+   perform public.it_user_permission_template_set(hr, null);
++  perform public.it_user_permission_template_set(sa, null);
+   perform public.it_permission_template_delete(tpl);
+   assert not exists (select 1 from public.permission_templates where id = tpl), 'template deleted';
+   assert app.can(hr, 'hr.employees', 'edit'), 'back to role default';
+diff --git a/supabase/migrations/00370_it_admin_full_role_management.sql b/supabase/migrations/00370_it_admin_full_role_management.sql
+new file mode 100644
+--- /dev/null
++++ b/supabase/migrations/00370_it_admin_full_role_management.sql
+@@ -0,0 +1,84 @@
++-- 00370 — تقنية المعلومات تدير جميع الأدوار، بما فيها دور المدير المفوض.
++-- تبقى الحمايات: منع تعديل الذات، منع سحب آخر super_admin، وعدم منح super_admin لـ HR.
++
++create or replace function app.set_user_role(p_user_id uuid, p_role text, p_grant boolean, p_actor uuid default null)
++returns void language plpgsql security definer set search_path = public, app
++as $$
++declare
++  v_is_dynamic boolean := p_role like 'portal:%';
++  v_actor uuid := coalesce(p_actor, auth.uid());
++begin
++  if v_actor is null or not exists (
++    select 1 from public.user_roles ur
++    where ur.user_id = v_actor and ur.role = any(array['it_admin', 'super_admin', 'hr_officer'])
++  ) then
++    raise exception 'USERS_FORBIDDEN: لا تملك صلاحية تعديل الأدوار';
++  end if;
++  if not v_is_dynamic and p_role not in (
++    'employee', 'hr_officer', 'department_manager',
++    'finance_officer', 'it_admin', 'super_admin',
++    'field_ops', 'admin_ops', 'maintenance', 'transfer_station',
++    'executive_director', 'deputy_director', 'ops_room',
++    'disclosures_officer', 'complaints_officer', 'media_officer',
++    'central_garage_officer', 'follow_up'
++  ) then
++    raise exception 'ROLE_INVALID: دور غير معروف';
++  end if;
++  if v_is_dynamic and not exists (
++    select 1 from public.dynamic_portals
++    where 'portal:' || slug = p_role and is_active
++  ) then
++    raise exception 'ROLE_INVALID: البوابة الديناميكية غير موجودة';
++  end if;
++  if p_user_id = v_actor then raise exception 'SELF_MODIFY_FORBIDDEN: لا يمكنك تعديل أدوارك بنفسك'; end if;
++
++  -- المدير المفوض وتقنية المعلومات فقط يمنحان أو يسحبان super_admin؛ HR لا يستطيع التصعيد.
++  if p_role = 'super_admin' and not exists (
++    select 1 from public.user_roles ur
++    where ur.user_id = v_actor and ur.role in ('super_admin', 'it_admin')
++  ) then
++    raise exception 'ROLE_ESCALATION_FORBIDDEN: دور super_admin يمنحه أو يسحبه IT أو المدير المفوض فقط';
++  end if;
++  if p_role = 'it_admin' and not exists (
++    select 1 from public.user_roles ur
++    where ur.user_id = v_actor and ur.role in ('it_admin', 'super_admin')
++  ) then
++    raise exception 'ROLE_ESCALATION_FORBIDDEN: دور تقنية المعلومات يمنحه أو يسحبه IT أو المدير المفوض فقط';
++  end if;
++  if not p_grant and p_role = 'super_admin' and (
++    select count(*) from public.user_roles ur where ur.role = 'super_admin'
++  ) <= 1 then
++    raise exception 'LAST_SUPER_ADMIN: لا يمكن سحب الدور من آخر حساب super_admin';
++  end if;
++
++  if p_grant then
++    insert into public.user_roles (user_id, role, granted_by)
++    values (p_user_id, p_role, v_actor)
++    on conflict (user_id, role) do nothing;
++  else
++    delete from public.user_roles where user_id = p_user_id and role = p_role;
++  end if;
++  insert into public.audit_logs(table_name, record_id, operation, new_row, actor_id, actor_role)
++  values (
++    'user_roles', p_user_id::text,
++    case when p_grant then 'INSERT' else 'DELETE' end,
++    jsonb_build_object('role', p_role, 'granted', p_grant),
++    v_actor, app.current_role()
++  );
++end;
++$$;
++
++-- IT يدير إعدادات الصلاحيات لحسابات super_admin أيضاً.
++-- لا يُسمح بتعديل صلاحيات حساب المتصرف نفسه.
++create or replace function app.perm_require_manager(p_target uuid) returns void
++language plpgsql stable security definer set search_path = public, app as $$
++begin
++  perform app.require_it();
++  if p_target is not null and p_target = auth.uid() then
++    raise exception 'PERMISSION_SELF_EDIT';
++  end if;
++  if p_target is not null and not exists (select 1 from auth.users where id = p_target) then
++    raise exception 'IT_USER_NOT_FOUND';
++  end if;
++end$$;
++revoke all on function app.perm_require_manager(uuid) from public, anon, authenticated;

@@ -64,6 +64,7 @@ vi.mock('@features/gbs/hooks', () => ({
   useGbsSaveContainer: () => ({ mutate: h.save, isPending: false }),
   useGbsDeleteContainer: () => ({ mutate: h.remove, isPending: false }),
   useGbsReviewUpdate: () => ({ mutate: h.review, isPending: false }),
+  useGbsVisualPreviewOnly: () => false,
 }))
 
 vi.mock('@sdk/gbs.sdk', () => ({

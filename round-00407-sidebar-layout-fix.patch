@@ -1,0 +1,73 @@
+From ffd8c84708c21e6d46e4f3a848d943ee00b19e2b Mon Sep 17 00:00:00 2001
+From: Arena Audit <audit@example.com>
+Date: Thu, 5 Nov 2026 18:46:14 +0000
+Subject: [PATCH] Fix sidebar and content overlap in app shell
+
+---
+ src/components/layout/AppShell.tsx                 | 7 ++++---
+ tests/unit/components/AppShell.responsive.test.tsx | 6 ++++--
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/src/components/layout/AppShell.tsx b/src/components/layout/AppShell.tsx
+index 1187f4e1..2a708cac 100644
+--- a/src/components/layout/AppShell.tsx
++++ b/src/components/layout/AppShell.tsx
+@@ -37,6 +37,7 @@ const MOBILE_MAX_WIDTH = 1024
+ export function AppShell({ portal }: AppShellProps) {
+   const location = useLocation()
+   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen)
++  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
+   const setMobileNav = useUiStore((s) => s.setMobileNav)
+   const fullBleed = useUiStore((s) => s.contentFullBleed)
+   const theme = portalThemes[portal]
+@@ -70,10 +71,10 @@ export function AppShell({ portal }: AppShellProps) {
+   if (!allowed) return <Navigate to="/403" replace />
+ 
+   return (
+-    <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full overflow-hidden')}>
++    <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')}>
+       <a href="#app-main-content" className="fixed start-3 top-3 z-[100] -translate-y-20 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl transition-transform focus:translate-y-0">تجاوز التنقل إلى المحتوى</a>
+       {/* ── الشريط: طبقة مستقلة لا يمكن لمحتوى الصفحات تجاوزها ── */}
+-      <div className="relative z-30 h-dvh shrink-0 max-lg:hidden">
++      <div className={clsx('relative z-30 h-dvh flex-none max-lg:hidden', sidebarCollapsed ? 'w-20' : 'w-72')} data-testid="desktop-sidebar-slot">
+         <Sidebar portal={portal} variant="desktop" />
+       </div>
+ 
+@@ -95,7 +96,7 @@ export function AppShell({ portal }: AppShellProps) {
+           tabIndex={-1}
+           data-testid="app-main"
+           className={clsx(
+-            'flex-1',
++            'min-w-0 flex-1',
+             fullBleed
+               ? 'flex min-h-0 flex-col overflow-hidden p-0'
+               : // حشو سفلي على الموبايل لتفادي تغطية الشريط السفلي (~64px) + شريط النظام
+diff --git a/tests/unit/components/AppShell.responsive.test.tsx b/tests/unit/components/AppShell.responsive.test.tsx
+index f456a3e7..52b578bf 100644
+--- a/tests/unit/components/AppShell.responsive.test.tsx
++++ b/tests/unit/components/AppShell.responsive.test.tsx
+@@ -62,10 +62,11 @@ describe('AppShell — سلوك الدسكتوب', () => {
+     expect(screen.queryByTestId('mobile-bottom-nav')).not.toBeInTheDocument()
+   })
+ 
+-  it('يعزل طبقة الشريط الجانبي ويمنع المحتوى من التسرب أفقياً فوقه', () => {
++  it('يحجز عرض الشريط صراحةً ويمنع عمود المحتوى من التداخل أو التسرب أفقياً', () => {
+     renderShell()
++    expect(screen.getByTestId('desktop-sidebar-slot')).toHaveClass('w-72', 'flex-none')
+     expect(screen.getByTestId('app-sidebar')).toHaveClass('z-30', 'shrink-0')
+-    expect(screen.getByTestId('app-main')).toHaveClass('overflow-x-hidden', 'min-h-0', 'overflow-y-auto')
++    expect(screen.getByTestId('app-main')).toHaveClass('min-w-0', 'overflow-x-hidden', 'min-h-0', 'overflow-y-auto')
+   })
+ 
+   it('يوفر رابط تجاوز التنقل ومنطقة محتوى قابلة للتركيز', () => {
+@@ -128,6 +129,7 @@ describe('AppShell — فصل حالتي الطي والدرج', () => {
+     expect(useUiStore.getState().mobileNavOpen).toBe(false)
+     act(() => useUiStore.getState().toggleSidebarCollapsed())
+     expect(useUiStore.getState().sidebarCollapsed).toBe(true)
++    expect(screen.getByTestId('desktop-sidebar-slot')).toHaveClass('w-20')
+     // درج الموبايل لم يتأثر
+     expect(useUiStore.getState().mobileNavOpen).toBe(false)
+   })
+-- 
+2.47.3
+

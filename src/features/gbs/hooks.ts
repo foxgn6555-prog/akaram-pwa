@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { gbs } from '@sdk/gbs.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
+import { useAuth } from '@features/auth/hooks/useAuth'
 import { buildGbsWorkbook, downloadWorkbook, type GbsImportRow } from './gbs-excel'
 import type {
   GbsLocationRequestInput,
@@ -32,48 +33,74 @@ function useGbsError(scope: string) {
     addToast({ type: 'error' as const, message: handleAppError(error, { scope }).message })
 }
 
+/** حساب IT يعاين البوابة فقط؛ لا يستدعي استعلامات بيانات GBS ولا يعرض أي نتائج مخزنة. */
+function useGbsQueryAccess() {
+  const { data: session, isLoading } = useAuth()
+  const previewOnly = !!session?.roles.includes('it_admin')
+  return { previewOnly, enabled: !isLoading && !!session && !previewOnly }
+}
+
+export function useGbsVisualPreviewOnly() {
+  return useGbsQueryAccess().previewOnly
+}
+
 export function useGbsContainers(
   search?: string | null,
   status?: GbsContainerStatus | null,
   parent?: string | null,
   sectorId?: number | null,
 ) {
+  const access = useGbsQueryAccess()
   return useQuery({
     queryKey: gbsKeys.containers(search, status, parent, sectorId),
     queryFn: () => gbs.containers(search, status, parent, sectorId),
+    enabled: access.enabled,
+    select: (rows) => access.enabled ? rows : [],
     refetchInterval: 60000,
   })
 }
 
 export function useGbsZones() {
+  const access = useGbsQueryAccess()
   return useQuery({
     queryKey: gbsKeys.zones(),
     queryFn: () => gbs.zones(),
+    enabled: access.enabled,
+    select: (rows) => access.enabled ? rows : [],
     staleTime: 5 * 60000,
   })
 }
 
 export function useGbsUpdates(state: GbsUpdateState = 'pending') {
+  const access = useGbsQueryAccess()
   return useQuery({
     queryKey: gbsKeys.updates(state),
     queryFn: () => gbs.updates(state),
+    enabled: access.enabled,
+    select: (rows) => access.enabled ? rows : [],
     refetchInterval: 60000,
   })
 }
 
 export function useGbsMyUpdates() {
+  const access = useGbsQueryAccess()
   return useQuery({
     queryKey: gbsKeys.myUpdates(),
     queryFn: () => gbs.myUpdates(),
+    enabled: access.enabled,
+    select: (rows) => access.enabled ? rows : [],
     refetchInterval: 60000,
   })
 }
 
 /** مناطق اختصاص مسؤول القسم (00138) — للواجهة التوضيحية؛ العزل يطبقه الخادم */
 export function useGbsJurisdiction() {
+  const access = useGbsQueryAccess()
   return useQuery({
     queryKey: gbsKeys.jurisdiction(),
     queryFn: () => gbs.jurisdiction(),
+    enabled: access.enabled,
+    select: (rows) => access.enabled ? rows : [],
     staleTime: 5 * 60000,
   })
 }
@@ -168,7 +195,14 @@ export function useGbsRequestLocation() {
 
 /** 00260: ملخص الحاويات لرئيسية المتابعة */
 export function useFollowUpContainersSummary() {
-  return useQuery({ queryKey: gbsKeys.followUpSummary(), queryFn: () => gbs.followUpSummary(), refetchInterval: 60000 })
+  const access = useGbsQueryAccess()
+  return useQuery({
+    queryKey: gbsKeys.followUpSummary(),
+    queryFn: () => gbs.followUpSummary(),
+    enabled: access.enabled,
+    select: (summary) => access.enabled ? summary : null,
+    refetchInterval: 60000,
+  })
 }
 
 export function useGbsReviewUpdate() {

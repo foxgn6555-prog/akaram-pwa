@@ -1,0 +1,90 @@
+diff --git a/src/features/auth/hooks/usePortalAccess.ts b/src/features/auth/hooks/usePortalAccess.ts
+index 9888874e..b2ed1be2 100644
+--- a/src/features/auth/hooks/usePortalAccess.ts
++++ b/src/features/auth/hooks/usePortalAccess.ts
+@@ -2,7 +2,7 @@
+ import { useQuery } from '@tanstack/react-query'
+ import { authKeys } from '@lib/query-keys/auth.keys'
+ import { useAuth } from './useAuth'
+-import { accessiblePortals, type PortalDefinition } from '@lib/constants/portals.constants'
++import { portalsForAssignedRoles, type PortalDefinition } from '@lib/constants/portals.constants'
+ import type { PortalAccess } from '../types'
+ 
+ export function usePortalAccess(): ReturnType<typeof useQuery<PortalAccess | null>> {
+@@ -13,7 +13,7 @@ export function usePortalAccess(): ReturnType<typeof useQuery<PortalAccess | nul
+     enabled: !!session,
+     queryFn: async (): Promise<PortalAccess | null> => {
+       if (!session) return null
+-      const portals: PortalDefinition[] = accessiblePortals(session.roles)
++      const portals: PortalDefinition[] = portalsForAssignedRoles(session.roles)
+       return {
+         roles: session.roles,
+         portals,
+diff --git a/src/features/auth/types.ts b/src/features/auth/types.ts
+index c4e1c8d7..52bff588 100644
+--- a/src/features/auth/types.ts
++++ b/src/features/auth/types.ts
+@@ -7,6 +7,6 @@ export type { Role } from '@lib/constants/roles.constants'
+ export interface PortalAccess {
+   /** أدوار المستخدم الفعلية */
+   roles: Role[]
+-  /** البوابات المسموح بها */
++  /** البوابات المقابلة لأدوار الحساب والمُعروضة في مبدّل البوابات */
+   portals: PortalDefinition[]
+ }
+diff --git a/src/lib/constants/portals.constants.ts b/src/lib/constants/portals.constants.ts
+index a3155531..28ad6dcd 100644
+--- a/src/lib/constants/portals.constants.ts
++++ b/src/lib/constants/portals.constants.ts
+@@ -53,11 +53,14 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
+   { id: PORTALS.FOLLOW_UP, path: '/follow-up', allowedRoles: ['follow_up'], colorVar: '--portal-follow-up' },
+ ] as const
+ 
+-/** كل البوابات التي يملك المستخدم صلاحية الدخول إليها بحسب أدواره */
+-export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
+-  // مدير النظام (super_admin) يصل لكل البوابات — يراها كلها في المبدّل
+-  if (roles.includes('super_admin')) {
+-    return [...PORTAL_DEFINITIONS]
+-  }
++/** البوابات التي تقابل الأدوار المسندة فعلياً؛ تُستخدم في مبدّل البوابات. */
++export function portalsForAssignedRoles(roles: readonly string[]): PortalDefinition[] {
+   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
+ }
++
++/** البوابات التي يجوز دخولها؛ امتياز super_admin الواسع يبقى للحارس ومسارات النظام. */
++export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
++  // صلاحية مدير النظام لا تجعل مبدّل البوابات يعرض أدواراً لم تُسند إلى الحساب.
++  if (roles.includes('super_admin')) return [...PORTAL_DEFINITIONS]
++  return portalsForAssignedRoles(roles)
++}
+diff --git a/tests/unit/lib/portals.constants.test.ts b/tests/unit/lib/portals.constants.test.ts
+index 12aea589..fc50eb9e 100644
+--- a/tests/unit/lib/portals.constants.test.ts
++++ b/tests/unit/lib/portals.constants.test.ts
+@@ -1,9 +1,23 @@
+-/** خريطة البوابات: super_admin يرى الكل · الأدوار الأخرى بحسب صلاحيتها */
++/** خريطة البوابات: صلاحيات الدخول منفصلة عن البوابات الظاهرة في المبدّل */
+ import { describe, it, expect } from 'vitest'
+-import { accessiblePortals, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
++import { accessiblePortals, portalsForAssignedRoles, PORTAL_DEFINITIONS } from '@lib/constants/portals.constants'
+ 
+ describe('accessiblePortals', () => {
+-  it('super_admin يرى كل البوابات المسجلة', () => {
++  it('مبدّل المدير المفوض يعرض بوابته فقط، مع بقاء امتياز الدخول العام للحارس', () => {
++    expect(portalsForAssignedRoles(['super_admin']).map((p) => p.id)).toEqual(['admin'])
++    expect(accessiblePortals(['super_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
++  })
++
++  it('بوابة التطوير المركزية تبقى مرتبطة بدور it_admin', () => {
++    expect(portalsForAssignedRoles(['it_admin']).map((p) => p.id)).toEqual(['it'])
++    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
++  })
++
++  it('الحساب ذو الدورين يرى بوابتي الدورين المسندين فقط في المبدّل', () => {
++    expect(portalsForAssignedRoles(['super_admin', 'it_admin']).map((p) => p.id)).toEqual(['it', 'admin'])
++  })
++
++  it('super_admin يرى كل البوابات المسجلة للصلاحية العامة', () => {
+     const portals = accessiblePortals(['super_admin'])
+     expect(portals).toHaveLength(PORTAL_DEFINITIONS.length)
+     expect(portals.map((p) => p.id)).toContain('it')

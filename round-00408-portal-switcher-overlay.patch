@@ -1,0 +1,142 @@
+From c6395315906d9861f9139188134bb49e0ac79102 Mon Sep 17 00:00:00 2001
+From: Arena Audit <audit@example.com>
+Date: Thu, 5 Nov 2026 18:55:54 +0000
+Subject: [PATCH] Make portal switcher an explicit dismissible overlay
+
+---
+ src/components/layout/Header/Header.tsx   |  4 +++-
+ src/components/layout/Header/UserMenu.tsx | 28 ++++++++++++++++++++---
+ tests/unit/components/UserMenu.test.tsx   | 14 +++++++++++-
+ 3 files changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/src/components/layout/Header/Header.tsx b/src/components/layout/Header/Header.tsx
+index 523635aa..38f0d213 100644
+--- a/src/components/layout/Header/Header.tsx
++++ b/src/components/layout/Header/Header.tsx
+@@ -55,6 +55,7 @@ export function Header({ portal }: HeaderProps) {
+ 
+   // ── البحث السريع ──
+   const [showSearch, setShowSearch] = useState(false)
++  const [userMenuOpen, setUserMenuOpen] = useState(false)
+   const [searchQuery, setSearchQuery] = useState('')
+   const headerRef = useRef<HTMLElement>(null)
+ 
+@@ -120,7 +121,7 @@ export function Header({ portal }: HeaderProps) {
+     <header
+       ref={headerRef}
+       data-testid="app-header"
+-      className="relative z-20 flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6"
++      className={clsx('relative flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-md sm:gap-3 sm:px-6', userMenuOpen ? 'z-[80]' : 'z-20')}
+     >
+       {/* ── القائمة (الموبايل: تفتح الدرج) ── */}
+       <button
+@@ -249,6 +250,7 @@ export function Header({ portal }: HeaderProps) {
+         accountPath={accountPath}
+         settingsPath={settingsPath}
+         onLogout={handleLogout}
++        onOpenChange={setUserMenuOpen}
+       />
+     </header>
+   )
+diff --git a/src/components/layout/Header/UserMenu.tsx b/src/components/layout/Header/UserMenu.tsx
+index 037c27e6..956a058b 100644
+--- a/src/components/layout/Header/UserMenu.tsx
++++ b/src/components/layout/Header/UserMenu.tsx
+@@ -15,22 +15,35 @@ export interface UserMenuProps {
+   accountPath?: string
+   /** مسار صفحة الإعدادات — يظهر فقط لمن يملك صفحة إعدادات فعلية */
+   settingsPath?: string
++  /** يرفع طبقة الهيدر عند فتح القائمة حتى لا تحجبها/تتداخل معها أعمدة التخطيط */
++  onOpenChange?: (open: boolean) => void
+ }
+ 
+-export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsPath }: UserMenuProps) {
++export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsPath, onOpenChange }: UserMenuProps) {
+   const { t } = useTranslation('common')
+   const navigate = useNavigate()
+   const { data: access } = usePortalAccess()
+   const [open, setOpen] = useState(false)
+   const ref = useRef<HTMLDivElement>(null)
+ 
++  useEffect(() => {
++    onOpenChange?.(open)
++  }, [open, onOpenChange])
++
+   useEffect(() => {
+     if (!open) return
+     const onClick = (e: MouseEvent): void => {
+       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+     }
++    const onKeyDown = (e: KeyboardEvent): void => {
++      if (e.key === 'Escape') setOpen(false)
++    }
+     document.addEventListener('mousedown', onClick)
+-    return () => document.removeEventListener('mousedown', onClick)
++    document.addEventListener('keydown', onKeyDown)
++    return () => {
++      document.removeEventListener('mousedown', onClick)
++      document.removeEventListener('keydown', onKeyDown)
++    }
+   }, [open])
+ 
+   const portals = access?.portals ?? []
+@@ -54,7 +67,15 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
+       </button>
+ 
+       {open && (
+-        <div className="absolute end-0 top-12 w-64 max-w-[calc(100vw-1.5rem)] max-h-[80vh] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-slate-100 z-50">
++        <>
++        <button
++          type="button"
++          data-testid="user-menu-backdrop"
++          aria-label="إغلاق قائمة المستخدم"
++          className="fixed inset-0 z-40 cursor-default bg-slate-950/20 backdrop-blur-[1px]"
++          onClick={() => setOpen(false)}
++        />
++        <div className="absolute end-0 top-12 z-50 max-h-[min(80vh,40rem)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-100 bg-white shadow-2xl">
+           {/* الرأس */}
+           <div className="p-4 bg-gradient-to-br from-brand-50 to-brand-100/50 border-b border-slate-100">
+             <div className="flex items-center gap-3">
+@@ -119,6 +140,7 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
+             </button>
+           </div>
+         </div>
++        </>
+       )}
+     </div>
+   )
+diff --git a/tests/unit/components/UserMenu.test.tsx b/tests/unit/components/UserMenu.test.tsx
+index fbcd210f..da62d314 100644
+--- a/tests/unit/components/UserMenu.test.tsx
++++ b/tests/unit/components/UserMenu.test.tsx
+@@ -19,7 +19,7 @@ vi.mock('@features/auth/hooks/usePortalAccess', () => ({
+ import { UserMenu } from '@components/layout/Header/UserMenu'
+ 
+ function renderMenu(
+-  props?: Partial<{ fullName: string; roleLabel: string; accountPath: string; settingsPath: string }>,
++  props?: Partial<{ fullName: string; roleLabel: string; accountPath: string; settingsPath: string; onOpenChange: (open: boolean) => void }>,
+ ) {
+   return render(
+     <MemoryRouter>
+@@ -59,6 +59,18 @@ describe('UserMenu — مبدّل البوابات', () => {
+     expect(screen.getAllByText('التطوير المركزية').length).toBeGreaterThan(0)
+   })
+ 
++  it('يعرض خلفية واضحة تمنع التباس القائمة مع محتوى الصفحة، وتغلق بالنقر خارجاً أو Escape', async () => {
++    mockPortalAccess.mockReturnValue(MULTI_ACCESS)
++    const onOpenChange = vi.fn()
++    renderMenu({ onOpenChange })
++    await await_userClick_open()
++    expect(screen.getByTestId('user-menu-backdrop')).toBeInTheDocument()
++    expect(onOpenChange).toHaveBeenLastCalledWith(true)
++    await userEvent.click(screen.getByTestId('user-menu-backdrop'))
++    expect(screen.queryByTestId('user-menu-backdrop')).not.toBeInTheDocument()
++    expect(onOpenChange).toHaveBeenLastCalledWith(false)
++  })
++
+   it('الضغط على بوابة يوجّه إليها', async () => {
+     mockPortalAccess.mockReturnValue(MULTI_ACCESS)
+     renderMenu()
+-- 
+2.47.3
+
