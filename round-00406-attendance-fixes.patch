@@ -1,0 +1,415 @@
+From ba744ad9a9d0fcd866c1ad803a86263815849ac8 Mon Sep 17 00:00:00 2001
+From: Arena Audit <audit@example.com>
+Date: Thu, 5 Nov 2026 18:09:01 +0000
+Subject: [PATCH] Fix attendance linked-only scope, stale bulk preview and
+ incomplete label
+
+---
+ src/features/hr/lib/attendanceExcel.ts        | 17 ++--
+ .../pages/Attendance/AttendanceStages.tsx     |  4 +-
+ .../pages/Attendance/BulkEditPanel.tsx        | 22 +++--
+ .../pages/Attendance/OpsAttendancePage.tsx    |  4 +-
+ .../00368_attendance_linked_only.sql          | 98 +++++++++++++++++++
+ .../db/attendance-linked-only-00368-test.sql  | 22 +++++
+ ...ttendance-bulk-preview-race-00406.test.tsx | 67 +++++++++++++
+ .../portals/ops-attendance-two-stage.test.tsx | 18 ++--
+ 8 files changed, 225 insertions(+), 27 deletions(-)
+ create mode 100644 supabase/migrations/00368_attendance_linked_only.sql
+ create mode 100644 tests/db/attendance-linked-only-00368-test.sql
+ create mode 100644 tests/unit/portals/attendance-bulk-preview-race-00406.test.tsx
+
+diff --git a/src/features/hr/lib/attendanceExcel.ts b/src/features/hr/lib/attendanceExcel.ts
+index 91384182..e7dc474b 100644
+--- a/src/features/hr/lib/attendanceExcel.ts
++++ b/src/features/hr/lib/attendanceExcel.ts
+@@ -6,13 +6,14 @@
+ import type { Workbook, Worksheet } from 'exceljs'
+ import type { AttendanceGridCell, AttendanceGridRow, AttendanceGridStatus } from '../types'
+ 
+-export type ApprovedKind = 'present' | 'absent' | 'leave' | 'time_permit' | 'rest' | 'none'
+-export const APPROVED_LABEL: Record<ApprovedKind, string> = { present: 'حاضر', absent: 'غائب', leave: 'مجاز', time_permit: 'زمنية', rest: 'راحة', none: '—' }
+-export const APPROVED_SHORT: Record<ApprovedKind, string> = { present: 'ح', absent: 'غ', leave: 'م', time_permit: 'ز', rest: 'ر', none: '—' }
+-/** تصنيف حالة اليوم إلى حاضر/غائب/مجاز/زمنية (المرحلة 2): المتأخر والخروج المبكر والبصمة الناقصة = حاضر (تفاصيلها في المرحلة 1 فقط) */
++export type ApprovedKind = 'present' | 'absent' | 'leave' | 'time_permit' | 'rest' | 'none' | 'incomplete'
++export const APPROVED_LABEL: Record<ApprovedKind, string> = { present: 'حاضر', absent: 'غائب', leave: 'مجاز', time_permit: 'زمنية', rest: 'راحة', none: '—', incomplete: 'بصمة ناقصة' }
++export const APPROVED_SHORT: Record<ApprovedKind, string> = { present: 'ح', absent: 'غ', leave: 'م', time_permit: 'ز', rest: 'ر', none: '—', incomplete: 'ن' }
++/** تصنيف حالة اليوم (المرحلة 2): المتأخر والخروج المبكر = حاضر، والبصمة الناقصة تظهر بصفتها «بصمة ناقصة» لا «حاضر» حتى لا يُفهم أن اليوم مكتمل */
+ export function approvedKind(s: AttendanceGridStatus): ApprovedKind {
+   switch (s) {
+-    case 'present': case 'late': case 'early_leave': case 'incomplete': return 'present'
++    case 'present': case 'late': case 'early_leave': return 'present'
++    case 'incomplete': return 'incomplete'
+     case 'absent': return 'absent'
+     case 'leave': return 'leave'
+     case 'time_permit': return 'time_permit'
+@@ -154,8 +155,8 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
+   const fixed = ['ت', 'الموظف', 'الرقم الوظيفي', 'العنوان الوظيفي']
+   const totals = ['أيام الحضور', 'أيام الغياب', 'أيام الإجازة', 'ساعات العمل']
+   const used = new Set<string>(['الملخص'])
+-  const KF: Record<ApprovedKind, string> = { present: 'FFDCFCE7', absent: 'FFFEE2E2', leave: 'FFE0F2FE', time_permit: 'FFDBEAFE', rest: 'FFF1F5F9', none: 'FFFFFFFF' }
+-  const KC: Record<ApprovedKind, string> = { present: 'FF166534', absent: 'FFB91C1C', leave: 'FF075985', time_permit: 'FF1D4ED8', rest: 'FF94A3B8', none: 'FFCBD5E1' }
++  const KF: Record<ApprovedKind, string> = { present: 'FFDCFCE7', absent: 'FFFEE2E2', leave: 'FFE0F2FE', time_permit: 'FFDBEAFE', rest: 'FFF1F5F9', none: 'FFFFFFFF', incomplete: 'FFEDE9FE' }
++  const KC: Record<ApprovedKind, string> = { present: 'FF166534', absent: 'FFB91C1C', leave: 'FF075985', time_permit: 'FF1D4ED8', rest: 'FF94A3B8', none: 'FFCBD5E1', incomplete: 'FF5B21B6' }
+   for (const [dept, xs] of groupByDepartment(rows)) {
+     const ws = wb.addWorksheet(safeSheetName(dept, used), { views: [{ rightToLeft: true, state: 'frozen', xSplit: fixed.length, ySplit: 5 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } })
+     const colCount = fixed.length + days.length + totals.length
+@@ -183,7 +184,7 @@ export async function buildAttendanceApprovedWorkbook(rows: AttendanceGridRow[],
+     days.forEach((_, i) => { ws.getColumn(fixed.length + 1 + i).width = 7 })
+     totals.forEach((_, i) => { ws.getColumn(fixed.length + days.length + 1 + i).width = 11 })
+     const legend = ws.addRow([]); ws.mergeCells(legend.number, 1, legend.number, colCount)
+-    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · مجاز · زمنية · راحة (رمادي) · ز: زمنية معتمدة مع حالة أخرى — التفاصيل (الأوقات، التأخير، البصمات الناقصة) في كشف المرحلة الأولى'
++    legend.getCell(1).value = 'الدليل: حاضر (أخضر) · غائب (أحمر) · بصمة ناقصة (بنفسجي — تُحتسب ضمن أيام الحضور في المجموع، ومعاملتها المالية حسب قاعدة الموظف) · مجاز · زمنية · راحة (رمادي) · ز: زمنية معتمدة مع حالة أخرى — التفاصيل في كشف المرحلة الأولى'
+     legend.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } }; legend.getCell(1).alignment = { wrapText: true }; legend.height = 22
+   }
+   return wb
+diff --git a/src/portals/ops-room/pages/Attendance/AttendanceStages.tsx b/src/portals/ops-room/pages/Attendance/AttendanceStages.tsx
+index de6d46e7..97e66074 100644
+--- a/src/portals/ops-room/pages/Attendance/AttendanceStages.tsx
++++ b/src/portals/ops-room/pages/Attendance/AttendanceStages.tsx
+@@ -107,8 +107,8 @@ const CELL: Record<string, string> = {
+ const BAR: Record<string, string> = {
+   present: 'bg-emerald-500', late: 'bg-amber-500', early_leave: 'bg-orange-500', incomplete: 'bg-violet-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-sky-400', rest: 'bg-slate-300', pending: 'bg-slate-200', future: 'bg-transparent', none: 'bg-transparent',
+ }
+-const KIND: Record<string, string> = { present: 'bg-emerald-100 text-emerald-900', absent: 'bg-rose-100 text-rose-800', leave: 'bg-sky-100 text-sky-900', time_permit: 'bg-blue-100 text-blue-900', rest: 'bg-slate-100 text-slate-400', none: 'bg-white text-slate-200' }
+-const KIND_BAR: Record<string, string> = { present: 'bg-emerald-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-blue-500', rest: 'bg-slate-300', none: 'bg-transparent' }
++const KIND: Record<string, string> = { present: 'bg-emerald-100 text-emerald-900', absent: 'bg-rose-100 text-rose-800', leave: 'bg-sky-100 text-sky-900', time_permit: 'bg-blue-100 text-blue-900', rest: 'bg-slate-100 text-slate-400', none: 'bg-white text-slate-200', incomplete: 'bg-violet-100 text-violet-900' }
++const KIND_BAR: Record<string, string> = { present: 'bg-emerald-500', absent: 'bg-rose-500', leave: 'bg-sky-500', time_permit: 'bg-blue-500', rest: 'bg-slate-300', none: 'bg-transparent', incomplete: 'bg-violet-500' }
+ 
+ const isFriday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 5
+ const todayIso = () => new Date().toISOString().slice(0, 10)
+diff --git a/src/portals/ops-room/pages/Attendance/BulkEditPanel.tsx b/src/portals/ops-room/pages/Attendance/BulkEditPanel.tsx
+index afeeeea8..e21f4591 100644
+--- a/src/portals/ops-room/pages/Attendance/BulkEditPanel.tsx
++++ b/src/portals/ops-room/pages/Attendance/BulkEditPanel.tsx
+@@ -6,7 +6,7 @@
+  *   ④ معاينة إلزامية ثم تنفيذ الناقص مباشرة، أو طلب الموافقة عند عدم وجود بصمة.
+  *   أسفلها: سجل طلبات التعديل (الكل) مع التفاصيل والإلغاء.
+  */
+-import { useMemo, useState } from 'react'
++import { useMemo, useRef, useState } from 'react'
+ import clsx from 'clsx'
+ import { Button } from '@components/ui'
+ import { Icon } from '@components/ui/Icon/Icon'
+@@ -49,15 +49,25 @@ export function BulkEditPanel({ frozen, canDirect = true, canRequest = true }: {
+   const draft: AttendanceEditDraft = { scopeKind, scopeIds, dates, action: 'full_presence', payload: { missing_side: missingSide ?? undefined } }
+   const ready = scopeIds.length > 0 && dates.length > 0 && !!missingSide && !tooMany
+   const reasonOk = reason.trim().length >= 5
+-  const invalidate = () => setPreview(null)
++  // بصمة المسودة الحالية: أي تغيير بعد طلب المعاينة يجعل نتيجتها المتأخرة قديمة فتُهمل، ولا يُرسل إلا ما عُوين فعلاً
++  const draftKey = JSON.stringify(draft)
++  const latestDraftKey = useRef(draftKey); latestDraftKey.current = draftKey
++  const previewKey = useRef<string | null>(null)
++  const invalidate = () => { previewKey.current = null; setPreview(null); setConfirmMode(null) }
+ 
+   const pickScope = (kind: AttendanceEditScopeKind) => { setScopeKind(kind); setScopeIds([]); invalidate() }
+   const toggleEmp = (id: string) => { setScopeIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); invalidate() }
+   const toggleDay = (d: string) => { setExcluded((p) => { const n = new Set(p); if (n.has(d)) n.delete(d); else n.add(d); return n }); invalidate() }
+-  const doPreview = () => previewM.mutate(draft, { onSuccess: setPreview })
+-  const doCreate = (mode: AttendanceEditMode) => createM.mutate({ draft, reason: reason.trim(), mode }, {
+-    onSuccess: () => { setConfirmMode(null); setPreview(null); setReason(''); setScopeIds([]); setExcluded(new Set()) },
+-  })
++  const doPreview = () => {
++    const key = draftKey; const requested = draft
++    previewM.mutate(requested, { onSuccess: (r) => { if (latestDraftKey.current === key) { previewKey.current = key; setPreview(r) } } })
++  }
++  const doCreate = (mode: AttendanceEditMode) => {
++    if (!preview || previewKey.current !== draftKey) { setConfirmMode(null); setPreview(null); return }
++    createM.mutate({ draft, reason: reason.trim(), mode }, {
++    onSuccess: () => { setConfirmMode(null); setPreview(null); previewKey.current = null; setReason(''); setScopeIds([]); setExcluded(new Set()) },
++    })
++  }
+ 
+   const activeDepts = departments.filter((d) => d.is_active && !d.is_job_title)
+   const deptLabel = (id: string) => { const d = departments.find((x) => x.id === id); const p = d?.parent_id ? departments.find((x) => x.id === d.parent_id) : null; return d ? `${d.name}${p ? ` ← ${p.name}` : ''}` : id }
+diff --git a/src/portals/ops-room/pages/Attendance/OpsAttendancePage.tsx b/src/portals/ops-room/pages/Attendance/OpsAttendancePage.tsx
+index f33d4ec7..23b588bf 100644
+--- a/src/portals/ops-room/pages/Attendance/OpsAttendancePage.tsx
++++ b/src/portals/ops-room/pages/Attendance/OpsAttendancePage.tsx
+@@ -108,7 +108,7 @@ export default function OpsAttendancePage() {
+     const scope = mode === 'day' ? `في يوم ${day}` : `في شهر ${month.slice(0, 7)}`
+     const items = [
+       { key: 'unevaluated', ok: uneval === 0, label: uneval === 0 ? 'كل الأيام محتسبة' : `${uneval} يوم غير محتسب`, hint: uneval === 0 ? 'لا أيام بلا احتساب في الشهر' : `لدى ${exportStatus?.unevaluated_employees ?? 0} موظف — يُحتسب تلقائياً عند الاعتماد`, go: () => evaluateMonth.mutate(month), goLabel: 'احتسب الآن' },
+-      { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — ستُعدّ «حاضر» إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
++      { key: 'incomplete', ok: counts.incomplete === 0, label: counts.incomplete === 0 ? 'لا بصمات ناقصة' : `${counts.incomplete} بصمة ناقصة`, hint: counts.incomplete === 0 ? scope : `${scope} — تظهر «بصمة ناقصة» في الكشف المعتمد إن تُركت`, go: () => { setStatus('incomplete'); setPanel('rows') }, goLabel: 'عرضها' },
+       { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — للاطلاع؛ الإعفاء أو التخفيض من صلاحية معاون المدير المفوض بعد التصدير`, go: () => setPanel('deductions'), goLabel: 'عرض' },
+       { key: 'scope', ok: mode === 'month', label: mode === 'month' ? 'عرض الشهر كاملاً' : 'العرض الحالي يوم واحد', hint: mode === 'month' ? 'الأرقام أعلاه تغطي الشهر كله' : 'انتقل إلى عرض الشهر للتحقق من كامل الشهر قبل الاعتماد', go: () => setMode('month'), goLabel: 'عرض الشهر' },
+     ]
+@@ -404,7 +404,7 @@ export default function OpsAttendancePage() {
+               </div>
+               {(gridTotals.incomplete > 0 || gridTotals.unevaluated > 0) && (
+                 <ul className="list-inside list-disc rounded-xl border border-amber-200 bg-amber-50 p-2 text-amber-900" data-testid="cf-warnings">
+-                  {gridTotals.incomplete > 0 && <li><b>{gridTotals.incomplete}</b> بصمة ناقصة غير محسومة — ستظهر في الكشف المعتمد «حاضر» (راجعها من شبكة الشهر إن لزم).</li>}
++                  {gridTotals.incomplete > 0 && <li><b>{gridTotals.incomplete}</b> بصمة ناقصة غير محسومة — ستظهر في الكشف المعتمد «بصمة ناقصة» (راجعها من شبكة الشهر إن لزم).</li>}
+                   {gridTotals.unevaluated > 0 && <li><b>{gridTotals.unevaluated}</b> يوم غير محتسب — سيُحتسب الآن عند الاعتماد.</li>}
+                 </ul>
+               )}
+diff --git a/supabase/migrations/00368_attendance_linked_only.sql b/supabase/migrations/00368_attendance_linked_only.sql
+new file mode 100644
+index 00000000..f403bea8
+--- /dev/null
++++ b/supabase/migrations/00368_attendance_linked_only.sql
+@@ -0,0 +1,98 @@
++-- ═══════════════════════════════════════════════════════════════
++-- 00368 · الجولة 00406 — إصلاحات الحضوريات (تدقيق 2026-11-05)
++--   القاعدة المصدّقة من المستخدم: لا يظهر في الحضوريات ولا في الرواتب إلا الأشخاص المرتبطون ببصمة
++--   (biometric_pin is not null). شبكة الشهر وتقييم الشهر وتغطيته تطبق ذلك أصلا (00186/00351)،
++--   لكن ثلاث بوابات كانت تدخل غير المرتبطين فتخلق سجلات لا تظهر في الكشف وقد تتسرب للراتب:
++--     1) app.attendance_edit_scope_employees - نطاق طلبات تعديل الحضور (00341) بلا شرط PIN:
++--        كان يمكن إنشاء واعتماد حضور يدوي لموظف لا يظهر أصلا في شبكة الشهر.
++--     2) public.attendance_edit_employee_search - بحث اختيار الموظفين في «تعديل جماعي» (00343).
++--     3) app.hr_month_summary - ملخص الشهر المغذي لصفوف كشف الرواتب (00300): الـstaff بلا PIN،
++--        واتحاد att/ded كان يبقي غير المرتبط صاحب أيام يدوية أو استقطاعات داخل الكشف.
++--   لا تغيير في مراحل الموافقات أو الخصم أو محرك البصمة الناقصة.
++-- ═══════════════════════════════════════════════════════════════
++
++-- 1) نطاق طلبات التعديل: المرتبطون ببصمة فقط (نفس نص 00341 + شرط الربط)
++create or replace function app.attendance_edit_scope_employees(p_kind text, p_ids uuid[]) returns setof uuid
++language sql stable security definer set search_path = public, app as $$
++  select e.id from public.employees e
++  where e.archived_at is null and coalesce(e.employment_status, '') <> 'terminated'
++    and e.biometric_pin is not null
++    and case p_kind
++          when 'employees' then e.id = any(p_ids)
++          when 'branch' then e.branch_id = p_ids[1]
++          when 'department' then e.department_id = p_ids[1]
++          when 'department_tree' then e.department_id in (select app.hr_department_tree(p_ids[1]))
++          else false end
++  order by e.full_name
++$$;
++
++-- 2) بحث اختيار الموظفين: المرتبطون ببصمة فقط (نفس نص 00343 + شرط الربط)
++create or replace function public.attendance_edit_employee_search(p_search text default null)
++returns table(id uuid, full_name text, employee_number text, department_name text)
++language sql stable security definer set search_path = public, app as $$
++  select e.id, e.full_name, e.employee_number, d.name
++  from public.employees e left join public.departments d on d.id = e.department_id
++  where app.has_role(array['ops_room', 'deputy_director', 'super_admin'])
++    and e.archived_at is null and coalesce(e.employment_status, '') <> 'terminated'
++    and e.biometric_pin is not null
++    and (nullif(trim(coalesce(p_search, '')), '') is null or e.full_name ilike '%' || trim(p_search) || '%' or e.employee_number ilike '%' || trim(p_search) || '%')
++  order by e.full_name
++  limit 300
++$$;
++grant execute on function public.attendance_edit_employee_search(text) to authenticated;
++
++-- 3) ملخص الشهر للرواتب: المرتبطون ببصمة فقط (نسخة 00300 + شرط الربط في staff والناتج النهائي)
++create or replace function app.hr_month_summary(p_month date)
++returns table(employee_id uuid, working_days int, days_present int, days_late int, days_absent int, days_incomplete int,
++              days_leave int, late_minutes int, early_minutes int, ded_amount numeric, ded_days numeric, ded_reasons text,
++              auto_minutes int, auto_days numeric, shift_minutes int, overtime_minutes int, shortfall_minutes int,
++              days_leave_paid int, days_leave_unpaid int, auto_days_absence numeric, auto_days_shortfall numeric,
++              scheduled_days int, unevaluated_days int)
++language sql stable security definer set search_path = public, app as $$
++  with m as (select date_trunc('month', p_month)::date as f, (date_trunc('month', p_month) + interval '1 month - 1 day')::date as t),
++  staff as (
++    select e.id as employee_id from public.employees e, m
++    where e.archived_at is null and e.biometric_pin is not null and e.hire_date <= m.t
++      and (e.employment_status <> 'terminated' or e.terminated_at is null or e.terminated_at >= m.f)),
++  days as (
++    select a.*,
++      (a.status = 'leave' and exists (
++         select 1 from public.hr_leaves l join public.hr_leave_types t on t.id = l.leave_type_id
++         where l.employee_id = a.employee_id and l.status = 'approved' and l.kind = 'leave' and t.is_paid
++           and a.work_date between l.start_date and l.end_date)) as leave_paid
++    from public.hr_attendance_days a join public.employees e on e.id = a.employee_id, m
++    -- 00300: أيام ما بعد آخر يوم عمل (أو قبل التعيين) لا تدخل في الكشف ولا في التصفية — حتى لو كانت مقيَّمة سابقاً
++    where a.work_date between greatest(m.f, e.hire_date) and least(m.t, coalesce(e.terminated_at, m.t))),
++  att as (
++    select a.employee_id,
++      count(*) filter (where not a.is_rest_day)::int as working_days,
++      count(*) filter (where a.status in ('present', 'late', 'early_leave', 'time_permit'))::int as days_present,
++      count(*) filter (where a.status = 'late')::int as days_late,
++      count(*) filter (where a.status = 'absent')::int as days_absent,
++      count(*) filter (where a.status = 'incomplete')::int as days_incomplete,
++      count(*) filter (where a.status = 'leave')::int as days_leave,
++      coalesce(sum(a.late_minutes), 0)::int as late_minutes, coalesce(sum(a.early_minutes), 0)::int as early_minutes,
++      coalesce(sum(a.proposed_deduction_minutes) filter (where not a.deduction_waived), 0)::int as auto_minutes,
++      coalesce(sum(a.proposed_deduction_days) filter (where not a.deduction_waived), 0) as auto_days,
++      coalesce(nullif(max(a.required_minutes), 0), 480)::int as shift_minutes,
++      coalesce(sum(a.overtime_minutes), 0)::int as overtime_minutes,
++      coalesce(sum(a.shortfall_minutes), 0)::int as shortfall_minutes,
++      count(*) filter (where a.leave_paid)::int as days_leave_paid,
++      count(*) filter (where a.status = 'leave' and not a.leave_paid)::int as days_leave_unpaid,
++      coalesce(sum(a.proposed_deduction_days) filter (where not a.deduction_waived and a.status not in ('present', 'late', 'early_leave', 'time_permit')), 0) as auto_days_absence,
++      coalesce(sum(a.proposed_deduction_days) filter (where not a.deduction_waived and a.status in ('present', 'late', 'early_leave', 'time_permit')), 0) as auto_days_shortfall
++    from days a group by a.employee_id),
++  ded as (
++    select d.employee_id, sum(d.amount) as amt, sum(d.days) as dys, string_agg(d.reason, ' · ' order by d.created_at) as reasons
++    from public.hr_attendance_deductions d, m where d.period_month = m.f group by d.employee_id),
++  cov as (select * from app.hr_month_coverage(p_month)),
++  ids as (select employee_id from staff union select employee_id from att union select employee_id from ded),
++  linked as (select ids.employee_id from ids join public.employees e on e.id = ids.employee_id where e.biometric_pin is not null)
++  select linked.employee_id, coalesce(att.working_days, 0), coalesce(att.days_present, 0), coalesce(att.days_late, 0),
++         coalesce(att.days_absent, 0), coalesce(att.days_incomplete, 0), coalesce(att.days_leave, 0), coalesce(att.late_minutes, 0),
++         coalesce(att.early_minutes, 0), coalesce(ded.amt, 0), coalesce(ded.dys, 0), ded.reasons,
++         coalesce(att.auto_minutes, 0), coalesce(att.auto_days, 0), coalesce(att.shift_minutes, 480), coalesce(att.overtime_minutes, 0), coalesce(att.shortfall_minutes, 0),
++         coalesce(att.days_leave_paid, 0), coalesce(att.days_leave_unpaid, 0), coalesce(att.auto_days_absence, 0), coalesce(att.auto_days_shortfall, 0),
++         coalesce(cov.scheduled_days, 0), coalesce(cov.unevaluated_days, 0)
++  from linked left join att on att.employee_id = linked.employee_id left join ded on ded.employee_id = linked.employee_id left join cov on cov.employee_id = linked.employee_id
++$$;
+diff --git a/tests/db/attendance-linked-only-00368-test.sql b/tests/db/attendance-linked-only-00368-test.sql
+new file mode 100644
+index 00000000..57d62ffb
+--- /dev/null
++++ b/tests/db/attendance-linked-only-00368-test.sql
+@@ -0,0 +1,22 @@
++-- depends: tests/db/attendance-missing-punch-guard-test.sql
++-- 00368/00406: لا يظهر في الحضوريات ولا الرواتب إلا المرتبط ببصمة.
++-- موظف بلا PIN: لا يبحث عنه في «تعديل جماعي»، لا يدخل نطاق طلبات التعديل،
++-- ولا يدخل ملخص الشهر المغذي لكشف الرواتب حتى لو وجد له يوم يدوي قديم.
++do $$declare e uuid:='ba000000-0000-0000-0000-000000000001'; d date:=(date_trunc('month',current_date)-interval '6 months'+interval '5 days')::date; m date:=date_trunc('month',d)::date; begin
++insert into public.employees(id,employee_number,full_name,hire_date,biometric_pin) values(e,'AUD-NOPIN','فحص بلا ربط','2024-01-01',null);
++insert into public.employee_shift_assignments(employee_id,shift_id,effective_from) values(e,'39940000-0000-0000-0000-000000000020','2024-01-01');
++-- يوم يدوي قديم (كما كان ممكناً قبل 00368) لا يجب أن يسرّبه إلى كشف الرواتب
++insert into public.hr_attendance_days(employee_id,work_date,check_in,check_out,status,source)
++values(e,d,pg_temp.bag(d,'16:00'),pg_temp.bag(d,'22:00'),'present','manual');
++perform pg_temp.as_user('39940000-0000-0000-0000-000000000001');
++-- البحث لا يعرض غير المرتبط
++assert not exists(select 1 from public.attendance_edit_employee_search('فحص بلا ربط') where id=e), 'unlinked must not appear in employee search';
++-- المعاينة والإنشاء يرفضان النطاق الفارغ بعد استبعاد غير المرتبط
++perform pg_temp.expect_err(format('select public.attendance_edit_preview(%L,array[%L::uuid],array[%L::date],%L,%L::jsonb)','employees',e,d,'full_presence','{"missing_side":"out"}'),'ATT_EDIT_SCOPE_EMPTY');
++perform pg_temp.expect_err(format('select public.attendance_edit_create(%L,array[%L::uuid],array[%L::date],%L,%L::jsonb,%L,%L)','employees',e,d,'full_presence','{"missing_side":"out"}','إثبات حضور موثق','hr_request'),'ATT_EDIT_SCOPE_EMPTY');
++-- ملخص الشهر (مصدر صفوف كشف الرواتب) لا يتضمن غير المرتبط رغم يومه اليدوي
++assert not exists(select 1 from app.hr_month_summary(m) where employee_id=e), 'unlinked must not appear in payroll month summary';
++-- والمرتبط ببصمة ما زال يعمل (موظف fixture MP-3 بلا بصمات في يوم آخر)
++assert exists(select 1 from public.attendance_edit_employee_search('MP-3')), 'linked employee must remain searchable';
++raise notice 'LINKED_ONLY_OK: unlinked excluded from search, edit scope and payroll summary';
++end$$;
+diff --git a/tests/unit/portals/attendance-bulk-preview-race-00406.test.tsx b/tests/unit/portals/attendance-bulk-preview-race-00406.test.tsx
+new file mode 100644
+index 00000000..1b861920
+--- /dev/null
++++ b/tests/unit/portals/attendance-bulk-preview-race-00406.test.tsx
+@@ -0,0 +1,67 @@
++/**
++ * 00406 — سباق معاينة «تعديل جماعي»: إذا تغيّرت المسودة أثناء انتظار المعاينة،
++ * يجب إهمال النتيجة المتأخرة ولا يُرسل إلا النطاق الذي عُوين فعلاً.
++ */
++import { describe, expect, it, vi } from 'vitest'
++import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
++import type * as SdkMod from '@sdk/attendance-edits.sdk'
++
++const calls: Record<string, unknown[]> = {}
++const rec = (k: string, v: unknown) => { (calls[k] ??= []).push(v) }
++let resolvePreview: ((v: unknown) => void) | null = null
++const previewFor = (day: string) => ({
++  employees: 1, days: 1, items: 1, skipped: 0, minutes_to_fix: 0, scope_label: 'كرار يوسف', action_label: 'حضور كامل بأوقات الشفت',
++  rows: [{ employee_id: 'e1', full_name: 'كرار يوسف', employee_number: 'AE-1', work_date: day, before: null, proposed: { status: 'auto', needs_approval: true, check_in: `${day}T13:00:00Z`, check_out: `${day}T19:00:00Z` }, proposed_status_label: 'حاضر', skipped: null }],
++})
++
++vi.mock('@sdk/attendance-edits.sdk', async (orig) => {
++  const m = await orig<typeof SdkMod>()
++  return {
++    ...m,
++    attendanceEdits: {
++      ...m.attendanceEdits,
++      preview: (d: { dates: string[] }) => { rec('preview', d); return new Promise((res) => { resolvePreview = () => res(previewFor(d.dates[0]!)) }) },
++      create: (d: unknown, reason: string, mode: string) => { rec('create', { d, reason, mode }); return Promise.resolve({ id: 'N1', status: 'approved', via_chain: false, items: 1, minutes_fixed: 0 }) },
++      list: () => Promise.resolve([]),
++      searchEmployees: () => Promise.resolve([{ id: 'e1', full_name: 'كرار يوسف', employee_number: 'AE-1', department_name: 'الأشغال' }]),
++      detail: () => Promise.resolve(null),
++      stats: () => Promise.resolve(null),
++    },
++  }
++})
++vi.mock('@features/departments', () => ({ useDepartments: () => ({ data: [] }) }))
++vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [] }) }))
++vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unknown) => void }) => unknown) => sel({ addToast: (t) => rec('toast', t) }) }))
++
++import { BulkEditPanel } from '@portals/ops-room/pages/Attendance/BulkEditPanel'
++
++const wrap = (ui: React.ReactElement) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
++
++describe('00406 · سباق معاينة التعديل الجماعي', () => {
++  it('تغيير التاريخ أثناء انتظار المعاينة يُهمل نتيجتها المتأخرة، والإرسال يطابق آخر معاينة فقط', async () => {
++    wrap(<BulkEditPanel />)
++    fireEvent.click(screen.getByTestId('ae-scope-employees'))
++    fireEvent.click(await screen.findByTestId('ae-emp-e1'))
++    fireEvent.change(screen.getByTestId('ae-from'), { target: { value: '2026-10-27' } })
++    fireEvent.click(screen.getByTestId('ae-missing-out'))
++    fireEvent.click(screen.getByTestId('ae-preview'))
++    await waitFor(() => expect(calls.preview).toBeTruthy())
++    // المستخدم يغيّر التاريخ قبل وصول نتيجة المعاينة
++    fireEvent.change(screen.getByTestId('ae-from'), { target: { value: '2026-10-28' } })
++    await act(async () => { resolvePreview?.(null) })
++    // النتيجة القديمة (27) لا تظهر
++    expect(screen.queryByTestId('ae-preview-box')).toBeNull()
++    // معاينة جديدة للتاريخ الجديد، ثم إرسال يطابقها تماماً
++    fireEvent.click(screen.getByTestId('ae-preview'))
++    await waitFor(() => expect(calls.preview?.length).toBe(2))
++    await act(async () => { resolvePreview?.(null) })
++    await waitFor(() => expect(screen.getByTestId('ae-preview-box')).toBeInTheDocument())
++    expect(screen.getByTestId('ae-preview-box').textContent).toContain('2026')
++    fireEvent.change(screen.getByTestId('ae-reason'), { target: { value: 'حضور موثق بالكاميرا' } })
++    fireEvent.click(screen.getByTestId('ae-submit-hr'))
++    fireEvent.click(screen.getByTestId('ae-confirm-go'))
++    await waitFor(() => expect(calls.create).toBeTruthy())
++    expect(calls.create![0]).toMatchObject({ d: { scopeKind: 'employees', scopeIds: ['e1'], dates: ['2026-10-28'] }, mode: 'hr_request' })
++  })
++})
+diff --git a/tests/unit/portals/ops-attendance-two-stage.test.tsx b/tests/unit/portals/ops-attendance-two-stage.test.tsx
+index d6d25ea8..23565357 100644
+--- a/tests/unit/portals/ops-attendance-two-stage.test.tsx
++++ b/tests/unit/portals/ops-attendance-two-stage.test.tsx
+@@ -124,7 +124,7 @@ describe('00193 — الحضوريات بمرحلتين', () => {
+     expect(grid.textContent).not.toMatch(/[\u0660-\u0669]/)
+     expect(h.gridFilters).toEqual(expect.objectContaining({ month }))
+   })
+-  it('بعد الاعتماد: المرحلة 1 مقفلة للتعديل (لافتة + زر معطّل)، والكشف المعتمد يعرض حاضر/غائب/مجاز فقط مع الملخص', () => {
++  it('بعد الاعتماد: المرحلة 1 مقفلة للتعديل (لافتة + زر معطّل)، والكشف المعتمد يعرض حاضر/غائب/مجاز/بصمة ناقصة مع الملخص', () => {
+     h.conf = confirmed
+     h.attendance = [{ id: 'a1', employee_id: 'e1', employee_number: 'E100', full_name: 'أحمد', department_name: 'النقل', branch_name: null, work_date: '2026-09-05', shift_name: 'صباحي', expected_in: null, expected_out: null, check_in: null, check_out: null, late_minutes: 0, early_minutes: 0, worked_minutes: 0, is_rest_day: false, status: 'absent', source: 'auto', edited_by: null, edited_at: null, edit_reason: null, required_minutes: 480, permit_minutes: 0, shortfall_minutes: 480, overtime_minutes: 0, proposed_deduction_minutes: 0, proposed_deduction_days: 1, deduction_reason: 'غياب', deduction_waived: false, waive_reason: null }]
+     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+@@ -136,10 +136,10 @@ describe('00193 — الحضوريات بمرحلتين', () => {
+     fireEvent.click(screen.getByTestId('stage-approved'))
+     const grid = screen.getByTestId('att-grid-approved')
+     const r = within(grid).getByTestId('grid-row-E100')
+-    // كل الخلايا مختزلة: لا أوقات، لا «متأخر»، لا «ناقصة»
+-    expect(r.textContent).not.toMatch(/08:0|متأخر|ناقصة|مبكر/)
++    // الخلايا مختزلة بلا أوقات؛ البصمة الناقصة تظهر بصفتها لا «حاضر» (00406)
++    expect(r.textContent).not.toMatch(/08:0|متأخر|مبكر/)
+     expect(within(r).getByTestId('cell-2026-09-02')).toHaveAttribute('data-kind', 'present'); expect(within(r).getByTestId('cell-2026-09-02')).toHaveTextContent('حاضر')
+-    expect(within(r).getByTestId('cell-2026-09-03')).toHaveTextContent('حاضر')
++    expect(within(r).getByTestId('cell-2026-09-03')).toHaveAttribute('data-kind', 'incomplete'); expect(within(r).getByTestId('cell-2026-09-03')).toHaveTextContent('بصمة ناقصة')
+     expect(within(r).getByTestId('cell-2026-09-05')).toHaveTextContent('غائب')
+     expect(within(r).getByTestId('cell-2026-09-06')).toHaveTextContent('مجاز')
+     expect(within(r).getByTestId('cell-2026-09-04')).toHaveTextContent('راحة')
+@@ -185,8 +185,8 @@ describe('00193 — الحضوريات بمرحلتين', () => {
+ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
+   const rows = [row({}), row({ employee_id: 'e2', employee_number: 'E200', full_name: 'سارة', department_name: 'الإدارة' }), row({ employee_id: 'e3', employee_number: 'E300', full_name: 'كريم', department_name: 'النقل' })]
+   const meta = { month: '2026-09-01', branchLabel: 'كل الفروع', departmentLabel: 'كل الأقسام', confirmedBy: 'مدقق الحضور', confirmedAt: '2026-10-01T08:00:00Z' }
+-  it('اختزال الحالات: متأخر/مبكر/ناقصة = حاضر · إجازة = مجاز · زمنية = زمنية · غائب = غائب', () => {
+-    expect(approvedKind('late')).toBe('present'); expect(approvedKind('incomplete')).toBe('present'); expect(approvedKind('early_leave')).toBe('present')
++  it('اختزال الحالات: متأخر/مبكر = حاضر · ناقصة = بصمة ناقصة · إجازة = مجاز · زمنية = زمنية · غائب = غائب', () => {
++    expect(approvedKind('late')).toBe('present'); expect(approvedKind('incomplete')).toBe('incomplete'); expect(approvedKind('early_leave')).toBe('present')
+     expect(approvedKind('time_permit')).toBe('time_permit'); expect(approvedKind('absent')).toBe('absent'); expect(approvedKind('rest')).toBe('rest'); expect(approvedKind('pending')).toBe('none')
+     expect(detailCellText(cell('x', 'present', { in: '08:02', out: '16:05' }))).toBe('08:02→16:05'); expect(detailCellText(cell('x', 'incomplete', { in: '08:00' }))).toBe('08:00→؟'); expect(detailCellText(cell('x', 'absent'))).toBe('غ')
+   })
+@@ -214,7 +214,7 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
+     expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('08:00→؟ ز')
+     expect(detailed.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غ · ز')
+     const approved = await buildAttendanceApprovedWorkbook([permitRow], meta)
+-    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('حاضر · ز')
++    expect(approved.getWorksheet('النقل')!.getRow(6).getCell(5).value).toBe('بصمة ناقصة · ز')
+     expect(approved.getWorksheet('النقل')!.getRow(6).getCell(6).value).toBe('غائب · ز')
+     h.grid = [permitRow]
+     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+@@ -244,12 +244,12 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
+     expect(sum.getCell('A2').value).toContain('مدقق الحضور')
+     expect(ws.views[0]?.rightToLeft).toBe(true)
+   })
+-  it('المعتمد: الخلايا حاضر/غائب/مجاز/راحة فقط (لا أوقات) وأعمدة الحضور/الغياب/الإجازة/الساعات', async () => {
++  it('المعتمد: الخلايا حاضر/غائب/مجاز/راحة/بصمة ناقصة (لا أوقات) وأعمدة الحضور/الغياب/الإجازة/الساعات', async () => {
+     const wb = await buildAttendanceApprovedWorkbook(rows, meta)
+     expect(wb.worksheets.map((w) => w.name)).toEqual(['الملخص', 'الإدارة', 'النقل'])
+     const ws = wb.getWorksheet('النقل')!
+     const r = ws.getRow(6)
+-    expect([5, 6, 7, 8, 9, 10, 11].map((c) => r.getCell(c).value)).toEqual(['حاضر', 'حاضر', 'حاضر', 'راحة', 'غائب', 'مجاز', 'حاضر'])
++    expect([5, 6, 7, 8, 9, 10, 11].map((c) => r.getCell(c).value)).toEqual(['حاضر', 'حاضر', 'بصمة ناقصة', 'راحة', 'غائب', 'مجاز', 'حاضر'])
+     expect([12, 13, 14, 15].map((c) => r.getCell(c).value)).toEqual([4, 1, 1, '21:18'])
+     expect(String(ws.getCell('A2').value)).toContain('اعتمده مدقق الحضور')
+     for (let c = 5; c <= 11; c++) expect(String(r.getCell(c).value)).not.toMatch(/\d\d:\d\d/)
+-- 
+2.47.3
+

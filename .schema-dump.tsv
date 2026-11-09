@@ -1,0 +1,200 @@
+advance_events	id	created_at:timestamp with time zone
+advance_installments	id	period_month:date,created_at:timestamp with time zone
+advance_types	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+advances	id	approved_at:timestamp with time zone,rejected_at:timestamp with time zone,delivered_at:timestamp with time zone,start_month:date,settled_at:timestamp with time zone,cancelled_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+announcement_receipts	announcement_id,user_id	delivered_at:timestamp with time zone,read_at:timestamp with time zone,acked_at:timestamp with time zone
+announcements	id	published_at:timestamp with time zone,expires_at:timestamp with time zone,archived_at:timestamp with time zone
+app_errors	id	created_at:timestamp with time zone,archived_at:timestamp with time zone,last_seen_at:timestamp with time zone,resolved_at:timestamp with time zone
+approval_chain_versions	id	changed_at:timestamp with time zone
+approval_chains	id	updated_at:timestamp with time zone,created_at:timestamp with time zone
+approval_delegations	id	starts_on:date,ends_on:date,created_at:timestamp with time zone,cancelled_at:timestamp with time zone
+approval_tasks	id	decided_at:timestamp with time zone,created_at:timestamp with time zone,due_at:timestamp with time zone,reminded_at:timestamp with time zone,escalated_at:timestamp with time zone,pending_at:timestamp with time zone
+attendance_records	id	work_date:date,check_in:timestamp with time zone,check_out:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+audit_logs	id	created_at:timestamp with time zone
+biometric_adms_endpoints	id	created_at:timestamp with time zone
+biometric_device_commands	id	created_at:timestamp with time zone,sent_at:timestamp with time zone,acked_at:timestamp with time zone
+biometric_device_users	device_serial,pin	updated_at:timestamp with time zone
+biometric_devices	id	last_seen_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone,bridge_last_seen_at:timestamp with time zone,users_queried_at:timestamp with time zone,last_registered_at:timestamp with time zone,last_heartbeat_at:timestamp with time zone
+biometric_pulls	id	started_at:timestamp with time zone,finished_at:timestamp with time zone
+biometric_punches	id	punched_at:timestamp with time zone,created_at:timestamp with time zone
+biometric_pushes	id	received_at:timestamp with time zone,ledger_at:timestamp with time zone
+branches	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone
+budget_allocations	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+citizen_accounts	id	created_at:timestamp with time zone,last_seen_at:timestamp with time zone
+citizen_chat_messages	id	created_at:timestamp with time zone
+citizen_chat_sessions	id	requested_at:timestamp with time zone,accepted_at:timestamp with time zone,closed_at:timestamp with time zone,first_reply_at:timestamp with time zone
+citizen_complaint_events	id	created_at:timestamp with time zone
+citizen_complaint_photos	id	created_at:timestamp with time zone
+citizen_complaints	id	assigned_at:timestamp with time zone,resolved_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+citizen_portal_settings	id	updated_at:timestamp with time zone
+cold_archive_copies	id	verified_at:timestamp with time zone
+cold_archive_events	id	created_at:timestamp with time zone
+cold_archive_items	id	record_date:date,downloaded_at:timestamp with time zone,purged_at:timestamp with time zone
+cold_archive_packages	id	period_from:date,period_to:date,purge_available_at:timestamp with time zone,created_at:timestamp with time zone,verified_at:timestamp with time zone,purge_started_at:timestamp with time zone,purged_at:timestamp with time zone,cancelled_at:timestamp with time zone,purge_requested_at:timestamp with time zone,purge_approved_at:timestamp with time zone
+cold_archive_settings	id	updated_at:timestamp with time zone
+complaint_archive_folders	id	archived_at:timestamp with time zone,restored_at:timestamp with time zone,permanently_deleted_at:timestamp with time zone
+complaint_contacts	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaint_deletion_requests	id	requested_at:timestamp with time zone,decided_at:timestamp with time zone,executed_at:timestamp with time zone,execution_started_at:timestamp with time zone
+complaint_email_deliveries	id	accepted_at:timestamp with time zone,delivered_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaint_email_events	id	event_at:timestamp with time zone,created_at:timestamp with time zone
+complaint_inbox_messages	id	received_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone
+complaint_items	id	assigned_at:timestamp with time zone,started_at:timestamp with time zone,processed_at:timestamp with time zone,reviewed_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaint_media	id	captured_at:timestamp with time zone,created_at:timestamp with time zone,superseded_at:timestamp with time zone
+complaint_media_revisions	id	created_at:timestamp with time zone
+complaint_neighborhoods	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaint_report_items	report_id,item_id	\N
+complaint_reports	id	report_date:date,approved_at:timestamp with time zone,sent_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,review_confirmed_at:timestamp with time zone,approval_requested_at:timestamp with time zone
+complaint_sender_rules	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaint_settings	key	updated_at:timestamp with time zone
+complaint_status_history	id	created_at:timestamp with time zone
+complaint_templates	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+complaints	id	received_at:timestamp with time zone,sent_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+connection_samples	id	sampled_at:timestamp with time zone
+contractor_audit_log	id	log_date:date,created_at:timestamp with time zone
+contractor_checkins	id	log_date:date,checked_at:timestamp with time zone,created_at:timestamp with time zone
+contractor_daily_counts	id	log_date:date,entered_at:timestamp with time zone,updated_at:timestamp with time zone,edited_at:timestamp with time zone
+contractor_month_approvals	month	month:date,approved_at:timestamp with time zone,reopened_at:timestamp with time zone
+contractor_profiles	user_id	assigned_at:timestamp with time zone,updated_at:timestamp with time zone
+contractor_rates	id	month:date,set_at:timestamp with time zone,updated_at:timestamp with time zone
+contractor_worker_attendance	id	log_date:date,marked_at:timestamp with time zone,edited_at:timestamp with time zone,updated_at:timestamp with time zone
+contractor_worker_wages	id	month:date,set_at:timestamp with time zone,updated_at:timestamp with time zone
+contractor_workers	id	created_at:timestamp with time zone,removed_at:timestamp with time zone,updated_at:timestamp with time zone
+data_retention_events	id	created_at:timestamp with time zone
+data_retention_policies	data_key	updated_at:timestamp with time zone
+data_retention_requests	id	cutoff:timestamp with time zone,exported_at:timestamp with time zone,confirmed_at:timestamp with time zone,finished_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+departments	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone
+deputy_daily_reports	id	report_day:date,sent_at:timestamp with time zone
+disclosure_events	id	created_at:timestamp with time zone
+disclosure_types	key	updated_at:timestamp with time zone
+disclosures	id	log_date:date,submitted_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,period_month:date,returned_at:timestamp with time zone,approved_at:timestamp with time zone,cancelled_at:timestamp with time zone,deduction_month:date
+documents	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+dynamic_portals	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone
+employee_documents	id	created_at:timestamp with time zone
+employee_salary_profiles	employee_id	set_at:timestamp with time zone,updated_at:timestamp with time zone
+employee_shift_assignments	id	effective_from:date,created_at:timestamp with time zone
+employees	id	hire_date:date,created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone,birth_date:date,terminated_at:date
+finance_hr_notices	id	created_at:timestamp with time zone,done_at:timestamp with time zone
+follow_up_profiles	user_id	assigned_at:timestamp with time zone,updated_at:timestamp with time zone
+garage_departures	id	departed_at:timestamp with time zone,returned_at:timestamp with time zone,arrived_at:timestamp with time zone,site_departed_at:timestamp with time zone
+garage_driver_assignments	id	starts_at:timestamp with time zone,ends_at:timestamp with time zone
+garage_inventory_movements	id	next_refill_date:date,created_at:timestamp with time zone
+garage_tank_zero_requests	id	requested_at:timestamp with time zone,decided_at:timestamp with time zone
+garage_tanks	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone
+garage_user_profiles	user_id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+garage_vehicle_shift_assignments	id	starts_at:timestamp with time zone,ends_at:timestamp with time zone
+garage_vehicles	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone,rental_start_date:date,rental_end_date:date
+gbs_container_updates	id	reviewed_at:timestamp with time zone,created_at:timestamp with time zone
+gbs_containers	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+gps_alert_notification_policies	alert_type	updated_at:timestamp with time zone
+gps_device_position_history	id	fix_time:timestamp with time zone,received_at:timestamp with time zone
+gps_device_positions	device_id	fix_time:timestamp with time zone,received_at:timestamp with time zone
+gps_devices	id	vendor_updated_at:timestamp with time zone,last_seen_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+gps_events	id	occurred_at:timestamp with time zone
+gps_geofences	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+gps_history_import_runs	id	range_from:timestamp with time zone,range_to:timestamp with time zone,started_at:timestamp with time zone,finished_at:timestamp with time zone
+gps_map_landmarks	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+gps_operational_alerts	id	opened_at:timestamp with time zone,resolved_at:timestamp with time zone,created_at:timestamp with time zone,acknowledged_at:timestamp with time zone,last_detected_at:timestamp with time zone
+gps_providers	id	created_at:timestamp with time zone,last_full_sync_at:timestamp with time zone,last_incremental_sync_at:timestamp with time zone,last_success_at:timestamp with time zone,last_error_at:timestamp with time zone
+gps_route_deviation_settings	id	updated_at:timestamp with time zone
+gps_route_presence_state	departure_id	observed_at:timestamp with time zone,changed_at:timestamp with time zone
+gps_sync_runs	id	started_at:timestamp with time zone,finished_at:timestamp with time zone
+gps_trip_investigations	id	event_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+gps_vehicle_bindings	id	bound_at:timestamp with time zone
+gps_vehicle_geofences	garage_vehicle_id,geofence_id	assigned_at:timestamp with time zone
+gps_vendor_events	id	occurred_at:timestamp with time zone,created_at:timestamp with time zone
+gps_zone_events	id	occurred_at:timestamp with time zone,created_at:timestamp with time zone
+gps_zone_presence_state	device_id,geofence_id	observed_at:timestamp with time zone,changed_at:timestamp with time zone
+hr_alerts	id	period_month:date,acknowledged_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+hr_attendance_audit	id	work_date:date,created_at:timestamp with time zone
+hr_attendance_confirmations	period_month	period_month:date,confirmed_at:timestamp with time zone,reopened_at:timestamp with time zone,updated_at:timestamp with time zone
+hr_attendance_days	id	work_date:date,expected_in:timestamp with time zone,expected_out:timestamp with time zone,check_in:timestamp with time zone,check_out:timestamp with time zone,edited_at:timestamp with time zone,updated_at:timestamp with time zone
+hr_attendance_deductions	id	period_month:date,created_at:timestamp with time zone
+hr_attendance_pending_auto	period_month,employee_id,work_date	period_month:date,work_date:date,first_seen_at:timestamp with time zone
+hr_deduction_exemptions	id	from_date:date,to_date:date,created_at:timestamp with time zone
+hr_deduction_review_audit	id	created_at:timestamp with time zone
+hr_deduction_rule_audit	id	created_at:timestamp with time zone
+hr_deduction_rule_targets	id	created_at:timestamp with time zone
+hr_deduction_rules	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+hr_leave_ledger	id	period_month:date,created_at:timestamp with time zone
+hr_leave_types	id	created_at:timestamp with time zone
+hr_leaves	id	start_date:date,end_date:date,approved_at:timestamp with time zone,created_at:timestamp with time zone,decided_at:timestamp with time zone
+hr_month_export_rows	id	adjusted_at:timestamp with time zone,period_from:date,period_to:date
+hr_month_exports	id	period_month:date,exported_at:timestamp with time zone,approved_at:timestamp with time zone,reviewed_at:timestamp with time zone
+hr_policy	id	updated_at:timestamp with time zone
+hr_settings	key	updated_at:timestamp with time zone
+hr_shifts	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+integration_logs	id	created_at:timestamp with time zone
+it_assets	id	assigned_at:timestamp with time zone,purchase_date:date,warranty_until:date,created_at:timestamp with time zone,updated_at:timestamp with time zone
+it_tickets	id	resolved_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+live_track_points	id	recorded_at:timestamp with time zone
+live_track_sessions	id	shift_start:timestamp with time zone,shift_end:timestamp with time zone,started_at:timestamp with time zone,last_seen_at:timestamp with time zone,ended_at:timestamp with time zone
+live_track_settings	id	updated_at:timestamp with time zone
+login_attempts	id	attempted_at:timestamp with time zone
+maintenance_inventory_items	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+maintenance_inventory_movements	id	created_at:timestamp with time zone
+maintenance_purchase_items	id	created_at:timestamp with time zone
+maintenance_purchase_orders	id	created_at:timestamp with time zone
+maintenance_workshop_accounts	user_id	assigned_at:timestamp with time zone
+maintenance_workshops	key	created_at:timestamp with time zone
+manager_profiles	user_id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+media_covers	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+media_design_photos	id	\N
+media_design_sheets	design_id,work_type	updated_at:timestamp with time zone
+media_design_templates	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+media_designs	id	period_start:date,period_end:date,created_at:timestamp with time zone,completed_at:timestamp with time zone
+media_submission_photos	id	created_at:timestamp with time zone
+media_submissions	id	event_date:date,archived_at:timestamp with time zone,created_at:timestamp with time zone,exec_date:date
+notification_preferences	user_id	updated_at:timestamp with time zone
+notification_push_admin_actions	id	created_at:timestamp with time zone
+notification_push_deliveries	id	next_attempt_at:timestamp with time zone,claimed_at:timestamp with time zone,sent_at:timestamp with time zone,created_at:timestamp with time zone,clicked_at:timestamp with time zone
+notification_push_subscriptions	id	last_used_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+notification_workflow_policies	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+notifications	id	read_at:timestamp with time zone,created_at:timestamp with time zone,dismissed_at:timestamp with time zone,expires_at:timestamp with time zone
+ops_store_items	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+ops_store_movements	id	created_at:timestamp with time zone
+payrolls	id	period_month:date,created_at:timestamp with time zone,updated_at:timestamp with time zone
+payslips	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+portal_hidden_units	user_id,portal	updated_at:timestamp with time zone
+portal_units	id	created_at:timestamp with time zone
+rented_vehicle_tax_audit	id	created_at:timestamp with time zone
+rented_vehicle_tax_overrides	employee_id	valid_from:date,valid_to:date,created_at:timestamp with time zone,updated_at:timestamp with time zone
+rented_vehicle_tax_settings	id	updated_at:timestamp with time zone
+requests	id	decided_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+role_page_permissions	id	created_at:timestamp with time zone
+sector_attendance	id	log_date:date,archived_at:timestamp with time zone,created_at:timestamp with time zone
+sector_breakdowns	id	archived_at:timestamp with time zone,created_at:timestamp with time zone,resolved_at:timestamp with time zone
+sector_manager_profiles	user_id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+sector_notices	id	created_at:timestamp with time zone
+sector_photos	id	archived_at:timestamp with time zone,created_at:timestamp with time zone
+sector_supply_requests	id	submitted_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,decided_at:timestamp with time zone,delivered_at:timestamp with time zone,ready_at:timestamp with time zone
+sector_support_assignments	id	started_at:timestamp with time zone,ended_at:timestamp with time zone
+sector_support_requests	id	decided_at:timestamp with time zone,completed_at:timestamp with time zone,created_at:timestamp with time zone
+sector_vehicles	id	archived_at:timestamp with time zone,created_at:timestamp with time zone
+sector_workers	id	archived_at:timestamp with time zone,created_at:timestamp with time zone
+sectors	id	created_at:timestamp with time zone
+station_destinations	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+station_external_drivers	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+system_settings	key	updated_at:timestamp with time zone
+termination_requests	id	last_day:date,decided_at:timestamp with time zone,executed_at:timestamp with time zone,created_at:timestamp with time zone
+treasury_receivable_types	id	created_at:timestamp with time zone,updated_at:timestamp with time zone
+treasury_transactions	id	created_at:timestamp with time zone,confirmed_at:timestamp with time zone,cancelled_at:timestamp with time zone,updated_at:timestamp with time zone
+ts_attendance_records	id	log_date:date,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+ts_carrier_records	id	exit_time:timestamp with time zone,log_date:date,submitted_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,arrived_at:timestamp with time zone
+ts_saksat_records	id	exit_time:timestamp with time zone,log_date:date,submitted_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,arrived_at:timestamp with time zone
+ts_trips_records	id	exit_time:timestamp with time zone,log_date:date,submitted_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+ts_unit_capacities	unit	\N
+ts_violations	id	violated_at:timestamp with time zone
+ts_visit_weighing_steps	id	weighed_at:timestamp with time zone,completed_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone,corrected_at:timestamp with time zone
+ts_weight_records	id	log_date:date,submitted_to_ops_at:timestamp with time zone,archived_at:timestamp with time zone,created_at:timestamp with time zone,updated_at:timestamp with time zone
+user_page_overrides	id	created_at:timestamp with time zone
+user_roles	id	created_at:timestamp with time zone
+vehicle_categories	code	updated_at:timestamp with time zone
+vehicle_maintenance_attachments	id	created_at:timestamp with time zone
+vehicle_maintenance_case_technicians	id	assigned_at:timestamp with time zone,released_at:timestamp with time zone
+vehicle_maintenance_cases	id	reported_at:timestamp with time zone,arrived_at:timestamp with time zone,expected_completion_at:timestamp with time zone,ready_at:timestamp with time zone,departed_maintenance_at:timestamp with time zone,completed_at:timestamp with time zone,updated_at:timestamp with time zone,readiness_approved_at:timestamp with time zone,garage_decided_at:timestamp with time zone,corrected_at:timestamp with time zone,forwarded_at:timestamp with time zone
+vehicle_maintenance_parts	id	created_at:timestamp with time zone,installed_at:timestamp with time zone,returned_at:timestamp with time zone
+vehicle_maintenance_stages	id	started_at:timestamp with time zone,completed_at:timestamp with time zone,created_at:timestamp with time zone
+vehicle_maintenance_updates	id	expected_completion_at:timestamp with time zone,created_at:timestamp with time zone
+vehicle_positions	id	fix_time:timestamp with time zone,received_at:timestamp with time zone
+vehicle_trip_legs	id	departed_at:timestamp with time zone,arrived_at:timestamp with time zone,created_at:timestamp with time zone
+vehicles	id	created_at:timestamp with time zone,updated_at:timestamp with time zone,archived_at:timestamp with time zone

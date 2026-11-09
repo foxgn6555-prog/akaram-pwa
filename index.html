@@ -5,7 +5,7 @@
     <!-- عرض مقفول: لا تكبير/تصغير (متطلب التصميم الثابت) — إمكانية الوصول تُحفَظ عبر التصميم المتجاوب نفسه -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#005f8d" />
-    <meta name="description" content="جزيرة الأكرام — النظام الإلكتروني لإدارة شركة البلدية" />
+    <meta name="description" content="جزيرة الأكارم — النظام الإلكتروني لإدارة شركة البلدية" />
 
     <!-- ═══ CSP أساسية (تُكمَّل بمطابقة headers على الاستضافة — انظر docs/login-security.md) ═══ -->
     <meta http-equiv="Content-Security-Policy"
@@ -13,9 +13,9 @@
                    script-src 'self' 'sha256-yz4skhV7FLqI5qoSEPgdprhmA0gD4z42Q0bFeAsbjPc=';
                    worker-src 'self' blob:;
                    style-src 'self' 'unsafe-inline';
-                   img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org;
+                   img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org https://server.arcgisonline.com;
                    font-src 'self' data:;
-                   connect-src 'self' http://localhost:54321 ws://localhost:54321 https://*.supabase.co wss://*.supabase.co;
+                   connect-src 'self' http://localhost:54321 ws://localhost:54321 https://*.supabase.co wss://*.supabase.co https://*.deno.net https://*.deno.dev https://*.workers.dev;
                    base-uri 'self';
                    form-action 'self'" />
 
@@ -28,7 +28,12 @@
 
     <link rel="icon" href="/icons/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <title>جزيرة الأكرام — تسجيل الدخول</title>
+    <!-- 00349 B: iOS — يفتح بشاشة كاملة بعد «إضافة إلى الشاشة الرئيسية» -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="الأكارم" />
+    <title>جزيرة الأكارم — تسجيل الدخول</title>
   </head>
   <body>
     <div id="root"></div>

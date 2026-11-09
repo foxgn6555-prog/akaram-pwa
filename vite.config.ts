@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { VitePWA } from 'vite-plugin-pwa'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import { pwaConfig } from './src/config/pwa.config'
 
 /**
@@ -15,6 +16,8 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths(),
     VitePWA(pwaConfig),
+    // 00289: تشغيل على الهاتف عبر https (الموقع والكاميرا لا يعملان على http) — `npm run dev:phone`
+    ...(process.env.DEV_HTTPS === '1' ? [basicSsl()] : []),
     // CSP متساهل في التطوير فقط (HMR/preamble) — build الإنتاج يبقى صارماً
     {
       name: 'dev-csp-relax',
@@ -22,9 +25,11 @@ export default defineConfig({
       transformIndexHtml: (html) =>
         html
           .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
-          .replace("connect-src 'self'", "connect-src 'self' ws://localhost:5173"),
+          .replace("connect-src 'self'", "connect-src 'self' ws: wss:"), // HMR من الهاتف عبر IP الشبكة أيضاً
     },
   ],
+  // اعتماديات ثقيلة تُحمَّل كسولاً فقط: تُحسَّن مسبقاً كي لا يعيد Vite التحسين أثناء الجلسة (504 Outdated Optimize Dep)
+  optimizeDeps: { include: ['recharts', 'exceljs', 'leaflet', 'react-leaflet'] },
   build: {
     target: 'es2022',
     sourcemap: true,

@@ -1,0 +1,617 @@
+From 17b26f6660f6b96254bd7e1792d16519e9288598 Mon Sep 17 00:00:00 2001
+From: Akaram Dev <dev@akaram.local>
+Date: Thu, 5 Nov 2026 15:36:49 +0000
+Subject: [PATCH] Simplify unmatched times and restore direct employee linking
+
+---
+ .../integrations/lib/unmatchedExcel.ts        | 12 +++--
+ .../integrations/lib/unmatchedUnitExcel.ts    | 18 +++++--
+ src/features/integrations/types/index.ts      |  4 +-
+ .../pages/Biometric/UnmatchedLinkPerson.tsx   | 50 +++++++++++++++++++
+ .../pages/Biometric/UnmatchedPeoplePage.tsx   | 35 +++++--------
+ .../Biometric/UnmatchedUnitPersonPanel.tsx    | 16 +++---
+ .../Biometric/UnmatchedUnitWorkspace.tsx      | 10 ++--
+ tests/db/README.md                            |  4 ++
+ tests/db/unmatched-link-from-report-test.sql  | 30 +++++++++++
+ .../components/UnmatchedLinkPerson.test.tsx   | 34 +++++++++++++
+ .../components/UnmatchedPeoplePage.test.tsx   | 30 +++++++++--
+ .../UnmatchedUnitWorkspace.test.tsx           | 19 ++++++-
+ 12 files changed, 210 insertions(+), 52 deletions(-)
+ create mode 100644 src/portals/hr/pages/Biometric/UnmatchedLinkPerson.tsx
+ create mode 100644 tests/db/unmatched-link-from-report-test.sql
+ create mode 100644 tests/unit/components/UnmatchedLinkPerson.test.tsx
+
+diff --git a/src/features/integrations/lib/unmatchedExcel.ts b/src/features/integrations/lib/unmatchedExcel.ts
+index 01999bc0..0cda3a9a 100644
+--- a/src/features/integrations/lib/unmatchedExcel.ts
++++ b/src/features/integrations/lib/unmatchedExcel.ts
+@@ -7,12 +7,13 @@ import type { Workbook, Worksheet } from 'exceljs'
+ import type { UnmatchedDay, UnmatchedPersonRow } from '../types'
+ import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from '../types'
+ 
+-const FILL = { present: 'FFDCFCE7', missing: 'FFFEF3C7', absent: 'FFFEE2E2', leave: 'FFDBEAFE', review: 'FFFFEDD5', previous_exit: 'FFE0E7FF', pending: 'FFF1F5F9', future: 'FFF1F5F9', unknown: 'FFE2E8F0' } as const
+-const FONT = { present: 'FF166534', missing: 'FF92400E', absent: 'FFB91C1C', leave: 'FF1E40AF', review: 'FF9A3412', previous_exit: 'FF3730A3', pending: 'FF475569', future: 'FF475569', unknown: 'FF475569' } as const
++const FILL = { present: 'FFDCFCE7', missing: 'FFFEF3C7', absent: 'FFFEE2E2', leave: 'FFDBEAFE', review: 'FFF1F5F9', previous_exit: 'FFE0E7FF', pending: 'FFF1F5F9', future: 'FFF1F5F9', unknown: 'FFE2E8F0' } as const
++const FONT = { present: 'FF166534', missing: 'FF92400E', absent: 'FFB91C1C', leave: 'FF1E40AF', review: 'FF475569', previous_exit: 'FF3730A3', pending: 'FF475569', future: 'FF475569', unknown: 'FF475569' } as const
+ const WEEKDAY_AR = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت']
+ 
+ export const fmtHours = (minutes: number) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
+ export function dayCellText(d: UnmatchedDay): string {
++  if (d.status === 'review') return [d.first, d.last !== d.first ? d.last : null].filter(Boolean).join('\n') || '—'
+   if (d.status === 'present') return `${UNMATCHED_STATUS_SHORT.present} ${fmtHours(d.minutes)}`
+   if (d.status === 'missing') return `${UNMATCHED_STATUS_SHORT.missing} ${d.first ?? ''}`.trim()
+   return UNMATCHED_STATUS_SHORT[d.status]
+@@ -64,7 +65,7 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
+       r.present_days, r.missing_days, r.absent_days, fmtHours(r.total_minutes),
+     ])
+     row.eachCell({ includeEmpty: true }, (cell, col) => {
+-      cell.border = thin(); cell.alignment = { vertical: 'middle', horizontal: col === 2 ? 'right' : 'center', wrapText: false }
++      cell.border = thin(); cell.alignment = { vertical: 'middle', horizontal: col === 2 ? 'right' : 'center', wrapText: true }
+       const di = col - fixed.length - 1
+       if (di >= 0 && di < days.length) {
+         const d = r.days[di]!
+@@ -72,19 +73,20 @@ export async function buildUnmatchedWorkbook(rows: UnmatchedPersonRow[], meta: U
+         cell.font = { size: 9, bold: d.status !== 'absent', color: { argb: FONT[d.status] } }
+       } else if (i % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+     })
++    if (r.days.some(d => d.status === 'review' && d.first && d.last && d.first !== d.last)) row.height = 28
+     row.getCell(2).font = { bold: true }
+   })
+   ws.getColumn(1).width = 5; ws.getColumn(2).width = 26; ws.getColumn(3).width = 12; ws.getColumn(4).width = 14; ws.getColumn(5).width = 16
+   days.forEach((_, i) => { ws.getColumn(fixed.length + 1 + i).width = 8 })
+   totals.forEach((_, i) => { ws.getColumn(fixed.length + days.length + 1 + i).width = 11 })
+   const legend = ws.addRow([]); ws.mergeCells(legend.number, 1, legend.number, colCount)
+-  legend.getCell(1).value = `الدليل: ${UNMATCHED_STATUS_SHORT.present} = ${UNMATCHED_STATUS_LABELS.present} (ساعات العمل من أول بصمة إلى آخرها) · ${UNMATCHED_STATUS_SHORT.missing} = ${UNMATCHED_STATUS_LABELS.missing} (بصمة واحدة فقط ووقتها) · ${UNMATCHED_STATUS_SHORT.absent} = ${UNMATCHED_STATUS_LABELS.absent} · إ = مجاز · مراجعة = بصمات ملتبسة · غير محدد = بعد الربط حين لا يُعرف تاريخ الربط · تعديلات الوحدة لا تغير الحضور الرسمي`
++  legend.getCell(1).value = `الدليل: ${UNMATCHED_STATUS_SHORT.present} = ${UNMATCHED_STATUS_LABELS.present} (ساعات العمل من أول بصمة إلى آخرها) · ${UNMATCHED_STATUS_SHORT.missing} = ${UNMATCHED_STATUS_LABELS.missing} (بصمة واحدة فقط ووقتها) · ${UNMATCHED_STATUS_SHORT.absent} = ${UNMATCHED_STATUS_LABELS.absent} · إ = مجاز · عرض وقتين فقط لا يعني احتساب حضور أو ساعات · غير محدد = بعد الربط حين لا يُعرف تاريخ الربط · تعديلات الوحدة لا تغير الحضور الرسمي`
+   legend.getCell(1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } }; legend.getCell(1).alignment = { wrapText: true }; legend.height = 30
+ 
+   // ── الورقة 2: التفاصيل اليومية (صف لكل شخص/يوم) ──
+   const det = wb.addWorksheet('التفاصيل اليومية', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 4 }] })
+   header(det, 'التفاصيل اليومية — غير المطابقين', filters, 10)
+-  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'الدخول المعروض', 'الخروج المعروض', 'ساعات العمل', 'الجهاز · الرقم التسلسلي']
++  const dh = det.getRow(4); dh.values = ['ت', 'الاسم على الجهاز', 'PIN', 'الفرع', 'اليوم', 'الحالة', 'الوقت الأول المعروض', 'الوقت الأخير المعروض', 'ساعات العمل', 'الجهاز · الرقم التسلسلي']
+   dh.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }; c.alignment = { horizontal: 'center' }; c.border = thin() })
+   let k = 0
+   for (const r of rows) for (const d of r.days) {
+diff --git a/src/features/integrations/lib/unmatchedUnitExcel.ts b/src/features/integrations/lib/unmatchedUnitExcel.ts
+index 94f083d1..233a0395 100644
+--- a/src/features/integrations/lib/unmatchedUnitExcel.ts
++++ b/src/features/integrations/lib/unmatchedUnitExcel.ts
+@@ -3,11 +3,11 @@ import { biometric } from '@sdk/biometric.sdk'
+ import type { ArchivePersonCursor, UnmatchedUnitDay, UnmatchedUnitFilters, UnmatchedUnitPerson, UnmatchedUnitStatus } from '../types'
+ 
+ export const UNIT_STATUS: Record<UnmatchedUnitStatus, string> = {
+-  present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: 'للمراجعة',
++  present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: '—',
+   previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط',
+ }
+ export const UNIT_COLOR: Record<UnmatchedUnitStatus, string> = {
+-  present: 'DCFCE7', missing: 'FEF3C7', absent: 'FEE2E2', leave: 'DBEAFE', review: 'FFEDD5',
++  present: 'DCFCE7', missing: 'FEF3C7', absent: 'FEE2E2', leave: 'DBEAFE', review: 'F1F5F9',
+   previous_exit: 'E0E7FF', pending: 'F1F5F9', future: 'F1F5F9', unknown: 'E2E8F0',
+ }
+ /** الوقت محلي للجهاز كما أعاده الخادم، لا يُحوّل بتوقيت متصفح المستخدم. */
+@@ -19,7 +19,17 @@ export function unitLocalTime(value: string | null, date?: string): string {
+   const suffix = date && m[1] !== date ? ` (${m[1]})` : ''
+   return `${String(h % 12 || 12).padStart(2, '0')}:${m[3]} ${h < 12 ? 'صباحاً' : 'مساءً'}${suffix}`
+ }
++/** عند تعدد أو تعارض البصمات نعرض أوقاتها الخام فقط، لا دخولاً وخروجاً مؤكّدين. */
++export function unitShownTimes(day: UnmatchedUnitDay): { first: string | null; last: string | null } {
++  if (day.status === 'review') return { first: day.raw_first, last: day.raw_last === day.raw_first ? null : day.raw_last }
++  if (day.status === 'missing' && !day.entry && !day.exit) return { first: day.raw_first, last: null }
++  return { first: day.entry, last: day.exit }
++}
+ export function unitCellText(day: UnmatchedUnitDay): string {
++  if (day.status === 'review') {
++    const { first, last } = unitShownTimes(day)
++    return [first && unitLocalTime(first, day.date), last && unitLocalTime(last, day.date)].filter(Boolean).join('\n') || '—'
++  }
+   const label = UNIT_STATUS[day.status]
+   if (day.entry || day.exit) return `${label}\nد: ${unitLocalTime(day.entry, day.date)}\nخ: ${unitLocalTime(day.exit, day.date)}`
+   if (day.status === 'missing' && day.raw_first) return `${label}\n${unitLocalTime(day.raw_first, day.date)}`
+@@ -71,11 +81,11 @@ export async function buildUnitWorkbook(rows: UnmatchedUnitPerson[], f: Unmatche
+   const total = rows.reduce((n, r) => n + r.days.filter(d => !f.status || d.status === f.status).length, 0)
+   if (total > 30_000) throw new Error('تفاصيل الأيام كثيرة للتصدير؛ اختر فترة أو فلاتر أضيق.')
+   const { wb, ws } = await sheet('تفاصيل يومية', subtitle, 11)
+-  ws.getRow(3).values = ['ت', 'الاسم', 'PIN', 'الجهاز', 'الفرع', 'اليوم', 'الحالة', 'الدخول', 'الخروج', 'عدد بصمات اليوم الأصلية', 'تعديل يدوي']; heading(ws)
++  ws.getRow(3).values = ['ت', 'الاسم', 'PIN', 'الجهاز', 'الفرع', 'اليوم', 'الحالة', 'الوقت الأول المعروض', 'الوقت الأخير المعروض', 'عدد بصمات اليوم الأصلية', 'تعديل يدوي']; heading(ws)
+   let i = 0
+   for (const r of rows) for (const d of r.days) {
+     if (f.status && d.status !== f.status) continue
+-    const line = ws.addRow([++i, r.person_name || '—', r.pin, `${r.device_name || '—'} · ${r.device_serial}`, branch(r), d.date, UNIT_STATUS[d.status], unitLocalTime(d.entry, d.date), unitLocalTime(d.exit, d.date), d.punch_count, d.manual ? 'نعم' : 'لا'])
++    const line = ws.addRow([++i, r.person_name || '—', r.pin, `${r.device_name || '—'} · ${r.device_serial}`, branch(r), d.date, UNIT_STATUS[d.status], unitLocalTime(unitShownTimes(d).first, d.date), unitLocalTime(unitShownTimes(d).last, d.date), d.punch_count, d.manual ? 'نعم' : 'لا'])
+     line.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${UNIT_COLOR[d.status]}` } }
+   }
+   ;[7, 24, 14, 28, 20, 14, 22, 26, 26, 22, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w })
+diff --git a/src/features/integrations/types/index.ts b/src/features/integrations/types/index.ts
+index b831c69f..14539efa 100644
+--- a/src/features/integrations/types/index.ts
++++ b/src/features/integrations/types/index.ts
+@@ -250,8 +250,8 @@ export interface UnmatchedPersonRow {
+   first_seen: string
+   last_seen: string
+ }
+-export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: 'للمراجعة', previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط' }
+-export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ', leave: 'إ', review: 'مراجعة', previous_exit: 'خروج سابق', pending: 'جارٍ', future: 'مستقبل', unknown: 'غير محدد' }
++export const UNMATCHED_STATUS_LABELS: Record<UnmatchedDayStatus, string> = { present: 'حاضر', missing: 'بصمة ناقصة', absent: 'غائب', leave: 'مجاز', review: '—', previous_exit: 'خروج لليوم السابق', pending: 'اليوم جارٍ', future: 'مستقبل', unknown: 'غير محدد بعد الربط' }
++export const UNMATCHED_STATUS_SHORT: Record<UnmatchedDayStatus, string> = { present: 'ح', missing: 'ن', absent: 'غ', leave: 'إ', review: '—', previous_exit: 'خروج سابق', pending: 'جارٍ', future: 'مستقبل', unknown: 'غير محدد' }
+ 
+ /** سجلات محفوظة من مرحلة عدم المطابقة، قد يبقى الشخص فيها بعد ربطه. */
+ export interface UnmatchedArchivePerson {
+diff --git a/src/portals/hr/pages/Biometric/UnmatchedLinkPerson.tsx b/src/portals/hr/pages/Biometric/UnmatchedLinkPerson.tsx
+new file mode 100644
+index 00000000..9ebedab1
+--- /dev/null
++++ b/src/portals/hr/pages/Biometric/UnmatchedLinkPerson.tsx
+@@ -0,0 +1,50 @@
++import { useState } from 'react'
++import { useQueryClient } from '@tanstack/react-query'
++import { hrKeys } from '@lib/query-keys/hr.keys'
++import { useHrEmployees } from '@features/hr'
++import { useLinkBiometricPin } from '@features/integrations'
++import { biometricErrorMessage } from '@sdk/biometric.sdk'
++
++const input = 'mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm'
++const button = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40'
++
++/** يستخدم الربط الرسمي القائم نفسه، ولا يشترط وجود بصمة اليوم في الدفتر. */
++export default function UnmatchedLinkPerson({ pin, personName, device, onClose }: { pin: string; personName: string | null; device: string; onClose: () => void }) {
++  const [search, setSearch] = useState(personName ?? '')
++  const [employeeId, setEmployeeId] = useState('')
++  const [error, setError] = useState('')
++  const [checking, setChecking] = useState(false)
++  const qc = useQueryClient()
++  const employees = useHrEmployees({ search: search.trim() || undefined, status: 'active' })
++  const link = useLinkBiometricPin()
++  const candidates = employees.data?.slice(0, 50) ?? []
++  const selected = candidates.find(e => e.id === employeeId)
++  const save = async () => {
++    if (!selected || checking || link.isPending) return
++    setChecking(true); setError('')
++    try {
++      // إعادة جلب الموظف قبل الربط حتى لا نعتمد على رقم قديم محفوظ في الواجهة.
++      const fresh = await employees.refetch()
++      if (fresh.isError) { setError('تعذر التحقق من بيانات الموظف؛ حاول مجدداً.'); return }
++      const current = fresh.data?.find(e => e.id === selected.id)
++      if (!current) { setError('الموظف لم يعد متاحاً. حدّث البحث واختره مجدداً.'); return }
++      if (current.biometric_pin && current.biometric_pin !== pin && !window.confirm(`لدى الموظف رقم بصمة ${current.biometric_pin}. ربط الرقم ${pin} سيستبدله. هل تريد المتابعة؟`)) return
++      link.mutate({ pin, employeeId: current.id }, {
++        onSuccess: () => { void qc.invalidateQueries({ queryKey: ['unmatched-unit-report'] }); void qc.invalidateQueries({ queryKey: ['unmatched-archive-people'] }); void qc.invalidateQueries({ queryKey: [...hrKeys.all, 'employees'] }); void qc.invalidateQueries({ queryKey: hrKeys.employee(current.id) }); onClose() },
++        onError: e => setError(biometricErrorMessage(e)),
++      })
++    } catch { setError('تعذر التحقق من بيانات الموظف؛ حاول مجدداً.') }
++    finally { setChecking(false) }
++  }
++  return <section className="space-y-3 rounded-xl border border-sky-200 bg-white p-4 shadow-sm" data-testid="unmatched-link-form">
++    <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">ربط بموظف · {personName || 'بلا اسم'} <span dir="ltr">{pin}</span></h2><button className={button} type="button" disabled={checking || link.isPending} onClick={onClose}>إغلاق</button></div>
++    <p className="text-sm text-slate-600">الجهاز <span dir="ltr">{device}</span>. الربط الرسمي يشمل الرقم على جميع الأجهزة وينقل بصماته السابقة؛ تأكد من أن الرقم يخص الموظف نفسه.</p>
++    <div className="grid items-end gap-3 sm:grid-cols-3"><label className="text-xs text-slate-600">البحث عن موظف<input className={input} value={search} disabled={checking || link.isPending} onChange={e => { setSearch(e.target.value); setEmployeeId('') }} data-testid="unmatched-link-search" /></label>
++      <label className="text-xs text-slate-600">الموظف<select className={input} value={employeeId} disabled={checking || link.isPending} onChange={e => setEmployeeId(e.target.value)} data-testid="unmatched-link-employee"><option value="">اختر الموظف</option>{candidates.map(e => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_number}){e.biometric_pin ? ` · رقم البصمة ${e.biometric_pin}` : ''}</option>)}</select></label>
++      <button type="button" className={button} disabled={!selected || checking || link.isPending} onClick={() => void save()}>تأكيد الربط</button></div>
++    {employees.isLoading && <p className="text-sm text-slate-500">جارٍ تحميل الموظفين…</p>}
++    {employees.isError && <p role="alert" className="text-sm text-red-700">تعذر تحميل الموظفين.</p>}
++    {!employees.isLoading && !employees.isError && !candidates.length && <p className="text-sm text-slate-500">لا يوجد موظف مطابق للبحث؛ جرّب جزءاً من الاسم أو امسح البحث.</p>}
++    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
++  </section>
++}
+diff --git a/src/portals/hr/pages/Biometric/UnmatchedPeoplePage.tsx b/src/portals/hr/pages/Biometric/UnmatchedPeoplePage.tsx
+index a0398f11..a8920427 100644
+--- a/src/portals/hr/pages/Biometric/UnmatchedPeoplePage.tsx
++++ b/src/portals/hr/pages/Biometric/UnmatchedPeoplePage.tsx
+@@ -2,7 +2,6 @@
+ import { useEffect, useMemo, useState } from 'react'
+ import { useQuery } from '@tanstack/react-query'
+ import { biometric } from '@sdk/biometric.sdk'
+-import { Link } from 'react-router'
+ import clsx from 'clsx'
+ import { useBranches } from '@features/branches'
+ import { UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT } from '@features/integrations'
+@@ -19,6 +18,7 @@ import { StatCard } from '../../components/hr-ui'
+ import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+ import UnmatchedArchive from './UnmatchedArchive'
+ import UnmatchedUnitWorkspace from './UnmatchedUnitWorkspace'
++import UnmatchedLinkPerson from './UnmatchedLinkPerson'
+ 
+ const isoDay = (d: Date) => new Date(d.getTime() + 3 * 3_600_000).toISOString().slice(0, 10)
+ const monthBounds = (ym: string): [string, string] => {
+@@ -27,11 +27,11 @@ const monthBounds = (ym: string): [string, string] => {
+   return [`${ym}-01`, `${ym}-${String(last).padStart(2, '0')}`]
+ }
+ const CELL: Record<UnmatchedDay['status'], string> = {
+-  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700', leave: 'bg-blue-50 text-blue-800', review: 'bg-orange-50 text-orange-800', previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
++  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-800', absent: 'bg-red-50 text-red-700', leave: 'bg-blue-50 text-blue-800', review: 'bg-slate-50 text-slate-700', previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
+ }
+ const field = 'h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs'
+ 
+-export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/hr/biometric' }: { readOnly?: boolean; ledgerPath?: string }) {
++export default function UnmatchedPeoplePage({ readOnly = false }: { readOnly?: boolean; ledgerPath?: string }) {
+   const [view, setView] = useState<'report' | 'grid' | 'details' | 'archive'>('report')
+   const today = new Date()
+   const [month, setMonth] = useState(isoDay(today).slice(0, 7))
+@@ -40,6 +40,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+   const [branchId, setBranchId] = useState('')
+   const [search, setSearch] = useState('')
+   const [onlyIssues, setOnlyIssues] = useState(false)
++  const [linkPerson, setLinkPerson] = useState<{ pin: string; personName: string | null; device: string } | null>(null)
+   const [deviceSerial, setDeviceSerial] = useState('')
+   const [pin, setPin] = useState('')
+   const [status, setStatus] = useState<'' | UnmatchedDay['status']>('')
+@@ -81,12 +82,8 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+         <button type="button" onClick={() => setView('archive')} aria-pressed={view === 'archive'} className={clsx('rounded-xl border px-4 py-2 text-sm font-bold', view === 'archive' ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-300 bg-white text-slate-700')}>الأرشيف</button>
+       </nav>
+       {view === 'archive' ? <UnmatchedArchive branches={branches ?? []} /> : view === 'grid' || view === 'details' ? <UnmatchedUnitWorkspace mode={view} branches={branches ?? []} /> : <>
+-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+-          <p className="max-w-3xl text-xs leading-5 text-slate-500">
+-            التقرير يعرض حالات المحرك نفسه في الدخول والخروج والتفاصيل، ومنها الإجازة والمراجعة والاقتران الليلي حتى 16 ساعة. اليوم الخالي بعد الربط قد يكون غير محدد إذا لم يُعرف تاريخ الربط. تعديلات الوحدة لا تغيّر الحضور الرسمي.
+-            {!readOnly && <> الربط الرسمي للرقم يتم من <Link to={ledgerPath} className="font-semibold text-brand-700 hover:underline">دفتر البصمة</Link> وفق الآلية الحالية، ويشمل الرقم على الأجهزة؛ تحقق من الرقم المكرر قبل الربط.</>}
+-          </p>
+-      </div>
++      {linkPerson && !readOnly && <UnmatchedLinkPerson key={JSON.stringify([linkPerson.device, linkPerson.pin])} {...linkPerson} onClose={() => setLinkPerson(null)} />}
++      <p className="text-xs text-slate-500">عند عرض وقتين فقط، هما أول وآخر بصمة ولا يُحتسبان حضوراً أو ساعات.</p>
+ 
+       {/* الفلاتر */}
+       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-6" data-testid="unmatched-filters">
+@@ -117,7 +114,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+         <label className="text-[11px] text-slate-600">الحالة خلال الفترة
+           <select className={clsx(field, 'mt-1 w-full')} value={status} onChange={(e) => setStatus(e.target.value as '' | UnmatchedDay['status'])} data-testid="um-status">
+             <option value="">كل الحالات</option>
+-            {(Object.keys(UNMATCHED_STATUS_LABELS) as UnmatchedDay['status'][]).map(s => <option key={s} value={s}>{UNMATCHED_STATUS_LABELS[s]}</option>)}
++            {(['present', 'missing', 'absent', 'leave'] as UnmatchedDay['status'][]).map(s => <option key={s} value={s}>{UNMATCHED_STATUS_LABELS[s]}</option>)}
+           </select>
+         </label>
+         <label className="flex items-end gap-2 pb-2 text-[11px] text-slate-600">
+@@ -129,7 +126,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+       {deviceQuery.isError && <p role="alert" className="text-sm text-red-700">تعذر تحميل قائمة الأجهزة.</p>}
+       {exportError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{exportError}</p>}
+       {!valid && !rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">اختر فترة صحيحة.</p>}
+-      {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 62 يوماً — اختر شهراً أو فترة أقصر</p>}
++      {rangeTooWide && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">الفترة أوسع من 63 يوماً — اختر شهراً أو فترة أقصر</p>}
+ 
+       <p className="text-xs text-slate-500">المجاميع أدناه تخص الصفحة المعروضة فقط؛ التصدير يشمل كل النتائج حسب الفلاتر.</p>
+       <div className="grid gap-3 sm:grid-cols-4">
+@@ -156,18 +153,17 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+                   return <th key={d.d} className={clsx('p-1 text-center font-bold', dt.getUTCDay() === 5 && 'bg-slate-600')} title={d.d}>{Number(d.d.slice(8, 10))}</th>
+                 })}
+                 <th className="p-2">حضور</th><th className="p-2">ناقص</th><th className="p-2">غياب</th><th className="p-2">الساعات</th>
+-                {!readOnly && <th className="p-2">الإجراء</th>}
+               </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-100">
+               {rows.map((r: UnmatchedPersonRow) => (
+-                <tr key={`${r.device_serial}-${r.pin}`} data-testid={`um-row-${r.device_serial}-${r.pin}`}>
+-                  <td className="sticky start-0 z-10 bg-white p-2 font-semibold text-slate-800">{r.person_name ?? <span className="text-slate-400">— بلا اسم —</span>}</td>
++                <tr key={JSON.stringify([r.device_serial, r.pin])} data-testid={`um-row-${r.device_serial}-${r.pin}`}>
++                  <td className="sticky start-0 z-10 min-w-36 bg-white p-2 font-semibold text-slate-800"><div>{r.person_name ?? <span className="text-slate-400">— بلا اسم —</span>}</div>{!readOnly && <button type="button" className="mt-1 whitespace-nowrap text-[11px] font-bold text-brand-700 underline" onClick={() => setLinkPerson({ pin: r.pin, personName: r.person_name, device: r.device_serial })} data-testid={`um-link-${r.pin}`}>ربط بموظف</button>}</td>
+                   <td className="p-2 text-center font-mono" dir="ltr">{r.pin}</td>
+                   <td className="p-2 text-center text-slate-500">{r.branch_name ?? '—'} · {r.device_name}<span className="block font-mono text-[10px]" dir="ltr">{r.device_serial}</span></td>
+                   {r.days.map((d) => (
+-                    <td key={d.d} className={clsx('p-1 text-center text-[10px] font-semibold', CELL[d.status])} data-testid={`um-cell-${r.pin}-${d.d}`}
+-                        title={`${d.d} · ${UNMATCHED_STATUS_LABELS[d.status]}${d.first ? ` · أول ${d.first}` : ''}${d.last ? ` · آخر ${d.last}` : ''}${d.status === 'present' ? ` · ${fmtHours(d.minutes)} ساعة` : ''}`}>
++                    <td key={d.d} className={clsx('whitespace-pre-line p-1 text-center text-[10px] font-semibold', CELL[d.status])} data-testid={`um-cell-${r.pin}-${d.d}`}
++                        title={`${d.d} · ${d.status === 'review' ? 'أول وآخر بصمة، دون احتساب حضور أو ساعات' : UNMATCHED_STATUS_LABELS[d.status]}${d.first ? ` · أول ${d.first}` : ''}${d.last ? ` · آخر ${d.last}` : ''}${d.status === 'present' ? ` · ${fmtHours(d.minutes)} ساعة` : ''}`}>
+                       {d.status === 'absent' ? UNMATCHED_STATUS_SHORT.absent : dayCellText(d)}
+                     </td>
+                   ))}
+@@ -175,11 +171,6 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+                   <td className="p-2 text-center font-bold text-amber-700">{r.missing_days}</td>
+                   <td className="p-2 text-center font-bold text-red-700">{r.absent_days}</td>
+                   <td className="p-2 text-center font-mono" dir="ltr">{fmtHours(r.total_minutes)}</td>
+-                  {!readOnly && (
+-                    <td className="p-2 text-center">
+-                      <Link to={`${ledgerPath}?pin=${encodeURIComponent(r.pin)}`} className="font-semibold text-brand-700 hover:underline" data-testid={`um-link-${r.pin}`}>ربط بموظف</Link>
+-                    </td>
+-                  )}
+                 </tr>
+               ))}
+             </tbody>
+@@ -187,7 +178,7 @@ export default function UnmatchedPeoplePage({ readOnly = false, ledgerPath = '/h
+           <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-500">
+             الدليل: <span className="rounded bg-emerald-50 px-1 text-emerald-800">ح 8:30</span> حاضر وساعات العمل ·
+             <span className="ms-1 rounded bg-amber-50 px-1 text-amber-800">ن 08:05</span> بصمة ناقصة ووقتها ·
+-            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · إ = مجاز · مراجعة = ملتبس · الأعمدة الداكنة = الجمعة
++            <span className="ms-1 rounded bg-red-50 px-1 text-red-700">غ</span> غائب · إ = مجاز · الأعمدة الداكنة = الجمعة
+           </p>
+         </div>
+       )}
+diff --git a/src/portals/hr/pages/Biometric/UnmatchedUnitPersonPanel.tsx b/src/portals/hr/pages/Biometric/UnmatchedUnitPersonPanel.tsx
+index 26844c7a..16be5188 100644
+--- a/src/portals/hr/pages/Biometric/UnmatchedUnitPersonPanel.tsx
++++ b/src/portals/hr/pages/Biometric/UnmatchedUnitPersonPanel.tsx
+@@ -3,19 +3,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
+ import { biometric } from '@sdk/biometric.sdk'
+ import type { ArchivePunchCursor, UnmatchedUnitDay, UnmatchedUnitPerson } from '@features/integrations/types'
+ import { archiveDirection, archiveLocalTime } from '@features/integrations/lib/unmatchedArchiveExcel'
+-import { UNIT_STATUS, unitLocalTime } from '@features/integrations/lib/unmatchedUnitExcel'
++import { UNIT_STATUS, unitLocalTime, unitShownTimes } from '@features/integrations/lib/unmatchedUnitExcel'
+ 
+ const field = 'mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm'
+ const button = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40'
+ const PAGE = 50
+-const editable = ['present', 'missing', 'absent', 'leave', 'review'] as const
++const editable = ['present', 'missing', 'absent', 'leave'] as const
+ type EditableStatus = typeof editable[number]
+ function errorMessage(e: unknown) {
+   const s = e instanceof Error ? e.message : ''
+   if (s.includes('BIO_EDIT_CONFLICT')) return 'تغيّرت البيانات منذ فتحها. أغلق التفاصيل وافتحها مجدداً ثم أعد المحاولة.'
+   if (s.includes('BIO_FORBIDDEN')) return 'لا تملك صلاحية التعديل أو تم سحبها.'
+   if (s.includes('BIO_ABSENCE_NOT_PAST')) return 'يمكن تسجيل الغياب للأيام الماضية فقط.'
+-  if (s.includes('BIO_EDIT_NEEDS_REVIEW')) return 'المدة تتجاوز 16 ساعة؛ اختر «للمراجعة» بدلاً من حاضر.'
++  if (s.includes('BIO_EDIT_NEEDS_REVIEW')) return 'المدة تتجاوز 16 ساعة؛ لا يمكن حفظ حضور ليلي بهذه المدة.'
+   if (s.includes('BIO_EDIT_TIMES_REQUIRED')) return 'حالة حاضر تتطلب وقت الدخول والخروج.'
+   if (s.includes('BIO_EDIT_TIMES_INVALID')) return 'تحقق من الأوقات وحدد إن كان الخروج في اليوم التالي.'
+   return 'تعذر حفظ التعديل. تحقق من البيانات وحاول مجدداً.'
+@@ -31,7 +31,7 @@ export default function UnmatchedUnitPersonPanel({ person, day, canEdit, onBack
+   const [cursorStack, setCursorStack] = useState<Array<ArchivePunchCursor | null>>([null])
+   const [historyCursors, setHistoryCursors] = useState<Array<number | null>>([null])
+   const [name, setName] = useState(person.person_name ?? '')
+-  const [status, setStatus] = useState<EditableStatus>(editable.includes(day.status as EditableStatus) ? day.status as EditableStatus : 'review')
++  const [status, setStatus] = useState<EditableStatus | ''>(editable.includes(day.status as EditableStatus) ? day.status as EditableStatus : '')
+   const [entry, setEntry] = useState(day.entry?.slice(11, 19) ?? '')
+   const [exit, setExit] = useState(day.exit?.slice(11, 19) ?? '')
+   const [nextDay, setNextDay] = useState(!!day.exit && day.exit.slice(0, 10) !== day.date)
+@@ -55,23 +55,23 @@ export default function UnmatchedUnitPersonPanel({ person, day, canEdit, onBack
+     catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
+   }
+   const saveDay = async () => {
+-    if (!edits.data) return
++    if (!edits.data || !status) return
+     setBusy(true); setError('')
+     try { await biometric.unmatchedUnitEditDay(person.device_serial, person.pin, day.date, status, entry || null, exit || null, nextDay, edits.data.days.find(d => d.work_day === day.date)?.revision ?? 0); await refreshAndClose() }
+     catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
+   }
+   return <section className="space-y-4" data-testid="unit-person-panel">
+     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">{person.person_name || 'بلا اسم'} · {day.date}</h2><p className="text-sm text-slate-500" dir="ltr">{person.device_serial} · PIN {person.pin}</p></div><button type="button" className={button} onClick={onBack}>العودة للتقرير</button></div>
+-    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">الحالة: <strong>{UNIT_STATUS[day.status]}</strong> · الدخول {unitLocalTime(day.entry, day.date)} · الخروج {unitLocalTime(day.exit, day.date)} · بصمات هذا اليوم الأصلية {day.punch_count}. التعديلات هنا لا تغيّر الحضور الرسمي أو البصمات الأصلية.</div>
++    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">الحالة: <strong>{UNIT_STATUS[day.status]}</strong> · الوقت الأول {unitLocalTime(unitShownTimes(day).first, day.date)} · الوقت الأخير {unitLocalTime(unitShownTimes(day).last, day.date)} · بصمات هذا اليوم الأصلية {day.punch_count}. التعديلات هنا لا تغيّر الحضور الرسمي أو البصمات الأصلية.</div>
+     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+     {edits.isError && <p role="alert" className="text-sm text-red-700">تعذر تحميل التعديلات؛ لا يمكن الحفظ حتى يُعاد فتح التفاصيل.</p>}
+     {canEdit && <div className="grid gap-4 lg:grid-cols-2">
+       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"><h3 className="font-bold">تعديل اسم الوحدة</h3><label className="block text-xs text-slate-600">الاسم<input className={field} value={name} maxLength={200} onChange={e => setName(e.target.value)} data-testid="unit-name" /></label><button type="button" className={button} disabled={busy || !edits.data || !name.trim()} onClick={() => void saveName()}>حفظ الاسم</button></div>
+       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"><h3 className="font-bold">تعديل حالة اليوم وأوقاته</h3>
+-        <label className="block text-xs text-slate-600">الحالة<select className={field} value={status} onChange={e => { const v = e.target.value as EditableStatus; setStatus(v); if (v === 'leave' || v === 'absent') { setEntry(''); setExit(''); setNextDay(false) } }} data-testid="unit-edit-status">{editable.map(s => <option key={s} value={s}>{UNIT_STATUS[s]}</option>)}</select></label>
++        <label className="block text-xs text-slate-600">الحالة<select className={field} value={status} onChange={e => { const v = e.target.value as EditableStatus | '';  setStatus(v); if (v === 'leave' || v === 'absent') { setEntry(''); setExit(''); setNextDay(false) } }} data-testid="unit-edit-status"><option value="">اختر الحالة</option>{editable.map(s => <option key={s} value={s}>{UNIT_STATUS[s]}</option>)}</select></label>
+         <div className="grid grid-cols-2 gap-2"><label className="text-xs text-slate-600">الدخول<input className={field} type="time" step="1" value={entry} disabled={status === 'leave' || status === 'absent'} onChange={e => setEntry(e.target.value)} data-testid="unit-edit-entry" /></label><label className="text-xs text-slate-600">الخروج<input className={field} type="time" step="1" value={exit} disabled={status === 'leave' || status === 'absent'} onChange={e => setExit(e.target.value)} data-testid="unit-edit-exit" /></label></div>
+         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={nextDay} disabled={status === 'leave' || status === 'absent'} onChange={e => setNextDay(e.target.checked)} /> الخروج صباح اليوم التالي</label>
+-        <button type="button" className={button} disabled={busy || !edits.data} onClick={() => void saveDay()}>حفظ اليوم</button><p className="text-xs text-slate-500">«مجاز» إجازة يدوية داخل هذه الوحدة فقط.</p>
++        <button type="button" className={button} disabled={busy || !edits.data || !status} onClick={() => void saveDay()}>حفظ اليوم</button><p className="text-xs text-slate-500">«مجاز» إجازة يدوية داخل هذه الوحدة فقط.</p>
+       </div>
+     </div>}
+     {!canEdit && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">حسابك للقراءة فقط في هذه الوحدة.</p>}
+diff --git a/src/portals/hr/pages/Biometric/UnmatchedUnitWorkspace.tsx b/src/portals/hr/pages/Biometric/UnmatchedUnitWorkspace.tsx
+index af8a7ecd..6c9a0d9f 100644
+--- a/src/portals/hr/pages/Biometric/UnmatchedUnitWorkspace.tsx
++++ b/src/portals/hr/pages/Biometric/UnmatchedUnitWorkspace.tsx
+@@ -2,7 +2,7 @@ import { useState } from 'react'
+ import { useQuery, useQueryClient } from '@tanstack/react-query'
+ import { biometric } from '@sdk/biometric.sdk'
+ import type { ArchivePersonCursor, UnmatchedUnitDay, UnmatchedUnitFilters, UnmatchedUnitPerson, UnmatchedUnitStatus } from '@features/integrations/types'
+-import { buildUnitWorkbook, collectUnitRows, UNIT_STATUS, unitCellText, unitLocalTime } from '@features/integrations/lib/unmatchedUnitExcel'
++import { buildUnitWorkbook, collectUnitRows, UNIT_STATUS, unitCellText, unitLocalTime, unitShownTimes } from '@features/integrations/lib/unmatchedUnitExcel'
+ import { downloadWorkbook } from '@features/hr/lib/hrExcel'
+ import { ExportButton } from '../../components/ExportButton'
+ import UnmatchedUnitPersonPanel from './UnmatchedUnitPersonPanel'
+@@ -12,10 +12,10 @@ const PAGE = 25
+ const input = 'mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm'
+ const button = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40'
+ const colors: Record<UnmatchedUnitStatus, string> = {
+-  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-900', absent: 'bg-rose-50 text-rose-800', leave: 'bg-blue-50 text-blue-800', review: 'bg-orange-50 text-orange-900',
++  present: 'bg-emerald-50 text-emerald-800', missing: 'bg-amber-50 text-amber-900', absent: 'bg-rose-50 text-rose-800', leave: 'bg-blue-50 text-blue-800', review: 'bg-slate-50 text-slate-700',
+   previous_exit: 'bg-indigo-50 text-indigo-800', pending: 'bg-slate-50 text-slate-700', future: 'bg-slate-50 text-slate-500', unknown: 'bg-slate-100 text-slate-700',
+ }
+-const statuses = Object.keys(UNIT_STATUS) as UnmatchedUnitStatus[]
++const statuses: UnmatchedUnitStatus[] = ['present', 'missing', 'absent', 'leave']
+ function initialRange() {
+   const day = new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10)
+   const ym = day.slice(0, 7); const [y, m] = ym.split('-').map(Number)
+@@ -74,7 +74,7 @@ export default function UnmatchedUnitWorkspace({ mode, branches }: { mode: 'grid
+         catch (e) { setExportError(e instanceof Error ? e.message : 'تعذر التصدير') }
+       }} />
+     </div></div>
+-    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-900">الاقتران الليلي الواضح حتى 16 ساعة؛ البصمات الزائدة والمتعارضة للمراجعة. بعد ربط PIN، اليوم الخالي قد يظهر «غير محدد» عندما لا يُعرف تاريخ الربط، بدلاً من تسجيل غياب غير مؤكد. لا تؤثر تعديلات الوحدة في الحضور الرسمي.</div>
++    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-900">الأوقات المعروضة دون حالة هي أول وآخر بصمة فقط ولا تُحتسب حضوراً أو ساعات. التعديل هنا لا يغيّر الحضور الرسمي.</div>
+     <form className="grid items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3 lg:grid-cols-7" onSubmit={e => { e.preventDefault(); if (validRange(draft.from, draft.to)) { setFilters(draft); setHistory([null]); setExportError('') } }}>
+       <label className="text-xs text-slate-600">من يوم<input type="date" className={input} value={draft.from} onChange={e => setDraft(d => ({ ...d, from: e.target.value }))} data-testid="unit-from" /></label>
+       <label className="text-xs text-slate-600">إلى يوم<input type="date" className={input} value={draft.to} onChange={e => setDraft(d => ({ ...d, to: e.target.value }))} data-testid="unit-to" /></label>
+@@ -94,7 +94,7 @@ export default function UnmatchedUnitWorkspace({ mode, branches }: { mode: 'grid
+     {report.isError && <p role="alert" className="text-red-700">تعذر تحميل التقرير. تحقق من تطبيق ترحيلات قاعدة البيانات.</p>}
+     {!report.isLoading && !report.isError && !rows.length && <p className="rounded-xl bg-white p-4 text-sm text-slate-500">لا توجد نتائج لهذه الفلاتر.</p>}
+     {!report.isError && !!rows.length && mode === 'grid' && <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="w-full text-xs" data-testid="unit-grid"><thead className="bg-slate-800 text-white"><tr><th className="sticky start-0 z-10 bg-slate-800 p-3 text-start">الاسم · PIN · الجهاز</th>{rows[0]?.days.map(d => <th key={d.date} className="min-w-36 p-2">{d.date}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map(r => <tr key={JSON.stringify([r.device_serial, r.pin])}><td className="sticky start-0 z-10 min-w-48 bg-white p-3"><strong>{r.person_name || 'بلا اسم'}</strong><span className="block font-mono" dir="ltr">{r.pin} · {r.device_serial}</span><span className="block text-slate-500">{r.device_name || '—'} · {branchName(r.branch_id)}</span></td>{r.days.map(d => <td className={`p-1 ${colors[d.status]}`} key={d.date}><button type="button" className="min-h-20 w-full whitespace-pre-line rounded-md p-2 text-center hover:ring-2 hover:ring-slate-400" onClick={() => open(r, d)} aria-label={`${r.person_name || r.pin} ${d.date} ${UNIT_STATUS[d.status]}`}>{unitCellText(d)}{d.manual && <span className="block text-[10px]">تعديل يدوي</span>}</button></td>)}</tr>)}</tbody></table></div>}
+-    {!report.isError && !!rows.length && mode === 'details' && <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="w-full text-sm" data-testid="unit-details"><thead className="bg-slate-800 text-white"><tr><th className="p-3 text-start">الاسم · الجهاز</th><th className="p-3">PIN</th><th className="p-3">اليوم</th><th className="p-3">الحالة</th><th className="p-3">الدخول</th><th className="p-3">الخروج</th><th className="p-3">البصمات</th><th className="p-3">فتح</th></tr></thead><tbody>{rows.flatMap(r => r.days.filter(d => !filters.status || d.status === filters.status).map(d => <tr key={JSON.stringify([r.device_serial, r.pin, d.date])} className="border-t"><td className="p-3">{r.person_name || 'بلا اسم'}<span className="block text-xs text-slate-500">{r.device_name || '—'} · {r.device_serial} · {branchName(r.branch_id)}</span></td><td className="p-3 text-center font-mono" dir="ltr">{r.pin}</td><td className="p-3 text-center" dir="ltr">{d.date}</td><td className={`p-3 text-center ${colors[d.status]}`}>{UNIT_STATUS[d.status]}{d.manual && ' · يدوي'}</td><td className="p-3 text-center">{unitLocalTime(d.entry, d.date)}</td><td className="p-3 text-center">{unitLocalTime(d.exit, d.date)}</td><td className="p-3 text-center">{d.punch_count}</td><td className="p-3 text-center"><button type="button" className={button} onClick={() => open(r, d)}>فتح اليوم</button></td></tr>))}</tbody></table></div>}
++    {!report.isError && !!rows.length && mode === 'details' && <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="w-full text-sm" data-testid="unit-details"><thead className="bg-slate-800 text-white"><tr><th className="p-3 text-start">الاسم · الجهاز</th><th className="p-3">PIN</th><th className="p-3">اليوم</th><th className="p-3">الحالة</th><th className="p-3">الوقت الأول</th><th className="p-3">الوقت الأخير</th><th className="p-3">البصمات</th><th className="p-3">فتح</th></tr></thead><tbody>{rows.flatMap(r => r.days.filter(d => !filters.status || d.status === filters.status).map(d => <tr key={JSON.stringify([r.device_serial, r.pin, d.date])} className="border-t"><td className="p-3">{r.person_name || 'بلا اسم'}<span className="block text-xs text-slate-500">{r.device_name || '—'} · {r.device_serial} · {branchName(r.branch_id)}</span></td><td className="p-3 text-center font-mono" dir="ltr">{r.pin}</td><td className="p-3 text-center" dir="ltr">{d.date}</td><td className={`p-3 text-center ${colors[d.status]}`}>{UNIT_STATUS[d.status]}{d.manual && ' · يدوي'}</td><td className="p-3 text-center">{unitLocalTime(unitShownTimes(d).first, d.date)}</td><td className="p-3 text-center">{unitLocalTime(unitShownTimes(d).last, d.date)}</td><td className="p-3 text-center">{d.punch_count}</td><td className="p-3 text-center"><button type="button" className={button} onClick={() => open(r, d)}>فتح اليوم</button></td></tr>))}</tbody></table></div>}
+     <div className="flex gap-2"><button type="button" className={button} disabled={history.length === 1 || report.isFetching} onClick={() => setHistory(h => h.slice(0, -1))}>السابق</button><button type="button" className={button} disabled={!report.data || report.data.length <= PAGE || report.isFetching} onClick={() => { const last = rows[rows.length - 1]; if (last) setHistory(h => [...h, { device: last.device_serial, pin: last.pin }]) }}>التالي</button><span className="self-center text-xs text-slate-500">صفحة الأشخاص {history.length}</span></div>
+   </section>
+ }
+diff --git a/tests/db/README.md b/tests/db/README.md
+index 3c49220a..ad1fd235 100644
+--- a/tests/db/README.md
++++ b/tests/db/README.md
+@@ -169,3 +169,7 @@ C1 حساب المتعهد يُنشأ من التطوير المركزية بد
+ - `node tests/db/unmatched-unit-permission-race-test.mjs`: سباق سحب صلاحية HR وتعديل الشخص.
+ 
+ تأكيد شخص برقم مرتبط ينسخ بصمات الجهاز والرقم الموجودة فقط إلى الأرشيف، ويضيف الجديدة إليه دون تغيير الدفتر الرسمي؛ يتطلب التأكد من هوية الشخص. يستخدم التأكيد قفل SHARE قصير على الدفتر مع NOWAIT: إذا كان استيراد جارياً يفشل فوراً ويطلب إعادة المحاولة، وقد تنتظر عمليات الإدخال الجديدة مدة النسخ. اختبارات السباق المحلية لا تغني عن قياس الأداء في بيئة الإنتاج. الحالات التي رُبطت قبل إنشاء الأرشيف لا يمكن استعادتها تلقائياً دون دليل، ويمكن تأكيد جهاز مختلف يدوياً بعد معاينته.
++
++### إصلاح الربط من تقرير غير المطابقين
++
++`node scripts/db-migrations-test.mjs tests/db/unmatched-link-from-report-test.sql` يتحقق من استدعاء الربط الرسمي للشخص بلا بصمة، وربط البصمات السابقة على أجهزة مختلفة وبقاء الأرشيف. عرض أول وآخر وقت في الواجهة والتصدير لا يغيّر حساب قاعدة البيانات ولا يضيف حضوراً أو ساعات للحالات غير المحسومة.
+diff --git a/tests/db/unmatched-link-from-report-test.sql b/tests/db/unmatched-link-from-report-test.sql
+new file mode 100644
+index 00000000..f02f33ff
+--- /dev/null
++++ b/tests/db/unmatched-link-from-report-test.sql
+@@ -0,0 +1,30 @@
++-- depends: tests/db/unmatched-archive-foundation-test.sql
++reset role; select set_config('auth.user_id','',false);
++insert into public.biometric_devices(id,serial_number,name,is_active,timezone_offset) values
++ ('d3670000-0000-0000-0000-000000000001','LINK-OLD-A','جهاز أ',false,'+03:00'),
++ ('d3670000-0000-0000-0000-000000000002','LINK-OLD-B','جهاز ب',false,'+03:00');
++insert into public.biometric_device_users(device_serial,pin,name) values
++ ('LINK-OLD-A','PIN367','شخص أول'),('LINK-OLD-B','PIN367','شخص أول'),('LINK-OLD-A','EMPTY367','شخص بلا بصمات');
++insert into public.employees(id,employee_number,full_name,hire_date) values
++ ('e3670000-0000-0000-0000-000000000001','EMP367A','الموظف الأول','2024-01-01'),
++ ('e3670000-0000-0000-0000-000000000002','EMP367B','الموظف الثاني','2024-01-01');
++insert into public.biometric_punches(id,device_serial,pin,punched_at,method) values
++ ('c3670000-0000-0000-0000-000000000001','LINK-OLD-A','PIN367','2025-05-01 05:00+00','manual'),
++ ('c3670000-0000-0000-0000-000000000002','LINK-OLD-B','PIN367','2025-05-01 06:00+00','manual');
++set role authenticated; select set_config('auth.user_id','b8030000-0000-0000-0000-000000000001',false);
++-- استدعاء الربط الرسمي نفسه الذي تستخدمه الشاشة، دون الاعتماد على بصمات اليوم.
++select public.biometric_link_pin('PIN367','e3670000-0000-0000-0000-000000000001');
++select public.biometric_link_pin('EMPTY367','e3670000-0000-0000-0000-000000000002');
++do $$ declare n int; begin
++ select count(*) into n from public.unmatched_unit_daily_report_v2('2025-05-01','2025-05-01',null,'LINK-OLD-A',null,null,50,null,null,null,'EMPTY367');
++ if n<>1 then raise exception 'اختفى الشخص الذي لم يبصم من الأرشيف بعد ربطه'; end if;
++end $$;
++reset role;
++do $$ declare n int; begin
++ select count(*) into n from public.biometric_punches where pin='PIN367' and employee_id='e3670000-0000-0000-0000-000000000001';
++ if n<>2 then raise exception 'الربط الرسمي لم يحتفظ بربط الجهازين والبصمات السابقة'; end if;
++ select count(*) into n from public.unmatched_archive_punches where pin='PIN367';
++ if n<>2 then raise exception 'تغير الأرشيف الأصلي عند الربط'; end if;
++ select count(*) into n from public.employees where id='e3670000-0000-0000-0000-000000000002' and biometric_pin='EMPTY367';
++ if n<>1 then raise exception 'الربط بلا بصمة لم يتم'; end if;
++end $$;
+diff --git a/tests/unit/components/UnmatchedLinkPerson.test.tsx b/tests/unit/components/UnmatchedLinkPerson.test.tsx
+new file mode 100644
+index 00000000..fb1a42f1
+--- /dev/null
++++ b/tests/unit/components/UnmatchedLinkPerson.test.tsx
+@@ -0,0 +1,34 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest'
++import { fireEvent, render, screen, waitFor } from '@testing-library/react'
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
++const h = vi.hoisted(() => ({ link: vi.fn(), employees: vi.fn(), toast: vi.fn(), close: vi.fn() }))
++vi.mock('@sdk/biometric.sdk', () => ({ biometric: { linkPin: h.link }, biometricErrorMessage: (e: unknown) => e instanceof Error ? e.message : String(e) }))
++vi.mock('@stores/ui.store', () => ({ useUiStore: (f: (x: { addToast: typeof h.toast }) => unknown) => f({ addToast: h.toast }) }))
++vi.mock('@features/hr', () => ({ useHrEmployees: () => ({ data: h.employees(), isLoading: false, isError: false, refetch: async () => ({ data: h.employees(), isError: false }) }) }))
++import UnmatchedLinkPerson from '@portals/hr/pages/Biometric/UnmatchedLinkPerson'
++function setup() { const c = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); render(<QueryClientProvider client={c}><UnmatchedLinkPerson pin="901" personName="سالم" device="D1" onClose={h.close} /></QueryClientProvider>); return c }
++describe('الربط الرسمي من التقرير', () => {
++  beforeEach(() => { vi.resetAllMocks(); h.employees.mockReturnValue([{ id: 'e1', full_name: 'سالم الرسمي', employee_number: 'E1', biometric_pin: null }]); h.link.mockResolvedValue(undefined) })
++  it('يربط عبر الـ API الرسمي ويغلق النموذج بعد نجاح العملية', async () => {
++    setup(); fireEvent.change(screen.getByTestId('unmatched-link-employee'), { target: { value: 'e1' } }); fireEvent.click(screen.getByRole('button', { name: 'تأكيد الربط' }))
++    await waitFor(() => expect(h.link).toHaveBeenCalledWith('901', 'e1'))
++    await waitFor(() => expect(h.close).toHaveBeenCalledOnce())
++  })
++  it('يظهر رفض الربط ولا يغلق النموذج', async () => {
++    h.link.mockRejectedValue(new Error('BIO_PIN_TAKEN')); setup()
++    fireEvent.change(screen.getByTestId('unmatched-link-employee'), { target: { value: 'e1' } }); fireEvent.click(screen.getByRole('button', { name: 'تأكيد الربط' }))
++    expect(await screen.findByRole('alert')).toHaveTextContent('BIO_PIN_TAKEN'); expect(h.close).not.toHaveBeenCalled()
++  })
++  it('يعيد التحقق من رقم الموظف الحالي قبل الاستبدال', async () => {
++    h.employees.mockReturnValueOnce([{ id: 'e1', full_name: 'سالم الرسمي', employee_number: 'E1', biometric_pin: null }]).mockReturnValue([{ id: 'e1', full_name: 'سالم الرسمي', employee_number: 'E1', biometric_pin: 'NEW-OTHER' }])
++    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
++    setup(); fireEvent.change(screen.getByTestId('unmatched-link-employee'), { target: { value: 'e1' } }); fireEvent.click(screen.getByRole('button', { name: 'تأكيد الربط' }))
++    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.stringContaining('NEW-OTHER')))
++    expect(h.link).not.toHaveBeenCalled(); confirm.mockRestore()
++  })
++  it('لا يستبدل رقم الموظف السابق إذا ألغى المستخدم التأكيد', async () => {
++    h.employees.mockReturnValue([{ id: 'e1', full_name: 'سالم الرسمي', employee_number: 'E1', biometric_pin: 'OLD' }]); const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
++    setup(); fireEvent.change(screen.getByTestId('unmatched-link-employee'), { target: { value: 'e1' } }); fireEvent.click(screen.getByRole('button', { name: 'تأكيد الربط' }))
++    await waitFor(() => expect(confirm).toHaveBeenCalledOnce()); expect(h.link).not.toHaveBeenCalled(); confirm.mockRestore()
++  })
++})
+diff --git a/tests/unit/components/UnmatchedPeoplePage.test.tsx b/tests/unit/components/UnmatchedPeoplePage.test.tsx
+index c8ebe1d9..6a7a5215 100644
+--- a/tests/unit/components/UnmatchedPeoplePage.test.tsx
++++ b/tests/unit/components/UnmatchedPeoplePage.test.tsx
+@@ -4,9 +4,11 @@ import { MemoryRouter } from 'react-router'
+ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import type { UnmatchedUnitDay, UnmatchedUnitPerson } from '@features/integrations/types'
+ 
+-const h = vi.hoisted(() => ({ report: vi.fn(), download: vi.fn() }))
++const h = vi.hoisted(() => ({ report: vi.fn(), download: vi.fn(), link: vi.fn() }))
+ vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'فرع الكرخ' }] }) }))
+-vi.mock('@sdk/biometric.sdk', () => ({ biometric: { unmatchedUnitReport: h.report, unmatchedUnitDevices: async () => [{device_serial: 'UM-1', device_name: 'بصمة الكرخ'}] } }))
++vi.mock('@sdk/biometric.sdk', () => ({ biometricErrorMessage: (e: string) => e, biometric: { unmatchedUnitReport: h.report, unmatchedUnitDevices: async () => [{device_serial: 'UM-1', device_name: 'بصمة الكرخ'}] } }))
++vi.mock('@features/hr', () => ({ useHrEmployees: () => ({ data: [{ id: 'e1', full_name: 'موظف اختبار', employee_number: 'EMP1', biometric_pin: null }], isLoading: false, isError: false, refetch: async () => ({ data: [{ id: 'e1', full_name: 'موظف اختبار', employee_number: 'EMP1', biometric_pin: null }], isError: false }) }) }))
++vi.mock('@features/integrations', async () => { const types = await import('@features/integrations/types'); return { UNMATCHED_STATUS_LABELS: types.UNMATCHED_STATUS_LABELS, UNMATCHED_STATUS_SHORT: types.UNMATCHED_STATUS_SHORT, useLinkBiometricPin: () => ({ isPending: false, mutate: h.link }) } })
+ vi.mock('@features/hr/lib/hrExcel', () => ({ downloadWorkbook: h.download }))
+ vi.mock('@portals/hr/pages/Biometric/UnmatchedArchive', () => ({ default: () => <div data-testid="mock-archive">الأرشيف</div> }))
+ vi.mock('@portals/hr/pages/Biometric/UnmatchedUnitWorkspace', () => ({ default: ({ mode }: { mode: string }) => <div data-testid="mock-unit-workspace">{mode}</div> }))
+@@ -18,7 +20,7 @@ const rows: UnmatchedUnitPerson[] = [
+   { device_serial: 'UM-1', pin: '901', person_name: 'كريم', device_name: 'بصمة الكرخ', branch_id: 'b1', current_pin_linked: false, days: [
+     d('2025-05-01', 'present', { entry: '2025-05-01T16:00:00', exit: '2025-05-02T03:00:00', punch_count: 1 }),
+     d('2025-05-02', 'previous_exit', { exit: '2025-05-02T03:00:00', punch_count: 1 }), d('2025-05-03', 'leave', { manual: true }),
+-    d('2025-05-04', 'missing', { raw_first: '2025-05-04T08:05:00', punch_count: 1 }), d('2025-05-05', 'review'), d('2025-05-06', 'unknown'), d('2025-05-07', 'future'), d('2025-05-08', 'absent')] },
++    d('2025-05-04', 'missing', { raw_first: '2025-05-04T08:05:00', punch_count: 1 }), d('2025-05-05', 'review', { raw_first: '2025-05-05T08:00:00', raw_last: '2025-05-05T17:00:00', punch_count: 3 }), d('2025-05-06', 'unknown'), d('2025-05-07', 'future'), d('2025-05-08', 'absent')] },
+ ]
+ function setup(readOnly = false) { const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }); return render(<QueryClientProvider client={qc}><MemoryRouter><UnmatchedPeoplePage readOnly={readOnly}/></MemoryRouter></QueryClientProvider>) }
+ describe('التقرير الأول بالمحرك المشترك', () => {
+@@ -28,11 +30,28 @@ describe('التقرير الأول بالمحرك المشترك', () => {
+     expect(await screen.findByTestId('um-cell-901-2025-05-01')).toHaveTextContent('ح 11:00')
+     expect(screen.getByTestId('um-cell-901-2025-05-03')).toHaveTextContent('إ')
+     expect(screen.getByTestId('um-cell-901-2025-05-04')).toHaveTextContent('ن 08:05')
+-    expect(screen.getByTestId('um-cell-901-2025-05-05')).toHaveTextContent('مراجعة')
++    expect(screen.getByTestId('um-cell-901-2025-05-05')).toHaveTextContent('08:00 17:00'); expect(screen.getByTestId('unmatched-page')).not.toHaveTextContent('مراجعة')
+     expect(screen.getByTestId('um-cell-901-2025-05-06')).toHaveTextContent('غير محدد')
+     expect(screen.getByTestId('um-cell-901-2025-05-07')).toHaveTextContent('مستقبل')
+     expect(screen.getByTestId('um-cell-901-2025-05-08')).toHaveTextContent('غ')
+-    expect(screen.getByTestId('um-link-901')).toHaveAttribute('href', '/hr/biometric?pin=901')
++    expect(screen.getByTestId('um-link-901')).toHaveTextContent('ربط بموظف')
++  })
++  it('يربط الشخص من التقرير حتى لو لم تكن لديه بصمة اليوم', async () => {
++    h.report.mockResolvedValue([{ ...rows[0]!, days: [d('2025-05-01', 'absent')] }]); setup()
++    fireEvent.click(await screen.findByTestId('um-link-901'))
++    expect(screen.getByTestId('unmatched-link-form')).toHaveTextContent('جميع الأجهزة')
++    fireEvent.change(screen.getByTestId('unmatched-link-employee'), { target: { value: 'e1' } })
++    fireEvent.click(screen.getByRole('button', { name: 'تأكيد الربط' }))
++    await waitFor(() => expect(h.link).toHaveBeenCalledWith({ pin: '901', employeeId: 'e1' }, expect.any(Object)))
++  })
++  it('يبقي الربط لكل جهاز مستقلاً في العرض عند تكرار الرقم', async () => {
++    h.report.mockResolvedValue([rows[0], { ...rows[0]!, person_name: 'شخص آخر', device_serial: 'UM-2' }]); setup()
++    await screen.findByTestId('unmatched-grid')
++    const actions = screen.getAllByTestId('um-link-901'); expect(actions).toHaveLength(2)
++    fireEvent.click(actions[1]!)
++    expect(screen.getByTestId('unmatched-link-form')).toHaveTextContent('شخص آخر')
++    expect(screen.getByTestId('unmatched-link-form')).toHaveTextContent('UM-2')
++    expect(screen.getByTestId('unmatched-link-form')).toHaveTextContent('جميع الأجهزة')
+   })
+   it('يرسل فلاتر الجهاز وPIN والحالة والغياب للخادم', async () => {
+     setup(); await screen.findByTestId('unmatched-grid'); await screen.findByRole('option', { name: /بصمة الكرخ/ })
+@@ -48,6 +67,7 @@ describe('التقرير الأول بالمحرك المشترك', () => {
+     const ws = h.download.mock.calls[0]![0].getWorksheet('غير المطابقين')
+     expect(ws.getRow(6).getCell(6).value).toBe('ح 11:00')
+     expect(ws.getRow(6).getCell(8).value).toBe('إ')
++    expect(ws.getRow(6).getCell(10).value).toBe('08:00\n17:00'); expect(String(ws.getCell(`A${ws.rowCount}`).value)).not.toContain('مراجعة')
+     expect(h.download.mock.calls[0]![0].getWorksheet('التفاصيل اليومية').getRow(7).getCell(6).value).toBe('مجاز')
+   })
+   it('التبديل للصفحات الجديدة والأرشيف ورابط الربط يختفي في نسخة القراءة', async () => {
+diff --git a/tests/unit/components/UnmatchedUnitWorkspace.test.tsx b/tests/unit/components/UnmatchedUnitWorkspace.test.tsx
+index 4bbf2777..c0bd7dad 100644
+--- a/tests/unit/components/UnmatchedUnitWorkspace.test.tsx
++++ b/tests/unit/components/UnmatchedUnitWorkspace.test.tsx
+@@ -10,7 +10,7 @@ vi.mock('@sdk/biometric.sdk', () => ({ biometric: {
+ vi.mock('@features/hr/lib/hrExcel', () => ({ downloadWorkbook: m.download }))
+ 
+ import UnmatchedUnitWorkspace from '@portals/hr/pages/Biometric/UnmatchedUnitWorkspace'
+-import { buildUnitWorkbook, collectUnitRows, unitLocalTime } from '@features/integrations/lib/unmatchedUnitExcel'
++import { buildUnitWorkbook, collectUnitRows, unitCellText, unitLocalTime, unitShownTimes } from '@features/integrations/lib/unmatchedUnitExcel'
+ import type { UnmatchedUnitDay, UnmatchedUnitFilters, UnmatchedUnitPerson } from '@features/integrations/types'
+ 
+ const day = (date: string, status: UnmatchedUnitDay['status'], extra: Partial<UnmatchedUnitDay> = {}): UnmatchedUnitDay => ({ date, status, punch_count: 0, entry: null, exit: null, raw_first: null, raw_last: null, manual_revision: 0, manual: false, ...extra })
+@@ -52,6 +52,23 @@ describe('واجهة وحدة غير المطابقين الجديدة', () => {
+     expect(grid).toHaveTextContent('D1'); expect(grid).toHaveTextContent('D2')
+     expect(grid).toHaveTextContent('سالم')
+   })
++  it('يعرض الأوقات الخام للحالات غير المحسومة بلا عبارة مراجعة أو احتساب حضور', async () => {
++    const ambiguous = { ...rows[0]!, days: [day('2025-05-01', 'review', { punch_count: 3, raw_first: '2025-05-01T08:00:00', raw_last: '2025-05-01T17:00:00' })] }
++    m.report.mockResolvedValue([ambiguous]); setup()
++    const grid = await screen.findByTestId('unit-grid')
++    expect(grid).toHaveTextContent('08:00 صباحاً'); expect(grid).toHaveTextContent('05:00 مساءً'); expect(grid).not.toHaveTextContent('مراجعة')
++    const wb = await buildUnitWorkbook([ambiguous], { from: '2025-05-01', to: '2025-05-01' }, branches, 'details')
++    const line = wb.getWorksheet('تفاصيل يومية')!.getRow(4)
++    const gridExport = await buildUnitWorkbook([ambiguous], { from: '2025-05-01', to: '2025-05-01' }, branches, 'grid')
++    expect(gridExport.getWorksheet('دخول وخروج')!.getRow(4).getCell(6).value).toBe('08:00 صباحاً\n05:00 مساءً')
++    const unknownDirection = day('2025-05-02', 'missing', { punch_count: 1, raw_first: '2025-05-02T09:20:00', raw_last: '2025-05-02T09:20:00' })
++    expect(unitCellText(unknownDirection)).toContain('09:20 صباحاً'); expect(unitShownTimes(unknownDirection).first).toBe(unknownDirection.raw_first)
++    expect(line.getCell(7).value).toBe('—'); expect(line.getCell(8).value).toBe('08:00 صباحاً'); expect(line.getCell(9).value).toBe('05:00 مساءً')
++    fireEvent.click(screen.getByRole('button', { name: 'علي 2025-05-01 —' }))
++    const panel = await screen.findByTestId('unit-person-panel')
++    expect(within(panel).getByTestId('unit-edit-status')).toHaveValue('')
++    expect(within(panel).getByRole('button', { name: 'حفظ اليوم' })).toBeDisabled()
++  })
+   it('يُظهر الأصل والتدقيق ويسجل إجازة يدوية منفصلة', async () => {
+     setup()
+     await screen.findByTestId('unit-grid')
+-- 
+2.47.3
+

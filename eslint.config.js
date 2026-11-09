@@ -14,7 +14,10 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': 'warn',
+      // معطَّل: تحذير Fast Refresh يخص التطوير فقط (الملف الذي يصدّر مكوّناً مع دوال/ثوابت مساعدة
+      // يُعاد تحميله كاملاً عند التعديل بدل HMR الجزئي) ولا أثر له في الإنتاج. نمط المشروع يضع
+      // المساعدات بجانب مكوّنها، و`lint` يرفض أي تحذير (max-warnings 0).
+      'react-refresh/only-export-components': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': 'error',
       // حدود معمارية: منع استيراد Supabase خارج services/
@@ -28,10 +31,10 @@ export default tseslint.config(
   },
   {
     // سكربتات Node (mjs) — globals بيئة Node
-    files: ['scripts/**/*.mjs', 'k6/**/*.js'],
+    files: ['scripts/**/*.mjs', 'k6/**/*.js', 'tools/**/*.mjs', 'tests/db/platform-reset-concurrency-test.mjs'],
     languageOptions: {
       globals: {
-        console: 'readonly', process: 'readonly', fetch: 'readonly',
+        console: 'readonly', process: 'readonly', fetch: 'readonly', setTimeout: 'readonly',
         URL: 'readonly', Buffer: 'readonly', __ENV: 'readonly',
         __VU: 'readonly', __ITER: 'readonly', sleep: 'readonly',
         check: 'readonly', http: 'readonly', Rate: 'readonly',
