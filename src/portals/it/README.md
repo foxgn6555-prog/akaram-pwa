@@ -10,6 +10,7 @@
 | إدارة المستخدمين | المستخدمون (فلاتر + حالة + تعطيل سريع) | /it/user-management | pages/UserManagement/UsersList.tsx |
 | إدارة المستخدمين | إنشاء مستخدم | /it/user-management/create | pages/UserManagement/CreateUser.tsx |
 | إدارة المستخدمين | تفاصيل/إدارة مستخدم (تعديل بيانات + حساب + أدوار) | /it/user-management/:userId | pages/UserManagement/UserDetail.tsx |
+| دعم الدخول | دعم دخول الموظفين (المحادثات والأقفال؛ مدخل سريع من لوحة IT) | /it/login-support | pages/Support/LoginSupportPage.tsx |
 | قاعدة البيانات | نظرة عامة + الجداول (Hub) | /it/database | pages/Database/DatabaseHub.tsx |
 | الفروع | فروع الشركة (إنشاء/تفعيل/تعطيل) | /it/branches | pages/Branches/BranchesPage.tsx |
 | الصلاحيات | مصفوفة الصلاحيات | /it/permissions | pages/Permissions/PermissionsMatrix.tsx |

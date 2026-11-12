@@ -30,12 +30,9 @@ export function useLogin() {
           void queryClient.invalidateQueries({ queryKey: authKeys.all })
           return user
         } catch (error) {
-          const wrapped = new AuthError(
-            'فشل تسجيل الدخول — تحقق من البيانات',
-            'AUTH_FAILED',
-            error,
-          )
-          throw handleAppError(wrapped)
+          // لا نسجل أخطاء بيانات الدخول أو أجسام الطلب في السجلات.
+          if (error instanceof AuthError) throw error
+          throw new AuthError('تعذر تسجيل الدخول — حاول مرة أخرى', 'AUTH_FAILED')
         }
       },
   }

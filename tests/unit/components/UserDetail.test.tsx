@@ -44,6 +44,7 @@ vi.mock('@features/user-management', () => ({
     isLoading: false,
   }),
   useSetUserRole: () => ({ mutate: mockSetRole, isPending: false }),
+  useRoleGrantRequests: () => ({ data: [], isLoading: false }),   // V-36
   useUpdateEmployeeProfile: () => ({ mutate: mockUpdateProfile, isPending: false }),
   useSetUserBanned: () => ({ mutate: mockSetBanned, isPending: false }),
   useResetUserPassword: () => ({ mutate: mockResetPass, isPending: false }),
@@ -174,6 +175,7 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     renderPage()
     const btn = screen.getByTestId('reset-password-btn')
     expect(btn).toBeDisabled()
+    await user.click(screen.getByRole('checkbox', { name: /تم التحقق من هوية الموظف/ }))
     await user.type(screen.getByTestId('new-password'), 'NewPass1')
     expect(btn).toBeEnabled()
     await user.click(btn)

@@ -20,6 +20,7 @@ export default function HeatLayer({ rows, intensity = 1 }: { rows: GpsHotspot[];
     const canvas = L.DomUtil.create('canvas', 'leaflet-zoom-hide waste-heat-canvas') as HTMLCanvasElement
     canvas.style.position = 'absolute'
     canvas.style.pointerEvents = 'none'
+    canvas.style.opacity = '0.78'
     canvas.setAttribute('data-testid', 'waste-heat-canvas')
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
@@ -38,7 +39,7 @@ export default function HeatLayer({ rows, intensity = 1 }: { rows: GpsHotspot[];
       const zoom = map.getZoom()
       const pts: HeatPoint[] = rowsRef.current.map((h) => {
         const p = map.latLngToContainerPoint([h.lat, h.lng])
-        const r = Math.max(14, metersToPixels(heatRadiusMeters(h), h.lat, zoom))
+        const r = Math.max(12, metersToPixels(heatRadiusMeters(h) * 0.9, h.lat, zoom))
         return { x: p.x, y: p.y, r, w: Math.min(1, heatWeight(h) * intensity) }
       })
       paintHeatPoints(ctx, pts, size.x, size.y)

@@ -50,9 +50,9 @@ describe('بوابة الإعلام', () => {
     ])
   })
 
-  it('الحارس يسمح لمسؤول الإعلام وتقنية المعلومات فقط', () => {
+  it('V-32 · الحارس يسمح لمسؤول الإعلام وحده (لا استثناء لتقنية المعلومات)', () => {
     const route = PORTAL_ROUTES.find((item) => item.portal === PORTALS.MEDIA)
-    expect(route?.allowedRoles).toEqual(['media_officer', 'it_admin'])
+    expect(route?.allowedRoles).toEqual(['media_officer'])
   })
 
   it('تسجل migration الدور في القيد وJWT وRPC دون فتح RLS', () => {

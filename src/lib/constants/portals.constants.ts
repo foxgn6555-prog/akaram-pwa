@@ -14,6 +14,7 @@ export const PORTALS = {
   EXECUTIVE: 'executive',
   DEPUTY: 'deputy',
   OPS_ROOM: 'ops-room',
+  OPS_ROOM_MANAGER: 'ops-room-manager',
   COMPLAINTS: 'complaints',
   MEDIA: 'media',
   CENTRAL_GARAGE: 'central-garage',
@@ -46,6 +47,8 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
   { id: PORTALS.EXECUTIVE,       path: '/executive',       allowedRoles: ['executive_director'], colorVar: '--portal-executive' },
   { id: PORTALS.DEPUTY,          path: '/deputy',          allowedRoles: ['deputy_director'], colorVar: '--portal-deputy' },
   { id: PORTALS.OPS_ROOM,        path: '/ops-room',        allowedRoles: ['ops_room'], colorVar: '--portal-ops-room' },
+  // 00400: بوابة مدير غرفة العمليات — الموافقات (إجازات/سلف/كشوفات) + تقارير الوقود (قراءة)
+  { id: PORTALS.OPS_ROOM_MANAGER, path: '/ops-room-manager', allowedRoles: ['ops_room_manager'], colorVar: '--portal-ops-room-manager' },
   { id: PORTALS.COMPLAINTS, path: '/complaints', allowedRoles: ['complaints_officer'], colorVar: '--portal-complaints' },
   { id: PORTALS.MEDIA, path: '/media', allowedRoles: ['media_officer'], colorVar: '--portal-media' },
   { id: PORTALS.CENTRAL_GARAGE, path: '/central-garage', allowedRoles: ['central_garage_officer'], colorVar: '--portal-central-garage' },
@@ -53,14 +56,19 @@ export const PORTAL_DEFINITIONS: readonly PortalDefinition[] = [
   { id: PORTALS.FOLLOW_UP, path: '/follow-up', allowedRoles: ['follow_up'], colorVar: '--portal-follow-up' },
 ] as const
 
-/** البوابات التي تظهر في مبدّل الحساب؛ it_admin يرى كل البوابات للإدارة والتنقل. */
+/**
+ * البوابات التي تظهر في مبدّل الحساب — **بأدوار الحساب فقط**.
+ * V-32 (قرار المستخدم): أُلغي استثناء `it_admin`؛ كل بوابة تُعرض لصاحب دورها وحده،
+ * فلا تداخل ولا أخطاء عرض بين البوابات.
+ */
 export function portalsVisibleInSwitcher(roles: readonly string[]): PortalDefinition[] {
-  if (roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
 }
 
-/** صلاحية فتح مسارات البوابات للحارس؛ لا تغيّر صلاحيات البيانات التي تقررها قاعدة البيانات. */
+/**
+ * صلاحية فتح مسارات البوابات للحارس؛ لا تغيّر صلاحيات البيانات التي تقررها قاعدة البيانات.
+ * V-32: بلا استثناء — الوصول بالدور الممنوح فقط (منح الدور يجري من /it/user-management).
+ */
 export function accessiblePortals(roles: readonly string[]): PortalDefinition[] {
-  if (roles.includes('it_admin')) return [...PORTAL_DEFINITIONS]
   return PORTAL_DEFINITIONS.filter((p) => p.allowedRoles.some((r) => roles.includes(r)))
 }

@@ -23,6 +23,7 @@ const DatabaseHub = lazy(() => import('@portals/it/pages/Database/DatabaseHub'))
 const DatabaseOverview = lazy(() => import('@portals/it/pages/Database/DatabaseOverview'))
 const TableDetailPage = lazy(() => import('@portals/it/pages/Database/TableDetailPage'))
 const ConsolePage = lazy(() => import('@portals/it/pages/Console/ConsolePage'))
+const LoginSupportPage = lazy(() => import('@portals/it/pages/Support/LoginSupportPage'))
 
 // ── الوحدات الجديدة (الجولة 4) ──
 const BranchesPage = lazy(() => import('@portals/it/pages/Branches/BranchesPage'))
@@ -70,6 +71,9 @@ export const customRoutes: RouteObject[] = [
   { path: 'user-management/disclosure-types', element: s(<DisclosureTypesPage />) },
   { path: 'user-management/maintenance-workshops', element: s(<MaintenanceWorkshopsPage />) },
   { path: 'user-management/:userId', element: s(<UserDetail />) },
+
+  // ── دعم الدخول للموظفين: محادثة، أقفال، وإعادة ضبط بعد التحقق ──
+  { path: 'login-support', element: s(<LoginSupportPage />) },
 
   // ── وحدة قاعدة البيانات ──
   { path: 'database', element: s(<DatabaseHub />) },

@@ -1,103 +1,52 @@
 /**
- * حارس الدخول (طبقة المتصفح) — UX protection:
- *  · 5 محاولات فاشلة → إقفال محلي 15 دقيقة مع عد تنازلي
- *  · الخادم هو الحاكم دائماً (is_login_locked RPC) — هذا الحارس
- *    يمنع الإزعاج المبكر ويخفف الضغط قبل الوصول للخادم.
- * التخزين: localStorage بمفتاح معزول + انتهاء صلاحية ذاتي.
+ * واجهة العرض المحلية لقفل فرضه الخادم فقط.
+ * لا تُحتسب الإخفاقات في المتصفح؛ استجابة staff-login هي المصدر الموثوق.
+ * القفل المحلي مربوط بالبريد حتى لا يمنع حساباً آخر على الجهاز نفسه.
  */
 import { logger } from '@lib/monitoring/logger'
 
-const STORAGE_KEY = 'akram:login-guard'
-const MAX_FAILURES = 5
-const LOCK_WINDOW_MS = 15 * 60_000
+const STORAGE_KEY = 'akram:server-login-lock'
+const LOCK_DURATION_MS = 5 * 60_000
+interface StoredLock { email: string; lockedUntil: number }
+export interface LockStatus { locked: boolean; remainingMs: number; failuresLeft: number | null }
 
-export interface GuardState {
-  failures: number
-  firstFailureAt: number
-  lockedUntil: number
-}
-
-function read(): GuardState | null {
+function read(): StoredLock | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as GuardState) : null
-  } catch {
-    return null
-  }
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredLock>
+    if (typeof parsed.email !== 'string' || !Number.isFinite(parsed.lockedUntil)) return null
+    return { email: parsed.email, lockedUntil: Number(parsed.lockedUntil) }
+  } catch { return null }
 }
 
-function write(state: GuardState | null): void {
+/** يخزن موعد انتهاء أرسله الخادم، للعرض فقط. */
+export function setServerLock(lockedUntil: string | number, email: string): LockStatus {
+  const timestamp = typeof lockedUntil === 'number' ? lockedUntil : Date.parse(lockedUntil)
+  if (!Number.isFinite(timestamp) || timestamp <= Date.now()) return lockStatus(email)
   try {
-    if (state === null) localStorage.removeItem(STORAGE_KEY)
-    else localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email: email.trim().toLowerCase(), lockedUntil: timestamp }))
   } catch (error) {
-    logger.warn('login-guard: تعذر الحفظ في التخزين المحلي', { error })
+    logger.warn('login-guard: تعذر حفظ موعد انتهاء القفل المبلّغ من الخادم', { error })
   }
+  return lockStatus(email)
 }
 
-/** يصفّر العداد إذا فاتت نافذة الـ 15 دقيقة */
-export function normalizeState(): GuardState | null {
+export function lockStatus(email = ''): LockStatus {
   const state = read()
-  if (!state) return null
-  if (Date.now() - state.firstFailureAt > LOCK_WINDOW_MS && Date.now() > state.lockedUntil) {
-    write(null)
-    return null
-  }
-  return state
-}
-
-export interface LockStatus {
-  locked: boolean
-  remainingMs: number
-  failuresLeft: number
-}
-
-export function lockStatus(): LockStatus {
-  const state = normalizeState()
-  if (!state) return { locked: false, remainingMs: 0, failuresLeft: MAX_FAILURES }
-
+  if (!state || state.email !== email.trim().toLowerCase()) return { locked: false, remainingMs: 0, failuresLeft: null }
   const remainingMs = Math.max(0, state.lockedUntil - Date.now())
-  return {
-    locked: remainingMs > 0,
-    remainingMs,
-    failuresLeft: Math.max(0, MAX_FAILURES - state.failures),
-  }
+  if (!remainingMs) clearLocalLock()
+  return { locked: remainingMs > 0, remainingMs, failuresLeft: null }
 }
 
-/** تسجيل فشل — يعيد الحالة بعد التسجيل */
-export function recordFailure(): LockStatus {
-  const now = Date.now()
-  const state = normalizeState()
-
-  if (!state || now - state.firstFailureAt > LOCK_WINDOW_MS) {
-    const fresh: GuardState = { failures: 1, firstFailureAt: now, lockedUntil: 0 }
-    write(fresh)
-    return { locked: false, remainingMs: 0, failuresLeft: MAX_FAILURES - 1 }
-  }
-
-  const failures = state.failures + 1
-  const locked = failures >= MAX_FAILURES
-  const updated: GuardState = {
-    ...state,
-    failures,
-    lockedUntil: locked ? now + LOCK_WINDOW_MS : state.lockedUntil,
-  }
-  write(updated)
-
-  if (locked) {
-    logger.warn('login-guard: إقفال محلي بعد 5 محاولات فاشلة')
-  }
-  return {
-    locked,
-    remainingMs: locked ? LOCK_WINDOW_MS : 0,
-    failuresLeft: Math.max(0, MAX_FAILURES - failures),
-  }
+export function recordSuccess(email?: string): void {
+  if (!email || read()?.email === email.trim().toLowerCase()) clearLocalLock()
 }
 
-/** تسجيل نجاح الدخول — مسح كامل */
-export function recordSuccess(): void {
-  write(null)
+function clearLocalLock(): void {
+  try { localStorage.removeItem(STORAGE_KEY) }
+  catch (error) { logger.warn('login-guard: تعذر مسح القفل المحلي', { error }) }
 }
 
-/** معايرة الاختبارات — غير موجهة للاستهلاك العام */
-export const __internals = { MAX_FAILURES, LOCK_WINDOW_MS, STORAGE_KEY }
+export const __internals = { LOCK_DURATION_MS, STORAGE_KEY }

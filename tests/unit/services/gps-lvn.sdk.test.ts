@@ -266,7 +266,7 @@ describe('LVN GPS SDK', () => {
     expect((await gpsLvn.tripRouteSettings()).stop_min_seconds).toBe(120)
     expect(h.rpc).toHaveBeenCalledWith('trip_route_settings_get')
     await gpsLvn.saveTripRouteSettings({ stop_min_seconds: 180 })
-    expect(h.rpc).toHaveBeenCalledWith('trip_route_settings_save', { p_patch: { stop_min_seconds: 180 } })
+    expect(h.rpc).toHaveBeenCalledWith('trip_route_settings_save', { p: { stop_min_seconds: 180 } })
     h.rpc.mockResolvedValueOnce({ data: { departure_id: 'dep1', status: 'complete', points: [], stops: [], gaps: [], legs: [] }, error: null })
     expect((await gpsLvn.tripRoute('dep1')).status).toBe('complete')
     expect(h.rpc).toHaveBeenCalledWith('trip_route_get_v2', { p_departure: 'dep1', p_max_points: 3000 })

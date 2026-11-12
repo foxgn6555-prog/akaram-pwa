@@ -27,6 +27,8 @@ import { useAuth } from '@features/auth/hooks/useAuth'
 import { useDepartments } from '@features/departments'
 import { useManagerProfileForUser, useSaveManagerProfile, useSectors } from '@features/sector'
 import { ROLE_LABELS } from '@lib/constants/roles.constants'
+import { SENSITIVE_ROLES } from '@sdk/users.sdk'
+import { useRoleGrantRequests } from '@features/user-management'
 import type { Role } from '@lib/constants/roles.constants'
 import { formatDate } from '@lib/utils/date.utils'
 import { initials } from '@lib/utils/string.utils'
@@ -51,6 +53,7 @@ export default function UserDetail() {
   const { data: departments } = useDepartments()
   const { data: user, isLoading } = useUserFromList(userId)
   const setUserRole = useSetUserRole()
+  const grantRequests = useRoleGrantRequests(userId)
   const updateProfile = useUpdateEmployeeProfile()
   const setBanned = useSetUserBanned()
   const resetPassword = useResetUserPassword()
@@ -70,11 +73,12 @@ export default function UserDetail() {
   const [confirmRole, setConfirmRole] = useState<Role | null>(null)
   const [confirmBan, setConfirmBan] = useState<boolean | null>(null)
   const [newPassword, setNewPassword] = useState('')
+  const [phoneVerified, setPhoneVerified] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [newEmail, setNewEmail] = useState('')
 
   const isSelf = !!userId && userId === session?.id
-  const isITAdmin = session?.roles.includes('it_admin') ?? false
+  const isITAdmin = session?.roles?.includes('it_admin') ?? false
   const isBanned = !!user?.banned_until
 
   // نموذج تعديل بيانات الموظف — يُملأ من بيانات المستخدم عند وصولها
@@ -133,6 +137,10 @@ export default function UserDetail() {
 
   const hasRole = (role: Role): boolean => user.roles.includes(role)
 
+  // V-36: طلبات الأدوار الحساسة المعلّقة لهذا الحساب
+  const pendingFor = (role: string) =>
+    (grantRequests.data ?? []).find((r) => r.role === role && r.status === 'pending')
+
   const toggle = (role: Role): void => {
     if (!userId || (isSelf && !isITAdmin)) return
     // تأكيد إضافي لمنح أعلى دور (it_admin)
@@ -162,8 +170,11 @@ export default function UserDetail() {
   }
 
   const submitResetPassword = (): void => {
-    if (!userId) return
-    resetPassword.mutate({ userId, password: newPassword }, { onSuccess: () => setNewPassword('') })
+    if (!userId || !user.phone || !phoneVerified) return
+    resetPassword.mutate(
+      { userId, password: newPassword },
+      { onSuccess: () => { setNewPassword(''); setPhoneVerified(false) } },
+    )
   }
 
   const submitEmail = (): void => {
@@ -357,8 +368,16 @@ export default function UserDetail() {
         <div className="rounded-xl border border-slate-100 px-4 py-3">
           <p className="text-sm font-semibold">إعادة تعيين كلمة المرور</p>
           <p className="mb-2 text-xs text-slate-500">
-            عيّن كلمة مرور جديدة (8 أحرف فأكثر · حرف · رقم) وشاركها بقناة آمنة
+            لا تسترجع كلمة المرور القديمة؛ اتصل أولاً بالرقم المسجل ثم عيّن كلمة جديدة (8 أحرف فأكثر · حرف · رقم) وأبلغ الموظف هاتفياً.
           </p>
+          {user.phone ? (
+            <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+              <input type="checkbox" checked={phoneVerified} onChange={(e) => setPhoneVerified(e.target.checked)} className="mt-0.5" />
+              <span>تم التحقق من هوية الموظف باتصال إلى الرقم المسجل: <b dir="ltr">{user.phone}</b></span>
+            </label>
+          ) : (
+            <p className="mb-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">لا يوجد رقم هاتف مسجل لهذا الموظف؛ لا يمكن إعادة الضبط حتى تحديث بيانات الاتصال والتحقق منها.</p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-56 flex-1">
               <input
@@ -383,7 +402,7 @@ export default function UserDetail() {
             <Button
               type="button"
               onClick={submitResetPassword}
-              disabled={resetPassword.isPending || newPassword.length < 8}
+              disabled={resetPassword.isPending || newPassword.length < 8 || !user.phone || !phoneVerified}
               data-testid="reset-password-btn"
             >
               تعيين كلمة المرور
@@ -570,6 +589,9 @@ export default function UserDetail() {
         <h2 className="mb-1 text-sm font-bold">أدوار البوابات</h2>
         <p className="mb-4 text-xs text-slate-500">
           المنح/السحب فوري ومؤرشف باسمك — IT تستطيع تعديل أدوارها، مع منع سحب دور آخر مسؤول IT.
+          <span className="mt-1 block font-bold text-amber-800">
+            الأدوار الحساسة ({SENSITIVE_ROLES.map((r) => ROLE_LABELS[r]).join(' · ')}): لا تُمنح ولا تُسحب إلا بعد موافقة المدير المفوض.
+          </span>
         </p>
         <ul className="space-y-2" data-testid="roles-list">
           {ASSIGNABLE_ROLES.map((role) => {
@@ -587,6 +609,14 @@ export default function UserDetail() {
                   {granted && (
                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       ممنوح
+                    </span>
+                  )}
+                  {pendingFor(role) && (
+                    <span
+                      data-testid={`role-pending-${role}`}
+                      className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900"
+                    >
+                      {pendingFor(role)?.is_grant ? 'قيد موافقة المدير المفوض' : 'سحب بانتظار الموافقة'}
                     </span>
                   )}
                 </div>

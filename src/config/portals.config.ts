@@ -115,6 +115,12 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
     colorVar: '--portal-ops-room',
     themeClass: 'portal-ops-room',
   },
+  [PORTALS.OPS_ROOM_MANAGER]: {
+    label: 'مدير غرفة العمليات',
+    icon: 'activity',
+    colorVar: '--portal-ops-room-manager',
+    themeClass: 'portal-ops-room-manager',
+  },
   [PORTALS.COMPLAINTS]: {
     label: 'بوابة الشكاوى',
     icon: 'clipboard',
@@ -348,6 +354,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin/approval-performance', labelKey: 'nav.approval_performance', icon: 'gauge' },   // 00337
     { path: '/admin/procedures', labelKey: 'nav.procedures', icon: 'flow' },
     { path: '/admin/disclosures', labelKey: 'nav.admin_disclosures', icon: 'alert-triangle' },
+    { path: '/admin/company', labelKey: 'nav.admin_company_data', icon: 'database' },   // كل بيانات الشركة: أسطول/وقود · GPS · إعلام · متعهدون · سجل تدقيق
   ],
 
   // ═══ البوابات السبع الجديدة — فارغة (صفحة رئيسية Placeholder فقط،
@@ -479,6 +486,13 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
     { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
     { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+  ],
+
+  // ═══ 00400: بوابة مدير غرفة العمليات — وحدتان فقط: الموافقات + تقارير الوقود ═══
+  [PORTALS.OPS_ROOM_MANAGER]: [
+    { path: '/ops-room-manager', labelKey: 'nav.dashboard', icon: 'home', exact: true },
+    { path: '/ops-room-manager/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+    { path: '/ops-room-manager/fuel-reports', labelKey: 'nav.fuel_reports', icon: 'bar-chart' },
   ],
 
   // ═══ وحدة الكشوفات ═══

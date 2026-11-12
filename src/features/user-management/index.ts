@@ -2,6 +2,7 @@
 export { useUsers, useUserFromList } from './hooks/useUsers'
 export { useCreateUser } from './hooks/useCreateUser'
 export { useSetUserRole } from './hooks/useSetUserRole'
+export { useRoleGrantRequests } from './hooks/useRoleGrantRequests'
 export { useUpdateEmployeeProfile } from './hooks/useUpdateEmployeeProfile'
 export {
   useSetUserBanned,

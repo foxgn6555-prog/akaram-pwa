@@ -1,45 +1,48 @@
-/** SDK المصادقة — عبر mock كامل لعميل Supabase */
+/** SDK المصادقة — اختبار بوابة staff-login دون اتصال شبكي */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@sdk/client', () => ({
-  isNetworkError: (e: unknown) => e instanceof TypeError,
+  sdkGuard: vi.fn(),
+  sdkVoid: vi.fn(),
   supabase: {
-    auth: {
-      signInWithPassword: vi.fn(),
-      getSession: vi.fn(),
-    },
+    functions: { invoke: vi.fn() },
+    auth: { setSession: vi.fn(), getSession: vi.fn(), signOut: vi.fn() },
     from: vi.fn(),
-    rpc: vi.fn(async () => ({ data: false, error: null })) as never,  // is_login_locked → غير مقفل
   },
 }))
 
 import { auth } from '@sdk/auth.sdk'
 import { supabase } from '@sdk/client'
 
-describe('auth.sdk', () => {
-  beforeEach(() => vi.clearAllMocks())
+const gatewayError = (body: Record<string, unknown>) => ({
+  message: 'Edge Function returned a non-2xx status code',
+  context: new Response(JSON.stringify(body), { status: 401, headers: { 'Content-Type': 'application/json' } }),
+})
 
-  it('login يفشل برسالة موحدة آمنة (لا تسرّب تفاصيل الخادم)', async () => {
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
-      data: { user: null, session: null },
-      error: { message: 'Invalid login credentials', code: '400' },
-    } as never)
-
-    // الرسالة للمستخدم موحدة دائماً — لا تفرق بين بريد غير موجود وكلمة مرور خاطئة
-    await expect(auth.login('x@y.z', 'wrong-pass')).rejects.toThrow(
-      'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-    )
-    // وفشل المصادقة سُجل على الخادم نحو إقفال الحساب
-    expect(supabase.rpc).toHaveBeenCalledWith('record_login_attempt', {
-      p_email: 'x@y.z',
-      p_success: false,
-    })
+describe('auth.sdk staff-login gateway', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
   })
 
-  it('حساب مقفل → يرفض قبل استهلاك محاولة مصادقة', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: true, error: null } as never)
+  it('يعرض رسالة بيانات موحدة عند رفض بيانات الدخول', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: gatewayError({ error: 'INVALID_CREDENTIALS', failures_left: 8 }) } as never)
 
-    await expect(auth.login('locked@akram.iq', 'Password1')).rejects.toThrow('قفل الدخول')
-    expect(supabase.auth.signInWithPassword).not.toHaveBeenCalled()
+    await expect(auth.login(' X@Y.Z ', 'wrong-pass')).rejects.toThrow('البريد الإلكتروني أو كلمة المرور غير صحيحة')
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('staff-login', expect.objectContaining({
+      body: expect.objectContaining({ email: 'x@y.z', password: 'wrong-pass', source_id: expect.any(String) }),
+    }))
+    expect(supabase.auth.setSession).not.toHaveBeenCalled()
+  })
+
+  it('يعرض موعد القفل الذي أعاده الخادم ولا يرسل محاولة دخول إضافية', async () => {
+    const lockedUntil = '2026-11-08T23:05:00.000Z'
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: gatewayError({ error: 'SOURCE_LOCKED', locked_until: lockedUntil }) } as never)
+
+    await expect(auth.login('locked@akram.iq', 'Password1')).rejects.toMatchObject({
+      message: 'أُوقف الدخول مؤقتاً من هذا الجهاز لمدة خمس دقائق. يمكنك التواصل مع الدعم.',
+      lockedUntil,
+    })
+    expect(supabase.auth.setSession).not.toHaveBeenCalled()
   })
 })

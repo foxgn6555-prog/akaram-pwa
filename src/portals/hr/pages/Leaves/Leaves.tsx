@@ -75,7 +75,7 @@ function RequestsTab() {
       {onBehalf && (
         <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/30 p-3" data-testid="lv-behalf-panel">
           <label className="block text-xs font-semibold text-slate-600">الموظف
-            <select className={clsx(field, 'mt-1')} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} data-testid="lv-behalf-emp">
+            <select className={clsx(field, 'mt-1')} aria-required="true" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} data-testid="lv-behalf-emp">
               <option value="">— اختر الموظف —</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_number}</option>)}
             </select>
           </label>

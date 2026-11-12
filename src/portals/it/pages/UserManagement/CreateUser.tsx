@@ -156,6 +156,7 @@ export default function CreateUser() {
             <input
               id="cu-email"
               type="email"
+              aria-required="true"
               dir="ltr"
               autoComplete="off"
               placeholder="name@akram.iq"
@@ -168,6 +169,7 @@ export default function CreateUser() {
             <input
               id="cu-name"
               autoComplete="off"
+              aria-required="true"
               placeholder="مثال: أحمد علي حسن"
               className={inputClass(!!errors.full_name)}
               {...register('full_name')}
@@ -185,6 +187,7 @@ export default function CreateUser() {
           <div className="relative">
             <input
               id="cu-password"
+              aria-required="true"
               type={showPassword ? 'text' : 'password'}
               dir="ltr"
               autoComplete="new-password"

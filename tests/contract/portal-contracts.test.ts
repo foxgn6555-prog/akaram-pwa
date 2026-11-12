@@ -52,7 +52,8 @@ describe('⚓ عقد البوابة التقنية', () => {
           ),
         )
         // database/errors: تحويل قديم إلى /it/console (الروابط المحفوظة) — ليس صفحة
-        .concat(['user-management/:userId', 'database/tables/:tableName', 'database/errors', 'devops/:slug']),   // devops/:slug (00275): صفحة دليل بحسب المعرّف
+        // login-support: صفحة مستقلة مدخلها المقصود QuickAction في لوحة IT، واختبارها في ITDashboard.test.tsx
+        .concat(['user-management/:userId', 'database/tables/:tableName', 'database/errors', 'devops/:slug', 'login-support']),   // devops/:slug (00275): صفحة دليل بحسب المعرّف
     )
     for (const route of allRoutes) {
       expect(sidebarPaths.has(route), `مسار يتيم: ${route}`).toBe(true)

@@ -4,12 +4,16 @@ import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({ icons: [] as Array<{ html: string }> }))
 vi.mock('leaflet', () => ({ default: { latLngBounds: vi.fn((pts: unknown) => pts), divIcon: vi.fn((o: { html: string }) => { h.icons.push(o); return o }) } }))
-vi.mock('react-leaflet', () => ({
-  useMap: () => ({ fitBounds: vi.fn(), on: vi.fn(), off: vi.fn(), invalidateSize: vi.fn(), getCenter: () => ({ lat: 33.3, lng: 44.4 }), getZoom: () => 13 }),
-  MapContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+vi.mock('react-leaflet', () => {
+  const map = { fitBounds: vi.fn(), on: vi.fn(), off: vi.fn(), invalidateSize: vi.fn(), getCenter: () => ({ lat: 33.3, lng: 44.4 }), getZoom: () => 13, getContainer: () => document.querySelector('[data-testid="gps-leaflet-map"]') }
+  return {
+  useMap: () => map,
+  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="gps-leaflet-map">{children}</div>,
+
   TileLayer: ({ url }: { url: string }) => <i data-testid="tile" data-url={url} />, Polygon: () => null,
   Marker: ({ children }: { children?: ReactNode }) => <div data-testid="marker">{children}</div>, Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}))
+  }
+})
 vi.mock('@portals/ops-room/pages/Gps/LandmarkIcon', () => ({ landmarkDivIcon: () => ({}) }))
 import GpsLiveMap, { arrowIcon } from '@portals/ops-room/pages/Gps/GpsLiveMap'
 import type { GpsLiveDevice } from '@sdk/gps-lvn.sdk'
@@ -32,10 +36,12 @@ describe('00388-ج · مركبات متوهّجة ووضع ليلي', () => {
     render(<GpsLiveMap rows={[dev('a', 'moving', 10), dev('b', 'parked', 0)]} zones={[]} landmarks={[]} />)
     const root = screen.getByTestId('gps-live-map')
     expect(root.getAttribute('data-map-theme')).toBe('light')
-    expect(screen.getByTestId('tile').getAttribute('data-url')).toContain('openstreetmap')
+    expect(screen.getByTestId('gps-leaflet-map').getAttribute('data-tiles')).toBe('osm')
     fireEvent.click(screen.getByTestId('gps-live-map-theme'))
     expect(root.getAttribute('data-map-theme')).toBe('dark')
-    expect(screen.getByTestId('tile').getAttribute('data-url')).toContain('dark')
+    expect(screen.getByTestId('gps-leaflet-map').getAttribute('data-tiles')).toBe('osm-filtered')
+    expect(screen.getByTestId('gps-leaflet-map').classList.contains('akaram-tiles-filtered')).toBe(true)
+    expect(screen.getByTestId('tile').getAttribute('data-url')).toContain('tile.openstreetmap.org')
     expect(window.localStorage.getItem('akaram.map-theme')).toBe('dark')
     expect(screen.getAllByTestId('marker')).toHaveLength(2)
   })

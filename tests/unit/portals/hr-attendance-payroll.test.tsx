@@ -225,10 +225,14 @@ describe('HR — الحضور والانصراف (قراءة فقط)', () => {
 })
 
 describe('غرفة العمليات — الحضوريات', () => {
-  it('لوحة غير المطابقة تظهر في حضوريات غرفة العمليات أيضاً', () => {
+  it('V-27 (قرار المستخدم): لوحة غير المطابقة لا تظهر في حضوريات غرفة العمليات — تبقى في HR فقط', () => {
     h.unmatched = [{ id: 'u1', device_serial: 'SFAA1', pin: '373', employee_id: null, punched_at: '2026-10-04T15:03:00Z', direction: 'in', person_name: null, method: 'adms_push', device_user_name: null }]
+    h.unmatchedFilters = null
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)
-    expect(screen.getByTestId('unmatched-count')).toHaveTextContent('1')
+    expect(screen.queryByTestId('unmatched-count')).toBeNull()
+    expect(screen.queryByTestId('unmatched-panel')).toBeNull()
+    // ولا يُطلب سجل البصمات إطلاقاً من هذه الشاشة (لا طلبات مرفوضة BIO_FORBIDDEN)
+    expect(h.unmatchedFilters).toBeNull()
   })
   it('التعديل يرفض بلا سبب ثم يرسل البصمة الأصلية والحساب الآلي', async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><OpsAttendancePage /></MemoryRouter></QueryClientProvider>)

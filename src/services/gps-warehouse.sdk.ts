@@ -65,8 +65,8 @@ export interface GpsWarehousePing {
   progress?: GpsWarehouseProgress
   server_time: string
 }
-export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed' | 'wipe'
-export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number; rows?: number; by_month?: Record<string, number>; pending?: number }
+export type GpsWarehouseAction = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'set_hotspot_radius' | 'hotspots_status' | 'retry_failed' | 'wipe'
+export interface GpsWarehouseResult { ok: boolean; action: GpsWarehouseAction; host?: string | null; ping?: GpsWarehousePing; sent?: number; result?: Record<string, unknown>; error?: string; skipped?: string; jobs?: number; results?: Record<string, unknown>[]; ms?: number; rows?: number; by_month?: Record<string, number>; pending?: number; months?: string[]; skipped_empty_months?: string[] }
 
 async function toError(error: unknown): Promise<LvnSyncError> {
   const context = (error as { context?: Response }).context
@@ -82,7 +82,7 @@ export const gpsWarehouse = {
     if (error) throw new LvnSyncError(error.message)
     return data as unknown as GpsWarehouseLink
   },
-  run: async (action: GpsWarehouseAction, extra: { month?: string; limit?: number } = {}): Promise<GpsWarehouseResult> => {
+  run: async (action: GpsWarehouseAction, extra: { month?: string; limit?: number; radius_m?: number } = {}): Promise<GpsWarehouseResult> => {
     const { data, error } = await supabase.functions.invoke<GpsWarehouseResult>('gps-warehouse', { body: { action, ...extra } })
     if (error) throw await toError(error)
     if (!data?.ok) throw new LvnSyncError(data?.error ?? 'GPS_WAREHOUSE_FAILED')

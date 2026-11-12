@@ -26,12 +26,20 @@ export const useMyPermissionsStore = create<PermState>((set) => ({
 
 let inflight: Promise<void> | null = null
 /** يُحمِّل صلاحيات المستخدم الحالي (آمن للاستدعاء المتكرر؛ يعيد التحميل إن تغيّر المستخدم أو force) */
+/** خريطة صلاحيات حقيقية؟ (كائن غير فارغ) — أي شيء آخر ⇒ لا معلومات */
+function isPermissionMap(value: unknown): value is MyPermissions {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
 export function loadMyPermissions(userId: string, force = false): Promise<void> {
   const st = useMyPermissionsStore.getState()
   if (st.loaded && st.userId === userId && !force) return Promise.resolve()
   if (inflight && !force) return inflight
   inflight = (sdkGuard(supabase.rpc('my_permissions')) as Promise<MyPermissions | null>)
-    .then((p) => useMyPermissionsStore.getState().set(userId, p ?? null))
+    // V-28: في وضع «العرض بلا بيانات» يعود النداء مصفوفةً فارغة (لا كائن صلاحيات) —
+    // والمصفوفة الفارغة ليست null فتُحجب كل الوحدات ويُطرد it_admin إلى /403.
+    // الفراغ هنا يعني «لا معلومات» ⇒ null ⇒ السلوك نفسه عند فشل التحميل (بلا حجب).
+    .then((p) => useMyPermissionsStore.getState().set(userId, isPermissionMap(p) ? p : null))
     .catch(() => useMyPermissionsStore.getState().set(userId, null)) // فشل = لا حجب في الواجهة
     .finally(() => { inflight = null })
   return inflight

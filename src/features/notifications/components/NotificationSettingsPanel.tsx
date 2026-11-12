@@ -74,7 +74,11 @@ export function NotificationSettingsPanel({ onClose }: { onClose: () => void }) 
             ? 'على iPhone: أضف التطبيق إلى الشاشة الرئيسية أولاً'
             : code === 'PUSH_PERMISSION_DENIED'
               ? 'لم يمنح المتصفح إذن الإشعارات'
-              : 'تعذر تفعيل Push؛ تحقق من إعدادات الجهاز',
+              : code === 'PUSH_WORKER_NOT_READY'
+                ? 'إشعارات الهاتف تعمل في النسخة المنشورة (HTTPS) فقط — لا تعمل في وضع التطوير. أعد المحاولة من المنصة المنشورة'
+              : code === 'PUSH_PUBLIC_KEY_MISSING' || code === 'PUSH_SERVER_NOT_CONFIGURED'
+                ? 'إشعارات الهاتف غير مفعّلة في هذه النسخة من النظام؛ استخدم جرس الإشعارات داخل النظام، وراجع تقنية المعلومات لتفعيلها'
+                : 'تعذر تفعيل إشعارات الهاتف؛ تحقق من إعدادات الجهاز أو جرّب من المنصة المنشورة',
       })
     } finally {
       setBusy(false)
