@@ -41,6 +41,14 @@ verify_jwt = false
 [functions.mailgun-events]
 verify_jwt = false
 
+# واجهة دخول الموظفين تتحقق من كلمة المرور داخل الدالة وتطبق قفل المصدر خادمياً.
+[functions.staff-login]
+verify_jwt = false
+
+# طلبات المحادثة عامة برمز متابعة؛ إجراءات الإدارة تتحقق من JWT ودور it_admin داخل الدالة.
+[functions.login-support]
+verify_jwt = false
+
 # الإرسال يستدعيه مستخدم التطبيق ويظل JWT إلزامياً.
 [functions.mailgun-send]
 verify_jwt = true
