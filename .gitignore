@@ -26,6 +26,11 @@ coverage/
 .DS_Store
 *.local
 
-# Supabase local runtime
+# Supabase local runtime — يشمل المشاريع الفرعية (gps-warehouse) لا الجذر فقط (ع-4)
+**/supabase/.temp/
+**/supabase/.branches/
 supabase/.temp/
 supabase/.branches/
+
+# ملفات الباتشات القديمة — لم تعد جزءاً من آلية التسليم (تُحرَّر الملفات مباشرة)
+*.patch

@@ -7,8 +7,9 @@
 | HR | `hr_officer` | `role: hr_officer` | `/hr/*` | يدير الموظفين والأدوار والحضور والرواتب |
 | Manager | `department_manager` | `role: department_manager` | `/manager/*` | **مسؤول قسم** — يرى قسمه فقط (يفرضه RLS) |
 | Finance | `finance_officer` | `role: finance_officer` | `/finance/*` | الميزانية + اعتماد كشوف الرواتب |
-| IT | `it_admin` | `role: it_admin` | `/it/*` | **التطوير المركزية** — المستخدمون + الفروع + التحكم الكامل |
-| Admin | `super_admin` | `role: super_admin` | `/admin/*` | **مدير مفوض** — الإعدادات + التدقيق + MFA إلزامي |
+| IT | `it_admin` | `role: it_admin` | `/it/*` | **التطوير المركزية** — السلطة العليا **تقنياً**: النظام + الصلاحيات + الحسابات؛ **لا يقرأ بيانات التشغيل** (البوابات الأخرى عرض تصميم بلا بيانات) |
+| Admin | `super_admin` | `role: super_admin` | `/admin/*` | **المدير المفوض = مدير الشركة** — يرى **كل بيانات الشركة وتفاصيلها** (انظر `docs/governance-roles.md`) |
+| Admin (شاشات الشركة) | `super_admin` | `role: super_admin` | `/admin/company` | **بيانات الشركة**: الأسطول/الوقود · نقاط التراكم GPS · الإعلام · المتعهدون · سجل التدقيق — قراءة فقط، من خدمات قائمة `centralGarage.dashboard` · `gpsHotspots` · `mediaService.listDesigns` · `contractors` · `audit` |
 | Field Ops | `field_ops` | `role: field_ops` | `/field-ops/*` | **العمليات الميدانية** — هيكل جاهز (فارغة) |
 | Admin Ops | `admin_ops` | `role: admin_ops` | `/admin-ops/*` | **العمليات الإدارية** — هيكل جاهز (فارغة) |
 | Maintenance | `maintenance` | `role: maintenance` | `/maintenance/*` | **الصيانة** — هيكل جاهز (فارغة) |
