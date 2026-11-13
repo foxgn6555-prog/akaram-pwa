@@ -34,3 +34,4 @@ supabase/.branches/
 
 # ملفات الباتشات القديمة — لم تعد جزءاً من آلية التسليم (تُحرَّر الملفات مباشرة)
 *.patch
+vite.preview.config.ts
