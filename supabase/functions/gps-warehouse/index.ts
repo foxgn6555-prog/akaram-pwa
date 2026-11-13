@@ -16,7 +16,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '',
   WH_URL = (Deno.env.get('GPS_WAREHOUSE_URL') ?? '').replace(/\/$/, ''),
   WH_KEY = Deno.env.get('GPS_WAREHOUSE_SERVICE_KEY') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } })
-type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'retry_failed' | 'wipe'
+type Action = 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'rebuild_hotspots' | 'set_hotspot_radius' | 'hotspots_status' | 'retry_failed' | 'wipe'
 const READ_ROLES = ['ops_room', 'it_admin', 'super_admin'], WRITE_ROLES = ['it_admin', 'super_admin']
 
 const response = (body: unknown, status = 200) =>
@@ -39,20 +39,23 @@ function warehouse() {
   if (!WH_URL || !WH_KEY) throw new Error('GPS_WAREHOUSE_NOT_CONFIGURED')
   return createClient(WH_URL, WH_KEY, { auth: { persistSession: false } })
 }
-async function whRpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
+async function whRpc<T>(fn: string, args?: Record<string, unknown>, timeoutMs = 15_000): Promise<T> {
   const wh = warehouse()
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15_000)
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const { data, error } = await wh.rpc(fn, args).abortSignal(controller.signal)
     if (error) {
       const msg = error.message ?? ''
       if (/does not exist|PGRST202/i.test(msg)) throw new Error('GPS_WAREHOUSE_SCHEMA_MISSING')
       if (/JWT|apikey|Invalid API key|401|403/i.test(msg)) throw new Error('GPS_WAREHOUSE_KEY_INVALID')
+      // 00389-ب: مهلة التنفيذ في المستودع — عملية ثقيلة تجاوزت statement timeout
+      if (/statement timeout|canceling statement/i.test(msg)) throw new Error(`GPS_WAREHOUSE_STATEMENT_TIMEOUT: ${safeError(msg)}`)
       throw new Error(`GPS_WAREHOUSE_RPC_FAILED: ${safeError(msg)}`)
     }
     return data as T
   } catch (e) {
-    if ((e as Error).name === 'AbortError' || /fetch failed|ENOTFOUND|ECONN/i.test(String(e))) throw new Error('GPS_WAREHOUSE_UNREACHABLE')
+    if ((e as Error).name === 'AbortError') throw new Error('GPS_WAREHOUSE_TIMEOUT')
+    if (/fetch failed|ENOTFOUND|ECONN/i.test(String(e))) throw new Error('GPS_WAREHOUSE_UNREACHABLE')
     throw e
   } finally { clearTimeout(timer) }
 }
@@ -151,7 +154,8 @@ async function syncHotspots() {
   // 1) إكمال الإسناد/التجميع المتبقي في المستودع ضمن الميزانية
   let refresh: HotspotRefresh = { assigned: 0, created: 0, aggregated: 0, remaining: 0, dirty: 0 }, rounds = 0
   do {
-    const r = await whRpc<HotspotRefresh>('wh_hotspots_refresh', { p_limit: 2000 })
+    // 00389-ب: بعد إعادة البناء يكون الإسناد ثقيلاً — مهلة أطول لكل دورة (الميزانية الكلية تبقى محكومة)
+    const r = await whRpc<HotspotRefresh>('wh_hotspots_refresh', { p_limit: 2000 }, 60_000)
     refresh = { assigned: refresh.assigned + r.assigned, created: refresh.created + r.created, aggregated: refresh.aggregated + r.aggregated, remaining: r.remaining, dirty: r.dirty }
     rounds++
   } while ((refresh.remaining > 0 || refresh.dirty > 0) && rounds < 40 && Date.now() < deadline)
@@ -163,7 +167,15 @@ async function syncHotspots() {
   const thresholds = { hotspot_radius_m: settings.hotspot_radius_m, class_light_max_min: settings.class_light_max_min, class_medium_max_min: settings.class_medium_max_min, recur_mid_days: settings.recur_mid_days, recur_high_days: settings.recur_high_days }
   const byMonth: Record<string, number> = {}
   let total = 0
+  const skipped: string[] = []
   for (const month of months) {
+    // 00389: أثناء إعادة التجميع بعد تغيير نصف القطر يكون الشهر فارغاً مؤقتاً —
+    // نسخه حينها يمسح نسخة المشروع الأول (p_first=true) فتظهر الخريطة فارغة. نترك الشهر كما هو.
+    const probe = await whRpc<{ total: number; pending?: number }>('wh_hotspots_summary', { p_month: month, p_limit: 1, p_offset: 0 })
+    if (!(probe.total > 0)) {
+      skipped.push(month.slice(0, 7))
+      continue
+    }
     let offset = 0, first = true, copied = 0
     for (;;) {
       const page = await whRpc<{ total: number; rows: unknown[] }>('wh_hotspots_summary', { p_month: month, p_limit: HOTSPOT_PAGE, p_offset: offset })
@@ -180,7 +192,7 @@ async function syncHotspots() {
   // 3) حذف الأشهر خارج النافذة في المشروع الأول أيضاً
   const { data: pruned, error: pruneErr } = await admin.rpc('gps_hotspots_prune', { p_keep_months: months })
   if (pruneErr) throw new Error(`GPS_HOTSPOTS_PRUNE_FAILED: ${safeError(pruneErr.message)}`)
-  const result = { months, rows: total, by_month: byMonth, pruned: pruned ?? 0, refresh, pending: refresh.remaining + refresh.dirty, ms: Date.now() - startedAt }
+  const result = { months, rows: total, by_month: byMonth, pruned: pruned ?? 0, skipped_empty_months: skipped, refresh, pending: refresh.remaining + refresh.dirty, ms: Date.now() - startedAt }
   await record('hotspots', true, result)
   return { ok: true, action: 'sync_hotspots' as const, ...result }
 }
@@ -191,7 +203,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return response({ error: 'METHOD_NOT_ALLOWED' }, 405)
   const user = await actor(req)
   if (!user) return response({ error: 'GPS_WAREHOUSE_FORBIDDEN' }, 403)
-  let body: { action?: Action; month?: string; limit?: number; reset_id?: string } = {}
+  let body: { action?: Action; month?: string; limit?: number; reset_id?: string; radius_m?: number; rebuild?: boolean } = {}
   try { body = await req.json() } catch { /* بلا جسم ⇒ ping */ }
   const action: Action = body.action ?? 'ping'
   const allowed = action === 'ping' ? READ_ROLES : WRITE_ROLES
@@ -243,6 +255,39 @@ Deno.serve(async (req) => {
       await whRpc<Record<string, unknown>>('wh_ping').then((p) => record('ping', true, p)).catch(() => null)
       return response({ ok: true, action, result })
     }
+    if (action === 'set_hotspot_radius') {
+      // 00389: تغيير نصف قطر البقعة (20..500 م) ثم إعادة بناء الأشهر داخل النافذة.
+      // التجميع يستمر في المستودع عبر wh_maintenance كل دقيقة؛ النسخ إلى المشروع الأول بعد اكتماله.
+      const radius = Number(body.radius_m)
+      if (!Number.isInteger(radius) || radius < 20 || radius > 500) return response({ error: 'GPS_HOTSPOT_RADIUS_INVALID' }, 400)
+      // 00389-ب: لا تبدأ إعادة بناء جديدة بينما واحدة جارية — وإلا تُصفَّر الحسابات من جديد وتبدو العملية معطّلة
+      if (body.rebuild !== false) {
+        const st = await whRpc<{ stops_pending?: number; hotspots_dirty?: number }>('wh_hotspots_rebuild_status', undefined, 20_000).catch(() => null)
+        if (st && ((st.stops_pending ?? 0) > 0 || (st.hotspots_dirty ?? 0) > 0)) {
+          return response({ error: 'GPS_HOTSPOT_REBUILD_IN_PROGRESS', pending: st.stops_pending ?? 0, dirty: st.hotspots_dirty ?? 0 }, 409)
+        }
+      }
+      const pingNow = await whRpc<{ window?: { displayed_month?: string; collecting_month?: string }; progress?: { window?: { displayed_month?: string; collecting_month?: string } } }>('wh_ping')
+      const win = pingNow.window ?? pingNow.progress?.window ?? {}
+      const months = [...new Set([win.displayed_month, win.collecting_month].filter((m): m is string => !!m))]
+      // إعادة البناء عملية ثقيلة (حذف بقع الشهر + إفراغ إسناد كل توقفاته) — مهلة أطول من الافتراضية
+      const args: Record<string, unknown> = { p_radius_m: radius, p_months: months.length ? months : null, p_rebuild: body.rebuild !== false }
+      let result: Record<string, unknown>
+      try {
+        result = await whRpc<Record<string, unknown>>('wh_hotspots_set_radius', args, 180_000)
+      } catch (e) {
+        // توافق خلفي: نسخة المستودع ١ تقبل وسيطين فقط — نعيد المحاولة بلا p_rebuild
+        if (!/does not exist|PGRST202|could not find|No function matches|GPS_WAREHOUSE_SCHEMA_MISSING/i.test(String((e as Error).message))) throw e
+        result = await whRpc<Record<string, unknown>>('wh_hotspots_set_radius', { p_radius_m: radius, p_months: months.length ? months : null }, 180_000)
+      }
+      await whRpc<Record<string, unknown>>('wh_ping').then((p) => record('ping', true, p)).catch(() => null)
+      return response({ ok: true, action, result, months })
+    }
+    if (action === 'hotspots_status') {
+      // 00389-ب: متابعة تقدّم إعادة التجميع بعد تغيير نصف القطر
+      const result = await whRpc<Record<string, unknown>>('wh_hotspots_rebuild_status', undefined, 20_000)
+      return response({ ok: true, action, result })
+    }
     if (action === 'rebuild_hotspots') {
       if (!body.month || !/^\d{4}-\d{2}(-\d{2})?$/.test(body.month)) return response({ error: 'GPS_WAREHOUSE_MONTH_INVALID' }, 400)
       const month = body.month.length === 7 ? `${body.month}-01` : body.month
@@ -277,7 +322,9 @@ Deno.serve(async (req) => {
     const code = safeError(e)
     const kind = action === 'sync_registry' ? 'registry' : action === 'sync_hotspots' ? 'hotspots' : 'ping'
     if (code !== 'GPS_WAREHOUSE_NOT_CONFIGURED') await record(kind, false, {}, code.split(':')[0])
-    const status = code === 'GPS_WAREHOUSE_NOT_CONFIGURED' ? 412 : 502
+    // 00389-ب: مهلة/بطء لا يعني فشل الإعداد — رد واضح كي تعرض الواجهة الخطوة التالية بدل «فشلت الدالة»
+    const timedOut = code.startsWith('GPS_WAREHOUSE_TIMEOUT') || code.startsWith('GPS_WAREHOUSE_STATEMENT_TIMEOUT')
+    const status = code === 'GPS_WAREHOUSE_NOT_CONFIGURED' ? 412 : timedOut ? 504 : 502
     return response({ ok: false, error: code }, status)
   }
 })

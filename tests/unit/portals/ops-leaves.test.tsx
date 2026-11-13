@@ -37,11 +37,15 @@ describe('OpsLeavesPage (00239)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     opsLeavesSummary.mockResolvedValue({ pending: 3, via_ops_pending: 1, via_ops_month: 4, on_leave_today: 2 })
-    listLeaveRequests.mockResolvedValue([
+    // V-43: القائمة صارت تُطلب مرتين — مقيّدة بالنطاق، ومعلّقة بلا نطاق.
+    const all = [
       row({}),
       row({ id: 'l2', full_name: 'سارة حسن', employee_number: 'E-002', requested_via: 'self', requester_name: null, requested_by: 'u-emp', can_cancel: false }),
       row({ id: 'l3', status: 'approved', can_cancel: false }),
-    ])
+    ]
+    listLeaveRequests.mockImplementation(async (f: { from?: string | null }) =>
+      f?.from === null ? all.filter((r) => r.status === 'pending') : all,
+    )
     lookup.mockResolvedValue([
       { id: 'e9', full_name: 'كريم جاسم', employee_number: 'E-009', job_title: 'عامل', department_name: 'النظافة', has_account: false, has_biometric: false, manager_name: 'مدير القسم' },
     ])
@@ -84,5 +88,23 @@ describe('OpsLeavesPage (00239)', () => {
     expect(screen.getByTestId('ol-chain-step-1')).toHaveTextContent('مدير القسم')
     expect(await screen.findByTestId('ol-behalf-form')).toBeInTheDocument()
     expect(await screen.findByTestId('ol-behalf-balance')).toBeInTheDocument()
+  })
+
+  it('V-43 · تبويب «المعلّقة» يعرض كل المعلّق بلا حدّ تواريخ + تنبيه لما هو خارج النطاق', async () => {
+    const future = row({ id: 'l9', full_name: 'طلب كانون الثاني', start_date: '2027-01-05', end_date: '2027-01-14' })
+    listLeaveRequests.mockImplementation(async (f: { from?: string | null }) => {
+      const all = [row({}), row({ id: 'l3', status: 'approved', can_cancel: false }), future]
+      return f?.from === null ? all.filter((r) => r.status === 'pending') : all.filter((r) => r.end_date >= '2026-10-01' && r.start_date <= '2026-12-31')
+    })
+    wrap(<OpsLeavesPage />)
+    // التنبيه يظهر في التبويب الافتراضي لأن طلب كانون الثاني خارج النطاق
+    const warn = await screen.findByTestId('ol-pending-outside')
+    expect(warn).toHaveTextContent('يوجد 1 طلب معلّق خارج نطاق التواريخ')
+    // نداء المعلّقة بلا تواريخ
+    await waitFor(() => expect(listLeaveRequests).toHaveBeenCalledWith(expect.objectContaining({ from: null, to: null, status: 'pending' })))
+    fireEvent.click(screen.getByTestId('ol-pending-outside-open'))
+    expect(await screen.findByTestId('ol-pending-row-l9')).toHaveTextContent('طلب كانون الثاني')
+    expect(screen.getByTestId('ol-pending-nodates')).toHaveTextContent('بلا حدّ تواريخ')
+    expect(screen.getByTestId('ol-tab-pending')).toHaveTextContent('المعلّقة (2)')
   })
 })

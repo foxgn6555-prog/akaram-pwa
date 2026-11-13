@@ -50,7 +50,7 @@ describe('عقد محتوى الأدلة', () => {
     const upd = h.sections.find((s) => s.id === 'update')!.commands!.map((c) => c.cmd)
     expect(upd.indexOf('npx supabase db push')).toBeLessThan(upd.indexOf('npm run build'))
     const bio = JSON.stringify(h.sections.find((s) => s.id === 'biometric'))
-    for (const k of ['app_api_pull', 'ADMS', 'zk-bridge', 'generic_pull', 'adms-receiver', 'biometric-pull', 'biometric-bridge', 'gps-receiver']) expect(bio).toContain(k)
+    for (const k of ['app_api_pull', 'ADMS', 'zk-bridge', 'generic_pull', 'adms-receiver', 'biometric-pull', 'biometric-bridge', 'lvn-gps-sync', 'gps-warehouse']) expect(bio).toContain(k)
     expect(JSON.stringify(h)).toContain('.htaccess')
     expect(JSON.stringify(h)).not.toMatch(/service_role=|VITE_SERVICE/)
   })

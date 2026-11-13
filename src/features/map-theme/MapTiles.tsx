@@ -14,12 +14,13 @@ export function useInjectMapThemeStyle() {
   }, [])
 }
 
-export default function MapTiles({ theme, onFailed, onProvider }: { theme: MapTheme; onFailed?: (failed: boolean) => void; onProvider?: (id: string) => void }) {
+export default function MapTiles({ theme, onFailed, onProvider, preferOsmDark = false }: { theme: MapTheme; onFailed?: (failed: boolean) => void; onProvider?: (id: string) => void; preferOsmDark?: boolean }) {
   const map = useMap()
   const [darkIdx, setDarkIdx] = useState(0)
   const errors = useRef(0)
-  const tiles = theme === 'dark' ? DARK_TILES[Math.min(darkIdx, DARK_TILES.length - 1)]! : LIGHT_TILES
-  useEffect(() => { errors.current = 0; onFailed?.(false) }, [theme, onFailed])
+  const darkProviders = preferOsmDark ? [...DARK_TILES].reverse() : DARK_TILES
+  const tiles = theme === 'dark' ? darkProviders[Math.min(darkIdx, darkProviders.length - 1)]! : LIGHT_TILES
+  useEffect(() => { errors.current = 0; onFailed?.(false) }, [theme, tiles.id, onFailed])
   useEffect(() => { onProvider?.(tiles.id) }, [tiles.id, onProvider])
   useEffect(() => {
     const el = typeof map?.getContainer === 'function' ? map.getContainer() : null   // الاختبارات تحاكي الخريطة
@@ -33,10 +34,10 @@ export default function MapTiles({ theme, onFailed, onProvider }: { theme: MapTh
     errors.current += 1
     if (errors.current < TILE_ERRORS_BEFORE_FALLBACK) return
     errors.current = 0
-    if (theme === 'dark' && darkIdx < DARK_TILES.length - 1) setDarkIdx((i) => i + 1)
+    if (theme === 'dark' && darkIdx < darkProviders.length - 1) setDarkIdx((i) => i + 1)
     else onFailed?.(true)
   }
-  return <TileLayer key={tiles.id} attribution={tiles.attribution} url={tiles.url} maxZoom={tiles.maxZoom} maxNativeZoom={tiles.maxZoom} eventHandlers={{ tileerror: onTileError, tileload: () => { errors.current = 0; onFailed?.(false) } }} />
+  return <TileLayer key={tiles.id} attribution={tiles.attribution} url={tiles.url} maxZoom={tiles.maxZoom} maxNativeZoom={tiles.maxZoom} eventHandlers={{ tileerror: onTileError, tileload: () => onFailed?.(false) }} />
 }
 
 export function MapThemeToggle({ theme, onToggle, testId = 'map-theme-toggle' }: { theme: MapTheme; onToggle: () => void; testId?: string }) {

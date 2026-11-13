@@ -29,6 +29,7 @@ const VALID_ROLES = [
   'executive_director',
   'deputy_director',
   'ops_room',
+  'ops_room_manager',   // 00400: بوابة مدير غرفة العمليات
   'complaints_officer',
   'media_officer',
   'central_garage_officer',

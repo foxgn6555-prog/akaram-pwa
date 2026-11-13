@@ -26,7 +26,7 @@ export default function SaksatPage() {
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <Icon name="folder" size={16} className="text-brand-600" />
         <span className="text-sm font-bold text-slate-700">سجلات الشهر</span>
-        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} data-testid="saksat-month" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
+        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} data-testid="saksat-month" aria-label="شهر سجلات السكسات" className="h-10 rounded-xl border border-slate-200 px-3 text-sm" />
         <span className="text-xs text-slate-500">{monthLabel(month)} — {records.length} سجل</span>
         <span className="ms-auto text-[11px] text-slate-400">تصل غرفة العمليات تلقائياً ضمن التقرير اليومي ومنها إلى المعاون</span>
       </div>

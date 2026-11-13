@@ -8,6 +8,7 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { parentSectorTitle, parentCodesOf } from '@features/sectors'
+import { VehicleThumb } from '@portals/central-garage/components/VehicleThumb'
 
 const inputClass =
   'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -101,10 +102,14 @@ export default function GarageArchivePage({
               data-testid={`archived-vehicle-${v.id}`}
             >
               <div className="relative">
-                <img
-                  src={v.imageUrl}
-                  alt={`صورة ${v.vehicleName}`}
+                {/* 00410: بديل واضح بدل صورة مكسورة عند غياب الصورة */}
+                <VehicleThumb
+                  imageUrl={v.imageUrl}
+                  imagePath={v.imagePath}
+                  name={v.vehicleName}
                   className="h-40 w-full object-cover grayscale-[35%]"
+                  iconSize={30}
+                  testId={`archived-thumb-${v.id}`}
                 />
                 <span className="absolute right-3 top-3 rounded-full bg-slate-950/80 px-3 py-1 text-[11px] font-black text-white">
                   DB {v.dbNumber}

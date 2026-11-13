@@ -44,6 +44,7 @@ vi.mock('@features/user-management', () => ({
     isLoading: false,
   }),
   useSetUserRole: () => ({ mutate: mockSetRole, isPending: false }),
+  useRoleGrantRequests: () => ({ data: [], isLoading: false }),   // V-36
   useUpdateEmployeeProfile: () => ({ mutate: mockUpdateProfile, isPending: false }),
   useSetUserBanned: () => ({ mutate: mockSetBanned, isPending: false }),
   useResetUserPassword: () => ({ mutate: mockResetPass, isPending: false }),
@@ -174,11 +175,12 @@ describe('UserDetail — الإدارة الشاملة للمستخدم', () => 
     renderPage()
     const btn = screen.getByTestId('reset-password-btn')
     expect(btn).toBeDisabled()
-    await user.type(screen.getByTestId('new-password'), 'NewPass1')
+    await user.click(screen.getByRole('checkbox', { name: /تم التحقق من هوية الموظف/ }))
+    await user.type(screen.getByTestId('new-password'), 'NewPass1234')
     expect(btn).toBeEnabled()
     await user.click(btn)
     expect(mockResetPass).toHaveBeenCalledWith(
-      { userId: 'u1', password: 'NewPass1' },
+      { userId: 'u1', password: 'NewPass1234' },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
   })

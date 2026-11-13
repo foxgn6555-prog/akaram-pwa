@@ -49,12 +49,12 @@ export default function AttendanceLog() {
       } />
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6" data-testid="att-filters">
-        <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="att-from" />
-        <input type="date" className={field} value={to} onChange={(e) => setTo(e.target.value)} data-testid="att-to" />
-        <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="att-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="att-dept"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
-        <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="att-status-filter"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
-        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="att-search" />
+        <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="att-from" aria-label="من تاريخ" />
+        <input type="date" className={field} value={to} onChange={(e) => setTo(e.target.value)} data-testid="att-to" aria-label="إلى تاريخ" />
+        <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="att-branch" aria-label="الفرع"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="att-dept" aria-label="القسم"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.parent_id ? '↳ ' : ''}{d.name}</option>)}</select>
+        <select className={field} value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus | '')} data-testid="att-status-filter" aria-label="حالة الحضور"><option value="">كل الحالات</option>{ATTENDANCE_STATUS_ORDER.map((s) => <option key={s} value={s}>{ATTENDANCE_STATUS_LABELS[s]}</option>)}</select>
+        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="att-search" aria-label="بحث باسم الموظف أو رقمه الوظيفي" />
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">

@@ -1,7 +1,7 @@
 /** 00384 — منطق خريطة النفايات: الفلاتر الافتراضية (الخفيف مخفي)، التبديل المتعدد، الملخص، الشهر الافتراضي، الحجم */
 import { describe, expect, it } from 'vitest'
 import type { GpsHotspot } from '@sdk/gps-hotspots.sdk'
-import { DEFAULT_FILTERS, applyFilters, defaultMonth, hotspotRadiusPx, hotspotStyle, peakHours, previousMonth, summarize, toggleIn } from '@features/gps-hotspots/hotspots.logic'
+import { DEFAULT_FILTERS, applyFilters, defaultMonth, hotspotRadiusPx, hotspotStyle, peakHours, previousMonth, summarize, toggleIn, locateHotspotsFromGeofences, radiusLabel, visibleSectorOptions } from '@features/gps-hotspots/hotspots.logic'
 
 const spot = (p: Partial<GpsHotspot>): GpsHotspot => ({ id: 1, month: '2026-09-01', wh_id: 1, lat: 33.3, lng: 44.4, stops_count: 5, days_count: 4, vehicles_count: 2, total_minutes: 172, avg_minutes: 34, max_minutes: 90, light_count: 2, medium_count: 2, heavy_count: 1,
   dominant_class: 'medium', recurrence: 'recurring', first_at: null, last_at: null, sector_ids: [1, 2], sector_names: ['أ', 'ب'], vehicles: [{ device: 'd-1', name: 'ك1', db_number: '1', sector: 'أ', stops: 3, minutes: 100 }, { device: 'd-2', name: 'ك2', db_number: '2', sector: 'ب', stops: 2, minutes: 72 }], days: [], hours: [], ...p })
@@ -24,6 +24,21 @@ describe('waste-map logic (00384)', () => {
     expect(applyFilters(rows, { ...DEFAULT_FILTERS, classes: [], sectorIds: [2, 3] }).map((r) => r.id)).toEqual([1, 3])
     expect(toggleIn(['a', 'b'], 'a')).toEqual(['b']); expect(toggleIn(['b'], 'a')).toEqual(['b', 'a'])
   })
+  it('فلتر غير المحدد يلتقط البقع التي لا تملك إسناداً جغرافياً أو آلياً', () => {
+    const unlocated = spot({ id: 4, sector_ids: [], sector_names: [], geo_sector_id: null, geo_sector_name: null })
+    expect(applyFilters([unlocated, rows[0]!], { ...DEFAULT_FILTERS, classes: [], unlocated: true }).map((r) => r.id)).toEqual([4])
+    expect(applyFilters([unlocated, rows[0]!], { ...DEFAULT_FILTERS, classes: [], sectorIds: [1], unlocated: true }).map((r) => r.id)).toEqual([4, 1])
+  })
+  it('يسند النقاط داخل سياج غير مرتبط إلى تطابق الاسم العربي الوحيد فقط', () => {
+    const inside = spot({ id: 10, lat: 33.3, lng: 44.4, sector_ids: [], sector_names: [], geo_sector_id: null })
+    const outside = spot({ id: 11, lat: 31, lng: 44.4, sector_ids: [], sector_names: [], geo_sector_id: null })
+    const geofences = [{ id: 'z1', name: 'ارخيته', sector_id: null, polygon: [{ lat: 33.29, lng: 44.39 }, { lat: 33.29, lng: 44.41 }, { lat: 33.31, lng: 44.41 }, { lat: 33.31, lng: 44.39 }] }]
+    const located = locateHotspotsFromGeofences([inside, outside], geofences, [{ id: 1, name: 'أرخيتة' }])
+    expect(located[0]).toMatchObject({ geo_sector_id: 1, geo_sector_name: 'أرخيتة', geo_zone_name: 'ارخيته' })
+    expect(located[1]?.geo_sector_id).toBeNull()
+    const ambiguous = locateHotspotsFromGeofences([inside], geofences, [{ id: 1, name: 'أرخيتة' }, { id: 2, name: 'ارخيته' }])
+    expect(ambiguous[0]?.geo_sector_id).toBeNull()
+  })
   it('الملخص: بقع/توقفات/دقائق/آليات مميزة/بقع متعددة الآليات', () => {
     const s = summarize(rows)
     expect(s).toMatchObject({ spots: 3, stops: 18, totalMinutes: 1087, vehicles: 3, multi: 1 })
@@ -44,5 +59,17 @@ describe('waste-map logic (00384)', () => {
     expect(hotspotStyle(rows[0]!, true).ring).toBe('#22d3ee')
     const hours = Array.from({ length: 24 }, () => 0); hours[8] = 4; hours[17] = 2
     expect(peakHours(hours)).toBe('08:00 · 17:00'); expect(peakHours([])).toBe('—')
+  })
+
+  // 00389 — نصف قطر البقعة المعروض وإخفاء القواطع بلا بقع
+  it('يعرض نصف قطر البقعة من حدود النسخة، ويُخفي القواطع التي لا بقع لها', () => {
+    expect(radiusLabel({ hotspot_radius_m: 40 })).toBe('نصف قطر البقعة 40 م')
+    expect(radiusLabel({})).toBe('نصف قطر البقعة من إعداد المستودع')
+    expect(radiusLabel(null)).toBe('نصف قطر البقعة من إعداد المستودع')
+    const options: Array<[number, string]> = [[1, 'الكرادة'], [2, 'الأعظمية'], [5, 'السندباد']]
+    const counts = new Map<number, number>([[1, 254], [2, 0], [5, 0]])
+    expect(visibleSectorOptions(options, counts, []).map(([id]) => id)).toEqual([1])
+    // المختار يدوياً يبقى ظاهراً حتى لو صار عدّاده صفراً
+    expect(visibleSectorOptions(options, counts, [5]).map(([id]) => id)).toEqual([1, 5])
   })
 })

@@ -37,7 +37,7 @@ export function Field({ id, label: l, children, hint }: { id: string; label: str
 export function MonthPicker({ value, onChange, testId = 'month-picker' }: { value: string; onChange: (v: string) => void; testId?: string }) {
   // value = 'YYYY-MM-01'
   return (
-    <input type="month" className={clsx(field, 'w-auto')} value={value.slice(0, 7)} onChange={(e) => e.target.value && onChange(`${e.target.value}-01`)} data-testid={testId} />
+    <input type="month" className={clsx(field, 'w-auto')} value={value.slice(0, 7)} onChange={(e) => e.target.value && onChange(`${e.target.value}-01`)} data-testid={testId} aria-label="الشهر" />
   )
 }
 

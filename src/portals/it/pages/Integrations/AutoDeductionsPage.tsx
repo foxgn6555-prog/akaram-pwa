@@ -520,7 +520,7 @@ function CreditTiersCard() {
         <CreditTierTable kind="late" title="البقاء بعد نهاية الشفت" tiers={cur.late_out} error={errL} onChange={(t) => setKind('late_out', t)} />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-violet-900" data-testid="credit-tiers-preview">
-        مثال حي: <input type="number" min={0} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="credit-tiers-sample" /> دقيقة ⇒
+        مثال حي: <input type="number" min={0} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={sample} onChange={(e) => setSample(NUM(e.target.value))} data-testid="credit-tiers-sample" aria-label="دقيقة للتجربة في المثال الحي" /> دقيقة ⇒
         مبكراً يُحتسب <b dir="ltr" data-testid="credit-tiers-preview-early">{creditTiered(sample, cur.early_in)}</b> د · متأخراً يُحتسب <b dir="ltr" data-testid="credit-tiers-preview-late">{creditTiered(sample, cur.late_out)}</b> د
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -543,8 +543,8 @@ function CreditTierTable({ kind, title, tiers, error, onChange }: { kind: string
       {tiers.map((t, i) => (
         <div key={i} className="mb-1 flex flex-wrap items-center gap-2 text-[11px]" data-testid={`credit-tiers-${kind}-row-${i}`}>
           <span className="w-16 text-slate-500">{i === 0 ? 'من 1 إلى' : `من ${(tiers[i - 1]?.upto ?? 0) + 1} إلى`}</span>
-          <input type="number" min={1} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.upto} onChange={(e) => setRow(i, { upto: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-upto-${i}`} /> دقيقة بنسبة
-          <input type="number" min={0} max={100} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.pct} onChange={(e) => setRow(i, { pct: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-pct-${i}`} /> %
+          <input type="number" min={1} max={720} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.upto} onChange={(e) => setRow(i, { upto: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-upto-${i}`} aria-label={`حد الشريحة ${i + 1} بالدقائق`} /> دقيقة بنسبة
+          <input type="number" min={0} max={100} className={clsx(field, 'w-20 py-0.5')} dir="ltr" value={t.pct} onChange={(e) => setRow(i, { pct: NUM(e.target.value) })} data-testid={`credit-tiers-${kind}-pct-${i}`} aria-label={`نسبة الخصم للشريحة ${i + 1} بالمئة`} /> %
           <button type="button" className="text-rose-600" onClick={() => onChange(tiers.filter((_x, j) => j !== i))} data-testid={`credit-tiers-${kind}-remove-${i}`}>حذف</button>
         </div>
       ))}

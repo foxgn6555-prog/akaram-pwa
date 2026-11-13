@@ -34,6 +34,7 @@ import { ShiftDriversPanel } from '../components/ShiftDriversPanel'
 import { EditVehicleDialog } from '../components/EditVehicleDialog'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { parentSectorTitle } from '@features/sectors'
+import { VehicleThumb } from '@portals/central-garage/components/VehicleThumb'
 
 const arDate = (value: string) =>
   new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
@@ -136,10 +137,14 @@ export default function VehicleDetailPage({
       )}
       <article className="overflow-hidden rounded-3xl border bg-white shadow-xl">
         <div className="grid lg:grid-cols-[380px_1fr]">
-          <img
-            src={v.imageUrl}
-            alt={`صورة ${v.vehicleName}`}
+          {/* 00410: بديل واضح بدل صورة مكسورة عند غياب الصورة */}
+          <VehicleThumb
+            imageUrl={v.imageUrl}
+            imagePath={v.imagePath}
+            name={v.vehicleName}
             className="h-72 w-full object-cover lg:h-full"
+            iconSize={38}
+            testId={`detail-thumb-${v.id}`}
           />
           <div className="p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-3">

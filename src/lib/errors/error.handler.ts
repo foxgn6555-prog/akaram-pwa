@@ -298,12 +298,21 @@ function normalizeError(error: unknown): AppError {
   return new AppError('خطأ غير معروف', 'UNKNOWN', error)
 }
 
+/** رموز أخطاء بوابة الدخول (staff-login) التي تحمل رسالة عربية جاهزة للمستخدم */
+const LOGIN_ERROR_CODES = new Set([
+  'INVALID_CREDENTIALS', 'SOURCE_LOCKED', 'AUTH_THROTTLED',
+  'LOGIN_GUARD_UNAVAILABLE', 'CONFIGURATION', 'INVALID_INPUT',
+])
+
 /** رسالة آمنة للعرض للمستخدم النهائي */
 export function toUserMessage(error: unknown): string {
   const e = normalizeError(error)
   if (e instanceof SDKError && e.isForbidden) return 'ليس لديك صلاحية لتنفيذ هذه العملية'
   if (e instanceof SDKError && e.isNotFound) return 'العنصر المطلوب غير موجود'
   if (e instanceof SDKError && e.code === 'NETWORK') return 'تعذر الاتصال — سيُعاد الإرسال تلقائياً عند توفر الشبكة'
+  // V-22: أخطاء **بوابة الدخول** تحمل رسالة دقيقة من الخادم (بيانات خاطئة/قفل/تقييد) —
+  // لا يجوز استبدالها برسالة «انتهت الجلسة» لأن الجلسة لم تبدأ أصلاً.
+  if (e instanceof AuthError && LOGIN_ERROR_CODES.has(e.code)) return e.message
   if (e instanceof AuthError) return 'انتهت الجلسة — يرجى تسجيل الدخول من جديد'
   return 'حدث خطأ غير متوقع — حاول مرة أخرى'
 }

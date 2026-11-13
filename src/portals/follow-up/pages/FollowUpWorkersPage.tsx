@@ -22,9 +22,9 @@ export default function FollowUpWorkersPage() {
       <ExecPageHeader icon="users" title="متابعة العمال" subtitle="لكل متعهد: العدد الذي سجّله هو (يشمله) — واكتب أنت العدد الذي شاهدته فعلاً (يشمل المتعهد). يُقبل التسجيل لليوم نفسه فقط ثم يُقفل؛ التصحيح لاحقاً من غرفة العمليات بسبب موثّق." />
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-3 shadow-sm">
         <label className="text-xs font-bold text-slate-600">اليوم</label>
-        <input type="date" value={date} max={todayBaghdad()} onChange={(e) => setDate(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="date-filter" />
+        <input type="date" value={date} max={todayBaghdad()} onChange={(e) => setDate(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="date-filter" aria-label="تاريخ اليوم" />
         {parents.length > 1 && (
-          <div className="flex gap-1" data-testid="parent-filter">
+          <div className="flex gap-1" data-testid="parent-filter" aria-label="القاطع">
             {(['all', ...parents] as string[]).map((p) => (
               <button key={p} type="button" onClick={() => setParent(p)} className={`rounded-full px-3 py-1 text-xs font-bold ${parent === p ? 'bg-[var(--portal-color)] text-white' : 'border bg-white text-slate-700'}`}>{p === 'all' ? 'الكل' : PARENT_AR[p] ?? p}</button>
             ))}

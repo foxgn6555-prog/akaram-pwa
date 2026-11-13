@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const ApprovalInbox = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage'))
 const UnitPlaceholder = lazy(() => import('@components/layout/UnitPlaceholder'))
+const NotFoundPage = lazy(() => import('@portals/public/pages/NotFound/NotFoundPage'))
 const AnnouncementInbox = lazy(() => import('@components/executive/AnnouncementInbox'))
 const AnnouncementDetail = lazy(() => import('@components/executive/AnnouncementInbox').then((m) => ({ default: m.AnnouncementDetail })))
 
@@ -82,6 +83,10 @@ export function buildPortalRoutes(
   // وارد التبليغات + تفصيل تبليغ — في كل بوابة بلا استثناء
   if (!covered.has(ANNOUNCEMENT_INBOX_PATH)) children.push({ path: ANNOUNCEMENT_INBOX_PATH, element: suspense(<AnnouncementInbox />) })
   children.push({ path: `${ANNOUNCEMENT_INBOX_PATH}/:announcementId`, element: suspense(<AnnouncementDetail />) })
+
+  // 00412: أي رابط غير مسجّل **داخل البوابة** يعرض 404 داخل القوقعة (كان يسقط في wildcard العام
+  // → إعادة توجيه صامتة إلى الرئيسية، فيضيع المسار ويظن المستخدم أن الصفحة موجودة)
+  children.push({ path: '*', element: suspense(<NotFoundPage inPortal />) })
 
   // فهرس البوابة: أول وحدة (إلا إن كانت الوحدة الأولى هي الجذر — عندها صارت index أعلاه)
   const first = units[0]

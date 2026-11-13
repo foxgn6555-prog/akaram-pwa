@@ -9,10 +9,12 @@ import { PORTALS } from '@lib/constants/portals.constants'
 import sidebar from '../../../src/i18n/ar/sidebar.json'
 import type { LiveMapRow, LiveZoneRow } from '@sdk/live-tracking.sdk'
 
-vi.mock('react-leaflet', () => ({
-  useMap: () => ({ flyTo: vi.fn() }),
-  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="leaflet-map">{children}</div>,
-  TileLayer: () => null,
+vi.mock('react-leaflet', () => {
+  const map = { flyTo: vi.fn(), getContainer: () => document.querySelector('[data-testid="live-leaflet-map"]') }
+  return {
+  useMap: () => map,
+  MapContainer: ({ children }: { children: ReactNode }) => <div data-testid="live-leaflet-map">{children}</div>,
+  TileLayer: ({ url }: { url: string }) => <i data-testid="live-tile" data-url={url} />, 
   Marker: ({ children, icon, eventHandlers }: { children: ReactNode; icon: { options: { html: string } }; eventHandlers?: { click?: () => void } }) => (
     <div data-testid="live-marker" onClick={() => eventHandlers?.click?.()}>
       <span data-testid="live-marker-html" data-html={icon.options.html} />{children}
@@ -20,7 +22,8 @@ vi.mock('react-leaflet', () => ({
   ),
   Polygon: ({ children }: { children: ReactNode }) => <div data-testid="live-zone">{children}</div>,
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}))
+  }
+})
 vi.mock('leaflet', () => ({ default: { divIcon: (o: unknown) => ({ options: o }) } }))
 vi.mock('leaflet/dist/leaflet.css', () => ({}))
 
@@ -62,6 +65,8 @@ describe('00287 · البث المباشر — غرفة العمليات', () =>
     expect(screen.getByTestId('live-map').getAttribute('data-map-theme')).toBe('light')
     fireEvent.click(screen.getByTestId('live-map-theme'))
     expect(screen.getByTestId('live-map').getAttribute('data-map-theme')).toBe('dark')
+    expect(screen.getByTestId('live-leaflet-map').getAttribute('data-tiles')).toBe('osm-filtered')
+    expect(screen.getByTestId('live-tile').getAttribute('data-url')).toContain('tile.openstreetmap.org')
     expect(screen.getByTestId('live-map-legend').textContent).toContain('الكرادة')
     window.localStorage.removeItem('akaram.map-theme')
     fireEvent.click(screen.getByTestId('live-filter-contractor'))

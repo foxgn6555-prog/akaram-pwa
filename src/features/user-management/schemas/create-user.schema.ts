@@ -1,8 +1,9 @@
 /**
  * Zod — عقد إنشاء مستخدم (التحقق المزدوج: هنا + Edge Function + DB)
- * سياسة كلمة المرور: 8+ أحرف · حرف واحد على الأقل · رقم واحد على الأقل
+ * سياسة كلمة المرور: 10+ أحرف · حرف واحد على الأقل · رقم واحد على الأقل (00414)
  */
 import { z } from 'zod'
+import { PASSWORD_MIN_LENGTH } from '@features/auth/password-policy'
 
 export const createSuperAdminSchema = z
   .object({
@@ -10,7 +11,7 @@ export const createSuperAdminSchema = z
     /** كلمة مرور مبدئية — يُطلب تغييرها عند أول دخول (سياسة قادمة عبر Auth) */
     password: z
       .string()
-      .min(8, 'كلمة المرور: 8 أحرف على الأقل')
+      .min(PASSWORD_MIN_LENGTH, `كلمة المرور: ${PASSWORD_MIN_LENGTH} أحرف على الأقل`)
       .regex(/[A-Za-z\u0600-\u06FF]/, 'كلمة المرور يجب أن تحتوي حرفاً واحداً على الأقل')
       .regex(/[0-9]/, 'كلمة المرور يجب أن تحتوي رقماً واحداً على الأقل'),
     full_name: z.string().min(3, 'الاسم الكامل مطلوب (3 أحرف فأكثر)'),
@@ -29,6 +30,7 @@ export const createSuperAdminSchema = z
         'executive_director',
         'deputy_director',
         'ops_room',
+        'ops_room_manager',
         'complaints_officer',
         'media_officer',
         'central_garage_officer',

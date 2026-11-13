@@ -71,9 +71,10 @@ describe('00389-ب · تقرير الحضور الشهري', () => {
   })
   it('الحسابات: المطلوب والالتزام واسم الشهر والترتيب', () => {
     const r = h.grid[1] as AttendanceGridRow
-    expect(scheduledDays(r)).toBe(20)
-    expect(compliancePct(r)).toBe(90)
-    expect(compliancePct(h.grid[2] as AttendanceGridRow)).toBe(56)
+    // V-41: الخروج المبكر يُحتسب حضوراً في البسط والمقام (كان مستبعداً ⇒ نسبة مضخّمة)
+    expect(scheduledDays(r)).toBe(20 + (r.early_days ?? 0))
+    expect(compliancePct(r)).toBe(Math.round(((15 + 3 + (r.early_days ?? 0)) / (20 + (r.early_days ?? 0))) * 100))
+    expect(compliancePct(h.grid[2] as AttendanceGridRow)).toBe(Math.round(((10 + 0 + ((h.grid[2] as AttendanceGridRow).early_days ?? 0)) / (10 + 6 + 2 + ((h.grid[2] as AttendanceGridRow).early_days ?? 0))) * 100))
     expect(monthLabel('2026-10-01')).toBe('تشرين الأول 2026')
     expect(sortRows(h.grid as AttendanceGridRow[], 'absent').map((x) => x.employee_number)).toEqual(['A3', 'A2', 'A1'])
     expect(sortRows(h.grid as AttendanceGridRow[], 'late')[0]!.employee_number).toBe('A2')
@@ -100,5 +101,14 @@ describe('00389-ب · تقرير الحضور الشهري', () => {
     fireEvent.click(screen.getByTestId('am-print'))
     expect(print).toHaveBeenCalled()
     print.mockRestore()
+  })
+})
+
+describe('V-41 — الخروج المبكر يدخل نسبة الالتزام', () => {
+  it('صف فيه خروج مبكر: النسبة تنخفض مقارنة بالحساب القديم المستبعِد', () => {
+    const r = { present_days: 0, late_days: 0, early_days: 1, absent_days: 4, incomplete_days: 1, leave_days: 3 } as unknown as AttendanceGridRow
+    // القديم: 0/(0+0+4+1)=0٪ · الجديد: 1/(0+0+1+4+1)=17٪ (الخروج المبكر يوم حضور فعلي)
+    expect(scheduledDays(r)).toBe(6)
+    expect(compliancePct(r)).toBe(17)
   })
 })

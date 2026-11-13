@@ -65,7 +65,7 @@ const FILL = async (): Promise<void> => {
   const user = userEvent.setup()
   await user.type(screen.getByLabelText('البريد الإلكتروني'), 'new@akram.iq')
   await user.type(screen.getByLabelText('الاسم الكامل'), 'علي حسن محمد')
-  await user.type(screen.getByLabelText('كلمة المرور المبدئية'), 'Passw0rd1')
+  await user.type(screen.getByLabelText('كلمة المرور المبدئية'), 'Passw0rd12')
   await user.type(screen.getByLabelText('الرقم الوظيفي'), 'EMP-099')
 }
 
@@ -111,7 +111,7 @@ describe('CreateUser — إنشاء مستخدم', () => {
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('البريد الإلكتروني'), 'fo@akram.iq')
     await user.type(screen.getByLabelText('الاسم الكامل'), 'قائد العمليات الميدانية')
-    await user.type(screen.getByLabelText('كلمة المرور المبدئية'), 'Passw0rd1')
+    await user.type(screen.getByLabelText('كلمة المرور المبدئية'), 'Passw0rd12')
     await user.selectOptions(screen.getByTestId('create-role'), 'field_ops')
     expect(screen.queryByTestId('sector-manager-assignment')).toBeNull()
     await user.click(screen.getByTestId('create-submit'))

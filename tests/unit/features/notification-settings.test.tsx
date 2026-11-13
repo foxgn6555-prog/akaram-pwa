@@ -100,3 +100,17 @@ describe('إعدادات الإشعارات', () => {
     )
   })
 })
+
+describe('V-23ج: رسالة صادقة عند غياب مفاتيح الإشعارات', () => {
+  it.each(['PUSH_PUBLIC_KEY_MISSING', 'PUSH_SERVER_NOT_CONFIGURED'])('%s ⇒ رسالة «غير مفعّلة في هذه النسخة»', async (code) => {
+    h.enable.mockRejectedValueOnce(new Error(code))
+    render(<NotificationSettingsPanel onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'تفعيل' }))
+    await waitFor(() =>
+      expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'error',
+        message: expect.stringContaining('غير مفعّلة في هذه النسخة'),
+      })),
+    )
+  })
+})

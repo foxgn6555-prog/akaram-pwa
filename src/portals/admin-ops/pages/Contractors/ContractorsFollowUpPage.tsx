@@ -39,14 +39,14 @@ export default function ContractorsFollowUpPage() {
         ]} />
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-3 shadow-sm">
         <label className="text-xs font-bold text-slate-600">اليوم</label>
-        <input type="date" value={date} max={todayBaghdad()} onChange={(e) => { setDate(e.target.value) }} className="rounded-xl border px-3 py-2 text-sm" data-testid="date-filter" />
+        <input type="date" value={date} max={todayBaghdad()} onChange={(e) => { setDate(e.target.value) }} className="rounded-xl border px-3 py-2 text-sm" data-testid="date-filter" aria-label="تاريخ اليوم" />
         {parents.length > 1 && (
           <select value={parent} onChange={(e) => setParent(e.target.value as ParentSector | '')} className="rounded-xl border px-3 py-2 text-sm" data-testid="parent-filter">
             <option value="">كل قواطعي</option>
             {parents.map((p) => <option key={p} value={p}>{PARENT_AR[p] ?? p}</option>)}
           </select>
         )}
-        <select value={contractor} onChange={(e) => setContractor(e.target.value)} className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" data-testid="contractor-filter">
+        <select value={contractor} onChange={(e) => setContractor(e.target.value)} className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" data-testid="contractor-filter" aria-label="المتعهد">
           <option value="">كل المتعهدين</option>
           {(all.data ?? []).map((r) => <option key={r.contractor_user_id} value={r.contractor_user_id}>{r.contractor_name} — {r.area_name}</option>)}
         </select>

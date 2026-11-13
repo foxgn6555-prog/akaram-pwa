@@ -90,9 +90,9 @@ describe('بوابة الكراج المركزي', () => {
     ])
   })
 
-  it('الحارس يسمح لمسؤول الكراج وتقنية المعلومات فقط', () => {
+  it('V-32 · الحارس يسمح لمسؤول الكراج وحده (لا استثناء لتقنية المعلومات)', () => {
     const route = PORTAL_ROUTES.find((item) => item.portal === PORTALS.CENTRAL_GARAGE)
-    expect(route?.allowedRoles).toEqual(['central_garage_officer', 'it_admin'])
+    expect(route?.allowedRoles).toEqual(['central_garage_officer'])
   })
 
   it('يسند الانطلاقية لمسؤول المنطقة لكل شفتات السائقين دون اختيار العميل', () => {

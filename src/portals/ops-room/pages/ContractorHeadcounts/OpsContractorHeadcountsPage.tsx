@@ -75,8 +75,8 @@ export default function OpsContractorHeadcountsPage() {
 
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-3 shadow-sm">
         <label className="text-xs font-bold text-slate-600">الشهر</label>
-        <input type="month" value={month} max={todayBaghdad().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="month-filter" />
-        <select value={parent} onChange={(e) => setParent(e.target.value as typeof parent)} className="rounded-xl border px-3 py-2 text-sm" data-testid="parent-filter">
+        <input type="month" value={month} max={todayBaghdad().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border px-3 py-2 text-sm" data-testid="month-filter" aria-label="الشهر" />
+        <select value={parent} onChange={(e) => setParent(e.target.value as typeof parent)} className="rounded-xl border px-3 py-2 text-sm" data-testid="parent-filter" aria-label="القاطع">
           <option value="">كل القواطع</option>{parents.map((p) => <option key={p.code} value={p.code}>{p.title}</option>)}
         </select>
         <div className="flex gap-1" data-testid="source-filter">

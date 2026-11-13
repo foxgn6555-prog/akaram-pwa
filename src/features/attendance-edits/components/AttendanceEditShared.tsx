@@ -190,7 +190,7 @@ export function ListFilters({ f, setF }: { f: ListFiltersState; setF: (u: (p: Li
       <input type="date" className={field} value={f.to} onChange={(e) => setF((p) => ({ ...p, to: e.target.value }))} aria-label="إلى" data-testid="ae-f-to" />
       <select className={field} value={f.mode} onChange={(e) => setF((p) => ({ ...p, mode: e.target.value as ListFiltersState['mode'] }))} aria-label="الوضع" data-testid="ae-f-mode"><option value="">مباشر وبطلب</option><option value="direct">مباشر فقط</option><option value="hr_request">بطلب إلى HR فقط</option></select>
       <select className={field} value={f.status} onChange={(e) => setF((p) => ({ ...p, status: e.target.value as ListFiltersState['status'] }))} aria-label="الحالة" data-testid="ae-f-status"><option value="">كل الحالات</option>{(Object.keys(ATTENDANCE_EDIT_STATUS_LABELS) as AttendanceEditStatus[]).map((s) => <option key={s} value={s}>{ATTENDANCE_EDIT_STATUS_LABELS[s]}</option>)}</select>
-      <input className={clsx(field, 'min-w-[180px]')} value={f.search} onChange={(e) => setF((p) => ({ ...p, search: e.target.value }))} placeholder="بحث: موظف / رقم / نطاق / سبب" data-testid="ae-f-search" />
+      <input className={clsx(field, 'min-w-[180px]')} value={f.search} onChange={(e) => setF((p) => ({ ...p, search: e.target.value }))} placeholder="بحث: موظف / رقم / نطاق / سبب" data-testid="ae-f-search" aria-label="بحث في تعديلات الحضور" />
     </div>
   )
 }

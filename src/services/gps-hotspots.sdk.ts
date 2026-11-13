@@ -33,9 +33,12 @@ export interface GpsHotspot {
   geo_sector_id?: number | null
   geo_sector_name?: string | null
   geo_zone_name?: string | null
-  vehicles: GpsHotspotVehicle[]
-  days: string[]
-  hours: number[]
+  /** 00405: الحقول الثقيلة تصل فقط من gps_hotspots_details (لوحة البقعة/التصدير) — غير موجودة في قائمة الخريطة */
+  vehicles?: GpsHotspotVehicle[]
+  days?: string[]
+  hours?: number[]
+  /** 00405: ساعة/ساعتا الذروة كنص في القائمة المخفّفة (بدل مصفوفة ٢٤ ساعة) */
+  peak_hour?: string
 }
 export interface GpsHotspotsSync { month: string; rows_count: number; thresholds: Record<string, number>; synced_at: string }
 export interface GpsHotspotsMonth { month: string; rows: number; synced_at: string }
@@ -48,6 +51,8 @@ export interface GpsHotspotsFilters {
   recurrence?: HotspotRecurrence[] | null
   minVehicles?: number
   sectorIds?: number[] | null
+  /** 00405: false = بلا vehicles/days/hours (الخريطة) — الافتراضي true كالسابق */
+  details?: boolean
 }
 
 export interface GpsHotspotsMonthStats { month: string; spots: number; stops: number; total_minutes: number; multi_vehicle: number; by_class: Partial<Record<HotspotClass, number>>; by_recurrence: Partial<Record<HotspotRecurrence, number>>; by_sector: Array<{ sector_id: number; sector_name: string; spots: number }>; updated_at: string }
@@ -59,6 +64,13 @@ export const gpsHotspots = {
     if (error) throw new LvnSyncError(error.message)
     return (data ?? []) as unknown as GpsHotspotsMonthStats[]
   },
+  /** 00405: تفاصيل كاملة لبقعة أو أكثر (لوحة البقعة + التصدير) */
+  details: async (ids: number[]): Promise<GpsHotspot[]> => {
+    if (!ids.length) return []
+    const { data, error } = await supabase.rpc('gps_hotspots_details', { p_ids: ids })
+    if (error) throw new LvnSyncError(error.message)
+    return (data ?? []) as unknown as GpsHotspot[]
+  },
   list: async (f: GpsHotspotsFilters = {}): Promise<GpsHotspotsList> => {
     const { data, error } = await supabase.rpc('gps_hotspots_list', {
       p_month: f.month ? (f.month.length === 7 ? `${f.month}-01` : f.month) : null,
@@ -66,6 +78,7 @@ export const gpsHotspots = {
       p_recurrence: f.recurrence ?? null,
       p_min_vehicles: f.minVehicles ?? 1,
       p_sector_ids: f.sectorIds && f.sectorIds.length ? f.sectorIds : null,
+      p_details: f.details ?? true,
     })
     if (error) throw new LvnSyncError(error.message)
     return data as unknown as GpsHotspotsList

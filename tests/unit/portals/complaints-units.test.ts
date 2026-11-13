@@ -32,6 +32,7 @@ describe('بوابة الشكاوى', () => {
       'karrada-sector', 'zaafaraniya-sector', 'sector/:code', 'assignment', 'processing', 'templates', 'database',
       'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
       'approvals', 'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
+      '*', // 00412: مسار شامل داخل البوابة يعرض 404 بدل إعادة توجيه صامتة
     ]))
   })
 })

@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 
 vi.mock('@features/auth/hooks/useAuth', () => ({
-  useAuth: () => ({ data: { email: 'a@b.c', primaryRole: 'employee', fullName: 'موظف تجريبي' } }),
+  useAuth: () => ({ data: { email: 'a@b.c', primaryRole: 'employee', roles: ['employee'], fullName: 'موظف تجريبي' } }),
   useLogout: () => ({ mutateAsync: vi.fn(async () => {}) }),
 }))
 vi.mock('@features/auth/hooks/usePortalAccess', () => ({

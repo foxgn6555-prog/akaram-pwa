@@ -19,11 +19,11 @@ export function portalGuard(session: SessionUser | null, requiredPortal: PortalI
     case 'denied':
       return { decision: 'denied' }
     case 'single':
-      // البوابة المطلوبة ضمن بوابات المستخدم (حتى مع تعدد الأدوار) → اسمح،
-      // وإلا حوّله إلى بوابته الافتراضية مباشرة.
+      // V-33 (قرار المستخدم): البوابة المطلوبة ليست من أدوار الحساب ⇒ صفحة 403 صريحة
+      // (كان تحويلاً صامتاً إلى بوابته، فيظن أنه فتح البوابة وهو في غيرها).
       return accessiblePortals(session.roles).some((p) => p.id === requiredPortal) ||
         requiredPortal === PORTALS.PUBLIC
         ? { decision: 'allow', resolution }
-        : { decision: 'redirect', redirectTo: resolution.path }
+        : { decision: 'denied' }
   }
 }

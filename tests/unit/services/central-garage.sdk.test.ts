@@ -270,6 +270,32 @@ describe('SDK الكراج — الآليات والانطلاقية', () => {
     expect(result.vehicleName).toBe('كابسة معدلة')
   })
 
+  it('V-01: عقد garage_update_vehicle يطابق توقيع القاعدة حرفياً (17 معاملاً)', async () => {
+    // القاعدة (مقيسة على الإنتاج): garage_update_vehicle(uuid,text×4,text×10,date×2,smallint,uuid,jsonb)
+    // أي: 15 معاملاً قديماً + p_driver_external_id + p_drivers. أي زيادة/نقصان هنا = 404 PGRST202.
+    h.state.result = {
+      data: {
+        id: 'v1', vehicle_name: 'مركبة', db_number: 'D-1', plate_number: 'P-1',
+        chassis_number: 'CH-1', shift: 'morning', sector_id: 1, created_at: 'now', updated_at: 'now',
+      },
+      error: null,
+    }
+    await centralGarage.updateVehicle('v1', {
+      vehicleName: 'مركبة',
+      dbNumber: 'D-1',
+      plateNumber: 'P-1',
+      chassisNumber: 'CH-1',
+    })
+    const call = h.rpc.mock.calls.at(-1) as [string, Record<string, unknown>]
+    expect(call[0]).toBe('garage_update_vehicle')
+    expect(Object.keys(call[1]).sort()).toEqual([
+      'p_chassis_number', 'p_db_number', 'p_driver_external_id', 'p_drivers', 'p_image_path',
+      'p_lessor_name', 'p_model_year', 'p_ownership_type', 'p_plate_number', 'p_rental_contract_no',
+      'p_rental_end_date', 'p_rental_start_date', 'p_specifications', 'p_vehicle_category',
+      'p_vehicle_color', 'p_vehicle_id', 'p_vehicle_name',
+    ])
+  })
+
   it('يغير السائق والشفت والموقع عبر RPC تاريخي ويؤرشف ويستعيد بسبب', async () => {
     h.state.result = {
       data: {

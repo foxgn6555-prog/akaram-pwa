@@ -8,7 +8,6 @@ export const MAP_THEME_EVENT = 'akaram:map-theme'
 
 export interface TileProvider { id: string; url: string; attribution: string; filter: boolean; maxZoom: number }
 export const DARK_TILES: readonly TileProvider[] = [
-  { id: 'carto-dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', attribution: '&copy; OpenStreetMap &copy; CARTO', filter: false, maxZoom: 19 },
   { id: 'esri-dark', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap', filter: false, maxZoom: 16 },
   { id: 'osm-filtered', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: true, maxZoom: 19 },
 ]
@@ -31,7 +30,8 @@ export const MAP_UI = {
 
 /** CSS مشترك: الفلتر الداكن وخلفية الحاوية */
 export const MAP_THEME_CSS = `
-.akaram-tiles-filtered .leaflet-tile-pane { filter: invert(1) hue-rotate(195deg) brightness(.72) contrast(1.15) saturate(.55); }
+.akaram-map-dark[data-tiles="esri-dark"] .leaflet-tile-pane { filter: brightness(1.08) contrast(1.12) saturate(.9); }
+.akaram-tiles-filtered .leaflet-tile-pane { filter: invert(1) hue-rotate(195deg) brightness(1.1) contrast(.9) saturate(.45); }
 .akaram-map-dark .leaflet-container { background: #060b18; }
 .akaram-map-light .leaflet-container { background: #e5e7eb; }
 .akaram-map-dark .leaflet-control-zoom a { background: #0f172a; color: #fff; border-color: rgba(255,255,255,.15); }

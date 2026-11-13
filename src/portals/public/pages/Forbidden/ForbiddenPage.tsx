@@ -7,7 +7,7 @@ import { Button } from '@components/ui'
 export default function ForbiddenPage() {
   const navigate = useNavigate()
   const { data: session } = useAuth()
-  // العودة إلى البوابة الافتراضية (نفس منطق resolvePortal — super_admin → /it)
+  // العودة إلى البوابة الافتراضية (نفس منطق resolvePortal — super_admin → /admin · it_admin → /it)
   const resolution = session ? resolvePortal(session.roles) : undefined
   const homePath = resolution?.type === 'single' ? resolution.path : '/login'
 
@@ -16,7 +16,7 @@ export default function ForbiddenPage() {
       <p className="text-6xl font-black text-brand-600/20">403</p>
       <h1 className="text-xl font-bold">ليس لديك صلاحية الوصول لهذه الصفحة</h1>
       <p className="max-w-md text-sm text-slate-500">
-        هذه البوابة محصورة بأدوار محددة. إن كنت تعتقد أن هذا خطأ، راجع إدارة الموارد البشرية.
+        هذه البوابة محصورة بأدوار محددة تُمنح من التطوير المركزية (تقنية المعلومات) عبر «إدارة المستخدمين». إن كنت تعتقد أن هذا خطأ، راجع التطوير المركزية.
       </p>
       <Button onClick={() => navigate(homePath, { replace: true })}>
         العودة إلى بوابتك

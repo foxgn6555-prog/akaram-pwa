@@ -1,8 +1,7 @@
-/** 00385 — المقارنة الشهرية، العنوان الأقرب، التصدير (Excel/HTML) */
-import { describe, expect, it, vi } from 'vitest'
+/** 00385/00389 — المقارنة الشهرية، وصف الموقع الداخلي (بدل Nominatim)، التصدير (Excel/HTML) */
+import { describe, expect, it } from 'vitest'
 import type { GpsHotspot, GpsHotspotsMonthStats } from '@sdk/gps-hotspots.sdk'
-import { compareMonths, daysByWeekday, deltaLabel, fmtDay, prevMonthOf } from '@features/gps-hotspots/hotspots.logic'
-import { __geocodeCacheForTests, pickAddress, reverseGeocode } from '@features/gps-hotspots/geocode'
+import { compareMonths, daysByWeekday, deltaLabel, fmtDay, placeDescription, prevMonthOf } from '@features/gps-hotspots/hotspots.logic'
 import { HOTSPOT_COLUMNS, buildHotspotsWorkbook, filtersLabel, hotspotRowValues, hotspotsReportHtml, sortedForExport } from '@features/gps-hotspots/export'
 
 const spot = (p: Partial<GpsHotspot>): GpsHotspot => ({ id: 1, month: '2026-09-01', wh_id: 1, lat: 33.3, lng: 44.4, stops_count: 5, days_count: 4, vehicles_count: 2, total_minutes: 172, avg_minutes: 34, max_minutes: 90, light_count: 2, medium_count: 2, heavy_count: 1,
@@ -29,17 +28,6 @@ describe('waste-map 00385', () => {
     expect(daysByWeekday(['2026-09-04', '2026-09-11', '2026-09-07']).filter((d) => d.count)).toEqual([{ day: 'الاثنين', count: 1 }, { day: 'الجمعة', count: 2 }])
     expect(fmtDay('2026-09-04')).toBe('الجمعة 04/09')
   })
-  it('أقرب عنوان: يُركَّب من الشارع/الحي/المدينة، يُخزَّن محلياً، ويفشل بهدوء', async () => {
-    expect(pickAddress({ road: 'شارع الكرادة داخل', suburb: 'الكرادة', city: 'بغداد' })).toBe('شارع الكرادة داخل — الكرادة — بغداد')
-    expect(pickAddress(undefined, 'a, b, c, d')).toBe('a، b، c')
-    __geocodeCacheForTests.clear()
-    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ address: { road: 'ش', city: 'بغداد' } }) }) as unknown as typeof fetch
-    expect(await reverseGeocode(33.3, 44.4, fetcher)).toBe('ش — بغداد')
-    expect(await reverseGeocode(33.30001, 44.40001, fetcher)).toBe('ش — بغداد'); expect(fetcher).toHaveBeenCalledTimes(1)
-    expect(String((fetcher as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![0])).toContain('accept-language=ar')
-    const bad = vi.fn().mockRejectedValue(new Error('net')) as unknown as typeof fetch
-    expect(await reverseGeocode(34, 45, bad)).toBeNull()
-  })
   it('Excel: ثلاث أوراق (البقع، الآليات، ملخص بالمقارنة) والصفوف مرتبة بالدقائق', async () => {
     const rows = [spot({ id: 1, total_minutes: 50 }), spot({ id: 2, total_minutes: 900, dominant_class: 'heavy' })]
     expect(sortedForExport(rows).map((r) => r.id)).toEqual([2, 1])
@@ -51,7 +39,8 @@ describe('waste-map 00385', () => {
     expect(wb.getWorksheet('الآليات لكل بقعة')!.rowCount).toBe(3)
     const sum = wb.getWorksheet('ملخص')!; const texts: string[] = []; sum.eachRow((r) => texts.push(String(r.getCell(1).value ?? '')))
     expect(texts.some((t) => t.includes('مقارنة أيلول 2026 مع آب 2026'))).toBe(true)
-    expect(filtersLabel({ classes: ['heavy'], recurrence: ['frequent'], minVehicles: 2, sectorIds: [1] }, new Map([[1, 'الكرادة']]))).toBe('الصنف: ثقيل · التكرار: شبه يومي · الآليات: 2+ · القاطع: الكرادة')
+    expect(filtersLabel({ classes: ['heavy'], recurrence: ['frequent'], minVehicles: 2, sectorIds: [1], unlocated: false }, new Map([[1, 'الكرادة']]))).toBe('الصنف: ثقيل · التكرار: شبه يومي · الآليات: 2+ · القاطع: الكرادة')
+    expect(filtersLabel({ classes: [], recurrence: [], minVehicles: 1, sectorIds: [1], unlocated: true }, new Map([[1, 'الكرادة']]))).toBe('الصنف: الكل · التكرار: الكل · الآليات: الكل · القاطع: الكرادة/غير محدد')
   })
   it('تقرير HTML مستقل: A4 أفقي، ألوان مطبوعة، المقارنة، وبلا نصوص خام', () => {
     const html = hotspotsReportHtml([spot({ sector_names: ['<x>'] })], '2026-09', 'الكل', stats, new Date('2026-10-30T08:00:00Z'))
@@ -59,5 +48,13 @@ describe('waste-map 00385', () => {
     expect(html).toContain('مقارنة مع آب 2026'); expect(html).toContain('&lt;x&gt;'); expect(html).not.toContain('<x>')
     expect(html).toContain('2 س 52 د')
     expect(hotspotsReportHtml([], '2026-08', 'الكل', stats)).toContain('لا تتوفر بيانات الشهر السابق')
+  })
+
+  // 00389-ج: وصف الموقع بلا أي نداء شبكة (سياسة CSP تحجب Nominatim ⇒ كان «غير متاح» دائمًا)
+  it('وصف الموقع: الزون الجغرافي ثم قاطع الآلية ثم خارج القواطع — بلا شبكة', () => {
+    expect(placeDescription(spot({ geo_zone_name: 'زون الرياض', geo_sector_name: 'الرياض' }))).toBe('زون الرياض · الرياض')
+    expect(placeDescription(spot({ geo_sector_name: 'الرياض' }))).toBe('الرياض')
+    expect(placeDescription(spot({ sector_names: ['الكرادة', 'الأعظمية'] }))).toBe('الكرادة، الأعظمية')
+    expect(placeDescription(spot({ sector_names: [] }))).toBe('لم يُحدَّد القاطع')
   })
 })

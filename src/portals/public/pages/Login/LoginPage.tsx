@@ -7,21 +7,25 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { ShieldCheck, Lock, Zap } from 'lucide-react'
+import { Headphones, ShieldCheck, Lock, Zap } from 'lucide-react'
 import { useLogin } from '@features/auth/hooks/useAuth'
+import { InstallAppButton } from '@features/pwa/InstallAppButton'
 import { loginSchema } from '@features/auth'
-import { lockStatus, recordFailure, recordSuccess } from '@features/auth/security/login-guard'
+import { lockStatus, recordSuccess, setServerLock } from '@features/auth/security/login-guard'
+import { LoginGatewayError } from '@sdk/auth.sdk'
+import { AuthError } from '@lib/errors/AuthError'
 import { resolvePortal } from '@router/portal.router'
 import { toUserMessage } from '@lib/errors/error.handler'
 import LoginBackground from './kyvzon-style/LoginBackground'
 import LoginForm from './kyvzon-style/LoginForm'
-import { InstallAppButton } from '@features/pwa/InstallAppButton'
 import './kyvzon-style/login.css'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useLogin()
 
+  // V-25: عنوان التبويب يخصّ الصفحة (كان ثابتاً من index.html)
+  useEffect(() => { document.title = 'جزيرة الأكارم — تسجيل الدخول' }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -33,10 +37,11 @@ export default function LoginPage() {
 
   // فحص القفل عند الافتتاح + عد تنازلي
   useEffect(() => {
-    setRemainingMs(lockStatus().remainingMs)
-    const timer = window.setInterval(() => setRemainingMs(lockStatus().remainingMs), 1_000)
+    const refresh = () => setRemainingMs(lockStatus(email).remainingMs)
+    refresh()
+    const timer = window.setInterval(refresh, 1_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [email])
 
   // مسح الخطأ تلقائياً بعد 6 ثوانٍ
   useEffect(() => {
@@ -70,7 +75,7 @@ export default function LoginPage() {
     }
 
     // فحص القفل المحلي + الخادم
-    const guard = lockStatus()
+    const guard = lockStatus(email)
     if (guard.locked) {
       setError(`الحساب مقفل مؤقتاً — انتظر ${Math.ceil(guard.remainingMs / 1000)} ثانية`)
       return
@@ -80,7 +85,8 @@ export default function LoginPage() {
 
     try {
       const session = await login.mutateAsync(parsed.data)
-      recordSuccess()
+      recordSuccess(email)
+      setRemainingMs(0)
       setSuccess('تم تسجيل الدخول بنجاح! جاري التحويل…')
 
       // توجيه حسب الدور
@@ -93,14 +99,11 @@ export default function LoginPage() {
           setError('لا توجد بوابات متاحة لحسابك — راجع الموارد البشرية')
       }
     } catch (err) {
-      recordFailure()
-      const status = lockStatus()
-      if (status.locked) {
+      if (err instanceof LoginGatewayError && err.code === 'SOURCE_LOCKED' && err.lockedUntil) {
+        const status = setServerLock(err.lockedUntil, email)
         setRemainingMs(status.remainingMs)
-        setError('تم قفل الدخول مؤقتاً بسبب محاولات فاشلة متكررة')
-      } else {
-        setError(toUserMessage(err))
       }
+      setError(err instanceof AuthError ? err.message : toUserMessage(err))
     } finally {
       setLoading(false)
     }
@@ -160,6 +163,15 @@ export default function LoginPage() {
               onToggleShowPass={handleToggleShowPass}
               onSubmit={handleSubmit}
             />
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              aria-label="مساعدة تسجيل الدخول والتواصل مع الدعم"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            >
+              <Headphones size={17} aria-hidden="true" />
+              <span>مساعدة تسجيل الدخول والتواصل مع الدعم</span>
+            </button>
           </div>
         </div>
 
