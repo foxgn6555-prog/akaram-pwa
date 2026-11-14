@@ -1,22 +1,19 @@
 name: 🚀 نشر الإنتاج إلى هوستنجر
 
-# جسر تلقائي: كل مرة تُرفَع كوميت على الفرع port-00134
-# → يُبنَى React إلى ملفات ثابتة (dist/) → تُرفَع تلقائياً إلى هوستنجر عبر FTP
-# → يظهر التعديل على jazirat-alakarim.com خلال دقيقة.
-# يمكن تشغيله يدوياً أيضاً من تبويب Actions → "Deploy to Hostinger".
-
 on:
   push:
     branches: [port-00134]
-  workflow_dispatch:
 
 concurrency:
   group: deploy-production-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
-    name: بناء ثم نشر
+    name: بناء ثم رفع فرع deploy
     runs-on: ubuntu-latest
     steps:
       - name: 📥 استلام الكود
@@ -31,30 +28,20 @@ jobs:
       - name: 📦 تثبيت الاعتماديات
         run: npm ci
 
-      - name: 🔨 بناء الموقع (يحوّل كود React إلى ملفات ثابتة في dist/)
+      - name: 🔨 بناء الموقع
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_ENV: production
 
-      - name: 📤 رفع dist/ إلى هوستنجر (FTP)
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: 21
-          local-dir: ./dist/
-          server-dir: /
-          # يمسح محتوى المجلد الهدف قبل الرفع — يحذف تلقائياً الملفات القديمة الخاطئة
-          dangerous-clean-slate: false
-          log-level: standard
-
-      - name: ✅ التحقق الحي (معلوماتي فقط — لا يؤثر على نجاح النشر)
-        if: success()
-        continue-on-error: true
+      - name: 📤 رفع dist/ إلى فرع deploy (ينشئه إن لم يكن موجودًا)
         run: |
-          curl -sL https://jazirat-alakarim.com/ -o /tmp/index.html || true
-          echo "— نتيجة التحقق من الصفحة —"
-          grep -o '<title>[^<]*</title>' /tmp/index.html || echo "(الصفحة لم تُحمّل بعد — انتظر دقيقة وتأكد في المتصفح)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan deploy
+          git rm -rf .
+          cp -r dist/. .
+          git add -A -f
+          git commit -m "deploy: نشر الإنتاج"
+          git push -f origin deploy
