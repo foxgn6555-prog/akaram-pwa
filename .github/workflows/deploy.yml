@@ -46,9 +46,9 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: 21
           local-dir: ./dist/
-          server-dir: /public_html/
+          server-dir: /
           # يمسح محتوى المجلد الهدف قبل الرفع — يحذف تلقائياً الملفات القديمة الخاطئة
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
           log-level: standard
 
       - name: ✅ التحقق الحي (معلوماتي فقط — لا يؤثر على نجاح النشر)
