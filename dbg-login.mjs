@@ -1,0 +1,12 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch({ args: ['--disable-web-security','--disable-site-isolation-trials'] })
+const p = await (await b.newContext({viewport:{width:1400,height:900}})).newPage()
+const errs=[]; p.on('console',m=>{if(m.type()==='error')errs.push(m.text().slice(0,120))})
+await p.goto('http://127.0.0.1:5173/login',{waitUntil:'domcontentloaded'}); await p.waitForTimeout(2500)
+await p.fill('input[type="email"], input[name="email"]','admin@akram.iq')
+await p.fill('input[type="password"]','123456789k')
+await p.click('button[type="submit"]'); await p.waitForTimeout(9000)
+console.log('URL:',p.url())
+console.log('TEXT:', (await p.locator('body').innerText()).replace(/\n+/g,' | ').slice(0,600))
+console.log('ERRS:', errs.slice(0,5).join(' ⏐ '))
+await p.screenshot({path:'/home/user/shots/dbg-login.png'}); await b.close()

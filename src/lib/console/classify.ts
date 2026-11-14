@@ -314,6 +314,7 @@ const PORTAL_AR: Record<PortalId, string> = {
   admin: 'المدير المفوض',
   'field-ops': 'العمليات الميدانية',
   'admin-ops': 'مسؤول القاطع',
+  'ops-room-manager': 'مدير غرفة العمليات',
   maintenance: 'الصيانة',
   'transfer-station': 'المحطة التحويلية',
   executive: 'المدير التنفيذي',

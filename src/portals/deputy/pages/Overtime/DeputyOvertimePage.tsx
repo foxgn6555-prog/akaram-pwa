@@ -94,7 +94,7 @@ export default function DeputyOvertimePage() {
         {tab === 'month' && (
           <div className="flex items-center gap-1" data-testid="ot-month-nav">
             <Button size="sm" variant="secondary" onClick={() => setMonth((m) => shiftMonth(m, -1))} data-testid="ot-prev">‹ السابق</Button>
-            <input type="month" className={clsx(field, 'w-40')} value={month.slice(0, 7)} onChange={(e) => e.target.value && setMonth(`${e.target.value}-01`)} data-testid="ot-month" />
+            <input type="month" className={clsx(field, 'w-40')} value={month.slice(0, 7)} onChange={(e) => e.target.value && setMonth(`${e.target.value}-01`)} data-testid="ot-month" aria-label="الشهر" />
             <Button size="sm" variant="secondary" onClick={() => setMonth((m) => shiftMonth(m, 1))} disabled={month >= currentMonth} data-testid="ot-next">التالي ›</Button>
           </div>
         )}
@@ -121,7 +121,7 @@ export default function DeputyOvertimePage() {
           </section>
 
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <input className={clsx(field, 'w-56')} placeholder="بحث: اسم، رقم، قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ot-search" />
+            <input className={clsx(field, 'w-56')} placeholder="بحث: اسم، رقم، قسم" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ot-search" aria-label="بحث باسم الموظف أو رقمه أو قسمه" />
             <div className="flex gap-1">{(['all', 'pending', 'paid', 'rejected'] as const).map((f) => <button key={f} type="button" onClick={() => setFilter(f)} className={clsx('rounded-lg px-2.5 py-1 text-[11px] font-bold', filter === f ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700')} data-testid={`ot-filter-${f}`}>{{ all: 'الكل', pending: 'بانتظار القرار', paid: 'مصروف', rejected: 'مرفوض' }[f]}</button>)}</div>
           </div>
 

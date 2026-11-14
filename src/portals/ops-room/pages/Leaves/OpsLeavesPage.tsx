@@ -36,12 +36,20 @@ export default function OpsLeavesPage() {
   const dq = useDebounced(q)
   const { data: summary, error: summaryError } = useOpsLeavesSummary()
   const { data: rows = [], isLoading, error } = useLeaveRequests({ scope: 'all', from, to, status: status || null, search })
+  // V-43: «المعلّقة» تُقرأ بلا حدّ تواريخ — طلب معلّق لعام قادم كان يختفي كليًا من الشاشة.
+  // (نداء منفصل لأن القائمة أعلاه مقيّدة بالنطاق المختار؛ يُستخدم أيضًا لعدّ المعلّق خارج النطاق.)
+  const { data: pendingAll = [], isLoading: pendingLoading } = useLeaveRequests({ scope: 'all', from: null, to: null, status: 'pending', search })
   const { data: found = [], isFetching: searching } = useOpsLeaveEmployeeLookup(dq)
   const { data: balance } = useLeaveBalance(picked?.id ?? null)
   const { data: policy } = useHrPolicy()
   const viaOps = useMemo(() => rows.filter((r) => r.requested_via === 'ops_room'), [rows])
-  const pending = useMemo(() => rows.filter((r) => r.status === 'pending'), [rows])
-  const shown = tab === 'ops' ? viaOps : tab === 'pending' ? pending : rows
+  // V-43: المعلّقة تُقرأ بلا نطاق، ويُعلَن ما يقع خارج النطاق المختار بدل إخفائه
+  const pendingList = useMemo(() => (pendingAll as LeaveRequestRow[]).filter((r) => r.status === 'pending'), [pendingAll])
+  const pendingOutside = useMemo(
+    () => pendingList.filter((r) => !(r.end_date >= from && r.start_date <= to)),
+    [pendingList, from, to],
+  )
+  const shown = tab === 'ops' ? viaOps : tab === 'pending' ? pendingList : rows
   const err = error ?? summaryError
   return (
     <div className="space-y-4" data-testid="ops-leaves-page">
@@ -93,7 +101,7 @@ export default function OpsLeavesPage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <div className="inline-flex rounded-xl border border-slate-200 p-0.5" role="tablist">
-          {([['ops', `قدّمتها غرفة العمليات (${viaOps.length})`], ['pending', `المعلّقة (${pending.length})`], ['all', 'كل الطلبات']] as const).map(([k, l]) => (
+          {([['ops', `قدّمتها غرفة العمليات (${viaOps.length})`], ['pending', `المعلّقة (${pendingList.length})`], ['all', 'كل الطلبات']] as const).map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={clsx('h-8 rounded-lg px-3 text-xs font-black', tab === k ? 'bg-[#0b3d6b] text-white' : 'text-slate-600 hover:bg-slate-50')} data-testid={`ol-tab-${k}`}>{l}</button>
           ))}
         </div>
@@ -105,7 +113,19 @@ export default function OpsLeavesPage() {
         <input className={clsx(field, 'flex-1 min-w-[180px]')} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="ol-search" />
       </div>
 
-      <LeaveRequestsTable rows={shown} isLoading={isLoading} mode="ops" testId={`ol-${tab}`} />
+      {/* V-43: تنبيه ظاهر بدل إخفاء — المعلّق خارج النطاق يُعلن هنا ويُفتح بضغطة */}
+      {tab !== 'pending' && pendingOutside.length > 0 && (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900" data-testid="ol-pending-outside">
+          <span>يوجد {n(pendingOutside.length)} طلب معلّق خارج نطاق التواريخ المعروض — لا يظهر في القائمة الحالية.</span>
+          <button type="button" className="rounded-lg bg-amber-900 px-2 py-1 text-[11px] font-black text-white" onClick={() => setTab('pending')} data-testid="ol-pending-outside-open">اعرض المعلّقة ({n(pendingList.length)})</button>
+        </p>
+      )}
+      {tab === 'pending' && (
+        <p className="rounded-2xl bg-slate-50 p-3 text-[11px] font-bold text-slate-600" data-testid="ol-pending-nodates">
+          هذا التبويب يعرض <b>كل</b> الطلبات المعلّقة بلا حدّ تواريخ ({n(pendingList.length)}) — التواريخ أعلاه لا تُطبَّق عليه.
+        </p>
+      )}
+      <LeaveRequestsTable rows={shown} isLoading={tab === 'pending' ? pendingLoading : isLoading} mode="ops" testId={`ol-${tab}`} />
       <p className="text-[11px] text-slate-400">غرفة العمليات تقدّم الطلب فقط — الموافقة/الرفض لمن حدّدته سلسلة الموافقات · الإلغاء للطلبات المعلّقة التي أدخلتها غرفة العمليات · الأرصدة والسياسات تُدار من الموارد البشرية</p>
     </div>
   )

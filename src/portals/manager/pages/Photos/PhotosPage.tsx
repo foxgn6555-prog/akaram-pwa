@@ -210,7 +210,7 @@ export default function PhotosPage({ scope }: { scope?: PhotosScope } = {}) {
 
         <div className="grid gap-3 md:grid-cols-2">
           <input
-            data-testid="f-photo-title"
+            data-testid="f-photo-title" aria-label="عنوان الصورة"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={field.placeholder}
@@ -272,7 +272,7 @@ export default function PhotosPage({ scope }: { scope?: PhotosScope } = {}) {
         </fieldset>
 
         <input
-          data-testid="f-photo-notes"
+          data-testid="f-photo-notes" aria-label="ملاحظات على الصورة"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="ملاحظات (اختياري)"
@@ -350,7 +350,7 @@ export default function PhotosPage({ scope }: { scope?: PhotosScope } = {}) {
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <h2 className="text-sm font-bold text-slate-700">تذكراتي المرسلة ({(mine.data ?? []).length})</h2>
           <DayFilter value={filterDay} onChange={setFilterDay} />
-          <select data-testid="mine-mode" value={filterMode} onChange={(e) => setFilterMode(e.target.value as MediaMode | '')} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[11px] font-bold">
+          <select data-testid="mine-mode" aria-label="نطاق العرض" value={filterMode} onChange={(e) => setFilterMode(e.target.value as MediaMode | '')} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[11px] font-bold">
             <option value="">كل الأنواع</option>
             {MEDIA_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>

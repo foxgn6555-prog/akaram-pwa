@@ -89,3 +89,68 @@ describe('devops.sdk edgeHealth (00278)', () => {
     expect(first[1]).toMatchObject({ method: 'OPTIONS' })
   })
 })
+
+describe('V-23: تمييز الفحص الحقيقي عن حجب CORS', () => {
+  it('OPTIONS محجوب ⇒ GET يقرأ 404 = غير منشورة (down)، و401 = منشورة (up)', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co'); vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'sb_publishable_test')
+    const { devops } = await import('@sdk/devops.sdk')
+    // OPTIONS تفشل دائماً (preflight محجوب كما يحدث فعلياً مع 404)
+    const f = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = (init as RequestInit | undefined)?.method
+      if (method === 'OPTIONS') throw new TypeError('Failed to fetch')
+      if (url.endsWith('/mailgun-inbound')) return new Response(null, { status: 404 })
+      return new Response(null, { status: 401 })
+    }) as unknown as typeof fetch
+    const r = await devops.edgeHealth(f)
+    expect(r.find((x) => x.name === 'mailgun-inbound')).toMatchObject({ state: 'down', http: 404 })
+    expect(r.find((x) => x.name === 'admin-users')).toMatchObject({ state: 'up', http: 401 })
+    expect(r.filter((x) => x.state === 'down').map((x) => x.name)).toEqual(['mailgun-inbound'])
+    // 00409: الدوال الموسومة unused لا تُفحص شبكيًا إطلاقًا
+    expect(r.find((x) => x.name === 'gps-receiver')).toMatchObject({ state: 'unknown', http: null })
+  })
+
+  it('فشل OPTIONS وGET معاً + نجاح no-cors ⇒ unknown؛ فشل الكل ⇒ down', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co'); vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'sb_publishable_test')
+    const { devops } = await import('@sdk/devops.sdk')
+    const f = vi.fn(async (url: string, init?: RequestInit) => {
+      const mode = (init as RequestInit | undefined)?.mode
+      if (mode === 'no-cors' && url.endsWith('/mailgun-inbound')) return new Response(null, { status: 200 })
+      throw new TypeError('Failed to fetch')
+    }) as unknown as typeof fetch
+    const r = await devops.edgeHealth(f)
+    expect(r.find((x) => x.name === 'mailgun-inbound')).toMatchObject({ state: 'unknown', http: null })
+    expect(r.find((x) => x.name === 'complaint-generate-report')).toMatchObject({ state: 'down', http: null })
+    // 00409: webhooks غير منشورة ⇒ لا تُفحص
+    expect(r.find((x) => x.name === 'webhooks')).toMatchObject({ state: 'unknown', http: null })
+  })
+})
+
+describe('V-23ب: وسم «غير مستخدمة حالياً» لا يُحتسب إنذاراً', () => {
+  it('دالتان موسومتان unused: gps-receiver وwebhooks؛ والباقي مستخدم', async () => {
+    const { EDGE_FUNCTIONS } = await import('@sdk/devops.sdk')
+    expect(EDGE_FUNCTIONS.filter((f) => f.unused).map((f) => f.name).sort()).toEqual(['gps-receiver', 'webhooks'])
+    expect(EDGE_FUNCTIONS).toHaveLength(16)
+  })
+
+  it('غياب دالتين موسومتين ⇒ الملخص «كل الدوال المستخدمة تستجيب» والبطاقة تحمل الوسم', () => {
+    h.edge = [
+      { name: 'adms-receiver', what: 'x', state: 'up', http: 401, latency_ms: 90 },
+      { name: 'gps-receiver', what: 'استقبال GPS', state: 'down', http: null, latency_ms: null },
+      { name: 'webhooks', what: 'نقطة استقبال', state: 'down', http: null, latency_ms: null },
+    ]
+    render(<DevOpsStatusPage />)
+    expect(screen.getByTestId('edge-summary')).toHaveTextContent('كل الدوال المستخدمة تستجيب')
+    expect(screen.getByTestId('edge-unused-gps-receiver')).toHaveTextContent('غير مستخدمة حالياً')
+    expect(screen.getByTestId('edge-unused-webhooks')).toHaveTextContent('غير مستخدمة حالياً')
+    expect(screen.queryByTestId('edge-unused-adms-receiver')).toBeNull()
+  })
+
+  it('غياب دالة مستخدمة يبقى إنذاراً أحمر', () => {
+    h.edge = [
+      { name: 'adms-receiver', what: 'x', state: 'down', http: null, latency_ms: null },
+      { name: 'gps-receiver', what: 'استقبال GPS', state: 'down', http: null, latency_ms: null },
+    ]
+    render(<DevOpsStatusPage />)
+    expect(screen.getByTestId('edge-summary')).toHaveTextContent('1 غير منشورة/لا تستجيب')
+  })
+})

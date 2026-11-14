@@ -1,7 +1,7 @@
 /** منح/سحب دور — تحديث متفائل على كاش القائمة + إبطال بعد الحسم */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersKeys } from '@lib/query-keys/users.keys'
-import { users } from '@sdk/users.sdk'
+import { SENSITIVE_ROLES, users } from '@sdk/users.sdk'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 import { ROLE_LABELS, type Role } from '@lib/constants/roles.constants'
@@ -16,6 +16,8 @@ export function useSetUserRole() {
       users.setUserRole(userId, role, grant),
 
     onMutate: async ({ userId, role, grant }) => {
+      // V-36: الدور الحساس لا يُطبَّق فوراً (ينتظر موافقة المدير المفوض) ⇒ لا تحديث تفاؤلي
+      if (SENSITIVE_ROLES.includes(role)) return { previous: [] }
       await queryClient.cancelQueries({ queryKey: usersKeys.lists() })
       const previous = queryClient.getQueriesData({ queryKey: usersKeys.lists() })
 
@@ -41,7 +43,14 @@ export function useSetUserRole() {
       })
     },
 
-    onSuccess: (_data, { role, grant }) => {
+    onSuccess: (data, { role, grant }) => {
+      if (data?.pending) {
+        addToast({
+          type: 'info',
+          message: `أُرسل طلب إلى المدير المفوض ل${grant ? 'منح' : 'سحب'} دور «${ROLE_LABELS[role]}» — لن يُنفَّذ قبل موافقته.`,
+        })
+        return
+      }
       addToast({
         type: grant ? 'success' : 'info',
         message: grant

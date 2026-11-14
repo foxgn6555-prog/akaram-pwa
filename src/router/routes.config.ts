@@ -20,6 +20,7 @@ import { customRoutes as transferStationRoutes } from '@portals/transfer-station
 import { customRoutes as executiveRoutes } from '@portals/executive/routes'
 import { customRoutes as deputyRoutes } from '@portals/deputy/routes'
 import { customRoutes as opsRoomRoutes } from '@portals/ops-room/routes'
+import { customRoutes as opsRoomManagerRoutes } from '@portals/ops-room-manager/routes'   // 00400
 import { customRoutes as complaintsRoutes } from '@portals/complaints/routes'
 import { customRoutes as mediaRoutes } from '@portals/media/routes'
 import { customRoutes as centralGarageRoutes } from '@portals/central-garage/routes'
@@ -46,6 +47,7 @@ const TransferStationPortal = lazy(() => import('@portals/transfer-station/Trans
 const ExecutivePortal = lazy(() => import('@portals/executive/ExecutivePortal'))
 const DeputyPortal = lazy(() => import('@portals/deputy/DeputyPortal'))
 const OpsRoomPortal = lazy(() => import('@portals/ops-room/OpsRoomPortal'))
+const OpsRoomManagerPortal = lazy(() => import('@portals/ops-room-manager/OpsRoomManagerPortal'))   // 00400
 const ComplaintsPortal = lazy(() => import('@portals/complaints/ComplaintsPortal'))
 const MediaPortal = lazy(() => import('@portals/media/MediaPortal'))
 const CentralGaragePortal = lazy(() => import('@portals/central-garage/CentralGaragePortal'))
@@ -63,88 +65,94 @@ export interface PortalRouteConfig {
 export const PORTAL_ROUTES: readonly PortalRouteConfig[] = [
   {
     portal: PORTALS.EMPLOYEE, path: '/employee', shell: EmployeePortal,
-    allowedRoles: ['employee', 'it_admin'],
+    allowedRoles: ['employee'],
     children: buildPortalRoutes(PORTALS.EMPLOYEE, employeeRoutes),
   },
   {
     portal: PORTALS.HR, path: '/hr', shell: HRPortal,
-    allowedRoles: ['hr_officer', 'it_admin'],   // HR فقط؛ الإدارة العليا للنظام عبر IT
+    allowedRoles: ['hr_officer'],   // HR فقط؛ الإدارة العليا للنظام عبر IT
     children: buildPortalRoutes(PORTALS.HR, hrRoutes),
   },
   {
     portal: PORTALS.MANAGER, path: '/manager', shell: ManagerPortal,
-    allowedRoles: ['department_manager', 'it_admin'],   // المدير فقط
+    allowedRoles: ['department_manager'],   // المدير فقط
     children: buildPortalRoutes(PORTALS.MANAGER, managerRoutes),
   },
   {
     portal: PORTALS.FINANCE, path: '/finance', shell: FinancePortal,
-    allowedRoles: ['finance_officer', 'it_admin'],   // المالية فقط
+    allowedRoles: ['finance_officer'],   // المالية فقط
     children: buildPortalRoutes(PORTALS.FINANCE, financeRoutes),
   },
   {
     portal: PORTALS.IT, path: '/it', shell: ITPortal,
-    allowedRoles: ['it_admin'],   // IT فقط
+    allowedRoles: ['it_admin'],   // V-32: بوابة التطوير لحسابها وحده
     children: buildPortalRoutes(PORTALS.IT, itCustomRoutes),
   },
   {
     portal: PORTALS.ADMIN, path: '/admin', shell: AdminPortal,
-    allowedRoles: ['super_admin', 'it_admin'],
+    allowedRoles: ['super_admin'],
     children: buildPortalRoutes(PORTALS.ADMIN, adminRoutes),
   },
   // ── البوابات السبع الجديدة (هيكل جاهز — صفحة رئيسية Placeholder فقط) ──
   {
     portal: PORTALS.FIELD_OPS, path: '/field-ops', shell: FieldOpsPortal,
-    allowedRoles: ['field_ops', 'it_admin'],
+    allowedRoles: ['field_ops'],
     children: buildPortalRoutes(PORTALS.FIELD_OPS, fieldOpsRoutes),
   },
   {
     portal: PORTALS.ADMIN_OPS, path: '/admin-ops', shell: AdminOpsPortal,
-    allowedRoles: ['admin_ops', 'it_admin'],
+    allowedRoles: ['admin_ops'],
     children: buildPortalRoutes(PORTALS.ADMIN_OPS, adminOpsRoutes),
   },
   {
     portal: PORTALS.MAINTENANCE, path: '/maintenance', shell: MaintenancePortal,
-    allowedRoles: ['maintenance', 'it_admin'],
+    allowedRoles: ['maintenance'],
     children: buildPortalRoutes(PORTALS.MAINTENANCE, maintenanceRoutes),
   },
   {
     portal: PORTALS.TRANSFER_STATION, path: '/transfer-station', shell: TransferStationPortal,
-    allowedRoles: ['transfer_station', 'it_admin'],
+    allowedRoles: ['transfer_station'],
     children: buildPortalRoutes(PORTALS.TRANSFER_STATION, transferStationRoutes),
   },
   {
     portal: PORTALS.EXECUTIVE, path: '/executive', shell: ExecutivePortal,
-    allowedRoles: ['executive_director', 'it_admin'],
+    allowedRoles: ['executive_director'],
     children: buildPortalRoutes(PORTALS.EXECUTIVE, executiveRoutes),
   },
   {
     portal: PORTALS.DEPUTY, path: '/deputy', shell: DeputyPortal,
-    allowedRoles: ['deputy_director', 'it_admin'],
+    allowedRoles: ['deputy_director'],
     children: buildPortalRoutes(PORTALS.DEPUTY, deputyRoutes),
   },
   {
     portal: PORTALS.OPS_ROOM, path: '/ops-room', shell: OpsRoomPortal,
-    allowedRoles: ['ops_room', 'it_admin'],
+    allowedRoles: ['ops_room'],
     children: buildPortalRoutes(PORTALS.OPS_ROOM, opsRoomRoutes),
   },
   {
+    // 00400: بوابة مدير غرفة العمليات — معزولة تماماً عن بوابة غرفة العمليات
+    portal: PORTALS.OPS_ROOM_MANAGER, path: '/ops-room-manager', shell: OpsRoomManagerPortal,
+    allowedRoles: ['ops_room_manager'],
+    children: buildPortalRoutes(PORTALS.OPS_ROOM_MANAGER, opsRoomManagerRoutes),
+  },
+  {
     portal: PORTALS.COMPLAINTS, path: '/complaints', shell: ComplaintsPortal,
-    allowedRoles: ['complaints_officer', 'it_admin'],
+    allowedRoles: ['complaints_officer'],
     children: buildPortalRoutes(PORTALS.COMPLAINTS, complaintsRoutes),
   },
   {
     portal: PORTALS.MEDIA, path: '/media', shell: MediaPortal,
-    allowedRoles: ['media_officer', 'it_admin'],
+    allowedRoles: ['media_officer'],
     children: buildPortalRoutes(PORTALS.MEDIA, mediaRoutes),
   },
   {
     portal: PORTALS.CENTRAL_GARAGE, path: '/central-garage', shell: CentralGaragePortal,
-    allowedRoles: ['central_garage_officer', 'it_admin'],
+    allowedRoles: ['central_garage_officer'],
     children: buildPortalRoutes(PORTALS.CENTRAL_GARAGE, centralGarageRoutes),
   },
   {
     portal: PORTALS.FOLLOW_UP, path: '/follow-up', shell: FollowUpPortal,
-    allowedRoles: ['follow_up', 'it_admin'],
+    allowedRoles: ['follow_up'],
     children: buildPortalRoutes(PORTALS.FOLLOW_UP, followUpRoutes),
   },
 ] as const

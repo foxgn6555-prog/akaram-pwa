@@ -102,11 +102,11 @@ function ExpenseForm({ types, balance, onDone }: { types: ExpenseType[]; balance
       {types.length === 0 && <p className="text-xs text-amber-700">لا أنواع فعّالة — أضف نوعاً من «أنواع المصاريف».</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-xs font-semibold text-slate-600">المبلغ (دينار عراقي)
-          <input inputMode="numeric" dir="ltr" className={clsx(field, 'mt-1 text-left font-black tabular-nums')} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d,]/g, ''))} placeholder="0" data-testid="expense-amount" />
+          <input inputMode="numeric" dir="ltr" aria-label="المبلغ بالدينار" aria-required="true" className={clsx(field, 'mt-1 text-left font-black tabular-nums')} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d,]/g, ''))} placeholder="0" data-testid="expense-amount" />
           {amountOk && <span className={clsx('mt-1 block text-[11px]', over ? 'font-bold text-red-700' : 'text-slate-500')} dir="ltr" data-testid="expense-amount-hint">{over ? `يتجاوز رصيد القاصة (${fmtMoney(balance)})` : `${fmtMoney(n)} د.ع`}</span>}
         </label>
         <label className="text-xs font-semibold text-slate-600">البيان (اختياري)
-          <input className={clsx(field, 'mt-1')} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="مثال: شراء أوراق A4 — 10 رزم" maxLength={300} data-testid="expense-details" />
+          <input className={clsx(field, 'mt-1')} aria-label="بيان المصروف" value={details} onChange={(e) => setDetails(e.target.value)} placeholder="مثال: شراء أوراق A4 — 10 رزم" maxLength={300} data-testid="expense-details" />
         </label>
       </div>
       <p className="text-[11px] text-slate-500">يُخصم المبلغ فوراً من رصيد القاصة ({fmtMoney(balance)} د.ع حالياً) ويُبلَّغ المدير التنفيذي — بلا موافقات.</p>

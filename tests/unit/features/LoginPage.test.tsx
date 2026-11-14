@@ -30,7 +30,7 @@ import LoginPage from '@portals/public/pages/Login/LoginPage'
 /** محددات الأزرار والحقول — عبر labels (accessibility-first) */
 const emailInput = () => screen.getByLabelText('البريد الإلكتروني')
 const passwordInput = () => screen.getByLabelText('كلمة المرور')
-const submitBtn = () => screen.getByRole('button', { name: /تسجيل الدخول/ })
+const submitBtn = () => screen.getByRole('button', { name: /^تسجيل الدخول$/ })
 
 function renderPage() {
   return render(
@@ -62,6 +62,13 @@ describe('LoginPage — جزيرة الأكارم (قالب Kyvzon)', () => {
     expect(screen.getByText('مشفّر')).toBeInTheDocument()
     expect(screen.getByText('سريع')).toBeInTheDocument()
     expect(screen.getByText('موثوق')).toBeInTheDocument()
+  })
+
+  it('أيقونة الدعم تفتح مساعدة الدخول الحالية', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'مساعدة تسجيل الدخول والتواصل مع الدعم' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/forgot-password')
   })
 
   it('يرفض بريداً غير صالح برسالة عربية (Zod) دون استدعاء الخادم', async () => {
@@ -124,7 +131,7 @@ describe('LoginPage — جزيرة الأكارم (قالب Kyvzon)', () => {
     })
   })
 
-  it('بيانات خاطئة → رسالة آمنة لا تسرّب وجود الحساب + تسجيل فشل محلي', async () => {
+  it('بيانات خاطئة → رسالة آمنة لا تسرّب وجود الحساب دون عدّ محلي قابل للتزوير', async () => {
     mockMutateAsync.mockRejectedValueOnce(new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة'))
 
     const user = userEvent.setup()
@@ -140,9 +147,8 @@ describe('LoginPage — جزيرة الأكارم (قالب Kyvzon)', () => {
     const alerts = screen.getAllByRole('alert')
     const alertText = alerts.map((a) => a.textContent).join(' ')
     expect(alertText).not.toContain('غير موجود')
-    // سُجل الفشل محلياً
-    const raw = localStorage.getItem('akram:login-guard')
-    expect(raw).not.toBeNull()
+    // فشل الدخول يُحتسب خادميّاً فقط؛ لا يُنشأ عدّاد عميل يمكن تزويره.
+    expect(localStorage.getItem('akram:server-login-lock')).toBeNull()
   })
 
   it('زر إظهار كلمة المرور يبدل النوع', async () => {

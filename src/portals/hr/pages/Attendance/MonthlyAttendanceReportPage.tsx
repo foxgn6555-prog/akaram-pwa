@@ -22,9 +22,12 @@ import type { ExportSpec } from '@features/hr/lib/hrExcel'
 
 const MONTHS_AR = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول']
 export const monthLabel = (m: string) => { const [y, mo] = m.slice(0, 7).split('-').map(Number); return `${MONTHS_AR[(mo ?? 1) - 1]} ${y}` }
-/** الأيام المطلوب حضورها = حضور + تأخير + غياب + ناقصة (الإجازة والراحة وغير المحتسبة خارج المقام) */
-export const scheduledDays = (r: AttendanceGridRow) => r.present_days + r.late_days + r.absent_days + r.incomplete_days
-export const compliancePct = (r: AttendanceGridRow) => { const d = scheduledDays(r); return d ? Math.round(((r.present_days + r.late_days) / d) * 100) : 0 }
+/** V-41 — الأيام المطلوب حضورها = حاضر + تأخير + خروج مبكر + ناقصة + غياب.
+ *  «الخروج المبكر» كان مستبعداً من البسط والمقام معاً ⇒ تضخيم نسبة الالتزام وتناقضها
+ *  مع تصدير Excel وصفحة غرفة العمليات (كلاهما يعدّه حضوراً) ومع تعريف exec_overview.
+ *  الإجازة والراحة والأيام غير المحتسبة تبقى خارج المقام. */
+export const scheduledDays = (r: AttendanceGridRow) => r.present_days + r.late_days + r.early_days + r.absent_days + r.incomplete_days
+export const compliancePct = (r: AttendanceGridRow) => { const d = scheduledDays(r); return d ? Math.round(((r.present_days + r.late_days + r.early_days) / d) * 100) : 0 }
 export type SortKey = 'name' | 'absent' | 'late' | 'compliance'
 export function sortRows(rows: AttendanceGridRow[], key: SortKey): AttendanceGridRow[] {
   const c = [...rows]
@@ -101,11 +104,11 @@ export default function MonthlyAttendanceReportPage() {
           <Button size="sm" variant="secondary" disabled={!rows.length} onClick={printPdf} data-testid="am-print"><Icon name="printer" size={14} className="ms-1" />طباعة / PDF</Button>
         </div>} />
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-5 print:hidden" data-testid="am-filters">
-        <input type="month" className={field} value={month.slice(0, 7)} onChange={(e) => e.target.value && setMonth(`${e.target.value}-01`)} data-testid="am-month" />
-        <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="am-branch"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="am-dept"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="am-search" />
-        <select className={field} value={sort} onChange={(e) => setSort(e.target.value as SortKey)} data-testid="am-sort"><option value="name">ترتيب: القسم ثم الاسم</option><option value="absent">الأكثر غيابًا</option><option value="late">الأكثر تأخيرًا</option><option value="compliance">الأقل التزامًا</option></select>
+        <input type="month" className={field} value={month.slice(0, 7)} onChange={(e) => e.target.value && setMonth(`${e.target.value}-01`)} data-testid="am-month" aria-label="الشهر" />
+        <select className={field} value={branchId} onChange={(e) => setBranchId(e.target.value)} data-testid="am-branch" aria-label="الفرع"><option value="">كل الفروع</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="am-dept" aria-label="القسم"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="am-search" aria-label="بحث باسم الموظف أو رقمه الوظيفي" />
+        <select className={field} value={sort} onChange={(e) => setSort(e.target.value as SortKey)} data-testid="am-sort" aria-label="ترتيب الجدول"><option value="name">ترتيب: القسم ثم الاسم</option><option value="absent">الأكثر غيابًا</option><option value="late">الأكثر تأخيرًا</option><option value="compliance">الأقل التزامًا</option></select>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 print:hidden">
         <StatCard title="الموظفون" value={totals.employees} testId="am-stat-emp" />
@@ -145,7 +148,7 @@ export default function MonthlyAttendanceReportPage() {
               ) })}
             </tbody>
           </table>
-          <p className="border-t px-3 py-2 text-[10px] text-slate-500">{rows.length} موظف · الالتزام = (حضور + تأخير) ÷ المطلوب · الدقائق أرقام صحيحة · لا يتضمن التقرير أي بيانات رواتب.</p>
+          <p className="border-t px-3 py-2 text-[10px] text-slate-500">{rows.length} موظف · الالتزام = (حضور + تأخير + خروج مبكر) ÷ المطلوب · الدقائق أرقام صحيحة · لا يتضمن التقرير أي بيانات رواتب.</p>
         </div>
       )}
     </div>

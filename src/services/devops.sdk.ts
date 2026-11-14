@@ -18,17 +18,30 @@ export interface DevOpsStatus {
 }
 export interface DevOpsSnapshot { status: DevOpsStatus; latency_ms: number }
 
-/** الدوال الطرفية المنشورة في المشروع (supabase/functions) — تُفحص بالوصول فقط؛ أي ردّ HTTP (حتى 401/405) = الدالة منشورة وتعمل */
-export const EDGE_FUNCTIONS: readonly { name: string; what: string; public: boolean }[] = [
+/**
+ * كل دالة طرفية موجودة في المستودع (supabase/functions) — تُفحص بالوصول فقط؛
+ * أي ردّ HTTP (حتى 401/405) = الدالة منشورة وتعمل. V-23: القائمة كانت ٩ فقط فتخفي
+ * دوالاً منشورة وتُظهر أخرى غير منشورة؛ صارت مطابقة للمستودع (١٤).
+ */
+export const EDGE_FUNCTIONS: readonly { name: string; what: string; public: boolean; unused?: boolean }[] = [
   { name: 'adms-receiver', what: 'استقبال دفع أجهزة ZKTeco', public: true },
   { name: 'biometric-bridge', what: 'استقبال وكيل الشبكة الداخلية', public: true },
   { name: 'biometric-pull', what: 'السحب من API المزود / مصدر عام', public: false },
-  { name: 'gps-receiver', what: 'استقبال GPS', public: true },
+  // غير منشورة: استقبال GPS يتم عبر lvn-gps-sync (سحب من المزوّد). تُبقى موثّقة بلا فحص (00409).
+  { name: 'gps-receiver', what: 'استقبال GPS (غير منشورة — يغطّيها lvn-gps-sync)', public: true, unused: true },
+  { name: 'gps-warehouse', what: 'مستودع قراءات GPS', public: false },
   { name: 'lvn-gps-sync', what: 'مزامنة LVN', public: false },
   { name: 'notification-push-dispatch', what: 'إرسال الإشعارات', public: false },
   { name: 'mailgun-send', what: 'إرسال البريد', public: false },
+  { name: 'mailgun-inbound', what: 'استقبال بريد الوارد', public: true },
+  { name: 'mailgun-events', what: 'أحداث تسليم البريد', public: true },
   { name: 'admin-users', what: 'إدارة الحسابات', public: false },
+  { name: 'staff-login', what: 'دخول الموظفين (قفل المصدر)', public: true },
+  { name: 'login-support', what: 'محادثة دعم الدخول', public: true },
   { name: 'complaint-generate-report', what: 'تقارير الشكاوى', public: false },
+  { name: 'complaint-permanent-delete', what: 'الحذف النهائي للشكوى', public: false },
+  // غير منشورة: لا نقطة Webhooks عامة في هذا المشروع (00409).
+  { name: 'webhooks', what: 'نقطة استقبال Webhooks (HMAC) — غير منشورة', public: true, unused: true },
 ]
 export type EdgeHealth = { name: string; what: string; state: 'up' | 'down' | 'unknown'; http: number | null; latency_ms: number | null }
 
@@ -38,20 +51,38 @@ export const devops = {
     const status = (await sdkGuard(supabase.rpc('devops_status'))) as DevOpsStatus
     return { status, latency_ms: Math.round(performance.now() - t) }
   },
-  /** يفحص كل دالة بطلب OPTIONS (لا ينفّذ منطقها ولا يحتاج مفتاحاً). down = لا ردّ إطلاقاً (غير منشورة/انقطاع). */
+  /**
+   * فحص صحة دوال الحافة — V-23.
+   * ملاحظة مهمة: OPTIONS ليست طريقة «بسيطة» في CORS، فالمتصفح يُرسل preflight قبلها؛
+   * لذلك أي ردّ لا يمرّ بمعالجة CORS (مثل 404 من البوابة) يُحجب ويظهر كفشل شبكة —
+   * وهذا سبب الإنذار الكاذب القديم. الترتيب الآن:
+   *   1) OPTIONS: يعمل فقط للدوال المنشورة التي تعالج CORS ⇒ up (ويُقرأ رمز الحالة).
+   *   2) إن فشل: GET عادي (طريقة بسيطة بلا preflight) ⇒ نقرأ الحالة الحقيقية:
+   *      404 = غير منشورة ⇒ down، وأي رمز آخر ⇒ up.
+   *   3) إن فشل الاثنان: GET بـno-cors ⇒ إن وصل الخادم فعلاً ⇒ unknown (لا ادّعاء).
+   *   4) غير ذلك ⇒ down (لا ردّ إطلاقاً).
+   * لا تُرسل أي مصادقة ولا يُنفَّذ منطق الدوال: بوابة Supabase تردّ 401 على الدوال
+   * المحمية، والدوال العامة تردّ 405 لطلبات GET.
+   */
   async edgeHealth(fetchFn: typeof fetch = fetch): Promise<EdgeHealth[]> {
     const base = supabaseConfig.url.replace(/\/$/, '')
+    const probe = async (url: string, init: RequestInit): Promise<Response | null> => {
+      const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 8000)
+      try { return await fetchFn(url, { ...init, signal: ctrl.signal }) } catch { return null } finally { clearTimeout(timer) }
+    }
     return Promise.all(EDGE_FUNCTIONS.map(async (f) => {
-      const t = performance.now()
-      try {
-        const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 8000)
-        const r = await fetchFn(`${base}/functions/v1/${f.name}`, { method: 'OPTIONS', signal: ctrl.signal })
-        clearTimeout(timer)
-        // 404 من البوابة = الدالة غير منشورة
-        return { name: f.name, what: f.what, state: r.status === 404 ? 'down' : 'up', http: r.status, latency_ms: Math.round(performance.now() - t) } as EdgeHealth
-      } catch {
-        return { name: f.name, what: f.what, state: 'down', http: null, latency_ms: null }
-      }
+      // 00409: الدوال الموسومة unused غير منشورة (gps-receiver, webhooks) ⇒ لا تُطلب إطلاقًا.
+      // كان الفحص يطلبها فتُرجع 404 وتُنتج خطأ CORS أحمر في console بلا فائدة (عيب مكتشَف ④-58).
+      if (f.unused) return { name: f.name, what: f.what, state: 'unknown', http: null, latency_ms: null } as EdgeHealth
+      const url = `${base}/functions/v1/${f.name}`
+      const t0 = performance.now()
+      const ms = () => Math.round(performance.now() - t0)
+      const options = await probe(url, { method: 'OPTIONS' })
+      if (options) return { name: f.name, what: f.what, state: options.status === 404 ? 'down' : 'up', http: options.status, latency_ms: ms() } as EdgeHealth
+      const get = await probe(url, { method: 'GET', cache: 'no-store' })
+      if (get) return { name: f.name, what: f.what, state: get.status === 404 ? 'down' : 'up', http: get.status, latency_ms: ms() } as EdgeHealth
+      const opaque = await probe(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' })
+      return { name: f.name, what: f.what, state: opaque ? 'unknown' : 'down', http: null, latency_ms: opaque ? ms() : null } as EdgeHealth
     }))
   },
 }

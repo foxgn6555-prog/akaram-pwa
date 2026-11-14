@@ -22,6 +22,15 @@ describe('latin digits contract', () => {
     }
     expect(bad).toEqual([])
   })
+  it('login support timestamps use Baghdad time', () => {
+    const supportPages = [
+      'src/portals/it/pages/Support/LoginSupportPage.tsx',
+      'src/portals/public/pages/Login/PublicLoginSupport.tsx',
+    ]
+    for (const path of supportPages) {
+      expect(readFileSync(path, 'utf8')).toMatch(/timeZone:\s*'Asia\/Baghdad'/)
+    }
+  })
   it('ar-IQ-u-nu-latn renders Latin digits', () => {
     expect(new Date('2026-10-05T12:53:00Z').toLocaleTimeString('ar-IQ-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad' })).toBe('15:53')
   })

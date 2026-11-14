@@ -6,9 +6,9 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GpsHotspot, GpsHotspotsList } from '@sdk/gps-hotspots.sdk'
 
-const h = vi.hoisted(() => ({ list: vi.fn(), stats: vi.fn(), excel: vi.fn(), pdf: vi.fn(), toasts: [] as unknown[] }))
-vi.mock('@sdk/gps-hotspots.sdk', () => ({ gpsHotspots: { list: (f: unknown) => h.list(f), monthStats: () => h.stats() } }))
-vi.mock('@features/gps-hotspots/geocode', () => ({ reverseGeocode: () => Promise.resolve('شارع الكرادة داخل — الكرادة') }))
+const h = vi.hoisted(() => ({ list: vi.fn(), details: vi.fn(), stats: vi.fn(), excel: vi.fn(), pdf: vi.fn(), geofences: [] as unknown[], toasts: [] as unknown[] }))
+vi.mock('@sdk/gps-hotspots.sdk', () => ({ gpsHotspots: { list: (f: unknown) => h.list(f), details: (ids: number[]) => h.details(ids), monthStats: () => h.stats() } }))
+vi.mock('@features/gps-lvn/hooks', () => ({ useGpsMapGeofences: () => ({ data: h.geofences }) }))
 vi.mock('@features/gps-hotspots/export', () => ({ downloadHotspotsExcel: (...a: unknown[]) => h.excel(...a), printHotspotsReport: (...a: unknown[]) => h.pdf(...a), filtersLabel: () => 'f' }))
 vi.mock('@stores/ui.store', () => ({ useUiStore: (sel: (s: { addToast: (t: unknown) => void }) => unknown) => sel({ addToast: (t) => h.toasts.push(t) }) }))
 vi.mock('@features/sector', () => ({ useSectors: () => ({ data: [{ id: 1, name: 'الكرادة' }, { id: 2, name: 'الأعظمية' }, { id: 3, name: 'المنصور' }] }) }))
@@ -25,7 +25,7 @@ const data = (month: string): GpsHotspotsList => ({
   rows: [spot({ id: 1 }), spot({ id: 2, dominant_class: 'light', recurrence: 'once', vehicles_count: 1, sector_ids: [1], sector_names: ['الكرادة'], total_minutes: 15 }), spot({ id: 3, dominant_class: 'heavy', recurrence: 'frequent', vehicles_count: 1, sector_ids: [3], sector_names: ['المنصور'], total_minutes: 900 })],
 })
 const wrap = (ui: ReactNode) => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider></MemoryRouter>)
-beforeEach(() => { vi.useRealTimers(); h.toasts = []; h.excel.mockReset().mockResolvedValue(undefined); h.pdf.mockReset(); h.stats.mockReset().mockResolvedValue([{ month: '2026-09', spots: 3, stops: 18, total_minutes: 1087, multi_vehicle: 1, by_class: { heavy: 1, medium: 1, light: 1 }, by_recurrence: { once: 1, recurring: 1, frequent: 1 }, by_sector: [], updated_at: '' }, { month: '2026-08', spots: 2, stops: 10, total_minutes: 500, multi_vehicle: 1, by_class: { heavy: 1, medium: 1 }, by_recurrence: { once: 2 }, by_sector: [], updated_at: '' }]); h.list.mockReset(); h.list.mockImplementation((f: { month: string | null }) => Promise.resolve(data(f.month ?? '2026-10'))) })
+beforeEach(() => { vi.useRealTimers(); h.toasts = []; h.geofences = []; h.excel.mockReset().mockResolvedValue(undefined); h.pdf.mockReset(); h.stats.mockReset().mockResolvedValue([{ month: '2026-09', spots: 3, stops: 18, total_minutes: 1087, multi_vehicle: 1, by_class: { heavy: 1, medium: 1, light: 1 }, by_recurrence: { once: 1, recurring: 1, frequent: 1 }, by_sector: [], updated_at: '' }, { month: '2026-08', spots: 2, stops: 10, total_minutes: 500, multi_vehicle: 1, by_class: { heavy: 1, medium: 1 }, by_recurrence: { once: 2 }, by_sector: [], updated_at: '' }]); h.details.mockReset().mockImplementation((ids: number[]) => Promise.resolve(ids.map((id) => ({ id, vehicles: [{ device: `D${id}`, name: 'كابسة', db_number: 'DB1', sector: 'الكرادة', stops: 3, minutes: 90 }], days: ['2026-09-01'], hours: Array.from({ length: 24 }, (_, i) => (i === 13 ? 4 : 0)) })))); h.list.mockReset(); h.list.mockImplementation((f: { month: string | null }) => Promise.resolve(data(f.month ?? '2026-10'))) })
 
 describe('OpsWasteMapPage (00384)', () => {
   it('الوحدة في شريط غرفة العمليات بصلاحية تصدير، ولا توجد في بوابة الموظف', () => {
@@ -33,10 +33,13 @@ describe('OpsWasteMapPage (00384)', () => {
     expect(UNIT_ACTIONS['ops-room.waste-map']).toEqual(['export'])
     expect(PORTAL_UNITS[PORTALS.EMPLOYEE].some((u) => u.path.includes('waste'))).toBe(false)
   })
-  it('يطلب آخر شهر ثم يتحوّل إلى الشهر السابق؛ الخفيف مخفي افتراضياً؛ العدّاد والقائمة والحدود', async () => {
+  // 00390: كان الطلب يقع مرتين (null ثم الشهر الافتراضي) = ١٫٨ م.ب مهدرة في كل فتح
+  it('يطلب الشهر السابق مباشرة بطلب واحد (لا طلب null عبثي)؛ الخفيف مخفي افتراضياً؛ العدّاد والقائمة والحدود', async () => {
     vi.setSystemTime(new Date(2026, 9, 30))
     wrap(<OpsWasteMapPage />)
     await waitFor(() => expect(h.list).toHaveBeenCalledWith(expect.objectContaining({ month: '2026-09', classes: null })))
+    expect(h.list).toHaveBeenCalledTimes(1)
+    expect(h.list).not.toHaveBeenCalledWith(expect.objectContaining({ month: null }))
     expect((await screen.findByTestId('waste-map-counter')).textContent).toBe('2 بقعة معروضة من 3')
     expect((screen.getByTestId('waste-map-month') as HTMLSelectElement).value).toBe('2026-09')
     expect(screen.getByTestId('waste-filter-class-light').getAttribute('aria-pressed')).toBe('false')
@@ -62,12 +65,43 @@ describe('OpsWasteMapPage (00384)', () => {
     expect(screen.getByTestId('waste-map-counter').textContent).toBe('1 بقعة معروضة من 3')
     fireEvent.click(screen.getByTestId('waste-filter-sector-1'))   // متعدد
     expect(screen.getByTestId('waste-map-counter').textContent).toBe('2 بقعة معروضة من 3')
-    expect(h.list).toHaveBeenCalledTimes(2)   // الفلترة محلية — لا طلبات إضافية
+    expect(h.list).toHaveBeenCalledTimes(1)   // الفلترة محلية — لا طلبات إضافية (00390: طلب واحد عند الفتح)
+  })
+  it('يحلّ القاطع من اسم السياج وحدوده الحالية عند غياب geo_sector_id في البيانات المنسوخة', async () => {
+    vi.setSystemTime(new Date(2026, 9, 30))
+    const payload = data('2026-09')
+    payload.rows = payload.rows.map((row) => ({ ...row, lat: 31, lng: 44.4, sector_ids: [], sector_names: [] }))
+    payload.rows[0] = { ...payload.rows[0]!, lat: 33.3, lng: 44.4 }
+    h.geofences = [{ id: 'unlinked-zone', name: 'المنصور', sector_id: null, polygon: [{ lat: 33.29, lng: 44.39 }, { lat: 33.29, lng: 44.41 }, { lat: 33.31, lng: 44.41 }, { lat: 33.31, lng: 44.39 }] }]
+    h.list.mockResolvedValue(payload)
+    wrap(<OpsWasteMapPage />)
+    await screen.findByTestId('waste-list-1')
+    expect(screen.getByTestId('waste-filter-sector-3').textContent).toContain('(1)')
+    fireEvent.click(screen.getByTestId('waste-filter-sector-3'))
+    expect(screen.getByTestId('waste-map-counter').textContent).toBe('1 بقعة معروضة من 3')
+    expect(screen.getByTestId('waste-list-1')).toBeTruthy()
+    expect(screen.queryByTestId('waste-list-3')).toBeNull()
+  })
+  it('يعرض عدد البقع غير المحددة ويصفّيها بصورة مستقلة عن القواطع', async () => {
+    vi.setSystemTime(new Date(2026, 9, 30))
+    const payload = data('2026-09')
+    payload.rows = [...payload.rows, spot({ id: 4, sector_ids: [], sector_names: [], geo_sector_id: null, geo_sector_name: null })]
+    payload.total = 4
+    h.list.mockResolvedValue(payload)
+    wrap(<OpsWasteMapPage />)
+    await screen.findByTestId('waste-list-1')
+    const unlocated = screen.getByTestId('waste-filter-sector-unlocated')
+    expect(unlocated.textContent).toContain('(1)')
+    fireEvent.click(unlocated)
+    expect(screen.getByTestId('waste-map-counter').textContent).toBe('1 بقعة معروضة من 4')
+    expect(screen.getByTestId('waste-list-4')).toBeTruthy()
+    expect(screen.queryByTestId('waste-list-1')).toBeNull()
   })
   it('تبديل الشهر يطلب من القاعدة؛ ملء الشاشة يفتح في body ويُغلق بـ Escape', async () => {
     vi.setSystemTime(new Date(2026, 9, 30))
     wrap(<OpsWasteMapPage />)
-    await waitFor(() => expect((screen.getByTestId('waste-map-month') as HTMLSelectElement).value).toBe('2026-09'))
+    await screen.findByTestId('waste-list-1')   // انتظر وصول بيانات الشهر (قائمة الأشهر من الطلب)
+    expect((screen.getByTestId('waste-map-month') as HTMLSelectElement).value).toBe('2026-09')
     fireEvent.change(screen.getByTestId('waste-map-month'), { target: { value: '2026-10' } })
     await waitFor(() => expect(h.list).toHaveBeenCalledWith(expect.objectContaining({ month: '2026-10' })))
     fireEvent.click(screen.getByTestId('waste-map-fullscreen'))
@@ -88,7 +122,7 @@ describe('OpsWasteMapPage (00384)', () => {
     const panel = await screen.findByTestId('hotspot-panel')
     expect(panel.textContent).toContain('ثقيل · شبه يومي'); expect(panel.textContent).toContain('المنصور')
     expect(screen.getByTestId('hotspot-mini-map')).toBeTruthy(); expect(screen.getByTestId('hotspot-hours').children).toHaveLength(24); expect(screen.getByTestId('hotspot-weekdays').children).toHaveLength(7)
-    await waitFor(() => expect(screen.getByTestId('hotspot-panel-address').textContent).toContain('شارع الكرادة داخل'))
+    await waitFor(() => expect(screen.getByTestId('hotspot-panel-address').textContent).toContain('الموقع'))
     expect(screen.queryByTestId('waste-map-list')).toBeNull()
     fireEvent.click(screen.getByTestId('hotspot-panel-close'))
     expect(screen.queryByTestId('hotspot-panel')).toBeNull(); expect(screen.getByTestId('waste-map-list')).toBeTruthy()
@@ -103,19 +137,24 @@ describe('OpsWasteMapPage (00384)', () => {
     fireEvent.click(screen.getByTestId('waste-export-excel'))
     await waitFor(() => expect(h.excel).toHaveBeenCalled())
     expect((h.excel.mock.calls[0]![0] as unknown[]).length).toBe(2); expect(h.excel.mock.calls[0]![1]).toBe('2026-09')
+    // 00405: التصدير يجلب التفاصيل الكاملة مرة واحدة قبل بناء الملف (نفس محتوى الملف السابق)
+    expect(h.details).toHaveBeenCalled()
+    const exported = h.excel.mock.calls[0]![0] as Array<{ vehicles?: unknown[]; hours?: number[] }>
+    expect(exported.every((r) => Array.isArray(r.vehicles) && Array.isArray(r.hours))).toBe(true)
     fireEvent.click(screen.getByTestId('waste-export-pdf'))
-    expect(h.pdf).toHaveBeenCalledWith(expect.any(Array), '2026-09', 'f', expect.any(Array))
+    await waitFor(() => expect(h.pdf).toHaveBeenCalledWith(expect.any(Array), '2026-09', 'f', expect.any(Array)))
   })
 
   it('00387: المظهر — داكنة افتراضياً مع لوحة حرارية وعلامات، التبديل إلى «خريطة عادية»، إخفاء التوهّج/العلامات، وسقوط مزوّد الخلفية ينتقل للتالي', async () => {
     wrap(<OpsWasteMapPage />)
     const map = await screen.findByTestId('waste-map')
     await screen.findByTestId('waste-map-counter')
-    expect(map.getAttribute('data-theme')).toBe('dark'); expect(map.getAttribute('data-tiles')).toBe('carto-dark')
+    expect(map.getAttribute('data-theme')).toBe('dark'); expect(map.getAttribute('data-tiles')).toBe('osm-filtered')
     expect(screen.getByTestId('waste-map-legend-gradient')).toBeTruthy()
     expect(screen.getByTestId('waste-map-legend').textContent).toContain('كثافة التوقف')
     expect(document.getElementById('waste-map-style')?.textContent).toContain('waste-pulse')
-    expect(screen.getByTestId('waste-heat-canvas')).toBeTruthy()
+    const heatCanvas = screen.getByTestId('waste-heat-canvas') as HTMLCanvasElement
+    expect(heatCanvas.style.opacity).toBe('0.78')
     await waitFor(() => expect(document.querySelectorAll('.waste-spot').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByTestId('waste-map-heat'))
     expect(screen.queryByTestId('waste-heat-canvas')).toBeNull()

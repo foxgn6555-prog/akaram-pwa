@@ -102,7 +102,7 @@ export function useResetUserPassword() {
     onSuccess: () => {
       addToast({
         type: 'success',
-        message: 'عُيّنت كلمة المرور الجديدة — شاركها مع المستخدم بقناة آمنة',
+        message: 'عُيّنت كلمة المرور الجديدة — أبلغ الموظف بها هاتفياً بعد التحقق',
       })
       void queryClient.invalidateQueries({ queryKey: usersKeys.lists() })
     },

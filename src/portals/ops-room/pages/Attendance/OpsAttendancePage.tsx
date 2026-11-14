@@ -27,7 +27,6 @@ import { EmptyState } from '@components/feedback/EmptyState'
 import clsx from 'clsx'
 import { Field, MonthPicker, StatCard, StatusBadge } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, isoDay, monthStart, proposedLabel } from '@portals/hr/components/hr-format'
-import { UnmatchedPunchesPanel } from '@portals/hr/components/UnmatchedPunchesPanel'
 import { GridLegend, MonthGrid, MonthStateChip, SectionCard, StageBar, StatusLine, type Stage } from './AttendanceStages'
 import { HourBankPanel } from './HourBankPanel'
 import { BulkEditPanel } from './BulkEditPanel'   // 00397-ب
@@ -260,7 +259,9 @@ export default function OpsAttendancePage() {
             </SectionCard>
           )}
 
-          {panel === 'rows' && <UnmatchedPunchesPanel from={range.from} to={range.to} />}
+          {/* V-27 (قرار المستخدم): لوحة «البصمات غير المطابقة» أُخفيت من غرفة العمليات —
+              حارس القاعدة يمنح قراءتها للموارد البشرية/التطوير فقط، فكانت تُطلق طلبات مرفوضة
+              ولا تظهر أبداً. اللوحة باقية كاملة في بوابة الموارد البشرية (/hr/attendance). */}
           {panel === 'grid' && (gridLoading ? <LoadingSpinner /> : grid.length === 0 ? <EmptyState title="لا موظفين ببصمة في هذا النطاق" hint="وسّع الفلاتر" /> : (
             <div className="space-y-2">
               <GridLegend mode="detailed" />

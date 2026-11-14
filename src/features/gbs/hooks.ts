@@ -36,7 +36,7 @@ function useGbsError(scope: string) {
 /** حساب IT يعاين البوابة فقط؛ لا يستدعي استعلامات بيانات GBS ولا يعرض أي نتائج مخزنة. */
 function useGbsQueryAccess() {
   const { data: session, isLoading } = useAuth()
-  const previewOnly = !!session?.roles.includes('it_admin')
+  const previewOnly = !!session?.roles?.includes('it_admin')
   return { previewOnly, enabled: !isLoading && !!session && !previewOnly }
 }
 

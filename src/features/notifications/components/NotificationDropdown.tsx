@@ -9,6 +9,7 @@ import {
 } from '../hooks/useNotifications'
 import { NotificationItem } from './NotificationItem'
 import { NotificationSettingsPanel } from './NotificationSettingsPanel'
+import { PushEnableBanner } from './PushEnableBanner'
 export function NotificationDropdown({
   onClose,
   anchor,
@@ -74,6 +75,8 @@ export function NotificationDropdown({
         </button>
       </div>
       {settings && <NotificationSettingsPanel onClose={() => setSettings(false)} />}
+      {/* 00407: زر تفعيل ظاهر بدل دفنه في الإعدادات */}
+      {!settings && <PushEnableBanner />}
       <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[65vh] sm:flex-none">
         {q.isLoading ? (
           <div className="space-y-2 p-4">

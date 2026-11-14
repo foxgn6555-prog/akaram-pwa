@@ -14,7 +14,7 @@ const records = [
 for (const width of [360, 768, 1024, 1440]) {
   test(`تنسيق السجلات على عرض ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.setContent(`<html lang="ar" dir="rtl"><head><style>${css}</style></head><body style="margin:0"><main class="workspace-refresh" style="padding:12px">${records.map(([name, section]) => `
+    await page.setContent(`<html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${css}</style></head><body style="margin:0"><main class="workspace-refresh" style="padding:12px">${records.map(([name, section]) => `
       <section class="workspace-card"><div class="workspace-card-head"><h2>${section}</h2></div>
       <div class="workspace-table-region"><table class="workspace-records" style="min-width:920px"><thead><tr><th>الموظف</th><th>القيمة</th><th>الإجراءات</th></tr></thead>
       <tbody><tr class="workspace-record"><td class="workspace-primary" data-label="الموظف">${name}</td><td data-label="القيمة">125,000</td><td class="workspace-actions" data-label="الإجراءات"><button type="button">تفاصيل</button></td></tr></tbody></table></div></section>`).join('')}</main></body></html>`)

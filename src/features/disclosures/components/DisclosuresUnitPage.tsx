@@ -112,7 +112,7 @@ function Dashboard({ onOpen, goTo, preparersTitle }: { onOpen: (id: string) => v
   ]
   return (
     <div className="space-y-4" data-testid="disc-dashboard">
-      <div className="flex items-center gap-2"><span className="text-xs font-bold text-slate-500">الشهر</span><input type="month" className={clsx(inputCls, 'w-44')} value={month} onChange={(e) => setMonth(e.target.value)} dir="ltr" data-testid="dash-month" /></div>
+      <div className="flex items-center gap-2"><span className="text-xs font-bold text-slate-500">الشهر</span><input type="month" className={clsx(inputCls, 'w-44')} value={month} onChange={(e) => setMonth(e.target.value)} dir="ltr" data-testid="dash-month" aria-label="الشهر" /></div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" data-testid="disc-tiles">
         {tiles.map((t) => (
           <button key={t.k} type="button" onClick={() => t.tab && goTo(t.tab)} className={clsx('rounded-2xl p-3 text-right shadow-sm', t.tone)}>

@@ -228,7 +228,7 @@ export default function GbsMap({
         scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
-        <MapTiles theme={theme} onFailed={setTileFailed} />
+        <MapTiles theme={theme} onFailed={setTileFailed} preferOsmDark />
         <ZoomTracker onZoom={setZoomLevel} />
         <FlyTo container={selected} />
         {onPick && <PickCapture onPick={onPick} />}

@@ -4,7 +4,7 @@ import { createSuperAdminSchema } from '@features/user-management/schemas/create
 
 const VALID = {
   email: 'new@akram.iq',
-  password: 'Passw0rd1',
+  password: 'Passw0rd12',
   full_name: 'علي حسن محمد',
   role: 'employee',
   contractor_manager_id: '11111111-1111-4111-8111-111111111111',
@@ -31,18 +31,18 @@ describe('create-user.schema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('يرفض كلمة مرور أقل من 8', () => {
+  it('يرفض كلمة مرور أقل من 10 (00414)', () => {
     const r = createSuperAdminSchema.safeParse({ ...VALID, password: 'Ab1' })
     expect(r.success).toBe(false)
   })
 
   it('يرفض كلمة مرور بلا أرقام', () => {
-    const r = createSuperAdminSchema.safeParse({ ...VALID, password: 'Abcdefgh' })
+    const r = createSuperAdminSchema.safeParse({ ...VALID, password: 'Abcdefghij' })
     expect(r.success).toBe(false)
   })
 
   it('يرفض كلمة مرور بلا أحرف', () => {
-    const r = createSuperAdminSchema.safeParse({ ...VALID, password: '12345678' })
+    const r = createSuperAdminSchema.safeParse({ ...VALID, password: '1234567890' })
     expect(r.success).toBe(false)
   })
 

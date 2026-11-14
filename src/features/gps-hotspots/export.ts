@@ -7,15 +7,18 @@ const n = (v: number) => v.toLocaleString('en-US')
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const when = (d: Date) => d.toLocaleString('en-GB', { timeZone: 'Asia/Baghdad', hour12: false })
 export const sortedForExport = (rows: GpsHotspot[]) => [...rows].sort((a, b) => b.total_minutes - a.total_minutes || b.stops_count - a.stops_count)
-export const filtersLabel = (f: WasteMapFilters, sectorNames: Map<number, string>): string => [
-  `الصنف: ${f.classes.length ? f.classes.map((c) => CLASS_LABEL[c]).join('/') : 'الكل'}`,
-  `التكرار: ${f.recurrence.length === 3 || f.recurrence.length === 0 ? 'الكل' : f.recurrence.map((r) => RECURRENCE_LABEL[r]).join('/')}`,
-  `الآليات: ${f.minVehicles > 1 ? `${f.minVehicles}+` : 'الكل'}`,
-  `القاطع: ${f.sectorIds.length ? f.sectorIds.map((id) => sectorNames.get(id) ?? id).join('/') : 'الكل'}`,
-].join(' · ')
+export const filtersLabel = (f: WasteMapFilters, sectorNames: Map<number, string>): string => {
+  const sectorFilters = [...f.sectorIds.map((id) => sectorNames.get(id) ?? String(id)), ...(f.unlocated ? ['غير محدد'] : [])]
+  return [
+    `الصنف: ${f.classes.length ? f.classes.map((c) => CLASS_LABEL[c]).join('/') : 'الكل'}`,
+    `التكرار: ${f.recurrence.length === 3 || f.recurrence.length === 0 ? 'الكل' : f.recurrence.map((r) => RECURRENCE_LABEL[r]).join('/')}`,
+    `الآليات: ${f.minVehicles > 1 ? `${f.minVehicles}+` : 'الكل'}`,
+    `القاطع: ${sectorFilters.length ? sectorFilters.join('/') : 'الكل'}`,
+  ].join(' · ')
+}
 
 export const HOTSPOT_COLUMNS = ['#', 'القاطع', 'الصنف الغالب', 'التكرار', 'التوقفات', 'الأيام', 'الآليات', 'إجمالي (دقيقة)', 'متوسط (دقيقة)', 'أقصى (دقيقة)', 'ثقيل', 'متوسط', 'خفيف', 'ذروة الساعات', 'خط العرض', 'خط الطول', 'رابط الخريطة'] as const
-export const hotspotRowValues = (h: GpsHotspot, i: number): (string | number)[] => [i + 1, spotPlace(h), CLASS_LABEL[h.dominant_class], RECURRENCE_LABEL[h.recurrence], h.stops_count, h.days_count, h.vehicles_count, h.total_minutes, h.avg_minutes, h.max_minutes, h.heavy_count, h.medium_count, h.light_count, peakHours(h.hours), Number(h.lat.toFixed(6)), Number(h.lng.toFixed(6)), `https://www.google.com/maps?q=${h.lat.toFixed(6)},${h.lng.toFixed(6)}`]
+export const hotspotRowValues = (h: GpsHotspot, i: number): (string | number)[] => [i + 1, spotPlace(h), CLASS_LABEL[h.dominant_class], RECURRENCE_LABEL[h.recurrence], h.stops_count, h.days_count, h.vehicles_count, h.total_minutes, h.avg_minutes, h.max_minutes, h.heavy_count, h.medium_count, h.light_count, h.peak_hour ?? peakHours(h.hours ?? []), Number(h.lat.toFixed(6)), Number(h.lng.toFixed(6)), `https://www.google.com/maps?q=${h.lat.toFixed(6)},${h.lng.toFixed(6)}`]
 
 export async function buildHotspotsWorkbook(rows: GpsHotspot[], month: string, filtersText: string, stats: GpsHotspotsMonthStats[] = []) {
   const ExcelJS = await import('exceljs')
@@ -48,7 +51,7 @@ export async function downloadHotspotsExcel(rows: GpsHotspot[], month: string, f
 /** HTML مستقل (A4 أفقي، ألوان مطبوعة) */
 export function hotspotsReportHtml(rows: GpsHotspot[], month: string, filtersText: string, stats: GpsHotspotsMonthStats[] = [], generatedAt = new Date()) {
   const list = sortedForExport(rows), s = summarize(list), cmp = compareMonths(stats, month)
-  const tr = list.map((h, i) => `<tr><td class="c">${i + 1}</td><td>${esc(spotPlace(h))}</td><td class="c"><span class="pill" style="background:${CLASS_COLOR[h.dominant_class]}">${CLASS_LABEL[h.dominant_class]}</span></td><td class="c">${RECURRENCE_LABEL[h.recurrence]}</td><td class="c">${n(h.stops_count)}</td><td class="c">${n(h.days_count)}</td><td class="c">${n(h.vehicles_count)}</td><td class="c"><b>${esc(fmtMinutes(h.total_minutes))}</b></td><td class="c">${h.avg_minutes} / ${h.max_minutes}</td><td class="c">${h.heavy_count} / ${h.medium_count} / ${h.light_count}</td><td class="c">${esc(peakHours(h.hours))}</td><td class="c mono">${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</td></tr>`).join('\n')
+  const tr = list.map((h, i) => `<tr><td class="c">${i + 1}</td><td>${esc(spotPlace(h))}</td><td class="c"><span class="pill" style="background:${CLASS_COLOR[h.dominant_class]}">${CLASS_LABEL[h.dominant_class]}</span></td><td class="c">${RECURRENCE_LABEL[h.recurrence]}</td><td class="c">${n(h.stops_count)}</td><td class="c">${n(h.days_count)}</td><td class="c">${n(h.vehicles_count)}</td><td class="c"><b>${esc(fmtMinutes(h.total_minutes))}</b></td><td class="c">${h.avg_minutes} / ${h.max_minutes}</td><td class="c">${h.heavy_count} / ${h.medium_count} / ${h.light_count}</td><td class="c">${esc(h.peak_hour ?? peakHours(h.hours ?? []))}</td><td class="c mono">${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</td></tr>`).join('\n')
   const cmpHtml = cmp.available ? `<section><h2>مقارنة مع ${esc(monthLabel(cmp.previous))}</h2><div class="stats">${cmp.rows.map((d) => `<div class="stat"><b>${n(d.current)}</b><span>${esc(d.label)}</span><em class="${(d.delta ?? 0) > 0 ? 'up' : (d.delta ?? 0) < 0 ? 'down' : ''}">${esc(deltaLabel(d))}</em></div>`).join('')}</div></section>` : '<p class="sub">لا تتوفر بيانات الشهر السابق للمقارنة.</p>'
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>خريطة النفايات — بقع التوقف — ${esc(monthLabel(month))}</title>
 <style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}

@@ -7,7 +7,7 @@ export type { LoginInput, ResetPasswordInput } from './schemas/auth.schema'
 export type { PortalAccess } from './types'
 export {
   lockStatus,
-  recordFailure,
+  setServerLock,
   recordSuccess,
   type LockStatus,
 } from './security/login-guard'

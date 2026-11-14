@@ -14,7 +14,7 @@ test.describe('Portal Navigation', () => {
     await page.goto('/login')
     await page.getByLabel('البريد الإلكتروني').fill(IT_EMAIL!)
     await page.getByLabel('كلمة المرور').fill(IT_PASSWORD!)
-    await page.getByRole('button', { name: /تسجيل الدخول/ }).click()
+    await page.getByTestId('login-submit').click()
     await expect(page).toHaveURL(/\/it/)
 
     // البحث السريع
@@ -27,7 +27,7 @@ test.describe('Portal Navigation', () => {
     await page.goto('/login')
     await page.getByLabel('البريد الإلكتروني').fill(IT_EMAIL!)
     await page.getByLabel('كلمة المرور').fill(IT_PASSWORD!)
-    await page.getByRole('button', { name: /تسجيل الدخول/ }).click()
+    await page.getByTestId('login-submit').click()
     await expect(page).toHaveURL(/\/it/)
 
     // تحية موجودة (صباح/مساء/ليل — أي واحدة)
@@ -39,7 +39,7 @@ test.describe('Portal Navigation', () => {
     await page.goto('/login')
     await page.getByLabel('البريد الإلكتروني').fill(IT_EMAIL!)
     await page.getByLabel('كلمة المرور').fill(IT_PASSWORD!)
-    await page.getByRole('button', { name: /تسجيل الدخول/ }).click()
+    await page.getByTestId('login-submit').click()
     await expect(page).toHaveURL(/\/it/)
 
     const sidebar = page.getByTestId('app-sidebar')

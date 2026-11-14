@@ -14,11 +14,12 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import clsx from 'clsx'
-import type { PortalId } from '@lib/constants/portals.constants'
+import { PORTALS, type PortalId } from '@lib/constants/portals.constants'
 import { portalThemes } from '@config/portals.config'
 import { useUiStore } from '@stores/ui.store'
 import { Toaster } from '@components/ui'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
+import { ActivityReminderBanner } from '@components/feedback/ActivityReminderBanner'
 import { InstallBanner } from '@features/pwa/PwaBanners'
 import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
@@ -26,6 +27,7 @@ import { Header } from '@components/layout/Header/Header'
 import { loadMyHiddenUnits } from '@features/portal-visibility'
 import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
 import { useAuth } from '@features/auth/hooks/useAuth'
+import { SessionTimeout } from '@components/auth/SessionTimeout'
 
 export interface AppShellProps {
   portal: PortalId
@@ -68,10 +70,15 @@ export function AppShell({ portal }: AppShellProps) {
     setMobileNav(false)
   }, [location.pathname, setMobileNav])
 
+  // 00413: قفل الخمول (30 دقيقة) للبوابات الحساسة فقط — المالية و/admin
+  const idleLock = portal === PORTALS.FINANCE || portal === PORTALS.ADMIN
+
   if (!allowed) return <Navigate to="/403" replace />
 
   return (
     <div className={clsx(theme.themeClass, 'portal-shell relative isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')}>
+      {/* 00413: قفل الخمول — لا يرسم شيئًا إلا في البوابتين الحسّاستين (المالية · /admin) */}
+      <SessionTimeout enabled={idleLock} />
       <a href="#app-main-content" className="fixed start-3 top-3 z-[100] -translate-y-20 rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-xl transition-transform focus:translate-y-0">تجاوز التنقل إلى المحتوى</a>
       {/* ── الشريط: طبقة مستقلة لا يمكن لمحتوى الصفحات تجاوزها ── */}
       <div className={clsx('relative z-30 h-dvh flex-none max-lg:hidden', sidebarCollapsed ? 'w-20' : 'w-72')} data-testid="desktop-sidebar-slot">
@@ -90,6 +97,8 @@ export function AppShell({ portal }: AppShellProps) {
       <div className="relative z-0 flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <InstallBanner />
+        {/* 00417: تذكير كل 30 يومًا — يظهر التذكير الأمني غير المقروء أعلى المحتوى */}
+        <ActivityReminderBanner />
         <Header portal={portal} />
         <main
           id="app-main-content"

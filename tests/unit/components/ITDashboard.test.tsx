@@ -167,6 +167,9 @@ describe('ITDashboard v3 — اللوحة الحية للبوابة', () => {
     renderDash()
     expect(screen.getByTestId('quick-actions').children.length).toBeGreaterThanOrEqual(9)
     expect(screen.queryByText('الهيكل التنظيمي')).toBeNull()   // الهيكل التنظيمي صار حصرياً في بوابة HR
+    expect(screen.getByTestId('quick-life-buoy')).toHaveTextContent('دعم دخول الموظفين')
+    await user.click(screen.getByTestId('quick-life-buoy'))
+    expect(mockNavigate).toHaveBeenCalledWith('/it/login-support')
     await user.click(screen.getByTestId('quick-user-plus'))
     expect(mockNavigate).toHaveBeenCalledWith('/it/user-management/create')
     await user.click(screen.getByTestId('quick-activity'))

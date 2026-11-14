@@ -112,7 +112,7 @@ export default function LiveMap({ rows, zones, selectedId, onSelect, heightClass
         </div>
       )}
       <MapContainer center={BAGHDAD} zoom={11} className="h-full w-full" scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <MapTiles theme={theme} onFailed={setTileFailed} />
+        <MapTiles theme={theme} onFailed={setTileFailed} preferOsmDark />
         <FlyTo row={selected} />
         {showZones && zones.map((zone) => (
           <Polygon key={zone.id} positions={zone.polygon.map((p) => [p.lat, p.lng] as [number, number])}

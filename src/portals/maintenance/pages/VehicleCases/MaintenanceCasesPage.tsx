@@ -72,7 +72,7 @@ export default function MaintenanceCasesPage() {
         <div className="mb-3 flex items-center gap-2">
           <CalendarDays className="size-5 text-[#0b3d6b]" />
           <b>مجلدات أيام الصيانة</b>
-          <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="mr-auto h-9 rounded-xl border px-2" />
+          <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="mr-auto h-9 rounded-xl border px-2" aria-label="يوم مجلد الصيانة" />
         </div>
         <div className="flex gap-2 overflow-x-auto">
           {(days.data ?? []).map((x) => (

@@ -47,7 +47,7 @@ export default function ArchivePage() {
   const { data: complaintFolders = [] } = useComplaintArchiveFolders()
   const decideComplaintDeletion = useDecideComplaintDeletion()
   const retryComplaintDeletion = useRetryComplaintDeletion()
-  const isSuperAdmin = session?.roles.includes('super_admin') ?? false
+  const isSuperAdmin = session?.roles?.includes('super_admin') ?? false
   const { data: counts, isLoading: cLoading } = useArchiveCounts()
   const [activeTable, setActiveTable] = useState<string | null>(null)
   const [search, setSearch] = useState('')

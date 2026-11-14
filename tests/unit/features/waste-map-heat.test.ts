@@ -50,8 +50,8 @@ describe('heat engine (00387)', () => {
     expect(spotIcon(spot({}), false)).toBe(spotIcon(spot({ id: 9 }), false))   // ذاكرة الأيقونات
   })
   it('سلسلة الخلفيات الداكنة تنتهي بـ OSM مع فلتر CSS (لا تفشل)، والعادية OSM بلا فلتر', () => {
-    expect(DARK_TILES.length).toBeGreaterThanOrEqual(3)
-    expect(DARK_TILES[0]!.id).toBe('carto-dark')
+    expect(DARK_TILES.length).toBeGreaterThanOrEqual(2)
+    expect(DARK_TILES[0]!.id).toBe('esri-dark')
     expect(DARK_TILES.at(-1)).toMatchObject({ id: 'osm-filtered', filter: true })
     expect(DARK_TILES.at(-1)!.url).toContain('tile.openstreetmap.org')
     expect(LIGHT_TILES).toMatchObject({ id: 'osm', filter: false })

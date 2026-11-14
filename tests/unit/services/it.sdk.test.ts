@@ -165,7 +165,11 @@ describe('system.sdk', () => {
   })
 
   it('consoleReport آمن الفشل — بلا جلسة يعيد 0 ولا يستدعي الخادم', async () => {
-    rpcMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    // F-05 (ظهر مع Vitest 4): محاكاة «رفض الشبكة» هنا تُنشئ وعداً مرفوضاً بلا معالج فيُسقط
+    // المشغّل الاختبار كـ«unhandled rejection»، مع أن الشرط المُختبَر هو «بلا جلسة لا يُستدعى
+    // الخادم إطلاقاً». أُبدلت بمحاكاة خطأ خادم صريحة: إن استُدعي الـrpc سهواً يعود 0 أيضاً،
+    // و«لم يُستدعَ» يبقى مؤكَّداً في السطر التالي.
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'boom' } })
     await expect(system.consoleReport([{ message: 'boom' }])).resolves.toBe(0)
     expect(rpcMock).not.toHaveBeenCalled()
   })

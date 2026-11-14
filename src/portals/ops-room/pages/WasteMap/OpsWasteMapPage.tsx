@@ -9,10 +9,13 @@ import clsx from 'clsx'
 import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 import HotspotDetailPanel from '@features/gps-hotspots/HotspotDetailPanel'
 import { downloadHotspotsExcel, filtersLabel, printHotspotsReport } from '@features/gps-hotspots/export'
+import { gpsHotspots } from '@sdk/gps-hotspots.sdk'
 import { useUiStore } from '@stores/ui.store'
 import WasteMap from '@features/gps-hotspots/WasteMap'
-import { useGpsHotspots, useGpsHotspotsMonthStats } from '@features/gps-hotspots/hooks'
-import { CLASS_COLOR, CLASS_LABEL, DEFAULT_FILTERS, HOTSPOT_CLASSES, HOTSPOT_RECURRENCES, MIN_VEHICLES_OPTIONS, RECURRENCE_LABEL, applyFilters, spotPlace, classThresholdLabel, defaultMonth, fmtMinutes, monthLabel, recurrenceThresholdLabel, summarize, toggleIn, compareMonths, deltaLabel, type WasteMapFilters } from '@features/gps-hotspots/hotspots.logic'
+import { useGpsHotspotDetail, useGpsHotspots, useGpsHotspotsMonthStats } from '@features/gps-hotspots/hooks'
+import type { GpsHotspot, GpsHotspotsMonth } from '@sdk/gps-hotspots.sdk'
+import { CLASS_COLOR, CLASS_LABEL, DEFAULT_FILTERS, HOTSPOT_CLASSES, HOTSPOT_RECURRENCES, MIN_VEHICLES_OPTIONS, RECURRENCE_LABEL, applyFilters, spotPlace, classThresholdLabel, defaultMonth, fmtMinutes, monthLabel, radiusLabel, recurrenceThresholdLabel, summarize, toggleIn, compareMonths, deltaLabel, spotSectorIds, locateHotspotsFromGeofences, visibleSectorOptions, type WasteMapFilters } from '@features/gps-hotspots/hotspots.logic'
+import { useGpsMapGeofences } from '@features/gps-lvn/hooks'
 import { useSectors } from '@features/sector'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
 
@@ -20,22 +23,34 @@ const n = (v: number) => v.toLocaleString('en-US')
 const chip = (on: boolean, color?: string) => clsx('rounded-xl border px-2.5 py-1.5 text-[11px] font-black transition', on ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50', on && !color && 'bg-slate-900')
 
 /** readOnly (00386-أ): المدير المفوض/النائب — بلا تصدير */
+/** 00405: دمج التفاصيل الكاملة (vehicles/days/hours) في صفوف القائمة عند التصدير فقط */
+async function withFullDetails(rows: GpsHotspot[]): Promise<GpsHotspot[]> {
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  const detail = await gpsHotspots.details(rows.map((r) => r.id)).catch(() => [])
+  for (const d of detail) { const base = byId.get(d.id); if (base) byId.set(d.id, { ...base, ...d }) }
+  return rows.map((r) => byId.get(r.id) ?? r)
+}
+
 export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-map-page' }: { readOnly?: boolean; testId?: string } = {}) {
   const [month, setMonth] = useState<string | null>(null)
   const [filters, setFilters] = useState<WasteMapFilters>(DEFAULT_FILTERS)
   const [selected, setSelected] = useState<number | null>(null)
-  const q = useGpsHotspots(month)
   const statsQ = useGpsHotspotsMonthStats()
+  // 00390: الشهر الافتراضي يُحسب من ملخّص الأشهر (٦٠٠ بايت) قبل الطلب الثقيل ⇒ طلب واحد بدل طلبين
+  const statsMonths = useMemo<GpsHotspotsMonth[]>(() => (statsQ.data ?? []).map((m) => ({ month: m.month, rows: m.spots, synced_at: m.updated_at })), [statsQ.data])
+  const autoMonth = useMemo(() => month ?? defaultMonth(statsMonths), [month, statsMonths])
+  const q = useGpsHotspots(autoMonth, Boolean(autoMonth) || statsQ.isFetched)
   const toast = useUiStore((st) => st.addToast)
   const [exporting, setExporting] = useState(false)
   const sectorsQ = useSectors()
-  const months = useMemo(() => q.data?.months ?? [], [q.data])
-  // الشهر الافتراضي = الشهر السابق إن كان منسوخاً
-  useEffect(() => { if (month === null && months.length) { const d = defaultMonth(months); if (d && d !== q.data?.month) setMonth(d) } }, [month, months, q.data?.month])
-  const all = useMemo(() => q.data?.rows ?? [], [q.data])
+  const geofencesQ = useGpsMapGeofences()
+  const months = useMemo(() => q.data?.months ?? statsMonths, [q.data, statsMonths])
+  // احتياط: لو جاءت قائمة الأشهر من الطلب مختلفة عن الملخّص ننتقل للشهر الافتراضي الجديد
+  useEffect(() => { if (month === null && q.data?.months?.length) { const d = defaultMonth(q.data.months); if (d && d !== autoMonth) setMonth(d) } }, [month, q.data?.months, autoMonth])
+  const all = useMemo(() => locateHotspotsFromGeofences(q.data?.rows ?? [], geofencesQ.data ?? [], sectorsQ.data ?? []), [q.data, geofencesQ.data, sectorsQ.data])
   const rows = useMemo(() => applyFilters(all, filters), [all, filters])
   const sum = useMemo(() => summarize(rows), [rows])
-  const shownMonth = q.data?.month ?? month
+  const shownMonth = q.data?.month ?? autoMonth
   const thresholds = q.data?.sync?.thresholds ?? null
   const sectorOptions = useMemo(() => {
     const inData = new Map<number, string>()
@@ -43,21 +58,38 @@ export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-
     for (const s of sectorsQ.data ?? []) if (!inData.has(s.id)) inData.set(s.id, s.name)
     return [...inData.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar'))
   }, [all, sectorsQ.data])
+  const sectorCoverage = useMemo(() => {
+    const counts = new Map<number, number>()
+    let unlocated = 0
+    for (const h of all) {
+      const ids = spotSectorIds(h)
+      if (!ids.length) { unlocated++; continue }
+      for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+    return { counts, unlocated }
+  }, [all])
   const top = useMemo(() => [...rows].sort((a, b) => b.total_minutes - a.total_minutes).slice(0, 30), [rows])
   const set = (patch: Partial<WasteMapFilters>) => setFilters((f) => ({ ...f, ...patch }))
   const selectedSpot = useMemo(() => rows.find((h) => h.id === selected) ?? null, [rows, selected])
+  // 00405: تفاصيل البقعة (الآليات/الساعات/الأيام) تُجلب عند فتح اللوحة فقط
+  const detailQ = useGpsHotspotDetail(selected)
+  /** التصدير يحتاج الحقول الكاملة: تُجلب مرة واحدة لكل الصفوف المفلترة قبل بناء الملف (نفس محتوى الملف السابق) */
+  const withDetails = async () => (rows.length === 0 ? rows : await withFullDetails(rows))
   const sectorNames = useMemo(() => new Map(sectorOptions), [sectorOptions])
+  // 00389: لا تُعرض أزرار القواطع التي لا بقع لها (تبقى المختارة ظاهرة)
+  const shownSectors = useMemo(() => visibleSectorOptions(sectorOptions, sectorCoverage.counts, filters.sectorIds), [sectorOptions, sectorCoverage, filters.sectorIds])
+  const hiddenSectors = sectorOptions.length - shownSectors.length
   const comparison = useMemo(() => (shownMonth ? compareMonths(statsQ.data ?? [], shownMonth) : null), [statsQ.data, shownMonth])
   const exportExcel = async () => {
     if (!shownMonth) return
     setExporting(true)
-    try { await downloadHotspotsExcel(rows, shownMonth, filtersLabel(filters, sectorNames), statsQ.data ?? []); toast({ type: 'success', message: `صُدّرت ${n(rows.length)} بقعة إلى Excel` }) }
+    try { const fullRows = await withDetails(); await downloadHotspotsExcel(fullRows, shownMonth, filtersLabel(filters, sectorNames), statsQ.data ?? []); toast({ type: 'success', message: `صُدّرت ${n(rows.length)} بقعة إلى Excel` }) }
     catch { toast({ type: 'error', message: 'تعذر إنشاء ملف Excel' }) }
     finally { setExporting(false) }
   }
-  const exportPdf = () => {
+  const exportPdf = async () => {
     if (!shownMonth) return
-    try { printHotspotsReport(rows, shownMonth, filtersLabel(filters, sectorNames), statsQ.data ?? []) }
+    try { printHotspotsReport(await withDetails(), shownMonth, filtersLabel(filters, sectorNames), statsQ.data ?? []) }
     catch { toast({ type: 'error', message: 'المتصفح منع النافذة المنبثقة — اسمح بها ثم أعد المحاولة' }) }
   }
 
@@ -108,15 +140,21 @@ export default function OpsWasteMapPage({ readOnly = false, testId = 'ops-waste-
         </div>
         <div className="flex flex-wrap items-center gap-1.5" data-testid="waste-filter-sectors">
           <span className="font-bold text-slate-600">القاطع:</span>
-          <button type="button" aria-pressed={filters.sectorIds.length === 0} onClick={() => set({ sectorIds: [] })} className={chip(filters.sectorIds.length === 0)}>الكل</button>
-          {sectorOptions.map(([id, name]) => <button key={id} type="button" aria-pressed={filters.sectorIds.includes(id)} data-testid={`waste-filter-sector-${id}`} onClick={() => set({ sectorIds: toggleIn(filters.sectorIds, id) })} className={chip(filters.sectorIds.includes(id))}>{name}</button>)}
+          <button type="button" aria-pressed={filters.sectorIds.length === 0 && !filters.unlocated} onClick={() => set({ sectorIds: [], unlocated: false })} className={chip(filters.sectorIds.length === 0 && !filters.unlocated)}>الكل ({n(all.length)})</button>
+          <button type="button" aria-pressed={filters.unlocated} data-testid="waste-filter-sector-unlocated" disabled={sectorCoverage.unlocated === 0} onClick={() => set({ unlocated: !filters.unlocated })} className={`${chip(filters.unlocated)} disabled:cursor-not-allowed disabled:opacity-45`}>غير محدد ({n(sectorCoverage.unlocated)})</button>
+          {shownSectors.map(([id, name]) => {
+            const count = sectorCoverage.counts.get(id) ?? 0
+            return <button key={id} type="button" aria-pressed={filters.sectorIds.includes(id)} data-testid={`waste-filter-sector-${id}`} disabled={count === 0} onClick={() => set({ sectorIds: toggleIn(filters.sectorIds, id) })} className={`${chip(filters.sectorIds.includes(id))} disabled:cursor-not-allowed disabled:opacity-45`}>{name} ({n(count)})</button>
+          })}
         </div>
-        <p className="text-[10px] text-slate-500">{classThresholdLabel(thresholds)} · {recurrenceThresholdLabel(thresholds)} · الخفيف مخفي افتراضياً · مستبعد: أقل من 10 دقائق، أكثر من ساعتين، والمتوقف أكثر من يوم (عطل).</p>
+        {hiddenSectors > 0 && <span className="text-[10px] text-slate-400" data-testid="waste-map-sectors-hidden">قواطع بلا بقع: {n(hiddenSectors)} — يظهر تلقائياً عند إضافة زون لها أو وصول بقع</span>}
+        {geofencesQ.isError && <p role="status" data-testid="waste-map-geofences-error" className="text-[10px] font-bold text-amber-700">تعذر تحميل حدود القواطع؛ قد تكون أعداد الإسناد الجغرافي ناقصة.</p>}
+        <p className="text-[10px] text-slate-500" data-testid="waste-map-thresholds">{radiusLabel(thresholds)} · {classThresholdLabel(thresholds)} · {recurrenceThresholdLabel(thresholds)} · الخفيف مخفي افتراضياً · مستبعد: أقل من 10 دقائق، أكثر من ساعتين، والمتوقف أكثر من يوم (عطل).</p>
       </div>
       {q.isError && <div className="rounded-xl bg-rose-50 p-2 text-center text-xs font-bold text-rose-900" data-testid="waste-map-error">{lvnErrorToast((q.error as Error).message)}</div>}
       <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <WasteMap allRows={all} rows={rows} fitKey={shownMonth ?? ''} selectedId={selected} onSelect={(h) => setSelected(h?.id ?? null)} />
-        {selectedSpot ? <HotspotDetailPanel spot={selectedSpot} onClose={() => setSelected(null)} /> : (
+        {selectedSpot ? <HotspotDetailPanel spot={selectedSpot} detail={detailQ.data} loading={detailQ.isFetching} onClose={() => setSelected(null)} /> : (
         <aside className="max-h-[72vh] overflow-auto rounded-2xl border bg-white" data-testid="waste-map-list">
           <div className="sticky top-0 border-b bg-white px-3 py-2 text-xs font-black text-slate-800">أعلى البقع ({n(Math.min(30, rows.length))} من {n(rows.length)}) — بإجمالي التوقف</div>
           {q.isLoading && <div className="p-3 text-center text-xs text-slate-500">يُحمَّل…</div>}

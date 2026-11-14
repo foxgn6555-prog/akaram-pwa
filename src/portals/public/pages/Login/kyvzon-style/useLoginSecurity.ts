@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 10;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 دقائق
 const ATTEMPT_KEY = 'login_attempts';
 const LOCKOUT_KEY = 'login_lockout';

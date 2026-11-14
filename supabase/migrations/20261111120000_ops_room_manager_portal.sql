@@ -1,0 +1,395 @@
+-- 20261111120000_ops_room_manager_portal.sql
+--
+-- سبب الترحيل (00400 · قرار المستخدم): بوابة جديدة «مدير غرفة العمليات».
+--   · موافقات موظفي غرفة العمليات (إجازات/زمنيات/سلف/كشوفات) عبر سلاسل الموافقات القائمة.
+--   · تقارير الوقود الكاملة لبوابات الكراج — **قراءة فقط، بلا أي صلاحية كتابة**.
+--
+-- ما لا يتغيّر: سلوك أي دور قائم، وسلاسل الموافقات، وأي دالة كتابة في الكراج.
+-- التحقق من القراءة في التقرير فقط: دالة قراءة مستقلة `app.garage_report_actor()` بدل تعديل
+-- بوابة الكتابة `app.require_garage_actor()` (لئلا يمنح الدور الجديد تعبئة/صرف وقود).
+
+-- ① الدور الجديد في قيد CHECK — وإلا رفضه الإدراج في user_roles
+alter table public.user_roles drop constraint if exists user_roles_role_check;
+alter table public.user_roles add constraint user_roles_role_check
+  check (role in (
+    'employee', 'hr_officer', 'department_manager',
+    'finance_officer', 'it_admin', 'super_admin',
+    'field_ops', 'admin_ops', 'maintenance', 'transfer_station',
+    'executive_director', 'deputy_director', 'ops_room', 'ops_room_manager',
+    'disclosures_officer', 'complaints_officer', 'media_officer',
+    'central_garage_officer', 'follow_up'
+  ) or role like 'portal:%');
+
+-- ② أولوية الدور في JWT (mirror لـ ROLE_PRIORITY) — الدور الجديد بعد غرفة العمليات
+do $do$
+declare def text; new_def text; pat text := '''deputy_director'', ''ops_room',''';
+begin
+  def := pg_get_functiondef('app.custom_access_token_hook(jsonb)'::regprocedure);
+  new_def := replace(def, pat, '''deputy_director'', ''ops_room'', ''ops_room_manager',''');
+  if new_def = def then raise exception '00400: لم يُعثر على نمط أولوية الدور في custom_access_token_hook'; end if;
+  execute new_def;
+end $do$;
+
+-- ③ قائمة الأدوار المسموحة في set_user_role — وإلا لا يستطيع IT منح الدور الجديد
+do $do$
+declare def text; new_def text; pat text := '''central_garage_officer'', ''follow_up''';
+begin
+  def := pg_get_functiondef('app.set_user_role(uuid,text,boolean,uuid)'::regprocedure);
+  new_def := replace(def, pat, '''central_garage_officer'', ''follow_up'', ''ops_room_manager''');
+  if new_def = def then raise exception '00400: لم يُعثر على قائمة الأدوار في set_user_role'; end if;
+  execute new_def;
+end $do$;
+
+-- ④ بوابة قراءة الوقود:دالة مستقلة للقراءة فقط (لا كتابة)
+create or replace function app.garage_report_actor()
+returns uuid language plpgsql stable security definer set search_path = public, app
+as $fn$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then raise exception 'GARAGE_UNAUTHENTICATED'; end if;
+  if not app.has_role(array['central_garage_officer', 'super_admin', 'ops_room_manager']) then
+    raise exception 'GARAGE_FORBIDDEN';
+  end if;
+  return v_uid;
+end;
+$fn$;
+revoke all on function app.garage_report_actor() from public, anon;
+grant execute on function app.garage_report_actor() to authenticated;
+
+-- ⑤ توسيع نطاق القراءة (خزانات/آليات/مناطق) للدور الجديد — يُستخدم في سياسات القراءة ودوال التقرير.
+--    الكتابة تبقى محجوبة: كل دالة كتابة في الكراج تستدعي require_garage_actor التي لا تعرف الدور الجديد.
+do $do$
+declare f text; def text; new_def text;
+begin
+  foreach f in array array[
+    'app.garage_tank_allowed(uuid)',
+    'app.garage_vehicle_allowed(uuid)',
+    'app.garage_sector_allowed(smallint)'
+  ] loop
+    def := pg_get_functiondef(f::regprocedure);
+    new_def := replace(def, '''ops_room''', '''ops_room'', ''ops_room_manager''');
+    if new_def = def then raise exception '00400: لم يُعثر على نمط النطاق في %', f; end if;
+    execute new_def;
+  end loop;
+end $do$;
+
+-- ⑥ دالتا التقرير والملخص: بوابة القراءة بدل بوابة الكتابة (تعديل سطر واحد في كل دالة)
+do $do$
+declare f text; def text; new_def text;
+begin
+  foreach f in array array[
+    'public.garage_consumption_report(date,date,smallint,text,uuid,uuid,uuid[],text,integer,integer)',
+    'public.garage_dashboard_summary(date,date,smallint,text)'
+  ] loop
+    def := pg_get_functiondef(f::regprocedure);
+    new_def := replace(def, 'app.require_garage_actor()', 'app.garage_report_actor()');
+    if new_def = def then raise exception '00400: لم يُعثر على require_garage_actor في %', f; end if;
+    execute new_def;
+  end loop;
+end $do$;
+
+-- ⑦ مناطق الكراج الظاهرة (قائمة فلاتر التقرير) — قراءة
+do $do$
+declare def text; new_def text;
+begin
+  def := pg_get_functiondef('public.garage_visible_areas()'::regprocedure);
+  new_def := replace(def, '''central_garage_officer'',''ops_room''', '''central_garage_officer'',''ops_room'',''ops_room_manager''');
+  if new_def = def then raise exception '00400: لم يُعثر على نمط الأدوار في garage_visible_areas'; end if;
+  execute new_def;
+end $do$;
+
+-- ⑧ كتالوج الصلاحيات — وحدتان جديدتان للبوابة (مولَّد، لا يُحرَّر يدوياً)
+-- <<catalog>>  (مولَّد — لا يُحرَّر يدوياً: npx vite-node scripts/gen-permission-catalog.ts)
+-- upsert (لا حذف+إدراج) كي لا تُفقد قواعد القوالب والاستثناءات المرتبطة بالوحدات الباقية
+insert into public.permission_units (key, portal, path, label, parent_key, actions, sort) values
+  ('employee', 'employee', '/employee', 'الرئيسية', null, '{view}', 0),
+  ('employee.attendance', 'employee', '/employee/attendance', 'إثبات التواجد والعدد', null, '{view,create}', 1),
+  ('employee.photos', 'employee', '/employee/photos', 'إرسال الصور', null, '{view,create}', 2),
+  ('employee.approvals', 'employee', '/employee/approvals', 'طلبات الموافقة', null, '{view}', 3),
+  ('hr', 'hr', '/hr', 'الرئيسية', null, '{view}', 4),
+  ('hr.recruitment', 'hr', '/hr/recruitment', 'التوظيف وإنهاء الخدمات', null, '{view,create,execute}', 5),
+  ('hr.hire-requests', 'hr', '/hr/hire-requests', 'تعيينات بانتظار الإكمال', null, '{view,execute}', 6),
+  ('hr.employees', 'hr', '/hr/employees', 'الموظفون', null, '{view,create,edit,export,execute}', 7),
+  ('hr.attendance', 'hr', '/hr/attendance', 'الحضور والانصراف', null, '{view,edit,export}', 8),
+  ('hr.now', 'hr', '/hr/now', 'من في الدوام الآن', null, '{view}', 9),
+  ('hr.attendance-monthly', 'hr', '/hr/attendance-monthly', 'تقرير الحضور الشهري', null, '{view,export}', 10),
+  ('hr.attendance-edits', 'hr', '/hr/attendance-edits', 'طلبات تعديل الحضور', null, '{view,edit,decide}', 11),
+  ('hr.leaves', 'hr', '/hr/leaves', 'الإجازات والزمنيات', null, '{view,create,decide,export}', 12),
+  ('hr.documents', 'hr', '/hr/documents', 'وثائق الموظفين', null, '{view,edit,export}', 13),
+  ('hr.biometric', 'hr', '/hr/biometric', 'دفتر البصمة', null, '{view,export}', 14),
+  ('hr.org', 'hr', '/hr/org', 'الهيكل التنظيمي', null, '{view,create,edit,delete}', 15),
+  ('hr.behavior', 'hr', '/hr/behavior', 'تقارير سلوك الموظفين', null, '{view,export}', 16),
+  ('hr.approvals', 'hr', '/hr/approvals', 'طلبات الموافقة', null, '{view}', 17),
+  ('manager', 'manager', '/manager', 'الرئيسية', null, '{view}', 18),
+  ('manager.team', 'manager', '/manager/team', 'فريقي', null, '{view}', 19),
+  ('manager.request', 'manager', '/manager/request', 'إنشاء طلب', null, '{view,create}', 20),
+  ('manager.leaves', 'manager', '/manager/leaves', 'إجازات فريقي', null, '{view,create,decide}', 21),
+  ('manager.breakdown', 'manager', '/manager/breakdown', 'عطل آلية', null, '{view,create}', 22),
+  ('manager.vehicle-trips', 'manager', '/manager/vehicle-trips', 'حركة آليات الوردية', null, '{view,execute}', 23),
+  ('manager.support', 'manager', '/manager/support', 'طلبات الدعم', null, '{view,create}', 24),
+  ('manager.gbs-containers', 'manager', '/manager/gbs-containers', 'حاويات GBS', null, '{view}', 25),
+  ('manager.complaints', 'manager', '/manager/complaints', 'الشكاوى المسندة', null, '{view,create,execute}', 26),
+  ('manager.citizen-complaints', 'manager', '/manager/citizen-complaints', 'شكاوى المواطنين', null, '{view,execute}', 27),
+  ('manager.photos', 'manager', '/manager/photos', 'إرسال صور', null, '{view,create}', 28),
+  ('manager.archive', 'manager', '/manager/archive', 'الأرشيف', null, '{view}', 29),
+  ('manager.approvals', 'manager', '/manager/approvals', 'طلبات الموافقة', null, '{view}', 30),
+  ('finance', 'finance', '/finance', 'الرئيسية', null, '{view}', 31),
+  ('finance.reports', 'finance', '/finance/reports', 'التقارير', null, '{view,export}', 32),
+  ('finance.payroll', 'finance', '/finance/payroll', 'الرواتب', null, '{view,edit,decide,execute,export}', 33),
+  ('finance.contractor-wages', 'finance', '/finance/contractor-wages', 'أجور المتعهدين', null, '{view,edit,decide,export}', 34),
+  ('finance.advances', 'finance', '/finance/advances', 'السلف', null, '{view,execute,export}', 35),
+  ('finance.settlements', 'finance', '/finance/settlements', 'المنتهية خدماتهم والتصفية', null, '{view,decide,execute,export}', 36),
+  ('finance.letters', 'finance', '/finance/letters', 'سجل الكتب الرسمية', null, '{view,export}', 37),
+  ('finance.purchases', 'finance', '/finance/purchases', 'مشتريات قطع الصيانة', null, '{view,decide}', 38),
+  ('finance.budget', 'finance', '/finance/budget', 'القاصة', null, '{view,create,edit,decide}', 39),
+  ('finance.expenses', 'finance', '/finance/expenses', 'المصاريف', null, '{view,create,edit,export}', 40),
+  ('finance.announcements', 'finance', '/finance/announcements', 'التبليغات', null, '{view,create}', 41),
+  ('finance.approvals', 'finance', '/finance/approvals', 'طلبات الموافقة', null, '{view}', 42),
+  ('it', 'it', '/it', 'الرئيسية', null, '{view}', 43),
+  ('it.user-management', 'it', '/it/user-management', 'إدارة المستخدمين', null, '{view}', 44),
+  ('it.user-management.list', 'it', '/it/user-management/list', 'المستخدمون', 'it.user-management', '{view,edit}', 45),
+  ('it.user-management.create', 'it', '/it/user-management/create', 'إنشاء مستخدم', 'it.user-management', '{view,create}', 46),
+  ('it.user-management.approval-chains', 'it', '/it/user-management/approval-chains', 'سلاسل الموافقات', 'it.user-management', '{view,edit,delete}', 47),
+  ('it.user-management.approval-performance', 'it', '/it/user-management/approval-performance', 'أداء الموافقات', 'it.user-management', '{view}', 48),
+  ('it.approvals', 'it', '/it/approvals', 'طلبات الموافقة', 'it.user-management', '{view,decide}', 49),
+  ('it.user-management.disclosure-types', 'it', '/it/user-management/disclosure-types', 'أنواع الكشوفات', 'it.user-management', '{view,edit}', 50),
+  ('it.user-management.maintenance-workshops', 'it', '/it/user-management/maintenance-workshops', 'ورش الصيانة', 'it.user-management', '{view,edit}', 51),
+  ('it.database', 'it', '/it/database', 'قاعدة البيانات', null, '{view}', 52),
+  ('it.database.tables', 'it', '/it/database/tables', 'الجداول والأعمدة', 'it.database', '{view}', 53),
+  ('it.branches', 'it', '/it/branches', 'فروع الشركة', null, '{view,create,edit}', 54),
+  ('it.sectors', 'it', '/it/sectors', 'القطاعات والمناطق', null, '{view,create,edit}', 55),
+  ('it.permissions', 'it', '/it/permissions', 'قوالب الصلاحيات', null, '{view,edit}', 56),
+  ('it.integrations', 'it', '/it/integrations', 'التكاملات', null, '{view}', 57),
+  ('it.integrations.biometric', 'it', '/it/integrations/biometric', 'أجهزة البصمة', 'it.integrations', '{view,edit,execute}', 58),
+  ('it.integrations.biometric.unmatched', 'it', '/it/integrations/biometric/unmatched', 'الأشخاص غير المطابقين', 'it.integrations', '{view}', 59),
+  ('it.integrations.biometric.attendance-audit', 'it', '/it/integrations/biometric/attendance-audit', 'سجل تعديلات الحضور', 'it.integrations', '{view}', 60),
+  ('it.integrations.gps', 'it', '/it/integrations/gps', 'تتبع الشاحنات', 'it.integrations', '{view,edit,execute}', 61),
+  ('it.integrations.gps-health', 'it', '/it/integrations/gps-health', 'سلامة تكامل GPS', 'it.integrations', '{view}', 62),
+  ('it.integrations.hr-policy', 'it', '/it/integrations/hr-policy', 'سياسة الحضور والإجازات', 'it.integrations', '{view,edit}', 63),
+  ('it.integrations.auto-deductions', 'it', '/it/integrations/auto-deductions', 'الاستقطاعات التلقائية', 'it.integrations', '{view,edit}', 64),
+  ('it.integrations.advances', 'it', '/it/integrations/advances', 'السلف — الأنواع والسياسة', 'it.integrations', '{view,edit}', 65),
+  ('it.integrations.live-tracking', 'it', '/it/integrations/live-tracking', 'البث المباشر — الإعدادات', 'it.integrations', '{view,edit}', 66),
+  ('it.notification-policies', 'it', '/it/notification-policies', 'سياسات الإشعارات والانطلاقات', null, '{view,edit,delete}', 67),
+  ('it.updates', 'it', '/it/updates', 'التحديثات والمراقبة', null, '{view,execute}', 68),
+  ('it.archive', 'it', '/it/archive', 'الأرشيف', null, '{view,delete}', 69),
+  ('it.central-garage-approvals', 'it', '/it/central-garage-approvals', 'موافقات تصفير خزانات الكراج', 'it.archive', '{view,decide}', 70),
+  ('it.cold-archive', 'it', '/it/cold-archive', 'الأرشيف البارد', 'it.archive', '{view,create,decide,delete}', 71),
+  ('it.data-retention', 'it', '/it/data-retention', 'الاحتفاظ بالبيانات', 'it.archive', '{view,edit,delete}', 72),
+  ('it.console', 'it', '/it/console', 'Console — رصد الأخطاء', null, '{view}', 73),
+  ('it.devops', 'it', '/it/devops', 'دليل التشغيل التقني', null, '{view}', 74),
+  ('it.devops.git', 'it', '/it/devops/git', 'Git ورفع التحديثات', 'it.devops', '{view}', 75),
+  ('it.devops.database', 'it', '/it/devops/database', 'قاعدة البيانات والترحيلات', 'it.devops', '{view}', 76),
+  ('it.devops.tests', 'it', '/it/devops/tests', 'الاختبارات', 'it.devops', '{view}', 77),
+  ('it.devops.hosting', 'it', '/it/devops/hosting', 'الاستضافة والبصمة في الإنتاج', 'it.devops', '{view}', 78),
+  ('it.devops.status', 'it', '/it/devops/status', 'لوحة الحالة الحية', 'it.devops', '{view}', 79),
+  ('it.platform-reset', 'it', '/it/platform-reset', 'التصفير', null, '{view,execute}', 80),
+  ('admin', 'admin', '/admin', 'الرئيسية', null, '{view}', 81),
+  ('admin.reports', 'admin', '/admin/reports', 'التقارير', null, '{view}', 82),
+  ('admin.announcements', 'admin', '/admin/announcements', 'التبليغات', null, '{view,create}', 83),
+  ('admin.approvals', 'admin', '/admin/approvals', 'طلبات الموافقة', null, '{view,decide}', 84),
+  ('admin.approval-performance', 'admin', '/admin/approval-performance', 'أداء الموافقات', null, '{view}', 85),
+  ('admin.procedures', 'admin', '/admin/procedures', 'الإجراءات', null, '{view,execute}', 86),
+  ('admin.disclosures', 'admin', '/admin/disclosures', 'الكشوفات', null, '{view,decide}', 87),
+  ('admin.company', 'admin', '/admin/company', 'بيانات الشركة', null, '{view}', 88),
+  ('field-ops', 'field-ops', '/field-ops', 'الرئيسية', null, '{view}', 89),
+  ('field-ops.requests', 'field-ops', '/field-ops/requests', 'طلبات فريقي', null, '{view,decide}', 90),
+  ('field-ops.sectors', 'field-ops', '/field-ops/sectors', 'القواطع والمسؤولون', null, '{view}', 91),
+  ('field-ops.reports', 'field-ops', '/field-ops/reports', 'التقارير', null, '{view}', 92),
+  ('field-ops.notify', 'field-ops', '/field-ops/notify', 'التبليغ', null, '{view,create}', 93),
+  ('field-ops.procedures', 'field-ops', '/field-ops/procedures', 'الإجراءات', null, '{view,execute}', 94),
+  ('field-ops.my-requests', 'field-ops', '/field-ops/my-requests', 'طلباتي', null, '{view,create}', 95),
+  ('admin-ops', 'admin-ops', '/admin-ops', 'الرئيسية', null, '{view}', 96),
+  ('admin-ops.requests', 'admin-ops', '/admin-ops/requests', 'طلبات فريقي', null, '{view,create,decide}', 97),
+  ('admin-ops.reports', 'admin-ops', '/admin-ops/reports', 'التقارير', null, '{view}', 98),
+  ('admin-ops.notify', 'admin-ops', '/admin-ops/notify', 'التبليغ', null, '{view,create}', 99),
+  ('admin-ops.procedures', 'admin-ops', '/admin-ops/procedures', 'الإجراءات', null, '{view,create,execute}', 100),
+  ('admin-ops.disclosures', 'admin-ops', '/admin-ops/disclosures', 'الكشوفات', null, '{view,create,decide}', 101),
+  ('admin-ops.contractors', 'admin-ops', '/admin-ops/contractors', 'متابعة المتعهدين والعمال', null, '{view,decide}', 102),
+  ('admin-ops.my-requests', 'admin-ops', '/admin-ops/my-requests', 'طلباتي', null, '{view,create}', 103),
+  ('maintenance', 'maintenance', '/maintenance', 'الرئيسية', null, '{view}', 104),
+  ('maintenance.purchases', 'maintenance', '/maintenance/purchases', 'مشتريات قطع الصيانة', null, '{view,create}', 105),
+  ('maintenance.inventory', 'maintenance', '/maintenance/inventory', 'مخزون قطع الصيانة', null, '{view,create,edit}', 106),
+  ('maintenance.vehicle-cases', 'maintenance', '/maintenance/vehicle-cases', 'صيانة الآليات', null, '{view,create,decide,execute}', 107),
+  ('maintenance.employees', 'maintenance', '/maintenance/employees', 'الموظفون', null, '{view,edit}', 108),
+  ('maintenance.requests', 'maintenance', '/maintenance/requests', 'الطلبات', null, '{view,create}', 109),
+  ('maintenance.procedures', 'maintenance', '/maintenance/procedures', 'الإجراءات', null, '{view,create,execute}', 110),
+  ('maintenance.archive', 'maintenance', '/maintenance/archive', 'أرشيف الصيانة', null, '{view,delete}', 111),
+  ('maintenance.approvals', 'maintenance', '/maintenance/approvals', 'طلبات الموافقة', null, '{view}', 112),
+  ('transfer-station', 'transfer-station', '/transfer-station', 'الرئيسية', null, '{view}', 113),
+  ('transfer-station.weights', 'transfer-station', '/transfer-station/weights', 'الأوزان', null, '{view,create,execute}', 114),
+  ('transfer-station.weights.log', 'transfer-station', '/transfer-station/weights/log', 'تسجيل الأوزان', 'transfer-station.weights', '{view,export}', 115),
+  ('transfer-station.saksat', 'transfer-station', '/transfer-station/saksat', 'السكسات والنسافات الخارجة', null, '{view,create,export}', 116),
+  ('transfer-station.carrier', 'transfer-station', '/transfer-station/carrier', 'ناقلات الحاويات المكبسية', null, '{view,create,export}', 117),
+  ('transfer-station.vehicle-movements', 'transfer-station', '/transfer-station/vehicle-movements', 'حركة آليات المواقع', null, '{view,execute}', 118),
+  ('transfer-station.employees', 'transfer-station', '/transfer-station/employees', 'الموظفون', null, '{view,edit}', 119),
+  ('transfer-station.requests', 'transfer-station', '/transfer-station/requests', 'الطلبات', null, '{view,create}', 120),
+  ('transfer-station.procedures', 'transfer-station', '/transfer-station/procedures', 'الإجراءات', null, '{view,create,execute}', 121),
+  ('transfer-station.disclosures', 'transfer-station', '/transfer-station/disclosures', 'الكشوفات', null, '{view,create}', 122),
+  ('transfer-station.fines', 'transfer-station', '/transfer-station/fines', 'الغرامات', null, '{view,create}', 123),
+  ('transfer-station.archive', 'transfer-station', '/transfer-station/archive', 'أرشيف المحطة', null, '{view,delete}', 124),
+  ('transfer-station.approvals', 'transfer-station', '/transfer-station/approvals', 'طلبات الموافقة', null, '{view}', 125),
+  ('executive', 'executive', '/executive', 'الرئيسية', null, '{view}', 126),
+  ('executive.reports', 'executive', '/executive/reports', 'التقارير', null, '{view,export}', 127),
+  ('executive.announcements', 'executive', '/executive/announcements', 'التبليغات', null, '{view,create}', 128),
+  ('executive.approvals', 'executive', '/executive/approvals', 'طلبات الموافقة', null, '{view,decide}', 129),
+  ('executive.procedures', 'executive', '/executive/procedures', 'الإجراءات', null, '{view,execute}', 130),
+  ('executive.receivables', 'executive', '/executive/receivables', 'مستحقات الشركة', null, '{view,create,edit,execute}', 131),
+  ('executive.gps-payments', 'executive', '/executive/gps-payments', 'تسديد مستحقات GPS', null, '{view,create,edit}', 132),
+  ('executive.rewards', 'executive', '/executive/rewards', 'المكافآت', null, '{view,create}', 133),
+  ('executive.letters', 'executive', '/executive/letters', 'كتب الشكر والتنبيه', null, '{view,create}', 134),
+  ('executive.events', 'executive', '/executive/events', 'فعاليات الشركة', null, '{view,create}', 135),
+  ('executive.behavior', 'executive', '/executive/behavior', 'تقارير سلوك الموظفين', null, '{view,export}', 136),
+  ('executive.stop-hotspots', 'executive', '/executive/stop-hotspots', 'خريطة النفايات (بقع التوقف)', null, '{view}', 137),
+  ('executive.attendance-edits', 'executive', '/executive/attendance-edits', 'تعديلات الحضور', null, '{view}', 138),
+  ('deputy', 'deputy', '/deputy', 'الرئيسية', null, '{view}', 139),
+  ('deputy.reports', 'deputy', '/deputy/reports', 'التقارير', null, '{view,export}', 140),
+  ('deputy.announcements', 'deputy', '/deputy/announcements', 'التبليغات', null, '{view,create}', 141),
+  ('deputy.statements', 'deputy', '/deputy/statements', 'الكشوفات', null, '{view,decide}', 142),
+  ('deputy.deductions', 'deputy', '/deputy/deductions', 'مراجعة الاستقطاعات', null, '{view,decide,edit}', 143),
+  ('deputy.rented-tax', 'deputy', '/deputy/rented-tax', 'ضريبة الآليات المؤجرة', null, '{view,edit}', 144),
+  ('deputy.overtime', 'deputy', '/deputy/overtime', 'الساعات الإضافية المدفوعة', null, '{view,decide,edit}', 145),
+  ('deputy.attendance-edits', 'deputy', '/deputy/attendance-edits', 'تعديلات الحضور', null, '{view,create,execute}', 146),
+  ('deputy.sector-supplies', 'deputy', '/deputy/sector-supplies', 'كتب مستلزمات القواطع', null, '{view,decide}', 147),
+  ('deputy.station-folders', 'deputy', '/deputy/station-folders', 'فولدرات المحطة', null, '{view}', 148),
+  ('deputy.data-analysis', 'deputy', '/deputy/data-analysis', 'تحليل البيانات', null, '{view}', 149),
+  ('deputy.rewards', 'deputy', '/deputy/rewards', 'المكافآت', null, '{view,create}', 150),
+  ('deputy.letters', 'deputy', '/deputy/letters', 'كتب الشكر والتنبيه', null, '{view,create}', 151),
+  ('deputy.approvals', 'deputy', '/deputy/approvals', 'طلبات الموافقة', null, '{view,decide}', 152),
+  ('deputy.procedures', 'deputy', '/deputy/procedures', 'الإجراءات', null, '{view,execute}', 153),
+  ('deputy.behavior', 'deputy', '/deputy/behavior', 'تقارير سلوك الموظفين', null, '{view,export}', 154),
+  ('deputy.stop-hotspots', 'deputy', '/deputy/stop-hotspots', 'خريطة النفايات (بقع التوقف)', null, '{view}', 155),
+  ('ops-room', 'ops-room', '/ops-room', 'الرئيسية', null, '{view}', 156),
+  ('ops-room.operations-data', 'ops-room', '/ops-room/operations-data', 'بيانات وتقارير العمليات', null, '{view,edit,export}', 157),
+  ('ops-room.station-daily', 'ops-room', '/ops-room/station-daily', 'التقرير اليومي للمحطة', null, '{view,create,export}', 158),
+  ('ops-room.station-fleet', 'ops-room', '/ops-room/station-fleet', 'أسطول المحطة التحويلية', null, '{view,create,edit}', 159),
+  ('ops-room.station-outbound', 'ops-room', '/ops-room/station-outbound', 'متابعة خروج آليات المحطة', null, '{view,execute}', 160),
+  ('ops-room.vehicles-database', 'ops-room', '/ops-room/vehicles-database', 'قاعدة بيانات الآليات', null, '{view,create,edit,export}', 161),
+  ('ops-room.vehicles-archive', 'ops-room', '/ops-room/vehicles-archive', 'أرشيف الآليات', null, '{view,delete}', 162),
+  ('ops-room.gps', 'ops-room', '/ops-room/gps', 'بيانات أجهزة GPS', null, '{view,edit,execute,export}', 163),
+  ('ops-room.gbs-containers', 'ops-room', '/ops-room/gbs-containers', 'GBS الحاويات', null, '{view,edit}', 164),
+  ('ops-room.attendance', 'ops-room', '/ops-room/attendance', 'الحضوريات', null, '{view,edit,decide,export}', 165),
+  ('ops-room.store', 'ops-room', '/ops-room/store', 'المخزن', null, '{view,create,edit,execute}', 166),
+  ('ops-room.campaigns', 'ops-room', '/ops-room/campaigns', 'متابعة الحملات', null, '{view,create,export}', 167),
+  ('ops-room.citizen-complaints', 'ops-room', '/ops-room/citizen-complaints', 'استقبال الشكاوى', null, '{view,execute,delete}', 168),
+  ('ops-room.disclosures', 'ops-room', '/ops-room/disclosures', 'الكشوفات', null, '{view,create,decide}', 169),
+  ('ops-room.advances', 'ops-room', '/ops-room/advances', 'السلف', null, '{view,create}', 170),
+  ('ops-room.contractor-headcounts', 'ops-room', '/ops-room/contractor-headcounts', 'حضوريات العمال', null, '{view,decide}', 171),
+  ('ops-room.leaves', 'ops-room', '/ops-room/leaves', 'طلبات الإجازة', null, '{view,decide}', 172),
+  ('ops-room.live-tracking', 'ops-room', '/ops-room/live-tracking', 'البث المباشر', null, '{view}', 173),
+  ('ops-room.live-tracking.data', 'ops-room', '/ops-room/live-tracking/data', 'بيانات البث المباشر', null, '{view}', 174),
+  ('ops-room.waste-map', 'ops-room', '/ops-room/waste-map', 'خريطة النفايات (بقع التوقف)', null, '{view,export}', 175),
+  ('ops-room.approvals', 'ops-room', '/ops-room/approvals', 'طلبات الموافقة', null, '{view}', 176),
+  ('ops-room-manager', 'ops-room-manager', '/ops-room-manager', 'الرئيسية', null, '{view}', 177),
+  ('ops-room-manager.approvals', 'ops-room-manager', '/ops-room-manager/approvals', 'طلبات الموافقة', null, '{view,decide,export}', 178),
+  ('ops-room-manager.fuel-reports', 'ops-room-manager', '/ops-room-manager/fuel-reports', 'تقارير الوقود', null, '{view,export}', 179),
+  ('complaints', 'complaints', '/complaints', 'الرئيسية', null, '{view}', 180),
+  ('complaints.karrada-sector', 'complaints', '/complaints/karrada-sector', 'قاطع الكرادة', null, '{view,create,edit}', 181),
+  ('complaints.zaafaraniya-sector', 'complaints', '/complaints/zaafaraniya-sector', 'قاطع الزعفرانية', null, '{view,create,edit}', 182),
+  ('complaints.assignment', 'complaints', '/complaints/assignment', 'فرز وإسناد الشكاوى', null, '{view,create,edit}', 183),
+  ('complaints.processing', 'complaints', '/complaints/processing', 'معالجة الشكاوى', null, '{view,decide,execute}', 184),
+  ('complaints.templates', 'complaints', '/complaints/templates', 'القوالب', null, '{view,edit}', 185),
+  ('complaints.data', 'complaints', '/complaints/data', 'بيانات الشكاوى', null, '{view,export}', 186),
+  ('complaints.database', 'complaints', '/complaints/database', 'قاعدة بيانات الشكاوى', null, '{view,export}', 187),
+  ('complaints.pages-contact-settings', 'complaints', '/complaints/pages-contact-settings', 'إعدادات الصفحات والتواصل', null, '{view,edit}', 188),
+  ('complaints.archive', 'complaints', '/complaints/archive', 'أرشيف الشكاوى', null, '{view,execute,delete}', 189),
+  ('complaints.technical-support', 'complaints', '/complaints/technical-support', 'الدعم الفني', null, '{view,create}', 190),
+  ('complaints.approvals', 'complaints', '/complaints/approvals', 'طلبات الموافقة', null, '{view}', 191),
+  ('media', 'media', '/media', 'الرئيسية', null, '{view}', 192),
+  ('media.karrada-sector', 'media', '/media/karrada-sector', 'قاطع الكرادة', null, '{view,create}', 193),
+  ('media.zaafaraniya-sector', 'media', '/media/zaafaraniya-sector', 'الزعفرانية', null, '{view,create}', 194),
+  ('media.zaafaraniya-folder', 'media', '/media/zaafaraniya-folder', 'فولدر الزعفرانية', null, '{view,create,export}', 195),
+  ('media.karrada-folder', 'media', '/media/karrada-folder', 'فولدر الكرادة', null, '{view,create,export}', 196),
+  ('media.design-templates', 'media', '/media/design-templates', 'قوالب التصميم', null, '{view,create,edit,delete}', 197),
+  ('media.archive', 'media', '/media/archive', 'الأرشيف', null, '{view,delete}', 198),
+  ('media.approvals', 'media', '/media/approvals', 'طلبات الموافقة', null, '{view}', 199),
+  ('central-garage', 'central-garage', '/central-garage', 'الرئيسية', null, '{view}', 200),
+  ('central-garage.drivers-dispatch', 'central-garage', '/central-garage/drivers-dispatch', 'انطلاقية السائقين', null, '{view,create,execute}', 201),
+  ('central-garage.maintenance-coordination', 'central-garage', '/central-garage/maintenance-coordination', 'تنسيق حركات الصيانة', null, '{view,create,decide,execute}', 202),
+  ('central-garage.vehicles-database', 'central-garage', '/central-garage/vehicles-database', 'قاعدة بيانات الآليات', null, '{view,create,edit}', 203),
+  ('central-garage.fuel', 'central-garage', '/central-garage/fuel', 'الوقود', null, '{view,create}', 204),
+  ('central-garage.fuel.gas-oil', 'central-garage', '/central-garage/fuel/gas-oil', 'الكاز', 'central-garage.fuel', '{view,create}', 205),
+  ('central-garage.fuel.hydraulic', 'central-garage', '/central-garage/fuel/hydraulic', 'الهيدروليك', 'central-garage.fuel', '{view,create}', 206),
+  ('central-garage.fuel.grease', 'central-garage', '/central-garage/fuel/grease', 'الدهن', 'central-garage.fuel', '{view,create}', 207),
+  ('central-garage.fuel.c-oil', 'central-garage', '/central-garage/fuel/c-oil', 'C-Oil', 'central-garage.fuel', '{view,create}', 208),
+  ('central-garage.employees', 'central-garage', '/central-garage/employees', 'الموظفون', null, '{view,edit}', 209),
+  ('central-garage.requests', 'central-garage', '/central-garage/requests', 'الطلبات', null, '{view,create}', 210),
+  ('central-garage.procedures', 'central-garage', '/central-garage/procedures', 'الإجراءات', null, '{view,create,execute}', 211),
+  ('central-garage.disclosures', 'central-garage', '/central-garage/disclosures', 'الكشوفات', null, '{view,create}', 212),
+  ('central-garage.reports', 'central-garage', '/central-garage/reports', 'تقارير الكراج', null, '{view,export}', 213),
+  ('central-garage.archive', 'central-garage', '/central-garage/archive', 'الأرشيف', null, '{view,delete}', 214),
+  ('central-garage.approvals', 'central-garage', '/central-garage/approvals', 'طلبات الموافقة', null, '{view}', 215),
+  ('follow-up', 'follow-up', '/follow-up', 'الرئيسية', null, '{view}', 216),
+  ('follow-up.containers', 'follow-up', '/follow-up/containers', 'متابعة الحاويات', null, '{view,edit}', 217),
+  ('follow-up.workers', 'follow-up', '/follow-up/workers', 'متابعة العمال', null, '{view,edit}', 218),
+  ('follow-up.approvals', 'follow-up', '/follow-up/approvals', 'طلبات الموافقة', null, '{view}', 219)
+on conflict (key) do update set portal = excluded.portal, path = excluded.path, label = excluded.label, parent_key = excluded.parent_key, actions = excluded.actions, sort = excluded.sort;
+-- لا تُحذف الوحدات الأخرى أو قواعدها أثناء تحديث الكتالوج.
+insert into public.permission_portal_roles (portal, role) values
+  ('employee', 'employee'),
+  ('hr', 'hr_officer'),
+  ('manager', 'department_manager'),
+  ('finance', 'finance_officer'),
+  ('it', 'it_admin'),
+  ('admin', 'super_admin'),
+  ('field-ops', 'field_ops'),
+  ('admin-ops', 'admin_ops'),
+  ('maintenance', 'maintenance'),
+  ('transfer-station', 'transfer_station'),
+  ('executive', 'executive_director'),
+  ('deputy', 'deputy_director'),
+  ('ops-room', 'ops_room'),
+  ('ops-room-manager', 'ops_room_manager'),
+  ('complaints', 'complaints_officer'),
+  ('media', 'media_officer'),
+  ('central-garage', 'central_garage_officer'),
+  ('follow-up', 'follow_up')
+on conflict (portal) do update set role = excluded.role;
+-- <<catalog/>>
+
+-- <<bindings>>  (مولَّد — لا يُحرَّر يدوياً: npx vite-node scripts/gen-permission-catalog.ts)
+delete from public.permission_write_bindings;
+insert into public.permission_write_bindings (fn, unit_key, action) values
+  ('hr_employee_create', 'hr.employees', 'create'),
+  ('hr_employee_terminate', 'hr.recruitment', 'execute'),
+  ('hire_request_complete', 'hr.hire-requests', 'execute'),
+  ('attendance_edit_hr_apply', 'hr.attendance-edits', 'decide'),
+  ('platform_reset_request', 'it.platform-reset', 'execute'),
+  ('platform_reset_cancel', 'it.platform-reset', 'execute'),
+  ('supply_request_deliver', 'ops-room.store', 'execute'),
+  ('advance_request_create', 'ops-room.advances', 'create'),
+  ('ops_attendance_confirm', 'ops-room.attendance', 'decide'),
+  ('ops_contractor_month_approve', 'ops-room.contractor-headcounts', 'decide'),
+  ('advance_deliver', 'finance.advances', 'execute'),
+  ('advance_settle_cash', 'finance.advances', 'execute'),
+  ('finance_payroll_approve', 'finance.payroll', 'decide'),
+  ('finance_payroll_adjust', 'finance.payroll', 'edit'),
+  ('finance_payroll_reconcile', 'finance.payroll', 'execute'),
+  ('finance_treasury_confirm', 'finance.budget', 'decide'),
+  ('cold_archive_package_create', 'it.cold-archive', 'create'),
+  ('cold_archive_purge_request', 'it.cold-archive', 'delete'),
+  ('cold_archive_purge_approve', 'it.cold-archive', 'decide'),
+  ('cold_archive_purge_confirm', 'it.cold-archive', 'delete'),
+  ('it_deduction_exemption_add', 'it.integrations.auto-deductions', 'edit'),
+  ('garage_decide_tank_zero', 'it.central-garage-approvals', 'decide'),
+  ('complaint_approve_report', 'complaints.processing', 'decide'),
+  ('complaint_create_item_from_inbox', 'complaints.assignment', 'create'),
+  ('complaint_batch_create_items_from_inbox', 'complaints.assignment', 'create'),
+  ('complaint_start_assignment_ticket', 'manager.complaints', 'execute'),
+  ('complaint_complete_assignment_ticket', 'manager.complaints', 'execute'),
+  ('sector_confirm_vehicle_arrival', 'manager.vehicle-trips', 'execute'),
+  ('sector_confirm_vehicle_site_return', 'manager.vehicle-trips', 'execute'),
+  ('sector_submit_breakdown', 'manager.breakdown', 'create'),
+  ('sector_support_request_create', 'manager.support', 'create'),
+  ('garage_record_departure', 'central-garage.drivers-dispatch', 'execute'),
+  ('garage_record_return', 'central-garage.drivers-dispatch', 'execute'),
+  ('garage_record_shift_departure', 'central-garage.drivers-dispatch', 'execute'),
+  ('garage_decide_maintenance_dispatch', 'central-garage.maintenance-coordination', 'decide'),
+  ('station_confirm_vehicle_arrival', 'transfer-station.vehicle-movements', 'execute'),
+  ('station_record_exit', 'transfer-station.vehicle-movements', 'execute'),
+  ('maintenance_approve_readiness', 'maintenance.vehicle-cases', 'decide'),
+  ('maintenance_complete_case', 'maintenance.vehicle-cases', 'execute'),
+  ('maintenance_confirm_arrival', 'maintenance.vehicle-cases', 'execute'),
+  ('maintenance_inventory_create', 'maintenance.inventory', 'create'),
+  ('maintenance_purchase_create', 'maintenance.purchases', 'create'),
+  ('media_template_create', 'media.design-templates', 'create');
+-- <<bindings/>>

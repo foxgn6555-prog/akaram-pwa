@@ -18,7 +18,7 @@ import { AUDIT_KIND } from '../Permissions/PermissionTemplates'
 export function PermissionsCard({ userId, roles, isSelf }: { userId: string; roles: readonly Role[]; isSelf: boolean }) {
   const { data: session } = useAuth()
   const isSuperAdmin = roles.includes('super_admin')
-  const canManageSettings = session?.roles.includes('it_admin') ?? false
+  const canManageSettings = session?.roles?.includes('it_admin') ?? false
   const templates = usePermissionTemplates()
   const userTpl = useUserPermissionTemplate(userId)
   const effective = useUserEffectivePermissions(userId)

@@ -16,6 +16,7 @@ import type { GarageDeparture, GarageShift, GarageVehicle } from '@features/cent
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { VehicleThumb } from '@portals/central-garage/components/VehicleThumb'
 
 const inputClass =
   'h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100'
@@ -172,10 +173,15 @@ export default function DriversDispatchPage() {
                   className="grid items-center gap-4 p-4 transition hover:bg-slate-50 sm:grid-cols-[72px_1fr_auto]"
                   data-testid={`dispatch-row-${vehicle.id}`}
                 >
-                  <img
-                    src={vehicle.imageUrl}
-                    alt=""
-                    className="size-16 rounded-2xl border border-slate-100 bg-white object-contain"
+                  {/* 00410: بديل واضح بدل صورة مكسورة عند غياب الصورة أو انتهاء رابطها */}
+                  <VehicleThumb
+                    imageUrl={vehicle.imageUrl}
+                    imagePath={vehicle.imagePath}
+                    name={vehicle.driverName}
+                    className="size-16 shrink-0 rounded-2xl border border-slate-100 bg-white object-contain"
+                    iconSize={22}
+                    showLabel={false}
+                    testId={`dispatch-thumb-${vehicle.id}`}
                   />
                   <div>
                     <p className="font-black text-slate-900">{vehicle.driverName}</p>

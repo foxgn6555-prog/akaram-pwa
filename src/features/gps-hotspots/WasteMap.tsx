@@ -134,11 +134,11 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
       {tileFailed && <div className="absolute inset-x-20 top-16 z-[1000] rounded-xl bg-amber-50 p-2 text-center text-xs font-bold text-amber-900" data-testid="waste-map-tile-failed">تعذر تحميل خلفية الخريطة — البقع ما زالت ظاهرة.</div>}
       {allRows.length === 0 && <div data-testid="waste-map-empty" className="absolute inset-x-10 bottom-16 z-[1000] rounded-xl bg-white/95 p-3 text-center text-xs font-bold text-slate-700">لا بقع لهذا الشهر بعد — تُنسخ من المستودع كل ليلة 23:30.</div>}
       <MapContainer center={BAGHDAD} zoom={11} className="h-full w-full" scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <MapTiles theme={theme} onFailed={setTileFailed} onProvider={setProvider} />
+        <MapTiles theme={theme} onFailed={setTileFailed} onProvider={setProvider} preferOsmDark />
         <FitOnce fitKey={fitKey} rows={allRows} />
         <FlyTo spot={selected} />
         <Resize dep={full} />
-        {showHeat && <HeatLayer rows={rows} intensity={dark ? 1 : 0.85} />}
+        {showHeat && <HeatLayer rows={rows} intensity={dark ? 0.84 : 0.72} />}
         {showMarkers && markers.map(({ h, icon }) => (
           <Marker key={h.id} position={[h.lat, h.lng]} icon={icon} zIndexOffset={h.id === selectedId ? 1000 : isLandmarkSpot(h) ? 200 : 0} eventHandlers={{ click: () => onSelect?.(h) }}>
             <Tooltip direction="top" offset={[0, -10]} opacity={1} className="waste-tip">{ranks.get(h.id) ? `#${ranks.get(h.id)} · ` : ''}{spotPlace(h)} · {fmtMinutes(h.total_minutes)} · {h.stops_count} توقف</Tooltip>
@@ -148,7 +148,7 @@ export default function WasteMap({ allRows, rows, fitKey, selectedId, onSelect, 
                 <div className="text-[11px] text-slate-600">{spotPlace(h)}</div>
                 <div className="mt-1">التوقفات: <b>{h.stops_count}</b> · الأيام: <b>{h.days_count}</b> · الآليات: <b>{h.vehicles_count}</b></div>
                 <div>إجمالي التوقف: <b>{fmtMinutes(h.total_minutes)}</b> · المتوسط {h.avg_minutes} د · الأقصى {h.max_minutes} د</div>
-                <div>ذروة الساعات: {peakHours(h.hours)}</div>
+                <div>ذروة الساعات: {h.peak_hour ?? peakHours(h.hours ?? [])}</div>
                 <div className="text-[10px] text-slate-500">{h.lat.toFixed(5)}, {h.lng.toFixed(5)}</div>
               </div>
             </Popup>

@@ -10,13 +10,20 @@ export const RECURRENCE_LABEL: Record<HotspotRecurrence, string> = { once: 'مر
 export const RECURRENCE_RING: Record<HotspotRecurrence, { color: string; weight: number }> = { once: { color: '#ffffff', weight: 1 }, recurring: { color: '#fde68a', weight: 2 }, frequent: { color: '#fecaca', weight: 3 } }
 export const MIN_VEHICLES_OPTIONS = [1, 2, 3, 5] as const
 
-export interface WasteMapFilters { classes: HotspotClass[]; recurrence: HotspotRecurrence[]; minVehicles: number; sectorIds: number[] }
-/** الافتراضي: الخفيف مخفي، كل درجات التكرار، آلية واحدة فأكثر، كل القواطع */
-export const DEFAULT_FILTERS: WasteMapFilters = { classes: ['medium', 'heavy'], recurrence: [...HOTSPOT_RECURRENCES], minVehicles: 1, sectorIds: [] }
+export interface WasteMapFilters { classes: HotspotClass[]; recurrence: HotspotRecurrence[]; minVehicles: number; sectorIds: number[]; unlocated: boolean }
+/** الافتراضي: الخفيف مخفي، كل درجات التكرار، آلية واحدة فأكثر، كل القواطع والمواقع غير المحددة */
+export const DEFAULT_FILTERS: WasteMapFilters = { classes: ['medium', 'heavy'], recurrence: [...HOTSPOT_RECURRENCES], minVehicles: 1, sectorIds: [], unlocated: false }
 
 export const classLabel = (h: GpsHotspot): string => `${CLASS_LABEL[h.dominant_class]} (${h.heavy_count} ثقيل · ${h.medium_count} متوسط · ${h.light_count} خفيف)`
 export const classThresholdLabel = (t: Record<string, number> | null | undefined): string =>
   t && t.class_light_max_min != null ? `خفيف ≤ ${t.class_light_max_min} د · متوسط ≤ ${t.class_medium_max_min} د · ثقيل أكثر` : 'خفيف / متوسط / ثقيل'
+/** 00389: نصف قطر البقعة المعتمد — يُعرض في الخريطة والتقارير كي تُقرأ الأرقام بدقتها */
+export const radiusLabel = (t: Record<string, number> | null | undefined): string =>
+  t?.hotspot_radius_m != null ? `نصف قطر البقعة ${t.hotspot_radius_m} م` : 'نصف قطر البقعة من إعداد المستودع'
+/** 00389: القواطع التي لها بقع فقط (أو المختارة يدوياً) — يبقى الشريط نظيفاً وأي زون جديد يظهر تلقائياً عند وجود بقع */
+export function visibleSectorOptions<T>(options: Array<[number, T]>, counts: Map<number, number>, selected: number[]): Array<[number, T]> {
+  return options.filter(([id]) => (counts.get(id) ?? 0) > 0 || selected.includes(id))
+}
 export const recurrenceThresholdLabel = (t: Record<string, number> | null | undefined): string =>
   t && t.recur_mid_days != null ? `مرة واحدة < ${t.recur_mid_days} أيام · متكرر ${t.recur_mid_days}–${(t.recur_high_days ?? 1) - 1} · شبه يومي ≥ ${t.recur_high_days ?? '?'} أيام` : 'حسب عدد الأيام المميزة'
 
@@ -34,7 +41,71 @@ export function toggleIn<T>(list: T[], v: T): T[] { return list.includes(v) ? li
 /** الفلترة المحلية (نفس شروط القاعدة) — تسمح بالتبديل الفوري بلا طلب جديد */
 /** 00387-ب: قواطع البقعة للفلترة: المنطقة الجغرافية إن عُرفت، وإلا قاطع الآلية احتياطاً */
 export const spotSectorIds = (h: GpsHotspot): number[] => (h.geo_sector_id != null ? [h.geo_sector_id] : h.sector_ids)
+
+export interface HotspotGeofence {
+  id: string
+  name: string
+  polygon: Array<{ lat: number; lng: number } | [number, number]>
+  sector_id?: number | null
+}
+
+const normalizeArabicSectorName = (value: string): string => value.trim().toLocaleLowerCase('ar').replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه').replace(/ـ/g, ' ')
+
+function pointInHotspotPolygon(lat: number, lng: number, polygon: HotspotGeofence['polygon']): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || polygon.length < 3) return false
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const point = polygon[i]!
+    const previous = polygon[j]!
+    const xi = Array.isArray(point) ? Number(point[1]) : point.lng
+    const yi = Array.isArray(point) ? Number(point[0]) : point.lat
+    const xj = Array.isArray(previous) ? Number(previous[1]) : previous.lng
+    const yj = Array.isArray(previous) ? Number(previous[0]) : previous.lat
+    if (![xi, yi, xj, yj].every(Number.isFinite)) return false
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+/** إسناد احتياطي محلي من حدود GPS النشطة عندما تكون geo_sector_id غير مملوءة في النسخة المخزنة. */
+export function locateHotspotsFromGeofences<T extends { id: number; name: string }>(
+  rows: GpsHotspot[],
+  geofences: HotspotGeofence[],
+  sectors: T[],
+): GpsHotspot[] {
+  const sectorsByName = new Map<string, number[]>()
+  const sectorNames = new Map<number, string>()
+  for (const sector of sectors) {
+    sectorNames.set(sector.id, sector.name)
+    const key = normalizeArabicSectorName(sector.name)
+    sectorsByName.set(key, [...(sectorsByName.get(key) ?? []), sector.id])
+  }
+  const mappedFences = geofences.map((fence) => {
+    const nameMatches = sectorsByName.get(normalizeArabicSectorName(fence.name)) ?? []
+    const sectorId = fence.sector_id ?? (nameMatches.length === 1 ? nameMatches[0]! : null)
+    return { fence, sectorId, sectorName: sectorId == null ? null : sectorNames.get(sectorId) ?? String(sectorId) }
+  }).filter((x): x is typeof x & { sectorId: number; sectorName: string } => x.sectorId != null)
+    .sort((a, b) => b.fence.polygon.length - a.fence.polygon.length || (a.fence.id < b.fence.id ? -1 : a.fence.id > b.fence.id ? 1 : 0))
+
+  return rows.map((hotspot) => {
+    if (hotspot.geo_sector_id != null) return hotspot
+    const located = mappedFences.find(({ fence }) => pointInHotspotPolygon(hotspot.lat, hotspot.lng, fence.polygon))
+    return located ? { ...hotspot, geo_sector_id: located.sectorId, geo_sector_name: located.sectorName, geo_zone_name: located.fence.name } : hotspot
+  })
+}
+
 /** اسم موقع البقعة للعرض: المنطقة (الزون) أو قاطع الآلية أو «خارج القواطع» */
+/**
+ * 00389-ج: وصف موقع البقعة من بياناتنا وحدها (بدل Nominatim المحجوب بسياسة CSP):
+ * منطقة الزون الجغرافية إن عُرفت، ثم قاطع الآلية، ثم «خارج القواطع».
+ * لا نداء شبكة إطلاقًا ⇒ لا أخطاء كونسول، ويعمل بلا إنترنت.
+ */
+export function placeDescription(h: GpsHotspot): string {
+  if (h.geo_zone_name && h.geo_sector_name) return `${h.geo_zone_name} · ${h.geo_sector_name}`
+  if (h.geo_sector_name) return h.geo_sector_name
+  if (h.sector_names?.length) return h.sector_names.join('، ')
+  return 'لم يُحدَّد القاطع'
+}
 export const spotPlace = (h: GpsHotspot): string => (h.geo_sector_name ? `${h.geo_sector_name}${h.geo_zone_name ? ` · ${h.geo_zone_name}` : ''}` : h.sector_names?.join('، ') || 'خارج القواطع')
 /** ترتيب أثقل البقع (1..n) حسب إجمالي دقائق التوقف */
 export function rankTop(rows: GpsHotspot[], n = 5): Map<number, number> {
@@ -47,7 +118,9 @@ export function applyFilters(rows: GpsHotspot[], f: WasteMapFilters): GpsHotspot
     (f.classes.length === 0 || f.classes.includes(h.dominant_class))
     && (f.recurrence.length === 0 || f.recurrence.includes(h.recurrence))
     && h.vehicles_count >= f.minVehicles
-    && (f.sectorIds.length === 0 || spotSectorIds(h).some((s) => f.sectorIds.includes(s))))
+    && ((f.sectorIds.length === 0 && !f.unlocated)
+      || (f.unlocated && spotSectorIds(h).length === 0)
+      || spotSectorIds(h).some((s) => f.sectorIds.includes(s))))
 }
 
 export interface WasteMapSummary { spots: number; stops: number; totalMinutes: number; vehicles: number; multi: number; byClass: Record<HotspotClass, number>; byRecurrence: Record<HotspotRecurrence, number> }

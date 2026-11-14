@@ -39,6 +39,7 @@ export const PORTAL_ROLE: Readonly<Record<Exclude<PortalId, 'public'>, Role>> = 
   [PORTALS.EXECUTIVE]: 'executive_director',
   [PORTALS.DEPUTY]: 'deputy_director',
   [PORTALS.OPS_ROOM]: 'ops_room',
+  [PORTALS.OPS_ROOM_MANAGER]: 'ops_room_manager',   // 00400
   [PORTALS.COMPLAINTS]: 'complaints_officer',
   [PORTALS.MEDIA]: 'media_officer',
   [PORTALS.CENTRAL_GARAGE]: 'central_garage_officer',
@@ -170,6 +171,9 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'deputy.approvals': ['decide'],
   'deputy.procedures': ['execute'],
   'deputy.behavior': ['export'],
+  // مدير غرفة العمليات (00400) — قرار الموافقات + تصدير تقارير الوقود
+  'ops-room-manager.approvals': ['decide', 'export'],
+  'ops-room-manager.fuel-reports': ['export'],
   // غرفة العمليات
   'ops-room.operations-data': ['edit', 'export'],
   'ops-room.station-daily': ['create', 'export'],

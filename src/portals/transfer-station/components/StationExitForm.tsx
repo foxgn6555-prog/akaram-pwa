@@ -110,7 +110,7 @@ export function StationExitForm({ kind, defaultWeight }: { kind: ExitKind; defau
               </button>
             ))}
           </div>
-          <select value={driverRef} onChange={(e) => { setDriverRef(e.target.value); setErrors((er) => ({ ...er, driver: '' })) }} data-testid={`f-${kind}-driver`} className={clsx(field, errors.driver ? 'border-red-400' : 'border-slate-200')}>
+          <select value={driverRef} onChange={(e) => { setDriverRef(e.target.value); setErrors((er) => ({ ...er, driver: '' })) }} data-testid={`f-${kind}-driver`} aria-label={`السائق (${DRIVER_KIND_AR[driverKind]})`} className={clsx(field, errors.driver ? 'border-red-400' : 'border-slate-200')}>
             <option value="">— اختر السائق —</option>
             {driverOptions.map((d) => <option key={d.ref_id} value={d.ref_id}>{d.full_name} · {d.detail}</option>)}
           </select>

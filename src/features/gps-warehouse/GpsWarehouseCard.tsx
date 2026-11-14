@@ -18,6 +18,8 @@ const GPS_WAREHOUSE_MONTH_ROLE: Record<NonNullable<GpsWarehouseMonthProgress['ro
 
 const fmt = (v: string | null | undefined) => (v ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Baghdad' }).format(new Date(v)) : '—')
 const mb = (bytes: number | null | undefined) => `${((bytes ?? 0) / 1048576).toFixed(1)} م.ب`
+/** 00389: خيارات نصف قطر البقعة (المستودع يقبل 20..500) — التدرّج المختار من الشركة */
+const RADIUS_OPTIONS = [20, 30, 40, 50, 60, 80, 100] as const
 const monthNow = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7)
 
 export default function GpsWarehouseCard() {
@@ -26,11 +28,22 @@ export default function GpsWarehouseCard() {
   const [month, setMonth] = useState(monthNow())
   const link = linkQ.data
   const ping = link?.ping ?? null
+  const currentRadius = ping?.settings?.hotspot_radius_m ?? null
+  const [radius, setRadius] = useState<number>(currentRadius ?? 80)   // 00389: نصف القطر المطلوب
   const state: 'unknown' | 'ok' | 'error' = link?.last_ping_at == null ? 'unknown' : link.last_ping_ok ? 'ok' : 'error'
   const tone = state === 'ok' ? 'bg-emerald-100 text-emerald-800' : state === 'error' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-700'
   const err = link?.last_error_code ? explainLvnError(link.last_error_code) : null
   const busy = act.isPending
-  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'retry_failed') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : { action })
+  const run = (action: 'ping' | 'sync_registry' | 'enqueue_month' | 'pull' | 'pause' | 'resume' | 'sync_hotspots' | 'retry_failed' | 'set_hotspot_radius' | 'hotspots_status') => act.mutate(action === 'enqueue_month' ? { action, month } : action === 'pull' ? { action, limit: 3 } : action === 'set_hotspot_radius' ? { action, radius_m: radius } : { action })
+  const applyRadius = () => {
+    if (radius === currentRadius) { toast({ type: 'info', message: 'نصف القطر الحالي هو نفسه — اختر قيمة مختلفة' }); return }
+    if (window.confirm(`تغيير نصف قطر البقعة من ${currentRadius ?? '?'} م إلى ${radius} م؟\n\nسيُعاد تجميع بقع الأشهر داخل النافذة (تشرين الأول والثاني) — يستغرق عادة ٣٠–٦٠ دقيقة، وتظهر الأرقام الجديدة بعدها.\nلن تُحذف أي بيانات خام، لكن أرقام التقارير السابقة ستختلف.`)) run('set_hotspot_radius')
+  }
+  /** 00389-ب: متابعة تقدّم إعادة التجميع بعد تغيير نصف القطر */
+  const [status, setStatus] = useState<{ ready: boolean; pending: number } | null>(null)
+  const checkStatus = () => act.mutate({ action: 'hotspots_status' }, {
+    onSuccess: (r) => setStatus({ ready: Boolean(r.result?.ready_to_copy), pending: Number(r.result?.stops_pending ?? 0) }),
+  })
   const progress = ping?.progress ?? null
   const paused = Boolean(progress?.paused ?? ping?.settings.paused)
   const cron = link?.cron ?? null
@@ -69,6 +82,27 @@ export default function GpsWarehouseCard() {
           <Stat label="توقفات" value={ping.stops.toLocaleString('en')} />
           <Stat label="ملفات الأرشيف" value={String(ping.archive_files)} />
           <Stat label="حجم القاعدة" value={mb(ping.db_bytes)} />
+          {ping.settings.hotspot_radius_m != null && (
+            <div className="col-span-full rounded-xl border border-amber-200 bg-amber-50 p-2 text-[10px] text-amber-950" data-testid="gps-warehouse-radius-control">
+              <div className="flex flex-wrap items-center gap-2">
+                <b className="text-[11px]">نصف قطر البقعة:</b>
+                <span className="rounded-full bg-white px-2 py-0.5 font-black" data-testid="gps-warehouse-radius-current">الحالي {ping.settings.hotspot_radius_m} م</span>
+                <label className="flex items-center gap-1 font-bold">الجديد
+                  <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="rounded-lg border px-2 py-1 text-[11px]" data-testid="gps-warehouse-radius-select">
+                    {RADIUS_OPTIONS.map((r) => <option key={r} value={r}>{r} م</option>)}
+                  </select>
+                </label>
+                <button type="button" onClick={applyRadius} disabled={busy || radius === ping.settings.hotspot_radius_m} className="rounded-lg bg-amber-700 px-2.5 py-1 font-black text-white disabled:opacity-50" data-testid="gps-warehouse-radius-apply">تغيير وإعادة البناء</button>
+                <button type="button" onClick={checkStatus} disabled={busy} className="rounded-lg border border-amber-400 bg-white px-2 py-1 font-black text-amber-900 disabled:opacity-50" data-testid="gps-warehouse-radius-status">حالة إعادة البناء</button>
+                {status && (
+                  <span className={`rounded-full px-2 py-0.5 font-black ${status.ready ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-200 text-amber-950'}`} data-testid="gps-warehouse-radius-progress">
+                    {status.ready ? 'اكتملت — انسخ البقع الآن' : `قيد التجميع: ${status.pending.toLocaleString('en')} توقف متبقٍ`}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 leading-relaxed text-amber-900">كلما صغُر نصف القطر زادت دقة البقع وعددها (البقع المتباعدة ٦٠–٧٩ م تنفصل بدل أن تُدمج). التجميع يجري في المستودع تلقائياً بعد التغيير، ثم اضغط «نسخ البقع الآن» أو انتظر نسخ الـ23:30. أثناء إعادة التجميع لا تُمسّ نسخة المشروع الأول.</p>
+            </div>
+          )}
           {ping.settings.hotspot_radius_m != null && (
             <p className="col-span-full rounded-xl bg-white p-2 text-[10px] text-slate-700" data-testid="gps-warehouse-hotspots">
               <b>البقع:</b> {Number(ping.hotspots ?? 0).toLocaleString('en')} بقعة في المستودع

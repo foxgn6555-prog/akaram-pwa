@@ -26,5 +26,9 @@ jobs:
           psql "postgresql://postgres:postgres@localhost:54322/postgres" \
             -v ON_ERROR_STOP=1 \
             -f supabase/tests/smoke_schema.sql | tee /dev/stderr | grep -q "SMOKE OK"
+      - name: اختبار دورة الشكاوى end-to-end
+        run: psql "postgresql://postgres:postgres@localhost:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/complaints_end_to_end.sql
+      - name: اختبار إسناد بقع GPS إلى القواطع عبر أسماء السياجات
+        run: psql "postgresql://postgres:postgres@localhost:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/gps_hotspots_sector_fallback.sql
       - name: توليد الأنواع يتطابق مع الكود؟
         run: supabase gen types typescript --local > /tmp/db.types.ts && test -s /tmp/db.types.ts

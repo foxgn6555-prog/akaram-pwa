@@ -160,9 +160,9 @@ function ItemsTab() {
       <form onSubmit={(e) => { e.preventDefault(); save.mutate({ name: newName.trim(), unit: newUnit.trim() || 'قطعة', minQty: Number(newMin) || 0 }, { onSuccess: () => { setNewName(''); setNewMin('0') } }) }} className="rounded-2xl border bg-white p-3 shadow-sm" data-testid="item-form">
         <div className="text-xs font-black">إضافة مادة</div>
         <div className="mt-2 grid grid-cols-6 gap-2">
-          <input data-testid="item-name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="اسم المادة" className="col-span-3 h-11 rounded-xl border px-3 text-sm" />
-          <input data-testid="item-unit" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="الوحدة" className="col-span-1 h-11 rounded-xl border px-2 text-sm" />
-          <input data-testid="item-min" type="number" min={0} value={newMin} onChange={(e) => setNewMin(e.target.value)} placeholder="حد أدنى" className="col-span-1 h-11 rounded-xl border px-2 text-sm" />
+          <input data-testid="item-name" aria-label="اسم المادة" aria-required="true" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="اسم المادة" className="col-span-3 h-11 rounded-xl border px-3 text-sm" />
+          <input data-testid="item-unit" aria-label="الوحدة" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="الوحدة" className="col-span-1 h-11 rounded-xl border px-2 text-sm" />
+          <input data-testid="item-min" aria-label="الحد الأدنى" type="number" min={0} value={newMin} onChange={(e) => setNewMin(e.target.value)} placeholder="حد أدنى" className="col-span-1 h-11 rounded-xl border px-2 text-sm" />
           <button type="submit" data-testid="item-save" disabled={newName.trim().length < 2 || save.isPending} className="col-span-1 flex h-11 items-center justify-center rounded-xl bg-slate-900 text-white disabled:opacity-40"><Plus size={18} /></button>
         </div>
       </form>

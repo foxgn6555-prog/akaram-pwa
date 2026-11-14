@@ -9,6 +9,9 @@ declare
   v_date date := timezone('Asia/Baghdad',now())::date;
   v_status text; v_count integer; v_recipients text[]; v_started timestamptz;
 begin
+  -- تعطيل نافذة منع التكرار في هذا الاختبار المعزول؛ هذا الاختبار يختبر دورة الشكوى لا حارس التكرار.
+  perform set_config('app.dedup_window_seconds','0',true);
+
   insert into auth.users(id,email) values
     (v_officer,'e2e-officer@akram.iq'),(v_manager,'e2e-manager@akram.iq'),(v_other,'e2e-other@akram.iq');
   insert into public.user_roles(user_id,role) values

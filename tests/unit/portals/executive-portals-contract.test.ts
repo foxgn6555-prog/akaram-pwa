@@ -51,10 +51,11 @@ describe('بوابات الإدارة العليا', () => {
 
   it('بوابة المدير المفوض: أعمال صافية — لا صفحات تقنية ولا نصوص تقنية في الشريط', () => {
     const rel = [...paths(adminRoutes)]
-    expect(rel.sort()).toEqual(['', 'announcements', 'approval-performance', 'approvals', 'disclosures', 'procedures', 'reports'])
+    // 2026-11-10: أُضيفت «بيانات الشركة» (/admin/company) — قرار المستخدم بأن المدير يرى كل بيانات الشركة
+    expect(rel.sort()).toEqual(['', 'announcements', 'approval-performance', 'approvals', 'company', 'disclosures', 'procedures', 'reports'])
     for (const t of TECH) expect(rel).not.toContain(t)
     const labels = PORTAL_UNITS[PORTALS.ADMIN].map((u) => (sidebar.nav as Record<string, string>)[u.labelKey.replace('nav.', '')])
-    expect(labels).toEqual(['الرئيسية', 'التقارير', 'التبليغات', 'طلبات الموافقة', 'أداء الموافقات', 'الإجراءات', 'الكشوفات'])
+    expect(labels).toEqual(['الرئيسية', 'التقارير', 'التبليغات', 'طلبات الموافقة', 'أداء الموافقات', 'الإجراءات', 'الكشوفات', 'بيانات الشركة'])
   })
 
   it('المعاون يحتفظ بوحداته الميدانية (كشوفات/تجهيزات/فولدر المحطة/تحليل البيانات)', () => {

@@ -4,6 +4,7 @@
  *  · reports        → التقارير الجاهزة (يومي/شهري/نصف سنوي/سنوي) + Excel/PDF
  *  · announcements  → التبليغات (نشر + صادر + وارد)
  *  · approvals      → طلبات الموافقة (00163) · approval-performance → أداء الموافقات (00337) · procedures → الإجراءات: إنهاء الخدمة (نطاقه الجميع)
+ *  · company        → بيانات الشركة: الأسطول/الوقود · GPS · الإعلام · المتعهدون · سجل التدقيق (قراءة فقط)
  * لا صفحات تقنية هنا — كل ما هو تقني في بوابة التطوير المركزية /it.
  */
 import { lazy } from '@lib/router/lazy'
@@ -18,6 +19,7 @@ const ApprovalTasks = lazy(() => import('@portals/admin-ops/pages/Requests/TeamR
 const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/ProceduresPage').then((m) => ({ default: () => <m.default hero /> })))   // 00163: الإجراءات (إنهاء الخدمة — نطاق المدير المفوض: الجميع)
 const ApprovalPerformancePage = lazy(() => import('@components/approvals/ApprovalPerformancePage').then((m) => ({ default: () => <m.ApprovalPerformancePage testId="admin-approval-performance" /> })))   // 00337: أداء الموافقات
 const AdminDisclosures = lazy(() => import('./pages/AdminDisclosures'))   // 00170: الكشوفات (اعتماد نهائي + سجل + ملغاة)
+const AdminCompany = lazy(() => import('./pages/AdminCompany'))   // بيانات الشركة: قطاعات لم تكن ظاهرة للمدير المفوض (قراءة فقط)
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
 export const customRoutes: RouteObject[] = [
@@ -28,4 +30,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'approval-performance', element: s(<ApprovalPerformancePage />) },
   { path: 'procedures', element: s(<ProceduresPage />) },
   { path: 'disclosures', element: s(<AdminDisclosures />) },
+  { path: 'company', element: s(<AdminCompany />) },
 ]

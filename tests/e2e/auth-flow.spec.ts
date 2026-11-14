@@ -18,7 +18,7 @@ test.describe('Auth & RBAC', () => {
 
   test('حقول فارغة → رسائل تحقق', async ({ page }) => {
     await page.goto('/login')
-    await page.getByRole('button', { name: /تسجيل الدخول/ }).click()
+    await page.getByTestId('login-submit').click()
     await expect(page.getByRole('alert').first()).toBeVisible()
   })
 
@@ -28,7 +28,7 @@ test.describe('Auth & RBAC', () => {
     await page.goto('/login')
     await page.getByLabel('البريد الإلكتروني').fill(process.env.E2E_EMPLOYEE_EMAIL!)
     await page.getByLabel('كلمة المرور').fill(process.env.E2E_EMPLOYEE_PASSWORD!)
-    await page.getByRole('button', { name: /تسجيل الدخول/ }).click()
+    await page.getByTestId('login-submit').click()
     await page.goto('/admin')
     await expect(page).toHaveURL(/\/(employee|403)/)
   })

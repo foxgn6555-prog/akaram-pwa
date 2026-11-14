@@ -112,7 +112,7 @@ export function Header({ portal }: HeaderProps) {
 
   // الدور الفعلي للمستخدم (وليس اسم البوابة)
   const roleLabel = session ? (ROLE_LABELS[session.primaryRole] ?? theme.label) : theme.label
-  const previewOnly = portal !== PORTALS.IT && session?.roles.includes('it_admin') === true
+  const previewOnly = portal !== PORTALS.IT && session?.roles?.includes('it_admin') === true
 
   const handleLogout = (): void => {
     void logout.mutateAsync().then(() => navigate('/login', { replace: true }))
@@ -237,9 +237,6 @@ export function Header({ portal }: HeaderProps) {
         <GreetingIcon size={15} className={greeting.textColor} />
         <span className={clsx('text-xs font-semibold', greeting.textColor)}>{greeting.text}</span>
       </div>
-
-      {/* ── مؤشر المعاينة البصرية لحساب IT عند فتح بوابة أخرى ── */}
-      {previewOnly && <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800"><Icon name="eye" size={13} /> معاينة بصرية فقط</span>}
 
       {/* ── التاريخ ── */}
       <span className="hidden xl:block text-[11px] text-slate-400">{today}</span>

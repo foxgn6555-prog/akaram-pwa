@@ -31,7 +31,7 @@ export default tseslint.config(
   },
   {
     // سكربتات Node (mjs) — globals بيئة Node
-    files: ['scripts/**/*.mjs', 'k6/**/*.js', 'tools/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'k6/**/*.js', 'tools/**/*.mjs', 'tests/db/platform-reset-concurrency-test.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly', process: 'readonly', fetch: 'readonly', setTimeout: 'readonly',

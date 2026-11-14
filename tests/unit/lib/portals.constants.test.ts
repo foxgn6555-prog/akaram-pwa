@@ -8,18 +8,18 @@ describe('accessiblePortals', () => {
     expect(accessiblePortals(['super_admin']).map((p) => p.id)).toEqual(['admin'])
   })
 
-  it('مبدّل تقنية المعلومات يعرض كل البوابات، مع بقاء بوابة IT الافتراضية', () => {
-    expect(portalsVisibleInSwitcher(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
-    expect(accessiblePortals(['it_admin'])).toEqual([...PORTAL_DEFINITIONS])
+  it('V-32 · مبدّل تقنية المعلومات يعرض بوابة التطوير وحدها', () => {
+    expect(portalsVisibleInSwitcher(['it_admin']).map((p) => p.id)).toEqual(['it'])
+    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
   })
 
-  it('إذا كان الحساب تقنياً ومديراً مفوضاً، صلاحية تقنية المعلومات تعرض كل البوابات', () => {
-    expect(portalsVisibleInSwitcher(['super_admin', 'it_admin'])).toEqual([...PORTAL_DEFINITIONS])
+  it('V-32 · حساب تقني + مدير مفوض يرى بوابتيه فقط (it وadmin)', () => {
+    expect(portalsVisibleInSwitcher(['super_admin', 'it_admin']).map((p) => p.id).sort()).toEqual(['admin', 'it'])
   })
 
-  it('super_admin محصور ببوابة المدير المفوض، وIT وحدها ترى جميع البوابات', () => {
+  it('super_admin محصور ببوابة المدير المفوض، وIT ببوابتها', () => {
     expect(accessiblePortals(['super_admin']).map((p) => p.id)).toEqual(['admin'])
-    expect(accessiblePortals(['it_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
+    expect(accessiblePortals(['it_admin']).map((p) => p.id)).toEqual(['it'])
   })
 
   it('دور الكراج المركزي يرى بوابته فقط', () => {
@@ -46,9 +46,10 @@ describe('accessiblePortals', () => {
     expect(portals[0]?.id).toBe('complaints')
   })
 
-  it('it_admin يمكنه فتح كل البوابات عبر الحارس', () => {
-    expect(accessiblePortals(['it_admin'])).toHaveLength(PORTAL_DEFINITIONS.length)
-    expect(portalsVisibleInSwitcher(['it_admin']).map((p) => p.id)).toContain('it')
+  it('V-32 · it_admin بوابة واحدة فقط وليست كل البوابات', () => {
+    expect(accessiblePortals(['it_admin'])).toHaveLength(1)
+    expect(portalsVisibleInSwitcher(['it_admin']).map((p) => p.id)).toEqual(['it'])
+    expect(PORTAL_DEFINITIONS.length).toBeGreaterThan(1)
   })
 
   it('موظف عادي يرى بوابة الموظف فقط', () => {

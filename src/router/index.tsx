@@ -5,7 +5,7 @@
 import { lazy } from '@lib/router/lazy'
 import { RouteHydrateFallback } from './RouteHydrateFallback'
 import { Suspense } from 'react'
-import { createBrowserRouter, redirect, Navigate } from 'react-router'
+import { createBrowserRouter, redirect } from 'react-router'
 import { PUBLIC_ROUTES, PORTAL_ROUTES } from './routes.config'
 import { authGuard } from './guards/auth.guard'
 import { portalGuard } from './guards/portal.guard'
@@ -14,6 +14,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ErrorBoundary } from '@components/feedback/ErrorBoundary'
 
 const ForbiddenPage = lazy(() => import('@portals/public/pages/Forbidden/ForbiddenPage'))
+const NotFoundPage = lazy(() => import('@portals/public/pages/NotFound/NotFoundPage'))
 
 export const router = createBrowserRouter([
   // ── الجذر: موجّه ذكي حسب الجلسة ──
@@ -97,7 +98,23 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // أي مسار غير معروف → الجذر الذكي (لا يقاطع جلسة قائمة بـ login مباشرة)
-  { path: '*', element: <Navigate to="/" replace /> },
+  // 00412: أي مسار غير معروف خارج البوابات — 404 حقيقية بدل إعادة توجيه صامتة إلى الجذر.
+  // غير المسجّل يذهب إلى صفحة الدخول كما كان؛ المسجّل يرى 404 ويبقى مساره في شريط العنوان.
+  {
+    path: '*',
+    element: (
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingSpinner fullScreen />}>
+          <NotFoundPage />
+        </Suspense>
+      </ErrorBoundary>
+    ),
+    HydrateFallback: RouteHydrateFallback,
+    loader: async () => {
+      const { authenticated } = await authGuard()
+      if (!authenticated) return redirect('/login')
+      return null
+    },
+  },
 ])
 

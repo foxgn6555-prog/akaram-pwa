@@ -65,17 +65,17 @@ function RequestsTab() {
   return (
     <div className="space-y-3" data-testid="lv-requests-tab">
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-3 lg:grid-cols-6">
-        <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="lv-from" />
-        <input type="date" className={field} value={to} onChange={(e) => setTo(e.target.value)} data-testid="lv-to" />
-        <select className={field} value={status} onChange={(e) => setStatus(e.target.value as '' | LeaveRequestRow['status'])} data-testid="lv-status"><option value="">كل الحالات</option>{(Object.keys(LEAVE_STATUS_LABELS) as LeaveRequestRow['status'][]).map((s) => <option key={s} value={s}>{LEAVE_STATUS_LABELS[s]}</option>)}</select>
-        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="lv-dept"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
-        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="lv-search" />
+        <input type="date" className={field} value={from} onChange={(e) => setFrom(e.target.value)} data-testid="lv-from" aria-label="من تاريخ" />
+        <input type="date" className={field} value={to} onChange={(e) => setTo(e.target.value)} data-testid="lv-to" aria-label="إلى تاريخ" />
+        <select className={field} value={status} onChange={(e) => setStatus(e.target.value as '' | LeaveRequestRow['status'])} data-testid="lv-status" aria-label="حالة الطلب"><option value="">كل الحالات</option>{(Object.keys(LEAVE_STATUS_LABELS) as LeaveRequestRow['status'][]).map((s) => <option key={s} value={s}>{LEAVE_STATUS_LABELS[s]}</option>)}</select>
+        <select className={field} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} data-testid="lv-dept" aria-label="القسم"><option value="">كل الأقسام</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+        <input className={field} placeholder="اسم / رقم وظيفي" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="lv-search" aria-label="بحث باسم الموظف أو رقمه الوظيفي" />
         <Button size="sm" variant={onBehalf ? 'secondary' : 'primary'} onClick={() => setOnBehalf((v) => !v)} data-testid="lv-on-behalf">{onBehalf ? 'إغلاق النموذج' : '+ طلب نيابة عن موظف'}</Button>
       </div>
       {onBehalf && (
         <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/30 p-3" data-testid="lv-behalf-panel">
           <label className="block text-xs font-semibold text-slate-600">الموظف
-            <select className={clsx(field, 'mt-1')} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} data-testid="lv-behalf-emp">
+            <select className={clsx(field, 'mt-1')} aria-required="true" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} data-testid="lv-behalf-emp">
               <option value="">— اختر الموظف —</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.full_name} · {e.employee_number}</option>)}
             </select>
           </label>

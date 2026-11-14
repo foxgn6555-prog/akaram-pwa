@@ -10,6 +10,26 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type { Role } from '@lib/constants/roles.constants'
 
+/** الأدوار التي لا تُمنح/تُسحب إلا بموافقة المدير المفوض (مطابقة لحارس القاعدة V-36) */
+export const SENSITIVE_ROLES: readonly Role[] = ['it_admin', 'super_admin', 'finance_officer', 'deputy_director']
+
+export interface RoleGrantRequest {
+  id: string
+  target_user: string
+  target_email: string | null
+  target_name: string | null
+  role: string
+  role_label: string | null
+  is_grant: boolean
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  requested_by: string
+  requested_by_name: string | null
+  requested_at: string
+  decided_by: string | null
+  decided_at: string | null
+  note: string | null
+}
+
 export interface PlatformUser {
   id: string
   email: string | null
@@ -64,8 +84,10 @@ export const users = {
     ) as Promise<PlatformUser[]>
   },
 
-  /** منح (grant) أو سحب (revoke) دور — الخادم يدقق ويؤرشف */
-  async setUserRole(userId: string, role: Role, grant: boolean): Promise<void> {
+  /** منح (grant) أو سحب (revoke) دور — الخادم يدقق ويؤرشف
+   *  V-36: الأدوار الحساسة لا تُنفَّذ فوراً؛ تُنشئ طلب موافقة للمدير المفوض.
+   *  تُعيد `{ pending: true }` كي تُظهر الواجهة «قيد موافقة المدير المفوض» بدل «ممنوح». */
+  async setUserRole(userId: string, role: Role, grant: boolean): Promise<{ pending: boolean }> {
     await sdkVoid(
       supabase.rpc('set_user_role', {
         p_user_id: userId,
@@ -73,6 +95,18 @@ export const users = {
         p_grant: grant,
       }),
     )
+    if (!SENSITIVE_ROLES.includes(role)) return { pending: false }
+    const rows = (await sdkGuard(
+      supabase.rpc('role_grant_requests_list', { p_user_id: userId } as never),
+    )) as Array<{ role: string; is_grant: boolean; status: string }>
+    return { pending: rows.some((r) => r.role === role && r.is_grant === grant && r.status === 'pending') }
+  },
+
+  /** طلبات منح/سحب الأدوار الحساسة (للعرض في شاشة المستخدم) */
+  async roleGrantRequests(userId: string): Promise<RoleGrantRequest[]> {
+    return sdkGuard(
+      supabase.rpc('role_grant_requests_list', { p_user_id: userId } as never),
+    ) as Promise<RoleGrantRequest[]>
   },
 
   /** تعديل بيانات الموظف المرتبط — RPC آمنة تُدقَّن على الخادم (وتنشئ السجل إن لم يوجد) */

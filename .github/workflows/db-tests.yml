@@ -1,0 +1,91 @@
+name: DB SQL Tests (كل ملفات اختبار SQL)
+
+# F-04: كان يعمل في CI ثلاثة ملفات SQL فقط من أصل 235.
+# هذا المسار يشغّل **كل** ما يمكن تشغيله بأمان، ويصنّف الباقي بوضوح بدل تجاهله.
+#
+#   job: guarded   → الملفات المحصّنة (begin/rollback) — **حاجز للبناء**
+#   job: unguarded → الملفات التي تكتب بيانات ثابتة ولا تنظّف — تقرير فقط (لا تُفشل البناء)
+#
+# التصنيف يقوم به scripts/db-tests.sh --list (مصدر الحقيقة الوحيد).
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - 'tests/db/**'
+      - 'scripts/db-tests.sh'
+      - '.github/workflows/db-tests.yml'
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: db-sql-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PGURL: postgresql://postgres:postgres@localhost:54322/postgres
+  SUPABASE_START_ARGS: >-
+    supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,storage-api,pooler
+
+jobs:
+  guarded:
+    name: اختبارات SQL المحصّنة (حاجز)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: بدء Supabase المحلي
+        run: $SUPABASE_START_ARGS
+
+      - name: قاعدة فارغة ← كل المهاجرات
+        run: supabase db reset --debug
+
+      # اختبارات pgTAP تحتاج الملحق. مثبَّت محلياً فقط (قاعدة مؤقتة) — لا يُثبَّت على الإنتاج.
+      - name: تجهيز pgtap (لاختبارات pgTAP)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -c 'create extension if not exists pgtap;'
+
+      - name: تصنيف ملفات الاختبار (تقرير)
+        run: ./scripts/db-tests.sh --list
+
+      - name: تشغيل الاختبارات المحصّنة
+        run: ./scripts/db-tests.sh
+
+      - name: إيقاف Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+
+  unguarded:
+    name: اختبارات SQL غير المحصّنة (تقرير — لا تُفشل البناء)
+    runs-on: ubuntu-latest
+    needs: guarded
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: بدء Supabase المحلي
+        run: $SUPABASE_START_ARGS
+
+      - name: قاعدة فارغة ← كل المهاجرات
+        run: supabase db reset --debug
+
+      - name: تجهيز pgtap (لاختبارات pgTAP)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -c 'create extension if not exists pgtap;'
+
+      - name: تشغيل غير المحصّنة (تقرير فقط)
+        env:
+          DB_TESTS_ALLOW_FAIL: '1'
+        run: ./scripts/db-tests.sh --unguarded
+
+      - name: إيقاف Supabase
+        if: always()
+        run: supabase stop --no-backup || true

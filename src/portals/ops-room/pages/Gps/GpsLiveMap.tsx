@@ -248,7 +248,7 @@ export default function GpsLiveMap({
         zoom={saved?.zoom ?? 11}
         className={full ? 'h-full w-full' : 'h-[65vh] min-h-[460px] w-full'}
       >
-        <MapTiles theme={theme} onFailed={setTileFailed} />
+        <MapTiles theme={theme} onFailed={setTileFailed} preferOsmDark />
         {layers.zones &&
           zones.map((zone) => {
             const positions = zone.polygon.map((p) =>

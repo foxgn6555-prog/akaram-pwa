@@ -5,7 +5,7 @@
  */
 import clsx from 'clsx'
 import { useDevOpsStatus, useEdgeHealth } from '@features/devops-status/hooks'
-import type { DevOpsDevice } from '@sdk/devops.sdk'
+import { EDGE_FUNCTIONS, type DevOpsDevice } from '@sdk/devops.sdk'
 
 type Tone = 'ok' | 'warn' | 'bad' | 'muted'
 const TONE: Record<Tone, string> = { ok: 'bg-emerald-100 text-emerald-800 border-emerald-200', warn: 'bg-amber-100 text-amber-800 border-amber-200', bad: 'bg-rose-100 text-rose-800 border-rose-200', muted: 'bg-slate-100 text-slate-600 border-slate-200' }
@@ -45,7 +45,8 @@ export default function DevOpsStatusPage() {
   const s = q.data?.status, lat = q.data?.latency_ms
   const dbTone: Tone = q.isError ? 'bad' : !s ? 'muted' : (lat ?? 0) > 2000 ? 'warn' : 'ok'
   const devices = s?.biometric.devices ?? []
-  const edgeDown = (edge.data ?? []).filter((e) => e.state === 'down').length
+  // «غير مستخدمة حالياً» لا تُحتسب إنذاراً: لا شيء يعتمد عليها في المنتج اليوم
+  const edgeDown = (edge.data ?? []).filter((e) => e.state === 'down' && !EDGE_FUNCTIONS.find((f) => f.name === e.name)?.unused).length
   const rlsOff = s?.database.rls_disabled_tables ?? []
   return (
     <div className="space-y-4" data-testid="devops-status-page">
@@ -67,7 +68,7 @@ export default function DevOpsStatusPage() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="db-cards">
           <Card title="وصول قاعدة البيانات" value={q.isError ? 'لا يستجيب' : s ? `${lat} ms` : '…'} hint={s ? 'زمن الاستجابة من متصفحك' : undefined} tone={dbTone} testId="db-reach" />
           <Card title="آخر ترحيل مطبّق" value={s?.database.last_migration ?? (s && !s.database.migrations_tracked ? 'غير متتبّع' : '…')} hint={s?.database.migrations_count != null ? `${s.database.migrations_count} ترحيلاً · ${ago(s.database.last_migration_at)}` : 'يظهر على مشروع Supabase الحقيقي'} tone={s ? (s.database.migrations_tracked ? 'ok' : 'muted') : 'muted'} testId="db-migration" />
-          <Card title="الدوال / الجداول" value={s ? `${s.database.functions_count} / ${s.database.tables_count}` : '…'} hint="دوال RPC وجداول public" tone={s ? 'ok' : 'muted'} testId="db-counts" />
+          <Card title="الدوال / الجداول" value={s ? `${s.database.functions_count} / ${s.database.tables_count}` : '…'} hint="دوال RPC في public وapp · جداول public" tone={s ? 'ok' : 'muted'} testId="db-counts" />
           <Card title="جداول بلا RLS" value={rlsOff.length} hint={rlsOff.length ? rlsOff.join('، ') : 'كل الجداول محمية بسياسات الصفوف'} tone={!s ? 'muted' : rlsOff.length ? 'bad' : 'ok'} testId="db-rls" />
         </div>
         {s && <p className="mt-1 text-[11px] text-slate-500" dir="ltr">{s.database.version} · DB time {fmt(s.database.now)} · users {s.auth.users_total}{s.auth.signins_24h != null ? ` · sign-ins 24h ${s.auth.signins_24h}` : ''}</p>}
@@ -106,17 +107,24 @@ export default function DevOpsStatusPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-black">٣ · الدوال الطرفية (Edge Functions) {edge.data && <span className={clsx('ms-1 rounded-full border px-2 py-0.5 text-[10px]', TONE[edgeDown ? 'bad' : 'ok'])} data-testid="edge-summary">{edgeDown ? `${edgeDown} غير منشورة/لا تستجيب` : 'كلها تستجيب'}</span>}</h2>
+        <h2 className="mb-2 text-sm font-black">٣ · الدوال الطرفية (Edge Functions) {edge.data && <span className={clsx('ms-1 rounded-full border px-2 py-0.5 text-[10px]', TONE[edgeDown ? 'bad' : 'ok'])} data-testid="edge-summary">{edgeDown ? `${edgeDown} غير منشورة/لا تستجيب` : 'كل الدوال المستخدمة تستجيب'}</span>}</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" data-testid="edge-grid">
-          {(edge.data ?? []).map((e) => (
-            <div key={e.name} className={clsx('flex items-center justify-between rounded-xl border px-3 py-2 text-xs', TONE[e.state === 'up' ? 'ok' : e.state === 'down' ? 'bad' : 'muted'])} data-testid={`edge-${e.name}`}>
-              <div><b dir="ltr">{e.name}</b><p className="text-[10px] opacity-80">{e.what}</p></div>
-              <span dir="ltr" className="font-black">{e.state === 'up' ? `${e.latency_ms} ms` : 'لا ردّ'}</span>
-            </div>
-          ))}
+          {(edge.data ?? []).map((e) => {
+            const meta = EDGE_FUNCTIONS.find((f) => f.name === e.name)
+            const tone = e.state === 'up' ? 'ok' : e.state === 'down' ? (meta?.unused ? 'muted' : 'bad') : 'muted'
+            return (
+              <div key={e.name} className={clsx('flex items-center justify-between rounded-xl border px-3 py-2 text-xs', TONE[tone])} data-testid={`edge-${e.name}`}>
+                <div>
+                  <b dir="ltr">{e.name}</b>
+                  <p className="text-[10px] opacity-80">{e.what}{meta?.unused && <span className="ms-1 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-700" data-testid={`edge-unused-${e.name}`}>غير مستخدمة حالياً</span>}</p>
+                </div>
+                <span dir="ltr" className="font-black">{e.state === 'up' ? `${e.latency_ms} ms` : e.state === 'unknown' ? 'غير قابل للفحص' : 'لا ردّ'}</span>
+              </div>
+            )
+          })}
           {edge.isLoading && <p className="text-xs text-slate-500">جارٍ الفحص…</p>}
         </div>
-        <p className="mt-1 text-[11px] text-slate-500">الفحص = هل الدالة منشورة وتردّ؟ (لا يشغّل منطقها). «لا ردّ» ⇒ انشرها: npx supabase functions deploy &lt;الاسم&gt; — راجع دليل الاستضافة.</p>
+        <p className="mt-1 text-[11px] text-slate-500">الفحص = هل الدالة منشورة وتردّ؟ (لا يشغّل منطقها). «لا ردّ» ⇒ غير منشورة فعلياً: npx supabase functions deploy &lt;الاسم&gt; — راجع دليل الاستضافة. «غير قابل للفحص» ⇒ المتصفح حجب قراءة الردّ (CORS)، أي أن الدالة منشورة وتردّ لكن لا يمكن تأكيد رمز الحالة من المتصفح.</p>
       </section>
 
       <section>

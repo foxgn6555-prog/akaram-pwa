@@ -35,6 +35,8 @@ export const pushSupport = () => ({
 export const pushReadiness = () => {
   const support = pushSupport()
   return [
+    // الرسالة المضلّلة قديماً: كان الزر يفشل بصمت عند غياب المفتاح من نسخة الواجهة
+    { key: 'vapid', label: 'مفتاح الإشعارات مضبوط في هذه النسخة', ready: Boolean(import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim()) },
     { key: 'secure', label: 'اتصال آمن HTTPS', ready: window.isSecureContext },
     { key: 'worker', label: 'دعم Service Worker', ready: 'serviceWorker' in navigator },
     { key: 'push', label: 'دعم Web Push', ready: support.supported },
@@ -42,9 +44,22 @@ export const pushReadiness = () => {
     { key: 'ios-install', label: 'تثبيت PWA على iPhone/iPad', ready: !support.isIos || support.standalone },
   ]
 }
+/**
+ * 00407: `serviceWorker.ready` لا يُحلّ أبدًا إن لم يكن الـSW مسجّلًا بعد (أول زيارة/وضع التطوير)،
+ * فكانت لافتة «إشعارات الهاتف غير مفعّلة» لا تظهر إطلاقًا ⇒ لا يعرف أحد أن الزر موجود.
+ * مهلة قصيرة + اعتبار «غير مشترك» عند انعدام التسجيل.
+ */
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
+  Promise.race([promise, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))])
+
 export async function currentDevicePushEnabled() {
   if (!pushSupport().supported) return false
-  const registration = await navigator.serviceWorker.ready
+  const registration = await withTimeout(
+    navigator.serviceWorker.ready.catch(() => null),
+    2500,
+    null,
+  )
+  if (!registration) return false
   return Boolean(await registration.pushManager.getSubscription())
 }
 export async function enablePush() {
@@ -53,7 +68,12 @@ export async function enablePush() {
   if (!pushSupport().supported) throw new Error('PUSH_NOT_SUPPORTED')
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') throw new Error('PUSH_PERMISSION_DENIED')
-  const registration = await navigator.serviceWorker.ready
+  const registration = await withTimeout(
+    navigator.serviceWorker.ready.catch(() => null),
+    8000,
+    null,
+  )
+  if (!registration) throw new Error('PUSH_WORKER_NOT_READY')
   let subscription = await registration.pushManager.getSubscription()
   subscription ??= await registration.pushManager.subscribe({
     userVisibleOnly: true,

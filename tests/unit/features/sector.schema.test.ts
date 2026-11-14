@@ -83,7 +83,7 @@ describe('عقود مسؤول القسم', () => {
 
   describe('createSuperAdminSchema مع إسناد مسؤول القسم', () => {
     const validUser = {
-      email: 'mgr@akram.iq', password: 'Passw0rd1', full_name: 'مسؤول قاطع',
+      email: 'mgr@akram.iq', password: 'Passw0rd12', full_name: 'مسؤول قاطع',
       role: 'department_manager', employee_number: '', department_id: '', job_title: '',
     }
     it('يقبل مسؤول قسم بشفت وقاطع واحد', () => {

@@ -785,7 +785,7 @@ export const gpsLvn = {
   tripRouteSettings: async () =>
     (await sdkGuard(supabase.rpc('trip_route_settings_get'))) as unknown as TripRouteSettings,
   saveTripRouteSettings: async (patch: Partial<TripRouteSettings>) =>
-    (await sdkGuard(supabase.rpc('trip_route_settings_save', { p_patch: patch }))) as unknown as TripRouteSettings,
+    (await sdkGuard(supabase.rpc('trip_route_settings_save', { p: patch }))) as unknown as TripRouteSettings,
   tripRoute: async (departureId: string, maxPoints = 3000) =>
     (await sdkGuard(
       supabase.rpc('trip_route_get_v2', { p_departure: departureId, p_max_points: maxPoints }),
