@@ -7,6 +7,12 @@ import { system } from '@sdk/system.sdk'
 import { reloadOnce } from '@lib/router/lazy'
 import { installPwaListeners, pwaStore } from '@features/pwa/pwa.store'
 import App from './App'
+// خط عربي مستضاف ذاتياً: يمنع اعتماد التخطيط على خط النظام (تفاوت عرضه يسبب انزياحاً على الهاتف).
+import '@fontsource/cairo/400.css'
+import '@fontsource/cairo/500.css'
+import '@fontsource/cairo/600.css'
+import '@fontsource/cairo/700.css'
+import '@fontsource/cairo/900.css'
 import './styles/globals.css'
 
 initMonitoring()

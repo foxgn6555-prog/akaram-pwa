@@ -10,12 +10,26 @@ import { pwaConfig } from './src/config/pwa.config'
  * ملاحظة معمارية: مصدر الحقيقة الوحيد للـ Path Aliases هو tsconfig.paths.json،
  * ويقرأه Vite عبر vite-tsconfig-paths — لا تكرار للـ aliases هنا أبداً.
  */
+/**
+ * معاينة Arena داخل iframe: script منع التأطير في index.html ينقل الصفحة خارج المعاينة.
+ * يُزال فقط عند بناء معاينة محلية بمتغير AKARAM_PREVIEW_FRAME=1؛ بناء الإنتاج العادي لا يتأثر.
+ */
+const previewFrame = process.env.AKARAM_PREVIEW_FRAME === '1'
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     tsconfigPaths(),
     VitePWA(pwaConfig),
+    {
+      name: 'arena-preview-frame',
+      apply: 'build',
+      transformIndexHtml(html) {
+        if (!previewFrame) return html
+        return html.replace(/<script>\s*if \(window\.top !== window\.self\)[\s\S]*?<\/script>/, '')
+      },
+    },
     // 00289: تشغيل على الهاتف عبر https (الموقع والكاميرا لا يعملان على http) — `npm run dev:phone`
     ...(process.env.DEV_HTTPS === '1' ? [basicSsl()] : []),
     // CSP متساهل في التطوير فقط (HMR/preamble) — build الإنتاج يبقى صارماً

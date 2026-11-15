@@ -24,6 +24,7 @@ import { Icon } from '@components/ui/Icon/Icon'
 import { NotificationBell } from './NotificationBell'
 import { UserMenu } from './UserMenu'
 import { useVisibleUnits } from '@features/portal-visibility'
+import { PwaNavControls } from '@features/pwa/PwaNavControls'
 
 export interface HeaderProps {
   portal: PortalId
@@ -252,6 +253,9 @@ export function Header({ portal }: HeaderProps) {
         onLogout={handleLogout}
         onOpenChange={setUserMenuOpen}
       />
+
+      {/* تنقّل الكمبيوتر فقط — داخل الشريط العلوي عند الحافة، بلا صف إضافي وبلا زر عائم على الهاتف. */}
+      <PwaNavControls />
     </header>
   )
 }

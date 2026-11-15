@@ -8,7 +8,7 @@ const read = (p: string) => readFileSync(p, 'utf8')
 describe('عقود إصلاحات ما قبل النشر', () => {
   it('Supabase يقصّ أسطر النهاية من مفاتيح الواجهة، وCD يمرّر مفتاح VAPID العام ويفحص البيئة', () => {
     expect(read('src/config/supabase.config.ts')).toContain('raw?.trim()')
-    for (const f of ['.github/workflows/cd-production.yml', '.github/workflows/cd-staging.yml']) {
+    for (const f of ['.github/workflows/cd-production.yml', '.github/workflows/cd-staging.yml', '.github/workflows/deploy.yml']) {
       const src = read(f)
       expect(src).toContain('VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}')
       expect(src).toContain('npm run env:check')
@@ -36,7 +36,8 @@ describe('عقود إصلاحات ما قبل النشر', () => {
   })
   it('PWA يسمح بكل الاتجاهات، وأزرار التنقل الداخلية مركّبة، ودليل التثبيت يميّز المتصفحات', () => {
     expect(pwaConfig.manifest).toMatchObject({ orientation: 'any' })
-    expect(read('src/components/layout/AppShell.tsx')).toContain('<PwaNavControls />')
+    expect(read('src/components/layout/Header/Header.tsx')).toContain('<PwaNavControls />')
+    expect(read('src/components/layout/AppShell.tsx')).not.toContain('<PwaNavControls />')
     const install = read('src/features/pwa/InstallAppButton.tsx')
     expect(install).toContain('detectBrowser')
     expect(install).toContain('in-app')
@@ -55,7 +56,8 @@ describe('عقود إصلاحات ما قبل النشر', () => {
     expect(sidebar).toContain("e.key === 'Escape'")
     const login = read('src/portals/public/pages/Login/LoginPage.tsx')
     expect(login).toContain('overflow-y-auto')
-    expect(login).toContain('supports-[height:100dvh]:h-dvh')
+    expect(login).toContain('data-testid="login-scroll"')
+    expect(login).toContain('h-full min-h-0 overflow-hidden')
     expect(login).toContain('login-glass-card')
     expect(read('src/styles/globals.css')).toContain('height: 100dvh;')
   })

@@ -101,15 +101,20 @@ describe('إعدادات الإشعارات', () => {
   })
 })
 
-describe('V-23ج: رسالة صادقة عند غياب مفاتيح الإشعارات', () => {
-  it.each(['PUSH_PUBLIC_KEY_MISSING', 'PUSH_SERVER_NOT_CONFIGURED'])('%s ⇒ رسالة «غير مفعّلة في هذه النسخة»', async (code) => {
+describe('V-23ج: رسالة صادقة ومحددة عند فشل Push', () => {
+  it.each([
+    ['PUSH_PUBLIC_KEY_MISSING', 'مفتاح إشعارات الهاتف غير مضبوط'],
+    ['PUSH_SERVER_NOT_CONFIGURED', 'خادم إرسال الإشعارات غير مهيأ'],
+    ['PUSH_REGISTRATION_FAILED', 'تعذر تسجيل الجهاز في الخادم'],
+    ['PUSH_PERMISSION_DENIED', 'لم يمنح المتصفح إذن الإشعارات'],
+  ])('%s ⇒ رسالة السبب الحقيقي', async (code, expected) => {
     h.enable.mockRejectedValueOnce(new Error(code))
     render(<NotificationSettingsPanel onClose={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: 'تفعيل' }))
     await waitFor(() =>
       expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({
         type: 'error',
-        message: expect.stringContaining('غير مفعّلة في هذه النسخة'),
+        message: expect.stringContaining(expected),
       })),
     )
   })

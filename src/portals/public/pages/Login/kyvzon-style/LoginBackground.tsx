@@ -1,11 +1,12 @@
 /**
- * LoginBackground — خلفية متحركة (Aurora + شبكة)
- * مُكيَّف من Kyvzon بألوان جزيرة الأكارم (أزرق مؤسسي #005f8d)
+ * LoginBackground — خلفية متحركة (Aurora + شبكة) بألوان جزيرة الأكارم.
+ * الطبقة محصورة داخل حاوية الصفحة ولا تشارك في التمرير، كي لا تتحرك الخلفية
+ * مع النموذج أو تُنشئ شريط تمرير أفقي/فجوة بيضاء على الهاتف.
  */
 
 export default function LoginBackground() {
   return (
-    <>
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* الخلفية المتدرجة الأساسية — أزرق الأكارم */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#003d5c] to-slate-900" />
 
@@ -37,7 +38,7 @@ export default function LoginBackground() {
       />
 
       {/* شبكة خفيفة */}
-      <div className="login-grid-overlay absolute inset-0 opacity-[0.04]" aria-hidden="true" />
-    </>
+      <div className="login-grid-overlay absolute inset-0 opacity-[0.04]" />
+    </div>
   )
 }

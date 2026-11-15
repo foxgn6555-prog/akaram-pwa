@@ -1,8 +1,15 @@
 /**
  * فحص متغيرات البيئة قبل البناء — يمنع build ناقص الإعدادات.
+ * يقرأ ملفات .env التي يقرأها Vite (.env / .env.local / .env.[mode]) ثم متغيرات العملية،
+ * حتى لا ينجح البناء بمفتاح إشعارات موجود في الملف بينما الفحص لا يراه.
  * تشغيل: npm run env:check
  */
+import { loadEnv } from 'vite'
 import { z } from 'zod'
+
+const mode = process.env.VITE_APP_ENV ?? 'development'
+const fileEnv = loadEnv(mode, process.cwd(), 'VITE_')
+const env = { ...fileEnv, ...process.env }
 
 const envSchema = z.object({
   VITE_SUPABASE_URL: z.string().url('VITE_SUPABASE_URL يجب أن يكون رابطاً صالحاً'),
@@ -22,7 +29,7 @@ const envSchema = z.object({
 })
 
 // درع: منع المفتاح السري من متغير VITE_ (يُضمَّن في المتصفح)
-const secretInClient = Object.entries(process.env).find(
+const secretInClient = Object.entries(env).find(
   ([k, v]) => k.startsWith('VITE_') && v && String(v).startsWith('sb_secret_'),
 )
 if (secretInClient) {
@@ -31,11 +38,11 @@ if (secretInClient) {
 }
 
 const parsed = envSchema.safeParse({
-  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
-  VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
-  VITE_APP_ENV: process.env.VITE_APP_ENV,
-  VITE_SENTRY_DSN: process.env.VITE_SENTRY_DSN,
-  VITE_VAPID_PUBLIC_KEY: process.env.VITE_VAPID_PUBLIC_KEY,
+  VITE_SUPABASE_URL: env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY,
+  VITE_APP_ENV: env.VITE_APP_ENV,
+  VITE_SENTRY_DSN: env.VITE_SENTRY_DSN,
+  VITE_VAPID_PUBLIC_KEY: env.VITE_VAPID_PUBLIC_KEY,
 })
 
 if (!parsed.success) {

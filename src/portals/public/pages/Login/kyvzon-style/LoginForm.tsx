@@ -28,7 +28,8 @@ export default function LoginForm({
 }: LoginFormProps) {
   const lockoutLabel = `${lockoutMinutes > 0 ? `${lockoutMinutes}:` : ''}${String(lockoutSeconds).padStart(2, '0')}`
 
-  const inputClasses = `w-full h-12 rounded-xl bg-white/5 border text-white placeholder-white/40 ps-11 pe-11 text-sm outline-none login-input ${
+  // 16px على الحقول يمنع تكبير iOS التلقائي عند التركيز (سبب شائع لانزياح الشاشة).
+  const inputClasses = `w-full h-12 rounded-xl bg-white/5 border text-white placeholder-white/40 ps-11 pe-12 text-base outline-none login-input ${
     isLocked ? 'border-orange-400/30 opacity-60' : 'border-white/15 focus:border-[#4db8e8]'
   }`
 
@@ -106,7 +107,7 @@ export default function LoginForm({
             <button
               type="button"
               onClick={onToggleShowPass}
-              className="absolute end-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+              className="absolute end-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-xl text-white/40 hover:text-white/70"
               aria-label={showPass ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
             >
               {showPass ? <EyeOff size={18} /> : <Eye size={18} />}

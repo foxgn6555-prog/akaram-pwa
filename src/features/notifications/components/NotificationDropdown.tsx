@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BellRing, CheckCheck, Settings2 } from 'lucide-react'
+import { useResponsive } from '@lib/utils/useResponsive'
 import {
   useDismissNotification,
   useMarkAllNotificationsRead,
@@ -18,19 +19,29 @@ export function NotificationDropdown({
   anchor: { top: number; left: number } | null
 }) {
   const [settings, setSettings] = useState(false)
-  // يُرسم عبر portal خارج الهيدر حتى لا يحبسَه backdrop-blur (مشكلة الجوال)
-  const [desktop] = useState(() => window.matchMedia('(min-width: 640px)').matches)
+  // يُرسم عبر portal خارج الهيدر حتى لا يحبسَه backdrop-blur (مشكلة الجوال).
+  // الاستماع للتجاوب يمنع بقاء مقاس قديم بعد التدوير أو تغيير حجم النافذة.
+  const { width } = useResponsive()
+  const desktop = width >= 640
   const q = useNotifications(),
     read = useMarkNotificationRead(),
     all = useMarkAllNotificationsRead(),
     dismiss = useDismissNotification()
   const rows = q.data ?? []
-  const width = desktop ? Math.min(window.innerWidth * 0.92, 420) : window.innerWidth - 24
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const panelWidth = Math.min(width * 0.92, 420)
   const style = desktop
     ? {
-        width,
-        top: Math.min(anchor?.top ?? 64, window.innerHeight - 120),
-        left: Math.max(8, Math.min(anchor?.left ?? 8, window.innerWidth - width - 8)),
+        width: panelWidth,
+        top: `min(${anchor?.top ?? 64}px, calc(100dvh - 12rem))`,
+        left: Math.max(8, Math.min(anchor?.left ?? 8, width - panelWidth - 8)),
+        maxHeight: 'calc(100dvh - 8rem)',
       }
     : undefined
   return createPortal(
@@ -42,42 +53,42 @@ export function NotificationDropdown({
       className={
         desktop
           ? 'fixed z-[3000] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl'
-          : 'fixed inset-x-3 bottom-4 top-16 z-[3000] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl'
+          : 'fixed inset-x-3 bottom-[calc(1rem+env(safe-area-inset-bottom))] top-[calc(4.5rem+env(safe-area-inset-top))] z-[3000] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl'
       }
     >
-      <header className="bg-gradient-to-l from-slate-950 to-cyan-900 p-4 text-white">
+      <header className="shrink-0 bg-gradient-to-l from-slate-950 to-cyan-900 p-4 text-white">
         <div className="flex items-center gap-2">
           <BellRing size={19} />
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="font-black">مركز الإشعارات</h2>
             <p className="text-[11px] text-cyan-100">الحركات والتنبيهات المرتبطة بعملك</p>
           </div>
-          <button onClick={onClose} className="mr-auto rounded-lg bg-white/10 px-2 py-1 text-xs">
+          <button onClick={onClose} className="mr-auto min-h-11 rounded-lg bg-white/10 px-3 py-1 text-xs">
             إغلاق
           </button>
         </div>
       </header>
-      <div className="flex items-center justify-between border-b px-3 py-2 text-xs">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-xs">
         <button
           onClick={() => all.mutate()}
           disabled={!rows.some((x) => !x.is_read)}
-          className="flex items-center gap-1 font-bold text-cyan-700 disabled:text-slate-300"
+          className="flex min-h-11 items-center gap-1 font-bold text-cyan-700 disabled:text-slate-300"
         >
           <CheckCheck size={15} />
           قراءة الكل
         </button>
         <button
           onClick={() => setSettings(true)}
-          className="flex items-center gap-1 font-bold text-slate-600 hover:text-cyan-700"
+          className="flex min-h-11 items-center gap-1 font-bold text-slate-600 hover:text-cyan-700"
         >
           <Settings2 size={14} />
-          إعدادات الصوت وPush
+          إعدادات الصوت والإشعارات
         </button>
       </div>
       {settings && <NotificationSettingsPanel onClose={() => setSettings(false)} />}
       {/* 00407: زر تفعيل ظاهر بدل دفنه في الإعدادات */}
       {!settings && <PushEnableBanner />}
-      <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[65vh] sm:flex-none">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:max-h-[65vh] sm:flex-none">
         {q.isLoading ? (
           <div className="space-y-2 p-4">
             {[1, 2, 3].map((x) => (
