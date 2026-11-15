@@ -52,6 +52,9 @@ export function LiveShareCard({ compact = false }: { compact?: boolean }) {
       </div>
       {s.allowed && (permError || !enabled) && <PermissionPanel kind="geolocation" lastError={permError} grantedHint="تم السماح — اضغط «مشاركة موقعي المباشر» لبدء المشاركة" className="mt-3" />}
       {!compact && <p className="mt-3 text-[10px] text-slate-500">الخصوصية: ضغطة واحدة يومياً تكفي — لا يُرسل موقعك إلا أثناء شفتك الرسمي وأثناء فتح التطبيق، ويتحدث تلقائياً عند فتح المنصة وكل فترة، ويتوقف نهائياً بانتهاء ساعات شفتك.</p>}
+      <p className="mt-2 rounded-xl bg-white/70 p-2 text-[10px] leading-5 text-slate-600" data-testid="live-share-browser-note">
+        أبقِ التطبيق مفتوحاً أثناء الشفت. قد يوقف المتصفح أو نظام الهاتف التحديث عند التصغير أو قفل الشاشة، ويُستأنف عند العودة إن بقيت المشاركة مسموحة. لا يوجد تتبع مضمون بعد إغلاق التطبيق.
+      </p>
     </section>
   )
 }

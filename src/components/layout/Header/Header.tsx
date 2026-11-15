@@ -112,7 +112,6 @@ export function Header({ portal }: HeaderProps) {
 
   // الدور الفعلي للمستخدم (وليس اسم البوابة)
   const roleLabel = session ? (ROLE_LABELS[session.primaryRole] ?? theme.label) : theme.label
-  const previewOnly = portal !== PORTALS.IT && session?.roles?.includes('it_admin') === true
 
   const handleLogout = (): void => {
     void logout.mutateAsync().then(() => navigate('/login', { replace: true }))
@@ -241,8 +240,8 @@ export function Header({ portal }: HeaderProps) {
       {/* ── التاريخ ── */}
       <span className="hidden xl:block text-[11px] text-slate-400">{today}</span>
 
-      {/* ── الإشعارات: لا نعرض إشعارات من بوابات أخرى في وضع المعاينة ── */}
-      {previewOnly ? <span aria-label="الإشعارات مخفية في وضع المعاينة" className="flex size-10 items-center justify-center rounded-xl text-slate-300"><Icon name="bell" size={18} /></span> : <NotificationBell />}
+      {/* ── الإشعارات: جرس تفاعلي دائماً — يعرض إشعارات الحساب المسجّل دخوله فقط (حتى في معاينة IT) ── */}
+      <NotificationBell />
 
       {/* ── قائمة المستخدم ── */}
       <UserMenu

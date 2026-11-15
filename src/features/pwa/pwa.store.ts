@@ -14,6 +14,7 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 export type InstallPlatform = 'android' | 'ios' | 'other'
+export type InstallBrowser = 'chrome' | 'edge' | 'samsung' | 'firefox' | 'safari' | 'opera' | 'in-app' | 'other'
 
 export interface PwaState {
   /** حدث التثبيت المحفوظ (Chrome/Edge/Samsung) — null = غير متاح الآن */
@@ -60,6 +61,18 @@ export function detectPlatform(ua: string = typeof navigator === 'undefined' ? '
   const iPadOs = nav?.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1
   if (/iPhone|iPad|iPod/i.test(ua) || iPadOs) return 'ios'
   if (/Android/i.test(ua)) return 'android'
+  return 'other'
+}
+
+/** كشف المتصفح لدليل تثبيت صادق: beforeinstallprompt ليس مدعوماً في Firefox/Safari، ومتصفحات داخل التطبيقات لا تثبّت. */
+export function detectBrowser(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): InstallBrowser {
+  if (/FBAN|FBAV|Instagram|WhatsApp|Line\/|Twitter|Snapchat|TikTok|MicroMessenger/i.test(ua)) return 'in-app'
+  if (/EdgA?\//i.test(ua)) return 'edge'
+  if (/SamsungBrowser/i.test(ua)) return 'samsung'
+  if (/OPR\/|Opera/i.test(ua)) return 'opera'
+  if (/Firefox|FxiOS/i.test(ua)) return 'firefox'
+  if (/Chrome|CriOS/i.test(ua)) return 'chrome'
+  if (/Safari/i.test(ua)) return 'safari'
   return 'other'
 }
 

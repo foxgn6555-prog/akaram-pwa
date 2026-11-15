@@ -21,6 +21,7 @@ import { Toaster } from '@components/ui'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
 import { ActivityReminderBanner } from '@components/feedback/ActivityReminderBanner'
 import { InstallBanner } from '@features/pwa/PwaBanners'
+import { PwaNavControls } from '@features/pwa/PwaNavControls'
 import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
 import { Header } from '@components/layout/Header/Header'
@@ -97,6 +98,7 @@ export function AppShell({ portal }: AppShellProps) {
       <div className="relative z-0 flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <InstallBanner />
+        <PwaNavControls />
         {/* 00417: تذكير كل 30 يومًا — يظهر التذكير الأمني غير المقروء أعلى المحتوى */}
         <ActivityReminderBanner />
         <Header portal={portal} />

@@ -14,6 +14,7 @@ const OpsCitizenComplaints = lazy(() => import('./pages/CitizenComplaints/OpsCit
 const OpsDisclosures = lazy(() => import('./pages/Disclosures/OpsDisclosuresPage'))   // 00170: وحدة الكشوفات
 const OpsAdvances = lazy(() => import('./pages/Advances/OpsAdvancesPage'))   // 00191: السلف
 const OpsContractorHeadcounts = lazy(() => import('./pages/ContractorHeadcounts/OpsContractorHeadcountsPage'))   // 00262: حضوريات العمال
+const OpsContractorProofs = lazy(() => import('./pages/ContractorProofs/OpsContractorPresenceProofsPage'))   // إثباتات التواجد — قراءة فقط
 const OpsLeaves = lazy(() => import('./pages/Leaves/OpsLeavesPage'))   // 00239: طلبات الإجازة
 const OpsLiveTracking = lazy(() => import('./pages/LiveTracking/OpsLiveTrackingPage'))   // 00287: البث المباشر
 const OpsLiveData = lazy(() => import('./pages/LiveTracking/OpsLiveDataPage'))   // 00288: بيانات البث المباشر
@@ -56,6 +57,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'disclosures', element: load(<OpsDisclosures />) },
   { path: 'advances', element: load(<OpsAdvances />) },
   { path: 'contractor-headcounts', element: load(<OpsContractorHeadcounts />) },
+  { path: 'contractor-proofs', element: load(<OpsContractorProofs />) },
   { path: 'leaves', element: load(<OpsLeaves />) },
   { path: 'live-tracking', element: load(<OpsLiveTracking />) },
   { path: 'live-tracking/data', element: load(<OpsLiveData />) },

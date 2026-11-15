@@ -115,13 +115,15 @@ export default function LoginPage() {
 
   return (
     <div
-      className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden"
+      className="relative h-screen supports-[height:100dvh]:h-dvh overflow-y-auto overscroll-contain"
       dir="rtl"
+      data-testid="login-page"
     >
+      {/* غلاف قابل للتمرير: لوحة المفاتيح على الموبايل لا تقصّ البطاقة، والتصميم الزجاجي كما هو */}
+      <div className="relative z-10 flex min-h-full items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] max-sm:items-start max-sm:py-6">
       <LoginBackground />
-
       {/* البطاقة الزجاجية */}
-      <div className="login-glass-card relative w-full max-w-md z-10">
+      <div className="login-glass-card relative w-full max-w-md">
         <div className="relative bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
@@ -197,6 +199,7 @@ export default function LoginPage() {
         <div className="mt-4 flex justify-center">
           <InstallAppButton tone="light" />
         </div>
+      </div>
       </div>
     </div>
   )

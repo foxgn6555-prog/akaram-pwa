@@ -16,6 +16,8 @@ export const useHeadcountSheet = (month: string, parent?: string | null) =>
   useQuery({ queryKey: [...ROOT, 'sheet', month, parent ?? ''], queryFn: () => opsContractorHeadcounts.sheet(month, parent), refetchInterval: 60_000 })
 export const useHeadcountMonthStatus = (month: string) => useQuery({ queryKey: [...ROOT, 'status', month], queryFn: () => opsContractorHeadcounts.status(month) })
 export const useHeadcountAudit = (month: string) => useQuery({ queryKey: [...ROOT, 'audit', month], queryFn: () => opsContractorHeadcounts.audit(month) })
+export const useContractorPresenceProofs = (date: string, parent?: string | null, contractor?: string | null) =>
+  useQuery({ queryKey: [...ROOT, 'presence-proofs', date, parent ?? '', contractor ?? ''], queryFn: () => opsContractorHeadcounts.presenceProofs(date, parent, contractor), refetchInterval: 60_000 })
 export const useCorrectHeadcount = () => useAction((x: { contractorUserId: string; date: string; source: CountSource; headcount: number; reason: string }) => opsContractorHeadcounts.correct(x), 'صُحّح العدد وسُجّل السبب')
 export const useHeadcountCoverageGaps = (month: string, source: CountSource | '') =>
   useQuery({ queryKey: [...ROOT, 'gaps', month, source], queryFn: () => opsContractorHeadcounts.coverageGaps(month, source as CountSource), enabled: Boolean(source) })

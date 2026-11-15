@@ -1,6 +1,8 @@
 /** إعداد Supabase — يتحقق صارمًا من المتغيرات (لا قيم افتراضية خادعة في production) */
 function required(name: string): string {
-  const value = import.meta.env[name] as string | undefined
+  const raw = import.meta.env[name] as string | undefined
+  // قصّ المسافات/أسطر النهاية: لصق secret بسطر جديد كان يُمرّر %0A إلى realtime فيرفض الاتصال
+  const value = raw?.trim()
   if (!value) {
     throw new Error(
       `متغير البيئة ${name} مفقود — انسخ .env.example إلى .env.local واملأه (scripts/check-env.ts)`,

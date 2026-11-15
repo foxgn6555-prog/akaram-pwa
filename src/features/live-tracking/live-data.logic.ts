@@ -7,17 +7,20 @@ export type DayPreset = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
 export const DAY_PRESETS: { id: DayPreset; label: string }[] = [
   { id: 'today', label: 'اليوم' }, { id: 'yesterday', label: 'أمس' }, { id: 'week', label: 'آخر 7 أيام' }, { id: 'month', label: 'آخر 30 يوماً' }, { id: 'custom', label: 'مدة مخصصة' },
 ]
-export const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+/** يوم التقويم بتوقيت بغداد — لا يتأثر بمنطقة جهاز المستخدم (مهم قرب منتصف الليل). */
+export const isoDay = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
 export function presetRange(preset: Exclude<DayPreset, 'custom'>, today: Date = new Date()): { from: string; to: string } {
-  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const back = (n: number) => { const d = new Date(t); d.setDate(d.getDate() - n); return d }
-  if (preset === 'today') return { from: isoDay(t), to: isoDay(t) }
-  if (preset === 'yesterday') return { from: isoDay(back(1)), to: isoDay(back(1)) }
-  if (preset === 'week') return { from: isoDay(back(6)), to: isoDay(t) }
-  return { from: isoDay(back(29)), to: isoDay(t) }
+  // حساب الأيام على تقويم UTC بعد تثبيت «اليوم» ببغداد، كي لا يزيح يوم الجهاز/التوقيت الصيفي المدى.
+  const t = Date.parse(`${isoDay(today)}T00:00:00Z`)
+  const back = (n: number) => new Date(t - n * 86_400_000).toISOString().slice(0, 10)
+  const to = back(0)
+  if (preset === 'today') return { from: to, to }
+  if (preset === 'yesterday') return { from: back(1), to: back(1) }
+  if (preset === 'week') return { from: back(6), to }
+  return { from: back(29), to }
 }
 
-export const dayOf = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit' })
+export const dayOf = (iso: string) => isoDay(new Date(iso))
 export const inZoneText = (v: boolean | null) => v === true ? 'داخل الزون' : v === false ? 'خارج الزون' : 'لا زون محدد'
 export const endText = (r: Pick<LiveSessionRow, 'ended_at' | 'end_reason'>) => !r.ended_at ? 'جارٍ' : r.end_reason === 'shift_end' ? 'انتهى الشفت' : 'أوقفه المستخدم'
 export const durationText = (m: number) => m < 60 ? `${m} د` : `${Math.floor(m / 60)} س ${m % 60} د`
