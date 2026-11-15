@@ -113,7 +113,7 @@ begin
     '    where r.target_user = p_user_id and r.role = p_role and r.is_grant = p_grant and r.status = ''pending''' || chr(10) ||
     '      and not exists (select 1 from public.approval_tasks t where t.request_kind = ''role_grant'' and t.request_id = r.id and t.status = ''pending'');' || chr(10) ||
     '    insert into public.audit_logs (table_name, record_id, operation, new_row, actor_id, actor_role)' || chr(10) ||
-    '    values (''user_roles'', p_user_id::text, ''UPDATE'', || chr(10) ||
+    '    values (''user_roles'', p_user_id::text, ''UPDATE'',' || chr(10) ||
     '            jsonb_build_object(''role'', p_role, ''granted'', p_grant, ''awaiting_approval'', true), v_actor, app.current_role());' || chr(10) ||
     '    return;' || chr(10) ||
     '  end if;' || chr(10) ||

@@ -71,10 +71,10 @@ jobs:
         run: psql "$PGURL" -v ON_ERROR_STOP=1 -c 'create extension if not exists pgtap;'
 
       - name: تصنيف ملفات الاختبار (تقرير)
-        run: ./scripts/db-tests.sh --list
+        run: bash scripts/db-tests.sh --list
 
       - name: تشغيل الاختبارات المحصّنة
-        run: ./scripts/db-tests.sh
+        run: bash scripts/db-tests.sh
 
       - name: إيقاف Supabase
         if: always()
@@ -104,7 +104,7 @@ jobs:
       - name: تشغيل غير المحصّنة (تقرير فقط)
         env:
           DB_TESTS_ALLOW_FAIL: '1'
-        run: ./scripts/db-tests.sh --unguarded
+        run: bash scripts/db-tests.sh --unguarded
 
       - name: إيقاف Supabase
         if: always()
