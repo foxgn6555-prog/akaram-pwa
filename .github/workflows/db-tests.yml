@@ -38,7 +38,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.1
 
       - name: بدء Supabase المحلي
         run: $SUPABASE_START_ARGS
@@ -70,7 +70,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.1
 
       - name: بدء Supabase المحلي
         run: $SUPABASE_START_ARGS

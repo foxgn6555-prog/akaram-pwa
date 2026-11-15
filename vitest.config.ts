@@ -12,9 +12,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/services/**', 'src/lib/**', 'src/features/**/schemas/**'],
-      // عتبات واقعية للمدى الحالي (تمنع الانحدار دون حجب الإصلاحات): كانت 70% لكل المقاييس بينما التغطية الفعلية
-      // للخدمات/المكتبات أقل، وكانت بوابة CI تفشل قبل الوصول إلى الاختبارات. تُرفع تدريجياً مع إضافة اختبارات SDK.
-      thresholds: { statements: 68, branches: 70, functions: 40, lines: 68 },
+      thresholds: { statements: 70, branches: 70, functions: 70, lines: 70 },
     },
   },
 })

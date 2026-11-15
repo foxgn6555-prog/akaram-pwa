@@ -17,15 +17,18 @@ function App({ onRefresh }: { onRefresh?: () => void }) {
   )
 }
 
+const stubMatchMedia = (matches: (query: string) => boolean) => {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: matches(query), media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })))
+}
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
-  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: query.includes('standalone'), media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }))
+  stubMatchMedia((query) => query.includes('standalone'))
 })
-afterEach(() => { vi.restoreAllMocks(); window.history.replaceState(null, '', '/') })
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/') })
 
 describe('PwaNavControls', () => {
   it('لا يظهر في وضع المتصفح العادي', () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }))
+    stubMatchMedia(() => false)
     render(<BrowserRouter><App /></BrowserRouter>)
     expect(screen.queryByTestId('pwa-nav-controls')).toBeNull()
   })

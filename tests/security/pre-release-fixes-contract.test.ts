@@ -41,7 +41,10 @@ describe('عقود إصلاحات ما قبل النشر', () => {
     expect(install).toContain('detectBrowser')
     expect(install).toContain('in-app')
     expect(install).toContain('firefox')
-    expect(read('index.html')).toContain('interactive-widget=resizes-content')
+    // لا نضع interactive-widget في meta الثابت: WebKit يسجّل console.error لمفتاح لا يعرفه.
+    // التعامل مع لوحة المفاتيح يعتمد على dvh/overflow في صفحة الدخول، وهو مدعوم عبر المتصفحات.
+    expect(read('index.html')).not.toContain('interactive-widget=')
+    expect(read('src/portals/public/pages/Login/LoginPage.tsx')).toContain('overflow-y-auto')
     expect(read('index.html')).toContain('user-scalable=no')
   })
   it('درج الموبايل فوق الهيدر ويقفل التمرير ويستعيد التركيز؛ صفحة الدخول قابلة للتمرير مع لوحة المفاتيح', () => {
