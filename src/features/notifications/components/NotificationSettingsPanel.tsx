@@ -24,6 +24,7 @@ import {
   pushReadiness,
   pushSupport,
 } from '../push.client'
+import { pushErrorMessage } from '../push.errors'
 export function NotificationSettingsPanel({ onClose }: { onClose: () => void }) {
   const q = useNotificationPreferences(),
     devices = usePushDevices(),
@@ -66,20 +67,7 @@ export function NotificationSettingsPanel({ onClose }: { onClose: () => void }) 
         message: push ? 'تم إيقاف إشعارات هذا الجهاز' : 'تم تفعيل إشعارات هذا الجهاز',
       })
     } catch (e) {
-      const code = e instanceof Error ? e.message : ''
-      toast({
-        type: 'error',
-        message:
-          code === 'PUSH_IOS_INSTALL_REQUIRED'
-            ? 'على iPhone: أضف التطبيق إلى الشاشة الرئيسية أولاً'
-            : code === 'PUSH_PERMISSION_DENIED'
-              ? 'لم يمنح المتصفح إذن الإشعارات'
-              : code === 'PUSH_WORKER_NOT_READY'
-                ? 'إشعارات الهاتف تعمل في النسخة المنشورة (HTTPS) فقط — لا تعمل في وضع التطوير. أعد المحاولة من المنصة المنشورة'
-              : code === 'PUSH_PUBLIC_KEY_MISSING' || code === 'PUSH_SERVER_NOT_CONFIGURED'
-                ? 'إشعارات الهاتف غير مفعّلة في هذه النسخة من النظام؛ استخدم جرس الإشعارات داخل النظام، وراجع تقنية المعلومات لتفعيلها'
-                : 'تعذر تفعيل إشعارات الهاتف؛ تحقق من إعدادات الجهاز أو جرّب من المنصة المنشورة',
-      })
+      toast({ type: 'error', message: pushErrorMessage(e) })
     } finally {
       setBusy(false)
     }

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { BellRing, ShieldAlert } from 'lucide-react'
 import { useUiStore } from '@stores/ui.store'
 import { currentDevicePushEnabled, enablePush, pushSupport } from '../push.client'
+import { pushErrorMessage } from '../push.errors'
 
 export function PushEnableBanner() {
   const toast = useUiStore((s) => s.addToast)
@@ -54,20 +55,7 @@ export function PushEnableBanner() {
       setEnabled(true)
       toast({ type: 'success', message: 'تم تفعيل إشعارات الهاتف على هذا الجهاز' })
     } catch (e) {
-      const code = e instanceof Error ? e.message : ''
-      toast({
-        type: 'error',
-        message:
-          code === 'PUSH_IOS_INSTALL_REQUIRED'
-            ? 'على iPhone: أضف التطبيق إلى الشاشة الرئيسية أولاً، ثم فعّل الإشعارات'
-            : code === 'PUSH_PERMISSION_DENIED'
-              ? 'لم يمنح المتصفح إذن الإشعارات — اسمح به من إعدادات الموقع'
-              : code === 'PUSH_WORKER_NOT_READY'
-                ? 'لم يكتمل تسجيل التطبيق للعمل دون اتصال بعد — أعد تحميل الصفحة ثم فعّل الإشعارات'
-              : code === 'PUSH_PUBLIC_KEY_MISSING' || code === 'PUSH_SERVER_NOT_CONFIGURED'
-                ? 'إشعارات الهاتف غير مهيّأة في هذه النسخة؛ راجع تقنية المعلومات'
-                : 'تعذر تفعيل إشعارات الهاتف؛ تحقق من إعدادات الجهاز',
-      })
+      toast({ type: 'error', message: pushErrorMessage(e) })
     } finally {
       setBusy(false)
     }

@@ -28,12 +28,21 @@ jobs:
       - name: 📦 تثبيت الاعتماديات
         run: npm ci
 
+      - name: 🔎 فحص بيئة الإنتاج (يمنع نسخة بلا مفتاح إشعارات)
+        run: npm run env:check
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_ENV: production
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+
       - name: 🔨 بناء الموقع
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_ENV: production
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
 
       - name: 📤 رفع dist/ إلى فرع deploy (ينشئه إن لم يكن موجودًا)
         run: |

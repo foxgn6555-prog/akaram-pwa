@@ -18,11 +18,16 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <OfflineBanner />
-        <UpdateBanner />
-        <ShiftRegistryLoader />
-        <SectorsRegistryLoader />
-        <RouterProvider router={router} />
+        {/* إطار بارتفاع واحد: اللافتات العامة لا تُضاف فوق ارتفاع 100dvh فتقصّ أسفل الهاتف. */}
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          <OfflineBanner />
+          <UpdateBanner />
+          <ShiftRegistryLoader />
+          <SectorsRegistryLoader />
+          <div className="min-h-0 flex-1">
+            <RouterProvider router={router} />
+          </div>
+        </div>
       </QueryClientProvider>
     </ErrorBoundary>
   )

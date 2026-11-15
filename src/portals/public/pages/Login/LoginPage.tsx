@@ -115,13 +115,18 @@ export default function LoginPage() {
 
   return (
     <div
-      className="relative h-screen supports-[height:100dvh]:h-dvh overflow-y-auto overscroll-contain"
+      className="relative h-full min-h-0 overflow-hidden"
       dir="rtl"
       data-testid="login-page"
     >
-      {/* غلاف قابل للتمرير: لوحة المفاتيح على الموبايل لا تقصّ البطاقة، والتصميم الزجاجي كما هو */}
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] max-sm:items-start max-sm:py-6">
+      {/* الخلفية خارج منطقة التمرير: لا تتحرك مع النموذج ولا تُنشئ فجوة بيضاء. */}
       <LoginBackground />
+      {/* غلاف قابل للتمرير: لوحة المفاتيح على الموبايل لا تقصّ البطاقة، والتصميم الزجاجي كما هو */}
+      <div
+        data-testid="login-scroll"
+        className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain"
+      >
+      <div className="flex min-h-full items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] max-sm:items-start max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
       {/* البطاقة الزجاجية */}
       <div className="login-glass-card relative w-full max-w-md">
         <div className="relative bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -199,6 +204,7 @@ export default function LoginPage() {
         <div className="mt-4 flex justify-center">
           <InstallAppButton tone="light" />
         </div>
+      </div>
       </div>
       </div>
     </div>

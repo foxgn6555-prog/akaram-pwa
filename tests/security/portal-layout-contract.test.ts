@@ -5,17 +5,25 @@ const read = (path: string) => readFileSync(path, 'utf8')
 const shell = read('src/components/layout/AppShell.tsx')
 const sidebar = read('src/components/layout/Sidebar/Sidebar.tsx')
 const header = read('src/components/layout/Header/Header.tsx')
+const globals = read('src/styles/globals.css')
 const inbox = read('src/portals/complaints/pages/Inbox/InboxPage.tsx')
 const processing = read('src/portals/complaints/pages/Processing/ProcessingPage.tsx')
 
 /** عقد يمنع عودة تداخل الصفحات مع التنقل أو تغطية إجراءات الموبايل. */
 describe('عقد التخطيط المتجاوب للبوابات', () => {
   it('يجعل الشريط والمحتوى عمودين في التدفق ويقصر التمرير على main', () => {
-    expect(shell).toContain('isolate flex h-dvh min-h-0 w-full gap-2 overflow-hidden')
-    expect(shell).toContain('h-dvh flex-none max-lg:hidden')
+    expect(shell).toContain('isolate flex h-full min-h-0 w-full gap-2 overflow-hidden')
+    expect(shell).toContain('pt-[env(safe-area-inset-top)]')
+    expect(shell).toContain('h-full flex-none max-lg:hidden')
     expect(shell).toContain('min-h-0 min-w-0 flex-1 flex-col overflow-hidden')
     expect(shell).toContain('overflow-x-hidden overflow-y-auto')
     expect(shell).not.toMatch(/<main[\s\S]{0,250}className=["'{][^\n]*(?:fixed|absolute)/)
+  })
+
+  it('لا يحجز مجرى شريط تمرير على html/body فيظهر شريط أبيض عند حافة الشاشة', () => {
+    expect(globals).toContain('overflow: hidden;')
+    expect(globals).not.toContain('scrollbar-gutter: stable;')
+    expect(shell).toContain('lg:[scrollbar-gutter:stable]')
   })
 
   it('يرتب طبقات درج الموبايل فوق الخلفية والهيدر دون تغيير عرض الدسكتوب', () => {
