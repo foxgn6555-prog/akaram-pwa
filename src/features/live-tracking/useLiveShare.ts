@@ -13,7 +13,7 @@ const storage = () => (typeof localStorage === 'undefined' ? null : localStorage
 export function useLiveShare() {
   const qc = useQueryClient()
   const toast = useUiStore((s) => s.addToast)
-  const status = useQuery({ queryKey: LIVE_STATUS_KEY, queryFn: () => liveTracking.status(), refetchInterval: 60_000 })
+  const status = useQuery({ queryKey: LIVE_STATUS_KEY, queryFn: () => liveTracking.status(), refetchInterval: 60_000, refetchOnWindowFocus: true })
   const [enabled, setEnabled] = useState<boolean>(() => readFlag(storage()))
   const [busy, setBusy] = useState(false)
   const [lastPing, setLastPing] = useState<LivePingResult | null>(null)
@@ -22,6 +22,7 @@ export function useLiveShare() {
   const [permError, setPermError] = useState<DevicePermissionError | null>(null)
   const lastAtRef = useRef<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlightRef = useRef(false)
   const s = status.data
 
   const stopLocal = useCallback((reason?: string) => {
@@ -32,6 +33,8 @@ export function useLiveShare() {
 
   /** نبضة واحدة: موقع ⇒ خادم. الرفض من الخادم يوقف المشاركة. */
   const pingOnce = useCallback(async (): Promise<boolean> => {
+    if (inFlightRef.current) return false
+    inFlightRef.current = true
     setBusy(true)
     try {
       const fix = await getFix()
@@ -45,7 +48,7 @@ export function useLiveShare() {
       if (e instanceof DevicePermissionError) { setPermError(e); if (e.code === 'DENIED' || e.code === 'INSECURE' || e.code === 'UNSUPPORTED') stopLocal() }
       setLastError(e instanceof Error ? e.message : 'تعذّر إرسال الموقع')
       return false
-    } finally { setBusy(false) }
+    } finally { inFlightRef.current = false; setBusy(false) }
   }, [qc, stopLocal])
 
   /** زر «مشاركة موقعي المباشر» — ضغطة واحدة يومياً تكفي؛ الضغط مجدداً يعيد الإرسال فقط */
@@ -61,19 +64,47 @@ export function useLiveShare() {
     toast({ type: 'info', message: 'أوقفت مشاركة الموقع' })
   }, [qc, stopLocal, toast])
 
-  // جدولة النبضة التالية (والتطبيق مفتوح)
+  // جدولة النبضة التالية (والتطبيق مفتوح/ظاهر). لا وعد بالتتبع بعد الإغلاق أو قفل الشاشة:
+  // المتصفح/النظام قد يجمّد المؤقتات، لذلك نُعيد الجدولة ونرسل فور العودة إن حان الفاصل.
   useEffect(() => {
     if (!enabled || !s) return
-    if (!s.allowed) { if (s.reason === 'LIVE_OUTSIDE_SHIFT') stopLocal(); return }
+    if (!s.allowed) { stopLocal(); return }
+    const expired = () => {
+      if (readFlag(storage())) return false
+      stopLocal('انتهى يوم المشاركة بتوقيت بغداد — اضغط «مشاركة موقعي المباشر» لبدء مشاركة اليوم')
+      return true
+    }
     const schedule = () => {
       if (timerRef.current) clearTimeout(timerRef.current)
+      if (expired()) return
       const delay = nextPingDelayMs(lastAtRef.current, s.interval_minutes, s.shift_end, Date.now())
-      timerRef.current = setTimeout(() => { void pingOnce().then(() => schedule()) }, Math.max(1000, delay))
+      timerRef.current = setTimeout(() => {
+        if (expired()) return
+        if (document.visibilityState !== 'visible') { schedule(); return }
+        void pingOnce().then(() => schedule())
+      }, Math.max(1000, delay))
+    }
+    const resume = () => {
+      if (document.visibilityState !== 'visible' || expired()) return
+      // حتى إن لم يحن الفاصل: أعد ضبط المؤقت بعد تجميد المتصفح في الخلفية.
+      schedule()
+      if (shouldPingNow(lastAtRef.current, s.interval_minutes, Date.now())) void pingOnce().then(() => schedule())
     }
     schedule()
-    const onVisible = () => { if (document.visibilityState === 'visible' && shouldPingNow(lastAtRef.current, s.interval_minutes, Date.now())) void pingOnce().then(() => schedule()) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); document.removeEventListener('visibilitychange', onVisible) }
+    // علم اليوم مرتبط ببغداد: عند تجاوز منتصف الليل لا يستمر البث تلقائياً دون ضغطة جديدة.
+    const dayCheck = window.setInterval(() => { expired() }, 30_000)
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('focus', resume)
+    window.addEventListener('online', resume)
+    window.addEventListener('pageshow', resume)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      window.clearInterval(dayCheck)
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('focus', resume)
+      window.removeEventListener('online', resume)
+      window.removeEventListener('pageshow', resume)
+    }
   }, [enabled, s, pingOnce, stopLocal])
 
   return { status, enabled, busy, lastPing, lastError, permError, start, stop, pingNow: pingOnce }

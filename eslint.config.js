@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'src/types/database.types.ts', 'public/flowbridge/**'] },
+  // ملاحظة: ملفات probe*/dbg-* في الجذر سكربتات تشخيص يدوية قديمة (متتبّعة في Git) وليست من شيفرة التطبيق؛
+  // تُستثنى من بوابة lint حتى لا تحجب فحص src/tests/scripts. لا تُستثنى أي ملفات داخل src.
+  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'preview', 'src/types/database.types.ts', 'public/flowbridge/**', 'probe*.mjs', 'dbg-*.mjs'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

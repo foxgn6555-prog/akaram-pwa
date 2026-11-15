@@ -77,7 +77,7 @@ describe('flattenPage — التقاط الورقة', () => {
 })
 
 describe('DesignExportMenu', () => {
-  beforeEach(() => h.exportDesign.mockReset())
+  beforeEach(() => { h.exportDesign.mockReset() })
 
   it('يعرض الخيارات الثلاثة PDF / PowerPoint / HTML ويستدعي التصدير بالصيغة المختارة والعنوان', async () => {
     h.exportDesign.mockResolvedValue(undefined)
@@ -109,7 +109,7 @@ describe('DesignExportMenu', () => {
   })
 
   it('رسالة واضحة عندما لا توجد أوراق (المعاينة مغلقة)', async () => {
-    h.exportDesign.mockRejectedValue(new Error('NO_PAGES'))
+    h.exportDesign.mockImplementation(async () => { throw new Error('NO_PAGES') })
     render(<DesignExportMenu title="x" />)
     fireEvent.click(screen.getByTestId('design-export-menu'))
     fireEvent.click(screen.getByTestId('design-export-html'))
@@ -148,7 +148,7 @@ describe('اللقطة النقطية (PDF/PowerPoint) — لا انزياح و�
       }),
     }))
     const addImage = vi.fn(); const addPage = vi.fn()
-    vi.doMock('jspdf', () => ({ jsPDF: vi.fn(() => ({ addImage, addPage, setProperties: vi.fn(), output: () => new Blob(['pdf']) })) }))
+    vi.doMock('jspdf', () => ({ jsPDF: vi.fn(function () { return { addImage, addPage, setProperties: vi.fn(), output: () => new Blob(['pdf']) } }) }))
     const { exportDesign: realExport } = await vi.importActual<{ exportDesign: (f: 'pdf' | 'pptx' | 'html', t: string) => Promise<void> }>('@features/media/lib/design-export')
     document.body.innerHTML = '<div id="design-report"><section class="rp-page" style="margin:0 auto">1</section><section class="rp-page">2</section></div>'
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 718 })
@@ -173,7 +173,7 @@ describe('اللقطة النقطية (PDF/PowerPoint) — لا انزياح و�
 })
 
 describe('00202 — Word في قائمة التصدير', () => {
-  beforeEach(() => h.exportDesign.mockReset())
+  beforeEach(() => { h.exportDesign.mockReset() })
   it('خيار Word أول القائمة ويمرّر مزوّد بيانات التقرير إلى exportDesign', async () => {
     h.exportDesign.mockResolvedValue(undefined)
     const wordData = { current: () => ({ title: 'x' }) as never }

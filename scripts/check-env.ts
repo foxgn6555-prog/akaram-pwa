@@ -12,6 +12,13 @@ const envSchema = z.object({
     .refine((v) => !v.startsWith('sb_secret_'), 'مفتاح سري في متغير الواجهة — ممنوع'),
   VITE_APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   VITE_SENTRY_DSN: z.string().url().optional().or(z.literal('')),
+  // المفتاح العام فقط لـ Web Push. في الإنتاج/التجربة لا نقبل نسخة بلا مفتاح (كانت تفشل بصمت عند التفعيل).
+  VITE_VAPID_PUBLIC_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(''))
+    .refine((v) => !v || /^[A-Za-z0-9_-]{86,88}$/.test(v), 'VITE_VAPID_PUBLIC_KEY يجب أن يكون مفتاح P-256 عامّاً بصيغة base64url'),
 })
 
 // درع: منع المفتاح السري من متغير VITE_ (يُضمَّن في المتصفح)
@@ -28,6 +35,7 @@ const parsed = envSchema.safeParse({
   VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
   VITE_APP_ENV: process.env.VITE_APP_ENV,
   VITE_SENTRY_DSN: process.env.VITE_SENTRY_DSN,
+  VITE_VAPID_PUBLIC_KEY: process.env.VITE_VAPID_PUBLIC_KEY,
 })
 
 if (!parsed.success) {
@@ -36,6 +44,12 @@ if (!parsed.success) {
     console.error(`   · ${issue.path.join('.')}: ${issue.message}`)
   }
   console.error('\nانسخ .env.example إلى .env.local واملأ القيم.')
+  process.exit(1)
+}
+
+if ((parsed.data.VITE_APP_ENV === 'production' || parsed.data.VITE_APP_ENV === 'staging') && !parsed.data.VITE_VAPID_PUBLIC_KEY) {
+  console.error('❌ فحص البيئة فشل: VITE_VAPID_PUBLIC_KEY مطلوب في الإنتاج/التجربة لتفعيل إشعارات Web Push.')
+  console.error('   أضف المفتاح العام فقط إلى أسرار بيئة GitHub/البناء. المفتاح الخاص يبقى في Supabase Edge Function Secrets.')
   process.exit(1)
 }
 

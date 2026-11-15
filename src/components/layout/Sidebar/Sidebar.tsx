@@ -6,6 +6,7 @@
  *  · الدسكتوب (lg+): شريط ثابت بجانب المحتوى، قابل للطي لأيقونات (sidebarCollapsed)
  *  · الموبايل (<lg): درج منزلق بملء الارتفاع، يفتح من زر الهيدر (mobileNavOpen)
  */
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import clsx from 'clsx'
@@ -62,14 +63,47 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
     void logout.mutateAsync().then(() => window.location.assign('/login'))
   }
 
+  const asideRef = useRef<HTMLElement | null>(null)
+  // درج الموبايل: قفل تمرير الخلفية + تركيز أولي + استعادة التركيز عند الإغلاق + Escape/Tab
+  useEffect(() => {
+    if (!isMobile) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const root = asideRef.current
+    const closeBtn = root?.querySelector<HTMLElement>('[data-testid="sidebar-mobile-close"]')
+    closeBtn?.focus()
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') { setMobileNav(false); return }
+      if (e.key !== 'Tab' || !root) return
+      const items = Array.from(root.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((el) => !el.hidden && el.getAttribute('aria-hidden') !== 'true')
+      if (items.length === 0) return
+      const first = items[0]!
+      const last = items[items.length - 1]!
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', onKey)
+      previous?.focus()
+    }
+  }, [isMobile, setMobileNav])
+
   return (
     <aside
+      ref={asideRef}
       data-testid={isMobile ? 'app-sidebar-mobile' : 'app-sidebar'}
+      role={isMobile ? 'dialog' : undefined}
+      aria-modal={isMobile ? true : undefined}
+      aria-label={isMobile ? 'قائمة التنقل' : undefined}
       className={clsx(
         'relative isolate flex h-full shrink-0 flex-col overflow-visible border-e border-slate-200 bg-white transition-all duration-200',
         isMobile
-          ? // درج الموبايل: ثابت فوق المحتوى بعرض كامل معقول، ولا يتأثر بالطي
-            'fixed inset-y-0 start-0 z-[70] w-72 max-w-[85vw] shadow-2xl'
+          ? // درج الموبايل: فوق الهيدر/القوائم، ارتفاع ديناميكي كامل، واحترام notch/shريط النظام
+            'fixed inset-y-0 start-0 z-[90] h-dvh w-72 max-w-[85vw] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-2xl'
           : // الدسكتوب: شريط لاصق داخل تدفق الصفحة
             // z-20: يبقى الشريط (ومنه مقبض الانبثاق) فوق محتوى <main> وأقل من الدرج (z-40) والنوافذ (z-50)
             // العرض حصري (w-72 أو w-20) — لا يجتمعان أبداً لأن ترتيب كلاسات Tailwind يُبطل أحدهما (سبّب عُطل زر الانبثاق)
@@ -98,7 +132,7 @@ export function Sidebar({ portal, onNavigate, variant = 'desktop' }: SidebarProp
           data-testid="sidebar-mobile-close"
           title="إغلاق القائمة"
           aria-label="إغلاق القائمة"
-          className="absolute top-4 z-50 flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-red-600 -end-3"
+          className="absolute top-[calc(1rem+env(safe-area-inset-top))] z-50 flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:text-red-600 -end-3"
         >
           <Icon name="x" size={18} />
         </button>
@@ -199,7 +233,7 @@ export function SidebarBackdrop({ onClose }: { onClose: () => void }) {
   return (
     <div
       data-testid="sidebar-backdrop"
-      className="fixed inset-0 z-[60] bg-slate-900/55 backdrop-blur-[2px] lg:hidden"
+      className="fixed inset-0 z-[85] bg-slate-900/55 backdrop-blur-[2px] lg:hidden"
       onClick={onClose}
       aria-hidden="true"
     />

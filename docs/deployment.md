@@ -11,7 +11,7 @@
 1. `supabase link --project-ref <staging|prod>` ثم `supabase db push` (المهاجرات بالترتيب).
 2. فعّل `custom_access_token_hook` من لوحة Auth (انظر تعليق config.toml).
 3. فعّل MFA لـ super_admin + سياسة كلمات المرور من لوحة Auth.
-4. اضبط `VITE_*` في GitHub Environment المقابل → push للفرع يشغّل CD.
+4. اضبط `VITE_*` في GitHub Environment المقابل → push للفرع يشغّل CD. يشمل ذلك `VITE_VAPID_PUBLIC_KEY` (المفتاح العام فقط) في الإنتاج/التجربة؛ يفحصه `npm run env:check` قبل البناء. المفتاح الخاص `VAPID_PRIVATE_KEY` يبقى في Supabase Edge Function Secrets ولا يبدأ بـ `VITE_`.
 5. بعد أول إصدار: تحقق من Sentry + اختبار دخول كل بوابة يدوياً (قائمة docs/onboarding.md).
 
 ## قواعد

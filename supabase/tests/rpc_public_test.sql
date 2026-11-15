@@ -10,11 +10,12 @@ declare
   target_user uuid;
   res jsonb;
 begin
-  -- ═══ ① بذر مستخدم IT + مستخدم هدف (قبل تبديل الدور) ═══
-  insert into auth.users (email) values ('rpc-it@akram.iq') returning id into it_user;
+  -- ═══  بذر مستخدم IT + مستخدم هدف (قبل تبديل الدور) ═══
+  -- معرّفات صريحة: مخطط auth المحلي في CLI لا يضمن default لـ auth.users.id.
+  insert into auth.users (id, email) values ('a1500000-0000-0000-0000-000000000001', 'rpc-it@akram.iq') returning id into it_user;
   insert into public.user_roles (user_id, role) values (it_user, 'it_admin');
-  -- الهدف: مستخدم آخر يُمنح له الدور (الاستخدام الحقيقي — منع الذات يمنع المنح لنفسه)
-  insert into auth.users (email) values ('rpc-target@akram.iq') returning id into target_user;
+  -- 00371 يسمح لـ IT بتعديل الذات؛ نفحص المنح لمستخدم آخر كحالة الاستخدام الأساسية.
+  insert into auth.users (id, email) values ('a1500000-0000-0000-0000-000000000002', 'rpc-target@akram.iq') returning id into target_user;
 
 
   -- ═══ ② دوال أمن الدخول عبر public (بلا مصادقة — كأنها anon) ═══
@@ -40,9 +41,14 @@ begin
   perform public.set_user_role(target_user, 'hr_officer', true);
   raise notice '✅ public.set_user_role — منحت دوراً (وتُدقَّق في audit_logs)';
 
-  if (select count(*) from public.user_roles where user_id = it_user and role = 'hr_officer') = 1 then
-    raise notice '✅ الدور وصل فعلاً إلى user_roles';
+  -- تحقّق إلزامي من المستخدم الهدف. RLS يخفي أدوار الآخرين عن IT،
+  -- لذلك نراجع الصف كمراقب postgres ثم نعيد دور جلسة الاختبار.
+  perform set_config('role', 'postgres', false);
+  if not exists (select 1 from public.user_roles where user_id = target_user and role = 'hr_officer') then
+    raise exception '❌ الدور لم يصل إلى المستخدم الهدف';
   end if;
+  perform set_config('role', 'authenticated', false);
+  raise notice '✅ الدور وصل فعلاً إلى user_roles';
 
   res := public.list_platform_users(null);
   if jsonb_typeof(res) = 'array' then
@@ -71,16 +77,20 @@ begin
     raise exception '❌ anon نفّذ set_user_role — ثغرة!';
   exception when others then
     if sqlerrm like '❌%' then raise exception '%', sqlerrm; end if;
+    if sqlerrm not like 'USERS_FORBIDDEN:%' then
+      raise exception '❌ رفض غير متوقع من set_user_role: %', sqlerrm;
+    end if;
     raise notice '✅ anon يُرفض من set_user_role عبر الغلاف (USERS_FORBIDDEN)';
   end;
 
   begin
     res := public.db_table_details('employees');
-    if (res ->> 'allowed') is not null or res is null then
-      -- db_table_details يرمي استثناء لغير المصرح — وصولنا هنا = لم يرمِ
-      raise notice '⚠️ تحقق يدوي مطلوب';
-    end if;
+    raise exception '❌ anon نفّذ db_table_details — ثغرة!';
   exception when others then
+    if sqlerrm like '❌%' then raise exception '%', sqlerrm; end if;
+    if sqlerrm not like 'DB_FORBIDDEN:%' then
+      raise exception '❌ رفض غير متوقع من db_table_details: %', sqlerrm;
+    end if;
     raise notice '✅ anon يُرفض من db_table_details عبر الغلاف';
   end;
 

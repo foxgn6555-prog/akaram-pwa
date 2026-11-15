@@ -49,6 +49,8 @@ html, body {
 
 #root {
   height: 100vh;
+  /* شريط عنوان المتصفح على الموبايل يتقلّص/يتمدد — 100dvh يمنع القصّ والفجوة السفلية */
+  height: 100dvh;
   overflow: hidden;
 }
 

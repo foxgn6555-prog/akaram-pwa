@@ -93,6 +93,15 @@ fi
 command -v psql >/dev/null || { echo "psql غير موجود — شغّل داخل بيئة Supabase المحلية أو ثبّت client" >&2; exit 2; }
 
 pass=0; fail=0; failed_list=()
+# في GitHub Actions: انشر سبب فشل كل ملف كـ annotation لأن سجل raw logs قد لا يكون متاحاً للمراجعة.
+emit_failure_annotation() {
+  local file="$1" output="$2" escaped
+  [ "${GITHUB_ACTIONS:-}" = "true" ] || return 0
+  escaped="${output//%/%25}"
+  escaped="${escaped//$'\r'/%0D}"
+  escaped="${escaped//$'\n'/%0A}"
+  printf '::error file=%s,title=DB SQL test failed::%s\n' "$file" "$escaped"
+}
 echo "▶ تشغيل ${#SELECTED[@]} ملف اختبار SQL (الوضع: $MODE)"
 for f in "${SELECTED[@]}"; do
   out="$(psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$f" 2>&1)"
@@ -101,7 +110,9 @@ for f in "${SELECTED[@]}"; do
   else
     fail=$((fail+1)); failed_list+=("$f")
     printf '  ❌ %s\n' "$f"
-    printf '%s\n' "$out" | tail -n 8 | sed 's/^/       /'
+    tail="$(printf '%s\n' "$out" | tail -n 12)"
+    printf '%s\n' "$tail" | sed 's/^/       /'
+    emit_failure_annotation "$f" "$tail"
   fi
 done
 

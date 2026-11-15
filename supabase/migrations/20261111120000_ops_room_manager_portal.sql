@@ -22,20 +22,20 @@ alter table public.user_roles add constraint user_roles_role_check
 
 -- ② أولوية الدور في JWT (mirror لـ ROLE_PRIORITY) — الدور الجديد بعد غرفة العمليات
 do $do$
-declare def text; new_def text; pat text := '''deputy_director'', ''ops_room',''';
+declare def text; new_def text; pat text := $pat$'deputy_director', 'ops_room',$pat$;
 begin
   def := pg_get_functiondef('app.custom_access_token_hook(jsonb)'::regprocedure);
-  new_def := replace(def, pat, '''deputy_director'', ''ops_room'', ''ops_room_manager',''');
+  new_def := replace(def, pat, $rep$'deputy_director', 'ops_room', 'ops_room_manager',$rep$);
   if new_def = def then raise exception '00400: لم يُعثر على نمط أولوية الدور في custom_access_token_hook'; end if;
   execute new_def;
 end $do$;
 
 -- ③ قائمة الأدوار المسموحة في set_user_role — وإلا لا يستطيع IT منح الدور الجديد
 do $do$
-declare def text; new_def text; pat text := '''central_garage_officer'', ''follow_up''';
+declare def text; new_def text; pat text := $pat$'central_garage_officer', 'follow_up'$pat$;
 begin
   def := pg_get_functiondef('app.set_user_role(uuid,text,boolean,uuid)'::regprocedure);
-  new_def := replace(def, pat, '''central_garage_officer'', ''follow_up'', ''ops_room_manager''');
+  new_def := replace(def, pat, $rep$'central_garage_officer', 'follow_up', 'ops_room_manager'$rep$);
   if new_def = def then raise exception '00400: لم يُعثر على قائمة الأدوار في set_user_role'; end if;
   execute new_def;
 end $do$;

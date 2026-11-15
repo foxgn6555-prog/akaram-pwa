@@ -17,7 +17,7 @@ export function InstallBanner() {
     <div role="region" aria-label="تثبيت التطبيق" data-testid="pwa-install-banner"
       className="flex items-center gap-3 border-b border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
       <Smartphone size={16} className="shrink-0 text-sky-700" aria-hidden />
-      <span className="min-w-0 flex-1 truncate font-bold">ثبّت التطبيق على هاتفك ليعمل بشاشة كاملة وأسرع وتصلك الإشعارات.</span>
+      <span className="min-w-0 flex-1 truncate font-bold">ثبّت التطبيق على جهازك ليعمل بشاشة كاملة وأسرع، مع دعم الإشعارات حسب المتصفح.</span>
       <InstallAppButton className="!h-8 !px-3 !text-xs" onInstalled={close} />
       <button type="button" onClick={close} aria-label="إخفاء" data-testid="pwa-install-dismiss" className="rounded-lg p-1 text-sky-700 hover:bg-sky-100"><X size={16} /></button>
     </div>

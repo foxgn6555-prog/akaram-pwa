@@ -18,7 +18,8 @@ returns void
 language plpgsql
 security definer
 set search_path = public, app
-as $$\ndeclare
+as $$
+declare
   v_month   text := to_char(date_trunc('month', now()), 'YYYY-MM');
   v_cutoff  timestamptz := now() - interval '30 days';
   v_idle    int;

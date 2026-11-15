@@ -5,6 +5,8 @@ node_modules/
 dist/
 dev-dist/
 coverage/
+# لوحة معاينة محلية قبل/بعد (ليست من حزمة التطبيق)
+preview/
 *.tsbuildinfo
 dev-server.log
 

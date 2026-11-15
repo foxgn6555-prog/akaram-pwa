@@ -19,8 +19,8 @@ describe('عقد التخطيط المتجاوب للبوابات', () => {
   })
 
   it('يرتب طبقات درج الموبايل فوق الخلفية والهيدر دون تغيير عرض الدسكتوب', () => {
-    expect(sidebar).toContain("'fixed inset-y-0 start-0 z-[70] w-72 max-w-[85vw] shadow-2xl'")
-    expect(sidebar).toContain('fixed inset-0 z-[60]')
+    expect(sidebar).toContain("'fixed inset-y-0 start-0 z-[90] h-dvh w-72 max-w-[85vw] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-2xl'")
+    expect(sidebar).toContain('fixed inset-0 z-[85]')
     expect(sidebar).toContain("collapsed ? 'w-20' : 'w-72'")
   })
 

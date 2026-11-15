@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveSessionRow } from '@sdk/live-tracking.sdk'
-import { LIVE_DATA_COLUMNS, buildLiveDataWorkbook, durationText, endText, filterSessions, inZoneText, presetRange, sessionValues, summarizeSessions } from '@features/live-tracking/live-data.logic'
+import { LIVE_DATA_COLUMNS, buildLiveDataWorkbook, dayOf, durationText, endText, filterSessions, inZoneText, isoDay, presetRange, sessionValues, summarizeSessions } from '@features/live-tracking/live-data.logic'
 
 const row = (p: Partial<LiveSessionRow>): LiveSessionRow => ({
   session_id: 's1', user_id: 'u1', kind: 'manager', full_name: 'سعد', sectors: [1], area_names: 'الكرادة', manager_name: null, shift_name: 'صباحي',
@@ -9,12 +9,22 @@ const row = (p: Partial<LiveSessionRow>): LiveSessionRow => ({
 })
 
 describe('00288 · منطق بيانات البث المباشر', () => {
-  it('فلاتر الأيام تُحسب من اليوم', () => {
-    const t = new Date(2026, 9, 18)
+  it('فلاتر الأيام تُحسب من اليوم بتوقيت بغداد لا من يوم جهاز المستخدم', () => {
+    const t = new Date('2026-10-18T12:00:00Z')
     expect(presetRange('today', t)).toEqual({ from: '2026-10-18', to: '2026-10-18' })
     expect(presetRange('yesterday', t)).toEqual({ from: '2026-10-17', to: '2026-10-17' })
     expect(presetRange('week', t)).toEqual({ from: '2026-10-12', to: '2026-10-18' })
     expect(presetRange('month', t)).toEqual({ from: '2026-09-19', to: '2026-10-18' })
+  })
+  it('منتصف الليل ببغداد (21:00Z) يقلب اليوم والفلاتر وعمود اليوم باتساق', () => {
+    const before = new Date('2026-10-18T20:59:59Z')
+    const after = new Date('2026-10-18T21:00:00Z')
+    expect(isoDay(before)).toBe('2026-10-18')
+    expect(isoDay(after)).toBe('2026-10-19')
+    expect(presetRange('today', before)).toEqual({ from: '2026-10-18', to: '2026-10-18' })
+    expect(presetRange('today', after)).toEqual({ from: '2026-10-19', to: '2026-10-19' })
+    expect(presetRange('yesterday', after)).toEqual({ from: '2026-10-18', to: '2026-10-18' })
+    expect(dayOf('2026-10-18T21:30:00Z')).toBe('2026-10-19')
   })
   it('متعهدون مقابل مسؤولون + بحث + ملخص', () => {
     const rows = [row({}), row({ session_id: 's2', user_id: 'u2', kind: 'contractor', full_name: 'كريم', manager_name: 'سعد', first_in_zone: false, out_of_zone_count: 3, ended_at: '2026-10-18T13:00:00Z', end_reason: 'shift_end' })]

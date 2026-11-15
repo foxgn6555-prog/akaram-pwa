@@ -6,6 +6,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
       - 'supabase/seed/**'
+      - '.github/workflows/db-smoke.yml'
   push:
     branches: [main, develop]
 
@@ -16,16 +17,47 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.1
       - name: بدء Supabase المحلي (Docker متوفر على الـ runner)
-        run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,storage-api,pooler
+        run: |
+          set -o pipefail
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,storage-api,supavisor --debug 2>&1 | tee /tmp/supabase-start.log
+      - name: تشخيص فشل بدء Supabase (بيئة الاختبار فقط)
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          p = Path('/tmp/supabase-start.log')
+          text = p.read_text(errors='replace') if p.exists() else 'No startup log was produced.'
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text)
+          text = re.sub(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', '[REDACTED_JWT]', text)
+          text = re.sub(r'(?i)(password|secret|token|api_?key)(\s*[=:]\s*)[^ \n,;]+', r'\1\2[REDACTED]', text)
+          text = re.sub(r'postgres(?:ql)?://[^@\s]+@', 'postgresql://[REDACTED]@', text)
+          lines = text.splitlines()
+          errors = [line for line in lines if re.search(r'error|failed|unhealthy|denied|timeout|manifest|not found|invalid|fatal|panic', line, re.I)]
+          summary = '\n'.join((errors[-30:] + ['--- log tail ---'] + lines[-20:]))[-12000:]
+          print('::error title=Supabase startup diagnostics::' + summary.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PY
       - name: قاعدة فارغة ← كل المهاجرات
         run: supabase db reset
       - name: اختبار الدخان (جداول + RLS + سياسات + triggers + buckets)
         run: |
+          set -o pipefail
           psql "postgresql://postgres:postgres@localhost:54322/postgres" \
             -v ON_ERROR_STOP=1 \
-            -f supabase/tests/smoke_schema.sql | tee /dev/stderr | grep -q "SMOKE OK"
+            -f supabase/tests/smoke_schema.sql 2>&1 | tee /tmp/smoke_schema.log
+          grep -q "SMOKE OK" /tmp/smoke_schema.log
+      - name: تشخيص فشل اختبار الدخان
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/smoke_schema.log')
+          text = p.read_text(errors='replace') if p.exists() else 'No smoke log was produced (an earlier step failed).'
+          summary = '\n'.join(text.splitlines()[-40:])[-12000:]
+          print('::error title=DB smoke diagnostics::' + summary.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PY
       - name: اختبار دورة الشكاوى end-to-end
         run: psql "postgresql://postgres:postgres@localhost:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/complaints_end_to_end.sql
       - name: اختبار إسناد بقع GPS إلى القواطع عبر أسماء السياجات

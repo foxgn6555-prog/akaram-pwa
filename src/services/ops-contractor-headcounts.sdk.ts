@@ -20,6 +20,14 @@ export interface MonthStatus {
 /** 00303: متعهد × يوم فيه رقم من جهة أخرى ولا رقم من الجهة المختارة — لن يُدفع إن اعتُمدت هذه الجهة */
 export interface CoverageGap { contractor_user_id: string; contractor_name: string; area_name: string | null; log_date: string; contractor_count: number | null; follow_up_count: number | null; sector_manager_count: number | null }
 export interface HeadcountAudit { id: string; actor_name: string; action: string; contractor_name: string | null; log_date: string | null; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null; reason: string | null; created_at: string }
+/** عارض إثباتات التواجد لغرفة العمليات — قراءة فقط (بلا editable/كتابة). */
+export interface ContractorPresenceProofRow {
+  contractor_user_id: string; contractor_name: string; contractor_phone: string | null
+  sector_id: number; area_name: string; parent_sector: string; shift: string | null; department_manager_name: string | null
+  checked_in: boolean; checkin_at: string | null; latitude: number | null; longitude: number | null; accuracy_m: number | null; in_zone: boolean | null
+  selfie_path: string | null; team_photo_path: string | null
+  contractor_headcount: number | null; follow_up_headcount: number | null; sector_manager_headcount: number | null
+}
 
 const first = (m: string) => `${m.slice(0, 7)}-01`
 export const opsContractorHeadcounts = {
@@ -44,5 +52,8 @@ export const opsContractorHeadcounts = {
   },
   async audit(month: string): Promise<HeadcountAudit[]> {
     return ((await sdkGuard(supabase.rpc('ops_contractor_audit', { p_month: first(month) }))) as HeadcountAudit[] | null) ?? []
+  },
+  async presenceProofs(date?: string | null, parent?: string | null, contractor?: string | null): Promise<ContractorPresenceProofRow[]> {
+    return ((await sdkGuard(supabase.rpc('ops_contractor_presence_proofs', { p_date: date ?? null, p_parent: parent ?? null, p_contractor: contractor ?? null }))) as ContractorPresenceProofRow[] | null) ?? []
   },
 }

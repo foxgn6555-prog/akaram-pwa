@@ -481,6 +481,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/disclosures', labelKey: 'nav.ops_disclosures', icon: 'file-text' },
     { path: '/ops-room/advances', labelKey: 'nav.ops_advances', icon: 'wallet' },
     { path: '/ops-room/contractor-headcounts', labelKey: 'nav.ops_contractor_headcounts', icon: 'users' },   // 00262
+    { path: '/ops-room/contractor-proofs', labelKey: 'nav.ops_contractor_proofs', icon: 'camera' },   // إثباتات التواجد — قراءة فقط
     { path: '/ops-room/leaves', labelKey: 'nav.ops_leaves', icon: 'calendar' },   // 00239
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288

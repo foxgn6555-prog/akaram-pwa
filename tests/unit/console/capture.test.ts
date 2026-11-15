@@ -2,7 +2,7 @@
  * Console · الراصد: يلتقط console.error/warn، الاستثناءات، الوعود المرفوضة، أخطاء الملفات،
  * logger، وطبقة البيانات — يجمع بالبصمة ويرسل دفعة واحدة. بلا شبكة (send محقونة).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { installConsoleCapture, getConsoleCapture, type ConsoleEventPayload } from '@lib/console/capture'
 import { emitSdkError } from '@lib/console/bus'
 
@@ -17,7 +17,7 @@ const flushAll = async (h: ReturnType<typeof installConsoleCapture>) => {
 
 describe('Console · capture', () => {
   let sent: ConsoleEventPayload[][]
-  let send: ReturnType<typeof vi.fn>
+  let send: Mock<(ev: ConsoleEventPayload[]) => Promise<void>>
   const origError = console.error
   const origWarn = console.warn
 

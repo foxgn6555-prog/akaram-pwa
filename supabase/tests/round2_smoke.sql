@@ -20,11 +20,11 @@ declare
 
   diag text;
 begin
-  -- بذر الأشخاص
-  insert into auth.users (email) values ('r2-it@akram.iq')  returning id into it_u;
-  insert into auth.users (email) values ('r2-tgt@akram.iq') returning id into target_u;
-  insert into auth.users (email) values ('r2-emp@akram.iq') returning id into emp_u;
-  insert into auth.users (email) values ('r2-sup@akram.iq') returning id into super_u;
+  -- بذر الأشخاص بمعرّفات صريحة (auth.users.id لا يضمن default في CLI).
+  insert into auth.users (id, email) values ('a1300000-0000-0000-0000-000000000001', 'r2-it@akram.iq')  returning id into it_u;
+  insert into auth.users (id, email) values ('a1300000-0000-0000-0000-000000000002', 'r2-tgt@akram.iq') returning id into target_u;
+  insert into auth.users (id, email) values ('a1300000-0000-0000-0000-000000000003', 'r2-emp@akram.iq') returning id into emp_u;
+  insert into auth.users (id, email) values ('a1300000-0000-0000-0000-000000000004', 'r2-sup@akram.iq') returning id into super_u;
   insert into public.user_roles (user_id, role) values
     (it_u, 'it_admin'), (target_u, 'hr_officer'), (emp_u, 'employee'), (super_u, 'super_admin');
 

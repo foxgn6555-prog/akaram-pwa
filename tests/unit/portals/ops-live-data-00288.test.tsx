@@ -44,7 +44,7 @@ describe('00288 · بيانات وحدة البث المباشر', () => {
     expect(within(r2).getByText('كريم')).toBeInTheDocument()
     expect(r2.textContent).toContain('خارج الزون'); expect(r2.textContent).toContain('08:10'); expect(r2.textContent).toContain('33.31000, 44.36000'); expect(r2.textContent).toContain('انتهى الشفت')
     expect(screen.getByTestId('live-data-row-s1').textContent).toContain('داخل الزون')
-    const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baghdad', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
     expect(sessions).toHaveBeenLastCalledWith({ from: iso, to: iso, kind: null })
     fireEvent.click(screen.getByTestId('live-days-week'))
     await waitFor(() => expect(sessions).toHaveBeenLastCalledWith(expect.objectContaining({ to: iso, kind: null })))
