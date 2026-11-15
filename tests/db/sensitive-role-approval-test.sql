@@ -7,10 +7,14 @@ create or replace function pg_temp.as_user(p uuid) returns void language sql as 
 $$;
 create or replace function pg_temp.expect_err(q text, code text) returns void language plpgsql as $$
 begin
-  execute q;
+  begin
+    execute q;
+  exception when others then
+    if sqlerrm like '%' || code || '%' then return; end if;
+    raise; -- خطأ مختلف عن الرفض المتوقع: يفشل الاختبار ولا يُبتلع.
+  end;
+  -- نجاح العبارة يعني غياب الرفض الأمني؛ لا نلتقط هذا الاستثناء المتعمّد.
   raise exception 'TEST_FAIL: expected % for %', code, q;
-exception when others then
-  if sqlerrm not like '%' || code || '%' then raise; end if;
 end $$;
 
 do $$
