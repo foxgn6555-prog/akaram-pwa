@@ -6,6 +6,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
       - 'supabase/seed/**'
+      - '.github/workflows/db-smoke.yml'
   push:
     branches: [main, develop]
 
@@ -18,7 +19,26 @@ jobs:
         with:
           version: 2.122.1
       - name: بدء Supabase المحلي (Docker متوفر على الـ runner)
-        run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,storage-api,pooler
+        run: |
+          set -o pipefail
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,storage-api,supavisor --debug 2>&1 | tee /tmp/supabase-start.log
+      - name: تشخيص فشل بدء Supabase (بيئة الاختبار فقط)
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          p = Path('/tmp/supabase-start.log')
+          text = p.read_text(errors='replace') if p.exists() else 'No startup log was produced.'
+          text = re.sub(r'\x1b\[[0-9;]*m', '', text)
+          text = re.sub(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', '[REDACTED_JWT]', text)
+          text = re.sub(r'(?i)(password|secret|token|api_?key)(\s*[=:]\s*)[^ \n,;]+', r'\1\2[REDACTED]', text)
+          text = re.sub(r'postgres(?:ql)?://[^@\s]+@', 'postgresql://[REDACTED]@', text)
+          lines = text.splitlines()
+          errors = [line for line in lines if re.search(r'error|failed|unhealthy|denied|timeout|manifest|not found|invalid|fatal|panic', line, re.I)]
+          summary = '\n'.join((errors[-30:] + ['--- log tail ---'] + lines[-20:]))[-12000:]
+          print('::error title=Supabase startup diagnostics::' + summary.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PY
       - name: قاعدة فارغة ← كل المهاجرات
         run: supabase db reset
       - name: اختبار الدخان (جداول + RLS + سياسات + triggers + buckets)
