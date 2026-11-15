@@ -32,10 +32,14 @@ end $$;
 create or replace function pg_temp.assert_raises(label text, stmt text)
 returns void language plpgsql as $$
 begin
-  execute stmt;
+  begin
+    execute stmt;
+  exception when others then
+    raise notice '✅ % (رُفض كما هو مطلوب: %)', label, sqlerrm;
+    return;
+  end;
+  -- لا تلتقط الاستثناء المتعمّد أدناه: نجاح Statement يعني فشل الاختبار.
   raise exception '❌ % — كان يجب أن يُرفض!', label;
-exception when others then
-  raise notice '✅ % (رُفض كما هو مطلوب: %)', label, sqlerrm;
 end $$;
 
 begin;
@@ -46,16 +50,20 @@ declare
   ahmed uuid; khaled uuid; mgr uuid; hr_u uuid; it_u uuid; fin_u uuid; super_u uuid;
   dept_gen uuid; dept_wks uuid; ahmed_emp uuid; req_ahmed uuid; payroll_id uuid;
 begin
-  insert into auth.users (email) values ('ahmed@akram.iq')  returning id into ahmed;
-  insert into auth.users (email) values ('khaled@akram.iq') returning id into khaled;
-  insert into auth.users (email) values ('mgr@akram.iq')    returning id into mgr;
-  insert into auth.users (email) values ('hr@akram.iq')     returning id into hr_u;
-  insert into auth.users (email) values ('it@akram.iq')     returning id into it_u;
-  insert into auth.users (email) values ('fin@akram.iq')    returning id into fin_u;
-  insert into auth.users (email) values ('super@akram.iq')  returning id into super_u;
+  -- معرّفات صريحة: مخطط auth المحلي في CLI لا يضمن default لـ auth.users.id.
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000001', 'ahmed@akram.iq')  returning id into ahmed;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000002', 'khaled@akram.iq') returning id into khaled;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000003', 'mgr@akram.iq')    returning id into mgr;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000004', 'hr@akram.iq')     returning id into hr_u;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000005', 'it@akram.iq')     returning id into it_u;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000006', 'fin@akram.iq')    returning id into fin_u;
+  insert into auth.users (id, email) values ('a1100000-0000-0000-0000-000000000007', 'super@akram.iq')  returning id into super_u;
 
-  insert into public.departments (name, code) values ('الإدارة العامة', 'GEN') returning id into dept_gen;
-  insert into public.departments (name, code) values ('الأشغال', 'WKS') returning id into dept_wks;
+  -- لا تفترض قاعدة خالية من البذور: GEN/WKS قد تكون موجودة من seed.
+  insert into public.departments (name, code) values ('الإدارة العامة', 'GEN')
+    on conflict (code) do update set name = excluded.name returning id into dept_gen;
+  insert into public.departments (name, code) values ('الأشغال', 'WKS')
+    on conflict (code) do update set name = excluded.name returning id into dept_wks;
 
   insert into public.employees (user_id, employee_number, full_name, department_id)
   values (ahmed, 'EMP-001', 'أحمد علي', dept_gen) returning id into ahmed_emp;
@@ -146,8 +154,11 @@ begin
 
   -- ═══ ⑧ حماية تعديل الذات في RPC (بعين IT نفسها) ═══
   perform pg_temp.as_user(it_u);
-  perform pg_temp.assert_raises('IT لا يعدّل دوره بنفسه',
-    format('select app.set_user_role(''%s'', ''employee'', true)', it_u));
+  -- 00371: تعديل الذات مسموح لـ IT؛ الحماية الأخيرة هي عدم سحب آخر حساب IT.
+  perform app.set_user_role(it_u, 'employee', true);
+  perform pg_temp.assert_eq('IT منحت نفسها دوراً عادياً', (select count(*) from public.user_roles where user_id = it_u and role = 'employee'), 1);
+  perform pg_temp.assert_raises('IT لا تسحب آخر حساب IT',
+    format('select app.set_user_role(''%s'', ''it_admin'', false)', it_u));
 
   raise notice '';
   raise notice '═══ ✅ جناح العزل اكتمل — كل دور يرى بياناته فقط ═══';

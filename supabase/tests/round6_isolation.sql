@@ -37,11 +37,11 @@ declare
   b1 uuid; portal1 uuid; v1 uuid;
   n int;
 begin
-  -- ═══ البذر ═══
-  insert into auth.users (email) values ('r6-it@akram.iq')  returning id into it_u;
-  insert into auth.users (email) values ('r6-emp@akram.iq') returning id into emp_u;
-  insert into auth.users (email) values ('r6-hr@akram.iq')  returning id into hr_u;
-  insert into auth.users (email) values ('r6-o@akram.iq')   returning id into other_emp;
+  -- ═══ البذر بمعرّفات صريحة لا تفترض default لـ auth.users.id ═══
+  insert into auth.users (id, email) values ('a1400000-0000-0000-0000-000000000001', 'r6-it@akram.iq')  returning id into it_u;
+  insert into auth.users (id, email) values ('a1400000-0000-0000-0000-000000000002', 'r6-emp@akram.iq') returning id into emp_u;
+  insert into auth.users (id, email) values ('a1400000-0000-0000-0000-000000000003', 'r6-hr@akram.iq')  returning id into hr_u;
+  insert into auth.users (id, email) values ('a1400000-0000-0000-0000-000000000004', 'r6-o@akram.iq')   returning id into other_emp;
   insert into public.user_roles (user_id, role) values
     (it_u, 'it_admin'), (emp_u, 'employee'), (hr_u, 'hr_officer'), (other_emp, 'employee');
   insert into public.employees (user_id, employee_number, full_name)

@@ -16,7 +16,8 @@ begin
     raise exception 'MANAGER_AREA_GROUPS_MISMATCH';
   end if;
 
-  insert into auth.users(email) values('manager-all-areas@test.local') returning id into v_user;
+  -- معرّف صريح: لا تعتمد بيانات الاختبار على default لمخطط auth المحلي.
+  insert into auth.users(id, email) values('a1200000-0000-0000-0000-000000000001', 'manager-all-areas@test.local') returning id into v_user;
   insert into public.manager_profiles(user_id,shift,sectors)
   values(v_user,'morning',array[1,2,3,4,5,6,7,8]::smallint[]);
 
@@ -30,7 +31,7 @@ begin
   end if;
   perform set_config('request.jwt.claim.sub','',true);
 
-  insert into auth.users(email) values('manager-invalid-area@test.local') returning id into v_invalid_user;
+  insert into auth.users(id, email) values('a1200000-0000-0000-0000-000000000002', 'manager-invalid-area@test.local') returning id into v_invalid_user;
   begin
     insert into public.manager_profiles(user_id,shift,sectors)
     values(v_invalid_user,'morning',array[9]::smallint[]);
