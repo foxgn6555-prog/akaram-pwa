@@ -597,15 +597,16 @@ begin
   select count(*) filter (where biometric_pin is not null and not app.manual_att_is_contractor(id)),
          count(*) filter (where biometric_pin is null),
          count(*) filter (where biometric_pin is not null and app.manual_att_is_contractor(id)),
-         coalesce(jsonb_agg(full_name order by full_name) filter (where biometric_pin is not null and not app.manual_att_is_contractor(id)), '[]'::jsonb)
-    into v_pin, v_nopin, v_contr, v_sample from sc;
-  select coalesce(jsonb_agg(jsonb_build_object('id', o.id, 'portal', o.portal, 'portal_label', app.manual_att_portal_label(o.portal))), '[]'::jsonb) into v_over
-    from public.attendance_manual_activations o
-   where o.status = 'active'
-     and (o.branch_id is null or p_branch is null or o.branch_id = p_branch)
-     and (o.department_id is null or p_department is null or o.department_id = p_department
-          or (o.include_sub_departments and p_department in (select app.hr_department_tree(o.department_id)))
-          or (coalesce(p_include_sub, true) and o.department_id in (select app.hr_department_tree(p_department))));
+         coalesce(jsonb_agg(full_name order by full_name) filter (where biometric_pin is not null and not app.manual_att_is_contractor(id)), '[]'::jsonb),
+         (select coalesce(jsonb_agg(jsonb_build_object('id', o.id, 'portal', o.portal, 'portal_label', app.manual_att_portal_label(o.portal))), '[]'::jsonb)
+            from public.attendance_manual_activations o
+           where o.status = 'active'
+             and (o.branch_id is null or p_branch is null or o.branch_id = p_branch)
+             and (o.department_id is null or p_department is null or o.department_id = p_department
+                  or (o.include_sub_departments and p_department in (select app.hr_department_tree(o.department_id)))
+                  or (coalesce(p_include_sub, true) and o.department_id in (select app.hr_department_tree(p_department)))))
+    into v_pin, v_nopin, v_contr, v_sample, v_over
+    from sc;
   return jsonb_build_object('employees', v_pin, 'no_pin', v_nopin, 'contractors', v_contr, 'sample', (select coalesce(jsonb_agg(x), '[]'::jsonb) from (select jsonb_array_elements(v_sample) x limit 8) s), 'overlapping', v_over);
 end$$;
 
