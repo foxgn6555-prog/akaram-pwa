@@ -86,7 +86,7 @@ export default function AttendanceLog() {
                   <td className={clsx('p-2 text-center text-xs', r.late_minutes > 0 && 'font-bold text-amber-700')}>{fmtMinutes(r.late_minutes)}</td>
                   <td className={clsx('p-2 text-center text-xs', r.early_minutes > 0 && 'font-bold text-orange-700')}>{fmtMinutes(r.early_minutes)}</td>
                   <td className="p-2 text-center text-xs">{fmtMinutes(r.worked_minutes)}</td>
-                  <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} /></td>
+                  <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} editReason={r.edit_reason} /></td>
                 </tr>
               ))}
             </tbody>

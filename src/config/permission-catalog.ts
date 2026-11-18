@@ -8,7 +8,7 @@
  *    (اختبار عقد يضمن أن آخر ترحيل للكتالوج مطابق لهذا الملف).
  */
 import { PORTALS, type PortalId } from '@lib/constants/portals.constants'
-import { PORTAL_UNITS, type SidebarUnit } from './portals.config'
+import { MANUAL_ATTENDANCE_PORTALS, MANUAL_ATTENDANCE_SEGMENT, PORTAL_UNITS, type SidebarUnit } from './portals.config'
 import type { Role } from '@lib/constants/roles.constants'
 
 export const PERMISSION_ACTIONS = ['view', 'create', 'edit', 'decide', 'execute', 'export', 'delete'] as const
@@ -51,6 +51,8 @@ export const PORTAL_ROLE: Readonly<Record<Exclude<PortalId, 'public'>, Role>> = 
  * المفاتيح يجب أن تطابق وحدات PORTAL_UNITS (اختبار عقد يرفض مفتاحاً يتيماً).
  */
 export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>> = {
+  // الحضور اليدوي: صفحة الكشف في كل بوابة تملك موظفين — «إنشاء» = تسجيل الكشف (حاضر/غائب)
+  ...Object.fromEntries(MANUAL_ATTENDANCE_PORTALS.map((p) => [`${p}.${MANUAL_ATTENDANCE_SEGMENT}`, ['create'] as const])),
   // المتعهد
   'employee.attendance': ['create'],
   'employee.photos': ['create'],
@@ -105,6 +107,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'it.integrations.auto-deductions': ['edit'],
   'it.integrations.advances': ['edit'],
   'it.integrations.live-tracking': ['edit'],
+  'it.integrations.attendance-manual': ['execute'],   // الحضور اليدوي: التفعيل/الإيقاف لدور it_admin فقط؛ شرط الدور يُفرض في الخادم ولا يتجاوزه استثناء فردي
   'it.notification-policies': ['edit', 'delete'],
   'it.updates': ['execute'],
   'it.archive': ['delete'],
@@ -309,6 +312,8 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
   disbursement_pay: ['finance.disbursements', 'execute'],   // مسار الصرف: صرف المالية من القاصة
   disbursement_resubmit: ['finance.disbursements', 'create'],   // مسار الصرف: إعادة الإرسال بعد الرفض
   // التطوير المركزية
+  attendance_manual_activate: ['it.integrations.attendance-manual', 'execute'],   // الحضور اليدوي: تفعيل تعطل بصمة بوابة
+  attendance_manual_deactivate: ['it.integrations.attendance-manual', 'execute'],   // الحضور اليدوي: إيقاف التفعيل وعودة البصمة
   cold_archive_package_create: ['it.cold-archive', 'create'],
   cold_archive_purge_request: ['it.cold-archive', 'delete'],
   cold_archive_purge_approve: ['it.cold-archive', 'decide'],
@@ -382,4 +387,5 @@ export const WRITE_BINDINGS_EXEMPT: Readonly<Record<string, string>> = {
   media_design_complete: 'يُنشأ من فولدر قاطع (وحدتان)',
   citizen_complaint_submit: 'مواطن',
   citizen_chat_request: 'مواطن',
+  manual_att_sheet_save: 'الحضور اليدوي: التفويض داخل الدالة بحسب بوابة التفعيل (app.manual_att_can_record = صلاحية «إنشاء» لوحدة <البوابة>.manual-attendance أو غرفة العمليات/المدير المفوض) — الربط الثابت لا يعبّر عن وحدة تتبدل بالبوابة',
 }

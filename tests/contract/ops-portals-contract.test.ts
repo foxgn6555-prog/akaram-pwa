@@ -3,14 +3,14 @@
  * الوحدات ↔ المسارات متطابقة، الشريط مقفول على عدد ثابت، ولا أي وحدة/مسار مالي في أيٍّ منهما.
  */
 import { describe, expect, it } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes as adminOpsRoutes } from '@portals/admin-ops/routes'
 import { customRoutes as fieldOpsRoutes } from '@portals/field-ops/routes'
 
 const FINANCE_PATH = /(finance|salary|wage|payroll|invoice|deduction|مالي)/i
 const check = (portal: string, prefix: string, routes: { path?: string }[], count: number, labels: string[]) => {
-  const units = PORTAL_UNITS[portal as keyof typeof PORTAL_UNITS]
+  const units = PORTAL_UNITS[portal as keyof typeof PORTAL_UNITS].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
   it(`${prefix}: ${count} وحدات ثابتة بالترتيب`, () => { expect(units).toHaveLength(count); expect(units.map((u) => u.labelKey)).toEqual(labels) })
   it(`${prefix}: كل وحدة لها route وكل route له وحدة`, () => {
     const unitPaths = units.map((u) => u.path.replace(prefix, '').replace(/^\//, ''))

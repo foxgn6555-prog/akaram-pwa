@@ -109,6 +109,7 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   HR_ATTENDANCE_CONFIRMED: 'حضورية هذا الشهر معتمدة — أعد فتحها بسبب من المرحلة الثانية قبل أي تعديل',
   HR_ATTENDANCE_NOT_CONFIRMED: 'يجب اعتماد حضورية الشهر (المرحلة 1) قبل التصدير إلى المالية؛ وإن وُجدت تغييرات معلّقة فأعد الاعتماد',
   HR_ATTENDANCE_UNEVALUATED: 'توجد أيام غير محتسبة — أعد المحاولة بعد اكتمال الاحتساب',
+  ATT_MANUAL_SHEETS_PENDING: 'لا يمكن اعتماد حضورية الشهر — توجد أيام بانتظار كشف الحضور اليدوي (عددها: {n}). اطلب من أصحاب البوابة المعطّلة بصمتها إكمال الكشف؛ التفاصيل في الشريط الأصفر أعلى الصفحة', // الحضور اليدوي: يمنع الاعتماد حتى اكتمال الكشوف
   HR_RANGE_INVALID: 'النطاق غير صالح (حتى 62 يوماً)',
   HR_STATUS_INVALID: 'حالة الحضور غير صالحة',
   HR_TIMES_INVALID: 'وقت الخروج يجب أن يكون بعد الدخول',
@@ -198,10 +199,17 @@ export const HR_ERROR_MESSAGES: Record<string, string> = {
   employees_national_id_uq: 'رقم البطاقة الموحدة مسجل لموظف آخر',
   employees_employee_number_key: 'الرقم الوظيفي مستخدم لموظف آخر',
 }
+/** أول رمز معروف في نص الخطأ ⇒ رسالته العربية؛ العلامة {n} تُستبدل بالرقم الذي يلي «الرمز: » في نص الخطأ (إن وُجد) — وإلا null */
+export function lookupErrorMessage(text: string, table: Readonly<Record<string, string>>): string | null {
+  const code = Object.keys(table).find((k) => text.includes(k))
+  const msg = code ? table[code] : undefined
+  if (!code || !msg) return null
+  if (!msg.includes('{n}')) return msg
+  return msg.replace('{n}', new RegExp(`${code}: (\\d+)`).exec(text)?.[1] ?? '—')
+}
 export function hrErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error ?? '')
-  const code = Object.keys(HR_ERROR_MESSAGES).find((k) => text.includes(k))
-  return (code && HR_ERROR_MESSAGES[code]) || text || 'خطأ غير معروف'
+  return lookupErrorMessage(text, HR_ERROR_MESSAGES) || text || 'خطأ غير معروف'
 }
 
 const rpc = <T,>(fn: string, args: Record<string, unknown>) => sdkGuard(supabase.rpc(fn, args as never)) as Promise<T>

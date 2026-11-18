@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { buildPortalRoutes } from '@router/unit-routes'
 import { customRoutes } from '@portals/complaints/routes'
 
 describe('بوابة الشكاوى', () => {
   it('تسجل وحدات الدورة بالترتيب المطلوب', () => {
-    const units = PORTAL_UNITS[PORTALS.COMPLAINTS]
+    const units = PORTAL_UNITS[PORTALS.COMPLAINTS].filter((unit) => !isManualAttendancePath(unit.path))   // الحضور اليدوي: وحدة عامة بالتفعيل — يغطيها attendance-manual-routes
     expect(units).toHaveLength(12)
     expect(units.map((unit) => unit.labelKey)).toEqual([
       'nav.dashboard',
@@ -32,6 +32,7 @@ describe('بوابة الشكاوى', () => {
       'karrada-sector', 'zaafaraniya-sector', 'sector/:code', 'assignment', 'processing', 'templates', 'database',
       'data', 'pages-contact-settings', 'archive', 'technical-support', 'guidance', 'items/:id', 'reports/:id',
       'approvals', 'announcements/inbox', 'announcements/inbox/:announcementId', // وارد التبليغات موحّد في كل البوابات (00146)
+      'manual-attendance', // الحضور اليدوي: صفحة عامة يسجّلها المولّد في كل بوابة موظفين
       '*', // 00412: مسار شامل داخل البوابة يعرض 404 بدل إعادة توجيه صامتة
     ]))
   })

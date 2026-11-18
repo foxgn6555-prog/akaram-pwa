@@ -51,6 +51,8 @@ export const UI_SITES: Readonly<Record<string, readonly string[]>> = {
   disbursement_pay: [P + 'finance/pages/Disbursements/FinanceDisbursementDetailPage.tsx'],
   disbursement_resubmit: [P + 'finance/pages/Disbursements/FinanceDisbursementDetailPage.tsx'],
   finance_contractor_wages_close: [P + 'finance/pages/Contractors/ContractorWagesPage.tsx'],   // «اعتماد وإرسال» أجور المتعهدين
+  attendance_manual_activate: [P + 'it/pages/Integrations/AttendanceManualPage.tsx'],   // الحضور اليدوي: تفعيل تعطل بصمة بوابة (التطوير المركزية)
+  attendance_manual_deactivate: [P + 'it/pages/Integrations/AttendanceManualPage.tsx'],   // الحضور اليدوي: إيقاف التفعيل وعودة البصمة
 }
 /** دوال مربوطة بلا زر مباشر في الواجهة (استعلام تلقائي أو غير مستخدمة من أي صفحة) — الخادم وحده يحكم */
 export const NO_UI_BUTTON: Readonly<Record<string, string>> = {

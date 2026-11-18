@@ -5,6 +5,7 @@
  */
 import type { Workbook, Worksheet } from 'exceljs'
 import type { AttendanceGridCell, AttendanceGridRow, AttendanceGridStatus } from '../types'
+import { isManualSheetReason } from '@sdk/attendance-manual.sdk'
 
 export type ApprovedKind = 'present' | 'absent' | 'leave' | 'time_permit' | 'rest' | 'none' | 'incomplete'
 export const APPROVED_LABEL: Record<ApprovedKind, string> = { present: 'حاضر', absent: 'غائب', leave: 'مجاز', time_permit: 'زمنية', rest: 'راحة', none: '—', incomplete: 'بصمة ناقصة' }
@@ -130,7 +131,7 @@ export async function buildAttendanceDetailedWorkbook(rows: AttendanceGridRow[],
           const c = r.days[di]!
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILL[c.s] ?? 'FFFFFFFF' } }
           cell.font = { size: 8, bold: c.s === 'absent' || c.src === 'manual', color: { argb: FONT[c.s] ?? 'FF0F172A' }, italic: c.src === 'manual' }
-          if (c.src === 'manual' && c.note) cell.note = `تعديل غرفة العمليات: ${c.note}`
+          if (c.src === 'manual' && c.note) cell.note = isManualSheetReason(c.note) ? `كشف حضور يدوي: ${c.note}` : `تعديل غرفة العمليات: ${c.note}`
           else if (c.waived) cell.note = 'استقطاع مقترح مُلغى بسبب موثّق'
         } else if (i % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
       })

@@ -186,7 +186,9 @@
     "procedures": "الإجراءات",
     "fo_sectors": "القواطع والمسؤولون",
     "approval_chains": "سلاسل الموافقات",
-    "approval_performance": "أداء الموافقات"
+    "approval_performance": "أداء الموافقات",
+    "manual_attendance": "الحضور اليدوي",
+    "it_attendance_manual": "الحضور اليدوي (تعطل البصمة)"
   },
   "sections": {
     "main": "القائمة الرئيسية",

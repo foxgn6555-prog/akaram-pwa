@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { disclosuresUnit } from '@sdk/disclosures-unit.sdk'
 import type { SidebarUnit } from '@config/portals.config'
 import { filterUnitsByPermissions, useMyPermissionsStore } from '@features/permissions/my-permissions'
+import { filterManualAttendanceUnit, useManualActivationsStore } from '@features/attendance-manual/store'
 
 interface HiddenState { loaded: boolean; hidden: Record<string, string[]>; set: (h: Record<string, string[]>) => void; reset: () => void }
 export const useHiddenUnitsStore = create<HiddenState>((set) => ({
@@ -41,9 +42,10 @@ export function filterVisibleUnits(portal: string, units: readonly SidebarUnit[]
     .map((u) => (u.children ? { ...u, children: u.children.filter((c) => !set.has(c.path)) } : u))
 }
 
-/** الوحدات الظاهرة = (غير مخفية 00170) ∩ (مسموح عرضها حسب الصلاحيات 00350) */
+/** الوحدات الظاهرة = (غير مخفية 00170) ∩ (مسموح عرضها حسب الصلاحيات 00350) ∩ (الحضور اليدوي: فقط ما دام للبوابة تفعيل ساريٍ أو كشف ناقص) */
 export function useVisibleUnits(portal: string, units: readonly SidebarUnit[]): readonly SidebarUnit[] {
   const hidden = useHiddenUnitsStore((s) => s.hidden)
   const perms = useMyPermissionsStore((s) => s.perms)
-  return filterUnitsByPermissions(portal, filterVisibleUnits(portal, units, hidden), perms)
+  const manual = useManualActivationsStore((s) => s.items)
+  return filterManualAttendanceUnit(portal, filterUnitsByPermissions(portal, filterVisibleUnits(portal, units, hidden), perms), manual)
 }

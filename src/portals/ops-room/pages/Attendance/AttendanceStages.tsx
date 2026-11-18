@@ -10,6 +10,7 @@ import clsx from 'clsx'
 import type { AttendanceConfirmation, AttendanceGridCell, AttendanceGridRow } from '@features/hr'
 import { APPROVED_LABEL, approvedKind, DETAIL_LABEL, fmtHM } from '@features/hr/lib/attendanceExcel'
 import { Icon } from '@components/ui/Icon/Icon'
+import { isManualSheetReason } from '@sdk/attendance-manual.sdk'
 
 export type Stage = 'detailed' | 'approved'
 const WEEKDAY_SHORT = ['أحد', 'اثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت']
@@ -114,7 +115,9 @@ const isFriday = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 5
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
 function DetailCell({ c, onClick }: { c: AttendanceGridCell; onClick?: () => void }) {
-  const title = `${c.d} · ${DETAIL_LABEL[c.s]}${c.in ? ` · ${c.in}→${c.out ?? '؟'}` : ''}${c.late ? ` · تأخير ${c.late} د` : ''}${c.early ? ` · مبكر ${c.early} د` : ''}${c.short ? ` · نقص ${c.short} د` : ''}${c.has_permit && c.s !== 'time_permit' && c.s !== 'leave' ? ' · زمنية معتمدة' : ''}${c.permit ? ` · زمنية ${c.permit} د` : ''}${c.src === 'manual' ? ` · تعديل: ${c.note ?? ''}` : ''}${c.waived ? ' · استقطاع مُلغى' : ''}${onClick ? '\nانقر لفتح سجل اليوم' : ''}`
+  const manualSheet = c.src === 'manual' && isManualSheetReason(c.note)
+  const manualLabel = manualSheet ? ' · سُجّل من كشف الحضور اليدوي' : c.src === 'manual' ? ` · تعديل غرفة العمليات: ${c.note ?? ''}` : ''
+  const title = `${c.d} · ${DETAIL_LABEL[c.s]}${c.in ? ` · ${c.in}→${c.out ?? '؟'}` : ''}${c.late ? ` · تأخير ${c.late} د` : ''}${c.early ? ` · مبكر ${c.early} د` : ''}${c.short ? ` · نقص ${c.short} د` : ''}${c.has_permit && c.s !== 'time_permit' && c.s !== 'leave' ? ' · زمنية معتمدة' : ''}${c.permit ? ` · زمنية ${c.permit} د` : ''}${manualLabel}${c.waived ? ' · استقطاع مُلغى' : ''}${onClick ? '\nانقر لفتح سجل اليوم' : ''}`
   const clickable = !!onClick && c.s !== 'future' && c.s !== 'none'
   const body = c.s === 'absent' ? <span className="text-[11px] font-black">غائب</span>
     : c.s === 'leave' ? <span className="text-[10px] font-bold">إجازة</span>
@@ -125,7 +128,7 @@ function DetailCell({ c, onClick }: { c: AttendanceGridCell; onClick?: () => voi
     : (<><span className="text-[10px] font-black tabular-nums">{c.in ?? '؟'}</span><span className="text-[10px] tabular-nums opacity-80">{c.out ?? '؟'}</span></>)
   return (
     <td className={clsx('border-s border-slate-100 p-0 align-middle', CELL[c.s], c.d === todayIso() && 'shadow-[inset_0_0_0_1px_#2563eb]')} title={title} data-testid={`cell-${c.d}`} data-status={c.s}>
-      <button type="button" disabled={!clickable} onClick={onClick} className={clsx('relative flex h-11 w-full min-w-[3.4rem] flex-col items-center justify-center leading-none transition', clickable && 'hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-400', c.src === 'manual' && 'ring-1 ring-inset ring-amber-400')} dir="ltr" aria-label={title} data-testid={`cell-btn-${c.d}`}>
+      <button type="button" disabled={!clickable} onClick={onClick} className={clsx('relative flex h-11 w-full min-w-[3.4rem] flex-col items-center justify-center leading-none transition', clickable && 'hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-400', c.src === 'manual' && (manualSheet ? 'ring-1 ring-inset ring-sky-500' : 'ring-1 ring-inset ring-amber-400'))} dir="ltr" aria-label={title} data-source={manualSheet ? 'manual-sheet' : c.src === 'manual' ? 'ops-edit' : c.src ?? 'auto'} data-testid={`cell-btn-${c.d}`}>
         <span className={clsx('absolute inset-x-0 top-0 h-0.5', BAR[c.s])} aria-hidden />
         {body}
         {c.has_permit && c.s !== 'time_permit' && c.s !== 'leave' && <span className="absolute end-0.5 top-1 rounded bg-blue-700 px-0.5 text-[9px] font-black text-white" aria-label="زمنية معتمدة">ز</span>}
@@ -261,6 +264,7 @@ export function GridLegend({ mode }: { mode: Stage }) {
       <span className="font-black text-slate-500">الدليل:</span>
       {items.map(([k, l]) => <span key={k} className="inline-flex items-center gap-1.5"><span className={clsx('relative inline-block h-3.5 w-3.5 overflow-hidden rounded-[4px] ring-1 ring-slate-200', bg[k])}><span className={clsx('absolute inset-x-0 top-0 h-0.5', bar[k])} /></span>{l}</span>)}
       {mode === 'detailed' && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3.5 w-3.5 rounded-[4px] ring-2 ring-inset ring-amber-400" />تعديل غرفة العمليات</span>}
+      {mode === 'detailed' && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3.5 w-3.5 rounded-[4px] ring-2 ring-inset ring-sky-500" />كشف حضور يدوي</span>}
       {mode === 'detailed' && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />استقطاع مقترح</span>}
       {mode === 'detailed' && <span className="inline-flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />استقطاع مُلغى بسبب</span>}
       <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3.5 w-3.5 rounded-[4px] ring-1 ring-inset ring-blue-600" />اليوم</span>

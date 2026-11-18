@@ -1,7 +1,7 @@
 /** عقد بوابة الكراج المركزي: الوحدات والصفحات والدور متسقة دون فتح وصول بيانات مبكر. */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/central-garage/routes'
 import { PORTAL_ROUTES } from '@router/routes.config'
@@ -35,7 +35,7 @@ const sidebar = JSON.parse(readFileSync('src/i18n/ar/sidebar.json', 'utf8')) as 
 
 describe('بوابة الكراج المركزي', () => {
   it('تسجل وحدات التشغيل والتقارير بالترتيب', () => {
-    const units = PORTAL_UNITS[PORTALS.CENTRAL_GARAGE]
+    const units = PORTAL_UNITS[PORTALS.CENTRAL_GARAGE].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
     expect(units).toHaveLength(12)   // 00206: + الكشوفات · 00207: + الموظفون · 00208: + الطلبات · 00209: + الإجراءات
     expect(units.map((unit) => unit.path)).toEqual([
       '/central-garage',

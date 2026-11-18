@@ -1,7 +1,7 @@
 /** عقد بوابة الإعلام: الوحدات والمسارات والدور وقاعدة البيانات متسقة بلا صلاحيات بيانات مبكرة. */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/media/routes'
 import { PORTAL_ROUTES } from '@router/routes.config'
@@ -12,7 +12,7 @@ const sidebar = JSON.parse(readFileSync('src/i18n/ar/sidebar.json', 'utf8')) as 
 
 describe('بوابة الإعلام', () => {
   it('تسجل الوحدات السبع المطلوبة بالترتيب', () => {
-    const units = PORTAL_UNITS[PORTALS.MEDIA]
+    const units = PORTAL_UNITS[PORTALS.MEDIA].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
     expect(units).toHaveLength(8)
     expect(units.map((unit) => unit.path)).toEqual([
       '/media',

@@ -23,6 +23,10 @@ vi.mock('@features/hr/hooks/useHr', () => ({
   useConfirmAttendanceMonth: () => mut(h.confirmMonth), useReopenAttendanceMonth: () => mut(h.reopenMonth),
 }))
 vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [], isLoading: false }), usePushEmployeeToDevices: () => ({ mutate: vi.fn(), isPending: false }), useDevices: () => ({ data: [], isLoading: false }) }))
+vi.mock('@sdk/attendance-manual.sdk', () => ({
+  isManualSheetReason: (reason?: string | null) => !!reason && reason.startsWith('كشف حضور يدوي'),
+  attendanceManual: { pendingSummary: vi.fn(async (month: string) => ({ month, total: 0, items: [] })) },
+}))
 
 import OpsAttendancePage from '@portals/ops-room/pages/Attendance/OpsAttendancePage'
 import { approvedKind, buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, detailCellText } from '@features/hr/lib/attendanceExcel'
@@ -101,6 +105,7 @@ describe('00193 — الحضوريات بمرحلتين', () => {
   it('حوار الاعتماد يعرض الملخص والتحذيرات (بصمات ناقصة/غير محتسب) ثم يستدعي ops_attendance_confirm وينتقل للكشف المعتمد', async () => {
     h.grid = [row({ unevaluated_days: 2 })]
     render(<MemoryRouter><OpsAttendancePage /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByTestId('att-confirm-open')).toBeEnabled())
     fireEvent.click(screen.getByTestId('att-confirm-open'))
     const dlg = screen.getByTestId('att-confirm-dialog')
     expect(within(dlg).getByTestId('cf-present')).toHaveTextContent('4')   // حاضر+متأخر+مبكر+ناقصة
@@ -243,6 +248,14 @@ describe('00193 — Excel الحضوريات (ورقة لكل قسم)', () => {
     expect(sum.getRow(7).getCell(2).value).toBe('الإجمالي'); expect(sum.getRow(7).getCell(3).value).toBe(3)
     expect(sum.getCell('A2').value).toContain('مدقق الحضور')
     expect(ws.views[0]?.rightToLeft).toBe(true)
+  })
+  it('تعليق خلية Excel يميّز كشف البوابة اليدوي عن تعديل غرفة العمليات', async () => {
+    const sheetRow = row({ days: [cell('2026-09-01', 'present', { src: 'manual', note: 'كشف حضور يدوي — المحطة التحويلية' })] })
+    const opsRow = row({ days: [cell('2026-09-01', 'present', { src: 'manual', note: 'تصحيح بصمة ناقصة' })] })
+    const sheetWb = await buildAttendanceDetailedWorkbook([sheetRow], meta)
+    const opsWb = await buildAttendanceDetailedWorkbook([opsRow], meta)
+    expect(String(sheetWb.getWorksheet('النقل')!.getRow(6).getCell(5).note)).toContain('كشف حضور يدوي')
+    expect(String(opsWb.getWorksheet('النقل')!.getRow(6).getCell(5).note)).toContain('تعديل غرفة العمليات')
   })
   it('المعتمد: الخلايا حاضر/غائب/مجاز/راحة/بصمة ناقصة (لا أوقات) وأعمدة الحضور/الغياب/الإجازة/الساعات', async () => {
     const wb = await buildAttendanceApprovedWorkbook(rows, meta)

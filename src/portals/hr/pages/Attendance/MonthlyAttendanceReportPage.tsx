@@ -8,6 +8,7 @@ import clsx from 'clsx'
 import { useBranches } from '@features/branches'
 import { useDepartments } from '@features/departments'
 import { useAttendanceGrid } from '@features/hr'
+import { useManualMonthCounts } from '@features/attendance-manual'   // شارة «يدوي»: أيام سُجّلت من كشف الحضور اليدوي (تعطل البصمة)
 import type { AttendanceGridRow } from '@features/hr'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
@@ -36,10 +37,12 @@ export function sortRows(rows: AttendanceGridRow[], key: SortKey): AttendanceGri
   if (key === 'compliance') return c.sort((a, b) => compliancePct(a) - compliancePct(b))
   return c.sort((a, b) => (a.department_name ?? '').localeCompare(b.department_name ?? '', 'ar') || a.full_name.localeCompare(b.full_name, 'ar'))
 }
-export function monthlySpec(rows: AttendanceGridRow[], month: string, filters: Array<[string, string]>): ExportSpec<AttendanceGridRow> {
+/** manualDays: موظف ⇒ عدد أيامه المسجَّلة من كشف الحضور اليدوي؛ يُضاف عمودها وملاحظتها فقط حين يوجد شيء منها (الأعمدة المعتادة لا تتغير) */
+export function monthlySpec(rows: AttendanceGridRow[], month: string, filters: Array<[string, string]>, manualDays?: ReadonlyMap<string, number>): ExportSpec<AttendanceGridRow> {
+  const withManual = !!manualDays && [...manualDays.values()].some((n) => n > 0)
   return {
     title: `تقرير الحضور الشهري — ${monthLabel(month)}`, sheetName: 'الحضور الشهري', fileName: `الحضور-الشهري-${month.slice(0, 7)}.xlsx`, rows, filters,
-    footerNote: 'الأرقام من محرّك الحضور المعتمد (غرفة العمليات/المالية). لا يتضمن التقرير أي بيانات رواتب.',
+    footerNote: `الأرقام من محرّك الحضور المعتمد (غرفة العمليات/المالية). لا يتضمن التقرير أي بيانات رواتب.${withManual ? ' «أيام يدوية» = أيام سُجّلت من كشف الحضور اليدوي عند تعطل جهاز البصمة.' : ''}`,
     columns: [
       { key: 'employee_number', header: 'الرقم الوظيفي', width: 12, value: (r) => r.employee_number, align: 'center' },
       { key: 'full_name', header: 'الاسم', width: 26, value: (r) => r.full_name },
@@ -56,6 +59,7 @@ export function monthlySpec(rows: AttendanceGridRow[], month: string, filters: A
       { key: 'shortfall_minutes', header: 'النقص (د)', width: 10, value: (r) => r.shortfall_minutes, align: 'center' },
       { key: 'overtime_minutes', header: 'الإضافي (د)', width: 10, value: (r) => r.overtime_minutes, align: 'center' },
       { key: 'compliance', header: 'الالتزام %', width: 10, value: (r) => compliancePct(r), align: 'center' },
+      ...(withManual ? [{ key: 'manual_days', header: 'أيام يدوية', width: 10, value: (r: AttendanceGridRow) => manualDays!.get(r.employee_id) ?? 0, align: 'center' as const }] : []),
     ],
   }
 }
@@ -87,6 +91,10 @@ export default function MonthlyAttendanceReportPage() {
   const { data: departments = [] } = useDepartments()
   const { data: raw = [], isLoading } = useAttendanceGrid({ month, branchId: branchId || null, departmentId: departmentId || null, search: search.trim() || null })
   const rows = useMemo(() => sortRows(raw, sort), [raw, sort])
+  const manualCounts = useManualMonthCounts(month).data
+  const manualByEmp = useMemo(() => new Map((manualCounts ?? []).filter((c) => c.days > 0).map((c) => [c.employee_id, c])), [manualCounts])
+  const manualDays = useMemo(() => new Map([...manualByEmp].map(([id, c]) => [id, c.days] as const)), [manualByEmp])
+  const manualEmployees = rows.filter((r) => manualByEmp.has(r.employee_id)).length
   const totals = useMemo(() => ({
     employees: raw.length,
     absent: raw.reduce((s, r) => s + r.absent_days, 0), late: raw.reduce((s, r) => s + r.late_days, 0), lateMin: raw.reduce((s, r) => s + r.late_minutes, 0),
@@ -100,7 +108,7 @@ export default function MonthlyAttendanceReportPage() {
       <style>{PRINT_CSS}</style>
       <ExecPageHeader icon="bar-chart" title="تقرير الحضور الشهري" subtitle="صف لكل موظف من محرّك الحضور المعتمد نفسه (غرفة العمليات/المالية) · أرقام لاتينية · تصدير Excel أو طباعة/PDF"
         actions={<div className="flex flex-wrap gap-2">
-          <ExportButton disabled={!rows.length} testId="am-export" onExport={() => exportToExcel(monthlySpec(rows, month, filters))} />
+          <ExportButton disabled={!rows.length} testId="am-export" onExport={() => exportToExcel(monthlySpec(rows, month, filters, manualDays))} />
           <Button size="sm" variant="secondary" disabled={!rows.length} onClick={printPdf} data-testid="am-print"><Icon name="printer" size={14} className="ms-1" />طباعة / PDF</Button>
         </div>} />
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-5 print:hidden" data-testid="am-filters">
@@ -130,7 +138,7 @@ export default function MonthlyAttendanceReportPage() {
             <tbody>
               {rows.map((r) => { const pct = compliancePct(r); return (
                 <tr key={r.employee_id} className={clsx('border-t border-slate-100', r.absent_days >= 3 && 'bg-red-50/30')} data-testid={`am-row-${r.employee_number}`}>
-                  <td className="r p-2 text-start"><p className="font-semibold">{r.full_name}</p><p className="text-[10px] text-slate-500" dir="ltr">{r.employee_number}</p></td>
+                  <td className="r p-2 text-start"><p className="font-semibold">{r.full_name}{manualByEmp.get(r.employee_id) && <span className="ms-1.5 rounded bg-sky-100 px-1 py-0.5 text-[9px] font-black text-sky-800" title={`${manualByEmp.get(r.employee_id)!.days} يوم سُجّل من كشف الحضور اليدوي (تعطل البصمة): حاضر ${manualByEmp.get(r.employee_id)!.present} · غائب ${manualByEmp.get(r.employee_id)!.absent}`} data-testid={`am-manual-${r.employee_number}`}>يدوي {manualByEmp.get(r.employee_id)!.days}</span>}</p><p className="text-[10px] text-slate-500" dir="ltr">{r.employee_number}</p></td>
                   <td className="r p-2 text-start text-[11px]">{r.department_name ?? '—'}</td>
                   <td className="p-2 text-center tabular-nums">{scheduledDays(r)}</td>
                   <td className="p-2 text-center tabular-nums text-emerald-700">{r.present_days}</td>
@@ -149,6 +157,7 @@ export default function MonthlyAttendanceReportPage() {
             </tbody>
           </table>
           <p className="border-t px-3 py-2 text-[10px] text-slate-500">{rows.length} موظف · الالتزام = (حضور + تأخير + خروج مبكر) ÷ المطلوب · الدقائق أرقام صحيحة · لا يتضمن التقرير أي بيانات رواتب.</p>
+          {manualEmployees > 0 && <p className="border-t px-3 py-2 text-[10px] text-sky-800" data-testid="am-manual-note">«يدوي»: {manualEmployees} موظفاً لديهم أيام سُجّلت من كشف الحضور اليدوي عند تعطل جهاز البصمة (حاضر بدوام كامل أو غائب)، وهي محتسبة في الأرقام أعلاه.</p>}
         </div>
       )}
     </div>

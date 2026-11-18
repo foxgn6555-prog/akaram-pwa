@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { PORTAL_DEFINITIONS, PORTALS } from '@/lib/constants/portals.constants'
-import { PORTAL_UNITS } from '@/config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@/config/portals.config'
 import { PERMISSION_CATALOG, PORTAL_ROLE } from '@/config/permission-catalog'
 
 const ROOT = process.cwd()
@@ -23,7 +23,7 @@ describe('🚪 بوابة مدير غرفة العمليات (00400)', () => {
   })
 
   it('وحدتان فقط: الموافقات + تقارير الوقود', () => {
-    const units = PORTAL_UNITS[PORTALS.OPS_ROOM_MANAGER]
+    const units = PORTAL_UNITS[PORTALS.OPS_ROOM_MANAGER].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
     expect(units.map((u) => u.path)).toEqual([
       '/ops-room-manager',
       '/ops-room-manager/approvals',

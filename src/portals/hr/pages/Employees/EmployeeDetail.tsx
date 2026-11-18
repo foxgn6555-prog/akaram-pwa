@@ -260,7 +260,7 @@ function AttendanceTab({ employeeId, search }: { employeeId: string; search: str
               <td className="p-2 text-xs">{r.work_date} · {WEEKDAYS_AR[new Date(r.work_date).getDay()]}</td><td className="p-2 text-center text-xs">{r.shift_name ?? '—'}</td>
               <td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_in)}</td><td className="p-2 text-center tabular-nums" dir="ltr">{fmtTime(r.check_out)}</td>
               <td className="p-2 text-center text-xs text-amber-700">{fmtMinutes(r.late_minutes)}</td><td className="p-2 text-center text-xs text-orange-700">{fmtMinutes(r.early_minutes)}</td>
-              <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} /></td>
+              <td className="p-2 text-center"><StatusBadge status={r.status} source={r.source} editReason={r.edit_reason} /></td>
             </tr>))}
             {mine.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-xs text-slate-400">لا سجلات لهذا الشهر</td></tr>}
           </tbody>

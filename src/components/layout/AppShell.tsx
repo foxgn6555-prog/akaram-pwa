@@ -25,6 +25,7 @@ import { MobileBottomNav } from '@components/layout/MobileBottomNav'
 import { Header } from '@components/layout/Header/Header'
 import { loadMyHiddenUnits } from '@features/portal-visibility'
 import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
+import { loadMyManualActivations } from '@features/attendance-manual/store'
 import { useAuth } from '@features/auth/hooks/useAuth'
 import { SessionTimeout } from '@components/auth/SessionTimeout'
 
@@ -50,6 +51,15 @@ export function AppShell({ portal }: AppShellProps) {
   const { data: session } = useAuth()
   const userId = session?.id ?? null
   useEffect(() => { if (userId) void loadMyPermissions(userId) }, [userId])
+  // الحضور اليدوي: تفعيلاتي — تحدد ظهور وحدته في الشريط (تُحدَّث كل 5 دقائق وعند العودة للتبويب كي يظهر التفعيل الجديد بلا إعادة دخول)
+  useEffect(() => {
+    if (!userId) return
+    void loadMyManualActivations(true)
+    const refresh = (): void => { if (document.visibilityState === 'visible') void loadMyManualActivations(true) }
+    const timer = window.setInterval(refresh, 5 * 60_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
+  }, [userId])
   const perms = useMyPermissionsStore((s) => (s.userId === userId ? s.perms : null))
   const allowed = routeAllowed(location.pathname, perms)
 

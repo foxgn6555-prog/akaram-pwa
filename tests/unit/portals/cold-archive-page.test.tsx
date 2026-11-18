@@ -20,7 +20,7 @@ vi.mock('@features/cold-archive/hooks', () => ({
   useBrowserPull: () => ({ mutate: h.pull, isPending: false }),
 }))
 import ColdArchivePage from '@portals/it/pages/ColdArchive/ColdArchivePage'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/it/routes'
 
@@ -53,7 +53,7 @@ describe('🧊 الأرشيف البارد — صفحة IT (00315)', () => {
 
   it('مسجّلة كمسار IT وكعنصر فرعي تحت وحدة الأرشيف (لا تغيّر عدد الوحدات 12)', () => {
     expect(customRoutes.some((r) => r.path === 'cold-archive')).toBe(true)
-    const units = PORTAL_UNITS[PORTALS.IT]
+    const units = PORTAL_UNITS[PORTALS.IT].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة بالتفعيل) خارج العدّ
     expect(units).toHaveLength(13)   // 00398: + التصفير · 12 (00393: + القطاعات والمناطق)
     const archive = units.find((u) => u.path === '/it/archive')
     expect(archive?.children?.map((c) => c.path)).toContain('/it/cold-archive')

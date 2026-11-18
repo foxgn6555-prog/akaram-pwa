@@ -4,7 +4,7 @@
  *   · البيانات (دفتر البصمة، الربط، اشتقاق الحضور) في بوابة الموارد البشرية فقط.
  */
 import { describe, expect, it } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { buildPortalRoutes } from '@router/unit-routes'
 import { customRoutes } from '@portals/hr/routes'
@@ -15,7 +15,7 @@ const flat = (units: typeof PORTAL_UNITS[keyof typeof PORTAL_UNITS]) =>
 
 describe('بوابة الموارد البشرية — الوحدات السبع', () => {
   it('تسجل الوحدات السبع بالترتيب المعتمد', () => {
-    const units = PORTAL_UNITS[PORTALS.HR]
+    const units = PORTAL_UNITS[PORTALS.HR].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي: وحدة عامة بالتفعيل — يغطيها attendance-manual-routes
     expect(units).toHaveLength(14)   // 00249: + تقارير سلوك الموظفين · 00348: + تعيينات بانتظار الإكمال
     expect(units.map((u) => u.labelKey)).toEqual([
       'nav.dashboard',          // ① الرئيسية
@@ -58,7 +58,7 @@ describe('بوابة الموارد البشرية — الوحدات السبع
     const routes = buildPortalRoutes(PORTALS.HR, customRoutes)
     const paths = new Set(routes.map((r) => r.path).filter(Boolean))
     expect(routes.some((r) => r.index)).toBe(true)
-    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'now', 'attendance-monthly', 'attendance-edits', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId', 'approvals', '*']))
+    expect(paths).toEqual(new Set(['recruitment', 'hire-requests', 'employees', 'employees/:employeeId', 'attendance', 'now', 'attendance-monthly', 'attendance-edits', 'leaves', 'documents', 'biometric', 'biometric/unmatched', 'org', 'behavior', 'announcements/inbox', 'announcements/inbox/:announcementId', 'approvals', 'manual-attendance' /* الحضور اليدوي: صفحة عامة يسجّلها المولّد */, '*']))
   })
 
   it('الفصل التقني/البياناتي: أجهزة البصمة في بوابة التطوير المركزية فقط، والدفتر في HR فقط', () => {
