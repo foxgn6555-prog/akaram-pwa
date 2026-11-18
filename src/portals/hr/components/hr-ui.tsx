@@ -2,13 +2,18 @@
 import clsx from 'clsx'
 import type { AttendanceStatus } from '@features/hr'
 import { ATTENDANCE_STATUS_LABELS } from '@features/hr'
+import { isManualSheetReason } from '@sdk/attendance-manual.sdk'
 import { field, label, STATUS_STYLES } from './hr-format'
 
-export function StatusBadge({ status, source }: { status: AttendanceStatus; source?: 'auto' | 'manual' }) {
+/** editReason: سبب التعديل المخزَّن؛ يميّز صفوف «كشف الحضور اليدوي» (تعطل البصمة) عن تعديل غرفة العمليات */
+export function StatusBadge({ status, source, editReason }: { status: AttendanceStatus; source?: 'auto' | 'manual'; editReason?: string | null }) {
+  const fromSheet = source === 'manual' && isManualSheetReason(editReason)
   return (
     <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold', STATUS_STYLES[status])} data-testid="att-status" data-status={status}>
       {ATTENDANCE_STATUS_LABELS[status]}
-      {source === 'manual' && <span title="مُعدَّل يدوياً في غرفة العمليات" className="text-[9px]">✎</span>}
+      {fromSheet
+        ? <span title="سُجّل من كشف الحضور اليدوي (تعطل جهاز البصمة)" className="rounded bg-sky-100 px-1 text-[9px] font-black text-sky-800" data-testid="att-manual-sheet">يدوي</span>
+        : source === 'manual' && <span title="مُعدَّل يدوياً في غرفة العمليات" className="text-[9px]">✎</span>}
     </span>
   )
 }

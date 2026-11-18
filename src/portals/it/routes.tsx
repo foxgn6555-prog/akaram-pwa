@@ -35,6 +35,7 @@ const AttendanceAuditPage = lazy(() => import('@portals/it/pages/Integrations/bi
 const GpsPage = lazy(() => import('@portals/it/pages/Integrations/GpsPage'))
 const GpsHealthPage = lazy(() => import('@portals/it/pages/Integrations/GpsHealthPage'))   // 00211: سلامة تكامل LVN (منقولة من غرفة العمليات)
 const HrPolicyPage = lazy(() => import('@portals/it/pages/Integrations/HrPolicyPage'))
+const AttendanceManualPage = lazy(() => import('@portals/it/pages/Integrations/AttendanceManualPage'))   // الحضور اليدوي عند تعطل البصمة: التفعيل/الإيقاف (التطوير المركزية وحدها)
 const AutoDeductionsPage = lazy(() => import('@portals/it/pages/Integrations/AutoDeductionsPage'))   // 00195: الاستقطاعات التلقائية — القواعد والنطاق والاستثناءات
 const AdvanceTypesPage = lazy(() => import('@portals/it/pages/Integrations/AdvanceTypesPage'))   // 00191: السلف — الأنواع والسياسة
 const LiveTrackingSettingsPage = lazy(() => import('@portals/it/pages/Integrations/LiveTrackingSettingsPage'))   // 00288: البث المباشر — الإعدادات
@@ -102,6 +103,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'integrations/biometric', element: s(<BiometricPage />) },
   { path: 'integrations/biometric/unmatched', element: s(<UnmatchedPeoplePage readOnly />) },
   { path: 'integrations/biometric/attendance-audit', element: s(<AttendanceAuditPage />) },
+  { path: 'integrations/attendance-manual', element: s(<AttendanceManualPage />) },
   { path: 'integrations/gps', element: s(<GpsPage />) },
   { path: 'integrations/gps-health', element: s(<GpsHealthPage />) },
   { path: 'integrations/hr-policy', element: s(<HrPolicyPage />) },

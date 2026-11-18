@@ -21,6 +21,7 @@ const rows = [
   row('احمد عبد الواحد', 'E1', 'الأشغال', (d, i) => i === 0 ? cell(d, 'present', { in: '08:00', out: '16:00' }) : i === 1 ? cell(d, 'late', { in: '08:20', out: '16:00', late: 20, pm: 20, src: 'manual', note: 'بصمة يدوية' }) : i === 2 ? cell(d, 'absent') : i === 3 ? cell(d, 'early_leave', { in: '08:00', out: '14:00', pm: 30, waived: true }) : cell(d, 'future')),
   row('علي رعد', 'E2', 'النظافة', (d, i) => i < 2 ? cell(d, 'leave') : cell(d, 'future')),
 ]
+const manualSheetRow = row('حيدر كريم', 'E3', 'النقل', (d, i) => i === 0 ? cell(d, 'present', { in: '08:00', out: '16:00', src: 'manual', note: 'كشف حضور يدوي — بوابة المحطة التحويلية' }) : cell(d, 'future'))
 
 describe('MonthGrid (تفصيلي)', () => {
   it('خلية الحالة: شريط لون + وقت الدخول/الخروج؛ «غائب» بكلمة كاملة؛ إطار التعديل اليدوي؛ نقطة الاستقطاع المقترح/المُلغى', () => {
@@ -64,6 +65,17 @@ describe('MonthGrid (تفصيلي)', () => {
     expect(screen.getByText('ملخص الشهر')).toBeInTheDocument()
     // الأحرف الأولى للموظف
     expect(within(screen.getByTestId('grid-row-E1')).getByText('اع')).toBeInTheDocument()
+  })
+  it('يكشف صف المصدر اليدوي عن كونه كشف البوابة لا تعديل غرفة العمليات', () => {
+    render(<MonthGrid rows={[manualSheetRow]} mode="detailed" />)
+    const cellButton = screen.getByTestId(`cell-btn-${days[0]}`)
+    expect(cellButton).toHaveAttribute('data-source', 'manual-sheet')
+    expect(cellButton.className).toContain('ring-sky-500')
+    expect(cellButton.getAttribute('aria-label')).toContain('سُجّل من كشف الحضور اليدوي')
+    render(<GridLegend mode="detailed" />)
+    const legend = screen.getByTestId('grid-legend-detailed')
+    expect(legend).toHaveTextContent('كشف حضور يدوي')
+    expect(legend).toHaveTextContent('تعديل غرفة العمليات')
   })
   it('المعتمد: حاضر/غائب/مجاز فقط وأرقام الملخص', () => {
     render(<MonthGrid rows={rows} mode="approved" />)

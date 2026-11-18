@@ -21,7 +21,7 @@ vi.mock('@features/data-retention/hooks', () => ({
   useRunGpsHistoryPurge: () => ({ mutate: h.gpsRun, isPending: false }),
 }))
 import DataRetentionPage from '@portals/it/pages/DataRetention/DataRetentionPage'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/it/routes'
 import sidebar from '@/i18n/ar/sidebar.json'
@@ -50,7 +50,7 @@ describe('DataRetentionPage (00325)', () => {
 
   it('مسجّلة كمسار IT وفي القائمة تحت وحدة الأرشيف مع ترجمة عربية (الوحدات تبقى 12)', () => {
     expect(customRoutes.some((r) => r.path === 'data-retention')).toBe(true)
-    const units = PORTAL_UNITS[PORTALS.IT]
+    const units = PORTAL_UNITS[PORTALS.IT].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة بالتفعيل) خارج العدّ
     expect(units).toHaveLength(13)   // 00398: + التصفير · 12 (00393: + القطاعات والمناطق)
     const archive = units.find((u) => u.path === '/it/archive')
     expect(archive?.children?.find((c) => c.path === '/it/data-retention')?.labelKey).toBe('nav.data_retention')

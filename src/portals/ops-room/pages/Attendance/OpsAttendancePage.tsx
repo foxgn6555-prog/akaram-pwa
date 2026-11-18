@@ -20,6 +20,9 @@ import {
 } from '@features/hr'
 import type { AttendanceDayRow as AttendanceDay, AttendanceStatus } from '@features/hr'
 import { buildAttendanceApprovedWorkbook, buildAttendanceDetailedWorkbook, downloadWorkbook, fmtHM } from '@features/hr/lib/attendanceExcel'
+import { Link } from 'react-router'
+import { useManualPendingSummary } from '@features/attendance-manual'   // الحضور اليدوي: أيام بانتظار الكشف تمنع اعتماد الشهر
+import { isManualSheetReason } from '@sdk/attendance-manual.sdk'
 import { Button } from '@components/ui'
 import { Icon } from '@components/ui/Icon/Icon'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -91,11 +94,20 @@ export default function OpsAttendancePage() {
   const monthExport = exports.find((x) => x.period_month === month)
   const { data: exportStatus } = useMonthExportStatus(month)
   const evaluateMonth = useEvaluateMonth()
+  const manualPendingQuery = useManualPendingSummary(month)
+  const manualPending = manualPendingQuery.data
+  const manualPendingTotal = manualPending?.total ?? 0
   const counts = useMemo(() => Object.fromEntries(ATTENDANCE_STATUS_ORDER.map((s) => [s, rows.filter((r) => r.status === s).length])) as Record<AttendanceStatus, number>, [rows])
   const locked = monthExport?.status === 'approved' || !!conf?.locked
   const confirmed = !!conf?.confirmed && !locked
   /** التعديل مقفل بعد اعتماد المالية، أو بعد اعتماد الحضورية (حتى إعادة الفتح) */
   const frozen = locked || confirmed
+  /** الحضور اليدوي: الخادم يمنع الاعتماد بالرقم نفسه (ATT_MANUAL_SHEETS_PENDING) فلا نعرض زراً مصيره الفشل */
+  const manualBlocked = manualPendingQuery.isLoading || manualPendingQuery.isError || manualPendingTotal > 0
+  const manualBlockedTitle = manualPendingTotal > 0
+    ? `لا اعتماد قبل اكتمال كشف الحضور اليدوي — ${manualPendingTotal} يوم-موظف بانتظار الكشف`
+    : manualPendingQuery.isError ? 'تعذر التحقق من اكتمال كشوف الحضور اليدوي — لن يتاح الاعتماد قبل نجاح التحقق'
+      : 'جارٍ التحقق من اكتمال كشوف الحضور اليدوي'
   const proposedTotals = useMemo(() => rows.reduce((a, r) => {
     if (r.deduction_waived) { a.waived += 1; return a }
     const m = r.proposed_deduction_minutes ?? 0, d = r.proposed_deduction_days ?? 0
@@ -111,10 +123,13 @@ export default function OpsAttendancePage() {
       { key: 'proposed', ok: proposedTotals.count === 0, label: proposedTotals.count === 0 ? 'لا استقطاعات مقترحة معلّقة' : `${proposedTotals.count} استقطاع مقترح`, hint: proposedTotals.count === 0 ? scope : `${scope} — للاطلاع؛ الإعفاء أو التخفيض من صلاحية معاون المدير المفوض بعد التصدير`, go: () => setPanel('deductions'), goLabel: 'عرض' },
       { key: 'scope', ok: mode === 'month', label: mode === 'month' ? 'عرض الشهر كاملاً' : 'العرض الحالي يوم واحد', hint: mode === 'month' ? 'الأرقام أعلاه تغطي الشهر كله' : 'انتقل إلى عرض الشهر للتحقق من كامل الشهر قبل الاعتماد', go: () => setMode('month'), goLabel: 'عرض الشهر' },
     ]
+    if (manualPendingTotal > 0) {
+      items.unshift({ key: 'manual-sheets', ok: false, label: `${manualPendingTotal} يوم-موظف بانتظار الكشف اليدوي`, hint: 'بوابة تعطلت بصمتها — لا تُحتسب غياباً ولا استقطاعاً، لكن الاعتماد ممنوع حتى يكتمل الكشف', go: () => document.querySelector('[data-testid="ops-manual-pending-banner"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }), goLabel: 'التفاصيل' })
+    }
     const open = items.filter((i) => !i.ok).length
     return { items, open, ok: open === 0 }
-  }, [exportStatus, counts, proposedTotals, mode, day, month, evaluateMonth])
-  const gridTotals = useMemo(() => grid.reduce((a, r) => { a.emp += 1; a.present += r.present_days + r.late_days + r.early_days + r.incomplete_days; a.absent += r.absent_days; a.leave += r.leave_days; a.minutes += r.worked_minutes; a.incomplete += r.incomplete_days; a.unevaluated += r.unevaluated_days; a.manual += r.days.filter((c) => c.src === 'manual').length; return a }, { emp: 0, present: 0, absent: 0, leave: 0, minutes: 0, incomplete: 0, unevaluated: 0, manual: 0 }), [grid])
+  }, [exportStatus, counts, proposedTotals, mode, day, month, evaluateMonth, manualPendingTotal])
+  const gridTotals = useMemo(() => grid.reduce((a, r) => { a.emp += 1; a.present += r.present_days + r.late_days + r.early_days + r.incomplete_days; a.absent += r.absent_days; a.leave += r.leave_days; a.minutes += r.worked_minutes; a.incomplete += r.incomplete_days; a.unevaluated += r.unevaluated_days; a.manual += r.days.filter((c) => c.src === 'manual' && !isManualSheetReason(c.note)).length; a.sheet += r.days.filter((c) => c.src === 'manual' && isManualSheetReason(c.note)).length; return a }, { emp: 0, present: 0, absent: 0, leave: 0, minutes: 0, incomplete: 0, unevaluated: 0, manual: 0, sheet: 0 }), [grid])
   const branchLabel = branches.find((b) => b.id === branchId)?.name ?? 'كل الفروع'
   const departmentLabel = departments.find((d) => d.id === departmentId)?.name ?? 'كل الأقسام'
   const doExport = async () => {
@@ -142,7 +157,7 @@ export default function OpsAttendancePage() {
           <MonthStateChip conf={conf} />
           {locked && <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-white" data-testid="att-locked">🔒 الشهر مقفل باعتماد المالية</span>}
           {stage === 'detailed' && !locked && (
-            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={!canConfirm.allowed || (confirmed && (conf?.pending_auto ?? 0) === 0)} data-testid="att-confirm-open" title={!canConfirm.allowed ? canConfirm.title : confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
+            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={!canConfirm.allowed || manualBlocked || (confirmed && (conf?.pending_auto ?? 0) === 0)} data-testid="att-confirm-open" title={!canConfirm.allowed ? canConfirm.title : manualBlocked ? manualBlockedTitle : confirmed ? 'معتمد — يمكن إعادة الاعتماد عند وجود تغييرات معلّقة' : readiness.ok ? '' : `${readiness.open} نقاط تحتاج مراجعة — يمكنك الاعتماد بعد الاطلاع عليها`}>
               <Icon name="check" size={14} /> {confirmed ? 'معتمد ✓' : conf?.status === 'reopened' ? 'إعادة اعتماد حضورية الشهر' : 'اعتماد حضورية الشهر'}
             </Button>
           )}
@@ -168,7 +183,7 @@ export default function OpsAttendancePage() {
 
       {stage === 'detailed' && (
         <>
-          {(confirmed || (conf?.status === 'reopened' && !locked) || ((exportStatus?.unevaluated_days ?? 0) > 0 && !locked) || locked) && (
+          {(confirmed || (conf?.status === 'reopened' && !locked) || ((exportStatus?.unevaluated_days ?? 0) > 0 && !locked) || (manualPendingTotal > 0 && !locked) || locked) && (
             <SectionCard title={`حالة شهر ${month.slice(0, 7)}`} testId="att-month-status">
               {locked && <StatusLine tone="slate" icon="lock" testId="att-locked-line">اعتمدت المالية كشف هذا الشهر وأُقفل نهائياً — العرض للاطلاع فقط ولا يمكن التعديل أو إعادة الفتح.</StatusLine>}
               {confirmed && (
@@ -179,6 +194,13 @@ export default function OpsAttendancePage() {
               {conf?.status === 'reopened' && !locked && (
                 <StatusLine tone="amber" icon="alert-triangle" role="status" testId="att-reopened-banner">
                   <b>الشهر مُعاد فتحه</b> بواسطة {conf.reopened_by_name ?? '—'} — السبب: {conf.reopen_reason} · أكمل التعديلات ثم أعد الاعتماد.
+                </StatusLine>
+              )}
+              {manualPendingTotal > 0 && !locked && (
+                <StatusLine tone="amber" icon="alert-triangle" role="status" testId="ops-manual-pending-banner" action={<Link to="/ops-room/manual-attendance" className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-bold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100" data-testid="ops-manual-pending-open">فتح الحضور اليدوي</Link>}>
+                  <b>{manualPendingTotal} يوم-موظف بانتظار كشف الحضور اليدوي</b> في شهر {month.slice(0, 7)}
+                  {manualPending && manualPending.items.length > 0 && <> ({manualPending.items.map((i) => `${i.portal_label}: ${i.days} يوم`).join(' · ')})</>}
+                  {' '}— بصمتها معطّلة والكشف لم يكتمل؛ لا تُحتسب غياباً ولا استقطاعاً، لكنها <b>تمنع اعتماد حضورية الشهر</b> حتى تُسجَّل (أصحاب البوابة أو غرفة العمليات).
                 </StatusLine>
               )}
               {(exportStatus?.unevaluated_days ?? 0) > 0 && !locked && (
@@ -302,7 +324,7 @@ export default function OpsAttendancePage() {
                           <span className="block max-w-[10rem] truncate text-[10px] font-bold text-slate-500" title={r.deduction_reason} data-testid={`ops-unpaid-${r.employee_number}-${r.work_date}`}>{r.deduction_reason}</span>
                         ) : '—'}
                       </td>
-                      <td data-label="الحالة" className="p-2 text-center"><StatusBadge status={r.status} source={r.source} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
+                      <td data-label="الحالة" className="p-2 text-center"><StatusBadge status={r.status} source={r.source} editReason={r.edit_reason} />{r.edit_reason && <p className="mt-0.5 max-w-[10rem] truncate text-[10px] text-slate-500" title={r.edit_reason}>{r.edit_reason}</p>}</td>
                       <td data-label="إجراءات" className="workspace-actions p-2">
                         <div className="flex justify-center gap-1">
                           <button type="button" className="rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 disabled:opacity-40" onClick={() => setEditing(r)} disabled={frozen || !canEditRow(r)} title={confirmed ? 'الشهر معتمد — أعد فتحه أولاً' : !canEditRow(r) ? 'التعديل المباشر للبصمة الناقصة فقط؛ بلا بصمة يُرسل طلب للموافقة' : ''} data-testid={`ops-edit-${r.employee_number}-${r.work_date}`}>تعديل</button>
@@ -410,7 +432,8 @@ export default function OpsAttendancePage() {
                 </ul>
               )}
               {gridTotals.manual > 0 && <p className="text-slate-500">{gridTotals.manual} يوم عدّلته غرفة العمليات بسبب موثّق.</p>}
-              <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)}>إلغاء</Button><Button size="sm" isLoading={confirmMonth.isPending} disabled={!canConfirm.allowed || confirmMonth.isPending} title={canConfirm.title} onClick={() => void doConfirm()} data-testid="att-confirm-save">اعتماد الشهر</Button></div>
+              {gridTotals.sheet > 0 && <p className="text-slate-500" data-testid="cf-manual-sheet">{gridTotals.sheet} يوم سُجّل من كشف الحضور اليدوي (تعطل البصمة).</p>}
+              <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => setConfirmOpen(false)}>إلغاء</Button><Button size="sm" isLoading={confirmMonth.isPending} disabled={!canConfirm.allowed || confirmMonth.isPending || manualBlocked} title={manualBlocked ? manualBlockedTitle : canConfirm.title} onClick={() => void doConfirm()} data-testid="att-confirm-save">اعتماد الشهر</Button></div>
             </div>
           )}
         </Overlay>

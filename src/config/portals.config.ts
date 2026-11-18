@@ -147,8 +147,8 @@ export const portalThemes: Record<PortalId, PortalTheme> = {
   },
 }
 
-/** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
-export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
+/** وحدات كل بوابة (قبل إضافة وحدة الحضور اليدوي العامة) */
+const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
   [PORTALS.PUBLIC]: [],
 
   // بوابة المتعهد (00258): الرئيسية · إثبات التواجد والعدد · إرسال الصور
@@ -275,6 +275,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
         { path: '/it/integrations/biometric', labelKey: 'nav.biometric', icon: 'fingerprint' },
         { path: '/it/integrations/biometric/unmatched', labelKey: 'nav.hr_unmatched_people', icon: 'alert-triangle' },
         { path: '/it/integrations/biometric/attendance-audit', labelKey: 'nav.hr_attendance_audit', icon: 'clipboard' },
+        { path: '/it/integrations/attendance-manual', labelKey: 'nav.it_attendance_manual', icon: 'fingerprint' },   // الحضور اليدوي عند تعطل البصمة (التفعيل/الإيقاف)
         { path: '/it/integrations/gps', labelKey: 'nav.gps_tracking', icon: 'map-pin' },
         { path: '/it/integrations/gps-health', labelKey: 'nav.gps_health', icon: 'activity' },   // 00211
         { path: '/it/integrations/hr-policy', labelKey: 'nav.hr_policy', icon: 'calendar' },
@@ -650,6 +651,29 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/follow-up/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 }
+
+/**
+ * الحضور اليدوي البديل عند تعطل جهاز البصمة: صفحة واحدة عامة تُبنى مرة وتُضاف لكل بوابة تملك موظفين (كل البوابات عدا العامة وبوابة المتعهد).
+ * تظهر في الشريط الجانبي فقط ما دام للبوابة تفعيل ساريٍ أو كشف ناقص (features/attendance-manual) — الوحدة نفسها ثابتة في كتالوج الصلاحيات.
+ */
+export const MANUAL_ATTENDANCE_SEGMENT = 'manual-attendance'
+export const MANUAL_ATTENDANCE_PORTALS: readonly PortalId[] = [
+  PORTALS.HR, PORTALS.MANAGER, PORTALS.FINANCE, PORTALS.IT, PORTALS.ADMIN, PORTALS.FIELD_OPS, PORTALS.ADMIN_OPS, PORTALS.MAINTENANCE,
+  PORTALS.TRANSFER_STATION, PORTALS.EXECUTIVE, PORTALS.DEPUTY, PORTALS.OPS_ROOM, PORTALS.OPS_ROOM_MANAGER, PORTALS.COMPLAINTS, PORTALS.MEDIA,
+  PORTALS.CENTRAL_GARAGE, PORTALS.FOLLOW_UP,
+]
+export const isManualAttendancePath = (path: string): boolean => path.endsWith(`/${MANUAL_ATTENDANCE_SEGMENT}`)
+
+function withManualAttendance(base: Record<PortalId, readonly SidebarUnit[]>): Record<PortalId, readonly SidebarUnit[]> {
+  const out = { ...base }
+  for (const portal of MANUAL_ATTENDANCE_PORTALS) {
+    out[portal] = [...base[portal], { path: `/${portal}/${MANUAL_ATTENDANCE_SEGMENT}`, labelKey: 'nav.manual_attendance', icon: 'fingerprint' }]
+  }
+  return out
+}
+
+/** وحدات كل بوابة — تظهر في شريطها الجانبي حصراً */
+export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = withManualAttendance(BASE_PORTAL_UNITS)
 
 export const portalsConfig = {
   definitions: PORTAL_DEFINITIONS,

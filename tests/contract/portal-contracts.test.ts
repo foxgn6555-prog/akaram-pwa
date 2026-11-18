@@ -3,7 +3,7 @@
  * يتحقق من اتساق: الوحدات ↔ المسارات ↔ الصفحات ↔ الـ RPC
  */
 import { describe, it, expect } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { customRoutes } from '@portals/it/routes'
 import { UNIT_LIBRARY } from '@features/portals/types'
@@ -14,8 +14,9 @@ const allRoutes = customRoutes.map((r) => r.path).filter(Boolean) as string[]
 
 describe('⚓ عقد البوابة التقنية', () => {
   it('الوحدات الاثنتا عشرة مسجلة بالترتيب الصحيح (00275: + دليل التشغيل التقني · 00393: + القطاعات والمناطق)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(13)   // 00398: + التصفير
-    const labels = PORTAL_UNITS[PORTALS.IT].map((u) => u.labelKey)
+    const fixed = PORTAL_UNITS[PORTALS.IT].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
+    expect(fixed).toHaveLength(13)   // 00398: + التصفير
+    const labels = fixed.map((u) => u.labelKey)
     expect(labels).toEqual([
       'nav.dashboard',
       'nav.user_management',
@@ -35,7 +36,7 @@ describe('⚓ عقد البوابة التقنية', () => {
 
   it('كل وحدة لها route في customRoutes', () => {
     const expectedPaths = PORTAL_UNITS[PORTALS.IT]
-      .filter((u) => u.path !== '/it')
+      .filter((u) => u.path !== '/it' && !isManualAttendancePath(u.path))   // الوحدة العامة تضيف مسارها buildPortalRoutes لا customRoutes
       .map((u) => u.path.replace('/it/', ''))
     for (const expected of expectedPaths) {
       expect(allRoutes, `الوحدة ${expected} بلا route`).toContain(expected)

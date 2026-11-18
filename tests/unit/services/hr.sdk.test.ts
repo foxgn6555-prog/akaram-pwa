@@ -98,8 +98,13 @@ describe('hr.sdk — المالية', () => {
 
 describe('hr.sdk — الأخطاء', () => {
   it('يترجم رموز HR_* إلى رسائل عربية ويترك النص المجهول كما هو', () => {
-    for (const code of Object.keys(HR_ERROR_MESSAGES)) expect(hrErrorMessage(new Error(`x ${code} y`))).toBe(HR_ERROR_MESSAGES[code])
+    // الرسائل ذات {n} يملؤها الرقم الذي يلي «الرمز: » (وبلا رقم تُوضع «—» لا العلامة الخام)
+    for (const code of Object.keys(HR_ERROR_MESSAGES)) expect(hrErrorMessage(new Error(`x ${code} y`))).toBe(HR_ERROR_MESSAGES[code]!.replace('{n}', '—'))
     expect(hrErrorMessage('boom')).toBe('boom')
+  })
+  it('ATT_MANUAL_SHEETS_PENDING: عدد الأيام المعلّقة يظهر في رسالة اعتماد الشهر', () => {
+    expect(hrErrorMessage(new Error('P0001: ATT_MANUAL_SHEETS_PENDING: 12'))).toContain('(عددها: 12)')
+    expect(hrErrorMessage(new Error('ATT_MANUAL_SHEETS_PENDING'))).toContain('(عددها: —)')
   })
   it('رسالة قفل الشهر بعد اعتماد المالية موجودة', () => {
     expect(hrErrorMessage(new Error('HR_MONTH_LOCKED'))).toMatch(/مقفول/)

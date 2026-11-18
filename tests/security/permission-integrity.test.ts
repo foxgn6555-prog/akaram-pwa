@@ -2,7 +2,7 @@
  * ⚑ Permission Integrity (نمط Kyvzon) — يتحقق أن الصلاحيات لا تنكسر
  */
 import { describe, it, expect } from 'vitest'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 
 describe('⚓ تكامل الصلاحيات', () => {
@@ -17,7 +17,7 @@ describe('⚓ تكامل الصلاحيات', () => {
   })
 
   it('بوابة IT بها 12 وحدة (الأكثر شمولية؛ 00275: + دليل التشغيل التقني)', () => {
-    expect(PORTAL_UNITS[PORTALS.IT]).toHaveLength(13)   // 00398: + التصفير
+    expect(PORTAL_UNITS[PORTALS.IT].filter((u) => !isManualAttendancePath(u.path))).toHaveLength(13)   // 00398: + التصفير · الحضور اليدوي (وحدة عامة بالتفعيل) مستثناة — يغطيها attendance-manual-routes
   })
 
   it('كل بوابة لها على الأقل وحدة واحدة', () => {

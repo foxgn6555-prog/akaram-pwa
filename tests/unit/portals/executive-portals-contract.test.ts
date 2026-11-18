@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { RouteObject } from 'react-router'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { PORTAL_UNITS, isManualAttendancePath } from '@config/portals.config'
 import { PORTALS } from '@lib/constants/portals.constants'
 import { buildPortalRoutes, ANNOUNCEMENT_INBOX_PATH } from '@router/unit-routes'
 import { resolvePortal } from '@router/portal.router'
@@ -18,6 +18,8 @@ import { customRoutes as financeRoutes } from '@portals/finance/routes'
 import sidebar from '@/i18n/ar/sidebar.json'
 
 const paths = (routes: RouteObject[]) => new Set(routes.flatMap((r) => (r.path !== undefined ? [r.path] : [])))
+/** وحدات البوابة بدون «الحضور اليدوي» (وحدة عامة تظهر بالتفعيل فقط وتسجّلها buildPortalRoutes لا customRoutes — يغطيها attendance-manual-routes) */
+const baseline = (portal: keyof typeof PORTAL_UNITS) => PORTAL_UNITS[portal].filter((u) => !isManualAttendancePath(u.path))
 const TECH = ['portals', 'roles', 'settings', 'audit-logs', 'backup', 'database', 'permissions', 'integrations', 'updates', 'console']
 
 describe('بوابات الإدارة العليا', () => {
@@ -30,7 +32,7 @@ describe('بوابات الإدارة العليا', () => {
 
   for (const c of cases) {
     it(`${c.portal}: الشريط يبدأ بالرئيسية ثم التقارير، ويحوي التبليغات، وكل مسار له صفحة حقيقية`, () => {
-      const units = PORTAL_UNITS[c.portal]
+      const units = baseline(c.portal)
       expect(units[0]!.path).toBe(c.base)
       expect(units[1]!.path).toBe(`${c.base}/reports`)
       expect(units[1]!.labelKey).toBe('nav.exec_reports')
@@ -55,7 +57,7 @@ describe('بوابات الإدارة العليا', () => {
     // 2026-11-17: أُضيفت «طلبات الصرف» (/admin/disbursements + المعاينة) — قرار المستخدم: رواتب الموظفين وأجور المتعهدين تمرّ بالمدير المفوض ثم تصرفها المالية
     expect(rel.sort()).toEqual(['', 'announcements', 'approval-performance', 'approvals', 'company', 'disbursements', 'disbursements/:id', 'disclosures', 'procedures', 'reports'])
     for (const t of TECH) expect(rel).not.toContain(t)
-    const labels = PORTAL_UNITS[PORTALS.ADMIN].map((u) => (sidebar.nav as Record<string, string>)[u.labelKey.replace('nav.', '')])
+    const labels = baseline(PORTALS.ADMIN).map((u) => (sidebar.nav as Record<string, string>)[u.labelKey.replace('nav.', '')])
     expect(labels).toEqual(['الرئيسية', 'التقارير', 'التبليغات', 'طلبات الموافقة', 'طلبات الصرف', 'أداء الموافقات', 'الإجراءات', 'الكشوفات', 'بيانات الشركة'])
   })
 
@@ -95,8 +97,8 @@ describe('بوابات الإدارة العليا', () => {
   })
 
   it('00220 — ترتيب الشريط الجانبي: التنفيذي كالمفوض ثم القاصة؛ المعاون: الميدان ثم المكافآت ثم الموافقات والإجراءات؛ وأيقونات بلا تكرار داخل البوابة', () => {
-    expect(PORTAL_UNITS[PORTALS.EXECUTIVE].map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/letters', '/executive/events', '/executive/behavior', '/executive/stop-hotspots', '/executive/attendance-edits'])
-    expect(PORTAL_UNITS[PORTALS.DEPUTY].map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/rented-tax', '/deputy/overtime', '/deputy/attendance-edits', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/letters', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior', '/deputy/stop-hotspots'])
+    expect(baseline(PORTALS.EXECUTIVE).map((u) => u.path)).toEqual(['/executive', '/executive/reports', '/executive/announcements', '/executive/approvals', '/executive/procedures', '/executive/receivables', '/executive/gps-payments', '/executive/rewards', '/executive/letters', '/executive/events', '/executive/behavior', '/executive/stop-hotspots', '/executive/attendance-edits'])
+    expect(baseline(PORTALS.DEPUTY).map((u) => u.path)).toEqual(['/deputy', '/deputy/reports', '/deputy/announcements', '/deputy/statements', '/deputy/deductions', '/deputy/rented-tax', '/deputy/overtime', '/deputy/attendance-edits', '/deputy/sector-supplies', '/deputy/station-folders', '/deputy/data-analysis', '/deputy/rewards', '/deputy/letters', '/deputy/approvals', '/deputy/procedures', '/deputy/behavior', '/deputy/stop-hotspots'])
     for (const portal of [PORTALS.ADMIN, PORTALS.EXECUTIVE, PORTALS.DEPUTY]) {
       const icons = PORTAL_UNITS[portal].map((u) => u.icon)
       expect(new Set(icons).size, `أيقونات ${portal}`).toBe(icons.length)

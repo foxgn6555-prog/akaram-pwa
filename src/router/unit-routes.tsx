@@ -7,12 +7,13 @@
 import { lazy } from '@lib/router/lazy'
 import { Suspense, type ReactNode } from 'react'
 import { Navigate, matchPath, type RouteObject } from 'react-router'
-import { PORTAL_UNITS } from '@config/portals.config'
+import { MANUAL_ATTENDANCE_PORTALS, MANUAL_ATTENDANCE_SEGMENT, PORTAL_UNITS } from '@config/portals.config'
 import type { PortalId } from '@lib/constants/portals.constants'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 
 const ApprovalInbox = lazy(() => import('@portals/admin-ops/pages/Requests/TeamRequestsPage'))
 const UnitPlaceholder = lazy(() => import('@components/layout/UnitPlaceholder'))
+const ManualAttendancePage = lazy(() => import('@features/attendance-manual/pages/ManualAttendancePage'))   // الحضور اليدوي: صفحة واحدة عامة لكل البوابات
 const NotFoundPage = lazy(() => import('@portals/public/pages/NotFound/NotFoundPage'))
 const AnnouncementInbox = lazy(() => import('@components/executive/AnnouncementInbox'))
 const AnnouncementDetail = lazy(() => import('@components/executive/AnnouncementInbox').then((m) => ({ default: m.AnnouncementDetail })))
@@ -41,6 +42,11 @@ export function buildPortalRoutes(
   // أي حساب مُعيّن في سلسلة يحتاج وارداً في بوابته، مع بقاء المسارات المخصصة كما هي.
   if (portal !== 'public' && !byRel.has('approvals')) {
     byRel.set('approvals', { path: 'approvals', element: suspense(<ApprovalInbox title="طلبات الموافقة" />) })
+  }
+
+  // الحضور اليدوي عند تعطل البصمة: صفحة عامة مبنية مرة واحدة تُسجَّل لكل بوابة تملك موظفين (ظهورها في الشريط مشروط بتفعيل ساريٍ)
+  if ((MANUAL_ATTENDANCE_PORTALS as readonly PortalId[]).includes(portal) && !byRel.has(MANUAL_ATTENDANCE_SEGMENT)) {
+    byRel.set(MANUAL_ATTENDANCE_SEGMENT, { path: MANUAL_ATTENDANCE_SEGMENT, element: suspense(<ManualAttendancePage portal={portal} />) })
   }
 
   const children: RouteObject[] = []
