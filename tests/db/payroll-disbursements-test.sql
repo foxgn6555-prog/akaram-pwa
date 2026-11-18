@@ -369,11 +369,12 @@ do $$ declare nall int; nf int; ne int; msg text; begin
   assert not has_function_privilege('authenticated', 'app.disbursement_pay__raw(uuid,text)', 'execute') and not has_function_privilege('authenticated', 'app.disbursement_open_payroll(uuid)', 'execute')
      and not has_function_privilege('authenticated', 'app.disbursement_decide__raw(uuid,boolean,text)', 'execute'), 'PD10 internal functions are not callable by authenticated';
   select count(*) into nall from public.payroll_disbursements;
+  -- الهوية تُضبط بالإعدادين معاً: auth.user_id (محاكاة محلية) و request.jwt.claims (ما تقرؤه auth.uid() في Supabase الحقيقي)
   set local role authenticated;
-  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000002', true); select count(*) into nf from public.payroll_disbursements;
-  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000006', true); select count(*) into ne from public.payroll_disbursements;
+  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000002', true); perform set_config('request.jwt.claims', json_build_object('sub', 'c1d00000-0000-4000-8000-000000000002', 'role', 'authenticated')::text, true); select count(*) into nf from public.payroll_disbursements;
+  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000006', true); perform set_config('request.jwt.claims', json_build_object('sub', 'c1d00000-0000-4000-8000-000000000006', 'role', 'authenticated')::text, true); select count(*) into ne from public.payroll_disbursements;
   assert nf = nall and nall >= 5 and ne = 0, 'PD10 RLS: finance sees all requests, an employee sees none (' || nf || '/' || nall || '/' || ne || ')';
-  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000002', true);
+  perform set_config('auth.user_id', 'c1d00000-0000-4000-8000-000000000002', true); perform set_config('request.jwt.claims', json_build_object('sub', 'c1d00000-0000-4000-8000-000000000002', 'role', 'authenticated')::text, true);
   begin insert into public.payroll_disbursements (request_no, kind, period_month, net_total) values ('PD-HACK', 'contractor_wages', '2030-01-01', 5); msg := null; exception when others then msg := sqlerrm; end;
   assert msg ~* 'permission denied|row-level security', 'PD10 direct insert denied: ' || coalesce(msg, 'allowed');
   begin update public.payroll_disbursements set status = 'paid'; msg := null; exception when others then msg := sqlerrm; end;

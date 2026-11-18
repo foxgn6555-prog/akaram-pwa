@@ -59,8 +59,8 @@ await run('fixtures', `
   insert into public.manager_profiles (user_id, shift, sectors) values ('${MGR}', 'morning', '{3}');
   insert into public.contractor_profiles (user_id, manager_user_id, sector_id, shift) values ('${CT}', '${MGR}', 3, 'morning');`);
 
-// جلسة بهوية مستخدم (حارس التكرار معطّل: نريد اختبار القفل لا النافذة)
-const mk = async (uid) => { const c = conn(); await c.connect(); await c.query(`select set_config('auth.user_id', $1, false), set_config('app.dedup_window_seconds', '0', false)`, [uid]); return c; };
+// جلسة بهوية مستخدم (حارس التكرار معطّل: نريد اختبار القفل لا النافذة). الهوية بالإعدادين: auth.user_id (قاعدة المحاكاة المضمّنة) و request.jwt.claims (ما تقرؤه auth.uid() في Supabase الحقيقي)
+const mk = async (uid) => { const c = conn(); await c.connect(); await c.query(`select set_config('auth.user_id', $1, false), set_config('request.jwt.claims', json_build_object('sub', $1::text, 'role', 'authenticated')::text, false), set_config('app.dedup_window_seconds', '0', false)`, [uid]); return c; };
 const setBalance = async (target) => {
   const cur = await num('select app.treasury_balance()');
   if (target === cur) return;
