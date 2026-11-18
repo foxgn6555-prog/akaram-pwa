@@ -1,8 +1,9 @@
-/** بوابة مسؤول القاطع — التقارير: المتعهدون ومسؤولو الأقسام فقط (حضور العمال، إثبات التواجد، خارج النطاق، الخروجات، إجازات المسؤولين). لا بيانات مالية. مصمم للهاتف. */
+/** بوابة مسؤول القاطع — التقارير: المتعهدون ومسؤولو الأقسام فقط (إثبات التواجد، خارج النطاق، الخروجات، إجازات المسؤولين). لا بيانات مالية. مصمم للهاتف.
+ *  حضور/غياب العمال (المؤشرات والرسم وأعمدة الجداول) أُخفي بقرار المالك: مصدره contractor_worker_attendance ولا مسار كتابة له (صفر دائماً). */
 import { useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useSectorReports } from '@features/sector-manager/hooks'
-import { PARENT_AR, SHIFT_AR, isoDay, pct } from '@features/sector-manager/format'
+import { PARENT_AR, SHIFT_AR, isoDay } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useParentSectors } from '@features/sectors'
@@ -18,11 +19,9 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
   const r = rep.data ? { ...rep.data, contractors: rep.data.contractors.filter((c) => parent === 'all' || c.parent_sector === parent), managers: rep.data.managers.filter((m) => parent === 'all' || m.parent_sector === parent) } : undefined
   return (
     <div className="space-y-4 pb-4" data-testid="sm-reports">
-      <ExecPageHeader icon="bar-chart" title="التقارير" subtitle={`${fieldOps ? 'المتعهدون ومسؤولو الأقسام في كل القواطع' : 'المتعهدون ومسؤولو الأقسام في قواطعك'}: حضور، تواجد، خروجات، إجازات — من ${from} إلى ${to}`}
+      <ExecPageHeader icon="bar-chart" title="التقارير" subtitle={`${fieldOps ? 'المتعهدون ومسؤولو الأقسام في كل القواطع' : 'المتعهدون ومسؤولو الأقسام في قواطعك'}: تواجد، خروجات، إجازات — من ${from} إلى ${to}`}
         stats={r ? [
-          { label: 'حضور عمال', value: r.totals.present, tone: 'green' },
-          { label: 'غياب عمال', value: r.totals.absent, tone: r.totals.absent ? 'red' : 'plain' },
-          { label: 'نسبة الحضور', value: `${pct(r.totals.present, r.totals.present + r.totals.absent)}%`, tone: 'gold' },
+          { label: 'إثباتات تواجد', value: r.totals.presence_proofs, tone: 'green' },
           { label: 'خارج النطاق', value: r.totals.out_of_zone, tone: r.totals.out_of_zone ? 'red' : 'plain' },
         ] : undefined} />
       {fieldOps && (
@@ -43,31 +42,12 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
       </section>
       {rep.isLoading || !r ? <LoadingSpinner /> : (
         <>
-          <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-testid="rep-totals">
-            <Kpi label="حضور عمال" value={r.totals.present} tone="emerald" />
-            <Kpi label="غياب عمال" value={r.totals.absent} tone="rose" />
-            <Kpi label="نسبة الحضور" value={`${pct(r.totals.present, r.totals.present + r.totals.absent)}%`} tone="slate" />
+          <section className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="rep-totals">
             <Kpi label="إثباتات تواجد" value={r.totals.presence_proofs} tone="sky" />
             <Kpi label="خارج النطاق" value={r.totals.out_of_zone} tone={r.totals.out_of_zone ? 'rose' : 'slate'} />
             <Kpi label="خروجات آليات" value={r.totals.trips} tone="slate" />
           </section>
 
-          <section className="rounded-2xl border bg-white p-3 shadow-sm">
-            <h2 className="text-sm font-black">حضور/غياب العمال يومياً</h2>
-            <div className="mt-2 h-56" data-testid="chart-attendance">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={r.series} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="d" tickFormatter={(v: string) => v.slice(5)} fontSize={10} interval="preserveStartEnd" />
-                  <YAxis fontSize={10} allowDecimals={false} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="present" name="حاضر" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="absent" name="غائب" stackId="a" fill="#e11d48" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
           <section className="rounded-2xl border bg-white p-3 shadow-sm">
             <h2 className="text-sm font-black">إثبات تواجد المتعهدين يومياً</h2>
             <div className="mt-2 h-44" data-testid="chart-proofs">
@@ -94,11 +74,10 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
                 {r.contractors.map((c) => (
                   <li key={c.user_id} className="rounded-xl border p-3 text-sm" data-testid={`rep-c-${c.user_id}`}>
                     <div className="flex items-center justify-between"><b>{c.name}</b><span className="text-[11px] text-slate-500">{c.area} · {PARENT_AR[c.parent_sector]}</span></div>
-                    <div className="text-[11px] text-slate-500">مسؤول القسم: {c.manager_name} · {SHIFT_AR[c.shift] ?? c.shift} · {c.workers} عاملاً</div>
-                    <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[11px]">
-                      <Mini label="حضور" v={c.present} cls="text-emerald-700" /><Mini label="غياب" v={c.absent} cls="text-rose-700" /><Mini label="أيام إثبات" v={`${c.proof_days}/${r.days}`} cls="text-[#0b3d6b]" /><Mini label="خارج النطاق" v={c.out_of_zone_days} cls={c.out_of_zone_days ? 'text-rose-700' : 'text-slate-600'} />
+                    <div className="text-[11px] text-slate-500">مسؤول القسم: {c.manager_name} · {SHIFT_AR[c.shift] ?? c.shift}</div>
+                    <div className="mt-2 grid grid-cols-2 gap-1 text-center text-[11px]">
+                      <Mini label="أيام إثبات" v={`${c.proof_days}/${r.days}`} cls="text-[#0b3d6b]" /><Mini label="خارج النطاق" v={c.out_of_zone_days} cls={c.out_of_zone_days ? 'text-rose-700' : 'text-slate-600'} />
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-500" style={{ width: `${pct(c.present, c.present + c.absent)}%` }} /></div>
                   </li>
                 ))}
               </ul>
@@ -109,8 +88,8 @@ export default function SectorReportsPage({ fieldOps = false }: { fieldOps?: boo
                   <li key={m.user_id} className="rounded-xl border p-3 text-sm" data-testid={`rep-m-${m.user_id}`}>
                     <div className="flex items-center justify-between"><b>{m.name}</b><span className="text-[11px] text-slate-500">{PARENT_AR[m.parent_sector]} · {SHIFT_AR[m.shift] ?? m.shift}</span></div>
                     <div className="text-[11px] text-slate-500">المناطق: {m.areas} · {m.contractors} متعهد</div>
-                    <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[11px]">
-                      <Mini label="حضور" v={m.present} cls="text-emerald-700" /><Mini label="غياب" v={m.absent} cls="text-rose-700" /><Mini label="خروجات" v={m.trips} cls="text-sky-700" /><Mini label="أيام إجازة" v={m.leave_days} cls="text-amber-700" /><Mini label="زمنيات" v={m.permits} cls="text-slate-700" />
+                    <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[11px]">
+                      <Mini label="خروجات" v={m.trips} cls="text-sky-700" /><Mini label="أيام إجازة" v={m.leave_days} cls="text-amber-700" /><Mini label="زمنيات" v={m.permits} cls="text-slate-700" />
                     </div>
                   </li>
                 ))}

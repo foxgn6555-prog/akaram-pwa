@@ -14,6 +14,7 @@ import {
 } from '@sdk/media.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { handleAppError } from '@lib/errors/error.handler'
+import { isDesignLoadPermanent } from './lib/design-load-error'
 
 const ERROR_MAP: Record<string, string> = {
   MEDIA_FORBIDDEN: 'ليست لديك صلاحية هذه العملية في الإعلام',
@@ -145,7 +146,8 @@ export const useDesignDetail = (designId: string | null) =>
     queryKey: ['media', 'design-detail', designId],
     queryFn: () => mediaService.designDetail(designId as string),
     enabled: Boolean(designId),
-    retry: (n, e) => !/MEDIA_DESIGN_NOT_FOUND/.test(e instanceof Error ? e.message : String(e)) && n < 2,
+    // «غير موجود» و«بلا صلاحية» لن ينجحا بالتكرار: بلا إعادة محاولة (كل ما عداهما: محاولتان آليتان ثم لوحة «إعادة المحاولة»)
+    retry: (n, e) => !isDesignLoadPermanent(e) && n < 2,
   })
 
 export const useCreateDesign = () =>
@@ -184,8 +186,26 @@ export const useRemoveDesignPhotos = () =>
 export const useCompleteDesign = () =>
   useMediaAction((id: string) => mediaService.completeDesign(id), 'اكتمل التصميم وأُغلق للتعديل')
 
-export const useDeleteDesign = () =>
-  useMediaAction((id: string) => mediaService.deleteDesign(id), 'حُذف التصميم')
+/**
+ * حذف المسودة. `useMediaAction` كان يُبطل كل مفاتيح ['media'] فيُعيد جلب تفاصيل التصميم المحذوف نفسه
+ * (والمحرر ما زال مفتوحاً) فيأتي MEDIA_DESIGN_NOT_FOUND: طلب بلا فائدة + سطر خطأ في السجل عن عملية سليمة.
+ * هنا يُستثنى استعلام تفاصيل هذا التصميم وحده من الإبطال، ويُحدَّث كل ما عداه كالمعتاد.
+ */
+export const useDeleteDesign = () => {
+  const qc = useQueryClient()
+  const toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (args: [id: string]) => mediaService.deleteDesign(args[0]),
+    onSuccess: (_data, [id]) => {
+      void qc.invalidateQueries({
+        queryKey: ['media'],
+        predicate: (q) => !(q.queryKey[1] === 'design-detail' && q.queryKey[2] === id),
+      })
+      toast({ type: 'success', message: 'حُذف التصميم' })
+    },
+    onError: (e) => toast({ type: 'error', message: friendly(e) }),
+  })
+}
 
 export const useSaveDesignReport = (designId: string) =>
   useMediaAction(

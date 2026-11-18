@@ -17,6 +17,7 @@ vi.mock('@features/hr', async (orig) => ({
 }))
 vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [], financeMissingPunchDraftExists: h.draftExists } }))
 
+vi.mock('@features/disbursements/hooks', () => ({ useEmployeePayrollRequest: () => ({ data: undefined }) }))   // مسار الصرف: خطوة الشريط تُختبر في finance-disbursement-pipeline.test.tsx
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 import { applyFilters, branchOptions, DEFAULT_FILTERS, departmentOptions, explainRow, groupByBranchDept, reconcileSummary, rowFlags, sheetTotals, sortRows, totalsConsistent } from '@features/hr/lib/payrollSheetModel'
 import { buildPayrollWorkbook } from '@features/hr/lib/payrollExcel'

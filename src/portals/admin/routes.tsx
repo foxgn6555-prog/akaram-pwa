@@ -4,6 +4,7 @@
  *  · reports        → التقارير الجاهزة (يومي/شهري/نصف سنوي/سنوي) + Excel/PDF
  *  · announcements  → التبليغات (نشر + صادر + وارد)
  *  · approvals      → طلبات الموافقة (00163) · approval-performance → أداء الموافقات (00337) · procedures → الإجراءات: إنهاء الخدمة (نطاقه الجميع)
+ *  · disbursements  → طلبات الصرف: رواتب الموظفين وأجور المتعهدين بعد إقفال الشهر (القائمة + المعاينة والقرار)
  *  · company        → بيانات الشركة: الأسطول/الوقود · GPS · الإعلام · المتعهدون · سجل التدقيق (قراءة فقط)
  * لا صفحات تقنية هنا — كل ما هو تقني في بوابة التطوير المركزية /it.
  */
@@ -20,6 +21,8 @@ const ProceduresPage = lazy(() => import('@portals/admin-ops/pages/Procedures/Pr
 const ApprovalPerformancePage = lazy(() => import('@components/approvals/ApprovalPerformancePage').then((m) => ({ default: () => <m.ApprovalPerformancePage testId="admin-approval-performance" /> })))   // 00337: أداء الموافقات
 const AdminDisclosures = lazy(() => import('./pages/AdminDisclosures'))   // 00170: الكشوفات (اعتماد نهائي + سجل + ملغاة)
 const AdminCompany = lazy(() => import('./pages/AdminCompany'))   // بيانات الشركة: قطاعات لم تكن ظاهرة للمدير المفوض (قراءة فقط)
+const AdminDisbursementsPage = lazy(() => import('./pages/Disbursements/AdminDisbursementsPage'))   // مسار الصرف: قائمة طلبات الصرف
+const AdminDisbursementDetailPage = lazy(() => import('./pages/Disbursements/AdminDisbursementDetailPage'))   // معاينة الطلب واعتماده/رفضه
 const s = (node: ReactNode): ReactNode => <Suspense fallback={<LoadingSpinner fullScreen />}>{node}</Suspense>
 
 export const customRoutes: RouteObject[] = [
@@ -31,4 +34,6 @@ export const customRoutes: RouteObject[] = [
   { path: 'procedures', element: s(<ProceduresPage />) },
   { path: 'disclosures', element: s(<AdminDisclosures />) },
   { path: 'company', element: s(<AdminCompany />) },
+  { path: 'disbursements', element: s(<AdminDisbursementsPage />) },
+  { path: 'disbursements/:id', element: s(<AdminDisbursementDetailPage />) },
 ]

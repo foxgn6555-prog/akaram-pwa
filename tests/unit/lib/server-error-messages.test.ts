@@ -58,4 +58,12 @@ describe('ترجمة أكواد أخطاء الخادم إلى رسائل عرب
       handleAppError(new SDKError('GARAGE_DEPARTURE_ALREADY_OPEN', 'P0001')).message,
     ).toContain('انطلاقية مفتوحة')
   })
+
+  it('مسار الصرف — تجميد أجور المتعهدين ومنع إعادة فتح شهر له طلب قائم (يمرّان عبر هوكات المتعهدين وغرفة العمليات)', () => {
+    expect(handleAppError(new SDKError('DISBURSEMENT_RATES_FROZEN', 'P0001')).message).toContain('مجمَّدة')
+    expect(handleAppError(new SDKError('DISBURSEMENT_RATES_FROZEN', 'P0001')).message).toContain('بعد رفضه')
+    expect(handleAppError(new SDKError('CONTRACTOR_MONTH_HAS_DISBURSEMENT', 'P0001')).message).toContain('طلب صرف قائم')
+    expect(handleAppError(new SDKError('{"code":"P0001","message":"finance_contractor_rates_set: DISBURSEMENT_RATES_FROZEN"}', 'P0001')).message).toContain('مجمَّدة')
+    expect(handleAppError(new SDKError('{"code":"P0001","message":"ops_contractor_month_reopen: CONTRACTOR_MONTH_HAS_DISBURSEMENT"}', 'P0001')).message).toContain('إعادة فتح شهر المتعهدين')
+  })
 })

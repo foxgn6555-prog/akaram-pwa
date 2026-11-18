@@ -2,7 +2,8 @@
  * SDK — بوابة الإعلام: تذاكر الصور والتصاميم
  * القاعدة: كل وصول للبيانات عبر @sdk (بما فيه Supabase Storage)
  */
-import { sdkGuard, sdkVoid, supabase } from './client'
+import { sdkGuard, sdkMaybe, sdkVoid, supabase } from './client'
+import { SDKError } from '@lib/errors/SDKError'
 
 export interface MediaSubmission {
   id: string
@@ -143,6 +144,18 @@ export interface MediaDraftPhoto {
 }
 
 const BUCKET = 'media-photos'
+
+/**
+ * ترويسة التصميم مباشرة من الجدول — للتصميم الفارغ فقط.
+ * media_design_detail ترجع صفاً لكل صورة وفي كل صف ترويسة التصميم؛ فالتصميم بلا صور يرجع صفر صفوف
+ * (أما غير الموجود فيرفع الخادم MEDIA_DESIGN_NOT_FOUND، وغير المصرّح MEDIA_FORBIDDEN). سياسة قراءة الجدول مطابقة
+ * لشرط الدالة نفسه، فالنتيجة الفارغة هنا لا تعني إلا أن التصميم حُذف بين الطلبين.
+ */
+async function designHeader(id: string): Promise<MediaDesign> {
+  const row = await sdkMaybe(supabase.from('media_designs').select('*').eq('id', id).maybeSingle())
+  if (!row) throw new SDKError('MEDIA_DESIGN_NOT_FOUND', 'NOT_FOUND')
+  return row as unknown as MediaDesign
+}
 
 export const mediaService = {
   /* ── تذاكر مسؤول القسم ── */
@@ -312,9 +325,10 @@ export const mediaService = {
     ])
     const list = (rows ?? []) as unknown as Array<Record<string, unknown>>
     const first = list[0]
-    if (!first) throw new Error('MEDIA_DESIGN_EMPTY')
+    // تصميم بلا صور = صفر صفوف: صالح، يُفتح المحرر فارغاً (قرار المستخدم) ولا يُعدّ «غير موجود»
+    const design = first ? ((first.design ?? {}) as MediaDesign) : await designHeader(id)
     return {
-      design: (first.design ?? {}) as MediaDesign,
+      design,
       sheets: ((sheets ?? []) as unknown as Array<Record<string, unknown>>).map((s) => ({
         work_type: String(s.work_type ?? ''),
         sheet_text: String(s.sheet_text ?? ''),

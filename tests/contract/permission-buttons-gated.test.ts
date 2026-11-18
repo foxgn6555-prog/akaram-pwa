@@ -47,6 +47,10 @@ export const UI_SITES: Readonly<Record<string, readonly string[]>> = {
   maintenance_inventory_create: [P + 'maintenance/pages/Inventory/MaintenanceInventoryPage.tsx'],
   maintenance_purchase_create: [P + 'maintenance/pages/Purchases/MaintenancePurchasesPage.tsx'],
   media_template_create: [P + 'media/pages/Templates/MediaTemplatesPage.tsx'],
+  disbursement_decide: [P + 'admin/pages/Disbursements/AdminDisbursementDetailPage.tsx'],   // مسار الصرف: قرار المدير المفوض
+  disbursement_pay: [P + 'finance/pages/Disbursements/FinanceDisbursementDetailPage.tsx'],
+  disbursement_resubmit: [P + 'finance/pages/Disbursements/FinanceDisbursementDetailPage.tsx'],
+  finance_contractor_wages_close: [P + 'finance/pages/Contractors/ContractorWagesPage.tsx'],   // «اعتماد وإرسال» أجور المتعهدين
 }
 /** دوال مربوطة بلا زر مباشر في الواجهة (استعلام تلقائي أو غير مستخدمة من أي صفحة) — الخادم وحده يحكم */
 export const NO_UI_BUTTON: Readonly<Record<string, string>> = {

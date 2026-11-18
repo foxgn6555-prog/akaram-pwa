@@ -2,12 +2,13 @@
 import { useState } from 'react'
 import { Phone } from 'lucide-react'
 import { useFieldOpsSectorManagers, useSectorTeam } from '@features/sector-manager/hooks'
-import { PARENT_AR, SHIFT_AR, pct } from '@features/sector-manager/format'
+import { PARENT_AR, SHIFT_AR } from '@features/sector-manager/format'
 import { useParentSectors } from '@features/sectors'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 
 type Parent = string
+// حاضر/غائب ونسبة الحضور (لمسؤول القاطع ولكل مسؤول قسم) أُخفيت بقرار المالك: مصدرها contractor_worker_attendance ولا مسار كتابة لها (صفر دائماً).
 export default function SectorsPage() {
   const sms = useFieldOpsSectorManagers(), team = useSectorTeam()
   const { parents } = useParentSectors()   // 00395: القطاعات من القاعدة
@@ -28,24 +29,21 @@ export default function SectorsPage() {
         <h2 className="text-sm font-black">مسؤول القاطع</h2>
         {managers.length === 0 ? <p className="mt-2 rounded-xl bg-amber-50 p-2 text-xs font-bold text-amber-800" data-testid="sm-unassigned">لم يُسنَد مسؤول لهذا القاطع بعد — يُسنَد من التطوير المركزية.</p> : (
           <ul className="mt-2 space-y-2" data-testid="fo-sm-list">
-            {managers.map((m) => {
-              const t = m.present_today + m.absent_today
-              return (
-                <li key={m.user_id} className="rounded-xl border p-3" data-testid={`fo-sm-${m.user_id}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-black">{m.full_name} {m.on_leave_today && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">في إجازة اليوم</span>}</div>
-                      <div className="text-[11px] text-slate-500">{m.parent_names.join(' و')} · {m.department_managers} مسؤول قسم · {m.contractors} متعهد{!m.has_employee && ' · غير مرتبط بسجل موظف'}</div>
-                    </div>
-                    {m.pending_tasks > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-800" data-testid={`fo-sm-pending-${m.user_id}`}>{m.pending_tasks} طلب بانتظاره</span>}
+            {managers.map((m) => (
+              <li key={m.user_id} className="rounded-xl border p-3" data-testid={`fo-sm-${m.user_id}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-black">{m.full_name} {m.on_leave_today && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">في إجازة اليوم</span>}</div>
+                    <div className="text-[11px] text-slate-500">{m.parent_names.join(' و')} · {m.department_managers} مسؤول قسم · {m.contractors} متعهد{!m.has_employee && ' · غير مرتبط بسجل موظف'}</div>
                   </div>
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-600">
-                    <span><b className="text-emerald-700">{m.present_today}</b> حاضر</span><span><b className="text-rose-700">{m.absent_today}</b> غائب</span><span>{pct(m.present_today, t)}%</span><span>{m.presence_proved}/{m.contractors} أثبتوا التواجد</span>
-                    {m.phone && <a href={`tel:${m.phone}`} className="mr-auto flex items-center gap-1 font-bold text-indigo-700"><Phone size={12} />{m.phone}</a>}
-                  </div>
-                </li>
-              )
-            })}
+                  {m.pending_tasks > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-800" data-testid={`fo-sm-pending-${m.user_id}`}>{m.pending_tasks} طلب بانتظاره</span>}
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-600">
+                  <span>{m.presence_proved}/{m.contractors} أثبتوا التواجد</span>
+                  {m.phone && <a href={`tel:${m.phone}`} className="mr-auto flex items-center gap-1 font-bold text-indigo-700"><Phone size={12} />{m.phone}</a>}
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </section>
@@ -61,7 +59,7 @@ export default function SectorsPage() {
                     <div className="text-sm font-black">{m.manager_name} {m.on_leave_today && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-800">في إجازة اليوم</span>}</div>
                     <div className="text-[11px] text-slate-500">{SHIFT_AR[m.shift] ?? m.shift}{m.manager_phone ? ` · ${m.manager_phone}` : ''}</div>
                   </div>
-                  <div className="text-left text-[11px] text-slate-600"><div><b className="text-emerald-700">{m.present_today}</b> حاضر · <b className="text-rose-700">{m.absent_today}</b> غائب</div><div>{m.vehicles_now} آلية الآن</div></div>
+                  <div className="text-left text-[11px] text-slate-600">{m.vehicles_now} آلية الآن</div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {m.areas.map((a) => (

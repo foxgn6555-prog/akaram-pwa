@@ -7,12 +7,17 @@ const h = vi.hoisted(() => {
     upload: vi.fn(async (..._args: unknown[]): Promise<{ data: { path: string } | null; error: null | { message: string } }> => ({ data: { path: 'p' }, error: null })),
     createSignedUrls: vi.fn(async (..._args: unknown[]) => state.result),
   }
-  return { state, bucket, rpc: vi.fn(async (..._args: unknown[]) => state.result), storageFrom: vi.fn(() => bucket), getUser: vi.fn(async (): Promise<{ data: { user: { id: string } | null } }> => ({ data: { user: { id: 'media-user' } } })) }
+  // قراءة ترويسة التصميم مباشرة من الجدول (from().select().eq().maybeSingle()) — مسار «تصميم بلا صور» فقط
+  const header = { result: { data: null as unknown, error: null as null | { message: string } } }
+  const chain = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(async () => header.result) }
+  chain.select.mockImplementation(() => chain); chain.eq.mockImplementation(() => chain)
+  return { state, header, chain, from: vi.fn(() => chain), bucket, rpc: vi.fn(async (..._args: unknown[]) => state.result), storageFrom: vi.fn(() => bucket), getUser: vi.fn(async (): Promise<{ data: { user: { id: string } | null } }> => ({ data: { user: { id: 'media-user' } } })) }
 })
 vi.mock('@sdk/client', () => ({
-  supabase: { rpc: h.rpc, storage: { from: h.storageFrom }, auth: { getUser: h.getUser } },
+  supabase: { rpc: h.rpc, from: h.from, storage: { from: h.storageFrom }, auth: { getUser: h.getUser } },
   sdkGuard: async (value: PromiseLike<{ data: unknown; error: null | { message: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data },
   sdkVoid: async (value: PromiseLike<{ error: null | { message: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message) },
+  sdkMaybe: async (value: PromiseLike<{ data: unknown; error: null | { message: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data },
 }))
 import { mediaService } from '@sdk/media.sdk'
 
@@ -20,6 +25,7 @@ const args = () => h.rpc.mock.lastCall?.[1]
 beforeEach(() => {
   h.state.result = { data: [], error: null }
   h.rpc.mockReset(); h.rpc.mockImplementation(async () => h.state.result)
+  h.header.result = { data: null, error: null }; h.from.mockClear(); h.chain.select.mockClear(); h.chain.eq.mockClear(); h.chain.maybeSingle.mockClear()
   h.storageFrom.mockClear(); h.getUser.mockClear(); h.bucket.upload.mockClear(); h.bucket.createSignedUrls.mockClear()
   h.getUser.mockResolvedValue({ data: { user: { id: 'media-user' } } })
   h.bucket.upload.mockResolvedValue({ data: { path: 'p' }, error: null })
@@ -123,12 +129,41 @@ describe('media — تفاصيل التصميم وحفظ التقرير', () => 
     h.rpc.mockClear()
     await mediaService.saveDesignReport('d1', [{ workType: 'كنس', text: 'نص' }], [{ rowId: 'r1', text: 'صورة', fit: 'cover', zoom: 0 }], { summary: { total: 1 }, colors: { primary: '#000' }, style: { font: 'Cairo' } })
     expect(h.rpc).toHaveBeenLastCalledWith('media_design_report_save', { p_id: 'd1', p_sheets: [{ work_type: 'كنس', text: 'نص' }], p_captions: [{ row_id: 'r1', text: 'صورة', fit: 'cover', zoom: '0' }], p_summary: { total: 1 }, p_colors: { primary: '#000' }, p_style: { font: 'Cairo' } })
-    h.rpc.mockImplementation(async (name: unknown) => ({ data: name === 'media_design_detail' ? [] : [{ work_type: 'كنس', sheet_text: 'ورقة' }], error: null }))
-    await expect(mediaService.designDetail('missing')).rejects.toThrow('MEDIA_DESIGN_EMPTY')
+    expect(h.from).not.toHaveBeenCalled()              // وجود صور: ترويسة التصميم تأتي من صفوف الدالة نفسها بلا طلب إضافي
     h.rpc.mockImplementation(async (name: unknown) => ({ data: name === 'media_design_detail' ? [{}] : null, error: null }))
     const empty = await mediaService.designDetail('d2')
     expect(empty.sheets).toEqual([])
     expect(empty.photos[0]).toMatchObject({ photo_id: '', display_zoom: 1 })
+  })
+  it('تصميم بلا صور (الدالة ترجع صفر صفوف): يقرأ الترويسة من الجدول ويرجع photos=[] ولا يرمي — المحرر يفتح فارغاً', async () => {
+    const design = { id: 'd1', title: 'تقرير اليوم', status: 'draft', photo_count: 0, period_type: 'day', sector_parent: 'karrada' }
+    h.header.result = { data: design, error: null }
+    h.rpc.mockImplementation(async (name: unknown) => ({ data: name === 'media_design_detail' ? [] : [{ work_type: 'كنس', sheet_text: 'ورقة' }], error: null }))
+    const detail = await mediaService.designDetail('d1')
+    expect(detail.design).toEqual(design)
+    expect(detail.photos).toEqual([])
+    expect(detail.sheets).toEqual([{ work_type: 'كنس', sheet_text: 'ورقة' }])
+    expect(h.from).toHaveBeenCalledWith('media_designs')
+    expect(h.chain.select).toHaveBeenCalledWith('*')
+    expect(h.chain.eq).toHaveBeenCalledWith('id', 'd1')
+  })
+  it('صفر صفوف ثم اختفت الترويسة (حُذف بين الطلبين): MEDIA_DESIGN_NOT_FOUND بكود NOT_FOUND — وليس EMPTY', async () => {
+    h.header.result = { data: null, error: null }
+    h.rpc.mockImplementation(async (name: unknown) => ({ data: name === 'media_design_detail' ? [] : [], error: null }))
+    const err = await mediaService.designDetail('gone').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toBe('MEDIA_DESIGN_NOT_FOUND')
+    expect((err as { code?: string }).code).toBe('NOT_FOUND')
+  })
+  it('خطأ الخادم MEDIA_DESIGN_NOT_FOUND من الدالة نفسها يمرّ كما هو ولا تُقرأ الترويسة', async () => {
+    h.rpc.mockImplementation(async (name: unknown) => name === 'media_design_detail' ? { data: null, error: { message: 'MEDIA_DESIGN_NOT_FOUND' } } : { data: [], error: null })
+    await expect(mediaService.designDetail('x')).rejects.toThrow('MEDIA_DESIGN_NOT_FOUND')
+    expect(h.from).not.toHaveBeenCalled()
+  })
+  it('فشل قراءة الترويسة (شبكة/خادم) يُرفع كخطأ حقيقي ولا يُحوَّل إلى «غير موجود»', async () => {
+    h.header.result = { data: null, error: { message: 'HEADER_503' } }
+    h.rpc.mockImplementation(async (name: unknown) => ({ data: name === 'media_design_detail' ? [] : [], error: null }))
+    await expect(mediaService.designDetail('d1')).rejects.toThrow('HEADER_503')
   })
   it('إنشاء/تحديث/إكمال/حذف التصميم وإضافة الصور وحذفها يمرر العقود الصحيحة', async () => {
     h.state.result = { data: { id: 'd1' }, error: null }

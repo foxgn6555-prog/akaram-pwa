@@ -20,6 +20,7 @@ vi.mock('@features/hr', async (orig) => ({
 vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [] } }))
 
 import { ProfilesTab, simulateEarned } from '@portals/finance/pages/Payroll/SalaryProfiles'
+vi.mock('@features/disbursements/hooks', () => ({ useEmployeePayrollRequest: () => ({ data: undefined }) }))   // مسار الصرف: خطوة الشريط تُختبر في finance-disbursement-pipeline.test.tsx
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 import HrPolicyPage from '@portals/it/pages/Integrations/HrPolicyPage'
 import { explainRow } from '@features/hr/lib/payrollSheetModel'

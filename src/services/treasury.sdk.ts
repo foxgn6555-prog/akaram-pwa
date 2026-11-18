@@ -6,15 +6,15 @@
  */
 import { sdkGuard, supabase } from './client'
 
-export type TreasuryKind = 'receipt' | 'reward' | 'gps_payment' | 'advance' | 'advance_repayment' | 'expense' | 'purchase'   // 00358: + مصروف / مشتريات صيانة
+export type TreasuryKind = 'receipt' | 'reward' | 'gps_payment' | 'advance' | 'advance_repayment' | 'expense' | 'purchase' | 'payroll' | 'contractor_wages'   // 00358: + مصروف / مشتريات صيانة · مسار الصرف: + رواتب الموظفين / أجور المتعهدين (تُسجَّل آلياً عند «صرف» طلب معتمد)
 export type TreasuryStatus = 'pending' | 'confirmed' | 'cancelled'
 export type RewardType = 'cash' | 'gift' | 'thanks_letter' | 'incentive_leave'
 
-export const TREASURY_KIND_LABEL: Record<TreasuryKind, string> = { receipt: 'استلام مبلغ', reward: 'مكافأة', gps_payment: 'تسديد مستحقات GPS', advance: 'تسليم سلفة', advance_repayment: 'تسديد سلفة نقداً', expense: 'مصروف', purchase: 'مشتريات صيانة' }
+export const TREASURY_KIND_LABEL: Record<TreasuryKind, string> = { receipt: 'استلام مبلغ', reward: 'مكافأة', gps_payment: 'تسديد مستحقات GPS', advance: 'تسليم سلفة', advance_repayment: 'تسديد سلفة نقداً', expense: 'مصروف', purchase: 'مشتريات صيانة', payroll: 'رواتب الموظفين', contractor_wages: 'أجور المتعهدين' }
 export const TREASURY_STATUS_LABEL: Record<TreasuryStatus, string> = { pending: 'بانتظار المالية', confirmed: 'مؤكَّدة', cancelled: 'ملغاة' }
 export const REWARD_TYPE_LABEL: Record<RewardType, string> = { cash: 'مبلغ نقدي', gift: 'هدية', thanks_letter: 'كتاب شكر', incentive_leave: 'إجازة تشجيعية' }
 /** نص زر تأكيد المالية حسب نوع الحركة */
-export const CONFIRM_LABEL: Record<TreasuryKind, string> = { receipt: 'تأكيد الاستلام', reward: 'تم التسليم', gps_payment: 'تم الدفع', advance: 'تم التسليم', advance_repayment: 'تأكيد الاستلام', expense: 'سُجّل', purchase: 'تم التسليم' }
+export const CONFIRM_LABEL: Record<TreasuryKind, string> = { receipt: 'تأكيد الاستلام', reward: 'تم التسليم', gps_payment: 'تم الدفع', advance: 'تم التسليم', advance_repayment: 'تأكيد الاستلام', expense: 'سُجّل', purchase: 'تم التسليم', payroll: 'تم الصرف', contractor_wages: 'تم الصرف' }
 export const GPS_TYPE_NAME = 'تسديد مستحقات GPS'
 
 export interface ReceivableType { id: string; name: string; is_active: boolean; sort_order: number; created_at: string }
@@ -30,11 +30,11 @@ export interface TreasuryTx {
 }
 export interface TreasurySummary {
   balance: number; frozen: number; pending_out: number; pending_count: number
-  range: { receipts_confirmed: number; receipts_pending: number; rewards_cash_confirmed: number; rewards_count: number; gps_confirmed: number; gps_pending: number; advances_confirmed?: number; advance_repayments?: number; expenses_confirmed?: number; expenses_count?: number; purchases_confirmed?: number; purchases_pending?: number; count: number }
+  range: { receipts_confirmed: number; receipts_pending: number; rewards_cash_confirmed: number; rewards_count: number; gps_confirmed: number; gps_pending: number; advances_confirmed?: number; advance_repayments?: number; expenses_confirmed?: number; expenses_count?: number; purchases_confirmed?: number; purchases_pending?: number; payroll_confirmed?: number; contractor_wages_confirmed?: number; count: number }
   by_type: { type_id: string | null; name: string | null; confirmed: number; pending: number; count: number }[]
   expenses_by_type?: { type_id: string | null; name: string | null; confirmed: number; count: number }[]
   rewards_by_type: Partial<Record<RewardType, number>>
-  by_month: { month: string; receipts: number; rewards: number; gps: number; advances?: number; expenses?: number; purchases?: number }[]
+  by_month: { month: string; receipts: number; rewards: number; gps: number; advances?: number; expenses?: number; purchases?: number; payroll?: number; contractor_wages?: number }[]
 }
 export interface TreasuryListFilter { from?: string | null; to?: string | null; kind?: TreasuryKind | null; status?: TreasuryStatus | null; typeId?: string | null; employeeId?: string | null; search?: string | null; limit?: number }
 export interface EmployeeLookupRow { id: string; full_name: string; employee_number: string | null; job_title: string | null; department_name: string | null }
