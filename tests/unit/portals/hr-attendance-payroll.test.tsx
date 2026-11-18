@@ -59,6 +59,7 @@ import EmployeeDetail from '@portals/hr/pages/Employees/EmployeeDetail'
 import AttendanceLog from '@portals/hr/pages/Attendance/AttendanceLog'
 import HRDashboard from '@portals/hr/pages/Dashboard/HRDashboard'
 import OpsAttendancePage from '@portals/ops-room/pages/Attendance/OpsAttendancePage'
+vi.mock('@features/disbursements/hooks', () => ({ useEmployeePayrollRequest: () => ({ data: undefined }) }))   // مسار الصرف: خطوة الشريط تُختبر في finance-disbursement-pipeline.test.tsx
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 import { buildPayrollWorkbook } from '@features/hr/lib/payrollExcel'
 

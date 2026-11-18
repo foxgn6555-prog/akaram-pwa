@@ -85,6 +85,7 @@ import MyRequests from '@portals/employee/pages/Requests/MyRequests'
 import TeamLeavesPage from '@portals/manager/pages/Leaves/TeamLeavesPage'
 import Leaves from '@portals/hr/pages/Leaves/Leaves'
 import OpsAttendancePage from '@portals/ops-room/pages/Attendance/OpsAttendancePage'
+vi.mock('@features/disbursements/hooks', () => ({ useEmployeePayrollRequest: () => ({ data: undefined }) }))   // مسار الصرف: خطوة الشريط تُختبر في finance-disbursement-pipeline.test.tsx
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 
 const ATT = (o: Record<string, unknown>) => ({

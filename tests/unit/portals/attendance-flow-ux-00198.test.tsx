@@ -25,6 +25,7 @@ vi.mock('@features/integrations', () => ({ useBiometricPunches: () => ({ data: [
 vi.mock('@sdk/hr.sdk', () => ({ hr: { listDeductions: async () => [], financeMissingPunchDraftExists: async () => false } }))
 
 import OpsAttendancePage from '@portals/ops-room/pages/Attendance/OpsAttendancePage'
+vi.mock('@features/disbursements/hooks', () => ({ useEmployeePayrollRequest: () => ({ data: undefined }) }))   // مسار الصرف: خطوة الشريط تُختبر في finance-disbursement-pipeline.test.tsx
 import PayrollOverview from '@portals/finance/pages/Payroll/PayrollOverview'
 
 const month = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` })()

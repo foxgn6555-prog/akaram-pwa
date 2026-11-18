@@ -22,6 +22,10 @@ import { Field, MonthPicker, StatCard } from '@portals/hr/components/hr-ui'
 import { field, fmtMinutes, fmtMoney, fmtTime, monthStart } from '@portals/hr/components/hr-format'
 import { STATUS_STYLES } from '@portals/hr/components/hr-format'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { Link } from 'react-router'
+import { useEmployeePayrollRequest } from '@features/disbursements/hooks'
+import { disbursementStep } from '@features/disbursements/format'
+import type { DisbursementRequest } from '@sdk/disbursements.sdk'
 
 type Tab = 'sheet' | 'profiles' | 'notices'
 
@@ -44,7 +48,7 @@ export default function PayrollOverview() {
 }
 
 // ── 00198/00256 · شريط رحلة الكشف: غرفة العمليات → التصدير → مراجعة معاون المدير المفوض → التحقق الحسابي → اعتماد المالية ──
-function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }: { head: PayrollSheetRow; approved: boolean; stale: boolean; rc: ReturnType<typeof reconcileSummary>; hasReconcile: boolean; blockReason: string }) {
+function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason, disb }: { head: PayrollSheetRow; approved: boolean; stale: boolean; rc: ReturnType<typeof reconcileSummary>; hasReconcile: boolean; blockReason: string; disb?: DisbursementRequest | null }) {
   const exportedAt = new Date(head.exported_at).toLocaleString('ar-IQ-u-nu-latn')
   const steps: { key: string; label: string; hint: string; state: 'done' | 'warn' | 'bad' | 'active' | 'todo' }[] = [
     { key: 'ops', label: 'اعتماد غرفة العمليات', hint: 'حضورية الشهر مُدقَّقة ومعتمدة', state: 'done' },
@@ -52,17 +56,18 @@ function PipelineStrip({ head, approved, stale, rc, hasReconcile, blockReason }:
     { key: 'deputy', label: 'مراجعة معاون المدير المفوض', hint: head.reviewed_at ? `اعتُمد ${new Date(head.reviewed_at).toLocaleString('ar-IQ-u-nu-latn')}` : 'الاستقطاعات مُراجَعة ومعتمدة', state: 'done' },
     { key: 'verify', label: 'التحقق الحسابي', hint: !hasReconcile ? 'جارٍ…' : rc.money > 0 ? `${rc.money} صف غير متطابق` : `${rc.total} صف متطابق`, state: !hasReconcile ? 'todo' : rc.money > 0 ? 'bad' : 'done' },
     { key: 'approve', label: 'اعتماد المالية', hint: approved ? 'معتمد ومقفل' : blockReason ? 'موقوف — راجع الجاهزية' : 'بانتظار الاعتماد', state: approved ? 'done' : blockReason ? 'bad' : 'active' },
+    { key: 'disbursement', label: 'قرار المدير المفوض والصرف', ...disbursementStep(disb, approved) },
   ]
   const cls = { done: 'bg-emerald-50 text-emerald-900 ring-emerald-200', warn: 'bg-amber-50 text-amber-900 ring-amber-200', bad: 'bg-red-50 text-red-900 ring-red-200', active: 'bg-brand-600 text-white ring-brand-600', todo: 'bg-slate-50 text-slate-500 ring-slate-200' }
   const dot = { done: 'bg-emerald-600 text-white', warn: 'bg-amber-500 text-white', bad: 'bg-red-600 text-white', active: 'bg-white/25 text-white', todo: 'bg-slate-200 text-slate-600' }
   const mark = { done: '✓', warn: '!', bad: '✗', active: '…', todo: '' }
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="ps-pipeline">
-      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
         {steps.map((s, i) => (
           <li key={s.key} className={clsx('flex items-center gap-2 rounded-xl px-2.5 py-2 ring-1', cls[s.state])} data-testid={`ps-step-${s.key}`} data-state={s.state}>
             <span className={clsx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-black', dot[s.state])}>{mark[s.state] || i + 1}</span>
-            <span className="min-w-0"><span className="block text-[11px] font-black leading-snug">{s.label}</span><span className={clsx('block text-[10px] leading-snug', s.state === 'active' ? 'text-white/80' : 'opacity-80')}>{s.hint}</span></span>
+            <span className="min-w-0"><span className="block text-[11px] font-black leading-snug">{s.label}</span><span className={clsx('block text-[10px] leading-snug', s.state === 'active' ? 'text-white/80' : 'opacity-80')}>{s.hint}</span>{s.key === 'disbursement' && disb && <Link to={`/finance/disbursements/${disb.id}`} className="mt-0.5 block text-[10px] font-black underline" data-testid="ps-disbursement-link">فتح أمر الصرف</Link>}</span>
           </li>
         ))}
       </ol>
@@ -78,6 +83,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
   const [filters, setFilters] = useState<SheetFilters>(DEFAULT_FILTERS)
   const [view, setView] = useState<'sheet' | 'verify'>('sheet')
   const { data: rows = [], isLoading } = usePayrollSheet(month)
+  const { data: disb } = useEmployeePayrollRequest(month, rows.length > 0)
   const { data: exportStatus } = useMonthExportStatus(month)
   const { data: gate } = usePayrollGate(month)
   const awaitingDeputy = !!gate?.exported && !gate.visible
@@ -188,7 +194,7 @@ function SheetTab({ onDefine }: { onDefine: () => void }) {
         </div>
       )}
       {head && (
-        <PipelineStrip head={head} approved={approved} stale={!!exportStatus?.needs_reexport} rc={rc} hasReconcile={reconcile.length > 0} blockReason={blockReason} />
+        <PipelineStrip head={head} approved={approved} stale={!!exportStatus?.needs_reexport} rc={rc} hasReconcile={reconcile.length > 0} blockReason={blockReason} disb={disb} />
       )}
       {head && (
         <section className="workspace-card space-y-4 p-4 sm:p-5" data-testid="ps-stats" data-scope={filtered ? 'filtered' : 'all'}>

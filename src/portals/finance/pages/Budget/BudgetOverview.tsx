@@ -69,6 +69,8 @@ export default function BudgetOverview() {
               <Row k="مصاريف مسجَّلة" v={s.range.expenses_confirmed ?? 0} tone="text-rose-700" />
               <Row k="مشتريات صيانة مسلَّمة" v={s.range.purchases_confirmed ?? 0} tone="text-orange-700" />
               <Row k="مشتريات بانتظار التسليم" v={s.range.purchases_pending ?? 0} tone="text-amber-700" />
+              <Row k="رواتب الموظفين المصروفة" v={s.range.payroll_confirmed ?? 0} tone="text-indigo-700" testId="tr-payroll-confirmed" />
+              <Row k="أجور المتعهدين المصروفة" v={s.range.contractor_wages_confirmed ?? 0} tone="text-teal-700" testId="tr-contractor-wages-confirmed" />
               <div><dt className="text-slate-500">عدد الحركات</dt><dd className="font-black tabular-nums">{s.range.count} <span className="text-[10px] font-normal text-slate-400">({s.range.rewards_count} مكافأة)</span></dd></div>
             </dl>
           </div>
@@ -81,8 +83,8 @@ export default function BudgetOverview() {
             )}
             {s.by_month.length > 0 && (
               <table className="mt-3 w-full text-[11px]" data-testid="tr-by-month">
-                <thead><tr className="text-slate-500"><th className="text-right font-semibold">الشهر</th><th className="font-semibold">مقبوضات</th><th className="font-semibold">مكافآت</th><th className="font-semibold">GPS</th></tr></thead>
-                <tbody>{s.by_month.map((m) => <tr key={m.month} className="border-t border-slate-100 tabular-nums"><td className="py-1" dir="ltr">{m.month}</td><td className="text-center text-emerald-700">{fmtMoney(m.receipts)}</td><td className="text-center text-violet-700">{fmtMoney(m.rewards)}</td><td className="text-center text-sky-700">{fmtMoney(m.gps)}</td></tr>)}</tbody>
+                <thead><tr className="text-slate-500"><th className="text-right font-semibold">الشهر</th><th className="font-semibold">مقبوضات</th><th className="font-semibold">مكافآت</th><th className="font-semibold">GPS</th><th className="font-semibold">رواتب</th><th className="font-semibold">أجور المتعهدين</th></tr></thead>
+                <tbody>{s.by_month.map((m) => <tr key={m.month} className="border-t border-slate-100 tabular-nums"><td className="py-1" dir="ltr">{m.month}</td><td className="text-center text-emerald-700">{fmtMoney(m.receipts)}</td><td className="text-center text-violet-700">{fmtMoney(m.rewards)}</td><td className="text-center text-sky-700">{fmtMoney(m.gps)}</td><td className="text-center text-indigo-700">{fmtMoney(m.payroll ?? 0)}</td><td className="text-center text-teal-700">{fmtMoney(m.contractor_wages ?? 0)}</td></tr>)}</tbody>
               </table>
             )}
           </div>
@@ -128,6 +130,6 @@ export default function BudgetOverview() {
   )
 }
 
-function Row({ k, v, tone }: { k: string; v: number; tone: string }) {
-  return <div><dt className="text-slate-500">{k}</dt><dd className={clsx('font-black tabular-nums', tone)} dir="ltr">{fmtMoney(v)}</dd></div>
+function Row({ k, v, tone, testId }: { k: string; v: number; tone: string; testId?: string }) {
+  return <div><dt className="text-slate-500">{k}</dt><dd className={clsx('font-black tabular-nums', tone)} dir="ltr" data-testid={testId}>{fmtMoney(v)}</dd></div>
 }

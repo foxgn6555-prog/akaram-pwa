@@ -80,6 +80,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'finance.reports': ['export'],
   'finance.payroll': ['edit', 'decide', 'execute', 'export'],
   'finance.contractor-wages': ['edit', 'decide', 'export'],
+  'finance.disbursements': ['create', 'execute'],   // مسار الصرف: إعادة الإرسال بعد الرفض + صرف المالية من القاصة
   'finance.advances': ['execute', 'export'],
   'finance.settlements': ['decide', 'execute', 'export'],
   'finance.letters': ['export'],
@@ -113,6 +114,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   // المدير المفوض
   'admin.announcements': ['create'],
   'admin.approvals': ['decide'],
+  'admin.disbursements': ['decide'],   // مسار الصرف: قرار المدير المفوض (اعتماد/رفض بسبب)
   'admin.procedures': ['execute'],
   'admin.disclosures': ['decide'],
   // العمليات الميدانية
@@ -302,6 +304,10 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
   finance_payroll_adjust: ['finance.payroll', 'edit'],
   finance_payroll_reconcile: ['finance.payroll', 'execute'],
   finance_treasury_confirm: ['finance.budget', 'decide'],
+  finance_contractor_wages_close: ['finance.contractor-wages', 'decide'],   // مسار الصرف: «اعتماد وإرسال» أجور المتعهدين
+  disbursement_decide: ['admin.disbursements', 'decide'],   // مسار الصرف: قرار المدير المفوض
+  disbursement_pay: ['finance.disbursements', 'execute'],   // مسار الصرف: صرف المالية من القاصة
+  disbursement_resubmit: ['finance.disbursements', 'create'],   // مسار الصرف: إعادة الإرسال بعد الرفض
   // التطوير المركزية
   cold_archive_package_create: ['it.cold-archive', 'create'],
   cold_archive_purge_request: ['it.cold-archive', 'delete'],

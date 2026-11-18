@@ -48,14 +48,17 @@ describe('بوابة مسؤول القاطع (00160)', () => {
   it('الرئيسية: قواطعي، المؤشرات، لافتة الطلبات المعلّقة، وحالة كل منطقة (متعهد/تواجد/خارج النطاق/بلا متعهد) — ولا كلمة مالية', () => {
     wrap(<Dashboard />)
     expect(screen.getByTestId('sm-parents')).toHaveTextContent('الكرادة')
-    expect(screen.getByTestId('st-present')).toHaveTextContent('30'); expect(screen.getByTestId('st-absent')).toHaveTextContent('10')
+    // حضور/غياب العمال مخفي بقرار المالك (مصدره بلا مسار كتابة = صفر دائماً) حتى لو أعاد الخادم أرقاماً (هنا 30 و10)
+    for (const id of ['st-present', 'st-absent', 'sm-attendance-ring']) expect(screen.queryByTestId(id)).toBeNull()
     expect(screen.getByTestId('st-proved')).toHaveTextContent('2/3'); expect(screen.getByTestId('st-out')).toHaveTextContent('1'); expect(screen.getByTestId('st-vehicles')).toHaveTextContent('5')
     expect(screen.getByTestId('sm-pending-banner')).toHaveTextContent('2 طلب بانتظار قرارك')
-    expect(screen.getByTestId('sm-attendance-ring')).toHaveTextContent('75%'); expect(screen.getByTestId('sm-attendance-ring')).toHaveTextContent('1 منطقة بلا متعهد')
+    expect(screen.getByTestId('st-uncovered')).toHaveTextContent('مناطق بلا متعهد1')   // كانت داخل بطاقة النسبة فنُقلت إلى مؤشرات الرأس
     const row = screen.getByTestId('sm-team-m1')
+    expect(row).toHaveTextContent('2 آلية الآن'); expect(row).not.toHaveTextContent(/حاضر|غائب/)
     expect(row).toHaveTextContent('مسؤول قسم الكرادة'); expect(row).toHaveTextContent('أرخيته · متعهد أرخيته · خارج النطاق'); expect(row).toHaveTextContent('الرياض · بلا متعهد')
     const txt = document.body.textContent ?? ''
     for (const w of ['راتب', 'أجر', 'دينار', 'مالي', 'استقطاع']) expect(txt).not.toContain(w)
+    for (const w of ['عمال حاضرون', 'عمال غائبون', 'نسبة حضور', 'عاملاً مسجلاً', '75%']) expect(txt).not.toContain(w)
   })
 
   it('طلبات فريقي: بطاقة الطلب بخطوته والخطوات السابقة؛ الموافقة مباشرة؛ الرفض يتطلب سبباً؛ ومسار الطلب عند الطلب', async () => {
@@ -109,11 +112,14 @@ describe('بوابة مسؤول القاطع (00160)', () => {
   })
   it('التقارير: المؤشرات، الرسوم، تبويبا المتعهدين ومسؤولي الأقسام — بلا بيانات مالية', () => {
     wrap(<Reports />)
-    expect(screen.getByTestId('rep-totals')).toHaveTextContent('300'); expect(screen.getByTestId('rep-totals')).toHaveTextContent('86%')
-    expect(screen.getByTestId('chart-attendance')).toBeInTheDocument(); expect(screen.getByTestId('chart-proofs')).toBeInTheDocument()
-    expect(screen.getByTestId('rep-c-c1')).toHaveTextContent('28/30')
+    // إثباتات التواجد 55 · خارج النطاق 3 · خروجات الآليات 120 (حضور/غياب العمال 300/50 مخفي: مصدره بلا مسار كتابة)
+    expect(screen.getByTestId('rep-totals')).toHaveTextContent('إثباتات تواجد55'); expect(screen.getByTestId('rep-totals')).toHaveTextContent('خارج النطاق3'); expect(screen.getByTestId('rep-totals')).toHaveTextContent('خروجات آليات120')
+    expect(screen.queryByTestId('chart-attendance')).toBeNull(); expect(screen.getByTestId('chart-proofs')).toBeInTheDocument()
+    const all = document.body.textContent ?? ''
+    for (const w of ['حضور عمال', 'غياب عمال', 'حضور/غياب العمال', 'نسبة الحضور', '86%']) expect(all).not.toContain(w)
+    expect(screen.getByTestId('rep-c-c1')).toHaveTextContent('28/30'); expect(screen.getByTestId('rep-c-c1')).not.toHaveTextContent(/عاملاً|حضور|غياب/)
     fireEvent.click(screen.getByTestId('tab-managers'))
-    expect(screen.getByTestId('rep-m-m1')).toHaveTextContent('أرخيته، الرياض'); expect(screen.getByTestId('rep-m-m1')).toHaveTextContent('60')
+    expect(screen.getByTestId('rep-m-m1')).toHaveTextContent('أرخيته، الرياض'); expect(screen.getByTestId('rep-m-m1')).toHaveTextContent('60'); expect(screen.getByTestId('rep-m-m1')).not.toHaveTextContent(/حضور|غياب/)
     const txt = document.body.textContent ?? ''
     for (const w of ['راتب', 'أجر', 'دينار', 'مالي', 'استقطاع']) expect(txt).not.toContain(w)
   })

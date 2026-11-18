@@ -3,7 +3,7 @@
  * مصمّم بملء الشاشة: غلاف يدوي، صور حسب نوع العمل مع سحب وإفلات
  * (إعادة ترتيب ونقل بين الأنواع)، وفتح الصور بعرض كبير، ومعاينة التقرير وطباعته
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router'
 import {
@@ -52,6 +52,9 @@ import { PickCoverButton, SaveCoverToLibraryButton } from '../../components/Cove
 import DesignCover from '../../components/DesignCover'
 import { SHIFT_LABEL, SHIFT_OPTIONS, isBuiltinCover, type CoverShift } from '@features/media/lib/cover-templates'
 import { filterTickets, ticketWorkTypes, type TicketFilters } from '@features/media/lib/ticket-picker'
+import { DESIGN_GONE_MESSAGE, DESIGN_LOAD_MESSAGE, classifyDesignLoadError } from '@features/media/lib/design-load-error'
+import { logger } from '@lib/monitoring/logger'
+import { DesignLoadFailed } from './DesignLoadFailed'
 import DesignExportMenu, { type WordDataRef } from './DesignExportMenu'
 import DesignReportView, {
   type ReportColors,
@@ -61,10 +64,15 @@ import DesignReportView, {
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import { useParentSectors } from '@features/sectors'
 
+/** إغلاق المحرر. `replace` للإغلاق التلقائي (رابط ميت / تصميم حُذف) كي لا يعيد زر الرجوع فتح الرابط الميت */
+type ComposerClose = (opts?: { replace?: boolean }) => void
+
 export default function MediaDesignsPage() {
   const { parents } = useParentSectors()   // 00395
   const [params, setParams] = useSearchParams()
   const openId = params.get('open')
+  // ثابتة الهوية: كانت دالة جديدة في كل رسم فتُعيد تشغيل تأثير المحرر (إشعار + تنقّل) بلا نهاية — انظر DesignComposer
+  const closeComposer = useCallback<ComposerClose>((opts) => setParams({}, { replace: opts?.replace === true }), [setParams])
   const designs = useDesigns(null)
   const [shiftFilter, setShiftFilter] = useState<'' | CoverShift>('')
   const [sectorFilter, setSectorFilter] = useState<'' | SectorParent>('')
@@ -128,7 +136,7 @@ export default function MediaDesignsPage() {
         )}
       </div>
 
-      {openId && <DesignComposer designId={openId} close={() => setParams({})} />}
+      {openId && <DesignComposer designId={openId} close={closeComposer} />}
     </section>
   )
 }
@@ -193,19 +201,59 @@ function applyMove(
 }
 
 /** 00198 — يُحمِّل التصميم أولاً ثم يفتح المحرر بحالته الحقيقية (النوع/الغلاف/العنوان)؛
- *  قبل ذلك كان المحرر يُهيّئ حالته والبيانات لم تصل بعد، فيظهر «نصف شهري» بلا غلاف مهما كان القالب. */
-function DesignComposer({ designId, close }: { designId: string; close: () => void }) {
+ *  قبل ذلك كان المحرر يُهيّئ حالته والبيانات لم تصل بعد، فيظهر «نصف شهري» بلا غلاف مهما كان القالب.
+ *
+ *  00284 + إصلاح حلقة «غير موجود أو حُذف»:
+ *   · التحذير الأصفر لخطأ الخادم MEDIA_DESIGN_NOT_FOUND وحده — أي فشل آخر (شبكة/503/صلاحية) له لوحة بالرسالة الصحيحة و«إعادة المحاولة».
+ *   · مرة واحدة لكل تصميم: التأثير كان يعتمد على `close` المنشأة من جديد في كل رسم، فكل رسم = إشعار + تنقّل،
+ *     والتنقّل يُعيد تشغيل loader الحارس فيُعاد الرسم ... (≈200 إشعار و≈400 طلب في الثانية وتنقّل مقفل).
+ *   · تصميم بلا صور صالح (يفتح فارغاً): الـ SDK يُرجع ترويسته، فلا يصل هنا كخطأ أصلاً. */
+function DesignComposer({ designId, close }: { designId: string; close: ComposerClose }) {
   const detail = useDesignDetail(designId)
   const toast = useUiStore((s) => s.addToast)
-  // 00284: رابط ?open= لتصميم حُذف أو غير موجود — لا سبينر أبدي ولا إعادة محاولات: رسالة واضحة ثم إغلاق وتنظيف الرابط
+  const failure = detail.isError ? classifyDesignLoadError(detail.error) : null
+  const hasData = Boolean(detail.data)
+  const closeRef = useRef(close)
+  const goneNotified = useRef<string | null>(null)
+  const loadLogged = useRef<string | null>(null)
+  /** حذفٌ مقصود جارٍ («حذف المسودة»): NOT_FOUND بعده متوقع وليس تحذيراً */
+  const deleting = useRef(false)
   useEffect(() => {
-    if (detail.isError) {
-      toast({ type: 'warning', message: 'هذا التصميم غير موجود أو حُذف — أُغلق الرابط القديم' })
-      close()
+    closeRef.current = close
+  }, [close])
+  useEffect(() => {
+    deleting.current = false // تصميم آخر في نفس المثيل: لا يرث حالة حذف سابق
+  }, [designId])
+  useEffect(() => {
+    if (failure === 'not-found') {
+      if (goneNotified.current === designId) return
+      goneNotified.current = designId
+      if (!deleting.current) toast({ type: 'warning', message: DESIGN_GONE_MESSAGE })
+      closeRef.current({ replace: true })
+      return
     }
-  }, [detail.isError, toast, close])
-  if (detail.isError) return null
-  if (detail.isLoading || !detail.data) {
+    if (failure && !hasData) {
+      // لوحة الفشل ظاهرة: سطر واحد لكل نوبة فشل (يُعاد عند «إعادة المحاولة» فقط) — كاشف للدعم الفني
+      const key = `${designId}:${failure}`
+      if (loadLogged.current === key) return
+      loadLogged.current = key
+      logger.warn('MEDIA_DESIGN_LOAD_FAILED', { designId, failure })
+      return
+    }
+    if (!failure) loadLogged.current = null
+  }, [failure, hasData, designId, toast])
+  if (failure === 'not-found') return null // الإشعار والإغلاق في التأثير أعلاه
+  if (!detail.data) {
+    if (failure) {
+      return (
+        <DesignLoadFailed
+          message={DESIGN_LOAD_MESSAGE[failure]}
+          busy={Boolean(detail.isFetching)}
+          onRetry={() => void detail.refetch()}
+          onClose={() => close()}
+        />
+      )
+    }
     return createPortal(
       <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-100" dir="rtl">
         <LoadingSpinner label="جارٍ فتح التصميم…" />
@@ -213,10 +261,20 @@ function DesignComposer({ designId, close }: { designId: string; close: () => vo
       document.body,
     )
   }
-  return <DesignComposerEditor key={designId} designId={designId} initial={detail.data} close={close} />
+  return <DesignComposerEditor key={designId} designId={designId} initial={detail.data} close={close} deleting={deleting} />
 }
 
-function DesignComposerEditor({ designId, initial, close }: { designId: string; initial: MediaDesignDetail; close: () => void }) {
+function DesignComposerEditor({
+  designId,
+  initial,
+  close,
+  deleting,
+}: {
+  designId: string
+  initial: MediaDesignDetail
+  close: ComposerClose
+  deleting: { current: boolean }
+}) {
   const detail = useDesignDetail(designId)
   const update = useUpdateDesign()
   const complete = useCompleteDesign()
@@ -348,7 +406,7 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
           اسحب الصور لإعادة ترتيبها أو نقلها لنوع آخر · انقر صورة لعرضها
         </span>
         <button
-          onClick={close}
+          onClick={() => close()}
           className="mr-auto flex h-10 items-center gap-1 rounded-xl border px-4 text-sm font-black text-slate-700 hover:bg-slate-100"
         >
           <X size={15} />
@@ -718,9 +776,14 @@ function DesignComposerEditor({ designId, initial, close }: { designId: string; 
   )
 
   function deleteIfConfirmed() {
-    if (window.confirm('حذف هذا التصميم (المسودة) نهائياً؟')) {
-      void deleteDesign.mutate([designId], { onSuccess: close })
-    }
+    if (!window.confirm('حذف هذا التصميم (المسودة) نهائياً؟')) return
+    deleting.current = true // أي NOT_FOUND بعد هذه اللحظة نتيجة حذفنا نحن — لا تحذير أصفر
+    deleteDesign.mutate([designId], {
+      onSuccess: () => close({ replace: true }),
+      onError: () => {
+        deleting.current = false
+      },
+    })
   }
 }
 

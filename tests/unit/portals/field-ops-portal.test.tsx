@@ -38,19 +38,27 @@ const noFinance = () => { const t = document.body.textContent ?? ''; for (const 
 
 describe('بوابة العمليات الميدانية (00161)', () => {
   beforeEach(() => vi.clearAllMocks())
-  it('الرئيسية: كل القواطع، بطاقة لكل قاطع بنسبة حضوره ومسؤوله (أو «غير مُسنَد»)، لافتة الطلبات — ولا بيانات مالية', () => {
+  it('الرئيسية: كل القواطع، بطاقة لكل قاطع بمسؤوله (أو «غير مُسنَد») وأرقام تواجد المتعهدين — بلا حضور عمال — ولافتة الطلبات، ولا بيانات مالية', () => {
     wrap(<Dashboard />)
     expect(screen.getByTestId('fo-parents')).toHaveTextContent('الكرادة والزعفرانية')
-    expect(screen.getByTestId('st-rate')).toHaveTextContent('77%')
-    expect(screen.getByTestId('parent-karrada')).toHaveTextContent('90%'); expect(screen.getByTestId('parent-karrada')).toHaveTextContent('مسؤول القاطع: حسن')
-    expect(screen.getByTestId('parent-zaafaraniya')).toHaveTextContent('50%'); expect(screen.getByTestId('parent-zaafaraniya')).toHaveTextContent('غير مُسنَد')
+    // حضور/غياب العمال ونسبته مخفي بقرار المالك (مصدره بلا مسار كتابة = صفر دائماً) حتى لو أعاد الخادم أرقاماً (هنا 46/14 → 77%)
+    for (const id of ['st-present', 'st-absent', 'st-rate']) expect(screen.queryByTestId(id)).toBeNull()
+    expect(screen.getByTestId('st-proved')).toHaveTextContent('4/6'); expect(screen.getByTestId('st-vehicles')).toHaveTextContent('6')
+    const k = screen.getByTestId('parent-karrada'), z = screen.getByTestId('parent-zaafaraniya')
+    expect(k).toHaveTextContent('مسؤول القاطع: حسن'); expect(k).toHaveTextContent('2/3أثبتوا التواجد'); expect(k).toHaveTextContent('3آليات الآن')
+    expect(z).toHaveTextContent('غير مُسنَد')
+    for (const card of [k, z]) expect(card).not.toHaveTextContent(/%|حاضر|غائب/)
+    expect(document.body.textContent ?? '').not.toContain('عمال حاضرون')
     expect(screen.getByTestId('fo-pending-banner')).toHaveTextContent('1 طلب بانتظار قرارك')
     noFinance()
   })
   it('القواطع والمسؤولون: تبويب لكل قاطع، مسؤول القاطع بما ينتظره، ومسؤولو الأقسام تحته؛ قاطع بلا مسؤول يُنبّه', () => {
     wrap(<Sectors />)
     expect(screen.getByTestId('fo-sm-s1')).toHaveTextContent('حسن مسؤول الكرادة'); expect(screen.getByTestId('fo-sm-pending-s1')).toHaveTextContent('2 طلب بانتظاره')
+    expect(screen.getByTestId('fo-sm-s1')).toHaveTextContent('2/3 أثبتوا التواجد')
+    expect(screen.getByTestId('fo-sm-s1')).not.toHaveTextContent(/حاضر|غائب|%/)   // حضور العمال (هنا 36/4) مخفي بقرار المالك
     expect(screen.getByTestId('fo-dm-list')).toHaveTextContent('مسؤول قسم الكرادة'); expect(screen.queryByTestId('fo-dm-m2')).toBeNull()
+    expect(screen.getByTestId('fo-dm-m1')).toHaveTextContent('1 آلية الآن'); expect(screen.getByTestId('fo-dm-m1')).not.toHaveTextContent(/حاضر|غائب/)
     fireEvent.click(screen.getByTestId('sectors-tab-zaafaraniya'))
     expect(screen.getByTestId('sm-unassigned')).toBeInTheDocument(); expect(screen.getByTestId('fo-dm-m2')).toHaveTextContent('في إجازة اليوم')
     noFinance()
@@ -67,7 +75,9 @@ describe('بوابة العمليات الميدانية (00161)', () => {
     expect(screen.getByTestId('rep-contractors')).toHaveTextContent('متعهد الزعفرانية')
     fireEvent.click(screen.getByTestId('rep-parent-karrada'))
     expect(screen.getByTestId('rep-contractors')).toHaveTextContent('متعهد الكرادة'); expect(screen.getByTestId('rep-contractors')).not.toHaveTextContent('متعهد الزعفرانية')
-    expect(screen.getByTestId('rep-totals')).toHaveTextContent('10')
+    // المؤشرات للكل: إثباتات التواجد 3 · خارج النطاق 0 · خروجات 4 (حضور العمال 10 مخفي بقرار المالك)
+    expect(screen.getByTestId('rep-totals')).toHaveTextContent('إثباتات تواجد3'); expect(screen.getByTestId('rep-totals')).toHaveTextContent('خروجات آليات4')
+    expect(screen.getByTestId('rep-contractors')).not.toHaveTextContent(/حضور|غياب|عاملاً/)
     noFinance()
   })
 })

@@ -1,8 +1,7 @@
 /** بوابة العمليات الميدانية — الرئيسية (للهاتف أولاً): تعلو مسؤولي القواطع؛ مقارنة القاطعين، مؤشرات اليوم، طلبات بانتظار قراري، مسؤولو القواطع. لا بيانات مالية. */
 import { Link } from 'react-router'
-import { AlertTriangle, Bell, CheckSquare, MapPin, Send, Truck, UserCheck, UserX, Users } from 'lucide-react'
+import { AlertTriangle, Bell, CheckSquare, MapPin, Send, Truck, Users } from 'lucide-react'
 import { useSectorDashboard, useSectorManagerMe } from '@features/sector-manager/hooks'
-import { pct } from '@features/sector-manager/format'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
@@ -11,7 +10,9 @@ export default function FieldOpsDashboard() {
   const me = useSectorManagerMe(), dash = useSectorDashboard()
   if (me.isLoading || dash.isLoading) return <LoadingSpinner />
   if (!me.data || !dash.data) return <EmptyState title="تعذّر تحميل اللوحة" hint="تأكد أن حسابك يحمل دور العمليات الميدانية" />
-  const d = dash.data, total = d.present_today + d.absent_today
+  const d = dash.data
+  // «عمال حاضرون/غائبون» ونسبة الحضور (وشريطها في بطاقة كل قاطع) أُخفيت بقرار المالك: مصدرها contractor_worker_attendance
+  // ولا مسار كتابة لها فهي صفر دائماً. العدد اليومي الحقيقي للعمال في «متابعة المتعهدين والعمال».
   return (
     <div className="space-y-4 pb-4" data-testid="fo-dashboard">
       <ExecPageHeader icon="user" title={me.data.full_name} subtitle={<>العمليات الميدانية · <b data-testid="fo-parents">{me.data.parent_names.join(' و')}</b> · {d.areas} منطقة · {d.sector_managers.length} مسؤول قاطع · {d.department_managers} مسؤول قسم · {d.contractors} متعهد</>} />
@@ -25,35 +26,24 @@ export default function FieldOpsDashboard() {
         </Link>
       )}
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat icon={<UserCheck size={18} />} label="عمال حاضرون" value={d.present_today} tone="emerald" testId="st-present" />
-        <Stat icon={<UserX size={18} />} label="عمال غائبون" value={d.absent_today} tone="rose" testId="st-absent" />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat icon={<MapPin size={18} />} label="متعهدون أثبتوا تواجدهم" value={`${d.presence_proved}/${d.contractors}`} tone={d.presence_proved === d.contractors ? 'emerald' : 'amber'} testId="st-proved" />
         <Stat icon={<AlertTriangle size={18} />} label="خارج النطاق" value={d.out_of_zone} tone={d.out_of_zone ? 'rose' : 'slate'} testId="st-out" />
         <Stat icon={<Truck size={18} />} label="آليات تعمل الآن" value={d.vehicles_now} tone="sky" testId="st-vehicles" />
-        <Stat icon={<Users size={18} />} label="نسبة الحضور" value={`${pct(d.present_today, total)}%`} tone="slate" testId="st-rate" />
       </section>
 
       <section className="space-y-3" data-testid="fo-parents-compare">
         <h2 className="font-black">القواطع اليوم</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {d.parents_detail.map((p) => {
-            const t = p.present_today + p.absent_today, rate = pct(p.present_today, t)
-            return (
-              <div key={p.code} className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`parent-${p.code}`}>
-                <div className="flex items-start justify-between">
-                  <div><div className="text-base font-black">قاطع {p.name}</div><div className="text-[11px] text-slate-500">مسؤول القاطع: <b>{p.sector_managers ?? 'غير مُسنَد'}</b></div></div>
-                  <div className={`rounded-full px-2 py-1 text-xs font-black ${rate >= 80 ? 'bg-emerald-100 text-emerald-800' : rate >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>{rate}%</div>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-500" style={{ width: `${rate}%` }} /></div>
-                <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[11px]">
-                  <Mini label="حاضر" v={p.present_today} cls="text-emerald-700" /><Mini label="غائب" v={p.absent_today} cls="text-rose-700" /><Mini label="آليات الآن" v={p.vehicles_now} cls="text-sky-700" />
-                  <Mini label="أثبتوا التواجد" v={`${p.presence_proved}/${p.contractors}`} cls="text-indigo-700" /><Mini label="خارج النطاق" v={p.out_of_zone} cls={p.out_of_zone ? 'text-rose-700' : 'text-slate-600'} /><Mini label="مناطق بلا متعهد" v={p.areas_without_contractor} cls={p.areas_without_contractor ? 'text-amber-700' : 'text-slate-600'} />
-                </div>
-                <div className="mt-2 text-[11px] text-slate-500">{p.areas} منطقة · {p.department_managers} مسؤول قسم · {p.contractors} متعهد</div>
+          {d.parents_detail.map((p) => (
+            <div key={p.code} className="rounded-2xl border bg-white p-4 shadow-sm" data-testid={`parent-${p.code}`}>
+              <div><div className="text-base font-black">قاطع {p.name}</div><div className="text-[11px] text-slate-500">مسؤول القاطع: <b>{p.sector_managers ?? 'غير مُسنَد'}</b></div></div>
+              <div className="mt-3 grid grid-cols-2 gap-1 text-center text-[11px] sm:grid-cols-4">
+                <Mini label="آليات الآن" v={p.vehicles_now} cls="text-sky-700" /><Mini label="أثبتوا التواجد" v={`${p.presence_proved}/${p.contractors}`} cls="text-indigo-700" /><Mini label="خارج النطاق" v={p.out_of_zone} cls={p.out_of_zone ? 'text-rose-700' : 'text-slate-600'} /><Mini label="مناطق بلا متعهد" v={p.areas_without_contractor} cls={p.areas_without_contractor ? 'text-amber-700' : 'text-slate-600'} />
               </div>
-            )
-          })}
+              <div className="mt-2 text-[11px] text-slate-500">{p.areas} منطقة · {p.department_managers} مسؤول قسم · {p.contractors} متعهد</div>
+            </div>
+          ))}
         </div>
       </section>
 

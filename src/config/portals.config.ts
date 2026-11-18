@@ -201,6 +201,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
     { path: '/finance/contractor-wages', labelKey: 'nav.contractor_wages', icon: 'users' },
+    { path: '/finance/disbursements', labelKey: 'nav.finance_disbursements', icon: 'wallet' },   // مسار الصرف: أوامر الصرف المعتمدة من المدير المفوض
     { path: '/finance/advances', labelKey: 'nav.finance_advances', icon: 'wallet' },
     { path: '/finance/settlements', labelKey: 'nav.finance_settlements', icon: 'user-x' },   // 00355
     { path: '/finance/letters', labelKey: 'nav.finance_letters', icon: 'file-text' },   // 00356
@@ -351,6 +352,7 @@ export const PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/admin/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/admin/announcements', labelKey: 'nav.announcements', icon: 'bell' },
     { path: '/admin/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
+    { path: '/admin/disbursements', labelKey: 'nav.admin_disbursements', icon: 'wallet' },   // مسار الصرف: طلبات صرف الرواتب والأجور بانتظار قرار المدير المفوض
     { path: '/admin/approval-performance', labelKey: 'nav.approval_performance', icon: 'gauge' },   // 00337
     { path: '/admin/procedures', labelKey: 'nav.procedures', icon: 'flow' },
     { path: '/admin/disclosures', labelKey: 'nav.admin_disclosures', icon: 'alert-triangle' },
