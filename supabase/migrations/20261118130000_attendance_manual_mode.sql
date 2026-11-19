@@ -197,7 +197,7 @@ language sql stable security definer set search_path = public, app as $$
          en.note, case when en.employee_id is not null then app.user_display_name(coalesce(en.updated_by, en.entered_by)) end, en.updated_at,
          pu.n, pu.f, pu.l, h.status, h.source
     from a
-    join public.employees e on e.archived_at is null and e.biometric_pin is not null
+    join public.employees e on e.archived_at is null
                            and e.hire_date <= p_date and (e.terminated_at is null or p_date <= e.terminated_at)
                            and (a.branch_id is null or e.branch_id = a.branch_id)
                            and (a.department_id is null or e.department_id = a.department_id
@@ -220,7 +220,7 @@ language sql stable security definer set search_path = public, app as $$
   select a.id, a.portal, e.id, g.d::date
     from public.attendance_manual_activations a
     cross join lateral generate_series(greatest(a.starts_on, p_from)::timestamp, least(coalesce(a.ends_on, p_to), p_to)::timestamp, interval '1 day') g(d)
-    join public.employees e on e.archived_at is null and e.biometric_pin is not null
+    join public.employees e on e.archived_at is null
                            and e.hire_date <= g.d::date and (e.terminated_at is null or g.d::date <= e.terminated_at)
                            and (a.branch_id is null or e.branch_id = a.branch_id)
                            and (a.department_id is null or e.department_id = a.department_id
@@ -228,7 +228,8 @@ language sql stable security definer set search_path = public, app as $$
     left join lateral app.hr_effective_shift(e.id, g.d::date) sh on true
    where (p_activation is null or a.id = p_activation)
      and not app.manual_att_is_contractor(e.id)
-     and (sh.shift_id is null or extract(dow from g.d)::int::smallint = any (sh.work_days))
+     and sh.shift_id is not null
+     and extract(dow from g.d)::int::smallint = any (sh.work_days)
      and not exists (select 1 from public.hr_leaves l where l.employee_id = e.id and l.status = 'approved' and l.kind = 'leave' and g.d::date between l.start_date and l.end_date)
      -- صف المصدر manual لا يغلق اليوم وحده: لا بد من إدخال كشف يقابله بالحالة نفسها (أو حالة حضور مشتقة متوافقة).
      -- السجل اليدوي اليتيم أو المتعارض يبقى معلّقاً ويمنع اعتماد الشهر إلى أن يراجعه مسؤول مخوّل.
@@ -319,7 +320,7 @@ begin
     if app.hr_month_confirmed(m) then raise exception 'HR_ATTENDANCE_CONFIRMED'; end if;
   end loop;
   select count(*) into v_emp from public.employees e
-   where e.archived_at is null and e.biometric_pin is not null and (e.terminated_at is null or e.terminated_at >= v_start)
+   where e.archived_at is null and (e.terminated_at is null or e.terminated_at >= v_start)
      and (p_branch is null or e.branch_id = p_branch)
      and (p_department is null or e.department_id = p_department or (coalesce(p_include_sub, true) and e.department_id in (select app.hr_department_tree(p_department))))
      and not app.manual_att_is_contractor(e.id);
@@ -361,7 +362,7 @@ begin
              from public.employees e
             cross join lateral generate_series(greatest(v_last + 1, a.starts_on, today - 31)::timestamp, today::timestamp, interval '1 day') g(d)
             left join public.hr_attendance_days h on h.employee_id = e.id and h.work_date = g.d::date
-            where e.archived_at is null and e.biometric_pin is not null
+            where e.archived_at is null
               and (a.branch_id is null or e.branch_id = a.branch_id)
               and (a.department_id is null or e.department_id = a.department_id or (a.include_sub_departments and e.department_id in (select app.hr_department_tree(a.department_id))))
               and not app.manual_att_in_scope(e.id, g.d::date)
