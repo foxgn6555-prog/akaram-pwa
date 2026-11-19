@@ -206,3 +206,19 @@ Route واحدة تكفي (الخطة المجانية تسمح بمسار وا�
 - **لا تُفعّل DMARC بـ`reject` من اليوم الأول** — قد تُرفض رسائل شرعية.
 - **الخطة المجانية بسجل يوم واحد** — عند تشخيص أي فشل، راجع السجل في نفس اليوم.
 - **إذا رفض Mailgun الإرسال لعناوين غير مصرّح بها** فلا تحاول التحايل: انتقل إلى مسار ب (Resend/Brevo) عبر طبقة مزوّد قابلة للتبديل.
+
+---
+
+## 9) الشكل النهائي المعتمد (2026-11-20)
+
+| الدور | العنوان |
+|---|---|
+| شكاوى الكرادة (استقبال) | `krd@shakawa.jazirat-alakarim.com` |
+| شكاوى الزعفرانية (استقبال) | `zfr@shakawa.jazirat-alakarim.com` |
+| الإرسال | `auto@shakawa.jazirat-alakarim.com` |
+| نطاق Mailgun | `shakawa.jazirat-alakarim.com` (منطقة US) |
+| النطاق الأصلي | لم يُمسّ — بلا MX، وبريد Hostinger يبقى حراً |
+
+سجلات DNS المضافة (كلها على `shakawa` فقط): TXT للـSPF · TXT للـDKIM (`mailo._domainkey.shakawa`) · MX إلى `mxa/mxb.mailgun.org` · CNAME لـ`email.shakawa`.
+
+**تنبيه تشغيلي:** نشر الدالة عبر واجهة API بملف واحد يفشل عند الإقلاع إن احتوت استيراداً من `esm.sh`؛ النشر الصحيح عبر `npx supabase functions deploy mailgun-inbound --no-verify-jwt` (أو عبر تكامل GitHub) لأنه يُجمّع الاعتماديات.
