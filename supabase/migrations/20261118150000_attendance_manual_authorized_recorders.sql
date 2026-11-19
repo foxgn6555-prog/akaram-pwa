@@ -88,7 +88,7 @@ language sql stable security definer set search_path = public, app as $$
          en.note, case when en.employee_id is not null then app.user_display_name(coalesce(en.updated_by, en.entered_by)) end, en.updated_at,
          pu.n, pu.f, pu.l, h.status, h.source
     from a
-    join public.employees e on e.archived_at is null and e.biometric_pin is not null
+    join public.employees e on e.archived_at is null
                            and e.hire_date <= p_date and (e.terminated_at is null or p_date <= e.terminated_at)
                            and (a.branch_id is null or e.branch_id = a.branch_id)
                            and (a.department_id is null or e.department_id = a.department_id
@@ -111,7 +111,7 @@ language sql stable security definer set search_path = public, app as $$
   select a.id, a.portal, e.id, g.d::date
     from public.attendance_manual_activations a
     cross join lateral generate_series(greatest(a.starts_on, p_from)::timestamp, least(coalesce(a.ends_on, p_to), p_to)::timestamp, interval '1 day') g(d)
-    join public.employees e on e.archived_at is null and e.biometric_pin is not null
+    join public.employees e on e.archived_at is null
                            and e.hire_date <= g.d::date and (e.terminated_at is null or g.d::date <= e.terminated_at)
                            and (a.branch_id is null or e.branch_id = a.branch_id)
                            and (a.department_id is null or e.department_id = a.department_id
