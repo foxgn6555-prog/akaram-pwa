@@ -171,13 +171,21 @@ describe('تفعيل جديد', () => {
     expect(screen.getByText(/البدء بتاريخ سابق يزيل الحضور التلقائي/)).toBeInTheDocument()
   })
 
-  it('نطاق بلا موظفين ببصمة ⇒ تنبيه أحمر والزر معطّل', async () => {
-    h.preview.mockResolvedValue(prev({ employees: 0, sample: [], no_pin: 5 }))
+  it('نطاق بلا أي موظف ⇒ تنبيه أحمر والزر معطّل', async () => {
+    h.preview.mockResolvedValue(prev({ employees: 0, sample: [], no_pin: 0 }))
     renderPage()
     await screen.findByRole('option', { name: /المحطة التحويلية — 5 حساب/ })
     change('am-portal', 'transfer-station'); change('am-department', 'd1'); change('am-reason', 'عطل الجهاز')
-    expect(await screen.findByTestId('am-prev-empty')).toHaveTextContent('لا حاجة لحضور يدوي له')
+    expect(await screen.findByTestId('am-prev-empty')).toHaveTextContent('لا يوجد موظفون في هذا النطاق')
     expect(screen.getByTestId('am-activate')).toBeDisabled()
+  })
+
+  it('نطاق كل موظفيه بلا رقم بصمة ⇒ يُفعَّل (الموظف بلا بصمة يدخل الكشف)', async () => {
+    h.preview.mockResolvedValue(prev({ employees: 5, sample: ['أحمد', 'بسام'], no_pin: 5 }))
+    renderPage(); await fillValid()
+    expect([stat('am-prev-employees'), stat('am-prev-nopin')]).toEqual(['5', '5'])
+    expect(screen.queryByTestId('am-prev-empty')).not.toBeInTheDocument()
+    expect(screen.getByTestId('am-activate')).toBeEnabled()
   })
 
   it('تقاطع مع تفعيل ساريٍ: تنبيه أصفر يسمّي البوابة لكن لا يمنع', async () => {
