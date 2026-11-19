@@ -5,3 +5,16 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ /index.html [L]
+
+# ملفات نقطة دخول الـ PWA يجب ألا تبقى نسخة قديمة في كاش المتصفح/الوسيط بعد النشر.
+# أصول Vite ذات الأسماء المجزأة (assets/*) تبقى قابلة للتخزين المؤقت كالمعتاد.
+<IfModule mod_headers.c>
+  <Files "sw.js">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+    Header always set Pragma "no-cache"
+    Header always set Expires "0"
+  </Files>
+  <Files "index.html">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </Files>
+</IfModule>

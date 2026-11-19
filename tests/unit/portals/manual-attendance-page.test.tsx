@@ -1,6 +1,6 @@
 /**
  * الصفحة العامة «الحضور اليدوي» (/<portal>/manual-attendance) — تفعيلات البوابة:
- *   ترتيب (الساري أولاً ثم الأحدث) · بوابة عادية ترى تفعيلاتها فقط، وغرفة العمليات/الإدارة ترى الكل · تبويب عند التعدد
+ *   ترتيب (الساري أولاً ثم الأحدث) · البوابة العادية ترى التفعيلات المفوّضة لها؛ غرفة العمليات وحدها ترى الكل · تبويب عند التعدد
  *   · حالة فارغة · التحميل عند الفتح برابط مباشر · تفعيل منتهٍ بقي فيه معلّق.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -44,14 +44,17 @@ describe('activationsForPortal', () => {
     act('new', 'hr', { starts_on: '2026-11-15' }),
     act('older', 'hr', { starts_on: '2026-11-08' }),
     act('other', 'transfer-station'),
+    act('admin-only', 'admin', { starts_on: '2026-11-16' }),
   ]
   it('بوابة عادية: تفعيلاتها فقط، الساري أولاً (الأحدث بدءاً) ثم المنتهي', () => {
     expect(activationsForPortal('hr', items).map((a) => a.id)).toEqual(['new', 'older', 'old-ended'])
     expect(activationsForPortal('transfer-station', items).map((a) => a.id)).toEqual(['other'])
     expect(activationsForPortal('finance', items)).toEqual([])
   })
-  it('غرفة العمليات ولوحة الإدارة: كل التفعيلات بالترتيب نفسه (الساري بالأحدث بدءاً ثم المنتهي)', () => {
-    for (const p of ['ops-room', 'admin']) expect(activationsForPortal(p, items).map((a) => a.id), p).toEqual(['new', 'other', 'older', 'old-ended'])
+  it('غرفة العمليات وحدها ترى كل التفعيلات؛ الإدارة ترى ما فُوّض إليها فقط', () => {
+    expect(activationsForPortal('ops-room', items).map((a) => a.id)).toEqual(['admin-only', 'new', 'other', 'older', 'old-ended'])
+    expect(activationsForPortal('admin', items).map((a) => a.id)).toEqual(['admin-only'])
+    expect(activationsForPortal('manager', items)).toEqual([])
   })
   it('لا يعدّل المصفوفة الأصلية', () => {
     const copy = [...items]

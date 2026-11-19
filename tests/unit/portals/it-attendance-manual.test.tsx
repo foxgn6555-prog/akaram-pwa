@@ -9,12 +9,13 @@ import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const h = vi.hoisted(() => ({
-  options: vi.fn(), preview: vi.fn(), list: vi.fn(), activate: vi.fn(), deactivate: vi.fn(), my: vi.fn(async () => []),
+  options: vi.fn(), preview: vi.fn(), list: vi.fn(), activate: vi.fn(), deactivate: vi.fn(), my: vi.fn(async () => []), users: vi.fn(),
 }))
 vi.mock('@sdk/attendance-manual.sdk', async (importOriginal) => {
   const m = await importOriginal<{ attendanceManual: object } & Record<string, unknown>>()
   return { ...m, attendanceManual: { ...m.attendanceManual, portalOptions: h.options, scopePreview: h.preview, list: h.list, activate: h.activate, deactivate: h.deactivate, myActivations: h.my } }
 })
+vi.mock('@features/user-management', () => ({ useUsers: (...args: unknown[]) => h.users(...args) }))
 vi.mock('@features/branches', () => ({ useBranches: () => ({ data: [{ id: 'b1', name: 'الفرع الرئيسي', is_active: true }, { id: 'b2', name: 'فرع مغلق', is_active: false }] }) }))
 vi.mock('@features/departments', () => ({
   useDepartments: () => ({ data: [
@@ -28,6 +29,7 @@ import AttendanceManualPage from '@portals/it/pages/Integrations/AttendanceManua
 import { useMyPermissionsStore, PERMISSION_DENIED_TITLE } from '@features/permissions/my-permissions'
 import { useUiStore } from '@stores/ui.store'
 import { ATTENDANCE_MANUAL_ERROR_MESSAGES, type ManualActivationRow, type ManualScopePreview } from '@sdk/attendance-manual.sdk'
+import type { PlatformUser } from '@sdk/users.sdk'
 
 const NOW = new Date('2026-11-17T09:00:00Z')   // اليوم في بغداد: 2026-11-17
 const TODAY = '2026-11-17'
@@ -38,6 +40,11 @@ const row = (id: string, over: Partial<ManualActivationRow> = {}): ManualActivat
   ended_by_name: null, ended_at: null, end_note: null, employees: 12, entries: 30, pending_days: 4, pending_dates: 2, ...over,
 })
 const prev = (over: Partial<ManualScopePreview> = {}): ManualScopePreview => ({ employees: 12, no_pin: 2, contractors: 3, sample: ['أحمد', 'بسام', 'جاسم'], overlapping: [], ...over })
+const platformUser = (id: string, roles: string[]): PlatformUser => ({
+  id, email: `${id}@example.test`, created_at: '2026-01-01T00:00:00Z', last_sign_in_at: null, banned_until: null,
+  roles: roles as PlatformUser['roles'], employee_id: null, employee_name: id, employee_number: null, phone: null,
+  job_title: null, department_id: null, department_name: null,
+})
 
 const renderPage = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -60,8 +67,9 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW)
   useMyPermissionsStore.getState().reset()
   useUiStore.setState({ toasts: [] })
-  for (const f of [h.options, h.preview, h.list, h.activate, h.deactivate]) f.mockReset()
+  for (const f of [h.options, h.preview, h.list, h.activate, h.deactivate, h.users]) f.mockReset()
   h.my.mockClear()
+  h.users.mockReturnValue({ data: [], isLoading: false, isError: false })
   h.options.mockResolvedValue([
     { portal: 'transfer-station', label: 'المحطة التحويلية', holders: 5, departments: [{ id: 'd1', name: 'المحطة التحويلية', employees: 12 }], branches: [{ id: 'b1', name: 'الفرع الرئيسي', employees: 20 }] },
     { portal: 'hr', label: 'الموارد البشرية', holders: 2, departments: [], branches: [] },
@@ -198,12 +206,50 @@ describe('تفعيل جديد', () => {
     expect(dlg).toHaveTextContent('المتعهدون في النطاق يُدفعون من الأعداد')
     expect(h.activate).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('am-confirm-activate'))
-    await waitFor(() => expect(h.activate).toHaveBeenCalledWith({ portal: 'transfer-station', branchId: null, departmentId: 'd1', includeSub: true, reason: 'عطل جهاز البصمة منذ الصباح', startsOn: TODAY }))
+    await waitFor(() => expect(h.activate).toHaveBeenCalledWith({ portal: 'transfer-station', branchId: null, departmentId: 'd1', includeSub: true, reason: 'عطل جهاز البصمة منذ الصباح', startsOn: TODAY, recorderUserIds: [] }))
     await waitFor(() => expect(screen.queryByTestId('am-confirm')).toBeNull())
     await waitFor(() => expect(screen.getByTestId('am-portal')).toHaveValue(''))
     expect(screen.getByTestId('am-reason')).toHaveValue('')
     expect(toasts()).toEqual([expect.objectContaining({ type: 'success', message: expect.stringContaining('فُعّل الحضور اليدوي لـ 12 موظفاً') })])
     expect(h.my).toHaveBeenCalled()   // الشريط الجانبي لأصحاب البوابة يتحدّث
+  })
+
+  it('تبديل بوابة التفعيل يمسح الحسابات المختارة ويعيد فحص الأدوار على البوابة الجديدة', async () => {
+    h.users.mockReturnValue({
+      data: [platformUser('station-user', ['transfer_station']), platformUser('hr-user', ['hr_officer'])],
+      isLoading: false,
+      isError: false,
+    })
+    renderPage()
+    await screen.findByRole('option', { name: /المحطة التحويلية — 5 حساب/ })
+    change('am-portal', 'transfer-station')
+    fireEvent.change(screen.getByTestId('am-recorder-search'), { target: { value: 'ac' } })
+    fireEvent.click(await screen.findByTestId('am-recorder-option-station-user'))
+    expect(screen.getByText('حسابات التسجيل الإضافية (1/5)')).toBeInTheDocument()
+
+    change('am-portal', 'hr')
+    expect(screen.getByText('حسابات التسجيل الإضافية (0/5)')).toBeInTheDocument()
+    expect(await screen.findByTestId('am-recorder-option-hr-user')).toBeEnabled()
+    expect(screen.getByTestId('am-recorder-option-station-user')).toBeDisabled()
+  })
+
+  it('إرسال حسابات التسجيل المختارة مع التفعيل ضمن معاملة واحدة', async () => {
+    h.users.mockReturnValue({ data: [platformUser('station-user', ['transfer_station'])], isLoading: false, isError: false })
+    renderPage()
+    await screen.findByRole('option', { name: /المحطة التحويلية — 5 حساب/ })
+    change('am-portal', 'transfer-station')
+    fireEvent.change(screen.getByTestId('am-recorder-search'), { target: { value: 'ac' } })
+    fireEvent.click(await screen.findByTestId('am-recorder-option-station-user'))
+    change('am-department', 'd1')
+    change('am-reason', 'عطل جهاز البصمة منذ الصباح')
+    await screen.findByTestId('am-prev-employees')
+    fireEvent.click(screen.getByTestId('am-activate'))
+    expect(screen.getByTestId('am-confirm')).toHaveTextContent('1 حساب')
+    fireEvent.click(screen.getByTestId('am-confirm-activate'))
+    await waitFor(() => expect(h.activate).toHaveBeenCalledWith({
+      portal: 'transfer-station', branchId: null, departmentId: 'd1', includeSub: true,
+      reason: 'عطل جهاز البصمة منذ الصباح', startsOn: TODAY, recorderUserIds: ['station-user'],
+    }))
   })
 
   it('إلغاء «الأقسام الفرعية» يُرسَل كما اختاره المستخدم (لا قيمة ثابتة)', async () => {

@@ -3,9 +3,9 @@
  *   ① تفعيل جديد: بوابة + نطاق من الهيكل التنظيمي (فرع و/أو قسم وأقسامه الفرعية؛ مقترَح من أقسام أصحاب حسابات البوابة) + معاينة قبل التنفيذ.
  *   ② التفعيلات السارية: عدّادات الإنجاز والأيام المعلّقة + إيقاف (تعود البصمة).
  *   ③ السجل: التفعيلات المنتهية.
- * الإيقاف منطقي: البصمات تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه. الكشف يسجّله أصحاب البوابة من صفحتهم.
+ * الإيقاف منطقي: البصمات تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه. الكشف يسجّله الحساب المخوّل من بوابة التفعيل نفسها.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@components/ui'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
@@ -14,10 +14,11 @@ import { useDepartments } from '@features/departments'
 import { useCanCall } from '@features/permissions/my-permissions'
 import { Overlay } from '@features/attendance-edits/components/AttendanceEditShared'
 import {
-  MANUAL_ACTIVATION_STATUS_LABELS, attendanceManualErrorMessage, baghdadToday, buildDepartmentOptions, describeScope, fmtManualDate, shiftDay,
-  useManualActivate, useManualActivations, useManualDeactivate, useManualPortalOptions, useManualScopePreview,
+  MANUAL_ACTIVATION_STATUS_LABELS, MANUAL_RECORDERS_LIMIT, attendanceManualErrorMessage, baghdadToday, buildDepartmentOptions, describeScope, fmtManualDate, shiftDay,
+  useManualActivate, useManualActivations, useManualDeactivate, useManualPortalOptions, useManualRecorders, useManualScopePreview, useSetManualRecorders,
   type ManualActivationRow,
 } from '@features/attendance-manual'
+import { ManualRecordersPicker, recorderOptionFromGrant, type ManualRecorderOption } from '@features/attendance-manual/components/ManualRecordersPicker'
 import { Banner, Card, MiniStat, fieldCls } from '@features/attendance-manual/components/shared'
 
 const START_BACK_DAYS = 31
@@ -40,8 +41,10 @@ export default function AttendanceManualPage() {
   const [includeSub, setIncludeSub] = useState(true)
   const [startsOn, setStartsOn] = useState(today)
   const [reason, setReason] = useState('')
+  const [recorderAccounts, setRecorderAccounts] = useState<ManualRecorderOption[]>([])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [stopping, setStopping] = useState<ManualActivationRow | null>(null)
+  const [managingRecorders, setManagingRecorders] = useState<ManualActivationRow | null>(null)
 
   const scope = useMemo(() => ({ branchId: branchId || null, departmentId: departmentId || null, includeSub }), [branchId, departmentId, includeSub])
   const hasScope = !!scope.branchId || !!scope.departmentId
@@ -63,10 +66,10 @@ export default function AttendanceManualPage() {
   const ready = !!portal && hasScope && startOk && reasonOk && previewReady && !emptyScope
   const scopeText = describeScope(scope, branches, departments)
 
-  const resetForm = () => { setPortal(''); setBranchId(''); setDepartmentId(''); setIncludeSub(true); setStartsOn(today); setReason(''); setConfirmOpen(false) }
+  const resetForm = () => { setPortal(''); setBranchId(''); setDepartmentId(''); setIncludeSub(true); setStartsOn(today); setReason(''); setRecorderAccounts([]); setConfirmOpen(false) }
   const doActivate = () => {
     if (!ready) return
-    activate.mutate({ portal, branchId: scope.branchId, departmentId: scope.departmentId, includeSub, reason, startsOn }, {
+    activate.mutate({ portal, branchId: scope.branchId, departmentId: scope.departmentId, includeSub, reason, startsOn, recorderUserIds: recorderAccounts.map((account) => account.id) }, {
       onSuccess: resetForm,
       onError: () => setConfirmOpen(false),
     })
@@ -80,8 +83,8 @@ export default function AttendanceManualPage() {
       <header>
         <h1 className="text-lg font-black">الحضور اليدوي (تعطل البصمة)</h1>
         <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          عند تعطل جهاز البصمة لبوابة ما: فعّل الحضور اليدوي لنطاقها فتظهر لأصحابها صفحة «حاضر/غائب» لموظفي النطاق. الإيقاف <b>منطقي</b>:
-          البصمات الواردة تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه، وتعود البصمة بمجرد الإيقاف. الإجازات المعتمدة لا تتأثر.
+          عند تعطل جهاز البصمة لبوابة ما: فعّل الحضور اليدوي لنطاقها. غرفة العمليات مخوّلة افتراضياً في كل التفعيلات؛ ولا تظهر الوحدة لبقية الحسابات إلا إذا منحتها التطوير المركزية صلاحية هذا التفعيل.
+          الإيقاف <b>منطقي</b>: البصمات الواردة تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه. الإجازات المعتمدة لا تتأثر.
           الجهاز نفسه وتسجيله من <Link to="/it/integrations/biometric" className="font-bold text-brand-700 underline">أجهزة البصمة</Link>.
         </p>
       </header>
@@ -94,7 +97,7 @@ export default function AttendanceManualPage() {
       </div>
       {pendingTotal > 0 && (
         <Banner tone="amber" testId="am-pending-note">
-          توجد أيام بانتظار الكشف: لا تُحتسب غياباً ولا استقطاعاً، لكنها تمنع اعتماد حضورية الشهر من غرفة العمليات حتى يسجّلها أصحاب البوابة (أو غرفة العمليات).
+          توجد أيام بانتظار الكشف: لا تُحتسب غياباً ولا استقطاعاً، لكنها تمنع اعتماد حضورية الشهر حتى يسجّلها الحسابات المخوّلة أو غرفة العمليات.
         </Banner>
       )}
 
@@ -103,7 +106,7 @@ export default function AttendanceManualPage() {
         <div className="grid gap-3 lg:grid-cols-3">
           <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
             <p className="text-xs font-bold text-slate-700">البوابة</p>
-            <select className={fieldCls} value={portal} onChange={(e) => setPortal(e.target.value)} aria-label="البوابة المعطّلة بصمتها" data-testid="am-portal">
+            <select className={fieldCls} value={portal} onChange={(e) => { setPortal(e.target.value); setRecorderAccounts([]) }} aria-label="البوابة المعطّلة بصمتها" data-testid="am-portal">
               <option value="">اختر البوابة…</option>
               {(options.data ?? []).map((o) => <option key={o.portal} value={o.portal}>{o.label} — {o.holders} حساب</option>)}
             </select>
@@ -160,6 +163,8 @@ export default function AttendanceManualPage() {
           </div>
         </div>
 
+        <ManualRecordersPicker portalId={portal || null} accounts={recorderAccounts} onChange={setRecorderAccounts} />
+
         {hasScope && (
           <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3 text-xs" data-testid="am-preview" aria-live="polite">
             {preview.isFetching && !preview.data ? <LoadingSpinner /> : preview.isError ? (
@@ -185,7 +190,7 @@ export default function AttendanceManualPage() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">لا تفعيل مكرر لبوابة بالنطاق نفسه. الإشعار يصل أصحاب البوابة وغرفة العمليات والموارد البشرية والمعاون.</p>
+          <p className="text-[11px] text-slate-500">لا تفعيل مكرر للبوابة بالنطاق نفسه. يبدأ التفويض بغرفة العمليات فقط؛ والحسابات الإضافية تُحدَّد أعلاه.</p>
           <Button disabled={!ready || !canActivate.allowed || activate.isPending} title={canActivate.title} isLoading={activate.isPending} onClick={() => setConfirmOpen(true)} data-testid="am-activate">تفعيل الحضور اليدوي…</Button>
         </div>
       </Card>
@@ -196,14 +201,14 @@ export default function AttendanceManualPage() {
         ) : active.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500" data-testid="am-active-empty">لا يوجد تفعيل ساريٍ — كل البوابات تعمل ببصمتها.</p>
         ) : (
-          <ul className="space-y-2">{active.map((r) => <ActivationItem key={r.id} r={r} onStop={() => setStopping(r)} stopDisabled={!canDeactivate.allowed} stopTitle={canDeactivate.title} />)}</ul>
+          <ul className="space-y-2">{active.map((r) => <ActivationItem key={r.id} r={r} onStop={() => setStopping(r)} stopDisabled={!canDeactivate.allowed} stopTitle={canDeactivate.title} onManageRecorders={() => setManagingRecorders(r)} manageDisabled={!canActivate.allowed} manageTitle={canActivate.title} />)}</ul>
         )}
       </Card>
 
       {ended.length > 0 && (
         <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="am-ended-list">
           <summary className="cursor-pointer text-sm font-black text-slate-800">③ السجل — تفعيلات منتهية ({ended.length})</summary>
-          <ul className="mt-3 space-y-2">{ended.map((r) => <ActivationItem key={r.id} r={r} />)}</ul>
+          <ul className="mt-3 space-y-2">{ended.map((r) => <ActivationItem key={r.id} r={r} onManageRecorders={r.pending_days > 0 ? () => setManagingRecorders(r) : undefined} manageDisabled={!canActivate.allowed} manageTitle={canActivate.title} />)}</ul>
         </details>
       )}
 
@@ -214,7 +219,9 @@ export default function AttendanceManualPage() {
             <ul className="list-disc space-y-1 ps-5 text-slate-700">
               <li>تتوقف البصمة <b>منطقياً</b> لهذا النطاق: تُخزَّن البصمات ولا تُحتسب، ولا يُمَس الجهاز.</li>
               <li>يُزال الحضور التلقائي المبني في أيام النطاق منذ البدء ليحلّ الكشف محلّه (الإجازات المعتمدة لا تُمَس).</li>
-              <li>كل يوم بلا كشف يبقى «بانتظار الكشف» (لا غياب ولا استقطاع) ويمنع اعتماد حضورية الشهر.</li>
+              <li>غرفة العمليات مخوّلة تلقائياً؛ ولا يسجّل غيرها إلا الحسابات الإضافية التي منحتها التطوير المركزية صلاحية هذا التفعيل ({recorderAccounts.length} حساب، ويمكن توثيق حسابات غرفة العمليات ضمنها أيضاً).</li>
+              <li>الموظف الذي لا يملك شفتاً لا يُسجَّل له حضور حتى يُسنَد له شفت.</li>
+              <li>كل يوم عمل بلا كشف يبقى «بانتظار الكشف» (لا غياب ولا استقطاع) ويمنع اعتماد حضورية الشهر.</li>
               <li>المتعهدون في النطاق يُدفعون من الأعداد التي يرسلونها.</li>
             </ul>
             <div className="flex justify-end gap-2">
@@ -229,11 +236,16 @@ export default function AttendanceManualPage() {
         <StopDialog r={stopping} today={today} busy={deactivate.isPending} blocked={!canDeactivate.allowed} blockedTitle={canDeactivate.title} onClose={() => setStopping(null)}
           onConfirm={(lastDay, note) => deactivate.mutate({ id: stopping.id, lastDay, note }, { onSuccess: () => setStopping(null) })} />
       )}
+
+      {managingRecorders && <RecordersDialog r={managingRecorders} blocked={!canActivate.allowed} blockedTitle={canActivate.title} onClose={() => setManagingRecorders(null)} />}
     </div>
   )
 }
 
-function ActivationItem({ r, onStop, stopDisabled, stopTitle }: { r: ManualActivationRow; onStop?: () => void; stopDisabled?: boolean; stopTitle?: string }) {
+function ActivationItem({ r, onStop, stopDisabled, stopTitle, onManageRecorders, manageDisabled, manageTitle }: {
+  r: ManualActivationRow; onStop?: () => void; stopDisabled?: boolean; stopTitle?: string
+  onManageRecorders?: () => void; manageDisabled?: boolean; manageTitle?: string
+}) {
   const isActive = r.status === 'active'
   return (
     <li className="rounded-xl border border-slate-200 p-3 text-xs" data-testid={`am-item-${r.id}`} data-status={r.status}>
@@ -252,9 +264,10 @@ function ActivationItem({ r, onStop, stopDisabled, stopTitle }: { r: ManualActiv
         <p className="text-[11px] text-slate-600" data-testid={`am-counters-${r.id}`}>
           {r.employees} موظفاً · {r.entries} تسجيلاً · <span className={r.pending_days > 0 ? 'font-bold text-amber-700' : ''}>{r.pending_days} يوم-موظف بانتظار الكشف{r.pending_dates > 0 ? ` (في ${r.pending_dates} يوم)` : ''}</span>
         </p>
-        {isActive && onStop && (
-          <Button size="sm" variant="danger" disabled={stopDisabled} title={stopTitle} onClick={onStop} data-testid={`am-stop-${r.id}`}>إيقاف وعودة البصمة…</Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {onManageRecorders && <Button size="sm" variant="secondary" disabled={manageDisabled} title={manageTitle} onClick={onManageRecorders} data-testid={`am-recorders-${r.id}`}>حسابات التسجيل</Button>}
+          {isActive && onStop && <Button size="sm" variant="danger" disabled={stopDisabled} title={stopTitle} onClick={onStop} data-testid={`am-stop-${r.id}`}>إيقاف وعودة البصمة…</Button>}
+        </div>
       </div>
     </li>
   )
@@ -283,6 +296,45 @@ function StopDialog({ r, today, busy, blocked, blockedTitle, onClose, onConfirm 
         <div className="flex justify-end gap-2">
           <Button size="sm" variant="secondary" onClick={onClose} disabled={busy}>رجوع</Button>
           <Button size="sm" variant="danger" disabled={!valid || blocked || busy} title={blockedTitle} isLoading={busy} onClick={() => onConfirm(lastDay, note.trim() || null)} data-testid="am-stop-confirm">تأكيد الإيقاف</Button>
+        </div>
+      </div>
+    </Overlay>
+  )
+}
+
+function RecordersDialog({ r, blocked, blockedTitle, onClose }: {
+  r: ManualActivationRow; blocked: boolean; blockedTitle: string | undefined; onClose: () => void
+}) {
+  const recorders = useManualRecorders(r.id)
+  const save = useSetManualRecorders()
+  const [accounts, setAccounts] = useState<ManualRecorderOption[] | null>(null)
+  const editable = !blocked && (r.status === 'active' || r.pending_days > 0)
+  const validAccounts = !!accounts && accounts.length <= MANUAL_RECORDERS_LIMIT && accounts.every((account) => account.isOpsRoom || account.hasPortalRole)
+
+  useEffect(() => {
+    if (recorders.data) setAccounts(recorders.data.map((account) => recorderOptionFromGrant(account, r.portal)))
+  }, [recorders.data, r.portal])
+
+  const commit = () => {
+    if (!editable || !accounts) return
+    save.mutate({ activation: r.id, userIds: accounts.map((account) => account.id) }, { onSuccess: onClose })
+  }
+
+  return (
+    <Overlay title={`حسابات التسجيل — ${r.portal_label}`} onClose={onClose} testId="am-recorders-dialog">
+      <div className="space-y-3 text-xs leading-relaxed">
+        <p className="font-bold text-slate-800">{r.scope_label}</p>
+        <p className="text-slate-600">غرفة العمليات مخوّلة افتراضياً؛ ويمكن إضافة حساباتها هنا أيضاً للتوثيق. يلزم لبقية الحسابات دور بوابة التفعيل المناسب.</p>
+        {r.status === 'ended' && r.pending_days > 0 && <Banner tone="amber">بقيت أيام معلّقة؛ يحتفظ الحساب المخوّل بالوصول لإكمالها، ثم يُسحب الوصول تلقائياً عند اكتمالها.</Banner>}
+        {r.status === 'ended' && r.pending_days === 0 && <Banner tone="slate">اكتملت الأيام المعلّقة لهذا التفعيل؛ انتهى الوصول ولا يمكن تغيير القائمة.</Banner>}
+        {recorders.isLoading ? <LoadingSpinner /> : recorders.isError ? (
+          <Banner tone="rose" role="alert" testId="am-recorders-load-error" action={<Button size="sm" variant="secondary" onClick={() => void recorders.refetch()}>إعادة المحاولة</Button>}>تعذّر تحميل الحسابات المخوّلة.</Banner>
+        ) : accounts && (
+          <ManualRecordersPicker portalId={r.portal} accounts={accounts} onChange={setAccounts} disabled={!editable || save.isPending} />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={onClose} disabled={save.isPending}>إغلاق</Button>
+          <Button size="sm" disabled={!editable || !validAccounts || recorders.isLoading || recorders.isError || save.isPending} title={blocked ? blockedTitle : undefined} isLoading={save.isPending} onClick={commit} data-testid="am-recorders-save">حفظ الحسابات المخوّلة</Button>
         </div>
       </div>
     </Overlay>

@@ -14,6 +14,14 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps
       - run: npm run test:e2e
+      - name: Build production assets for PWA update lifecycle test
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://e2e-test.supabase.co
+          VITE_SUPABASE_ANON_KEY: e2e-test-anon-key-not-a-secret-1234567890
+          VITE_APP_ENV: development
+      - name: Exercise the production Service Worker update cycle
+        run: E2E_PWA_UPDATE_TEST=1 npx playwright test tests/e2e/pwa/update-cycle.spec.ts --project=chromium
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

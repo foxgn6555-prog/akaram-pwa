@@ -1,5 +1,5 @@
 /**
- * كشف الحضور اليدوي ليوم (أصحاب البوابة المعطّلة بصمتها):
+ * كشف الحضور اليدوي ليوم (الحسابات المخوّلة صراحةً على التفعيل أو غرفة العمليات):
  *   شريط الأيام (المنجز/المعلّق) → قائمة موظفي النطاق بحسب الهيكل التنظيمي → «حاضر / غائب» لكل موظف → حفظ يطبَّق فوراً.
  *   · لا حالة افتراضية: كل موظف يُسجَّل له صراحةً، والمتبقّون يبقون «بانتظار الكشف» (لا غياب ولا استقطاع).
  *   · تعديل مُدخَل محفوظ يحتاج سبباً، والإجازة/الراحة/حسابك/تعديل آخر مقفلة بسببها.
@@ -19,6 +19,7 @@ import { Banner, MiniStat, fieldCls } from './shared'
 type RowFilter = 'all' | 'pending' | 'present' | 'absent' | 'locked'
 const FILTERS: ReadonlyArray<readonly [RowFilter, string]> = [['all', 'الكل'], ['pending', 'بانتظار'], ['present', 'حاضر'], ['absent', 'غائب'], ['locked', 'مقفل']]
 const NAME_PREVIEW = 10
+const canRecordRow = (r: ManualSheetEmployee): boolean => r.state === 'open' && r.has_shift
 
 export function ManualSheetPanel({ activationId }: { activationId: string }) {
   const [date, setDate] = useState<string | null>(null)
@@ -36,9 +37,9 @@ export function ManualSheetPanel({ activationId }: { activationId: string }) {
   const canReview = sheet?.can_review === true
   const isReviewable = (r: ManualSheetEmployee): boolean => canReview && r.state === 'other' && r.source === 'manual'
   const statusOf = (r: ManualSheetEmployee): ManualEntryStatus | null => draft[r.id] ?? (isReviewable(r) ? null : r.entry)
-  const openRows = rows.filter((r) => r.state === 'open')
+  const openRows = rows.filter(canRecordRow)
   const reviewRows = rows.filter((r) => r.state === 'other')
-  const editableRows = rows.filter((r) => r.state === 'open' || isReviewable(r))
+  const editableRows = rows.filter((r) => canRecordRow(r) || isReviewable(r))
   const dirtyRows = editableRows.filter((r) => draft[r.id] !== undefined)
   const editedRows = dirtyRows.filter((r) => r.entry !== null || r.state === 'other')
   const needsNote = editedRows.length > 0
@@ -59,7 +60,7 @@ export function ManualSheetPanel({ activationId }: { activationId: string }) {
     return rows.filter((r) => {
       if (needle && !`${r.name} ${r.number}`.toLowerCase().includes(needle)) return false
       const reviewable = canReview && r.state === 'other' && r.source === 'manual'
-      const editable = r.state === 'open' || reviewable
+      const editable = canRecordRow(r) || reviewable
       const st = editable ? (draft[r.id] ?? (reviewable ? null : r.entry)) : null
       if (filter === 'pending') return editable && st === null
       if (filter === 'present') return editable && st === 'present'
@@ -68,11 +69,11 @@ export function ManualSheetPanel({ activationId }: { activationId: string }) {
       return true
     })
   }, [rows, draft, q, filter, canReview])
-  const remainingVisible = visible.filter((r) => r.state === 'open' && statusOf(r) === null)
+  const remainingVisible = visible.filter((r) => canRecordRow(r) && statusOf(r) === null)
 
   const pick = (r: ManualSheetEmployee, status: ManualEntryStatus) => {
     const reviewable = isReviewable(r)
-    if (!canEdit || (r.state !== 'open' && !reviewable)) return
+    if (!canEdit || (!canRecordRow(r) && !reviewable)) return
     setDraft((d) => {
       const n = { ...d }
       // إدخال المُراجع ليس مرجعاً صالحاً لحسم التعارض؛ لا بد من اختيار صريح مع سبب.
@@ -247,8 +248,10 @@ export function ManualSheetPanel({ activationId }: { activationId: string }) {
 }
 
 function EmployeeRow({ r, status, changed, editable, reviewable, onPick }: { r: ManualSheetEmployee; status: ManualEntryStatus | null; changed: boolean; editable: boolean; reviewable: boolean; onPick: (r: ManualSheetEmployee, s: ManualEntryStatus) => void }) {
-  const open = r.state === 'open'
+  const open = r.state === 'open' && r.has_shift
+  const noShift = r.state === 'no_shift' || (r.state === 'open' && !r.has_shift)
   const actionable = open || reviewable
+  const lockedLabel = noShift ? MANUAL_STATE_LABELS.no_shift : MANUAL_STATE_LABELS[r.state as Exclude<typeof r.state, 'open'>]
   const sub = [r.job_title, r.department].filter(Boolean).join(' · ')
   return (
     <li className={clsx('flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2.5 last:border-0', changed && 'bg-amber-50/60', !open && 'bg-slate-50/60')} data-testid={`mam-row-${r.id}`} data-state={r.state} data-status={status ?? 'none'}>
@@ -259,7 +262,7 @@ function EmployeeRow({ r, status, changed, editable, reviewable, onPick }: { r: 
           <p className="text-[11px] text-slate-500" data-testid={`mam-meta-${r.id}`}>سُجّل «{MANUAL_ENTRY_LABELS[r.entry]}»{r.by ? ` بواسطة ${r.by}` : ''}{r.at ? ` · ${fmtManualTime(r.at)}` : ''}{r.note ? ` — ${r.note}` : ''}</p>
         )}
         {open && r.entry && changed && status && <p className="text-[11px] font-bold text-amber-700" data-testid={`mam-change-${r.id}`}>سيُعدَّل من «{MANUAL_ENTRY_LABELS[r.entry]}» إلى «{MANUAL_ENTRY_LABELS[status]}»</p>}
-        {open && !r.has_shift && <p className="text-[11px] text-amber-700">بلا شفت مُسنَد — يُسجَّل بلا أوقات متوقعة.</p>}
+        {noShift && <p className="text-[11px] font-bold text-amber-800" data-testid={`mam-no-shift-${r.id}`}>لا يمكن تسجيل الحضور لهذا الموظف؛ أَسنِد له شفتاً أولاً.</p>}
         {reviewable && <p className="text-[11px] font-bold text-amber-800" data-testid={`mam-review-${r.id}`}>يوجد سجل حضور يدوي بلا إدخال كشف مطابق. اختر الحالة بعد المراجعة واكتب السبب.</p>}
         {r.punches > 0 && <p className="text-[11px] text-slate-400" data-testid={`mam-punches-${r.id}`}>بصمات واردة من الجهاز (للاطلاع فقط): {r.punches} · {fmtManualTime(r.first_punch)}–{fmtManualTime(r.last_punch)}</p>}
       </div>
@@ -271,7 +274,7 @@ function EmployeeRow({ r, status, changed, editable, reviewable, onPick }: { r: 
             className={clsx('min-h-10 min-w-[84px] rounded-xl px-4 text-sm font-black ring-1 transition disabled:cursor-not-allowed disabled:opacity-60', status === 'absent' ? 'bg-red-600 text-white ring-red-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-red-50')}>غائب</button>
         </div>
       ) : (
-        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600" data-testid={`mam-locked-${r.id}`}>{MANUAL_STATE_LABELS[r.state as Exclude<typeof r.state, 'open'>]}</span>
+        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600" data-testid={`mam-locked-${r.id}`}>{lockedLabel}</span>
       )}
     </li>
   )

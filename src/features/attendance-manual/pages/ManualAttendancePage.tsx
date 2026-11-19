@@ -1,7 +1,7 @@
 /**
  * «الحضور اليدوي» — الصفحة العامة المبنية مرة واحدة والمسجَّلة في كل بوابة تملك موظفين (/<portal>/manual-attendance).
- * تظهر في الشريط الجانبي فقط ما دام لبوابتك تفعيل ساريٍ (تعطلت بصمتها) أو أيام بانتظار الكشف؛ تفعيلها وإيقافها من التطوير المركزية وحدها.
- * غرفة العمليات ولوحة الإدارة تريان تفعيلات كل البوابات (للإكمال نيابةً)، وبقية البوابات تعرض تفعيل بوابتها فقط.
+ * تظهر في الشريط الجانبي للحساب الذي لديه تفعيل مفوّض؛ تفعيلها وإيقافها من التطوير المركزية وحدها.
+ * غرفة العمليات وحدها ترى كل التفعيلات افتراضياً؛ بقية الحسابات ترى فقط التفعيلات المفوّضة على بوابتها.
  */
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
@@ -12,7 +12,7 @@ import {
 import { ManualSheetPanel } from '@features/attendance-manual/components/ManualSheetPanel'
 import { Banner } from '@features/attendance-manual/components/shared'
 
-/** تفعيلات هذه البوابة (أو الكل لبوابات المستوى الأعلى)، الساري أولاً ثم ما بقي فيه معلّق */
+/** تفعيلات هذه البوابة (أو الكل لغرفة العمليات وحدها)، الساري أولاً ثم ما بقي فيه معلّق */
 export function activationsForPortal(portal: string, items: readonly ManualMyActivation[]): ManualMyActivation[] {
   const list = MANUAL_SENIOR_PORTALS.includes(portal) ? [...items] : items.filter((a) => a.portal === portal)
   return list.sort((a, b) => (a.status === b.status ? b.starts_on.localeCompare(a.starts_on) : a.status === 'active' ? -1 : 1))

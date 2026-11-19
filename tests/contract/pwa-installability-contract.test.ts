@@ -58,10 +58,11 @@ describe('عقد قابلية التثبيت (00349 B)', () => {
     expect(prod).not.toMatch(/addEventListener\('install'/)
     expect(sw).toMatch(/SKIP_WAITING/)
   })
-  it('main.tsx يربط التثبيت والتحديث بالواجهة', () => {
+  it('main.tsx يربط التثبيت والتحديث بالواجهة وفحوص العودة للتطبيق', () => {
     const main = readFileSync(join(root, 'src/main.tsx'), 'utf8')
     expect(main).toMatch(/installPwaListeners\(\)/)
     expect(main).toMatch(/onNeedRefresh/)
+    expect(main).toMatch(/watchForPwaUpdates\(reg/)
     expect(main).toMatch(/pwaStore\.setNeedRefresh/)
     const app = readFileSync(join(root, 'src/App.tsx'), 'utf8')
     expect(app).toMatch(/<UpdateBanner \/>/)
@@ -69,5 +70,18 @@ describe('عقد قابلية التثبيت (00349 B)', () => {
     expect(shell).toMatch(/<InstallBanner \/>/)
     const login = readFileSync(join(root, 'src/portals/public/pages/Login/LoginPage.tsx'), 'utf8')
     expect(login).toMatch(/<InstallAppButton/)
+  })
+  it('الاستضافة لا تكاش ملف SW أو HTML إلى ما بعد نشر الإصدار', () => {
+    const apache = readFileSync(pub('.htaccess'), 'utf8')
+    expect(apache).toMatch(/Files "sw\.js"[\s\S]*?Cache-Control "no-cache, no-store, must-revalidate"/)
+    expect(apache).toMatch(/Files "index\.html"[\s\S]*?Cache-Control "no-cache, must-revalidate"/)
+
+    const vercel = JSON.parse(readFileSync(join(root, 'vercel.json'), 'utf8')) as {
+      headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }>
+    }
+    const swHeaders = vercel.headers.find((entry) => entry.source === '/sw.js')?.headers
+    const htmlHeaders = vercel.headers.find((entry) => entry.source === '/index.html')?.headers
+    expect(swHeaders).toContainEqual({ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' })
+    expect(htmlHeaders).toContainEqual({ key: 'Cache-Control', value: 'no-cache, must-revalidate' })
   })
 })

@@ -1,4 +1,4 @@
-/** خطافات «الحضور اليدوي البديل عند تعطل البصمة» — التطوير (تفعيل/إيقاف) · أصحاب البوابة (الكشف) · غرفة العمليات/الموارد البشرية (الملخصات) */
+/** خطافات «الحضور اليدوي البديل عند تعطل البصمة» — التطوير (تفعيل/إيقاف/تفويض) · الحسابات المخوّلة (الكشف) · غرفة العمليات/الموارد البشرية (الملخصات) */
 import { useCallback, useEffect, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { hrKeys } from '@lib/query-keys/hr.keys'
@@ -16,6 +16,7 @@ export { MANUAL_SENIOR_PORTALS, filterManualAttendanceUnit, loadMyManualActivati
 export const attendanceManualKeys = {
   all: ['attendance-manual'] as const,
   portalOptions: () => [...attendanceManualKeys.all, 'portal-options'] as const,
+  recorders: (id: string) => [...attendanceManualKeys.all, 'recorders', id] as const,
   preview: (s: ManualScopeArgs) => [...attendanceManualKeys.all, 'preview', s.branchId ?? '', s.departmentId ?? '', s.includeSub] as const,
   list: (onlyActive: boolean) => [...attendanceManualKeys.all, 'list', onlyActive] as const,
   sheet: (id: string, date: string | null) => [...attendanceManualKeys.all, 'sheet', id, date ?? 'latest'] as const,
@@ -42,6 +43,23 @@ function useInvalidateAll() {
 
 export function useManualPortalOptions(enabled = true) {
   return useQuery({ queryKey: attendanceManualKeys.portalOptions(), queryFn: () => attendanceManual.portalOptions(), enabled, staleTime: 60_000 })
+}
+/** حسابات التسجيل الإضافية لتفعيل معيّن — تُدار من التطوير المركزية فقط */
+export function useManualRecorders(activationId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: attendanceManualKeys.recorders(activationId ?? ''),
+    queryFn: () => attendanceManual.recorders(activationId!),
+    enabled: enabled && !!activationId,
+    staleTime: 10_000,
+  })
+}
+export function useSetManualRecorders() {
+  const t = useToast(); const inv = useInvalidateAll()
+  return useMutation({
+    mutationFn: (v: { activation: string; userIds: string[] }) => attendanceManual.setRecorders(v.activation, v.userIds),
+    onSuccess: async (r) => { await inv(); t.ok(`حُفظت قائمة الحسابات المخوّلة (${r.recorders}) — غرفة العمليات مخوّلة افتراضياً`) },
+    onError: t.err,
+  })
 }
 /** المعاينة لا تكتب شيئاً — تعمل تلقائياً متى اكتمل اختيار النطاق (فرع أو قسم) */
 export function useManualScopePreview(scope: ManualScopeArgs, enabled = true) {

@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { usersKeys } from '@lib/query-keys/users.keys'
 import { users } from '@sdk/users.sdk'
 
-export function useUsers(searchQuery?: string) {
+export function useUsers(searchQuery?: string, enabled = true) {
   return useQuery({
     queryKey: usersKeys.list(searchQuery),
     queryFn: () => users.list(searchQuery),
     staleTime: 15_000,
+    enabled,
   })
 }
 

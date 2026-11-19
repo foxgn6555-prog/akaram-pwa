@@ -22,6 +22,7 @@ import { canWith, routeAllowed } from '@features/permissions/my-permissions'
 import sidebar from '../../src/i18n/ar/sidebar.json'
 
 const MIGRATION = readFileSync(join(process.cwd(), 'supabase/migrations/20261118130000_attendance_manual_mode.sql'), 'utf8')
+const AUTHORIZED_MIGRATION = readFileSync(join(process.cwd(), 'supabase/migrations/20261118150000_attendance_manual_authorized_recorders.sql'), 'utf8')
 const nav = sidebar.nav as Record<string, string>
 
 const collect = (routes: RouteObject[], out: RouteObject[] = []): RouteObject[] => {
@@ -157,6 +158,63 @@ describe('كتالوج الصلاحيات والحجب', () => {
     expect(canWith({ 'hr.manual-attendance': ['view'] }, 'hr.manual-attendance', 'create')).toBe(false)
     expect(routeAllowed('/it/integrations/attendance-manual', { it: ['view'] })).toBe(false)
     expect(routeAllowed('/it/integrations/attendance-manual', { 'it.integrations.attendance-manual': ['view'] })).toBe(true)
+  })
+})
+
+describe('تفويض حسابات التسجيل على مستوى التفعيل', () => {
+  const body = (source: string, signature: string) => {
+    const start = source.indexOf(`create or replace function ${signature}`)
+    const end = source.indexOf('$$;', start)
+    expect(start, signature).toBeGreaterThanOrEqual(0)
+    expect(end, signature).toBeGreaterThan(start)
+    return source.slice(start, end)
+  }
+
+  it('غرفة العمليات وحدها افتراضية؛ أي حساب آخر يحتاج قائمة التفعيل ودور وصلاحية بوابتها', () => {
+    const canRecord = body(AUTHORIZED_MIGRATION, 'app.manual_att_can_record(p_activation uuid)')
+    expect(canRecord).toContain("app.has_role(array['ops_room'])")
+    expect(canRecord).toContain('attendance_manual_recorders')
+    expect(canRecord).toContain('pr.portal = a.portal')
+    expect(canRecord).toContain("app.can(auth.uid(), a.portal || '.manual-attendance', 'view')")
+    expect(canRecord).toContain("app.can(auth.uid(), a.portal || '.manual-attendance', 'create')")
+    expect(canRecord).not.toContain('super_admin')
+    expect(canRecord).not.toContain('it_admin')
+  })
+
+  it('الخادم يفرض سقف 5، وجود الحساب، ودور البوابة المطابق؛ ويقبل ops_room صراحةً', () => {
+    const set = body(AUTHORIZED_MIGRATION, 'app.attendance_manual_recorders_set__raw(p_activation uuid, p_user_ids uuid[])')
+    expect(set).toContain('cardinality(ids) > 5')
+    expect(set).toContain('from auth.users au')
+    expect(set).toContain("ur.role = 'ops_room'")
+    expect(set).toContain('pr.portal = a.portal')
+    expect(set).toContain('ATT_MANUAL_RECORDER_PORTAL_ROLE_REQUIRED')
+  })
+
+  it('الرابط يفتح بوابة التفعيل نفسها بعد تحقق الدور، لا بوابة عامة أخرى', () => {
+    const link = body(AUTHORIZED_MIGRATION, 'app.manual_att_user_link(p_user uuid, p_activation uuid)')
+    expect(link).toContain("'/' || a.portal || '/manual-attendance'")
+    expect(link).toContain('pr.portal = a.portal')
+    expect(link).toContain("'/ops-room/manual-attendance'")
+    expect(link).not.toContain('order by pr.portal')
+  })
+
+  it('المخوّل يحتفظ بوصول ما بعد الإيقاف فقط ما دام هناك يوم معلّق؛ والأيام القديمة المعلّقة تظهر وتُقبل للحفظ', () => {
+    const canRecord = body(AUTHORIZED_MIGRATION, 'app.manual_att_can_record(p_activation uuid)')
+    expect(canRecord).toContain("a.status = 'active'")
+    expect(canRecord).toContain("a.status = 'ended'")
+    expect(canRecord).toContain('app.manual_att_pending_days')
+    expect(AUTHORIZED_MIGRATION).toContain('app.manual_att_can_complete_pending(p_activation, p_date)')
+    expect(AUTHORIZED_MIGRATION).toContain('select min(p.work_date) into v_pending_from')
+    expect(AUTHORIZED_MIGRATION).toContain('p.work_date < v_recent_from')
+    expect(AUTHORIZED_MIGRATION).toContain('ATT_MANUAL_WINDOW_CLOSED')
+  })
+
+  it('لا شفت يعني لا إدخال ولا يوم معلّق؛ يرفضه الخادم قبل أي كتابة', () => {
+    const rows = body(AUTHORIZED_MIGRATION, 'app.manual_att_sheet_rows(p_activation uuid, p_date date)')
+    const pending = body(AUTHORIZED_MIGRATION, 'app.manual_att_pending_days(p_from date, p_to date, p_activation uuid default null)')
+    expect(rows).toContain("when sh.shift_id is null then 'no_shift'")
+    expect(pending).toContain('and sh.shift_id is not null')
+    expect(AUTHORIZED_MIGRATION).toContain('ATT_MANUAL_SHIFT_REQUIRED')
   })
 })
 
