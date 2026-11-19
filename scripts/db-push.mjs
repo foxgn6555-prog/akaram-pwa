@@ -39,6 +39,25 @@ const runEnv = {
 }
 const extra = process.argv.slice(2)
 
+// ── حاجز ①: انحراف سجل الترحيلات ──────────────────────────────────────────────
+// إن كان ملف محلي غير مسجَّل في سجل الإنتاج فسيُعاد تنفيذه الآن — وبعض الملفات ليست
+// آمنة التكرار (20261117160000 يحذف permission_write_bindings). نوقف قبل أي لمس.
+const drift = spawnSync('node', ['scripts/check-migration-history.mjs'], { stdio: 'inherit', cwd: root, shell: false })
+if (drift.status !== 0) {
+  console.error('❌ أُوقف الدفع: سجل الترحيلات غير متسق (انظر أعلاه). لم يُطبَّق شيء.')
+  process.exit(drift.status ?? 1)
+}
+
+// ── حاجز ②: الإنتاج ليس هدفاً افتراضياً ──────────────────────────────────────
+// التطبيق على قاعدة الإنتاج يجري بمراجعة SQL وتسجيل النسخة، لا بـ db push.
+const PROD_REF = 'rzpitdsuwgprzfvrlkdn'
+if (REF === PROD_REF && !extra.includes('--allow-production')) {
+  console.error(`❌ أُوقف الدفع: ${REF} هو مشروع الإنتاج.`)
+  console.error('   القاعدة: لا db push على الإنتاج. طبّق الترحيلة بمراجعة (SQL مسجَّل + صف في schema_migrations).')
+  console.error('   إن كان الهدف اختبارياً فعلاً وأصررت: أضف --allow-production صريحاً.')
+  process.exit(1)
+}
+
 const run = (args) => {
   const result = spawnSync('npx', ['supabase', ...args], {
     shell: true,

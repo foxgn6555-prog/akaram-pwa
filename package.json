@@ -34,7 +34,8 @@
     "user:create": "node scripts/create-user.mjs",
     "user:reset-pass": "node scripts/reset-password.mjs",
     "functions:deploy": "bash scripts/deploy-functions.sh",
-    "simulate": "bash scripts/simulate-devices.sh"
+    "simulate": "bash scripts/simulate-devices.sh",
+    "check:migrations": "node scripts/check-migration-history.mjs"
   },
   "dependencies": {
     "@fontsource/amiri": "^5.3.0",
