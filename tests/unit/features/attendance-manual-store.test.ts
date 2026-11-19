@@ -1,5 +1,5 @@
 /**
- * الحضور اليدوي — ظهور وحدته في الشريط الجانبي: لبوابة التفعيل نفسها فقط (أو لغرفة العمليات/لوحة الإدارة متى وُجد أي تفعيل)،
+ * الحضور اليدوي — ظهور وحدته في الشريط الجانبي: لبوابة التفعيل المفوّض نفسها أو لغرفة العمليات وحدها متى وُجد أي تفعيل،
  * وتحميل «تفعيلاتي» مرة واحدة مع إعادة قسرية، وفشل التحميل لا يمسح القائمة، ودمجه مع إخفاء 00170 وصلاحيات 00350.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,12 +45,13 @@ describe('مَن يرى وحدة «الحضور اليدوي»', () => {
     for (const p of MANUAL_ATTENDANCE_PORTALS.filter((x) => x !== 'transfer-station' && !MANUAL_SENIOR_PORTALS.includes(x))) expect(manualAttendanceVisible(p, items), p).toBe(false)
   })
 
-  it('غرفة العمليات ولوحة الإدارة تريانها متى وُجد أي تفعيل (للإكمال نيابةً)، ولا تريانها بلا تفعيل', () => {
-    expect(MANUAL_SENIOR_PORTALS).toEqual(['ops-room', 'admin'])
-    for (const p of MANUAL_SENIOR_PORTALS) {
-      expect(manualAttendanceVisible(p, [act('hr')]), p).toBe(true)
-      expect(manualAttendanceVisible(p, []), p).toBe(false)
-    }
+  it('غرفة العمليات وحدها تراها متى وُجد أي تفعيل؛ المدير المفوض لا يرى تفعيلات غير مفوّضة إليه', () => {
+    expect(MANUAL_SENIOR_PORTALS).toEqual(['ops-room'])
+    expect(manualAttendanceVisible('ops-room', [act('hr')])).toBe(true)
+    expect(manualAttendanceVisible('ops-room', [])).toBe(false)
+    expect(manualAttendanceVisible('admin', [act('hr')])).toBe(false)
+    expect(manualAttendanceVisible('manager', [act('hr')])).toBe(false)
+    expect(manualAttendanceVisible('admin', [act('admin')])).toBe(true)
   })
 
   it('التفعيل المنتهي ذو المعلّق يبقى الوحدة ظاهرة (القائمة من الخادم تُرجعه فقط ما دام فيه معلّق)', () => {

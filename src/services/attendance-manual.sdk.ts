@@ -1,7 +1,7 @@
 /**
  * SDK «الحضور اليدوي البديل عند تعطل جهاز البصمة»:
  *   · التفعيل والإيقاف: التطوير المركزية فقط — بوابة × نطاق يختاره المُفعِّل من الهيكل التنظيمي (فرع و/أو قسم وأقسامه الفرعية).
- *   · الكشف اليومي حاضر/غائب: يسجّله أصحاب البوابة المعطّلة (أو غرفة العمليات) وينفذ فوراً؛ اليوم بلا كشف «بانتظار الكشف».
+ *   · الكشف اليومي حاضر/غائب: تسجّله حسابات فوّضتها التطوير المركزية على التفعيل (وغرفة العمليات افتراضياً)؛ اليوم بلا كشف «بانتظار الكشف».
  *   · الملخصات: الأيام المعلّقة (تمنع اعتماد حضورية الشهر) وعدد الأيام اليدوية لكل موظف.
  * الإيقاف منطقي: البصمات تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه؛ وتعود البصمة بالإيقاف.
  */
@@ -10,7 +10,7 @@ import { HR_ERROR_MESSAGES, lookupErrorMessage } from './hr.sdk'
 
 export type ManualEntryStatus = 'present' | 'absent'
 /** حالة الموظف في كشف اليوم: open = يُسجَّل له؛ غير ذلك مقفل لسبب */
-export type ManualEmployeeState = 'open' | 'leave' | 'rest' | 'self' | 'other'
+export type ManualEmployeeState = 'open' | 'leave' | 'rest' | 'self' | 'other' | 'no_shift'
 export type ManualActivationStatus = 'active' | 'ended'
 export type ManualSheetLock = 'month_locked' | 'month_confirmed' | null
 
@@ -22,6 +22,7 @@ export const MANUAL_ENTRY_LABELS: Readonly<Record<ManualEntryStatus, string>> = 
 export const MANUAL_STATE_LABELS: Readonly<Record<Exclude<ManualEmployeeState, 'open'>, string>> = {
   leave: 'في إجازة معتمدة',
   rest: 'يوم راحة',
+  no_shift: 'لا يوجد شفت — أَسنِد شفتاً أولاً',
   self: 'حسابك أنت — لا تسجّل حضورك بنفسك',
   other: 'سجل يدوي غير مطابق — يلزم مراجعة مخوّلة',
 }
@@ -42,6 +43,11 @@ export const ATTENDANCE_MANUAL_ERROR_MESSAGES: Record<string, string> = {
   ATT_MANUAL_START_INVALID: 'تاريخ البدء يجب أن يكون اليوم أو أحد الأيام الـ31 الماضية',
   ATT_MANUAL_DUPLICATE_ACTIVE: 'يوجد تفعيل ساري لهذه البوابة بالنطاق نفسه — أوقفه أولاً أو اختر نطاقاً آخر',
   ATT_MANUAL_ALREADY_ENDED: 'هذا التفعيل أُوقف سابقاً',
+  ATT_MANUAL_NO_PENDING: 'اكتملت الأيام المعلّقة لهذا التفعيل؛ لا يمكن تغيير حسابات التسجيل الآن',
+  ATT_MANUAL_RECORDERS_TOO_MANY: 'لا يجوز اختيار أكثر من 5 حسابات إضافية للتفعيل',
+  ATT_MANUAL_RECORDER_INVALID: 'أحد الحسابات المختارة غير موجود على المنصة',
+  ATT_MANUAL_RECORDER_DUPLICATE: 'الحساب مكرر في قائمة المخوّلين',
+  ATT_MANUAL_RECORDER_PORTAL_ROLE_REQUIRED: 'يجب إسناد دور وصلاحية الكشف في بوابة التفعيل للحساب قبل تفويضه',
   ATT_MANUAL_END_INVALID: 'آخر يوم مغطّى يجب أن يكون بين يوم قبل البدء واليوم',
   ATT_MANUAL_DATE_REQUIRED: 'اختر اليوم',
   ATT_MANUAL_DATE_OUT_OF_RANGE: 'هذا اليوم خارج أيام التفعيل أو خارج نافذة التسجيل',
@@ -52,6 +58,7 @@ export const ATTENDANCE_MANUAL_ERROR_MESSAGES: Record<string, string> = {
   ATT_MANUAL_DUPLICATE_ENTRY: 'موظف مكرر في الكشف',
   ATT_MANUAL_EMPLOYEE_NOT_IN_SCOPE: 'موظف خارج نطاق هذا التفعيل — حدّث الصفحة',
   ATT_MANUAL_EMPLOYEE_LOCKED: 'لا يمكن تسجيل هذا الموظف في هذا اليوم (إجازة أو راحة أو حسابك أو تعديل آخر) — حدّث الصفحة',
+  ATT_MANUAL_SHIFT_REQUIRED: 'يجب إسناد شفت للموظف قبل تسجيل الحضور اليدوي',
   ATT_MANUAL_NOTE_REQUIRED: 'تعديل مُدخَل سابق يحتاج سبباً (3 أحرف على الأقل)',
   HR_FUTURE_DATE: 'لا يمكن تسجيل يوم لم يأتِ بعد',
 }
@@ -69,8 +76,13 @@ export interface ManualScopePreview {
   employees: number; no_pin: number; contractors: number; sample: string[]
   overlapping: { id: string; portal: string; portal_label: string }[]
 }
-export interface ManualActivateArgs extends ManualScopeArgs { portal: string; reason: string; startsOn: string | null }
+export const MANUAL_RECORDERS_LIMIT = 5
+export interface ManualActivateArgs extends ManualScopeArgs { portal: string; reason: string; startsOn: string | null; recorderUserIds: string[] }
 export interface ManualActivateResult { id: string; portal: string; starts_on: string; employees: number; cleared_auto_days: number; other_active: { id: string; portal: string }[] }
+export interface ManualActivationRecorder {
+  user_id: string; name: string; email: string | null; roles: string[]; granted_by_name: string | null; granted_at: string
+}
+export interface ManualRecordersSetResult { activation_id: string; recorders: number }
 export interface ManualDeactivateResult { id: string; ends_on: string; reevaluated_days: number; pending_days: number }
 
 /** صف قائمة التفعيلات لتقنية المعلومات */
@@ -127,8 +139,14 @@ export const attendanceManual = {
   /** التطوير: معاينة النطاق قبل التفعيل (لا تكتب شيئاً) */
   scopePreview(s: ManualScopeArgs) { return rpc<ManualScopePreview>('attendance_manual_scope_preview', scopeArgs(s)) },
   activate(a: ManualActivateArgs) {
-    return rpc<ManualActivateResult>('attendance_manual_activate', { p_portal: a.portal, ...scopeArgs(a), p_reason: a.reason.trim(), p_starts_on: a.startsOn || null })
+    return rpc<ManualActivateResult>('attendance_manual_activate', { p_portal: a.portal, ...scopeArgs(a), p_reason: a.reason.trim(), p_starts_on: a.startsOn || null, p_recorders: a.recorderUserIds })
   },
+  /** حسابات التسجيل الإضافية لتفعيل — يمكن توثيق حسابات غرفة العمليات هنا أيضاً رغم صلاحيتها الافتراضية */
+  recorders(activation: string) { return rpc<ManualActivationRecorder[]>('attendance_manual_recorders_get', { p_activation: activation }) },
+  setRecorders(activation: string, userIds: string[]) {
+    return rpc<ManualRecordersSetResult>('attendance_manual_recorders_set', { p_activation: activation, p_user_ids: userIds })
+  },
+
   /** lastDay = آخر يوم يبقى مغطّى بالكشف (الافتراضي اليوم)؛ تعود البصمة بعده */
   deactivate(id: string, lastDay: string | null, note: string | null) {
     return rpc<ManualDeactivateResult>('attendance_manual_deactivate', { p_activation: id, p_last_day: lastDay || null, p_note: note?.trim() || null })

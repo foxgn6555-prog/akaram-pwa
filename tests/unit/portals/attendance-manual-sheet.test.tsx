@@ -1,5 +1,5 @@
 /**
- * الحضور اليدوي — كشف اليوم لأصحاب البوابة (ManualSheetPanel):
+ * الحضور اليدوي — كشف اليوم للحسابات المخوّلة (ManualSheetPanel):
  *   عرض موظفي النطاق وحالاتهم · حاضر/غائب بلا افتراضي · حفظ بتأكيد يرسل المتغيّر فقط · تعديل المُدخَل يشترط سبباً
  *   · شهر معتمد/مقفل للاطلاع · الانتقال بين الأيام يحمي التغييرات غير المحفوظة · أخطاء بالعربية.
  */
@@ -76,12 +76,17 @@ describe('عرض الكشف', () => {
     expect(h.sheet).toHaveBeenCalledWith('act1', null)
   })
 
-  it('بصمات الجهاز الواردة تُعرض للاطلاع فقط، وموظف بلا شفت يُنبَّه', async () => {
-    h.sheet.mockImplementation(async () => sheetOf({ employees: [emp('e1', 'أحمد علي', { punches: 2, first_punch: '2026-11-17T04:55:00Z', last_punch: '2026-11-17T13:00:00Z', has_shift: false })] }))
+  it('البصمات الواردة معلوماتية؛ وبلا شفت يُقفل الموظف ويُطلب إسناد الشفت قبل التسجيل', async () => {
+    h.sheet.mockImplementation(async () => sheetOf({ employees: [emp('e1', 'أحمد علي', { punches: 2, first_punch: '2026-11-17T04:55:00Z', last_punch: '2026-11-17T13:00:00Z', has_shift: false, state: 'no_shift' })] }))
     renderPanel(); await loaded()
     expect(screen.getByTestId('mam-punches-e1')).toHaveTextContent('للاطلاع فقط')
     expect(screen.getByTestId('mam-punches-e1')).toHaveTextContent('07:55')
-    expect(screen.getByTestId('mam-row-e1')).toHaveTextContent('بلا شفت مُسنَد')
+    expect(screen.getByTestId('mam-locked-e1')).toHaveTextContent('لا يوجد شفت')
+    expect(screen.getByTestId('mam-no-shift-e1')).toHaveTextContent('أَسنِد له شفتاً أولاً')
+    expect(screen.queryByTestId('mam-present-e1')).toBeNull()
+    expect(screen.queryByTestId('mam-absent-e1')).toBeNull()
+    expect(stat('mam-stat-open')).toBe('0')
+    expect(screen.getByTestId('mam-filter-locked')).toBeInTheDocument()
   })
 
   it('تفعيل منتهٍ بقي فيه معلّق: شريط أصفر بدل شريط التفعيل', async () => {

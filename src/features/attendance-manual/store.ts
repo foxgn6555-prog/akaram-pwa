@@ -1,15 +1,15 @@
 /**
  * تفعيلاتي للحضور اليدوي — مخزن zustand صغير (كنمط portal-visibility) يُحمَّل من AppShell ويُحدَّث بعد كل حفظ/تفعيل.
- *  · مصدر ظهور وحدة «الحضور اليدوي» في الشريط الجانبي: تظهر لبوابتها فقط ما دام لها تفعيل ساريٍ أو أيام بانتظار الكشف.
- *  · غرفة العمليات والمدير المفوض يسجّلان كشف أي بوابة (الخادم يقرر) فتظهر لهما الوحدة متى وُجد أي تفعيل.
- *  · فشل التحميل لا يُخفي ما كان ظاهراً (نُبقي آخر قائمة معروفة)؛ والمسار نفسه لا يُحجب أبداً بسبب القائمة (الأمان في الخادم).
+ *  · الخادم يعيد فقط التفعيلات التي يحق للحساب الحالي تسجيلها؛ هذه القائمة وحدها تتحكم بظهور الوحدة.
+ *  · غرفة العمليات (ops_room) مخوّلة تلقائياً، وبقية الحسابات تحتاج تفويضاً صريحاً من التطوير المركزية لكل تفعيل.
+ *  · فشل التحميل لا يُخفي ما كان ظاهراً (نُبقي آخر قائمة معروفة)؛ وتبقى صلاحية قاعدة البيانات هي الحكم النهائي.
  */
 import { create } from 'zustand'
 import { attendanceManual, type ManualMyActivation } from '@sdk/attendance-manual.sdk'
 import { isManualAttendancePath, type SidebarUnit } from '@config/portals.config'
 
-/** بوابات المستوى الأعلى التي تسجّل كشف أي بوابة (يطابق app.manual_att_can_record: ops_room · super_admin) */
-export const MANUAL_SENIOR_PORTALS: readonly string[] = ['ops-room', 'admin']
+/** البوابة الوحيدة التي ترى كل التفعيلات افتراضياً؛ الحسابات الأخرى ترى ما فُوّضت به فقط */
+export const MANUAL_SENIOR_PORTALS: readonly string[] = ['ops-room']
 
 interface ManualActivationsState {
   loaded: boolean
@@ -38,7 +38,7 @@ export function loadMyManualActivations(force = false): Promise<void> {
   return inflight
 }
 
-/** هل تظهر وحدة الحضور اليدوي في بوابة `portal`؟ لبوابة التفعيل نفسها، أو لبوابات المستوى الأعلى متى وُجد أي تفعيل */
+/** هل تظهر وحدة الحضور اليدوي؟ لبوابة التفعيل المفوّض نفسه، أو لغرفة العمليات إذا كان لها أي تفعيل مسموح */
 export function manualAttendanceVisible(portal: string, items: readonly Pick<ManualMyActivation, 'portal'>[]): boolean {
   if (items.some((a) => a.portal === portal)) return true
   return MANUAL_SENIOR_PORTALS.includes(portal) && items.length > 0

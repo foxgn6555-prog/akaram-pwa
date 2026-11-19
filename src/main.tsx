@@ -6,6 +6,7 @@ import { installConsoleCapture } from '@lib/console/capture'
 import { system } from '@sdk/system.sdk'
 import { reloadOnce } from '@lib/router/lazy'
 import { installPwaListeners, pwaStore } from '@features/pwa/pwa.store'
+import { watchForPwaUpdates } from '@features/pwa/update-check'
 import App from './App'
 // خط عربي مستضاف ذاتياً: يمنع اعتماد التخطيط على خط النظام (تفاوت عرضه يسبب انزياحاً على الهاتف).
 import '@fontsource/cairo/400.css'
@@ -46,8 +47,17 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     const updateSW = registerSW({
       immediate: true,
       onNeedRefresh: () => pwaStore.setNeedRefresh(updateSW),
-      // فحص دوري للتحديثات كل ساعة (المتصفح يفحص عند كل تحميل؛ هذا للجلسات الطويلة المفتوحة)
-      onRegisteredSW: (_url, reg) => { if (reg) window.setInterval(() => void reg.update(), 60 * 60 * 1000) },
+      // فحص عند العودة للتطبيق/الشبكة أيضاً؛ مؤقّتات الخلفية كل ساعة قد تُعلّقها أنظمة الهاتف.
+      // إن كان هناك SW ينتظر بعد إخفاء الشريط سابقاً، نعيد عرض خيار التحديث دون فرض إعادة التحميل.
+      onRegisteredSW: (_url, reg) => {
+        if (reg) {
+          watchForPwaUpdates(reg, {
+            onUpdateReady: () => {
+              if (!pwaStore.getState().needRefresh) pwaStore.setNeedRefresh(updateSW)
+            },
+          })
+        }
+      },
     })
   })
 }
