@@ -40,13 +40,23 @@ if (IS_DEV) {
   const offlineHandler = createHandlerBoundToURL('offline.html')
 
   registerRoute(
-    new NavigationRoute(async (params) => {
-      try {
-        return await appShellHandler(params)
-      } catch {
-        return offlineHandler(params)
-      }
-    }),
+    new NavigationRoute(
+      async (params) => {
+        try {
+          return await appShellHandler(params)
+        } catch {
+          return offlineHandler(params)
+        }
+      },
+      {
+        /**
+         * 00349 ج: لا نبتلع كل تنقل. مسار بامتداد ملف (PDF/Excel/صورة/خط) أو أصول
+         * التقارير ليس صفحة تطبيق — لو عاد app shell لرأى المستخدم التطبيق مكان الملف.
+         * مسارات التطبيق نفسها بلا امتدادات، فلا تتأثر.
+         */
+        denylist: [/\/report-assets\//, /\.[a-z0-9]{2,5}$/i],
+      },
+    ),
   )
 
   registerRoute(

@@ -10,7 +10,9 @@ export const pwaConfig: Partial<VitePWAOptions> = {
   filename: 'sw.ts',
   // 00349 B: prompt — التحديث بموافقة المستخدم («حدّث الآن») بدل إعادة تحميل مفاجئة
   registerType: 'prompt',
-  includeAssets: ['offline.html', 'robots.txt'],
+  // offline.html يلتقطه نمط glob الافتراضي (html) فيدخل precache مرة واحدة؛
+  // إضافته هنا كانت تُدرجه مرتين. robots.txt ليس ضمن نمط glob فيحتاج ذكراً صريحاً.
+  includeAssets: ['robots.txt'],
   manifest: {
     name: 'جزيرة الأكارم — النظام الإلكتروني',
     short_name: 'الأكارم',
