@@ -51,7 +51,14 @@ describe('عقد قابلية التثبيت (00349 B)', () => {
     expect(sw).toMatch(/createHandlerBoundToURL\('index\.html'\)/)
     expect(sw).toMatch(/createHandlerBoundToURL\('offline\.html'\)/)
     expect(existsSync(pub('offline.html'))).toBe(true)
-    expect(pwaConfig.includeAssets).toContain('offline.html')
+    // القصد: offline.html يجب أن يصل إلى precache مرة واحدة. مساره إمّا includeAssets أو
+    // نمط glob (الافتراضي يشمل html) — والعقد يفحص الضمان لا الآلية، فإدراجه في الاثنين معاً
+    // (كما كان) يُنتج مدخلاً مكرراً بلا فائدة.
+    const globPatterns = pwaConfig.injectManifest?.globPatterns ?? ['**/*.{js,css,html,ico,png,svg,woff,woff2}']
+    const viaAssets = (pwaConfig.includeAssets ?? []).includes('offline.html')
+    const viaGlob = globPatterns.some((g: string) => g.includes('html'))
+    expect(viaAssets || viaGlob).toBe(true)
+    expect(viaAssets && viaGlob).toBe(false) // لا ازدواج
     expect(pwaConfig.registerType).toBe('prompt')
     // لا skipWaiting تلقائي في الإنتاج — فقط عبر رسالة SKIP_WAITING
     const prod = sw.slice(sw.indexOf('} else {'))

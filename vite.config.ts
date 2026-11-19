@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -16,7 +18,25 @@ import { pwaConfig } from './src/config/pwa.config'
  */
 const previewFrame = process.env.AKARAM_PREVIEW_FRAME === '1'
 
+/**
+ * بصمة البناء: تُحقن في الحزمة كي يعرف الدعم أي نسخة يعمل عليها المستخدم،
+ * وتُمرَّر إلى Sentry كـ release فترتبط الأخطاء ببناء محدّد.
+ * الشكل: 4.0.0+a1b2c3d  (نسخة package.json + أول 7 من SHA)
+ */
+const appVersion = (() => {
+  let version = '0.0.0'
+  try {
+    version = (JSON.parse(readFileSync('package.json', 'utf8')) as { version?: string }).version ?? version
+  } catch { /* يبقى الافتراضي */ }
+  let sha = 'nogit'
+  try {
+    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || sha
+  } catch { /* بيئة بلا git (حزمة مصدر) */ }
+  return `${version}+${sha}`
+})()
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [
     react(),
     tailwindcss(),

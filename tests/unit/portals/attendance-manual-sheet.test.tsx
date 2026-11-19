@@ -36,7 +36,7 @@ const sheetOf = (over: Partial<ManualSheet> = {}): ManualSheet => ({
     emp('e2', 'بسام حسن', { entry: 'present', by: 'سارة', at: '2026-11-17T05:00:00Z', status: 'present', source: 'manual' }),
     emp('e3', 'جاسم كريم', { state: 'leave' }),
   ],
-  excluded: { no_pin: 1, contractors: 2 },
+  excluded: { no_pin: 0, contractors: 2 }, included_no_pin: 1,
   ...over,
 })
 
@@ -66,8 +66,8 @@ describe('عرض الكشف', () => {
     expect(screen.getByTestId('mam-locked-e3')).toHaveTextContent('في إجازة معتمدة')
     expect(screen.queryByTestId('mam-present-e3')).toBeNull()
     expect(screen.getByTestId('mam-meta-e2')).toHaveTextContent('سُجّل «حاضر» بواسطة سارة')
-    expect(screen.getByTestId('mam-excluded')).toHaveTextContent('1 بلا رقم بصمة')
-    expect(screen.getByTestId('mam-excluded')).toHaveTextContent('2 متعهد')
+    expect(screen.getByTestId('mam-excluded')).toHaveTextContent('يشمل الكشف 1 موظفاً بلا رقم بصمة')
+    expect(screen.getByTestId('mam-excluded')).toHaveTextContent('2 متعهد خارج الكشف')
     expect(screen.getByTestId('mam-day-2026-11-17')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('mam-day-2026-11-16')).toHaveTextContent('اكتمل')
     expect(screen.getByTestId('mam-day-2026-11-17')).toHaveTextContent('1 بانتظار')

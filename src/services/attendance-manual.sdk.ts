@@ -119,6 +119,8 @@ export interface ManualSheet {
   days: ManualSheetDay[]
   employees: ManualSheetEmployee[]
   excluded: { no_pin: number; contractors: number }
+  /** عدد المشمولين في الكشف بلا رقم بصمة مسجّل — لم يعودوا مستبعدين بعد 20261119120000 */
+  included_no_pin: number
 }
 export interface ManualSheetSaveEntry { employee_id: string; status: ManualEntryStatus }
 export interface ManualSheetSaveResult { saved: number; changed: number; unchanged: number; present: number; absent: number; pending_left: number; date: string }

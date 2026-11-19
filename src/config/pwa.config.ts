@@ -10,7 +10,9 @@ export const pwaConfig: Partial<VitePWAOptions> = {
   filename: 'sw.ts',
   // 00349 B: prompt — التحديث بموافقة المستخدم («حدّث الآن») بدل إعادة تحميل مفاجئة
   registerType: 'prompt',
-  includeAssets: ['offline.html', 'robots.txt'],
+  // offline.html يلتقطه نمط glob الافتراضي (html) فيدخل precache مرة واحدة؛
+  // إضافته هنا كانت تُدرجه مرتين. robots.txt ليس ضمن نمط glob فيحتاج ذكراً صريحاً.
+  includeAssets: ['robots.txt'],
   manifest: {
     name: 'جزيرة الأكارم — النظام الإلكتروني',
     short_name: 'الأكارم',
@@ -34,6 +36,19 @@ export const pwaConfig: Partial<VitePWAOptions> = {
   },
   injectManifest: {
     maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+    /**
+     * 00349 C: استبعاد حزم التصدير الثقيلة من التثبيت المسبق.
+     * كانت كلها تُنزَّل لكل مستخدم (≈2.3MB) حتى لو لم يفتح تصديراً واحداً، ما يثقل
+     * أول تثبيت على بيانات الهاتف ويزيد احتمال فشل التثبيت (وفشله = لا تحديثات أبداً).
+     * تبقى تعمل: تُخزَّن عند أول استخدام عبر مسار CacheFirst في src/workers/sw.ts.
+     */
+    globIgnores: [
+      '**/exceljs.min-*.js',
+      '**/jspdf.es.min-*.js',
+      '**/html2canvas.esm-*.js',
+      '**/design-word-*.js',
+      '**/pdf-*.js',
+    ],
   },
   devOptions: { enabled: false },  // معطل في dev — SW يتعارض مع HMR ويخزن ردود قديمة
 }

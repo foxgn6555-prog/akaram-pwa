@@ -24,7 +24,7 @@ const sheetFor = (id: string): ManualSheet => ({
   activation: { id, portal: 'transfer-station', portal_label: 'المحطة التحويلية', status: 'active', starts_on: '2026-11-10', ends_on: null, reason: 'عطل', branch_id: null, department_id: 'd1', include_sub_departments: true, scope_label: `نطاق ${id}` },
   date: '2026-11-17', today: '2026-11-17', from: '2026-11-10', to: '2026-11-17', lock: null, can_review: false, days: [{ date: '2026-11-17', total: 1, entered: 0, pending: 1 }],
   employees: [{ id: 'e1', name: 'أحمد', number: '101', job_title: null, department: null, has_shift: true, state: 'open', entry: null, note: null, by: null, at: null, punches: 0, first_punch: null, last_punch: null, status: null, source: null }],
-  excluded: { no_pin: 0, contractors: 0 },
+  excluded: { no_pin: 0, contractors: 0 }, included_no_pin: 0,
 })
 
 const renderPage = (portal: string) => {

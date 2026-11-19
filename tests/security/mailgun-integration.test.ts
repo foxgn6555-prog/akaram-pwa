@@ -51,4 +51,9 @@ describe('عقد أمان تكامل Mailgun', () => {
     expect(inbound).toContain('extractionStale')
     expect(inbound).toContain('100 * 1024 * 1024')
   })
+  it('يستنتج القاطع من عنوان الاستقبال krd/zfr مع إبقاء الأسماء القديمة', () => {
+    expect(inbound).toContain("sectorTokenMatch(recipient, ['krd', 'karrada'])")
+    expect(inbound).toContain("sectorTokenMatch(recipient, ['zfr', 'zaafaraniya'])")
+    expect(inbound).toContain("address.split('@')[0]")
+  })
 })

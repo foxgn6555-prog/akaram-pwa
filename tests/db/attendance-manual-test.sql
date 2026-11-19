@@ -122,15 +122,15 @@ begin
   perform pg_temp.expect_error($q$ select public.attendance_manual_activate('transfer-station', null, 'a7000000-0000-4000-8000-0000000000d4'::uuid, true, 'سبب كافٍ') $q$, 'ATT_MANUAL_SCOPE_EMPTY');
   select count(*) into n_before from public.attendance_manual_activations;
   assert n_before = 0, 'A2 لا شيء كُتب بعد كل الرفض: ' || n_before;
-  -- A3: معاينة النطاق قبل التفعيل (قسم المحطة وما تحته): S,E1,E2,E3,E7 بالبصمة؛ E4 بلا بصمة؛ E6 متعهد
+  -- A3: معاينة النطاق قبل التفعيل (قسم المحطة وما تحته): S,E1,E2,E3,E4,E7 يدخلون الكشف (E4 بلا بصمة)؛ E6 متعهد مستثنى
   j := public.attendance_manual_scope_preview(null, d1, true);
-  assert (j ->> 'employees')::int = 5 and (j ->> 'no_pin')::int = 1 and (j ->> 'contractors')::int = 1 and j -> 'overlapping' = '[]'::jsonb, 'A3 معاينة: ' || j::text;
+  assert (j ->> 'employees')::int = 6 and (j ->> 'no_pin')::int = 1 and (j ->> 'contractors')::int = 1 and j -> 'overlapping' = '[]'::jsonb, 'A3 معاينة (يشمل بلا بصمة): ' || j::text;
   j := public.attendance_manual_scope_preview(null, d1, false);
-  assert (j ->> 'employees')::int = 4, 'A3 القسم بلا أقسامه الفرعية: ' || j::text;
+  assert (j ->> 'employees')::int = 5, 'A3 القسم بلا أقسامه الفرعية (S,E1,E3,E4,E7): ' || j::text;
   j := public.attendance_manual_scope_preview(b1, null, true);
-  assert (j ->> 'employees')::int = 7, 'A3 الفرع كله (S,E1,E2,E3,E5,E7,E8): ' || j::text;
+  assert (j ->> 'employees')::int = 8, 'A3 الفرع كله (S,E1,E2,E3,E4,E5,E7,E8): ' || j::text;
   j := public.attendance_manual_scope_preview(b1, d1, true);
-  assert (j ->> 'employees')::int = 5, 'A3 تقاطع الفرع والقسم: ' || j::text;
+  assert (j ->> 'employees')::int = 6, 'A3 تقاطع الفرع والقسم: ' || j::text;
   -- A3ب: خيارات التفعيل: 17 بوابة، واقتراح قسم/فرع موظف حساب بوابة المحطة (حساب واحد بدور transfer_station)
   j := public.attendance_manual_portal_options();
   assert jsonb_array_length(j) = 17 and not exists (select 1 from jsonb_array_elements(j) o where o ->> 'portal' in ('employee', 'public')), 'A3ب 17 بوابة قابلة للتفعيل: ' || jsonb_array_length(j);
@@ -144,7 +144,7 @@ select pg_temp.as_user('a7000000-0000-4000-8000-000000000001');
 create temp table a7_ctx as select public.attendance_manual_activate('transfer-station', null, 'a7000000-0000-4000-8000-0000000000d1'::uuid, true, 'تعطل جهاز بوابة المحطة', app.hr_local_date(now()) - 2) as j;
 do $$ declare j jsonb := (select j from a7_ctx); t date := app.hr_local_date(now()); act uuid := (j ->> 'id')::uuid; a public.attendance_manual_activations; n int;
 begin
-  assert (j ->> 'employees')::int = 5 and (j ->> 'starts_on')::date = t - 2, 'A4 نتيجة التفعيل: ' || j::text;
+  assert (j ->> 'employees')::int = 6 and (j ->> 'starts_on')::date = t - 2, 'A4 نتيجة التفعيل (بلا شرط بصمة): ' || j::text;
   -- يُزال الصف التلقائي لأيام النطاق المسجَّلة قبل التفعيل: S وE1 وE2 × (يومان) = 6، وE5 (قسم آخر) وE6 (متعهد) بقيا
   assert (j ->> 'cleared_auto_days')::int = 6, 'A4 صفوف تلقائية أُزيلت: ' || j::text;
   select * into a from public.attendance_manual_activations where id = act;
@@ -201,8 +201,11 @@ begin
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000004');   -- مشرف بوابة المحطة (هو S)
   j := public.manual_att_sheet_get(act, t - 1);
   select jsonb_object_agg(e ->> 'number', e ->> 'state') into st from jsonb_array_elements(j -> 'employees') e;
-  assert st = '{"A7-S":"self","A7-1":"open","A7-2":"open","A7-3":"leave","A7-7":"rest"}'::jsonb, 'C1 حالات أمس: ' || st::text;
-  assert (j -> 'excluded' ->> 'no_pin')::int = 1 and (j -> 'excluded' ->> 'contractors')::int = 1, 'C1 المستثنون: ' || (j -> 'excluded')::text;
+  assert st = '{"A7-S":"self","A7-1":"open","A7-2":"open","A7-3":"leave","A7-4":"no_shift","A7-7":"rest"}'::jsonb, 'C1 حالات أمس: ' || st::text;
+  -- 20261119120000: بلا بصمة صاروا داخل الكشف، فـ«excluded.no_pin» صفر ويُعلَن عددهم في «included_no_pin»
+  assert (j -> 'excluded' ->> 'no_pin')::int = 0 and (j -> 'included_no_pin')::int = 1 and (j -> 'excluded' ->> 'contractors')::int = 1, 'C1 المشمولون بلا بصمة والمتعهدون: ' || j::text;
+  assert exists (select 1 from jsonb_array_elements(j -> 'employees') e where e ->> 'number' = 'A7-4' and e ->> 'state' = 'no_shift' and (e ->> 'has_shift')::boolean = false),
+    'C1ب الموظف بلا رقم بصمة داخل الكشف ومقفل بسبب غياب الشفت (لا يُستبعد بصمت): ' || (j -> 'employees')::text;
   assert j ->> 'lock' is null and (j ->> 'date')::date = t - 1 and (j ->> 'to')::date = t and (j ->> 'from')::date = t - 2, 'C1 النافذة: ' || j::text;
   assert jsonb_array_length(j -> 'days') = 3 and (j -> 'days' -> 0 ->> 'date')::date = t, 'C1 شريط الأيام';
   -- اليوم الافتراضي = آخر يوم مغطّى (اليوم)
@@ -373,7 +376,7 @@ begin
   -- بداية قبل 12 يوماً قد تقع في شهر سابق؛ نتجنّب أي شهر معتمد/مقفل (لا وجود له هنا)
   j := public.attendance_manual_activate('maintenance', 'a7000000-0000-4000-8000-0000000000b1'::uuid, null, true, 'تعطل جهاز الصيانة', t - 12);
   act2 := (j ->> 'id')::uuid;
-  assert (j ->> 'employees')::int = 7, 'D9 موظفو الفرع: ' || j::text;
+  assert (j ->> 'employees')::int = 8, 'D9 موظفو الفرع (يشمل بلا بصمة): ' || j::text;
   -- المشرّف (صلاحية بوابة الصيانة) لا يملك أصلاً بوابة أخرى: نستعمل مستخدم الصيانة
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000005');
   perform pg_temp.expect_error(format($q$ select public.manual_att_sheet_save(%L::uuid, %L::date, jsonb_build_array(jsonb_build_object('employee_id', %L, 'status', 'present')), null) $q$, act2, t - 9, e8), 'ATT_MANUAL_WINDOW_CLOSED');

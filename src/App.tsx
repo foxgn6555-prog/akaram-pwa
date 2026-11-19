@@ -6,7 +6,7 @@ import { queryClient } from '@config/query-client.config'
 import { router } from '@router/index'
 import { ErrorBoundary } from '@components/feedback/ErrorBoundary'
 import { OfflineBanner } from '@components/feedback/OfflineBanner'
-import { UpdateBanner } from '@features/pwa/PwaBanners'
+import { OfflineReadyBanner, UpdateBanner } from '@features/pwa/PwaBanners'
 import { startSessionWatch } from '@features/auth/session-watch'
 import { ShiftRegistryLoader } from '@features/hr-shifts/hooks'
 import { SectorsRegistryLoader } from '@features/sectors/labels'   // 00394: القطاعات من القاعدة
@@ -22,6 +22,7 @@ export default function App() {
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <OfflineBanner />
           <UpdateBanner />
+          <OfflineReadyBanner />
           <ShiftRegistryLoader />
           <SectorsRegistryLoader />
           <div className="min-h-0 flex-1">

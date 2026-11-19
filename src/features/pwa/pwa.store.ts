@@ -7,6 +7,7 @@
  * يُستهلك عبر useSyncExternalStore من المكوّنات، ويُغذّى من main.tsx ومن حدث المتصفح.
  */
 import { useSyncExternalStore } from 'react'
+import { clearPendingUpdate, readPendingUpdate, recordDismissal, startPendingUpdate, updateUrgency } from './update-policy'
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -25,12 +26,18 @@ export interface PwaState {
   needRefresh: boolean
   /** تنفيذ التحديث (يرسل SKIP_WAITING ثم يعاد التحميل) */
   updateSW: ((reload?: boolean) => Promise<void>) | null
+  /** التحديث صار مطلوباً (تجاوز حد التأجيل) — الشريط بلا زر إغلاق ويُطبَّق تلقائياً عند الخمول */
+  updateForced: boolean
+  /** اكتمل تثبيت الـ SW ويعمل التطبيق دون اتصال — إشعار لمرة واحدة */
+  offlineReady: boolean
 }
 
 export const PWA_INSTALL_DISMISS_KEY = 'akaram.pwa.install.dismissedAt'
 export const PWA_INSTALL_DISMISS_DAYS = 7
 
-let state: PwaState = { deferredPrompt: null, installed: false, needRefresh: false, updateSW: null }
+let state: PwaState = {
+  deferredPrompt: null, installed: false, needRefresh: false, updateSW: null, updateForced: false, offlineReady: false,
+}
 const listeners = new Set<() => void>()
 
 function emit(): void { for (const l of listeners) l() }
@@ -41,10 +48,36 @@ export const pwaStore = {
   subscribe(l: () => void): () => void { listeners.add(l); return () => { listeners.delete(l) } },
   setDeferredPrompt(e: BeforeInstallPromptEvent | null): void { set({ deferredPrompt: e }) },
   markInstalled(): void { set({ installed: true, deferredPrompt: null }) },
-  setNeedRefresh(updateSW: (reload?: boolean) => Promise<void>): void { set({ needRefresh: true, updateSW }) },
-  clearNeedRefresh(): void { set({ needRefresh: false }) },
+  setNeedRefresh(updateSW: (reload?: boolean) => Promise<void>): void {
+    // نسجّل لحظة أول ظهور كي تبدأ مهلة «24 ساعة» ولا تُصفَّر مع كل فحص
+    const pending = startPendingUpdate()
+    set({ needRefresh: true, updateSW, updateForced: updateUrgency(pending) === 'forced' })
+  },
+  /**
+   * «لاحقاً»: يزيد العدّاد ويُخفي الشريط في الوضع العادي، ويُبقيه بلا إغلاق عند تجاوز الحد.
+   * السجل لا يُمحى هنا: محوه كان يُصفّر العدّاد فيعود دائماً إلى الصفر ولا يصبح التحديث مطلوباً أبداً.
+   * يُمحى فقط عند تطبيق التحديث (setUpdatesApplied) أو عند سيطرة إصدار جديد.
+   */
+  dismissUpdate(): void {
+    const pending = recordDismissal()
+    const forced = updateUrgency(pending) === 'forced'
+    set({ updateForced: forced, needRefresh: forced })
+  },
+  /** يُستدعى من مراقب الخمول: يصبح مطلوباً بمرور الوقت حتى لو لم يضغط المستخدم شيئاً */
+  refreshUpdateUrgency(now: number = Date.now()): void {
+    if (!state.needRefresh) return
+    const forced = updateUrgency(readPendingUpdate(), now) === 'forced'
+    if (forced !== state.updateForced) set({ updateForced: forced })
+  },
+  clearNeedRefresh(): void { clearPendingUpdate(); set({ needRefresh: false, updateForced: false }) },
+  setUpdatesApplied(): void { clearPendingUpdate(); set({ needRefresh: false, updateForced: false }) },
+  setOfflineReady(): void { set({ offlineReady: true }) },
+  dismissOfflineReady(): void { set({ offlineReady: false }) },
   /** للاختبارات فقط */
-  reset(): void { state = { deferredPrompt: null, installed: isStandalone(), needRefresh: false, updateSW: null }; emit() },
+  reset(): void {
+    state = { deferredPrompt: null, installed: isStandalone(), needRefresh: false, updateSW: null, updateForced: false, offlineReady: false }
+    emit()
+  },
 }
 
 export function usePwaState(): PwaState { return useSyncExternalStore(pwaStore.subscribe, pwaStore.getState, pwaStore.getState) }

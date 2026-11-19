@@ -9,6 +9,16 @@ const allowedMimeTypes = new Set([
 const maxAttachmentBytes = 25 * 1024 * 1024
 const maxMessageAttachmentBytes = 100 * 1024 * 1024
 
+/**
+ * يطابق الجزء المحلي من عنوان المستلم (قبل @) على رموز القاطع المعروفة.
+ * العناوين الحالية: krd@shakawa.jazirat-alakarim.com و zfr@shakawa.jazirat-alakarim.com،
+ * والاسمان القديمان (karrada/zaafaraniya) يبقيان مدعومين لتوافق العناوين السابقة.
+ */
+function sectorTokenMatch(address: string, tokens: string[]): boolean {
+  const localPart = address.split('@')[0] ?? ''
+  return tokens.some((token) => localPart.includes(token))
+}
+
 
 Deno.serve(async (request: Request) => {
   if (request.method !== 'POST') return jsonResponse({ error: 'METHOD_NOT_ALLOWED' }, 405)
@@ -36,8 +46,8 @@ Deno.serve(async (request: Request) => {
       .select('sender_pattern,sector').eq('is_active', true)
     const matchedRule = (rules ?? []).find((rule: { sender_pattern: string }) =>
       sender === rule.sender_pattern.toLowerCase()) as { sector: 'karrada' | 'zaafaraniya' } | undefined
-    const sector = recipient.includes('karrada') ? 'karrada'
-      : recipient.includes('zaafaraniya') ? 'zaafaraniya'
+    const sector = sectorTokenMatch(recipient, ['krd', 'karrada']) ? 'karrada'
+      : sectorTokenMatch(recipient, ['zfr', 'zaafaraniya']) ? 'zaafaraniya'
       : matchedRule?.sector ?? null
 
     const { data: existing } = await admin.from('complaint_inbox_messages')

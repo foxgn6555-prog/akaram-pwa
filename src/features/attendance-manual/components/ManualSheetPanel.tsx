@@ -200,9 +200,9 @@ export function ManualSheetPanel({ activationId }: { activationId: string }) {
             </ul>
           )}
 
-          {(sheet.excluded.no_pin > 0 || sheet.excluded.contractors > 0) && (
+          {(sheet.included_no_pin > 0 || sheet.excluded.contractors > 0) && (
             <p className="text-[11px] leading-relaxed text-slate-500" data-testid="mam-excluded">
-              خارج الكشف في هذا النطاق:{sheet.excluded.no_pin > 0 && <> {sheet.excluded.no_pin} بلا رقم بصمة مسجّل (لا يدخلون الحضور أصلاً)</>}{sheet.excluded.no_pin > 0 && sheet.excluded.contractors > 0 && ' ·'}{sheet.excluded.contractors > 0 && <> {sheet.excluded.contractors} متعهد (يُدفع من الأعداد التي يرسلها)</>}.
+              {sheet.included_no_pin > 0 && <>يشمل الكشف <b>{sheet.included_no_pin}</b> موظفاً بلا رقم بصمة مسجّل</>}{sheet.included_no_pin > 0 && sheet.excluded.contractors > 0 && ' ·'}{sheet.excluded.contractors > 0 && <>{sheet.excluded.contractors} متعهد خارج الكشف (يُدفع من الأعداد التي يرسلها)</>}.
             </p>
           )}
 

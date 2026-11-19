@@ -84,6 +84,7 @@ export default function AttendanceManualPage() {
         <h1 className="text-lg font-black">الحضور اليدوي (تعطل البصمة)</h1>
         <p className="mt-1 text-xs leading-relaxed text-slate-600">
           عند تعطل جهاز البصمة لبوابة ما: فعّل الحضور اليدوي لنطاقها. غرفة العمليات مخوّلة افتراضياً في كل التفعيلات؛ ولا تظهر الوحدة لبقية الحسابات إلا إذا منحتها التطوير المركزية صلاحية هذا التفعيل.
+          يشمل الكشف <b>كل موظفي النطاق</b> — بمن فيهم من لا رقم بصمة له (يحتاج شفتاً مُسنداً ليسجّل).
           الإيقاف <b>منطقي</b>: البصمات الواردة تُخزَّن ولا تُحتسب في أيام التفعيل، ولا يُمَس الجهاز ولا تسجيل موظفيه. الإجازات المعتمدة لا تتأثر.
           الجهاز نفسه وتسجيله من <Link to="/it/integrations/biometric" className="font-bold text-brand-700 underline">أجهزة البصمة</Link>.
         </p>
@@ -91,7 +92,7 @@ export default function AttendanceManualPage() {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="am-stats">
         <MiniStat title="تفعيلات سارية" value={active.length} tone={active.length > 0 ? 'sky' : 'slate'} testId="am-stat-active" />
-        <MiniStat title="موظفون بلا بصمة (يدوي)" value={coveredEmployees} testId="am-stat-employees" />
+        <MiniStat title="موظفون مشمولون بتفعيل ساري" value={coveredEmployees} testId="am-stat-employees" />
         <MiniStat title="أيام-موظفين بانتظار الكشف" value={pendingTotal} tone={pendingTotal > 0 ? 'amber' : 'slate'} testId="am-stat-pending" />
         <MiniStat title="تفعيلات منتهية" value={ended.length} testId="am-stat-ended" />
       </div>
@@ -173,12 +174,12 @@ export default function AttendanceManualPage() {
               <div className="space-y-2">
                 <p className="font-bold text-slate-800">{scopeText}</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <MiniStat title="يدخلون الكشف (ببصمة)" value={preview.data.employees} tone={preview.data.employees > 0 ? 'emerald' : 'rose'} testId="am-prev-employees" />
-                  <MiniStat title="بلا رقم بصمة (خارج الحضور)" value={preview.data.no_pin} testId="am-prev-nopin" />
+                  <MiniStat title="داخل الكشف" value={preview.data.employees} tone={preview.data.employees > 0 ? 'emerald' : 'rose'} testId="am-prev-employees" />
+                  <MiniStat title="منهم بلا رقم بصمة" value={preview.data.no_pin} testId="am-prev-nopin" />
                   <MiniStat title="متعهدون (يُدفعون بالأعداد)" value={preview.data.contractors} testId="am-prev-contractors" />
                 </div>
                 {preview.data.sample.length > 0 && <p className="leading-relaxed text-slate-600" data-testid="am-prev-sample">منهم: {preview.data.sample.join('، ')}{preview.data.employees > preview.data.sample.length ? ` … و${preview.data.employees - preview.data.sample.length} آخرين` : ''}</p>}
-                {emptyScope && <Banner tone="rose" role="alert" testId="am-prev-empty">لا موظفين ببصمة في هذا النطاق — لا حاجة لحضور يدوي له. غيّر النطاق.</Banner>}
+                {emptyScope && <Banner tone="rose" role="alert" testId="am-prev-empty">لا يوجد موظفون في هذا النطاق (ببصمة أو بلا بصمة) — اختر فرعاً أو قسماً فيه موظفون.</Banner>}
                 {preview.data.overlapping.length > 0 && (
                   <Banner tone="amber" testId="am-prev-overlap">
                     يتقاطع مع تفعيل ساريٍ: {preview.data.overlapping.map((o) => o.portal_label).join('، ')}. يمكن المتابعة؛ يسجّل الكشف أيٌّ من البوابتين، ويُعدّ اليوم مكتملاً متى سُجّل الموظف مرة.
