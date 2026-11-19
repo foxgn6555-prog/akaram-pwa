@@ -1,7 +1,8 @@
 /** نقطة الدخول — المراقبة أولاً ثم التركيب */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { initMonitoring } from '@lib/monitoring/sentry'
+import { initMonitoring, Sentry } from '@lib/monitoring/sentry'
+import { APP_VERSION } from '@config/build-info'
 import { installConsoleCapture } from '@lib/console/capture'
 import { system } from '@sdk/system.sdk'
 import { reloadOnce } from '@lib/router/lazy'
@@ -17,6 +18,9 @@ import '@fontsource/cairo/900.css'
 import './styles/globals.css'
 
 initMonitoring()
+
+// بصمة البناء على <html> — تُقرأ من أدوات الدعم («أي نسخة عندك؟») دون أي أثر بصري
+document.documentElement.dataset.appVersion = APP_VERSION
 
 // قطعة قديمة بعد نشر جديد أو إعادة تحسين اعتماديات Vite: إعادة تحميل واحدة بدل شاشة خطأ ميتة
 window.addEventListener('vite:preloadError', (e) => { if (reloadOnce('preload')) e.preventDefault() })
@@ -47,6 +51,14 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     const updateSW = registerSW({
       immediate: true,
       onNeedRefresh: () => pwaStore.setNeedRefresh(updateSW),
+      // إعادة التحميل مصدرها الوحيد مستمع controllerchange أدناه. القيمة الفارغة هنا
+      // تُلغي إعادة التحميل الثانية التي يضيفها vite-plugin-pwa في وضع prompt (كانتا تتزاحمان).
+      onNeedReload: () => undefined,
+      // فشل تسجيل الـ SW صامت افتراضياً؛ لو فشل مرة فلن تصل تحديثات أبداً — نسجّله للمراقبة
+      onRegisterError: (error) => {
+        console.error('[pwa] تعذّر تسجيل عامل الخدمة', error)
+        Sentry.captureException(error)
+      },
       // فحص عند العودة للتطبيق/الشبكة أيضاً؛ مؤقّتات الخلفية كل ساعة قد تُعلّقها أنظمة الهاتف.
       // إن كان هناك SW ينتظر بعد إخفاء الشريط سابقاً، نعيد عرض خيار التحديث دون فرض إعادة التحميل.
       onRegisteredSW: (_url, reg) => {

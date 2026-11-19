@@ -34,6 +34,19 @@ export const pwaConfig: Partial<VitePWAOptions> = {
   },
   injectManifest: {
     maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+    /**
+     * 00349 C: استبعاد حزم التصدير الثقيلة من التثبيت المسبق.
+     * كانت كلها تُنزَّل لكل مستخدم (≈2.3MB) حتى لو لم يفتح تصديراً واحداً، ما يثقل
+     * أول تثبيت على بيانات الهاتف ويزيد احتمال فشل التثبيت (وفشله = لا تحديثات أبداً).
+     * تبقى تعمل: تُخزَّن عند أول استخدام عبر مسار CacheFirst في src/workers/sw.ts.
+     */
+    globIgnores: [
+      '**/exceljs.min-*.js',
+      '**/jspdf.es.min-*.js',
+      '**/html2canvas.esm-*.js',
+      '**/design-word-*.js',
+      '**/pdf-*.js',
+    ],
   },
   devOptions: { enabled: false },  // معطل في dev — SW يتعارض مع HMR ويخزن ردود قديمة
 }

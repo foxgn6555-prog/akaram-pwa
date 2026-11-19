@@ -13,7 +13,8 @@ import {
   cleanupOutdatedCaches,
 } from 'workbox-precaching'
 import { registerRoute, NavigationRoute } from 'workbox-routing'
-import { NetworkFirst, NetworkOnly } from 'workbox-strategies'
+import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies'
+import { ExpirationPlugin } from 'workbox-expiration'
 
 // Workbox يحقن قائمة الإنتاج هنا — فارغة تماماً في التطوير
 declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string } | string> }
@@ -51,6 +52,17 @@ if (IS_DEV) {
   registerRoute(
     ({ request }) => request.destination === 'image',
     new NetworkFirst({ cacheName: 'images', networkTimeoutSeconds: 5 }),
+  )
+
+  // حزم التصدير الثقيلة (Excel/PDF/Word/تصوير الصفحة) مستبعدة من precache —
+  // أول تثبيت لا يدفع 2.3MB إضافية على بيانات الهاتف. تُخزَّن عند أول استخدام فعلي
+  // فتعمل بلا اتصال بعد ذلك، وتُقلَّم بحد أقصى 20 مدخلاً/30 يوماً كي لا تتراكم نسخ البناء القديمة.
+  registerRoute(
+    ({ url }) => /^\/assets\/(exceljs\.min|jspdf\.es\.min|html2canvas\.esm|design-word|pdf)-/.test(url.pathname),
+    new CacheFirst({
+      cacheName: 'heavy-export',
+      plugins: [new ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 30 * 24 * 60 * 60 })],
+    }),
   )
 
   // بيانات Supabase الحساسة: مرور شبكي خالص — يمرر الطلب الأصلي بلا كاش

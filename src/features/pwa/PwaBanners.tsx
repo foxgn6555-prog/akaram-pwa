@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { RefreshCw, Smartphone, X } from 'lucide-react'
+import { APP_VERSION } from '@config/build-info'
 import { InstallAppButton } from './InstallAppButton'
 import { dismissInstallBanner, installBannerDismissed, pwaStore, usePwaState } from './pwa.store'
 
@@ -37,7 +38,13 @@ export function UpdateBanner() {
     <div role="status" data-testid="pwa-update-banner"
       className="flex items-center gap-3 bg-emerald-700 px-3 py-2 text-xs text-white">
       <RefreshCw size={16} className="shrink-0" aria-hidden />
-      <span className="min-w-0 flex-1 font-bold">يتوفر إصدار جديد من التطبيق.</span>
+      <span className="min-w-0 flex-1 font-bold">
+        يتوفر إصدار جديد من التطبيق.
+        {/* بصمة النسخة العاملة الآن — تجعل تقرير المستخدم دقيقاً («نسختي 4.0.0+a1b2c3d») */}
+        <span dir="ltr" className="ms-1 font-mono text-[10px] font-normal opacity-80" data-testid="pwa-current-version">
+          {APP_VERSION}
+        </span>
+      </span>
       <button type="button" disabled={busy} onClick={() => void apply()} data-testid="pwa-update-now"
         className="h-8 rounded-lg bg-white px-3 font-black text-emerald-800 disabled:opacity-60">{busy ? 'جارٍ التحديث…' : 'حدّث الآن'}</button>
       <button type="button" onClick={() => pwaStore.clearNeedRefresh()} aria-label="لاحقاً" data-testid="pwa-update-later"

@@ -12,3 +12,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** بصمة البناء المحقونة من vite.config.ts (نسخة + SHA) */
+declare const __APP_VERSION__: string
