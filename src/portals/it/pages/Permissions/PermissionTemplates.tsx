@@ -14,6 +14,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { GridLegend, PermissionGrid, portalLabel } from './PermissionGrid'
 import { SecurityMonitor } from './SecurityMonitor'   // الجولة ٤
 import { AccountLevelsPanel } from './AccountLevelsPanel'   // الجولة ٦
+import { UnifiedSecurityDashboard } from './UnifiedSecurityDashboard'   // الجولة ٧
 
 type RuleMap = Record<string, PermissionEffect> // `${unit}|${action}` → effect
 const k = (u: string, a: string): string => `${u}|${a}`
@@ -155,6 +156,7 @@ export default function PermissionTemplates() {
         </section>
 
         {/* الجولة ٤: مراقبة الدخول والجلسات + حد الأجهزة لكل حساب */}
+        <UnifiedSecurityDashboard />
         <SecurityMonitor />
         <AccountLevelsPanel />
       </div>

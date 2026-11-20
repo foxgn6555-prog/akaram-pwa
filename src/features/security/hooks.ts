@@ -1,6 +1,6 @@
 /** الجولة ٤ — مراقبة الدخول والجلسات (بوابة تكنولوجيا المعلومات) */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { security, type SecurityEventKind } from '@sdk/security.sdk'
+import { security, type SecurityEventKind, type TimelineSource } from '@sdk/security.sdk'
 import { handleAppError } from '@lib/errors/error.handler'
 import { useUiStore } from '@stores/ui.store'
 
@@ -8,6 +8,9 @@ export const securityKeys = {
   all: ['security'] as const,
   events: (event: SecurityEventKind | null) => [...securityKeys.all, 'events', event ?? 'all'] as const,
   policies: (search: string) => [...securityKeys.all, 'policies', search] as const,
+  overview: (days: number) => [...securityKeys.all, 'overview', days] as const,
+  timeline: (user: string | null, days: number, source: TimelineSource | null) =>
+    [...securityKeys.all, 'timeline', user ?? 'all', days, source ?? 'all'] as const,
 }
 
 export function useSecurityEvents(event: SecurityEventKind | null, enabled = true) {
@@ -42,5 +45,28 @@ export function useSetSessionPolicy() {
       void queryClient.invalidateQueries({ queryKey: securityKeys.all })
     },
     onError: (error) => addToast({ type: 'error', message: handleAppError(error, { scope: 'sessionPolicy' }).message }),
+  })
+}
+
+/** الجولة ٧ — بطاقات اللوحة الأمنية */
+export function useSecurityOverview(days: number, enabled = true) {
+  return useQuery({
+    queryKey: securityKeys.overview(days),
+    queryFn: () => security.overview(days),
+    enabled,
+    staleTime: 30_000,
+  })
+}
+
+/** الجولة ٧ — السجل الموحّد (جلسات + صلاحيات + أدوار) */
+export function useSecurityTimeline(
+  params: { user?: string | null; days: number; source?: TimelineSource | null },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: securityKeys.timeline(params.user ?? null, params.days, params.source ?? null),
+    queryFn: () => security.timeline({ user: params.user ?? null, days: params.days, source: params.source ?? null }),
+    enabled,
+    staleTime: 15_000,
   })
 }
