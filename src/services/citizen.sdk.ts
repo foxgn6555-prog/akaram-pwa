@@ -10,7 +10,7 @@ export type CitizenStatus = 'new' | 'in_progress' | 'on_hold' | 'resolved'
 export const CITIZEN_STATUS_LABEL: Record<CitizenStatus, string> = { new: 'جديدة', in_progress: 'قيد المعالجة', on_hold: 'معلقة', resolved: 'تمت المعالجة' }
 export const CITIZEN_STATUS_ORDER: CitizenStatus[] = ['new', 'in_progress', 'on_hold', 'resolved']
 
-export interface CitizenSession { token: string; full_name: string; phone: string }
+export interface CitizenSession { token: string; full_name: string; phone: string; returning?: boolean }
 export interface CitizenPortalInfo { org_name: string; about: string; phones: Array<{ label: string; number: string }>; hours: string; address: string | null; support_online: boolean }
 export interface CitizenEvent { kind: 'created' | 'assigned' | 'status' | 'note' | 'rated'; from: string | null; to: string | null; to_label: string | null; note: string | null; actor: string | null; at: string }
 export interface CitizenComplaint {
@@ -80,6 +80,9 @@ const ERRORS: Record<string, string> = {
   CITIZEN_NOTE_REQUIRED: 'اكتب السبب/الملاحظة',
   CITIZEN_PHONES_INVALID: 'أرقام التواصل غير صالحة',
   CITIZEN_RANGE_INVALID: 'الفترة غير صالحة (حتى سنة)',
+  // الجولة ٩ (20261120210000): بوابة الدخول صارت تطابق الاسم ولا تدوّر الرمز
+  CITIZEN_IDENTITY_MISMATCH: 'الاسم لا يطابق صاحب هذا الرقم — اكتب الاسم كما سجّلته أول مرة',
+  CITIZEN_SIGNIN_LOCKED: 'محاولات كثيرة على هذا الرقم — أعد المحاولة بعد ساعة',
 }
 export function citizenErrorMessage(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
@@ -96,7 +99,18 @@ export const CITIZEN_SESSION_KEY = 'citizen.session.v1'
 export const citizen = {
   // ─────────── المواطن ───────────
   info() { return rpc<CitizenPortalInfo>('citizen_portal_info', {}) },
-  signIn(name: string, phone: string) { return rpc<CitizenSession>('citizen_sign_in', { p_name: name, p_phone: phone }) },
+  /**
+   * الجولة ٩: قاعدة البيانات تُرجع كائن خطأ ({error, message, attempts_left}) بدل رفع استثناء
+   * في مسار «الاسم لا يطابق صاحب الرقم» — لأن الاستثناء كان يُلغي تسجيل المحاولة (لا معاملات
+   * مستقلة في PostgreSQL). هنا نحوّل الكائن إلى استثناء ليُعرض عبر citizenErrorMessage.
+   */
+  async signIn(name: string, phone: string) {
+    const res = await rpc<CitizenSession & { error?: string; message?: string; attempts_left?: number }>(
+      'citizen_sign_in', { p_name: name, p_phone: phone },
+    )
+    if (!res || !res.token) throw new Error(res?.error ?? 'CITIZEN_SESSION_INVALID')
+    return res as CitizenSession
+  },
   submitComplaint(token: string, v: { fullName: string; details: string; lat?: number | null; lng?: number | null; address?: string | null; photos?: string[] }) {
     return rpc<CitizenComplaint>('citizen_complaint_submit', {
       p_token: token, p_full_name: v.fullName, p_details: v.details, p_lat: v.lat ?? null, p_lng: v.lng ?? null, p_address: v.address ?? null, p_photos: v.photos ?? null,

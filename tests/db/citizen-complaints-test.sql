@@ -17,7 +17,7 @@ insert into public.employees (id, user_id, full_name, employee_number) values
   ('cb000000-0000-0000-0000-000000000002', 'ca000000-0000-0000-0000-000000000002', 'مسؤول قسم الكرادة', 'CC-2')
 on conflict (id) do nothing;
 
--- ═══ T1 · دخول المواطن: تطبيع الهاتف، رفض الاسم القصير، إعادة الدخول تجدد الرمز ═══
+-- ═══ T1 · دخول المواطن: تطبيع الهاتف، رفض الاسم القصير، إعادة الدخول بلا تدوير + مطابقة الاسم ═══
 select auth.set_test_user(null);
 do $$ declare a jsonb; b jsonb; begin
   a := public.citizen_sign_in('علي حسين', '+964 770 123 4567');
@@ -26,8 +26,13 @@ do $$ declare a jsonb; b jsonb; begin
   exception when others then if sqlerrm <> 'CITIZEN_NAME_INVALID' then raise; end if; end;
   begin perform public.citizen_sign_in('علي حسين', '12345'); raise exception 'should fail';
   exception when others then if sqlerrm <> 'CITIZEN_PHONE_INVALID' then raise; end if; end;
+  -- الجولة ٩ (20261120210000): الرمز **لا يُدوَّر** عند إعادة الدخول — يُشترط تطابق الاسم
   b := public.citizen_sign_in('علي حسين كاظم', '07701234567');
-  if (a ->> 'token') = (b ->> 'token') then raise exception 'T1: token must rotate on re-sign-in'; end if;
+  if (b ->> 'token') <> (a ->> 'token') then raise exception 'T1: الرمز تغيّر — التدوير يجب أن يكون موقوفاً'; end if;
+  if (b ->> 'returning')::boolean is not true then raise exception 'T1: returning يجب أن تكون true'; end if;
+  if (public.citizen_sign_in('غريب تماماً', '07701234567') ->> 'error') <> 'CITIZEN_IDENTITY_MISMATCH' then
+    raise exception 'T1: اسم لا يطابق صاحب الرقم يجب أن يُرفض';
+  end if;
   if (select count(*) from public.citizen_accounts where phone = '07701234567') <> 1 then raise exception 'T1: duplicate account'; end if;
   perform set_config('test.cc_token', b ->> 'token', false);
   raise notice 'T1 OK';

@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  rpc: vi.fn(async () => ({ data: { ok: true }, error: null })),
+  rpc: vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({ data: { ok: true }, error: null })),
   upload: vi.fn(async () => ({ data: { path: 'p' }, error: null })),
   signed: vi.fn(async (paths: string[]) => ({ data: paths.map((p) => ({ path: p, signedUrl: `https://s/${p}` })), error: null })),
 }))
@@ -16,6 +16,8 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('citizen.sdk', () => {
   it('المواطن: الدخول والشكوى والمحادثة بالمعاملات الصحيحة (p_token أولاً)', async () => {
+    // الجولة ٩: signIn لم تعد تُعيد استجابة بلا token كجلسة صالحة ⇒ نحاكي رمزاً حقيقياً
+    h.rpc.mockResolvedValueOnce({ data: { token: 'tok-1', full_name: 'علي حسين', phone: '0770', returning: true }, error: null })
     await citizen.signIn('علي حسين', '0770')
     expect(h.rpc).toHaveBeenLastCalledWith('citizen_sign_in', { p_name: 'علي حسين', p_phone: '0770' })
     await citizen.submitComplaint('t', { fullName: 'علي حسين كاظم', details: 'تفاصيل الشكوى هنا', lat: 33.3, lng: 44.4, photos: ['t/1.jpg'] })
