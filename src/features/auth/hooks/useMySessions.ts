@@ -33,7 +33,7 @@ export function useEndSession() {
   return useMutation({
     mutationFn: (sessionId: string) => sessions.end(sessionId),
     onSuccess: () => {
-      addToast({ type: 'success', message: 'أُنهيت الجلسة — لن يستمر ذلك الجهاز بعد الآن' })
+      addToast({ type: 'success', message: 'أُنهيت الجلسة — يُفصل ذلك الجهاز عند أول استخدام له (وخلال دقيقة على الأكثر)' })
       void queryClient.invalidateQueries({ queryKey: mySessionsKey })
     },
     onError: (error) => {

@@ -28,6 +28,7 @@ import { loadMyHiddenUnits } from '@features/portal-visibility'
 import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
 import { loadMyManualActivations } from '@features/attendance-manual/store'
 import { useAuth } from '@features/auth/hooks/useAuth'
+import { useRevokedSessionWatch } from '@features/auth/hooks/useRevokedSessionWatch'
 import { SessionTimeout } from '@components/auth/SessionTimeout'
 
 export interface AppShellProps {
@@ -51,6 +52,8 @@ export function AppShell({ portal }: AppShellProps) {
   // 00350-B: صلاحياتي الفعلية — تُحمَّل مرة لكل مستخدم؛ المسار الممنوع ⇒ 403 (الخادم يرفض الكتابة على أي حال)
   const { data: session } = useAuth()
   const userId = session?.id ?? null
+  // ٣-ج: إن أُنهيت جلستي من جهاز آخر أُخرج فوراً بدل انتظار انتهاء رمز الوصول (ساعة)
+  useRevokedSessionWatch(userId)
   useEffect(() => { if (userId) void loadMyPermissions(userId) }, [userId])
   // الحضور اليدوي: تفعيلاتي — تحدد ظهور وحدته في الشريط (تُحدَّث كل 5 دقائق وعند العودة للتبويب كي يظهر التفعيل الجديد بلا إعادة دخول)
   useEffect(() => {
