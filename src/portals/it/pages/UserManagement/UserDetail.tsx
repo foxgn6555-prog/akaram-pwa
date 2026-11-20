@@ -6,6 +6,7 @@ import { FollowUpAssignmentCard } from './FollowUpAssignmentCard'   // 00259
 import { MaintenanceWorkshopCard } from './MaintenanceWorkshopCard'   // 00271
 import { OpsUnitsCard } from './OpsUnitsCard'
 import { PermissionsCard } from './PermissionsCard'   // 00350
+import { UserSessionsCard } from './UserSessionsCard'   // الجولة ٣-ب
 import { useNavigate, useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -442,6 +443,8 @@ export default function UserDetail() {
 
       {userId && <PermissionsCard userId={userId} roles={user.roles} isSelf={isSelf} />}
       {hasRole('employee') && userId && <ContractorAssignmentCard userId={userId} />}
+      {userId && <UserSessionsCard userId={userId} />}
+
       {hasRole('admin_ops') && userId && <SectorManagerCard userId={userId} />}
       {hasRole('follow_up') && userId && <FollowUpAssignmentCard userId={userId} />}
       {hasRole('maintenance') && userId && <MaintenanceWorkshopCard userId={userId} />}
@@ -589,7 +592,8 @@ export default function UserDetail() {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-1 text-sm font-bold">أدوار البوابات</h2>
         <p className="mb-4 text-xs text-slate-500">
-          المنح/السحب فوري ومؤرشف باسمك — IT تستطيع تعديل أدوارها، مع منع سحب دور آخر مسؤول IT.
+          منح الأدوار وسحبها حصراً لتقنية المعلومات، وكل تغيير مؤرشف باسمك — IT تستطيع تعديل أدوارها،
+          مع منع سحب دور آخر مسؤول IT.
           <span className="mt-1 block font-bold text-amber-800">
             الأدوار الحساسة ({SENSITIVE_ROLES.map((r) => ROLE_LABELS[r]).join(' · ')}): لا تُمنح ولا تُسحب إلا بعد موافقة المدير المفوض.
           </span>

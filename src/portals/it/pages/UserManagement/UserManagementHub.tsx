@@ -6,6 +6,7 @@ import { initials } from '@lib/utils/string.utils'
 import { formatRelative } from '@lib/utils/date.utils'
 import { formatNumber as fmtNum } from '@lib/utils/format.utils'
 import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
+import { SensitiveRolesCard } from './SensitiveRolesCard'
 
 /** صفحة وحدة إدارة المستخدمين — روابط صفحاتها + تقاريرها المجمعة */
 const PAGES: readonly HubPageLink[] = [
@@ -71,6 +72,9 @@ export default function UserManagementHub() {
               الأقسام المسجلة: {departments?.length ?? 0} · تُدار من بوابة الموارد البشرية → الهيكل التنظيمي
             </p>
           </div>
+
+          {/* الجولة ٢: الأدوار الحساسة — القائمة القابلة للتعديل */}
+          <SensitiveRolesCard />
 
           {/* تقرير: أحدث الحسابات */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">

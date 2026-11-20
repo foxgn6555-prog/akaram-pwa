@@ -24,9 +24,9 @@ export function useLogin() {
   const queryClient = useQueryClient()
 
   return {
-    mutateAsync: async (input: { email: string; password: string }): Promise<SessionUser> => {
+    mutateAsync: async (input: { email: string; password: string; switchDevice?: boolean; deviceCode?: string }): Promise<SessionUser> => {
         try {
-          const user = await auth.login(input.email, input.password)
+          const user = await auth.login(input.email, input.password, { switchDevice: input.switchDevice, deviceCode: input.deviceCode })
           void queryClient.invalidateQueries({ queryKey: authKeys.all })
           return user
         } catch (error) {

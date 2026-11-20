@@ -16,20 +16,56 @@ export interface SessionUser {
   primaryRole: Role
 }
 
+export interface ActiveSessionInfo {
+  id?: string
+  ip?: string | null
+  user_agent?: string | null
+  created_at?: string | null
+}
+
 export class LoginGatewayError extends AuthError {
   readonly lockedUntil?: string
   readonly failuresLeft?: number
+  /** الجولة ٣: الحساب بلغ حد الأجهزة المسموح */
+  readonly maxSessions?: number
+  readonly activeSessions?: number
+  readonly activeList?: ActiveSessionInfo[]
+  /** الحساب حسّاس: يحتاج رمز موافقة من الجهاز الحالي */
+  readonly requiresDeviceCode?: boolean
 
-  constructor(message: string, code: string, details: { lockedUntil?: string; failuresLeft?: number } = {}) {
+  constructor(
+    message: string,
+    code: string,
+    details: {
+      lockedUntil?: string
+      failuresLeft?: number
+      maxSessions?: number
+      activeSessions?: number
+      activeList?: ActiveSessionInfo[]
+      requiresDeviceCode?: boolean
+    } = {},
+  ) {
     super(message, code)
     this.name = 'LoginGatewayError'
     this.lockedUntil = details.lockedUntil
     this.failuresLeft = details.failuresLeft
+    this.maxSessions = details.maxSessions
+    this.activeSessions = details.activeSessions
+    this.activeList = details.activeList
+    this.requiresDeviceCode = details.requiresDeviceCode
   }
 }
 
 async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
-  let body: { error?: string; locked_until?: string; failures_left?: number } = {}
+  let body: {
+    error?: string
+    locked_until?: string
+    failures_left?: number
+    max?: number
+    active?: number
+    others?: ActiveSessionInfo[]
+    requires_code?: boolean
+  } = {}
   const context = (error as { context?: Response } | null)?.context
   if (context && typeof context.clone === 'function') {
     try { body = await context.clone().json() as typeof body } catch { /* no response payload */ }
@@ -41,6 +77,25 @@ async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
   if (code === 'SOURCE_LOCKED') {
     return new LoginGatewayError('أُوقف الدخول مؤقتاً من هذا الجهاز لمدة خمس دقائق. يمكنك التواصل مع الدعم.', code, { lockedUntil: body.locked_until })
   }
+  if (code === 'SESSION_LIMIT_REACHED') {
+    return new LoginGatewayError(
+      'الحساب مفتوح على جهاز آخر — يمكنك إنهاء الجلسة السابقة والانتقال إلى هذا الجهاز',
+      code,
+      {
+        maxSessions: body.max,
+        activeSessions: body.active,
+        activeList: body.others ?? [],
+        requiresDeviceCode: body.requires_code === true,
+      },
+    )
+  }
+  if (code === 'DEVICE_CODE_REQUIRED') {
+    return new LoginGatewayError(
+      'هذا حساب حسّاس: لن يتم الانتقال إلا برمز الموافقة من جهازك الحالي',
+      'SESSION_LIMIT_REACHED',
+      { maxSessions: body.max, activeSessions: body.active, activeList: body.others ?? [], requiresDeviceCode: true },
+    )
+  }
   if (code === 'AUTH_THROTTLED') return new LoginGatewayError('الخدمة قيّدت المحاولات مؤقتاً — انتظر قليلاً ثم أعد المحاولة', code)
   if (code === 'LOGIN_GUARD_UNAVAILABLE' || code === 'CONFIGURATION') return new LoginGatewayError('تعذر التحقق الآمن من حالة الدخول — حاول لاحقاً', code)
   if (code === 'INVALID_INPUT') return new LoginGatewayError('تحقق من البريد الإلكتروني وكلمة المرور', code)
@@ -48,14 +103,24 @@ async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
 }
 
 export const auth = {
-  async login(email: string, password: string): Promise<SessionUser> {
+  async login(
+    email: string,
+    password: string,
+    options: { switchDevice?: boolean; deviceCode?: string } = {},
+  ): Promise<SessionUser> {
     const normalizedEmail = email.trim().toLowerCase()
     let data: { session?: { access_token: string; refresh_token: string; user?: { id: string; email?: string | null } } | null } | null = null
     let error: unknown = null
 
     try {
       const result = await supabase.functions.invoke<{ session?: { access_token: string; refresh_token: string; user?: { id: string; email?: string | null } } }>('staff-login', {
-        body: { email: normalizedEmail, password, source_id: getLoginSourceId() },
+        body: {
+          email: normalizedEmail,
+          password,
+          source_id: getLoginSourceId(),
+          ...(options.switchDevice ? { switch: true } : {}),
+          ...(options.deviceCode ? { device_code: options.deviceCode.trim() } : {}),
+        },
       })
       data = result.data
       error = result.error

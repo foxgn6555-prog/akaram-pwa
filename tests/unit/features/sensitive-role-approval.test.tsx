@@ -42,8 +42,18 @@ beforeEach(() => {
 })
 
 describe('V-36 · الأدوار الحساسة', () => {
-  it('قائمة الأدوار الحساسة مطابقة لحارس القاعدة (أربعة)', () => {
-    expect([...SENSITIVE_ROLES]).toEqual(['it_admin', 'super_admin', 'finance_officer', 'deputy_director'])
+  it('قائمة الأدوار الحساسة مطابقة لجدول القاعدة (تسعة — الجولة ٢)', () => {
+    expect([...SENSITIVE_ROLES]).toEqual([
+      'super_admin',
+      'executive_director',
+      'deputy_director',
+      'finance_officer',
+      'admin_ops',
+      'field_ops',
+      'it_admin',
+      'ops_room_manager',
+      'ops_room',
+    ])
   })
 
   it('منح دور حسّاس ⇒ pending=true ولا يُضاف الدور محلياً', async () => {

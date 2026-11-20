@@ -1,0 +1,63 @@
+/**
+ * SDK الجلسات والأجهزة (الجولة ٣) — المصدر هو auth.sessions في الخادم.
+ *  · list: جلساتي النشطة (IP · المتصفح · وقت الدخول · آخر نشاط · هل هي الحالية)
+ *  · end: إنهاء جلسة واحدة — حذف فعلي في الخادم يُبطل رمز التحديث
+ *  · endOthers: إنهاء كل الجلسات الأخرى والإبقاء على الحالية
+ * لا قرار صلاحية في العميل: كل الدوال محروسة على الخادم وتخصّ صاحب الجلسة وحده.
+ */
+import { sdkGuard, supabase } from './client'
+
+export interface MySession {
+  id: string
+  ip: string | null
+  user_agent: string | null
+  created_at: string
+  last_active: string | null
+  is_current: boolean
+}
+
+/** معرّف الجلسة الحالية من claim session_id داخل رمز الوصول (بلا أي طلب شبكة إضافي) */
+export function sessionIdFromToken(token: string | null | undefined): string | null {
+  if (!token) return null
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const claims = JSON.parse(atob(padded)) as { session_id?: unknown }
+    return typeof claims.session_id === 'string' && claims.session_id ? claims.session_id : null
+  } catch {
+    return null
+  }
+}
+
+export const sessions = {
+  async list(): Promise<MySession[]> {
+    const { data } = await supabase.auth.getSession()
+    const current = sessionIdFromToken(data.session?.access_token)
+    return sdkGuard(supabase.rpc('my_sessions', { p_current: current })) as Promise<MySession[]>
+  },
+
+  async end(sessionId: string): Promise<number> {
+    return sdkGuard(supabase.rpc('session_end', { p_session: sessionId })) as Promise<number>
+  },
+
+  async endOthers(): Promise<number> {
+    return sdkGuard(supabase.rpc('session_end_others')) as Promise<number>
+  },
+
+  /** رمز موافقة لجهاز جديد (للحسابات الحساسة) — صالح 10 دقائق ويُعرض مرة واحدة */
+  async createDeviceCode(): Promise<{ code: string; expires_at: string }> {
+    return sdkGuard(supabase.rpc('device_switch_code_create')) as Promise<{ code: string; expires_at: string }>
+  },
+
+  /** تقنية المعلومات: جلسات أي حساب */
+  async adminList(userId: string): Promise<MySession[]> {
+    return sdkGuard(supabase.rpc('admin_session_list', { p_user: userId })) as Promise<MySession[]>
+  },
+
+  /** تقنية المعلومات: إنهاء جلسة (أو كل الجلسات) لأي حساب — حالة فقدان الجهاز */
+  async adminEnd(userId: string, sessionId?: string | null): Promise<number> {
+    return sdkGuard(supabase.rpc('admin_session_end', { p_user: userId, p_session: sessionId ?? null })) as Promise<number>
+  },
+}

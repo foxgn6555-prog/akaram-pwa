@@ -10,8 +10,22 @@ import { sdkGuard, sdkVoid, supabase } from './client'
 import { SDKError } from '@lib/errors/SDKError'
 import type { Role } from '@lib/constants/roles.constants'
 
-/** الأدوار التي لا تُمنح/تُسحب إلا بموافقة المدير المفوض (مطابقة لحارس القاعدة V-36) */
-export const SENSITIVE_ROLES: readonly Role[] = ['it_admin', 'super_admin', 'finance_officer', 'deputy_director']
+/**
+ * الأدوار الحساسة — القائمة المرجعية صارت جدولاً على الخادم (public.sensitive_roles، الجولة ٢).
+ * هذا الثابت للعرض والتحديث المتفائل فقط، ويطابقه اختبار عقد مع بذرة الترحيل.
+ * الحكم النهائي في الخادم: app.is_sensitive_role(p_role).
+ */
+export const SENSITIVE_ROLES: readonly Role[] = [
+  'super_admin',
+  'executive_director',
+  'deputy_director',
+  'finance_officer',
+  'admin_ops',
+  'field_ops',
+  'it_admin',
+  'ops_room_manager',
+  'ops_room',
+]
 
 export interface RoleGrantRequest {
   id: string

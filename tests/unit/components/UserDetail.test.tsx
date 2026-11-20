@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { z } from 'zod'
 
 const mockNavigate = vi.fn()
@@ -113,15 +114,30 @@ vi.mock('@features/sector', () => ({
   }),
 }))
 
+vi.mock('@sdk/sessions.sdk', () => ({
+  sessions: {
+    list: vi.fn(async () => []),
+    end: vi.fn(async () => 0),
+    endOthers: vi.fn(async () => 0),
+    createDeviceCode: vi.fn(async () => ({ code: '000000', expires_at: '2030-01-01T00:00:00Z' })),
+    adminList: vi.fn(async () => []),
+    adminEnd: vi.fn(async () => 0),
+  },
+  sessionIdFromToken: () => null,
+}))
+
 import UserDetail from '@portals/it/pages/UserManagement/UserDetail'
 
 function renderPage(userId = 'u1') {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={[`/it/user-management/${userId}`]}>
-      <Routes>
-        <Route path="/it/user-management/:userId" element={<UserDetail />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[`/it/user-management/${userId}`]}>
+        <Routes>
+          <Route path="/it/user-management/:userId" element={<UserDetail />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 

@@ -33,6 +33,14 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [remainingMs, setRemainingMs] = useState(0)
+  // الجولة ٣: الحساب بلغ حد الأجهزة — نعرض الجهاز النشط وخيار الانتقال
+  const [conflict, setConflict] = useState<{
+    max?: number
+    active?: number
+    requiresCode?: boolean
+    list: { ip?: string | null; user_agent?: string | null; created_at?: string | null }[]
+  } | null>(null)
+  const [deviceCode, setDeviceCode] = useState('')
   const locked = remainingMs > 0
 
   // فحص القفل عند الافتتاح + عد تنازلي
@@ -62,10 +70,52 @@ export default function LoginPage() {
 
   const handleToggleShowPass = useCallback(() => setShowPass((v) => !v), [])
 
+  const submit = async (
+    values: { email: string; password: string },
+    switchDevice = false,
+    code?: string,
+  ): Promise<void> => {
+    setLoading(true)
+    try {
+      const session = await login.mutateAsync({ ...values, switchDevice, deviceCode: code })
+      recordSuccess(values.email)
+      setRemainingMs(0)
+      setConflict(null)
+      setSuccess('تم تسجيل الدخول بنجاح! جاري التحويل…')
+
+      // توجيه حسب الدور
+      const resolution = resolvePortal(session.roles)
+      switch (resolution.type) {
+        case 'single':
+          window.setTimeout(() => navigate(resolution.path, { replace: true }), 600)
+          break
+        case 'denied':
+          setError('لا توجد بوابات متاحة لحسابك — راجع الموارد البشرية')
+      }
+    } catch (err) {
+      if (err instanceof LoginGatewayError && err.code === 'SESSION_LIMIT_REACHED') {
+        setConflict({
+          max: err.maxSessions,
+          active: err.activeSessions,
+          requiresCode: err.requiresDeviceCode === true,
+          list: err.activeList ?? [],
+        })
+      }
+      if (err instanceof LoginGatewayError && err.code === 'SOURCE_LOCKED' && err.lockedUntil) {
+        const status = setServerLock(err.lockedUntil, values.email)
+        setRemainingMs(status.remainingMs)
+      }
+      setError(err instanceof AuthError ? err.message : toUserMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setConflict(null)
 
     // التحقق المحلي (Zod)
     const parsed = loginSchema.safeParse({ email, password })
@@ -81,32 +131,23 @@ export default function LoginPage() {
       return
     }
 
-    setLoading(true)
+    await submit(parsed.data)
+  }
 
-    try {
-      const session = await login.mutateAsync(parsed.data)
-      recordSuccess(email)
-      setRemainingMs(0)
-      setSuccess('تم تسجيل الدخول بنجاح! جاري التحويل…')
-
-      // توجيه حسب الدور
-      const resolution = resolvePortal(session.roles)
-      switch (resolution.type) {
-        case 'single':
-          window.setTimeout(() => navigate(resolution.path, { replace: true }), 600)
-          break
-        case 'denied':
-          setError('لا توجد بوابات متاحة لحسابك — راجع الموارد البشرية')
-      }
-    } catch (err) {
-      if (err instanceof LoginGatewayError && err.code === 'SOURCE_LOCKED' && err.lockedUntil) {
-        const status = setServerLock(err.lockedUntil, email)
-        setRemainingMs(status.remainingMs)
-      }
-      setError(err instanceof AuthError ? err.message : toUserMessage(err))
-    } finally {
-      setLoading(false)
+  /** الانتقال: كلمة المرور تُطلب مرة أخرى في الطلب نفسه — وكل الجلسات السابقة تُنهى في الخادم */
+  const handleSwitchDevice = async (): Promise<void> => {
+    const parsed = loginSchema.safeParse({ email, password })
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'بيانات غير صالحة')
+      return
     }
+    setError('')
+    setSuccess('')
+    if (conflict?.requiresCode && !/^[0-9]{6}$/.test(deviceCode.trim())) {
+      setError('أدخل رمز الموافقة المكوّن من ٦ أرقام من جهازك الحالي')
+      return
+    }
+    await submit(parsed.data, true, conflict?.requiresCode ? deviceCode.trim() : undefined)
   }
 
   // قيم القفل (من useLoginSecurity للعرض)
@@ -170,6 +211,49 @@ export default function LoginPage() {
               onToggleShowPass={handleToggleShowPass}
               onSubmit={handleSubmit}
             />
+            {conflict && (
+              <div
+                data-testid="session-conflict"
+                role="alert"
+                className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-start"
+              >
+                <p className="text-sm font-black text-amber-100">الحساب مفتوح على جهاز آخر</p>
+                <p className="mt-1 text-[11px] leading-5 text-amber-100/80">
+                  الحد المسموح: {conflict.max ?? 1} جهاز · الجلسات النشطة: {conflict.active ?? 1}
+                  {conflict.list[0]?.ip ? ` · آخر جهاز: ${conflict.list[0].ip}` : ''}
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-amber-100/60">
+                  «الانتقال» يُنهي الجلسة السابقة في الخادم فوراً ويفتح الحساب على هذا الجهاز.
+                </p>
+                {conflict.requiresCode && (
+                  <div className="mt-3">
+                    <p className="text-[11px] leading-5 text-amber-100/90">
+                      هذا حساب حسّاس. افتح «أجهزتي» على جهازك الحالي ← «السماح بجهاز جديد»، ثم أدخل الرمز هنا.
+                    </p>
+                    <input
+                      data-testid="device-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={deviceCode}
+                      onChange={(e) => setDeviceCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      dir="ltr"
+                      className="mt-2 h-11 w-full rounded-xl border border-amber-300/40 bg-white/10 px-3 text-center text-lg font-black tracking-[0.4em] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  data-testid="session-switch"
+                  disabled={loading || (conflict.requiresCode === true && deviceCode.trim().length !== 6)}
+                  onClick={() => void handleSwitchDevice()}
+                  className="mt-3 h-10 w-full rounded-xl bg-amber-500 px-4 text-sm font-black text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                >
+                  إنهاء الجلسة السابقة والانتقال إلى هذا الجهاز
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => navigate('/forgot-password')}

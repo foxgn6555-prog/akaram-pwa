@@ -15,13 +15,14 @@ insert into public.user_roles (user_id, role) values
  ('90900000-0000-0000-0000-000000000004','employee'),
  ('90900000-0000-0000-0000-000000000006','it_admin') on conflict do nothing;
 do $$ declare msg text; who uuid[]; begin
-  -- HR يستطيع الأدوار العادية فقط.
+  -- 20261120140000: المنح حصراً لتقنية المعلومات ⇒ الموارد البشرية ممنوعة من كل الأدوار (حتى العادية).
   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000003', false);
   begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
-  if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R1 %', msg; end if;
+  if msg not like 'USERS_FORBIDDEN%' then raise exception 'FAIL R1 %', msg; end if;
   begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'it_admin', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
-  if msg not like 'ROLE_ESCALATION_FORBIDDEN%' then raise exception 'FAIL R2 %', msg; end if;
-  perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'department_manager', true);
+  if msg not like 'USERS_FORBIDDEN%' then raise exception 'FAIL R2 %', msg; end if;
+  begin perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'department_manager', true); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
+  if msg not like 'USERS_FORBIDDEN%' then raise exception 'FAIL R2b %', msg; end if;
 
   -- super_admin هو دور بوابة عادية ولا يستطيع إدارة الأدوار.
   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000001', false);
@@ -33,6 +34,10 @@ do $$ declare msg text; who uuid[]; begin
   if msg not like 'IT_FORBIDDEN%' then raise exception 'FAIL R3c require_it %', msg; end if;
 
   -- IT تمنح الأدوار العليا، بما فيها IT، وتستطيع تعديل أدوار حسابها.
+  -- ملاحظة: منذ الجولة ٢ تمرّ الأدوار الحساسة بمسار موافقة (يُختبر في
+  -- tests/db/sensitive-roles-policy-test.sql)؛ هنا نفعّل المسار المعتمَد للتحقق من
+  -- ثوابت 00371 وحدها: سلطة IT، وحماية آخر حساب IT.
+  perform set_config('app.role_grant_approved', 'on', false);
   perform set_config('auth.user_id','90900000-0000-0000-0000-000000000002', false);
   perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'super_admin', true);
   perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'it_admin', true);
@@ -46,6 +51,8 @@ do $$ declare msg text; who uuid[]; begin
   perform public.set_user_role('90900000-0000-0000-0000-000000000004', 'it_admin', false);
   begin perform public.set_user_role('90900000-0000-0000-0000-000000000006', 'it_admin', false); msg := 'NO_ERROR'; exception when others then msg := sqlerrm; end;
   if msg not like 'LAST_IT_ADMIN%' then raise exception 'FAIL R6 last IT admin %', msg; end if;
+
+  perform set_config('app.role_grant_approved', 'off', false);
 
   -- خطوة «حساب» لمستخدم حُذف لاحقاً تُحلّ إلى لا أحد (تُخطّى) بدل خطوة معلّقة بلا مُعتمِد.
   who := app.approval_resolve_step(jsonb_build_object('kind','account','user_id','90900000-0000-0000-0000-000000000005'), '90900000-0000-0000-0000-000000000004');

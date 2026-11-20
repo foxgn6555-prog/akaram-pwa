@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { permissionsKeys } from '@lib/query-keys/permissions.keys'
 import { permissionErrorMessage, permissions } from '@sdk/permissions.sdk'
-import type { PermissionEffect } from '@sdk/permissions.sdk'
+import type { PageLevel, PermissionEffect } from '@sdk/permissions.sdk'
 import type { PermissionAction } from '@config/permission-catalog'
 import { useUiStore } from '@stores/ui.store'
 
@@ -41,4 +41,25 @@ export function useSetUserPermissionOverride() {
 export function useUserEffectivePermissions(userId: string) { return useQuery({ queryKey: permissionsKeys.userEffective(userId), queryFn: () => permissions.userEffective(userId), enabled: !!userId }) }
 export function usePermissionAudit(userId: string | null, templateId: string | null, enabled = true) {
   return useQuery({ queryKey: permissionsKeys.audit(userId, templateId), queryFn: () => permissions.audit(userId, templateId, 100), enabled })
+}
+
+/** الجولة ٦ — سقوف الصفحات لكل حساب (full / create / view) */
+export function useAccountLevels(userId: string) {
+  return useQuery({ queryKey: permissionsKeys.accountLevels(userId), queryFn: () => permissions.accountLevels(userId), enabled: !!userId })
+}
+export function useSetAccountLevel() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { userId: string; unit: string; level: PageLevel }) => permissions.setAccountLevel(v.userId, v.unit, v.level),
+    onSuccess: (_d, v) => { inv(); t.ok(v.level === 'view' ? 'الحساب: عرض فقط' : v.level === 'create' ? 'الحساب: إنشاء دون تعديل' : 'الحساب: صلاحية كاملة') },
+    onError: t.err,
+  })
+}
+export function useClearAccountLevel() {
+  const inv = useInvalidateAll(); const t = useToast()
+  return useMutation({
+    mutationFn: (v: { userId: string; unit: string }) => permissions.clearAccountLevel(v.userId, v.unit),
+    onSuccess: () => { inv(); t.ok('أُزيل السقف — عاد الحساب إلى صلاحية دوره') },
+    onError: t.err,
+  })
 }

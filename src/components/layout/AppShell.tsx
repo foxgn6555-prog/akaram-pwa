@@ -22,6 +22,7 @@ import { ActivityReminderBanner } from '@components/feedback/ActivityReminderBan
 import { InstallBanner } from '@features/pwa/PwaBanners'
 import { Sidebar, SidebarBackdrop } from '@components/layout/Sidebar/Sidebar'
 import { MobileBottomNav } from '@components/layout/MobileBottomNav'
+import { SupportFab } from '@components/layout/SupportFab'
 import { Header } from '@components/layout/Header/Header'
 import { loadMyHiddenUnits } from '@features/portal-visibility'
 import { loadMyPermissions, routeAllowed, useMyPermissionsStore } from '@features/permissions/my-permissions'
@@ -135,6 +136,8 @@ export function AppShell({ portal }: AppShellProps) {
         {!fullBleed && <MobileBottomNav portal={portal} />}
       </div>
 
+      {/* الجولة ٥: الدعم الفني في كل البوابات */}
+      <SupportFab portal={portal} />
       <Toaster />
     </div>
   )

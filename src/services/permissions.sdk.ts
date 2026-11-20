@@ -12,6 +12,18 @@ export interface PermissionTemplateRule { template_id: string; unit_key: string;
 export interface UserPermissionTemplate { user_id: string; template_id: string; assigned_at: string }
 export interface UserPermissionOverride { user_id: string; unit_key: string; action: PermissionAction; effect: PermissionEffect; reason: string | null; created_at: string }
 export interface EffectivePermissionRow { unit_key: string; portal: string; label: string; parent_key: string | null; sort: number; action: PermissionAction; allowed: boolean; source: PermissionSource; reason: string | null }
+export type PageLevel = 'full' | 'create' | 'view'
+export interface AccountLevelRow {
+  unit_key: string
+  portal: string
+  label: string
+  /** هل يملك الحساب أصلًا حق العرض (من دوره/قالبه/استثناءاته) */
+  accessible: boolean
+  /** السقف المخزَّن صراحةً (null = بلا سقف) */
+  stored: PageLevel | null
+  /** السقف الساري (full إن لم يُخزَّن شيء) */
+  effective: PageLevel
+}
 export interface PermissionAuditRow { id: number; actor_id: string | null; actor_name: string | null; target_user: string | null; template_id: string | null; kind: string; detail: Record<string, unknown>; created_at: string }
 
 const ERRORS: Record<string, string> = {
@@ -56,5 +68,18 @@ export const permissions = {
     return rpcVoid('it_user_permission_override_set', { p_user: userId, p_unit: unit, p_action: action, p_effect: effect, p_reason: reason ?? null })
   },
   userEffective(userId: string) { return rpc<EffectivePermissionRow[]>('it_user_permissions_effective', { p_user: userId }) },
+  /** الجولة ٦ — سقوف الصفحات لكل حساب */
+  myUnitLevels() {
+    return rpc<Record<string, PageLevel>>('my_unit_levels', {})
+  },
+  accountLevels(userId: string) {
+    return rpc<AccountLevelRow[]>('it_account_levels', { p_user: userId })
+  },
+  setAccountLevel(userId: string, unit: string, level: PageLevel) {
+    return rpcVoid('it_account_level_set', { p_user: userId, p_unit: unit, p_level: level })
+  },
+  clearAccountLevel(userId: string, unit: string) {
+    return rpcVoid('it_account_level_clear', { p_user: userId, p_unit: unit })
+  },
   audit(userId?: string | null, templateId?: string | null, limit = 100) { return rpc<PermissionAuditRow[]>('it_permission_audit_list', { p_user: userId ?? null, p_template: templateId ?? null, p_limit: limit }) },
 }
