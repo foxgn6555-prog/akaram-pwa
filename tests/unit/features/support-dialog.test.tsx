@@ -7,7 +7,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-const createMock = vi.fn(async () => ({ id: 't1', ticket_number: 7 }))
+const createMock = vi.fn(async (_input: unknown) => ({ id: 't1', ticket_number: 7 }))
 const contactMock = vi.fn(async () => ({ phone: '07701234567', hours: 'الأحد–الخميس', online: true }))
 const uploadMock = vi.fn(async (file: File) => `user-1/${file.name}`)
 
@@ -15,7 +15,7 @@ vi.mock('@sdk/support.sdk', () => ({
   support: {
     contact: () => contactMock(),
     uploadImage: (file: File) => uploadMock(file),
-    create: (input: unknown) => createMock(input as never),
+    create: (input: unknown) => createMock(input),
     list: async () => [],
     decide: async () => undefined,
     attachmentUrls: async () => ({}),
