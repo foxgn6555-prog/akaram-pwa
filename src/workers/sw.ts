@@ -39,15 +39,52 @@ if (IS_DEV) {
   const appShellHandler = createHandlerBoundToURL('index.html')
   const offlineHandler = createHandlerBoundToURL('offline.html')
 
+  /**
+   * ٣-هـ: القشرة (index.html) تُخدم **من الشبكة أولاً** لا من precache.
+   *
+   * لماذا: على iPhone يبقى عامل الخدمة "معلَّقاً" أياماً، فكان يُقدَّم index.html قديماً
+   * يشير إلى assets/index-OLD.js غير الموجود بعد النشر ⇒ لا شيء يُركَّب و<div id="root">
+   * يبقى فارغاً (شاشة تحميل أبدية). الشبكة أولاً تضمن أن القشرة دائمًا مطابقة للأصول المنشورة،
+   * ويبقى العمل دون اتصال عبر نسخة القشرة المحفوظة ثم precache ثم offline.html.
+   */
+  const SHELL_CACHE = 'app-shell-r1'
+  const SHELL_KEY = new URL('/__app_shell__', self.location.origin).toString()
+  const NAV_TIMEOUT_MS = 3000
+
+  const navigationHandler = async (params: { request: Request }) => {
+    // ① الشبكة (بمهلة قصيرة) — القشرة الطازجة والأصول المتوافقة معها
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), NAV_TIMEOUT_MS)
+    try {
+      const fresh = await fetch(params.request, { signal: controller.signal })
+      if (fresh && fresh.ok) {
+        try {
+          const cache = await caches.open(SHELL_CACHE)
+          await cache.put(SHELL_KEY, fresh.clone())
+        } catch { /* تخزين محجوب/ممتلئ — لا يمنع العرض */ }
+        return fresh
+      }
+    } catch {
+      /* انقطاع أو مهلة — ننتقل إلى الاحتياط */
+    } finally {
+      clearTimeout(timer)
+    }
+    // ② آخر قشرة ناجحة من الشبكة
+    try {
+      const cached = await (await caches.open(SHELL_CACHE)).match(SHELL_KEY)
+      if (cached) return cached
+    } catch { /* تجاهل */ }
+    // ③ قشرة البناء (precache) — متوافقة دائمًا مع أصول هذا الإصدار
+    try {
+      return await appShellHandler(params as never)
+    } catch {
+      return offlineHandler(params as never)
+    }
+  }
+
   registerRoute(
     new NavigationRoute(
-      async (params) => {
-        try {
-          return await appShellHandler(params)
-        } catch {
-          return offlineHandler(params)
-        }
-      },
+      navigationHandler as never,
       {
         /**
          * 00349 ج: لا نبتلع كل تنقل. مسار بامتداد ملف (PDF/Excel/صورة/خط) أو أصول

@@ -15,6 +15,12 @@ import './i18n'
 export default function App() {
   // 00312: انتهاء الجلسة أثناء العمل داخل بوابة → تسجيل الدخول فوراً
   useEffect(() => startSessionWatch(router), [])
+  // ٣-هـ: إشارة الإقلاع الناجح لحارس الإقلاع — تُرفع بعد التركيب الفعلي لا قبله،
+  // فلو انهار React وبقي <div id="root"> فارغاً يبقى الحارس قادراً على الاسترداد.
+  useEffect(() => {
+    window.__akaramBooted = true
+    try { sessionStorage.removeItem('akaram.boot.recoveryAt') } catch { /* تخزين محجوب */ }
+  }, [])
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

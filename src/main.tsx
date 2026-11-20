@@ -9,6 +9,8 @@ import { reloadOnce } from '@lib/router/lazy'
 import { installPwaListeners, pwaStore } from '@features/pwa/pwa.store'
 import { watchForPwaUpdates } from '@features/pwa/update-check'
 import { canApplyWhileHidden, clearPendingUpdate, readPendingUpdate } from '@features/pwa/update-policy'
+import { applyPwaUpdate, safeReload } from '@features/pwa/apply-update'
+import { watchPublishedVersion } from '@features/pwa/version-watch'
 import App from './App'
 // خط عربي مستضاف ذاتياً: يمنع اعتماد التخطيط على خط النظام (تفاوت عرضه يسبب انزياحاً على الهاتف).
 import '@fontsource/cairo/400.css'
@@ -34,6 +36,8 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     <App />
   </StrictMode>,
 )
+// ٣-هـ: إشارة الإقلاع ترفعها App.tsx بعد التركيب الفعلي (انظر تعليق الحارس في public/boot-watchdog.js)
+declare global { interface Window { __akaramBooted?: boolean; akaramHardReset?: () => void } }
 
 // 00349 B: التقاط حدث التثبيت (Android/Chrome) ورصد اكتماله — يغذّي زر «ثبّت التطبيق»
 installPwaListeners()
@@ -43,6 +47,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   // 00349 B: registerType = prompt — الإصدار الجديد ينتظر حتى يضغط المستخدم «حدّث الآن»
   // (كي لا يفقد نموذجاً يملؤه)؛ عندها يُرسل SKIP_WAITING ويسيطر الـ SW الجديد فنعيد التحميل مرة واحدة.
   // سياسة التأجيل: متابعة الحدّ الزمني، والتطبيق التلقائي في لحظة خمول آمنة
+  // التطبيق يمرّ دائمًا عبر applyPwaUpdate المضمون (لا الزر الميت ولا الدوران الصامت)
+  const applyUpdateForStore = async (): Promise<void> => { await applyPwaUpdate() }
   let lastInteractionAt = Date.now()
   const noteInteraction = (): void => { lastInteractionAt = Date.now() }
   for (const evt of ['pointerdown', 'keydown', 'touchstart'] as const) {
@@ -56,28 +62,34 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     // الصفحة مخفية والمستخدم خامل ≥60 ثانية ⇒ لا إدخال جارٍ يُفقد: نطبّق التحديث بصمت
     if (canApplyWhileHidden(pending, now, lastInteractionAt, document.visibilityState === 'hidden')) {
       pwaStore.setUpdatesApplied()
-      void pwaStore.getState().updateSW?.(true)
+      // مسار التطبيق الصامت يستخدم نفس منطق «حدّث الآن» المضمون (ينتهي دائمًا ببناء طازج)
+      void applyPwaUpdate()
     }
   }
   document.addEventListener('visibilitychange', enforceUpdatePolicy)
   window.setInterval(enforceUpdatePolicy, 60_000)
 
-  let refreshing = false
+  // إعادة التحميل بعد سيطرة إصدار جديد تمر عبر safeReload: تحميل واحد فقط مهما
+  // تزامن مسار «حدّث الآن» مع حدث controllerchange (كانا يتزاحمان فيُعاد التحميل مرتين).
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return
-    refreshing = true
-    // إصدار جديد سيطَر فعلاً ⇒ سياسة التأجيل انتهت. بدون هذا يبقى العدّاد محفوظاً
-    // فيصبح كل تحديث لاحق «مطلوباً» فوراً بسبب عدّاد قديم.
     clearPendingUpdate()
-    window.location.reload()
+    safeReload()
   })
+  // ٣-هـ: فحص إصدار مستقل عن الـSW — يكشف النشر الجديد على iPhone حتى لو بقي العامل القديم
+  watchPublishedVersion({
+    currentVersion: APP_VERSION,
+    onOutdated: () => {
+      if (!pwaStore.getState().needRefresh) pwaStore.setNeedRefresh(applyUpdateForStore)
+    },
+  })
+
   void import('virtual:pwa-register').then(({ registerSW }) => {
-    const updateSW = registerSW({
+    registerSW({
       immediate: true,
-      onNeedRefresh: () => pwaStore.setNeedRefresh(updateSW),
+      onNeedRefresh: () => pwaStore.setNeedRefresh(applyUpdateForStore),
       // أول تثبيت ناجح: نُخبر المستخدم أن التطبيق صار يعمل دون اتصال
       onOfflineReady: () => pwaStore.setOfflineReady(),
-      // إعادة التحميل مصدرها الوحيد مستمع controllerchange أدناه. القيمة الفارغة هنا
+      // إعادة التحميل يتولاها safeReload (حارس يُبقيها مرة واحدة). القيمة الفارغة هنا
       // تُلغي إعادة التحميل الثانية التي يضيفها vite-plugin-pwa في وضع prompt (كانتا تتزاحمان).
       onNeedReload: () => undefined,
       // فشل تسجيل الـ SW صامت افتراضياً؛ لو فشل مرة فلن تصل تحديثات أبداً — نسجّله للمراقبة
@@ -91,7 +103,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         if (reg) {
           watchForPwaUpdates(reg, {
             onUpdateReady: () => {
-              if (!pwaStore.getState().needRefresh) pwaStore.setNeedRefresh(updateSW)
+              if (!pwaStore.getState().needRefresh) pwaStore.setNeedRefresh(applyUpdateForStore)
             },
           })
         }

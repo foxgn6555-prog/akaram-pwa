@@ -43,6 +43,22 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA(pwaConfig),
     {
+      /**
+       * ٣-هـ: version.json — بصمة النشر التي يقرأها العميل عند كل عودة للتطبيق.
+       * العميل يقارنها ببصمة بنائه؛ الاختلاف ⇒ «يتوفر تحديث» حتى لو بقي عامل الخدمة
+       * القديم نشطاً (حالة iPhone الشائعة). الملف لا يدخل precache ولا يُكاش.
+       */
+      name: 'emit-version-json',
+      apply: 'build',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: JSON.stringify({ version: appVersion, builtAt: new Date().toISOString() }),
+        })
+      },
+    },
+    {
       name: 'arena-preview-frame',
       apply: 'build',
       transformIndexHtml(html) {
