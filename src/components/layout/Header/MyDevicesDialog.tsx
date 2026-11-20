@@ -7,12 +7,13 @@ import { useEffect } from 'react'
 import { Laptop, MonitorSmartphone, ShieldAlert, X } from 'lucide-react'
 import { formatRelative } from '@lib/utils/date.utils'
 import { describeDevice } from '@lib/utils/device.utils'
-import { useEndOtherSessions, useEndSession, useMySessions } from '@features/auth/hooks/useMySessions'
+import { useCreateDeviceCode, useEndOtherSessions, useEndSession, useMySessions } from '@features/auth/hooks/useMySessions'
 
 export function MyDevicesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data, isLoading } = useMySessions(open)
   const endOne = useEndSession()
   const endOthers = useEndOtherSessions()
+  const deviceCode = useCreateDeviceCode()
   const list = data ?? []
 
   useEffect(() => {
@@ -109,7 +110,33 @@ export function MyDevicesDialog({ open, onClose }: { open: boolean; onClose: () 
           </ul>
         )}
 
-        <div className="mt-4 rounded-xl bg-amber-50 p-3">
+        <div className="mt-4 rounded-xl border border-slate-200 p-3" data-testid="device-code-box">
+          <p className="text-[11px] font-bold text-slate-700">الدخول من جهاز جديد (الحسابات الحساسة)</p>
+          <p className="mt-1 text-[10px] leading-5 text-slate-500">
+            أنشئ رمز موافقة هنا وأدخله في الجهاز الجديد. صالح ١٠ دقائق ويُستخدم مرة واحدة.
+          </p>
+          {deviceCode.data ? (
+            <p
+              data-testid="device-code-value"
+              dir="ltr"
+              className="mt-2 rounded-xl bg-slate-900 px-3 py-2 text-center text-xl font-black tracking-[0.4em] text-white"
+            >
+              {deviceCode.data.code}
+            </p>
+          ) : (
+            <button
+              type="button"
+              data-testid="create-device-code"
+              disabled={deviceCode.isPending}
+              onClick={() => deviceCode.mutate()}
+              className="mt-2 h-9 w-full rounded-xl bg-slate-900 text-xs font-black text-white disabled:opacity-40"
+            >
+              إنشاء رمز الموافقة
+            </button>
+          )}
+        </div>
+
+        <div className="mt-3 rounded-xl bg-amber-50 p-3">
           <p className="flex items-start gap-2 text-[11px] leading-5 text-amber-900">
             <ShieldAlert size={14} className="mt-0.5 shrink-0" />
             <span>

@@ -30,6 +30,8 @@ export class LoginGatewayError extends AuthError {
   readonly maxSessions?: number
   readonly activeSessions?: number
   readonly activeList?: ActiveSessionInfo[]
+  /** الحساب حسّاس: يحتاج رمز موافقة من الجهاز الحالي */
+  readonly requiresDeviceCode?: boolean
 
   constructor(
     message: string,
@@ -40,6 +42,7 @@ export class LoginGatewayError extends AuthError {
       maxSessions?: number
       activeSessions?: number
       activeList?: ActiveSessionInfo[]
+      requiresDeviceCode?: boolean
     } = {},
   ) {
     super(message, code)
@@ -49,11 +52,20 @@ export class LoginGatewayError extends AuthError {
     this.maxSessions = details.maxSessions
     this.activeSessions = details.activeSessions
     this.activeList = details.activeList
+    this.requiresDeviceCode = details.requiresDeviceCode
   }
 }
 
 async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
-  let body: { error?: string; locked_until?: string; failures_left?: number; max?: number; active?: number; others?: ActiveSessionInfo[] } = {}
+  let body: {
+    error?: string
+    locked_until?: string
+    failures_left?: number
+    max?: number
+    active?: number
+    others?: ActiveSessionInfo[]
+    requires_code?: boolean
+  } = {}
   const context = (error as { context?: Response } | null)?.context
   if (context && typeof context.clone === 'function') {
     try { body = await context.clone().json() as typeof body } catch { /* no response payload */ }
@@ -69,7 +81,19 @@ async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
     return new LoginGatewayError(
       'الحساب مفتوح على جهاز آخر — يمكنك إنهاء الجلسة السابقة والانتقال إلى هذا الجهاز',
       code,
-      { maxSessions: body.max, activeSessions: body.active, activeList: body.others ?? [] },
+      {
+        maxSessions: body.max,
+        activeSessions: body.active,
+        activeList: body.others ?? [],
+        requiresDeviceCode: body.requires_code === true,
+      },
+    )
+  }
+  if (code === 'DEVICE_CODE_REQUIRED') {
+    return new LoginGatewayError(
+      'هذا حساب حسّاس: لن يتم الانتقال إلا برمز الموافقة من جهازك الحالي',
+      'SESSION_LIMIT_REACHED',
+      { maxSessions: body.max, activeSessions: body.active, activeList: body.others ?? [], requiresDeviceCode: true },
     )
   }
   if (code === 'AUTH_THROTTLED') return new LoginGatewayError('الخدمة قيّدت المحاولات مؤقتاً — انتظر قليلاً ثم أعد المحاولة', code)
@@ -79,7 +103,11 @@ async function toLoginGatewayError(error: unknown): Promise<LoginGatewayError> {
 }
 
 export const auth = {
-  async login(email: string, password: string, options: { switchDevice?: boolean } = {}): Promise<SessionUser> {
+  async login(
+    email: string,
+    password: string,
+    options: { switchDevice?: boolean; deviceCode?: string } = {},
+  ): Promise<SessionUser> {
     const normalizedEmail = email.trim().toLowerCase()
     let data: { session?: { access_token: string; refresh_token: string; user?: { id: string; email?: string | null } } | null } | null = null
     let error: unknown = null
@@ -91,6 +119,7 @@ export const auth = {
           password,
           source_id: getLoginSourceId(),
           ...(options.switchDevice ? { switch: true } : {}),
+          ...(options.deviceCode ? { device_code: options.deviceCode.trim() } : {}),
         },
       })
       data = result.data

@@ -16,6 +16,16 @@ export function useMySessions(enabled = true) {
   })
 }
 
+export function useCreateDeviceCode() {
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: () => sessions.createDeviceCode(),
+    onError: (error) => {
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'deviceCode' }).message })
+    },
+  })
+}
+
 export function useEndSession() {
   const queryClient = useQueryClient()
   const addToast = useUiStore((s) => s.addToast)

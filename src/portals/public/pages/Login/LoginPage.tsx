@@ -37,8 +37,10 @@ export default function LoginPage() {
   const [conflict, setConflict] = useState<{
     max?: number
     active?: number
+    requiresCode?: boolean
     list: { ip?: string | null; user_agent?: string | null; created_at?: string | null }[]
   } | null>(null)
+  const [deviceCode, setDeviceCode] = useState('')
   const locked = remainingMs > 0
 
   // فحص القفل عند الافتتاح + عد تنازلي
@@ -68,10 +70,14 @@ export default function LoginPage() {
 
   const handleToggleShowPass = useCallback(() => setShowPass((v) => !v), [])
 
-  const submit = async (values: { email: string; password: string }, switchDevice = false): Promise<void> => {
+  const submit = async (
+    values: { email: string; password: string },
+    switchDevice = false,
+    code?: string,
+  ): Promise<void> => {
     setLoading(true)
     try {
-      const session = await login.mutateAsync({ ...values, switchDevice })
+      const session = await login.mutateAsync({ ...values, switchDevice, deviceCode: code })
       recordSuccess(values.email)
       setRemainingMs(0)
       setConflict(null)
@@ -88,7 +94,12 @@ export default function LoginPage() {
       }
     } catch (err) {
       if (err instanceof LoginGatewayError && err.code === 'SESSION_LIMIT_REACHED') {
-        setConflict({ max: err.maxSessions, active: err.activeSessions, list: err.activeList ?? [] })
+        setConflict({
+          max: err.maxSessions,
+          active: err.activeSessions,
+          requiresCode: err.requiresDeviceCode === true,
+          list: err.activeList ?? [],
+        })
       }
       if (err instanceof LoginGatewayError && err.code === 'SOURCE_LOCKED' && err.lockedUntil) {
         const status = setServerLock(err.lockedUntil, values.email)
@@ -132,7 +143,11 @@ export default function LoginPage() {
     }
     setError('')
     setSuccess('')
-    await submit(parsed.data, true)
+    if (conflict?.requiresCode && !/^[0-9]{6}$/.test(deviceCode.trim())) {
+      setError('أدخل رمز الموافقة المكوّن من ٦ أرقام من جهازك الحالي')
+      return
+    }
+    await submit(parsed.data, true, conflict?.requiresCode ? deviceCode.trim() : undefined)
   }
 
   // قيم القفل (من useLoginSecurity للعرض)
@@ -210,10 +225,28 @@ export default function LoginPage() {
                 <p className="mt-1 text-[11px] leading-5 text-amber-100/60">
                   «الانتقال» يُنهي الجلسة السابقة في الخادم فوراً ويفتح الحساب على هذا الجهاز.
                 </p>
+                {conflict.requiresCode && (
+                  <div className="mt-3">
+                    <p className="text-[11px] leading-5 text-amber-100/90">
+                      هذا حساب حسّاس. افتح «أجهزتي» على جهازك الحالي ← «السماح بجهاز جديد»، ثم أدخل الرمز هنا.
+                    </p>
+                    <input
+                      data-testid="device-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={deviceCode}
+                      onChange={(e) => setDeviceCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      dir="ltr"
+                      className="mt-2 h-11 w-full rounded-xl border border-amber-300/40 bg-white/10 px-3 text-center text-lg font-black tracking-[0.4em] text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    />
+                  </div>
+                )}
                 <button
                   type="button"
                   data-testid="session-switch"
-                  disabled={loading}
+                  disabled={loading || (conflict.requiresCode === true && deviceCode.trim().length !== 6)}
                   onClick={() => void handleSwitchDevice()}
                   className="mt-3 h-10 w-full rounded-xl bg-amber-500 px-4 text-sm font-black text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
                 >

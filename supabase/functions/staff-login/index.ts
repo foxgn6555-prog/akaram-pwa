@@ -143,25 +143,63 @@ Deno.serve(async (req: Request) => {
     } catch { /* تعذّر الفحص لا يحجب الدخول */ }
 
     if (gate?.blocked && sessionId) {
+      // الجولة ٣-ب: الحسابات الحساسة لا تنتقل بكلمة المرور وحدها
+      let sensitive = false
+      try {
+        const { data: sens } = await admin.rpc('session_is_sensitive', { p_user: data.user.id })
+        sensitive = sens === true
+      } catch { /* تعذّر الفحص لا يغيّر السلوك الافتراضي */ }
+
+      const deviceCode = typeof body?.device_code === 'string' ? body.device_code.trim() : ''
+
       if (wantsSwitch) {
+        let codeOk = true
+        if (sensitive) {
+          codeOk = false
+          try {
+            const { data: verified } = await admin.rpc('device_switch_code_verify', {
+              p_user: data.user.id,
+              p_code: deviceCode,
+              p_session: sessionId,
+            })
+            codeOk = verified === true
+          } catch { codeOk = false }
+        }
+
+        if (!codeOk) {
+          await admin.rpc('session_revoke_new', { p_user: data.user.id, p_session: sessionId })
+          await logEvent({
+            p_event: 'switch_denied', p_outcome: 'blocked',
+            p_user: data.user.id, p_email: email, p_session_id: sessionId,
+            p_detail: { reason: 'device_code', has_code: deviceCode.length > 0 },
+          })
+          return json(req, {
+            error: 'DEVICE_CODE_REQUIRED',
+            max: gate.max ?? 1,
+            active: gate.active ?? 0,
+            others: gate.others ?? [],
+          }, 403)
+        }
+
         const { data: revoked } = await admin.rpc('session_switch_apply', { p_user: data.user.id, p_keep: sessionId })
         await logEvent({
           p_event: 'switch_approved', p_outcome: 'allowed',
           p_user: data.user.id, p_email: email, p_session_id: sessionId,
-          p_detail: { revoked: revoked ?? 0, max: gate.max ?? null },
+          p_detail: { revoked: revoked ?? 0, max: gate.max ?? null, via: sensitive ? 'device_code' : 'password' },
         })
       } else {
         await admin.rpc('session_revoke_new', { p_user: data.user.id, p_session: sessionId })
         await logEvent({
           p_event: 'limit_exceeded', p_outcome: 'blocked',
           p_user: data.user.id, p_email: email, p_session_id: sessionId,
-          p_detail: { max: gate.max ?? null, active: gate.active ?? null },
+          p_detail: { max: gate.max ?? null, active: gate.active ?? null, sensitive },
         })
         return json(req, {
           error: 'SESSION_LIMIT_REACHED',
           max: gate.max ?? 1,
           active: gate.active ?? 0,
           others: gate.others ?? [],
+          requires_code: sensitive,
         }, 409)
       }
     }

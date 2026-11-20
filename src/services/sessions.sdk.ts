@@ -45,4 +45,19 @@ export const sessions = {
   async endOthers(): Promise<number> {
     return sdkGuard(supabase.rpc('session_end_others')) as Promise<number>
   },
+
+  /** رمز موافقة لجهاز جديد (للحسابات الحساسة) — صالح 10 دقائق ويُعرض مرة واحدة */
+  async createDeviceCode(): Promise<{ code: string; expires_at: string }> {
+    return sdkGuard(supabase.rpc('device_switch_code_create')) as Promise<{ code: string; expires_at: string }>
+  },
+
+  /** تقنية المعلومات: جلسات أي حساب */
+  async adminList(userId: string): Promise<MySession[]> {
+    return sdkGuard(supabase.rpc('admin_session_list', { p_user: userId })) as Promise<MySession[]>
+  },
+
+  /** تقنية المعلومات: إنهاء جلسة (أو كل الجلسات) لأي حساب — حالة فقدان الجهاز */
+  async adminEnd(userId: string, sessionId?: string | null): Promise<number> {
+    return sdkGuard(supabase.rpc('admin_session_end', { p_user: userId, p_session: sessionId ?? null })) as Promise<number>
+  },
 }
