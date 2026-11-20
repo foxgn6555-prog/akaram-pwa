@@ -62,10 +62,11 @@ Deno.serve(async (req: Request) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     if (!url || !serviceRole || !anonKey) return json(req, { error: 'CONFIGURATION' }, 503)
 
-    const body = await req.json().catch(() => null) as { email?: unknown; password?: unknown; source_id?: unknown } | null
+    const body = await req.json().catch(() => null) as { email?: unknown; password?: unknown; source_id?: unknown; switch?: unknown } | null
     const email = String(body?.email ?? '').trim().toLowerCase()
     const password = typeof body?.password === 'string' ? body.password : ''
     const sourceId = String(body?.source_id ?? '')
+    const wantsSwitch = body?.switch === true
     if (!EMAIL_RE.test(email) || email.length > 254 || password.length < 1 || password.length > 1024 || !UUID_RE.test(sourceId)) {
       return json(req, { error: 'INVALID_INPUT' }, 400)
     }
@@ -128,12 +129,49 @@ Deno.serve(async (req: Request) => {
       return json(req, { error: 'LOGIN_GUARD_UNAVAILABLE' }, 503)
     }
 
+    const sessionId = sessionIdFromToken(data.session?.access_token)
+
+    // ── الجولة ٣: حد الجلسات لكل حساب (لا يعمل إلا بسياسة مفروضة: enforce=true) ──
+    type Gate = { enforce?: boolean; max?: number; active?: number; blocked?: boolean; others?: unknown[] }
+    let gate: Gate | null = null
+    try {
+      const { data: gateData, error: gateError } = await admin.rpc('session_gate_check', {
+        p_user: data.user.id,
+        p_session: sessionId,
+      })
+      if (!gateError && gateData) gate = gateData as Gate
+    } catch { /* تعذّر الفحص لا يحجب الدخول */ }
+
+    if (gate?.blocked && sessionId) {
+      if (wantsSwitch) {
+        const { data: revoked } = await admin.rpc('session_switch_apply', { p_user: data.user.id, p_keep: sessionId })
+        await logEvent({
+          p_event: 'switch_approved', p_outcome: 'allowed',
+          p_user: data.user.id, p_email: email, p_session_id: sessionId,
+          p_detail: { revoked: revoked ?? 0, max: gate.max ?? null },
+        })
+      } else {
+        await admin.rpc('session_revoke_new', { p_user: data.user.id, p_session: sessionId })
+        await logEvent({
+          p_event: 'limit_exceeded', p_outcome: 'blocked',
+          p_user: data.user.id, p_email: email, p_session_id: sessionId,
+          p_detail: { max: gate.max ?? null, active: gate.active ?? null },
+        })
+        return json(req, {
+          error: 'SESSION_LIMIT_REACHED',
+          max: gate.max ?? 1,
+          active: gate.active ?? 0,
+          others: gate.others ?? [],
+        }, 409)
+      }
+    }
+
     await logEvent({
       p_event: 'login_success',
       p_outcome: 'allowed',
       p_user: data.user.id,
       p_email: email,
-      p_session_id: sessionIdFromToken(data.session?.access_token),
+      p_session_id: sessionId,
       p_detail: { via: 'staff-login' },
     })
 

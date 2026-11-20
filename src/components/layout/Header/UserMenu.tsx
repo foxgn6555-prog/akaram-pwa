@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, LogOut, User, Settings, RefreshCw } from 'lucide-react'
+import { ChevronDown, LogOut, User, Settings, RefreshCw, MonitorSmartphone } from 'lucide-react'
 import { initials } from '@lib/utils/string.utils'
 import { usePortalAccess } from '@features/auth/hooks/usePortalAccess'
 import { portalThemes } from '@config/portals.config'
+import { MyDevicesDialog } from './MyDevicesDialog'
 
 export interface UserMenuProps {
   fullName: string
@@ -24,6 +25,7 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
   const navigate = useNavigate()
   const { data: access } = usePortalAccess()
   const [open, setOpen] = useState(false)
+  const [devicesOpen, setDevicesOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -130,6 +132,17 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
               </div>
             )}
 
+            {/* الجولة ٣: الأجهزة والجلسات المفتوحة */}
+            <div className="border-t border-slate-100 my-2" />
+            <button
+              data-testid="user-menu-devices"
+              onClick={() => { setOpen(false); setDevicesOpen(true) }}
+              className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-slate-50 text-slate-700 transition-colors"
+            >
+              <MonitorSmartphone size={16} />
+              <span className="text-sm font-medium">أجهزتي وجلساتي</span>
+            </button>
+
             <div className="border-t border-slate-100 my-2" />
             <button
               onClick={onLogout}
@@ -142,6 +155,7 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
         </div>
         </>
       )}
+      {devicesOpen && <MyDevicesDialog open onClose={() => setDevicesOpen(false)} />}
     </div>
   )
 }
