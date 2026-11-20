@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 // ── محاكاة الاعتماديات الخارجية ──
 vi.mock('@features/auth/hooks/useAuth', () => ({
@@ -36,11 +37,15 @@ function setWidth(width: number): void {
   Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
 }
 
+/** AppShell يستخدم حارس إبطال الجلسة (React Query) ⇒ يلزم مزوّد استعلامات كما في الإنتاج */
 function renderShell() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={['/employee']}>
-      <AppShell portal="employee" />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/employee']}>
+        <AppShell portal="employee" />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
