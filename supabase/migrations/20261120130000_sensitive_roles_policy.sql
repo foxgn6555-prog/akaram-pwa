@@ -140,8 +140,10 @@ grant execute on function public.sensitive_role_set(text, boolean, text) to auth
 do $patch$
 declare
   v_def text;
-  v_anchor text := '  -- V-36: الأدوار الحساسة لا تُمنح/تُسحب إلا بموافقة المدير المفوض' || chr(10) ||
-                   '  if p_role in (''it_admin'', ''super_admin'', ''finance_officer'', ''deputy_director'')';
+  -- ملاحظة توافق: المرساة تعتمد على سطر الشرط وحده دون سطر التعليق الذي يسبقه،
+  -- لأن بعض بيئات التطبيق تجرّد تعليقات SQL عند تنفيذ الترحيلات (كما حدث في الإنتاج)،
+  -- فيبقى سطر الشرط هو النص الثابت الوحيد الذي يمكن الاعتماد عليه.
+  v_anchor text := '  if p_role in (''it_admin'', ''super_admin'', ''finance_officer'', ''deputy_director'')';
   v_new text := '  -- V-37 (الجولة ٢): الأدوار الحساسة تأتي من جدول sensitive_roles القابل للتعديل' || chr(10) ||
                 '  -- المستخدم العادي لا يطلب دوراً حسّاساً إطلاقاً — ولو بمسار موافقات' || chr(10) ||
                 '  if app.is_sensitive_role(p_role)' || chr(10) ||
