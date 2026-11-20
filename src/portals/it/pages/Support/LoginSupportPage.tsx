@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Headphones, MessageCircle, Phone, ShieldCheck, Unlock, Settings, RefreshCw, Send, KeyRound, Search, CheckCircle2 } from 'lucide-react'
+import { Headphones, LifeBuoy, MessageCircle, Phone, ShieldCheck, Unlock, Settings, RefreshCw, Send, KeyRound, Search, CheckCircle2 } from 'lucide-react'
 import { loginSupport, type LoginLock, type SupportEmployee, type SupportMessage, type SupportSettings, type SupportTicket } from '@sdk/login-support.sdk'
 import { users } from '@sdk/users.sdk'
+import { PortalTicketsPanel } from './PortalTicketsPanel'
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT, checkPasswordPolicy } from '@features/auth/password-policy'
 
-type Tab = 'inbox' | 'locks' | 'reset' | 'settings'
+type Tab = 'inbox' | 'tickets' | 'locks' | 'reset' | 'settings'
 const labelStatus = (status: string) => status === 'resolved' ? 'مغلق' : status === 'waiting' ? 'بانتظار الموظف' : 'مفتوح'
 const timeLabel = (value?: string) =>
   value
@@ -173,6 +174,7 @@ export default function LoginSupportPage() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'inbox', label: `المحادثات (${openCount})`, icon: <MessageCircle size={17} /> },
+    { id: 'tickets', label: 'تذاكر البوابات', icon: <LifeBuoy size={17} /> },
     { id: 'locks', label: `الأقفال (${locks.length})`, icon: <Unlock size={17} /> },
     { id: 'reset', label: 'إعادة ضبط كلمة المرور', icon: <KeyRound size={17} /> },
     { id: 'settings', label: 'التواصل والإعدادات', icon: <Settings size={17} /> },
@@ -207,6 +209,8 @@ export default function LoginSupportPage() {
           </>}
         </section>
       </div>}
+
+      {tab === 'tickets' && <PortalTicketsPanel />}
 
       {tab === 'locks' && <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b bg-slate-50 px-4 py-3"><h2 className="text-sm font-black">الأقفال النشطة</h2><p className="mt-1 text-xs text-slate-500">القفل مرتبط بالبريد والجهاز الذي أخفق؛ لا يكشف عنوان IP.</p></div>{locks.length === 0 ? <p className="p-5 text-sm text-slate-500">لا توجد أقفال نشطة.</p> : <div className="overflow-x-auto"><table className="w-full text-right text-xs"><thead className="bg-white text-slate-500"><tr><th className="p-3">البريد</th><th className="p-3">الإخفاقات</th><th className="p-3">انتهاء القفل</th><th className="p-3">آخر تحديث</th></tr></thead><tbody>{locks.map((item) => <tr key={`${item.normalized_email}-${item.locked_until}`} className="border-t"><td className="p-3" dir="ltr">{item.normalized_email}</td><td className="p-3">{item.failure_count}/10</td><td className="p-3">{timeLabel(item.locked_until)}</td><td className="p-3">{timeLabel(item.updated_at)}</td></tr>)}</tbody></table></div>}</section>
