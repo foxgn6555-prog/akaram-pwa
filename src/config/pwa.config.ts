@@ -43,6 +43,9 @@ export const pwaConfig: Partial<VitePWAOptions> = {
      * تبقى تعمل: تُخزَّن عند أول استخدام عبر مسار CacheFirst في src/workers/sw.ts.
      */
     globIgnores: [
+      // ٣-هـ: بصمة الإصدار وحارس الإقلاع يجب أن يُقرآ من الشبكة لا من precache
+      'version.json',
+      'boot-watchdog.js',
       '**/exceljs.min-*.js',
       '**/jspdf.es.min-*.js',
       '**/html2canvas.esm-*.js',

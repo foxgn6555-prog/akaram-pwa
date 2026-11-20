@@ -17,6 +17,13 @@ RewriteRule ^ /index.html [L]
   <Files "index.html">
     Header always set Cache-Control "no-cache, must-revalidate"
   </Files>
+  <!-- ٣-هـ: بصمة الإصدار وحارس الإقلاع يجب أن يُقرآ من الشبكة دائماً -->
+  <Files "version.json">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
+  <Files "boot-watchdog.js">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </Files>
 
   <!-- أصول Vite المجزأة (اسمها يحمل بصمة محتوى) لا تتغيّر أبداً: تخزين سنة كاملة.
        النمط يشترط البصمة (-XXXXXXXX) قبل الامتداد، فلا يلتقط sw.js ولا index.html

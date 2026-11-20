@@ -37,6 +37,8 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- ٣-هـ: حارس الإقلاع — ملف مستقل (لا inline) كي يعمل حتى لو فشل تحميل الحزمة نفسها -->
+    <script src="/boot-watchdog.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

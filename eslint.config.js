@@ -32,6 +32,17 @@ export default tseslint.config(
     },
   },
   {
+    // ٣-هـ: حارس الإقلاع — سكربت متصفح خام يُنسخ إلى dist كما هو (لا يمرّ عبر Vite)
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: {
+        window: 'readonly', document: 'readonly', navigator: 'readonly', caches: 'readonly',
+        sessionStorage: 'readonly', setTimeout: 'readonly', Promise: 'readonly', console: 'readonly',
+      },
+    },
+    rules: { 'no-undef': 'off' },
+  },
+  {
     // سكربتات Node (mjs) — globals بيئة Node
     files: ['scripts/**/*.mjs', 'k6/**/*.js', 'tools/**/*.mjs', 'tests/db/platform-reset-concurrency-test.mjs'],
     languageOptions: {

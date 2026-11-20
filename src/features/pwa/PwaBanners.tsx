@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, RefreshCw, Smartphone, X } from 'lucide-react'
 import { APP_VERSION } from '@config/build-info'
 import { clearPendingUpdate } from './update-policy'
+import { hardResetApp } from './hard-reset'
 import { InstallAppButton } from './InstallAppButton'
 import { dismissInstallBanner, installBannerDismissed, pwaStore, usePwaState } from './pwa.store'
 
@@ -54,6 +55,12 @@ export function UpdateBanner() {
         <button type="button" onClick={() => pwaStore.dismissUpdate()} aria-label="لاحقاً" data-testid="pwa-update-later"
           className="rounded-lg p-1 text-white/80 hover:bg-white/10"><X size={16} /></button>
       )}
+      {/* ٣-هـ: مخرج يدوي من أي التصاق كاش (شائع على iPhone) — لا يمسّ بيانات الجلسة */}
+      <button type="button" onClick={() => { clearPendingUpdate(); void hardResetApp() }}
+        data-testid="pwa-update-repair"
+        className="shrink-0 rounded-lg px-1.5 py-1 text-[10px] font-bold underline decoration-dotted text-white/90 hover:bg-white/10">
+        لم يعمل؟
+      </button>
     </div>
   )
 }
