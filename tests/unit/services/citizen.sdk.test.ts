@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  rpc: vi.fn(async () => ({ data: { ok: true }, error: null })),
+  rpc: vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({ data: { ok: true }, error: null })),
   upload: vi.fn(async () => ({ data: { path: 'p' }, error: null })),
   signed: vi.fn(async (paths: string[]) => ({ data: paths.map((p) => ({ path: p, signedUrl: `https://s/${p}` })), error: null })),
 }))

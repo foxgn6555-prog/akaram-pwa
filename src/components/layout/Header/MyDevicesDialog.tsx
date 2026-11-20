@@ -2,8 +2,15 @@
  * الجولة ٣ — «أجهزتي»: قائمة الجلسات النشطة لهذا الحساب.
  * تُقرأ من auth.sessions عبر RPC محروسة، والإنهاء حذف فعلي في الخادم.
  * لا تُعرض هنا أي بيانات حساب آخر — الدالة تخصّ المستخدم الحالي وحده.
+ *
+ * إصلاح 2026-11-20: كانت اللوحة تُرسم داخل <header> الحامل لـ`backdrop-blur-md`،
+ * و`backdrop-filter` يجعل العنصر كتلةً حاوية لعناصر `position: fixed` التابعة له،
+ * فصارت `fixed bottom-0` تُحسب بالنسبة للهيدر (64px) لا للشاشة ⇒ ظهرت شريحةً يظهر
+ * فيها تحذير أمبر فقط، وتغطي الشريط العلوي، فلا تُفتح فعلياً على الهاتف.
+ * الحل: portal إلى document.body + طبقة z-[3000] + حشو safe-area (نمط نافذة الإشعارات).
  */
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Laptop, MonitorSmartphone, ShieldAlert, X } from 'lucide-react'
 import { formatRelative } from '@lib/utils/date.utils'
 import { describeDevice } from '@lib/utils/device.utils'
@@ -27,13 +34,13 @@ export function MyDevicesDialog({ open, onClose }: { open: boolean; onClose: () 
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <>
       <button
         type="button"
         aria-label="إغلاق"
         data-testid="devices-backdrop"
-        className="fixed inset-0 z-50 cursor-default bg-slate-950/40 backdrop-blur-[1px]"
+        className="fixed inset-0 z-[2990] cursor-default bg-slate-950/40 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <div
@@ -41,7 +48,7 @@ export function MyDevicesDialog({ open, onClose }: { open: boolean; onClose: () 
         aria-modal="true"
         aria-label="أجهزتي وجلساتي"
         data-testid="devices-dialog"
-        className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:inset-y-0 sm:bottom-auto sm:top-1/2 sm:max-h-[80vh] sm:-translate-y-1/2 sm:rounded-3xl"
+        className="fixed inset-x-0 bottom-0 z-[3000] mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-slate-200 bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:inset-y-0 sm:bottom-auto sm:top-1/2 sm:max-h-[80vh] sm:-translate-y-1/2 sm:rounded-3xl sm:pb-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -158,6 +165,7 @@ export function MyDevicesDialog({ open, onClose }: { open: boolean; onClose: () 
           </button>
         )}
       </div>
-    </>
+    </>,
+    document.body,
   )
 }

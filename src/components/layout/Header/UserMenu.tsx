@@ -1,5 +1,6 @@
 /** قائمة المستخدم المحسّنة — معلومات كاملة + بوابات + خروج */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, LogOut, User, Settings, RefreshCw, MonitorSmartphone } from 'lucide-react'
@@ -70,13 +71,18 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
 
       {open && (
         <>
-        <button
-          type="button"
-          data-testid="user-menu-backdrop"
-          aria-label="إغلاق قائمة المستخدم"
-          className="fixed inset-0 z-40 cursor-default bg-slate-950/20 backdrop-blur-[1px]"
-          onClick={() => setOpen(false)}
-        />
+        {/* خلفية القائمة: portal إلى body — لأن الهيدر يحمل backdrop-blur فيجعل
+            `fixed inset-0` محسوباً على الهيدر لا على الشاشة (فلا يُغلق بالنقر خارجها) */}
+        {createPortal(
+          <button
+            type="button"
+            data-testid="user-menu-backdrop"
+            aria-label="إغلاق قائمة المستخدم"
+            className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"
+            onClick={() => setOpen(false)}
+          />,
+          document.body,
+        )}
         <div className="absolute end-0 top-12 z-50 max-h-[min(80vh,40rem)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-100 bg-white shadow-2xl">
           {/* الرأس */}
           <div className="p-4 bg-gradient-to-br from-brand-50 to-brand-100/50 border-b border-slate-100">
