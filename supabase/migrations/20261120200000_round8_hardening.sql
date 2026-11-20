@@ -29,17 +29,18 @@ begin
   end loop;
 end $pre$;
 
--- ① لا كتابة مباشرة: كل الكتابة عبر دوال security definer (المدقَّقة)
-revoke insert, update, delete, truncate, references, trigger
+-- ① سحب شامل ثم إعادة القراءة فقط
+--    (revoke all في PostgreSQL 17 يشمل صلاحية MAINTAIN الجديدة أيضاً؛ وفي 16 لا يضر)
+revoke all
   on public.permission_audit, public.role_grant_requests,
      public.user_permission_overrides, public.user_permission_template
   from anon, authenticated;
 
--- ② anon لا يقرأ شيئاً من هذه العائلة (لا سياسة له أصلاً — سحب الصلاحية توثيق للنية)
-revoke select
+-- ② القراءة للمصادقين وحدها، محكومة بسياسات RLS القائمة (IT / صاحب الحساب)
+grant select
   on public.permission_audit, public.role_grant_requests,
      public.user_permission_overrides, public.user_permission_template
-  from anon;
+  to authenticated;
 
 -- ③ القراءة للمصادقين تبقى محكومة بسياساتها القائمة (IT / صاحب الحساب) — لا تُلمس.
 
@@ -49,7 +50,7 @@ declare t text; v_priv text;
 begin
   foreach t in array array['permission_audit', 'role_grant_requests', 'user_permission_overrides', 'user_permission_template']
   loop
-    foreach v_priv in array array['INSERT', 'UPDATE', 'DELETE'] loop
+    foreach v_priv in array array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] loop
       if has_table_privilege('authenticated', 'public.' || t, v_priv) then
         raise exception 'HARDENING_CHECK: authenticated ما زال يملك % على %', v_priv, t;
       end if;

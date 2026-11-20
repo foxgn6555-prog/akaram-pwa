@@ -66,11 +66,16 @@ end $$;
 
 -- ═══ B) الإشعارات ═══
 do $$
-declare n int;
 begin
-  select count(distinct user_id) into n from public.notifications
-   where dedupe_key like 'support_ticket:%';
-  if n <> 2 then raise exception 'B: يجب إشعار مسؤولي تقنية المعلومات الاثنين، جاء %', n; end if;
+  -- كل مسؤول تقنية معلومات يجب أن يستلم إشعاراً (قد يوجد مسؤولون آخرون في القاعدة)
+  if not exists (select 1 from public.notifications
+                  where dedupe_key like 'support_ticket:%' and user_id = 'e1000000-0000-4000-8000-000000000002') then
+    raise exception 'B: المسؤول الأول لم يُشعَر';
+  end if;
+  if not exists (select 1 from public.notifications
+                  where dedupe_key like 'support_ticket:%' and user_id = 'e1000000-0000-4000-8000-000000000003') then
+    raise exception 'B: المسؤول الثاني لم يُشعَر';
+  end if;
 end $$;
 
 -- ═══ C) القائمة ═══
