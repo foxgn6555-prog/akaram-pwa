@@ -77,6 +77,33 @@ describe('لوحات الهيدر — لا تُحتجز داخل backdrop-filter
     expect(screen.queryByTestId('user-menu-devices')).not.toBeInTheDocument()
   })
 
+  it('لوحة القائمة فوق الخلفية (لا تُعتَّم): 3000 مقابل 2990 وفي body', async () => {
+    const user = userEvent.setup()
+    renderInsideBlurredHeader()
+
+    await user.click(screen.getByLabelText('قائمة المستخدم'))
+
+    const panel = screen.getByTestId('user-menu-panel')
+    const backdrop = screen.getByTestId('user-menu-backdrop')
+    expect(panel.parentElement).toBe(document.body)
+    // الخلفية محصورة داخل AppShell الحامل لـ`isolate`، فإن نزلت عن z-30 داخل الهيدر
+    // رسمت فوق اللوحة وجعلتها تبدو شبه شفافة — الحارس يثبّت الترتيب الصحيح
+    expect(backdrop.className).toContain('z-[2990]')
+    expect(panel.className).toContain('z-[3000]')
+    expect(panel.className).toContain('bg-white')
+  })
+
+  it('النقر داخل اللوحة (بعد الـportal) لا يغلقها', async () => {
+    const user = userEvent.setup()
+    renderInsideBlurredHeader()
+
+    await user.click(screen.getByLabelText('قائمة المستخدم'))
+    const panel = screen.getByTestId('user-menu-panel')
+    await user.click(panel)
+
+    expect(screen.getByTestId('user-menu-devices')).toBeInTheDocument()
+  })
+
   it('الهيدر الحقيقي لا يحتضن أي عنصر fixed (حارس بنيوي)', () => {
     renderInsideBlurredHeader()
     const header = screen.getByTestId('fake-header')

@@ -1,5 +1,5 @@
 /** قائمة المستخدم المحسّنة — معلومات كاملة + بوابات + خروج */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,9 @@ import { initials } from '@lib/utils/string.utils'
 import { usePortalAccess } from '@features/auth/hooks/usePortalAccess'
 import { portalThemes } from '@config/portals.config'
 import { MyDevicesDialog } from './MyDevicesDialog'
+
+/** عرض اللوحة (w-64) — يُستخدم لحساب موضعها داخل الشاشة عند رسمها في body */
+const PANEL_WIDTH = 256
 
 export interface UserMenuProps {
   fullName: string
@@ -27,27 +30,55 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
   const { data: access } = usePortalAccess()
   const [open, setOpen] = useState(false)
   const [devicesOpen, setDevicesOpen] = useState(false)
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     onOpenChange?.(open)
   }, [open, onOpenChange])
 
+  /** موضع اللوحة: تُرسم في body (portal) لذا نحسب إحداثياتها من زر القائمة */
+  const updateAnchor = useCallback((): void => {
+    const rect = ref.current?.getBoundingClientRect()
+    if (!rect) return
+    const width = Math.min(PANEL_WIDTH, window.innerWidth - 24)
+    // في RTL تنطلق اللوحة من حافة الزر نفسها ثم تُقصّ داخل الشاشة
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))
+    setAnchor({ top: Math.round(rect.bottom + 8), left: Math.round(left) })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setAnchor(null)
+      return
+    }
+    updateAnchor()
+  }, [open, updateAnchor])
+
   useEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // اللوحة صارت خارج شجرة الزر بعد الـportal — نفحصها أيضاً وإلا أُغلقت عند أول نقرة داخلها
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setOpen(false)
     }
+    const onReflow = (): void => updateAnchor()
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', onReflow)
+    window.addEventListener('scroll', onReflow, true)
     return () => {
       document.removeEventListener('mousedown', onClick)
       document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', onReflow)
+      window.removeEventListener('scroll', onReflow, true)
     }
-  }, [open])
+  }, [open, updateAnchor])
 
   const portals = access?.portals ?? []
   const showSwitcher = portals.length > 1
@@ -58,6 +89,8 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-xl px-1.5 py-1 hover:bg-slate-50 transition-colors"
         aria-label="قائمة المستخدم"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <span className="hidden md:block text-end">
           <span className="block max-w-32 truncate text-sm font-semibold text-slate-700 leading-tight">{fullName}</span>
@@ -71,19 +104,29 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
 
       {open && (
         <>
-        {/* خلفية القائمة: portal إلى body — لأن الهيدر يحمل backdrop-blur فيجعل
-            `fixed inset-0` محسوباً على الهيدر لا على الشاشة (فلا يُغلق بالنقر خارجها) */}
+        {/* الخلفية واللوحة تُرسمان في body عبر portal:
+            1) الهيدر يحمل `backdrop-blur` فيصبح كتلةً حاوية لـ`position: fixed` التابعة له،
+               فكانت `fixed inset-0` محسوبة على الهيدر (64px) فلا تُغلق القائمة بالنقر خارجها.
+            2) AppShell يحمل `isolate` (سياق تكديس خاص) فكل `z-*` داخل الهيدر محصور فيه،
+               فكانت الخلفية بـ`z-30` تُرسم فوق اللوحة وتُعتّمها (عطل «القائمة الشفافة»).
+            الحل: كلاهما في body، الخلفية 2990 واللوحة 3000. */}
         {createPortal(
           <button
             type="button"
             data-testid="user-menu-backdrop"
             aria-label="إغلاق قائمة المستخدم"
-            className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"
+            className="fixed inset-0 z-[2990] cursor-default bg-slate-950/20 backdrop-blur-[1px]"
             onClick={() => setOpen(false)}
           />,
           document.body,
         )}
-        <div className="absolute end-0 top-12 z-50 max-h-[min(80vh,40rem)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-100 bg-white shadow-2xl">
+        {createPortal(
+          <div
+            ref={panelRef}
+            data-testid="user-menu-panel"
+            style={anchor ? { top: anchor.top, left: anchor.left } : { top: 0, left: 0, visibility: 'hidden' }}
+            className="fixed z-[3000] w-64 max-h-[min(80dvh,40rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-100 bg-white shadow-2xl"
+          >
           {/* الرأس */}
           <div className="p-4 bg-gradient-to-br from-brand-50 to-brand-100/50 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -158,7 +201,9 @@ export function UserMenu({ fullName, roleLabel, onLogout, accountPath, settingsP
               <span className="text-sm font-medium">{t('actions.logout')}</span>
             </button>
           </div>
-        </div>
+          </div>,
+          document.body,
+        )}
         </>
       )}
       {devicesOpen && <MyDevicesDialog open onClose={() => setDevicesOpen(false)} />}
