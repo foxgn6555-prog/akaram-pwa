@@ -268,6 +268,64 @@ export function visitDisplayStatus(visit: MapVisit | null | undefined): 'confirm
   return visit ? visit.status : 'not_entered'
 }
 
+// ── الزيارة المُثراة: سائق، شفت، مسؤول (الجولة ٦) ─────────────────────────
+/** مصدر الشفت/السائق: من انطلاقية اليوم (دقيق) أم من سجل الآلية (بديل موسوم) */
+export type ShiftSource = 'departure' | 'vehicle' | 'none'
+
+export const SHIFT_SOURCE_LABEL_AR: Record<ShiftSource, string> = {
+  departure: 'من انطلاقية اليوم',
+  vehicle: 'من سجل الآلية',
+  none: 'غير معروف',
+}
+
+export interface EnrichedVisit extends MapVisit {
+  vehicle_name: string | null
+  db_number: string | null
+  /** السائق الفعلي لليوم إن وُجدت انطلاقية، وإلا السائق الثابت للآلية */
+  driver_name: string | null
+  shift: string | null
+  shift_source: ShiftSource
+  driver_source: ShiftSource
+  department_manager_names: string | null
+  sector_id: number | null
+  sector_name: string | null
+}
+
+export interface VehicleDayRow {
+  vehicle_id: string
+  vehicle_name: string
+  db_number: string
+  plate_number: string
+  fleet_shift: string | null
+  fleet_driver: string | null
+  shift: string | null
+  driver_name: string | null
+  shift_source: ShiftSource
+  visits_count: number
+  confirmed_count: number
+  uncertain_count: number
+  places_count: number
+  total_dwell_seconds: number
+  first_at: string | null
+  last_at: string | null
+}
+
+export interface UnvisitedEnriched {
+  place_kind: 'street' | 'alley'
+  place_id: string
+  place_code: string
+  place_name: string | null
+  mahalla_code: string | null
+  length_m: number | null
+  width_m: number | null
+  department_manager_names: string | null
+}
+
+/** لا نُخفي معلومة: هل هذا الشفت مؤكد من انطلاقية أم من سجل الآلية؟ */
+export function shiftCaveat(r: { shift_source: ShiftSource }): string | null {
+  return r.shift_source === 'vehicle' ? 'لم تُسجَّل انطلاقية — الشفت من سجل الآلية' : null
+}
+
 // ── القراءة ────────────────────────────────────────────────────────────────
 export const mapPlanningSdk = {
   /** الزونات المخطَّطة (مع عدد عناصر كل زون) */
@@ -538,5 +596,41 @@ export const mapPlanningSdk = {
       p_columns: clean,
     })
     if (error) throw new Error(error.message)
+  },
+
+  // ── الزيارات المُثراة (الجولة ٦) ─────────────────────────────────────────
+  /** زيارات يوم بغداد مع السائق والشفت ومسؤول القسم */
+  async visitsEnriched(
+    zoneId: string, day: string, vehicleId?: string | null, kind?: 'street' | 'alley',
+  ): Promise<EnrichedVisit[]> {
+    const { data, error } = await supabase.rpc('map_visits_enriched', {
+      p_zone: zoneId, p_day: day,
+      p_vehicle: vehicleId ?? null, p_kind: kind ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as EnrichedVisit[]
+  },
+
+  /** أداء الآليات في يوم — الشفت والسائق من الانطلاقية إن وُجدت */
+  async vehiclesDay(zoneId: string, day: string): Promise<VehicleDayRow[]> {
+    const { data, error } = await supabase.rpc('map_vehicles_day', { p_zone: zoneId, p_day: day })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VehicleDayRow[]
+  },
+
+  /** الأماكن التي لم تُدخل + مسؤول قسمها */
+  async unvisitedEnriched(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<UnvisitedEnriched[]> {
+    const { data, error } = await supabase.rpc('map_unvisited_enriched', {
+      p_zone: zoneId, p_day: day, p_kind: kind ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as UnvisitedEnriched[]
+  },
+
+  /** مسؤولو الأقسام لقواطع — للعرض في رأس التقرير */
+  async sectorManagers(sectors: number[]): Promise<{ sector_id: number; manager_names: string | null; manager_shifts: string | null; managers_count: number }[]> {
+    const { data, error } = await supabase.rpc('map_sector_managers', { p_sectors: sectors })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as { sector_id: number; manager_names: string | null; manager_shifts: string | null; managers_count: number }[]
   },
 }

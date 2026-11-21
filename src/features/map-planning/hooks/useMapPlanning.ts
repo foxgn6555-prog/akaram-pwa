@@ -28,6 +28,11 @@ export const mapKeys = {
   unvisited: (zoneId: string, day: string) => ['map-planning', 'unvisited', zoneId, day] as const,
   trend: (zoneId: string, until: string, days: number) => ['map-planning', 'trend', zoneId, until, days] as const,
   exportPrefs: (kind: string) => ['map-planning', 'export-prefs', kind] as const,
+  visitsEnriched: (zoneId: string, day: string, vehicleId: string) =>
+    ['map-planning', 'visits-enr', zoneId, day, vehicleId] as const,
+  vehiclesDay: (zoneId: string, day: string) => ['map-planning', 'veh-day', zoneId, day] as const,
+  unvisitedEnriched: (zoneId: string, day: string) => ['map-planning', 'unvisited-enr', zoneId, day] as const,
+  sectorManagers: (sectors: number[]) => ['map-planning', 'sec-mgr', [...sectors].sort().join(',')] as const,
 }
 
 export function useMapZones() {
@@ -325,5 +330,45 @@ export function useSaveExportPrefs() {
     onError: (error) => {
       addToast({ type: 'error', message: handleAppError(error, { scope: 'map-export' }).message })
     },
+  })
+}
+
+// ── الزيارات المُثراة: سائق/شفت/مسؤول (الجولة ٦) ───────────────────────────
+
+/** زيارات يوم — مُصفّاة بآلية اختيارية */
+export function useVisitsEnriched(zoneId: string | null, day: string, vehicleId: string | null) {
+  return useQuery({
+    queryKey: mapKeys.visitsEnriched(zoneId ?? '', day, vehicleId ?? ''),
+    queryFn: () => mapPlanningSdk.visitsEnriched(zoneId as string, day, vehicleId),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useVehiclesDay(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.vehiclesDay(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.vehiclesDay(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useUnvisitedEnriched(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.unvisitedEnriched(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.unvisitedEnriched(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+/** مسؤولو الأقسام لقطاعات محددة — الربط من القاطع إلى المسؤول، لا إدخال يدوي */
+export function useSectorManagers(sectors: number[]) {
+  return useQuery({
+    queryKey: mapKeys.sectorManagers(sectors),
+    queryFn: () => mapPlanningSdk.sectorManagers(sectors),
+    enabled: sectors.length > 0,
+    staleTime: 5 * 60_000,
   })
 }

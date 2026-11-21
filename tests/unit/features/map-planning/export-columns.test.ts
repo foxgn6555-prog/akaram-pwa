@@ -32,13 +32,27 @@ const row = (over: Partial<Row> = {}): Row => ({
 
 describe('① الترتيب الافتراضي معلن وثابت', () => {
   it('أحد عشر عموداً في تقرير الأماكن', () => {
-    expect(columnsFor('places')).toHaveLength(11)
+    expect(columnsFor('places')).toHaveLength(12)
   })
 
   it('الترتيب الافتراضي يبدأ بالنوع وينتهي بآخر زيارة', () => {
     const ids = columnsFor('places').map((c) => c.id)
     expect(ids[0]).toBe('place_kind')
     expect(ids[10]).toBe('last_visit')
+    expect(ids[11]).toBe('manager')
+    // عمود المسؤول يُطبع نصاً كما هو (يأتي من القاطع)، ويُترك فارغاً بلا مسؤول
+    const col = columnsFor('places').find((c) => c.id === 'manager')!
+    expect(col.header).toBe('مسؤول القسم')
+    const c0 = { zoneName: 'الرياض', shiftLabel: (x: string | null | undefined) => x ?? '—' }
+    const base = {
+      place_kind: 'street' as const, place_code: 'STR-1', place_name: 'شارع', mahalla_code: null,
+      length_m: 100, width_m: 8, status_ar: 'مقبول', visited: false, confirmed: false,
+      visits_count: 0, vehicles_count: 0, total_dwell_seconds: 0,
+      first_entered_at: null, last_exited_at: null,
+    }
+    expect(col.value({ ...base, department_manager_names: 'علي المسائي، أحمد الصباحي' }, c0))
+      .toBe('علي المسائي، أحمد الصباحي')
+    expect(col.value({ ...base }, c0)).toBeNull()
   })
 
   it('أعمدة سجل الزيارات منفصلة عن أعمدة الأماكن', () => {
@@ -61,8 +75,8 @@ describe('① الترتيب الافتراضي معلن وثابت', () => {
 
 describe('② resolveColumns — يقاوم تفضيلاً محفوظاً فاسداً', () => {
   it('بلا تفضيل ⇒ كل الأعمدة', () => {
-    expect(resolveColumns('places', null)).toHaveLength(11)
-    expect(resolveColumns('places', [])).toHaveLength(11)
+    expect(resolveColumns('places', null)).toHaveLength(12)
+    expect(resolveColumns('places', [])).toHaveLength(12)
   })
 
   it('يحترم الترتيب المحفوظ', () => {
@@ -200,7 +214,7 @@ describe('⑥ الصفوف والترويسة', () => {
 
   it('الترويسة تحمل نصّ التعريف وتعرض العرض والمحاذاة', () => {
     const rc = toReportColumns(columnsFor('places'))
-    expect(rc).toHaveLength(11)
+    expect(rc).toHaveLength(12)
     expect(rc[1]).toMatchObject({ header: 'الكود', key: 'place_code', align: 'center' })
   })
 

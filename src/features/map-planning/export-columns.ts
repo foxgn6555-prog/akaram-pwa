@@ -61,6 +61,8 @@ export interface Row {
   dwell_seconds?: number | null
   visit_status?: 'confirmed' | 'uncertain' | 'not_entered' | null
   reason?: string | null
+  /** أسماء مسؤولي قسم القاطع (الجولة ٦) */
+  department_manager_names?: string | null
 }
 
 /** الوقت بتوقيت بغداد بصيغة HH:MM — أرقام لاتينية (عقد المنصة) */
@@ -145,6 +147,10 @@ export const EXPORT_COLUMNS: readonly ExportColumnDef[] = [
       const t = baghdadTime(r.last_exited_at ?? r.first_entered_at)
       return t ? `${baghdadDay(r.first_entered_at) ?? ''} ${t}`.trim() : null
     },
+  },
+  {
+    id: 'manager', header: 'مسؤول القسم', kind: 'places', width: 24, wrap: true,
+    value: (r) => r.department_manager_names ?? null,
   },
 
   // ── أعمدة سجل الزيارات (لتصدير كل زيارة صفاً) ─────────────────────────────

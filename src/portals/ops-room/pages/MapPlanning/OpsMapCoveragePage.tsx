@@ -99,6 +99,7 @@ export default function MapCoveragePage() {
           { label: 'غير مؤكد', value: `${rollup.uncertain_pct}%`, tone: 'red' },
           { label: 'آليات نشطة', value: String(rollup.vehicles_active), tone: 'plain' },
         ] : undefined}
+        links={[{ to: '/ops-room/map-planning/vehicle-visits', label: 'زيارات الآلية', icon: 'truck' }]}
       />
 
       {/* الزون واليوم */}

@@ -21,6 +21,7 @@ import {
   useMapMahallas,
   useMapStreets,
   useMapZones,
+  useSectorManagers,
 } from '@features/map-planning/hooks/useMapPlanning'
 import { buildExcelReport, saveWorkbook } from '@lib/export/excel-report'
 import { ExportColumnsPanel } from '@features/map-planning/components/ExportColumnsPanel'
@@ -54,6 +55,12 @@ export default function MapPlanningTablePage() {
   const { data: streets = [], isLoading: ls } = useMapStreets(activeZoneId)
   const { data: alleys = [], isLoading: la } = useMapAlleys(activeZoneId)
   const { data: mahallas = [] } = useMapMahallas(activeZoneId)
+  const activeZone = zones.find((z) => z.id === activeZoneId)
+  /** مسؤولو القاطع — يُستنتجون من القاطع، ويُطبَّقون على كل صفوف التقرير */
+  const { data: sectorMgrs = [] } = useSectorManagers(
+    activeZone?.sector_id ? [activeZone.sector_id] : [],
+  )
+  const managersForZone = sectorMgrs.find((m) => m.sector_id === activeZone?.sector_id)?.manager_names ?? null
 
   const [tab, setTab] = useState<Tab>('all')
   const [query, setQuery] = useState('')
@@ -161,9 +168,10 @@ export default function MapPlanningTablePage() {
         total_dwell_seconds: c?.total_dwell_seconds ?? 0,
         first_entered_at: c?.first_entered_at ?? null,
         last_exited_at: c?.last_exited_at ?? null,
+        department_manager_names: managersForZone,
       } satisfies ExportRow
     })
-  }, [rows, coverage])
+  }, [rows, coverage, managersForZone])
 
   const exportExcel = async () => {
     if (!activeZoneId) return

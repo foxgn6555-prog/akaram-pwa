@@ -19,3 +19,4 @@ export {
 } from './hooks/useMapPlanning'
 export { useMapVisits, useMapCoverage, useBuildVisits } from './hooks/useMapPlanning'
 export { useCoverageByPlace, useCoverageByVehicle, useCoverageRollup, useUnvisitedPlaces, useCoverageTrend } from './hooks/useMapPlanning'
+export { useVisitsEnriched, useVehiclesDay, useUnvisitedEnriched } from './hooks/useMapPlanning'

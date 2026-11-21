@@ -517,7 +517,73 @@ insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) value
     _, neg, _ = sql("select row_count::text from map_export_log where export_kind='visits'")
     check("عدد صفوف سالب يُقصّ لصفر", neg, "0")
 
-    print("\n=== ⑪ التدقيق ===")
+    print("\n=== ⑪ السائق والشفت ومسؤول القسم (الجولة ٦) ===")
+    Z6 = "'aaaaaaaa-0000-0000-0000-000000000001'"
+    # مسؤولان لقاطع الزون (1) بشفتين مختلفتين
+    sql("""insert into employees(user_id,full_name,employee_number) values
+       ('11111111-0000-0000-0000-000000000001','مسؤول صباحي','EMP1'),
+       ('22222222-0000-0000-0000-000000000002','مسؤول مسائي','EMP2')""")
+    sql("""insert into manager_profiles(user_id,shift,sectors) values
+       ('11111111-0000-0000-0000-000000000001','morning','{1}'),
+       ('22222222-0000-0000-0000-000000000002','evening','{1}')""")
+    _, mgrs, _ = sql("select manager_names from app.map_sector_managers('{1}'::smallint[])")
+    check("مسؤولو القاطع يُعرضون بأسمائهم لا بمعرّفاتهم",
+          "ok" if mgrs and "مسؤول صباحي" in mgrs and "مسؤول مسائي" in mgrs else f"got={mgrs}", "ok")
+
+    # آلية ألف: سائقها الثابت «سائق ثابت»/صباحي، لكن انطلاقيتها الليلية «بديل ليلي»/ليلي
+    sql("""insert into garage_departures(id,vehicle_id,driver_name,shift,sector_id,departed_at,departed_by)
+           values ('dddddddd-0000-0000-0000-00000000d001','eeeeeeee-0000-0000-0000-000000000002',
+                   'بديل ليلي','night',1,'2026-11-21T19:00:00Z','eeeeeeee-0000-0000-0000-000000000001')""")
+    sql("""insert into map_visits(zone_id,vehicle_id,place_kind,place_id,place_code,place_name,
+             placeday,seq,entered_at,exited_at,dwell_seconds,points_count,status)
+           select 'aaaaaaaa-0000-0000-0000-000000000001','eeeeeeee-0000-0000-0000-000000000002',
+                  'street', id,'STR-0901','شارع المحرك','2026-11-22',1,
+                  '2026-11-21T22:00:00Z','2026-11-21T22:10:00Z',600,8,'confirmed'
+             from map_streets where code='STR-0901'""")
+
+    _, drv, _ = sql("""select coalesce(driver_name,'—')||'/'||coalesce(shift,'—')||'/'||shift_source
+                         from app.map_visits_enriched(
+                           'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22','eeeeeeee-0000-0000-0000-000000000002')
+                        limit 1""")
+    check("سائق الزيارة من الانطلاقية لا من سجل الآلية", drv, "بديل ليلي/night/departure")
+
+    _, mgr_in_visit, _ = sql("""select coalesce(department_manager_names,'—') from app.map_visits_enriched(
+                                 'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22') limit 1""")
+    check("الزيارة تحمل مسؤول قسمها",
+          "ok" if mgr_in_visit and "مسؤول" in mgr_in_visit else f"got={mgr_in_visit}", "ok")
+
+    _, vday, _ = sql("""select coalesce(driver_name,'—')||'/'||shift_source
+                         from app.map_vehicles_day('aaaaaaaa-0000-0000-0000-000000000001','2026-11-22')
+                        where vehicle_id='eeeeeeee-0000-0000-0000-000000000002'""")
+    check("ملخص الآلية يستعمل الشفت المعتمد", vday, "بديل ليلي/departure")
+
+    # آلية بلا انطلاقية ⇒ مصدر vehicle موسوم
+    sql("""insert into garage_vehicles(id,vehicle_name,db_number,plate_number,chassis_number,
+             image_path,shift,driver_name,sector_id,created_by) values
+       ('eeeeeeee-0000-0000-0000-00000000d002','آلية بلا انطلاقية','DB-88','PL-88','CH-88',
+        '/img/z.png','morning','سائق ثابت ٢',1,'eeeeeeee-0000-0000-0000-000000000001')""")
+    sql("""insert into map_visits(zone_id,vehicle_id,place_kind,place_id,place_code,place_name,
+             placeday,seq,entered_at,exited_at,dwell_seconds,points_count,status)
+           select 'aaaaaaaa-0000-0000-0000-000000000001','eeeeeeee-0000-0000-0000-00000000d002',
+                  'street', id,'STR-0901','شارع المحرك','2026-11-22',1,
+                  '2026-11-22T10:00:00Z','2026-11-22T10:10:00Z',600,8,'confirmed'
+             from map_streets where code='STR-0901'""")
+    _, nodep, _ = sql("""select coalesce(driver_name,'—')||'/'||shift_source from app.map_visits_enriched(
+                           'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22','eeeeeeee-0000-0000-0000-00000000d002') limit 1""")
+    check("بلا انطلاقية ⇒ من سجل الآلية موسوم", nodep, "سائق ثابت ٢/vehicle")
+
+    # فلتر آلية واحدة يعزل صحيحاً
+    _, only1, _ = sql("""select count(*)::text from app.map_visits_enriched(
+        'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22','eeeeeeee-0000-0000-0000-00000000d002')""")
+    check("فلتر الآلية يعيد زياراتها وحدها", only1, "1")
+
+    # قائمة «لم تُزر» مع المسؤول
+    _, uv, _ = sql("""select coalesce(department_manager_names,'—') from app.map_unvisited_enriched(
+                        'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22') limit 1""")
+    check("«لم تُزر» تحمل مسؤول القسم",
+          "ok" if uv and "مسؤول" in uv else f"got={uv}", "ok")
+
+    print("\n=== ⑫ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")
     check("كل تعديل مسجَّل في audit_logs", "ok" if int(out or 0) >= 5 else f"only {out}", "ok")
 

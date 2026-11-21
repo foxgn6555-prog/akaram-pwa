@@ -93,8 +93,8 @@ describe('④ أثر التصدير', () => {
 })
 
 describe('⑤ الأحد عشر عموداً', () => {
-  it('التعريف يحتوي أحد عشر عموداً للأماكن', () => {
-    expect(columnsFor('places')).toHaveLength(11)
+  it('التعريف يحتوي اثني عشر عموداً للأماكن', () => {
+    expect(columnsFor('places')).toHaveLength(12)
   })
 
   it('الترويسات لا تتكرر', () => {
