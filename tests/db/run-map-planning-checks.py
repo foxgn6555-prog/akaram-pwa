@@ -218,6 +218,55 @@ insert into map_mahallas(id,zone_id,code,osm_number) values
     check("حذف زون فيه عناصر يُرفض (MAP_ZONE_BUSY)",
           "MAP_ZONE_BUSY" if "MAP_ZONE_BUSY" in e else "accepted", "MAP_ZONE_BUSY")
 
+    print("\n=== ⑤.b الفهرس المكاني والهندسة المعاد كتابتها ===")
+
+    # ① bbox
+    _, bb, _ = sql("select (app.map_bbox('[[33.30,44.42],[33.31,44.43]]'::jsonb))::text")
+    check("bbox يُحسب من مسار [lat,lng]", bb, "{33.3,44.42,33.31,44.43}")
+    _, bbo, _ = sql("select (app.map_bbox('[{\"lat\":33.30,\"lng\":44.42},{\"lat\":33.31,\"lng\":44.43}]'::jsonb))::text")
+    check("bbox يُحسب من {lat,lng} أيضاً", bbo, "{33.3,44.42,33.31,44.43}")
+
+    # ② التداخل: حالات مرجعية دقيقة (مقطع ١٠٠م)
+    A100 = "'[[33.30,44.42],[33.3009,44.42]]'::jsonb"
+    check("تداخل مع نفسه = الطول كاملاً",
+          sql(f"select round(app.map_overlap_length_m({A100},{A100},1.5))::text")[1], "100")
+    check("موازٍ بإزاحة ٠.٥م ⇒ تراكب كامل",
+          sql("select round(app.map_overlap_length_m('[[33.30,44.4200054],[33.3009,44.4200054]]'::jsonb,"
+              + A100 + ",1.5))::text")[1], "100")
+    check("موازٍ بإزاحة ٥م ⇒ صفر (خارج التسامح)",
+          sql("select round(app.map_overlap_length_m('[[33.30,44.4200537],[33.3009,44.4200537]]'::jsonb,"
+              + A100 + ",1.5))::text")[1], "0")
+    check("نصف متراكب ⇒ ٥٠م",
+          sql("select round(app.map_overlap_length_m('[[33.30045,44.42],[33.30135,44.42]]'::jsonb,"
+              + A100 + ",1.5))::text")[1], "50")
+    check("عمودي ⇒ صفر",
+          sql("select round(app.map_overlap_length_m('[[33.29995,44.4195],[33.29995,44.4205]]'::jsonb,"
+              + A100 + ",1.5))::text")[1], "0")
+
+    # ③ أنواع التقاطع: junction / crossing / none
+    check("رأس مشترك ⇒ junction",
+          sql(f"select app.map_intersection_kind({A100},'[[33.30,44.42],[33.30,44.43]]'::jsonb)")[1], "junction")
+    check("يعبر الوسط ⇒ crossing",
+          sql(f"select app.map_intersection_kind({A100},'[[33.30045,44.4195],[33.30045,44.4205]]'::jsonb)")[1], "crossing")
+    check("بعيد ⇒ none",
+          sql(f"select app.map_intersection_kind({A100},'[[33.31,44.42],[33.3109,44.42]]'::jsonb)")[1], "none")
+
+    # ④ map_is_vertex تقرأ الشكلين
+    check("رأس بصيغة كائن يُكتشف",
+          sql(f"select app.map_is_vertex('{{\"lat\":33.30,\"lng\":44.42}}'::jsonb,{A100})::text")[1], "true")
+    check("نقطة ليست رأساً",
+          sql(f"select app.map_is_vertex('{{\"lat\":33.35,\"lng\":44.42}}'::jsonb,{A100})::text")[1], "false")
+
+    # ⑤ أعمدة bbox موجودة ومفهرسة
+    _, cols, _ = sql("""select string_agg(table_name||'.'||column_name,',' order by table_name)
+                        from information_schema.columns
+                        where table_schema='public' and column_name='bbox'""")
+    check("عمود bbox في الجدولين", cols, "map_alleys.bbox,map_streets.bbox")
+
+    _, idx, _ = sql("""select count(*)::text from pg_indexes
+                       where schemaname='public' and indexname like '%bbox_gist%'""")
+    check("فهرس GiST على bbox للجدولين", idx, "2")
+
     print("\n=== ⑥ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")
     check("كل تعديل مسجَّل في audit_logs", "ok" if int(out or 0) >= 5 else f"only {out}", "ok")
