@@ -366,7 +366,109 @@ insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) value
     check("الزيارات تبقى بعد تفريغ النقاط الخام",
           sql("select count(*)::text from map_visits")[1], "1")
 
-    print("\n=== ⑧ التدقيق ===")
+    print("\n=== ⑧ يوم بغداد (المرحلة ⑥) ===")
+    check("قبل منتصف الليل بغداد بثانية ⇒ اليوم السابق",
+          sql("select app.map_baghdad_day('2026-11-22T20:59:59Z'::timestamptz)::text")[1], "2026-11-22")
+    check("منتصف الليل بغداد بالضبط ⇒ اليوم التالي",
+          sql("select app.map_baghdad_day('2026-11-22T21:00:00Z'::timestamptz)::text")[1], "2026-11-23")
+    check("01:30 بغداد ⇒ يومه البغدادي",
+          sql("select app.map_baghdad_day('2026-11-22T22:30:00Z'::timestamptz)::text")[1], "2026-11-23")
+    check("حدود اليوم البغدادي تبدأ 21:00 UTC",
+          sql("select day_start::text from app.map_day_bounds('2026-11-22'::date)")[1],
+          "2026-11-21 21:00:00+00")
+
+    # زيارة 01:00 بغداد لا تُنسب لليوم السابق (العيب الذي أصلحته 00800)
+    sql("delete from map_visits; delete from gps_device_position_history;")
+    sql("""insert into gps_device_position_history(device_id,latitude,longitude,fix_time)
+           select 'dddddddd-0000-0000-0000-000000000002',33.3005,44.4250,
+                  '2026-11-22T22:00:00Z'::timestamptz + (i*60||' seconds')::interval
+             from generate_series(0,7) i""")
+    sql("select visits_created from app.map_build_visits("
+        "'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22 00:00Z','2026-11-24 00:00Z')")
+    check("زيارة 01:00 بغداد تُنسب لليوم البغدادي لا لسابقه",
+          sql("select placeday::text from map_visits where place_code='STR-0901'")[1], "2026-11-23")
+
+    # «غير مؤكد» منفصل عن «مؤكد» في التغطية
+    _, cov, _ = sql("select places_confirmed||'/'||places_uncertain from app.map_coverage_summary("
+                    "'aaaaaaaa-0000-0000-0000-000000000001','2026-11-23'::date) where place_kind='street'")
+    check("التغطية تفصل المؤكد عن غير المؤكد", cov, "1/0")
+    _, cov2, _ = sql("select places_confirmed||'/'||places_uncertain from app.map_coverage_summary("
+                     "'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22'::date) where place_kind='street'")
+    check("يوم بلا زيارات ⇒ 0/0 لا صفر كاذب", cov2, "0/0")
+
+    print("\n=== ⑨ إحصاءات التغطية (المرحلة ⑥) ===")
+    # نُنشئ زوناً نظيفاً بتاريخ ثابت لئلا تتلوّث الأرقام ببيانات ⑦/⑧
+    sql("""insert into gps_geofences(id,name,source,polygon,sector_id) values
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','زون الإحصاء','platform',
+        '[[33.4000,44.6000],[33.4000,44.6200],[33.4200,44.6200],[33.4200,44.6000]]'::jsonb,1)""")
+    sql("""insert into map_zones(id,geofence_id,code,name,sector_id) values
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','aaaaaaaa-0000-0000-0000-00000000c0de','STZ','زون الإحصاء',1)""")
+    sql("""insert into map_mahallas(id,zone_id,code,name) values
+       ('bbbbbbbb-0000-0000-0000-00000000c0de','aaaaaaaa-0000-0000-0000-00000000c0de','MHL-0001','محلة')""")
+    sql("""insert into map_streets(zone_id,code,name,kind,path,width_m) values
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','STR-0001','شارع أ','primary',
+        '[[33.4100,44.6100],[33.4110,44.6100]]'::jsonb,10.0),
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','STR-0002','شارع ب','primary',
+        '[[33.4100,44.6120],[33.4110,44.6120]]'::jsonb,8.0),
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','STR-0003','شارع ج','primary',
+        '[[33.4100,44.6140],[33.4110,44.6140]]'::jsonb,6.0)""")
+    sql("""insert into map_alleys(zone_id,mahalla_id,code,name,path,width_m) values
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','bbbbbbbb-0000-0000-0000-00000000c0de','ALY-0001','زقاق أ',
+        '[[33.4100,44.6110],[33.4110,44.6110]]'::jsonb,4.0)""")
+    # آلية مؤرشفة تزور ⇒ يجب ألا تختفي من تقرير الآليات
+    sql("""insert into garage_vehicles(id,vehicle_name,db_number,plate_number,chassis_number,
+             image_path,shift,driver_name,sector_id,created_by,archived_at) values
+       ('eeeeeeee-0000-0000-0000-00000000c0de','آلية مؤرشفة','DB-77','PL-77','CH-77',
+        '/img/y.png','morning','سائق قديم',1,'eeeeeeee-0000-0000-0000-000000000001', now())""")
+    sql("""insert into map_visits(zone_id,vehicle_id,place_kind,place_id,place_code,place_name,
+             placeday,seq,entered_at,exited_at,dwell_seconds,points_count,status) values
+       ('aaaaaaaa-0000-0000-0000-00000000c0de','eeeeeeee-0000-0000-0000-00000000c0de','street',
+        'c0de0000-0000-0000-0000-000000000001'::uuid,'STR-0001','شارع أ','2026-12-01',1,
+        '2026-12-01T08:00:00Z','2026-12-01T08:10:00Z',600,8,'confirmed')""")
+    # نستعمل id حقيقي للشارع
+    sql("""update map_visits set place_id=(select id from map_streets where code='STR-0001'
+             and zone_id='aaaaaaaa-0000-0000-0000-00000000c0de')
+           where place_code='STR-0001'""")
+    sql("""insert into map_visits(zone_id,vehicle_id,place_kind,place_id,place_code,place_name,
+             placeday,seq,entered_at,exited_at,dwell_seconds,points_count,status,reason)
+       select 'aaaaaaaa-0000-0000-0000-00000000c0de','eeeeeeee-0000-0000-0000-00000000c0de','street',
+              id,'STR-0002','شارع ب','2026-12-01',2,
+              '2026-12-01T09:00:00Z','2026-12-01T09:00:40Z',40,3,'uncertain','مكوث 40ث أقل من الحد 60ث'
+         from map_streets where code='STR-0002' and zone_id='aaaaaaaa-0000-0000-0000-00000000c0de'""")
+
+    Z2 = "'aaaaaaaa-0000-0000-0000-00000000c0de'"
+    check("by_place: كل مكان يظهر (5 أماكن)",
+          sql(f"select count(*)::text from app.map_coverage_by_place({Z2},'2026-12-01'::date)")[1], "4")
+    check("by_place: المُزار مؤكد",
+          sql(f"select string_agg(place_code||'='||case when confirmed then 'مؤكد' when visited then 'غير مؤكد' else 'لم تُدخل' end,',' order by place_code) "
+              f"from app.map_coverage_by_place({Z2},'2026-12-01'::date)")[1],
+          "ALY-0001=لم تُدخل,STR-0001=مؤكد,STR-0002=غير مؤكد,STR-0003=لم تُدخل")
+    check("by_place: فلتر النوع يعمل",
+          sql(f"select count(*)::text from app.map_coverage_by_place({Z2},'2026-12-01'::date,'alley')")[1], "1")
+    # زون الإحصاء فيه أيضاً «آلية المحرك» من قسم ⑦ (ربط جهاز بلا زيارات) —
+    # نتحقق من صفّ الآلية المؤرشفة تحديداً لا من العدد الكلي
+    _, arch, _ = sql(f"select vehicle_name||'/'||in_fleet::text||'/'||visits_count "
+                     f"from app.map_coverage_by_vehicle({Z2},'2026-12-01'::date) "
+                     f"where vehicle_name='آلية مؤرشفة'")
+    check("by_vehicle: الآلية المؤرشفة تظهر لا تختفي", arch, "آلية مؤرشفة/false/2")
+    _, tracked, _ = sql(f"select count(*)::text from app.map_coverage_by_vehicle({Z2},'2026-12-01'::date)")
+    check("by_vehicle: الآليات المتتبَّعة بلا زيارات تظهر بأصفار", tracked, "2")
+    _, rl, _ = sql(f"select places_total||'/'||places_visited||'/'||places_confirmed||'/'||places_uncertain||'/'||places_not_entered "
+                   f"from app.map_coverage_rollup({Z2},'2026-12-01'::date)")
+    check("rollup: مؤكد وغير مؤكد ولم تُدخل منفصلة", rl, "4/2/1/1/2")
+    _, pct, _ = sql(f"select coverage_pct||'|'||confirmed_pct||'|'||uncertain_pct "
+                    f"from app.map_coverage_rollup({Z2},'2026-12-01'::date)")
+    check("rollup: النسب الثلاث لا تُخلط (50/25/25)", pct, "50.0|25.0|25.0")
+    check("unvisited: قائمة لم تُزر مرتّبة بالطول",
+          sql(f"select string_agg(place_code,',' order by place_code) "
+              f"from app.map_unvisited_places({Z2},'2026-12-01'::date)")[1], "ALY-0001,STR-0003")
+    _, tr, _ = sql(f"select string_agg(x,'|' order by d) from (select day d, "
+                   f"places_visited||'/'||places_total x from app.map_coverage_trend({Z2},'2026-12-02'::date,3)) t")
+    check("trend: ثلاثة أيام متتالية", tr, "0/4|2/4|0/4")
+    check("trend: يوم بلا بيانات لا يختفي من الرسم",
+          sql(f"select count(*)::text from app.map_coverage_trend({Z2},'2026-12-02'::date,3)")[1], "3")
+
+    print("\n=== ⑩ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")
     check("كل تعديل مسجَّل في audit_logs", "ok" if int(out or 0) >= 5 else f"only {out}", "ok")
 

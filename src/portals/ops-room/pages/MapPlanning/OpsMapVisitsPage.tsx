@@ -83,6 +83,7 @@ export default function MapVisitsPage() {
             {build.isPending ? 'يُشغّل…' : 'استخراج الزيارات'}
           </button>
         }
+        links={[{ to: '/ops-room/map-planning/coverage', label: 'التغطية والإحصاء', icon: 'gauge' }]}
       />
 
       {/* اختيار الزون واليوم */}

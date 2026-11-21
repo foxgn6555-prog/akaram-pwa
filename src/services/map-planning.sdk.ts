@@ -169,7 +169,89 @@ export interface CoverageRow {
   places_total: number
   places_visited: number
   places_confirmed: number
+  /** زِير لكن لم يتحقق شرطه — منفصل عن المؤكد عمداً */
+  places_uncertain: number
   coverage_pct: number
+}
+
+/** حالة المكان في يوم — ثلاثية صريحة، لا «صفر كاذب» */
+export type PlaceCoverageState = 'confirmed' | 'uncertain' | 'not_entered'
+
+export function placeCoverageState(row: Pick<PlaceCoverageRow, 'visited' | 'confirmed'>): PlaceCoverageState {
+  if (!row.visited) return 'not_entered'
+  return row.confirmed ? 'confirmed' : 'uncertain'
+}
+
+/** صف تغطية مكان واحد (app.map_coverage_by_place) */
+export interface PlaceCoverageRow {
+  place_kind: 'street' | 'alley'
+  place_id: string
+  place_code: string
+  place_name: string | null
+  mahalla_code: string | null
+  width_m: number | null
+  length_m: number | null
+  visited: boolean
+  confirmed: boolean
+  uncertain_visits: number
+  visits_count: number
+  first_entered_at: string | null
+  last_exited_at: string | null
+  total_dwell_seconds: number
+  vehicles_count: number
+  max_depth_m: number | null
+}
+
+/** صف أداء آلية (app.map_coverage_by_vehicle) */
+export interface VehicleCoverageRow {
+  vehicle_id: string
+  vehicle_name: string | null
+  db_number: string | null
+  plate_number: string | null
+  shift: string | null
+  driver_name: string | null
+  /** false = مؤرشفة أو غير مسجّلة — تظهر بصراحة لا تُخفى */
+  in_fleet: boolean
+  unbound_devices: number
+  visits_count: number
+  confirmed_count: number
+  uncertain_count: number
+  places_count: number
+  total_dwell_seconds: number
+  first_at: string | null
+  last_at: string | null
+}
+
+export interface ZoneCoverageRollup {
+  places_total: number
+  places_visited: number
+  places_confirmed: number
+  places_uncertain: number
+  places_not_entered: number
+  visits_total: number
+  visits_confirmed: number
+  visits_uncertain: number
+  coverage_pct: number
+  confirmed_pct: number
+  uncertain_pct: number
+  vehicles_active: number
+  total_dwell_seconds: number
+}
+
+export interface TrendRow {
+  day: string
+  places_total: number
+  places_visited: number
+  places_confirmed: number
+  places_uncertain: number
+  coverage_pct: number
+  visits_total: number
+}
+
+export const SHIFT_LABEL_AR: Record<string, string> = {
+  morning: 'صباحي',
+  evening: 'مسائي',
+  night: 'ليلي',
 }
 
 /** تنسيق المكوث: 90 ⇒ «1 د 30 ث» · 8 ⇒ «8 ث» */
@@ -363,5 +445,61 @@ export const mapPlanningSdk = {
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as CoverageRow[]
+  },
+
+  // ── إحصاءات التغطية (المرحلة ⑥) ─────────────────────────────────────────
+  /** كل مكان في الزون مع حالته في يوم بغداد */
+  async coverageByPlace(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<PlaceCoverageRow[]> {
+    const { data, error } = await supabase.rpc('map_coverage_by_place', {
+      p_zone: zoneId,
+      p_day: day,
+      p_kind: kind ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as PlaceCoverageRow[]
+  },
+
+  /** أداء كل آلية متتبَّعة — تشمل المؤرشفة بصراحة */
+  async coverageByVehicle(zoneId: string, day: string): Promise<VehicleCoverageRow[]> {
+    const { data, error } = await supabase.rpc('map_coverage_by_vehicle', {
+      p_zone: zoneId,
+      p_day: day,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VehicleCoverageRow[]
+  },
+
+  /** ملخص الزون في يوم — النسب الثلاث منفصلة */
+  async coverageRollup(zoneId: string, day: string): Promise<ZoneCoverageRollup | null> {
+    const { data, error } = await supabase.rpc('map_coverage_rollup', {
+      p_zone: zoneId,
+      p_day: day,
+    })
+    if (error) throw new Error(error.message)
+    const row = Array.isArray(data) ? data[0] : data
+    return (row ?? null) as ZoneCoverageRollup | null
+  },
+
+  /** الأماكن التي لم تُدخل — أهم مخرَج للمفتّش */
+  async unvisitedPlaces(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<PlaceCoverageRow[]> {
+    const { data, error } = await supabase.rpc('map_unvisited_places', {
+      p_zone: zoneId,
+      p_day: day,
+      p_kind: kind ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return ((data ?? []) as Pick<PlaceCoverageRow, 'place_kind' | 'place_id' | 'place_code' | 'place_name' | 'mahalla_code' | 'length_m' | 'width_m'>[])
+      .map((r) => ({ ...r, visited: false, confirmed: false } as PlaceCoverageRow))
+  },
+
+  /** اتجاه التغطية لآخر N يوماً */
+  async coverageTrend(zoneId: string, until: string, days = 14): Promise<TrendRow[]> {
+    const { data, error } = await supabase.rpc('map_coverage_trend', {
+      p_zone: zoneId,
+      p_until: until,
+      p_days: days,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as TrendRow[]
   },
 }

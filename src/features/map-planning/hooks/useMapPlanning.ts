@@ -21,6 +21,11 @@ export const mapKeys = {
   skips: (zoneId: string) => ['map-planning', 'skips', zoneId] as const,
   visits: (zoneId: string, day: string) => ['map-planning', 'visits', zoneId, day] as const,
   coverage: (zoneId: string, day: string) => ['map-planning', 'coverage', zoneId, day] as const,
+  coverageByPlace: (zoneId: string, day: string) => ['map-planning', 'cov-place', zoneId, day] as const,
+  coverageByVehicle: (zoneId: string, day: string) => ['map-planning', 'cov-vehicle', zoneId, day] as const,
+  coverageRollup: (zoneId: string, day: string) => ['map-planning', 'cov-rollup', zoneId, day] as const,
+  unvisited: (zoneId: string, day: string) => ['map-planning', 'unvisited', zoneId, day] as const,
+  trend: (zoneId: string, until: string, days: number) => ['map-planning', 'trend', zoneId, until, days] as const,
 }
 
 export function useMapZones() {
@@ -243,5 +248,53 @@ export function useBuildVisits() {
     onError: (error) => {
       addToast({ type: 'error', message: handleAppError(error, { scope: 'map-visits' }).message })
     },
+  })
+}
+
+// ── إحصاءات التغطية (المرحلة ⑥) ───────────────────────────────────────────
+
+/** كل مكان مع حالته — الأساس لجدول التغطية وقائمة «لم تُزر» */
+export function useCoverageByPlace(zoneId: string | null, day: string, kind?: 'street' | 'alley') {
+  return useQuery({
+    queryKey: [...mapKeys.coverageByPlace(zoneId ?? '', day), kind ?? 'all'] as const,
+    queryFn: () => mapPlanningSdk.coverageByPlace(zoneId as string, day, kind),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useCoverageByVehicle(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.coverageByVehicle(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.coverageByVehicle(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useCoverageRollup(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.coverageRollup(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.coverageRollup(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useUnvisitedPlaces(zoneId: string | null, day: string, kind?: 'street' | 'alley') {
+  return useQuery({
+    queryKey: [...mapKeys.unvisited(zoneId ?? '', day), kind ?? 'all'] as const,
+    queryFn: () => mapPlanningSdk.unvisitedPlaces(zoneId as string, day, kind),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+export function useCoverageTrend(zoneId: string | null, until: string, days = 14) {
+  return useQuery({
+    queryKey: mapKeys.trend(zoneId ?? '', until, days),
+    queryFn: () => mapPlanningSdk.coverageTrend(zoneId as string, until, days),
+    enabled: Boolean(zoneId),
+    staleTime: 5 * 60_000,
   })
 }
