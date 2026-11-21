@@ -1,0 +1,28 @@
+{
+  "source": "OpenStreetMap (overpass export) — export.osm في جذر المستودع",
+  "crs": "WGS84",
+  "note": "مضلّعات الزونات الحقيقية من gps_geofences في قاعدة الإنتاج (SELECT فقط). الحدود مغلقة تلقائياً عند التحميل.",
+  "zones": [
+    {
+      "key": "rth",
+      "name": "الرياض",
+      "gps_geofence": "62331dac-b02f-4d4c-880e-5d3f5968d2d8",
+      "sector_id": 2,
+      "points": 44
+    },
+    {
+      "key": "wth",
+      "name": "الواثق",
+      "gps_geofence": "9da4aac8-7175-4a22-a537-e9c05904983a",
+      "sector_id": 3,
+      "points": 47
+    },
+    {
+      "key": "jad",
+      "name": "الجادرية",
+      "gps_geofence": "6db29fae-1ffd-44ab-b018-59ece4f83cc5",
+      "sector_id": 4,
+      "points": 66
+    }
+  ]
+}

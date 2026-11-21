@@ -259,6 +259,16 @@ def classify(way: Way) -> str | None:
     if not hw:
         return None
     if hw in CLASS_LETTER:
+        # «ساحة» و«مجسر» و«جسر» ليست شوارع: الساحة مضلّع مرور، والمجسر جسر.
+        # وسمها highway=primary في OSM لا يجعلها شارعاً — والتصنيف الخاطئ
+        # يجعل الكثافة مبالغاً فيها ويضلّل محرّك الزيارات.
+        if way.name:
+            nm = way.name.strip()
+            # «ال» التعريف شائعة: «الجسر ذو الطابقين»، «الساحة»…
+            for prefix in ('ساحة ', 'الساحة ', 'مجسر ', 'المجسر ',
+                           'جسر ', 'الجسر ', 'نفق ', 'النفق '):
+                if nm.startswith(prefix):
+                    return None   # ليست مساراً قابلاً للزيارة
         return CLASS_LETTER[hw]
     if hw == 'tertiary_link' or hw == 'primary_link' or hw == 'secondary_link':
         return None
@@ -396,6 +406,20 @@ def build(zone_code: str, zone_name: str, geofence_id: str, sector_id: int | Non
             'boundary_state': 'open',   # حدود OSM مفتوحة — لا ندّعي غير ذلك
         }
 
+    # محلة «غير محدّدة» — وسم صادق لا رقم مخترع.
+    # OSM يعطي كثيراً من الأزقة بلا اسم (١٠٣٧ من ١٨٠٢ مرشحاً في الزونات
+    # الثلاثة). كانت تُسقط، فتضيع أزقة حقيقية من التغطية. البديل: تُنسب إلى
+    # محلة واحدة معلوم الزيف (code MHL-0000، osm_number null، name صريح)،
+    # فيراها المشرف كقائمة عمل للربط اليدوي بدل أن تختفي.
+    unnamed = [r for r in clipped if r['cls'] == 'ALY' and not r.get('mahalla_num')]
+    if unnamed:
+        mahallas['__UNASSIGNED__'] = {
+            'code': 'MHL-0000',
+            'osm_number': None,
+            'name': 'غير محدّدة — تحتاج ربطاً بمحلة',
+            'boundary_state': 'open',
+        }
+
     # 4) ربط الأزقة بمحلاتها من الاسم (المصدر الوحيد الموثوق)
     for row in clipped:
         if row['cls'] == 'ALY':
@@ -438,6 +462,13 @@ def build(zone_code: str, zone_name: str, geofence_id: str, sector_id: int | Non
 
 
 # ── توليد SQL ───────────────────────────────────────────────────────────────
+def osm_num_sql(v) -> str:
+    """رقم المحلة في OSM: نصّ أو NULL صريح — لا نكتب 'None' في SQL."""
+    if not v:
+        return 'null'
+    return "'" + sql_escape(str(v)) + "'"
+
+
 def to_sql(data: dict, zone_uuid: str) -> str:
     z = data['zone']
     out: list[str] = []
@@ -456,9 +487,10 @@ on conflict (geofence_id) do update
 """.strip())
 
     for num, m in data['mahallas'].items():
+        num_sql = osm_num_sql(m['osm_number'])
         out.append(f"""
 insert into public.map_mahallas (zone_id, code, osm_number, name, boundary_state)
-values ('{zone_uuid}', '{m['code']}', '{m['osm_number']}', '{sql_escape(m['name'])}',
+values ('{zone_uuid}', '{m['code']}', {num_sql}, '{sql_escape(m['name'])}',
         '{m['boundary_state']}')
 on conflict (zone_id, code) do update set updated_at = now();
 """.strip())
@@ -490,9 +522,10 @@ end $one$;
         if row['cls'] != 'ALY':
             continue
         if not row.get('mahalla_num'):
-            # لا نخترع محلة: نضعها في محلة «غير محددة» — تُنشأ مرة واحدة
-            continue
-        mcode = data['mahallas'][row['mahalla_num']]['code']
+            # بلا اسم في OSM ⇒ محلة «غير محدّدة» (MHL-0000) — تُرى وتُربط لاحقاً
+            mcode = data['mahallas']['__UNASSIGNED__']['code']
+        else:
+            mcode = data['mahallas'][row['mahalla_num']]['code']
         nm = 'null' if not row['name'] else f"'{sql_escape(row['name'])}'"
         out.append(f"""
 do $one$
