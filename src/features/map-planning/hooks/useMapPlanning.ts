@@ -10,6 +10,7 @@ import {
   type MapStreet,
   type StreetKind,
 } from '@sdk/map-planning.sdk'
+import type { ColumnSelection } from '../export-columns'
 
 export const mapKeys = {
   all: ['map-planning'] as const,
@@ -26,6 +27,7 @@ export const mapKeys = {
   coverageRollup: (zoneId: string, day: string) => ['map-planning', 'cov-rollup', zoneId, day] as const,
   unvisited: (zoneId: string, day: string) => ['map-planning', 'unvisited', zoneId, day] as const,
   trend: (zoneId: string, until: string, days: number) => ['map-planning', 'trend', zoneId, until, days] as const,
+  exportPrefs: (kind: string) => ['map-planning', 'export-prefs', kind] as const,
 }
 
 export function useMapZones() {
@@ -296,5 +298,32 @@ export function useCoverageTrend(zoneId: string | null, until: string, days = 14
     queryFn: () => mapPlanningSdk.coverageTrend(zoneId as string, until, days),
     enabled: Boolean(zoneId),
     staleTime: 5 * 60_000,
+  })
+}
+
+// ── تفضيلات التصدير (المرحلة ⑦) ───────────────────────────────────────────
+
+/** تفضيل المستخدم للأعمدة؛ null = لم يحفظ بعد ⇒ الواجهة تستعمل الافتراضي */
+export function useExportPrefs(kind: 'places' | 'visits') {
+  return useQuery({
+    queryKey: mapKeys.exportPrefs(kind),
+    queryFn: () => mapPlanningSdk.exportPrefsGet(kind),
+    staleTime: 5 * 60_000,
+  })
+}
+
+export function useSaveExportPrefs() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (v: { kind: 'places' | 'visits'; columns: ColumnSelection[] }) =>
+      mapPlanningSdk.exportPrefsSet(v.kind, v.columns),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: mapKeys.exportPrefs(v.kind) })
+      addToast({ type: 'success', message: 'تم حفظ ترتيب الأعمدة' })
+    },
+    onError: (error) => {
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'map-export' }).message })
+    },
   })
 }

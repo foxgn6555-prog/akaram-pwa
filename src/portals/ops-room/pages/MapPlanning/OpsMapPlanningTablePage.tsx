@@ -5,7 +5,7 @@
  * للمراجعة السريعة والفرز والتصدير. المشرف يحتاجهما معاً لا أحدهما.
  */
 import { useMemo, useState } from 'react'
-import { Download, Search } from 'lucide-react'
+import { Download, FileSpreadsheet, Search } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import {
   KIND_LABEL_AR,
@@ -14,7 +14,28 @@ import {
   type MapStreet,
   type StreetKind,
 } from '@sdk/map-planning.sdk'
-import { useMapAlleys, useMapMahallas, useMapStreets, useMapZones } from '@features/map-planning/hooks/useMapPlanning'
+import {
+  useCoverageByPlace,
+  useExportPrefs,
+  useMapAlleys,
+  useMapMahallas,
+  useMapStreets,
+  useMapZones,
+} from '@features/map-planning/hooks/useMapPlanning'
+import { buildExcelReport, saveWorkbook } from '@lib/export/excel-report'
+import { ExportColumnsPanel } from '@features/map-planning/components/ExportColumnsPanel'
+import {
+  defaultSelection,
+  resolveColumns,
+  toReportColumns,
+  toReportRows,
+  totalRow,
+  type ColumnContext,
+  type ColumnSelection,
+  type Row as ExportRow,
+} from '@features/map-planning/export-columns'
+import { SHIFT_LABEL_AR } from '@sdk/map-planning.sdk'
+import { mapPlanningSdk } from '@sdk/map-planning.sdk'
 
 type Row =
   | { kind: 'street'; code: string; name: string | null; cls: string; length_m: number; width_m: number | null; mahalla: string; status: string }
@@ -23,7 +44,8 @@ type Row =
 type SortKey = 'code' | 'length_m' | 'width_m' | 'name'
 type Tab = 'all' | 'streets' | 'alleys' | 'unassigned'
 
-const CSV_HEADERS = ['النوع', 'الكود', 'الاسم', 'التصنيف', 'الطول (م)', 'العرض (م)', 'المحلة', 'الحالة']
+/** يوم بغداد (UTC+3) — لا يوم UTC */
+const todayBaghdad = () => new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 10)
 
 export default function MapPlanningTablePage() {
   const { data: zones = [] } = useMapZones()
@@ -40,6 +62,16 @@ export default function MapPlanningTablePage() {
   const [noWidth, setNoWidth] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('code')
   const [asc, setAsc] = useState(true)
+  const [showColumns, setShowColumns] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // أعمدة التقرير: تفضيل المستخدم المحفوظ، وإلا الافتراضي المعلن
+  const day = todayBaghdad()
+  const { data: prefs } = useExportPrefs('places')
+  const [override, setOverride] = useState<ColumnSelection[] | null>(null)
+  const selection: ColumnSelection[] = override ?? (prefs && prefs.length > 0 ? prefs : defaultSelection('places'))
+  // بيانات التغطية تُثري التصدير بحالة كل مكان في يوم بغداد
+  const { data: coverage = [] } = useCoverageByPlace(activeZoneId, day)
 
   const rows: Row[] = useMemo(() => {
     const out: Row[] = []
@@ -100,23 +132,69 @@ export default function MapPlanningTablePage() {
     }
   }
 
-  const exportCsv = () => {
-    const lines = [CSV_HEADERS.join(',')]
-    for (const r of rows) {
-      const cells = [
-        r.kind === 'street' ? 'شارع' : 'زقاق', r.code, r.name ?? '', r.cls,
-        r.length_m.toFixed(1), r.width_m === null ? '' : String(r.width_m), r.mahalla, r.status,
-      ]
-      lines.push(cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+  const ctx: ColumnContext = {
+    zoneName: zones.find((z) => z.id === activeZoneId)?.name ?? '—',
+    shiftLabel: (v) => (v ? (SHIFT_LABEL_AR[v] ?? v) : '—'),
+  }
+
+  /** صفوف التصدير = **نفس** المفلتر المعروض على الشاشة (معيار قبول الخطة) */
+  const exportRows: ExportRow[] = useMemo(() => {
+    const covByPlace = new Map(
+      (coverage as { place_kind: string; place_code: string; visited: boolean; confirmed: boolean; visits_count: number; vehicles_count: number; total_dwell_seconds: number; first_entered_at: string | null; last_exited_at: string | null }[])
+        .map((c) => [`${c.place_kind}:${c.place_code}`, c]),
+    )
+    return rows.map((r) => {
+      const kind: 'street' | 'alley' = r.kind === 'street' ? 'street' : 'alley'
+      const c = covByPlace.get(`${kind}:${r.code}`)
+      return {
+        place_kind: kind,
+        place_code: r.code,
+        place_name: r.name,
+        mahalla_code: r.mahalla === 'بلا محلة' || r.mahalla === '—' ? null : r.mahalla,
+        length_m: r.length_m,
+        width_m: r.width_m,
+        status_ar: r.status,
+        visited: c?.visited ?? false,
+        confirmed: c?.confirmed ?? false,
+        visits_count: c?.visits_count ?? 0,
+        vehicles_count: c?.vehicles_count ?? 0,
+        total_dwell_seconds: c?.total_dwell_seconds ?? 0,
+        first_entered_at: c?.first_entered_at ?? null,
+        last_exited_at: c?.last_exited_at ?? null,
+      } satisfies ExportRow
+    })
+  }, [rows, coverage])
+
+  const exportExcel = async () => {
+    if (!activeZoneId) return
+    setSaving(true)
+    try {
+      const cols = resolveColumns('places', selection)
+      const zoneName = ctx.zoneName
+      const wb = await buildExcelReport({
+        sheetName: 'التخطيط والتغطية',
+        companySub: 'غرفة العمليات — التخطيط الجغرافي',
+        title: `تقرير الشوارع والأزقة — ${zoneName}`,
+        meta: `يوم ${day} (بغداد) · ${exportRows.length} صفاً · ${cols.length} عموداً · `
+          + `${exportRows.filter((r) => r.confirmed).length} مؤكد · `
+          + `${exportRows.filter((r) => r.visited && !r.confirmed).length} غير مؤكد · `
+          + `${exportRows.filter((r) => !r.visited).length} لم تُدخل`,
+        columns: toReportColumns(cols),
+        rows: toReportRows(exportRows, cols, ctx),
+        totalRow: totalRow(exportRows, cols, ctx),
+        orientation: 'landscape',
+        fileName: `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${day}.xlsx`,
+        deferSave: true,
+      })
+      await saveWorkbook(wb, `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${day}.xlsx`)
+      // أثر التصدير — لا يُعطّل التنزيل إن فشل تسجيله
+      void mapPlanningSdk.exportLogAdd({
+        zoneId: activeZoneId, kind: 'places', from: day, to: day,
+        rowCount: exportRows.length, columns: selection,
+      }).catch(() => undefined)
+    } finally {
+      setSaving(false)
     }
-    // BOM حتى يفتح Excel العربية بترميز صحيح
-    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${tab}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   const loading = ls || la
@@ -129,10 +207,16 @@ export default function MapPlanningTablePage() {
         title="جدول الشوارع والأزقة"
         subtitle={`${rows.length} صفاً · ${missingWidth} بلا عرض مقيس`}
         actions={
-          <button type="button" onClick={exportCsv}
-            className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25">
-            <Download size={14} /> تصدير CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowColumns((v) => !v)} aria-pressed={showColumns}
+              className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white ring-1 ring-white/20">
+              <FileSpreadsheet size={14} /> الأعمدة ({resolveColumns('places', selection).length})
+            </button>
+            <button type="button" onClick={() => void exportExcel()} disabled={saving || !activeZoneId}
+              className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
+              <Download size={14} /> {saving ? 'يُصدّر…' : 'تصدير Excel'}
+            </button>
+          </div>
         }
         links={[{ to: '/ops-room/map-planning/visits', label: 'الزيارات والتغطية', icon: 'activity' }]}
       />
@@ -177,6 +261,16 @@ export default function MapPlanningTablePage() {
           بلا عرض
         </label>
       </section>
+
+      {showColumns && (
+        <ExportColumnsPanel
+          kind="places"
+          selection={selection}
+          onChange={setOverride}
+          sampleRows={exportRows}
+          ctx={ctx}
+        />
+      )}
 
       {loading ? (
         <div className="h-40 animate-pulse rounded-2xl bg-slate-100" />

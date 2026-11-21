@@ -114,8 +114,9 @@ def main() -> int:
     _, out, _ = sql("select string_agg(c.relname, ',' order by c.relname) from pg_class c "
                     "join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' "
                     "and c.relname like 'map\\_%' and c.relkind='r'")
-    check("جداول الخريطة السبعة", out,
-          "map_alleys,map_geometry_reviews,map_import_skips,map_mahallas,map_streets,map_visits,map_zones")
+    check("جداول الخريطة التسعة", out,
+          "map_alleys,map_export_log,map_export_prefs,map_geometry_reviews,"
+          "map_import_skips,map_mahallas,map_streets,map_visits,map_zones")
 
     print("\n=== ③ الدوال الهندسية ===")
     check("مسافة درجة عرض واحدة",
@@ -468,7 +469,55 @@ insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) value
     check("trend: يوم بلا بيانات لا يختفي من الرسم",
           sql(f"select count(*)::text from app.map_coverage_trend({Z2},'2026-12-02'::date,3)")[1], "3")
 
-    print("\n=== ⑩ التدقيق ===")
+    print("\n=== ⑩ تفضيلات التصدير (المرحلة ⑦) ===")
+    U1 = '11111111-0000-0000-0000-000000000001'
+    U2 = '22222222-0000-0000-0000-000000000002'
+    sql(f"insert into auth.users(id,email) values ('{U1}','p1@x.iq'),('{U2}','p2@x.iq') on conflict do nothing")
+
+    def as_user(uid, stmt):
+        """يحاكي auth.uid() كما في supabase-mock.
+        set_config تُخرج قيمتها فتُلوّث stdout ⇒ نستعمل DO بدل select."""
+        return sql(f"do $$ begin perform set_config('auth.user_id','{uid}',false); end $$; {stmt}")
+
+    def as_nobody(stmt):
+        """بلا هوية: نمسح auth.user_id أولاً"""
+        return sql(f"do $$ begin perform set_config('auth.user_id','',false); end $$; {stmt}")
+
+    COLS = '[{"id":"place_code","visible":true,"order":0},{"id":"place_name","visible":true,"order":1}]'
+    as_user(U1, f"select app.map_export_prefs_set('places','{COLS}'::jsonb)")
+    _, got, _ = as_user(U1, "select app.map_export_prefs_get('places')::text")
+    check("حفظ التفضيل واسترجاعه", "ok" if '"place_code"' in (got or "") else f"got={got}", "ok")
+
+    _, other, _ = as_user(U2, "select app.map_export_prefs_get('places')::text")
+    check("مستخدم آخر لا يرى تفضيل غيره", other.strip(), "[]")
+
+    _, _, e1 = as_user(U1, """select app.map_export_prefs_set('places',
+        '[{"id":"x","visible":false}]'::jsonb)""")
+    check("تفضيل يُخفي كل الأعمدة مرفوض",
+          "EXPORT_COLUMNS_EMPTY" if "EXPORT_COLUMNS_EMPTY" in (e1 or "") else "accepted", "EXPORT_COLUMNS_EMPTY")
+
+    _, _, e2 = as_user(U1, "select app.map_export_prefs_set('pdf','[]'::jsonb)")
+    check("صنف تصدير مجهول مرفوض",
+          "EXPORT_KIND_INVALID" if "EXPORT_KIND_INVALID" in (e2 or "") else "accepted", "EXPORT_KIND_INVALID")
+
+    _, _, e3 = as_nobody("select app.map_export_prefs_set('places','[]'::jsonb)")
+    check("الحفظ بلا تسجيل دخول مرفوض",
+          "AUTH_REQUIRED" if "AUTH_REQUIRED" in (e3 or "") else "accepted", "AUTH_REQUIRED")
+
+    _, npref, _ = sql("select count(*)::text from map_export_prefs")
+    check("التحديث لا يُنشئ صفاً ثانياً", npref, "1")
+
+    # سجل التصدير
+    as_user(U1, f"""select app.map_export_log_add(
+        'aaaaaaaa-0000-0000-0000-000000000001','places','2026-11-22','2026-11-22',1640,'{COLS}'::jsonb)""")
+    _, logrow, _ = sql("select export_kind||'/'||row_count from map_export_log order by created_at desc limit 1")
+    check("سجل التصدير يُكتب", logrow, "places/1640")
+    as_user(U1, """select app.map_export_log_add(
+        'aaaaaaaa-0000-0000-0000-000000000001','visits','2026-11-22','2026-11-22',-50,'[]'::jsonb)""")
+    _, neg, _ = sql("select row_count::text from map_export_log where export_kind='visits'")
+    check("عدد صفوف سالب يُقصّ لصفر", neg, "0")
+
+    print("\n=== ⑪ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")
     check("كل تعديل مسجَّل في audit_logs", "ok" if int(out or 0) >= 5 else f"only {out}", "ok")
 

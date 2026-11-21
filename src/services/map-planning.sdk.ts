@@ -6,6 +6,7 @@
  * حتى تعرضها الواجهة بنصّها العربي الجاهز (MAP_OVERLAP / MAP_CROSSING …).
  */
 import { sdkGuard, supabase } from './client'
+import type { ColumnSelection } from '@features/map-planning/export-columns'
 
 // ── الأنواع ────────────────────────────────────────────────────────────────
 export type MapZoneCode = 'ARK' | 'RTH' | 'WTH' | 'JAD'
@@ -501,5 +502,41 @@ export const mapPlanningSdk = {
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as TrendRow[]
+  },
+
+  // ── تفضيلات التصدير وسجلّه (المرحلة ⑦) ──────────────────────────────────
+  /** تفضيل المستخدم الحالي — مصفوفة فارغة إن لم يحفظ بعد */
+  async exportPrefsGet(kind: 'places' | 'visits'): Promise<ColumnSelection[]> {
+    const { data, error } = await supabase.rpc('map_export_prefs_get', { p_kind: kind })
+    if (error) throw new Error(error.message)
+    return (Array.isArray(data) ? data : []) as ColumnSelection[]
+  },
+
+  async exportPrefsSet(kind: 'places' | 'visits', columns: ColumnSelection[]): Promise<void> {
+    // نُمرّر الحقول الثلاثة فقط — لا نُرسل دوال أو حقولاً دخيلة إلى القاعدة
+    const clean = columns.map((c) => ({ id: c.id, visible: c.visible, order: c.order }))
+    const { error } = await supabase.rpc('map_export_prefs_set', { p_kind: kind, p_columns: clean })
+    if (error) throw new Error(error.message)
+  },
+
+  /** أثر التصدير — يُستدعى بعد بناء الملف بنجاح */
+  async exportLogAdd(input: {
+    zoneId: string
+    kind: 'places' | 'visits'
+    from: string
+    to: string
+    rowCount: number
+    columns: ColumnSelection[]
+  }): Promise<void> {
+    const clean = input.columns.map((c) => ({ id: c.id, visible: c.visible, order: c.order }))
+    const { error } = await supabase.rpc('map_export_log_add', {
+      p_zone: input.zoneId,
+      p_kind: input.kind,
+      p_from: input.from,
+      p_to: input.to,
+      p_rows: input.rowCount,
+      p_columns: clean,
+    })
+    if (error) throw new Error(error.message)
   },
 }
