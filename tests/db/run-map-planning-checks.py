@@ -114,8 +114,8 @@ def main() -> int:
     _, out, _ = sql("select string_agg(c.relname, ',' order by c.relname) from pg_class c "
                     "join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' "
                     "and c.relname like 'map\\_%' and c.relkind='r'")
-    check("جداول الخريطة الستة", out,
-          "map_alleys,map_geometry_reviews,map_import_skips,map_mahallas,map_streets,map_zones")
+    check("جداول الخريطة السبعة", out,
+          "map_alleys,map_geometry_reviews,map_import_skips,map_mahallas,map_streets,map_visits,map_zones")
 
     print("\n=== ③ الدوال الهندسية ===")
     check("مسافة درجة عرض واحدة",
@@ -267,7 +267,106 @@ insert into map_mahallas(id,zone_id,code,osm_number) values
                        where schemaname='public' and indexname like '%bbox_gist%'""")
     check("فهرس GiST على bbox للجدولين", idx, "2")
 
-    print("\n=== ⑥ التدقيق ===")
+    print("\n=== ⑦ محرّك الزيارات ===")
+    # ── منطقة اختبار معزولة: لا شارع سابق يمرّ بها ─────────────────────────
+    #   STR-0001 عند 44.4200، STR-0002 عمودي عند 33.2970. نختار خط طول 44.4250
+    #   وخط عرض 33.3000 — بعيداً عن كليهما بمسافة تُلغي أي التباس.
+    Z = "'aaaaaaaa-0000-0000-0000-000000000001'"
+    V = "'eeeeeeee-0000-0000-0000-000000000002'"
+    D = "'dddddddd-0000-0000-0000-000000000002'"
+    A_AXIS = "'[[33.3000,44.4250],[33.3010,44.4250]]'::jsonb"   # شارع المحرك
+    LAT, LNG = "33.3005", "44.4250"                            # نقطة على المحور
+
+    c, _, e = sql(f"""
+insert into map_streets(id,zone_id,code,name,kind,path,width_m) values
+ ('cccccccc-0000-0000-0000-000000000001',{Z},'STR-0901','شارع المحرك','primary',{A_AXIS}, 10.0);
+insert into gps_providers(id,name) values ('dddddddd-0000-0000-0000-000000000001','LVN');
+insert into gps_devices(id,provider_id,external_id,name) values
+ ({D},'dddddddd-0000-0000-0000-000000000001','DEV-CHK','جهاز فحص');
+insert into auth.users(id,email) values ('eeeeeeee-0000-0000-0000-000000000001','engine@check.iq');
+insert into garage_vehicles(id,vehicle_name,db_number,plate_number,chassis_number,
+  image_path,shift,driver_name,sector_id,created_by) values
+ ({V},'آلية المحرك','DB-9','PL-9','CH-9','/img/x.png','morning','سائق',1,
+  'eeeeeeee-0000-0000-0000-000000000001');
+insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) values
+ ({D},{V},'manual');
+""")
+    check("تحضير آلية وجهاز وشارع المحرك", "pass" if c == 0 else f"fail: {e[:140]}", "pass")
+
+    check("نصف الدخول لعرض 10م", sql("select app.map_entry_radius_m(10.0)::text")[1], "4")
+    check("نصف الدخول لعرض 4م (حد أدنى 3م)",
+          sql("select app.map_entry_radius_m(4.0)::text")[1], "3")
+    check("نصف الدخول بلا عرض مسجَّل ⇒ 3م",
+          sql("select app.map_entry_radius_m(null)::text")[1], "3")
+
+    check("عمق نقطة على المحور = 0م",
+          sql(f"select round(app.map_point_depth_m({LAT},{LNG},{A_AXIS})::numeric,1)::text")[1], "0.0")
+    _, d5, _ = sql(f"select round(app.map_point_depth_m({LAT},44.4250505,{A_AXIS})::numeric,1)::text")
+    check(f"عمق نقطة 5م شرقاً ≈ 5م (المقيس {d5})",
+          "ok" if d5 and abs(float(d5) - 5.0) <= 0.5 else f"{d5}", "ok")
+
+    def gps(points, label=""):
+        sql("delete from map_visits; delete from gps_device_position_history;")
+        vals = ",".join(
+            f"({D},{la},{ln},'2026-11-22T09:00:00Z'::timestamptz + interval '{sec} seconds')"
+            for sec, la, ln in points)
+        c2, _, e2 = sql(f"insert into gps_device_position_history(device_id,latitude,longitude,fix_time) values {vals}")
+        if c2:
+            return f"insert-fail: {e2[:140]}"
+        c3, _, e3 = sql("select visits_created from app.map_build_visits("
+                        f"{Z},'2026-11-22 00:00Z'::timestamptz,'2026-11-22 23:59Z'::timestamptz)")
+        if c3:
+            return f"build-fail: {e3[:200]}"
+        return sql("select coalesce(string_agg(place_code||':'||status||'/'||dwell_seconds,'|' "
+                   "order by entered_at),'none') from map_visits")[1]
+
+    check("زيارة مؤكدة على المحور (7 دقائق)",
+          gps([(i * 60, 33.3005, 44.4250) for i in range(8)]), "STR-0901:confirmed/420")
+    check("مكوث 40 ث ⇒ غير مؤكد",
+          gps([(i * 20, 33.3005, 44.4250) for i in range(3)]), "STR-0901:uncertain/40")
+    check("سبب «غير مؤكد» مذكور نصّاً",
+          "نعم" if "أقل من الحد" in (sql("select coalesce(reason,'') from map_visits")[1] or "") else "مفقود",
+          "نعم")
+    check("نقطة واحدة ⇒ غير مؤكد",
+          gps([(0, 33.3005, 44.4250)]), "STR-0901:uncertain/0")
+    # 8م شرقاً: أبعد من نصف الداخلي 4م ⇒ لا زيارة إطلاقاً
+    check("مرور على الحافة (8م) لا يُحتسب زيارة",
+          gps([(i * 60, 33.3005, 44.4250808) for i in range(8)]), "none")
+    check("فاصل 6 دقائق بين النقاط يُسقط التقارب",
+          gps([(0, 33.3005, 44.4250), (360, 33.3005, 44.4250), (720, 33.3005, 44.4250)]),
+          "STR-0901:uncertain/0")
+    # خروج (44.4262 = 119م شرقاً) ثم عودة ⇒ جزيرتان مدموجتان (<10 دقائق)
+    check("خروج وعودة قريبة ⇒ زيارة واحدة مدموجة",
+          gps([(0, 33.3005, 44.4250), (60, 33.3005, 44.4250), (120, 33.3005, 44.4250),
+               (180, 33.3005, 44.4262), (240, 33.3005, 44.4250), (300, 33.3005, 44.4250),
+               (360, 33.3005, 44.4250), (420, 33.3005, 44.4250)]),
+          "STR-0901:confirmed/420")
+
+    gps([(i * 60, 33.3005, 44.4250) for i in range(8)])
+    a1 = sql("select visits_created||'/'||visits_merged from app.map_build_visits("
+             f"{Z},'2026-11-22 00:00Z','2026-11-22 23:59Z')")[1]
+    a2 = sql("select visits_created||'/'||visits_merged from app.map_build_visits("
+             f"{Z},'2026-11-22 00:00Z','2026-11-22 23:59Z')")[1]
+    check(f"إعادة التشغيل لا تُضاعف (١={a1} · ٢={a2})",
+          sql("select count(*)::text from map_visits")[1], "1")
+
+    # الزون فيه شوارع سابقة من أقسام أخرى؛ نتحقق أن شارع المحرك وحده مؤكد
+    check("شارع المحرك وحده مؤكد في يومه",
+          sql(f"select places_confirmed::text from app.map_coverage_summary({Z},'2026-11-22'::date) "
+              "where place_kind='street'")[1], "1")
+
+    # مكان ثانٍ بلا زيارة: يجب أن يظهر في المقام (لا «صفر كاذب» ولا اختفاء)
+    sql(f"""insert into map_streets(zone_id,code,name,kind,path,width_m) values
+ ({Z},'STR-0902','شارع بلا زيارة','primary','[[33.3020,44.4250],[33.3030,44.4250]]'::jsonb, 10.0)""")
+    check("المكان غير المُزار يظهر في المقام",
+          sql(f"select places_total||'/'||places_confirmed from app.map_coverage_summary("
+              f"{Z},'2026-11-22'::date) where place_kind='street'")[1], "4/1")
+
+    sql("delete from gps_device_position_history;")
+    check("الزيارات تبقى بعد تفريغ النقاط الخام",
+          sql("select count(*)::text from map_visits")[1], "1")
+
+    print("\n=== ⑧ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")
     check("كل تعديل مسجَّل في audit_logs", "ok" if int(out or 0) >= 5 else f"only {out}", "ok")
 

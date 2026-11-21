@@ -19,6 +19,8 @@ export const mapKeys = {
   mahallas: (zoneId: string) => ['map-planning', 'mahallas', zoneId] as const,
   reviews: (zoneId: string) => ['map-planning', 'reviews', zoneId] as const,
   skips: (zoneId: string) => ['map-planning', 'skips', zoneId] as const,
+  visits: (zoneId: string, day: string) => ['map-planning', 'visits', zoneId, day] as const,
+  coverage: (zoneId: string, day: string) => ['map-planning', 'coverage', zoneId, day] as const,
 }
 
 export function useMapZones() {
@@ -194,6 +196,52 @@ export function useLinkAlleyMahalla() {
     },
     onError: (error) => {
       addToast({ type: 'error', message: handleAppError(error, { scope: 'map-planning' }).message })
+    },
+  })
+}
+
+// ── الزيارات والتغطية (المرحلة ⑤/⑥) ───────────────────────────────────────
+
+/** زيارات يوم كامل — تُقرأ من جدول دائم لا يتأثر بتفريغ نقاط GPS */
+export function useMapVisits(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.visits(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.visits(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+/** ملخّص التغطية (شوارع + أزقة) — يعرض «لم تُدخل» لا صفراً كاذباً */
+export function useMapCoverage(zoneId: string | null, day: string) {
+  return useQuery({
+    queryKey: mapKeys.coverage(zoneId ?? '', day),
+    queryFn: () => mapPlanningSdk.coverage(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * تشغيل محرّك الزيارات. بعد النجاح نُبطل الزيارات والتغطية فقط — لا نمسّ
+ * بيانات التخطيط (شوارع/أزقة) لأن المحرّك لا يعدّلها.
+ */
+export function useBuildVisits() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (v: { zoneId: string; from: string; to: string; vehicleId?: string | null }) =>
+      mapPlanningSdk.buildVisits(v),
+    onSuccess: (r, v) => {
+      void qc.invalidateQueries({ queryKey: ['map-planning', 'visits', v.zoneId] })
+      void qc.invalidateQueries({ queryKey: ['map-planning', 'coverage', v.zoneId] })
+      addToast({
+        type: 'success',
+        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً (${r.visits_merged} دمج)`,
+      })
+    },
+    onError: (error) => {
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'map-visits' }).message })
     },
   })
 }

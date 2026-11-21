@@ -122,6 +122,69 @@ export function nextCode(existing: readonly string[], prefix: string): string {
   return `${prefix}-${String(max + 1).padStart(4, '0')}`
 }
 
+// ── الزيارات والتغطية (المرحلة ⑤/⑥) ───────────────────────────────────────
+/**
+ * حالة الزيارة — ثلاث حالات صريحة في العرض، مصدرها حقلان في القاعدة:
+ *   confirmed  = تحققت المعايير الثلاثة (عمق + مكوث + تقارب)
+ *   uncertain  = تحقق بعضها، و`reason` يشرح أيّها غاب
+ *   (لا صف)    = لم تُدخل أصلاً — لا يُعرَض كـ«صفر تغطية»
+ */
+export type VisitStatus = 'confirmed' | 'uncertain'
+
+export const VISIT_STATUS_LABEL_AR: Record<'confirmed' | 'uncertain' | 'not_entered', string> = {
+  confirmed: 'مؤكد',
+  uncertain: 'غير مؤكد',
+  not_entered: 'لم تُدخل',
+}
+
+export interface MapVisit {
+  id: string
+  zone_id: string
+  vehicle_id: string | null
+  device_id: string | null
+  place_kind: 'street' | 'alley'
+  place_id: string
+  place_code: string
+  place_name: string | null
+  placeday: string
+  seq: number
+  entered_at: string
+  exited_at: string | null
+  dwell_seconds: number | null
+  points_count: number
+  max_depth_m: number | null
+  status: VisitStatus
+  reason: string | null
+  created_at: string
+}
+
+export interface VisitBuildResult {
+  visits_created: number
+  visits_merged: number
+  places_scanned: number
+}
+
+export interface CoverageRow {
+  place_kind: 'street' | 'alley'
+  places_total: number
+  places_visited: number
+  places_confirmed: number
+  coverage_pct: number
+}
+
+/** تنسيق المكوث: 90 ⇒ «1 د 30 ث» · 8 ⇒ «8 ث» */
+export function formatDwell(seconds: number | null): string {
+  if (seconds === null) return '—'
+  const s = Math.max(0, Math.round(seconds))
+  const m = Math.floor(s / 60)
+  return m > 0 ? `${m} د ${s % 60} ث` : `${s} ث`
+}
+
+/** حالة العرض الثلاثية: زيارة غير موجودة = «لم تُدخل» وليست صفراً */
+export function visitDisplayStatus(visit: MapVisit | null | undefined): 'confirmed' | 'uncertain' | 'not_entered' {
+  return visit ? visit.status : 'not_entered'
+}
+
 // ── القراءة ────────────────────────────────────────────────────────────────
 export const mapPlanningSdk = {
   /** الزونات المخطَّطة (مع عدد عناصر كل زون) */
@@ -256,5 +319,49 @@ export const mapPlanningSdk = {
         .select()
         .maybeSingle(),
     )
+  },
+
+  // ── الزيارات (المرحلة ⑤) ─────────────────────────────────────────────────
+  /** زيارات زون في يوم، مرتّبة زمنياً */
+  async visits(zoneId: string, day: string): Promise<MapVisit[]> {
+    return sdkGuard(
+      supabase
+        .from('map_visits')
+        .select('*')
+        .eq('zone_id', zoneId)
+        .eq('placeday', day)
+        .order('entered_at'),
+    )
+  },
+
+  /**
+   * تشغيل المحرّك على نافذة زمنية. `replace=true` يجعل النتيجة idempotent:
+   * إعادة التشغيل تحذف زيارات النافذة أولاً ثم تعيد بنائها.
+   */
+  async buildVisits(input: {
+    zoneId: string
+    from: string
+    to: string
+    vehicleId?: string | null
+  }): Promise<VisitBuildResult> {
+    const { data, error } = await supabase.rpc('map_build_visits', {
+      p_zone: input.zoneId,
+      p_from: input.from,
+      p_to: input.to,
+      p_vehicle: input.vehicleId ?? null,
+    })
+    if (error) throw new Error(error.message)
+    const row = (Array.isArray(data) ? data[0] : data) as VisitBuildResult | null
+    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0 }
+  },
+
+  /** ملخّص التغطية لزون/يوم — صفّان: street و alley */
+  async coverage(zoneId: string, day: string): Promise<CoverageRow[]> {
+    const { data, error } = await supabase.rpc('map_coverage_summary', {
+      p_zone: zoneId,
+      p_day: day,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as CoverageRow[]
   },
 }

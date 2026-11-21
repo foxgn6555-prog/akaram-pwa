@@ -134,6 +134,7 @@ export default function MapPlanningTablePage() {
             <Download size={14} /> تصدير CSV
           </button>
         }
+        links={[{ to: '/ops-room/map-planning/visits', label: 'الزيارات والتغطية', icon: 'activity' }]}
       />
 
       <div className="flex flex-wrap gap-2">

@@ -17,3 +17,4 @@ export {
   useSaveAlley,
   useSaveStreet,
 } from './hooks/useMapPlanning'
+export { useMapVisits, useMapCoverage, useBuildVisits } from './hooks/useMapPlanning'
