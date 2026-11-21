@@ -2,7 +2,13 @@
 -- محاكاة بيئة Supabase على PostgreSQL محلي (لاختبار الميجريشنات)
 -- يُطبَّق على قاعدة فارغة قبل 00001: مخطط auth + storage + الأدوار
 -- ═══════════════════════════════════════════════════════════════
-create extension if not exists pgcrypto;   -- gen_random_uuid()
+-- pgcrypto غير متاح في صندوق الاختبار. gen_random_uuid() مدمج في PG13+،
+-- لذا نحاول إنشاء الملحق ونتجاهل الفشل — لا نعطّله في بيئة تتوفر فيها.
+do $$ begin
+  create extension if not exists pgcrypto;
+exception when others then
+  raise notice 'pgcrypto غير متاح — gen_random_uuid المدمج كافٍ (PG13+)';
+end $$;
 create extension if not exists btree_gin;
 create extension if not exists pg_trgm;
 
@@ -123,3 +129,16 @@ create or replace function auth.set_test_user(p_uid uuid)
 returns void language sql as $$
   select set_config('auth.user_id', coalesce(p_uid::text,''), true);
 $$;
+
+-- ── auth.sessions (GoTrue) — يحتاجه اختبار تنظيف الجلسات (20261120235000) ──
+create table if not exists auth.sessions (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  refreshed_at timestamptz,
+  not_after    timestamptz,
+  user_agent   text
+);
+create index if not exists auth_sessions_user_idx on auth.sessions(user_id);
+grant select, insert, update, delete on auth.sessions to anon, authenticated, service_role;
