@@ -1,0 +1,2 @@
+const e=10,o="10 أحرف فأكثر · حرف واحد على الأقل · رقم واحد على الأقل";function t(r){return r.length<10?{ok:!1,error:"كلمة المرور: 10 أحرف على الأقل"}:/[A-Za-z\u0600-\u06FF]/.test(r)?/[0-9]/.test(r)?{ok:!0,error:null}:{ok:!1,error:"كلمة المرور يجب أن تحتوي رقماً واحداً على الأقل"}:{ok:!1,error:"كلمة المرور يجب أن تحتوي حرفاً واحداً على الأقل"}}export{e as P,o as a,t as c};
+//# sourceMappingURL=password-policy-B412fMvl.js.map

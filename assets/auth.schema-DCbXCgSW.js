@@ -1,0 +1,2 @@
+import{o as a,s}from"./validation-DuD2dPzm.js";const m=a({email:s().min(1,"البريد الإلكتروني مطلوب").email("صيغة البريد غير صحيحة"),password:s().min(8,"كلمة المرور 8 أحرف على الأقل")});a({password:s().min(8,"كلمة المرور 8 أحرف على الأقل"),confirmPassword:s().min(1,"تأكيد كلمة المرور مطلوب")}).refine(o=>o.password===o.confirmPassword,{message:"كلمتا المرور غير متطابقتين",path:["confirmPassword"]});a({email:s().email("صيغة البريد غير صحيحة")});export{m as l};
+//# sourceMappingURL=auth.schema-DCbXCgSW.js.map

@@ -1,0 +1,37 @@
+# ── إعادة توجيه مسارات SPA (واجهة أحادية) ──
+# كل طلب لملف أو مجلد غير موجود فعليًا يُعاد توجيهه إلى index.html،
+# فتتولى React Router التعامل مع المسار داخليًا (لا تظهر صفحة 404 للمسارات الداخلية).
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
+
+# ملفات نقطة دخول الـ PWA يجب ألا تبقى نسخة قديمة في كاش المتصفح/الوسيط بعد النشر.
+# أصول Vite ذات الأسماء المجزأة (assets/*) تبقى قابلة للتخزين المؤقت كالمعتاد.
+<IfModule mod_headers.c>
+  <Files "sw.js">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+    Header always set Pragma "no-cache"
+    Header always set Expires "0"
+  </Files>
+  <Files "index.html">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </Files>
+  <!-- ٣-هـ: بصمة الإصدار وحارس الإقلاع يجب أن يُقرآ من الشبكة دائماً -->
+  <Files "version.json">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
+  <Files "boot-watchdog.js">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </Files>
+
+  <!-- أصول Vite المجزأة (اسمها يحمل بصمة محتوى) لا تتغيّر أبداً: تخزين سنة كاملة.
+       النمط يشترط البصمة (-XXXXXXXX) قبل الامتداد، فلا يلتقط sw.js ولا index.html
+       ولا الملفات المشتركة غير المجزأة، وتبقى قواعدهما أعلاه سارية. -->
+  <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css|woff2?|png|jpe?g|webp|svg)$">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <!-- الملفات غير المجزأة (أيقونات، شعارات، manifest) تبقى على التخزين التخميني الافتراضي:
+       لا نضبط لها كاشاً طويلاً كي لا تعلق الهوية القديمة بعد تبديل الشعار. -->
+</IfModule>

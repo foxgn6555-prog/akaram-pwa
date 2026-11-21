@@ -1,0 +1,2 @@
+import{f as e}from"./hr-format-DI4cxmcQ.js";const n=t=>t?new Date(t).toLocaleString("ar-IQ-u-nu-latn",{dateStyle:"medium",timeStyle:"short"}):"—",o=t=>t.repayment_method==="equal"?`${t.installments??"—"} شهراً`:t.repayment_method==="fixed"?`${e(t.monthly_amount)} د.ع شهرياً`:t.repayment_method==="percent"?`${t.percent??"—"}% من الراتب`:"دفعة واحدة";export{n as f,o as m};
+//# sourceMappingURL=format-4U6WETsL.js.map
