@@ -62,14 +62,14 @@ create or replace function app.map_line_length_m(p_path jsonb)
 returns double precision
 language sql immutable set search_path = pg_catalog as $$
   select coalesce(sum(app.map_distance_m(
-      app.map_pt_lat(pts.e - 1), app.map_pt_lng(pts.e - 1),
-      app.map_pt_lat(pts.e),     app.map_pt_lng(pts.e)
+      app.map_pt_lat(p_path->(pts.i - 1)), app.map_pt_lng(p_path->(pts.i - 1)),
+      app.map_pt_lat(p_path->pts.i),       app.map_pt_lng(p_path->pts.i)
     )), 0)
   from (
-    select p_path->i as e
-    from generate_series(0, greatest(jsonb_array_length(p_path) - 1, 0)) as i
+    select i
+    from generate_series(1, greatest(jsonb_array_length(p_path) - 1, 0)) as i
   ) pts
-  where pts.e is not null
+  where p_path->pts.i is not null
 $$;
 
 -- ───────────────────────────────────────────────────────────────────────────
