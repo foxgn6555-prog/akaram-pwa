@@ -15,6 +15,7 @@ import 'leaflet/dist/leaflet.css'
 import { ClipboardCheck, FileUp, Layers, MapPin, Play, RotateCcw, TriangleAlert, X } from 'lucide-react'
 import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
+import { MAP_MAX_ZOOM, zoneBorderColor } from '@features/map-theme/map-theme'
 import { useMapTheme } from '@features/map-theme/useMapTheme'
 import { useMapImport } from '@features/map-import/hooks/useMapImport'
 import { useMapZones } from '@features/map-planning/hooks/useMapPlanning'
@@ -22,6 +23,8 @@ import { DENSITY_REFERENCE, mapImportSdk } from '@sdk/map-import.sdk'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { polygonAreaM2 } from '@features/map-import/lib/geometry'
 import { leafletPath, strokeFor, type PreviewStyle } from '@features/map-import/lib/osm-colors'
+// حدّ العيّنة — يُعرض به «و N فوق الحدّ» في تقرير المسقَط
+import { MAX_SKIP_SAMPLES } from '@features/map-import/lib/osm-stream'
 import { SPARSE_SEGMENT_M } from '@features/map-import/lib/geometry'
 
 /**
@@ -152,6 +155,21 @@ export default function OpsMapImportPage() {
     let alive = true
     setScript('')
     setPolygon([])
+    /*
+     * ⚠ `quarter` كان **يبقى مختاراً** بعد تبديل الزون.
+     *
+     * الأثر: نختار «الربع ٣» لزون أ، ثم ننتقل لزون ب. هذا الـeffect يجلب
+     * سكربت الزون **كاملاً** ويضع `script`، لكنه لا يمسّ `quarter` — فتبقى
+     * الواجهة تعرض «الربع ٣» مضيئاً وملاحظة «هذا الربع 3 من 4» بينما
+     * السكربت المعروض هو الزون ب كاملاً. المشغّل ينسخه ظنّاً أنه ربع،
+     * فيستورد أربعة أضعاف الحجم المتوقع — أو يستورد ربعاً واحداً من زون
+     * ويظن أن الأرباع الأربعة اكتملت.
+     *
+     * التصفير هنا لا في معالج النقر: الـeffect هو المسؤول عن «زون جديد ⇒
+     * حالة جديدة»، وأي مسار تبديل زون مستقبلي يحصل على التصفير مجاناً.
+     */
+    setQuarter(null)
+    setQuarterBusy(false)
     void (async () => {
       try {
         const [s, polyText] = await Promise.all([
@@ -600,6 +618,60 @@ export default function OpsMapImportPage() {
                   preview.stats.sparse.pct === 0 && (
                     <div className="font-bold text-emerald-700">✔ لا تحذيرات — الأرقام متسقة مع المرجع</div>
                   )}
+                {/*
+                  ── المسقَط عند القراءة ──
+                  هذا **ليس** قسم «المستبعدات» أدناه. ذاك يعرض ما أسقطه القصّ
+                  والتصنيف **بعد** قراءة الشوط. أما هنا فما لم يُقرأ أصلاً:
+                  وسم `highway` خارج قائمة المرور (انظر ROUTE_HIGHWAY_TAGS).
+
+                  كان `waysSkippedNoHighway` عدّاداً لا يُعرض في الواجهة إطلاقاً
+                  ⇒ مشغّل يرى «٢٩٧ صفاً» ولا يعلم أن ٣٥ شوطاً في ملفه لم تُقرأ،
+                  ولا ما هي. اختفاء صامت يبدو نجاحاً — وهو أسوأ من تحذير.
+                */}
+                {phase.kind === 'preview' && phase.parse.waysSkippedNoHighway > 0 && (
+                  <details className="mt-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <summary className="cursor-pointer font-bold text-slate-700">
+                      أُسقط عند القراءة: {phase.parse.waysSkippedNoHighway} شوط — لم يُقرأ أصلاً
+                    </summary>
+                    <div className="mt-1.5 space-y-1 text-[10px] leading-relaxed">
+                      <p className="text-slate-600">
+                        وسم <code dir="ltr">highway</code> خارج قائمة المرور. هذه أشواط
+                        موجودة في ملف Overpass ولا تدخل المعاينة ولا القاعدة.
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {phase.parse.skippedByTag.map((t) => (
+                          <span
+                            key={t.highway ?? 'none'}
+                            className="rounded-md bg-white px-1.5 py-0.5 font-bold text-slate-700 ring-1 ring-slate-200"
+                          >
+                            <span dir="ltr">{t.highway ?? '(بلا highway)'}</span> · {t.ways}
+                          </span>
+                        ))}
+                      </div>
+                      {phase.parse.skippedSamples.length > 0 && (
+                        <div className="mt-1">
+                          <div className="font-bold text-slate-600">عيّنة:</div>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {phase.parse.skippedSamples.slice(0, 10).map((s) => (
+                              <li key={s.osmWayId} className="text-slate-600">
+                                <span dir="ltr" className="text-slate-400">#{s.osmWayId}</span>{' '}
+                                <span dir="ltr" className="font-bold">{s.highway ?? '—'}</span>
+                                {s.name ? <> — «{s.name}»</> : null}
+                              </li>
+                            ))}
+                          </ul>
+                          {phase.parse.skippedSamples.length > 10 && (
+                            <div className="mt-0.5 text-slate-500">
+                              … و{phase.parse.skippedSamples.length - 10} أخرى في العيّنة
+                              {phase.parse.skippedSamplesOverflow > 0 &&
+                                ` (و${phase.parse.skippedSamplesOverflow} فوق حدّ ${MAX_SKIP_SAMPLES})`}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
                 <div className="mt-1 text-[10px] text-slate-500">
                   {preview.mahallas.__UNASSIGNED__ ? 'المحلات المربوطة بحدود OSM مفتوحة — الربط بالاسم فقط' : ''}
                 </div>
@@ -664,10 +736,23 @@ export default function OpsMapImportPage() {
                   </div>
                 </div>
               </div>
+              {/*
+                ── النص كان مضلّلاً في الوضع الليلي ──
+                «نفس ما تراه في overpass-turbo» صحيحة **بالنهاري فقط**: هناك
+                بلاط OSM فاتح وألوان osm-carto تنطبق عليه بالحرف. أما بالليلي
+                فالبلاط Esri داكن و`strokeFor` يقلب الإضاءة (أبيض ⇒ رمادي
+                فاتح، وردي ⇒ وردي مشبع) — فالمقارنة البصرية مع overpass-turbo
+                **غير صالحة**. نقولها صراحةً بدل ترك المشغّل يقارن ويشكّ.
+
+                وكذلك «الحدّ الأزرق»: صار سماوياً بالليلي ليكون مرئياً
+                (`zoneBorderColor`)، فوصفه بالأزرق كان سيصير كذباً.
+              */}
               <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] leading-relaxed text-slate-500">
-                الحدّ الأزرق المتقطّع ·{' '}
+                الحدّ {theme === 'dark' ? 'السماوي' : 'الأزرق'} المتقطّع ·{' '}
                 {previewStyle === 'overpass'
-                  ? 'ألوان OSM القياسية — نفس ما تراه في overpass-turbo.eu'
+                  ? theme === 'light'
+                    ? 'ألوان OSM القياسية — نفس ما تراه في overpass-turbo.eu'
+                    : 'ألوان OSM معكوسة الإضاءة لتبقى مرئية — للمقارنة، لكن لا تطابق overpass-turbo (قارِن بالوضع النهاري)'
                   : 'ألوان المنصة (الشوارع حمراء/برتقالية والأزقة بنفسجية)'}
                 {osmMatched.total > 0 && osmMatched.matched < osmMatched.total && (
                   <>
@@ -684,13 +769,16 @@ export default function OpsMapImportPage() {
                     bounds={mapPoints as [number, number][]}
                     boundsOptions={{ padding: [16, 16] }}
                     className="h-full w-full"
+                    /* Leaflet الافتراضي ١٨ — فلا يبلغ النهاري ١٩ أصلاً، بينما
+                     * LIGHT_TILES.maxZoom يقول ١٩. رقم صريح واحد يمنع الانحراف. */
+                    maxZoom={MAP_MAX_ZOOM}
                     scrollWheelZoom
                   >
                     <MapTiles theme={theme} />
                     {polygon.length >= 3 && (
                       <Polygon
                         positions={polygon as [number, number][]}
-                        pathOptions={{ color: '#0b3d6b', weight: 2, fill: false, dashArray: '4 3' }}
+                        pathOptions={{ color: zoneBorderColor(theme), weight: 2, fill: false, dashArray: '4 3' }}
                       />
                     )}
                     {/*
@@ -820,7 +908,10 @@ export default function OpsMapImportPage() {
                   )
                   if (!ok) return
                 }
-                void insert(activeZoneId, preview)
+                /* اسم الملف يُمرَّر ليُحفظ في map_import_batches.file_name — كان يضيع */
+                void insert(activeZoneId, preview, {
+                  fileName: phase.kind === 'preview' ? phase.fileName : undefined,
+                })
               }}
               className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white shadow hover:bg-emerald-700 disabled:opacity-50"
             >

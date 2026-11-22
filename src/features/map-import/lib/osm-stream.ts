@@ -22,6 +22,30 @@ export interface OsmWay {
   tags: Record<string, string>
 }
 
+/**
+ * شوط سقط عند **القراءة** — قبل التصنيف والقصّ.
+ *
+ * **لماذا نُسجّله:** كان `waysSkippedNoHighway` عدّاداً وحده. فمشغّل يرى
+ * «٢٩٧ صفاً» لا يعلم أن ٣٥ شوطاً في ملفه لم تُقرأ أصلاً، ولا *ما هي*.
+ * «المستبعدات» في الواجهة تعرض ما أسقطه `assembleImport` (بعد القراءة)
+ * — فما سقط هنا كان يختفي **بلا أي أثر**. وهذا أسوأ أنواع الخطأ: صامت
+ * ويبدو نجاحاً.
+ *
+ * `highway` = null يعني شوطاً بلا وسم `highway` إطلاقاً (سكة، مبنى، سياج…).
+ */
+export interface SkippedReading {
+  osmWayId: number
+  highway: string | null
+  name: string | null
+  nodes: number
+}
+
+/** سطر ملخّص في التقرير: وسم واحد وكم شوطاً حمَلَه */
+export interface SkippedTagCount {
+  highway: string | null
+  ways: number
+}
+
 export interface OsmParseStats {
   /** عدد العُقد المقروءة (كل الملف — لا المطلوبة فقط) */
   nodesRead: number
@@ -30,10 +54,32 @@ export interface OsmParseStats {
   routeWays: number
   /** أشواط سُقطت لأن وسمها غير مقبول (طريق سريع، سكة… إلخ) */
   waysSkippedNoHighway: number
+  /**
+   * تفصيل المسقَط: وسم ⇒ عدد.
+   *
+   * **لماذا هنا لا في `assembleImport`:** السقوط يقع في `emitWay` عند
+   * القراءة. لو جمعناه لاحقاً لاحتجنا الإبقاء على كل أشواط الملف في
+   * الذاكرة — وهو ما يمنعه التدفّق (ملف ٢ ج.ب).
+   */
+  skippedByTag: SkippedTagCount[]
+  /**
+   * أول `MAX_SKIP_SAMPLES` شوطاً مسقَطاً بمعرّفها واسمها.
+   *
+   * **لماذا عيّنة لا الكل:** ملف الرياض فيه ١٨٥ رابطاً مسقَطاً — إبقاء
+   * معرّف كل واحد بلا فائدة للمشغّل (لا يستطيع فحص ١٨٥ صفاً واحداً واحداً)
+   * ويكلّف ذاكرة في ملفات أكبر. العيّنة تُثبت *أي* أشواط تُسقط، والملخّص
+   * يُثبت *كم*. التفصيل الكامل متاح بإعادة التشغيل على الملف.
+   */
+  skippedSamples: SkippedReading[]
+  /** عدد المسقَط الذي لم تُحفظ عيّنته (يُكمل العدّ للمعرفة الدقيقة) */
+  skippedSamplesOverflow: number
   bytesRead: number
   /** أقصى طول وسم name شوهد — لفحص الترميز */
   maxNameLength: number
 }
+
+/** حدّ العيّنة — يسع صفحة عرض واحدة بلا تمرير طويل */
+export const MAX_SKIP_SAMPLES = 30
 
 export interface ParseOptions {
   /** تُسترجع العقدة الآن؟ (بلا فهرس = كل العُقد) */
@@ -83,9 +129,14 @@ export async function parseOsmStream(
     waysRead: 0,
     routeWays: 0,
     waysSkippedNoHighway: 0,
+    skippedByTag: [],
+    skippedSamples: [],
+    skippedSamplesOverflow: 0,
     bytesRead: 0,
     maxNameLength: 0,
   }
+  /** عدّاد الوسوم أثناء القراءة — يُحوَّل لمصفوفة مرتّبة في النهاية */
+  const skipByTag = new Map<string, number>()
   let truncated = false
 
   const reader = stream.getReader()
@@ -107,6 +158,23 @@ export async function parseOsmStream(
       opts.onWay({ id: curWay.id, nodes: curWay.nodes, tags: curWay.tags })
     } else {
       stats.waysSkippedNoHighway++
+      /*
+       * نُسجّل السبب **كما هو** لا كتصنيف مخترع: `hw ?? '(بلا وسم)'` يقول
+       * للمشغّل أي وسم بالتحديد منعه من الدخول. لو جمعناه في خانة واحدة
+       * («غير مقبول») لكان التقرير صحيحاً وبلا فائدة.
+       */
+      const key = hw ?? '(بلا highway)'
+      skipByTag.set(key, (skipByTag.get(key) ?? 0) + 1)
+      if (stats.skippedSamples.length < MAX_SKIP_SAMPLES) {
+        stats.skippedSamples.push({
+          osmWayId: curWay.id,
+          highway: hw ?? null,
+          name: curWay.tags.name ?? null,
+          nodes: curWay.nodes.length,
+        })
+      } else {
+        stats.skippedSamplesOverflow++
+      }
     }
     curWay = null
   }
@@ -196,6 +264,14 @@ export async function parseOsmStream(
       /* لا شيء — القراءة انتهت */
     }
   }
+
+  /*
+   * التقرير يُبنى في النهاية لا أثناءها: نُريد **ترتيباً** (الأكثر أولاً)
+   * ليكون أول سطر هو أهم سبب. لو أضفناه أثناء `set` لظهر بترتيب الصدفة.
+   */
+  stats.skippedByTag = [...skipByTag.entries()]
+    .map(([highway, ways]) => ({ highway: highway === '(بلا highway)' ? null : highway, ways }))
+    .sort((a, b) => b.ways - a.ways)
 
   return { stats, truncated }
 }

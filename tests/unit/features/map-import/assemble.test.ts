@@ -144,7 +144,20 @@ describe('③ ما يُرفض — مع السبب', () => {
     expect(r.rows).toHaveLength(0)
   })
 
-  it('ساحة الفتح ليست شارعاً ⇒ لا صف ولا تخطٍّ (ليست مرشّحة أصلاً)', async () => {
+  it('ساحة الفتح ليست شارعاً ⇒ لا صف، لكن **تُسجَّل** بسبابها', async () => {
+    /*
+     * ⚠ هذا الاختبار كان يوثّق عيباً لا سلوكاً صحيحاً.
+     *
+     * كان يقول: «لا صف ولا تخطٍّ (رُفضت في القارئ لكي لا تُشوش القائمة)» —
+     * وهذا افتراض خاطئ: `ROUTE_HIGHWAY_TAGS` يضمّ `primary` فالقارئ
+     * يمرّرها، و`classify` هنا يُسقطها. فكانت تختفي بلا سجل.
+     *
+     * القياس على `export.osm`: ٧٢ شوطاً رئيسياً بهذا المصير (٣٧ primary ·
+     * ٢٦ secondary · ٦ trunk · ٣ tertiary) — أي أن المشغّل يفقد شبكة
+     * رئيسية كاملة من تقريره بلا سطر واحد يفسّرها.
+     *
+     * الإصلاح: الإسقاط صحيح (الساحة ليست شارعاً)، لكنه **معلن**.
+     */
     const r = await run(
       [
         [1, 33.302, 44.402],
@@ -153,7 +166,31 @@ describe('③ ما يُرفض — مع السبب', () => {
       [way(5, [1, 2], { highway: 'primary', name: 'ساحة الفتح' })],
     )
     expect(r.rows).toHaveLength(0)
-    expect(r.skipped).toHaveLength(0) // رُفضت في القارئ لكي لا تُشوش القائمة
+    expect(r.skipped).toHaveLength(1)
+    expect(row(r.skipped, 0).osmWayId).toBe(5)
+    expect(row(r.skipped, 0).name).toBe('ساحة الفتح')
+    expect(row(r.skipped, 0).reason).toContain('اسم منشأة لا شارع')
+    expect(row(r.skipped, 0).reason).toContain('ساحة')
+  })
+
+  it('الرابط يُعرض ولا يُسجَّل كمسقَط — ليس مفقوداً', async () => {
+    // includeLinks=true ⇒ يُرسم مع excludeFromImport، فلا يدخل skipped
+    const xml = `<?xml version="1.0"?><osm><node id="1" lat="33.302" lon="44.402"/><node id="2" lat="33.303" lon="44.403"/>${way(6, [1, 2], { highway: 'primary_link' })}</osm>`
+    const collected: OsmWay[] = []
+    const map = new Map<number, LatLng>()
+    await parseOsmStream(textToStream(xml), {
+      onNode: (id, lat, lng) => map.set(id, [lat, lng]),
+      onWay: (w) => collected.push(w),
+    })
+    const r = await assembleImport({
+      ways: collected,
+      lookupNode: (ref) => map.get(ref),
+      zonePolygon: ZONE,
+      opts: { includeLinks: true },
+    })
+    expect(r.skipped).toHaveLength(0)
+    expect(r.rows).toHaveLength(1)
+    expect(row(r.rows, 0).excludeFromImport).toBe(true)
   })
 
   it('شوط خارج الزون تماماً ⇒ لا صف ولا تخطٍّ (ليس من شأننا)', async () => {

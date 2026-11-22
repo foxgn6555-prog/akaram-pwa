@@ -174,11 +174,26 @@ export function classify(way: ClassifyInput, opts?: ClassifyOptions): ClassCode 
  * المعرّفة («الساحة»…) وكلمةً كاملة، مع أو بلا «ال» التعريف.
  */
 export function isNonStreetName(name: string): boolean {
+  return nonStreetWord(name) !== null
+}
+
+/**
+ * الكلمة التي جعلت الاسم «منشأة لا شارعاً» — أو `null`.
+ *
+ * **لماذا دالة منفصلة:** `assembleImport` كان يُسقط هذه الأشواط **بصمت
+ * تام**. القياس على `export.osm`: من ٢٣٩٥ شوطاً مقبولاً عند القراءة، يسقط
+ * ٢٣١ في `classify`: ١٥٩ رابطاً (معروضة عبر `excludeFromImport` ومرئية)
+ * و**٧٢ رئيسياً بلا أي أثر** — ٣٧ primary و٢٦ secondary و٦ trunk و٣ tertiary
+ * أسماءُها «ساحة الفتح» و«مجسر ملعب الشعب» و«جسر 14 تموز». المشغّل لا يعلم
+ * أنها كانت في الملف ولا لماذا غابت. الآن تُسجَّل بوسمها واسمها وكلمتها.
+ */
+export function nonStreetWord(name: string | null | undefined): string | null {
+  if (!name) return null
   const nm = name.trim()
   // أول كلمة، مع أو بلا «ال» التعريف
   const first = nm.split(/\s+/)[0] ?? ''
   const bare = first.startsWith('ال') ? first.slice(2) : first
-  return (NON_STREET_WORDS as readonly string[]).includes(bare)
+  return (NON_STREET_WORDS as readonly string[]).includes(bare) ? bare : null
 }
 
 /** نوع الشارع المُخزَّن في `map_streets.kind` */

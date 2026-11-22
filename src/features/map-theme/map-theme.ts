@@ -6,12 +6,43 @@ export type MapTheme = 'light' | 'dark'
 export const MAP_THEME_KEY = 'akaram.map-theme'
 export const MAP_THEME_EVENT = 'akaram:map-theme'
 
-export interface TileProvider { id: string; url: string; attribution: string; filter: boolean; maxZoom: number }
+export interface TileProvider {
+  id: string
+  url: string
+  attribution: string
+  filter: boolean
+  /** أقصى تكبير **تصريحاً** للمستخدم — سقف الخريطة نفسها */
+  maxZoom: number
+  /**
+   * أقصى تكبير تملك له البلاطات **صوراً حقيقية**.
+   *
+   * **العيب الذي يُصلحه:** كان `MapTiles` يضبط `maxNativeZoom = maxZoom`،
+   * فـEsri (`maxZoom: 16`) كانت **تُكبّر بلاطاتها** من ١٦ إلى ١٩ — هذا
+   * سلوك Leaflet الصحيح حين لا يوجد بلاط أصلي، لكنه يعني أن الوضع الليلي
+   * يفتح على ١٦ فقط بينما النهاري يفتح على ١٩. فالمشغّل لا يستطيع التكبير
+   * للمقارنة التفصيلية بالليل، مع أن الخريطتين تعرضان **نفس البيانات**.
+   *
+   * الحلّ: نفصل المفهومين. `maxZoom` = ١٩ دائماً (سقف واحد للوضعين)،
+   * و`maxNativeZoom` يُعلن هنا صراحةً (١٦ لـEsri) فيُكبّر Leaflet الصورة
+   * بسلاسة بدل منع المستخدم. النتيجة: نفس سقف التكبير في الوضعين، والفارق
+   * الوحيد أن بلاطات Esri تبدأ بالتحسّب (blur) فوق ١٦ — وهذا صادق.
+   */
+  maxNativeZoom: number
+}
 export const DARK_TILES: readonly TileProvider[] = [
-  { id: 'esri-dark', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap', filter: false, maxZoom: 16 },
-  { id: 'osm-filtered', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: true, maxZoom: 19 },
+  { id: 'esri-dark', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap', filter: false, maxZoom: 19, maxNativeZoom: 16 },
+  { id: 'osm-filtered', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: true, maxZoom: 19, maxNativeZoom: 19 },
 ]
-export const LIGHT_TILES: TileProvider = { id: 'osm', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: false, maxZoom: 19 }
+export const LIGHT_TILES: TileProvider = { id: 'osm', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: false, maxZoom: 19, maxNativeZoom: 19 }
+
+/**
+ * سقف التكبير الموحّد لكل الخرائط في المنصة.
+ *
+ * يُقرأ في كل خريطة تحمل `MapTiles` لتضبط `MapContainer.maxZoom` بنفس
+ * الرقم — وإلا بقي الفرق: Leaflet يقبل التكبير حتى ١٩ افتراضياً، لكن
+ * الخريطة الأب قد تحدّه. رقم واحد يمنع انحرافاً بين شاشة وأخرى.
+ */
+export const MAP_MAX_ZOOM = 19
 export const TILE_ERRORS_BEFORE_FALLBACK = 3
 
 export function readMapTheme(fallback: MapTheme = 'light'): MapTheme {
@@ -20,6 +51,28 @@ export function readMapTheme(fallback: MapTheme = 'light'): MapTheme {
 export function writeMapTheme(t: MapTheme): void {
   try { localStorage.setItem(MAP_THEME_KEY, t) } catch { /* خاص/ممتلئ */ }
   try { window.dispatchEvent(new CustomEvent(MAP_THEME_EVENT, { detail: t })) } catch { /* بيئة بلا window */ }
+}
+
+/**
+ * لون حدّ الزون على الخريطة بحسب الوضع.
+ *
+ * **العيب:** كان `#0b3d6b` (كحلي داكن) ثابتاً في الشاشتين. تباينه مع
+ * أرضية osm-carto الفاتحة (`#f2efe9`) جيد (≈9.7:1)، ومع خلفية Esri
+ * الداكنة (`#060b18`) **١.٨:١ فقط** — أي أن حدّ الزون يكاد يختفي بالليل،
+ * وهو المرجع البصري الذي يقيس عليه المشغّل عند الاستيراد.
+ *
+ * الحلّ: لونان متباينان، لكل وضع لونه — لا تخفيف شفافية ولا ظلّ:
+ *   نهاري  `#0b3d6b`  (هوية المنصة، تباين ≈9.7:1)
+ *   ليلي   `#7dd3fc`  (سماوي فاتح، تباين ≈9.4:1 على #060b18)
+ */
+export const MAP_ZONE_BORDER = {
+  light: '#0b3d6b',
+  dark: '#7dd3fc',
+} as const
+
+/** لون حدّ الزون للوضع الحالي — نقطة واحدة تحكم الشاشتين */
+export function zoneBorderColor(theme: MapTheme): string {
+  return theme === 'dark' ? MAP_ZONE_BORDER.dark : MAP_ZONE_BORDER.light
 }
 
 /** لوحة ألوان واجهة الخريطة (الأزرار/وسيلة الإيضاح) بحسب الوضع */

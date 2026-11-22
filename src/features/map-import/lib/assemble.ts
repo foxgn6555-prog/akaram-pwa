@@ -36,7 +36,7 @@ import {
   type EdgeIndex,
   type LatLng,
 } from './geometry'
-import { classify, kindOf, mahallaOf, round1, round7, type ClassCode } from './classify'
+import { classify, kindOf, mahallaOf, nonStreetWord, round1, round7, type ClassCode } from './classify'
 import type { OsmWay } from './osm-stream'
 
 export interface ImportRow {
@@ -203,7 +203,34 @@ export function assembleImport(params: {
       { highway: way.tags.highway, name: way.tags.name },
       { includeLinks: opts?.includeLinks },
     )
-    if (cls === null) continue
+    if (cls === null) {
+      /*
+       * ⚠ هنا كان `continue` صامتاً — أسوأ أنواع الإسقاط.
+       *
+       * القياس على `export.osm`: ٢٣١ شوطاً يسقط في `classify`. روابط
+       * `*_link` منها معروضة (`excludeFromImport`) فيراها المشغّل على
+       * الخريطة. أما **٧٢ شوطاً رئيسياً** (٣٧ primary · ٢٦ secondary ·
+       * ٦ trunk · ٣ tertiary) فأسماءُها منشآت — «ساحة الفتح»، «مجسر ملعب
+       * الشعب»، «جسر 14 تموز» — كانت تختفي بلا ذكر. المشغّل يرى خريطته
+       * أنقص مما في ملفه ولا يجد في التقرير ما يفسّر الفرق.
+       *
+       * الآن: تُسجَّل بوسمها واسمها وسبب الإسقاط. والروابط تُستثنى من
+       * السجل لأنها **ليست مفقودة**: تُرسم وتُعرض. تسجيلها كان سيزيد
+       * الضجيج ١٥٩ صفاً على ٧٢ مفيدة.
+       */
+      const isLink = way.tags.highway ? /_link$/.test(way.tags.highway) : false
+      if (!isLink && way.tags.highway) {
+        const word = nonStreetWord(way.tags.name)
+        skipped.push({
+          osmWayId: way.id,
+          name: way.tags.name ?? null,
+          reason: word
+            ? `اسم منشأة لا شارع («${word}») — أُسقط عن قصد`
+            : `وسم highway=${way.tags.highway} لا يقابله تصنيف لدينا — أُسقط`,
+        })
+      }
+      continue
+    }
     routeWays++
     if (routeWays > maxWays) {
       throw new Error(

@@ -32,6 +32,19 @@ export type ImportPhase =
 export interface InsertOptions {
   /** حجم الدفعة: ١٠٠ أو ٢٠٠. الافتراضي ٢٠٠ من القياس */
   batchSize?: number
+  /**
+   * اسم الملف كما اختاره المشغّل — يُحفظ في `map_import_batches.file_name`.
+   *
+   * **العيب الذي يُصلحه:** كان يُرسَل `file: { name: <عدد> }` — والمفتاح
+   * `file` لا `file_name` (يقرأه SQL من `p_meta->>'file_name'`)، والقيمة
+   * **عدد الصفوف** لا اسم الملف. فأثر مزدوج: العمود يبقى `null` دائماً،
+   * ولو قُرئ لكان رقم `297` مكان `export.osm`. سجل الدفعات بلا اسم الملف
+   * لا يصلح للتتبّع — وهو الغرض المعلن للعمود في المهاجرة الأصلية
+   * («اسم الملف كما اختاره المشرف — للتتبّع لا للمعالجة»).
+   */
+  fileName?: string
+  /** حجم الملف بالبايت — يُحفظ في `map_import_batches.file_bytes` */
+  fileBytes?: number
   /** يُستدعى بعد كل دفعة لإظهار التقدّم */
   onProgress?: (done: number, total: number, partial: ImportBatchResult) => void
 }
@@ -144,8 +157,15 @@ export function useMapImport() {
       }))
 
       const area = polygonAreaM2(preview.zonePolygon) / 1e6
+      /*
+       * المفاتيح هنا يجب أن تطابق ما يقرأه `app.map_import_batch`:
+       *   `p_meta->>'file_name'` و `p_meta->>'file_bytes'`
+       * (راجع الهجرة 20261122001300 سطر ٢٢٠). المفتاح `file` والاسم
+       * الرقمي كانا خطأً صامتاً: لا خطأ، لكن العمود يبقى فارغاً للأبد.
+       */
       const meta = {
-        file: { name: preview.stats.streets + preview.stats.alleys },
+        file_name: opts.fileName ?? null,
+        file_bytes: opts.fileBytes ?? null,
         area_km2: area,
         density: preview.stats.density,
         density_reference: 21.3,

@@ -4,7 +4,13 @@
  * الاعتباطي لا يغيّر النتيجة (وسم مقطوع بين قطعتين).
  */
 import { describe, expect, it } from 'vitest'
-import { decodeXmlEntities, parseOsmStream, textToStream, type OsmWay } from '@features/map-import/lib/osm-stream'
+import {
+  decodeXmlEntities,
+  MAX_SKIP_SAMPLES,
+  parseOsmStream,
+  textToStream,
+  type OsmWay,
+} from '@features/map-import/lib/osm-stream'
 
 const OSM = `<?xml version="1.0" encoding="UTF-8"?>
 <osm version="0.6" generator="Overpass API">
@@ -187,5 +193,75 @@ describe('⑥ الأداء — ١٠ آلاف شوط', () => {
     expect(stats.routeWays).toBe(10000)
     // الحاجز فضفاض (مساحة CI متغيّرة) لكنه يمسك انحداراً هائلاً
     expect(ms).toBeLessThan(3000)
+  })
+})
+
+/**
+ * ⑦ التقرير المسقَط — كان اختفاءً صامتاً.
+ *
+ * `waysSkippedNoHighway` عدّاد لا يُعرض في الواجهة إطلاقاً. فمشغّل يرى
+ * «٢٩٧ صفاً» ولا يعلم أن ٣٥ شوطاً في ملفه لم تُقرأ أصلاً. والنوع وحده
+ * («غير مقبول») لا يُفيد: المشغّل يحتاج **أي وسم** منع الدخول.
+ */
+describe('⑦ تقرير ما أُسقط عند القراءة', () => {
+  const MIXED = `<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="33.30" lon="44.40"/>
+  <node id="2" lat="33.31" lon="44.41"/>
+  <node id="3" lat="33.32" lon="44.42"/>
+  <way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/></way>
+  <way id="20"><nd ref="1"/><nd ref="2"/><tag k="highway" v="construction"/></way>
+  <way id="30"><nd ref="1"/><nd ref="2"/><tag k="highway" v="construction"/><tag k="name" v="نفق احمد عرابي"/></way>
+  <way id="40"><nd ref="1"/><nd ref="2"/><tag k="highway" v="raceway"/></way>
+  <way id="50"><nd ref="1"/><nd ref="2"/><tag k="railway" v="rail"/></way>
+</osm>`
+
+  it('يجمع بشريط الوسم مرتّباً بالأكثر أولاً', async () => {
+    const { stats } = await collect(MIXED)
+    expect(stats.waysSkippedNoHighway).toBe(4)
+    expect(stats.skippedByTag).toEqual([
+      { highway: 'construction', ways: 2 },
+      { highway: 'raceway', ways: 1 },
+      { highway: null, ways: 1 }, // شوط بلا highway إطلاقاً
+    ])
+  })
+
+  it('مجموع الملخّص يساوي المسقَط بالضبط', async () => {
+    const { stats } = await collect(MIXED)
+    expect(stats.skippedByTag.reduce((s, t) => s + t.ways, 0)).toBe(stats.waysSkippedNoHighway)
+  })
+
+  it('يحفظ العيّنة بمعرّف الشوط واسمه', async () => {
+    const { stats } = await collect(MIXED)
+    expect(stats.skippedSamples).toHaveLength(4)
+    const named = stats.skippedSamples.find((s) => s.osmWayId === 30)
+    // الاسم يُحفظ — هذا ما يجعل التقرير مقنعاً لا مجرّد رقم
+    expect(named?.name).toBe('نفق احمد عرابي')
+    expect(named?.highway).toBe('construction')
+    expect(named?.nodes).toBe(2)
+  })
+
+  it('الحدّ الأعلى للعيّنة محترم — والباقي يُعدّ', async () => {
+    const parts: string[] = ['<osm>']
+    const total = MAX_SKIP_SAMPLES + 7
+    for (let i = 0; i < total; i++) {
+      parts.push(`<way id="${i}"><nd ref="1"/><tag k="highway" v="proposed"/></way>`)
+    }
+    parts.push('</osm>')
+    const { stats } = await collect(parts.join(''))
+    expect(stats.skippedSamples).toHaveLength(MAX_SKIP_SAMPLES)
+    expect(stats.skippedSamplesOverflow).toBe(7)
+    // العدّ الدقيق لا يتأثر بالحدّ
+    expect(stats.waysSkippedNoHighway).toBe(total)
+    expect(stats.skippedByTag[0]).toEqual({ highway: 'proposed', ways: total })
+  })
+
+  it('لا سقوط ⇒ تقرير فارغ لا undefined', async () => {
+    const clean = `<?xml version="1.0"?><osm><way id="1"><nd ref="1"/><tag k="highway" v="primary"/></way></osm>`
+    const { stats } = await collect(clean)
+    expect(stats.waysSkippedNoHighway).toBe(0)
+    expect(stats.skippedByTag).toEqual([])
+    expect(stats.skippedSamples).toEqual([])
+    expect(stats.skippedSamplesOverflow).toBe(0)
   })
 })
