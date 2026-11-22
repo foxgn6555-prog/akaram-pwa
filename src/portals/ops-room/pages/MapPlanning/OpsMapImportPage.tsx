@@ -22,6 +22,8 @@ import { DENSITY_REFERENCE, mapImportSdk } from '@sdk/map-import.sdk'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { polygonAreaM2 } from '@features/map-import/lib/geometry'
 import { leafletPath, strokeFor, type PreviewStyle } from '@features/map-import/lib/osm-colors'
+// حدّ العيّنة — يُعرض به «و N فوق الحدّ» في تقرير المسقَط
+import { MAX_SKIP_SAMPLES } from '@features/map-import/lib/osm-stream'
 import { SPARSE_SEGMENT_M } from '@features/map-import/lib/geometry'
 
 /**
@@ -600,6 +602,60 @@ export default function OpsMapImportPage() {
                   preview.stats.sparse.pct === 0 && (
                     <div className="font-bold text-emerald-700">✔ لا تحذيرات — الأرقام متسقة مع المرجع</div>
                   )}
+                {/*
+                  ── المسقَط عند القراءة ──
+                  هذا **ليس** قسم «المستبعدات» أدناه. ذاك يعرض ما أسقطه القصّ
+                  والتصنيف **بعد** قراءة الشوط. أما هنا فما لم يُقرأ أصلاً:
+                  وسم `highway` خارج قائمة المرور (انظر ROUTE_HIGHWAY_TAGS).
+
+                  كان `waysSkippedNoHighway` عدّاداً لا يُعرض في الواجهة إطلاقاً
+                  ⇒ مشغّل يرى «٢٩٧ صفاً» ولا يعلم أن ٣٥ شوطاً في ملفه لم تُقرأ،
+                  ولا ما هي. اختفاء صامت يبدو نجاحاً — وهو أسوأ من تحذير.
+                */}
+                {phase.kind === 'preview' && phase.parse.waysSkippedNoHighway > 0 && (
+                  <details className="mt-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <summary className="cursor-pointer font-bold text-slate-700">
+                      أُسقط عند القراءة: {phase.parse.waysSkippedNoHighway} شوط — لم يُقرأ أصلاً
+                    </summary>
+                    <div className="mt-1.5 space-y-1 text-[10px] leading-relaxed">
+                      <p className="text-slate-600">
+                        وسم <code dir="ltr">highway</code> خارج قائمة المرور. هذه أشواط
+                        موجودة في ملف Overpass ولا تدخل المعاينة ولا القاعدة.
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {phase.parse.skippedByTag.map((t) => (
+                          <span
+                            key={t.highway ?? 'none'}
+                            className="rounded-md bg-white px-1.5 py-0.5 font-bold text-slate-700 ring-1 ring-slate-200"
+                          >
+                            <span dir="ltr">{t.highway ?? '(بلا highway)'}</span> · {t.ways}
+                          </span>
+                        ))}
+                      </div>
+                      {phase.parse.skippedSamples.length > 0 && (
+                        <div className="mt-1">
+                          <div className="font-bold text-slate-600">عيّنة:</div>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {phase.parse.skippedSamples.slice(0, 10).map((s) => (
+                              <li key={s.osmWayId} className="text-slate-600">
+                                <span dir="ltr" className="text-slate-400">#{s.osmWayId}</span>{' '}
+                                <span dir="ltr" className="font-bold">{s.highway ?? '—'}</span>
+                                {s.name ? <> — «{s.name}»</> : null}
+                              </li>
+                            ))}
+                          </ul>
+                          {phase.parse.skippedSamples.length > 10 && (
+                            <div className="mt-0.5 text-slate-500">
+                              … و{phase.parse.skippedSamples.length - 10} أخرى في العيّنة
+                              {phase.parse.skippedSamplesOverflow > 0 &&
+                                ` (و${phase.parse.skippedSamplesOverflow} فوق حدّ ${MAX_SKIP_SAMPLES})`}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
                 <div className="mt-1 text-[10px] text-slate-500">
                   {preview.mahallas.__UNASSIGNED__ ? 'المحلات المربوطة بحدود OSM مفتوحة — الربط بالاسم فقط' : ''}
                 </div>
