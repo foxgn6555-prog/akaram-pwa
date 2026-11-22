@@ -44,6 +44,37 @@ export interface ImportBatchResult {
   errors: { code: string; kind?: string; error: string }[]
 }
 
+/**
+ * شوط في القاعدة لا وجود له في الملف الجديد — «صف يتيم».
+ *
+ * ينشأ حين يُحذف الطريق من OSM (أو يُدمج، أو يُعاد رسمه بمعرّف جديد) ثم
+ * يُستورد الملف الجديد: `map_import_batch` تُدرج وتُحدّث لكنها **لا تحذف**،
+ * فيبقى الصف القديم يشير لشوط زال. أثره: كثافة مرتفعة كذباً وتغطية منخفضة
+ * كذباً وزيارات لشارع غير موجود.
+ *
+ * راجع `app.map_orphan_report` — والدالة **لا تحذف شيئاً**.
+ */
+export interface OrphanPlace {
+  place_kind: 'street' | 'alley'
+  code: string
+  name: string | null
+  osm_way_id: number
+  length_m: number | null
+}
+
+/** ردّ `app.map_orphan_purge` — ما حُذف فعلاً وما بقي محميّاً */
+export interface OrphanPurgeResult {
+  streets_deleted: number
+  alleys_deleted: number
+  visits_deleted: number
+  /**
+   * أشواط غائبة عن الملف لكنها **لم تُحذف**: صف يدوي بلا معرّف OSM، أو اسم
+   * صحّحه موظف (`name_source = 'manual'`)، أو صف أُنشئ بعد وقت الدفعة.
+   * نُبلّغ بالعدد بدل إخفائه — المشغّل يحتاج معرفة أن القاعدة ليست مطابقة للملف.
+   */
+  kept_protected: number
+}
+
 /** سطر في سجل الدفعات */
 export interface MapImportBatch {
   id: string
@@ -262,5 +293,56 @@ export const mapImportSdk = {
       .select()
       .maybeSingle()
     if (error) throw new SDKError(error.message, error.code ?? 'UNKNOWN', error)
+  },
+
+  /**
+   * الأشواط الموجودة في القاعدة والغائبة عن الملف — **قراءة فقط**.
+   *
+   * تُستدعى بعد الاستيراد بصفوف الملف نفسه (`ImportRow[]`)، فتقارن
+   * `osm_way_id` في القاعدة بما في الملف. لا تحذف شيئاً: تُظهر القائمة
+   * ليقرّر المشغّل. الصفوف اليدوية والصفوف المصحَّحة (`name_source='manual'`)
+   * مستبعدة من القائمة نفسها لأنها محميّة في الحذف أيضاً.
+   */
+  async orphanReport(zoneId: string, rows: ImportRow[]): Promise<OrphanPlace[]> {
+    const payload = {
+      p_zone: zoneId,
+      p_rows: rows.filter((r) => !r.excludeFromImport).map(toBatchRow),
+    }
+    const data = await sdkGuard<OrphanPlace[] | null>(
+      supabase.rpc('map_orphan_report', payload),
+    )
+    return data ?? []
+  },
+
+  /**
+   * حذف الأشواط اليتيمة — **بقرار صريح فقط**، بعد رؤية `orphanReport`.
+   *
+   * `batchId` ليس زينة: القاعدة تتحقق أن الدفعة لهذا الزون وتستعمل وقتها
+   * حاجزاً — فلا يُحذف صف أُنشئ بعد رفع الملف. مرّر معرّف الدفعة التي
+   * أدرجت الملف الجديد، لا معرّفاً عشوائياً.
+   *
+   * يُحذف أيضاً زيارات الصفوف المحذوفة (`map_visits.place_id` بلا FK، فلا
+   * تتابع تلقائية) — **للصفوف المحذوفة في هذه الدفعة وحدها**.
+   */
+  async orphanPurge(
+    zoneId: string,
+    batchId: string,
+    rows: ImportRow[],
+  ): Promise<OrphanPurgeResult> {
+    const payload = {
+      p_zone: zoneId,
+      p_batch: batchId,
+      p_rows: rows.filter((r) => !r.excludeFromImport).map(toBatchRow),
+    }
+    const data = await sdkGuard<Record<string, unknown> | null>(
+      supabase.rpc('map_orphan_purge', payload),
+    )
+    const r = data ?? {}
+    return {
+      streets_deleted: Number(r.streets_deleted ?? 0),
+      alleys_deleted: Number(r.alleys_deleted ?? 0),
+      visits_deleted: Number(r.visits_deleted ?? 0),
+      kept_protected: Number(r.kept_protected ?? 0),
+    }
   },
 }
