@@ -219,9 +219,16 @@ export const mapImportSdk = {
     batchId: string
     meta?: Record<string, unknown>
   }): Promise<ImportBatchResult> {
+    /*
+     * روابط الطرق (`*_link`) قد تكون في `rows` لأن المشغّل فعّل «إظهار الوصلات»
+     * للمقارنة البصرية. **لا تُرسل للقاعدة أبداً**: هي منحدرات لا شوارع،
+     * وإدراجها يضخّم الكثافة ويولّد زيارات وهمية — وهو سبب إسقاطها الأصلي.
+     * الفلترة هنا لا في الواجهة كي لا تُنسى عند أي مسار إدراج جديد.
+     */
+    const importable = input.rows.filter((r) => !r.excludeFromImport)
     const payload = {
       p_zone: input.zoneId,
-      p_rows: input.rows.map(toBatchRow),
+      p_rows: importable.map(toBatchRow),
       p_mahallas: input.mahallas ?? [],
       p_batch: input.batchId,
       p_meta: input.meta ?? {},

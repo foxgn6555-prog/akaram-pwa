@@ -51,12 +51,46 @@ const KIND_OF: Record<Exclude<ClassCode, 'ALY'>, StreetKind> = {
  */
 const NON_STREET_WORDS = ['ساحة', 'مجسر', 'جسر', 'نفق'] as const
 
+/**
+ * روابط الطرق — `primary_link` وأخواتها.
+ *
+ * **ماذا تكون فعلياً:** منحدرات ومنعطفات توصّل طريقاً سريعاً بطريق آخر. ليست
+ * شوارع مستقلة لها اسم ومحلة، لذلك تُسقط من الاستيراد عمداً منذ الجولة ٩
+ * (تصنيفها كشارع يضخّم الكثافة ويولّد زيارات وهمية).
+ *
+ * **لكن Overpass يرسمها** بلون الطريق الذي تخدمه. فإسقاطها يجعل خريطتنا تبدو
+ * أقل كثافة عند التقاطعات الكبرى — وهو جزء من «الشكل لا يطابق».
+ *
+ * الحلّ: `includeLinks` خيار **عرض فقط**. عند تفعيله تُقرأ وتُرسم بألوانها،
+ * لكنها لا تدخل `map_streets` ولا تُحسب في الكثافة ولا في الزيارات. الفصل
+ * بين «ما يُعرض» و«ما يُستورد» مقصود: المشغّل يتحقق بصرياً بلا تلويث البيانات.
+ */
+export const LINK_HIGHWAY_TAGS: readonly string[] = [
+  'motorway_link',
+  'trunk_link',
+  'primary_link',
+  'secondary_link',
+  'tertiary_link',
+]
+
 /** وسوم `highway` المقبولة كبداية — تُستخدم لتصفية القراءة من الملف */
 export const ROUTE_HIGHWAY_TAGS: readonly string[] = [
   ...Object.keys(CLASS_LETTER),
   ...LOCAL_HIGHWAY,
   ...ALLEY_HIGHWAY,
+  ...LINK_HIGHWAY_TAGS,
 ]
+
+/** روابط الطرق كما تُقرأ عند طلب `includeLinks` */
+const LINK_SET = new Set(LINK_HIGHWAY_TAGS)
+
+export interface ClassifyOptions {
+  /**
+   * إظهار روابط الطرق (`*_link`) للعرض وحده — لا تُدرج في القاعدة.
+   * الافتراضي `false`: نفس السلوك السابق بالحرف.
+   */
+  includeLinks?: boolean
+}
 
 /**
  * هل الاسم بصيغة «رقم محلة-رقم زقاق»؟ (905-16)
@@ -95,9 +129,25 @@ export interface ClassifyInput {
  * يُرجع البادئة (STR/SEC/TRC/LOC/ALY) أو null لما لا نريده.
  * يقابل `classify` في السكربت المرجعي حرفياً.
  */
-export function classify(way: ClassifyInput): ClassCode | null {
+export function classify(way: ClassifyInput, opts?: ClassifyOptions): ClassCode | null {
   const hw = way.highway
   if (!hw) return null
+
+  /*
+   * روابط الطرق: تُسقط افتراضياً — سلوك الجولة ٩ بالحرف، لا تلويث للكثافة.
+   *
+   * عند `includeLinks` تُمنح فئة الطريق الذي تخدمه (primary_link ⇒ STR).
+   * لماذا لا فئة خاصة: `kind` مشتقّ من `cls` ولا يوجد «نوع رابط» في نموذج
+   * البيانات. والفئة الموروثة تجعل `kind` معقولاً لو رآه أحد، بينما **لون
+   * العرض يأتي من `osmHighway`** لا من هنا. الاستثناء من الإدراج والإحصاء
+   * يتمّ بـ`excludeFromImport`، لا بهذه الفئة.
+   */
+  if (LINK_SET.has(hw)) {
+    if (!opts?.includeLinks) return null
+    const base = hw.replace(/_link$/, '')
+    const letter = CLASS_LETTER[base]
+    return letter ?? 'LOC'
+  }
 
   const direct = CLASS_LETTER[hw]
   if (direct) {
