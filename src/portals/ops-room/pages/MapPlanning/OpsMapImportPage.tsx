@@ -15,6 +15,7 @@ import 'leaflet/dist/leaflet.css'
 import { ClipboardCheck, FileUp, Layers, MapPin, Play, RotateCcw, TriangleAlert, X } from 'lucide-react'
 import { ExecPageHeader, HeaderButton } from '@components/executive/ExecPageHeader'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
+import { MAP_MAX_ZOOM, zoneBorderColor } from '@features/map-theme/map-theme'
 import { useMapTheme } from '@features/map-theme/useMapTheme'
 import { useMapImport } from '@features/map-import/hooks/useMapImport'
 import { useMapZones } from '@features/map-planning/hooks/useMapPlanning'
@@ -720,10 +721,23 @@ export default function OpsMapImportPage() {
                   </div>
                 </div>
               </div>
+              {/*
+                ── النص كان مضلّلاً في الوضع الليلي ──
+                «نفس ما تراه في overpass-turbo» صحيحة **بالنهاري فقط**: هناك
+                بلاط OSM فاتح وألوان osm-carto تنطبق عليه بالحرف. أما بالليلي
+                فالبلاط Esri داكن و`strokeFor` يقلب الإضاءة (أبيض ⇒ رمادي
+                فاتح، وردي ⇒ وردي مشبع) — فالمقارنة البصرية مع overpass-turbo
+                **غير صالحة**. نقولها صراحةً بدل ترك المشغّل يقارن ويشكّ.
+
+                وكذلك «الحدّ الأزرق»: صار سماوياً بالليلي ليكون مرئياً
+                (`zoneBorderColor`)، فوصفه بالأزرق كان سيصير كذباً.
+              */}
               <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] leading-relaxed text-slate-500">
-                الحدّ الأزرق المتقطّع ·{' '}
+                الحدّ {theme === 'dark' ? 'السماوي' : 'الأزرق'} المتقطّع ·{' '}
                 {previewStyle === 'overpass'
-                  ? 'ألوان OSM القياسية — نفس ما تراه في overpass-turbo.eu'
+                  ? theme === 'light'
+                    ? 'ألوان OSM القياسية — نفس ما تراه في overpass-turbo.eu'
+                    : 'ألوان OSM معكوسة الإضاءة لتبقى مرئية — للمقارنة، لكن لا تطابق overpass-turbo (قارِن بالوضع النهاري)'
                   : 'ألوان المنصة (الشوارع حمراء/برتقالية والأزقة بنفسجية)'}
                 {osmMatched.total > 0 && osmMatched.matched < osmMatched.total && (
                   <>
@@ -740,13 +754,16 @@ export default function OpsMapImportPage() {
                     bounds={mapPoints as [number, number][]}
                     boundsOptions={{ padding: [16, 16] }}
                     className="h-full w-full"
+                    /* Leaflet الافتراضي ١٨ — فلا يبلغ النهاري ١٩ أصلاً، بينما
+                     * LIGHT_TILES.maxZoom يقول ١٩. رقم صريح واحد يمنع الانحراف. */
+                    maxZoom={MAP_MAX_ZOOM}
                     scrollWheelZoom
                   >
                     <MapTiles theme={theme} />
                     {polygon.length >= 3 && (
                       <Polygon
                         positions={polygon as [number, number][]}
-                        pathOptions={{ color: '#0b3d6b', weight: 2, fill: false, dashArray: '4 3' }}
+                        pathOptions={{ color: zoneBorderColor(theme), weight: 2, fill: false, dashArray: '4 3' }}
                       />
                     )}
                     {/*

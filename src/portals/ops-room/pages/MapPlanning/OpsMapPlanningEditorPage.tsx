@@ -18,6 +18,7 @@ import 'leaflet/dist/leaflet.css'
 import { Filter, Link2, Pencil, Route, TriangleAlert } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
+import { MAP_MAX_ZOOM, zoneBorderColor } from '@features/map-theme/map-theme'
 import { useMapTheme } from '@features/map-theme/useMapTheme'
 import {
   KIND_LABEL_AR,
@@ -279,6 +280,8 @@ export default function MapPlanningEditorPage() {
                 center={[33.30, 44.42]}
                 zoom={13}
                 style={{ height: '520px' }}
+                /* نفس سقف الاستيراد — Leaflet الافتراضي ١٨ وليس ١٩ */
+                maxZoom={MAP_MAX_ZOOM}
                 scrollWheelZoom
               >
                 <MapTiles theme={theme} />
@@ -318,7 +321,7 @@ export default function MapPlanningEditorPage() {
                   <>
                     <Polyline
                       positions={editor.draft.pts as [number, number][]}
-                      pathOptions={{ color: '#0b3d6b', weight: 6, opacity: 0.95 }}
+                      pathOptions={{ color: zoneBorderColor(theme), weight: 6, opacity: 0.95 }}
                     />
                     {editor.draft.pts.map((pt, i) => (
                       <Marker

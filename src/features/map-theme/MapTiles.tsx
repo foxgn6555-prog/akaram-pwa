@@ -37,7 +37,13 @@ export default function MapTiles({ theme, onFailed, onProvider, preferOsmDark = 
     if (theme === 'dark' && darkIdx < darkProviders.length - 1) setDarkIdx((i) => i + 1)
     else onFailed?.(true)
   }
-  return <TileLayer key={tiles.id} attribution={tiles.attribution} url={tiles.url} maxZoom={tiles.maxZoom} maxNativeZoom={tiles.maxZoom} eventHandlers={{ tileerror: onTileError, tileload: () => onFailed?.(false) }} />
+  /*
+   * `maxNativeZoom` من المزوّد لا من `maxZoom`: كانا متساويين، فـEsri
+   * (16) كانت تُوقف التكبير عند ١٦ بينما النهاري يذهب إلى ١٩. الآن
+   * `maxZoom` سقفٌ واحد للوضعين، و`maxNativeZoom` يقول من أي مستوى
+   * تبدأ الصورة في التحسّب — فيُكبّر Leaflet بدل أن يمنع.
+   */
+  return <TileLayer key={tiles.id} attribution={tiles.attribution} url={tiles.url} maxZoom={tiles.maxZoom} maxNativeZoom={tiles.maxNativeZoom} eventHandlers={{ tileerror: onTileError, tileload: () => onFailed?.(false) }} />
 }
 
 export function MapThemeToggle({ theme, onToggle, testId = 'map-theme-toggle' }: { theme: MapTheme; onToggle: () => void; testId?: string }) {
