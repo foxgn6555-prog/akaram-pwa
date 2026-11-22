@@ -19,6 +19,13 @@ const OpsLeaves = lazy(() => import('./pages/Leaves/OpsLeavesPage'))   // 00239:
 const OpsLiveTracking = lazy(() => import('./pages/LiveTracking/OpsLiveTrackingPage'))   // 00287: البث المباشر
 const OpsLiveData = lazy(() => import('./pages/LiveTracking/OpsLiveDataPage'))   // 00288: بيانات البث المباشر
 const OpsWasteMap = lazy(() => import('./pages/WasteMap/OpsWasteMapPage'))   // 00384: خريطة النفايات (بقع التوقف)
+// 20261122000600: التخطيط الجغرافي — محرّر وجدول
+const MapPlanningEditor = lazy(() => import('./pages/MapPlanning/OpsMapPlanningEditorPage'))
+const MapPlanningTable = lazy(() => import('./pages/MapPlanning/OpsMapPlanningTablePage'))
+const MapVisits = lazy(() => import('./pages/MapPlanning/OpsMapVisitsPage'))
+const MapCoverage = lazy(() => import('./pages/MapPlanning/OpsMapCoveragePage'))
+const MapVehicleVisits = lazy(() => import('./pages/MapPlanning/OpsMapVehicleVisitsPage'))
+const MapImport = lazy(() => import('./pages/MapPlanning/OpsMapImportPage'))   // الجولة ①: استيراد OSM
 const OpsStationFleet = lazy(() => import('./pages/StationFleet/OpsStationFleetPage'))   // 00329: أسطول المحطة التحويلية
 const OpsStationOutbound = lazy(() => import('./pages/StationFleet/OpsStationOutboundPage'))   // 00331: متابعة خروج آليات المحطة
 const FleetDatabase = lazy(() =>
@@ -62,4 +69,10 @@ export const customRoutes: RouteObject[] = [
   { path: 'live-tracking', element: load(<OpsLiveTracking />) },
   { path: 'live-tracking/data', element: load(<OpsLiveData />) },
   { path: 'waste-map', element: load(<OpsWasteMap />) },
+  { path: 'map-planning', element: load(<MapPlanningEditor />) },
+  { path: 'map-planning/table', element: load(<MapPlanningTable />) },
+  { path: 'map-planning/visits', element: load(<MapVisits />) },
+  { path: 'map-planning/coverage', element: load(<MapCoverage />) },
+  { path: 'map-planning/vehicle-visits', element: load(<MapVehicleVisits />) },
+  { path: 'map-planning/import', element: load(<MapImport />) },
 ]

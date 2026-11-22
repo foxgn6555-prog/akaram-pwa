@@ -489,6 +489,7 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
     { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
+    { path: '/ops-room/map-planning/import', labelKey: 'nav.map_import', icon: 'upload' },   // الجولة ①: استيراد الخريطة
     { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 

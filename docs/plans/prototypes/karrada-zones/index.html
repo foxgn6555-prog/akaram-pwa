@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>نموذج أولي · الكرادة من OpenStreetMap — هل الدقة كافية؟</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#cbd5e1;--brand:#005F8D;--gold:#F5B400}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:"Segoe UI","Noto Kufi Arabic",Tahoma,sans-serif;color:var(--ink);background:#eef2f7}
+  #app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  header{background:#0B4261;color:#fff;padding:9px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:14px;margin:0;font-weight:800}
+  header .tag{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:2px 9px;font-size:10.5px}
+  header .tag.warn{background:#7c2d12;border-color:#fdba74}
+  main{display:grid;grid-template-columns:320px 1fr;min-height:0}
+  @media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:minmax(240px,38vh) 1fr}}
+  aside{background:#fff;border-inline-start:1px solid var(--line);overflow:auto;padding:12px}
+  #map{width:100%;height:100%;background:#dfe7ef}
+  .sec{margin-bottom:12px}
+  .sec h2{font-size:12px;margin:0 0 6px;color:var(--brand)}
+  .sec p{font-size:11px;line-height:1.65;color:var(--muted);margin:0 0 8px}
+  button{font:inherit;font-size:11.5px;border-radius:10px;border:1px solid var(--line);background:#fff;padding:6px 9px;cursor:pointer}
+  button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  button.ghost{background:#f1f5f9}
+  button[disabled]{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .legend{display:grid;gap:3px;font-size:10.5px}
+  .legend i{display:inline-block;width:20px;height:2px;vertical-align:middle;margin-inline-end:6px;border-radius:2px}
+  .stat{display:grid;grid-template-columns:1fr auto;gap:3px 8px;font-size:11px;padding:8px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}
+  .stat b{font-variant-numeric:tabular-nums}
+  .note{font-size:10.5px;line-height:1.65;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:8px;color:#7c2d12}
+  .note.blue{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+  .badge{font-size:9.5px;padding:1px 6px;border-radius:999px;border:1px solid}
+  .b-ok{color:#166534;border-color:#86efac;background:#dcfce7}
+  .b-warn{color:#92400e;border-color:#fcd34d;background:#fef3c7}
+  .b-bad{color:#991b1b;border-color:#fca5a5;background:#fee2e2}
+  .pop{font-size:11.5px;line-height:1.65;direction:rtl;text-align:right}
+  .pop b{color:var(--brand)}
+  .pop code{background:#f1f5f9;border-radius:4px;padding:0 4px;font-size:10px}
+  #status{font-size:10.5px;margin-top:6px;min-height:32px;line-height:1.5}
+  .ok{color:#166534}.bad{color:#991b1b}.busy{color:#92400e}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>الكرادة الحقيقية من OpenStreetMap — للحكم على الدقة</h1>
+    <span class="tag" id="mode-tag">شوارع حقيقية</span>
+    <span class="tag warn">لا يُحفظ شيء في قاعدة البيانات</span>
+  </header>
+  <main>
+    <aside>
+      <div class="sec">
+        <h2>١) الشوارع والأزقة الحقيقية</h2>
+        <p>تُسحب من OpenStreetMap مباشرةً لمربّع الشاشة الحالي — لا تقدير ولا رسم يدوي.</p>
+        <div class="row">
+          <button id="load" class="on">تحميل من OSM للعرض الحالي</button>
+          <button id="auto" class="ghost">تحديث تلقائي</button>
+        </div>
+        <div id="status">ضع المؤشر على الكرادة ثم اضغط «تحميل».</div>
+      </div>
+
+      <div class="sec">
+        <h2>إحصاء هذه المنطقة</h2>
+        <div class="stat">
+          <span>شوارع رئيسية</span><b id="s-main">—</b>
+          <span>شوارع فرعية/سكنية</span><b id="s-res">—</b>
+          <span>أزقة وممرات (service/path)</span><b id="s-alley">—</b>
+          <span>عناصر بعرض مُعلن &lt; 6 م</span><b id="s-narrow">—</b>
+          <span>عناصر بعرض مُعلن &lt; 4 م</span><b id="s-narrow4">—</b>
+          <span>بدون وسم عرض</span><b id="s-nowidth">—</b>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>٢) ما سيبدو عليه التخطيط</h2>
+        <p>طبقة توضيحية **اصطناعية** تُظهر الفرق بين «مسار الشارع» و«حرم الشارع» و«المحلة».</p>
+        <div class="row">
+          <button id="demo" class="ghost">إظهار النموذج التوضيحي</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>الدقة: الحقيقة العددية</h2>
+        <div class="stat">
+          <span>وسيط خطوة آلية GPS (بياناتك)</span><b>167 م</b>
+          <span>المئين 90 لخطوة الحركة</span><b>618 م</b>
+          <span>الفاصل الزمني الوسيط</span><b>60 ث</b>
+          <span>عرض الأزقة النموذجي</span><b>3–6 م</b>
+        </div>
+        <div class="note" style="margin-top:8px">
+          عندما تكون خطوة الآلية 167 م والزقاق عرضه 4 م ⇒ <b>لا يمكن الجزم بالدخول من نقطة واحدة</b>.
+          هذا سبب اعتماد التصنيف الثلاثي (مؤكد / غير مؤكد / بلا قراءة).
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>المفتاح</h2>
+        <div class="legend">
+          <span><i style="background:#005F8D;height:4px"></i>رئيسي / سريع</span>
+          <span><i style="background:#0ea5e9;height:3px"></i>سكني / غير مصنّف</span>
+          <span><i style="background:#1d4ed8;height:2px"></i>خدمي / ممر / مشاة (زقاق)</span>
+          <span><i style="background:#b45309;height:2px;border-top:2px dashed #b45309"></i>عرضه &lt; 4 م (حدّي للدقة)</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="note blue">
+          <b>ملاحظة تقنية صريحة:</b> هذا النموذج يعمل في <b>متصفحك</b> ويستعلم من Overpass API علناً؛
+          لم أستطع جلب بيانات OSM داخل بيئتي لأن نطاقاتها غير مسموحة عندي. إن رفض المتصفح الطلب
+          (شبكة/حجب) ستظهر الرسالة الحمراء أدناه — وهي بذاتها معلومة مفيدة لنا.
+        </div>
+      </div>
+    </aside>
+    <div id="map"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const KARRADA = [33.3152, 44.3950];
+const map = L.map('map', { zoomControl:true, preferCanvas:true }).setView(KARRADA, 18);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 20, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const osmLayer = L.layerGroup().addTo(map);
+const demoLayer = L.layerGroup();
+let demoOn = false, auto = false, inflight = false;
+
+const COLORS = {
+  main:  '#005F8D',   // motorway/trunk/primary/secondary
+  res:   '#0ea5e9',   // tertiary/residential/unclassified
+  alley: '#1d4ed8',   // service/living_street/footway/path/track/pedestrian
+  narrow:'#b45309',
+};
+const CLASS_AR = {
+  motorway:'سريع', trunk:'سريع', primary:'رئيسي', secondary:'رئيسي',
+  tertiary:'ثالثي', residential:'سكني', unclassified:'غير مصنّف', service:'خدمي (زقاق)',
+  living_street:'ممر سكني', footway:'مشاة', path:'ممر', track:'درب', pedestrian:'مشاة',
+  tertiary_link:'ثالثي', primary_link:'رئيسي', secondary_link:'رئيسي', construction:'قيد الإنشاء', road:'غير معروف'
+};
+const parseWidth = (w) => {
+  if (!w) return null;
+  const m = String(w).match(/([0-9]+(?:\.[0-9]+)?)/);
+  if (!m) return null;
+  let v = Number(m[1]);
+  if (/ft|'/.test(String(w))) v = v * 0.3048;
+  return Number.isFinite(v) ? v : null;
+};
+const cls = (h) => h==='motorway'||h==='trunk'||h==='primary'||h==='secondary'||h.endsWith('_link')&&h!=='tertiary_link' ? 'main'
+  : h==='tertiary'||h==='residential'||h==='unclassified' ? 'res'
+  : 'alley';
+
+const status = document.getElementById('status');
+const setStatus = (msg, kind='') => { status.className = kind; status.innerHTML = msg; };
+const stat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+async function loadFromOSM(){
+  if (inflight) return;
+  inflight = true;
+  const b = map.getBounds();
+  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(v=>v.toFixed(5)).join(',');
+  const q = `[out:json][timeout:25];way["highway"](${bbox});out tags geom;`;
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  ];
+  setStatus('جارٍ سحب الشوارع من OpenStreetMap…', 'busy');
+  let data = null, lastErr = '';
+  for (const url of endpoints){
+    try{
+      const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'data=' + encodeURIComponent(q) });
+      if (!res.ok) { lastErr = `${url} → HTTP ${res.status}`; continue; }
+      data = await res.json();
+      lastErr = '';
+      break;
+    }catch(e){ lastErr = `${url} → ${e && e.message ? e.message : 'فشل شبكة'}`; }
+  }
+  inflight = false;
+  if (!data){ setStatus('✖ تعذّر السحب: ' + lastErr + '<br>قد تكون الشبكة تحجب Overpass — أخبرني لأتّبع مساراً آخر.', 'bad'); return; }
+  drawOSM(data);
+}
+
+function drawOSM(json){
+  osmLayer.clearLayers();
+  const ways = (json.elements || []).filter(e => e.type === 'way' && Array.isArray(e.geometry) && e.geometry.length > 1);
+  const counts = { main:0, res:0, alley:0, narrow:0, narrow4:0, nowidth:0 };
+  for (const w of ways){
+    const hw = (w.tags && w.tags.highway) || 'road';
+    const kind = cls(hw);
+    const width = parseWidth(w.tags && (w.tags.width || w.tags['width:carriageway']));
+    counts[kind]++;
+    if (width == null) counts.nowidth++;
+    else { if (width < 6) counts.narrow++; if (width < 4) counts.narrow4++; }
+    const thin = width != null && width < 4;
+    const color = thin ? COLORS.narrow : COLORS[kind];
+    const weight = kind==='main' ? 5 : kind==='res' ? 3 : 2;
+    const latlngs = w.geometry.map(g => [g.lat, g.lon]);
+    const line = L.polyline(latlngs, {
+      color, weight, opacity: .95,
+      dashArray: thin ? '5 4' : null
+    }).addTo(osmLayer);
+    const name = (w.tags && (w.tags['name:ar'] || w.tags.name)) || 'بلا اسم';
+    line.bindPopup(
+      `<div class="pop"><b>${name}</b><br>` +
+      `التصنيف: ${CLASS_AR[hw] || hw} · <code>${hw}</code><br>` +
+      `العرض المُعلن: ${width != null ? width.toFixed(1)+' م' : 'غير موسوم'}<br>` +
+      (thin ? '<span class="badge b-bad">أضيق من هامش خطأ GPS</span>' : (width!=null && width<6 ? '<span class="badge b-warn">حدّي</span>' : '')) +
+      `<br><code>OSM way ${w.id}</code></div>`
+    );
+  }
+  stat('s-main', counts.main);
+  stat('s-res', counts.res);
+  stat('s-alley', counts.alley);
+  stat('s-narrow', counts.narrow);
+  stat('s-narrow4', counts.narrow4);
+  stat('s-nowidth', counts.nowidth);
+  setStatus(`✔ ${ways.length} عنصر طريق — سُحبت من OpenStreetMap للعرض الحالي. انقر أي خط لتفاصيله.`, 'ok');
+}
+
+/* ── النموذج التوضيحي (اصطناعي بالكامل — لا علاقة له ببيانات OSM) ── */
+function buildDemo(){
+  demoLayer.clearLayers();
+  const buf = (pts, halfM) => {
+    const dLat = halfM/111320, dLng = halfM/(111320*Math.cos(33.315*Math.PI/180));
+    const out = [];
+    for (const p of pts) out.push([p[0]+dLat, p[1]+dLng]);
+    for (let i=pts.length-1;i>=0;i--) out.push([pts[i][0]-dLat, pts[i][1]-dLng]);
+    return out;
+  };
+  const streetPts = [[33.3130,44.3860],[33.3138,44.3900],[33.3146,44.3940],[33.3155,44.3985],[33.3164,44.4030],[33.3170,44.4075]];
+  L.polygon(buf(streetPts, 9), { color:'#005F8D', weight:0, fillOpacity:.10 }).addTo(demoLayer);
+  L.polyline(streetPts, { color:'#005F8D', weight:6 }).addTo(demoLayer).bindPopup('<div class="pop"><b>STR-0001</b> · شارع رئيسي<br>حرم = 18 م (نصف العرض 9 م)</div>');
+
+  const al = [[33.3150,44.3926],[33.3150,44.3970]];
+  L.polygon(buf(al, 2), { color:'#1d4ed8', weight:0, fillOpacity:.16 }).addTo(demoLayer);
+  L.polyline(al, { color:'#1d4ed8', weight:3 }).addTo(demoLayer).bindPopup('<div class="pop"><b>ALY-0002</b> · زقاق 4 م<br><span class="badge b-bad">العرض 4 م ≈ هامش GPS</span></div>');
+
+  L.polygon([[33.3150,44.3926],[33.3150,44.3970],[33.3159,44.3970],[33.3159,44.3926]],
+            { color:'#6d28d9', weight:2, dashArray:'6 5', fillOpacity:.10 }).addTo(demoLayer)
+   .bindPopup('<div class="pop"><b>MHL-0002</b> · وحدة ميدانية (محلة)</div>');
+
+  const pts = [[33.31502,44.39390,6,false],[33.31500,44.39410,5,false],[33.31499,44.39430,7,false],[33.31525,44.39445,20,true]];
+  pts.forEach(([lat,lng,acc,unsure]) => {
+    const color = unsure ? '#d97706' : '#16a34a';
+    L.circleMarker([lat,lng], { radius:5, color:'#fff', weight:2, fillColor:color, fillOpacity:1 }).addTo(demoLayer)
+      .bindPopup(`<div class="pop">نقطة توضيحية<br>هامش: ${acc} م<br><span class="badge ${unsure?'b-warn':'b-ok'}">${unsure?'غير مؤكدة':'مؤكدة'}</span></div>`);
+    L.circle([lat,lng], { radius:acc, color, weight:1, fillOpacity:.10 }).addTo(demoLayer);
+  });
+  return 3;
+}
+
+document.getElementById('load').onclick = loadFromOSM;
+document.getElementById('auto').onclick = (e) => {
+  auto = !auto;
+  e.currentTarget.classList.toggle('on', auto);
+  e.currentTarget.classList.toggle('ghost', !auto);
+  if (auto) setStatus('التحديث التلقائي مفعّل — كل تحريك للخريطة يعيد السحب.', 'busy');
+  else setStatus('التحديث التلقائي متوقف.', '');
+};
+document.getElementById('demo').onclick = (e) => {
+  demoOn = !demoOn;
+  if (demoOn) { buildDemo(); map.addLayer(demoLayer); }
+  else map.removeLayer(demoLayer);
+  e.currentTarget.classList.toggle('on', demoOn);
+  e.currentTarget.classList.toggle('ghost', !demoOn);
+  document.getElementById('mode-tag').textContent = demoOn ? 'شوارع حقيقية + نموذج توضيحي' : 'شوارع حقيقية';
+};
+
+let timer = null;
+map.on('moveend', () => {
+  if (!auto) return;
+  clearTimeout(timer);
+  timer = setTimeout(loadFromOSM, 700);
+});
+
+// تحميل أولي تلقائي عند الفتح (مرة واحدة)
+setTimeout(loadFromOSM, 400);
+</script>
+</body>
+</html>

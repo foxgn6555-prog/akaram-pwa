@@ -1,0 +1,64 @@
+{
+  "source": "OpenStreetMap (overpass export) — export.osm في جذر المستودع",
+  "crs": "WGS84",
+  "note": "مضلّعات الزونات الثمانية من gps_geofences — ٧٣٩ نقطة (الجولة ②: أُضيفت الأربعة الناقصة)",
+  "zones": [
+    {
+      "key": "ark",
+      "name": "أرخيته",
+      "gps_geofence": "d88545a5-a0a0-4d00-90dd-fb4529ddcbdf",
+      "sector_id": 1,
+      "points": 120
+    },
+    {
+      "key": "rth",
+      "name": "الرياض",
+      "gps_geofence": "62331dac-b02f-4d4c-880e-5d3f5968d2d8",
+      "sector_id": 2,
+      "points": 44
+    },
+    {
+      "key": "wth",
+      "name": "الواثق",
+      "gps_geofence": "9da4aac8-7175-4a22-a537-e9c05904983a",
+      "sector_id": 3,
+      "points": 47
+    },
+    {
+      "key": "jad",
+      "name": "الجادرية",
+      "gps_geofence": "6db29fae-1ffd-44ab-b018-59ece4f83cc5",
+      "sector_id": 4,
+      "points": 66
+    },
+    {
+      "key": "snd",
+      "name": "السندباد",
+      "gps_geofence": null,
+      "sector_id": 5,
+      "points": 186
+    },
+    {
+      "key": "zaf",
+      "name": "الزعفرانية",
+      "gps_geofence": null,
+      "sector_id": 6,
+      "points": 70
+    },
+    {
+      "key": "dya",
+      "name": "ديالى",
+      "gps_geofence": null,
+      "sector_id": 7,
+      "points": 81
+    },
+    {
+      "key": "wal",
+      "name": "الوليد",
+      "gps_geofence": null,
+      "sector_id": 8,
+      "points": 125
+    }
+  ],
+  "total_points": 739
+}

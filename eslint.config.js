@@ -7,7 +7,11 @@ import prettier from 'eslint-config-prettier'
 export default tseslint.config(
   // ملاحظة: ملفات probe*/dbg-* في الجذر سكربتات تشخيص يدوية قديمة (متتبّعة في Git) وليست من شيفرة التطبيق؛
   // تُستثنى من بوابة lint حتى لا تحجب فحص src/tests/scripts. لا تُستثنى أي ملفات داخل src.
-  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'preview', 'src/types/database.types.ts', 'public/flowbridge/**', 'probe*.mjs', 'dbg-*.mjs'] },
+  //
+  // docs/plans/prototypes/**: نماذج أولية توضيحية (HTML/JS خام بلا وحدات ولا types) أُنتجت
+  // لأغراض العرض في تخطيط الزونات وأُرشفت مع الخطة. ليست جزءاً من حزمة Vite (خارج src وpublic)
+  // ولا تُبنى ولا تُنشر. كانت تكسر بوابة `lint` على port-00134 بـ44 خطأ. لا تُستثنى أي ملفات داخل src.
+  { ignores: ['dist', 'node_modules', 'coverage', 'playwright-report', 'test-results', 'preview', 'src/types/database.types.ts', 'public/flowbridge/**', 'docs/plans/prototypes/**', 'probe*.mjs', 'dbg-*.mjs'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
