@@ -111,10 +111,29 @@ export function chunk<T>(rows: T[], size = DEFAULT_BATCH_SIZE): T[][] {
 
 // ── SDK ────────────────────────────────────────────────────────────────────
 export const mapImportSdk = {
-  /** سكربت Overpass الجاهز للزون (يُنسخ ويُشغَّل على overpass-turbo.eu) */
+  /**
+   * سكربت Overpass الجاهز للزون (يُنسخ ويُشغَّل على overpass-turbo.eu).
+   *
+   * `map_osm_script_v2` (المرحلة ① من مطابقة الشكل): maxsize 2ج.ب بدل 1،
+   * و`out meta` بدل `out body`. الأثر المقصود: أقل اقتطاعاً من Overpass.
+   * التراجع تلقائي إلى الدالة القديمة إن لم تُطبَّق المهاجرة بعد — لا نُعطّل
+   * الصفحة على قاعدة لم تُحدَّث.
+   */
   async zoneScript(zoneId: string): Promise<ZoneOsmScript> {
+    let script: string
+    try {
+      script = await sdkGuard<string>(supabase.rpc('map_osm_script_v2', { p_zone: zoneId }))
+    } catch {
+      // المهاجرة لم تُطبَّق على هذه القاعدة — نستعمل القديمة بدل الفشل
+      script = await sdkGuard<string>(supabase.rpc('map_osm_script', { p_zone: zoneId }))
+    }
+    return { script: String(script ?? '') }
+  },
+
+  /** سكربت ربع محدّد من الزون (1..4) — الحلّ الجذري لاقتطاع Overpass */
+  async zoneScriptQuarter(zoneId: string, quarter: 1 | 2 | 3 | 4): Promise<ZoneOsmScript> {
     const script = await sdkGuard<string>(
-      supabase.rpc('map_osm_script', { p_zone: zoneId }),
+      supabase.rpc('map_osm_script_quarter', { p_zone: zoneId, p_quarter: quarter }),
     )
     return { script: String(script ?? '') }
   },
