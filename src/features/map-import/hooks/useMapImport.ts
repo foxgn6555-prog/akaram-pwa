@@ -52,7 +52,11 @@ export function useMapImport() {
    * @param zonePolygon مضلّع الزون [lat,lng] من `app.map_zone_polygon`
    */
   const analyze = useCallback(
-    async (file: File, zonePolygon: LatLng[]): Promise<ImportPreview | null> => {
+    async (
+      file: File,
+      zonePolygon: LatLng[],
+      opts?: { includeLinks?: boolean },
+    ): Promise<ImportPreview | null> => {
       cancel()
       const ac = new AbortController()
       abortRef.current = ac
@@ -88,6 +92,8 @@ export function useMapImport() {
           ways,
           lookupNode: (ref) => nodes.get(ref),
           zonePolygon,
+          // روابط الطرق: عرض فقط، لا تُستورد (تُفلتر في sendBatch)
+          opts: { includeLinks: opts?.includeLinks },
         })
         nodes.clear()
         ways.length = 0

@@ -49,6 +49,23 @@ export interface ImportRow {
   osmWayId: number
   mahallaNum?: string | null
   linkSource?: 'osm_name' | 'manual'
+  /**
+   * وسم `highway` الأصلي كما في OSM — **لا للتصنيف بل للعرض**.
+   *
+   * التصنيف عندنا خمسة أنواع (STR/SEC/TRC/LOC/ALY) وهذا صحيح عملياً: المشغّل
+   * يريد شوارع وأزقة لا ٢٠ نوعاً. لكن **Overpass يلوّن بالوسم الأصلي**:
+   * `service` أبيض رفيع · `footway` وردي متقطّع · `residential` أبيض.
+   * فبلا هذا الحقل تُرسم كل الأزقة بلون واحد بينما Overpass يفرّقها ⇒
+   * خريطتان مختلفتان رغم تطابق المسارات (docs/plans/map-import-shape-mismatch-diagnosis.md).
+   *
+   * اختياري: الصفوف القديمة في القاعدة لا تحمله، والواجهة تتراجع إلى `kind`.
+   */
+  osmHighway?: string
+  /**
+   * `true` لروابط الطرق عند تفعيل `includeLinks`: تُرسم للمقارنة البصرية
+   * **ولا تُدرَج** في القاعدة ولا تُحسب في الكثافة ولا في الزيارات.
+   */
+  excludeFromImport?: boolean
 }
 
 export interface ImportMahalla {
@@ -97,6 +114,14 @@ export interface AssembleOptions {
    * ويوقف الملفات الشاذّة برسالة مفهومة بدل انهيار صامت.
    */
   maxRouteWays?: number
+  /**
+   * إظهار روابط الطرق (`*_link`) — **عرض فقط**.
+   *
+   * الافتراضي `false` = السلوك السابق بالحرف (تُسقط). عند `true` تُقرأ وتُرسم
+   * بألوانها كي تُقارن بـOverpass، لكن `assembleImport` يضع عليها
+   * `excludeFromImport: true` فلا تدخل القاعدة ولا الإحصاءات.
+   */
+  includeLinks?: boolean
 }
 
 /** السقف الافتراضي — مُقتبس من القياس أعلاه لا من التخمين */
@@ -145,7 +170,10 @@ export function assembleImport(params: {
     processed++
     if (processed % 200 === 0) opts?.onProgress?.(processed)
 
-    const cls = classify({ highway: way.tags.highway, name: way.tags.name })
+    const cls = classify(
+      { highway: way.tags.highway, name: way.tags.name },
+      { includeLinks: opts?.includeLinks },
+    )
     if (cls === null) continue
     routeWays++
     if (routeWays > maxWays) {
@@ -273,6 +301,12 @@ export function assembleImport(params: {
       widthSource: 'default',
       osmWayId: row.way.id,
       mahallaNum: null,
+      // الوسم الأصلي للعرض وحده — لا يغيّر `kind` ولا `cls` ولا أي حساب
+      osmHighway: row.way.tags.highway,
+      // رابط طريق: يُعرض ولا يُستورد (يراه المشغّل ويفهم لماذا)
+      ...(row.way.tags.highway && /_link$/.test(row.way.tags.highway)
+        ? { excludeFromImport: true as const }
+        : {}),
     }
   })
 
@@ -359,9 +393,17 @@ export function assembleImport(params: {
     void DEFAULT_ALLEY_W
   }
 
-  // ⑥ الإحصاء
-  const streets = rows.filter((r) => r.kind !== 'alley').length
-  const totalLengthM = rows.reduce((s, r) => s + r.lengthM, 0)
+  /*
+   * ⑥ الإحصاء — **من الصفوف القابلة للاستيراد فقط**.
+   *
+   * روابط الطرق (`*_link` عند `includeLinks`) تُرسم للمقارنة البصرية ولا
+   * تُدرَج في القاعدة. لو حسبناها في الكثافة لَظهر للمشغّل رقم أعلى من
+   * الحقيقة (والمرجع ٢١.٣ كم/كم² مُعاير على الشوارع وحدها). فالإسقاط هنا
+   * مقصود: الإحصاء يصف **ما سيُستورد** لا ما يُرسم.
+   */
+  const importableRows = rows.filter((r) => !r.excludeFromImport)
+  const streets = importableRows.filter((r) => r.kind !== 'alley').length
+  const totalLengthM = importableRows.reduce((s, r) => s + r.lengthM, 0)
   const { density, areaKm2, warn } = densitySanity(totalLengthM, poly)
 
   return {
@@ -370,7 +412,8 @@ export function assembleImport(params: {
     skipped,
     stats: {
       streets,
-      alleys: alleys.length,
+      // الأزقة من الصفوف القابلة للاستيراد — لا من `alleys` الكامل
+      alleys: importableRows.filter((r) => r.kind === 'alley').length,
       mahallas: Object.keys(mahallas).filter((k) => k !== UNASSIGNED_KEY).length,
       totalLengthKm: Math.round((totalLengthM / 1000) * 10) / 10,
       areaKm2: Math.round(areaKm2 * 100) / 100,

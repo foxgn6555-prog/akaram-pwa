@@ -21,15 +21,8 @@ import { useMapZones } from '@features/map-planning/hooks/useMapPlanning'
 import { DENSITY_REFERENCE, mapImportSdk } from '@sdk/map-import.sdk'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { polygonAreaM2 } from '@features/map-import/lib/geometry'
-import type { StreetKind } from '@sdk/map-planning.sdk'
+import { leafletPath, strokeFor, type PreviewStyle } from '@features/map-import/lib/osm-colors'
 
-const KIND_COLOR: Record<StreetKind, string> = {
-  primary: '#dc2626',
-  secondary: '#ea580c',
-  tertiary: '#ca8a04',
-  local: '#0d9488',
-}
-const ALLEY_COLOR = '#7c3aed'
 /**
  * أقصى عدد مسارات تُرسم على الخريطة المصغّرة.
  *
@@ -109,6 +102,17 @@ function DensityBar({ density }: { density: number }) {
 export default function OpsMapImportPage() {
   useInjectMapThemeStyle()
   const [theme, , toggleTheme] = useMapTheme()
+  /**
+   * نمط عرض المسارات على المعاينة.
+   *
+   * `'overpass'` افتراضياً (قرار المشغّل): الغرض من المعاينة **التحقق من
+   * المطابقة**، فتُعرض بألوان Overpass القياسية كي تُقارن بالخريطة المرجعية نفسها.
+   * `'brand'` يبقى متاحاً بزر لمن اعتاد ألوان المنصة.
+   *
+   * ملاحظة: هذا محور مستقلّ عن `theme` (سِمة البلاطات) — قد تكون الخلفية
+   * داكنة والخطوط بألوان OSM أو العكس. لا يتصادمان.
+   */
+  const [previewStyle, setPreviewStyle] = useState<PreviewStyle>('overpass')
   const { data: zones = [], isLoading: zonesLoading } = useMapZones()
   const [zoneId, setZoneId] = useState<string | null>(null)
   const activeZoneId = zoneId ?? zones[0]?.id ?? null
@@ -213,9 +217,26 @@ export default function OpsMapImportPage() {
     }
   }
 
+  /**
+   * إظهار روابط الطرق (`primary_link`…) على المعاينة.
+   *
+   * لماذا خيار لا افتراضي: الروابط **تُعرض ولا تُستورد** — تُرسم للمقارنة
+   * البصرية مع Overpass، لكن الإدراج يستثنيها (تُفلتر في `sendBatch`).
+   * جعلها افتراضية كان سيوهم المشغّل بأنها ستُستورد.
+   */
+  const [showLinks, setShowLinks] = useState(false)
+  /**
+   * آخر ملف حُلِّل. نحتاجه لإعادة التحليل عند تبديل خيار «وصلات الطرق»:
+   * الخيار يؤثر في **القراءة والتصنيف** لا في الرسم وحده، فلا بدّ من إعادة
+   * المرور على الملف. الاحتفاظ بالكائن في الذاكرة لا يعني قراءته — الملف
+   * يُقرأ من القرص عند الطلب فقط، ولا يُرفع لأي خادم.
+   */
+  const lastFileRef = useRef<File | null>(null)
+
   const handleFile = async (file: File | undefined | null) => {
     if (!file) return
-    await analyze(file, polygon)
+    lastFileRef.current = file
+    await analyze(file, polygon, { includeLinks: showLinks })
   }
 
   const onDrop = async (e: React.DragEvent) => {
@@ -226,6 +247,15 @@ export default function OpsMapImportPage() {
   }
 
   const preview = phase.kind === 'preview' ? phase.preview : phase.kind === 'done' ? phase.preview : null
+
+  /** عدد الصفوف التي لا نعرف وسمها الأصلي (للإعلان لا للإخفاء) */
+  const osmMatched = useMemo(() => {
+    if (!preview) return { matched: 0, total: 0 }
+    const total = preview.rows.length
+    const matched = preview.rows.filter((r) => r.osmHighway).length
+    return { matched, total }
+  }, [preview])
+
   const areaKm2 = useMemo(
     () => (polygon.length >= 3 ? polygonAreaM2(polygon) / 1e6 : 0),
     [polygon],
@@ -553,8 +583,67 @@ export default function OpsMapImportPage() {
                     ? `عرض ${sample.length} من ${preview.rows.length} — البقية تُدرَج كاملة`
                     : `${sample.length} مساراً — كل عناصر الملف`}
                 </h3>
-                <span className="text-[10px] text-slate-400">الحدّ الأزرق · الشوارع ملوّنة بالتصنيف · الأزقة بنفسجي</span>
+                {/* ── محوّل النمط: Overpass ↔ المنصة ──
+                    مستقلّ عن سِمة البلاطات: الأول ألوان الخطوط، الثاني الخلفية. */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* روابط الطرق: عرض فقط — الإدراج يستثنيها */}
+                  <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={showLinks}
+                      onChange={(e) => {
+                        setShowLinks(e.target.checked)
+                        // نُعيد التحليل كي تُقرأ/تُحذف روابط الطرق فعلاً —
+                        // الخيار يؤثر في القراءة لا في الرسم وحده.
+                        const f = lastFileRef.current
+                        if (f) void analyze(f, polygon, { includeLinks: e.target.checked })
+                      }}
+                      className="size-3 accent-slate-700"
+                    />
+                    وصلات الطرق
+                  </label>
+                  <div className="flex overflow-hidden rounded-lg ring-1 ring-slate-300">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewStyle('overpass')}
+                      aria-pressed={previewStyle === 'overpass'}
+                      className={`px-2 py-1 text-[10px] font-black transition ${
+                        previewStyle === 'overpass'
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      ألوان Overpass
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewStyle('brand')}
+                      aria-pressed={previewStyle === 'brand'}
+                      className={`px-2 py-1 text-[10px] font-black transition ${
+                        previewStyle === 'brand'
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      ألوان المنصة
+                    </button>
+                  </div>
+                </div>
               </div>
+              <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] leading-relaxed text-slate-500">
+                الحدّ الأزرق المتقطّع ·{' '}
+                {previewStyle === 'overpass'
+                  ? 'ألوان OSM القياسية — نفس ما تراه في overpass-turbo.eu'
+                  : 'ألوان المنصة (الشوارع حمراء/برتقالية والأزقة بنفسجية)'}
+                {osmMatched.total > 0 && osmMatched.matched < osmMatched.total && (
+                  <>
+                    {' · '}
+                    <span className="text-amber-700">
+                      {osmMatched.total - osmMatched.matched} صفاً بلا وسم أصلي (يُرسم بتصنيفنا)
+                    </span>
+                  </>
+                )}
+              </p>
               <div className="h-80">
                 {mapPoints.length > 0 && (
                   <MapContainer
@@ -570,21 +659,44 @@ export default function OpsMapImportPage() {
                         pathOptions={{ color: '#0b3d6b', weight: 2, fill: false, dashArray: '4 3' }}
                       />
                     )}
-                    {sample.map((r) => (
-                      <Polyline
-                        key={`${r.code}-${r.osmWayId}`}
-                        positions={r.pts as [number, number][]}
-                        pathOptions={{
-                          color: r.kind === 'alley' ? ALLEY_COLOR : KIND_COLOR[r.kind],
-                          weight: r.kind === 'alley' ? 2 : 3,
-                          opacity: 0.9,
-                        }}
-                      >
-                        <Tooltip sticky>
-                          {r.code} · {r.name ?? 'بلا اسم'} · {r.lengthM.toFixed(0)}م
-                        </Tooltip>
-                      </Polyline>
-                    ))}
+                    {/*
+                      ── طبقتان لكل مسار: إطار ثم خط ──
+                      في osm-carto الشارع المحلي أبيض على خلفية فاتحة، ويُرسم
+                      تحته إطار رمادي رفيع (casing) وإلا اختفى. بلاه تظهر
+                      الخريطة شبه فارغة — وهو ما ظهر فعلاً في أول رسم.
+
+                      الإطار يسبق الخط في DOM كي يُرسم تحته. مفتاحه مسبوق
+                      بـ`casing-` لتفادي تكرار المفتاح.
+                    */}
+                    {sample.flatMap((r) => {
+                      const st = strokeFor(previewStyle, r, theme)
+                      const core = (
+                        <Polyline
+                          key={`${r.code}-${r.osmWayId}`}
+                          positions={r.pts as [number, number][]}
+                          pathOptions={leafletPath(st)}
+                        >
+                          <Tooltip sticky>
+                            {r.code} · {r.name ?? 'بلا اسم'} · {r.lengthM.toFixed(0)}م
+                            {r.osmHighway ? ` · ${r.osmHighway}` : ''}
+                          </Tooltip>
+                        </Polyline>
+                      )
+                      if (!st.casing) return [core]
+                      return [
+                        <Polyline
+                          key={`casing-${r.code}-${r.osmWayId}`}
+                          positions={r.pts as [number, number][]}
+                          pathOptions={{
+                            color: st.casing.color,
+                            weight: st.casing.weight,
+                            opacity: st.opacity,
+                            interactive: false,
+                          }}
+                        />,
+                        core,
+                      ]
+                    })}
                   </MapContainer>
                 )}
               </div>
