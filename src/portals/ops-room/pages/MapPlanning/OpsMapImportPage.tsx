@@ -117,6 +117,15 @@ export default function OpsMapImportPage() {
   const { phase, analyze, insert, reset } = useMapImport()
   const [script, setScript] = useState<string>('')
   const [scriptCopied, setScriptCopied] = useState(false)
+  /**
+   * الربع المختار لتصدير الأرباع (1..4). `null` = السكربت الكامل.
+   *
+   * السبب: استعلام الزون كاملاً قد يُقتطع عند `maxsize` فيُعطي ملفاً ناقصاً
+   * **بصمت** — وهو أصل «الشكل لا يطابق Overpass» المقيس في المرحلة ①.
+   * الربع بحجم رُبع الزون لا يبلغ الحدّ عملياً.
+   */
+  const [quarter, setQuarter] = useState<1 | 2 | 3 | 4 | null>(null)
+  const [quarterBusy, setQuarterBusy] = useState(false)
   const [polygon, setPolygon] = useState<LatLng[]>([])
   const [dragOver, setDragOver] = useState(false)
   const [showSkips, setShowSkips] = useState(false)
@@ -157,6 +166,42 @@ export default function OpsMapImportPage() {
     // reset ليست تبعية: تُستدعى من معالج النقر لا هنا. إدراجها كان يُعيد الجلب
     // من القاعدة عند كل إعادة تصيير تُغيّر هويّة reset.
   }, [activeZoneId])
+
+  /**
+   * يُبدّل السكربت بين «الزون كاملاً» وأرباعه.
+   *
+   * لا نُعيد الجلب عند العودة للكامل: السكربت موجود في الحالة من effect الزون.
+   * نجلب فقط عند اختيار ربع (أربعة نصوص مختلفة تُولَّد في القاعدة).
+   */
+  const pickQuarter = async (q: 1 | 2 | 3 | 4 | null) => {
+    if (q === quarter || quarterBusy) return
+    if (q === null) {
+      setQuarter(null)
+      if (activeZoneId) {
+        try {
+          const s = await mapImportSdk.zoneScript(activeZoneId)
+          setScript(s.script)
+          setScriptCopied(false)
+        } catch {
+          setScript('')
+        }
+      }
+      return
+    }
+    if (!activeZoneId) return
+    setQuarterBusy(true)
+    try {
+      const s = await mapImportSdk.zoneScriptQuarter(activeZoneId, q)
+      setScript(s.script)
+      setQuarter(q)
+      setScriptCopied(false)
+    } catch {
+      // فشل جلب الربع (مهاجرة غير مطبَّقة؟) — نبقى على السكربت الحالي
+      setQuarter(null)
+    } finally {
+      setQuarterBusy(false)
+    }
+  }
 
   const copyScript = async () => {
     try {
@@ -315,6 +360,52 @@ export default function OpsMapImportPage() {
               <ClipboardCheck size={12} />
               {scriptCopied ? 'نُسخ ✓' : 'نسخ'}
             </button>
+          </div>
+
+          {/* ── تصدير الأرباع: الحلّ الجذري لاقتطاع Overpass ──
+              الزون الكامل قد يبلغ maxsize فيُقتطع الملف **بصمت** (XML صالح،
+              بيانات ناقصة) ⇒ شكل زاوي لا يطابق Overpass. الربع لا يبلغ الحدّ. */}
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-2.5">
+            <p className="text-[11px] font-bold leading-relaxed text-amber-900">
+              هل خرج الملف أقل من المتوقّع؟ صدّر <span className="underline">أربعة أرباع</span> بدل
+              الكل — كل ربع صغير فلا يُقتطع.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {([1, 2, 3, 4] as const).map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={quarterBusy || !activeZoneId}
+                  onClick={() => void pickQuarter(q)}
+                  className={`rounded-lg px-2 py-1 text-[11px] font-black transition disabled:opacity-50 ${
+                    quarter === q
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'bg-white text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  ربع {q}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={quarterBusy || !activeZoneId}
+                onClick={() => void pickQuarter(null)}
+                className={`rounded-lg px-2 py-1 text-[11px] font-black transition disabled:opacity-50 ${
+                  quarter === null
+                    ? 'bg-slate-700 text-white shadow'
+                    : 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                الزون كاملاً
+              </button>
+              {quarterBusy && <span className="text-[10px] text-amber-700">…يُولَّد</span>}
+            </div>
+            {quarter !== null && (
+              <p className="mt-2 text-[10px] leading-relaxed text-amber-800">
+                هذا الربع <b>{quarter}</b> من 4. استورد الأربعة بالترتيب في نفس الزون — الإدراج
+                يدمج تلقائياً ولا يتكرّر.
+              </p>
+            )}
           </div>
         </section>
 

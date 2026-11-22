@@ -76,6 +76,12 @@ function row(over: Partial<Record<string, unknown>> = {}) {
 }
 
 beforeEach(() => {
+  // إعادة تنفيذ rpc إلى السلوك الأصلي: اختبار يتجاوزه بـmockImplementation
+  // كان يتسرّب إلى بقية الاختبارات (clearAllMocks يمسح السجل لا التنفيذ).
+  h.rpc.mockImplementation(async (fn: string, args: unknown) => {
+    h.state.calls.rpc.push({ fn, args })
+    return h.state.rpc
+  })
   h.state.rpc = { data: null, error: null }
   h.state.table = { data: [], error: null }
   h.state.calls.rpc = []
@@ -160,12 +166,31 @@ describe('chunk — لا يُسقط ذيلاً', () => {
 })
 
 describe('zoneScript — سكربت Overpass الجاهز', () => {
-  it('يُعيد النص كما هو', async () => {
-    h.state.rpc = { data: '[out:json];way(area);out;', error: null }
+  it('ينادي map_osm_script_v2 أولاً (المرحلة ①)', async () => {
+    h.state.rpc = { data: '[out:xml];way(area);out meta;', error: null }
     await expect(mapImportSdk.zoneScript('rth')).resolves.toEqual({
-      script: '[out:json];way(area);out;',
+      script: '[out:xml];way(area);out meta;',
     })
-    expect(h.state.calls.rpc[0]).toEqual({ fn: 'map_osm_script', args: { p_zone: 'rth' } })
+    expect(h.state.calls.rpc[0]).toEqual({ fn: 'map_osm_script_v2', args: { p_zone: 'rth' } })
+  })
+
+  it('يتراجع إلى map_osm_script إن لم تُطبَّق المهاجرة', async () => {
+    // القاعدة القديمة: v2 غير موجودة ⇒ خطأ ثم نجاح بالقديمة
+    let call = 0
+    h.rpc.mockImplementation(async (fn: string) => {
+      call++
+      h.state.calls.rpc.push({ fn, args: {} })
+      if (fn === 'map_osm_script_v2') return { data: null, error: { message: 'PGRST202' } }
+      return { data: '[out:xml];legacy;', error: null }
+    })
+    await expect(mapImportSdk.zoneScript('rth')).resolves.toEqual({ script: '[out:xml];legacy;' })
+    expect(h.state.calls.rpc.map((c) => c.fn)).toEqual(['map_osm_script_v2', 'map_osm_script'])
+    expect(call).toBe(2)
+  })
+
+  it('إن فشلت الاثنتان يُرفع الخطأ ولا يُبتلع', async () => {
+    h.state.rpc = { data: null, error: { message: 'boom' } }
+    await expect(mapImportSdk.zoneScript('rth')).rejects.toThrow()
   })
 
   it('null من القاعدة ⇒ EMPTY_RESULT صريح (sdkGuard لا يبتلع الغياب)', async () => {
@@ -176,6 +201,35 @@ describe('zoneScript — سكربت Overpass الجاهز', () => {
   it('خطأ القاعدة يُرفع', async () => {
     h.state.rpc = { data: null, error: { message: 'not found' } }
     await expect(mapImportSdk.zoneScript('nope')).rejects.toThrow()
+  })
+})
+
+describe('zoneScriptQuarter — الحلّ الجذري لاقتطاع Overpass', () => {
+  it('ينادي map_osm_script_quarter بالربع المطلوب', async () => {
+    h.state.rpc = { data: 'quarter-1-script', error: null }
+    await expect(mapImportSdk.zoneScriptQuarter('rth', 1)).resolves.toEqual({
+      script: 'quarter-1-script',
+    })
+    expect(h.state.calls.rpc[0]).toEqual({
+      fn: 'map_osm_script_quarter',
+      args: { p_zone: 'rth', p_quarter: 1 },
+    })
+  })
+
+  it('الأرباع الأربعة تُطلب بشكل مستقل', async () => {
+    h.state.rpc = { data: 'x', error: null }
+    for (const q of [1, 2, 3, 4] as const) await mapImportSdk.zoneScriptQuarter('rth', q)
+    expect(h.state.calls.rpc.map((c) => c.args)).toEqual([
+      { p_zone: 'rth', p_quarter: 1 },
+      { p_zone: 'rth', p_quarter: 2 },
+      { p_zone: 'rth', p_quarter: 3 },
+      { p_zone: 'rth', p_quarter: 4 },
+    ])
+  })
+
+  it('خطأ القاعدة يُرفع (لا سكربت فارغ يُنسخ بصمت)', async () => {
+    h.state.rpc = { data: null, error: { message: 'MAP_QUARTER_INVALID' } }
+    await expect(mapImportSdk.zoneScriptQuarter('rth', 1)).rejects.toThrow()
   })
 })
 
