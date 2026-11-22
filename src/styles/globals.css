@@ -87,3 +87,15 @@ html, body {
     box-sizing: border-box;
   }
 }
+
+/* ── كسر الكلمات الطويلة بلا مسافات ──
+   سكربت Overpass سطر واحد بطول يزيد على ٢٠٠ حرف (إحداثيات متلاصقة).
+   `white-space: pre-wrap` يسمح بالالتفاف عند المسافات فقط، ولا مسافات هنا،
+   فيبقى السطر عريضاً حتى مع wrap. `break-word` (overflow-wrap) يكسر الكلمة
+   الطويلة اضطرارياً — وهو ما نريده هنا بالضبط.
+   Tailwind v4 لا يوفّر utility مكافئة (`break-words` = overflow-wrap: break-word
+   لكن تُطبَّق على الحاويات ذات max-width فقط، وكنا نحتاجها على <pre> مباشرة). */
+@utility break-anywhere {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
