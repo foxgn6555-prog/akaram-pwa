@@ -29,7 +29,7 @@ begin
           '[[33.30,44.30],[33.30,44.32],[33.32,44.32],[33.32,44.30]]'::jsonb, 1);
 
   insert into public.map_zones (id, code, name, geofence_id)
-  values (v_zone, 'TST1', 'زون اختبار', v_geofence);
+  values (v_zone, 'TSA', 'زون اختبار', v_geofence);  -- code ~ '^[A-Z]{3}$' (قيد 20261122000000 سطر ١٨١)
 
   -- ── ① السكربت الأساسي ──
   v_script := app.map_osm_script_v2(v_zone);
