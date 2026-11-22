@@ -30,8 +30,18 @@ const KIND_COLOR: Record<StreetKind, string> = {
   local: '#0d9488',
 }
 const ALLEY_COLOR = '#7c3aed'
-/** حجم العيّنة المعروضة على الخريطة المصغّرة */
-const SAMPLE_SIZE = 50
+/**
+ * أقصى عدد مسارات تُرسم على الخريطة المصغّرة.
+ *
+ * كان ٥٠ — ورقم «٥» أُخذ من مثال في الخطة لا من حدود الأداء، فكانت المعاينة
+ * ترسم **١٦٪** من العناصر (٥٠ من ٣٠٨). المشغّل يرى خريطة مبعثرة فيظنّ أن
+ * الاستيراد ناقص، والبيانات كاملة في القاعدة.
+ *
+ * ٣٠٠٠ سقف حقيقي: Leaflet يرسم SVG لكل مسار، و٤٠٠٠+ مسار تُبطئ التمرير على
+ * الهاتف. الزون الأكبر في ساحة العمل (الجادرية) = ٦٥٣، فأي زون واقعي يُرسم
+ * كاملاً ولا يُقتطع شيء. والزيادة عن السقف تُعلَن صراحةً في الترويسة.
+ */
+const MAX_RENDERED_WAYS = 3000
 
 /** يحوّل مضلّع Overpass النصي «lat lon lat lon …» إلى نقاط */
 function parsePolygonText(text: string): LatLng[] {
@@ -112,13 +122,22 @@ export default function OpsMapImportPage() {
   const [showSkips, setShowSkips] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  // نجلب مضلّع الزون والسكربت عند تغيير الزون — كلاهما من القاعدة لا من نسخة محلية
+  /**
+   * نجلب مضلّع الزون والسكربت عند تغيير الزون — كلاهما من القاعدة لا محلياً.
+   *
+   * ⚠ العيب الذي يمنعه `confirm()`: كان `reset()` يُنفَّذ بلا سؤال عند كل
+   * تغيير زون. فالمشغّل يرفع ملفاً ويحلّله، ثم يضغط زوناً آخر ليرى الفرق ⇒
+   * **يُمحى التحليل كله** ويعود للخطوة صفر. والأسوأ: لو نجا التحليل لكان
+   * قُصَّ بمضلّع الزون الجديد على ملف بحدود زون قديم — بيانات خاطئة بصمت.
+   *
+   * السلوك الجديد: تحليل قائم + زون مختلف ⇒ سؤال صريح. الإلغاء يعني عدم
+   * تغيير الزون أصلاً (نُعيد الحالة للزر السابق).
+   */
   useEffect(() => {
     if (!activeZoneId) return
     let alive = true
     setScript('')
     setPolygon([])
-    reset()
     void (async () => {
       try {
         const [s, polyText] = await Promise.all([
@@ -135,7 +154,9 @@ export default function OpsMapImportPage() {
     return () => {
       alive = false
     }
-  }, [activeZoneId, reset])
+    // reset ليست تبعية: تُستدعى من معالج النقر لا هنا. إدراجها كان يُعيد الجلب
+    // من القاعدة عند كل إعادة تصيير تُغيّر هويّة reset.
+  }, [activeZoneId])
 
   const copyScript = async () => {
     try {
@@ -165,16 +186,24 @@ export default function OpsMapImportPage() {
     [polygon],
   )
 
-  /** عيّنة ٥٠ موزّعة على الصفوف — أول ٢٥ وآخر ٢٥ أو توزيع منتظم */
+  /**
+   * المسارات المعروضة: **كل شيء** حتى السقف، وتوزيع منتظم فوقه.
+   *
+   * القصّ عند السقف بتوزيع منتظم (لا أوّل N) لأن أول الصفوف مرتّبة بـ(y,x):
+   * أخذ أوّلها يعرض شريطاً واحداً من الزون ويُخفي بقيتها.
+   */
   const sample = useMemo(() => {
     if (!preview) return []
     const rows = preview.rows.filter((r) => r.pts.length >= 2)
-    if (rows.length <= SAMPLE_SIZE) return rows
-    const step = rows.length / SAMPLE_SIZE
-    return Array.from({ length: SAMPLE_SIZE }, (_, i) => rows[Math.floor(i * step)]).filter(
+    if (rows.length <= MAX_RENDERED_WAYS) return rows
+    const step = rows.length / MAX_RENDERED_WAYS
+    return Array.from({ length: MAX_RENDERED_WAYS }, (_, i) => rows[Math.floor(i * step)]).filter(
       (r): r is (typeof rows)[number] => !!r,
     )
   }, [preview])
+
+  /** هل قُصَّ شيء؟ (يُعلَن، لا يُخفى) */
+  const truncatedForMap = preview ? preview.rows.length - sample.length : 0
 
   const mapPoints = useMemo(() => {
     const out: LatLng[] = []
@@ -220,7 +249,20 @@ export default function OpsMapImportPage() {
           <button
             key={z.id}
             type="button"
-            onClick={() => setZoneId(z.id)}
+            onClick={() => {
+              if (z.id === activeZoneId) return
+              // تحليل جاهز؟ التغيير يمسحه — نسأل أولاً بدل الإتلاف الصامت
+              if (phase.kind !== 'idle') {
+                const ok = window.confirm(
+                  'تغيير الزون سيُلغي تحليل الملف الحالي ويبدأ من جديد.\n' +
+                    'الملف المقروء يخصّ حدود الزون السابق — المتابعة عليه تعطي نتائج خاطئة.\n\n' +
+                    'هل تريد المتابعة؟',
+                )
+                if (!ok) return
+              }
+              reset()
+              setZoneId(z.id)
+            }}
             className={`h-8 rounded-xl px-3 text-xs font-black transition ${
               z.id === activeZoneId
                 ? 'bg-gradient-to-l from-[#0b3d6b] to-[#0b4f8a] text-white shadow'
@@ -416,7 +458,9 @@ export default function OpsMapImportPage() {
               <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 p-3">
                 <h3 className="flex items-center gap-1.5 text-xs font-black text-slate-800">
                   <Layers size={14} className="text-slate-400" />
-                  عيّنة {sample.length} من {preview.rows.length}
+                  {truncatedForMap > 0
+                    ? `عرض ${sample.length} من ${preview.rows.length} — البقية تُدرَج كاملة`
+                    : `${sample.length} مساراً — كل عناصر الملف`}
                 </h3>
                 <span className="text-[10px] text-slate-400">الحدّ الأزرق · الشوارع ملوّنة بالتصنيف · الأزقة بنفسجي</span>
               </div>

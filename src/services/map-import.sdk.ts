@@ -8,6 +8,7 @@
  * الدالة `app.map_import_batch` هي المرجع النهائي للحرّاس والتفريد — هنا نُمرّر الأخطاء كما هي.
  */
 import { sdkGuard, supabase } from './client'
+import { SDKError } from '@lib/errors/SDKError'
 import type { ImportRow } from '@features/map-import/lib/assemble'
 import type { MapPoint } from './map-planning.sdk'
 
@@ -220,10 +221,20 @@ export const mapImportSdk = {
     }
   },
 
-  /** يمسح سجل التخطي لزون — يُستدعى قبل استيراد جديد فقط بقرار صريح من المستخدم */
+  /**
+   * يمسح سجل التخطي لزون — يُستدعى قبل استيراد جديد فقط بقرار صريح من المستخدم.
+   *
+   * ⚠ لا يُمرَّر عبر `sdkGuard`: الحذف الناجح لا يُرجع صفاً (`data: null`)، و`sdkGuard`
+   * يرفع `EMPTY_RESULT` على null. فكان أي استدعاء ناجح يفشل — عيب نائم لأن الدالة
+   * غير مستدعاة من الواجهة بعد. هنا نفحص `error` وحدها: نجاحٌ بلا خطأ = تمّ الحذف.
+   */
   async clearSkips(zoneId: string): Promise<void> {
-    return sdkGuard(
-      supabase.from('map_import_skips').delete().eq('zone_id', zoneId).select().maybeSingle(),
-    )
+    const { error } = await supabase
+      .from('map_import_skips')
+      .delete()
+      .eq('zone_id', zoneId)
+      .select()
+      .maybeSingle()
+    if (error) throw new SDKError(error.message, error.code ?? 'UNKNOWN', error)
   },
 }

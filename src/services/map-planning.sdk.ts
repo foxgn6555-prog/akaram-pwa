@@ -112,10 +112,17 @@ export const STATUS_LABEL_AR: Record<MapStatus, string> = {
   archived: 'مؤرشف',
 }
 
+/** يهرب محارف التعبير النمطي الخاصة — بادئة الكود بيانات لا نمط */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /** أعلى رقم مستخدم لبادئة في زون — أساس الترقيم التالي */
 export function nextCode(existing: readonly string[], prefix: string): string {
   let max = 0
-  const re = new RegExp(`^${prefix}-(\\d+)$`)
+  // البادئة تُهرَّب: بلا `escapeRegExp` كانت بادئة تحوي «.» تطابق أي حرف،
+  // فتُقفز أرقام بأكواد زونات أخرى («.-0005» تُحسب من «X-0005»).
+  const re = new RegExp(`^${escapeRegExp(prefix)}-(\\d+)$`)
   for (const code of existing) {
     const m = re.exec(code)
     if (m) max = Math.max(max, Number(m[1]))
