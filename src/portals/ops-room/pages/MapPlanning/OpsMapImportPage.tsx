@@ -155,6 +155,21 @@ export default function OpsMapImportPage() {
     let alive = true
     setScript('')
     setPolygon([])
+    /*
+     * ⚠ `quarter` كان **يبقى مختاراً** بعد تبديل الزون.
+     *
+     * الأثر: نختار «الربع ٣» لزون أ، ثم ننتقل لزون ب. هذا الـeffect يجلب
+     * سكربت الزون **كاملاً** ويضع `script`، لكنه لا يمسّ `quarter` — فتبقى
+     * الواجهة تعرض «الربع ٣» مضيئاً وملاحظة «هذا الربع 3 من 4» بينما
+     * السكربت المعروض هو الزون ب كاملاً. المشغّل ينسخه ظنّاً أنه ربع،
+     * فيستورد أربعة أضعاف الحجم المتوقع — أو يستورد ربعاً واحداً من زون
+     * ويظن أن الأرباع الأربعة اكتملت.
+     *
+     * التصفير هنا لا في معالج النقر: الـeffect هو المسؤول عن «زون جديد ⇒
+     * حالة جديدة»، وأي مسار تبديل زون مستقبلي يحصل على التصفير مجاناً.
+     */
+    setQuarter(null)
+    setQuarterBusy(false)
     void (async () => {
       try {
         const [s, polyText] = await Promise.all([
@@ -893,7 +908,10 @@ export default function OpsMapImportPage() {
                   )
                   if (!ok) return
                 }
-                void insert(activeZoneId, preview)
+                /* اسم الملف يُمرَّر ليُحفظ في map_import_batches.file_name — كان يضيع */
+                void insert(activeZoneId, preview, {
+                  fileName: phase.kind === 'preview' ? phase.fileName : undefined,
+                })
               }}
               className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white shadow hover:bg-emerald-700 disabled:opacity-50"
             >
