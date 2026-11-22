@@ -213,7 +213,7 @@ export default function OpsMapImportPage() {
       />
 
       {/* ── اختيار الزون ── */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <section className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         <span className="text-xs font-black text-slate-500">الزون:</span>
         {zonesLoading && <span className="text-xs text-slate-400">جارٍ التحميل…</span>}
         {zones.map((z) => (
@@ -238,22 +238,29 @@ export default function OpsMapImportPage() {
         )}
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* min-w-0 على الأبناء: عنصر grid لا ينكمش تحت أصغر محتوى له افتراضياً
+          (min-width: auto). سكربت Overpass سطر واحد طويل جداً — بدونه يفرض
+          عرضه على العمود فيفيض على شاشة الهاتف ويخرج النص من الحدود. */}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         {/* ══ ① السكربت ══ */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="flex items-center gap-2 text-sm font-black text-slate-800">
-            <span className="grid size-6 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">١</span>
-            سكربت الزون
-            <span className="text-[10px] font-bold text-slate-400">من مضلّعك الحقيقي</span>
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-slate-800">
+            <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">١</span>
+            <span className="min-w-0">سكربت الزون</span>
+            <span className="shrink-0 text-[10px] font-bold text-slate-400">من مضلّعك الحقيقي</span>
           </h2>
           <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
             انسخه والصقه في <span dir="ltr">overpass-turbo.eu</span> ← Run ← Export ← raw OSM data.
             الملف الناتج هو ما ستُسقطه في الخطوة ٢.
           </p>
-          <div className="relative mt-2">
+          <div className="relative mt-2 min-w-0">
+            {/* whitespace-pre-wrap: <pre> الافتراضي white-space:pre فلا يلتفّ أبداً،
+                وسكربت Overpass سطر واحد ⇒ يتمدّد أفقياً ويعبر الحدود.
+                break-anywhere: التنسيق (مسافات/أسطر) يبقى، والمعرّفات الطويلة تُقصّ.
+                pt-8: مساحة لزر النسخ فلا يغطّي أول سطر على الشاشات الضيقة. */}
             <pre
               dir="ltr"
-              className="max-h-52 overflow-auto rounded-xl bg-slate-900 p-3 text-[10px] leading-relaxed text-emerald-200"
+              className="max-h-52 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-anywhere rounded-xl bg-slate-900 p-3 pt-9 text-[10px] leading-relaxed text-emerald-200"
             >
               {script || '— يُولَّد من القاعدة —'}
             </pre>
@@ -270,11 +277,13 @@ export default function OpsMapImportPage() {
         </section>
 
         {/* ══ ② إسقاط الملف ══ */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="flex items-center gap-2 text-sm font-black text-slate-800">
-            <span className="grid size-6 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٢</span>
-            إسقاط ملف .osm
-            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          {/* flex-wrap: الشارتان (العنوان + «لا يُرسَل للخادم») لا تتّسعان معاً
+              على شاشة ٣٦٠px فتتجاوزان الحاوية. على الهاتف تنزل الشارة سطراً. */}
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-slate-800">
+            <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٢</span>
+            <span className="min-w-0">إسقاط ملف .osm</span>
+            <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">
               لا يُرسَل للخادم
             </span>
           </h2>
@@ -286,16 +295,24 @@ export default function OpsMapImportPage() {
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             onClick={() => fileInput.current?.click()}
-            className={`mt-2 grid min-h-36 cursor-pointer place-items-center rounded-xl border-2 border-dashed p-4 text-center transition ${
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                fileInput.current?.click()
+              }
+            }}
+            className={`mt-2 grid min-h-36 w-full cursor-pointer place-items-center rounded-xl border-2 border-dashed px-3 py-6 text-center transition ${
               dragOver ? 'border-[#0b3d6b] bg-blue-50' : 'border-slate-300 bg-slate-50 hover:border-slate-400'
             } ${busy ? 'pointer-events-none opacity-60' : ''}`}
           >
-            <div>
+            <div className="min-w-0 max-w-full">
               <FileUp className="mx-auto text-slate-400" size={28} />
               <div className="mt-1 text-xs font-black text-slate-700">
                 أفلت الملف هنا أو اضغط للاختيار
               </div>
-              <div className="mt-0.5 text-[10px] text-slate-400">
+              <div className="mt-0.5 text-balance text-[10px] leading-relaxed text-slate-400">
                 .osm أو .xml — ١٠٠ م.ب أو أكثر · يُقرأ تدفّقياً
               </div>
             </div>
@@ -332,7 +349,7 @@ export default function OpsMapImportPage() {
           <TriangleAlert size={16} className="mt-0.5 shrink-0" />
           <div>
             <div>تعذّر إكمال العملية</div>
-            <div className="mt-0.5 text-[11px] font-normal opacity-80">{phase.message}</div>
+            <div className="mt-0.5 break-anywhere text-[11px] font-normal opacity-80">{phase.message}</div>
           </div>
         </div>
       )}
@@ -340,18 +357,20 @@ export default function OpsMapImportPage() {
       {/* ══ ③ المعاينة ══ */}
       {preview && (
         <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-sm font-black text-slate-800">
-              <span className="grid size-6 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٣</span>
-              المعاينة قبل الإدراج
+          <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            {/* flex-wrap + min-w-0/truncate: اسم الملف قد يكون طويلاً
+                فيدفع الشارة خارج الحاوية على شاشة الهاتف. */}
+            <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-slate-800">
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٣</span>
+              <span className="min-w-0">المعاينة قبل الإدراج</span>
               {phase.kind === 'preview' && (
-                <span className="ms-auto text-[10px] font-bold text-slate-400">
+                <span className="min-w-0 max-w-full truncate text-[10px] font-bold text-slate-400 sm:ms-auto">
                   {phase.fileName} · قُرئ في {(phase.ms / 1000).toFixed(1)} ثانية
                 </span>
               )}
             </h2>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               <Stat label="شوارع" value={String(preview.stats.streets)} tone="green" />
               <Stat label="أزقة" value={String(preview.stats.alleys)} tone="gold" />
               <Stat label="محلات" value={String(preview.stats.mahallas)} hint="من أرقام OSM الرسمية" />
@@ -365,7 +384,7 @@ export default function OpsMapImportPage() {
               />
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
               <DensityBar density={preview.stats.density} />
               <div className="rounded-xl border border-slate-200 bg-white p-3 text-[11px]">
                 {preview.stats.unnamedAlleys > 0 && (
@@ -392,9 +411,9 @@ export default function OpsMapImportPage() {
           </section>
 
           {/* ── الخريطة المصغّرة + العيّنة ── */}
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 p-3">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-100 p-3">
                 <h3 className="flex items-center gap-1.5 text-xs font-black text-slate-800">
                   <Layers size={14} className="text-slate-400" />
                   عيّنة {sample.length} من {preview.rows.length}
@@ -437,7 +456,7 @@ export default function OpsMapImportPage() {
             </section>
 
             {/* ── المستبعدات ── */}
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
               <button
                 type="button"
                 onClick={() => setShowSkips((v) => !v)}
@@ -447,7 +466,7 @@ export default function OpsMapImportPage() {
                 <span className="text-xs font-black text-slate-800">
                   المستبعدات ({preview.skipped.length})
                 </span>
-                <span className="ms-auto text-[10px] text-slate-400">
+                <span className="ms-auto shrink-0 text-[10px] text-slate-400">
                   {preview.skipped.length ? 'اضغط لعرض السبب' : 'لا شيء استُبعد'}
                 </span>
               </button>
@@ -462,7 +481,7 @@ export default function OpsMapImportPage() {
                         <span className="text-[10px] font-mono text-slate-400">#{s.osmWayId}</span>
                         <span className="text-[11px] font-black text-slate-700">{s.name ?? 'بلا اسم'}</span>
                       </div>
-                      <div className="text-[10px] leading-tight text-red-600">{s.reason}</div>
+                      <div className="break-anywhere text-[10px] leading-tight text-red-600">{s.reason}</div>
                     </div>
                   ))}
                 </div>
@@ -474,11 +493,11 @@ export default function OpsMapImportPage() {
 
       {/* ══ ④ الإدراج ══ */}
       {preview && phase.kind !== 'done' && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="flex items-center gap-2 text-sm font-black text-slate-800">
-            <span className="grid size-6 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٤</span>
-            الإدراج على دفعات
-            <span className="text-[10px] font-bold text-slate-400">
+        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-slate-800">
+            <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[#0b3d6b] text-[11px] text-white">٤</span>
+            <span className="min-w-0">الإدراج على دفعات</span>
+            <span className="shrink-0 text-[10px] font-bold text-slate-400">
               {Math.ceil(preview.rows.length / 200)} دفعة × ٢٠٠ صف
             </span>
           </h2>
@@ -509,7 +528,7 @@ export default function OpsMapImportPage() {
 
           {phase.kind === 'inserting' && (
             <div className="mt-3">
-              <div className="flex items-baseline justify-between text-[11px] font-bold text-slate-600">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[11px] font-bold text-slate-600">
                 <span>
                   {phase.done} / {phase.total} صف
                 </span>
@@ -531,12 +550,12 @@ export default function OpsMapImportPage() {
 
       {/* ══ النتيجة ══ */}
       {phase.kind === 'done' && (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <h2 className="flex items-center gap-2 text-sm font-black text-emerald-900">
+        <section className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-black text-emerald-900">
             <MapPin size={16} />
             اكتمل الإدراج
           </h2>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-2 grid min-w-0 grid-cols-3 gap-2 text-center">
             <div className="rounded-xl bg-white/70 p-2">
               <div className="text-lg font-black tabular-nums text-emerald-700">{phase.result.inserted}</div>
               <div className="text-[10px] font-bold text-slate-500">جديد</div>
@@ -559,7 +578,7 @@ export default function OpsMapImportPage() {
               </summary>
               <ul className="mt-1 space-y-0.5 text-[10px] text-red-700" dir="ltr">
                 {phase.result.errors.slice(0, 50).map((e) => (
-                  <li key={`${e.code}-${e.error}`} className="font-mono">
+                  <li key={`${e.code}-${e.error}`} className="break-anywhere font-mono">
                     {e.code}: {e.error}
                   </li>
                 ))}
