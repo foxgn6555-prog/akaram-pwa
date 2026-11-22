@@ -49,8 +49,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout --orphan deploy
-          git rm -rf .
-          cp -r dist/. .
-          git add -A -f
+          # git rm -rf . يحذف الملفات **المتتبَّعة** فقط. node_modules/ غير متتبّعة،
+          # فتبقى على القرص ثم يضيفها `git add -A -f` قسراً (‎-f يتجاوز .gitignore).
+          # النتيجة قبل الإصلاح: فرع deploy بـ45,699 ملف node_modules ونسخة dist/ مكرّرة
+          # (‎dist/dist في المسار) — 47,600 ملف لحزمة من 1,901.
+          #
+          # ⚠ لا نستعمل `git clean` هنا: يمسح dist/ نفسها فلا يبقى ما ننسخه.
+          #   ننقل الحزمة أولاً إلى مجلد آمن، ثم نمسح، ثم نعيدها في الجذر.
+          mv dist ../dist-keep
+          git rm -rf . || true
+          git clean -fdxq
+          cp -a ../dist-keep/. .
+          rm -rf ../dist-keep
+          # بلا ‎-f: احترام .gitignore هو المقصود، و`git clean` أزالت ما قد يبقى.
+          git add -A
           git commit -m "deploy: نشر الإنتاج"
           git push -f origin deploy
