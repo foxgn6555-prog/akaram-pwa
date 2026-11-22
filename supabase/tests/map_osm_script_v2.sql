@@ -22,8 +22,11 @@ declare
   v_ok       boolean;
 begin
   -- ── بيانات اختبار: مضلّع مستطيل بسيط 0.02° × 0.02° ──
-  insert into public.gps_geofences (id, polygon)
-  values (v_geofence, '[[33.30,44.30],[33.30,44.32],[33.32,44.32],[33.32,44.30]]'::jsonb);
+  -- ⚠ name و source مطلوبان (not null) في الجدول الحقيقي 00093 — بنيتي
+  --   المصغّرة محلياً لم تكن تحمل هذه القيود فكنت أختبر ضدّ جدول أسهل.
+  insert into public.gps_geofences (id, name, source, polygon, sector_id)
+  values (v_geofence, 'زون اختبار', 'platform',
+          '[[33.30,44.30],[33.30,44.32],[33.32,44.32],[33.32,44.30]]'::jsonb, 1);
 
   insert into public.map_zones (id, code, name, geofence_id)
   values (v_zone, 'TST1', 'زون اختبار', v_geofence);
