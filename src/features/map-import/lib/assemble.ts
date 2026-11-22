@@ -24,6 +24,7 @@ import {
   densitySanity,
   distM,
   insideOrOnZone,
+  longestSegmentM,
   nearestBoundaryM,
   pathLengthM,
   pointInPolygon,
@@ -31,6 +32,7 @@ import {
   segmentCrossings,
   segDistanceM,
   segIntersectParams,
+  SPARSE_SEGMENT_M,
   type EdgeIndex,
   type LatLng,
 } from './geometry'
@@ -66,6 +68,17 @@ export interface ImportRow {
    * **ولا تُدرَج** في القاعدة ولا تُحسب في الكثافة ولا في الزيارات.
    */
   excludeFromImport?: boolean
+  /**
+   * أطول مسافة بين عقدتين متجاورتين (بالمتر).
+   *
+   * **لماذا يُحفظ في الصف:** هو المقياس الذي يحدّد إن كان الشكل المرسوم
+   * يمثّل الشارع الحقيقي أم لا. فوق `SPARSE_SEGMENT_M` (١٥٠م) يكون
+   * الخط المستقيم بديلاً مرئياً عن منحنٍ ⇒ «الشكل تقريبي».
+   *
+   * يُحسب في `assembleImport` لا في الواجهة: هو خاصية هندسية للبيانات،
+   * وقد تحتاجه أي واجهة مستقبلاً (إحصاء، تصدير، تقارير جودة).
+   */
+  maxSegmentM?: number
 }
 
 export interface ImportMahalla {
@@ -97,6 +110,22 @@ export interface ImportPreview {
     unnamedAlleys: number
     /** أشواط داخل الزون لكن القصّ فشل — يلزم معرفتها */
     clipFallbacks: number
+    /**
+     * التباعد الهندسي — كم من الشبكة مرسومة بمقاطع أطول من العتبة.
+     *
+     * `km` و`pct` من **الطول** لا من عدد الصفوف: الطول هو ما يحدّد كيف تبدو
+     * الخريطة. صفّ واحد طويل زاوٍ يفسد المنظر أكثر من عشرة قصار.
+     */
+    sparse: {
+      /** عدد الصفوف التي فيها مقطع أطول من SPARSE_SEGMENT_M */
+      rows: number
+      /** طولها الكلي بالكيلومتر */
+      km: number
+      /** نسبتها من الطول الكلي (٠..١٠٠) */
+      pct: number
+      /** أطول مقطع في الملف كله — للسياق في التحذير */
+      worstM: number
+    }
   }
   zonePolygon: LatLng[]
 }
@@ -303,6 +332,8 @@ export function assembleImport(params: {
       mahallaNum: null,
       // الوسم الأصلي للعرض وحده — لا يغيّر `kind` ولا `cls` ولا أي حساب
       osmHighway: row.way.tags.highway,
+      // أطول مقطع مستقيم — يقيس «التقريب» الهندسي لا عدد النقاط
+      maxSegmentM: round1(longestSegmentM(row.pts)),
       // رابط طريق: يُعرض ولا يُستورد (يراه المشغّل ويفهم لماذا)
       ...(row.way.tags.highway && /_link$/.test(row.way.tags.highway)
         ? { excludeFromImport: true as const }
@@ -404,6 +435,13 @@ export function assembleImport(params: {
   const importableRows = rows.filter((r) => !r.excludeFromImport)
   const streets = importableRows.filter((r) => r.kind !== 'alley').length
   const totalLengthM = importableRows.reduce((s, r) => s + r.lengthM, 0)
+
+  /*
+   * التباعد: من الصفوف القابلة للاستيراد وحدها — الروابط لا تُدرَج فلا تهمّ
+   * للجودة، وإحصاؤها كان سيُنذر المشغّل عن شكل لن يراه في البيانات.
+   */
+  const sparseRows = importableRows.filter((r) => (r.maxSegmentM ?? 0) > SPARSE_SEGMENT_M)
+  const sparseLenM = sparseRows.reduce((s, r) => s + r.lengthM, 0)
   const { density, areaKm2, warn } = densitySanity(totalLengthM, poly)
 
   return {
@@ -421,6 +459,12 @@ export function assembleImport(params: {
       densityWarn: warn,
       unnamedAlleys,
       clipFallbacks,
+      sparse: {
+        rows: sparseRows.length,
+        km: Math.round((sparseLenM / 1000) * 10) / 10,
+        pct: totalLengthM > 0 ? Math.round((sparseLenM / totalLengthM) * 1000) / 10 : 0,
+        worstM: Math.round(importableRows.reduce((m, r) => Math.max(m, r.maxSegmentM ?? 0), 0)),
+      },
     },
     zonePolygon: poly,
   }

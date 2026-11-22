@@ -22,6 +22,7 @@ import { DENSITY_REFERENCE, mapImportSdk } from '@sdk/map-import.sdk'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { polygonAreaM2 } from '@features/map-import/lib/geometry'
 import { leafletPath, strokeFor, type PreviewStyle } from '@features/map-import/lib/osm-colors'
+import { SPARSE_SEGMENT_M } from '@features/map-import/lib/geometry'
 
 /**
  * أقصى عدد مسارات تُرسم على الخريطة المصغّرة.
@@ -563,9 +564,34 @@ export default function OpsMapImportPage() {
                 {preview.stats.densityWarn && (
                   <div className="font-bold text-red-700">{preview.stats.densityWarn}</div>
                 )}
-                {preview.stats.unnamedAlleys === 0 && preview.stats.clipFallbacks === 0 && !preview.stats.densityWarn && (
-                  <div className="font-bold text-emerald-700">✔ لا تحذيرات — الأرقام متسقة مع المرجع</div>
+                {/*
+                  ── تحذير الشكل التقريبي ──
+                  لا يُخفي الإدراج ولا يمنعه: البيانات **صالحة**، لكن الشكل
+                  المرسوم ليس الشارع الحقيقي. المشغّل يحتاج أن يعرف قبل أن
+                  يُدرج، لا أن يكتشف لاحقاً أن الخريطة زاويّة.
+
+                  الرقم بالطول لا بعدد الصفوف: ٤٣٪ من طول الشبكة في زون rth
+                  الحقيقي مرسوم بمقاطع أطول من ١٥٠ متراً، مع أن عدد الصفوف
+                  المتأثرة ٢٠٪ فقط. الطول هو ما يحدّد كيف تبدو الخريطة.
+                */}
+                {preview.stats.sparse.pct > 0 && (
+                  <div className="mt-1 font-bold text-amber-700">
+                    ⚠ الشكل تقريبي: {preview.stats.sparse.pct.toFixed(0)}٪ من الطول (
+                    {preview.stats.sparse.km.toFixed(1)} كم في {preview.stats.sparse.rows} مساراً)
+                    مرسوم بمقاطع مستقيمة أطول من ١٥٠م — أطولها{' '}
+                    {preview.stats.sparse.worstM.toFixed(0)}م. الشوارع المنحنية ستبدو زاويّة.
+                    <span className="font-normal text-slate-500">
+                      {' '}
+                      الحلّ: أعد التصدير بلا اقتطاع، أو قسّم الزون إلى أرباع.
+                    </span>
+                  </div>
                 )}
+                {preview.stats.unnamedAlleys === 0 &&
+                  preview.stats.clipFallbacks === 0 &&
+                  !preview.stats.densityWarn &&
+                  preview.stats.sparse.pct === 0 && (
+                    <div className="font-bold text-emerald-700">✔ لا تحذيرات — الأرقام متسقة مع المرجع</div>
+                  )}
                 <div className="mt-1 text-[10px] text-slate-500">
                   {preview.mahallas.__UNASSIGNED__ ? 'المحلات المربوطة بحدود OSM مفتوحة — الربط بالاسم فقط' : ''}
                 </div>
@@ -679,6 +705,20 @@ export default function OpsMapImportPage() {
                           <Tooltip sticky>
                             {r.code} · {r.name ?? 'بلا اسم'} · {r.lengthM.toFixed(0)}م
                             {r.osmHighway ? ` · ${r.osmHighway}` : ''}
+                            {/*
+                              التباعد في التلميح لا في اللون: تلوين المسارات
+                              الزاويّة كان سيُفسد مطابقة ألوان Overpass التي
+                              هي غرض المعاينة (المرحلة ②). المشغّل يرى الشكل
+                              الزاوي بعينه، ويقرأ الرقم هنا عند الحاجة.
+                            */}
+                            {(r.maxSegmentM ?? 0) > SPARSE_SEGMENT_M && (
+                              <>
+                                {' · '}
+                                <span className="font-bold text-amber-600">
+                                  ⚠ أطول مقطع {r.maxSegmentM!.toFixed(0)}م
+                                </span>
+                              </>
+                            )}
                           </Tooltip>
                         </Polyline>
                       )
@@ -753,7 +793,26 @@ export default function OpsMapImportPage() {
               type="button"
               disabled={busy || !activeZoneId}
               onClick={() => {
-                if (activeZoneId) void insert(activeZoneId, preview)
+                if (!activeZoneId) return
+                /*
+                 * تأكيد عند الشكل التقريبي فقط — لا سؤال عند البيانات النظيفة.
+                 * التحذير في بطاقة الإحصاء قد يُمرَّر عليه، أما هذا فيتوقّف
+                 * أمامه المشغّل. ولا يمنع الإدراج: البيانات صالحة، والشكل
+                 * مسألة جودة لا مسألة صحّة.
+                 */
+                const sp = preview.stats.sparse
+                if (sp.pct > 0) {
+                  const ok = window.confirm(
+                    `الشكل تقريبي: ${sp.pct.toFixed(0)}٪ من طول الشبكة (${sp.km.toFixed(1)} كم) ` +
+                      `مرسوم بمقاطع مستقيمة أطول من ١٥٠ متراً، أطولها ${sp.worstM.toFixed(0)}م.\n\n` +
+                      'الشوارع المنحنية ستبدو زاويّة على الخريطة.\n' +
+                      'الحلّ: أعد تصدير الملف بلا اقتطاع، أو قسّم الزون إلى أرباع.\n\n' +
+                      'البيانات نفسها صالحة — المتابعة تُدرج الشوارع بشكلها التقريبي.\n\n' +
+                      'هل تريد المتابعة؟',
+                  )
+                  if (!ok) return
+                }
+                void insert(activeZoneId, preview)
               }}
               className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white shadow hover:bg-emerald-700 disabled:opacity-50"
             >
