@@ -25,6 +25,7 @@ const MapPlanningTable = lazy(() => import('./pages/MapPlanning/OpsMapPlanningTa
 const MapVisits = lazy(() => import('./pages/MapPlanning/OpsMapVisitsPage'))
 const MapCoverage = lazy(() => import('./pages/MapPlanning/OpsMapCoveragePage'))
 const MapVehicleVisits = lazy(() => import('./pages/MapPlanning/OpsMapVehicleVisitsPage'))
+const MapImport = lazy(() => import('./pages/MapPlanning/OpsMapImportPage'))   // الجولة ①: استيراد OSM
 const OpsStationFleet = lazy(() => import('./pages/StationFleet/OpsStationFleetPage'))   // 00329: أسطول المحطة التحويلية
 const OpsStationOutbound = lazy(() => import('./pages/StationFleet/OpsStationOutboundPage'))   // 00331: متابعة خروج آليات المحطة
 const FleetDatabase = lazy(() =>
@@ -73,4 +74,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'map-planning/visits', element: load(<MapVisits />) },
   { path: 'map-planning/coverage', element: load(<MapCoverage />) },
   { path: 'map-planning/vehicle-visits', element: load(<MapVehicleVisits />) },
+  { path: 'map-planning/import', element: load(<MapImport />) },
 ]

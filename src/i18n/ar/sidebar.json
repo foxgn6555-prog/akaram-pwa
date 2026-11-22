@@ -188,7 +188,8 @@
     "approval_chains": "سلاسل الموافقات",
     "approval_performance": "أداء الموافقات",
     "manual_attendance": "الحضور اليدوي",
-    "it_attendance_manual": "الحضور اليدوي (تعطل البصمة)"
+    "it_attendance_manual": "الحضور اليدوي (تعطل البصمة)",
+    "map_import": "استيراد الخريطة"
   },
   "sections": {
     "main": "القائمة الرئيسية",

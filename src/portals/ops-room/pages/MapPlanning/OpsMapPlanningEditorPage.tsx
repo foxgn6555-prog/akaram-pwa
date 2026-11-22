@@ -11,10 +11,11 @@
  * الحرّاس في القاعدة هي المرجع: أي خطأ يعود بنصّه العربي (MAP_OVERLAP …)
  * ويُعرض كما هو بدل رسالة عامة.
  */
-import { useMemo, useState } from 'react'
-import { MapContainer, Polyline, Tooltip, useMap } from 'react-leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { MapContainer, Polyline, Marker, Tooltip, useMap } from 'react-leaflet'
+import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Filter, Link2, Route, TriangleAlert } from 'lucide-react'
+import { Filter, Link2, Pencil, Route, TriangleAlert } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import { useMapTheme } from '@features/map-theme/useMapTheme'
@@ -22,12 +23,20 @@ import {
   KIND_LABEL_AR,
   STATUS_LABEL_AR,
   type MapAlley,
+  type MapPoint,
   type MapStreet,
   type StreetKind,
 } from '@sdk/map-planning.sdk'
+import { mapImportSdk } from '@sdk/map-import.sdk'
+import { parseZonePolygonText } from '@features/map-import/lib/zone-polygon'
+import type { LatLng } from '@features/map-import/lib/geometry'
+import { EditPanel } from '@features/map-import/components/EditPanel'
+import { useMapEdit } from '@features/map-import/hooks/useMapEdit'
 import {
   useDecideReview,
   useLinkAlleyMahalla,
+  useSaveAlley,
+  useSaveStreet,
   useMapAlleys,
   useMapMahallas,
   useMapReviews,
@@ -44,6 +53,17 @@ const KIND_COLOR: Record<StreetKind, string> = {
   local: '#0d9488',
 }
 const ALLEY_COLOR = '#7c3aed'
+
+/**
+ * أيقونة نقطة السحب — `CircleMarker` يرث `Path` ولا يدعم السحب في Leaflet،
+ * لذا نستخدم `Marker` مع `divIcon` دائري: يبدو كنقطة ويُسحب فعلاً.
+ */
+const VERTEX_ICON = divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;border-radius:50%;background:#0b3d6b;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:grab"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+})
 
 type Layer = 'streets' | 'alleys' | 'both'
 type Selected = { kind: 'street'; row: MapStreet } | { kind: 'alley'; row: MapAlley } | null
@@ -83,6 +103,28 @@ export default function MapPlanningEditorPage() {
 
   const decide = useDecideReview()
   const linkAlley = useLinkAlleyMahalla()
+  const saveStreet = useSaveStreet()
+  const saveAlley = useSaveAlley()
+
+  // ── مضلّع الزون: مصدر التحقق قبل الحفظ ──
+  const [zonePolygon, setZonePolygon] = useState<LatLng[]>([])
+  useEffect(() => {
+    if (!activeZoneId) return
+    let alive = true
+    void (async () => {
+      try {
+        const text = await mapImportSdk.zonePolygonText(activeZoneId)
+        if (alive) setZonePolygon(parseZonePolygonText(text))
+      } catch {
+        if (alive) setZonePolygon([])
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [activeZoneId])
+
+  const editor = useMapEdit(zonePolygon)
 
   const activeZone = zones.find((z) => z.id === activeZoneId)
   const unassigned = mahallas.find((m) => m.code === 'MHL-0000')
@@ -270,17 +312,107 @@ export default function MapPlanningEditorPage() {
                     <Tooltip>{`${a.code} · ${a.name ?? 'بلا اسم'} · ${Math.round(a.length_m)} م`}</Tooltip>
                   </Polyline>
                 ))}
+
+                {/* ── وضع التعديل: المسودة + نقاط السحب ── */}
+                {editor.draft && (
+                  <>
+                    <Polyline
+                      positions={editor.draft.pts as [number, number][]}
+                      pathOptions={{ color: '#0b3d6b', weight: 6, opacity: 0.95 }}
+                    />
+                    {editor.draft.pts.map((pt, i) => (
+                      <Marker
+                        key={`v-${i}-${pt[0]}-${pt[1]}`}
+                        position={pt as [number, number]}
+                        icon={VERTEX_ICON}
+                        draggable
+                        eventHandlers={{
+                          dragend: (e) => {
+                            const { lat, lng } = e.target.getLatLng()
+                            const next = editor.draft!.pts.map((p, k) =>
+                              k === i ? ([lat, lng] as LatLng) : p,
+                            )
+                            editor.apply({ pts: next })
+                          },
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
               </MapContainer>
               <Legend theme={theme} shownLineCount={shownStreets.length + shownAlleys.length} />
             </div>
 
             <aside className="space-y-3">
-              {selected ? (
+              {editor.draft ? (
+                <EditPanel
+                  draft={editor.draft}
+                  errors={editor.errors}
+                  canUndo={editor.canUndo}
+                  canRedo={editor.canRedo}
+                  valid={editor.valid}
+                  saving={saveStreet.isPending || saveAlley.isPending}
+                  onName={(v) => editor.apply({ name: v })}
+                  onKind={(v) => editor.apply({ kind: v })}
+                  onUndo={editor.undo}
+                  onRedo={editor.redo}
+                  onCancel={() => {
+                    editor.cancel()
+                    setSelected(null)
+                  }}
+                  onSave={() => {
+                    const d = editor.prepareSave()
+                    if (!d || !activeZoneId) return
+                    const done = () => {
+                      editor.cancel()
+                      setSelected(null)
+                    }
+                    if (d.target.kind === 'street') {
+                      saveStreet.mutate(
+                        {
+                          id: d.target.id,
+                          zone_id: activeZoneId,
+                          code: d.target.code,
+                          name: d.name?.trim() || null,
+                          kind: d.kind as StreetKind,
+                          path: d.pts as MapPoint[],
+                        },
+                        { onSuccess: done },
+                      )
+                    } else {
+                      const alley = alleys.find((a) => a.id === d.target.id)
+                      if (!alley?.mahalla_id) return
+                      saveAlley.mutate(
+                        {
+                          id: d.target.id,
+                          zone_id: activeZoneId,
+                          mahalla_id: alley.mahalla_id,
+                          code: d.target.code,
+                          name: d.name?.trim() || null,
+                          path: d.pts as MapPoint[],
+                        },
+                        { onSuccess: done },
+                      )
+                    }
+                  }}
+                />
+              ) : selected ? (
                 <DetailsCard
                   selected={selected}
                   mahallas={mahallas}
                   linkTo={linkTo}
                   setLinkTo={setLinkTo}
+                  onEdit={() => {
+                    const r = selected.row
+                    editor.begin({
+                      kind: selected.kind,
+                      id: r.id,
+                      code: r.code,
+                      pts: r.path.map((p) => [p[0], p[1]] as LatLng),
+                      name: r.name,
+                      kindValue: selected.kind === 'street' ? (selected.row as MapStreet).kind : 'alley',
+                    })
+                  }}
                   onLink={(mahallaId) => {
                     if (!activeZoneId || selected.kind !== 'alley') return
                     linkAlley.mutate(
@@ -407,6 +539,7 @@ function DetailsCard({
   linkTo,
   setLinkTo,
   onLink,
+  onEdit,
   onClose,
   linking,
 }: {
@@ -415,6 +548,7 @@ function DetailsCard({
   linkTo: string
   setLinkTo: (v: string) => void
   onLink: (mahallaId: string) => void
+  onEdit: () => void
   onClose: () => void
   linking: boolean
 }) {
@@ -432,13 +566,24 @@ function DetailsCard({
           <h2 className="text-lg font-black text-slate-900">{row.code}</h2>
           <p className="text-xs font-bold text-slate-600">{row.name ?? 'بلا اسم'}</p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600"
-        >
-          إغلاق
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onEdit}
+            data-testid="edit-start"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#0b3d6b] px-2 py-1 text-[10px] font-black text-white hover:bg-[#0b4f8a]"
+          >
+            <Pencil size={11} />
+            تعديل
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600"
+          >
+            إغلاق
+          </button>
+        </div>
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
