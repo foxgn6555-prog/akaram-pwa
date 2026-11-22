@@ -38,6 +38,8 @@ export interface MapStreet {
   is_bridge: boolean
   status: MapStatus
   osm_way_id: number | null
+  /** أطول مسافة بين عقدتين (متر) — فوق ١٥٠م الشكل المرسوم تقريبي */
+  max_segment_m?: number | null
   confirmed_at: string | null
 }
 
@@ -53,6 +55,8 @@ export interface MapAlley {
   width_source: string | null
   status: MapStatus
   osm_way_id: number | null
+  /** أطول مسافة بين عقدتين (متر) — فوق ١٥٠م الشكل المرسوم تقريبي */
+  max_segment_m?: number | null
   /** كود المحلة — من join، للعرض والفلترة */
   mahalla_code?: string | null
   mahalla_name?: string | null
