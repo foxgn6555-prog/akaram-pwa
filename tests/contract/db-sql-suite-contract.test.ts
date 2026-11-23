@@ -123,3 +123,57 @@ describe('③ الترحيلات الجديدة لها رأس تراجع', () =>
     }
   })
 })
+
+describe('④ حساب التفويض في اختبارات الكشف — لا اعتماد على الدور وحده', () => {
+  /**
+   * `20261118150000` نقل صلاحية قراءة/حفظ الكشف من «دور البوابة» إلى
+   * **قائمة الحسابات المخوّلة لكل تفعيل** (`attendance_manual_recorders`).
+   * غرفة العمليات وحدها مخوّلة تلقائياً؛ التقنية وsuper_admin يُنشئان ويُوقّعان
+   * لكنهما **لا يسجّلان** كشفاً.
+   *
+   * الاختبار القديم كان يستدعي الحفظ بحساب التقنية/المشرف الأعلى، فسقط عند أول
+   * وصول لهذه النقطة — ولم يظهر ذلك إلا بعد إصلاح A6 الذي كان يخفيه.
+   * هذا العقد يثبّت الشكل الصحيح كي لا يعود.
+   */
+  const T = read('tests/db/attendance-manual-test.sql')
+
+  it('التفعيلات تمرّر قائمة مخوّلين بدور البوابة', () => {
+    // بوابة المحطة: مشرف transfer_station
+    expect(T).toMatch(
+      /attendance_manual_activate\('transfer-station'[\s\S]{0,200}array\['a7000000-0000-4000-8000-000000000004'\]::uuid\[\]/,
+    )
+    // الصيانة: حساب maintenance
+    expect(T).toMatch(
+      /attendance_manual_activate\('maintenance'[\s\S]{0,260}array\['a7000000-0000-4000-8000-000000000005'\]::uuid\[\]/,
+    )
+  })
+
+  it('الحفظ/القراءة في الكتل D وF بلا حساب مخوّل مسبقاً', () => {
+    /** كل استدعاء `manual_att_sheet_save` يجب أن يسبقه `as_user` مخوّل أو غرفة عمليات. */
+    const lines = T.split('\n')
+    const allowed = new Set([
+      'a7000000-0000-4000-8000-000000000002', // غرفة العمليات — مخوّلة تلقائياً
+      'a7000000-0000-4000-8000-000000000004', // مشرف البوابة — مخوّل صراحةً
+      'a7000000-0000-4000-8000-000000000005', // حساب الصيانة — مخوّل صراحةً
+    ])
+    let actor: string | null = null
+    for (const line of lines) {
+      const m = line.match(/pg_temp\.as_user\('([0-9a-f-]{36})'\)/)
+      if (m) actor = m[1] ?? null
+      if (line.includes('manual_att_sheet_save(') && !line.trim().startsWith('--')) {
+        expect(actor !== null && allowed.has(actor), `سطر بلا حساب مخوّل: ${line.slice(0, 90)}`).toBe(true)
+      }
+    }
+  })
+
+  it('التقنية ليست مخوّلة تلقائياً — الاختبار يوثّق الصفر', () => {
+    expect(T).toMatch(
+      /jsonb_array_length\(public\.manual_att_my_activations\(\)\) = 0, 'C4 تفعيلاتي للتقنية/,
+    )
+  })
+
+  it('بعد اعتماد الشهر يسقط التفويض قبل حارس الشهر', () => {
+    // التفعيل المنتهي بلا أيام معلّقة ⇒ can_record = false ⇒ PERMISSION_DENIED
+    expect(T).toMatch(/محاولة بعد الاعتماد[\s\S]{0,200}'PERMISSION_DENIED'/)
+  })
+})

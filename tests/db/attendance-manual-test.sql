@@ -140,8 +140,10 @@ begin
 end $$;
 
 -- A4: التفعيل الحقيقي (التقنية) — يبدأ قبل يومين، ثم كل ما يلي عليه
+-- 20261118150000: صلاحية الكشف صارت على مستوى الحساب (attendance_manual_recorders) لا الدور؛
+-- غرفة العمليات وحدها مخوّلة تلقائياً. يُمرَّر مشرف البوابة (دور transfer_station) لينفّذ C/D/E أدناه.
 select pg_temp.as_user('a7000000-0000-4000-8000-000000000001');
-create temp table a7_ctx as select public.attendance_manual_activate('transfer-station', null, 'a7000000-0000-4000-8000-0000000000d1'::uuid, true, 'تعطل جهاز بوابة المحطة', app.hr_local_date(now()) - 2) as j;
+create temp table a7_ctx as select public.attendance_manual_activate('transfer-station', null, 'a7000000-0000-4000-8000-0000000000d1'::uuid, true, 'تعطل جهاز بوابة المحطة', app.hr_local_date(now()) - 2, array['a7000000-0000-4000-8000-000000000004']::uuid[]) as j;
 do $$ declare j jsonb := (select j from a7_ctx); t date := app.hr_local_date(now()); act uuid := (j ->> 'id')::uuid; a public.attendance_manual_activations; n int;
 begin
   assert (j ->> 'employees')::int = 6 and (j ->> 'starts_on')::date = t - 2, 'A4 نتيجة التفعيل (بلا شرط بصمة): ' || j::text;
@@ -231,7 +233,9 @@ begin
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000005'); assert jsonb_array_length(public.manual_att_my_activations()) = 0, 'C4 تفعيلاتي للصيانة';
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000003'); assert jsonb_array_length(public.manual_att_my_activations()) = 0, 'C4 تفعيلاتي للموارد';
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000002'); assert jsonb_array_length(public.manual_att_my_activations()) = 1, 'C4 تفعيلاتي لغرفة العمليات';
-  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000001'); assert jsonb_array_length(public.manual_att_my_activations()) = 1, 'C4 تفعيلاتي للتقنية';
+  -- 20261118150000: التقنية تُنشئ التفعيل وتُفوّض الحسابات، لكنها ليست مخوّلة تلقائياً —
+  -- غرفة العمليات وحدها كذلك. الصفر يوثّق التصميم لا عطلاً.
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000001'); assert jsonb_array_length(public.manual_att_my_activations()) = 0, 'C4 تفعيلاتي للتقنية (غير مخوّلة تلقائياً)';
   raise notice 'C1-C4 ✅ حالات الموظفين، المستثنون، النافذة، الصلاحيات، تفعيلاتي';
 end $$;
 
@@ -336,10 +340,14 @@ begin
   perform public.hr_leave_decide(p, true);
   assert not exists (select 1 from public.hr_attendance_days where employee_id = e1 and work_date = t - 2)
      and exists (select 1 from app.manual_att_pending_days(t - 2, t - 2, act) where employee_id = e1), 'D8ب الزمنية وحدها لا تسجل اليوم ولا تزيله من المعلّق';
+  -- 20261118150000: super_admin تقرّر الإجازات والاعتماد لكنها ليست مخوّلة تسجيل كشف؛
+  -- الحفظ بحساب التفويض (مشرف البوابة) ثم يعود السياق لقرار الإجازة.
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000004');
   r := public.manual_att_sheet_save(act, t - 2, jsonb_build_array(jsonb_build_object('employee_id', e1, 'status', 'present')), null);
   select * into a from public.hr_attendance_days where employee_id = e1 and work_date = t - 2;
   assert (r ->> 'saved')::int = 1 and a.status = 'time_permit' and a.approved_permit_original ->> 'status' = 'present'
      and not exists (select 1 from app.manual_att_pending_days(t - 2, t - 2, act) where employee_id = e1), 'D8ب بعد التسجيل يتزامن الإذن ويغلق معلّق الموظف';
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000007');
   perform public.hr_leave_cancel(p, 'إلغاء زمنية قبل تسجيل الكشف');
   select * into a from public.hr_attendance_days where employee_id = e1 and work_date = t - 2;
   assert a.status = 'present' and a.approved_permit_original is null, 'D8ب إلغاء الإذن بعد التسجيل يستعيد الأصل';
@@ -348,10 +356,12 @@ begin
     values (e1, 'time_permit', typ, t - 1, t - 1, '08:00', '09:00', 60, 'pending') returning id into p;
   perform public.hr_leave_decide(p, true);
   select * into a from public.hr_attendance_days where employee_id = e1 and work_date = t - 1;
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000004');   -- قراءة الكشف بحساب مخوّل
   select e ->> 'state' into st from jsonb_array_elements(public.manual_att_sheet_get(act, t - 1) -> 'employees') e where e ->> 'number' = 'A7-1';
   assert a.status = 'time_permit' and a.source = 'manual' and a.approved_permit_original ->> 'status' = 'present'
      and a.worked_minutes = 480 and a.shortfall_minutes = 0 and a.permit_minutes = 60 and st = 'open'
      and not exists (select 1 from app.manual_att_pending_days(t - 1, t - 1, act) where employee_id = e1), 'D8ب حضور يدوي حاضر مع زمنية: الأصل محفوظ، لا نقص ولا يوم معلّق: ' || row_to_json(a)::text || ' / ' || st;
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000007');
   perform public.hr_leave_cancel(p, 'إلغاء زمنية اختبار الحضور');
   select * into a from public.hr_attendance_days where employee_id = e1 and work_date = t - 1;
   assert a.status = 'present' and a.approved_permit_original is null and a.worked_minutes = 480, 'D8ب إلغاء الزمنية يستعيد الحالة اليدوية حاضر';
@@ -362,6 +372,7 @@ begin
   select * into a from public.hr_attendance_days where employee_id = e2 and work_date = t - 1;
   assert a.status = 'absent' and a.approved_permit_original ->> 'status' = 'absent' and a.shortfall_minutes = 480
      and a.proposed_deduction_days = 1 and a.permit_minutes = 0, 'D8ب الزمنية الساعية لا تحوّل الغياب اليدوي إلى إجازة يومية: ' || row_to_json(a)::text;
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000007');
   perform public.hr_leave_cancel(p, 'إلغاء زمنية اختبار الغياب');
   select * into a from public.hr_attendance_days where employee_id = e2 and work_date = t - 1;
   assert a.status = 'absent' and a.approved_permit_original is null and a.shortfall_minutes = 480, 'D8ب إلغاء الزمنية يستعيد الغياب اليدوي';
@@ -374,7 +385,9 @@ do $$ declare t date := app.hr_local_date(now()); j jsonb; act2 uuid; e8 uuid :=
 begin
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000001');
   -- بداية قبل 12 يوماً قد تقع في شهر سابق؛ نتجنّب أي شهر معتمد/مقفل (لا وجود له هنا)
-  j := public.attendance_manual_activate('maintenance', 'a7000000-0000-4000-8000-0000000000b1'::uuid, null, true, 'تعطل جهاز الصيانة', t - 12);
+  -- 20261118150000: يجب تخويل حساب بوابة الصيانة (دور maintenance) صراحةً — مالك دور البوابة
+  -- لا يملك «create» على وحدة الكشف، والمخوّل هو من يفتح ويحفظ.
+  j := public.attendance_manual_activate('maintenance', 'a7000000-0000-4000-8000-0000000000b1'::uuid, null, true, 'تعطل جهاز الصيانة', t - 12, array['a7000000-0000-4000-8000-000000000005']::uuid[]);
   act2 := (j ->> 'id')::uuid;
   assert (j ->> 'employees')::int = 8, 'D9 موظفو الفرع (يشمل بلا بصمة): ' || j::text;
   -- المشرّف (صلاحية بوابة الصيانة) لا يملك أصلاً بوابة أخرى: نستعمل مستخدم الصيانة
@@ -414,9 +427,11 @@ begin
   -- F1ب: إذا اختير بأثر رجعي أن آخر يوم مغطّى كان أمس، يجب أن تُستبدل أي كتابة يدوية لليوم (بعده) ببصمة الجهاز المخزنة.
   -- هذه الحالة غير الظاهرة في المسار المعتاد مهمة: قد يكون كشف اليوم حُفظ قبل أن يؤكد IT وقت إصلاح الجهاز.
   perform pg_temp.punch(e1, 'A701', t, '08:00'); perform pg_temp.punch(e1, 'A701', t, '16:00');
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000004');   -- الحفظ بحساب التفويض (التقنية تُوقف فقط)
   r := public.manual_att_sheet_save(act, t, jsonb_build_array(jsonb_build_object('employee_id', e1, 'status', 'absent')), null);
   assert (r ->> 'saved')::int = 1 and exists (select 1 from public.hr_attendance_days where employee_id = e1 and work_date = t and source = 'manual' and status = 'absent'), 'F1ب تجهيز كشف اليوم السابق لإيقاف مبكر';
   -- F2: الإيقاف بآخر يوم مغطّى = أمس ⇒ اليوم يعود للبصمة؛ أمس وقبل أمس يبقيان تحت الكشف
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000001');   -- الإيقاف من صلاحية التقنية
   r := public.attendance_manual_deactivate(act, t - 1, 'أُصلح الجهاز ظهراً');
   assert (r ->> 'ends_on')::date = t - 1 and (r ->> 'pending_days')::int > 0, 'F2 نتيجة الإيقاف: ' || r::text;
   assert (select status from public.attendance_manual_activations where id = act) = 'ended' and (select ended_by from public.attendance_manual_activations where id = act) = 'a7000000-0000-4000-8000-000000000001', 'F2 حالة الإيقاف';
@@ -516,7 +531,10 @@ begin
   r := public.ops_attendance_confirm(m)::jsonb;
   assert r ->> 'status' = 'confirmed', 'E3 اعتُمد الشهر: ' || r::text;
   -- E4: بعد الاعتماد لا كشف ولا تفعيل في الشهر المعتمد
-  perform pg_temp.expect_error(format($q$ select public.manual_att_sheet_save(%L::uuid, %L::date, jsonb_build_array(jsonb_build_object('employee_id', 'a7000000-0000-4000-8000-0000000000e1', 'status', 'absent')), 'محاولة بعد الاعتماد') $q$, act, t - 1), 'HR_ATTENDANCE_CONFIRMED');
+  -- 20261118150000: بعد الاعتماد تُغلق كل أيام التفعيل، فيسقط التفويض نفسه (لا أيام معلّقة)
+  -- قبل الوصول إلى فحص الشهر ⇒ الحارس الفعلي الآن PERMISSION_DENIED لا HR_ATTENDANCE_CONFIRMED.
+  perform pg_temp.as_user('a7000000-0000-4000-8000-000000000002');
+  perform pg_temp.expect_error(format($q$ select public.manual_att_sheet_save(%L::uuid, %L::date, jsonb_build_array(jsonb_build_object('employee_id', 'a7000000-0000-4000-8000-0000000000e1', 'status', 'absent')), 'محاولة بعد الاعتماد') $q$, act, t - 1), 'PERMISSION_DENIED');
   perform pg_temp.as_user('a7000000-0000-4000-8000-000000000001');
   perform pg_temp.expect_error(format($q$ select public.attendance_manual_activate('hr', null, 'a7000000-0000-4000-8000-0000000000d3'::uuid, true, 'شهر معتمد', %L::date) $q$, t - 1), 'HR_ATTENDANCE_CONFIRMED');
   -- E5: بعد اكتمال الكشوف يختفي المنتهي من «تفعيلاتي»

@@ -145,9 +145,10 @@ begin
 end $$;
 
 -- ═══ D) تقنية المعلومات: جلسات حساب وإنهاؤها ═══
-insert into auth.sessions (user_id, ip, user_agent) values
-  ('d1000000-0000-4000-8000-000000000001', '10.1.1.1', 'D1-A'),
-  ('d1000000-0000-4000-8000-000000000001', '10.1.1.2', 'D1-B');
+-- جدول GoTrue الحقيقي: `id` بلا DEFAULT ⇒ نولّده صراحةً.
+insert into auth.sessions (id, user_id, ip, user_agent) values
+  (gen_random_uuid(), 'd1000000-0000-4000-8000-000000000001', '10.1.1.1', 'D1-A'),
+  (gen_random_uuid(), 'd1000000-0000-4000-8000-000000000001', '10.1.1.2', 'D1-B');
 
 select pg_temp.as_user('d1000000-0000-4000-8000-000000000002');   -- موظف عادي
 select pg_temp.expect_error($$select * from public.admin_session_list('d1000000-0000-4000-8000-000000000001')$$, 'PERMISSION_DENIED');

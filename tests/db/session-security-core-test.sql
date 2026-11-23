@@ -129,9 +129,10 @@ begin
   end if;
 end $$;
 
-insert into auth.sessions (user_id, ip, user_agent) values
-  ('a8000000-0000-4000-8000-000000000003', '10.0.0.1', 'A8-A'),
-  ('a8000000-0000-4000-8000-000000000003', '10.0.0.2', 'A8-B');
+-- جدول GoTrue الحقيقي: `id` بلا DEFAULT ⇒ نولّده صراحةً (gen_random_uuid متاح في pgcrypto/core).
+insert into auth.sessions (id, user_id, ip, user_agent) values
+  (gen_random_uuid(), 'a8000000-0000-4000-8000-000000000003', '10.0.0.1', 'A8-A'),
+  (gen_random_uuid(), 'a8000000-0000-4000-8000-000000000003', '10.0.0.2', 'A8-B');
 
 do $$
 declare r record; n int;
