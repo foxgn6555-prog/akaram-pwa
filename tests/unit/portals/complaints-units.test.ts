@@ -7,7 +7,7 @@ import { customRoutes } from '@portals/complaints/routes'
 describe('بوابة الشكاوى', () => {
   it('تسجل وحدات الدورة بالترتيب المطلوب', () => {
     const units = PORTAL_UNITS[PORTALS.COMPLAINTS].filter((unit) => !isManualAttendancePath(unit.path))   // الحضور اليدوي: وحدة عامة بالتفعيل — يغطيها attendance-manual-routes
-    expect(units).toHaveLength(12)
+    expect(units).toHaveLength(13)
     expect(units.map((unit) => unit.labelKey)).toEqual([
       'nav.dashboard',
       'nav.complaints_karrada',
@@ -20,6 +20,7 @@ describe('بوابة الشكاوى', () => {
       'nav.complaints_pages_contact',
       'nav.complaints_archive',
       'nav.complaints_support',
+      'nav.complaints_guidance',   // ⑫: دليل الموظف — كان مخفيّاً
       'nav.approval_tasks',
     ])
   })
