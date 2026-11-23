@@ -28,6 +28,9 @@ import {
 } from '@features/map-planning/export-kinds'
 import {
   GROUPED_HEADER,
+  baghdadTime,
+  dayText,
+  groupedDwellText,
   groupedReportColumns,
   groupedTitle,
   groupedTotalRow,
@@ -90,13 +93,14 @@ export default function MapGroupedReportPage() {
   const totals = useMemo(() => {
     const visits = rows.reduce((a, r) => a + r.visits_count, 0)
     const alleys = rows.reduce((a, r) => a + r.alleys_count, 0)
+    const streets = rows.reduce((a, r) => a + r.streets_count, 0)
     const conf = rows.reduce((a, r) => a + r.confirmed_count, 0)
     const streetsOnly = rows.filter((r) => r.street_mahalla_source === 'street').length
     const unknown = rows.filter((r) => r.street_mahalla_source === 'unknown').length
     const uncertain = rows.reduce((a, r) => a + r.uncertain_count, 0)
     const totalDwell = rows.reduce((a, r) => a + r.total_dwell_seconds, 0)
     const dwellMinutes = Math.round(totalDwell / 60)
-    return { visits, alleys, conf, uncertain, streetsOnly, unknown, dwellMinutes, rows: rows.length }
+    return { visits, alleys, streets, conf, uncertain, streetsOnly, unknown, dwellMinutes, rows: rows.length }
   }, [rows])
 
   const activeFilterCount =
@@ -449,7 +453,7 @@ export default function MapGroupedReportPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-right text-[11px]">
+            <table className={`w-full text-right text-[11px] ${showAllCols ? 'min-w-[2100px]' : 'min-w-[900px]'}`}>
               <thead className="bg-[#0b3d6b] text-white">
                 <tr>
                   <th className="p-2 font-black">ت</th>
@@ -464,6 +468,20 @@ export default function MapGroupedReportPage() {
                   <th className="p-2 font-black">الملاحظات</th>
                   <th className="p-2 font-black">الزيارات</th>
                   <th className="p-2 font-black">المكوث</th>
+                  {showAllCols && (<>
+                    <th className="p-2 font-black">التاريخ</th>
+                    <th className="p-2 font-black">نوع الآلية</th>
+                    <th className="p-2 font-black">رمز المحلة</th>
+                    <th className="p-2 font-black">اسم المحلة</th>
+                    <th className="p-2 font-black">عدد الأزقة</th>
+                    <th className="p-2 font-black">عدد الشوارع</th>
+                    <th className="p-2 font-black">مؤكدة</th>
+                    <th className="p-2 font-black">غير مؤكدة</th>
+                    <th className="p-2 font-black">أول دخول</th>
+                    <th className="p-2 font-black">آخر خروج</th>
+                    <th className="p-2 font-black">متوسط المكوث</th>
+                    <th className="p-2 font-black">أقصى عمق</th>
+                  </>)}
                 </tr>
               </thead>
               <tbody>
@@ -504,6 +522,22 @@ export default function MapGroupedReportPage() {
                       <td className="p-2 text-center text-[10px] font-bold text-slate-600">
                         {Math.round(r.total_dwell_seconds / 60)} د
                       </td>
+                      {showAllCols && (<>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{dayText(r.placeday) ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{r.vehicle_name ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-500">{r.mahalla_code ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{r.mahalla_name ?? '—'}</td>
+                        <td className="p-2 text-center font-black text-slate-800">{r.alleys_count}</td>
+                        <td className="p-2 text-center font-black text-slate-800">{r.streets_count}</td>
+                        <td className="p-2 text-center font-bold text-emerald-700">{r.confirmed_count}</td>
+                        <td className={`p-2 text-center font-bold ${r.uncertain_count > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                          {r.uncertain_count}
+                        </td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{baghdadTime(r.first_entered_at) ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{baghdadTime(r.last_exited_at) ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{groupedDwellText(r.avg_dwell_seconds) ?? '—'}</td>
+                        <td className="p-2 text-center text-[10px] font-bold text-slate-600">{r.max_depth_m ?? '—'}</td>
+                      </>)}
                     </tr>
                   )
                 })}
@@ -515,6 +549,20 @@ export default function MapGroupedReportPage() {
                   <td className="p-2 text-center text-[10px] font-black text-slate-600">
                     {totals.dwellMinutes > 0 ? `${totals.dwellMinutes} د` : '—'}
                   </td>
+                  {showAllCols && (<>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center font-black text-slate-900">{totals.alleys}</td>
+                    <td className="p-2 text-center font-black text-slate-900">{totals.streets}</td>
+                    <td className="p-2 text-center font-black text-emerald-700">{totals.conf}</td>
+                    <td className="p-2 text-center font-black text-amber-600">{totals.uncertain}</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                    <td className="p-2 text-center text-[10px] font-black text-slate-600">—</td>
+                  </>)}
                 </tr>
               </tfoot>
             </table>

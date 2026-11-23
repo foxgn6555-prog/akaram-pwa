@@ -10,12 +10,12 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   GROUPED_COLUMNS,
+  toGroupedRows,
   groupedReportColumns,
   groupedTitle,
   groupedTotalRow,
   notesOf,
   sourceBadge,
-  toGroupedRows,
 } from '@features/map-planning/grouped-export'
 import type { GroupedVisitRow } from '@sdk/map-planning.sdk'
 import { MAHALLA_SOURCE_LABEL_AR } from '@sdk/map-planning.sdk'
@@ -345,5 +345,93 @@ describe('⑪ لا مخرج خلفي لتجاوز الصلاحية', () => {
 
   it('service_role مسموح — المهام الخلفية والتصدير المدفوع', () => {
     expect(read(MIG)).toMatch(/to authenticated, service_role;/)
+  })
+})
+
+describe('⑫ المرحلة ⑥: الأعمدة الـ٢٦ كلها معرَّفة ومُعبَّأة', () => {
+  it('٢٦ عموداً — مطابق لعدد أعمدة دالة القاعدة', () => {
+    expect(GROUPED_COLUMNS).toHaveLength(26)
+  })
+
+  it('لا تكرار في معرّفات الأعمدة', () => {
+    const ids = GROUPED_COLUMNS.map((c) => c.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('الأعمدة الاثنا عشر الجديدة موجودة بأسمائها', () => {
+    const ids = GROUPED_COLUMNS.map((c) => c.id)
+    for (const id of ['placeday', 'vehicle_name', 'mahalla_code', 'mahalla_name',
+      'alleys_count', 'streets_count', 'confirmed_count', 'uncertain_count',
+      'first_entered', 'last_exited', 'avg_dwell', 'max_depth']) {
+      expect(ids, id).toContain(id)
+    }
+  })
+
+  it('كل عمود له قيمة حقيقية — لا قيمة دائمة null', () => {
+    // `mahalla_source` استثناء مقصود: يظهر وسمه فقط حين لا تكون المحلة
+    // مؤكدة، فـnull هو الصواب لصفّ محلته حقيقية (لا ضجيج بصري).
+    const exempt = new Set(['seq', 'mahalla_source'])
+    const full = row()
+    for (const c of GROUPED_COLUMNS) {
+      if (exempt.has(c.id)) continue
+      const v = c.value(full, ctx)
+      expect(v, `${c.id} رجع null رغم توفّر الحقل`).not.toBeNull()
+    }
+  })
+
+  it('وسم المصدر يظهر حين لا تكون المحلة مؤكدة', () => {
+    const col = GROUPED_COLUMNS.find((c) => c.id === 'mahalla_source')!
+    expect(col.value(row({ street_mahalla_source: 'street' }), ctx)).toBe('بلا محلة')
+  })
+
+  it('الوقت يُعرَض بتوقيت بغداد لا UTC', () => {
+    const r = row({ first_entered_at: '2026-11-23T06:00:00Z' }) // 09:00 بغداد
+    const col = GROUPED_COLUMNS.find((c) => c.id === 'first_entered')!
+    expect(col.value(r, ctx)).toBe('09:00')
+  })
+
+  it('التاريخ يبقى ISO للفرز في Excel', () => {
+    const col = GROUPED_COLUMNS.find((c) => c.id === 'placeday')!
+    expect(col.value(row({ placeday: '2026-11-23' }), ctx)).toBe('2026-11-23')
+  })
+
+  it('صف الإجمالي يجمع كل الأعمدة القابلة للجمع آلياً', () => {
+    const t = groupedTotalRow([
+      row({ visits_count: 3, alleys_count: 2, streets_count: 1, confirmed_count: 2, uncertain_count: 1 }),
+      row({ visits_count: 4, alleys_count: 5, streets_count: 2, confirmed_count: 4, uncertain_count: 0 }),
+    ])
+    expect(t?.visits).toBe(7)
+    expect(t?.alleys_count).toBe(7)
+    expect(t?.streets_count).toBe(3)
+    expect(t?.confirmed_count).toBe(6)
+    expect(t?.uncertain_count).toBe(1)
+  })
+
+  it('الأعمدة العددية عليها summable — وإلا نسيها الإجمالي', () => {
+    const numeric = ['visits', 'alleys_count', 'streets_count', 'confirmed_count', 'uncertain_count']
+    for (const id of numeric) {
+      expect(GROUPED_COLUMNS.find((c) => c.id === id)?.summable, id).toBe(true)
+    }
+  })
+
+  it('أعمدة الورقة المعتمدة أولاً — الترتيب لم يتغيّر', () => {
+    const ids = GROUPED_COLUMNS.map((c) => c.id)
+    expect(ids.slice(0, 14)).toEqual([
+      'seq', 'db_number', 'plate_number', 'driver_name', 'zone_name', 'mahalla_number',
+      'mahalla_source', 'alleys', 'alley_names', 'streets', 'notes', 'visits', 'dwell', 'shift',
+    ])
+  })
+
+  it('التصدير الكامل يجلب ٢٦ عموداً، والمختصر ١٢', () => {
+    expect(groupedReportColumns()).toHaveLength(26)
+    expect(groupedReportColumns(['seq', 'db_number', 'plate_number', 'driver_name', 'zone_name',
+      'mahalla_number', 'mahalla_source', 'alleys', 'notes', 'visits', 'dwell', 'shift'])).toHaveLength(12)
+  })
+
+  it('صفوف التصدير تُعبَّأ في الأعمدة الجديدة', () => {
+    const [r] = toGroupedRows([row()], ctx, ['placeday', 'first_entered', 'last_exited', 'max_depth'])
+    expect(r?.placeday).toBe('2026-11-23')
+    expect(r?.first_entered).toBe('09:00')
+    expect(r?.max_depth).toBe(3)
   })
 })

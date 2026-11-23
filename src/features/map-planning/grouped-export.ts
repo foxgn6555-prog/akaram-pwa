@@ -39,6 +39,20 @@ export interface GroupedColumnDef {
   summable?: boolean
 }
 
+/** التاريخ بصيغة ISO نظيفة — الشاشة والملف يتشاركانها */
+export function dayText(v: string | null | undefined): string | null {
+  if (!v) return null
+  return v.slice(0, 10)
+}
+
+/** وقت بغداد بصيغة 24 ساعة — لا نعرض UTC خاماً في ورقة عراقية */
+export function baghdadTime(v: string | null | undefined): string | null {
+  if (!v) return null
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad',
+  }).format(new Date(v))
+}
+
 /** المكوث بصيغة مقروءة «7 د 30 ث» — مطابق لدالة التقرير المسطَّح */
 export function groupedDwellText(seconds: number | null | undefined): string | null {
   if (seconds === null || seconds === undefined) return null
@@ -129,6 +143,59 @@ export const GROUPED_COLUMNS: readonly GroupedColumnDef[] = [
     id: 'shift', header: 'الشفت', width: 10, align: 'center',
     value: (r, c) => (r.shift ? c.shiftLabel(r.shift) : null),
   },
+
+  // ── المرحلة ⑥: الأعمدة الاثنا عشر الإضافية ────────────────────────────
+  // موجودة في البيانات منذ البداية وكانت تُهمَل في العرض والتصدير. لا حقل
+  // جديد في القاعدة — فقط كشف ما كان محجوباً. وترتيبها بعد أعمدة الورقة
+  // كي لا يتغيّر شكل الورقة المعتمدة حين تُختار «أعمدة الورقة».
+  {
+    id: 'placeday', header: 'التاريخ', width: 12, align: 'center',
+    value: (r) => dayText(r.placeday),
+  },
+  {
+    id: 'vehicle_name', header: 'نوع الآلية', width: 16, align: 'center',
+    value: (r) => r.vehicle_name,
+  },
+  {
+    id: 'mahalla_code', header: 'رمز المحلة', width: 14, align: 'center',
+    value: (r) => r.mahalla_code,
+  },
+  {
+    id: 'mahalla_name', header: 'اسم المحلة', width: 18, align: 'center',
+    value: (r) => r.mahalla_name,
+  },
+  {
+    id: 'alleys_count', header: 'عدد الأزقة', width: 10, align: 'center', numFmt: '0', summable: true,
+    value: (r) => r.alleys_count,
+  },
+  {
+    id: 'streets_count', header: 'عدد الشوارع', width: 11, align: 'center', numFmt: '0', summable: true,
+    value: (r) => r.streets_count,
+  },
+  {
+    id: 'confirmed_count', header: 'مؤكدة', width: 9, align: 'center', numFmt: '0', summable: true,
+    value: (r) => r.confirmed_count,
+  },
+  {
+    id: 'uncertain_count', header: 'غير مؤكدة', width: 10, align: 'center', numFmt: '0', summable: true,
+    value: (r) => r.uncertain_count,
+  },
+  {
+    id: 'first_entered', header: 'أول دخول', width: 10, align: 'center',
+    value: (r) => baghdadTime(r.first_entered_at),
+  },
+  {
+    id: 'last_exited', header: 'آخر خروج', width: 10, align: 'center',
+    value: (r) => baghdadTime(r.last_exited_at),
+  },
+  {
+    id: 'avg_dwell', header: 'متوسط المكوث', width: 12, align: 'center',
+    value: (r) => groupedDwellText(r.avg_dwell_seconds),
+  },
+  {
+    id: 'max_depth', header: 'أقصى عمق (م)', width: 12, align: 'center', numFmt: '0',
+    value: (r) => r.max_depth_m,
+  },
 ]
 
 /** أعمدة Excel من تعريفاتنا — نفس للمعاينة والملف */
@@ -173,12 +240,17 @@ export function toGroupedRows(
 /** صف الإجمالي: مجموع الزيارات وعدد الأزقة */
 export function groupedTotalRow(rows: GroupedVisitRow[]): Record<string, unknown> | undefined {
   if (rows.length === 0) return undefined
-  return {
-    seq: null,
-    db_number: 'الإجمالي',
-    visits: rows.reduce((a, r) => a + r.visits_count, 0),
-    dwell: groupedDwellText(rows.reduce((a, r) => a + r.total_dwell_seconds, 0)),
+  // كل عمود عليه `summable: true` يُجمع هنا آلياً — لا قائمة يدوية تُنسى
+  const out: Record<string, unknown> = { seq: null, db_number: 'الإجمالي' }
+  for (const col of GROUPED_COLUMNS) {
+    if (!col.summable) continue
+    out[col.id] = rows.reduce((a, r) => {
+      const v = col.value(r, { zoneName: '', shiftLabel: () => '', day: '' })
+      return a + (typeof v === 'number' ? v : 0)
+    }, 0)
   }
+  out.dwell = groupedDwellText(rows.reduce((a, r) => a + r.total_dwell_seconds, 0))
+  return out
 }
 
 /**
