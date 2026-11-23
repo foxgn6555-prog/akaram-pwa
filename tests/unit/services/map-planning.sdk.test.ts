@@ -197,7 +197,7 @@ describe('buildVisits — صفّ واحد أو مصفوفة أو فراغ', () =
   it('مصفوفة فارغة ⇒ أصفار صريحة لا undefined', async () => {
     h.state.result = { data: [], error: null }
     await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19' })).resolves.toEqual({
-      visits_created: 0, visits_merged: 0, places_scanned: 0,
+      visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0,
     })
   })
 

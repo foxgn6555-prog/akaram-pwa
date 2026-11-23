@@ -174,6 +174,11 @@ export interface VisitBuildResult {
   visits_created: number
   visits_merged: number
   places_scanned: number
+  /**
+   * زيارات أُسقطت لعدم إثباتها (مكوث ≤ 0 · نقاط < 3 · زقاق مغطّى ≥95% بشارع).
+   * تُبلَّغ للمستخدم بدل إخفائها — «لا صفر كاذب» تعني أيضاً «لا صمت عن المسقَط».
+   */
+  skipped_visits: number
 }
 
 export interface CoverageRow {
@@ -504,7 +509,7 @@ export const mapPlanningSdk = {
     })
     if (error) throw new Error(error.message)
     const row = (Array.isArray(data) ? data[0] : data) as VisitBuildResult | null
-    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0 }
+    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0 }
   },
 
   /** ملخّص التغطية لزون/يوم — صفّان: street و alley */

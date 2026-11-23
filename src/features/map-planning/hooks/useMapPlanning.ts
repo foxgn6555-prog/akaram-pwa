@@ -249,7 +249,8 @@ export function useBuildVisits() {
       void qc.invalidateQueries({ queryKey: ['map-planning', 'coverage', v.zoneId] })
       addToast({
         type: 'success',
-        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً (${r.visits_merged} دمج)`,
+        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً`
+          + ` (${r.visits_merged} دمج · ${r.skipped_visits} أُسقطت لعدم إثباتها)`,
       })
     },
     onError: (error) => {
