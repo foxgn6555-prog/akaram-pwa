@@ -14,6 +14,18 @@ import {
 
 const ROOT = process.cwd()
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
+/**
+ * قراءة «الكود الحيّ» فقط: نُسقط أسطر التعليق كي لا يُطابق النص الذي **يوثّق** العيب
+ * (مثل «كان هنا T00:00:00Z») فيبدو كأنه ما زال قائماً.
+ */
+const codeOnly = (p: string) => read(p)
+  .split('\n')
+  .filter((l) => {
+    const t = l.trim()
+    return !t.startsWith('//') && !t.startsWith('--') && !t.startsWith('*') && !t.startsWith('/*')
+  })
+  .map((l) => l.replace(/\/\/.*$/, ''))
+  .join('\n')
 
 const visit = (over: Partial<MapVisit> = {}): MapVisit => ({
   id: 'v1', zone_id: 'z1', vehicle_id: 'veh', device_id: 'dev',
@@ -96,5 +108,74 @@ describe('④ الصفحة والمسار', () => {
     const src = read('src/portals/ops-room/pages/MapPlanning/OpsMapVisitsPage.tsx')
     expect(src).not.toMatch(/from '.*\/client'/)
     expect(src).toMatch(/@features\/map-planning\/hooks\/useMapPlanning/)
+  })
+})
+
+/**
+ * 20261128000100 — عقد «الشهادة قبل الحذف».
+ *
+ * العطل الأصلي: التفريغ اليومي كان `truncate` شاملاً بلا شرط عمر ولا بناء ⇒ فقدان يوم كامل
+ * إذا لم يضغط أحد «استخراج». هذه الاختبارات تثبّت أن الواجهة لا تستطيع إعادة إدخال الخلل:
+ *   · لا نافذة UTC يدوية في أي صفحة
+ *   · البناء يمرّ بالدالة المسجَّلة (التي تمنح الشهادة)
+ *   · حالة الشهادة ظاهرة للمستخدم قبل أي حذف
+ */
+describe('① الشهادة قبل الحذف (20261128000100)', () => {
+  const PAGES = [
+    'src/portals/ops-room/pages/MapPlanning/OpsMapVisitsPage.tsx',
+    'src/portals/ops-room/pages/MapPlanning/OpsMapVehicleVisitsPage.tsx',
+  ]
+
+  it('لا توجد نافذة T00:00:00Z–T23:59:59Z في أي صفحة زيارات', () => {
+    for (const p of PAGES) {
+      const src = codeOnly(p)
+      expect(src, `${p} ما زال يرسل نافذة UTC`).not.toMatch(/T00:00:00Z/)
+      expect(src, `${p} ما زال يرسل نافذة UTC`).not.toMatch(/T23:59:59Z/)
+    }
+  })
+
+  it('البناء يُمرَّر بتاريخ يوم بغداد لا بنافذة زمنية', () => {
+    for (const p of PAGES) {
+      const src = codeOnly(p)
+      // إمّا سطر واحد `build.mutate({ zoneId: ..., day })` أو بلوك ينتهي بـ `day })`
+      expect(src, p).toMatch(/build\.mutate\(/)
+      expect(src, p).not.toMatch(/build\.mutate\([^)]*\bfrom:/s)
+      expect(src, p).toMatch(/\bday\b[^)]*\)\s*\}/s)
+    }
+  })
+
+  it('صفحة الزيارات تعرض شارة الحماية (محميّ / غير محميّ)', () => {
+    const src = read('src/portals/ops-room/pages/MapPlanning/OpsMapVisitsPage.tsx')
+    expect(src).toMatch(/useDayCertified/)
+    expect(src).toMatch(/data-testid="visits-certification"/)
+    expect(src).toMatch(/محميّ/)
+    expect(src).toMatch(/غير محميّ/)
+  })
+
+  it('الـSDK يستدعي الدالة المسجَّلة map_visit_build_logged (لا map_build_visits)', () => {
+    const src = read('src/services/map-planning.sdk.ts')
+    const block = src.slice(src.indexOf('async buildVisits'), src.indexOf('async buildVisits') + 900)
+    expect(block).toMatch(/'map_visit_build_logged'/)
+    expect(block).not.toMatch(/'map_build_visits'/)
+    expect(block).toMatch(/p_day: input\.day/)
+  })
+
+  it('الترحيل لا يحذف بلا شهادة ولا يستعمل truncate', () => {
+    const sql = read('supabase/migrations/20261128000100_gps_retention_build_ledger.sql')
+    const live = codeOnly('supabase/migrations/20261128000100_gps_retention_build_ledger.sql')
+    expect(live).toMatch(/gps_day_is_certified/)
+    // الكود الحيّ (بلا تعليقات) لا يحذف الجدول كاملاً بأي صيغة
+    expect(live).not.toMatch(/truncate\s+table\s+public\.gps_device_position_history/i)
+    expect(live).not.toMatch(/truncate\s+table/i)
+    expect(sql).toMatch(/keep_hours/)
+    // الترتيب: البناء قبل التفريغ في نفس الجدولة
+    expect(sql.indexOf('gps-visits-build-nightly')).toBeLessThan(sql.indexOf("cron.schedule('gps-history-purge-midnight'"))
+  })
+
+  it('map_visits في كتالوج الاحتفاظ بشهر واحد وتصدير إلزامي', () => {
+    const sql = read('supabase/migrations/20261128000100_gps_retention_build_ledger.sql')
+    expect(sql).toMatch(/\('map_visits',\s*'ops'/)
+    expect(sql).toMatch(/'map_visits',\s*'entered_at',\s*null,/)
+    expect(sql).toMatch(/true,\s*1,\s*true\)/)
   })
 })

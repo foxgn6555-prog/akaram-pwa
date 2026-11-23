@@ -1,6 +1,10 @@
 -- اختبار 00283 (00340): الكتالوج الكامل للاحتفاظ — كل جدول في public موجود، المقفل لا يُفعَّل، كل نوع قابل للحذف يعمل عدّاً/حذفاً/تصديراً،
 -- ودورة كاملة على أنواع عامة (إشعارات مقروءة/غير مقروءة، تنبيهات GPS محلولة/غير محلولة، تدقيق رواتب محمي، محادثات مواطنين مع جلسات مفتوحة).
 set client_min_messages = notice;
+
+-- 20261128000100: كان الملف غير محصّن (بلا begin/rollback) فلم يعمل حاجزاً في CI،
+-- فمرّ نقص ٢٤ جدولاً (map_visits بينها) بلا اكتشاف. الآن يُرجَع كاملاً.
+begin;
 insert into auth.users (id, email) values ('dc000000-0000-0000-0000-000000000001', 'it-cat@t.iq'), ('dc000000-0000-0000-0000-000000000002', 'mgr-cat@t.iq'), ('dc000000-0000-0000-0000-000000000003', 'emp-cat@t.iq') on conflict (id) do nothing;
 insert into public.user_roles (user_id, role) values ('dc000000-0000-0000-0000-000000000001', 'it_admin'), ('dc000000-0000-0000-0000-000000000002', 'department_manager') on conflict do nothing;
 create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false) $$;
@@ -217,3 +221,6 @@ begin
   if (js ->> 'created')::int <> 0 then raise exception 'F scan created % with all disabled', js ->> 'created'; end if;
   raise notice 'E/F ok';
 end $$;
+
+
+rollback;

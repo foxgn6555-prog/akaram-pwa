@@ -21,6 +21,8 @@ export const mapKeys = {
   reviews: (zoneId: string) => ['map-planning', 'reviews', zoneId] as const,
   skips: (zoneId: string) => ['map-planning', 'skips', zoneId] as const,
   visits: (zoneId: string, day: string) => ['map-planning', 'visits', zoneId, day] as const,
+  buildLedger: (day: string) => ['map-planning', 'build-ledger', day] as const,
+  certified: (day: string) => ['map-planning', 'certified', day] as const,
   coverage: (zoneId: string, day: string) => ['map-planning', 'coverage', zoneId, day] as const,
   coverageByPlace: (zoneId: string, day: string) => ['map-planning', 'cov-place', zoneId, day] as const,
   coverageByVehicle: (zoneId: string, day: string) => ['map-planning', 'cov-vehicle', zoneId, day] as const,
@@ -254,22 +256,69 @@ export function useMapCoverage(zoneId: string | null, day: string) {
 }
 
 /**
- * تشغيل محرّك الزيارات. بعد النجاح نُبطل الزيارات والتغطية فقط — لا نمسّ
- * بيانات التخطيط (شوارع/أزقة) لأن المحرّك لا يعدّلها.
+ * بناء زيارات **يوم بغداد واحد** لزون واحد + تسجيل شهادة البناء.
+ *
+ * `day` تاريخ فقط (YYYY-MM-DD) — الخادم يحسب حدود اليوم بتوقيت بغداد.
+ * كان الكود يرسل `T00:00:00Z`–`T23:59:59Z` فيغطي 03:00 بغداد ليوم D حتى
+ * 02:59 بغداد من D+1، أي «يوم UTC» لا «يوم بغداد» — خلل يزيح ٣ ساعات من كل يوم.
+ *
+ * الشهادة المسجَّلة هي شرط حذف النقاط الخام: لا يُحذف يوم من
+ * `gps_device_position_history` قبل أن يُبنى بنجاح.
  */
 export function useBuildVisits() {
   const qc = useQueryClient()
   const addToast = useUiStore((s) => s.addToast)
   return useMutation({
-    mutationFn: (v: { zoneId: string; from: string; to: string; vehicleId?: string | null }) =>
-      mapPlanningSdk.buildVisits(v),
+    mutationFn: (v: { zoneId: string; day: string }) => mapPlanningSdk.buildVisits(v),
     onSuccess: (r, v) => {
       void qc.invalidateQueries({ queryKey: ['map-planning', 'visits', v.zoneId] })
       void qc.invalidateQueries({ queryKey: ['map-planning', 'coverage', v.zoneId] })
+      void qc.invalidateQueries({ queryKey: mapKeys.buildLedger(v.day) })
+      void qc.invalidateQueries({ queryKey: mapKeys.certified(v.day) })
       addToast({
         type: 'success',
-        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً`
-          + ` (${r.visits_merged} دمج · ${r.skipped_visits} أُسقطت لعدم إثباتها)`,
+        message: `بُنيت ${r.visits_created} زيارة من ${r.points} نقطة`
+          + ` (${r.visits_merged} دمج · ${r.skipped_visits} أُسقطت لعدم إثباتها)`
+          + ' — اليوم الآن محميّ قبل التفريغ',
+      })
+    },
+    onError: (error) => {
+      addToast({ type: 'error', message: handleAppError(error, { scope: 'map-visits' }).message })
+    },
+  })
+}
+
+/** شهادات البناء لكل زون في يوم — تُعرَض كشارة «محميّ / غير محميّ» */
+export function useVisitBuildLedger(day: string) {
+  return useQuery({
+    queryKey: mapKeys.buildLedger(day),
+    queryFn: () => mapPlanningSdk.visitBuildLedger(day),
+    enabled: Boolean(day),
+    staleTime: 30_000,
+  })
+}
+
+/** هل بُني اليوم بالكامل؟ شرط حذف النقاط الخام */
+export function useDayCertified(day: string) {
+  return useQuery({
+    queryKey: mapKeys.certified(day),
+    queryFn: () => mapPlanningSdk.isDayCertified(day),
+    enabled: Boolean(day),
+    staleTime: 30_000,
+  })
+}
+
+/** تشغيل البناء الآلي المتأخر (بعد سحب تاريخ من المزوّد) */
+export function useRunBuildScan() {
+  const qc = useQueryClient()
+  const addToast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (lookbackDays: number) => mapPlanningSdk.runBuildScan(lookbackDays),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ['map-planning'] })
+      addToast({
+        type: r.failed > 0 ? 'error' : 'success',
+        message: `بناء متأخر: ${r.built} بُني · ${r.empty} بلا نقاط · ${r.failed} فشل · ${r.skipped} سليم سابقاً`,
       })
     },
     onError: (error) => {

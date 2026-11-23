@@ -215,8 +215,10 @@ describe('DataRetentionPage (00325)', () => {
 
   it('00382-أ: بطاقة التفريغ اليومي داخل مجموعة GPS فقط: الحالة والأرقام، المفتاح ينادي الضبط، و«تفريغ الآن» بتأكيد', () => {
     h.settings = [policy, gpsPolicy]
-    h.gps = { enabled: true, scheduled: true, runs_at: '00:00 بغداد', runs_count: 12, last_run_at: '2026-10-29T21:00:00Z', last_rows: 310000, last_bytes_before: 40 * 1024 * 1024, last_bytes_after: 8192, last_error: null,
-      last_freed_bytes: 40 * 1024 * 1024 - 8192, current_rows: 1500, current_bytes: 2 * 1024 * 1024, updated_at: '2026-10-29T21:00:00Z' }
+    h.gps = { enabled: true, scheduled: true, runs_at: '00:00 بغداد (21:00 UTC)', runs_count: 12, last_run_at: '2026-10-29T21:00:00Z', last_rows: 310000, last_bytes_before: 40 * 1024 * 1024, last_bytes_after: 8192, last_error: null,
+      last_freed_bytes: 40 * 1024 * 1024 - 8192, current_rows: 1500, current_bytes: 2 * 1024 * 1024, updated_at: '2026-10-29T21:00:00Z',
+      keep_hours: 48, build_runs_at: '23:30 بغداد (20:30 UTC)', last_skipped_rows: 0, last_skipped: [],
+      waiting_days: [{ day: '2026-11-20', rows: 480 }, { day: '2026-11-21', rows: 512 }], waiting_rows: 992 }
     render(<DataRetentionPage />)
     fireEvent.click(screen.getByTestId('ret-tab-policies'))
     const card = screen.getByTestId('ret-gps-purge')
@@ -224,9 +226,12 @@ describe('DataRetentionPage (00325)', () => {
     expect(screen.getByTestId('ret-portal-it').querySelector('[data-testid="ret-gps-purge"]')).toBeNull()
     expect(screen.getByTestId('ret-gps-purge-current').textContent).toContain('1,500')
     expect(card.textContent).toContain('310,000 نقطة'); expect(card.textContent).toContain('00:00 بغداد')
+    expect(card.textContent).toContain('48 ساعة')
+    // الحماية ظاهرة: أيام تجاوزت المدة ولم تُبنَ
+    expect(screen.getByTestId('ret-gps-purge-waiting').textContent).toContain('992')
     expect(screen.getByTestId('ret-gps-purge-cron').textContent).toContain('يعمل · 12 مرة')
     fireEvent.click(screen.getByTestId('ret-gps-purge-enabled'))
-    expect(h.gpsSet).toHaveBeenCalledWith(false)
+    expect(h.gpsSet).toHaveBeenCalledWith({ enabled: false })
     fireEvent.click(screen.getByTestId('ret-gps-purge-run'))
     expect(h.gpsRun).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('ret-gps-purge-yes'))
@@ -239,7 +244,8 @@ describe('DataRetentionPage (00325)', () => {
     fireEvent.click(screen.getByTestId('ret-tab-policies'))
     expect(screen.queryByTestId('ret-gps-purge')).toBeNull()
     unmount()
-    h.gps = { enabled: false, scheduled: false, runs_at: '00:00 بغداد', runs_count: 0, last_run_at: null, last_rows: null, last_bytes_before: null, last_bytes_after: null, last_error: 'permission denied', last_freed_bytes: 0, current_rows: 0, current_bytes: 8192, updated_at: '2026-10-29T21:00:00Z' }
+    h.gps = { enabled: false, scheduled: false, runs_at: '00:00 بغداد (21:00 UTC)', runs_count: 0, last_run_at: null, last_rows: null, last_bytes_before: null, last_bytes_after: null, last_error: 'permission denied', last_freed_bytes: 0, current_rows: 0, current_bytes: 8192, updated_at: '2026-10-29T21:00:00Z',
+      keep_hours: 48, build_runs_at: '23:30 بغداد (20:30 UTC)', last_skipped_rows: null, last_skipped: null, waiting_days: [], waiting_rows: 0 }
     render(<DataRetentionPage />)
     fireEvent.click(screen.getByTestId('ret-tab-policies'))
     expect(screen.getByTestId('ret-gps-purge-cron').textContent).toContain('غير مفعّل')

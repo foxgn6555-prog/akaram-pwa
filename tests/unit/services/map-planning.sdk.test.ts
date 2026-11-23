@@ -179,38 +179,32 @@ describe('saveStreet — إدراج جديد أو تحديث قائم', () => {
   })
 })
 
-describe('buildVisits — صفّ واحد أو مصفوفة أو فراغ', () => {
-  it('مصفوفة ⇒ أول صف', async () => {
-    h.state.result = { data: [{ visits_created: 5, visits_merged: 1, places_scanned: 9 }], error: null }
-    await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19' })).resolves.toMatchObject({
-      visits_created: 5,
+describe('buildVisits — يوم بغداد مسجَّل (20261128000100)', () => {
+  it('يستدعي map_visit_build_logged بتاريخ فقط لا بنافذة UTC', async () => {
+    h.state.result = { data: { ok: true, day: '2026-11-19', visits_created: 5, visits_merged: 1, places_scanned: 9, skipped_visits: 2, points: 300 }, error: null }
+    const r = await mapPlanningSdk.buildVisits({ zoneId: 'rth', day: '2026-11-19' })
+    expect(h.state.calls.rpc[0]?.fn).toBe('map_visit_build_logged')
+    expect(h.state.calls.rpc[0]?.args).toEqual({ p_zone: 'rth', p_day: '2026-11-19' })
+    expect(r).toMatchObject({ visits_created: 5, visits_merged: 1, places_scanned: 9, skipped_visits: 2, points: 300, day: '2026-11-19' })
+  })
+
+  it('ردّ فارغ ⇒ أصفار صريحة لا undefined', async () => {
+    h.state.result = { data: {}, error: null }
+    await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', day: '2026-11-19' })).resolves.toEqual({
+      visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0, day: '2026-11-19', points: 0,
     })
   })
 
-  it('صف مفرد ⇒ يُعاد كما هو', async () => {
-    h.state.result = { data: { visits_created: 2, visits_merged: 0, places_scanned: 3 }, error: null }
-    await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19' })).resolves.toMatchObject({
-      visits_created: 2,
-    })
+  it('خطأ الخادم يصل كرسالة مفهومة (لا صمت)', async () => {
+    h.state.result = { data: null, error: { message: 'MAP_VISIT_DAY_NOT_CLOSED: يوم اليوم لم ينتهِ بعد' } }
+    await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', day: '2026-11-19' }))
+      .rejects.toThrow(/MAP_VISIT_DAY_NOT_CLOSED/)
   })
 
-  it('مصفوفة فارغة ⇒ أصفار صريحة لا undefined', async () => {
-    h.state.result = { data: [], error: null }
-    await expect(mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19' })).resolves.toEqual({
-      visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0,
-    })
-  })
-
-  it('vehicleId الغائب ⇒ null في الوسيط', async () => {
-    h.state.result = { data: [], error: null }
-    await mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19' })
-    expect(h.state.calls.rpc[0]?.args).toMatchObject({ p_vehicle: null })
-  })
-
-  it('vehicleId المعطى يُمرَّر', async () => {
-    h.state.result = { data: [], error: null }
-    await mapPlanningSdk.buildVisits({ zoneId: 'rth', from: '2026-11-19', to: '2026-11-19', vehicleId: 'v-7' })
-    expect(h.state.calls.rpc[0]?.args).toMatchObject({ p_vehicle: 'v-7' })
+  it('isDayCertified يعيد قيمة منطقية صريحة', async () => {
+    h.state.result = { data: true, error: null }
+    await expect(mapPlanningSdk.isDayCertified('2026-11-19')).resolves.toBe(true)
+    expect(h.state.calls.rpc[0]?.fn).toBe('map_day_is_certified')
   })
 })
 

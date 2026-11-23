@@ -181,6 +181,30 @@ export interface VisitBuildResult {
   skipped_visits: number
 }
 
+/** سطر من سجل شهادات البناء (gps_visit_builds) */
+export interface VisitBuildRow {
+  zone_id: string
+  day: string
+  status: 'built' | 'empty' | 'failed' | 'skipped'
+  visits_created: number | null
+  points_in_day: number | null
+  points_at_build: string | null
+  duration_ms: number | null
+  error: string | null
+  actor_name: string | null
+  finished_at: string | null
+}
+
+export interface BuildScanResult {
+  ok: boolean
+  from: string
+  to: string
+  built: number
+  empty: number
+  failed: number
+  skipped: number
+}
+
 export interface CoverageRow {
   place_kind: 'street' | 'alley'
   places_total: number
@@ -559,24 +583,54 @@ export const mapPlanningSdk = {
   },
 
   /**
-   * تشغيل المحرّك على نافذة زمنية. `replace=true` يجعل النتيجة idempotent:
-   * إعادة التشغيل تحذف زيارات النافذة أولاً ثم تعيد بنائها.
+   * بناء زيارات **يوم بغدادي واحد** مع تسجيل الشهادة في `gps_visit_builds`.
+   *
+   * `p_day` تاريخ فقط (YYYY-MM-DD) والخادم يحسب حدود اليوم بتوقيت بغداد
+   * (`app.map_day_bounds`). السبب: الكود السابق كان يرسل `T00:00:00Z`–`T23:59:59Z`
+   * فيغطي 03:00 بغداد ليوم D حتى 02:59 بغداد ليوم D+1 — أي يوم UTC لا يوم بغداد.
+   *
+   * الشهادة شرط حذف النقاط الخام: لا يُحذف يوم من `gps_device_position_history`
+   * قبل أن يبني هذا الاستدعاء زياراته بنجاح.
    */
-  async buildVisits(input: {
-    zoneId: string
-    from: string
-    to: string
-    vehicleId?: string | null
-  }): Promise<VisitBuildResult> {
-    const { data, error } = await supabase.rpc('map_build_visits', {
+  async buildVisits(input: { zoneId: string; day: string }): Promise<VisitBuildResult & { day: string; points: number }> {
+    const { data, error } = await supabase.rpc('map_visit_build_logged', {
       p_zone: input.zoneId,
-      p_from: input.from,
-      p_to: input.to,
-      p_vehicle: input.vehicleId ?? null,
+      p_day: input.day,
     })
     if (error) throw new Error(error.message)
-    const row = (Array.isArray(data) ? data[0] : data) as VisitBuildResult | null
-    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0 }
+    const r = (data ?? {}) as Record<string, unknown>
+    return {
+      visits_created: Number(r.visits_created ?? 0),
+      visits_merged: Number(r.visits_merged ?? 0),
+      places_scanned: Number(r.places_scanned ?? 0),
+      skipped_visits: Number(r.skipped_visits ?? 0),
+      day: String(r.day ?? input.day),
+      points: Number(r.points ?? 0),
+    }
+  },
+
+  /** شهادات البناء لكل زون في يوم — أساس شارة «محمي/غير محمي» في الواجهة */
+  async visitBuildLedger(day: string): Promise<VisitBuildRow[]> {
+    const { data, error } = await supabase
+      .from('gps_visit_builds')
+      .select('zone_id, day, status, visits_created, points_in_day, points_at_build, duration_ms, error, actor_name, finished_at')
+      .eq('day', day)
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitBuildRow[]
+  },
+
+  /** هل بُني هذا اليوم بالكامل؟ (كل الزونات) — شرط الحذف */
+  async isDayCertified(day: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('map_day_is_certified', { p_day: day })
+    if (error) throw new Error(error.message)
+    return data === true
+  },
+
+  /** تشغيل البناء الآلي المتأخر بعد سحب تاريخ من المزوّد */
+  async runBuildScan(lookbackDays = 4): Promise<BuildScanResult> {
+    const { data, error } = await supabase.rpc('gps_visits_build_run', { p_lookback_days: lookbackDays })
+    if (error) throw new Error(error.message)
+    return data as BuildScanResult
   },
 
   /** ملخّص التغطية لزون/يوم — صفّان: street و alley */

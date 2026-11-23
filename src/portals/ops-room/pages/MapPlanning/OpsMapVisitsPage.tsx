@@ -6,7 +6,7 @@
  * الزيارات تأتي من جدول دائم، فلا تختفي عند تفريغ نقاط GPS اليومي.
  */
 import { useMemo, useState } from 'react'
-import { Play, RefreshCw } from 'lucide-react'
+import { Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import {
   formatDwell,
@@ -15,6 +15,7 @@ import {
 } from '@sdk/map-planning.sdk'
 import {
   useBuildVisits,
+  useDayCertified,
   useMapCoverage,
   useMapVisits,
   useMapZones,
@@ -40,6 +41,7 @@ export default function MapVisitsPage() {
   const { data: visits = [], isLoading } = useMapVisits(activeZoneId, day)
   const { data: coverage = [] } = useMapCoverage(activeZoneId, day)
   const build = useBuildVisits()
+  const { data: certified } = useDayCertified(day)
 
   const rows = useMemo(
     () => (visits as MapVisit[]).filter((v) => filter === 'all' || v.status === filter),
@@ -58,13 +60,11 @@ export default function MapVisitsPage() {
   const streetCov = coverage.find((c) => c.place_kind === 'street')
   const alleyCov = coverage.find((c) => c.place_kind === 'alley')
 
+  // اليوم يُرسل تاريخاً فقط — الخادم يحسب حدوده بتوقيت بغداد (map_day_bounds).
+  // كان هنا `T00:00:00Z`–`T23:59:59Z` وهو يوم UTC لا يوم بغداد (يزيح ٣ ساعات).
   const run = () => {
     if (!activeZoneId) return
-    build.mutate({
-      zoneId: activeZoneId,
-      from: `${day}T00:00:00Z`,
-      to: `${day}T23:59:59Z`,
-    })
+    build.mutate({ zoneId: activeZoneId, day })
   }
 
   return (
@@ -85,6 +85,32 @@ export default function MapVisitsPage() {
         }
         links={[{ to: '/ops-room/map-planning/coverage', label: 'التغطية والإحصاء', icon: 'gauge' }]}
       />
+
+      {/* شارة الحماية: هل بُنيت زيارة هذا اليوم لكل الزونات؟ بدونها لا تُحذف نقاطه */}
+      <section
+        aria-live="polite"
+        data-testid="visits-certification"
+        className={`flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold ring-1 ${
+          certified === true
+            ? 'bg-emerald-50 text-emerald-900 ring-emerald-200'
+            : certified === false
+              ? 'bg-amber-50 text-amber-900 ring-amber-200'
+              : 'bg-slate-50 text-slate-600 ring-slate-200'
+        }`}
+      >
+        <ShieldCheck size={15} className="shrink-0" />
+        {certified === true ? (
+          <span>
+            هذا اليوم <b>محميّ</b> — بُنيت زيارات كل الزونات، فيُسمَح بحذف نقاطه الخام بعد انتهاء مدة الاحتفاظ (٤٨ ساعة).
+          </span>
+        ) : certified === false ? (
+          <span>
+            هذا اليوم <b>غير محميّ</b> — لم تُبنَ زيارات كل الزونات بعد، ولن تُحذف نقاطه الخام. اضغط «استخراج الزيارات» بعد اختيار كل زون.
+          </span>
+        ) : (
+          <span>جارٍ فحص حالة الحماية…</span>
+        )}
+      </section>
 
       {/* اختيار الزون واليوم */}
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">

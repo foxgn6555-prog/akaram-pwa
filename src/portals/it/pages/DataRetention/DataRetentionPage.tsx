@@ -223,14 +223,19 @@ function GpsHistoryPurgeCard() {
     <article className={clsx('rounded-2xl p-4 ring-1', d.enabled ? 'bg-emerald-50/60 ring-emerald-200' : 'bg-amber-50/60 ring-amber-200')} data-testid="ret-gps-purge">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="inline-flex items-center gap-2 text-sm font-black text-slate-900"><Trash2 size={16} className={d.enabled ? 'text-emerald-700' : 'text-amber-700'} /> نقاط GPS التفصيلية — تفريغ كامل يومياً {d.runs_at}</h3>
+          <h3 className="inline-flex items-center gap-2 text-sm font-black text-slate-900">
+            <Trash2 size={16} className={d.enabled ? 'text-emerald-700' : 'text-amber-700'} />
+            نقاط GPS التفصيلية — حذف بعد {d.keep_hours} ساعة · التفريغ {d.runs_at}
+          </h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-700">
-            موقع كل آلية كل دقيقة (<span dir="ltr" className="font-mono">gps_device_position_history</span>). لا قيمة له بعد يومه: مسارات الانطلاقيات في جدولها المستقل، وآخر موقع للخريطة محفوظ، ونقاط النفايات في المستودع.
-            يُفرَّغ الجدول كلياً (truncate) فتعود المساحة <b>فوراً</b> بلا بقايا ولا حاجة للضغط، ويُسجَّل كل تفريغ في سجل الأحداث كإثبات.
+            موقع كل آلية كل دقيقة (<span dir="ltr" className="font-mono">gps_device_position_history</span>).
+            <b className="text-slate-900"> لا تُحذف نقطة ليوم لم تُبنَ زياراته بعد</b> — البناء الآلي يعمل{' '}
+            {d.build_runs_at} قبل التفريغ، ويُسجّل شهادة لكل (زون × يوم). أي يوم بلا شهادة
+            <b> يبقى كاملاً</b> ويصلك تنبيه، فلا تُفقد بيانات صامتة كما كان يحدث سابقاً بالتفريغ الشامل.
           </p>
         </div>
         <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-800">
-          <input type="checkbox" checked={d.enabled} disabled={set.isPending} onChange={(e) => set.mutate(e.target.checked)} data-testid="ret-gps-purge-enabled" className="h-4 w-4" /> مفعّل
+          <input type="checkbox" checked={d.enabled} disabled={set.isPending} onChange={(e) => set.mutate({ enabled: e.target.checked })} data-testid="ret-gps-purge-enabled" className="h-4 w-4" /> مفعّل
         </label>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[11px] sm:grid-cols-4">
@@ -239,16 +244,50 @@ function GpsHistoryPurgeCard() {
         <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">حُرِّر آخر مرة</div><div className="font-black text-emerald-800" dir="ltr">{d.last_run_at ? `${num(d.last_rows ?? 0)} نقطة · ${mb(d.last_freed_bytes)}` : '—'}</div></div>
         <div className="rounded-xl bg-white p-2 ring-1 ring-slate-200"><div className="text-slate-500">المجدول</div><div className={clsx('font-black', d.scheduled ? 'text-emerald-800' : 'text-amber-800')} data-testid="ret-gps-purge-cron">{d.scheduled ? `يعمل · ${num(d.runs_count)} مرة` : 'غير مفعّل (pg_cron)'}</div></div>
       </div>
+
+      {/* الأيام المحميّة: تجاوزت المدة لكنها لم تُبنَ — الحماية تعمل */}
+      {d.waiting_days.length > 0 && (
+        <div className="mt-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200" data-testid="ret-gps-purge-waiting">
+          <p className="text-xs font-black text-amber-900">
+            محميّ: {num(d.waiting_rows)} نقطة في {d.waiting_days.length} يوماً تجاوزت المدة لكن زياراتها لم تُبنَ
+          </p>
+          <p className="mt-1 text-[11px] font-bold text-amber-800">
+            {d.waiting_days.slice(0, 6).map((w) => `${w.day} (${num(w.rows)})`).join(' · ')}
+            {d.waiting_days.length > 6 ? ' …' : ''}
+          </p>
+          <p className="mt-1 text-[11px] font-bold text-amber-700">
+            تُحذف تلقائياً بعد أن يُكمل البناء الليلي شهادتها. لا حاجة لأي إجراء.
+          </p>
+        </div>
+      )}
+
+      {/* نافذة الاحتفاظ */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white p-2 ring-1 ring-slate-200">
+        <label htmlFor="gps-keep-hours" className="text-xs font-bold text-slate-700">مدة الاحتفاظ بالنقاط الخام</label>
+        <select id="gps-keep-hours" data-testid="ret-gps-purge-keep"
+          value={d.keep_hours} disabled={set.isPending}
+          onChange={(e) => set.mutate({ keepHours: Number(e.target.value) })}
+          className="h-8 rounded-lg border border-slate-300 px-2 text-xs font-bold text-slate-900">
+          {[24, 48, 72, 168, 336, 720].map((h) => (
+            <option key={h} value={h}>{h} ساعة{h === 48 ? ' (المعتمد)' : ''}</option>
+          ))}
+        </select>
+        <span className="text-[11px] font-bold text-slate-500">
+          القرار المعتمد ٤٨ ساعة ≈ ١٥٥ م.ب لأسطول ١٤٩ آلية
+        </span>
+      </div>
       {d.last_error && <p className="mt-2 rounded-xl bg-rose-50 p-2 text-xs font-bold text-rose-900" data-testid="ret-gps-purge-error">آخر محاولة فشلت: {d.last_error}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {confirm ? (
           <>
-            <span className="text-xs font-bold text-rose-800">سيُحذف كل ما في الجدول الآن ({num(d.current_rows)} نقطة) — متابعة؟</span>
+            <span className="text-xs font-bold text-rose-800">
+              سيُحذف الآن ما تجاوز {d.keep_hours} ساعة <b>وبُنيت زياراته فقط</b> — الباقي يبقى محميّاً. متابعة؟
+            </span>
             <button type="button" disabled={run.isPending} onClick={() => { run.mutate(undefined); setConfirm(false) }} data-testid="ret-gps-purge-yes" className="h-9 rounded-xl bg-rose-700 px-3 text-xs font-bold text-white disabled:opacity-50">نعم، فرِّغ الآن</button>
             <button type="button" onClick={() => setConfirm(false)} className="h-9 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-300">لا</button>
           </>
         ) : (
-          <button type="button" disabled={run.isPending || d.current_rows === 0} onClick={() => setConfirm(true)} data-testid="ret-gps-purge-run" className="inline-flex h-9 items-center gap-1 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50"><Trash2 size={14} /> تفريغ الآن</button>
+          <button type="button" disabled={run.isPending || d.current_rows === 0} onClick={() => setConfirm(true)} data-testid="ret-gps-purge-run" className="inline-flex h-9 items-center gap-1 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50"><Trash2 size={14} /> شغّل التفريغ المحمي الآن</button>
         )}
       </div>
     </article>
