@@ -6,7 +6,7 @@
  * وصفّ واحد لكل (آلية × محلة)، والأزقة أرقام مفصولة بفاصلة.
  *
  * الفرق الجوهري عن الصفحة الورقية: كل رقم هنا **قابل للتتبع** إلى زيارة
- * مسجَّلة، ومصدر المحلة معلَن (مؤكدة/مشتقّة) بدل تمريره كأنه حقيقة.
+ * مسجَّلة، والشوارع تبقى بلا محلة كما هي في الخريطة — لا تخمين ولا اشتقاق.
  *
  * الفلاتر كلها على الخادم (RPC) لا على العميل: جدول بـ٨ أزون × ٣٠ يوماً
  * لا يُحمَّل كاملاً ليُفلتر في المتصفح.
@@ -79,11 +79,11 @@ export default function MapGroupedReportPage() {
     const visits = rows.reduce((a, r) => a + r.visits_count, 0)
     const alleys = rows.reduce((a, r) => a + r.alleys_count, 0)
     const conf = rows.reduce((a, r) => a + r.confirmed_count, 0)
-    const derived = rows.filter((r) => r.street_mahalla_source === 'derived').length
+    const streetsOnly = rows.filter((r) => r.street_mahalla_source === 'street').length
     const unknown = rows.filter((r) => r.street_mahalla_source === 'unknown').length
     const totalDwell = rows.reduce((a, r) => a + r.total_dwell_seconds, 0)
     const dwellMinutes = Math.round(totalDwell / 60)
-    return { visits, alleys, conf, derived, unknown, dwellMinutes, rows: rows.length }
+    return { visits, alleys, conf, streetsOnly, unknown, dwellMinutes, rows: rows.length }
   }, [rows])
 
   const activeFilterCount =
@@ -270,22 +270,22 @@ export default function MapGroupedReportPage() {
         </div>
       </section>
 
-      {/* ── تنبيه المصدر: لا نُخفي أن بعض المحلات مشتقّة ── */}
-      {(totals.derived > 0 || totals.unknown > 0) && (
-        <section className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 print:hidden">
-          <Info size={14} className="mt-0.5 shrink-0 text-amber-600" />
-          <div className="text-[10px] font-bold leading-relaxed text-amber-900">
+      {/* ── صفوف الشوارع: لا محلة لها، ولا نخترع لها واحدة ── */}
+      {(totals.streetsOnly > 0 || totals.unknown > 0) && (
+        <section className="flex items-start gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-3 print:hidden">
+          <Info size={14} className="mt-0.5 shrink-0 text-sky-600" />
+          <div className="text-[10px] font-bold leading-relaxed text-sky-900">
             <p>
-              {totals.derived > 0 && (
-                <><strong>{totals.derived}</strong> صفّاً محلته <strong>مشتقّة</strong> — الشوارع
-                لا تحمل رقم محلة في قاعدة البيانات، فاستُنتجت من أزقة الآلية في نفس اليوم. </>
+              {totals.streetsOnly > 0 && (
+                <><strong>{totals.streetsOnly}</strong> صفّاً هي <strong>شوارع بلا محلة</strong> —
+                الشوارع لا تحمل رقم محلة في الخريطة، فتُعرض مستقلة ولا تُنسب إلى محلة تخميناً. </>
               )}
               {totals.unknown > 0 && (
                 <><strong>{totals.unknown}</strong> صفّاً محلته <strong>غير معروفة</strong> —
-                لا زقاق لتلك الآلية في هذا اليوم، فلم نخترع رقماً.</>
+                زقاق بلا محلة في القاعدة، يحتاج ربطاً.</>
               )}
             </p>
-            <p className="mt-1 text-amber-700">{MAHALLA_SOURCE_HINT_AR.derived}</p>
+            <p className="mt-1 text-sky-700">{MAHALLA_SOURCE_HINT_AR.street}</p>
           </div>
         </section>
       )}

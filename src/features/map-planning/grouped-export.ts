@@ -10,8 +10,10 @@
  * الفرق عن `export-columns.ts` (التقرير المسطَّح): ذاك صفٌّ لكل **زيارة**،
  * وهذا صفٌّ لكل **محلة**. كلاهما مطلوب، ولا يُغني أحدهما عن الآخر.
  *
- * ⚠ المبدأ الحاكم: لا نُخفي مصدر الرقم. محلة الشارع مشتقّة (الشوارع لا تحمل
- *   محلة في القاعدة) — فتُوسَم «مشتقّة» بدل تمريرها كأنها مؤكدة.
+ * ⚠ قرار المستخدم (2026-11-19): **لا محلة للشوارع — لا اشتقاق ولا تخمين.**
+ *   الشوارع لا تحمل `mahalla_id` في الخريطة، والقرار أن يبقى كذلك. فالصفوف
+ *   نوعان: صف أزقة (محلة حقيقية من الجدول) وصف شوارع **بلا محلة**، يُعرض
+ *   في الورقة تحتها بلا رقم محلة وبوسم صريح «بلا محلة» — لا رقم مخترع.
  */
 import type { GroupedVisitRow, MahallaSource } from '@sdk/map-planning.sdk'
 import { MAHALLA_SOURCE_LABEL_AR } from '@sdk/map-planning.sdk'
@@ -54,13 +56,14 @@ export function groupedDwellText(seconds: number | null | undefined): string | n
 export function notesOf(row: GroupedVisitRow): string {
   const parts: string[] = []
   if (row.street_names) parts.push(`شوارع: ${row.street_names}`)
-  if (row.mahalla_code && row.street_mahalla_source === 'derived') {
-    parts.push('(محلة الشارع مشتقّة)')
+  // صف الشوارع: نقولها صراحةً بدل ترك الخانة فارغة تُقرأ كخطأ
+  if (row.street_mahalla_source === 'street') {
+    parts.push('(شارع بلا محلة — الشوارع لا تُنسب إلى محلة)')
   }
   return parts.join(' — ')
 }
 
-/** وسم المصدر: يظهر فقط حين تكون المحلة مشتقّة أو مجهولة */
+/** وسم المصدر: يظهر فقط للصفوف التي ليست محلةً مؤكدة */
 export function sourceBadge(row: GroupedVisitRow): string | null {
   const src = row.street_mahalla_source as MahallaSource
   if (src === 'actual') return null

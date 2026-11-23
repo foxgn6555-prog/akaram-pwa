@@ -18,6 +18,7 @@ import {
   toGroupedRows,
 } from '@features/map-planning/grouped-export'
 import type { GroupedVisitRow } from '@sdk/map-planning.sdk'
+import { MAHALLA_SOURCE_LABEL_AR } from '@sdk/map-planning.sdk'
 
 const ROOT = process.cwd()
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
@@ -28,7 +29,7 @@ const row = (over: Partial<GroupedVisitRow> = {}): GroupedVisitRow => ({
   vehicle_id: 'v1', db_number: 'DB4', plate_number: 'TEST-001',
   vehicle_name: 'كابسة', driver_name: 'حسين كاظم راجح', shift: 'morning',
   mahalla_code: 'MHL-0001', mahalla_number: '903', mahalla_name: 'محلة 903',
-  street_names: 'شارع كرادة داخل', street_mahalla_source: 'derived',
+  street_names: 'شارع كرادة داخل', street_mahalla_source: 'actual',
   alley_names: '903-41 · 903-42', alley_week_or_num: '41,42',
   alleys_count: 2, streets_count: 1, visits_count: 5,
   confirmed_count: 5, uncertain_count: 0, total_dwell_seconds: 5400,
@@ -67,9 +68,24 @@ describe('① شكل الورقة المعتمدة', () => {
   })
 })
 
-describe('② لا يُخفى مصدر المحلة', () => {
-  it('المشتقّة تُوسَم — لا تُمرَّر كأنها مؤكدة', () => {
-    expect(sourceBadge(row({ street_mahalla_source: 'derived' }))).toBe('مشتقّة')
+describe('② لا محلة للشوارع — قرار المستخدم القاطع', () => {
+  it('صف الشوارع بلا رقم محلة إطلاقاً', () => {
+    const [r] = toGroupedRows([row({ street_mahalla_source: 'street', mahalla_number: null, mahalla_code: null, mahalla_name: null })], ctx)
+    expect(r?.mahalla_number ?? null).toBeNull()
+  })
+
+  it('صف الشوارع يُوسَم «بلا محلة» صراحةً — لا فراغ يُقرأ خطأً', () => {
+    expect(sourceBadge(row({ street_mahalla_source: 'street' }))).toBe('بلا محلة')
+  })
+
+  it('الملاحظات تنصّ أن الشارع لا يُنسب إلى محلة', () => {
+    expect(notesOf(row({ street_mahalla_source: 'street' }))).toContain('بلا محلة')
+  })
+
+  it('لا يوجد نوع محلة «مشتقّة» أصلاً في النوع', () => {
+    const labels = Object.keys(MAHALLA_SOURCE_LABEL_AR)
+    expect(labels).not.toContain('derived')
+    expect(labels.sort()).toEqual(['actual', 'street', 'unknown'])
   })
 
   it('المؤكدة بلا وسم (لا ضجيج بصري)', () => {
@@ -80,16 +96,32 @@ describe('② لا يُخفى مصدر المحلة', () => {
     expect(sourceBadge(row({ street_mahalla_source: 'unknown' }))).toBe('غير معروفة')
   })
 
-  it('الملاحظات تنصّ على أن محلة الشارع مشتقّة', () => {
-    expect(notesOf(row({ street_mahalla_source: 'derived' }))).toContain('مشتقّة')
-  })
-
-  it('الملاحظات لا تزعم اشتقاقاً حين المحلة مؤكدة', () => {
-    expect(notesOf(row({ street_mahalla_source: 'actual' }))).not.toContain('مشتقّة')
-  })
-
-  it('أعمدة «مصدر المحلة» موجود — الشفافية عمود لا تعليق', () => {
+  it('أعمدة «مصدر الصف» موجود — الشفافية عمود لا تعليق', () => {
     expect(GROUPED_COLUMNS.some((c) => c.id === 'mahalla_source')).toBe(true)
+  })
+})
+
+describe('②-ب الترحيل لا يشتقّ محلة للشارع', () => {
+  it('لا يوجد أي CTE باسم street_derived', () => {
+    expect(read(MIG)).not.toMatch(/street_derived/)
+  })
+
+  it('مفتاح المحلة يُؤخذ من الزقاق فقط، وللشوارع لا شيء', () => {
+    const sql = read(MIG)
+    expect(sql).toMatch(/case when f\.place_kind = 'alley' then f\.mahalla_number end as eff_number/)
+  })
+
+  it('مجموعة الشوارع مستقلة عن أي محلة', () => {
+    expect(read(MIG)).toMatch(/else 's' end as grp/)
+  })
+
+  it('مصدر الصف للشوارع = street لا derived', () => {
+    expect(read(MIG)).toMatch(/when f\.place_kind <> 'alley' then 'street'/)
+    expect(read(MIG)).not.toMatch(/then 'derived'/)
+  })
+
+  it('فلتر المحلة يستبعد صفوف الشوارع — لا محلة لها فتُسأل عنها', () => {
+    expect(read(MIG)).toMatch(/or \(place_kind = 'alley'\s*\n\s*and \(eff_number = p_mahalla or eff_code = p_mahalla\)\)/)
   })
 })
 
@@ -185,10 +217,10 @@ describe('⑦ الترحيل: التجميع والقيد', () => {
     expect(sql).toMatch(/group by fm\.placeday, fm\.vehicle_id,/)
   })
 
-  it('الزقاق بمحلته الحقيقية والشارع بمشتقّته — لا خلط', () => {
+  it('الزقاق بمحلته الحقيقية، والشارع بلا محلة — لا خلط ولا تخمين', () => {
     const sql = read(MIG)
-    expect(sql).toMatch(/when f\.place_kind = 'alley' then f\.mahalla_number else f\.derived_number end/)
-    expect(sql).toMatch(/when f\.place_kind = 'alley' then 'actual'/)
+    expect(sql).toMatch(/when f\.place_kind = 'alley' then f\.mahalla_number end/)
+    expect(sql).not.toMatch(/derived_number/)
   })
 
   it('رقم الزقاق يُستخرج بدالة واحدة لا بتكرار', () => {
@@ -200,7 +232,8 @@ describe('⑦ الترحيل: التجميع والقيد', () => {
     expect(sql).toMatch(/p_vehicle is null or v\.vehicle_id = p_vehicle/)
     expect(sql).toMatch(/p_shift is null or eff_shift = p_shift/)
     expect(sql).toMatch(/p_status is null or v\.status = p_status/)
-    expect(sql).toMatch(/p_mahalla is null or eff_number = p_mahalla/)
+    // فلتر المحلة يعمل على الأزقة وحدها (الشوارع بلا محلة)
+    expect(sql).toMatch(/eff_number = p_mahalla or eff_code = p_mahalla/)
   })
 
   it('يوم بغداد لا UTC — نفس عقد المحرّك', () => {

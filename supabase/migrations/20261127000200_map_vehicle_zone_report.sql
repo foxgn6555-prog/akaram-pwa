@@ -19,27 +19,30 @@
 --   وداخل كل محلة عدة أزقة، وأمام كل محلة شارعها الرئيسي.
 --
 --   الحل: `app.map_vehicle_visits_grouped` — صف واحد لكل
---   (آلية × يوم × محلة)، يحمل كل مستويات التجميع دفعةً واحدة.
+--   (آلية × يوم × محلة) للأزقة، وصف واحد لكل (آلية × يوم) للشوارع.
 --
--- ⚠ قيدتان حقيقيتان يجب أن تُقالا صراحةً:
+-- ⚠ قرار المستخدم الصريح (2026-11-19): **لا محلة للشوارع — لا اشتقاق ولا
+--   تخمين من الموقع الجغرافي.** `map_streets` لا يحمل `mahalla_id` وهذا
+--   صحيح ومقصود؛ فلا نُخترع له محلة.
 --
---   ① **`map_streets` لا يملك `mahalla_id`** (فقط `map_alleys` يملكه).
---      فمحلة الشارع في هذا التقرير **مشتقّة**: نأخذها من محلة أقرب زقاق
---      مرّت به **نفس الآلية في نفس اليوم**، ونعلن ذلك في العمود
---      `street_mahalla_source`:
---         actual  — زيارة زقاق: المحلة من الجدول مباشرة
---         derived — زيارة شارع: المحلة مشتقّة من زيارة زقاق
---         unknown — لا زقاق لذلك اليوم: نُظهر المحلة فارغة، ولا نختلق
---      المرحلة ٤ (اشتقاق هندسي من المضلّعات) ستُغني هذا حين تُطلب.
---      وانتبه: `map_mahallas.path` **فارغ في الـ٥٢ كلها** — لا مضلّعات اليوم.
+--   السبب الذي يجعل هذا هو الخيار الصحيح (قياس فعلي على ١٥٠ شارعاً):
+--     · ٨٤ شارعاً من ١٥٠ (٥٦٪) تلامس محلّتين أو أكثر — أقصاها ٦ محلات.
+--     · ٥٥٪ من نقاط الشوارع لا يوجد زقاق ضمن ٦٠ متراً منها.
+--   فأي نسبةٍ للشارع إلى محلة ستكون صحيحة في نصف الحالات فقط. الأصدق أن
+--   تبقى الشوارع في صف مستقل بلا محلة.
 --
---   ② **الزقاق يُجمَّع بمحلته الحقيقية، والشارع بمحلته المشتقّة.** خلط
---      الاثنين كان يجعل زقاق 901 وشارع 903 صفّاً واحداً كأنهما محلة واحدة.
+--   وأما الأزقة فمكتملة: **١٠١٪ من ١٥١٨ زقاقاً لها `mahalla_id`** ومسار
+--   هندسي (تحقّقنا: 1518/1518). فهي وحدها أساس التجميع بالمحلة.
+--
+--   العمود `street_mahalla_source` يبقى لأن الشفافية مطلوبة:
+--         actual  — صف أزقة: المحلة من الجدول مباشرة
+--         street  — صف شوارع: بلا محلة، بأمانة (لا derived ولا تخمين)
+--         unknown — زقاق بلا محلة في القاعدة (لا يحدث اليوم، لكنه محفوظ)
 --
 -- الترقيم: 20261127000200 — بعد 20261127000100.
 -- التراجع:
---   drop function public.map_vehicle_visits_grouped(uuid,date,date,uuid,text,text,text);
---   drop function app.map_vehicle_visits_grouped(uuid,date,date,uuid,text,text,text);
+--   drop function public.map_vehicle_visits_grouped(uuid,date,date,uuid,text,text,text,boolean);
+--   drop function app.map_vehicle_visits_grouped(uuid,date,date,uuid,text,text,text,boolean);
 --   drop function app.map_alley_short(text);
 --   alter table public.garage_vehicles drop column map_zone_id;
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -123,7 +126,7 @@ set search_path = public, app as $$
   veh as (
     select g.id, g.db_number, g.plate_number, g.vehicle_name,
            coalesce(nullif(btrim(e.full_name), ''), nullif(btrim(g.driver_name), '')) as driver_name,
-           g.shift
+           g.shift, g.map_zone_id
       from public.garage_vehicles g
       left join public.employees e on e.id = g.driver_employee_id
   ),
@@ -151,16 +154,6 @@ set search_path = public, app as $$
       from base b
       left join alley_m am on am.place_id = b.place_id and b.place_kind = 'alley'
   ),
-  -- محلة الشارع المشتقّة: من زيارات الأزقة لنفس (الآلية، اليوم)
-  street_derived as (
-    select vm.vehicle_id, vm.placeday,
-           min(vm.mahalla_number) filter (where vm.mahalla_number is not null) as derived_number,
-           min(vm.mahalla_code)   filter (where vm.mahalla_code is not null)   as derived_code,
-           min(vm.mahalla_name)   filter (where vm.mahalla_name is not null)   as derived_name
-      from visit_m vm
-     where vm.mahalla_id is not null
-     group by vm.vehicle_id, vm.placeday
-  ),
   with_shift as (
     select vm.*,
            coalesce((
@@ -169,31 +162,44 @@ set search_path = public, app as $$
                 and vm.entered_at >= d.departed_at
                 and vm.entered_at <  coalesce(d.returned_at, vm.exited_at)
               order by d.departed_at desc limit 1
-           ), gv.shift) as eff_shift,
-           sd.derived_number, sd.derived_code, sd.derived_name
+           ), gv.shift) as eff_shift
       from visit_m vm
       left join veh gv on gv.id = vm.vehicle_id
-      left join street_derived sd
-             on sd.vehicle_id = vm.vehicle_id and sd.placeday = vm.placeday
   ),
   filtered as (
     select * from with_shift
      where p_shift is null or eff_shift = p_shift
   ),
-  -- مفتاح المحلة: الزقاق بمحلته الحقيقية، والشارع بمشتقّته
+  -- ────────────────────────────────────────────────────────────────────────
+  -- المفتاح: **الشارع لا محلة له — لا اشتقاق ولا تخمين** (قرار المستخدم).
+  --
+  --   `map_streets` لا يحمل `mahalla_id` في القاعدة أصلاً، والقرار أن يبقى
+  --   كذلك: لا ننسب الشارع إلى محلة من موقعه الجغرافي. السبب عملي: الفحص
+  --   على ١٥٠ شارعاً أظهر أن **٨٤ منها (٥٦٪) تلامس محلّتين أو أكثر**، وأقصى
+  --   حالة ٦ محلات لشارع واحد؛ و**٥٥٪ من نقاط الشوارع لا زقاق ضمن ٦٠م منها**.
+  --   فأي نسبة ستكون صحيحة في نصف الحالات وخاطئة في نصفها الآخر.
+  --
+  --   لذلك: الزقاق يُجمَّع بمحلته الحقيقية (١٠٠٪ من الأزقة لها محلة)،
+  --   والشوارع كلها تُجمَّع في صفّ واحد لكل (آلية × يوم) بلا محلة.
+  -- ────────────────────────────────────────────────────────────────────────
   keyed as (
     select f.*,
-           case when f.place_kind = 'alley' then f.mahalla_number else f.derived_number end as eff_number,
-           case when f.place_kind = 'alley' then f.mahalla_code   else f.derived_code   end as eff_code,
-           case when f.place_kind = 'alley' then f.mahalla_name   else f.derived_name   end as eff_name,
-           case when f.place_kind = 'alley' then 'actual'
-                when f.derived_number is not null then 'derived'
-                else 'unknown' end as m_source
+           case when f.place_kind = 'alley' then f.mahalla_number end as eff_number,
+           case when f.place_kind = 'alley' then f.mahalla_code   end as eff_code,
+           case when f.place_kind = 'alley' then f.mahalla_name   end as eff_name,
+           case when f.place_kind <> 'alley' then 'street'
+                when f.mahalla_id is not null then 'actual'
+                else 'unknown' end as m_source,
+           -- مفتاح المجموعة: محلة الزقاق، أو 'street' للشوارع
+           case when f.place_kind = 'alley' then 'm:' || coalesce(f.mahalla_id::text, '∅')
+                else 's' end as grp
       from filtered f
   ),
   filtered_m as (
     select * from keyed
-     where p_mahalla is null or eff_number = p_mahalla or eff_code = p_mahalla
+     where p_mahalla is null
+        or (place_kind = 'alley'
+            and (eff_number = p_mahalla or eff_code = p_mahalla))
   ),
   agg as (
     select p_zone as zid, fm.placeday, fm.vehicle_id,
@@ -221,7 +227,7 @@ set search_path = public, app as $$
       left join veh g on g.id = fm.vehicle_id
       left join public.map_streets s on s.id = fm.place_id and fm.place_kind = 'street'
       left join public.map_alleys  al on al.id = fm.place_id and fm.place_kind = 'alley'
-     group by fm.placeday, fm.vehicle_id,
+     group by fm.placeday, fm.vehicle_id, fm.grp,
               g.db_number, g.plate_number, g.vehicle_name, g.driver_name
   )
   select a.zid, z.name, a.placeday, a.vehicle_id, a.db_number, a.plate_number, a.vehicle_name,
@@ -230,10 +236,10 @@ set search_path = public, app as $$
          a.sum_dwell, a.first_at, a.last_at, a.avg_dwell, a.depth
     from agg a
     left join public.map_zones z on z.id = a.zid
-   order by a.placeday, a.db_number nulls last, a.m_number nulls last
+   order by a.placeday, a.db_number nulls last, a.m_source, a.m_number nulls last
 $$;
 comment on function app.map_vehicle_visits_grouped(uuid, date, date, uuid, text, text, text, boolean) is
-  'تقرير ورقة الشركة: صف لكل (آلية × يوم × محلة). p_respect_vehicle_zone=true يحصر النتائج في الآليات المربوطة بهذا الزون (طلب المستخدم). محلة الشارع مشتقّة ومعلَنة في street_mahalla_source';
+  'تقرير ورقة الشركة: صف لكل (آلية × يوم × محلة) للأزقة، وصف لكل (آلية × يوم) للشوارع. الشوارع بلا محلة — قرار المستخدم، لا اشتقاق جغرافي. p_respect_vehicle_zone=true يحصر النتائج في الآليات المربوطة بهذا الزون';
 
 -- ⚠ نسخة `app` كانت مكشوفة لـanon رغم أن الغلاف العام محمي: anon يستدعي
 --   app.* مباشرةً عبر PostgREST فيتجاوز map_require_reader. أُغلق هذا في
