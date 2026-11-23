@@ -19,7 +19,6 @@
 -- المولَّد أدناه لم يُحرَّر يدوياً. لا يلمس أي جدول آخر — upsert على
 -- permission_units و permission_portal_roles فقط.
 
-npm warn exec The following package was not found and will be installed: vite-node@6.0.0
 -- <<catalog>>  (مولَّد — لا يُحرَّر يدوياً: npx vite-node scripts/gen-permission-catalog.ts)
 -- upsert (لا حذف+إدراج) كي لا تُفقد قواعد القوالب والاستثناءات المرتبطة بالوحدات الباقية
 insert into public.permission_units (key, portal, path, label, parent_key, actions, sort) values
