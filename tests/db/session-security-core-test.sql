@@ -110,19 +110,29 @@ begin
 end $$;
 
 -- ═══ F) القوائم والبحث وعدد الجلسات النشطة ═══
--- جدول جلسات محاكى (GoTrue) داخل المعاملة فقط
-create table if not exists auth.sessions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  created_at timestamptz not null default now(),
-  refreshed_at timestamptz default now(),
-  not_after timestamptz,
-  ip inet,
-  user_agent text
-);
-insert into auth.sessions (user_id, ip, user_agent) values
-  ('a8000000-0000-4000-8000-000000000003', '10.0.0.1', 'A8-A'),
-  ('a8000000-0000-4000-8000-000000000003', '10.0.0.2', 'A8-B');
+-- ── جدول GoTrue موجود أصلاً — لا نُنشئه ───────────────────────────────────
+-- كان هنا `create table if not exists auth.sessions (…)` فكان يُفشل CI كاملاً بـ
+--   ERROR: permission denied for schema auth
+-- السبب: مخطط `auth` مملوك لـ`supabase_admin`، والدور `postgres` يملك USAGE
+-- لا CREATE — وهذا صحيح ومقصود (لا نُوسّع مخطط المصادقة لأجل اختبار).
+--
+-- والواقع أن الجدول **موجود** في بيئة Supabase (GoTrue ينشئه)، والصلاحيات
+-- عليه كاملة لـ`postgres` (تحقّق فعلي: select/insert/update/delete = true).
+-- فالإنشاء كان زائداً أصلاً: نحتاج المسح والإدراج فقط، وهما متاحان.
+--
+-- الشرط التحقّقي يبقى صريحاً: إن غاب الجدول في بيئة ما، يفشل الاختبار برسالة
+-- مفهومة بدل «permission denied» مضلِّلة.
+do $$
+begin
+  if to_regclass('auth.sessions') is null then
+    raise exception 'AUTH_SESSIONS_MISSING: بيئة الاختبار بلا جدول auth.sessions — محاكاة الجلسات تحتاجه';
+  end if;
+end $$;
+
+-- جدول GoTrue الحقيقي: `id` بلا DEFAULT ⇒ نولّده صراحةً (gen_random_uuid متاح في pgcrypto/core).
+insert into auth.sessions (id, user_id, ip, user_agent) values
+  (gen_random_uuid(), 'a8000000-0000-4000-8000-000000000003', '10.0.0.1', 'A8-A'),
+  (gen_random_uuid(), 'a8000000-0000-4000-8000-000000000003', '10.0.0.2', 'A8-B');
 
 do $$
 declare r record; n int;
