@@ -13,7 +13,7 @@ const sidebar = JSON.parse(readFileSync('src/i18n/ar/sidebar.json', 'utf8')) as 
 describe('بوابة الإعلام', () => {
   it('تسجل الوحدات السبع المطلوبة بالترتيب', () => {
     const units = PORTAL_UNITS[PORTALS.MEDIA].filter((u) => !isManualAttendancePath(u.path))   // الحضور اليدوي (وحدة عامة مشروطة بالتفعيل) خارج المجموعة الثابتة — يغطيها attendance-manual-routes.test.ts
-    expect(units).toHaveLength(8)
+    expect(units).toHaveLength(9)
     expect(units.map((unit) => unit.path)).toEqual([
       '/media',
       '/media/karrada-sector',
@@ -21,6 +21,7 @@ describe('بوابة الإعلام', () => {
       '/media/zaafaraniya-folder',
       '/media/karrada-folder',
       '/media/design-templates',
+      '/media/designs',   // ⑫: وحدة التصاميم — كانت مخفيّة
       '/media/archive',
       '/media/approvals',
     ])

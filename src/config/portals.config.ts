@@ -489,6 +489,14 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
     { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
+    // ═══ ⑫: وحدة التخطيط الجغرافي — ستة مسارات كانت مخفيّة عن التنقّل ═══
+    // كانت في routes.tsx منذ 20261122000600 لكن لا مدخل لها ⇒ لا يمكن الوصول
+    // إليها إلا بكتابة العنوان يدوياً. أُضيفت بعد waste-map (المجموعة المكانية).
+    { path: '/ops-room/map-planning', labelKey: 'nav.map_editor', icon: 'map-pin', exact: true },
+    { path: '/ops-room/map-planning/table', labelKey: 'nav.map_table', icon: 'list' },
+    { path: '/ops-room/map-planning/visits', labelKey: 'nav.map_visits', icon: 'map-pin' },
+    { path: '/ops-room/map-planning/coverage', labelKey: 'nav.map_coverage', icon: 'globe' },
+    { path: '/ops-room/map-planning/vehicle-visits', labelKey: 'nav.map_vehicle_visits', icon: 'truck' },
     { path: '/ops-room/map-planning/import', labelKey: 'nav.map_import', icon: 'upload' },   // الجولة ①: استيراد الخريطة
     { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
@@ -553,6 +561,13 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'life-buoy',
       exact: true,
     },
+    // ⑫: دليل موظف الشكاوى — كان يعمل بلا مدخل (يُفتح بكتابة العنوان فقط)
+    {
+      path: '/complaints/guidance',
+      labelKey: 'nav.complaints_guidance',
+      icon: 'file-text',
+      exact: true,
+    },
     { path: '/complaints/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 
@@ -589,6 +604,8 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
       icon: 'layout-grid',
       exact: true,
     },
+    // ⑫: وحدة التصاميم — كانت تعمل بلا مدخل
+    { path: '/media/designs', labelKey: 'nav.media_designs', icon: 'layout-grid', exact: true },
     { path: '/media/archive', labelKey: 'nav.archive', icon: 'archive-box', exact: true },
     { path: '/media/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],

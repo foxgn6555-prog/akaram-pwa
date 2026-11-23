@@ -986,6 +986,36 @@ export default function OpsMapImportPage() {
               <div className="text-[10px] font-bold text-slate-500">مستبعد</div>
             </div>
           </div>
+          {/*
+            الجولة ⑪: الدفعات الفاشلة تُعرض **فوق** أسباب الصفوف المفردة،
+            لأنها فقدان أوسع: ٢٠٠ صف بلا إدراج مقابل صف واحد مستبعد.
+            قبل هذا كانت الدفعة الفاشلة تُوقف كل شيء برسالة عامة.
+          */}
+          {(phase.result.failedBatches?.length ?? 0) > 0 && (
+            <div className="mt-2 rounded-xl border border-red-300 bg-red-50 p-2">
+              <div className="flex items-center gap-1 text-[11px] font-black text-red-800">
+                <TriangleAlert size={13} />
+                {phase.result.failedBatches!.length} دفعة لم تُدرج — أعد المحاولة
+              </div>
+              <ul className="mt-1 space-y-1 text-[10px] text-red-700">
+                {phase.result.failedBatches!.map((b) => (
+                  <li key={`${b.from}-${b.to}`} className="break-anywhere">
+                    <span className="font-black tabular-nums">
+                      صفوف {b.from}–{b.to}
+                    </span>
+                    {': '}
+                    <span className="font-mono" dir="ltr">
+                      {b.error}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[10px] leading-4 text-red-800">
+                إعادة الإدراج آمنة: الشوارع الموجودة تُحدَّث ولا تتكرّر.
+              </p>
+            </div>
+          )}
+
           {phase.result.errors.length > 0 && (
             <details className="mt-2 rounded-xl bg-white/70 p-2">
               <summary className="cursor-pointer text-[11px] font-black text-red-700">

@@ -189,7 +189,14 @@
     "approval_performance": "أداء الموافقات",
     "manual_attendance": "الحضور اليدوي",
     "it_attendance_manual": "الحضور اليدوي (تعطل البصمة)",
-    "map_import": "استيراد الخريطة"
+    "map_import": "استيراد الخريطة",
+    "map_editor": "محرّر الخريطة",
+    "map_table": "جدول الأزقة",
+    "map_visits": "زيارات الأزقة",
+    "map_coverage": "تغطية الأزقة",
+    "map_vehicle_visits": "زيارات الآليات",
+    "complaints_guidance": "دليل موظف الشكاوى",
+    "media_designs": "التصاميم"
   },
   "sections": {
     "main": "القائمة الرئيسية",
