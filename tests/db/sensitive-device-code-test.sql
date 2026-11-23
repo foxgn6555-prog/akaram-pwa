@@ -24,15 +24,24 @@ begin
   if msg not like '%' || p_code || '%' then raise exception 'WRONG_ERROR for %: got [%] wanted [%]', p_sql, msg, p_code; end if;
 end $$;
 
-create table if not exists auth.sessions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  created_at timestamptz not null default now(),
-  refreshed_at timestamptz default now(),
-  not_after timestamptz,
-  ip inet,
-  user_agent text
-);
+-- ── جدول GoTrue موجود أصلاً — لا نُنشئه ───────────────────────────────────
+-- كان هنا `create table if not exists auth.sessions (…)` فكان يُفشل CI كاملاً بـ
+--   ERROR: permission denied for schema auth
+-- السبب: مخطط `auth` مملوك لـ`supabase_admin`، والدور `postgres` يملك USAGE
+-- لا CREATE — وهذا صحيح ومقصود (لا نُوسّع مخطط المصادقة لأجل اختبار).
+--
+-- والواقع أن الجدول **موجود** في بيئة Supabase (GoTrue ينشئه)، والصلاحيات
+-- عليه كاملة لـ`postgres` (تحقّق فعلي: select/insert/update/delete = true).
+-- فالإنشاء كان زائداً أصلاً: نحتاج المسح والإدراج فقط، وهما متاحان.
+--
+-- الشرط التحقّقي يبقى صريحاً: إن غاب الجدول في بيئة ما، يفشل الاختبار برسالة
+-- مفهومة بدل «permission denied» مضلِّلة.
+do $$
+begin
+  if to_regclass('auth.sessions') is null then
+    raise exception 'AUTH_SESSIONS_MISSING: بيئة الاختبار بلا جدول auth.sessions — محاكاة الجلسات تحتاجه';
+  end if;
+end $$;
 
 insert into auth.users (id, email) values
   ('d1000000-0000-4000-8000-000000000001', 'd1-fin@t.iq'),
