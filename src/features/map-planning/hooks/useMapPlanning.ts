@@ -33,6 +33,8 @@ export const mapKeys = {
   vehiclesDay: (zoneId: string, day: string) => ['map-planning', 'veh-day', zoneId, day] as const,
   unvisitedEnriched: (zoneId: string, day: string) => ['map-planning', 'unvisited-enr', zoneId, day] as const,
   sectorManagers: (sectors: number[]) => ['map-planning', 'sec-mgr', [...sectors].sort().join(',')] as const,
+  vehicleVisitsGrouped: (zoneId: string, from: string, to: string, rest: string) =>
+    ['map-planning', 'veh-visits-grouped', zoneId, from, to, rest] as const,
 }
 
 export function useMapZones() {
@@ -359,6 +361,49 @@ export function useUnvisitedEnriched(zoneId: string | null, day: string) {
   return useQuery({
     queryKey: mapKeys.unvisitedEnriched(zoneId ?? '', day),
     queryFn: () => mapPlanningSdk.unvisitedEnriched(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+// ── التقرير المُجمَّع بشكل ورقة الشركة (الجولة ٢٠) ─────────────────────────
+
+export interface GroupedFilters {
+  vehicleId?: string | null
+  shift?: string | null
+  status?: 'confirmed' | 'uncertain' | null
+  mahalla?: string | null
+  /** false = اعرض كل آلية دخلت الزون ولو كانت مربوطة بزون آخر */
+  respectVehicleZone?: boolean
+}
+
+/**
+ * صف لكل (آلية × يوم × محلة) — يجمع الأزقة والشوارع معاً.
+ *
+ * المفتاح يشمل الفلاتر كلها حتى لا يُعاد استعمال صفوف مرشَّحة بفلتر آخر
+ * (خطأ كلاسيكي في react-query: نتيجة مفلترة تُعرض لفلتر مختلف).
+ */
+export function useVehicleVisitsGrouped(
+  zoneId: string | null,
+  from: string,
+  to: string,
+  filters: GroupedFilters = {},
+) {
+  const { vehicleId = null, shift = null, status = null, mahalla = null,
+    respectVehicleZone = true } = filters
+  const rest = [vehicleId ?? '', shift ?? '', status ?? '', mahalla ?? '',
+    respectVehicleZone ? 'rz1' : 'rz0'].join('|')
+  return useQuery({
+    queryKey: mapKeys.vehicleVisitsGrouped(zoneId ?? '', from, to, rest),
+    queryFn: () =>
+      mapPlanningSdk.vehicleVisitsGrouped({
+        zoneId: zoneId as string, from, to,
+        ...(vehicleId ? { vehicleId } : {}),
+        ...(shift ? { shift } : {}),
+        ...(status ? { status } : {}),
+        ...(mahalla ? { mahalla } : {}),
+        ...(respectVehicleZone ? {} : { respectVehicleZone: false }),
+      }),
     enabled: Boolean(zoneId),
     staleTime: 60_000,
   })

@@ -498,6 +498,7 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/map-planning/coverage', labelKey: 'nav.map_coverage', icon: 'globe' },
     { path: '/ops-room/map-planning/vehicle-visits', labelKey: 'nav.map_vehicle_visits', icon: 'truck' },
     { path: '/ops-room/map-planning/import', labelKey: 'nav.map_import', icon: 'upload' },   // الجولة ①: استيراد الخريطة
+    { path: '/ops-room/map-planning/grouped-report', labelKey: 'nav.map_grouped_report', icon: 'file-text' },   // 20261127000200: التقرير المعتمد
     { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 

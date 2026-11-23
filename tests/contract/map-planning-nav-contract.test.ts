@@ -78,7 +78,7 @@ describe('⑫ — لا مسار يعمل بلا مدخل تنقّل', () => {
     expect(unitRoutes).toMatch(/portal !== 'public'/)
   })
 
-  it('المسارات الستة كلها ظاهرة', () => {
+  it('المسارات السبعة كلها ظاهرة', () => {
     const nav = navRelPaths()
     for (const p of [
       'map-planning',
@@ -87,6 +87,7 @@ describe('⑫ — لا مسار يعمل بلا مدخل تنقّل', () => {
       'map-planning/coverage',
       'map-planning/vehicle-visits',
       'map-planning/import',
+      'map-planning/grouped-report',   // 20261127000200: التقرير المعتمد
     ]) {
       expect(nav.has(p), `مفقود: ${p}`).toBe(true)
     }
@@ -109,6 +110,7 @@ describe('⑫ — المفاتيح موجودة ومترجمة', () => {
       'map_visits',
       'map_coverage',
       'map_vehicle_visits',
+      'map_grouped_report',   // 20261127000200: التقرير المعتمد
     ]) {
       const text = arSidebar.nav[k] ?? ''
       expect(text, `ناقص: ${k}`).toBeTruthy()

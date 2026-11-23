@@ -196,7 +196,8 @@
     "map_coverage": "تغطية الأزقة",
     "map_vehicle_visits": "زيارات الآليات",
     "complaints_guidance": "دليل موظف الشكاوى",
-    "media_designs": "التصاميم"
+    "media_designs": "التصاميم",
+    "map_grouped_report": "الأزقة المزارة (المعتمد)"
   },
   "sections": {
     "main": "القائمة الرئيسية",
