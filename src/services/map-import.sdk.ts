@@ -23,6 +23,12 @@ export interface ImportBatchRow {
   width_m: number | null
   width_source: string | null
   osm_way_id: number | null
+  /**
+   * ⑨ رقم القطعة من الشوط نفسه. الشوط الذي يُقصّ على حدود الزون قد يُنتج
+   * عدة قطع بنفس `osm_way_id`. بدونه كانت كل قطعة تُحدِّث سابقتها فتمسحها.
+   * ٠ = الشوط كاملاً أو أول قطعة، وهو الافتراضي خلفياً.
+   */
+  piece_index: number
   link_source: string | null
   mahalla_num: string | null
   path: MapPoint[]
@@ -126,6 +132,7 @@ export function toBatchRow(row: ImportRow): ImportBatchRow {
     width_m: row.widthM,
     width_source: row.widthSource,
     osm_way_id: row.osmWayId,
+    piece_index: row.pieceIndex ?? 0,
     link_source: row.linkSource ?? null,
     mahalla_num: row.mahallaNum ?? null,
     path: row.pts,

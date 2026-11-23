@@ -49,6 +49,16 @@ export interface ImportRow {
   widthM: number
   widthSource: 'measured' | 'default'
   osmWayId: number
+  /**
+   * رقم القطعة من الشوط نفسه (٠ = الشوط كاملاً أو أول قطعة).
+   *
+   * الشوط الطويل قد يخرج من الزون ويعود إليه، فتُرجع `clipPathIndexed`
+   * **عدة قطع** لنفس `way.id`. قبل الجولة ⑨ كانت كلها تُدرَج بنفس
+   * `(zone_id, osm_way_id)` ⇒ الجزء الثاني يُحدِّث الأول ⇒ **يمسحه**
+   * (قياس: ٣ قطع ⇒ صف واحد). الآن لكل قطعة رقمها، والمفتاح
+   * `(zone_id, osm_way_id, piece_index)`.
+   */
+  pieceIndex: number
   mahallaNum?: string | null
   linkSource?: 'osm_name' | 'manual'
   /**
@@ -191,6 +201,8 @@ export function assembleImport(params: {
     cls: ClassCode
     way: OsmWay
     pts: LatLng[]
+    /** رقم القطعة من الشوط نفسه — يُمرَّر إلى `piece_index` في القاعدة */
+    piece: number
   }
   const clipped: Clipped[] = []
 
@@ -307,13 +319,20 @@ export function assembleImport(params: {
     if (!touchesZone) continue
 
     const parts = clipPathIndexed(coords, edgeIndex)
-    for (const part of parts) {
+    /*
+     * ⑨ `piece` = فهرس الجزء في المصفوفة. ثابت للشوط الواحد: نفس الطريقة
+     * تُنتج الأجزاء بالترتيب نفسه في كل تشغيل (يمرّ على المسار من طرفه الأول)،
+     * فالاستيراد التالي يطابق الجزء نفسه لا جزءاً آخر.
+     */
+    for (let pi = 0; pi < parts.length; pi++) {
+      const part = parts[pi]
+      if (!part) continue
       const firstPt = part[0]
       const lastPt = part[part.length - 1]
       const endsOk =
         !!firstPt && !!lastPt && insideOrOnZone(firstPt, poly) && insideOrOnZone(lastPt, poly)
       if (endsOk) {
-        clipped.push({ cls, way, pts: part })
+        clipped.push({ cls, way, pts: part, piece: pi })
       } else {
         skipped.push({
           osmWayId: way.id,
@@ -333,13 +352,23 @@ export function assembleImport(params: {
   }
 
   // ② الأكواد: ترتيب ثابت (y ثم x) ⇒ تكرار آمن
+  /*
+   * ⑨ الترتيب بالفاصلة العشرية (y ثم x) ثم **`piece`** ككسرِ ترتيب نهائي:
+   * قطعتا الشوط الواحد قد تتقاربان في المركز بمقدار يُقرَّب إلى نفس القيمة
+   * (1e-5)، فيصير ترتيبهما غير حتمي بين تشغيلين. إضافة `piece` تجعل الترتيب
+   * كلياً وحتمياً ⇒ الأكواد المتسلسلة لا تنقلب، والاستيراد التالي يطابق.
+   */
   const sorted = [...clipped].sort((a, b) => {
     const ca = centroid(a.pts)
     const cb = centroid(b.pts)
     const ay = Math.round(ca[0] * 1e5) / 1e5
     const by = Math.round(cb[0] * 1e5) / 1e5
     if (ay !== by) return ay - by
-    return Math.round(ca[1] * 1e5) / 1e5 - Math.round(cb[1] * 1e5) / 1e5
+    const ax = Math.round(ca[1] * 1e5) / 1e5
+    const bx = Math.round(cb[1] * 1e5) / 1e5
+    if (ax !== bx) return ax - bx
+    if (a.way.id !== b.way.id) return a.way.id - b.way.id
+    return a.piece - b.piece
   })
 
   const counters: Partial<Record<ClassCode, number>> = {}
@@ -356,6 +385,7 @@ export function assembleImport(params: {
       widthM: DEFAULT_STREET_W,
       widthSource: 'default',
       osmWayId: row.way.id,
+      pieceIndex: row.piece,
       mahallaNum: null,
       // الوسم الأصلي للعرض وحده — لا يغيّر `kind` ولا `cls` ولا أي حساب
       osmHighway: row.way.tags.highway,
