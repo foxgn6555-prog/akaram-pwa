@@ -35,18 +35,6 @@ const files = readdirSync(MIGRATIONS)
   .filter((f) => f.endsWith('.sql'))
   .sort()
 
-/**
- * أنماط مخرجات الطرفية التي تتسرّب عند إعادة التوجيه.
- * كلها أدوات تُطبع على stdout ولا تنتمي لـSQL.
- */
-const SHELL_NOISE: Array<{ re: RegExp; why: string }> = [
-  { re: /^npm (warn|notice|ERR!|error)/, why: 'رسالة npm' },
-  { re: /^npm exec/, why: 'سطر npm exec' },
-  { re: /^\s*npm warn exec/, why: 'تحذير npm (مسافة بادئة)' },
-  { re: /^\s*added \d+ packages? in /, why: 'مخرجات npm install' },
-  { re: /^\s*$/, why: 'سطر فارغ' }, // يُستثنى أدناه
-]
-
 describe('نظافة ملفات الهجرة', () => {
   it('لا مخرجات طرفية (npm/node/yarn) داخل أي هجرة', () => {
     const bad: string[] = []
@@ -91,8 +79,15 @@ describe('نظافة ملفات الهجرة', () => {
     for (const f of files) {
       const src = readFileSync(join(MIGRATIONS, f), 'utf8')
       if (src.charCodeAt(0) === 0xfeff) bad.push(`${f}: BOM`)
-      // محارف تحكّم لا سطر جديد/تبويب
-      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(src)) bad.push(`${f}: محرف تحكّم`)
+      // محارف تحكّم لا سطر جديد/تبويب — فحص بلا regex (ESLint no-control-regex)
+      for (let i = 0; i < src.length; i++) {
+        const c = src.charCodeAt(i)
+        const isCtrl = c <= 8 || c === 11 || c === 12 || (c >= 14 && c <= 31)
+        if (isCtrl) {
+          bad.push(`${f}: محرف تحكّم عند ${i}`)
+          break
+        }
+      }
     }
     expect(bad).toEqual([])
   })
