@@ -29,10 +29,67 @@ export interface TileProvider {
    */
   maxNativeZoom: number
 }
-export const DARK_TILES: readonly TileProvider[] = [
-  { id: 'esri-dark', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap', filter: false, maxZoom: 19, maxNativeZoom: 16 },
-  { id: 'osm-filtered', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: true, maxZoom: 19, maxNativeZoom: 19 },
+/**
+ * بلاطات الوضع الليلي — **OSM أولاً دائماً، وEsri تراجع**.
+ *
+ * ## العيب الذي رآه المشغّل (لقطة شاشة، ٢٠٢٦-١١)
+ *
+ * النهاري يعرض شبكة شوارع كاملة بأسمائها (٩٥٨-٢٩ · ٩٠٦-٤٢ · ٩٠٤-٨ …)،
+ * والليلي عرض **خطوطاً رمادية صمّاء بلا أسماء ولا تفاصيل**. ووصف المشغّل
+ * الفرق بأن «التخطيط يختلف».
+ *
+ * ## الجذر: خدمة خلفية ظُنّت خريطة
+ *
+ * `esri-dark` = `World_Dark_Gray_Base`، وهي **خدمة خلفية** أسموتية: أرضية
+ * وماء وحدود إدارية. **لا طبقة طرق فيها إطلاقاً** — فلو بحثت فيها عن شارع
+ * لن تجده حتى لو كان في OSM. وكانت **أول** عنصر في السلسلة، فتُستعمل أولاً.
+ *
+ * ## لماذا هذا الثابت لا `DARK_TILES`
+ *
+ * كان `MapTiles` يقرأ `DARK_TILES` ويقلبها عند `preferOsmDark`:
+ *
+ *     const darkProviders = preferOsmDark ? [...DARK_TILES].reverse() : DARK_TILES
+ *
+ * أي أن **سلوك الشاشة يتحدّد بترتيب مصفوفة**. فتبديل الترتيب يُصلح شاشة
+ * ويكسر أخرى — وهو بالضبط ما وقع: ٩ اختبارات كشفت أن شاشتين تعكسان.
+ * الاعتماد على الترتيب هشّ بطبيعته.
+ *
+ * الحلّ: `MAP_DARK_PRIMARY` هو **المصدر الوحيد للحقيقة** (OSM المفلتر)،
+ * و`MAP_DARK_FALLBACKS` هي البدائل المرتّبة. لا `reverse()` ولا اعتماد على
+ * ترتيب. `preferOsmDark` لم يبقَ له معنى — OSM أولاً في كل الشاشات.
+ */
+export const MAP_DARK_PRIMARY: TileProvider = {
+  id: 'osm-filtered',
+  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '&copy; OpenStreetMap contributors',
+  filter: true,
+  maxZoom: 19,
+  maxNativeZoom: 19,
+}
+
+/**
+ * بدائل الوضع الليلي — تُستخدم فقط عند فشل `MAP_DARK_PRIMARY` (٣ أخطاء بلاط).
+ *
+ * Esri **أدنى جودة للمقارنة**: بلا أسماء شوارع. لكنها أفضل من شاشة فارغة،
+ * ووصفها في `attribution` صريح كي لا يظنّ أحد أنه يرى OSM.
+ */
+export const MAP_DARK_FALLBACKS: readonly TileProvider[] = [
+  {
+    id: 'esri-dark',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap — خلفية بلا أسماء شوارع',
+    filter: false,
+    maxZoom: 19,
+    maxNativeZoom: 16,
+  },
 ]
+
+/**
+ * السلسلة الكاملة للوضع الليلي — الاحتياطي متاح للعرض والاختبار.
+ * الترتيب هنا **ليس** عقداً سلوكياً: `MapTiles` يقرأ PRIMARY وFALLBACKS صراحةً.
+ */
+export const DARK_TILES: readonly TileProvider[] = [MAP_DARK_PRIMARY, ...MAP_DARK_FALLBACKS]
+
 export const LIGHT_TILES: TileProvider = { id: 'osm', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; OpenStreetMap contributors', filter: false, maxZoom: 19, maxNativeZoom: 19 }
 
 /**

@@ -583,8 +583,18 @@ export default function OpsMapImportPage() {
                   </div>
                 )}
                 {preview.stats.clipFallbacks > 0 && (
+                  /*
+                   * ⚠ الصياغة السابقة كانت مضلّلة: «أُدرج كما هو».
+                   *
+                   * الحقيقة (assemble.ts): الشوط الذي يفشل قصّه **يُسقط** في
+                   * `skipped` بسببه «داخل الزون ولم يُقصّ (حالة حدّية) — أُسقط»،
+                   * ولا يدخل `rows` إطلاقاً. قول «أُدرج كما هو» يجعل المشغّل
+                   * يظن أن الخطأ في الشكل فقط، بينما **الشوط غائب عن القاعدة**.
+                   * والمشغّل قارن هذا النص مع خريطته فوجد فرقاً فظنّ التكرار.
+                   */
                   <div className="font-bold text-amber-700">
-                    ⚠ {preview.stats.clipFallbacks} شوطاً لم يُقصّ كلياً — أُدرج كما هو
+                    ⚠ {preview.stats.clipFallbacks} شوطاً على حدود الزون فشل قصّه —{' '}
+                    <span className="font-black">لم يُدرَج</span> (تفصيلها في «المستبعدات» أدناه)
                   </div>
                 )}
                 {preview.stats.densityWarn && (

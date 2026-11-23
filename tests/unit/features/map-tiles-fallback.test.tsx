@@ -31,7 +31,18 @@ describe('MapTiles dark provider fallback', () => {
     expect(MAP_THEME_CSS).toContain('brightness(1.1) contrast(.9)')
   })
 
-  it('uses Esri first and falls back to CSS-filtered OSM after repeated tile errors', () => {
+  /*
+   * ⚠ كان هذا الاختبار يثبّت **العيب** لا السلوك الصحيح: «uses Esri first».
+   *
+   * وEsri هنا = `World_Dark_Gray_Base`، وهي خدمة **خلفية** أسموتية بلا
+   * طبقة طرق. فكان الوضع الليلي في كل الشاشات الافتراضية يعرض خطوطاً رمادية
+   * صمّاء بلا أسماء — بينما النهاري يعرض شبكة كاملة. ورآها المشغّل فقال
+   * «التخطيط يختلف».
+   *
+   * الصواب: OSM المفلتر أولاً (نفس هندسة النهاري وأسماءه)، وEsri **تراجع**
+   * عند ٣ أخطاء بلاط. والاسم الآن يعكس ذلك.
+   */
+  it('uses CSS-filtered OSM first and falls back to Esri after repeated tile errors', () => {
     const onFailed = vi.fn()
     const onProvider = vi.fn()
     render(
@@ -41,18 +52,6 @@ describe('MapTiles dark provider fallback', () => {
     )
 
     const map = screen.getByTestId('map-container')
-    expect(map.getAttribute('data-tiles')).toBe('esri-dark')
-    expect(screen.getByTestId('tile-layer').getAttribute('data-url')).toContain(
-      'World_Dark_Gray_Base',
-    )
-    expect(onProvider).toHaveBeenLastCalledWith('esri-dark')
-
-    const tileError = () => fireEvent.click(screen.getByTestId('tile-error'))
-    tileError()
-    fireEvent.click(screen.getByTestId('tile-load'))
-    tileError()
-    fireEvent.click(screen.getByTestId('tile-load'))
-    tileError()
     expect(map.getAttribute('data-tiles')).toBe('osm-filtered')
     expect(screen.getByTestId('tile-layer').getAttribute('data-url')).toContain(
       'tile.openstreetmap.org',
@@ -60,13 +59,26 @@ describe('MapTiles dark provider fallback', () => {
     expect(map.classList.contains('akaram-tiles-filtered')).toBe(true)
     expect(onProvider).toHaveBeenLastCalledWith('osm-filtered')
 
+    const tileError = () => fireEvent.click(screen.getByTestId('tile-error'))
+    tileError()
+    fireEvent.click(screen.getByTestId('tile-load'))
+    tileError()
+    fireEvent.click(screen.getByTestId('tile-load'))
+    tileError()
+    expect(map.getAttribute('data-tiles')).toBe('esri-dark')
+    expect(screen.getByTestId('tile-layer').getAttribute('data-url')).toContain(
+      'World_Dark_Gray_Base',
+    )
+    expect(map.classList.contains('akaram-tiles-filtered')).toBe(false)
+    expect(onProvider).toHaveBeenLastCalledWith('esri-dark')
+
     tileError()
     tileError()
     tileError()
     expect(onFailed).toHaveBeenLastCalledWith(true)
   })
 
-  it('waste-map preference uses readable OSM labels first, then Esri on errors', () => {
+  it('`preferOsmDark` لم يبقَ له أثر — OSM أولاً في كل الشاشات', () => {
     const onProvider = vi.fn()
     render(
       <div data-testid="map-container">
@@ -86,5 +98,9 @@ describe('MapTiles dark provider fallback', () => {
     expect(screen.getByTestId('tile-layer').getAttribute('data-url')).toContain('World_Dark_Gray_Base')
     expect(map.classList.contains('akaram-tiles-filtered')).toBe(false)
     expect(onProvider).toHaveBeenLastCalledWith('esri-dark')
+    /*
+     * الدليل على أن الترتيب لم يعد يعتمد على الخيار: الشاشتان (مع
+     * preferOsmDark وبدونه) تبدأان بنفس المزوّد وتنتهيان بنفس البديل.
+     */
   })
 })
