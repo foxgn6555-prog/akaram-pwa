@@ -238,3 +238,99 @@ describe('أخطاء القاعدة تصل للمستخدم', () => {
     await expect(mapPlanningSdk.streets('rth')).rejects.toThrow()
   })
 })
+
+/**
+ * التقرير المُجمَّع (20261127000200 + 00400): الفلاتر تُترجم إلى وسائط RPC.
+ *
+ * كل فرع هنا مهم: وسيط يُنسى ⇒ صفوف خاطئة تُعرض بثقة. والوسائط الافتراضية
+ * (`null`) ليست تفصيلاً: تمرير `false` خطأً حين يقصد «لا تصفية» يستبعد
+ * نصف البيانات بصمت.
+ */
+describe('vehicleVisitsGrouped — ترجمة الفلاتر إلى RPC', () => {
+  it('الحد الأدنى يمرّر الزون والمدى وتحيّد الباقي', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.vehicleVisitsGrouped({ zoneId: 'z1', from: '2026-11-22', to: '2026-11-24' })
+    const call = h.state.calls.rpc.at(-1)!
+    expect(call.fn).toBe('map_vehicle_visits_grouped')
+    expect(call.args).toMatchObject({
+      p_zone: 'z1', p_from: '2026-11-22', p_to: '2026-11-24',
+      p_vehicle: null, p_shift: null, p_status: null, p_mahalla: null,
+      p_respect_vehicle_zone: true,
+      p_driver: null, p_kind: null, p_confirmed: null,
+    })
+  })
+
+  it('كل الفلاتر تُمرَّر كما هي', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.vehicleVisitsGrouped({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24',
+      vehicleId: 'v1', shift: 'morning', status: 'confirmed', mahalla: '929',
+      driverId: 'd1', kind: 'alley', confirmedOnly: true,
+    })
+    expect(h.state.calls.rpc.at(-1)!.args).toMatchObject({
+      p_vehicle: 'v1', p_shift: 'morning', p_status: 'confirmed', p_mahalla: '929',
+      p_driver: 'd1', p_kind: 'alley', p_confirmed: true,
+    })
+  })
+
+  it('confirmedOnly غير مفعّل ⇒ null لا false', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.vehicleVisitsGrouped({ zoneId: 'z1', from: '2026-11-22', to: '2026-11-24' })
+    // `false` كان سيصبح «استبعاد المؤكد» لو تغيّر منطق الدالة — null آمن
+    expect(h.state.calls.rpc.at(-1)!.args).toMatchObject({ p_confirmed: null })
+  })
+
+  it('respectVehicleZone=true لا يُرسل false', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.vehicleVisitsGrouped({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24', respectVehicleZone: true,
+    })
+    expect(h.state.calls.rpc.at(-1)!.args).toMatchObject({ p_respect_vehicle_zone: true })
+  })
+
+  it('تعطيل قيد الزون يصل صريحاً', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.vehicleVisitsGrouped({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24', respectVehicleZone: false,
+    })
+    expect(h.state.calls.rpc.at(-1)!.args).toMatchObject({ p_respect_vehicle_zone: false })
+  })
+
+  it('ردّ فارغ ⇒ مصفوفة لا undefined', async () => {
+    h.state.result = { data: null, error: null }
+    await expect(mapPlanningSdk.vehicleVisitsGrouped({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24',
+    })).resolves.toEqual([])
+  })
+
+  it('خطأ القاعدة يُترجم رسالة لا صفوفاً فارغة', async () => {
+    h.state.result = { data: null, error: { message: 'denied', code: '42501' } }
+    await expect(mapPlanningSdk.vehicleVisitsGrouped({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24',
+    })).rejects.toThrow()
+  })
+})
+
+describe('groupedDrivers — قائمة فلتر السائق', () => {
+  it('تمرّر الزون والمدى', async () => {
+    h.state.result = { data: [], error: null }
+    await mapPlanningSdk.groupedDrivers({ zoneId: 'z1', from: '2026-11-22', to: '2026-11-24' })
+    const call = h.state.calls.rpc.at(-1)!
+    expect(call.fn).toBe('map_grouped_drivers')
+    expect(call.args).toMatchObject({ p_zone: 'z1', p_from: '2026-11-22', p_to: '2026-11-24' })
+  })
+
+  it('ردّ فارغ ⇒ مصفوفة', async () => {
+    h.state.result = { data: null, error: null }
+    await expect(mapPlanningSdk.groupedDrivers({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24',
+    })).resolves.toEqual([])
+  })
+
+  it('خطأ يُرفع', async () => {
+    h.state.result = { data: null, error: { message: 'boom' } }
+    await expect(mapPlanningSdk.groupedDrivers({
+      zoneId: 'z1', from: '2026-11-22', to: '2026-11-24',
+    })).rejects.toThrow()
+  })
+})
