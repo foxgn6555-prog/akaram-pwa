@@ -24,8 +24,26 @@ describe('map theme (00388)', () => {
     act(() => b.result.current[1]('light'))
     expect(a.result.current[0]).toBe('light')
   })
-  it('سلسلة الخلفيات الداكنة تنتهي بـ OSM مفلتراً، والنهارية OSM', () => {
-    expect(DARK_TILES.at(-1)).toMatchObject({ id: 'osm-filtered', filter: true }); expect(LIGHT_TILES.id).toBe('osm')
+  it('سلسلة الخلفيات الداكنة **تبدأ** بـ OSM مفلتراً، والنهارية OSM', () => {
+    /*
+     * ⚠ كان هذا الاختبار يثبّت العيب: `at(-1)` أي **آخر** عنصر.
+     *
+     * وكانت السلسلة [esri-dark, osm-filtered] — أي أن Esri تُستعمل أولاً.
+     * و`World_Dark_Gray_Base` خدمة **خلفية** أسموتية بلا طبقة طرق: لا أسماء
+     * ولا تفاصيل. فرآها المشغّل «خطوطاً رمادية صمّاء» بينما النهاري يعرض
+     * شبكة كاملة بأسمائها، ووصف ذلك بأن «التخطيط يختلف».
+     *
+     * الصواب أن يبدأ الوضعان من **نفس مصدر البلاطات** (OSM) فيكون الفرق
+     * ألواناً لا هندسة. وEsri تراجع عند فشل OSM فقط.
+     */
+    expect(DARK_TILES[0]).toMatchObject({ id: 'osm-filtered', filter: true })
+    expect(DARK_TILES.at(-1)).toMatchObject({ id: 'esri-dark' })
+    expect(LIGHT_TILES.id).toBe('osm')
+  })
+
+  it('الوضعان يرسمان من نفس الهندسة — نفس مصدر البلاطات', () => {
+    const darkPrimary = DARK_TILES[0]
+    expect(darkPrimary?.url).toBe(LIGHT_TILES.url)
   })
 })
 

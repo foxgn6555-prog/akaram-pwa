@@ -49,11 +49,18 @@ describe('heat engine (00387)', () => {
     expect(spotIcon(spot({}), true).options.html as string).toContain('waste-spot--selected')
     expect(spotIcon(spot({}), false)).toBe(spotIcon(spot({ id: 9 }), false))   // ذاكرة الأيقونات
   })
-  it('سلسلة الخلفيات الداكنة تنتهي بـ OSM مع فلتر CSS (لا تفشل)، والعادية OSM بلا فلتر', () => {
+  it('سلسلة الخلفيات الداكنة **تبدأ** بـ OSM مع فلتر CSS، والعادية OSM بلا فلتر', () => {
     expect(DARK_TILES.length).toBeGreaterThanOrEqual(2)
-    expect(DARK_TILES[0]!.id).toBe('esri-dark')
-    expect(DARK_TILES.at(-1)).toMatchObject({ id: 'osm-filtered', filter: true })
-    expect(DARK_TILES.at(-1)!.url).toContain('tile.openstreetmap.org')
+    /*
+     * ⚠ كان `DARK_TILES[0]!.id === 'esri-dark'` — يثبّت العيب.
+     * Esri World_Dark_Gray_Base خدمة خلفية بلا طبقة طرق، فبدء السلسلة بها
+     * يعني خريطة بلا أسماء شوارع في الوضع الليلي.
+     */
+    expect(DARK_TILES[0]!.id).toBe('osm-filtered')
+    expect(DARK_TILES[0]).toMatchObject({ filter: true })
+    expect(DARK_TILES[0]!.url).toContain('tile.openstreetmap.org')
+    // Esri آخر السلسلة: تراجع فقط عند فشل OSM
+    expect(DARK_TILES.at(-1)!.id).toBe('esri-dark')
     expect(LIGHT_TILES).toMatchObject({ id: 'osm', filter: false })
   })
 

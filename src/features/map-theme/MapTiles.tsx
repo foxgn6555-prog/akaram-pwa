@@ -2,9 +2,9 @@
  * 00388 — طبقة البلاط الموحّدة: نهاري = OSM؛ ليلي = سلسلة مزوّدين داكنين ثم OSM بفلتر CSS.
  * تُبلّغ onFailed عند تعذّر كل المزوّدين (نادر). تحقن CSS المشترك مرة واحدة وتضبط صنف الوضع على حاوية Leaflet.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TileLayer, useMap } from 'react-leaflet'
-import { DARK_TILES, LIGHT_TILES, MAP_THEME_CSS, TILE_ERRORS_BEFORE_FALLBACK, type MapTheme } from './map-theme'
+import { LIGHT_TILES, MAP_DARK_FALLBACKS, MAP_DARK_PRIMARY, MAP_THEME_CSS, TILE_ERRORS_BEFORE_FALLBACK, type MapTheme } from './map-theme'
 
 const STYLE_ID = 'akaram-map-theme-style'
 export function useInjectMapThemeStyle() {
@@ -14,11 +14,29 @@ export function useInjectMapThemeStyle() {
   }, [])
 }
 
-export default function MapTiles({ theme, onFailed, onProvider, preferOsmDark = false }: { theme: MapTheme; onFailed?: (failed: boolean) => void; onProvider?: (id: string) => void; preferOsmDark?: boolean }) {
+export default function MapTiles({ theme, onFailed, onProvider, preferOsmDark: _preferOsmDark }: {
+  theme: MapTheme
+  onFailed?: (failed: boolean) => void
+  onProvider?: (id: string) => void
+  /**
+   * @deprecated لا أثر له — أُبقي للتوقيع فقط كي لا ينكسر مستدعٍ.
+   *
+   * **لماذا أُلغي:** كان يقلب `DARK_TILES` (`[...DARK_TILES].reverse()`)،
+   * فكان **ترتيب المصفوفة** يحدّد سلوك كل شاشة. فتغيير الترتيب لشاشة
+   * يكسر أخرى — وقد وقع فعلاً حين أُصلح الوضع الليلي: كُشفت شاشتان
+   * تعكسان. الآن `MAP_DARK_PRIMARY` (OSM) و`MAP_DARK_FALLBACKS` صريحتان،
+   * ولا حاجة لخيار يقلب شيئاً.
+   */
+  preferOsmDark?: boolean
+}) {
   const map = useMap()
   const [darkIdx, setDarkIdx] = useState(0)
   const errors = useRef(0)
-  const darkProviders = preferOsmDark ? [...DARK_TILES].reverse() : DARK_TILES
+  /*
+   * السلسلة الليلية: OSM **أولاً دائماً**، ثم البدائل. لا `reverse()` ولا
+   * اعتماد على ترتيب مصفوفة — انظر `MAP_DARK_PRIMARY` في map-theme.ts.
+   */
+  const darkProviders = useMemo(() => [MAP_DARK_PRIMARY, ...MAP_DARK_FALLBACKS], [])
   const tiles = theme === 'dark' ? darkProviders[Math.min(darkIdx, darkProviders.length - 1)]! : LIGHT_TILES
   useEffect(() => { errors.current = 0; onFailed?.(false) }, [theme, tiles.id, onFailed])
   useEffect(() => { onProvider?.(tiles.id) }, [tiles.id, onProvider])
