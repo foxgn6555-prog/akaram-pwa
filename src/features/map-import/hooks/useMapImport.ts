@@ -145,7 +145,41 @@ export function useMapImport() {
     ): Promise<ImportBatchResult | null> => {
       const ac = new AbortController()
       abortRef.current = ac
-      const batchSize = opts.batchSize ?? 200
+      /*
+       * ══ الجولة ⑪: حجم الدفعة ٥٠ لا ٢٠٠ — لأن الكلفة تربيعية ══
+       *
+       * القياس على الإنتاج (٢٠٢٦-١١-١٩):
+       *
+       *   25 صف  =>   634,722 us  (0.63 ث)   25.4 مللي/صف
+       *   50 صف  => 2,365,177 us  (2.37 ث)   47.3 مللي/صف
+       *   75 صف  => 5,300,000 us  (5.30 ث)   70.7 مللي/صف
+       *  100 صف  => 9,500,000 us  (9.50 ث)   95.0 مللي/صف
+       *
+       * التربيعية سببها أن `map_overlap_check` يفحص **كل** الجيران ضمن
+       * ٦٠٠ متر — بما فيهم الصفوف المُدرجة للتوّ في الدفعة نفسها. فالصف
+       * رقم n يقارن بـ(n-1) ⇒ مجموع n(n-1)/2.
+       *
+       * النتيجة: دفعة ٢٠٠ صف = ~٣٨ ثانية، و**٣ دفعات من ٢٠٠ = ١١٤ ثانية**
+       * في زون ٤٥٠ صفاً — تجربة سيئة رغم أن السقف يمنع الإلغاء.
+       *
+       * ⚠ **قياس مضادّ مهم (لا تخفيه):** جرّبت ٤ دفعات × ٥٠ = ٢٠٠ صف،
+       * فكانت **١٣.٣٨ ثانية** — أي أن كل دفعة أبطأ من التي قبلها.
+       *
+       *   الدفعة ١ (٥٠ جديدة)        ⇒ ٢.٣٧ ث
+       *   الدفعة ٤ (٥٠ جديدة + ١٥٠)  ⇒ أبطأ بكثير
+       *
+       *   لأن الصفوف **تتراكم في الجدول**: الدفعة الرابعة تفحص ١٥٠ صفاً
+       *   سابقاً ضمن ٦٠٠ متر + الخمسين الجديدة. فالتربيعية على مستوى
+       *   **الزون كله**، لا الدفعة.
+       *
+       * ⇒ **تقسيم الدفعات لا يُصلح السبب.** ٥٠ صفاً هنا اختيار توازن
+       *   (overhead ثابت مقابل كلفة الزيادة) لا إصلاح للأداء.
+       *
+       * 🔴 الإصلاح الحقيقي: كلفة `map_overlap_check` لكل صف. موثَّق في
+       * الهجرة 20261124000600 كجولة مستقلة (حارس دفعات أو فهرس مكاني حقيقي).
+       * حتى ذلك، الإدراج **يعمل** لكنه بطيء على الزون الممتلئ.
+       */
+      const batchSize = opts.batchSize ?? 50
       const total = preview.rows.length
       const batchId = crypto.randomUUID()
 
@@ -184,10 +218,30 @@ export function useMapImport() {
 
       setPhase({ kind: 'inserting', done: 0, total, result: acc })
 
-      try {
-        for (let i = 0; i < total; i += batchSize) {
-          if (ac.signal.aborted) return null
-          const rows = preview.rows.slice(i, i + batchSize)
+      /*
+       * ══ الجولة ⑪: دفعة فاشلة لا تُسقط الاستيراد ══
+       *
+       * كان: `await sendBatch(…)` بلا حماية ⇒ أول فشل (مهلة ٨ ثوانٍ، أو
+       * شبكة، أو رفض) يرمي استثناءً يُخرج من الحلقة كلها. الأثر المقيس:
+       * ٣ دفعات، تفشل الثانية ⇒ تبقى الأولى فقط، والرسالة «فشل الإدراج»
+       * بلا ذكر للتي نجحت ولا لعددها.
+       *
+       * صار: كل دفعة داخل try مستقلة. الفاشلة تُسجَّل في `failedBatches`
+       * بمداها وسببها، ويُكمَل الباقي. النتيجة النهائية تعرض ما نجح وما فشل
+       * معاً — والمشغّل يرى «أُدرج ٤٠٠ من ٦٠٠: الدفعة ٢٠١–٤٠٠ فشلت: timeout».
+       *
+       * ⚠ لا نُعيد المحاولة تلقائياً: المهلة تعني أن القاعدة **عملت** ثم
+       * أُلغي، فإعادة المحاولة قد تُضاعف العمل بلا فائدة. المشغّل يعيد
+       * الإدراج بضغطة (وهو آمن: المطابقة بـ`(osm_way_id, piece_index)`).
+       */
+      const failedBatches: { from: number; to: number; error: string }[] = []
+
+      for (let i = 0; i < total; i += batchSize) {
+        if (ac.signal.aborted) return null
+        const rows = preview.rows.slice(i, i + batchSize)
+        const from = i + 1
+        const to = Math.min(i + batchSize, total)
+        try {
           const res = await mapImportSdk.sendBatch({
             zoneId,
             rows,
@@ -200,21 +254,39 @@ export function useMapImport() {
           acc.updated += res.updated
           acc.skipped += res.skipped
           acc.errors.push(...res.errors)
-          done = Math.min(i + batchSize, total)
-          setPhase({ kind: 'inserting', done, total, result: { ...acc } })
-          opts.onProgress?.(done, total, res)
+        } catch (err) {
+          if (ac.signal.aborted) return null
+          const message = err instanceof Error ? err.message : 'فشل غير معروف'
+          failedBatches.push({ from, to, error: message })
         }
+        done = to
+        setPhase({
+          kind: 'inserting',
+          done,
+          total,
+          result: { ...acc, failedBatches: [...failedBatches] },
+        })
+        opts.onProgress?.(done, total, { ...acc, failedBatches: [...failedBatches] })
+      }
 
-        setPhase({ kind: 'done', preview, result: acc })
-        return acc
-      } catch (err) {
-        if (ac.signal.aborted) return null
+      const final: ImportBatchResult = { ...acc, failedBatches }
+
+      if (failedBatches.length === total / batchSize && total > 0) {
+        /*
+         * كل الدفعات فشلت ⇒ هذه حالة خطأ حقيقية لا «نجاح جزئي صفري».
+         * نُظهر السبب الأول (الأغلب الجذر نفسه) ونُبقي القائمة كاملة.
+         */
         setPhase({
           kind: 'error',
-          message: err instanceof Error ? err.message : 'فشل الإدراج',
+          message:
+            failedBatches[0]?.error ??
+            'فشلت كل الدفعات — تحقّق من الصلاحية أو حجم الملف',
         })
         return null
       }
+
+      setPhase({ kind: 'done', preview, result: final })
+      return final
     },
     [],
   )
