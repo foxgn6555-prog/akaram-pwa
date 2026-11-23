@@ -26,6 +26,7 @@ const MapVisits = lazy(() => import('./pages/MapPlanning/OpsMapVisitsPage'))
 const MapCoverage = lazy(() => import('./pages/MapPlanning/OpsMapCoveragePage'))
 const MapVehicleVisits = lazy(() => import('./pages/MapPlanning/OpsMapVehicleVisitsPage'))
 const MapImport = lazy(() => import('./pages/MapPlanning/OpsMapImportPage'))   // الجولة ①: استيراد OSM
+const MapGroupedReport = lazy(() => import('./pages/MapPlanning/OpsMapGroupedReportPage'))   // 20261127000200: التقرير المعتمد (الأزقة المزارة)
 const OpsStationFleet = lazy(() => import('./pages/StationFleet/OpsStationFleetPage'))   // 00329: أسطول المحطة التحويلية
 const OpsStationOutbound = lazy(() => import('./pages/StationFleet/OpsStationOutboundPage'))   // 00331: متابعة خروج آليات المحطة
 const FleetDatabase = lazy(() =>
@@ -75,4 +76,5 @@ export const customRoutes: RouteObject[] = [
   { path: 'map-planning/coverage', element: load(<MapCoverage />) },
   { path: 'map-planning/vehicle-visits', element: load(<MapVehicleVisits />) },
   { path: 'map-planning/import', element: load(<MapImport />) },
+  { path: 'map-planning/grouped-report', element: load(<MapGroupedReport />) },
 ]

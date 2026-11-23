@@ -28,11 +28,15 @@ export const mapKeys = {
   unvisited: (zoneId: string, day: string) => ['map-planning', 'unvisited', zoneId, day] as const,
   trend: (zoneId: string, until: string, days: number) => ['map-planning', 'trend', zoneId, until, days] as const,
   exportPrefs: (kind: string) => ['map-planning', 'export-prefs', kind] as const,
+  groupedDrivers: (zoneId: string, from: string, to: string) =>
+    ['map-planning', 'grouped-drivers', zoneId, from, to] as const,
   visitsEnriched: (zoneId: string, day: string, vehicleId: string) =>
     ['map-planning', 'visits-enr', zoneId, day, vehicleId] as const,
   vehiclesDay: (zoneId: string, day: string) => ['map-planning', 'veh-day', zoneId, day] as const,
   unvisitedEnriched: (zoneId: string, day: string) => ['map-planning', 'unvisited-enr', zoneId, day] as const,
   sectorManagers: (sectors: number[]) => ['map-planning', 'sec-mgr', [...sectors].sort().join(',')] as const,
+  vehicleVisitsGrouped: (zoneId: string, from: string, to: string, rest: string) =>
+    ['map-planning', 'veh-visits-grouped', zoneId, from, to, rest] as const,
 }
 
 export function useMapZones() {
@@ -224,6 +228,21 @@ export function useMapVisits(zoneId: string | null, day: string) {
   })
 }
 
+/**
+ * قائمة فلتر السائق: من قاد آلية فعلاً في الزون والمدى.
+ *
+ * لا نعرض كل موظفي الشركة: قائمة بـ٥٠٠ اسم معظمها بلا صف واحد أسوأ من
+ * قائمة بـ٥ أسماء كلها تعمل. وتُطبَّق نفس قيد الزون المطبَّق في التقرير.
+ */
+export function useGroupedDrivers(zoneId: string | null, from: string, to: string) {
+  return useQuery({
+    queryKey: mapKeys.groupedDrivers(zoneId ?? '', from, to),
+    queryFn: () => mapPlanningSdk.groupedDrivers({ zoneId: zoneId as string, from, to }),
+    enabled: Boolean(zoneId),
+    staleTime: 5 * 60_000,
+  })
+}
+
 /** ملخّص التغطية (شوارع + أزقة) — يعرض «لم تُدخل» لا صفراً كاذباً */
 export function useMapCoverage(zoneId: string | null, day: string) {
   return useQuery({
@@ -249,7 +268,8 @@ export function useBuildVisits() {
       void qc.invalidateQueries({ queryKey: ['map-planning', 'coverage', v.zoneId] })
       addToast({
         type: 'success',
-        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً (${r.visits_merged} دمج)`,
+        message: `استُخرجت ${r.visits_created} زيارة من ${r.places_scanned} مكاناً`
+          + ` (${r.visits_merged} دمج · ${r.skipped_visits} أُسقطت لعدم إثباتها)`,
       })
     },
     onError: (error) => {
@@ -358,6 +378,60 @@ export function useUnvisitedEnriched(zoneId: string | null, day: string) {
   return useQuery({
     queryKey: mapKeys.unvisitedEnriched(zoneId ?? '', day),
     queryFn: () => mapPlanningSdk.unvisitedEnriched(zoneId as string, day),
+    enabled: Boolean(zoneId),
+    staleTime: 60_000,
+  })
+}
+
+// ── التقرير المُجمَّع بشكل ورقة الشركة (الجولة ٢٠) ─────────────────────────
+
+export interface GroupedFilters {
+  vehicleId?: string | null
+  shift?: string | null
+  status?: 'confirmed' | 'uncertain' | null
+  mahalla?: string | null
+  /** false = اعرض كل آلية دخلت الزون ولو كانت مربوطة بزون آخر */
+  respectVehicleZone?: boolean
+  /** السائق (employee_id) */
+  driverId?: string | null
+  /** نوع المكان: أزقة أو شوارع فقط */
+  kind?: 'alley' | 'street' | null
+  /** true ⇒ المؤكد فقط (استبعاد الزيارات غير المؤكدة) */
+  confirmedOnly?: boolean
+}
+
+/**
+ * صف لكل (آلية × يوم × محلة) للأزقة، وصف لكل (آلية × يوم) للشوارع.
+ *
+ * المفتاح يشمل الفلاتر كلها حتى لا يُعاد استعمال صفوف مرشَّحة بفلتر آخر
+ * (خطأ كلاسيكي في react-query: نتيجة مفلترة تُعرض لفلتر مختلف).
+ */
+export function useVehicleVisitsGrouped(
+  zoneId: string | null,
+  from: string,
+  to: string,
+  filters: GroupedFilters = {},
+) {
+  const { vehicleId = null, shift = null, status = null, mahalla = null,
+    respectVehicleZone = true, driverId = null, kind = null,
+    confirmedOnly = false } = filters
+  const rest = [vehicleId ?? '', shift ?? '', status ?? '', mahalla ?? '',
+    respectVehicleZone ? 'rz1' : 'rz0', driverId ?? '', kind ?? '',
+    confirmedOnly ? 'c1' : 'c0'].join('|')
+  return useQuery({
+    queryKey: mapKeys.vehicleVisitsGrouped(zoneId ?? '', from, to, rest),
+    queryFn: () =>
+      mapPlanningSdk.vehicleVisitsGrouped({
+        zoneId: zoneId as string, from, to,
+        ...(vehicleId ? { vehicleId } : {}),
+        ...(shift ? { shift } : {}),
+        ...(status ? { status } : {}),
+        ...(mahalla ? { mahalla } : {}),
+        ...(respectVehicleZone ? {} : { respectVehicleZone: false }),
+        ...(driverId ? { driverId } : {}),
+        ...(kind ? { kind } : {}),
+        ...(confirmedOnly ? { confirmedOnly: true } : {}),
+      }),
     enabled: Boolean(zoneId),
     staleTime: 60_000,
   })

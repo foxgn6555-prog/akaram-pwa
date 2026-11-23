@@ -174,6 +174,11 @@ export interface VisitBuildResult {
   visits_created: number
   visits_merged: number
   places_scanned: number
+  /**
+   * زيارات أُسقطت لعدم إثباتها (مكوث ≤ 0 · نقاط < 3 · زقاق مغطّى ≥95% بشارع).
+   * تُبلَّغ للمستخدم بدل إخفائها — «لا صفر كاذب» تعني أيضاً «لا صمت عن المسقَط».
+   */
+  skipped_visits: number
 }
 
 export interface CoverageRow {
@@ -330,6 +335,73 @@ export interface UnvisitedEnriched {
   length_m: number | null
   width_m: number | null
   department_manager_names: string | null
+}
+
+/**
+ * مصدر محلة الصف في التقرير المُجمَّع.
+ *
+ * **قرار المستخدم (2026-11-19): لا محلة للشوارع — لا اشتقاق ولا تخمين.**
+ * `map_streets` لا يحمل `mahalla_id`، وهذا صحيح ومقصود: الفحص أظهر أن ٥٦٪
+ * من الشوارع تلامس محلّتين أو أكثر (أقصاها ٦)، و٥٥٪ من نقاطها لا زقاق ضمن
+ * ٦٠م منها. فنِسبتُها إلى محلة ستكون صحيحة في نصف الحالات فقط.
+ *
+ * لذلك أنواع الصفوف ثلاثة:
+ *   actual  — صف أزقة: محلة الزقاق مسجَّلة في القاعدة (١٠٠٪ من الأزقة)
+ *   street  — صف شوارع: بلا محلة، بأمانة — لا رقم مخترع
+ *   unknown — زقاق بلا محلة (لا يحدث اليوم، محفوظ للاحتياط)
+ */
+export type MahallaSource = 'actual' | 'street' | 'unknown'
+
+export const MAHALLA_SOURCE_LABEL_AR: Record<MahallaSource, string> = {
+  actual: 'مؤكدة',
+  street: 'بلا محلة',
+  unknown: 'غير معروفة',
+}
+
+export const MAHALLA_SOURCE_HINT_AR: Record<MahallaSource, string> = {
+  actual: 'محلة الزقاق مسجَّلة في قاعدة البيانات',
+  street: 'صف شوارع — الشوارع لا تحمل محلة في الخريطة، ولا تُنسب إلى محلة تخميناً',
+  unknown: 'زقاق بلا محلة في القاعدة — يحتاج ربطاً',
+}
+
+/** سائق في قائمة فلتر السائق — من قاد آلية فعلاً في الزون والمدى */
+export interface GroupedDriver {
+  driver_id: string
+  driver_name: string
+  vehicles_count: number
+}
+
+/** صف التقرير المُجمَّع: آلية ← سائق ← محلة ← (شارع · أزقة) */
+export interface GroupedVisitRow {
+  zone_id: string
+  zone_name: string | null
+  placeday: string
+  vehicle_id: string | null
+  db_number: string | null
+  plate_number: string | null
+  vehicle_name: string | null
+  driver_name: string | null
+  shift: string | null
+  mahalla_code: string | null
+  mahalla_number: string | null
+  mahalla_name: string | null
+  /** أسماء الشوارع مفصولة بـ« · » */
+  street_names: string | null
+  street_mahalla_source: MahallaSource
+  /** أسماء الأزقة كاملة مفصولة بـ« · » */
+  alley_names: string | null
+  /** أرقام الأزقة فقط، مفصولة بفاصلة — كما في الورقة المعتمدة */
+  alley_week_or_num: string | null
+  alleys_count: number
+  streets_count: number
+  visits_count: number
+  confirmed_count: number
+  uncertain_count: number
+  total_dwell_seconds: number
+  first_entered_at: string | null
+  last_exited_at: string | null
+  avg_dwell_seconds: number
+  max_depth_m: number | null
 }
 
 /** لا نُخفي معلومة: هل هذا الشفت مؤكد من انطلاقية أم من سجل الآلية؟ */
@@ -504,7 +576,7 @@ export const mapPlanningSdk = {
     })
     if (error) throw new Error(error.message)
     const row = (Array.isArray(data) ? data[0] : data) as VisitBuildResult | null
-    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0 }
+    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0 }
   },
 
   /** ملخّص التغطية لزون/يوم — صفّان: street و alley */
@@ -643,5 +715,67 @@ export const mapPlanningSdk = {
     const { data, error } = await supabase.rpc('map_sector_managers', { p_sectors: sectors })
     if (error) throw new Error(error.message)
     return (data ?? []) as { sector_id: number; manager_names: string | null; manager_shifts: string | null; managers_count: number }[]
+  },
+
+  /**
+   * التقرير المُجمَّع بشكل ورقة الشركة: صف لكل (آلية × يوم × محلة).
+   *
+   * كل الفلاتر اختيارية — `null` يعني «بلا قيد». هذا هو المدخل الموحّد
+   * للتصدير المعتمد وللطباعة، فلا ينحرف ملف Excel عن الشاشة.
+   */
+  async vehicleVisitsGrouped(input: {
+    zoneId: string
+    from: string
+    to: string
+    vehicleId?: string | null
+    shift?: string | null
+    status?: 'confirmed' | 'uncertain' | null
+    mahalla?: string | null
+    /**
+     * الافتراضي `true`: لا تظهر آلية مربوطة بزون إلا في زونها.
+     * طلب المستخدم: «لا يهمني أي بيانات لهذه الآلية خارج زون الأرخيته».
+     * آلية بلا `map_zone_id` تظهر في كل مكان دائماً — لا نحجب ما لا تصنيف له.
+     */
+    respectVehicleZone?: boolean
+    /** السائق (employee_id) — يعمل على أي آلية كان يقودها */
+    driverId?: string | null
+    /** نوع المكان: 'alley' | 'street' | null */
+    kind?: 'alley' | 'street' | null
+    /** true ⇒ المؤكد فقط (استبعاد الزيارات غير المؤكدة) */
+    confirmedOnly?: boolean
+  }): Promise<GroupedVisitRow[]> {
+    const { data, error } = await supabase.rpc('map_vehicle_visits_grouped', {
+      p_zone: input.zoneId,
+      p_from: input.from,
+      p_to: input.to,
+      p_vehicle: input.vehicleId ?? null,
+      p_shift: input.shift ?? null,
+      p_status: input.status ?? null,
+      p_mahalla: input.mahalla ?? null,
+      p_respect_vehicle_zone: input.respectVehicleZone ?? true,
+      p_driver: input.driverId ?? null,
+      p_kind: input.kind ?? null,
+      p_confirmed: input.confirmedOnly ? true : null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as GroupedVisitRow[]
+  },
+
+  /**
+   * سائقو التقرير: من قاد آلية فعلاً في هذا الزون وهذا المدى.
+   * تُطبّق نفس قيد الزون المطبَّق في التقرير — لا سائق بلا صف.
+   */
+  async groupedDrivers(input: {
+    zoneId: string
+    from: string
+    to: string
+  }): Promise<GroupedDriver[]> {
+    const { data, error } = await supabase.rpc('map_grouped_drivers', {
+      p_zone: input.zoneId,
+      p_from: input.from,
+      p_to: input.to,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as GroupedDriver[]
   },
 }

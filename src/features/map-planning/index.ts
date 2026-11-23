@@ -20,3 +20,5 @@ export {
 export { useMapVisits, useMapCoverage, useBuildVisits } from './hooks/useMapPlanning'
 export { useCoverageByPlace, useCoverageByVehicle, useCoverageRollup, useUnvisitedPlaces, useCoverageTrend } from './hooks/useMapPlanning'
 export { useVisitsEnriched, useVehiclesDay, useUnvisitedEnriched } from './hooks/useMapPlanning'
+export { useVehicleVisitsGrouped, useGroupedDrivers } from './hooks/useMapPlanning'
+export type { GroupedFilters } from './hooks/useMapPlanning'

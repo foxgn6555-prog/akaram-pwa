@@ -9,7 +9,9 @@ export const OPS_UNIFIED = ['Dashboard/OpsRoomDashboardPage', 'Attendance/OpsAtt
   'MapPlanning/OpsMapPlanningEditorPage', 'MapPlanning/OpsMapPlanningTablePage',
   'MapPlanning/OpsMapVisitsPage', 'MapPlanning/OpsMapCoveragePage', 'MapPlanning/OpsMapVehicleVisitsPage',
   // الجولة ①: شاشة الاستيراد — تستخدم ExecPageHeader أيضاً
-  'MapPlanning/OpsMapImportPage']
+  'MapPlanning/OpsMapImportPage',
+  // 20261127000200: التقرير المعتمد (الأزقة المزارة) — ExecPageHeader
+  'MapPlanning/OpsMapGroupedReportPage']
 const SHARED = { 'Disclosures/OpsDisclosuresPage': 'DisclosuresUnitPage', '@portals/central-garage/pages/VehiclesDatabasePage': null, '@portals/central-garage/pages/VehicleDetailPage': null, '@portals/central-garage/pages/GarageArchivePage': null } as const
 
 describe('عقد تصميم غرفة العمليات (00241/00242)', () => {
