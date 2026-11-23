@@ -185,12 +185,16 @@ describe('⑪ — الواجهة تعرض الفاشل بوضوح', () => {
 
 describe('⑪ — حجم الدفعة ٥٠ وتصريح أنه تخفيف لا إصلاح', () => {
   it('batchSize الافتراضي ٥٠', () => {
-    expect(hook).toMatch(/const batchSize = opts\.batchSize \?\? 50/)
+    expect(hook).toMatch(/const batchSize = opts\.batchSize \?\? 300/)
   })
 
-  it('يصرّح بقياس الدفعات المضادّ (١٣.٣٨ ث) لا يخفيه', () => {
+  it('يحفظ تاريخ ⑪ (١٣.٣٨ ث) ويوثّق حلّ ⑬', () => {
+    // قياس ⑪ المضادّ — لا يُحذف لأنه يفسّر لماذا لم يكفِ تخفيف الدفعات
     expect(hook).toContain('١٣.٣٨')
-    expect(hook).toMatch(/تقسيم الدفعات لا يُصلح السبب/)
+    // و⑬ أصلحت الجذر: الهامش ٦٠٠م ⇒ ٥م
+    expect(hook).toMatch(/الجولة ⑬/)
+    expect(hook).toContain('٤٢٠ مرشّحاً')
+    expect(hook).toContain('16.3×')
   })
 })
 

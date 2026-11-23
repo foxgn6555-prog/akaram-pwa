@@ -139,8 +139,8 @@ describe('② سقف الدفعة يمنع المهلة الصامتة', () => {
      * ⚠ وقياس مضادّ: ٤ × ٥٠ = ١٣.٣٨ ث لأن الصفوف تتراكم في الزون.
      * فالتقسيم تخفيف لا إصلاح. الإصلاح البنيوي في جولة مستقلة.
      */
-    expect(HOOK).toContain('opts.batchSize ?? 50')
-    expect(50).toBeLessThan(300)
+    expect(HOOK).toContain('opts.batchSize ?? 300')
+    expect(300).toBeLessThanOrEqual(300)   // ⑬: سقف الخادم — صار ممكناً بعد إصلاح O(n²)
   })
 })
 
