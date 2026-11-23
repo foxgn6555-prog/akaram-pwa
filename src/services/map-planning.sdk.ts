@@ -364,6 +364,13 @@ export const MAHALLA_SOURCE_HINT_AR: Record<MahallaSource, string> = {
   unknown: 'زقاق بلا محلة في القاعدة — يحتاج ربطاً',
 }
 
+/** سائق في قائمة فلتر السائق — من قاد آلية فعلاً في الزون والمدى */
+export interface GroupedDriver {
+  driver_id: string
+  driver_name: string
+  vehicles_count: number
+}
+
 /** صف التقرير المُجمَّع: آلية ← سائق ← محلة ← (شارع · أزقة) */
 export interface GroupedVisitRow {
   zone_id: string
@@ -730,6 +737,12 @@ export const mapPlanningSdk = {
      * آلية بلا `map_zone_id` تظهر في كل مكان دائماً — لا نحجب ما لا تصنيف له.
      */
     respectVehicleZone?: boolean
+    /** السائق (employee_id) — يعمل على أي آلية كان يقودها */
+    driverId?: string | null
+    /** نوع المكان: 'alley' | 'street' | null */
+    kind?: 'alley' | 'street' | null
+    /** true ⇒ المؤكد فقط (استبعاد الزيارات غير المؤكدة) */
+    confirmedOnly?: boolean
   }): Promise<GroupedVisitRow[]> {
     const { data, error } = await supabase.rpc('map_vehicle_visits_grouped', {
       p_zone: input.zoneId,
@@ -740,8 +753,29 @@ export const mapPlanningSdk = {
       p_status: input.status ?? null,
       p_mahalla: input.mahalla ?? null,
       p_respect_vehicle_zone: input.respectVehicleZone ?? true,
+      p_driver: input.driverId ?? null,
+      p_kind: input.kind ?? null,
+      p_confirmed: input.confirmedOnly ? true : null,
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as GroupedVisitRow[]
+  },
+
+  /**
+   * سائقو التقرير: من قاد آلية فعلاً في هذا الزون وهذا المدى.
+   * تُطبّق نفس قيد الزون المطبَّق في التقرير — لا سائق بلا صف.
+   */
+  async groupedDrivers(input: {
+    zoneId: string
+    from: string
+    to: string
+  }): Promise<GroupedDriver[]> {
+    const { data, error } = await supabase.rpc('map_grouped_drivers', {
+      p_zone: input.zoneId,
+      p_from: input.from,
+      p_to: input.to,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as GroupedDriver[]
   },
 }

@@ -14,7 +14,18 @@
 import { useMemo, useState } from 'react'
 import { Download, FileSpreadsheet, Filter, Info, Printer, X } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
-import { buildExcelReport, saveWorkbook } from '@lib/export/excel-report'
+import { buildExcelReport, saveWorkbook, type ReportColumn } from '@lib/export/excel-report'
+import {
+  EXPORT_KINDS,
+  ALLEYS_ONLY_COLUMNS,
+  STREETS_ONLY_COLUMNS,
+  alleysOnlyRows,
+  buildSummarySheet,
+  exportKind,
+  extraSheetsFor,
+  streetsOnlyRows,
+  type ExportKindId,
+} from '@features/map-planning/export-kinds'
 import {
   GROUPED_HEADER,
   groupedReportColumns,
@@ -26,6 +37,7 @@ import {
   type GroupedContext,
 } from '@features/map-planning/grouped-export'
 import {
+  useGroupedDrivers,
   useMapZones,
   useVehicleVisitsGrouped,
   useVehiclesDay,
@@ -81,44 +93,92 @@ export default function MapGroupedReportPage() {
     const conf = rows.reduce((a, r) => a + r.confirmed_count, 0)
     const streetsOnly = rows.filter((r) => r.street_mahalla_source === 'street').length
     const unknown = rows.filter((r) => r.street_mahalla_source === 'unknown').length
+    const uncertain = rows.reduce((a, r) => a + r.uncertain_count, 0)
     const totalDwell = rows.reduce((a, r) => a + r.total_dwell_seconds, 0)
     const dwellMinutes = Math.round(totalDwell / 60)
-    return { visits, alleys, conf, streetsOnly, unknown, dwellMinutes, rows: rows.length }
+    return { visits, alleys, conf, uncertain, streetsOnly, unknown, dwellMinutes, rows: rows.length }
   }, [rows])
 
   const activeFilterCount =
     (filters.vehicleId ? 1 : 0) + (filters.shift ? 1 : 0) +
     (filters.status ? 1 : 0) + (filters.mahalla ? 1 : 0) +
-    (filters.respectVehicleZone === false ? 1 : 0)
+    (filters.respectVehicleZone === false ? 1 : 0) +
+    (filters.driverId ? 1 : 0) + (filters.kind ? 1 : 0) +
+    (filters.confirmedOnly ? 1 : 0)
 
   const setF = (patch: Partial<GroupedFilters>) =>
     setFilters((f) => ({ ...f, ...patch }))
 
-  /** تصدير Excel — نفس الدالة تبني ما يظهر على الشاشة حرفياً */
-  const exportExcel = async () => {
+  const drivers = useGroupedDrivers(activeZoneId, from, to)
+  const exportCtx = useMemo(
+    () => ({ zoneName: zoneName ?? '—', day: ctx.day, filterCount: activeFilterCount }),
+    [zoneName, ctx.day, activeFilterCount],
+  )
+
+  /**
+   * تصدير Excel — نوع واحد مختار من ثمانية.
+   *
+   * القاعدة: كل نوع يُبنى من **نفس الصفوف** المعروضة. لا استعلام ثانٍ ولا
+   * حساب موازٍ في التصدير — وإلا اختلف الملف عمّا على الشاشة، وهو أسوأ عيب
+   * في تقرير رسمي. والأنواع ذات الأعمدة الثابتة (الأزقة/الشوارع/غير المؤكد)
+   * تأخذ تعريف أعمدتها من `export-kinds.ts` لا من هنا.
+   */
+  const exportExcel = async (kindId: ExportKindId = 'sheet') => {
     if (rows.length === 0 || busy) return
     setBusy(true)
     try {
-      const wb = await buildExcelReport({
-        sheetName: 'الازقة المزارة',
-        company: GROUPED_HEADER.company,
-        companySub: GROUPED_HEADER.companySub,
-        title: groupedTitle(ctx.day, zoneName),
-        meta: `${rows.length} صفّاً · ${totals.visits} زيارة · ${totals.alleys} زقاقاً`
-          + (activeFilterCount > 0 ? ` · ${activeFilterCount} فلتر مطبَّق` : ''),
-        columns: groupedReportColumns(
-          showAllCols
+      const kind = exportKind(kindId)
+      const { extraSheets, charts } = extraSheetsFor(kindId, rows, exportCtx)
+
+      // الأعمدة والصفوف بحسب النوع
+      let columns: ReportColumn[]
+      let data: Record<string, unknown>[]
+      let totalRow: Record<string, unknown> | undefined
+      if (kindId === 'alley') {
+        columns = ALLEYS_ONLY_COLUMNS
+        data = alleysOnlyRows(rows)
+      } else if (kindId === 'street') {
+        columns = STREETS_ONLY_COLUMNS
+        data = streetsOnlyRows(rows)
+      } else if (kindId === 'driver' || kindId === 'vehicle' || kindId === 'mahalla') {
+        // الورقة الرئيسية = الملخّص نفسه، فلا نكرّره في extraSheets
+        const sum = buildSummarySheet(kindId, rows, exportCtx)
+        columns = sum.columns
+        data = sum.rows
+        totalRow = sum.totalRow
+      } else {
+        columns = groupedReportColumns(
+          kindId === 'full' || showAllCols
             ? undefined
             : ['seq', 'db_number', 'plate_number', 'driver_name', 'zone_name',
                'mahalla_number', 'mahalla_source', 'alleys', 'notes', 'visits', 'dwell', 'shift'],
-        ),
-        rows: toGroupedRows(rows, ctx),
-        totalRow: groupedTotalRow(rows),
-        fileName: `الازقة-المزارة-${zoneName ?? 'زون'}-${from}${to !== from ? '_' + to : ''}.xlsx`,
+        )
+        data = toGroupedRows(rows, ctx)
+        totalRow = groupedTotalRow(rows) as Record<string, unknown> | undefined
+      }
+
+      const meta = `${rows.length} صفّاً · ${totals.visits} زيارة · ${totals.alleys} زقاقاً`
+        + (activeFilterCount > 0 ? ` · ${activeFilterCount} فلتر مطبَّق` : '')
+        + (filters.confirmedOnly ? ' · المؤكد فقط' : '')
+
+      const wb = await buildExcelReport({
+        sheetName: kind.label.slice(0, 28),
+        company: GROUPED_HEADER.company,
+        companySub: GROUPED_HEADER.companySub,
+        title: `${kind.label} — ${groupedTitle(ctx.day, zoneName).replace(/^تقرير\s*/, '')}`,
+        meta,
+        columns,
+        rows: data,
+        ...(totalRow ? { totalRow } : {}),
+        fileName: `${kind.label}-${zoneName ?? 'زون'}-${from}${to !== from ? '_' + to : ''}.xlsx`,
         orientation: 'landscape',
+        // لو النوع ملخّص: الورقة الإضافية مكرّرة ⇒ لا نلحقها
+        ...(kindId === 'driver' || kindId === 'vehicle' || kindId === 'mahalla'
+          ? { charts: kindId === 'vehicle' ? charts : [] }
+          : { extraSheets, charts }),
         deferSave: true,
       })
-      await saveWorkbook(wb, `الازقة-المزارة-${zoneName ?? 'زون'}-${from}.xlsx`)
+      await saveWorkbook(wb, `${kind.label}-${zoneName ?? 'زون'}-${from}.xlsx`)
     } finally {
       setBusy(false)
     }
@@ -131,7 +191,7 @@ export default function MapGroupedReportPage() {
         subtitle={`${zoneName ?? '—'} · ${ctx.day} · ${totals.rows} صفّاً · ${totals.visits} زيارة · ${totals.alleys} زقاقاً`}
         actions={
           <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" onClick={exportExcel} disabled={busy || rows.length === 0}
+            <button type="button" onClick={() => void exportExcel('sheet')} disabled={busy || rows.length === 0}
               className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
               <FileSpreadsheet size={14} />
               {busy ? 'يُجهّز…' : 'Excel'}
@@ -249,10 +309,39 @@ export default function MapGroupedReportPage() {
               placeholder="901 · 903 · 929…"
               className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold" />
           </label>
+
+          {/* السائق */}
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-black text-slate-500">السائق</span>
+            <select value={filters.driverId ?? ''}
+              onChange={(e) => setF({ driverId: e.target.value || null })}
+              className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold">
+              <option value="">
+                كل السائقين ({(drivers.data ?? []).length})
+              </option>
+              {(drivers.data ?? []).map((d) => (
+                <option key={d.driver_id} value={d.driver_id}>
+                  {d.driver_name}{d.vehicles_count > 1 ? ` · ${d.vehicles_count} آليات` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* نوع المكان */}
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-black text-slate-500">نوع المكان</span>
+            <select value={filters.kind ?? ''}
+              onChange={(e) => setF({ kind: (e.target.value || null) as 'alley' | 'street' | null })}
+              className="w-full rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold">
+              <option value="">الأزقة والشوارع</option>
+              <option value="alley">الأزقة فقط</option>
+              <option value="street">الشوارع فقط</option>
+            </select>
+          </label>
         </div>
 
-        {/* زون الآلية — طلب المستخدم: «الأرخيته فقط» */}
-        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+        {/* زون الآلية + استبعاد غير المؤكد — طلب المستخدم الحرفي */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-3">
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox"
               checked={filters.respectVehicleZone !== false}
@@ -264,9 +353,57 @@ export default function MapGroupedReportPage() {
           </label>
           <span className="text-[10px] font-bold text-slate-500">
             {filters.respectVehicleZone !== false
-              ? 'تُعرض الآليات المربوطة بهذا الزون فقط — لا بيانات آلية خارج زونها.'
-              : 'يُعرض كل آلية دخلت الزون ولو كانت مربوطة بزون آخر (المشهد القديم).'}
+              ? 'الآليات المربوطة بهذا الزون فقط — لا بيانات آلية خارج زونها.'
+              : 'كل آلية دخلت الزون ولو كانت مربوطة بزون آخر (المشهد القديم).'}
           </span>
+
+          <span className="h-5 w-px bg-slate-200" />
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="checkbox"
+              checked={filters.confirmedOnly === true}
+              onChange={(e) => setF({ confirmedOnly: e.target.checked })}
+              className="h-4 w-4 rounded border-slate-300" />
+            <span className="text-[11px] font-black text-slate-700">
+              استبعاد الزيارات غير المؤكدة
+            </span>
+          </label>
+          <span className="text-[10px] font-bold text-slate-500">
+            {filters.confirmedOnly
+              ? 'الزيارات غير المؤكدة مستبعدة — كل رقم في الورقة مؤكد.'
+              : `تُعرض كل الزيارات${totals.uncertain > 0 ? `؛ منها ${totals.uncertain} غير مؤكدة موزّعة على الصفوف` : '، وكلها مؤكدة'}.`}
+          </span>
+        </div>
+      </section>
+
+      {/* ── أنواع التصدير الثمانية — «خيارات تصدير كثيرة» ── */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 print:hidden">
+        <p className="mb-2 flex items-center gap-1 text-[11px] font-black text-slate-600">
+          <FileSpreadsheet size={13} /> أنواع التصدير
+          <span className="text-[9px] font-bold text-slate-400">— كلها من نفس الصفوف المعروضة</span>
+        </p>
+        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+          {EXPORT_KINDS.map((k) => {
+            const n = k.count(rows)
+            const disabled = busy || n === 0
+            return (
+              <button key={k.id} type="button" onClick={() => void exportExcel(k.id)}
+                disabled={disabled} title={k.hint}
+                className="group flex flex-col items-start rounded-xl border border-slate-200 px-2.5 py-2 text-right transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40">
+                <span className="text-[11px] font-black text-slate-800 group-hover:text-indigo-800">
+                  {k.label}
+                </span>
+                <span className="mt-0.5 line-clamp-2 text-[9px] font-bold leading-snug text-slate-500">
+                  {k.hint}
+                </span>
+                <span className={`mt-1 rounded px-1.5 py-0.5 text-[8px] font-black ${
+                  n > 0 ? 'bg-slate-100 text-slate-600' : 'bg-rose-50 text-rose-600'
+                }`}>
+                  {n > 0 ? `${n} صفّ` : 'لا بيانات'}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </section>
 
