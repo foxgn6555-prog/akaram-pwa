@@ -5,13 +5,15 @@
  * دخلت الزقاق والشارع كذا». الصف لا يقول الآلية وحدها، بل **سائقها وشفتها**
  * مع تصريح المصدر: من انطلاقية اليوم (دقيق) أم من سجل الآلية (بديل موسوم).
  */
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { AlertCircle, Link2, Truck } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { MapFilterBar } from '@features/map-planning/components/MapFilterBar'
+import { useUrlState } from '@features/map-planning/hooks/useUrlState'
+import { baghdadDayKey, isBaghdadDayKey } from '@features/map-planning/lib/baghdad-day'
 import {
   formatDwell,
-  SHIFT_LABEL_AR,
   SHIFT_SOURCE_LABEL_AR,
   shiftCaveat,
   VISIT_STATUS_LABEL_AR,
@@ -20,6 +22,7 @@ import {
   type VehicleDayRow,
   type VisitReadinessRow,
 } from '@sdk/map-planning.sdk'
+import { useShiftLabel } from '@features/hr-shifts/hooks'
 import {
   useBuildVisits,
   useMapZones,
@@ -30,19 +33,40 @@ import {
 } from '@features/map-planning/hooks/useMapPlanning'
 import { RefreshCw, Play } from 'lucide-react'
 
-const todayBaghdad = () => new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 10)
 
 const hhmm = (v: string | null | undefined) =>
-  v ? new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baghdad',
-  }).format(new Date(v)) : '—'
+  v
+    ? new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Baghdad',
+      }).format(new Date(v))
+    : '—'
 
 export default function MapVehicleVisitsPage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
-  const [day, setDay] = useState(todayBaghdad())
-  const [vehicleId, setVehicleId] = useState<string | null>(null)
+  /**
+   * المرشّحات في العنوان — ولهذه الصفحة أهمية خاصة: «زيارات الآلية X في يوم Y»
+   * هو أكثر رابط يُطلَب في الدعم، وكان يحتاج وصفاً شفهياً قبل هذا.
+   */
+  const [zoneParam, setZoneId] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
+  const [day, setDay] = useUrlState<string>('day', {
+    fallback: baghdadDayKey(),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
+  const [vehicleId, setVehicleId] = useUrlState<string | null>('vehicle', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  /** الشفت من `hr_shifts` حيّاً — يشمل الشفتات المرنة التي كانت تُعرض برمزها الخام */
+  const shiftLabel = useShiftLabel()
 
   const { data: vehicles = [] } = useVehiclesDay(activeZoneId, day)
   const { data: visits = [], isLoading } = useVisitsEnriched(activeZoneId, day, vehicleId)
@@ -73,36 +97,52 @@ export default function MapVehicleVisitsPage() {
 
   return (
     <div className="space-y-4" dir="rtl">
-      <ExecPageHeader icon="truck"
+      <ExecPageHeader
+        icon="truck"
         title="زيارات الآلية"
-        subtitle={picked
-          ? `${picked.vehicle_name} · ${picked.db_number} · سائق ${picked.driver_name ?? '—'} · ${picked.visits_count} زيارة`
-          : `${(vehicles as VehicleDayRow[]).length} آلية عملت في هذا اليوم`}
+        subtitle={
+          picked
+            ? `${picked.vehicle_name} · ${picked.db_number} · سائق ${picked.driver_name ?? '—'} · ${picked.visits_count} زيارة`
+            : `${(vehicles as VehicleDayRow[]).length} آلية عملت في هذا اليوم`
+        }
         actions={
-          <button type="button" disabled={build.isPending || !activeZoneId}
+          <button
+            type="button"
+            disabled={build.isPending || !activeZoneId}
             onClick={() => activeZoneId && build.mutate({ zoneId: activeZoneId, day })}
-            className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
-            {build.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+            className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50"
+          >
+            {build.isPending ? (
+              <RefreshCw size={14} className="animate-spin" />
+            ) : (
+              <Play size={14} />
+            )}
             {build.isPending ? 'يُشغّل…' : 'استخراج الزيارات'}
           </button>
         }
         links={[{ to: '/ops-room/map-planning/coverage', label: 'التغطية', icon: 'gauge' }]}
       />
 
-      {/* الزون واليوم */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {zones.map((z) => (
-          <button key={z.id} type="button" onClick={() => { setZoneId(z.id); setVehicleId(null) }}
-            aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>
-            {z.name}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} aria-label="اليوم"
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold" />
-        <span className="text-[10px] font-bold text-slate-400">يوم بغداد</span>
-      </section>
+      {/* المرشّحات الموحّدة — تغيير الزون يُسقط مرشّح الآلية لأنه من زون آخر */}
+      <MapFilterBar
+        zones={zones.map((z) => ({ id: z.id, name: z.name }))}
+        activeZoneId={activeZoneId}
+        onPickZone={(id) => {
+          setZoneId(id)
+          setVehicleId(null)
+        }}
+        day={day}
+        onDayChange={setDay}
+        shown={(visits as unknown[]).length}
+        total={(visits as unknown[]).length}
+        unitLabel="زيارة"
+        dirty={zoneParam !== null || day !== baghdadDayKey() || vehicleId !== null}
+        onClearAll={() => {
+          setZoneId(null)
+          setDay(baghdadDayKey())
+          setVehicleId(null)
+        }}
+      />
 
       {/*
         ── شريط الحالة: بناء · شهادة · تغطية الربط ──
@@ -113,8 +153,13 @@ export default function MapVehicleVisitsPage() {
         <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <StatusChip
             label="حالة البناء"
-            tone={zoneReadiness?.build_status === 'built' || zoneReadiness?.build_status === 'empty'
-              ? 'ok' : zoneReadiness?.build_status === 'failed' ? 'danger' : 'warn'}
+            tone={
+              zoneReadiness?.build_status === 'built' || zoneReadiness?.build_status === 'empty'
+                ? 'ok'
+                : zoneReadiness?.build_status === 'failed'
+                  ? 'danger'
+                  : 'warn'
+            }
             value={
               zoneReadiness?.build_status === 'built'
                 ? `بُني · ${zoneReadiness.visits_total} زيارة`
@@ -132,21 +177,25 @@ export default function MapVehicleVisitsPage() {
             label="حماية اليوم من التفريغ"
             tone={fleet.certified ? 'ok' : 'warn'}
             value={fleet.certified ? 'محميّ' : 'غير محميّ'}
-            hint={fleet.certified
-              ? 'شهادات كل الزونات مسجّلة — نقاطه الخام آمنة حتى انتهاء مدة الاحتفاظ'
-              : fleet.reason === 'certificate_stale'
-                ? fleet.reason_label
-                : 'لا شهادة بناء لهذا اليوم — لن تُبنى زياراته بعد حذف النقاط الخام'}
+            hint={
+              fleet.certified
+                ? 'شهادات كل الزونات مسجّلة — نقاطه الخام آمنة حتى انتهاء مدة الاحتفاظ'
+                : fleet.reason === 'certificate_stale'
+                  ? fleet.reason_label
+                  : 'لا شهادة بناء لهذا اليوم — لن تُبنى زياراته بعد حذف النقاط الخام'
+            }
           />
           <StatusChip
             label="تغطية الربط"
-            tone={fleet.points_total === 0
-              ? 'warn'
-              : fleet.points_unbound === 0
-                ? 'ok'
-                : fleet.points_unbound * 10 > fleet.points_total * 3
-                  ? 'danger'
-                  : 'warn'}
+            tone={
+              fleet.points_total === 0
+                ? 'warn'
+                : fleet.points_unbound === 0
+                  ? 'ok'
+                  : fleet.points_unbound * 10 > fleet.points_total * 3
+                    ? 'danger'
+                    : 'warn'
+            }
             value={`${fleet.devices_bound} من ${fleet.devices_total} جهاز`}
             hint={
               fleet.points_total === 0
@@ -164,10 +213,13 @@ export default function MapVehicleVisitsPage() {
         برقمه، مع رابط الإصلاح، لا جملة اعتذارية.
       */}
       {visits.length === 0 && fleet && fleet.reason !== 'built' && (
-        <section className={`rounded-2xl border p-3 ${
-          VISIT_READINESS_TONE[fleet.reason] === 'danger'
-            ? 'border-rose-300 bg-rose-50'
-            : 'border-amber-300 bg-amber-50'}`}>
+        <section
+          className={`rounded-2xl border p-3 ${
+            VISIT_READINESS_TONE[fleet.reason] === 'danger'
+              ? 'border-rose-300 bg-rose-50'
+              : 'border-amber-300 bg-amber-50'
+          }`}
+        >
           <p className="flex items-center gap-1 text-[12px] font-black text-slate-900">
             <AlertCircle size={14} /> لا زيارات لهذا اليوم — والسبب:
           </p>
@@ -190,8 +242,10 @@ export default function MapVehicleVisitsPage() {
           </div>
 
           {(fleet.reason === 'unbound_devices' || fleet.points_unbound > 0) && (
-            <Link to="/ops-room/gps"
-              className="mt-2 inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-[11px] font-black text-white">
+            <Link
+              to="/ops-room/gps"
+              className="mt-2 inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-[11px] font-black text-white"
+            >
               <Link2 size={12} /> ربط الأجهزة بالآليات
             </Link>
           )}
@@ -214,16 +268,28 @@ export default function MapVehicleVisitsPage() {
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setVehicleId(null)} aria-pressed={vehicleId === null}
-              className={`rounded-xl px-3 py-2 text-[11px] font-black ${vehicleId === null ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+            <button
+              type="button"
+              onClick={() => setVehicleId(null)}
+              aria-pressed={vehicleId === null}
+              className={`rounded-xl px-3 py-2 text-[11px] font-black ${vehicleId === null ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+            >
               الكل ({vehicles.length})
             </button>
             {(vehicles as VehicleDayRow[]).map((v) => (
-              <button key={v.vehicle_id} type="button" onClick={() => setVehicleId(v.vehicle_id)}
+              <button
+                key={v.vehicle_id}
+                type="button"
+                onClick={() => setVehicleId(v.vehicle_id)}
                 aria-pressed={vehicleId === v.vehicle_id}
-                className={`rounded-xl px-3 py-2 text-[11px] font-black ${vehicleId === v.vehicle_id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                className={`rounded-xl px-3 py-2 text-[11px] font-black ${vehicleId === v.vehicle_id ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+              >
                 {v.db_number} · {v.visits_count}
-                {v.shift_source === 'vehicle' && <span className="ms-1 text-amber-500" title="بلا انطلاقية">*</span>}
+                {v.shift_source === 'vehicle' && (
+                  <span className="ms-1 text-amber-500" title="بلا انطلاقية">
+                    *
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -244,9 +310,7 @@ export default function MapVehicleVisitsPage() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
             <p className="text-[10px] font-black text-slate-500">الشفت</p>
-            <p className="mt-1 text-sm font-black text-slate-900">
-              {picked.shift ? (SHIFT_LABEL_AR[picked.shift] ?? picked.shift) : '—'}
-            </p>
+            <p className="mt-1 text-sm font-black text-slate-900">{shiftLabel(picked.shift)}</p>
             <p className="mt-1 text-[9px] font-bold text-slate-400">
               {SHIFT_SOURCE_LABEL_AR[picked.shift_source]}
             </p>
@@ -260,7 +324,9 @@ export default function MapVehicleVisitsPage() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
             <p className="text-[10px] font-black text-slate-500">إجمالي المكوث</p>
-            <p className="mt-1 text-sm font-black text-slate-900">{formatDwell(picked.total_dwell_seconds)}</p>
+            <p className="mt-1 text-sm font-black text-slate-900">
+              {formatDwell(picked.total_dwell_seconds)}
+            </p>
             <p className="mt-1 text-[9px] font-bold text-slate-400">
               {hhmm(picked.first_at)} → {hhmm(picked.last_at)}
             </p>
@@ -274,9 +340,14 @@ export default function MapVehicleVisitsPage() {
           <p className="text-[11px] font-black text-amber-900">أكثر من سائق/شفت في هذا اليوم:</p>
           <ul className="mt-1 flex flex-wrap gap-2">
             {drivers.map((d) => (
-              <li key={`${d.name}-${d.shift}`} className="rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-amber-900">
-                {d.name} · {d.shift ? (SHIFT_LABEL_AR[d.shift] ?? d.shift) : '—'} · {d.count} زيارة
-                {d.source === 'vehicle' && <span className="ms-1 text-amber-500">(سجل الآلية)</span>}
+              <li
+                key={`${d.name}-${d.shift}`}
+                className="rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-amber-900"
+              >
+                {d.name} · {shiftLabel(d.shift)} · {d.count} زيارة
+                {d.source === 'vehicle' && (
+                  <span className="ms-1 text-amber-500">(سجل الآلية)</span>
+                )}
               </li>
             ))}
           </ul>
@@ -321,9 +392,7 @@ export default function MapVehicleVisitsPage() {
                       {v.driver_name ?? '—'}
                       {caveat && <p className="text-[9px] font-bold text-amber-600">{caveat}</p>}
                     </td>
-                    <td className="p-2 font-bold text-slate-700">
-                      {v.shift ? (SHIFT_LABEL_AR[v.shift] ?? v.shift) : '—'}
-                    </td>
+                    <td className="p-2 font-bold text-slate-700">{shiftLabel(v.shift)}</td>
                     <td className="p-2">
                       <p className="font-black text-slate-900">{v.place_name ?? v.place_code}</p>
                       <p className="text-[9px] font-bold text-slate-500">
@@ -334,8 +403,13 @@ export default function MapVehicleVisitsPage() {
                     <td className="p-2 font-bold text-slate-700">{hhmm(v.exited_at)}</td>
                     <td className="p-2 font-bold text-slate-700">{formatDwell(v.dwell_seconds)}</td>
                     <td className="p-2">
-                      <span className={`rounded-lg px-2 py-1 text-[10px] font-black ${
-                        v.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      <span
+                        className={`rounded-lg px-2 py-1 text-[10px] font-black ${
+                          v.status === 'confirmed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
                         {VISIT_STATUS_LABEL_AR[v.status]}
                       </span>
                     </td>
@@ -357,13 +431,27 @@ export default function MapVehicleVisitsPage() {
             أماكن لم تُدخل في هذا اليوم ({unvisited.length})
           </p>
           <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-            {(unvisited as { place_code: string; place_name: string | null; place_kind: string; length_m: number | null; department_manager_names: string | null }[])
-              .slice(0, 12).map((u) => (
-              <li key={u.place_code} className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-[10px] font-bold">
-                <span className="text-rose-900">{u.place_code} · {u.place_name ?? '—'}</span>
-                <span className="text-slate-600">{u.length_m ?? '—'} م</span>
-              </li>
-            ))}
+            {(
+              unvisited as {
+                place_code: string
+                place_name: string | null
+                place_kind: string
+                length_m: number | null
+                department_manager_names: string | null
+              }[]
+            )
+              .slice(0, 12)
+              .map((u) => (
+                <li
+                  key={u.place_code}
+                  className="flex items-center justify-between rounded-lg bg-white px-2 py-1 text-[10px] font-bold"
+                >
+                  <span className="text-rose-900">
+                    {u.place_code} · {u.place_name ?? '—'}
+                  </span>
+                  <span className="text-slate-600">{u.length_m ?? '—'} م</span>
+                </li>
+              ))}
           </ul>
           {(unvisited as unknown[]).length > 12 && (
             <p className="mt-1 text-[10px] font-bold text-rose-700">

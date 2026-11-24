@@ -14,10 +14,10 @@ describe('عقد تصميم بوابة الشكاوى (00236)', () => {
   })
   it('ComplaintPageHeader يغلّف ExecPageHeader', () => {
     const ui = readFileSync(join(process.cwd(), 'src/portals/complaints/components/ComplaintUi.tsx'), 'utf8')
-    expect(ui).toMatch(/export function ComplaintPageHeader[\s\S]*?<ExecPageHeader icon="[a-z-]+"/)
+    expect(ui).toMatch(/export function ComplaintPageHeader[\s\S]*?<ExecPageHeader\b[\s\S]{0,300}?icon="[a-z-]+"/)
   })
   it('الوحدات المباشرة تستخدم ExecPageHeader، ووحدات البريد/الإسناد/البيانات/القاعدة تستخدم الغلاف', () => {
-    for (const name of DIRECT) expect(readFileSync(join(dir, `${name}.tsx`), 'utf8'), name).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+    for (const name of DIRECT) expect(readFileSync(join(dir, `${name}.tsx`), 'utf8'), name).toMatch(/<ExecPageHeader\b[\s\S]{0,300}?icon="[a-z-]+"/)
     for (const name of VIA_WRAPPER) expect(readFileSync(join(dir, `${name}.tsx`), 'utf8'), name).toMatch(/<ComplaintPageHeader\b/)
   })
   it('لا رؤوس h1 ولا رؤوس متدرجة قديمة في صفحات الشكاوى', () => {

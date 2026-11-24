@@ -489,16 +489,38 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/live-tracking', labelKey: 'nav.ops_live_tracking', icon: 'map-pin', exact: true },   // 00287
     { path: '/ops-room/live-tracking/data', labelKey: 'nav.ops_live_tracking_data', icon: 'list' },   // 00288
     { path: '/ops-room/waste-map', labelKey: 'nav.ops_waste_map', icon: 'globe' },   // 00384
-    // ═══ ⑫: وحدة التخطيط الجغرافي — ستة مسارات كانت مخفيّة عن التنقّل ═══
-    // كانت في routes.tsx منذ 20261122000600 لكن لا مدخل لها ⇒ لا يمكن الوصول
-    // إليها إلا بكتابة العنوان يدوياً. أُضيفت بعد waste-map (المجموعة المكانية).
-    { path: '/ops-room/map-planning', labelKey: 'nav.map_editor', icon: 'map-pin', exact: true },
-    { path: '/ops-room/map-planning/table', labelKey: 'nav.map_table', icon: 'list' },
-    { path: '/ops-room/map-planning/visits', labelKey: 'nav.map_visits', icon: 'map-pin' },
-    { path: '/ops-room/map-planning/coverage', labelKey: 'nav.map_coverage', icon: 'globe' },
-    { path: '/ops-room/map-planning/vehicle-visits', labelKey: 'nav.map_vehicle_visits', icon: 'truck' },
-    { path: '/ops-room/map-planning/import', labelKey: 'nav.map_import', icon: 'upload' },   // الجولة ①: استيراد الخريطة
-    { path: '/ops-room/map-planning/grouped-report', labelKey: 'nav.map_grouped_report', icon: 'file-text' },   // 20261127000200: التقرير المعتمد
+    // ═══ التخطيط الجغرافي — وحدة واحدة بستّ صفحات تابعة (الجولة ②) ═══
+    //
+    // كانت سبعة مدخلات **مسطّحة** في الشريط الجانبي بلا أب، فتُربك القارئ:
+    // سبعة أسطر متجاورة بمستوى واحد، لا يُعرف أيّها الوحدة الرئيسية وأيّها
+    // صفحة تابعة. وهي الوحيدة في البوابة بلا تجميع (كل وحدة أخرى لها Hub).
+    //
+    // الآن: الأب هو صفحة المحرّر نفسها (`/ops-room/map-planning`) وأبناؤه
+    // ستّ صفحات. النقر على «محرّر الخريطة» يفتح المحرّر، والنقر على الصفحة
+    // الفرعية يفتحها — وكلاهما تحت سطر واحد.
+    //
+    // ⛔ **لا تُضِف الأب كابناً لنفسه.** جُرِّب وسقط عقد كتالوج الصلاحيات:
+    //    مفتاح الصلاحية يُشتق من المسار (`unitKeyFromPath`)، فالابن بنفس مسار
+    //    الأب يُنتج مفتاحاً مكرّراً `ops-room.map-planning` مرتين — فيصير
+    //    PERMISSION_CATALOG بلا مفاتيح فريدة، ويُكسَر `my_permissions`.
+    //    تغطية صفحة المحرّر تأتي من الأب نفسه، لا من ابن مطابق.
+    //
+    // ملاحظة: `exact: true` على الأب ضروري — وإلا التقطت بادئته كل مسارات
+    // الصفحات الفرعية فتُظلّل جميعها «نشطة» معاً.
+    {
+      path: '/ops-room/map-planning',
+      labelKey: 'nav.map_editor',
+      icon: 'map-pin',
+      exact: true,
+      children: [
+        { path: '/ops-room/map-planning/table', labelKey: 'nav.map_table', icon: 'list' },
+        { path: '/ops-room/map-planning/visits', labelKey: 'nav.map_visits', icon: 'map-pin' },
+        { path: '/ops-room/map-planning/coverage', labelKey: 'nav.map_coverage', icon: 'globe' },
+        { path: '/ops-room/map-planning/vehicle-visits', labelKey: 'nav.map_vehicle_visits', icon: 'truck' },
+        { path: '/ops-room/map-planning/grouped-report', labelKey: 'nav.map_grouped_report', icon: 'file-text' },   // 20261127000200: التقرير المعتمد
+        { path: '/ops-room/map-planning/import', labelKey: 'nav.map_import', icon: 'upload' },   // آخر خطوة عملياً
+      ],
+    },
     { path: '/ops-room/approvals', labelKey: 'nav.approval_tasks', icon: 'check-square' },
   ],
 

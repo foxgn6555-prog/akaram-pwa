@@ -228,7 +228,10 @@ export interface VisitReadinessRow {
 }
 
 /** شدّة اللون في الواجهة بحسب السبب — سبب واحد لا مجموعة نصوص */
-export const VISIT_READINESS_TONE: Record<VisitReadinessRow['reason'], 'ok' | 'warn' | 'danger' | 'info'> = {
+export const VISIT_READINESS_TONE: Record<
+  VisitReadinessRow['reason'],
+  'ok' | 'warn' | 'danger' | 'info'
+> = {
   ok: 'ok',
   built: 'ok',
   no_points: 'danger',
@@ -263,7 +266,9 @@ export interface CoverageRow {
 /** حالة المكان في يوم — ثلاثية صريحة، لا «صفر كاذب» */
 export type PlaceCoverageState = 'confirmed' | 'uncertain' | 'not_entered'
 
-export function placeCoverageState(row: Pick<PlaceCoverageRow, 'visited' | 'confirmed'>): PlaceCoverageState {
+export function placeCoverageState(
+  row: Pick<PlaceCoverageRow, 'visited' | 'confirmed'>,
+): PlaceCoverageState {
   if (!row.visited) return 'not_entered'
   return row.confirmed ? 'confirmed' : 'uncertain'
 }
@@ -334,11 +339,27 @@ export interface TrendRow {
   visits_total: number
 }
 
-export const SHIFT_LABEL_AR: Record<string, string> = {
+/**
+ * ⚠ مهجور — لا تستخدمه في كود جديد.
+ *
+ * كان قاموساً ثابتاً بثلاثة رموز فقط (`morning/evening/night`). عطبه الحقيقي:
+ * `hr_shifts` في الإنتاج تحمل **خمسة** شفتات — منها المرنان `shift_08f99593`
+ * («مرن صباحي» 05:00→16:00) و`shift_7d5e62a0` («مرن مسائي» 17:00→04:00).
+ * فكل آلية مسنَدة إلى شفت مرن كانت تظهر في التقارير برمزها الخام، **ولا تظهر
+ * أبداً** عند تصفية «صباحي» لأن الفلتر يعرض الثلاثة الثابتة فقط.
+ *
+ * المصدر الوحيد الصحيح: `useShiftOptions()` / `useShiftLabel()` من
+ * `@features/hr-shifts/hooks` — يقرأ `hr_shifts` حيّاً عبر `shift_options()`،
+ * ويشمل أي شفت يُضاف في الموارد البشرية بلا تعديل كود.
+ *
+ * هذا التصدير باقٍ فقط كاحتياطٍ أولي قبل وصول القائمة من الخادم
+ * (`ShiftRegistryLoader` في `App.tsx`)، ومطابق لـ`SHIFT_FALLBACK_LABELS`.
+ */
+export const SHIFT_LABEL_AR: Readonly<Record<string, string>> = Object.freeze({
   morning: 'صباحي',
   evening: 'مسائي',
   night: 'ليلي',
-}
+})
 
 /** تنسيق المكوث: 90 ⇒ «1 د 30 ث» · 8 ⇒ «8 ث» */
 export function formatDwell(seconds: number | null): string {
@@ -349,7 +370,9 @@ export function formatDwell(seconds: number | null): string {
 }
 
 /** حالة العرض الثلاثية: زيارة غير موجودة = «لم تُدخل» وليست صفراً */
-export function visitDisplayStatus(visit: MapVisit | null | undefined): 'confirmed' | 'uncertain' | 'not_entered' {
+export function visitDisplayStatus(
+  visit: MapVisit | null | undefined,
+): 'confirmed' | 'uncertain' | 'not_entered' {
   return visit ? visit.status : 'not_entered'
 }
 
@@ -486,9 +509,7 @@ export const mapPlanningSdk = {
   },
 
   async streets(zoneId: string): Promise<MapStreet[]> {
-    return sdkGuard(
-      supabase.from('map_streets').select('*').eq('zone_id', zoneId).order('code'),
-    )
+    return sdkGuard(supabase.from('map_streets').select('*').eq('zone_id', zoneId).order('code'))
   },
 
   async alleys(zoneId: string): Promise<MapAlley[]> {
@@ -510,9 +531,7 @@ export const mapPlanningSdk = {
   },
 
   async mahallas(zoneId: string): Promise<MapMahalla[]> {
-    return sdkGuard(
-      supabase.from('map_mahallas').select('*').eq('zone_id', zoneId).order('code'),
-    )
+    return sdkGuard(supabase.from('map_mahallas').select('*').eq('zone_id', zoneId).order('code'))
   },
 
   /** مراجعات الهندسة (تقاطعات مسموحة تنتظر قراراً) */
@@ -600,13 +619,23 @@ export const mapPlanningSdk = {
 
   async archiveStreet(id: string): Promise<void> {
     return sdkGuard(
-      supabase.from('map_streets').update({ status: 'archived' }).eq('id', id).select().maybeSingle(),
+      supabase
+        .from('map_streets')
+        .update({ status: 'archived' })
+        .eq('id', id)
+        .select()
+        .maybeSingle(),
     )
   },
 
   async archiveAlley(id: string): Promise<void> {
     return sdkGuard(
-      supabase.from('map_alleys').update({ status: 'archived' }).eq('id', id).select().maybeSingle(),
+      supabase
+        .from('map_alleys')
+        .update({ status: 'archived' })
+        .eq('id', id)
+        .select()
+        .maybeSingle(),
     )
   },
 
@@ -657,7 +686,10 @@ export const mapPlanningSdk = {
    * الشهادة شرط حذف النقاط الخام: لا يُحذف يوم من `gps_device_position_history`
    * قبل أن يبني هذا الاستدعاء زياراته بنجاح.
    */
-  async buildVisits(input: { zoneId: string; day: string }): Promise<VisitBuildResult & { day: string; points: number }> {
+  async buildVisits(input: {
+    zoneId: string
+    day: string
+  }): Promise<VisitBuildResult & { day: string; points: number }> {
     const { data, error } = await supabase.rpc('map_visit_build_logged', {
       p_zone: input.zoneId,
       p_day: input.day,
@@ -678,7 +710,9 @@ export const mapPlanningSdk = {
   async visitBuildLedger(day: string): Promise<VisitBuildRow[]> {
     const { data, error } = await supabase
       .from('gps_visit_builds')
-      .select('zone_id, day, status, visits_created, points_in_day, points_at_build, duration_ms, error, actor_name, finished_at')
+      .select(
+        'zone_id, day, status, visits_created, points_in_day, points_at_build, duration_ms, error, actor_name, finished_at',
+      )
       .eq('day', day)
     if (error) throw new Error(error.message)
     return (data ?? []) as VisitBuildRow[]
@@ -693,7 +727,9 @@ export const mapPlanningSdk = {
 
   /** تشغيل البناء الآلي المتأخر بعد سحب تاريخ من المزوّد */
   async runBuildScan(lookbackDays = 4): Promise<BuildScanResult> {
-    const { data, error } = await supabase.rpc('gps_visits_build_run', { p_lookback_days: lookbackDays })
+    const { data, error } = await supabase.rpc('gps_visits_build_run', {
+      p_lookback_days: lookbackDays,
+    })
     if (error) throw new Error(error.message)
     return data as BuildScanResult
   },
@@ -710,7 +746,11 @@ export const mapPlanningSdk = {
 
   // ── إحصاءات التغطية (المرحلة ⑥) ─────────────────────────────────────────
   /** كل مكان في الزون مع حالته في يوم بغداد */
-  async coverageByPlace(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<PlaceCoverageRow[]> {
+  async coverageByPlace(
+    zoneId: string,
+    day: string,
+    kind?: 'street' | 'alley',
+  ): Promise<PlaceCoverageRow[]> {
     const { data, error } = await supabase.rpc('map_coverage_by_place', {
       p_zone: zoneId,
       p_day: day,
@@ -742,15 +782,29 @@ export const mapPlanningSdk = {
   },
 
   /** الأماكن التي لم تُدخل — أهم مخرَج للمفتّش */
-  async unvisitedPlaces(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<PlaceCoverageRow[]> {
+  async unvisitedPlaces(
+    zoneId: string,
+    day: string,
+    kind?: 'street' | 'alley',
+  ): Promise<PlaceCoverageRow[]> {
     const { data, error } = await supabase.rpc('map_unvisited_places', {
       p_zone: zoneId,
       p_day: day,
       p_kind: kind ?? null,
     })
     if (error) throw new Error(error.message)
-    return ((data ?? []) as Pick<PlaceCoverageRow, 'place_kind' | 'place_id' | 'place_code' | 'place_name' | 'mahalla_code' | 'length_m' | 'width_m'>[])
-      .map((r) => ({ ...r, visited: false, confirmed: false } as PlaceCoverageRow))
+    return (
+      (data ?? []) as Pick<
+        PlaceCoverageRow,
+        | 'place_kind'
+        | 'place_id'
+        | 'place_code'
+        | 'place_name'
+        | 'mahalla_code'
+        | 'length_m'
+        | 'width_m'
+      >[]
+    ).map((r) => ({ ...r, visited: false, confirmed: false }) as PlaceCoverageRow)
   },
 
   /** اتجاه التغطية لآخر N يوماً */
@@ -803,11 +857,16 @@ export const mapPlanningSdk = {
   // ── الزيارات المُثراة (الجولة ٦) ─────────────────────────────────────────
   /** زيارات يوم بغداد مع السائق والشفت ومسؤول القسم */
   async visitsEnriched(
-    zoneId: string, day: string, vehicleId?: string | null, kind?: 'street' | 'alley',
+    zoneId: string,
+    day: string,
+    vehicleId?: string | null,
+    kind?: 'street' | 'alley',
   ): Promise<EnrichedVisit[]> {
     const { data, error } = await supabase.rpc('map_visits_enriched', {
-      p_zone: zoneId, p_day: day,
-      p_vehicle: vehicleId ?? null, p_kind: kind ?? null,
+      p_zone: zoneId,
+      p_day: day,
+      p_vehicle: vehicleId ?? null,
+      p_kind: kind ?? null,
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as EnrichedVisit[]
@@ -821,19 +880,39 @@ export const mapPlanningSdk = {
   },
 
   /** الأماكن التي لم تُدخل + مسؤول قسمها */
-  async unvisitedEnriched(zoneId: string, day: string, kind?: 'street' | 'alley'): Promise<UnvisitedEnriched[]> {
+  async unvisitedEnriched(
+    zoneId: string,
+    day: string,
+    kind?: 'street' | 'alley',
+  ): Promise<UnvisitedEnriched[]> {
     const { data, error } = await supabase.rpc('map_unvisited_enriched', {
-      p_zone: zoneId, p_day: day, p_kind: kind ?? null,
+      p_zone: zoneId,
+      p_day: day,
+      p_kind: kind ?? null,
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as UnvisitedEnriched[]
   },
 
   /** مسؤولو الأقسام لقواطع — للعرض في رأس التقرير */
-  async sectorManagers(sectors: number[]): Promise<{ sector_id: number; manager_names: string | null; manager_shifts: string | null; managers_count: number }[]> {
+  async sectorManagers(
+    sectors: number[],
+  ): Promise<
+    {
+      sector_id: number
+      manager_names: string | null
+      manager_shifts: string | null
+      managers_count: number
+    }[]
+  > {
     const { data, error } = await supabase.rpc('map_sector_managers', { p_sectors: sectors })
     if (error) throw new Error(error.message)
-    return (data ?? []) as { sector_id: number; manager_names: string | null; manager_shifts: string | null; managers_count: number }[]
+    return (data ?? []) as {
+      sector_id: number
+      manager_names: string | null
+      manager_shifts: string | null
+      managers_count: number
+    }[]
   },
 
   /**
@@ -916,7 +995,11 @@ export const mapPlanningSdk = {
   // ── الأرشيف والاحتفاظ (الجولة ④) ─────────────────────────────────────────
 
   /** صفوف زيارات ليوم بغداد أو مدى — مصدر التصدير قبل الحذف. */
-  async visitReports(input: { from: string; to?: string; zoneId?: string | null }): Promise<VisitReportRow[]> {
+  async visitReports(input: {
+    from: string
+    to?: string
+    zoneId?: string | null
+  }): Promise<VisitReportRow[]> {
     const { data, error } = await supabase.rpc('gps_visit_reports', {
       p_from: input.from,
       p_to: input.to ?? input.from,
@@ -933,7 +1016,10 @@ export const mapPlanningSdk = {
    * التصدير على مستوى الطلب. الفرق أن هذه تفحص كل يوم على حدة، فتمنع
    * «٢٩ يوماً صُدِّرت ويوم أُبيد بلا نسخة».
    */
-  async visitPurgeGuard(input: { cutoff: string; keepDays?: number }): Promise<VisitPurgeVerdict[]> {
+  async visitPurgeGuard(input: {
+    cutoff: string
+    keepDays?: number
+  }): Promise<VisitPurgeVerdict[]> {
     const { data, error } = await supabase.rpc('map_visits_purge_guard', {
       p_cutoff: input.cutoff,
       p_keep_days: input.keepDays ?? 30,

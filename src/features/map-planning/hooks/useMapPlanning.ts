@@ -10,11 +10,16 @@ import {
   type MapStreet,
   type StreetKind,
 } from '@sdk/map-planning.sdk'
+import { mapImportSdk } from '@sdk/map-import.sdk'
+import { parseZonePolygonText } from '@features/map-import/lib/zone-polygon'
+import type { LatLng } from '@features/map-import/lib/geometry'
 import type { ColumnSelection } from '../export-columns'
 
 export const mapKeys = {
   all: ['map-planning'] as const,
   zones: () => ['map-planning', 'zones'] as const,
+  /** مضلّعات كل الزونات — مفتاح واحد يجمعها فتُخزَّن دفعة واحدة */
+  zoneOutlines: () => ['map-planning', 'zone-outlines'] as const,
   streets: (zoneId: string) => ['map-planning', 'streets', zoneId] as const,
   alleys: (zoneId: string) => ['map-planning', 'alleys', zoneId] as const,
   mahallas: (zoneId: string) => ['map-planning', 'mahallas', zoneId] as const,
@@ -547,5 +552,37 @@ export function useVisitPurgeGuard(cutoff: string, keepDays = 30) {
     queryFn: () => mapPlanningSdk.visitPurgeGuard({ cutoff, keepDays }),
     enabled: Boolean(cutoff),
     staleTime: 0,
+  })
+}
+
+/**
+ * مضلّعات **كل** الزونات — لطبقة «عرض جميع الزونات» في المحرّر.
+ *
+ * لماذا استعلام واحد بكل الأزونات لا استعلام لكل زون: الطلب يُطلق مرة واحدة
+ * عند أول تشغيل للمفتاح ثم يُخزَّن؛ لو أطلقناه لكل زون لأنشأنا ثمانية طلبات
+ * متتابعة عند كل إعادة تصيير. `zonePolygonText` تُرجع نص Overpass خاماً.
+ *
+ * الزون بلا مضلّع يُرجَع بنقاط فارغة لا بخطأ: الأزونات المخطَّطة يدوياً
+ * جزئياً حالة واقعية، والمكوّن يتجاهل ما لا يكفي رسمه.
+ */
+export function useZoneOutlines(zoneIds: readonly string[], enabled: boolean) {
+  return useQuery({
+    queryKey: mapKeys.zoneOutlines(),
+    enabled: enabled && zoneIds.length > 0,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const out: Record<string, LatLng[]> = {}
+      const texts = await Promise.all(
+        zoneIds.map(async (id) => {
+          try {
+            return [id, await mapImportSdk.zonePolygonText(id)] as const
+          } catch {
+            return [id, ''] as const
+          }
+        }),
+      )
+      for (const [id, text] of texts) out[id] = parseZonePolygonText(text)
+      return out
+    },
   })
 }

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 describe('عقد تصميم كشوفات المعتمدين (00243)', () => {
   const src = readFileSync(join(process.cwd(), 'src/features/disclosures/components/ApproverDisclosuresPage.tsx'), 'utf8')
   it('المكوّن المشترك يستخدم ExecPageHeader وExecTabBar فقط، بلا h1 ولا خيار hero', () => {
-    expect(src).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+    expect(src).toMatch(/<ExecPageHeader\b[\s\S]{0,300}?icon="[a-z-]+"/)
     expect(src).toMatch(/<ExecTabBar\b/)
     expect(src).not.toMatch(/<h1\b/)
     expect(src).not.toMatch(/\bhero\b/)

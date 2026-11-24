@@ -143,7 +143,7 @@ export default function GbsContainersPage() {
 
   return (
     <section className="space-y-4 p-4">
-      <ExecPageHeader icon="box" title="GBS الحاويات" subtitle="خريطة الحاويات الكاملة — الإضافة والتعديل والحذف واعتماد تحديثات مسؤولي الأقسام من غرفة العمليات فقط." actions={
+      <ExecPageHeader icon="box" title="مواقع الحاويات" subtitle="خريطة الحاويات الكاملة — الإضافة والتعديل والحذف واعتماد تحديثات مسؤولي الأقسام من غرفة العمليات فقط." actions={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
