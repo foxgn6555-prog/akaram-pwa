@@ -12,6 +12,14 @@ interface SyncBody {
   windowIndex?: number
   day?: string
   limit?: number
+  /**
+   * 20261128000200: نافذة ساعات داخل يوم بغداد.
+   * `fromTime`/`toTime` بصيغة HH:MM بتوقيت بغداد، و`toTime <= fromTime` تعني عبور
+   * منتصف الليل (الشفت الليلي 22:00→05:00). بلا هذين الحقلين يبقى السلوك كما هو:
+   * اليوم البغدادي كاملاً.
+   */
+  fromTime?: string
+  toTime?: string
 }
 interface LvnLatest {
   items?: unknown[]
@@ -300,8 +308,25 @@ async function importHistory(
       .maybeSingle()
     if (!data) throw new Error('GPS_HISTORY_TARGET_NOT_FOUND')
     device = data
-    rangeFrom = new Date(`${body.day}T00:00:00+03:00`)
-    rangeTo = new Date(Math.min(rangeFrom.getTime() + 86400000, Date.now()))
+
+    // 20261128000200: نافذة ساعات الشفت — بتوقيت بغداد، مع عبور منتصف الليل.
+    // كان السحب يعطي اليوم كاملاً فقط، فيُقطع الشفت العابر (17:00→04:00) نصفين
+    // ولا يمكن سحب شفت واحد بلا سحب اليوم كله.
+    const hasWindow = Boolean(body.fromTime || body.toTime)
+    if (hasWindow) {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(body.fromTime ?? '') || !/^([01]\d|2[0-3]):[0-5]\d$/.test(body.toTime ?? ''))
+        throw new Error('GPS_HISTORY_WINDOW_INVALID')
+      const [fh, fm] = (body.fromTime as string).split(':').map(Number)
+      const [th, tm] = (body.toTime as string).split(':').map(Number)
+      const crosses = th * 60 + tm <= fh * 60 + fm
+      // الشفت يُنسب ليوم بدايته: التوقيت المحلي بغداد (UTC+3 ثابت بلا توقيت صيفي)
+      const dayStartUtc = Date.parse(`${body.day}T00:00:00+03:00`)
+      rangeFrom = new Date(dayStartUtc + (fh * 60 + fm) * 60000)
+      rangeTo = new Date(dayStartUtc + (crosses ? 1440 : 0) * 60000 + (th * 60 + tm) * 60000)
+    } else {
+      rangeFrom = new Date(`${body.day}T00:00:00+03:00`)
+      rangeTo = new Date(Math.min(rangeFrom.getTime() + 86400000, Date.now()))
+    }
   }
   if (!device || Number.isNaN(rangeFrom.getTime()) || rangeTo <= rangeFrom)
     throw new Error('GPS_HISTORY_RANGE_INVALID')
@@ -405,6 +430,9 @@ async function importHistory(
       rejectedPoints: rejected,
       chunks,
       rangeTruncated,
+      // 20261128000200: نُعيد النافذة الفعلية حتى يراها المستخدم بدل تخمينها
+      rangeFrom: rangeFrom.toISOString(),
+      rangeTo: rangeTo.toISOString(),
       windowIndex: body.departureId ? (body.windowIndex ?? 0) : undefined,
       nextWindowIndex: body.departureId && rangeTruncated ? (body.windowIndex ?? 0) + 1 : undefined,
     }

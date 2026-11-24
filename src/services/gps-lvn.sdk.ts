@@ -488,6 +488,114 @@ export interface GpsSyncResult {
 
 /* 00386-أ: أُزيلت أنواع بقع التوقف القديمة (00362) — الخلف: @sdk/gps-hotspots.sdk */
 
+export interface GpsShiftWindow {
+  shift_id: string
+  shift_name: string
+  /** HH:MM بتوقيت بغداد */
+  start: string
+  end: string
+  start_utc: string
+  end_utc: string
+  crosses_midnight: boolean
+  hours?: number | null
+  note?: string | null
+}
+
+export interface GpsShiftWindows {
+  day: string
+  windows: Array<GpsShiftWindow & { overlaps_with?: string[] }>
+}
+
+export type ShiftPullState = 'local' | 'missing' | 'built_points_purged'
+
+export interface GpsShiftPending {
+  day: string
+  fleet: number
+  shifts: Array<{
+    shift_id: string
+    shift_name: string
+    start: string
+    end: string
+    start_utc: string
+    end_utc: string
+    crosses_midnight: boolean
+    points: number
+    oldest: string | null
+    newest: string | null
+    visits_built: number
+    state: ShiftPullState
+    /** مزوّد LVN يحتفظ >شهر — بعده لا يمكن السحب */
+    can_pull: boolean
+  }>
+}
+
+export interface LvnHistoryTarget {
+  batch_no: number
+  device_id: string
+  external_id: string
+  device_name: string
+  vehicle_name: string
+}
+
+/**
+ * سحب نقاط شفت كامل من المزوّد — دفعةً دفعة.
+ *
+ * لماذا لا نستدعي جهازاً واحداً؟ لأن السحب جهازاً جهازاً عبر ١٤٩ آلية يعني ١٤٩
+ * طلباً متتابعاً في نافذة واحدة، وأي انقطاع يفقد ما بعده بلا أثر. هنا:
+ *   · نمرّ على الدفعات (٢٥ جهازاً) ونستدعي `history` لكل جهاز بنافذة الشفت.
+ *   · نتوقّف عند أول فشل **بلا** إخفائه: نُعيد ما نجح وما فشل ولماذا.
+ *   · `onProgress` يُبلّغ الواجهة بعد كل جهاز لتظهر تقدُّم حقيقي لا وهمي.
+ *   · الإلغاء عبر AbortSignal يوقف بين جهازين — لا في منتصف كتابة.
+ */
+export async function pullShiftWindow(opts: {
+  day: string
+  window: { from: string; to: string }
+  batchSize?: number
+  onProgress?: (p: { done: number; total: number; inserted: number; device: string }) => void
+  signal?: AbortSignal
+}): Promise<ShiftPullResult> {
+  const size = Math.max(1, Math.min(opts.batchSize ?? 25, 50))
+  const targets = await gpsLvn.historyTargets()
+  const total = targets.total_devices
+  const batches = targets.total_batches
+  const result: ShiftPullResult = {
+    day: opts.day, window: opts.window, total, done: 0, inserted: 0,
+    failed: [], aborted: false,
+  }
+  for (let b = 0; b < batches; b++) {
+    if (opts.signal?.aborted) { result.aborted = true; break }
+    const devices = await gpsLvn.historyTargetBatch(b, size)
+    for (const d of devices) {
+      if (opts.signal?.aborted) { result.aborted = true; break }
+      try {
+        const r = await gpsLvn.importDayHistory(d.device_id, opts.day, opts.window)
+        result.inserted += Number(r.insertedPoints ?? 0)
+      } catch (e) {
+        result.failed.push({
+          device: d.vehicle_name || d.device_name,
+          error: (e as { message?: string }).message ?? 'LVN_HISTORY_SYNC_FAILED',
+        })
+      }
+      result.done++
+      opts.onProgress?.({
+        done: result.done, total, inserted: result.inserted,
+        device: d.vehicle_name || d.device_name,
+      })
+    }
+  }
+  return result
+}
+
+export interface ShiftPullResult {
+  day: string
+  window: { from: string; to: string }
+  total: number
+  done: number
+  inserted: number
+  failed: Array<{ device: string; error: string }>
+  aborted: boolean
+}
+
 export const gpsLvn = {
   dashboard: async () =>
     (await sdkGuard(supabase.rpc('gps_lvn_dashboard'))) as unknown as GpsDashboard,
@@ -765,9 +873,23 @@ export const gpsLvn = {
     if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_SYNC_FAILED')
     return data
   },
-  importDayHistory: async (deviceId: string, day: string) => {
+  /**
+   * سحب تاريخ يوم لجهاز واحد.
+   *
+   * `window` — 20261128000200: نافذة ساعات الشفت بتوقيت بغداد (HH:MM).
+   * كان السحب بلا هذا المعامل يعطي اليوم كاملاً فقط، فيُقطع الشفت العابر
+   * لمنتصف الليل نصفين ولا يمكن سحب شفت واحد بلا سحب اليوم كله.
+   * `to <= from` تعني عبور منتصف الليل.
+   */
+  importDayHistory: async (
+    deviceId: string,
+    day: string,
+    window?: { from: string; to: string } | null,
+  ) => {
     const { data, error } = await supabase.functions.invoke<GpsSyncResult>('lvn-gps-sync', {
-      body: { action: 'history', deviceId, day },
+      body: window
+        ? { action: 'history', deviceId, day, fromTime: window.from, toTime: window.to }
+        : { action: 'history', deviceId, day },
     })
     if (error) throw await toLvnError(error)
     if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_HISTORY_SYNC_FAILED')
@@ -781,6 +903,40 @@ export const gpsLvn = {
     if (!data?.ok) throw new LvnSyncError((data as { error?: string } | null)?.error ?? 'LVN_HISTORY_SYNC_FAILED')
     return data
   },
+  /* ─── 20261128000200: نوافذ الشفتات وسحبها من المزوّد ─── */
+
+  /** نوافذ الشفتات النشطة ليوم بغداد (من hr_shifts، مع دعم العبور والتداخل) */
+  shiftWindows: async (day?: string) =>
+    (await sdkGuard(supabase.rpc('gps_shift_windows', { p_day: day ?? null }))) as unknown as GpsShiftWindows,
+
+  /** نافذة شفت واحد — بالاسم أو بالمعرّف */
+  shiftWindow: async (opts: { shiftId?: string | null; shiftName?: string | null; day?: string }) =>
+    (await sdkGuard(supabase.rpc('gps_shift_window', {
+      p_shift_id: opts.shiftId ?? null,
+      p_shift_name: opts.shiftName ?? null,
+      p_day: opts.day ?? null,
+    }))) as unknown as GpsShiftWindow,
+
+  /**
+   * حالة كل شفت في يوم: هل نقاطه في القاعدة (local) أم لم تُسحب (missing) أم
+   * بُني ثم حُذفت نقاطه بعد ٤٨ ساعة (built_points_purged).
+   * هذا ما يمنع «صفر كاذب»: شفت بلا نقاط ليس شفتاً فارغاً.
+   */
+  shiftPending: async (day?: string) =>
+    (await sdkGuard(supabase.rpc('gps_shift_pending', { p_day: day ?? null }))) as unknown as GpsShiftPending,
+
+  /** عدد أجهزة الأسطول وعدد دفعات السحب */
+  historyTargets: async () =>
+    ((await sdkGuard(supabase.rpc('lvn_history_targets', {}))) as unknown as Array<{
+      total_devices: number; total_batches: number
+    }>)[0] ?? { total_devices: 0, total_batches: 0 },
+
+  /** جهاز واحد من دفعة — السحب يجري دفعةً دفعة لا مصفوفةً واحدة */
+  historyTargetBatch: async (batch: number, size = 25) =>
+    (await sdkGuard(supabase.rpc('lvn_history_target_batch', {
+      p_batch: batch, p_size: size,
+    }))) as unknown as LvnHistoryTarget[],
+
   /* ─── 00342: محرّك مسار الانطلاقية ─── */
   tripRouteSettings: async () =>
     (await sdkGuard(supabase.rpc('trip_route_settings_get'))) as unknown as TripRouteSettings,
