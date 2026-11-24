@@ -70,7 +70,7 @@ begin
   update public.gps_history_purge_settings set keep_hours = 12;
   update public.gps_device_position_history h
      set fix_time = now() - interval '30 hours' - make_interval(mins => x.rn)
-    from (select id, row_number() over (order by id) as rn
+    from (select id, (row_number() over (order by id))::int as rn
             from public.gps_device_position_history) x
    where h.id = x.id;
   insert into public.map_zones (id, geofence_id, code, name)
