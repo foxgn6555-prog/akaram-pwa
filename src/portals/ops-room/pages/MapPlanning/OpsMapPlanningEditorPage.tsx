@@ -31,6 +31,7 @@ import {
 import { mapImportSdk } from '@sdk/map-import.sdk'
 import { useUiStore } from '@stores/ui.store'
 import { parseZonePolygonText } from '@features/map-import/lib/zone-polygon'
+import { ZoneOutlinesLayer, type ZoneOutline } from '@features/map-import/components/ZoneOutlinesLayer'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { EditPanel } from '@features/map-import/components/EditPanel'
 import { useMapEdit } from '@features/map-import/hooks/useMapEdit'
@@ -45,6 +46,7 @@ import {
   useMapSkips,
   useMapStreets,
   useMapZones,
+  useZoneOutlines,
 } from '@features/map-planning/hooks/useMapPlanning'
 
 /** ألوان التصنيف — ثابتة عبر الخريطة والجدول ووسيلة الإيضاح */
@@ -97,6 +99,14 @@ export default function MapPlanningEditorPage() {
   const { data: reviews = [] } = useMapReviews(activeZoneId)
   const { data: skips = [] } = useMapSkips(activeZoneId)
 
+  /**
+   * «عرض جميع الزونات» — طبقة حدود خفيفة فوق الخريطة.
+   *
+   * الافتراضي مُطفأ: من يفتح المحرّر يريد زونه، لا خريطة الأزونات الثمانية.
+   * الاختيار (`zoneId`) **لا يُصفَّر** عند الإطفاء — من أطفأ الطبقة يجب أن
+   * يبقى على زونه، وإلا فقد موضعه عند مجرّد إلقاء نظرة على الجوار.
+   */
+  const [showAllZones, setShowAllZones] = useState(false)
   const [layer, setLayer] = useState<Layer>('both')
   const [kinds, setKinds] = useState<Set<StreetKind>>(new Set(['primary', 'secondary', 'tertiary', 'local']))
   const [query, setQuery] = useState('')
@@ -160,6 +170,21 @@ export default function MapPlanningEditorPage() {
     return out
   }, [shownStreets, shownAlleys])
 
+  const zoneIds = useMemo(() => zones.map((z) => z.id), [zones])
+  const { data: outlinesByZone = {}, isLoading: outlinesLoading } = useZoneOutlines(zoneIds, showAllZones)
+
+  /** حدود كل زون بالترتيب نفسه — الترتيب هو مصدر اللون (انظر zoneColorAt) */
+  const outlines = useMemo<ZoneOutline[]>(
+    () =>
+      showAllZones
+        ? zones.map((zone, index) => ({ zone, index, points: outlinesByZone[zone.id] ?? [] }))
+        : [],
+    [showAllZones, zones, outlinesByZone],
+  )
+
+  /** كم زوناً له مضلّع قابل للرسم — لتنبيه المستخدم بدل صمت مربك */
+  const drawnZones = outlines.filter((o) => o.points.length >= 3).length
+
   const totalStreets = streets.filter((s) => s.status !== 'archived').length
   const totalAlleys = alleys.filter((a) => a.status !== 'archived').length
   const totalStreetsKm = streets.reduce((acc, s) => acc + s.length_m, 0) / 1000
@@ -195,13 +220,39 @@ export default function MapPlanningEditorPage() {
         actions={<MapThemeToggle theme={theme} onToggle={toggleTheme} />}
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowAllZones((v) => !v)}
+          aria-pressed={showAllZones}
+          data-testid="toggle-all-zones"
+          className={`rounded-xl px-3 py-2 text-xs font-black transition ${
+            showAllZones
+              ? 'bg-emerald-600 text-white'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          {showAllZones ? '✓ عرض جميع الزونات' : 'عرض جميع الزونات'}
+        </button>
+        {/* حالة التحميل صريحة: بلاها يظنّ المستخدم أن الأزونات بلا حدود */}
+        {showAllZones && outlinesLoading && (
+          <span className="text-[11px] font-bold text-slate-500" data-testid="outlines-loading">
+            تحميل الحدود…
+          </span>
+        )}
+        {showAllZones && !outlinesLoading && drawnZones < zones.length && (
+          <span className="text-[11px] font-bold text-amber-700" data-testid="outlines-missing">
+            {zones.length - drawnZones} زوناً بلا حدود مرسومة
+          </span>
+        )}
+        <span className="mx-1 h-6 w-px bg-slate-200" aria-hidden />
         {zones.map((z) => (
           <button
             key={z.id}
             type="button"
             onClick={() => pickZone(z.id)}
             aria-pressed={z.id === activeZoneId}
+            data-testid="zone-chip"
             className={`rounded-xl px-3 py-2 text-xs font-black transition ${
               z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
@@ -287,6 +338,13 @@ export default function MapPlanningEditorPage() {
                 scrollWheelZoom
               >
                 <MapTiles theme={theme} />
+                {/* الحدود أولاً: الشوارع والأزقة تُرسم فوقها فتبقى مقروءة */}
+                <ZoneOutlinesLayer
+                  outlines={outlines}
+                  activeZoneId={activeZoneId}
+                  onPick={pickZone}
+                  theme={theme}
+                />
                 <FitBounds points={boundsPoints} />
                 {shownStreets.map((s) => (
                   <Polyline
