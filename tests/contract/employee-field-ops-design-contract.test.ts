@@ -17,7 +17,7 @@ describe('عقد تصميم بوابتي الموظف والميدان (00239)',
   it('كل وحدة (خاصة أو مشتركة) تستخدم ExecPageHeader بلا h1', () => {
     for (const name of [...OWN, ...SHARED]) {
       const src = readFileSync(join(root, `${name}.tsx`), 'utf8')
-      expect(src, name).toMatch(/<ExecPageHeader\b/)
+      expect(src, name).toMatch(/<ExecPageHeader\b[\s\S]{0,300}?icon="[a-z-]+"/)
       expect(src, name).not.toMatch(/<h1\b/)
     }
   })
