@@ -35,12 +35,30 @@ import {
   type ColumnSelection,
   type Row as ExportRow,
 } from '@features/map-planning/export-columns'
-import { SHIFT_LABEL_AR } from '@sdk/map-planning.sdk'
 import { mapPlanningSdk } from '@sdk/map-planning.sdk'
+import { useShiftLabel } from '@features/hr-shifts/hooks'
 
 type Row =
-  | { kind: 'street'; code: string; name: string | null; cls: string; length_m: number; width_m: number | null; mahalla: string; status: string }
-  | { kind: 'alley'; code: string; name: string | null; cls: string; length_m: number; width_m: number | null; mahalla: string; status: string }
+  | {
+      kind: 'street'
+      code: string
+      name: string | null
+      cls: string
+      length_m: number
+      width_m: number | null
+      mahalla: string
+      status: string
+    }
+  | {
+      kind: 'alley'
+      code: string
+      name: string | null
+      cls: string
+      length_m: number
+      width_m: number | null
+      mahalla: string
+      status: string
+    }
 
 type SortKey = 'code' | 'length_m' | 'width_m' | 'name'
 type Tab = 'all' | 'streets' | 'alleys' | 'unassigned'
@@ -56,15 +74,20 @@ export default function MapPlanningTablePage() {
   const { data: alleys = [], isLoading: la } = useMapAlleys(activeZoneId)
   const { data: mahallas = [] } = useMapMahallas(activeZoneId)
   const activeZone = zones.find((z) => z.id === activeZoneId)
+  /** الشفت من `hr_shifts` حيّاً — لا قائمة ثابتة بثلاثة رموز */
+  const shiftLabel = useShiftLabel()
   /** مسؤولو القاطع — يُستنتجون من القاطع، ويُطبَّقون على كل صفوف التقرير */
   const { data: sectorMgrs = [] } = useSectorManagers(
     activeZone?.sector_id ? [activeZone.sector_id] : [],
   )
-  const managersForZone = sectorMgrs.find((m) => m.sector_id === activeZone?.sector_id)?.manager_names ?? null
+  const managersForZone =
+    sectorMgrs.find((m) => m.sector_id === activeZone?.sector_id)?.manager_names ?? null
 
   const [tab, setTab] = useState<Tab>('all')
   const [query, setQuery] = useState('')
-  const [kinds, setKinds] = useState<Set<StreetKind>>(new Set(['primary', 'secondary', 'tertiary', 'local']))
+  const [kinds, setKinds] = useState<Set<StreetKind>>(
+    new Set(['primary', 'secondary', 'tertiary', 'local']),
+  )
   const [minLen, setMinLen] = useState('')
   const [noWidth, setNoWidth] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('code')
@@ -76,7 +99,8 @@ export default function MapPlanningTablePage() {
   const day = todayBaghdad()
   const { data: prefs } = useExportPrefs('places')
   const [override, setOverride] = useState<ColumnSelection[] | null>(null)
-  const selection: ColumnSelection[] = override ?? (prefs && prefs.length > 0 ? prefs : defaultSelection('places'))
+  const selection: ColumnSelection[] =
+    override ?? (prefs && prefs.length > 0 ? prefs : defaultSelection('places'))
   // بيانات التغطية تُثري التصدير بحالة كل مكان في يوم بغداد
   const { data: coverage = [] } = useCoverageByPlace(activeZoneId, day)
 
@@ -86,8 +110,13 @@ export default function MapPlanningTablePage() {
       for (const s of streets as MapStreet[]) {
         if (s.status === 'archived' || !kinds.has(s.kind)) continue
         out.push({
-          kind: 'street', code: s.code, name: s.name, cls: KIND_LABEL_AR[s.kind],
-          length_m: s.length_m, width_m: s.width_m, mahalla: '—',
+          kind: 'street',
+          code: s.code,
+          name: s.name,
+          cls: KIND_LABEL_AR[s.kind],
+          length_m: s.length_m,
+          width_m: s.width_m,
+          mahalla: '—',
           status: STATUS_LABEL_AR[s.status],
         })
       }
@@ -97,8 +126,12 @@ export default function MapPlanningTablePage() {
         if (a.status === 'archived') continue
         if (tab === 'unassigned' && a.mahalla_code !== 'MHL-0000') continue
         out.push({
-          kind: 'alley', code: a.code, name: a.name, cls: 'زقاق',
-          length_m: a.length_m, width_m: a.width_m,
+          kind: 'alley',
+          code: a.code,
+          name: a.name,
+          cls: 'زقاق',
+          length_m: a.length_m,
+          width_m: a.width_m,
           mahalla: a.mahalla_name ?? 'بلا محلة',
           status: STATUS_LABEL_AR[a.status],
         })
@@ -141,14 +174,25 @@ export default function MapPlanningTablePage() {
 
   const ctx: ColumnContext = {
     zoneName: zones.find((z) => z.id === activeZoneId)?.name ?? '—',
-    shiftLabel: (v) => (v ? (SHIFT_LABEL_AR[v] ?? v) : '—'),
+    shiftLabel,
   }
 
   /** صفوف التصدير = **نفس** المفلتر المعروض على الشاشة (معيار قبول الخطة) */
   const exportRows: ExportRow[] = useMemo(() => {
     const covByPlace = new Map(
-      (coverage as { place_kind: string; place_code: string; visited: boolean; confirmed: boolean; visits_count: number; vehicles_count: number; total_dwell_seconds: number; first_entered_at: string | null; last_exited_at: string | null }[])
-        .map((c) => [`${c.place_kind}:${c.place_code}`, c]),
+      (
+        coverage as {
+          place_kind: string
+          place_code: string
+          visited: boolean
+          confirmed: boolean
+          visits_count: number
+          vehicles_count: number
+          total_dwell_seconds: number
+          first_entered_at: string | null
+          last_exited_at: string | null
+        }[]
+      ).map((c) => [`${c.place_kind}:${c.place_code}`, c]),
     )
     return rows.map((r) => {
       const kind: 'street' | 'alley' = r.kind === 'street' ? 'street' : 'alley'
@@ -183,10 +227,11 @@ export default function MapPlanningTablePage() {
         sheetName: 'التخطيط والتغطية',
         companySub: 'غرفة العمليات — التخطيط الجغرافي',
         title: `تقرير الشوارع والأزقة — ${zoneName}`,
-        meta: `يوم ${day} (بغداد) · ${exportRows.length} صفاً · ${cols.length} عموداً · `
-          + `${exportRows.filter((r) => r.confirmed).length} مؤكد · `
-          + `${exportRows.filter((r) => r.visited && !r.confirmed).length} غير مؤكد · `
-          + `${exportRows.filter((r) => !r.visited).length} لم تُدخل`,
+        meta:
+          `يوم ${day} (بغداد) · ${exportRows.length} صفاً · ${cols.length} عموداً · ` +
+          `${exportRows.filter((r) => r.confirmed).length} مؤكد · ` +
+          `${exportRows.filter((r) => r.visited && !r.confirmed).length} غير مؤكد · ` +
+          `${exportRows.filter((r) => !r.visited).length} لم تُدخل`,
         columns: toReportColumns(cols),
         rows: toReportRows(exportRows, cols, ctx),
         totalRow: totalRow(exportRows, cols, ctx),
@@ -194,12 +239,21 @@ export default function MapPlanningTablePage() {
         fileName: `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${day}.xlsx`,
         deferSave: true,
       })
-      await saveWorkbook(wb, `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${day}.xlsx`)
+      await saveWorkbook(
+        wb,
+        `map-${zones.find((z) => z.id === activeZoneId)?.code ?? 'zone'}-${day}.xlsx`,
+      )
       // أثر التصدير — لا يُعطّل التنزيل إن فشل تسجيله
-      void mapPlanningSdk.exportLogAdd({
-        zoneId: activeZoneId, kind: 'places', from: day, to: day,
-        rowCount: exportRows.length, columns: selection,
-      }).catch(() => undefined)
+      void mapPlanningSdk
+        .exportLogAdd({
+          zoneId: activeZoneId,
+          kind: 'places',
+          from: day,
+          to: day,
+          rowCount: exportRows.length,
+          columns: selection,
+        })
+        .catch(() => undefined)
     } finally {
       setSaving(false)
     }
@@ -210,29 +264,45 @@ export default function MapPlanningTablePage() {
 
   return (
     <div className="space-y-4" dir="rtl">
-      <ExecPageHeader icon="file-spreadsheet"
+      <ExecPageHeader
+        icon="file-spreadsheet"
 
         title="جدول الشوارع والأزقة"
         subtitle={`${rows.length} صفاً · ${missingWidth} بلا عرض مقيس`}
         actions={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowColumns((v) => !v)} aria-pressed={showColumns}
-              className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white ring-1 ring-white/20">
+            <button
+              type="button"
+              onClick={() => setShowColumns((v) => !v)}
+              aria-pressed={showColumns}
+              className="flex items-center gap-1 rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white ring-1 ring-white/20"
+            >
               <FileSpreadsheet size={14} /> الأعمدة ({resolveColumns('places', selection).length})
             </button>
-            <button type="button" onClick={() => void exportExcel()} disabled={saving || !activeZoneId}
-              className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => void exportExcel()}
+              disabled={saving || !activeZoneId}
+              className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50"
+            >
               <Download size={14} /> {saving ? 'يُصدّر…' : 'تصدير Excel'}
             </button>
           </div>
         }
-        links={[{ to: '/ops-room/map-planning/visits', label: 'الزيارات والتغطية', icon: 'activity' }]}
+        links={[
+          { to: '/ops-room/map-planning/visits', label: 'الزيارات والتغطية', icon: 'activity' },
+        ]}
       />
 
       <div className="flex flex-wrap gap-2">
         {zones.map((z) => (
-          <button key={z.id} type="button" onClick={() => setZoneId(z.id)} aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}>
+          <button
+            key={z.id}
+            type="button"
+            onClick={() => setZoneId(z.id)}
+            aria-pressed={z.id === activeZoneId}
+            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
+          >
             {z.name}
           </button>
         ))}
@@ -240,28 +310,55 @@ export default function MapPlanningTablePage() {
 
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
         {(['all', 'streets', 'alleys', 'unassigned'] as Tab[]).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} aria-pressed={tab === t}
-            className={`rounded-xl px-3 py-2 text-[11px] font-black ${tab === t ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
-            {t === 'all' ? 'الكل' : t === 'streets' ? 'شوارع' : t === 'alleys' ? 'أزقة' : 'بلا محلة'}
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            aria-pressed={tab === t}
+            className={`rounded-xl px-3 py-2 text-[11px] font-black ${tab === t ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+          >
+            {t === 'all'
+              ? 'الكل'
+              : t === 'streets'
+                ? 'شوارع'
+                : t === 'alleys'
+                  ? 'أزقة'
+                  : 'بلا محلة'}
           </button>
         ))}
         <span className="mx-1 h-5 w-px bg-slate-200" />
         {(['primary', 'secondary', 'tertiary', 'local'] as StreetKind[]).map((k) => (
-          <button key={k} type="button" onClick={() => toggleKind(k)} aria-pressed={kinds.has(k)}
-            className={`rounded-xl px-2.5 py-2 text-[11px] font-black ${kinds.has(k) ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400'}`}>
+          <button
+            key={k}
+            type="button"
+            onClick={() => toggleKind(k)}
+            aria-pressed={kinds.has(k)}
+            className={`rounded-xl px-2.5 py-2 text-[11px] font-black ${kinds.has(k) ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400'}`}
+          >
             {KIND_LABEL_AR[k]}
           </button>
         ))}
         <span className="mx-1 h-5 w-px bg-slate-200" />
         <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
           <Search size={13} />
-          <input aria-label="بحث" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="كود أو اسم"
-            className="w-32 bg-transparent outline-none" />
+          <input
+            aria-label="بحث"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="كود أو اسم"
+            className="w-32 bg-transparent outline-none"
+          />
         </label>
         <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
           طول ≥
-          <input aria-label="أدنى طول" value={minLen} onChange={(e) => setMinLen(e.target.value)} inputMode="numeric" placeholder="0"
-            className="w-14 bg-transparent outline-none" />
+          <input
+            aria-label="أدنى طول"
+            value={minLen}
+            onChange={(e) => setMinLen(e.target.value)}
+            inputMode="numeric"
+            placeholder="0"
+            className="w-14 bg-transparent outline-none"
+          />
           م
         </label>
         <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
@@ -308,13 +405,23 @@ export default function MapPlanningTablePage() {
             <tbody className="divide-y divide-slate-100">
               {rows.slice(0, 400).map((r) => (
                 <tr key={`${r.kind}-${r.code}`} className="hover:bg-slate-50">
-                  <td className="px-3 py-1.5 font-bold text-slate-500">{r.kind === 'street' ? 'شارع' : 'زقاق'}</td>
+                  <td className="px-3 py-1.5 font-bold text-slate-500">
+                    {r.kind === 'street' ? 'شارع' : 'زقاق'}
+                  </td>
                   <td className="px-3 py-1.5 font-black text-slate-900">{r.code}</td>
                   <td className="px-3 py-1.5 text-slate-700">{r.name ?? '—'}</td>
                   <td className="px-3 py-1.5 text-slate-600">{r.cls}</td>
-                  <td className="px-3 py-1.5 tabular-nums text-slate-700">{Math.round(r.length_m)} م</td>
+                  <td className="px-3 py-1.5 tabular-nums text-slate-700">
+                    {Math.round(r.length_m)} م
+                  </td>
                   <td className="px-3 py-1.5 tabular-nums">
-                    {r.width_m === null ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800">غير مقيس</span> : `${r.width_m} م`}
+                    {r.width_m === null ? (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-800">
+                        غير مقيس
+                      </span>
+                    ) : (
+                      `${r.width_m} م`
+                    )}
                   </td>
                   <td className="px-3 py-1.5 text-slate-600">{r.mahalla}</td>
                   <td className="px-3 py-1.5 text-slate-500">{r.status}</td>
@@ -328,13 +435,16 @@ export default function MapPlanningTablePage() {
             </p>
           )}
           {!rows.length && (
-            <p className="px-3 py-8 text-center text-xs font-bold text-slate-400">لا صفوف تطابق الفلاتر</p>
+            <p className="px-3 py-8 text-center text-xs font-bold text-slate-400">
+              لا صفوف تطابق الفلاتر
+            </p>
           )}
         </div>
       )}
 
       <p className="text-center text-[10px] font-bold text-slate-400">
-        المحلات: {mahallas.length} · 「غير محدّدة」 {mahallas.find((m) => m.code === 'MHL-0000') ? 'موجودة' : 'غير موجودة'}
+        المحلات: {mahallas.length} · 「غير محدّدة」{' '}
+        {mahallas.find((m) => m.code === 'MHL-0000') ? 'موجودة' : 'غير موجودة'}
       </p>
     </div>
   )

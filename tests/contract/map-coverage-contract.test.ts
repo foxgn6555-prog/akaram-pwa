@@ -8,11 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  placeCoverageState,
-  SHIFT_LABEL_AR,
-  VISIT_STATUS_LABEL_AR,
-} from '@sdk/map-planning.sdk'
+import { placeCoverageState, VISIT_STATUS_LABEL_AR } from '@sdk/map-planning.sdk'
 
 const ROOT = process.cwd()
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
@@ -107,16 +103,21 @@ describe('④ التقارير لا تُخفي أحداً', () => {
     expect(src).toMatch(/لا أنها صفر|غير قابلة للحساب/)
   })
 
-  it('شفت الأسطول مترجم لا خام', () => {
-    expect(SHIFT_LABEL_AR.morning).toBe('صباحي')
+  it('شفت الأسطول يُترجم من hr_shifts الحيّ لا من قائمة ثابتة', () => {
     const src = read('src/portals/ops-room/pages/MapPlanning/OpsMapCoveragePage.tsx')
-    expect(src).toMatch(/SHIFT_LABEL_AR\[v\.shift\]/)
+    // المصدر الحيّ هو المطلوب: يشمل الشفتات المرنة التي كانت تُعرض برمزها الخام
+    expect(src).toMatch(/useShiftLabel\(\)/)
+    expect(src).toMatch(/shiftLabel\(v\.shift\)/)
+    // ولا يعود إلى القاموس الثابت المهجور
+    expect(src).not.toMatch(/SHIFT_LABEL_AR/)
   })
 
   it('المسار مسجَّل ويستخدم ExecPageHeader', () => {
     expect(read('src/portals/ops-room/routes.tsx')).toMatch(/'map-planning\/coverage'/)
     const src = read('src/portals/ops-room/pages/MapPlanning/OpsMapCoveragePage.tsx')
-    expect(src).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+    // لا نُثبّت موضع `icon` على سطر واحد — Prettier قد يكسر الوسائط على أسطر
+    expect(src).toMatch(/<ExecPageHeader\b/)
+    expect(src).toMatch(/icon="[a-z-]+"/)
     expect(src).not.toMatch(/<h1\b/)
   })
 })
