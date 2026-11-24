@@ -37,9 +37,13 @@ do $$
 declare it1 uuid := 'e9200000-0000-0000-0000-000000000001'; ops uuid := 'e9200000-0000-0000-0000-000000000002'; dev uuid := 'e920c000-0000-0000-0000-000000000001';
         dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int;
 begin
-  -- بيانات: 50 نقطة تفصيلية + آخر موقع + انطلاقية بمسارها
+  -- بيانات: 50 نقطة تفصيلية **أقدم من نافذة الاحتفاظ (٤٨ ساعة)**
+  -- + آخر موقع + انطلاقية بمسارها.
+  -- ⚠ يجب أن تكون أقدم من 48 ساعة: الاختبار يتحقق أن التفريغ يتخطّى اليوم
+  -- لأنه بلا شهادة بناء. نقاط أحدث من النافذة تُترك أصلاً فلا تُثبت شيئاً.
   insert into public.gps_device_position_history (device_id, latitude, longitude, speed, fix_time)
-    select dev, 33.3 + i * 0.001, 44.4, 10, now() - make_interval(mins => i) from generate_series(1, 50) i;
+    select dev, 33.3 + i * 0.001, 44.4, 10, now() - interval '3 days' - make_interval(mins => i)
+      from generate_series(1, 50) i;
   insert into public.gps_device_positions (device_id, latitude, longitude, speed, fix_time) values (dev, 33.3, 44.4, 0, now()) on conflict (device_id) do update set fix_time = excluded.fix_time;
   insert into public.garage_departures (id, vehicle_id, driver_name, shift, sector_id, departed_at, departed_by) values (dep, 'e920a000-0000-0000-0000-000000000001', 'سائق', 'morning', 93, now() - interval '2 hours', ops);
   insert into public.trip_route_points (departure_id, seq, fix_time, latitude, longitude) select dep, i, now() - make_interval(mins => 120 - i), 33.3, 44.4 + i * 0.001 from generate_series(1, 10) i;
