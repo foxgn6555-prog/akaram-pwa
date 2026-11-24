@@ -39,6 +39,11 @@ export const mapKeys = {
   sectorManagers: (sectors: number[]) => ['map-planning', 'sec-mgr', [...sectors].sort().join(',')] as const,
   vehicleVisitsGrouped: (zoneId: string, from: string, to: string, rest: string) =>
     ['map-planning', 'veh-visits-grouped', zoneId, from, to, rest] as const,
+  // الجولة ④ — الأرشيف والاحتفاظ
+  visitReports: (from: string, to: string, zoneId: string) =>
+    ['map-planning', 'visit-reports', from, to, zoneId] as const,
+  purgeGuard: (cutoff: string, keepDays: number) =>
+    ['map-planning', 'purge-guard', cutoff, keepDays] as const,
 }
 
 export function useMapZones() {
@@ -493,5 +498,39 @@ export function useSectorManagers(sectors: number[]) {
     queryFn: () => mapPlanningSdk.sectorManagers(sectors),
     enabled: sectors.length > 0,
     staleTime: 5 * 60_000,
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// الأرشيف والاحتفاظ (الجولة ④)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * صفوف الزيارات للتصدير قبل الحذف.
+ *
+ * `staleTime` قصير (دقيقة) لا خمس: هذا استعلام **قرار حذف**. رقم قديم
+ * يعني طلب حذف بعدد صفوف خاطئ، فيُصدَّر أقل مما يُحذف.
+ */
+export function useVisitReports(from: string, to: string, zoneId: string | null) {
+  return useQuery({
+    queryKey: mapKeys.visitReports(from, to, zoneId ?? ''),
+    queryFn: () => mapPlanningSdk.visitReports({ from, to, ...(zoneId ? { zoneId } : {}) }),
+    enabled: Boolean(from),
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * حكم الحذف لكل يوم أقدم من القاطع.
+ *
+ * `staleTime: 0` مقصود: هذا حارس. لو عُرض حكم محفوظ من دقيقة، فقد يُجيز
+ * المستخدم حذفاً على إثبات صُدِّر ثم أُلغي. كل فتح للصفحة يسأل القاعدة.
+ */
+export function useVisitPurgeGuard(cutoff: string, keepDays = 30) {
+  return useQuery({
+    queryKey: mapKeys.purgeGuard(cutoff, keepDays),
+    queryFn: () => mapPlanningSdk.visitPurgeGuard({ cutoff, keepDays }),
+    enabled: Boolean(cutoff),
+    staleTime: 0,
   })
 }

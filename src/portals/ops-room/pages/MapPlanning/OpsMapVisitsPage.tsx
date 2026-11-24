@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react'
 import { Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { ShiftPanel } from './ShiftPanel'
+import { PurgeGuardPanel } from './PurgeGuardPanel'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import {
   formatDwell,
@@ -140,6 +141,8 @@ export default function MapVisitsPage() {
 
       {/* الشفتات: نافذتها وحالة نقاطها + سحب صريح من المزوّد */}
       <ShiftPanel day={day} />
+        {/* الجولة ④: حارس تصدير قبل الحذف — يقرأ map_visits لا نقاط GPS */}
+        <PurgeGuardPanel keepDays={30} />
 
       {/* ملخّص التغطية — الشوارع والأزقة منفصلة، و«لم تُدخل» ظاهرة بالعدد */}
       <section className="grid gap-3 sm:grid-cols-2">

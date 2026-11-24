@@ -832,4 +832,81 @@ export const mapPlanningSdk = {
     if (error) throw new Error(error.message)
     return (data ?? []) as GroupedDriver[]
   },
+
+  // ── الأرشيف والاحتفاظ (الجولة ④) ─────────────────────────────────────────
+
+  /** صفوف زيارات ليوم بغداد أو مدى — مصدر التصدير قبل الحذف. */
+  async visitReports(input: { from: string; to?: string; zoneId?: string | null }): Promise<VisitReportRow[]> {
+    const { data, error } = await supabase.rpc('gps_visit_reports', {
+      p_from: input.from,
+      p_to: input.to ?? input.from,
+      p_zone: input.zoneId ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitReportRow[]
+  },
+
+  /**
+   * حارس التصدير قبل الحذف — يوم بيوم.
+   *
+   * **تُبلّغ ولا تحذف.** الحذف عبر شاشة الاحتفاظ (data_retention_*) التي تفرض
+   * التصدير على مستوى الطلب. الفرق أن هذه تفحص كل يوم على حدة، فتمنع
+   * «٢٩ يوماً صُدِّرت ويوم أُبيد بلا نسخة».
+   */
+  async visitPurgeGuard(input: { cutoff: string; keepDays?: number }): Promise<VisitPurgeVerdict[]> {
+    const { data, error } = await supabase.rpc('map_visits_purge_guard', {
+      p_cutoff: input.cutoff,
+      p_keep_days: input.keepDays ?? 30,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitPurgeVerdict[]
+  },
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// الأرشيف والاحتفاظ (20261128000400 — الجولة ④)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * صفّ تصدير زيارة — مصدر الأرشيف قبل الحذف.
+ *
+ * **لا يقرأ نقاط GPS الخام** (قد تكون حُذفت بعد ٤٨ ساعة). صفوف `map_visits`
+ * وحدها. وعند الحاجة لعدد صفوف دقيق لطلب الحذف: خُذ `visits_count` من أول
+ * صفّ — لا `rows.length` إن كنت تُفلتر في العميل.
+ */
+export interface VisitReportRow {
+  placeday: string
+  zone_id: string | null
+  zone_name: string | null
+  vehicle_id: string | null
+  db_number: string | null
+  driver_name: string | null
+  mahalla_number: string | null
+  place_kind: 'alley' | 'street' | null
+  place_name: string | null
+  entered_at: string | null
+  exited_at: string | null
+  dwell_seconds: number | null
+  points_count: number | null
+  status: string | null
+  /** ⚠ العدد الكلي كما في القاعدة — ثابت في كل صفّ */
+  visits_count: number
+  zones_count: number
+  days_count: number
+}
+
+/**
+ * حكم يوم واحد في حارس الحذف.
+ *
+ * `exported` = يوجد طلب احتفاظ قاطعه **بعد** هذا اليوم (المحرك يحذف < cutoff).
+ * `can_purge` = الطلب مُثبت ببصمة أو بعدد صفوف. الفرق مقصود: طلب بلا بصمة
+ * قيده «قيد التنفيذ» لا «مُثبت» — ويجب ألا يُجيز حذفاً.
+ */
+export interface VisitPurgeVerdict {
+  placeday: string
+  visits: number
+  days_old: number
+  exported: boolean
+  can_purge: boolean
+  reason: string
 }
