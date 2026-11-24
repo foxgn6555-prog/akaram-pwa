@@ -5,7 +5,7 @@
  * للمراجعة السريعة والفرز والتصدير. المشرف يحتاجهما معاً لا أحدهما.
  */
 import { useMemo, useState } from 'react'
-import { Download, FileSpreadsheet, Search } from 'lucide-react'
+import { Download, FileSpreadsheet } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import {
   KIND_LABEL_AR,
@@ -25,6 +25,8 @@ import {
 } from '@features/map-planning/hooks/useMapPlanning'
 import { buildExcelReport, saveWorkbook } from '@lib/export/excel-report'
 import { ExportColumnsPanel } from '@features/map-planning/components/ExportColumnsPanel'
+import { MapFilterBar } from '@features/map-planning/components/MapFilterBar'
+import { useUrlBool, useUrlChoice, useUrlState, useUrlText } from '@features/map-planning/hooks/useUrlState'
 import {
   defaultSelection,
   resolveColumns,
@@ -68,8 +70,13 @@ const todayBaghdad = () => new Date(Date.now() + 3 * 60 * 60_000).toISOString().
 
 export default function MapPlanningTablePage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
+  // المرشّحات في العنوان — رابط «كل أزقة الكراج بلا محلة» صار قابلاً للإرسال
+  const [zoneParam, setZoneId] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
   const { data: streets = [], isLoading: ls } = useMapStreets(activeZoneId)
   const { data: alleys = [], isLoading: la } = useMapAlleys(activeZoneId)
   const { data: mahallas = [] } = useMapMahallas(activeZoneId)
@@ -83,13 +90,13 @@ export default function MapPlanningTablePage() {
   const managersForZone =
     sectorMgrs.find((m) => m.sector_id === activeZone?.sector_id)?.manager_names ?? null
 
-  const [tab, setTab] = useState<Tab>('all')
-  const [query, setQuery] = useState('')
+  const [tab, setTab] = useUrlChoice<Tab>('tab', ['all', 'streets', 'alleys', 'unassigned'], 'all')
+  const [query, setQuery] = useUrlText('q')
   const [kinds, setKinds] = useState<Set<StreetKind>>(
     new Set(['primary', 'secondary', 'tertiary', 'local']),
   )
   const [minLen, setMinLen] = useState('')
-  const [noWidth, setNoWidth] = useState(false)
+  const [noWidth, setNoWidth] = useUrlBool('noWidth')
   const [sortKey, setSortKey] = useState<SortKey>('code')
   const [asc, setAsc] = useState(true)
   const [showColumns, setShowColumns] = useState(false)
@@ -294,22 +301,35 @@ export default function MapPlanningTablePage() {
         ]}
       />
 
-      <div className="flex flex-wrap gap-2">
-        {zones.map((z) => (
-          <button
-            key={z.id}
-            type="button"
-            onClick={() => setZoneId(z.id)}
-            aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
-          >
-            {z.name}
-          </button>
-        ))}
-      </div>
-
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {(['all', 'streets', 'alleys', 'unassigned'] as Tab[]).map((t) => (
+      <MapFilterBar
+        zones={zones.map((z) => ({
+          id: z.id,
+          name: z.name,
+          count: z.id === activeZoneId ? rows.length : undefined,
+        }))}
+        activeZoneId={activeZoneId}
+        onPickZone={setZoneId}
+        query={query}
+        onQueryChange={setQuery}
+        queryPlaceholder="كود أو اسم"
+        shown={rows.length}
+        total={streets.length + alleys.length}
+        unitLabel="صفّ"
+        dirty={
+          zoneParam !== null || tab !== 'all' || query !== '' || noWidth || minLen !== '' ||
+          kinds.size !== 4
+        }
+        onClearAll={() => {
+          setZoneId(null)
+          setTab('all')
+          setQuery('')
+          setNoWidth(false)
+          setMinLen('')
+          setKinds(new Set(['primary', 'secondary', 'tertiary', 'local']))
+        }}
+        extra={
+          <>
+            {(['all', 'streets', 'alleys', 'unassigned'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -324,48 +344,39 @@ export default function MapPlanningTablePage() {
                 : t === 'alleys'
                   ? 'أزقة'
                   : 'بلا محلة'}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        {(['primary', 'secondary', 'tertiary', 'local'] as StreetKind[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => toggleKind(k)}
-            aria-pressed={kinds.has(k)}
-            className={`rounded-xl px-2.5 py-2 text-[11px] font-black ${kinds.has(k) ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400'}`}
-          >
-            {KIND_LABEL_AR[k]}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
-          <Search size={13} />
-          <input
-            aria-label="بحث"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="كود أو اسم"
-            className="w-32 bg-transparent outline-none"
-          />
-        </label>
-        <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
-          طول ≥
-          <input
-            aria-label="أدنى طول"
-            value={minLen}
-            onChange={(e) => setMinLen(e.target.value)}
-            inputMode="numeric"
-            placeholder="0"
-            className="w-14 bg-transparent outline-none"
-          />
-          م
-        </label>
-        <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
-          <input type="checkbox" checked={noWidth} onChange={(e) => setNoWidth(e.target.checked)} />
-          بلا عرض
-        </label>
-      </section>
+              </button>
+            ))}
+            <span className="mx-1 h-5 w-px bg-slate-200" />
+            {(['primary', 'secondary', 'tertiary', 'local'] as StreetKind[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => toggleKind(k)}
+                aria-pressed={kinds.has(k)}
+                className={`rounded-xl px-2.5 py-2 text-[11px] font-black ${kinds.has(k) ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400'}`}
+              >
+                {KIND_LABEL_AR[k]}
+              </button>
+            ))}
+            <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
+              طول ≥
+              <input
+                aria-label="أدنى طول"
+                value={minLen}
+                onChange={(e) => setMinLen(e.target.value)}
+                inputMode="numeric"
+                placeholder="0"
+                className="w-14 bg-transparent outline-none"
+              />
+              م
+            </label>
+            <label className="flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
+              <input type="checkbox" checked={noWidth} onChange={(e) => setNoWidth(e.target.checked)} />
+              بلا عرض
+            </label>
+          </>
+        }
+      />
 
       {showColumns && (
         <ExportColumnsPanel

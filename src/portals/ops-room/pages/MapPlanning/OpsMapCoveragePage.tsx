@@ -7,9 +7,12 @@
  *
  * اليوم يوم بغداد (UTC+3) لا يوم UTC: زيارة الساعة 01:00 تُنسب ليومها الصحيح.
  */
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { AlertTriangle, CheckCircle2, MapPinOff, TrendingUp } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { MapFilterBar } from '@features/map-planning/components/MapFilterBar'
+import { useUrlChoice, useUrlState } from '@features/map-planning/hooks/useUrlState'
+import { baghdadDayKey, isBaghdadDayKey } from '@features/map-planning/lib/baghdad-day'
 import {
   formatDwell,
   placeCoverageState,
@@ -26,10 +29,6 @@ import {
 } from '@features/map-planning/hooks/useMapPlanning'
 
 type Tab = 'unvisited' | 'uncertain' | 'confirmed' | 'vehicles'
-
-function todayBaghdad(): string {
-  return new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 10)
-}
 
 /** شريط اتجاه بسيط بلا مكتبة رسم — ١٤ عموداً يعرض النسبة عبر الأيام */
 function TrendBars({ points }: { points: { day: string; pct: number }[] }) {
@@ -55,10 +54,18 @@ function TrendBars({ points }: { points: { day: string; pct: number }[] }) {
 
 export default function MapCoveragePage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
-  const [day, setDay] = useState(todayBaghdad())
-  const [tab, setTab] = useState<Tab>('unvisited')
+  // المرشّحات في العنوان — المشاركة والرجوع يعملان بلا كود إضافي
+  const [zoneParam, setZoneParam] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
+  const [day, setDay] = useUrlState<string>('day', {
+    fallback: baghdadDayKey(),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
+  const [tab, setTab] = useUrlChoice<Tab>('tab', ['unvisited', 'uncertain', 'confirmed', 'vehicles'], 'unvisited')
   /** الشفت من `hr_shifts` حيّاً — لا من قاموس ثابت مهجور */
   const shiftLabel = useShiftLabel()
 
@@ -131,29 +138,25 @@ export default function MapCoveragePage() {
         ]}
       />
 
-      {/* الزون واليوم */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {zones.map((z) => (
-          <button
-            key={z.id}
-            type="button"
-            onClick={() => setZoneId(z.id)}
-            aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
-          >
-            {z.name}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        <input
-          type="date"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          aria-label="يوم التغطية"
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold"
-        />
-        <span className="text-[10px] font-bold text-slate-400">يوم بغداد (UTC+3)</span>
-      </section>
+      {/* المرشّحات الموحّدة: الزون + اليوم + التبويب + العدد في شريط واحد */}
+      <MapFilterBar
+        zones={zones.map((z) => ({ id: z.id, name: z.name }))}
+        activeZoneId={activeZoneId}
+        onPickZone={setZoneParam}
+        day={day}
+        onDayChange={setDay}
+        shown={tab === 'vehicles' ? (vehicles as unknown[]).length : shown.length}
+        total={
+          tab === 'vehicles' ? (vehicles as unknown[]).length : places.length
+        }
+        unitLabel={tab === 'vehicles' ? 'آلية' : 'مكان'}
+        dirty={zoneParam !== null || day !== baghdadDayKey() || tab !== 'unvisited'}
+        onClearAll={() => {
+          setZoneParam(null)
+          setDay(baghdadDayKey())
+          setTab('unvisited')
+        }}
+      />
 
       {/* ثلاثة أرقام منفصلة — لا نسبة واحدة مخلوطة */}
       <section className="grid gap-3 sm:grid-cols-3">

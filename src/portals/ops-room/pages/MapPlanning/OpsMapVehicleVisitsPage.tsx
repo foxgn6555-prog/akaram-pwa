@@ -5,10 +5,13 @@
  * دخلت الزقاق والشارع كذا». الصف لا يقول الآلية وحدها، بل **سائقها وشفتها**
  * مع تصريح المصدر: من انطلاقية اليوم (دقيق) أم من سجل الآلية (بديل موسوم).
  */
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { AlertCircle, Link2, Truck } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { MapFilterBar } from '@features/map-planning/components/MapFilterBar'
+import { useUrlState } from '@features/map-planning/hooks/useUrlState'
+import { baghdadDayKey, isBaghdadDayKey } from '@features/map-planning/lib/baghdad-day'
 import {
   formatDwell,
   SHIFT_SOURCE_LABEL_AR,
@@ -30,7 +33,6 @@ import {
 } from '@features/map-planning/hooks/useMapPlanning'
 import { RefreshCw, Play } from 'lucide-react'
 
-const todayBaghdad = () => new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 10)
 
 const hhmm = (v: string | null | undefined) =>
   v
@@ -44,10 +46,25 @@ const hhmm = (v: string | null | undefined) =>
 
 export default function MapVehicleVisitsPage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
-  const [day, setDay] = useState(todayBaghdad())
-  const [vehicleId, setVehicleId] = useState<string | null>(null)
+  /**
+   * المرشّحات في العنوان — ولهذه الصفحة أهمية خاصة: «زيارات الآلية X في يوم Y»
+   * هو أكثر رابط يُطلَب في الدعم، وكان يحتاج وصفاً شفهياً قبل هذا.
+   */
+  const [zoneParam, setZoneId] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
+  const [day, setDay] = useUrlState<string>('day', {
+    fallback: baghdadDayKey(),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
+  const [vehicleId, setVehicleId] = useUrlState<string | null>('vehicle', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
   /** الشفت من `hr_shifts` حيّاً — يشمل الشفتات المرنة التي كانت تُعرض برمزها الخام */
   const shiftLabel = useShiftLabel()
 
@@ -106,32 +123,26 @@ export default function MapVehicleVisitsPage() {
         links={[{ to: '/ops-room/map-planning/coverage', label: 'التغطية', icon: 'gauge' }]}
       />
 
-      {/* الزون واليوم */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {zones.map((z) => (
-          <button
-            key={z.id}
-            type="button"
-            onClick={() => {
-              setZoneId(z.id)
-              setVehicleId(null)
-            }}
-            aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
-          >
-            {z.name}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        <input
-          type="date"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          aria-label="اليوم"
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold"
-        />
-        <span className="text-[10px] font-bold text-slate-400">يوم بغداد</span>
-      </section>
+      {/* المرشّحات الموحّدة — تغيير الزون يُسقط مرشّح الآلية لأنه من زون آخر */}
+      <MapFilterBar
+        zones={zones.map((z) => ({ id: z.id, name: z.name }))}
+        activeZoneId={activeZoneId}
+        onPickZone={(id) => {
+          setZoneId(id)
+          setVehicleId(null)
+        }}
+        day={day}
+        onDayChange={setDay}
+        shown={(visits as unknown[]).length}
+        total={(visits as unknown[]).length}
+        unitLabel="زيارة"
+        dirty={zoneParam !== null || day !== baghdadDayKey() || vehicleId !== null}
+        onClearAll={() => {
+          setZoneId(null)
+          setDay(baghdadDayKey())
+          setVehicleId(null)
+        }}
+      />
 
       {/*
         ── شريط الحالة: بناء · شهادة · تغطية الربط ──

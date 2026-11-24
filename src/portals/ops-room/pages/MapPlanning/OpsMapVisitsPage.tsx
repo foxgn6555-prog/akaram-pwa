@@ -5,7 +5,7 @@
  *   مؤكد · غير مؤكد (والسبب مكتوب) · لم تُدخل (لا صف زيارة إطلاقاً).
  * الزيارات تأتي من جدول دائم، فلا تختفي عند تفريغ نقاط GPS اليومي.
  */
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { ShiftPanel } from './ShiftPanel'
@@ -16,6 +16,9 @@ import {
   VISIT_STATUS_LABEL_AR,
   type MapVisit,
 } from '@sdk/map-planning.sdk'
+import { MapFilterBar } from '@features/map-planning/components/MapFilterBar'
+import { useUrlChoice, useUrlState } from '@features/map-planning/hooks/useUrlState'
+import { baghdadDayKey, isBaghdadDayKey } from '@features/map-planning/lib/baghdad-day'
 import {
   useBuildVisits,
   useDayCertified,
@@ -27,20 +30,25 @@ import {
 
 type Filter = 'all' | 'confirmed' | 'uncertain'
 
-/** تاريخ اليوم بتوقيت بغداد (UTC+3) بصيغة YYYY-MM-DD */
-function todayBaghdad(): string {
-  const now = new Date()
-  const baghdad = new Date(now.getTime() + 3 * 60 * 60_000)
-  return baghdad.toISOString().slice(0, 10)
-}
-
 export default function MapVisitsPage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
+  /**
+   * المرشّحات في العنوان لا في حالة داخلية: الرابط يصير قابلاً للمشاركة
+   * («أرسل لي زيارات الكراج أمس»)، وزرّ الرجوع يُرجع المرشّح السابق.
+   * `null` = كل الزونات، وهو الافتراضي (بلا `?zone=` في العنوان).
+   */
+  const [zoneParam, setZoneParam] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
 
-  const [day, setDay] = useState(todayBaghdad())
-  const [filter, setFilter] = useState<Filter>('all')
+  const [day, setDay] = useUrlState<string>('day', {
+    fallback: baghdadDayKey(),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
+  const [filter, setFilter] = useUrlChoice<Filter>('status', ['all', 'confirmed', 'uncertain'], 'all')
 
   const { data: visits = [], isLoading } = useMapVisits(activeZoneId, day)
   const { data: coverage = [] } = useMapCoverage(activeZoneId, day)
@@ -121,30 +129,47 @@ export default function MapVisitsPage() {
         )}
       </section>
 
-      {/* اختيار الزون واليوم */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {zones.map((z) => (
-          <button
-            key={z.id}
-            type="button"
-            onClick={() => setZoneId(z.id)}
-            aria-pressed={z.id === activeZoneId}
-            className={`rounded-xl px-3 py-2 text-xs font-black ${
-              z.id === activeZoneId ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'
-            }`}
-          >
-            {z.name}
-          </button>
-        ))}
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        <input
-          type="date"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          aria-label="يوم الزيارات"
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold"
-        />
-      </section>
+      {/* المرشّحات الموحّدة — الزون واليوم في شريط واحد كما في بقية الصفحات */}
+      <MapFilterBar
+        zones={zones.map((z) => ({ id: z.id, name: z.name }))}
+        activeZoneId={activeZoneId}
+        onPickZone={setZoneParam}
+        day={day}
+        onDayChange={setDay}
+        shown={rows.length}
+        total={visits.length}
+        unitLabel="زيارة"
+        dirty={filter !== 'all' || zoneParam !== null || day !== baghdadDayKey()}
+        onClearAll={() => {
+          setFilter('all')
+          setZoneParam(null)
+          setDay(baghdadDayKey())
+        }}
+        extra={
+          <div className="flex items-center gap-1" data-testid="status-filter">
+            {(['all', 'confirmed', 'uncertain'] as Filter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                aria-pressed={filter === f}
+                className={`rounded-xl px-2.5 py-2 text-[11px] font-black ${
+                  filter === f ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                {f === 'all' ? 'الكل' : VISIT_STATUS_LABEL_AR[f]}
+                <span
+                  className={`ms-1 rounded px-1 text-[10px] ${
+                    filter === f ? 'bg-white/20' : 'bg-white text-slate-500'
+                  }`}
+                >
+                  {f === 'all' ? counts.places : counts[f]}
+                </span>
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/*
         ── بناء · شهادة · ربط: ثلاثة أرقام تحكم الاعتماد على ما بعده ──
@@ -227,23 +252,6 @@ export default function MapVisitsPage() {
                 : 'لا بيانات تغطية لهذا اليوم'}
             </p>
           </div>
-        ))}
-      </section>
-
-      {/* الفلاتر */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        {(['all', 'confirmed', 'uncertain'] as Filter[]).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            aria-pressed={filter === f}
-            className={`rounded-xl px-3 py-2 text-[11px] font-black ${
-              filter === f ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
-            }`}
-          >
-            {f === 'all' ? `الكل (${counts.places})` : `${VISIT_STATUS_LABEL_AR[f]} (${counts[f]})`}
-          </button>
         ))}
       </section>
 

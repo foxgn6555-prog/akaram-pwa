@@ -14,6 +14,8 @@
 import { useMemo, useState } from 'react'
 import { Download, FileSpreadsheet, Filter, Info, Printer, X } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useUrlState } from '@features/map-planning/hooks/useUrlState'
+import { baghdadDayKey, isBaghdadDayKey, shiftBaghdadDay } from '@features/map-planning/lib/baghdad-day'
 import { buildExcelReport, saveWorkbookBuffer, type ReportColumn } from '@lib/export/excel-report'
 import { archiveReport, bytesText, type ArchiveResult } from '@features/map-planning/report-archive'
 import {
@@ -53,9 +55,8 @@ import { MAHALLA_SOURCE_HINT_AR, type GroupedVisitRow } from '@sdk/map-planning.
 import { useShiftLabel } from '@features/hr-shifts/hooks'
 import { ShiftSelect } from '@features/hr-shifts/ShiftSelect'
 
-const todayBaghdad = () => new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 10)
-const daysAgoBaghdad = (n: number) =>
-  new Date(Date.now() + 3 * 60 * 60_000 - n * 86_400_000).toISOString().slice(0, 10)
+/** الافتراضي «أمس» — التقرير المعتمد يُطلب بعد انتهاء اليوم لا خلاله */
+const daysAgoBaghdad = (n: number) => shiftBaghdadDay(baghdadDayKey(), -n)
 
 const hhmm = (v: string | null | undefined) =>
   v
@@ -69,10 +70,24 @@ const hhmm = (v: string | null | undefined) =>
 
 export default function MapGroupedReportPage() {
   const { data: zones = [] } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
-  const activeZoneId = zoneId ?? zones[0]?.id ?? null
-  const [from, setFrom] = useState(daysAgoBaghdad(1))
-  const [to, setTo] = useState(todayBaghdad())
+  /**
+   * الزون والمدى في العنوان: رابط «تقرير الكراج من ٢٠ إلى ٢٣» هو ما يُطلَب
+   * فعلياً عند مراجعة تقرير، وكان يُعاد بناؤه يدوياً في كل مرّة.
+   */
+  const [zoneParam, setZoneId] = useUrlState<string | null>('zone', {
+    fallback: null,
+    parse: (raw) => raw || undefined,
+    serialize: (v) => v ?? '',
+  })
+  const activeZoneId = zoneParam ?? zones[0]?.id ?? null
+  const [from, setFrom] = useUrlState<string>('from', {
+    fallback: daysAgoBaghdad(1),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
+  const [to, setTo] = useUrlState<string>('to', {
+    fallback: baghdadDayKey(),
+    parse: (raw) => (isBaghdadDayKey(raw) ? raw : undefined),
+  })
   const [filters, setFilters] = useState<GroupedFilters>({})
   const [showAllCols, setShowAllCols] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -362,12 +377,22 @@ export default function MapGroupedReportPage() {
         </section>
       )}
 
-      {/* ── الزون والمدى ── */}
-      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 print:hidden">
+      {/*
+        ── الزون والمدى ──
+        لا نستخدم `MapFilterBar` هنا: هذه الصفحة تعمل بمدى (من/إلى) لا بيوم
+        واحد، وتغيير الزون يُسقط المرشّحات عمداً. إقحام مكوّن «يوم واحد» كان
+        سيُنتج شريطاً يبدو موحّداً ويُخفي اختلاف الدلالة — وهو أسوأ من اختلاف
+        الشكل. التسميات والمعرّفات متطابقة كي يجدها المستخدم في المكان نفسه.
+      */}
+      <section
+        data-testid="map-filter-bar"
+        className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 print:hidden"
+      >
         {zones.map((z) => (
           <button
             key={z.id}
             type="button"
+            data-testid="filter-zone"
             onClick={() => {
               setZoneId(z.id)
               setFilters({})
@@ -385,9 +410,11 @@ export default function MapGroupedReportPage() {
           من
           <input
             type="date"
+            data-testid="filter-day"
             value={from}
             max={to}
             onChange={(e) => setFrom(e.target.value)}
+            aria-label="من يوم"
             className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-bold"
           />
         </label>
@@ -395,13 +422,22 @@ export default function MapGroupedReportPage() {
           إلى
           <input
             type="date"
+            data-testid="filter-day-to"
             value={to}
             min={from}
             onChange={(e) => setTo(e.target.value)}
+            aria-label="إلى يوم"
             className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-bold"
           />
         </label>
         <span className="text-[10px] font-bold text-slate-400">يوم بغداد</span>
+        <span
+          data-testid="filter-count"
+          aria-live="polite"
+          className="ms-auto rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-black text-slate-700"
+        >
+          {rows.length} زيارة
+        </span>
       </section>
 
       {/* ── الفلاتر ── */}
