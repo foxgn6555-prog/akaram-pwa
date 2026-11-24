@@ -30,6 +30,10 @@ insert into public.gps_providers (id, name, type) values ('e920b000-0000-0000-00
 insert into public.gps_devices (id, provider_id, external_id, name, online_status) values ('e920c000-0000-0000-0000-000000000001', 'e920b000-0000-0000-0000-000000000001', 'PG-1', 'جهاز PG1', 'online') on conflict (id) do nothing;
 insert into public.garage_vehicles (id, vehicle_name, db_number, plate_number, chassis_number, image_path, driver_name, shift, sector_id, created_by) values
   ('e920a000-0000-0000-0000-000000000001', 'كابسة PG', 'DB-PG1', 'P-PG1', 'CH-PG001', 'g/pg.jpg', 'سائق', 'morning', 93, 'e9200000-0000-0000-0000-000000000001') on conflict (id) do nothing;
+insert into public.gps_vehicle_bindings (device_id, garage_vehicle_id, match_method)
+values ('e920c000-0000-0000-0000-000000000001', 'e920a000-0000-0000-0000-000000000001', 'manual')
+on conflict (device_id) do nothing;
+
 -- مستوى الجلسة (false) لا المعاملة (true): إعداد المعاملة يُلغى عند نهاية المعاملة،
 -- فتصبح الجلسة مجهولة والفشل «IT_FORBIDDEN» — وهو ما حدث فعلاً في CI.
 -- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
