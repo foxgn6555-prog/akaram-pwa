@@ -305,6 +305,23 @@ export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJ
 /** حفظ وتنزيل — يستخدم writeBuffer ثم Blob (متصفح). يفشل بهدوء في بيئة الاختبار. */
 export async function saveWorkbook(wb: ExcelJS.Workbook, fileName: string): Promise<void> {
   const buffer = await wb.xlsx.writeBuffer()
+  await saveWorkbookBuffer(buffer, fileName)
+}
+
+/**
+ * تنزيل بايتات مصنف **جاهزة** — بلا `writeBuffer()` ثانية.
+ *
+ * سبب وجودها: التصدير الرسمي يُنزّل الملف ويرفعه للأرشيف. لو أنتجنا
+ * البايتات مرتين لاحتمل أن تختلف (طابع زمني في خصائص المصنف)، فتصير
+ * بصمة الأرشيف مختلفة عن الملف الذي في يد المستخدم — أي أن الإثبات
+ * نفسه يصير كاذباً. البايتات تُنتَج مرة، تُنزَّل وتُرفع من نفس المخزن.
+ *
+ * يفشل بهدوء في بيئة الاختبار (بلا DOM أو بلا createObjectURL).
+ */
+export async function saveWorkbookBuffer(
+  buffer: ExcelJS.Buffer | ArrayBuffer,
+  fileName: string,
+): Promise<void> {
   // بيئات بلا DOM أو بلا createObjectURL (jsdom/node): نكتفي ببناء المصنف
   if (typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return
   try {
