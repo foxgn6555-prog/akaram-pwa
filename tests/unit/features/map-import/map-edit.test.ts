@@ -39,15 +39,29 @@ describe('① التحقق قبل الحفظ', () => {
     expect(validateEdit(draft(), ZONE)).toEqual([])
   })
 
-  it('نقطة خارج الزون ⇒ خطأ بالمسار مع مثال الإحداثي', () => {
+  it('أكثر من نصف النقاط خارج الزون ⇒ خطأ بالمسار مع مثال الإحداثي', () => {
     const errs = validateEdit(
-      draft({ pts: [[33.302, 44.402], [33.32, 44.43]] }),
+      draft({ pts: [[33.302, 44.402], [33.32, 44.43], [33.322, 44.432]] }),
       ZONE,
     )
     expect(errs).toHaveLength(1)
     expect(errs[0]?.field).toBe('path')
     expect(errs[0]?.message).toContain('خارج حدّ الزون')
     expect(errs[0]?.message).toMatch(/33\.3\d+, 44\.\d+/)
+  })
+
+  /**
+   * مواءمة مع القاعدة: `app.map_guard_path_in_zone` يرفض حين يكون **أكثر من
+   * نصف** النقاط خارج الزون فقط. الواجهة كانت تشترط كلّ نقطة، فتمنع تعديلاً
+   * مشروعاً على شارع يلامس الحدّ الإداري — وهذا نصف سبب «خطأ عند التعديل».
+   */
+  it('نقطة واحدة خارج الزون من أصل ثلاث ⇒ مقبولة (نفس عتبة القاعدة)', () => {
+    expect(validateEdit(draft({ pts: [[33.302, 44.402], [33.306, 44.406], [33.32, 44.43]] }), ZONE)).toEqual([])
+  })
+
+  it('نصف النقاط خارجاً (٢ من ٤) ⇒ مقبولة: العتبة «أكثر من النصف»', () => {
+    const pts: LatLng[] = [[33.302, 44.402], [33.306, 44.406], [33.32, 44.43], [33.322, 44.432]]
+    expect(validateEdit(draft({ pts }), ZONE)).toEqual([])
   })
 
   it('نقطة على الحدّ تماماً مقبولة (تسامح ٥م)', () => {
@@ -138,18 +152,27 @@ describe('② حالة التعديل والتاريخ', () => {
     expect(result.current.canRedo).toBe(false)
   })
 
-  it('سحب نقطة خارج الزون يُظهر الخطأ فوراً ولا يُبقي المسودة صالحة', () => {
+  it('سحب أكثر من نصف النقاط خارج الزون يُظهر الخطأ فوراً ولا يُبقي المسودة صالحة', () => {
     const { result } = renderHook(() => useMapEdit(ZONE))
     act(() => result.current.begin({ kind: 'street', id: 's1', code: 'STR-0001', pts: [[33.302, 44.402], [33.306, 44.406]], name: 'شارع تجريبي', kindValue: 'primary' }))
-    act(() => result.current.apply({ pts: [[33.302, 44.402], [33.32, 44.43]] }))
+    act(() => result.current.apply({ pts: [[33.32, 44.43], [33.322, 44.432], [33.324, 44.434]] }))
     expect(result.current.errors.length).toBeGreaterThan(0)
     expect(result.current.valid).toBe(false)
+  })
+
+  it('سحب نقطة واحدة خارج الزون — الباقي داخله ⇒ يبقى صالحاً (عتبة القاعدة)', () => {
+    const { result } = renderHook(() => useMapEdit(ZONE))
+    act(() => result.current.begin({ kind: 'street', id: 's1', code: 'STR-0001', pts: [[33.302, 44.402], [33.306, 44.406]], name: 'شارع تجريبي', kindValue: 'primary' }))
+    act(() => result.current.apply({ pts: [[33.302, 44.402], [33.306, 44.406], [33.32, 44.43]] }))
+    expect(result.current.errors).toEqual([])
+    expect(result.current.valid).toBe(true)
   })
 
   it('prepareSave يُرجع null للمسودة الخاطئة ولا يحفظ', () => {
     const { result } = renderHook(() => useMapEdit(ZONE))
     act(() => result.current.begin({ kind: 'street', id: 's1', code: 'STR-0001', pts: [[33.302, 44.402], [33.306, 44.406]], name: 'شارع تجريبي', kindValue: 'primary' }))
-    act(() => result.current.apply({ pts: [[33.32, 44.43]] }))
+    // اسم بحرف واحد + مسار من نقطة واحدة = مسودة خاطئة، بلا الاعتماد على قانون الحدود
+    act(() => result.current.apply({ pts: [[33.32, 44.43]], name: 'ش' }))
     let out: unknown = 'غير مُهيّأ'
     act(() => {
       out = result.current.prepareSave()

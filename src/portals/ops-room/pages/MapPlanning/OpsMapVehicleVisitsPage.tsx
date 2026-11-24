@@ -6,7 +6,8 @@
  * مع تصريح المصدر: من انطلاقية اليوم (دقيق) أم من سجل الآلية (بديل موسوم).
  */
 import { useMemo, useState } from 'react'
-import { AlertCircle, Truck } from 'lucide-react'
+import { Link } from 'react-router'
+import { AlertCircle, Link2, Truck } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
 import {
   formatDwell,
@@ -14,14 +15,17 @@ import {
   SHIFT_SOURCE_LABEL_AR,
   shiftCaveat,
   VISIT_STATUS_LABEL_AR,
+  VISIT_READINESS_TONE,
   type EnrichedVisit,
   type VehicleDayRow,
+  type VisitReadinessRow,
 } from '@sdk/map-planning.sdk'
 import {
   useBuildVisits,
   useMapZones,
   useUnvisitedEnriched,
   useVehiclesDay,
+  useVisitReadiness,
   useVisitsEnriched,
 } from '@features/map-planning/hooks/useMapPlanning'
 import { RefreshCw, Play } from 'lucide-react'
@@ -43,7 +47,11 @@ export default function MapVehicleVisitsPage() {
   const { data: vehicles = [] } = useVehiclesDay(activeZoneId, day)
   const { data: visits = [], isLoading } = useVisitsEnriched(activeZoneId, day, vehicleId)
   const { data: unvisited = [] } = useUnvisitedEnriched(activeZoneId, day)
+  const { data: readiness = [] } = useVisitReadiness(day, activeZoneId)
   const build = useBuildVisits()
+
+  const fleet = (readiness as VisitReadinessRow[]).find((r) => r.level === 'fleet') ?? null
+  const zoneReadiness = (readiness as VisitReadinessRow[]).find((r) => r.level === 'zone') ?? null
 
   const picked = useMemo(
     () => (vehicles as VehicleDayRow[]).find((v) => v.vehicle_id === vehicleId) ?? null,
@@ -95,6 +103,105 @@ export default function MapVehicleVisitsPage() {
           className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold" />
         <span className="text-[10px] font-bold text-slate-400">يوم بغداد</span>
       </section>
+
+      {/*
+        ── شريط الحالة: بناء · شهادة · تغطية الربط ──
+        يظهر دائماً لا عند الفراغ فقط: المشرف يحتاج أن يعرف أن اليوم **محميّ**
+        قبل الاعتماد على التقرير، وأن نسبة الربط تكفي أو لا تكفي للحكم.
+      */}
+      {fleet && (
+        <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <StatusChip
+            label="حالة البناء"
+            tone={zoneReadiness?.build_status === 'built' || zoneReadiness?.build_status === 'empty'
+              ? 'ok' : zoneReadiness?.build_status === 'failed' ? 'danger' : 'warn'}
+            value={
+              zoneReadiness?.build_status === 'built'
+                ? `بُني · ${zoneReadiness.visits_total} زيارة`
+                : zoneReadiness?.build_status === 'empty'
+                  ? 'بُني · بلا نقاط'
+                  : zoneReadiness?.build_status === 'failed'
+                    ? 'فشل'
+                    : zoneReadiness?.build_status === 'skipped'
+                      ? 'مُتخطّى'
+                      : 'لم يُبنَ بعد'
+            }
+            hint={zoneReadiness?.reason_label ?? ''}
+          />
+          <StatusChip
+            label="حماية اليوم من التفريغ"
+            tone={fleet.certified ? 'ok' : 'warn'}
+            value={fleet.certified ? 'محميّ' : 'غير محميّ'}
+            hint={fleet.certified
+              ? 'شهادات كل الزونات مسجّلة — نقاطه الخام آمنة حتى انتهاء مدة الاحتفاظ'
+              : fleet.reason === 'certificate_stale'
+                ? fleet.reason_label
+                : 'لا شهادة بناء لهذا اليوم — لن تُبنى زياراته بعد حذف النقاط الخام'}
+          />
+          <StatusChip
+            label="تغطية الربط"
+            tone={fleet.points_total === 0
+              ? 'warn'
+              : fleet.points_unbound === 0
+                ? 'ok'
+                : fleet.points_unbound * 10 > fleet.points_total * 3
+                  ? 'danger'
+                  : 'warn'}
+            value={`${fleet.devices_bound} من ${fleet.devices_total} جهاز`}
+            hint={
+              fleet.points_total === 0
+                ? 'لا نقاط GPS في هذا اليوم'
+                : `${fleet.points_unbound.toLocaleString('ar-IQ-u-nu-latn')} نقطة من أجهزة غير مربوطة لن تدخل الزيارات`
+            }
+          />
+        </section>
+      )}
+
+      {/*
+        ── تشخيص «لماذا لا تظهر زيارات؟» ──
+        عند الفراغ فقط: الشاشة كانت تقول «لا زيارات» وتترك المشرف يحدس، والحقيقة
+        المقيسة على الإنتاج أن ٧٠.٨٪ من النقاط لأجهزة غير مربوطة. السبب هنا
+        برقمه، مع رابط الإصلاح، لا جملة اعتذارية.
+      */}
+      {visits.length === 0 && fleet && fleet.reason !== 'built' && (
+        <section className={`rounded-2xl border p-3 ${
+          VISIT_READINESS_TONE[fleet.reason] === 'danger'
+            ? 'border-rose-300 bg-rose-50'
+            : 'border-amber-300 bg-amber-50'}`}>
+          <p className="flex items-center gap-1 text-[12px] font-black text-slate-900">
+            <AlertCircle size={14} /> لا زيارات لهذا اليوم — والسبب:
+          </p>
+          <p className="mt-1 text-[11px] font-bold text-slate-800">{fleet.reason_label}</p>
+
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { label: 'نقاط GPS', value: fleet.points_total },
+              { label: 'نقاط مربوطة', value: fleet.points_bound },
+              { label: 'أجهزة', value: fleet.devices_total },
+              { label: 'أجهزة مربوطة', value: fleet.devices_bound },
+            ].map((m) => (
+              <div key={m.label} className="rounded-xl bg-white/70 px-2 py-1.5 text-center">
+                <p className="text-[9px] font-black text-slate-500">{m.label}</p>
+                <p className="text-sm font-black text-slate-900">
+                  {Number(m.value).toLocaleString('ar-IQ-u-nu-latn')}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {(fleet.reason === 'unbound_devices' || fleet.points_unbound > 0) && (
+            <Link to="/ops-room/gps"
+              className="mt-2 inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-[11px] font-black text-white">
+              <Link2 size={12} /> ربط الأجهزة بالآليات
+            </Link>
+          )}
+          {zoneReadiness?.reason === 'needs_build' && (
+            <p className="mt-2 text-[10px] font-bold text-slate-700">
+              {zoneReadiness.reason_label}
+            </p>
+          )}
+        </section>
+      )}
 
       {/* اختيار الآلية */}
       <section className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -265,6 +372,36 @@ export default function MapVehicleVisitsPage() {
           )}
         </section>
       )}
+    </div>
+  )
+}
+
+/**
+ * خليّة حالة واحدة: عنوان · قيمة · سبب مكتوب.
+ * الألوان من دلالة الحالة لا من الذوق: أحمر = يمنع الاعتماد على التقرير.
+ */
+function StatusChip({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string
+  value: string
+  hint: string
+  tone: 'ok' | 'warn' | 'danger'
+}) {
+  const palette =
+    tone === 'ok'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+      : tone === 'danger'
+        ? 'border-rose-200 bg-rose-50 text-rose-900'
+        : 'border-amber-200 bg-amber-50 text-amber-900'
+  return (
+    <div className={`rounded-2xl border p-3 ${palette}`}>
+      <p className="text-[10px] font-black opacity-70">{label}</p>
+      <p className="mt-0.5 text-sm font-black">{value}</p>
+      {hint && <p className="mt-1 text-[10px] font-bold opacity-80">{hint}</p>}
     </div>
   )
 }

@@ -23,6 +23,7 @@ export const mapKeys = {
   visits: (zoneId: string, day: string) => ['map-planning', 'visits', zoneId, day] as const,
   buildLedger: (day: string) => ['map-planning', 'build-ledger', day] as const,
   certified: (day: string) => ['map-planning', 'certified', day] as const,
+  readiness: (day: string, zoneId: string | null) => ['map-planning', 'readiness', day, zoneId] as const,
   coverage: (zoneId: string, day: string) => ['map-planning', 'coverage', zoneId, day] as const,
   coverageByPlace: (zoneId: string, day: string) => ['map-planning', 'cov-place', zoneId, day] as const,
   coverageByVehicle: (zoneId: string, day: string) => ['map-planning', 'cov-vehicle', zoneId, day] as const,
@@ -308,6 +309,20 @@ export function useDayCertified(day: string) {
   return useQuery({
     queryKey: mapKeys.certified(day),
     queryFn: () => mapPlanningSdk.isDayCertified(day),
+    enabled: Boolean(day),
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * تشخيص جاهزية الزيارات ليوم — «لماذا الشاشة فارغة؟».
+ *
+ * لا تُشغَّل إلا بيوم محدّد. القراءة فقط، فتكرارها مجاني ولا يكتب شيئاً.
+ */
+export function useVisitReadiness(day: string, zoneId?: string | null) {
+  return useQuery({
+    queryKey: mapKeys.readiness(day, zoneId ?? null),
+    queryFn: () => mapPlanningSdk.visitReadiness(day, zoneId),
     enabled: Boolean(day),
     staleTime: 30_000,
   })

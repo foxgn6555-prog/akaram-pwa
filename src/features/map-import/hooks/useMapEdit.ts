@@ -59,13 +59,24 @@ export function validateEdit(
     // نُكمل: الاسم والتصنيف يُفحصان أيضاً حتى يرى المشرف كل الأخطاء معاً
   }
 
-  // كل نقطة داخل الزون أو على حدّه (تسامح ٥م كما في القاعدة)
+  /**
+   * حدود الزون — **بنفس قانون القاعدة، لا أشدّ منه ولا أرخى.**
+   *
+   * كان الشرط: كل نقطة داخل الزون. والقاعدة (`app.map_guard_path_in_zone`)
+   * ترفض فقط حين يكون **أكثر من نصف** النقاط خارجها — لأن الشوارع على
+   * الحدود الإدارية حقيقية، ومضلّع الزون في OSM تقريبي. النتيجة كانت أن
+   * الواجهة تمنع تعديلاً مشروعاً بخطأ أحمر بينما القاعدة ستقبله.
+   *
+   * الآن: نفس العتبة. وما زاد على الحدّ يبقى خطأً بسبب صريح.
+   */
   const outside = draft.pts.filter((p) => !insideOrOnZone(p, zonePolygon))
-  if (outside.length > 0) {
+  if (outside.length > 0 && outside.length * 2 > draft.pts.length) {
     const sample = outside[0] as LatLng
     errors.push({
       field: 'path',
-      message: `${outside.length} نقطة خارج حدّ الزون (مثال: ${sample[0].toFixed(5)}, ${sample[1].toFixed(5)}) — أعِد النقطة للداخل`,
+      message:
+        `${outside.length} من ${draft.pts.length} نقطة خارج حدّ الزون (مثال: ${sample[0].toFixed(5)}, ${sample[1].toFixed(5)})`
+        + ' — أكثر من نصف المسار خارج الزون، أعِد النقاط للداخل',
     })
   }
 

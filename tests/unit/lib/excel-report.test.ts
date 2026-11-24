@@ -183,3 +183,97 @@ describe('تنقية أسماء أوراق Excel — يمنع فشل زر الت
     expect(String(det.getCell(7, 1).value)).toBe('y')
   })
 })
+
+/**
+ * وضع «الملف المحايد» — `company: null`.
+ *
+ * الأصل: طلب صاحب المشروع أن يخرج تقرير الأزقة المعتمدة بلا أي نص شركة
+ * داخل الملف («غير احترافي»). وقراءة الملف الفعلي كشفت أن النص كان يتكرّر
+ * في **أربعة** مواضع، لا واحد: صف الاسم، السطر التعريفي، ترويسة الطباعة،
+ * وخصائص المصنف (`creator`). التنظيف الجزئي كان يترك أثراً.
+ */
+describe('الملف المحايد — company: null يحذف الهوية من كل موضع', () => {
+  const neutral = () =>
+    buildExcelReport({
+      sheetName: 'التقرير المعتمد',
+      company: null,
+      title: 'التقرير المعتمد — 2026-11-23',
+      meta: '3 صفوف',
+      columns: [{ header: 'ت', key: '#' }, { header: 'الاسم', key: 'name' }],
+      rows: [{ '#': 1, name: 'x' }],
+      fileName: 't.xlsx',
+      deferSave: true,
+    })
+
+  it('لا صف اسم شركة ولا سطر تعريفي — العنوان في الصف ١ والرؤوس في الصف ٣', async () => {
+    const wb = await neutral()
+    const ws = wb.worksheets[0]!
+    expect(String(ws.getCell('A1').value)).toContain('التقرير المعتمد')
+    expect(String(ws.getCell('A2').value)).toBe('3 صفوف')
+    expect(String(ws.getCell(3, 1).value)).toBe('ت')
+    expect(String(ws.getCell(4, 1).value)).toBe('1')
+  })
+
+  it('لا ترويسة طباعة ولا اسم مُنشئ', async () => {
+    const wb = await neutral()
+    expect(wb.worksheets[0]!.headerFooter?.oddHeader ?? null).toBeNull()
+    // exceljs يعطي "Unknown" افتراضياً حين لا يُضبط creator
+    expect(String(wb.creator ?? '')).not.toContain('الأكارم')
+  })
+
+  it('لا يظهر نص شركة في أي خلية من أي ورقة', async () => {
+    const wb = await buildExcelReport({
+      sheetName: 'التقرير المعتمد',
+      company: null,
+      title: 'التقرير المعتمد — 2026-11-23',
+      columns: [{ header: 'ت', key: '#' }],
+      rows: [{ '#': 1 }],
+      fileName: 't.xlsx',
+      deferSave: true,
+      extraSheets: [
+        { sheetName: 'ملخص', title: 'ملخص', columns: [{ header: 'أ', key: 'a' }], rows: [{ a: 1 }] },
+      ],
+    })
+    const found: string[] = []
+    wb.eachSheet((sheet) => {
+      sheet.eachRow((row) =>
+        row.eachCell((cell) => {
+          const v = typeof cell.value === 'string' ? cell.value : ''
+          if (/جزيرة|الأكارم|الاكرام|فيرست/.test(v)) found.push(v)
+        }),
+      )
+    })
+    expect(found).toEqual([])
+  })
+
+  it('السلوك الافتراضي لم يتغيّر — التقارير الداخلية تبقى بترويسة الشركة', async () => {
+    const wb = await buildExcelReport({
+      sheetName: 'داخلي',
+      company: 'شركة جزيرة الأكارم',
+      companySub: 'وحدة',
+      title: 'تقرير',
+      columns: [{ header: 'ت', key: '#' }],
+      rows: [{ '#': 1 }],
+      fileName: 't.xlsx',
+      deferSave: true,
+    })
+    const ws = wb.worksheets[0]!
+    expect(String(ws.getCell('A1').value)).toBe('شركة جزيرة الأكارم')
+    expect(String(ws.getCell('A2').value)).toBe('وحدة')
+    expect(String(ws.getCell(5, 1).value)).toBe('ت')
+    expect(ws.headerFooter?.oddHeader).toContain('شركة جزيرة الأكارم')
+    expect(wb.creator).toContain('الأكارم')
+  })
+
+  it('غياب company (undefined) يبقى على الترويسة الافتراضية — لا التحييد', async () => {
+    const wb = await buildExcelReport({
+      sheetName: 'داخلي٢',
+      title: 'تقرير',
+      columns: [{ header: 'ت', key: '#' }],
+      rows: [],
+      fileName: 't.xlsx',
+      deferSave: true,
+    })
+    expect(String(wb.worksheets[0]!.getCell('A1').value)).toBe('شركة جزيرة الأكارم')
+  })
+})

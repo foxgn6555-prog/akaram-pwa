@@ -195,6 +195,51 @@ export interface VisitBuildRow {
   finished_at: string | null
 }
 
+/**
+ * صفّ تشخيص جاهزية الزيارات (`public.map_visit_readiness`).
+ *
+ * `level = 'fleet'` صفّ واحد يجمع الأسطول كله: نقاط GPS غير منسوبة إلى زون في
+ * القاعدة، فنسبتها إلى زون تحدث داخل المحرّك هندسياً. لذلك مجاميع النقاط
+ * والربط والشهادة تُعرض مرة واحدة، ومجاميع الزيارات تُعرض لكل زون.
+ */
+export interface VisitReadinessRow {
+  level: 'fleet' | 'zone'
+  day: string
+  zone_id: string | null
+  zone_name: string | null
+  points_total: number
+  points_bound: number
+  points_unbound: number
+  devices_total: number
+  devices_bound: number
+  visits_total: number
+  build_status: string | null
+  build_at: string | null
+  certified: boolean
+  reason:
+    | 'no_points'
+    | 'unbound_devices'
+    | 'needs_build'
+    | 'visits_without_certificate'
+    | 'certificate_stale'
+    | 'built'
+    | 'ok'
+  reason_label: string
+}
+
+/** شدّة اللون في الواجهة بحسب السبب — سبب واحد لا مجموعة نصوص */
+export const VISIT_READINESS_TONE: Record<VisitReadinessRow['reason'], 'ok' | 'warn' | 'danger' | 'info'> = {
+  ok: 'ok',
+  built: 'ok',
+  no_points: 'danger',
+  unbound_devices: 'danger',
+  needs_build: 'warn',
+  visits_without_certificate: 'warn',
+  // بُني، لكن وصلت نقاط أحدث من البناء ⇒ الشهادة غير معتمدة. تحذير لا خطر:
+  // البيانات سليمة، والحل إعادة استخراج لا إصلاح بيانات.
+  certificate_stale: 'warn',
+}
+
 export interface BuildScanResult {
   ok: boolean
   from: string
@@ -485,6 +530,22 @@ export const mapPlanningSdk = {
   },
 
   // ── الكتابة ──────────────────────────────────────────────────────────────
+  /**
+   * حفظ شارع (إدراج أو تحديث).
+   *
+   * ⚠ عيب أُصلح — سبب «خطأ عند تعديل الشارع»:
+   *   كان يكتب `width_m: input.width_m ?? null` و`is_bridge: input.is_bridge ?? false`
+   *   دائماً. وعمود `map_streets.width_m` هو **NOT NULL default 6.0**، والمحرّر
+   *   لا يرسل عرضاً ⇒ يصل `null` ⇒ ترفض القاعدة الطلب بـ
+   *   `23502 not_null_violation` ⇒ **كل** حفظ شارع يفشل برسالة إنجليزية.
+   *   والدليل في الإنتاج: صفر صفّ في `map_edit_log`، وصفر شارع بعرض ≠ 6.0.
+   *
+   *   والإصلاح ليس «املأ null بستة»: تمرير `is_bridge: false` كان **يمسح**
+   *   صفة الجسر من أي جسر عند مجرّد تغيير اسمه (تحقّقنا عملياً: true ⇒ false).
+   *
+   *   القاعدة الآن: الحقل الغائب **لا يُكتب**. الموجود في القاعدة يبقى،
+   *   والإدراج الجديد يأخذ افتراضيات العمود.
+   */
   async saveStreet(input: {
     id?: string
     zone_id: string
@@ -495,21 +556,24 @@ export const mapPlanningSdk = {
     width_m?: number | null
     is_bridge?: boolean
   }): Promise<MapStreet> {
-    const row = {
+    const row: Record<string, unknown> = {
       zone_id: input.zone_id,
       code: input.code,
       name: input.name,
       kind: input.kind,
       path: input.path,
-      width_m: input.width_m ?? null,
-      is_bridge: input.is_bridge ?? false,
     }
+    // الحقول الاختيارية تُضاف فقط عند تمريرها صراحةً — `null` يعني «لا تلمس»
+    if (input.width_m !== undefined && input.width_m !== null) row.width_m = input.width_m
+    if (input.is_bridge !== undefined) row.is_bridge = input.is_bridge
+
     const q = input.id
       ? supabase.from('map_streets').update(row).eq('id', input.id).select().single()
       : supabase.from('map_streets').insert(row).select().single()
     return sdkGuard(q)
   },
 
+  /** حفظ زقاق — نفس قانون العرض أعلاه: `map_alleys.width_m` NOT NULL default 3.0 */
   async saveAlley(input: {
     id?: string
     zone_id: string
@@ -519,14 +583,15 @@ export const mapPlanningSdk = {
     path: MapPoint[]
     width_m?: number | null
   }): Promise<MapAlley> {
-    const row = {
+    const row: Record<string, unknown> = {
       zone_id: input.zone_id,
       mahalla_id: input.mahalla_id,
       code: input.code,
       name: input.name,
       path: input.path,
-      width_m: input.width_m ?? null,
     }
+    if (input.width_m !== undefined && input.width_m !== null) row.width_m = input.width_m
+
     const q = input.id
       ? supabase.from('map_alleys').update(row).eq('id', input.id).select().single()
       : supabase.from('map_alleys').insert(row).select().single()
@@ -831,6 +896,21 @@ export const mapPlanningSdk = {
     })
     if (error) throw new Error(error.message)
     return (data ?? []) as GroupedDriver[]
+  },
+
+  /**
+   * تشخيص «لماذا لا تظهر زيارات؟» — قراءة فقط، بلا بناء ولا حذف.
+   *
+   * يُرجع صفّ الأسطول أولاً ثم صفّاً لكل زون، مع `reason` صريح. الشاشة تعرضه
+   * بدل جملة «لا زيارات» التي تُخفي الفرق بين «لم يصل شيء» و«وصل ولم يُربط».
+   */
+  async visitReadiness(day: string, zoneId?: string | null): Promise<VisitReadinessRow[]> {
+    const { data, error } = await supabase.rpc('map_visit_readiness', {
+      p_day: day,
+      p_zone: zoneId ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitReadinessRow[]
   },
 
   // ── الأرشيف والاحتفاظ (الجولة ④) ─────────────────────────────────────────

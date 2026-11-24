@@ -62,7 +62,14 @@ describe('① اسم التبويب: القاعدة والعميل يقولان 
   it('الصفحة لم تعد تقصّ عند 28 حرفاً أعمى', () => {
     const src = codeOnly(read(PAGE))
     expect(src).not.toContain('kind.label.slice(0, 28)')
-    expect(src).toContain('sheetName: kind.label')
+  })
+
+  it('اسم التبويب يمرّ عبر groupedSheetName (ورقة الشركة ⇒ التقرير المعتمد)', () => {
+    // كان `sheetName: kind.label`؛ وبعد قرار إزالة الهوية صار التسمية تمرّ
+    // بدالة واحدة تعرّف الاسم المحايد، فلا يظهر «ورقة الشركة» في أي ملف.
+    const src = codeOnly(read(PAGE))
+    expect(src).toContain('sheetName: groupedSheetName(kind.label)')
+    expect(src).not.toMatch(/sheetName:\s*kind\.label\b/)
   })
 
   it('الاسم الاحتياطي موحّد: «ورقة» في الطبقتين', () => {

@@ -158,14 +158,37 @@ describe('saveStreet — إدراج جديد أو تحديث قائم', () => {
     expect(h.state.insertCalled).toBe(0)
   })
 
-  it('width_m و is_bridge الغائبان ⇒ null وfalse (لا undefined في الطلب)', async () => {
+  /**
+   * ⚠ هذا الاختبار كان **يثبّت العِلّة** لا يمنعها: كان يشترط إرسال
+   *   `width_m: null` — وهو بالضبط سبب فشل كل حفظ شارع في الإنتاج، لأن
+   *   `map_streets.width_m` هو NOT NULL default 6.0. الصواب أن الحقل الغائب
+   *   **لا يُرسل**، فيبقى ما في القاعدة كما هو.
+   */
+  it('width_m و is_bridge الغائبان ⇒ لا يُرسلان إطلاقاً (لا null ولا false)', async () => {
     h.state.result = { data: { id: 'n' }, error: null }
     const insert = vi.fn(() => ({ select: () => ({ single: () => ({ then: (r: (v: unknown) => void) => r(h.state.result) }) }) }))
     h.from.mockImplementationOnce(() => ({ insert }) as never)
     await mapPlanningSdk.saveStreet({ zone_id: 'rth', code: 'STR-1', name: null, kind: 'primary', path: [] })
-    expect(insert).toHaveBeenCalledWith(
-      expect.objectContaining({ width_m: null, is_bridge: false }),
-    )
+    const sent = (insert.mock.calls as unknown as Array<[Record<string, unknown>]>)[0]![0]
+    expect(sent).not.toHaveProperty('width_m')
+    expect(sent).not.toHaveProperty('is_bridge')
+    expect(sent.code).toBe('STR-1')
+  })
+
+  it('width_m: null صراحةً لا يمحو العرض المخزَّن', async () => {
+    h.state.result = { data: { id: 'n' }, error: null }
+    const update = vi.fn(() => ({ eq: () => ({ select: () => ({ single: () => ({ then: (r: (v: unknown) => void) => r(h.state.result) }) }) }) }))
+    h.from.mockImplementationOnce(() => ({ update }) as never)
+    await mapPlanningSdk.saveStreet({ id: 's1', zone_id: 'rth', code: 'STR-1', name: 'x', kind: 'local', path: [], width_m: null })
+    expect((update.mock.calls as unknown as Array<[Record<string, unknown>]>)[0]![0]).not.toHaveProperty('width_m')
+  })
+
+  it('is_bridge: false صراحةً يُرسل — الجسر يُزال بقرار لا بالصمت', async () => {
+    h.state.result = { data: { id: 'n' }, error: null }
+    const update = vi.fn(() => ({ eq: () => ({ select: () => ({ single: () => ({ then: (r: (v: unknown) => void) => r(h.state.result) }) }) }) }))
+    h.from.mockImplementationOnce(() => ({ update }) as never)
+    await mapPlanningSdk.saveStreet({ id: 's1', zone_id: 'rth', code: 'STR-1', name: 'x', kind: 'local', path: [], is_bridge: false })
+    expect((update.mock.calls as unknown as Array<[Record<string, unknown>]>)[0]![0]).toMatchObject({ is_bridge: false })
   })
 
   it('القيم المعطاة تُمرَّر كما هي', async () => {
