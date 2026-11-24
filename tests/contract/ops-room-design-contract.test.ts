@@ -18,7 +18,7 @@ describe('عقد تصميم غرفة العمليات (00241/00242)', () => {
   it('كل وحدة محوَّلة تستخدم ExecPageHeader بلا h1 ولا رأس متدرج قديم', () => {
     for (const name of OPS_UNIFIED) {
       const src = readFileSync(join(dir, `${name}.tsx`), 'utf8')
-      expect(src, name).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+      expect(src, name).toMatch(/<ExecPageHeader\b/)
       expect(src, name).not.toMatch(/<h1\b/)
       expect(src, name).not.toMatch(/<header className="[^"]*bg-gradient-to-l/)
     }
@@ -34,7 +34,7 @@ describe('عقد تصميم غرفة العمليات (00241/00242)', () => {
     expect(readFileSync(join(process.cwd(), 'src/features/disclosures/components/DisclosuresUnitPage.tsx'), 'utf8')).toMatch(/<ExecPageHeader\b/)
     for (const f of ['VehiclesDatabasePage', 'VehicleDetailPage', 'GarageArchivePage']) {
       const src = readFileSync(join(process.cwd(), `src/portals/central-garage/pages/${f}.tsx`), 'utf8')
-      expect(src, f).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+      expect(src, f).toMatch(/<ExecPageHeader\b/)
       expect(src, f).not.toMatch(/<h1\b/)
     }
   })

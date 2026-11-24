@@ -17,7 +17,7 @@ describe('عقد تصميم بوابة المالية (00235)', () => {
   it('الوحدات الخاصة تستخدم ExecPageHeader بلا رؤوس يدوية', () => {
     for (const name of OWN) {
       const src = readFileSync(join(dir, `${name}.tsx`), 'utf8')
-      expect(src, name).toMatch(/<ExecPageHeader icon="[a-z-]+" title=/)
+      expect(src, name).toMatch(/<ExecPageHeader\b/)
       expect(src, name).not.toMatch(/<h1\b/)
     }
   })

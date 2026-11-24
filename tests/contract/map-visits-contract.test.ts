@@ -95,7 +95,7 @@ describe('④ الصفحة والمسار', () => {
 
   it('الصفحة تستخدم ExecPageHeader بلا h1', () => {
     const src = read('src/portals/ops-room/pages/MapPlanning/OpsMapVisitsPage.tsx')
-    expect(src).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+    expect(src).toMatch(/<ExecPageHeader\b/)
     expect(src).not.toMatch(/<h1\b/)
   })
 

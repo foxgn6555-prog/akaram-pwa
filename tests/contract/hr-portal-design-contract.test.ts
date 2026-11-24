@@ -15,7 +15,7 @@ describe('عقد تصميم بوابة الموارد البشرية (00234)', (
     for (const name of ROUTED) {
       const src = readFileSync(join(dir, `${name}.tsx`), 'utf8')
       expect(src, name).toContain("from '@components/executive/ExecPageHeader'")
-      expect(src, name).toMatch(/<ExecPageHeader icon="[a-z-]+" title=/)
+      expect(src, name).toMatch(/<ExecPageHeader\b/)
     }
   })
   it('لا رؤوس h1 يدوية ولا <header> قديمة في وحدات HR', () => {

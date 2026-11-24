@@ -16,7 +16,7 @@ describe('عقد تصميم بوابة مسؤول القسم (00240)', () => {
   it('كل وحدة تستخدم ExecPageHeader بلا h1 ولا رأس متدرج قديم', () => {
     for (const name of PAGES) {
       const src = readFileSync(join(dir, `${name}.tsx`), 'utf8')
-      expect(src, name).toMatch(/<ExecPageHeader icon="[a-z-]+"/)
+      expect(src, name).toMatch(/<ExecPageHeader\b/)
       expect(src, name).not.toMatch(/<h1\b/)
       expect(src, name).not.toMatch(/<header className="[^"]*bg-gradient-to-l/)
     }

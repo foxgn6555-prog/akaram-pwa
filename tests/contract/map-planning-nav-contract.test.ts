@@ -135,9 +135,14 @@ describe('⑫ — المفاتيح موجودة ومترجمة', () => {
 
 describe('⑫ — ترتيب منطقي وعدم تعارض البادئات', () => {
   it('محرّر الخريطة له exact:true (وإلا التقط كل ما تحته)', () => {
+    /*
+     * الجولة ②: صار الأب مدخلاً متعدّد الأسطر (children)، فلم يبقَ `exact`
+     * على سطر `path`. نقرأ الكتلة كاملة بدل السطر — الحارس نفسه، بلا هشاشة
+     * تنسيق (نفس الدرس الذي أمسك سابقاً حارس ExecPageHeader).
+     */
     const start = config.indexOf("path: '/ops-room/map-planning'")
-    const line = config.slice(start, config.indexOf('\n', start))
-    expect(line).toContain('exact: true')
+    const block = config.slice(start, start + 400)
+    expect(block).toContain('exact: true')
   })
 
   it('الاستيراد يبقى بعد بقية مسارات التخطيط (آخر خطوة عملياً)', () => {

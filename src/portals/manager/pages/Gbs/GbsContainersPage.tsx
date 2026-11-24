@@ -82,7 +82,7 @@ export default function GbsContainersPage() {
 
   return (
     <section className="space-y-4 p-4">
-      <ExecPageHeader icon="box" title="حاويات GBS" subtitle="مسؤوليتك تحديث البيانات: انقر على حاوية واقترح حالتها الجديدة. لا تتغير البيانات تلقائياً — تعتمد غرفة العمليات طلبك أولاً." />
+      <ExecPageHeader icon="box" title="مواقع الحاويات" subtitle="مسؤوليتك تحديث البيانات: انقر على حاوية واقترح حالتها الجديدة. لا تتغير البيانات تلقائياً — تعتمد غرفة العمليات طلبك أولاً." />
 
       <div
         className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-black text-amber-900"
