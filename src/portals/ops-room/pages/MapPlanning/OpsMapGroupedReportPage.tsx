@@ -37,7 +37,9 @@ import {
   dayText,
   groupedDwellText,
   groupedReportColumns,
+  groupedSheetName,
   groupedTitle,
+  groupedTitleNeutral,
   groupedTotalRow,
   notesOf,
   sourceBadge,
@@ -182,15 +184,25 @@ export default function MapGroupedReportPage() {
         // كما هو، و`buildExcelReport` يطبّعه عبر sanitizeSheetName (31 حرفاً،
         // نزع المحارف الممنوعة، ضمان عدم التكرار). القاعدة تطبّقه مرة أخرى
         // عند التسجيل — لا ثقة بالعميل في سجل رسمي.
-        sheetName: kind.label,
-        company: GROUPED_HEADER.company,
-        companySub: GROUPED_HEADER.companySub,
-        title: `${kind.label} — ${groupedTitle(ctx.day, zoneName).replace(/^تقرير\s*/, '')}`,
+        sheetName: groupedSheetName(kind.label),
+        /**
+         * ⚠ `company: null` = ملف بلا أي نص شركة: لا صف اسم، لا سطر تعريفي،
+         * لا ترويسة طباعة، ولا اسم مُنشئ في الخصائص.
+         *
+         * طلب صاحب المشروع الصريح: «الملف يظهر فيه نص الشركة داخل الورقة —
+         * هذا غير احترافي». الترويسة الثلاثية تبقى على الشاشة وعند الطباعة
+         * الورقية (تُدار من الواجهة)، ولا تدخل الملف.
+         *
+         * والعنوان أيضاً بالنسخة المحايدة: عنوان الورقة يُكتب داخل الملف،
+         * فتنظيف الصف الأول وحده كان يترك «شركة جزيرة الاكرام» في السطر ١.
+         */
+        company: null,
+        title: `${groupedSheetName(kind.label)} — ${groupedTitleNeutral(ctx.day, zoneName)}`,
         meta,
         columns,
         rows: data,
         ...(totalRow ? { totalRow } : {}),
-        fileName: `${kind.label}-${zoneName ?? 'زون'}-${from}${to !== from ? '_' + to : ''}.xlsx`,
+        fileName: `${groupedSheetName(kind.label)}-${zoneName ?? 'زون'}-${from}${to !== from ? '_' + to : ''}.xlsx`,
         orientation: 'landscape',
         // لو النوع ملخّص: الورقة الإضافية مكرّرة ⇒ لا نلحقها
         ...(kindId === 'driver' || kindId === 'vehicle' || kindId === 'mahalla'
@@ -198,7 +210,7 @@ export default function MapGroupedReportPage() {
           : { extraSheets, charts }),
         deferSave: true,
       })
-      const fileName = `${kind.label}-${zoneName ?? 'زون'}-${from}.xlsx`
+      const fileName = `${groupedSheetName(kind.label)}-${zoneName ?? 'زون'}-${from}.xlsx`
 
       // ── الأرشيف (الجولة ③) ────────────────────────────────────────────
       // البايتات تُنتَج مرة واحدة وتُستخدم مرتين: تنزيل محلي + رفع للسجل.
@@ -218,7 +230,7 @@ export default function MapGroupedReportPage() {
           kindId,
           kindLabel: kind.label,
           day: from,
-          sheetName: kind.label,
+          sheetName: groupedSheetName(kind.label),
           zoneId: activeZoneId,
           zoneName,
           filterCount: activeFilterCount,

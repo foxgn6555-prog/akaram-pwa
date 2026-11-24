@@ -265,9 +265,34 @@ export const GROUPED_HEADER = {
   org: 'أمانة بغداد — دائرة البلدية الكرادة',
 } as const
 
-/** عنوان التقرير المعتمد مع اليوم */
+/**
+ * عنوان التقرير المعتمد مع اليوم.
+ *
+ * ⚠ نسختان بقصد:
+ *  · `groupedTitle`         — للشاشة والطباعة الورقية: تحمل اسم الشركة (كما في
+ *    الورقة الأصلية التي اعتادتها غرفة العمليات).
+ *  · `groupedTitleNeutral`  — **للملفات** (Excel والأرشيف): بلا اسم شركة.
+ *    طلب صاحب المشروع: «نص الشركة داخل الملف غير احترافي — احذفه». ولأن
+ *    عنوان الورقة يُكتب داخل الملف أيضاً، تنظيف الترويسة وحده لا يكفي.
+ */
 export function groupedTitle(day: string, zoneName?: string | null): string {
   const base = 'الازقة المزارة لاليات شركة جزيرة الاكرام'
   const zone = zoneName ? ` — ${zoneName}` : ''
   return `${base}${zone} — ${day}`
+}
+
+/** عنوان الملف المحايد: نفس المعلومة بلا أي اسم مؤسسة */
+export function groupedTitleNeutral(day: string, zoneName?: string | null): string {
+  const zone = zoneName ? `${zoneName} — ` : ''
+  return `الأزقة المزارة — ${zone}${day}`
+}
+
+/**
+ * اسم ورقة الملف المحايد.
+ *
+ * «ورقة الشركة» اسم داخلي يصف النوع، لكنه يظهر في تبويب Excel وفي اسم
+ * الملف المُسلَّم. في الملفات الرسمية يُستبدل بـ«التقرير المعتمد».
+ */
+export function groupedSheetName(label: string): string {
+  return label === 'ورقة الشركة' ? 'التقرير المعتمد' : label
 }

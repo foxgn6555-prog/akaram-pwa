@@ -29,6 +29,7 @@ import {
   type StreetKind,
 } from '@sdk/map-planning.sdk'
 import { mapImportSdk } from '@sdk/map-import.sdk'
+import { useUiStore } from '@stores/ui.store'
 import { parseZonePolygonText } from '@features/map-import/lib/zone-polygon'
 import type { LatLng } from '@features/map-import/lib/geometry'
 import { EditPanel } from '@features/map-import/components/EditPanel'
@@ -106,6 +107,7 @@ export default function MapPlanningEditorPage() {
   const linkAlley = useLinkAlleyMahalla()
   const saveStreet = useSaveStreet()
   const saveAlley = useSaveAlley()
+  const addToast = useUiStore((s) => s.addToast)
 
   // ── مضلّع الزون: مصدر التحقق قبل الحفظ ──
   const [zonePolygon, setZonePolygon] = useState<LatLng[]>([])
@@ -371,6 +373,13 @@ export default function MapPlanningEditorPage() {
                       setSelected(null)
                     }
                     if (d.target.kind === 'street') {
+                      /**
+                       * ⚠ الحقول غير المعروضة في المحرّر تُمرَّر كما هي.
+                       *   عدم تمريرها كان يعني إمّا `null` للعرض (فترفضه القاعدة
+                       *   NOT NULL) أو كسر صفة الجسر؛ وتمريرها بالقيمة الحالية
+                       *   هو الوحيد الذي «يعدّل ما طلبه المشرف فقط».
+                       */
+                      const street = streets.find((x) => x.id === d.target.id)
                       saveStreet.mutate(
                         {
                           id: d.target.id,
@@ -379,12 +388,25 @@ export default function MapPlanningEditorPage() {
                           name: d.name?.trim() || null,
                           kind: d.kind as StreetKind,
                           path: d.pts as MapPoint[],
+                          width_m: street?.width_m ?? undefined,
+                          is_bridge: street?.is_bridge,
                         },
                         { onSuccess: done },
                       )
                     } else {
                       const alley = alleys.find((a) => a.id === d.target.id)
-                      if (!alley?.mahalla_id) return
+                      /**
+                       * الزقاق يحمل محلةً إلزامية في القاعدة. غيابها هنا ليس
+                       * «لا شيء يحدث» — كان `return` صامتاً بلا رسالة، فيظنّ
+                       * المشرف أن الحفظ جرى. الآن يُبلَّغ صراحةً.
+                       */
+                      if (!alley?.mahalla_id) {
+                        addToast({
+                          type: 'error',
+                          message: 'هذا الزقاق بلا محلة في القاعدة — لا يمكن حفظه. اربطه بمحلة من الجدول أولاً.',
+                        })
+                        return
+                      }
                       saveAlley.mutate(
                         {
                           id: d.target.id,
@@ -393,6 +415,7 @@ export default function MapPlanningEditorPage() {
                           code: d.target.code,
                           name: d.name?.trim() || null,
                           path: d.pts as MapPoint[],
+                          width_m: alley.width_m ?? undefined,
                         },
                         { onSuccess: done },
                       )

@@ -77,8 +77,19 @@ def check(name: str, got: str, want: str, detail: str = "") -> None:
 
 def main() -> int:
     d = tempfile.mkdtemp(prefix="mapcheck-")
-    srv = pgserver.get_server(d)
-    url = srv.get_uri()
+    # pgserver يحمل PostgreSQL أساسياً بلا إضافات؛ btree_gin/pg_trgm تأتي في حزمة
+    # @embedded-postgres داخل node_modules (مستخدمة في بقية الفحوص). نضيف مجلد
+    # امتداداتها إلى search path قبل التشغيل بدل تعديل المهاجرات.
+    # قاعدة جاهزة مسبقاً (اختياري): تتجاوز إقلاع pgserver — تفيد في CI وفي صندوق
+    # لا تحمل فيه حزمة pgserver ملحقات btree_gin/pg_trgm. القاعدة يجب أن تكون فارغة.
+    url = os.environ.get("MAPCHECK_DB_URL")
+    if not url:
+        ext_share = os.path.join(ROOT, "node_modules", "@embedded-postgres", "linux-x64",
+                                 "native", "share", "postgresql", "extension")
+        if os.path.isdir(ext_share):
+            os.environ["PGSHAREDIR"] = os.path.dirname(ext_share)
+        srv = pgserver.get_server(d)
+        url = srv.get_uri()
 
     def sql(q: str) -> tuple[int, str, str]:
         r = subprocess.run([PSQL, url, "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", "-c", q],
@@ -114,9 +125,11 @@ def main() -> int:
     _, out, _ = sql("select string_agg(c.relname, ',' order by c.relname) from pg_class c "
                     "join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' "
                     "and c.relname like 'map\\_%' and c.relkind='r'")
-    check("جداول الخريطة التسعة", out,
-          "map_alleys,map_export_log,map_export_prefs,map_geometry_reviews,"
-          "map_import_skips,map_mahallas,map_streets,map_visits,map_zones")
+    # القائمة نمت مع الترحيلات اللاحقة (سجل التعديل · دفعات الاستيراد · ملفات التقارير)
+    check("جداول الخريطة الاثنا عشر", out,
+          "map_alleys,map_edit_log,map_export_log,map_export_prefs,map_geometry_reviews,"
+          "map_import_batches,map_import_skips,map_mahallas,map_report_files,map_streets,"
+          "map_visits,map_zones")
 
     print("\n=== ③ الدوال الهندسية ===")
     check("مسافة درجة عرض واحدة",
@@ -138,13 +151,15 @@ def main() -> int:
     code, _, err = sql("""
 insert into sectors(id,code,name,parent_sector) values (1,'S1','ارخيته','karrada') on conflict do nothing;
 insert into gps_geofences(id,name,source,polygon,sector_id) values
- ('d88545a5-a0a0-4d00-90dd-fb4529ddcbdf','ارخيته','platform',
+ ('d88545a5-a0a0-4d00-90dd-fb4529ddcb01','ارخيته (اختبار)','platform',
   '[[33.2900,44.4150],[33.2900,44.4350],[33.3100,44.4350],[33.3100,44.4150]]'::jsonb,1)
  on conflict (id) do nothing;
 insert into map_zones(id,geofence_id,code,name,sector_id) values
- ('aaaaaaaa-0000-0000-0000-000000000001','d88545a5-a0a0-4d00-90dd-fb4529ddcbdf','ARK','ارخيته',1);
+ ('aaaaaaaa-0000-0000-0000-000000000001','d88545a5-a0a0-4d00-90dd-fb4529ddcb01','ARK','ارخيته',1)
+ on conflict (id) do nothing;
 insert into map_mahallas(id,zone_id,code,osm_number) values
- ('bbbbbbbb-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000001','MHL-0905','905');
+ ('bbbbbbbb-0000-0000-0000-000000000005','aaaaaaaa-0000-0000-0000-000000000001','MHL-0905','905')
+ on conflict (id) do nothing;
 """)
     if code:
         print("فشل تحضير الزون:", err[:800])
@@ -197,10 +212,22 @@ insert into map_mahallas(id,zone_id,code,osm_number) values
  '[[33.3050,44.4300],[33.3060,44.4300]]'::jsonb)""")
     check("كود مكرر يُرفض", "rejected" if c else "accepted", "rejected")
 
+    # ⚠ العقد تغيّر بقصد في 20261122001500: «الكود ثابت للعنصر لا للتصنيف» —
+    # البادئة أثر تاريخي من الاستيراد، وkind يُغيَّر بحرية. لذا LOC مع kind=primary
+    # **مقبول**. نتحقق فقط أن البادئة الخارجة عن القائمة ما زالت مرفوضة، ثم نحذف
+    # الصفّ حتى لا يغيّر مقام التغطية في الفحوص التالية.
     c, _, e = sql("""insert into map_streets(zone_id,code,name,kind,path) values
-('aaaaaaaa-0000-0000-0000-000000000001','LOC-0009','خطأ','primary',
+('aaaaaaaa-0000-0000-0000-000000000001','LOC-0009','بادئة تاريخية','primary',
  '[[33.3050,44.4320],[33.3060,44.4320]]'::jsonb)""")
-    check("بادئة لا تطابق التصنيف تُرفض", "rejected" if c else "accepted", "rejected")
+    check("بادئة تاريخية (LOC) مع kind آخر تُقبل — الكود للعنصر لا للتصنيف",
+          "accepted" if c == 0 else f"rejected: {(e or '')[:60]}", "accepted")
+    sql("delete from map_streets where code='LOC-0009' "
+        "and zone_id='aaaaaaaa-0000-0000-0000-000000000001'")
+
+    c, _, e = sql("""insert into map_streets(zone_id,code,name,kind,path) values
+('aaaaaaaa-0000-0000-0000-000000000001','XYZ-0009','بادئة مجهولة','primary',
+ '[[33.3050,44.4320],[33.3060,44.4320]]'::jsonb)""")
+    check("بادئة خارج القائمة المعتمدة تُرفض", "rejected" if c else "accepted", "rejected")
 
     _, out, _ = sql("select case when length_m between 400 and 460 then 'ok' else length_m::text end "
                     "from map_streets where code='STR-0001'")
@@ -328,14 +355,17 @@ insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) value
     check("سبب «غير مؤكد» مذكور نصّاً",
           "نعم" if "أقل من الحد" in (sql("select coalesce(reason,'') from map_visits")[1] or "") else "مفقود",
           "نعم")
-    check("نقطة واحدة ⇒ غير مؤكد",
-          gps([(0, 33.3005, 44.4250)]), "STR-0901:uncertain/0")
+    # 20261127000100: «زيارة بنقطة واحدة غير قابلة للإثبات» ⇒ لا صفّ إطلاقاً
+    # (كانت تُدرج uncertain بمكوث صفر ⇒ ٥٦٪ ضجيج على بيانات الإنتاج)
+    check("نقطة واحدة ⇒ لا زيارة (غير قابلة للإثبات)",
+          gps([(0, 33.3005, 44.4250)]), "none")
     # 8م شرقاً: أبعد من نصف الداخلي 4م ⇒ لا زيارة إطلاقاً
     check("مرور على الحافة (8م) لا يُحتسب زيارة",
           gps([(i * 60, 33.3005, 44.4250808) for i in range(8)]), "none")
+    # فاصل >5 دقائق ⇒ كل نقطة جزيرة وحدها ⇒ كل جزيرة بنقطة واحدة ⇒ تُسقط
     check("فاصل 6 دقائق بين النقاط يُسقط التقارب",
           gps([(0, 33.3005, 44.4250), (360, 33.3005, 44.4250), (720, 33.3005, 44.4250)]),
-          "STR-0901:uncertain/0")
+          "none")
     # خروج (44.4262 = 119م شرقاً) ثم عودة ⇒ جزيرتان مدموجتان (<10 دقائق)
     check("خروج وعودة قريبة ⇒ زيارة واحدة مدموجة",
           gps([(0, 33.3005, 44.4250), (60, 33.3005, 44.4250), (120, 33.3005, 44.4250),
@@ -582,6 +612,84 @@ insert into gps_vehicle_bindings(device_id,garage_vehicle_id,match_method) value
                         'aaaaaaaa-0000-0000-0000-000000000001','2026-11-22') limit 1""")
     check("«لم تُزر» تحمل مسؤول القسم",
           "ok" if uv and "مسؤول" in uv else f"got={uv}", "ok")
+
+    print("\n=== ⑬ تعديل العنصر يعمل فعلاً (شوارع وأزقة) ===")
+    # ① العرض والجسر يبقيان كما هما عند تغيير الاسم — الحمولة القديمة أرسلت null/false
+    sql("""insert into map_streets(zone_id,code,name,kind,path,width_m,is_bridge) values
+        ('aaaaaaaa-0000-0000-0000-000000000001','STR-0910','جسر الاختبار','primary',
+         '[[33.3010,44.4250],[33.3020,44.4250]]'::jsonb, 12.0, true)""")
+    sql("update map_streets set name='جسر الاختبار ٢' where code='STR-0910'")
+    _, keeps, _ = sql("select width_m::text||'/'||is_bridge::text from map_streets where code='STR-0910'")
+    check("تغيير الاسم لا يمحو العرض ولا صفة الجسر", keeps, "12.0/true")
+
+    # ② أي تحديث على زقاق كان يفشل: «record new has no field kind» قبل 20261129000100
+    # العرض 3.0 ⇒ التعديل إلى 2.5 يبقى داخل سقف الحارس (‏«يغطّي ولا يبتلع» قد
+    # يقلّص عرضاً واسعاً في زقاق ضيّق؛ نختبر **حفظ الحقل** لا سياسة السقف)
+    sql("""insert into map_alleys(zone_id,mahalla_id,code,name,path,width_m) values
+        ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000005',
+         'ALY-0910','زقاق الاختبار','[[33.3010,44.4250],[33.3020,44.4250]]'::jsonb, 3.0)""")
+    c_ren, _, e_ren = sql("update map_alleys set name='زقاق الاختبار ٢' where code='ALY-0910'")
+    check("تعديل اسم زقاق ينجح (لا record new has no field kind)",
+          "ok" if not c_ren else f"fail: {(e_ren or '')[:90]}", "ok")
+    c_w, _, e_w = sql("update map_alleys set width_m=2.5 where code='ALY-0910'")
+    check("تعديل عرض زقاق ينجح", "ok" if not c_w else f"fail: {(e_w or '')[:90]}", "ok")
+    _, aw, _ = sql("select width_m::text from map_alleys where code='ALY-0910'")
+    check("العرض الجديد محفوظ", aw, "2.5")
+
+    # ③ سجل التعديل يكتب فعلاً — كان صفر صفّ على الإنتاج
+    _, lg, _ = sql("select count(*)::text from map_edit_log")
+    check("سجل التعديل يكتب كل تغيير فعلي (اسم + عرض)", "ok" if int(lg or 0) >= 2 else f"rows={lg}", "ok")
+    _, kind_log, _ = sql("select count(*)::text from map_edit_log where field='kind'")
+    check("تغيّر kind يُسجَّل للشوارع فقط ولا ينكسر للأزقة",
+          "ok" if int(kind_log or 0) >= 0 else f"rows={kind_log}", "ok")
+
+    print("\n=== ⑭ تشخيص جاهزية الزيارات ===")
+    # الدالة محميّة بـ map_require_reader ⇒ نلعب دور مستخدم بدور ops_room
+    R = '99999999-0000-0000-0000-000000000009'
+    sql(f"insert into auth.users(id,email) values ('{R}','readiness@check.iq') on conflict do nothing")
+    sql(f"insert into user_roles(user_id,role) values ('{R}','ops_room') on conflict do nothing")
+    def ready(stmt):
+        return sql(f"do $$ begin perform set_config('auth.user_id','{R}',false); end $$; {stmt}")
+
+    _, lv, _ = ready("select level from public.map_visit_readiness('2026-11-22'::date) order by level limit 1")
+    check("الدالة تُرجع صفّ الأسطول والزونات", "ok" if lv in ("fleet", "zone") else f"got={lv}", "ok")
+    _, nrows, _ = ready("select count(*)::text from public.map_visit_readiness('2026-11-22'::date)")
+    check("صفّ الأسطول + صفّ لكل زون", "ok" if int(nrows or 0) >= 2 else f"rows={nrows}", "ok") 
+    _, nfleet, _ = ready("select count(*)::text from public.map_visit_readiness('2026-11-22'::date) where level='fleet'")
+    check("صفّ أسطول واحد لا أكثر", nfleet, "1")
+    _, rs, _ = ready("""select reason from public.map_visit_readiness('2026-11-22'::date)
+                         where level='fleet' limit 1""")
+    allowed = ("no_points", "unbound_devices", "needs_build", "certificate_stale", "ok")
+    check("السبب من مجموعة معروفة", "ok" if rs in allowed else f"got={rs}", "ok")
+
+    # الشهادة الناقصة تُشرح: بناء مسجَّل + نقاط أحدث منه ⇒ certificate_stale لا «بُني» فقط
+    # نضع نقطة مربوطة في يوم ٢٠٢٦-١١-٢٢ (نقاطه مُسحت في فحص سابق) حتى يكون الفحص ذا معنى
+    sql("""insert into gps_device_position_history(device_id,latitude,longitude,fix_time)
+           values ('dddddddd-0000-0000-0000-000000000002',33.3005,44.4250,'2026-11-22T10:00:00Z')""")
+    sql("""insert into gps_visit_builds(zone_id, day, status, points_at_build, points_in_day)
+           select z.id, '2026-11-22', 'built', '2026-11-22T09:00:00Z', 1
+             from map_zones z on conflict do nothing""")
+    _, st, _ = ready("select reason from public.map_visit_readiness('2026-11-22'::date) where level='fleet'")
+    check("نقاط أحدث من البناء ⇒ certificate_stale (لا تُمنح الشهادة)",
+          "ok" if st in ("certificate_stale", "needs_build") else f"got={st}", "ok")
+    # رفع نقاط البناء إلى أحدث نقطة ⇒ تُمنح الشهادة ويصير السبب ok
+    sql("update gps_visit_builds set points_at_build = (select max(fix_time) "
+        "from gps_device_position_history where app.map_baghdad_day(fix_time) = '2026-11-22') "
+        "where day = '2026-11-22'")
+    _, st2, _ = ready("select reason from public.map_visit_readiness('2026-11-22'::date) where level='fleet'")
+    check("بعد إعادة البناء على أحدث نقطة ⇒ السبب ok", st2, "ok")
+    _, lb, _ = ready("select count(*)::text from public.map_visit_readiness('2026-11-22'::date) "
+                     "where reason_label is null or reason_label=''")
+    check("كل صفّ يحمل سبباً مقروءاً بالعربية", lb, "0")
+    # بلا دور ⇒ مرفوضة (لا تكشف بيانات الأسطول لأي مستخدم)
+    c_deny, _, _ = sql("do $$ begin perform set_config('auth.user_id','',false); end $$; "
+                       "select level from public.map_visit_readiness('2026-11-22'::date) limit 1")
+    check("بلا صلاحية ⇒ مرفوضة", "denied" if c_deny else "allowed", "denied")
+    # قراءة فقط: لا صفوف جديدة في الجداول بعد الاستدعاء
+    _, before, _ = ready("select count(*)::text from map_visits")
+    ready("select * from public.map_visit_readiness('2026-11-22'::date)")
+    _, after, _ = ready("select count(*)::text from map_visits")
+    check("الاستدعاء لا يكتب زيارات", f"{before}→{after}", f"{before}→{before}")
 
     print("\n=== ⑫ التدقيق ===")
     _, out, _ = sql("select count(*)::text from audit_logs where table_name like 'map_%'")

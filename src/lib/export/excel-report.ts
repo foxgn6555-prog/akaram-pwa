@@ -48,8 +48,16 @@ export interface ChartSheet {
 
 export interface BuildReportOptions {
   sheetName: string
-  /** اسم الشركة — الافتراضي «شركة جزيرة الأكارم» */
-  company?: string
+  /**
+   * اسم الشركة في الصف الأول.
+   *
+   * ⚠ `null` = **بلا ترويسة شركة إطلاقاً** (لا صف شركة، لا سطر تعريفي،
+   * لا ترويسة طباعة، ولا اسم مُنشئ في خصائص الملف). يُستخدم في التقارير
+   * الرسمية التي تُسلَّم لجهة خارجية — طلب صاحب المشروع: «نص الشركة داخل
+   * الملف غير احترافي، احذفه كله».
+   * غياب القيمة (`undefined`) يُبقي الافتراضي للتقارير الداخلية.
+   */
+  company?: string | null
   /** السطر التعريفي تحت الاسم (القسم/الوحدة) */
   companySub?: string
   /** عنوان التقرير (يظهر كبيراً) */
@@ -137,7 +145,7 @@ function sanitizeSheetName(raw: string, used: Set<string>): string {
   }
 }
 
-type DataSheetSpec = ExtraDataSheet & { company?: string; companySub?: string }
+type DataSheetSpec = ExtraDataSheet & { company?: string | null; companySub?: string }
 function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: ArrayBuffer | null, spec: DataSheetSpec) {
   const ws = wb.addWorksheet(sanitizeSheetName(spec.sheetName, usedNames), {
     views: [{ ...RTL_VIEW }],
@@ -156,48 +164,85 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
   const ncols = spec.columns.length
   const lastCol = colLetter(ncols - 1)
 
-  // ── صف 1: شعار + اسم الشركة ──
-  ws.getRow(1).height = 52
-  if (logo) {
+  /**
+   * هل نكتب ترويسة الشركة؟
+   * `company === null` ⇒ لا. ونمنع الافتراضي من الظهور: تمرير `null` صراحةً
+   * يعني «بلا هوية مؤسسية داخل الملف»، لا «استخدم الافتراضي».
+   */
+  const withBrand = spec.company !== null
+
+  /** يكتب الشعار داخل الصف الأول إن توفّر — مشترك بين الحالتين */
+  const drawLogo = () => {
+    if (!logo) return false
     const imgId = wb.addImage({ buffer: logo, extension: 'png' })
     // الشعار في أقصى يمين الصفحة (RTL) داخل العمود A، مع إزاحة لطيفة
     ws.addImage(imgId, { tl: { col: 0.12, row: 0.3 }, ext: { width: 40, height: 40 } })
+    return true
   }
-  // ندمج من العمود C عند وجود شعار: عمود A للشعار، وعمود B فراغ بصري يفصل الشعار عن النص
-  const brandStart = logo ? 'C1' : 'A1'
-  ws.mergeCells(`${brandStart}:${lastCol}1`)
-  const titleBrand = ws.getCell(brandStart)
-  titleBrand.value = spec.company ?? 'شركة جزيرة الأكارم'
-  titleBrand.font = { name: 'Segoe UI', bold: true, size: 18, color: { argb: `FF${BRAND.primary}` } }
-  titleBrand.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 }
 
-  // ── صف 2: السطر التعريفي للوحدة ──
-  ws.mergeCells(`A2:${lastCol}2`)
-  const subCell = ws.getCell('A2')
-  subCell.value = spec.companySub ?? ''
-  subCell.font = { name: 'Segoe UI', size: 11, color: { argb: `FF${BRAND.muted}` } }
-  subCell.alignment = { horizontal: 'right', vertical: 'middle' }
-  ws.getRow(2).height = 18
+  /** شريط عنوان التقرير (خلفية العلامة) — يُكتب في أي صف */
+  const writeTitleBar = (rowIdx: number, startCol: string) => {
+    ws.mergeCells(`${startCol}${rowIdx}:${lastCol}${rowIdx}`)
+    ws.getRow(rowIdx).height = 34
+    const cell = ws.getCell(`${startCol}${rowIdx}`)
+    cell.value = spec.title
+    cell.font = { name: 'Segoe UI', bold: true, size: 15, color: { argb: `FF${BRAND.white}` } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.headerFill}` } }
+  }
 
-  // ── صف 3: عنوان التقرير (شريط العلامة) ──
-  ws.mergeCells(`A3:${lastCol}3`)
-  ws.getRow(3).height = 34
-  const c3 = ws.getCell('A3')
-  c3.value = spec.title
-  c3.font = { name: 'Segoe UI', bold: true, size: 15, color: { argb: `FF${BRAND.white}` } }
-  c3.alignment = { horizontal: 'center', vertical: 'middle' }
-  c3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${BRAND.headerFill}` } }
+  /** سطر المعلومات (عدد الصفوف/التاريخ…) — يُكتب في أي صف */
+  const writeMeta = (rowIdx: number) => {
+    ws.mergeCells(`A${rowIdx}:${lastCol}${rowIdx}`)
+    const cell = ws.getCell(`A${rowIdx}`)
+    cell.value = spec.meta ?? ''
+    cell.font = { name: 'Segoe UI', size: 10, italic: true, color: { argb: `FF${BRAND.muted}` } }
+    cell.alignment = { horizontal: 'right', vertical: 'middle' }
+    ws.getRow(rowIdx).height = 18
+  }
 
-  // ── صف 4: سطر المعلومات ──
-  ws.mergeCells(`A4:${lastCol}4`)
-  const c4 = ws.getCell('A4')
-  c4.value = spec.meta ?? ''
-  c4.font = { name: 'Segoe UI', size: 10, italic: true, color: { argb: `FF${BRAND.muted}` } }
-  c4.alignment = { horizontal: 'right', vertical: 'middle' }
-  ws.getRow(4).height = 18
+  let headerRowIdx: number
+  if (withBrand) {
+    // ── صف 1: شعار + اسم الشركة ──
+    ws.getRow(1).height = 52
+    const hasLogo = drawLogo()
+    // ندمج من العمود C عند وجود شعار: عمود A للشعار، وعمود B فراغ بصري يفصل الشعار عن النص
+    const brandStart = hasLogo ? 'C1' : 'A1'
+    ws.mergeCells(`${brandStart}:${lastCol}1`)
+    const titleBrand = ws.getCell(brandStart)
+    titleBrand.value = spec.company ?? 'شركة جزيرة الأكارم'
+    titleBrand.font = { name: 'Segoe UI', bold: true, size: 18, color: { argb: `FF${BRAND.primary}` } }
+    titleBrand.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 }
 
-  // ── صف 5: رؤوس الأعمدة ──
-  const headerRowIdx = 5
+    // ── صف 2: السطر التعريفي للوحدة ──
+    ws.mergeCells(`A2:${lastCol}2`)
+    const subCell = ws.getCell('A2')
+    subCell.value = spec.companySub ?? ''
+    subCell.font = { name: 'Segoe UI', size: 11, color: { argb: `FF${BRAND.muted}` } }
+    subCell.alignment = { horizontal: 'right', vertical: 'middle' }
+    ws.getRow(2).height = 18
+
+    // ── صف 3: عنوان التقرير (شريط العلامة) ──
+    writeTitleBar(3, 'A')
+
+    // ── صف 4: سطر المعلومات ──
+    writeMeta(4)
+
+    headerRowIdx = 5
+  } else {
+    /**
+     * بلا هوية مؤسسية: يبقى الشعار + عنوان التقرير + سطر المعلومات + الجدول.
+     * لا اسم شركة، ولا سطر تعريفي، ولا ترويسة طباعة — هذه هي الحالة التي
+     * يطلبها صاحب المشروع للورقة المُسلَّمة للجهة الخارجية.
+     */
+    ws.getRow(1).height = 40
+    const hasLogo = drawLogo()
+    writeTitleBar(1, hasLogo ? 'C' : 'A')
+    writeMeta(2)
+    headerRowIdx = 3
+  }
+
+  // ── رؤوس الأعمدة ──
   const hr = ws.getRow(headerRowIdx)
   hr.height = 26
   spec.columns.forEach((col, i) => {
@@ -261,7 +306,8 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
   }
   ws.views = [{ ...RTL_VIEW, state: 'frozen', ySplit: headerRowIdx }]
   ws.headerFooter = {
-    oddHeader: '&Cشركة جزيرة الأكارم',
+    // بلا ترويسة طباعة تحمل اسم الشركة حين يطلب المُستدعي ملفاً محايداً
+    ...(withBrand ? { oddHeader: '&Cشركة جزيرة الأكارم' } : {}),
     oddFooter: `&Lوُلّد آلياً — ${new Date().toLocaleDateString('ar-IQ-u-nu-latn')}&Cصفحة &P من &N`,
   }
 
@@ -272,7 +318,11 @@ function writeDataSheet(wb: ExcelJS.Workbook, usedNames: Set<string>, logo: Arra
  */
 export async function buildExcelReport(opts: BuildReportOptions): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'نظام بلدية جزيرة الأكارم'
+  /**
+   * اسم المُنشئ في خصائص الملف يظهر في كل مستكشف ملفات — فلا نكتبه في
+   * التقارير المحايدة (`company === null`).
+   */
+  if (opts.company !== null) wb.creator = 'نظام بلدية جزيرة الأكارم'
   wb.created = new Date()
 
   const usedNames = new Set<string>()

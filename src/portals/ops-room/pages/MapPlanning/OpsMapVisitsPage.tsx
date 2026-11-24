@@ -6,6 +6,7 @@
  * الزيارات تأتي من جدول دائم، فلا تختفي عند تفريغ نقاط GPS اليومي.
  */
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { ShiftPanel } from './ShiftPanel'
 import { PurgeGuardPanel } from './PurgeGuardPanel'
@@ -21,6 +22,7 @@ import {
   useMapCoverage,
   useMapVisits,
   useMapZones,
+  useVisitReadiness,
 } from '@features/map-planning/hooks/useMapPlanning'
 
 type Filter = 'all' | 'confirmed' | 'uncertain'
@@ -44,6 +46,11 @@ export default function MapVisitsPage() {
   const { data: coverage = [] } = useMapCoverage(activeZoneId, day)
   const build = useBuildVisits()
   const { data: certified } = useDayCertified(day)
+  const { data: readiness = [] } = useVisitReadiness(day, activeZoneId)
+  /** صفّ الأسطول: مجاميع النقاط/الربط/الشهادة — لا تُنسب إلى زون في القاعدة */
+  const fleet = readiness.find((r) => r.level === 'fleet') ?? null
+  /** صفّ الزون المختار: حالته وزياراته — هو المقصود بطلب البناء */
+  const zoneState = readiness.find((r) => r.level === 'zone') ?? null
 
   const rows = useMemo(
     () => (visits as MapVisit[]).filter((v) => filter === 'all' || v.status === filter),
@@ -138,6 +145,68 @@ export default function MapVisitsPage() {
           className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold"
         />
       </section>
+
+      {/*
+        ── بناء · شهادة · ربط: ثلاثة أرقام تحكم الاعتماد على ما بعده ──
+        الشاشة كانت تُظهر «غير محميّ» فقط. لا تقول لماذا، ولا تكشف أن المحرّك
+        يعمل بنصف بيانات (٧٠.٤٪ من نقاط الإنتاج لأجهزة غير مربوطة).
+      */}
+      {fleet && (
+        <section className="grid gap-2 sm:grid-cols-3">
+          <div className={`rounded-2xl border p-3 ${
+            zoneState?.build_status === 'built' || zoneState?.build_status === 'empty'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : zoneState?.build_status === 'failed'
+                ? 'border-rose-200 bg-rose-50 text-rose-900'
+                : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <p className="text-[10px] font-black opacity-70">بناء زيارات هذا الزون</p>
+            <p className="mt-0.5 text-sm font-black">
+              {zoneState?.build_status === 'built' ? `بُني · ${zoneState.visits_total} زيارة`
+                : zoneState?.build_status === 'empty' ? 'بُني · بلا نقاط'
+                  : zoneState?.build_status === 'failed' ? 'فشل'
+                    : zoneState?.build_status === 'skipped' ? 'مُتخطّى'
+                      : 'لم يُبنَ بعد'}
+            </p>
+            <p className="mt-1 text-[10px] font-bold opacity-80">{zoneState?.reason_label ?? '—'}</p>
+          </div>
+
+          <div className={`rounded-2xl border p-3 ${
+            fleet.certified ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                           : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <p className="text-[10px] font-black opacity-70">حماية النقاط الخام</p>
+            <p className="mt-0.5 text-sm font-black">{fleet.certified ? 'محميّ' : 'غير محميّ'}</p>
+            <p className="mt-1 text-[10px] font-bold opacity-80">
+              {fleet.certified
+                ? 'كل الزونات لها شهادة بناء لهذا اليوم'
+                : fleet.reason === 'certificate_stale'
+                  ? fleet.reason_label
+                  : 'نقص شهادة في زون واحد يمنع حذف نقاط اليوم'}
+            </p>
+          </div>
+
+          <div className={`rounded-2xl border p-3 ${
+            fleet.points_total === 0 ? 'border-amber-200 bg-amber-50 text-amber-900'
+              : fleet.points_unbound === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : fleet.points_unbound * 10 > fleet.points_total * 3
+                  ? 'border-rose-200 bg-rose-50 text-rose-900'
+                  : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <p className="text-[10px] font-black opacity-70">تغطية الربط</p>
+            <p className="mt-0.5 text-sm font-black">
+              {fleet.devices_bound} من {fleet.devices_total} جهاز
+            </p>
+            <p className="mt-1 text-[10px] font-bold opacity-80">
+              {fleet.points_total === 0
+                ? 'لا نقاط لهذا اليوم'
+                : `${fleet.points_unbound.toLocaleString('ar-IQ-u-nu-latn')} نقطة غير مربوطة لن تُحتسب`}
+            </p>
+            {fleet.points_unbound > 0 && (
+              <Link to="/ops-room/gps" className="mt-1 inline-block text-[10px] font-black underline">
+                ربط الأجهزة
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* الشفتات: نافذتها وحالة نقاطها + سحب صريح من المزوّد */}
       <ShiftPanel day={day} />
