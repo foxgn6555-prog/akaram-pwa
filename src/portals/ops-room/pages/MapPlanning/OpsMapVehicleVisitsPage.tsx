@@ -72,9 +72,7 @@ export default function MapVehicleVisitsPage() {
           : `${(vehicles as VehicleDayRow[]).length} آلية عملت في هذا اليوم`}
         actions={
           <button type="button" disabled={build.isPending || !activeZoneId}
-            onClick={() => activeZoneId && build.mutate({
-              zoneId: activeZoneId, from: `${day}T00:00:00Z`, to: `${day}T23:59:59Z`,
-            })}
+            onClick={() => activeZoneId && build.mutate({ zoneId: activeZoneId, day })}
             className="flex items-center gap-1 rounded-xl bg-white/15 px-3 py-2 text-xs font-black text-white ring-1 ring-white/25 disabled:opacity-50">
             {build.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
             {build.isPending ? 'يُشغّل…' : 'استخراج الزيارات'}

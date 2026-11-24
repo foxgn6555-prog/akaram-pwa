@@ -3,6 +3,7 @@ import { lvnErrorToast } from './lvn-errors'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   gpsLvn,
+  pullShiftWindow,
   type GpsFilters,
   type GpsMapLandmark,
   type GpsTripInvestigation,
@@ -26,6 +27,9 @@ export const gpsKeys = {
   devices: (f: GpsFilters) => ['gps-lvn', 'devices', f] as const,
   options: () => ['gps-lvn', 'options'] as const,
   runs: () => ['gps-lvn', 'runs'] as const,
+  // 20261128000200: نوافذ الشفتات وحالة سحبها
+  shiftWindows: (day: string) => ['gps-lvn', 'shift-windows', day] as const,
+  shiftPending: (day: string) => ['gps-lvn', 'shift-pending', day] as const,
   detail: (id: string) => ['gps-lvn', 'detail', id] as const,
   route: (id: string, day: string) => ['gps-lvn', 'route', id, day] as const,
   routeWindow: (id: string, from: string, to: string) =>
@@ -428,3 +432,63 @@ export const useTripRoute = (departureId: string | null | undefined, maxPoints =
     enabled: Boolean(departureId),
     refetchInterval: (q) => (q.state.data && !q.state.data.is_final ? 60_000 : false),
   })
+
+/* ─────────── 20261128000200: نوافذ الشفتات وسحبها ─────────── */
+
+/** نوافذ الشفتات النشطة ليوم — من hr_shifts مع دعم العبور لمنتصف الليل */
+export function useGpsShiftWindows(day: string) {
+  return useQuery({
+    queryKey: gpsKeys.shiftWindows(day),
+    queryFn: () => gpsLvn.shiftWindows(day),
+    enabled: Boolean(day),
+    staleTime: 300_000,
+  })
+}
+
+/**
+ * حالة كل شفت: نقاطه في القاعدة أم تحتاج سحباً من المزوّد.
+ * يُعاد الجلب بعد أي سحب أو بناء.
+ */
+export function useGpsShiftPending(day: string) {
+  return useQuery({
+    queryKey: gpsKeys.shiftPending(day),
+    queryFn: () => gpsLvn.shiftPending(day),
+    enabled: Boolean(day),
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * سحب شفت كامل من المزوّد — دفعةً دفعة مع تقدُّم حقيقي.
+ * لا يبدأ تلقائياً: يحتاج نقرة صريحة لأن كل جهاز = طلب خارجي.
+ */
+export function usePullShiftWindow() {
+  const qc = useQueryClient()
+  const toast = useUiStore((s) => s.addToast)
+  return useMutation({
+    mutationFn: (v: { day: string; window: { from: string; to: string }; onProgress?: (p: { done: number; total: number; inserted: number; device: string }) => void; signal?: AbortSignal }) =>
+      pullShiftWindow(v),
+    onSuccess: (r, v) => {
+      void qc.invalidateQueries({ queryKey: gpsKeys.shiftPending(v.day) })
+      void qc.invalidateQueries({ queryKey: gpsKeys.runs() })
+      void qc.invalidateQueries({ queryKey: ['map-planning'] })
+      const failed = r.failed.length
+      if (r.aborted) {
+        toast({
+          type: 'info',
+          message: `أُوقف السحب: ${r.done} من ${r.total} جهازاً · ${r.inserted} نقطة جديدة`,
+        })
+        return
+      }
+      toast({
+        type: failed > 0 ? 'error' : 'success',
+        message: failed > 0
+          ? `اكتمل السحب مع ${failed} فشلاً: ${r.inserted} نقطة جديدة من ${r.done - failed} جهازاً`
+          : `اكتمل السحب: ${r.inserted} نقطة جديدة من ${r.done} جهازاً`,
+      })
+    },
+    onError: (error) => {
+      toast({ type: 'error', message: handleAppError(error, { scope: 'gpsLvnSync' }).message })
+    },
+  })
+}

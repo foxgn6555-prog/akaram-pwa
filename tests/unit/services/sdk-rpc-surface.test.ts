@@ -118,7 +118,7 @@ describe('SDK الإدارة/المالية/الاحتفاظ', () => {
   })
   it('dataRetention + coldArchive', async () => {
     await dataRetention.gpsPurgeGet(); rpc('gps_history_purge_get', {})
-    await dataRetention.gpsPurgeSet(true); lastRpc('gps_history_purge_set', { p_enabled: true })
+    await dataRetention.gpsPurgeSet({ enabled: true, keepHours: 48 }); lastRpc('gps_history_purge_set', { p_enabled: true, p_keep_hours: 48 })
     await dataRetention.gpsPurgeRunNow(); lastRpc('gps_history_purge_run_now', {})
     await dataRetention.settings(); lastRpc('data_retention_settings_get', {})
     await dataRetention.setPolicy({ data_key: 'k', enabled: true, retention_months: 2, export_required: false, requires_confirm: true, grace_days: 1 }); lastRpc('data_retention_policy_set', expect.objectContaining({ p_key: 'k' }))

@@ -181,6 +181,30 @@ export interface VisitBuildResult {
   skipped_visits: number
 }
 
+/** سطر من سجل شهادات البناء (gps_visit_builds) */
+export interface VisitBuildRow {
+  zone_id: string
+  day: string
+  status: 'built' | 'empty' | 'failed' | 'skipped'
+  visits_created: number | null
+  points_in_day: number | null
+  points_at_build: string | null
+  duration_ms: number | null
+  error: string | null
+  actor_name: string | null
+  finished_at: string | null
+}
+
+export interface BuildScanResult {
+  ok: boolean
+  from: string
+  to: string
+  built: number
+  empty: number
+  failed: number
+  skipped: number
+}
+
 export interface CoverageRow {
   place_kind: 'street' | 'alley'
   places_total: number
@@ -559,24 +583,54 @@ export const mapPlanningSdk = {
   },
 
   /**
-   * تشغيل المحرّك على نافذة زمنية. `replace=true` يجعل النتيجة idempotent:
-   * إعادة التشغيل تحذف زيارات النافذة أولاً ثم تعيد بنائها.
+   * بناء زيارات **يوم بغدادي واحد** مع تسجيل الشهادة في `gps_visit_builds`.
+   *
+   * `p_day` تاريخ فقط (YYYY-MM-DD) والخادم يحسب حدود اليوم بتوقيت بغداد
+   * (`app.map_day_bounds`). السبب: الكود السابق كان يرسل `T00:00:00Z`–`T23:59:59Z`
+   * فيغطي 03:00 بغداد ليوم D حتى 02:59 بغداد ليوم D+1 — أي يوم UTC لا يوم بغداد.
+   *
+   * الشهادة شرط حذف النقاط الخام: لا يُحذف يوم من `gps_device_position_history`
+   * قبل أن يبني هذا الاستدعاء زياراته بنجاح.
    */
-  async buildVisits(input: {
-    zoneId: string
-    from: string
-    to: string
-    vehicleId?: string | null
-  }): Promise<VisitBuildResult> {
-    const { data, error } = await supabase.rpc('map_build_visits', {
+  async buildVisits(input: { zoneId: string; day: string }): Promise<VisitBuildResult & { day: string; points: number }> {
+    const { data, error } = await supabase.rpc('map_visit_build_logged', {
       p_zone: input.zoneId,
-      p_from: input.from,
-      p_to: input.to,
-      p_vehicle: input.vehicleId ?? null,
+      p_day: input.day,
     })
     if (error) throw new Error(error.message)
-    const row = (Array.isArray(data) ? data[0] : data) as VisitBuildResult | null
-    return row ?? { visits_created: 0, visits_merged: 0, places_scanned: 0, skipped_visits: 0 }
+    const r = (data ?? {}) as Record<string, unknown>
+    return {
+      visits_created: Number(r.visits_created ?? 0),
+      visits_merged: Number(r.visits_merged ?? 0),
+      places_scanned: Number(r.places_scanned ?? 0),
+      skipped_visits: Number(r.skipped_visits ?? 0),
+      day: String(r.day ?? input.day),
+      points: Number(r.points ?? 0),
+    }
+  },
+
+  /** شهادات البناء لكل زون في يوم — أساس شارة «محمي/غير محمي» في الواجهة */
+  async visitBuildLedger(day: string): Promise<VisitBuildRow[]> {
+    const { data, error } = await supabase
+      .from('gps_visit_builds')
+      .select('zone_id, day, status, visits_created, points_in_day, points_at_build, duration_ms, error, actor_name, finished_at')
+      .eq('day', day)
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitBuildRow[]
+  },
+
+  /** هل بُني هذا اليوم بالكامل؟ (كل الزونات) — شرط الحذف */
+  async isDayCertified(day: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('map_day_is_certified', { p_day: day })
+    if (error) throw new Error(error.message)
+    return data === true
+  },
+
+  /** تشغيل البناء الآلي المتأخر بعد سحب تاريخ من المزوّد */
+  async runBuildScan(lookbackDays = 4): Promise<BuildScanResult> {
+    const { data, error } = await supabase.rpc('gps_visits_build_run', { p_lookback_days: lookbackDays })
+    if (error) throw new Error(error.message)
+    return data as BuildScanResult
   },
 
   /** ملخّص التغطية لزون/يوم — صفّان: street و alley */
@@ -778,4 +832,81 @@ export const mapPlanningSdk = {
     if (error) throw new Error(error.message)
     return (data ?? []) as GroupedDriver[]
   },
+
+  // ── الأرشيف والاحتفاظ (الجولة ④) ─────────────────────────────────────────
+
+  /** صفوف زيارات ليوم بغداد أو مدى — مصدر التصدير قبل الحذف. */
+  async visitReports(input: { from: string; to?: string; zoneId?: string | null }): Promise<VisitReportRow[]> {
+    const { data, error } = await supabase.rpc('gps_visit_reports', {
+      p_from: input.from,
+      p_to: input.to ?? input.from,
+      p_zone: input.zoneId ?? null,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitReportRow[]
+  },
+
+  /**
+   * حارس التصدير قبل الحذف — يوم بيوم.
+   *
+   * **تُبلّغ ولا تحذف.** الحذف عبر شاشة الاحتفاظ (data_retention_*) التي تفرض
+   * التصدير على مستوى الطلب. الفرق أن هذه تفحص كل يوم على حدة، فتمنع
+   * «٢٩ يوماً صُدِّرت ويوم أُبيد بلا نسخة».
+   */
+  async visitPurgeGuard(input: { cutoff: string; keepDays?: number }): Promise<VisitPurgeVerdict[]> {
+    const { data, error } = await supabase.rpc('map_visits_purge_guard', {
+      p_cutoff: input.cutoff,
+      p_keep_days: input.keepDays ?? 30,
+    })
+    if (error) throw new Error(error.message)
+    return (data ?? []) as VisitPurgeVerdict[]
+  },
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// الأرشيف والاحتفاظ (20261128000400 — الجولة ④)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * صفّ تصدير زيارة — مصدر الأرشيف قبل الحذف.
+ *
+ * **لا يقرأ نقاط GPS الخام** (قد تكون حُذفت بعد ٤٨ ساعة). صفوف `map_visits`
+ * وحدها. وعند الحاجة لعدد صفوف دقيق لطلب الحذف: خُذ `visits_count` من أول
+ * صفّ — لا `rows.length` إن كنت تُفلتر في العميل.
+ */
+export interface VisitReportRow {
+  placeday: string
+  zone_id: string | null
+  zone_name: string | null
+  vehicle_id: string | null
+  db_number: string | null
+  driver_name: string | null
+  mahalla_number: string | null
+  place_kind: 'alley' | 'street' | null
+  place_name: string | null
+  entered_at: string | null
+  exited_at: string | null
+  dwell_seconds: number | null
+  points_count: number | null
+  status: string | null
+  /** ⚠ العدد الكلي كما في القاعدة — ثابت في كل صفّ */
+  visits_count: number
+  zones_count: number
+  days_count: number
+}
+
+/**
+ * حكم يوم واحد في حارس الحذف.
+ *
+ * `exported` = يوجد طلب احتفاظ قاطعه **بعد** هذا اليوم (المحرك يحذف < cutoff).
+ * `can_purge` = الطلب مُثبت ببصمة أو بعدد صفوف. الفرق مقصود: طلب بلا بصمة
+ * قيده «قيد التنفيذ» لا «مُثبت» — ويجب ألا يُجيز حذفاً.
+ */
+export interface VisitPurgeVerdict {
+  placeday: string
+  visits: number
+  days_old: number
+  exported: boolean
+  can_purge: boolean
+  reason: string
 }

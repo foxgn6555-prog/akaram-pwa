@@ -12,7 +12,7 @@ vi.mock('@sdk/client', () => ({
     if (result.error) throw new Error(result.error.message)
   },
 }))
-import { gpsLvn } from '@sdk/gps-lvn.sdk'
+import { gpsLvn, pullShiftWindow } from '@sdk/gps-lvn.sdk'
 describe('LVN GPS SDK', () => {
   beforeEach(() => {
     h.rpc.mockReset()
@@ -280,5 +280,180 @@ describe('LVN GPS SDK', () => {
     // 00347: دالة حافة قديمة تتجاهل action='trip' وترد بنتيجة مزامنة عادية ⇒ خطأ صريح بدل نجاح كاذب
     h.invoke.mockResolvedValueOnce({ data: { ok: true, action: 'incremental', received: 0 }, error: null })
     await expect(gpsLvn.pullTripRouteNow('dep3')).rejects.toMatchObject({ code: 'LVN_FUNCTION_OUTDATED' })
+  })
+
+  /* ═══ 20261128000200: نوافذ الشفتات وسحبها ═══ */
+
+  it('نوافذ الشفتات: بلا يوم يمرّر كائن فارغاً، وبيوم يمرّر p_day', async () => {
+    h.rpc.mockResolvedValueOnce({ data: { day: '2026-11-20', windows: [] }, error: null })
+    const a = await gpsLvn.shiftWindows()
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_windows', { p_day: null })
+    expect(a.windows).toEqual([])
+    await gpsLvn.shiftWindows('2026-11-20')
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_windows', { p_day: '2026-11-20' })
+  })
+
+  it('نافذة شفت واحد: الاسم واليوم، والمعرّف يفوز حين يُمرَّر', async () => {
+    h.rpc.mockResolvedValueOnce({
+      data: { shift_name: 'مرن مسائي', start: '17:00', end: '04:00', crosses_midnight: true, note: 'يعبر منتصف الليل' },
+      error: null,
+    })
+    const w = await gpsLvn.shiftWindow({ shiftName: 'مرن مسائي', day: '2026-11-20' })
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_window', {
+      p_shift_id: null, p_shift_name: 'مرن مسائي', p_day: '2026-11-20',
+    })
+    expect(w.crosses_midnight).toBe(true)
+    expect(w.note).toContain('منتصف الليل')
+    await gpsLvn.shiftWindow({ shiftId: 's1' })
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_window', {
+      p_shift_id: 's1', p_shift_name: null, p_day: null,
+    })
+  })
+
+  it('حالة الشفتات: بلا يوم كائن فارغ، وكل حقل يصل كما هو', async () => {
+    const payload = {
+      day: '2026-11-20', fleet: 111,
+      shifts: [{ shift_id: 's1', shift_name: 'ليلي', state: 'missing', can_pull: true }],
+    }
+    h.rpc.mockResolvedValueOnce({ data: payload, error: null })
+    expect((await gpsLvn.shiftPending()).fleet).toBe(111)
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_pending', { p_day: null })
+    await gpsLvn.shiftPending('2026-11-20')
+    expect(h.rpc).toHaveBeenLastCalledWith('gps_shift_pending', { p_day: '2026-11-20' })
+  })
+
+  it('أهداف السحب: بلا معاملات، ويُعيد أول صف أو صفراً آمناً', async () => {
+    h.rpc.mockResolvedValueOnce({ data: [{ total_devices: 111, total_batches: 5 }], error: null })
+    expect((await gpsLvn.historyTargets()).total_devices).toBe(111)
+    expect(h.rpc).toHaveBeenLastCalledWith('lvn_history_targets', {})
+    h.rpc.mockResolvedValueOnce({ data: [], error: null })
+    expect(await gpsLvn.historyTargets()).toEqual({ total_devices: 0, total_batches: 0 })
+    h.rpc.mockResolvedValueOnce({ data: null, error: null })
+    // سلوك حقيقي: data=null يرمي — لا يُخفى كصفر
+    await expect(gpsLvn.historyTargets()).rejects.toThrow()
+  })
+
+  it('دفعة السحب: p_size افتراضي 25 ويُقيَّد بما يُمرَّر', async () => {
+    await gpsLvn.historyTargetBatch(0)
+    expect(h.rpc).toHaveBeenLastCalledWith('lvn_history_target_batch', { p_batch: 0, p_size: 25 })
+    await gpsLvn.historyTargetBatch(3, 50)
+    expect(h.rpc).toHaveBeenLastCalledWith('lvn_history_target_batch', { p_batch: 3, p_size: 50 })
+  })
+
+  describe('pullShiftWindow — دفعات حقيقية', () => {
+    const dev = (n: number) => ({
+      batch_no: 0, device_id: `d${n}`, external_id: `E${n}`,
+      device_name: `جهاز ${n}`, vehicle_name: `آلية ${n}`,
+    })
+    /** كل نداء لدالة RPC يُوجَّه حسب اسمه — لا ترتيب هشّ. */
+    const route = (opts: {
+      total?: number
+      batches: number
+      perBatch?: (b: number) => unknown[]
+    }) => {
+      h.rpc.mockImplementation((fn: string, args?: { p_batch?: number }) => {
+        if (fn === 'lvn_history_targets') {
+          return Promise.resolve({
+            data: [{ total_devices: opts.total ?? 0, total_batches: opts.batches }],
+            error: null,
+          })
+        }
+        if (fn === 'lvn_history_target_batch') {
+          const b = args?.p_batch ?? 0
+          return Promise.resolve({ data: opts.perBatch?.(b) ?? [], error: null })
+        }
+        return Promise.resolve({ data: null, error: null })
+      })
+    }
+
+    it('يمرّ على كل دفعة ويجمع النقاط المضافة', async () => {
+      route({ total: 3, batches: 2, perBatch: (b) => (b === 0 ? [dev(1), dev(2)] : [dev(3)]) })
+      h.invoke.mockResolvedValue({ data: { ok: true, action: 'history', insertedPoints: 10 }, error: null })
+      const res = await pullShiftWindow({
+        day: '2026-11-20',
+        window: { from: '2026-11-20T14:00:00Z', to: '2026-11-21T01:00:00Z' },
+      })
+      expect(res.done).toBe(3)
+      expect(res.total).toBe(3)
+      expect(res.inserted).toBe(30)
+      expect(res.failed).toEqual([])
+      expect(res.aborted).toBe(false)
+      // النافذة تصل كاملة إلى الدالة الخادمية — لا تُقصّ عند منتصف الليل
+      expect(h.invoke).toHaveBeenCalledWith('lvn-gps-sync', expect.objectContaining({
+        body: expect.objectContaining({
+          action: 'history',
+          deviceId: 'd1',
+          fromTime: '2026-11-20T14:00:00Z',
+          toTime: '2026-11-21T01:00:00Z',
+        }),
+      }))
+    })
+
+    it('الإيقاف يُعلَّم ويعيد ما سُحب — لا يرمي', async () => {
+      const ctl = new AbortController()
+      route({ total: 4, batches: 2, perBatch: () => [dev(1), dev(2)] })
+      h.invoke.mockImplementation(() => {
+        ctl.abort()
+        return Promise.resolve({ data: { ok: true, action: 'history', insertedPoints: 4 }, error: null })
+      })
+      const res = await pullShiftWindow({
+        day: '2026-11-20', window: { from: 'a', to: 'b' }, signal: ctl.signal,
+      })
+      expect(res.aborted).toBe(true)
+      expect(res.done).toBe(1)
+      expect(res.inserted).toBe(4)
+    })
+
+    it('جهاز فاشل يُسجَّل باسمه وسببه، والسحب يكمل', async () => {
+      route({ total: 2, batches: 1, perBatch: () => [dev(1), dev(2)] })
+      h.invoke
+        .mockResolvedValueOnce({ data: { ok: false, error: 'LVN_LOGIN_REJECTED' }, error: null })
+        .mockResolvedValueOnce({ data: { ok: true, action: 'history', insertedPoints: 7 }, error: null })
+      const res = await pullShiftWindow({ day: '2026-11-20', window: { from: 'a', to: 'b' } })
+      expect(res.failed).toHaveLength(1)
+      expect(res.failed[0]?.device).toBe('آلية 1')
+      expect(res.failed[0]?.error).toBe('LVN_LOGIN_REJECTED')
+      expect(res.inserted).toBe(7)
+      expect(res.done).toBe(2)
+    })
+
+    it('خطأ شبكة على الدالة الخادمية يذهب إلى failed لا إلى توقف السحب', async () => {
+      route({ total: 1, batches: 1, perBatch: () => [dev(1)] })
+      h.invoke.mockResolvedValueOnce({ data: null, error: { message: 'network down' } })
+      const res = await pullShiftWindow({ day: '2026-11-20', window: { from: 'a', to: 'b' } })
+      expect(res.failed[0]?.error).toBe('network down')
+      expect(res.inserted).toBe(0)
+    })
+
+    it('بلا أجهزة إطلاقاً: صفر عمل بلا فشل ولا التباس', async () => {
+      route({ total: 0, batches: 1, perBatch: () => [] })
+      const res = await pullShiftWindow({ day: '2026-11-20', window: { from: 'a', to: 'b' } })
+      expect(res).toMatchObject({ done: 0, inserted: 0, failed: [], aborted: false })
+      expect(h.invoke).not.toHaveBeenCalled()
+    })
+
+    it('حجم الدفعة يُقيَّد بين ١ و٥٠ رغم ما يُمرَّر', async () => {
+      route({ total: 0, batches: 1, perBatch: () => [] })
+      await pullShiftWindow({ day: 'd', window: { from: 'a', to: 'b' }, batchSize: 999 })
+      expect(h.rpc).toHaveBeenCalledWith('lvn_history_target_batch', { p_batch: 0, p_size: 50 })
+      h.rpc.mockClear()
+      route({ total: 0, batches: 1, perBatch: () => [] })
+      await pullShiftWindow({ day: 'd', window: { from: 'a', to: 'b' }, batchSize: 0 })
+      expect(h.rpc).toHaveBeenCalledWith('lvn_history_target_batch', { p_batch: 0, p_size: 1 })
+    })
+
+    it('onProgress يُنادى لكل جهاز بتقدُّم تراكمي صحيح', async () => {
+      route({ total: 2, batches: 1, perBatch: () => [dev(1), dev(2)] })
+      h.invoke.mockResolvedValue({ data: { ok: true, action: 'history', insertedPoints: 3 }, error: null })
+      const seen: Array<{ done: number, total: number, inserted: number }> = []
+      await pullShiftWindow({
+        day: '2026-11-20', window: { from: 'a', to: 'b' },
+        onProgress: (p) => seen.push({ done: p.done, total: p.total, inserted: p.inserted }),
+      })
+      expect(seen).toEqual([
+        { done: 1, total: 2, inserted: 3 },
+        { done: 2, total: 2, inserted: 6 },
+      ])
+    })
   })
 })

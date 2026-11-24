@@ -53,16 +53,31 @@ export function retentionErrorMessage(error: unknown): string {
 
 const rpc = <T,>(fn: string, args: Record<string, unknown> = {}) => sdkGuard(supabase.rpc(fn, args as never)) as Promise<T>
 
-/** 00382-أ: التفريغ اليومي لنقاط GPS التفصيلية (00:00 بغداد) — truncate كامل يعيد المساحة فوراً */
+/**
+ * 20261128000100: التفريغ لا يعود `truncate` شاملاً — يحذف ما تجاوز `keep_hours`
+ * **بشرط شهادة بناء** لليوم البغدادي. أي يوم بلا شهادة يبقى ويُبلَّغ عنه.
+ */
 export interface GpsHistoryPurgeState {
   enabled: boolean; scheduled: boolean; runs_at: string; runs_count: number
+  /** قرار المالك 2026-11-24: ٤٨ ساعة */
+  keep_hours: number
+  build_runs_at: string
   last_run_at: string | null; last_rows: number | null; last_bytes_before: number | null; last_bytes_after: number | null; last_error: string | null; last_freed_bytes: number
+  last_skipped_rows: number | null
+  last_skipped: Array<{ day: string; rows: number }> | null
+  /** أيام تجاوزت مدة الاحتفاظ لكنها محميّة لأن زياراتها لم تُبنَ */
+  waiting_days: Array<{ day: string; rows: number }>
+  waiting_rows: number
   current_rows: number; current_bytes: number; updated_at: string
 }
 export const dataRetention = {
   /** 00382-أ */
   gpsPurgeGet: () => rpc<GpsHistoryPurgeState>('gps_history_purge_get'),
-  gpsPurgeSet: (enabled: boolean) => rpc<GpsHistoryPurgeState>('gps_history_purge_set', { p_enabled: enabled }),
+  gpsPurgeSet: (opts: { enabled?: boolean | null; keepHours?: number | null }) =>
+    rpc<GpsHistoryPurgeState>('gps_history_purge_set', {
+      p_enabled: opts.enabled ?? null,
+      p_keep_hours: opts.keepHours ?? null,
+    }),
   gpsPurgeRunNow: () => rpc<GpsHistoryPurgeState>('gps_history_purge_run_now'),
   settings: async () => (await rpc<RetentionPolicy[] | null>('data_retention_settings_get')) ?? [],
   setPolicy: (p: { data_key: string; enabled: boolean; retention_months: number; export_required: boolean; requires_confirm: boolean; grace_days: number }) =>

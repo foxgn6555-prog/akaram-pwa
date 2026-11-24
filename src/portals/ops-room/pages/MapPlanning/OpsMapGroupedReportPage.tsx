@@ -14,7 +14,12 @@
 import { useMemo, useState } from 'react'
 import { Download, FileSpreadsheet, Filter, Info, Printer, X } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
-import { buildExcelReport, saveWorkbook, type ReportColumn } from '@lib/export/excel-report'
+import { buildExcelReport, saveWorkbookBuffer, type ReportColumn } from '@lib/export/excel-report'
+import {
+  archiveReport,
+  bytesText,
+  type ArchiveResult,
+} from '@features/map-planning/report-archive'
 import {
   EXPORT_KINDS,
   ALLEYS_ONLY_COLUMNS,
@@ -73,6 +78,13 @@ export default function MapGroupedReportPage() {
   const [filters, setFilters] = useState<GroupedFilters>({})
   const [showAllCols, setShowAllCols] = useState(false)
   const [busy, setBusy] = useState(false)
+  /**
+   * نتيجة الأرشفة آخر تصدير. نحتفظ بها بدل رسالة عابرة لأن المستخدم
+   * يحتاج **البصمة** بعد الإغلاق — هي رقم الإثبات الذي يُطابق الملف المرسل.
+   * `error` نصّ صريح: الرفع قد يفشل والتنزيل ينجح، ويجب أن يعرف أيّهما.
+   */
+  const [archived, setArchived] = useState<ArchiveResult | null>(null)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
   const { data: rows = [], isLoading, isError, error } = useVehicleVisitsGrouped(
     activeZoneId, from, to, filters,
@@ -166,7 +178,11 @@ export default function MapGroupedReportPage() {
         + (filters.confirmedOnly ? ' · المؤكد فقط' : '')
 
       const wb = await buildExcelReport({
-        sheetName: kind.label.slice(0, 28),
+        // اسم التبويب: `kind.label` كان يُقصّ أعمى عند 28 حرفاً. الآن يُمرَّر
+        // كما هو، و`buildExcelReport` يطبّعه عبر sanitizeSheetName (31 حرفاً،
+        // نزع المحارف الممنوعة، ضمان عدم التكرار). القاعدة تطبّقه مرة أخرى
+        // عند التسجيل — لا ثقة بالعميل في سجل رسمي.
+        sheetName: kind.label,
         company: GROUPED_HEADER.company,
         companySub: GROUPED_HEADER.companySub,
         title: `${kind.label} — ${groupedTitle(ctx.day, zoneName).replace(/^تقرير\s*/, '')}`,
@@ -182,7 +198,36 @@ export default function MapGroupedReportPage() {
           : { extraSheets, charts }),
         deferSave: true,
       })
-      await saveWorkbook(wb, `${kind.label}-${zoneName ?? 'زون'}-${from}.xlsx`)
+      const fileName = `${kind.label}-${zoneName ?? 'زون'}-${from}.xlsx`
+
+      // ── الأرشيف (الجولة ③) ────────────────────────────────────────────
+      // البايتات تُنتَج مرة واحدة وتُستخدم مرتين: تنزيل محلي + رفع للسجل.
+      // لا `writeBuffer()` مرتين — الملفان يجب أن يكونا متطابقين بايتاً ببايت،
+      // وإلا اختلفت بصمة ما رُفع عن بصمة ما نُزِّل.
+      const buffer = await wb.xlsx.writeBuffer()
+      setArchiveError(null)
+      setArchived(null)
+
+      // التنزيل أولاً: لو فشل الرفع (شبكة/صلاحية) يبقى الملف في يد المستخدم
+      // ويظهر سبب الفشل صريحاً — لا نُعدم عمله بسبب خطأ أرشفة.
+      await saveWorkbookBuffer(buffer, fileName)
+
+      try {
+        const result = await archiveReport({
+          buffer: buffer as ArrayBuffer,
+          kindId,
+          kindLabel: kind.label,
+          day: from,
+          sheetName: kind.label,
+          zoneId: activeZoneId,
+          zoneName,
+          filterCount: activeFilterCount,
+          rowsCount: data.length,
+        })
+        setArchived(result)
+      } catch (e) {
+        setArchiveError(e instanceof Error ? e.message : 'فشل غير معروف في الأرشفة')
+      }
     } finally {
       setBusy(false)
     }
@@ -217,6 +262,39 @@ export default function MapGroupedReportPage() {
           { to: '/ops-room/map-planning/visits', label: 'الزيارات', icon: 'list' },
         ]}
       />
+
+      {/* ── إثبات الأرشفة: البصمة تبقى على الشاشة، لا رسالة تختفي ── */}
+      {(archived || archiveError) && (
+        <section
+          data-testid="archive-proof"
+          className={`rounded-2xl border p-3 text-xs print:hidden ${
+            archived ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {archived ? (
+            <>
+              <p className="font-black">
+                حُفظ التقرير في الأرشيف · {bytesText(archived.bytes)} · {archived.file.rows_count} صفّاً
+              </p>
+              <p className="mt-1 break-all font-mono text-[10px] opacity-80" data-testid="archive-sha">
+                SHA-256: {archived.sha256}
+              </p>
+              <p className="mt-1 text-[10px] opacity-70">
+                اطابق أول ٨ محارف من البصمة مع الملف المُرسل للشركة — إن اختلفت فالملف ليس هو.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-black">نُزِّل الملف، لكن أرشفته فشلت</p>
+              <p className="mt-1 text-[11px]" data-testid="archive-error">{archiveError}</p>
+              <p className="mt-1 text-[10px] opacity-70">
+                الملف في يدك سليم — الفشل في حفظ النسخة الرسمية على الخادم فقط.
+                أعد المحاولة قبل حذف نقاط GPS (بعد ٤٨ ساعة لا يمكن إعادة بناء التقرير).
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       {/* ── الزون والمدى ── */}
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 print:hidden">
