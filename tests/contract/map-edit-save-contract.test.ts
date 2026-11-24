@@ -174,6 +174,23 @@ describe('③ تشخيص «لماذا لا تظهر زيارات؟» موجود 
     expect(visits).toMatch(/readiness\.find\(\(r\) => r\.level === 'fleet'\)/)
   })
 
+  it('جسم الدالة في المستودع هو المصدر: بلا مسافات مضغوطة ولا فروق تنسيق', () => {
+    const body = fnBody(readiness, 'public.map_visit_readiness')
+    // التنسيق مقصود (تعليقات في مواضعها) — الضغط يعني أن ما طُبّق ليس ما في الملف
+    expect(body).toContain('-- ── مجاميع الأسطول (غير منسوبة إلى زون بطبيعتها) ──')
+    expect(body).toContain('-- ── صفوف الزونات: الزيارات وحالة البناء ──')
+    expect(body).toContain('بلا ادّعاء نسبة')
+    // ولا سطر يزيد طوله على ٢٠٠ محرف ⇒ ليس نصاً مضغوطاً في سطر واحد
+    const longest = Math.max(...body.split('\n').map((l) => l.length))
+    expect(longest).toBeLessThan(400)
+  })
+
+  it('السطور الطويلة الوحيدة هي رسائل عربية مقصودة (format)', () => {
+    const body = fnBody(readiness, 'public.map_visit_readiness')
+    const long = body.split('\n').filter((l) => l.trim().length > 200)
+    for (const l of long) expect(l).toMatch(/format\(|^\s*'/)
+  })
+
   it('الرابط إلى ربط الأجهزة يستعمل Link لا <a href> (لا إعادة تحميل الصفحة)', () => {
     const visits = read('src/portals/ops-room/pages/MapPlanning/OpsMapVisitsPage.tsx')
     expect(visits).toContain("from 'react-router'")
