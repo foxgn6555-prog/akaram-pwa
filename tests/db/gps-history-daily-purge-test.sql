@@ -52,7 +52,7 @@ begin
   -- P2: الحالة الافتراضية مفعّلة وتعرض الحجم الحالي
   perform pg_temp.as_user(it1);
   js := public.gps_history_purge_get();
-  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50 or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0 or js ->> 'runs_at' <> '00:00 بغداد' then raise exception 'P2 get %', js; end if;
+  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50 or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0 or js ->> 'runs_at' <> '00:00 بغداد (21:00 UTC)' then raise exception 'P2 get %', js; end if;
   -- ─── 20261128000100: التفريغ المحمي ───
   -- P2-b: الشهادة مطلوبة — يوم بلا بناء يبقى كاملاً
   js := app.gps_history_daily_purge();
