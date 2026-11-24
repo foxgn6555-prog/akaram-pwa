@@ -5,6 +5,23 @@
 -- العقد الجديد: يُحذف ما تجاوز `keep_hours` (٤٨ ساعة) **بشرط شهادة بناء** لليوم البغدادي،
 -- وأي يوم بلا شهادة يُتجاوز ويُبلَّغ عنه ويبقى في الجدول.
 set client_min_messages = notice;
+
+create or replace function pg_temp.as_user(p uuid) returns void language sql as $$
+  select set_config('auth.user_id', p::text, false),
+         set_config('auth.role', 'authenticated', false),
+         set_config('request.jwt.claims',
+                    json_build_object('sub', p::text, 'role', 'authenticated')::text, false) $$;
+create or replace function pg_temp.as_service() returns void language sql as $$
+  select set_config('auth.user_id', '', false),
+         set_config('auth.role', 'service_role', false),
+         set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, false) $$;
+create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
+declare raised boolean := false; msg text;
+begin
+  begin execute p_sql; exception when others then raised := true; msg := sqlerrm; end;
+  if not raised then raise exception 'EXPECTED_ERROR_NOT_RAISED: % (wanted %)', p_sql, p_code; end if;
+  if position(p_code in msg) = 0 then raise exception 'WRONG_ERROR: got % wanted %', msg, p_code; end if;
+end $$;
 begin;
 insert into auth.users (id, email) values ('e9200000-0000-0000-0000-000000000001', 'it-pg@t.iq'), ('e9200000-0000-0000-0000-000000000002', 'ops-pg@t.iq') on conflict (id) do nothing;
 insert into public.user_roles (user_id, role) values ('e9200000-0000-0000-0000-000000000001', 'it_admin'), ('e9200000-0000-0000-0000-000000000002', 'ops_room') on conflict do nothing;
@@ -13,15 +30,9 @@ insert into public.gps_providers (id, name, type) values ('e920b000-0000-0000-00
 insert into public.gps_devices (id, provider_id, external_id, name, online_status) values ('e920c000-0000-0000-0000-000000000001', 'e920b000-0000-0000-0000-000000000001', 'PG-1', 'جهاز PG1', 'online') on conflict (id) do nothing;
 insert into public.garage_vehicles (id, vehicle_name, db_number, plate_number, chassis_number, image_path, driver_name, shift, sector_id, created_by) values
   ('e920a000-0000-0000-0000-000000000001', 'كابسة PG', 'DB-PG1', 'P-PG1', 'CH-PG001', 'g/pg.jpg', 'سائق', 'morning', 93, 'e9200000-0000-0000-0000-000000000001') on conflict (id) do nothing;
-create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false), set_config('auth.role', '', false) $$;
-create or replace function pg_temp.as_service() returns void language sql as $$ select set_config('auth.user_id', '', false), set_config('auth.role', 'service_role', false) $$;
-create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
-declare raised boolean := false; msg text;
-begin
-  begin execute p_sql; exception when others then raised := true; msg := sqlerrm; end;
-  if not raised then raise exception 'EXPECTED_ERROR_NOT_RAISED: % (wanted %)', p_sql, p_code; end if;
-  if position(p_code in msg) = 0 then raise exception 'WRONG_ERROR: got % wanted %', msg, p_code; end if;
-end $$;
+-- مستوى الجلسة (false) لا المعاملة (true): إعداد المعاملة يُلغى عند نهاية المعاملة،
+-- فتصبح الجلسة مجهولة والفشل «IT_FORBIDDEN» — وهو ما حدث فعلاً في CI.
+-- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
 do $$
 declare it1 uuid := 'e9200000-0000-0000-0000-000000000001'; ops uuid := 'e9200000-0000-0000-0000-000000000002'; dev uuid := 'e920c000-0000-0000-0000-000000000001';
         dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int;

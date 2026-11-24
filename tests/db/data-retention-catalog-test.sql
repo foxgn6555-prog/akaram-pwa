@@ -2,12 +2,11 @@
 -- ودورة كاملة على أنواع عامة (إشعارات مقروءة/غير مقروءة، تنبيهات GPS محلولة/غير محلولة، تدقيق رواتب محمي، محادثات مواطنين مع جلسات مفتوحة).
 set client_min_messages = notice;
 
--- 20261128000100: كان الملف غير محصّن (بلا begin/rollback) فلم يعمل حاجزاً في CI،
--- فمرّ نقص ٢٤ جدولاً (map_visits بينها) بلا اكتشاف. الآن يُرجَع كاملاً.
-begin;
-insert into auth.users (id, email) values ('dc000000-0000-0000-0000-000000000001', 'it-cat@t.iq'), ('dc000000-0000-0000-0000-000000000002', 'mgr-cat@t.iq'), ('dc000000-0000-0000-0000-000000000003', 'emp-cat@t.iq') on conflict (id) do nothing;
-insert into public.user_roles (user_id, role) values ('dc000000-0000-0000-0000-000000000001', 'it_admin'), ('dc000000-0000-0000-0000-000000000002', 'department_manager') on conflict do nothing;
-create or replace function pg_temp.as_user(p uuid) returns void language sql as $$ select set_config('auth.user_id', p::text, false) $$;
+create or replace function pg_temp.as_user(p uuid) returns void language sql as $$
+  select set_config('auth.user_id', p::text, false),
+         set_config('auth.role', 'authenticated', false),
+         set_config('request.jwt.claims',
+                    json_build_object('sub', p::text, 'role', 'authenticated')::text, false) $$;
 create or replace function pg_temp.expect_error(p_sql text, p_code text) returns void language plpgsql as $$
 declare raised boolean := false; msg text;
 begin
@@ -17,6 +16,14 @@ begin
 end $$;
 
 -- ─────────────── A) سلامة الكتالوج نفسه ───────────────
+begin;
+
+-- 20261128000100: كان الملف غير محصّن (بلا begin/rollback) فلم يعمل حاجزاً في CI،
+-- فمرّ نقص ٢٤ جدولاً (map_visits بينها) بلا اكتشاف. الآن يُرجَع كاملاً.
+insert into auth.users (id, email) values ('dc000000-0000-0000-0000-000000000001', 'it-cat@t.iq'), ('dc000000-0000-0000-0000-000000000002', 'mgr-cat@t.iq'), ('dc000000-0000-0000-0000-000000000003', 'emp-cat@t.iq') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values ('dc000000-0000-0000-0000-000000000001', 'it_admin'), ('dc000000-0000-0000-0000-000000000002', 'department_manager') on conflict do nothing;
+-- مستوى الجلسة (false) لا المعاملة (true): إعداد المعاملة يُلغى عند نهاية المعاملة.
+-- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
 do $$
 declare missing text; extra text; bad text; n int; c record; t bigint; l bigint;
 begin

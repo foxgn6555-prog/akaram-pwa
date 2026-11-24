@@ -328,3 +328,65 @@ describe('groupedDrivers — قائمة فلتر السائق', () => {
     })).rejects.toThrow()
   })
 })
+
+/* ═══ 20261128000400: مصدر الأرشيف وحارس التصدير ═══ */
+describe('mapPlanningSdk — الأرشيف وحارس الحذف', () => {
+  it('visitReports يمرّر المدى والزون، ويُعيد الصفوف كما هي', async () => {
+    h.state.result = {
+      data: [{ placeday: '2026-11-01', visits_count: 380, zones_count: 8, days_count: 1 }],
+      error: null,
+    }
+    const rows = await mapPlanningSdk.visitReports({ from: '2026-11-01', to: '2026-11-02', zoneId: 'z1' })
+    expect(h.state.calls.rpc.at(-1)).toEqual({
+      fn: 'gps_visit_reports',
+      args: { p_from: '2026-11-01', p_to: '2026-11-02', p_zone: 'z1' },
+    })
+    expect(rows[0]?.visits_count).toBe(380)
+  })
+
+  it('visitReports بلا to يجعل p_to = p_from (يوم واحد)، وبلا zone يُمرّر null', async () => {
+    await mapPlanningSdk.visitReports({ from: '2026-11-01' })
+    expect(h.state.calls.rpc.at(-1)).toEqual({
+      fn: 'gps_visit_reports',
+      args: { p_from: '2026-11-01', p_to: '2026-11-01', p_zone: null },
+    })
+  })
+
+  it('visitReports: ردّ فارغ يُعيد مصفوفة لا undefined', async () => {
+    h.state.result = { data: null, error: null }
+    expect(await mapPlanningSdk.visitReports({ from: '2026-11-01' })).toEqual([])
+  })
+
+  it('visitReports: خطأ القاعدة يُرمى بنصّه — لا يُبتلع', async () => {
+    h.state.result = { data: null, error: { message: 'GPS_VISIT_REPORTS_RANGE: المدى يتجاوز 366' } }
+    await expect(mapPlanningSdk.visitReports({ from: '2024-01-01', to: '2026-01-01' }))
+      .rejects.toThrow(/366/)
+  })
+
+  it('visitPurgeGuard: keepDays افتراضي ٣٠ ويُمرَّر صريحاً', async () => {
+    await mapPlanningSdk.visitPurgeGuard({ cutoff: '2026-11-01' })
+    expect(h.state.calls.rpc.at(-1)).toEqual({
+      fn: 'map_visits_purge_guard',
+      args: { p_cutoff: '2026-11-01', p_keep_days: 30 },
+    })
+    await mapPlanningSdk.visitPurgeGuard({ cutoff: '2026-11-01', keepDays: 7 })
+    expect(h.state.calls.rpc.at(-1)).toEqual({
+      fn: 'map_visits_purge_guard',
+      args: { p_cutoff: '2026-11-01', p_keep_days: 7 },
+    })
+  })
+
+  it('visitPurgeGuard: يوم محظور يصل بحقوله الأربعة كما هي', async () => {
+    h.state.result = {
+      data: [{ placeday: '2026-11-23', visits: 380, days_old: 1, exported: false, can_purge: false, reason: 'لا تصدير' }],
+      error: null,
+    }
+    const g = await mapPlanningSdk.visitPurgeGuard({ cutoff: '2026-11-24' })
+    expect(g[0]).toMatchObject({ can_purge: false, exported: false })
+  })
+
+  it('visitPurgeGuard: خطأ يُرمى ولا يُفسَّر كإذن', async () => {
+    h.state.result = { data: null, error: { message: 'RETENTION_FORBIDDEN' } }
+    await expect(mapPlanningSdk.visitPurgeGuard({ cutoff: '2026-11-01' })).rejects.toThrow(/FORBIDDEN/)
+  })
+})
