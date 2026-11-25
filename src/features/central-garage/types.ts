@@ -78,7 +78,7 @@ export interface CreateGarageVehicleInput {
   modelYear?: number | null
   vehicleColor?: string | null
   specifications?: string | null
-  image: File
+  image?: File | null
   shift: GarageShift
   /** سائق موظف (HR) — أو سائق متعهد (00375)؛ واحد منهما فقط */
   driverEmployeeId: string | null

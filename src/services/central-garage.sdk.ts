@@ -285,7 +285,8 @@ export const centralGarage = {
   },
 
   async createVehicle(input: CreateGarageVehicleInput): Promise<GarageVehicle> {
-    const imagePath = await uploadVehicleImage(input.image)
+    let imagePath: string | null = null
+    if (input.image) imagePath = await uploadVehicleImage(input.image)
     try {
       const data = await sdkGuard(
         supabase.rpc('garage_add_vehicle', {
@@ -293,7 +294,7 @@ export const centralGarage = {
           p_db_number: input.dbNumber,
           p_plate_number: input.plateNumber,
           p_chassis_number: input.chassisNumber,
-          p_image_path: imagePath,
+          p_image_path: imagePath ?? '',
           p_shift: input.shift,
           p_driver_employee_id: input.driverEmployeeId || null,
           p_sector_id: input.sectorId,
@@ -320,7 +321,7 @@ export const centralGarage = {
       )
       return vehicleRow(data as unknown as Record<string, unknown>)
     } catch (error) {
-      await supabase.storage.from('garage-vehicles').remove([imagePath])
+      if (imagePath) await supabase.storage.from('garage-vehicles').remove([imagePath])
       throw error
     }
   },
