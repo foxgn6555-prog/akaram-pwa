@@ -44,10 +44,6 @@ const blank = {
   chassisNumber: '',
   vehicleCategory: 'other' as keyof typeof GARAGE_VEHICLE_CATEGORY_LABELS,
   ownershipType: 'owned' as keyof typeof GARAGE_OWNERSHIP_LABELS,
-  lessorName: '',
-  rentalContractNo: '',
-  rentalStartDate: '',
-  rentalEndDate: '',
   modelYear: '',
   vehicleColor: '',
   specifications: '',
@@ -216,10 +212,6 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
         // إعادة تعيين معرف السائق عند التغيير لتجنب قيم غير صالحة
         driverEmployeeId: isRented ? '' : current.driverEmployeeId,
         driverExternalId: !isRented ? '' : current.driverExternalId,
-        lessorName: isRented ? current.lessorName : '',
-        rentalContractNo: isRented ? current.rentalContractNo : '',
-        rentalStartDate: isRented ? current.rentalStartDate : '',
-        rentalEndDate: isRented ? current.rentalEndDate : '',
       }))
     } else if (key === 'driverKind') {
       // تتبّع أن المستخدم غيّر نوع السائق يدوياً
@@ -294,7 +286,7 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
           </button>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Field label="صورة الآلية" error={errors.image} wide>
+          <Field label="صورة الآلية" error={errors.image} wide optional>
             <label className="flex min-h-36 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-cyan-200 bg-cyan-50/50">
               {preview ? (
                 <img src={preview} alt="معاينة الآلية" className="h-44 w-full object-cover" />
@@ -350,43 +342,6 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
               ))}
             </select>
           </Field>
-          {form.ownershipType === 'rented' && (
-            <>
-              <Field label="اسم الجهة المؤجرة" error={errors.lessorName}>
-                <input
-                  data-testid="vehicle-lessor"
-                  className={inputClass}
-                  value={form.lessorName}
-                  onChange={(e) => update('lessorName', e.target.value)}
-                />
-              </Field>
-              <Field label="رقم عقد الإيجار" error={errors.rentalContractNo} optional>
-                <input
-                  data-testid="vehicle-contract"
-                  className={inputClass}
-                  value={form.rentalContractNo}
-                  onChange={(e) => update('rentalContractNo', e.target.value)}
-                />
-              </Field>
-              <Field label="بداية الإيجار" error={errors.rentalStartDate} optional>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={form.rentalStartDate}
-                  onChange={(e) => update('rentalStartDate', e.target.value)}
-                />
-              </Field>
-              <Field label="نهاية الإيجار" error={errors.rentalEndDate} optional>
-                <input
-                  type="date"
-                  min={form.rentalStartDate}
-                  className={inputClass}
-                  value={form.rentalEndDate}
-                  onChange={(e) => update('rentalEndDate', e.target.value)}
-                />
-              </Field>
-            </>
-          )}
           <Field label="رقم DB" error={errors.dbNumber}>
             <input
               data-testid="vehicle-db"
