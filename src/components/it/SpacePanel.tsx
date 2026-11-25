@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { AlertTriangle, Database, HardDrive, Settings2, Sparkles, Warehouse, Zap } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertTriangle, Activity, Clock, Database, HardDrive, Layers, Settings2, Sparkles, Warehouse, Zap } from 'lucide-react'
 import { formatDateTime } from '@lib/utils/date.utils'
 import { SPACE_BUCKET_LABEL, SPACE_RECLAIM_NOTE, SPACE_RECLAIM_STATUS, type SpaceOverview, type SpacePlan } from '@sdk/space.sdk'
 import { useSetSpacePlan, useSpaceOverview, useSpaceReclaimNow } from '@features/space/hooks'
+import { supabase } from '@sdk/client'
 
 /**
  * 📦 لوحة المساحة (00370) — رئيسية بوابة التطوير المركزية
@@ -49,6 +50,67 @@ export default function SpacePanel() {
   const [dbGb, setDbGb] = useState('')
   const [stGb, setStGb] = useState('')
   const [confirmReclaim, setConfirmReclaim] = useState(false)
+  // عداد بناء الزيارات
+  const [buildStats, setBuildStats] = useState<{ pending: number; processing: number; done: number }>({ pending: 0, processing: 0, done: 0 })
+  const [buildLoading, setBuildLoading] = useState(false)
+
+  // عداد معالجة الزيارات من السحب اليدوي من المزود
+  const [manualPullStats, setManualPullStats] = useState<{ pending: number; processing: number; done: number; failed: number }>({ pending: 0, processing: 0, done: 0, failed: 0 })
+  const [manualPullLoading, setManualPullLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setBuildLoading(true)
+      setManualPullLoading(true)
+      try {
+        const [pendingRes, processingRes, doneRes] = await Promise.all([
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'done'),
+        ])
+        if (!cancelled) {
+          setBuildStats({
+            pending: pendingRes.count ?? 0,
+            processing: processingRes.count ?? 0,
+            done: doneRes.count ?? 0,
+          })
+        }
+      } catch {
+        // تجاهل الأخطاء صامتاً — العداد غير معطل للواجهة
+      } finally {
+        if (!cancelled) setBuildLoading(false)
+      }
+    }
+
+    async function loadManualPull() {
+      try {
+        const [pendingRes, processingRes, doneRes, failedRes] = await Promise.all([
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'done'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'failed'),
+        ])
+        if (!cancelled) {
+          setManualPullStats({
+            pending: pendingRes.count ?? 0,
+            processing: processingRes.count ?? 0,
+            done: doneRes.count ?? 0,
+            failed: failedRes.count ?? 0,
+          })
+        }
+      } catch {
+        // تجاهل الأخطاء صامتاً
+      } finally {
+        if (!cancelled) setManualPullLoading(false)
+      }
+    }
+
+    load()
+    loadManualPull()
+    return () => { cancelled = true }
+  }, [])
+
   const d: SpaceOverview | undefined = q.data
   if (q.isLoading) return <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-500">جارٍ قياس المساحة…</div>
   if (!d) return null
@@ -137,6 +199,59 @@ export default function SpacePanel() {
           )}
         </div>
       </div>
+      {/* عداد بناء الزيارات — بوابة تقنية المعلومات */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="visit-build-counter">
+        <div className="flex items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-2 text-xs font-black text-slate-700">
+            <Activity size={14} className="text-sky-700" /> بناء الزيارات — حالة الطابور
+          </div>
+          {buildLoading ? (
+            <span className="text-[10px] text-slate-500">جارٍ التحميل…</span>
+          ) : (
+            <div className="flex gap-3 text-xs font-black">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-800">
+                <Clock size={11} /> في الانتظار: <b dir="ltr">{buildStats.pending}</b>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
+                <Layers size={11} /> جارٍ البناء: <b dir="ltr">{buildStats.processing}</b>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">
+                <Activity size={11} /> مكتمل: <b dir="ltr">{buildStats.done}</b>
+              </span>
+            </div>
+          )}
+        </div>
+        <p className="mt-1 text-[10px] text-slate-500">يُحدّث تلقائياً — كل منطقة تبنى على دفعات صغيرة دون ضغط على قاعدة البيانات.</p>
+      </div>
+
+      {/* عداد معالجة الزيارات من السحب اليدوي من المزود */}
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 shadow-sm" data-testid="manual-pull-visit-counter">
+        <div className="flex items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-2 text-xs font-black text-blue-900">
+            <Activity size={14} className="text-blue-700" /> معالجة الزيارات من السحب اليدوي
+          </div>
+          {manualPullLoading ? (
+            <span className="text-[10px] text-slate-500">جارٍ التحميل…</span>
+          ) : (
+            <div className="flex gap-3 text-xs font-black">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-amber-800">
+                <Clock size={11} /> في الانتظار: <b dir="ltr">{manualPullStats.pending}</b>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
+                <Layers size={11} /> جارٍ المعالجة: <b dir="ltr">{manualPullStats.processing}</b>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">
+                <Activity size={11} /> مكتمل: <b dir="ltr">{manualPullStats.done}</b>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-rose-800">
+                <AlertTriangle size={11} /> فاشل: <b dir="ltr">{manualPullStats.failed}</b>
+              </span>
+            </div>
+          )}
+        </div>
+        <p className="mt-1 text-[10px] text-slate-500">يُحدّث تلقائياً — visitas الأيام القديمة المسحوبة يدوياً تُحذف بعد 3 أيام.</p>
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="space-tables">
           <h3 className="text-xs font-black text-slate-700">أكبر الجداول (الحجم · الصفوف · نسبة الشطب)</h3>
