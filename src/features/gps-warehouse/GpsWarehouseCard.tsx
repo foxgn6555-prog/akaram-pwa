@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import { ClipboardCopy, Database, Pause, Play, RefreshCw, RotateCcw } from 'lucide-react'
+import { supabase } from '@sdk/client'
 import { useGpsWarehouseAction, useGpsWarehouseLink } from '@features/gps-warehouse/hooks'
 import { explainLvnError } from '@features/gps-lvn/lvn-errors'
 import type { GpsWarehouseMonthProgress } from '@sdk/gps-warehouse.sdk'
@@ -50,6 +51,24 @@ export default function GpsWarehouseCard() {
   const spaceQ = useSpaceOverview()
   const toast = useUiStore((st) => st.addToast)
   const failedTotal = progress?.failed_total ?? progress?.months.reduce((a, m) => a + m.failed, 0) ?? 0
+
+  /** عند السحب اليدوي من المزود: أضف سجلاً إلى طابور معالجة الزيارات ليظهر العداد في بوابة IT */
+  const enqueueManualPullVisit = async () => {
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD بتوقيت محلي (بغداد)
+    try {
+      const { error } = await supabase.rpc('enqueue_manual_pull_visit', {
+        p_target_date: today,
+        p_shift_type: 'full_day',
+        p_pull_source: 'manual',
+      })
+      if (error) {
+        // تجاهل الأخطاء صامتاً — السحب نجح، العداد مكمل غير حاسم
+        console.warn('enqueue_manual_pull_visit:', error.message)
+      }
+    } catch {
+      // تجاهل الأخطاء صامتاً
+    }
+  }
   const retryFailed = () => { if (window.confirm(`إعادة ${failedTotal} مهمة فاشلة إلى الطابور؟ ستُسحب من جديد مع الدورات التالية.`)) run('retry_failed') }
   const copyDiagnostics = async () => {
     const text = buildWarehouseDiagnostics(link ?? null, spaceQ.data ?? null)
@@ -213,7 +232,7 @@ export default function GpsWarehouseCard() {
         <label className="flex items-center gap-1 text-[11px] font-bold text-slate-600">شهر السحب<input type="month" value={month} max={monthNow()} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border px-2 py-1.5 text-xs" data-testid="gps-warehouse-month" /></label>
         <button type="button" onClick={() => run('enqueue_month')} disabled={busy || state !== 'ok' || !link?.last_registry_sync_at || !month} className="rounded-xl border px-3 py-2 text-slate-800 disabled:opacity-50" data-testid="gps-warehouse-enqueue-btn">جدولة سحب الشهر</button>
         <span className="mx-1 h-5 border-r" />
-        <button type="button" onClick={() => run('pull')} disabled={busy || state !== 'ok' || paused} className="rounded-xl bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" data-testid="gps-warehouse-pull-btn">سحب دفعة الآن</button>
+        <button type="button" onClick={async () => { await run('pull'); await enqueueManualPullVisit() }} disabled={busy || state !== 'ok' || paused} className="rounded-xl bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" data-testid="gps-warehouse-pull-btn">سحب دفعة الآن</button>
         {paused
           ? <button type="button" onClick={() => run('resume')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-emerald-800 disabled:opacity-50" data-testid="gps-warehouse-resume-btn"><Play size={14} />استئناف السحب</button>
           : <button type="button" onClick={() => run('pause')} disabled={busy || state !== 'ok'} className="inline-flex items-center gap-1 rounded-xl border px-3 py-2 text-rose-800 disabled:opacity-50" data-testid="gps-warehouse-pause-btn"><Pause size={14} />إيقاف مؤقت</button>}

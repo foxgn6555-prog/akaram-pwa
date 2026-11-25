@@ -4,8 +4,10 @@
  * قراءة فقط؛ تتحدث كل 30 ثانية؛ كل مؤشر بلون وشرح بلغة بسيطة.
  */
 import clsx from 'clsx'
+import { useState, useEffect } from 'react'
 import { useDevOpsStatus, useEdgeHealth } from '@features/devops-status/hooks'
 import { EDGE_FUNCTIONS, type DevOpsDevice } from '@sdk/devops.sdk'
+import { supabase } from '@sdk/client'
 
 type Tone = 'ok' | 'warn' | 'bad' | 'muted'
 const TONE: Record<Tone, string> = { ok: 'bg-emerald-100 text-emerald-800 border-emerald-200', warn: 'bg-amber-100 text-amber-800 border-amber-200', bad: 'bg-rose-100 text-rose-800 border-rose-200', muted: 'bg-slate-100 text-slate-600 border-slate-200' }
@@ -43,6 +45,68 @@ function Card({ title, value, hint, tone = 'muted', testId }: { title: string; v
 export default function DevOpsStatusPage() {
   const q = useDevOpsStatus(), edge = useEdgeHealth()
   const s = q.data?.status, lat = q.data?.latency_ms
+  // عداد بناء الزيارات — بوابة تقنية المعلومات
+  const [buildStats, setBuildStats] = useState<{ pending: number; processing: number; done: number }>({ pending: 0, processing: 0, done: 0 })
+  const [buildLoading, setBuildLoading] = useState(false)
+
+  // عداد معالجة الزيارات من السحب اليدوي من المزود
+  const [manualPullStats, setManualPullStats] = useState<{ pending: number; processing: number; done: number; failed: number }>({ pending: 0, processing: 0, done: 0, failed: 0 })
+  const [manualPullLoading, setManualPullLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setBuildLoading(true)
+      setManualPullLoading(true)
+      try {
+        const [pendingRes, processingRes, doneRes] = await Promise.all([
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
+          supabase.from('visit_build_queue').select('*', { count: 'exact', head: true }).eq('status', 'done'),
+        ])
+        if (!cancelled) {
+          setBuildStats({
+            pending: pendingRes.count ?? 0,
+            processing: processingRes.count ?? 0,
+            done: doneRes.count ?? 0,
+          })
+        }
+      } catch {
+        // تجاهل الأخطاء صامتاً
+      } finally {
+        if (!cancelled) setBuildLoading(false)
+      }
+    }
+
+    async function loadManualPull() {
+      try {
+        const [pendingRes, processingRes, doneRes, failedRes] = await Promise.all([
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'done'),
+          supabase.from('manual_pull_visit_queue').select('*', { count: 'exact', head: true }).eq('status', 'failed'),
+        ])
+        if (!cancelled) {
+          setManualPullStats({
+            pending: pendingRes.count ?? 0,
+            processing: processingRes.count ?? 0,
+            done: doneRes.count ?? 0,
+            failed: failedRes.count ?? 0,
+          })
+        }
+      } catch {
+        // تجاهل الأخطاء صامتاً
+      } finally {
+        if (!cancelled) setManualPullLoading(false)
+      }
+    }
+
+    load()
+    loadManualPull()
+    return () => { cancelled = true }
+    load()
+    return () => { cancelled = true }
+  }, [])
   const dbTone: Tone = q.isError ? 'bad' : !s ? 'muted' : (lat ?? 0) > 2000 ? 'warn' : 'ok'
   const devices = s?.biometric.devices ?? []
   // «غير مستخدمة حالياً» لا تُحتسب إنذاراً: لا شيء يعتمد عليها في المنتج اليوم
@@ -133,6 +197,36 @@ export default function DevOpsStatusPage() {
           <Card title="آخر إحداثية" value={ago(s?.gps.last_fix_at)} hint={fmt(s?.gps.last_fix_at)} tone={!s ? 'muted' : !s.gps.last_fix_at ? 'muted' : Date.now() - new Date(s.gps.last_fix_at).getTime() < 600_000 ? 'ok' : 'warn'} testId="gps-last" />
           <Card title="آليات أرسلت خلال ١٠ دقائق" value={s?.gps.vehicles_10m ?? '…'} tone={!s ? 'muted' : s.gps.vehicles_10m ? 'ok' : 'warn'} testId="gps-live" />
         </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-black">٥ · بناء الزيارات</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="visit-build-cards">
+          <Card title="في الانتظار" value={buildStats.pending} hint="مناطق تنتظر البناء" tone={buildStats.pending > 0 ? 'warn' : 'ok'} testId="vb-pending" />
+          <Card title="جارٍ البناء" value={buildStats.processing} hint="مناطق تُبنى الآن" tone={buildStats.processing > 0 ? 'ok' : 'muted'} testId="vb-processing" />
+          <Card title="مكتمل" value={buildStats.done} hint="مناطق اكتمل بناؤها" tone={buildStats.done > 0 ? 'ok' : 'muted'} testId="vb-done" />
+          {buildLoading ? (
+            <Card title="الحالة" value="جارٍ التحميل…" hint="تُجلب البيانات من Supabase" tone="muted" testId="vb-loading" />
+          ) : (
+            <Card title="آخر تحديث" value="الآن" hint="العداد محدث تلقائياً" tone="ok" testId="vb-updated" />
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">يُبنى يوم 24 نوفمبر (الشفت المسائي) على دفعات خلال يوم 25 نوفمبر — بدون ضغط على قاعدة البيانات.</p>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-black">٦ · معالجة الزيارات من السحب اليدوي</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="manual-pull-visit-cards">
+          <Card title="في الانتظار" value={manualPullStats.pending} hint="انتظار المعالجة بعد السحب" tone={manualPullStats.pending > 0 ? 'warn' : 'ok'} testId="mpv-pending" />
+          <Card title="جارٍ المعالجة" value={manualPullStats.processing} hint="تُحول نقاط GPS إلى زيارات الآن" tone={manualPullStats.processing > 0 ? 'ok' : 'muted'} testId="mpv-processing" />
+          <Card title="مكتمل" value={manualPullStats.done} hint="الزيارات جاهزة للعرض" tone={manualPullStats.done > 0 ? 'ok' : 'muted'} testId="mpv-done" />
+          {manualPullLoading ? (
+            <Card title="الحالة" value="جارٍ التحميل…" hint="تُجلب البيانات من Supabase" tone="muted" testId="mpv-loading" />
+          ) : (
+            <Card title="فاشل" value={manualPullStats.failed} hint="فشل في المعالجة" tone={manualPullStats.failed > 0 ? 'bad' : 'ok'} testId="mpv-failed" />
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">visits الأيام القديمة المسحوبة يدوياً تُحذف بعد 3 أيام فقط.</p>
       </section>
     </div>
   )
