@@ -35,11 +35,11 @@ const DEDUCTION_STATE_CLS: Record<string, string> = { awaiting_export: 'bg-amber
 
 export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, onPrint, extraActions }: DisclosureDetailDrawerProps) {
   const q = useDisclosureDetail(id)
-  const { submit, decide, cancel } = useDisclosureActions()
+  const { submit, decide, cancel, reject } = useDisclosureActions()
   const d = q.data
   const [amount, setAmount] = useState<string>('')
   const [note, setNote] = useState('')
-  const [mode, setMode] = useState<'none' | 'return' | 'cancel'>('none')
+  const [mode, setMode] = useState<'none' | 'return' | 'cancel' | 'reject'>('none')
   useEffect(() => { setAmount(d?.amount != null ? String(d.amount) : ''); setNote(''); setMode('none') }, [d?.id, d?.amount, d?.status])
   useEffect(() => {
     if (!id) return
@@ -78,6 +78,12 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
               )}
               {d.status === 'cancelled' && (
                 <div className="rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700"><b>ملغى</b> بواسطة {d.cancelled_by_name ?? '—'} · {fmtDateTime(d.cancelled_at)}<div className="mt-1">{d.cancel_reason}</div></div>
+              )}
+              {d.status === 'rejected' && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" data-testid="disc-rejected-banner">
+                  <div className="font-black">مرفوض / معفى الموظف · {d.rejected_by_name ?? '—'} · {fmtDateTime(d.rejected_at)}</div>
+                  <div className="mt-1 whitespace-pre-wrap">{d.reject_reason}</div>
+                </div>
               )}
               {d.status === 'approved' && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" data-testid="disc-approved-banner">
@@ -152,12 +158,19 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
                     <div className="flex items-end gap-2">
                       <button type="button" className={btnPrimary} disabled={busy || amountBad} data-testid="decide-approve" onClick={() => decide.mutate({ id: d.id, approve: true, amount: amountNum, note: note || null }, { onSuccess: (r) => { if (r.status !== 'pending') onClose() } })}>اعتماد</button>
                       <button type="button" className={btnDanger} disabled={busy} data-testid="decide-return-open" onClick={() => setMode(mode === 'return' ? 'none' : 'return')}>إعادة بسبب</button>
+                      <button type="button" className={btnDanger} disabled={busy} data-testid="decide-reject-open" onClick={() => setMode(mode === 'reject' ? 'none' : 'reject')}>رفض / إعfas</button>
                     </div>
                   </div>
                   {mode === 'return' && (
                     <div className="mt-2 grid gap-2">
                       <Field label="سبب الإعادة (يصل إلى غرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثال: نقص في المعلومات — أضف اسم السائق الصحيح" data-testid="decide-reason" /></Field>
                       <button type="button" className={btnDanger} disabled={busy || note.trim().length < 3} data-testid="decide-return" onClick={() => decide.mutate({ id: d.id, approve: false, note: note.trim() }, { onSuccess: onClose })}>تأكيد الإعادة إلى غرفة العمليات</button>
+                    </div>
+                  )}
+                  {mode === 'reject' && (
+                    <div className="mt-2 grid gap-2 rounded-2xl border border-rose-200 bg-rose-50/50 p-3">
+                      <Field label="سبب الرفض / الإعfas (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لايُعfal الموظف" data-testid="decide-reject-reason" /></Field>
+                      <button type="button" className={btnDanger} disabled={busy || note.trim().length < 3} data-testid="decide-reject" onClick={() => reject.mutate({ id: d.id, reason: note.trim() }, { onSuccess: onClose })}>تأكيد الرفض واعفاء الموظف</button>
                     </div>
                   )}
                 </section>

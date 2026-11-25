@@ -47,7 +47,8 @@ export function useDisclosureActions() {
   const decide = useMutation({ mutationFn: (v: { id: string; approve: boolean; note?: string | null; amount?: number | null }) => disclosuresUnit.decide(v.id, v.approve, v.note, v.amount),
     onSuccess: (d) => { inv(); refreshApprovals(); t.ok(d.status === 'approved' ? `اعتُمد الكشف ${d.ref_no ?? ''}${d.deduction_posted ? ' وأُضيف الاستقطاع للحضورية' : ''}` : d.status === 'returned' ? 'أُعيد الكشف إلى غرفة العمليات' : 'سُجّلت موافقتك — انتقل للخطوة التالية') }, onError: t.err })
   const cancel = useMutation({ mutationFn: (v: { id: string; reason: string }) => disclosuresUnit.cancel(v.id, v.reason), onSuccess: () => { inv(); refreshApprovals(); t.ok('أُلغي الكشف وبُلّغ المدير المفوض') }, onError: t.err })
-  return { save, submit, decide, cancel }
+  const reject = useMutation({ mutationFn: (v: { id: string; reason: string }) => disclosuresUnit.reject(v.id, v.reason), onSuccess: (d) => { inv(); refreshApprovals(); t.ok(`تم رفض الكشف ${d.ref_no ?? ''} واعفاء الموظف منه`) }, onError: t.err })
+  return { save, submit, decide, cancel, reject }
 }
 
 // ─── إخفاء وحدات بوابة لحساب ───

@@ -5,7 +5,7 @@ import { fmtDate, fmtIqd, penaltyLabel } from './ui'
 
 const STATUS_TONE: Record<DisclosureStatusV2, string> = {
   draft: 'bg-slate-100 text-slate-700', pending: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200', returned: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
-  approved: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', cancelled: 'bg-slate-200 text-slate-600 line-through',
+  approved: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', cancelled: 'bg-slate-200 text-slate-600 line-through', rejected: 'bg-rose-100 text-rose-900 ring-1 ring-rose-300',
 }
 export function StatusBadge({ status, step }: { status: DisclosureStatusV2; step?: string | null }) {
   return (

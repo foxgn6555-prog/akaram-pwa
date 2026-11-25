@@ -7,7 +7,7 @@ import { SHIFT_LABELS_LIVE } from './hr-shifts.sdk'
 import { sdkGuard, supabase } from './client'
 
 export type DisclosureTargetKind = 'vehicle' | 'employee'
-export type DisclosureStatusV2 = 'draft' | 'pending' | 'returned' | 'approved' | 'cancelled'
+export type DisclosureStatusV2 = 'draft' | 'pending' | 'returned' | 'approved' | 'cancelled' | 'rejected'
 export type PenaltyKey = 'warning' | 'reprimand' | 'termination' | 'fine'
 
 export interface DisclosureType {
@@ -33,6 +33,7 @@ export interface DisclosureV2 {
   prepared_by: string | null; prepared_by_name: string | null; submitted_at: string | null; resubmit_count: number; chain_id: string | null
   current_step: string | null; current_approvers: string[]; can_decide: boolean
   return_reason: string | null; returned_by_name: string | null; returned_at: string | null
+  reject_reason: string | null; rejected_by_name: string | null; rejected_at: string | null
   approved_by_name: string | null; approved_at: string | null; cancelled_by_name: string | null; cancelled_at: string | null; cancel_reason: string | null
   deduction_posted: boolean; deduction_month: string | null; deduction_note: string | null
   /** 00185 — حالة الاستقطاع في سلسلة المالية */
@@ -45,7 +46,7 @@ export interface DisclosureInput {
   vehicle_type?: string | null; contractor_name?: string | null; sector?: string | null; shift?: string | null; log_date: string
   violation_type: string; penalty_type?: PenaltyKey | null; details: string; amount?: number | null
 }
-export type DisclosureScope = 'active' | 'returned' | 'pending' | 'draft' | 'archive' | 'approved' | 'cancelled' | 'all'
+export type DisclosureScope = 'active' | 'returned' | 'pending' | 'draft' | 'archive' | 'approved' | 'cancelled' | 'rejected' | 'all'
 export interface DisclosureListFilter { scope?: DisclosureScope; from?: string | null; to?: string | null; type?: string | null; q?: string | null; month?: string | null; limit?: number }
 export interface DisclosureStats {
   month: string; total: number; by_status: Partial<Record<DisclosureStatusV2, number>>; by_type: Array<{ key: string; label: string; count: number }>
@@ -53,7 +54,7 @@ export interface DisclosureStats {
   months: Array<{ month: string; count: number }>
 }
 
-export const DISCLOSURE_STATUS_LABEL: Record<DisclosureStatusV2, string> = { draft: 'مسودة', pending: 'قيد الموافقة', returned: 'مُعاد للتصحيح', approved: 'معتمد', cancelled: 'ملغى' }
+export const DISCLOSURE_STATUS_LABEL: Record<DisclosureStatusV2, string> = { draft: 'مسودة', pending: 'قيد الموافقة', returned: 'مُعاد للتصحيح', approved: 'معتمد', cancelled: 'ملغى', rejected: 'مرفوض / معفى' }
 export const PENALTY_LABEL: Record<PenaltyKey, string> = { warning: 'إنذار', reprimand: 'توبيخ', termination: 'إنهاء خدمة', fine: 'غرامة مالية' }
 export const SHIFT_LABEL: Record<string, string> = SHIFT_LABELS_LIVE
 export const EVENT_LABEL: Record<string, string> = {
@@ -158,6 +159,8 @@ export const disclosuresUnit = {
   submit(id: string) { return rpc<DisclosureV2>('disclosure_submit', { p_id: id }) },
   decide(id: string, approve: boolean, note?: string | null, amount?: number | null) { return rpc<DisclosureV2>('disclosure_decide', { p_id: id, p_approve: approve, p_note: note ?? null, p_amount: amount ?? null }) },
   cancel(id: string, reason: string) { return rpc<DisclosureV2>('disclosure_cancel', { p_id: id, p_reason: reason }) },
+  /** 00306: رفض الكشف واعفاء الموظف منه — للمُعتمدين فقط */
+  reject(id: string, reason: string) { return rpc<DisclosureV2>('disclosure_reject', { p_id: id, p_reason: reason }) },
   get(id: string) { return rpc<DisclosureV2>('disclosure_get', { p_id: id }) },
   list(f: DisclosureListFilter = {}) {
     return rpc<DisclosureV2[]>('disclosures_list', { p_scope: f.scope ?? 'active', p_from: f.from ?? null, p_to: f.to ?? null, p_type: f.type || null, p_q: f.q?.trim() || null, p_month: f.month ? `${f.month.slice(0, 7)}-01` : null, p_limit: f.limit ?? 500 })

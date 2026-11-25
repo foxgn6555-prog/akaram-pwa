@@ -11,7 +11,7 @@ const mk = (o: Partial<DisclosureV2>): DisclosureV2 => ({
   id: 'x', ref_no: 'DS-2026-00001', status: 'pending', target_kind: 'vehicle', target_label: 'ك', vehicle_id: 'v', employee_id: 'e', employee_name: 'كريم', employee_number: 'EMP-9', department_name: null, job_title: 'سائق',
   db_number: 'DB-101', driver_name: 'كريم جبار', vehicle_type: 'كابسة', contractor_name: null, sector: 'الكرادة 1', shift: 'morning', log_date: '2026-09-20', period_month: '2026-09-01', violation_type: 'speeding', type_label: 'سرعة زائدة', penalty_type: 'warning',
   details: 'تفاصيل <b>', amount: 5000, amount_by_name: null, amount_note: null, prepared_by: 'u', prepared_by_name: 'علي', submitted_at: '2026-10-01T08:00:00Z', resubmit_count: 0, chain_id: 'c', current_step: 'معاون المدير المفوض', current_approvers: [], can_decide: false,
-  return_reason: null, returned_by_name: null, returned_at: null, approved_by_name: null, approved_at: null, cancelled_by_name: null, cancelled_at: null, cancel_reason: null, deduction_posted: false, deduction_month: null, deduction_note: null, created_at: '2026-10-01T07:00:00Z', updated_at: 'x',
+  return_reason: null, returned_by_name: null, returned_at: null, reject_reason: null, rejected_by_name: null, rejected_at: null, approved_by_name: null, approved_at: null, cancelled_by_name: null, cancelled_at: null, cancel_reason: null, deduction_posted: false, deduction_month: null, deduction_note: null, created_at: '2026-10-01T07:00:00Z', updated_at: 'x',
   events: [{ id: 1, action: 'submitted', actor_name: 'علي', note: null, amount: null, at: '2026-10-01T08:00:00Z' }], timeline: [{ step_no: 1, label: 'معاون المدير المفوض', status: 'pending', decided_by: null, decided_at: null, note: null, approvers: [] }], ...o,
 })
 const ROWS = [
