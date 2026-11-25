@@ -158,7 +158,7 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
                     <div className="flex items-end gap-2">
                       <button type="button" className={btnPrimary} disabled={busy || amountBad} data-testid="decide-approve" onClick={() => decide.mutate({ id: d.id, approve: true, amount: amountNum, note: note || null }, { onSuccess: (r) => { if (r.status !== 'pending') onClose() } })}>اعتماد</button>
                       <button type="button" className={btnDanger} disabled={busy} data-testid="decide-return-open" onClick={() => setMode(mode === 'return' ? 'none' : 'return')}>إعادة بسبب</button>
-                      <button type="button" className={btnDanger} disabled={busy} data-testid="decide-reject-open" onClick={() => setMode(mode === 'reject' ? 'none' : 'reject')}>رفض / إعfas</button>
+                      <button type="button" className={btnDanger} disabled={busy} data-testid="decide-reject-open" onClick={() => setMode(mode === 'reject' ? 'none' : 'reject')}>رفض / إعفاء</button>
                     </div>
                   </div>
                   {mode === 'return' && (
@@ -169,7 +169,7 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
                   )}
                   {mode === 'reject' && (
                     <div className="mt-2 grid gap-2 rounded-2xl border border-rose-200 bg-rose-50/50 p-3">
-                      <Field label="سبب الرفض / الإعfas (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لايُعfal الموظف" data-testid="decide-reject-reason" /></Field>
+                      <Field label="سبب الرفض / الإعفاء (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف" data-testid="decide-reject-reason" /></Field>
                       <button type="button" className={btnDanger} disabled={busy || note.trim().length < 3} data-testid="decide-reject" onClick={() => reject.mutate({ id: d.id, reason: note.trim() }, { onSuccess: onClose })}>تأكيد الرفض واعفاء الموظف</button>
                     </div>
                   )}
