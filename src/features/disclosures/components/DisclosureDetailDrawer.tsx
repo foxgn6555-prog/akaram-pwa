@@ -40,7 +40,8 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
   const [amount, setAmount] = useState<string>('')
   const [note, setNote] = useState('')
   const [mode, setMode] = useState<'none' | 'return' | 'cancel' | 'reject'>('none')
-  useEffect(() => { setAmount(d?.amount != null ? String(d.amount) : ''); setNote(''); setMode('none') }, [d?.id, d?.amount, d?.status])
+const [rejectNote, setRejectNote] = useState('')
+  useEffect(() => { setAmount(d?.amount != null ? String(d.amount) : ''); setNote(''); setRejectNote(''); setMode('none') }, [d?.id, d?.amount, d?.status])
   useEffect(() => {
     if (!id) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -169,8 +170,8 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
                   )}
                   {mode === 'reject' && (
                     <div className="mt-2 grid gap-2 rounded-2xl border border-rose-200 bg-rose-50/50 p-3">
-                      <Field label="سبب الرفض / الإعفاء (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف" data-testid="decide-reject-reason" /></Field>
-                      <button type="button" className={btnDanger} disabled={busy || note.trim().length < 3} data-testid="decide-reject" onClick={() => reject.mutate({ id: d.id, reason: note.trim() }, { onSuccess: onClose })}>تأكيد الرفض واعفاء الموظف</button>
+                      <Field label="سبب الرفض / الإعفاء (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف" data-testid="decide-reject-reason" /></Field>
+                      <button type="button" className={btnDanger} disabled={busy || rejectNote.trim().length < 3} data-testid="decide-reject" onClick={() => reject.mutate({ id: d.id, reason: rejectNote.trim() }, { onSuccess: onClose })}>تأكيد الرفض واعفاء الموظف</button>
                     </div>
                   )}
                 </section>
