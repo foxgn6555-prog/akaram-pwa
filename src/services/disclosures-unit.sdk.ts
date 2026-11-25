@@ -18,6 +18,7 @@ export interface DisclosureType {
 export interface VehicleOption {
   id: string; db_number: string; plate_number: string; vehicle_name: string; driver_name: string; shift: string; sector: string | null; parent_sector: string | null
   driver_employee_id: string | null; driver_employee_name: string | null; driver_employee_number: string | null
+  lessor_name: string | null; ownership_type: string
 }
 export interface EmployeeOption { id: string; full_name: string; employee_number: string; job_title: string | null; department_name: string | null }
 

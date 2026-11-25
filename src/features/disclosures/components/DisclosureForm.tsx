@@ -30,7 +30,7 @@ export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = fals
   const types = useDisclosureTypes()
   const { save, submit } = useDisclosureActions()
   const [kind, setKind] = useState<DisclosureTargetKind>(initial?.target_kind ?? (employeeOnly ? 'employee' : 'vehicle'))
-  const [vehicle, setVehicle] = useState<VehicleOption | null>(initial?.vehicle_id ? { id: initial.vehicle_id, db_number: initial.db_number, plate_number: '', vehicle_name: initial.vehicle_type ?? '', driver_name: initial.driver_name, shift: initial.shift, sector: initial.sector, parent_sector: null, driver_employee_id: initial.employee_id, driver_employee_name: initial.employee_name, driver_employee_number: initial.employee_number } : null)
+  const [vehicle, setVehicle] = useState<VehicleOption | null>(initial?.vehicle_id ? { id: initial.vehicle_id, db_number: initial.db_number, plate_number: '', vehicle_name: initial.vehicle_type ?? '', driver_name: initial.driver_name, shift: initial.shift, sector: initial.sector, parent_sector: null, driver_employee_id: initial.employee_id, driver_employee_name: initial.employee_name, driver_employee_number: initial.employee_number, lessor_name: initial.contractor_name ?? null, ownership_type: 'rented' } : null)
   const [employee, setEmployee] = useState<EmployeeOption | null>(initial?.target_kind === 'employee' && initial.employee_id ? { id: initial.employee_id, full_name: initial.employee_name ?? '', employee_number: initial.employee_number ?? '', job_title: initial.job_title, department_name: initial.department_name } : null)
   const [q, setQ] = useState('')
   const dq = useDebounced(q)
@@ -64,11 +64,17 @@ export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = fals
   if (penalty === 'fine' && !(amountNum != null && amountNum > 0)) errors.push('الغرامة المالية تتطلب مبلغاً أكبر من صفر')
   const busy = save.isPending || submit.isPending
 
-  const build = (): DisclosureInput => ({
-    target_kind: kind, vehicle_id: kind === 'vehicle' ? vehicle?.id ?? null : null, employee_id: kind === 'employee' ? employee?.id ?? null : null,
-    driver_name: kind === 'vehicle' ? vehicle?.driver_name ?? null : null, vehicle_type: vehicle?.vehicle_name || null, contractor_name: contractor.trim() || null,
-    sector: kind === 'vehicle' ? vehicle?.sector ?? null : employee?.department_name ?? null, shift, log_date: logDate, violation_type: type, penalty_type: penalty || null, details: details.trim(), amount: amountNum,
-  })
+  const build = (): DisclosureInput => {
+    // إذا كانت الآلة مؤجرة ولديها جهة مؤجرة من قاعدة البيانات، استخدمها تلقائياً؛ وإلا استخدم القيمة التي كتبها المستخدم
+    const contractorName = kind === 'vehicle' && vehicle?.ownership_type === 'rented'
+      ? (vehicle?.lessor_name ?? contractor.trim()) || null
+      : contractor.trim() || null;
+    return {
+      target_kind: kind, vehicle_id: kind === 'vehicle' ? vehicle?.id ?? null : null, employee_id: kind === 'employee' ? employee?.id ?? null : null,
+      driver_name: kind === 'vehicle' ? vehicle?.driver_name ?? null : null, vehicle_type: vehicle?.vehicle_name || null, contractor_name: contractorName,
+      sector: kind === 'vehicle' ? vehicle?.sector ?? null : employee?.department_name ?? null, shift, log_date: logDate, violation_type: type, penalty_type: penalty || null, details: details.trim(), amount: amountNum,
+    }
+  }
   const doSave = (thenSubmit: boolean) => {
     if (errors.length) return
     save.mutate({ id: initial?.id ?? null, input: build() }, {
@@ -158,7 +164,16 @@ export function DisclosureForm({ initial, onSaved, onCancel, employeeOnly = fals
           <ShiftSelect className={inputCls} value={shift} onChange={setShift} testId="shift-select" />
         </Field>
         <Field label="المبلغ المقترح (د.ع — اختياري)" hint="يحدده المعاون/المدير المفوض نهائياً"><input className={inputCls} inputMode="numeric" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="بدون" data-testid="amount" /></Field>
-        {kind === 'vehicle' && <Field label="المتعهد (اختياري)"><input className={inputCls} value={contractor} onChange={(e) => setContractor(e.target.value)} data-testid="contractor" /></Field>}
+        {kind === 'vehicle' && vehicle?.ownership_type === 'rented' && vehicle?.lessor_name && (
+          <Field label="الجهة المؤجرة (مجلّة تلقائياً من قاعدة الآليات)">
+            <input className={inputCls} value={vehicle.lessor_name} disabled data-testid="contractor-auto" />
+          </Field>
+        )}
+        {kind === 'vehicle' && vehicle?.ownership_type === 'owned' && !vehicle?.lessor_name ? null : kind === 'vehicle' && vehicle?.ownership_type === 'rented' && !vehicle?.lessor_name && (
+          <Field label="الجهة المؤجرة (اختياري)">
+            <input className={inputCls} value={contractor} onChange={(e) => setContractor(e.target.value)} placeholder="اسم الجهة المؤجرة" data-testid="contractor-manual" />
+          </Field>
+        )}
         <div className="sm:col-span-2">
           <Field label="تفاصيل الكشف"><textarea className={clsx(inputCls, 'h-28 py-2')} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="ماذا حدث؟ أين؟ ومتى؟ مع أي ملاحظات تساعد المعاون على القرار" data-testid="details" /></Field>
         </div>
