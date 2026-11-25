@@ -17,7 +17,7 @@ import { DisclosureReportTab } from './DisclosureReportTab'
 import { DisclosurePreparersTab } from './DisclosurePreparersTab'
 import { ExecPageHeader, ExecTabBar } from '@components/executive/ExecPageHeader'
 
-type Tab = 'inbox' | 'history' | 'cancelled' | 'preparers' | 'report'
+type Tab = 'inbox' | 'history' | 'cancelled' | 'preparers' | 'report' | 'rejected'
 
 /** 00243: رأس موحد دائماً (أُزيل الشكل القديم غير المستخدم) */
 export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-disclosures' }: { title: string; subtitle: string; testId?: string }) {
@@ -28,6 +28,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
   const types = useDisclosureTypes()
   const history = useDisclosuresList({ scope: 'all', ...toServerFilter(f) }, tab === 'history' ? 20_000 : false)
   const cancelled = useDisclosuresList({ scope: 'cancelled' }, tab === 'cancelled' ? 20_000 : false)
+  const rejected = useDisclosuresList({ scope: 'rejected' }, tab === 'rejected' ? 20_000 : false)
   const historyBase = useMemo(() => (history.data ?? []).filter((d) => d.status !== 'draft'), [history.data])
   const historyRows = useMemo(() => applyClientFilters(historyBase, f), [historyBase, f])
   const inboxAmount = useMemo(() => (inbox.data ?? []).reduce((a, d) => a + (d.amount ?? 0), 0), [inbox.data])
@@ -36,7 +37,7 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
     <div className="space-y-4" data-testid={testId}>
       <ExecPageHeader icon="alert-triangle" title={title} subtitle={subtitle}
         stats={[{ label: 'بانتظار قراري', value: inbox.data?.length ?? '…', tone: (inbox.data?.length ?? 0) ? 'red' : 'green', testId: 'inbox-count' }, { label: 'مبالغ مقترحة في الوارد', value: fmtIqd(inboxAmount), tone: 'gold' }, { label: 'في السجل', value: historyBase.length || (history.isLoading ? '…' : 0) }, { label: 'ملغاة من العمليات', value: cancelled.data?.length ?? '—' }]} />
-      <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'inbox', label: 'الوارد', icon: 'bell', badge: inbox.data?.length ?? 0 }, { key: 'history', label: 'السجل', icon: 'archive-box' }, { key: 'cancelled', label: 'الملغاة', icon: 'x' }, { key: 'preparers', label: 'المُعدّون', icon: 'users' }, { key: 'report', label: 'التقارير', icon: 'bar-chart' }]} />
+      <ExecTabBar value={tab} onChange={setTab} tabs={[{ key: 'inbox', label: 'الوارد', icon: 'bell', badge: inbox.data?.length ?? 0 }, { key: 'history', label: 'السجل', icon: 'archive-box' }, { key: 'cancelled', label: 'الملغاة', icon: 'x' }, { key: 'preparers', label: 'المُعدّون', icon: 'users' }, { key: 'report', label: 'التقارير', icon: 'bar-chart' }, { key: 'rejected', label: 'المُعfas', icon: 'user-x', badge: rejected.data?.length ?? 0 }]} />
       {tab === 'inbox' && (inbox.data?.length ?? 0) > 0 && (
         <div className="flex justify-end"><button type="button" className="h-9 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" data-testid="print-inbox" onClick={() => printDisclosuresReport(inbox.data ?? [], { title: `وارد الكشوفات — ${title}`, scopeLabel: 'بانتظار قراري' })}>طباعة الوارد</button></div>
       )}
@@ -54,6 +55,12 @@ export function ApproverDisclosuresPage({ title, subtitle, testId = 'approver-di
         </div>
       )}
       {tab === 'cancelled' && <DisclosureTable rows={cancelled.data ?? []} onOpen={(d) => setOpenId(d.id)} testId="cancelled" emptyText="لا كشوفات ملغاة" />}
+      {tab === 'rejected' && (
+        <div className="space-y-3">
+          <DisclosureFilters value={f} onChange={setF} types={types.data ?? []} rows={rejected.data ?? []} filtered={rejected.data ?? []} statuses={['rejected']} loading={rejected.isLoading} exportCtx={{ title: `كشوفات مرفوضة / معفاة — ${title}`, scopeLabel: 'المُعfas' }} />
+          <DisclosureTable rows={rejected.data ?? []} onOpen={(d) => setOpenId(d.id)} testId="rejected" emptyText="لا كشوفات مرفوضة / معفاة" />
+        </div>
+      )}
 
       <DisclosureDetailDrawer id={openId} onClose={() => setOpenId(null)} onPrint={printDisclosureForm} />
     </div>

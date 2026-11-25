@@ -21,7 +21,7 @@ function logoUrl(): string {
   const env = (typeof import.meta !== 'undefined' ? import.meta : {}) as { env?: { BASE_URL?: string } }
   return `${env.env?.BASE_URL ?? '/'}icons/logo.png`
 }
-const STATUS_COLOR: Record<DisclosureStatusV2, string> = { draft: '#94a3b8', pending: '#f59e0b', returned: '#ef4444', approved: '#10b981', cancelled: '#64748b' }
+const STATUS_COLOR: Record<DisclosureStatusV2, string> = { draft: '#94a3b8', pending: '#f59e0b', returned: '#ef4444', approved: '#10b981', cancelled: '#64748b', rejected: '#dc2626' }
 
 /** وصف المرشّحات المطبّقة (يظهر في Excel والطباعة) */
 export interface ExportContext { title?: string; scopeLabel?: string; filtersSummary?: string[]; preparedBy?: string | null }
