@@ -57,6 +57,8 @@ const blank = {
   shift: 'morning' as GarageShift,
   sectorId: '',
   image: null as File | null,
+  // تتبع ما إذا كان المستخدم غيّر نوع السائق يدوياً (للاحتفاظ باختياره عند تغيير الملكية مرة أخرى)
+  userChangedDriverKind: false as boolean,
 }
 
 export default function VehiclesDatabasePage({
@@ -204,7 +206,27 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
     [preview],
   )
   const update = (key: string, value: string) => {
-    setForm((current) => ({ ...current, [key]: value }))
+    // عند تغيير نوع الملكية، يتم إعادة تعيين نوع السائق تلقائياً ما لم يكن المستخدم غيّره يدوياً
+    if (key === 'ownershipType') {
+      const isRented = value === 'rented'
+      setForm((current) => ({
+        ...current,
+        ownershipType: value as typeof current.ownershipType,
+        driverKind: current.userChangedDriverKind ? current.driverKind : (isRented ? 'external' as typeof current.driverKind : 'employee' as typeof current.driverKind),
+        // إعادة تعيين معرف السائق عند التغيير لتجنب قيم غير صالحة
+        driverEmployeeId: isRented ? '' : current.driverEmployeeId,
+        driverExternalId: !isRented ? '' : current.driverExternalId,
+        lessorName: isRented ? current.lessorName : '',
+        rentalContractNo: isRented ? current.rentalContractNo : '',
+        rentalStartDate: isRented ? current.rentalStartDate : '',
+        rentalEndDate: isRented ? current.rentalEndDate : '',
+      }))
+    } else if (key === 'driverKind') {
+      // تتبّع أن المستخدم غيّر نوع السائق يدوياً
+      setForm((current) => ({ ...current, [key]: value as typeof current.driverKind, userChangedDriverKind: true }))
+    } else {
+      setForm((current) => ({ ...current, [key]: value }))
+    }
     setErrors((current) => ({ ...current, [key]: '' }))
   }
   const choose = (file: File | null) => {
@@ -231,6 +253,20 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
     const drivers = extraDrivers.length ? buildDriverSlots({ ...form, sectorId: parsed.data.sectorId }, extraDrivers) : undefined
     create.mutate({ ...parsed.data, drivers }, { onSuccess: onClose })
   }
+
+  // تحديد أزرار نوع السائق حسب نوع الملكية (ذاتية/مؤجرة)
+  const driverKindButtons = form.ownershipType === 'owned'
+    ? <button key="employee" type="button" aria-pressed="true" disabled={true} className="rounded-xl px-3 py-1.5 text-xs font-black bg-slate-900 text-white">موظف (HR)</button>
+    : form.ownershipType === 'rented'
+      ? <button key="external" type="button" aria-pressed="true" disabled={true} className="rounded-xl px-3 py-1.5 text-xs font-black bg-slate-900 text-white">سائق متعهد</button>
+      : (
+        <>
+          {([['employee', 'موظف (HR)'], ['external', 'سائق متعهد']] as const).map(([k, label]) => (
+            <button key={k} type="button" data-testid={`vehicle-driver-kind-${k}`} aria-pressed={form.driverKind === k} className={`rounded-xl px-3 py-1.5 text-xs font-black ${form.driverKind === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`} onClick={() => setForm((c) => ({ ...c, driverKind: k, driverEmployeeId: '', driverExternalId: '' }))}>{label}</button>
+          ))}
+        </>
+      )
+
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"
@@ -406,22 +442,18 @@ function AddVehicleDialog({ areas, onClose }: { areas: GarageArea[]; onClose: ()
           <div className="space-y-2 rounded-2xl border border-slate-200 p-3 sm:col-span-2" data-testid="vehicle-driver-kind">
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
               <span>السائق الأساسي للشفت الرئيسي — نوعه:</span>
-              {([['employee', 'موظف (HR)'], ['external', 'سائق متعهد']] as const).map(([k, label]) => (
-                <button key={k} type="button" data-testid={`vehicle-driver-kind-${k}`} aria-pressed={form.driverKind === k}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-black ${form.driverKind === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-                  onClick={() => setForm((c) => ({ ...c, driverKind: k, driverEmployeeId: '', driverExternalId: '' }))}>{label}</button>
-              ))}
+              {driverKindButtons}
             </div>
-            {form.driverKind === 'employee' ? (
+            {form.driverKind === 'employee' && form.ownershipType !== 'rented' ? (
               <DriverPicker
                 testId="vehicle-driver"
                 value={form.driverEmployeeId}
                 onChange={(id) => update('driverEmployeeId', id)}
                 error={errors.driverEmployeeId}
               />
-            ) : (
+            ) : form.driverKind === 'external' && form.ownershipType !== 'owned' ? (
               <ExternalDriverPicker value={form.driverExternalId} onChange={(id) => update('driverExternalId', id)} error={errors.driverExternalId} />
-            )}
+            ) : null}
           </div>
           <VehicleDriversEditor rows={extraDrivers} onChange={(rows) => { setExtraDrivers(rows); setDriverErrors({}) }} mainShift={form.shift} errors={driverErrors} />
           <Field label="الشفت" error={errors.shift}>
