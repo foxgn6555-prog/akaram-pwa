@@ -41,7 +41,6 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
   const [note, setNote] = useState('')
   const [mode, setMode] = useState<'none' | 'return' | 'cancel' | 'reject'>('none')
 const [rejectNote, setRejectNote] = useState('')
-const [rejectError, setRejectError] = useState(false)
   useEffect(() => { setAmount(d?.amount != null ? String(d.amount) : ''); setNote(''); setRejectNote(''); setMode('none') }, [d?.id, d?.amount, d?.status])
   useEffect(() => {
     if (!id) return
@@ -56,12 +55,7 @@ const [rejectError, setRejectError] = useState(false)
   const handleReject = () => {
     if (!d) return
     const reason = rejectNote.trim()
-    if (!reason || reason.length < 3) {
-      setRejectError(true)
-      return
-    }
-    setRejectError(false)
-    reject.mutate({ id: d.id, reason }, { onSuccess: onClose })
+    reject.mutate({ id: d.id, reason: reason }, { onSuccess: onClose })
   }
 
   // Portal إلى body: عمود المحتوى في AppShell سياق تراصّ (z-0) فيبقى أي fixed داخله تحت الشريط الجانبي (z-30)
@@ -182,9 +176,9 @@ const [rejectError, setRejectError] = useState(false)
                   )}
                   {mode === 'reject' && (
                     <div className="mt-2 grid gap-2 rounded-2xl border border-rose-200 bg-rose-50/50 p-3">
-                      <Field label="سبب الرفض / الإعفاء (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف" data-testid="decide-reject-reason" /></Field>
-                      <button type="button" className={btnDanger} disabled={busy || rejectNote.trim().length < 3} data-testid="decide-reject" onClick={handleReject}>تأكيد الرفض واعفاء الموظف</button>
-                      {rejectError && <p className="mt-1 text-[10px] text-rose-600 font-black">يجب كتابة سبب الرفض (3 أحرف على الأقل)</p>}
+                      <p className="text-[10px] text-slate-500">المدير المفوض يمكنه الرفض بدون سبب. غير المدير المفوض ملزم بكتابة سبب (3 أحرف على الأقل).</p>
+                      <Field label="سبب الرفض / الإعفاء (اختياري للمدير المفوض — يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف (اختياري للمدير المفوض)" data-testid="decide-reject-reason" /></Field>
+                      <button type="button" className={btnDanger} disabled={busy} data-testid="decide-reject" onClick={handleReject}>تأكيد الرفض واعفاء الموظف</button>
                     </div>
                   )}
                 </section>
