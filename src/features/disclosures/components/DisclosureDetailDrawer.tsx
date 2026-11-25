@@ -41,6 +41,7 @@ export function DisclosureDetailDrawer({ id, onClose, opsMode = false, onEdit, o
   const [note, setNote] = useState('')
   const [mode, setMode] = useState<'none' | 'return' | 'cancel' | 'reject'>('none')
 const [rejectNote, setRejectNote] = useState('')
+const [rejectError, setRejectError] = useState(false)
   useEffect(() => { setAmount(d?.amount != null ? String(d.amount) : ''); setNote(''); setRejectNote(''); setMode('none') }, [d?.id, d?.amount, d?.status])
   useEffect(() => {
     if (!id) return
@@ -51,6 +52,17 @@ const [rejectNote, setRejectNote] = useState('')
   const amountNum = amount.trim() === '' ? null : Number(amount)
   const amountBad = amountNum != null && (!Number.isFinite(amountNum) || amountNum < 0)
   const busy = submit.isPending || decide.isPending || cancel.isPending
+
+  const handleReject = () => {
+    if (!d) return
+    const reason = rejectNote.trim()
+    if (!reason || reason.length < 3) {
+      setRejectError(true)
+      return
+    }
+    setRejectError(false)
+    reject.mutate({ id: d.id, reason }, { onSuccess: onClose })
+  }
 
   // Portal إلى body: عمود المحتوى في AppShell سياق تراصّ (z-0) فيبقى أي fixed داخله تحت الشريط الجانبي (z-30)
   return createPortal(
@@ -171,7 +183,8 @@ const [rejectNote, setRejectNote] = useState('')
                   {mode === 'reject' && (
                     <div className="mt-2 grid gap-2 rounded-2xl border border-rose-200 bg-rose-50/50 p-3">
                       <Field label="سبب الرفض / الإعفاء (يُبلَغ الموظف وغرفة العمليات)"><textarea className={clsx(inputCls, 'h-20 py-2')} value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="مثال: المخالفة غير مثبتة — لا يُعفى الموظف" data-testid="decide-reject-reason" /></Field>
-                      <button type="button" className={btnDanger} disabled={busy || rejectNote.trim().length < 3} data-testid="decide-reject" onClick={() => reject.mutate({ id: d.id, reason: rejectNote.trim() }, { onSuccess: onClose })}>تأكيد الرفض واعفاء الموظف</button>
+                      <button type="button" className={btnDanger} disabled={busy || rejectNote.trim().length < 3} data-testid="decide-reject" onClick={handleReject}>تأكيد الرفض واعفاء الموظف</button>
+                      {rejectError && <p className="mt-1 text-[10px] text-rose-600 font-black">يجب كتابة سبب الرفض (3 أحرف على الأقل)</p>}
                     </div>
                   )}
                 </section>
