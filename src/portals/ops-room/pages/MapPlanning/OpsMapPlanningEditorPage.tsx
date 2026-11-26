@@ -11,7 +11,8 @@
  * الحرّاس في القاعدة هي المرجع: أي خطأ يعود بنصّه العربي (MAP_OVERLAP …)
  * ويُعرض كما هو بدل رسالة عامة.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { MapContainer, Polyline, Marker, Tooltip, useMap } from 'react-leaflet'
 import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -86,12 +87,64 @@ function FitBounds({ points }: { points: [number, number][] }) {
   return null
 }
 
+/**
+ * «خذني إلى هذا الشارع» — يقرّب الخريطة على **مسار عنصر واحد** بعد وصوله
+ * من رابط الجدول (`?focus=street:<id>`).
+ *
+ * لماذا `flyTo` على المركز لا `fitBounds` على المسار: الملاءمة على مسار قصير
+ * (زقاق ٢٠ متراً) تدفع التكبير إلى الحدّ الأقصى فتفقد السياق حول العنصر —
+ * والمطلوب «أين يقع» لا «أرِني بكسلاته». لذا نطير إلى منتصف المسار بتكبير
+ * محايد يكشف الشارع وجيرانه.
+ *
+ * `focusRef` يضمن الطيران **مرة واحدة** لكل عنصر: تحديثات المزامنة اللاحقة
+ * لا تسحب الخريطة من تحت يد المستخدم بعد أن بدأ يتفحّصها.
+ */
+function FlyToFocus({
+  points,
+  focusKey,
+}: {
+  points: [number, number][]
+  focusKey: string | null
+}) {
+  const map = useMap()
+  const doneFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focusKey || doneFor.current === focusKey || !points.length) return
+    doneFor.current = focusKey
+    const mid = points[Math.floor(points.length / 2)]
+    if (!mid) return
+    try {
+      map.flyTo(mid, 17, { duration: 0.8 })
+    } catch {
+      /* إحداثيات غير صالحة — لا نكسر الخريطة */
+    }
+  }, [focusKey, points, map])
+  return null
+}
+
 export default function MapPlanningEditorPage() {
   useInjectMapThemeStyle()
   const [theme, , toggleTheme] = useMapTheme()
   const { data: zones = [], isLoading: zonesLoading } = useMapZones()
-  const [zoneId, setZoneId] = useState<string | null>(null)
+  /**
+   * الوصول من جدول الشوارع والأزقة: `?zone=<uuid>&focus=street|alley:<uuid>`.
+   *
+   * `zone` يُفتح **قبل** `zones[0]` كي لا يهبط المستخدم على القاطع الأول
+   * بينما هو يستعرض قاطعاً آخر في الجدول. و`focus` يُترجَم لاحقاً إلى
+   * اختيار فعلي + تقريب على موضع العنصر.
+   */
+  const [searchParams] = useSearchParams()
+  const zoneParam = searchParams.get('zone')
+  const focusParam = searchParams.get('focus')
+  const [zoneId, setZoneId] = useState<string | null>(zoneParam)
   const activeZoneId = zoneId ?? zones[0]?.id ?? null
+  /** `focus` مُفكَّك إلى (نوع، معرّف) — أو `null` إن جاء مشوّهاً */
+  const focus = useMemo(() => {
+    if (!focusParam) return null
+    const [kind, id] = focusParam.split(':')
+    if ((kind !== 'street' && kind !== 'alley') || !id) return null
+    return { kind, id } as { kind: 'street' | 'alley'; id: string }
+  }, [focusParam])
 
   const { data: streets = [], isLoading: streetsLoading } = useMapStreets(activeZoneId)
   const { data: alleys = [], isLoading: alleysLoading } = useMapAlleys(activeZoneId)
@@ -170,6 +223,62 @@ export default function MapPlanningEditorPage() {
     return out
   }, [shownStreets, shownAlleys])
 
+  /**
+   * ترجمة `focus` إلى اختيار فعلي — **بعد** تحميل الشوارع والأزقة.
+   *
+   * الرابط يحمل معرّفاً فقط؛ والاختيار يحتاج الصفّ كاملاً (المسار، الاسم،
+   * الطول) لعرض بطاقة التفاصيل ورسمه مميّزاً. لذا نبحث في البيانات المحمّلة
+   * بدل تمرير مسار عبر الرابط — أقصر وأصدق: ما تراه هو ما في القاعدة.
+   *
+   * لا نُصفّر الاختيار إن لم نجده: ربما حُذف العنصر أو أُرشف — نترك الشاشة
+   * على الزون بدل بطاقة فارغة، ولا نكسر الصفحة.
+   */
+  useEffect(() => {
+    if (!focus) return
+    /**
+     * المؤرشف لا يُختار: `shownStreets/shownAlleys` تُخفيه، فتصبح بطاقة
+     * التفاصيل بلا خطّ يقابلها على الخريطة — تناقض مربك. نبقيه على الزون
+     * ورسالة الشاشة تتولّى التوضيح بدل بطاقة معلّقة في الفراغ.
+     */
+    const hit =
+      focus.kind === 'street'
+        ? streets.find((s) => s.id === focus.id)
+        : alleys.find((a) => a.id === focus.id)
+    if (!hit || hit.status === 'archived') return
+    /**
+     * لا نكتب حالة إلا إن تغيّر العنصر فعلاً.
+     *
+     * `setSelected({...})` بكائن جديد في كل مرور يُنتج تصييراً جديداً؛ ومع
+     * مصفوفة `streets` تتغيّر هويّتها عند إعادة الجلب يصير المرور حلقة
+     * تصيير لا تنتهي (لوحظ فعلياً: انفجار ذاكرة في الاختبار). الشرط يجعل
+     * الأثر idempotent — يختار مرة واحدة ويبقى ساكناً بعدها.
+     */
+    if (selected && selected.kind === focus.kind && selected.row.id === hit.id) return
+    setSelected(
+      focus.kind === 'street'
+        ? { kind: 'street', row: hit as MapStreet }
+        : { kind: 'alley', row: hit as MapAlley },
+    )
+  }, [focus, streets, alleys, selected])
+
+  /**
+   * هل هذا العنصر هو المطلوب من الجدول؟ يُستخدم للإبراز فقط — لا للاختيار.
+   * الاختيار يبقى مستقلاً كي لا يفقد المستخدم ما اختاره بنقرة على الخريطة.
+   */
+  const isFocused = (kind: 'street' | 'alley', id: string) =>
+    focus?.kind === kind && focus.id === id
+
+  /** نقاط العنصر المطلوب — للتقريب على موضعه؛ فارغة حين لا يوجد `focus` */
+  const focusPoints = useMemo<[number, number][]>(() => {
+    if (!focus) return []
+    if (focus.kind === 'street') {
+      const s = streets.find((x) => x.id === focus.id)
+      return s ? s.path.map((p) => [p[0], p[1]] as [number, number]) : []
+    }
+    const a = alleys.find((x) => x.id === focus.id)
+    return a ? a.path.map((p) => [p[0], p[1]] as [number, number]) : []
+  }, [focus, streets, alleys])
+
   const zoneIds = useMemo(() => zones.map((z) => z.id), [zones])
   const { data: outlinesByZone = {}, isLoading: outlinesLoading } = useZoneOutlines(zoneIds, showAllZones)
 
@@ -211,11 +320,24 @@ export default function MapPlanningEditorPage() {
       <ExecPageHeader icon="map-pin"
 
         title="محرّر التخطيط الجغرافي"
-        subtitle="شوارع وأزقة الزونات — التصنيف والطول والعرض من الاستيراد الحقيقي"
+        subtitle={
+          focus
+            ? 'عرض موضع العنصر المطلوب من جدول الشوارع والأزقة — مميّز على الخريطة'
+            : 'شوارع وأزقة الزونات — التصنيف والطول والعرض من الاستيراد الحقيقي'
+        }
         stats={[
           { label: 'شوارع', value: totalStreets, tone: 'plain' },
           { label: 'أزقة', value: totalAlleys, tone: 'plain' },
           { label: 'تقاطعات للمراجعة', value: reviews.length, tone: reviews.length ? 'gold' : 'plain' },
+        ]}
+        links={[
+          {
+            to: activeZoneId
+              ? `/ops-room/map-planning/table?zone=${encodeURIComponent(activeZoneId)}`
+              : '/ops-room/map-planning/table',
+            label: 'العودة إلى الجدول',
+            icon: 'list',
+          },
         ]}
         actions={<MapThemeToggle theme={theme} onToggle={toggleTheme} />}
       />
@@ -345,15 +467,22 @@ export default function MapPlanningEditorPage() {
                   onPick={pickZone}
                   theme={theme}
                 />
-                <FitBounds points={boundsPoints} />
+                {/* وصول من الجدول: لا ملاءمة عامة — نطير إلى العنصر المطلوب فقط.
+                    إبقاء الاثنين معاً كان يترك الخريطة تتقافز: ملاءمة الكل ثم طيران. */}
+                {focus ? (
+                  <FlyToFocus points={focusPoints} focusKey={focusParam} />
+                ) : (
+                  <FitBounds points={boundsPoints} />
+                )}
                 {shownStreets.map((s) => (
                   <Polyline
                     key={s.id}
                     positions={s.path}
+                    /* العنصر المطلوب من الجدول يُبرَز بسماكة ووهج — يُرى داخل شبكة الزون لا معزولاً */
                     pathOptions={{
-                      color: KIND_COLOR[s.kind],
-                      weight: selected?.kind === 'street' && selected.row.id === s.id ? 7 : 4,
-                      opacity: 0.9,
+                      color: isFocused('street', s.id) ? '#0e7490' : KIND_COLOR[s.kind],
+                      weight: isFocused('street', s.id) ? 9 : selected?.kind === 'street' && selected.row.id === s.id ? 7 : 4,
+                      opacity: isFocused('street', s.id) ? 1 : 0.9,
                     }}
                     eventHandlers={{ click: () => setSelected({ kind: 'street', row: s }) }}
                   >
@@ -365,10 +494,10 @@ export default function MapPlanningEditorPage() {
                     key={a.id}
                     positions={a.path}
                     pathOptions={{
-                      color: ALLEY_COLOR,
-                      weight: selected?.kind === 'alley' && selected.row.id === a.id ? 6 : 2,
-                      opacity: 0.75,
-                      dashArray: '4 3',
+                      color: isFocused('alley', a.id) ? '#0e7490' : ALLEY_COLOR,
+                      weight: isFocused('alley', a.id) ? 8 : selected?.kind === 'alley' && selected.row.id === a.id ? 6 : 2,
+                      opacity: isFocused('alley', a.id) ? 1 : 0.75,
+                      dashArray: isFocused('alley', a.id) ? undefined : '4 3',
                     }}
                     eventHandlers={{ click: () => setSelected({ kind: 'alley', row: a }) }}
                   >
