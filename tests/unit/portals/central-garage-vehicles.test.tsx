@@ -235,15 +235,21 @@ describe('قاعدة بيانات آليات الكراج', () => {
     expect(screen.queryByTestId('open-add-vehicle')).not.toBeInTheDocument()
   })
 
-  it('تدعم غرفة العمليات تصنيف الآلية والملكية المؤجرة وتطلب اسم الجهة المؤجرة', () => {
+  // 00377/00378: حقول التأجير (المؤجر/العقد/التواريخ) أُزيلت بطلب المستخدم — الملكية وحدها تكفي
+  it('تدعم غرفة العمليات تصنيف الآلية والملكية، والمؤجرة تفتح سائق المتعهد بلا حقول تأجير', () => {
     renderPage(<VehiclesDatabasePage managementMode />)
     expect(screen.getByText('كابسة كبيرة')).toBeInTheDocument()
     expect(screen.getByText('آلية ذاتية')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
     fireEvent.change(screen.getByTestId('vehicle-category'), { target: { value: 'tanker' } })
     fireEvent.change(screen.getByTestId('vehicle-ownership'), { target: { value: 'rented' } })
-    expect(screen.getByTestId('vehicle-lessor')).toBeInTheDocument()
-    expect(screen.getByTestId('vehicle-contract')).toBeInTheDocument()
+    // الملكية المؤجرة تُثبّت نوع السائق على «سائق متعهد» وتُظهر اختياره من السجل
+    expect(screen.getByTestId('vehicle-ext-driver-select')).toBeInTheDocument()
+    // لا حقول تأجير إطلاقاً: لا اسم مؤجر ولا رقم عقد ولا تواريخ
+    expect(screen.queryByTestId('vehicle-lessor')).toBeNull()
+    expect(screen.queryByTestId('vehicle-contract')).toBeNull()
+    expect(screen.queryByTestId('vehicle-rental-start')).toBeNull()
+    expect(screen.queryByTestId('vehicle-rental-end')).toBeNull()
   })
 
   it('يوفر البحث وفلاتر المنطقة والشفت دون عرض قائمة فوضوية', async () => {
@@ -258,12 +264,13 @@ describe('قاعدة بيانات آليات الكراج', () => {
     )
   })
 
-  it('تتحقق غرفة العمليات من كل حقول إضافة الآلية ثم ترسل الصورة والقاطع والشفت والسائق كموظف', async () => {
+  it('تتحقق غرفة العمليات من الحقول الإلزامية (الصورة اختيارية) ثم ترسل الصورة والقاطع والشفت والسائق كموظف', async () => {
     renderPage(<VehiclesDatabasePage managementMode />)
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
     fireEvent.click(screen.getByTestId('vehicle-submit'))
     expect(screen.getByText('اسم السيارة مطلوب')).toBeInTheDocument()
-    expect(screen.getByText('صورة الآلية مطلوبة')).toBeInTheDocument()
+    // الصورة اختيارية بطلب المستخدم — لا رسالة إلزام
+    expect(screen.queryByText('صورة الآلية مطلوبة')).toBeNull()
     expect(screen.getByText('اختر السائق من قائمة الموظفين')).toBeInTheDocument()
     // لا حقل اسم حر: السائق يُختار من موظفي HR فقط
     expect(screen.queryByTestId('vehicle-driver')).not.toBeNull()
@@ -300,7 +307,8 @@ describe('قاعدة بيانات آليات الكراج', () => {
   it('00375: سائق متعهد من السجل عند إضافة الآلية، مع إضافة سريعة مرتبطة بحساب متعهد', async () => {
     renderPage(<VehiclesDatabasePage managementMode />)
     fireEvent.click(screen.getByTestId('open-add-vehicle'))
-    fireEvent.click(screen.getByTestId('vehicle-driver-kind-external'))
+    // 00377: الملكية المؤجرة تحدّد نوع السائق تلقائياً «متعهد» — لا أزرار تبديل يدوية
+    fireEvent.change(screen.getByTestId('vehicle-ownership'), { target: { value: 'rented' } })
     expect(screen.queryByTestId('vehicle-driver-search')).toBeNull()
     fireEvent.click(screen.getByTestId('vehicle-submit'))
     expect(screen.getByTestId('vehicle-ext-driver-error')).toHaveTextContent('اختر سائق المتعهد')
