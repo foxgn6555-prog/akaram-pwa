@@ -133,4 +133,37 @@ describe('حواجز الخادم في admin-users (إنشاء المستخدم�
       SERVER.indexOf('admin.auth.admin.createUser'),
     )
   })
+
+  /**
+   * عطل lvn@akram.iq (2026-11-26): حساب `ops_room` أُنشئ بلا صفّ موظف، فعاد
+   * `employees.full_name` فارغاً وأُسقط بناء الجلسة. السبب: الربط كان مشروطاً
+   * بـ `if (employeeNumber || isManager)` — أي لا صفّ موظف لدور `ops_room`
+   * إن لم يُزوَّد رقم وظيفي يدوياً.
+   */
+  describe('ربط سجل الموظف لكل حساب — لا للأدوار الإدارية فقط', () => {
+    it('لا يوجد شرط يقيّد الربط بالرقم الوظيفي أو مسؤول القسم', () => {
+      // الشرط القديم: صفّ الموظف يُنشأ فقط عند employeeNumber أو isManager
+      expect(SERVER).not.toMatch(/if\s*\(\s*employeeNumber\s*\|\|\s*isManager\s*\)/)
+    })
+
+    it('الربط يُنفَّذ بلا شرط — إدراج employees داخل كتلة مستقلة', () => {
+      const insert = SERVER.indexOf("admin.from('employees').insert")
+      expect(insert).toBeGreaterThan(-1)
+      // أقرب `{` تفتح كتلة قبل الإدراج يجب ألا تكون `if (...) {`
+      const before = SERVER.slice(Math.max(0, insert - 1200), insert)
+      const lastBlock = before.lastIndexOf('\n  {')
+      expect(lastBlock).toBeGreaterThan(-1)
+    })
+
+    it('يولّد رقماً وظيفياً عند غيابه ببادئة EMP لغير الإداريين و MGR للإداريين', () => {
+      expect(SERVER).toMatch(/isManager \|\| isSectorManager \? 'MGR' : 'EMP'/)
+    })
+
+    it('فشل ربط الموظف يُرجع الحساب (تراجع) ولا يُبقي حساباً بلا سجل', () => {
+      const failBlock = SERVER.slice(SERVER.indexOf("error: 'EMPLOYEE_LINK_FAILED'") - 400)
+      expect(failBlock).toContain('deleteUser(userId)')
+      // لا يُسمح بمسار 207 يترك المستخدم بلا سجل موظف
+      expect(SERVER).not.toMatch(/EMPLOYEE_LINK_FAILED[^)]*,\s*207\s*\)/)
+    })
+  })
 })

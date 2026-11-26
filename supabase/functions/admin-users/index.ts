@@ -239,13 +239,36 @@ async function createUser(
     return json({ error: 'ROLE_ASSIGN_FAILED', detail: roleError.message }, 500)
   }
 
-  // ربط سجل موظف (اختياري لكنه المعتاد) — مسؤول القسم يُربط دائماً
-  // لأن اسمه في كتب الطلبات يُشتق من employees.full_name
-  let empNumber = employeeNumber
-  if (employeeNumber || isManager) {
+  // ربط سجل موظف — **كل حساب**، لا الأدوار الإدارية فقط.
+  // مسؤول القسم يُربط دائماً لأن اسمه في كتب الطلبات يُشتق من employees.full_name.
+  //
+  // ## لماذا كل حساب (عطل lvn@akram.iq)
+  // كان الشرط «رقم وظيفي أو مسؤول قسم»: أي أن `ops_room` وحسابات
+  // البوابات الأخرى تُنشأ **بلا صفّ موظف** ما لم يُزوَّد رقم وظيفي يدوياً.
+  // وحينها `buildSessionUser` يقرأ `employees.full_name` فيعود `null`، واسم
+  // المستخدم يصير فارغاً في كل الواجهة، وتفشل الاستعلامات المرتبطة بالموظف.
+  // (وكان ذلك يُسقط الجلسة كلياً قبل إصلاح sdkMaybe/sdkGuard.)
+  //
+  // الربط الآن غير مشروط؛ الرقم الوظيفي يُولَّد إن لم يُزوَّد به:
+  //   · مسؤول قسم/مسؤول قاطع ⇒ كما هو أو MGR-<8 من المعرّف>
+  //   · بقية الأدوار        ⇒ EMP-<8 من المعرّف>
+  // المُعرّف UUID فريد، فالبادئة + 8 أحرف تكفي عملياً، ونمنع التصادم بفحص
+  // مسبق احترازي بدل الاعتماد على قيد UNIQUE لينفجر الطلب.
+  {
+    let empNumber = employeeNumber
     if (!empNumber) {
-      // توليد رقم وظيفي فريد إن لم يُزوَّد به
-      empNumber = `MGR-${userId.slice(0, 8)}`
+      const prefix = isManager || isSectorManager ? 'MGR' : 'EMP'
+      empNumber = `${prefix}-${userId.replace(/-/g, '').slice(0, 8).toUpperCase()}`
+      // فحص تصادم احترازي — نطيل القصّ تدريجياً عند اللزوم
+      for (let len = 8; len < 32; len += 4) {
+        const { data: clash } = await admin
+          .from('employees')
+          .select('id')
+          .eq('employee_number', empNumber)
+          .maybeSingle()
+        if (!clash) break
+        empNumber = `${prefix}-${userId.replace(/-/g, '').slice(0, len + 4).toUpperCase()}`
+      }
     }
     const { error: empError } = await admin.from('employees').insert({
       user_id: userId,
@@ -255,12 +278,11 @@ async function createUser(
       job_title: jobTitle ?? (isManager ? 'مسؤول قسم' : null),
     })
     if (empError) {
-      // لمسؤول القسم الربط إلزامي — تراجع نظيف بلا أثر جزئي
-      if (isManager) {
-        await admin.auth.admin.deleteUser(userId)
-        return json({ error: 'EMPLOYEE_LINK_FAILED', detail: empError.message }, 500)
-      }
-      return json({ error: 'EMPLOYEE_LINK_FAILED', user_id: userId, detail: empError.message }, 207)
+      // الربط إلزامي لكل الأدوار: حساب بلا صفّ موظف = حساب بلا اسم ولا
+      // بيانات وظيفية (عطل lvn@akram.iq). لا نُبقي حساباً نصف مُنشأ —
+      // تراجع نظيف بدل 207 بحساب معطوب يعمل بصرياً ويفشل وظيفياً.
+      await admin.auth.admin.deleteUser(userId)
+      return json({ error: 'EMPLOYEE_LINK_FAILED', detail: empError.message }, 500)
     }
   }
 
