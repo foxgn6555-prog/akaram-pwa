@@ -593,6 +593,11 @@ Deno.serve(async (req: Request) => {
       .eq('is_active', true)
       .maybeSingle()
     if (providerError || !provider) throw new Error('LVN_PROVIDER_NOT_CONFIGURED')
+    // 00390: استعادة تلقائية — إن طُلب تحديث جزئي ولا يوجد مؤشر مزامنة (أول تشغيل أو بعد إعادة ضبط)،
+    // نفّذ مزامنة كاملة بدلاً من الفشل، حتى يعود المجدول إلى العمل من دون تدخل يدوي.
+    if (action === 'incremental' && !provider.sync_cursor) {
+      action = 'full'
+    }
     if (action === 'history') {
       const hash = await login()
       return response(await importHistory(provider, user.id, hash, body))
