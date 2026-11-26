@@ -21,10 +21,12 @@ const h = vi.hoisted(() => {
     onAuthStateChange: vi.fn((_cb: (event: string, session: { access_token: string } | null) => void) => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     buildSessionUser: vi.fn(async (id: string, email: string | null) => ({ id, email, fullName: 'علي', roles: ['employee'], primaryRole: 'employee' })),
     guard: vi.fn(async (value: PromiseLike<{ data: unknown; error: null | { message: string; code?: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data }),
+    /** يقابل sdkMaybe الحقيقي: يسمح بـ null ويُبقي فحص الأخطاء (بخلاف sdkGuard) */
+    maybe: vi.fn(async (value: PromiseLike<{ data: unknown; error: null | { message: string; code?: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data }),
     voidGuard: vi.fn(async (value: PromiseLike<{ error: null | { message: string } }>) => { const r = await value; if (r.error) throw new Error(r.error.message) }),
   }
 })
-vi.mock('@sdk/client', () => ({ supabase: { functions: { invoke: h.invoke }, auth: { setSession: h.setSession, getSession: h.getSession, signOut: h.signOut, onAuthStateChange: h.onAuthStateChange }, from: h.from }, sdkGuard: h.guard, sdkVoid: h.voidGuard }))
+vi.mock('@sdk/client', () => ({ supabase: { functions: { invoke: h.invoke }, auth: { setSession: h.setSession, getSession: h.getSession, signOut: h.signOut, onAuthStateChange: h.onAuthStateChange }, from: h.from }, sdkGuard: h.guard, sdkMaybe: h.maybe, sdkVoid: h.voidGuard }))
 import { auth, LoginGatewayError } from '@sdk/auth.sdk'
 import { ROLE_PRIORITY } from '@lib/constants/roles.constants'
 
@@ -38,6 +40,7 @@ beforeEach(() => {
   h.signOut.mockResolvedValue({ error: null })
   h.buildSessionUser.mockResolvedValue({ id: 'u1', email: 'x@y.test', fullName: 'علي', roles: ['employee'], primaryRole: 'employee' })
   h.guard.mockImplementation(async (value) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data })
+  h.maybe.mockImplementation(async (value) => { const r = await value; if (r.error) throw new Error(r.error.message); return r.data })
   h.voidGuard.mockImplementation(async (value) => { const r = await value; if (r.error) throw new Error(r.error.message) })
 })
 
@@ -112,12 +115,14 @@ describe('auth — الجلسة والأدوار', () => {
     expect(unsubscribe).toHaveBeenCalledOnce()
   })
   it('buildSessionUser يقرأ أدوار المستخدم نفسه ويختار الدور حسب الأولوية لا ترتيب الصفوف', async () => {
-    h.guard.mockResolvedValueOnce([{ role: 'employee' }, { role: 'it_admin' }]).mockResolvedValueOnce({ full_name: 'علي' })
+    h.guard.mockResolvedValueOnce([{ role: 'employee' }, { role: 'it_admin' }])
+    h.maybe.mockResolvedValueOnce({ full_name: 'علي' })
     expect(await auth.buildSessionUser('u1', 'x@y.test')).toEqual({ id: 'u1', email: 'x@y.test', fullName: 'علي', roles: ['employee', 'it_admin'], primaryRole: ROLE_PRIORITY.find((r) => ['employee', 'it_admin'].includes(r)) })
     expect(h.from.mock.calls.map(([table]) => table)).toEqual(['user_roles', 'employees'])
     expect(h.queries[0]!.calls).toContainEqual(['eq', ['user_id', 'u1']])
     expect(h.queries[1]!.calls).toContainEqual(['eq', ['user_id', 'u1']])
-    h.guard.mockResolvedValueOnce([]).mockResolvedValueOnce(null)
+    h.guard.mockResolvedValueOnce([])
+    h.maybe.mockResolvedValueOnce(null)
     expect(await auth.buildSessionUser('u2', null)).toMatchObject({ fullName: null, roles: [], primaryRole: 'employee' })
     h.guard.mockRejectedValueOnce(new Error('ROLES_DENIED'))
     await expect(auth.buildSessionUser('u2', null)).rejects.toThrow('ROLES_DENIED')
