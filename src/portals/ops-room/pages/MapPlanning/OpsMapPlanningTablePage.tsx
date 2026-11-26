@@ -7,10 +7,12 @@
 import { useMemo, useState } from 'react'
 import { Download, FileSpreadsheet } from 'lucide-react'
 import { ExecPageHeader } from '@components/executive/ExecPageHeader'
+import { useNavigate } from 'react-router'
 import {
   KIND_LABEL_AR,
   STATUS_LABEL_AR,
   type MapAlley,
+  type MapPoint,
   type MapStreet,
   type StreetKind,
 } from '@sdk/map-planning.sdk'
@@ -40,27 +42,28 @@ import {
 import { mapPlanningSdk } from '@sdk/map-planning.sdk'
 import { useShiftLabel } from '@features/hr-shifts/hooks'
 
-type Row =
-  | {
-      kind: 'street'
-      code: string
-      name: string | null
-      cls: string
-      length_m: number
-      width_m: number | null
-      mahalla: string
-      status: string
-    }
-  | {
-      kind: 'alley'
-      code: string
-      name: string | null
-      cls: string
-      length_m: number
-      width_m: number | null
-      mahalla: string
-      status: string
-    }
+/**
+ * صفّ الجدول يحمل **معرّف العنصر ومساره الهندسي** لا حقول العرض فقط.
+ *
+ * لماذا: الضغط على الصف يجب أن ينقل المستخدم إلى موضعه على الخريطة. بلا `id`
+ * و`path` لا يعرف الصف أين يقع، فيبقى الجدول معزولاً عن الخريطة. `path` موجود
+ * أصلاً في `MapStreet`/`MapAlley` من نفس استعلام `useMapStreets/useMapAlleys`
+ * — لا استعلام إضافي ولا تكلفة شبكة.
+ */
+type Row = {
+  /** معرّف الصفّ في `map_streets` أو `map_alleys` — مفتاح الرابط إلى الخريطة */
+  id: string
+  kind: 'street' | 'alley'
+  code: string
+  name: string | null
+  cls: string
+  length_m: number
+  width_m: number | null
+  mahalla: string
+  status: string
+  /** مسار العنصر `[lat, lng]` — يُستخدم لتركيز الخريطة على موضعه */
+  path: MapPoint[]
+}
 
 type SortKey = 'code' | 'length_m' | 'width_m' | 'name'
 type Tab = 'all' | 'streets' | 'alleys' | 'unassigned'
@@ -117,6 +120,7 @@ export default function MapPlanningTablePage() {
       for (const s of streets as MapStreet[]) {
         if (s.status === 'archived' || !kinds.has(s.kind)) continue
         out.push({
+          id: s.id,
           kind: 'street',
           code: s.code,
           name: s.name,
@@ -125,6 +129,7 @@ export default function MapPlanningTablePage() {
           width_m: s.width_m,
           mahalla: '—',
           status: STATUS_LABEL_AR[s.status],
+          path: s.path ?? [],
         })
       }
     }
@@ -133,6 +138,7 @@ export default function MapPlanningTablePage() {
         if (a.status === 'archived') continue
         if (tab === 'unassigned' && a.mahalla_code !== 'MHL-0000') continue
         out.push({
+          id: a.id,
           kind: 'alley',
           code: a.code,
           name: a.name,
@@ -141,6 +147,7 @@ export default function MapPlanningTablePage() {
           width_m: a.width_m,
           mahalla: a.mahalla_name ?? 'بلا محلة',
           status: STATUS_LABEL_AR[a.status],
+          path: a.path ?? [],
         })
       }
     }
@@ -269,13 +276,29 @@ export default function MapPlanningTablePage() {
   const loading = ls || la
   const missingWidth = rows.filter((r) => r.width_m === null).length
 
+  /**
+   * «أين يقع هذا الصفّ؟» — الضغط على الصف ينقل إلى محرّر الخريطة على **الزون
+   * نفسه** مع تمرير العنصر في `focus`، فيُختار ويُبرَز ويُلامَس موضعه.
+   *
+   * لماذا المحرّر لا نافذة منبثقة: هو الخريطة الوحيدة التي ترسم الشوارع
+   * والأزقة فعلاً، وتفتح بطاقة تفاصيل العنصر وإمكانية تصحيحه. نافذة ثانية
+   * ستكرّر الشيفرة وتفصل «أرى» عن «أصحّح».
+   */
+  const navigate = useNavigate()
+  const openOnMap = (row: Row) => {
+    if (!activeZoneId) return
+    navigate(
+      `/ops-room/map-planning?zone=${encodeURIComponent(activeZoneId)}&focus=${row.kind}:${row.id}`,
+    )
+  }
+
   return (
     <div className="space-y-4" dir="rtl">
       <ExecPageHeader
         icon="file-spreadsheet"
 
         title="جدول الشوارع والأزقة"
-        subtitle={`${rows.length} صفاً · ${missingWidth} بلا عرض مقيس`}
+        subtitle={`${rows.length} صفاً · ${missingWidth} بلا عرض مقيس · اضغط أي صف لعرض موضعه على الخريطة`}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -415,7 +438,21 @@ export default function MapPlanningTablePage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.slice(0, 400).map((r) => (
-                <tr key={`${r.kind}-${r.code}`} className="hover:bg-slate-50">
+                <tr
+                  key={`${r.kind}-${r.id}`}
+                  data-testid={`map-row-${r.kind}-${r.code}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`عرض ${r.code} على الخريطة`}
+                  title="اضغط لعرض موضعه على الخريطة"
+                  onClick={() => openOnMap(r)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    openOnMap(r)
+                  }}
+                  className="cursor-pointer transition hover:bg-cyan-50/70 focus:bg-cyan-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500"
+                >
                   <td className="px-3 py-1.5 font-bold text-slate-500">
                     {r.kind === 'street' ? 'شارع' : 'زقاق'}
                   </td>

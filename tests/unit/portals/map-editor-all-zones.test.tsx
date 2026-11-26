@@ -15,6 +15,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -120,6 +121,18 @@ vi.mock('@features/map-theme/MapTiles', () => ({
 
 import MapPlanningEditorPage from '@portals/ops-room/pages/MapPlanning/OpsMapPlanningEditorPage'
 
+/**
+ * الصفحة تقرأ `?zone`/`?focus` (الوصول من جدول الشوارع والأزقة) وتعرض روابط
+ * تنقّل — كلاهما يحتاج سياق Router. الغلاف هنا لا يغيّر سلوك «عرض جميع
+ * الزونات» الذي يفحصه هذا الملف؛ يوفّر السياق فقط.
+ */
+const renderPage = () =>
+  render(
+    <MemoryRouter initialEntries={['/ops-room/map-planning']}>
+      <MapPlanningEditorPage />
+    </MemoryRouter>,
+  )
+
 const toggle = () => screen.getByTestId('toggle-all-zones')
 const ZONE_NAMES = ['الكراج', 'الجزيرة', 'الحاويات']
 /**
@@ -138,13 +151,13 @@ describe('③ محرّر الخريطة — عرض جميع الزونات', () 
   })
 
   it('الافتراضي مُطفأ — يفتح المستخدم على زونه لا على خريطة الأزونات', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     expect(toggle()).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryAllByTestId('zone-polygon')).toHaveLength(0)
   })
 
   it('التشغيل يرسم حدود الزونات المخطَّطة فقط ويتجاهل بلا مضلّع', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     fireEvent.click(toggle())
     expect(toggle()).toHaveAttribute('aria-pressed', 'true')
     // z3 بلا نقاط ⇒ لا يُرسم لها شيء
@@ -153,7 +166,7 @@ describe('③ محرّر الخريطة — عرض جميع الزونات', () 
   })
 
   it('★ الاختيار يبقى عند إطفاء الطبقة وتشغيلها — لا يُصفَّر', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     // اختر «الجزيرة» من الشريط
     const z2 = chip('الجزيرة')
     fireEvent.click(z2)
@@ -169,7 +182,7 @@ describe('③ محرّر الخريطة — عرض جميع الزونات', () 
   })
 
   it('النقر على حدّ زون في الخريطة يختاره', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     fireEvent.click(toggle())
     const polys = screen.getAllByTestId('zone-polygon')
     // الثاني = z2 حسب ترتيب zones
@@ -178,7 +191,7 @@ describe('③ محرّر الخريطة — عرض جميع الزونات', () 
   })
 
   it('كل زون بلونه — لا لون واحد للجميع', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     fireEvent.click(toggle())
     const colors = screen.getAllByTestId('zone-polygon').map((el) => el.getAttribute('data-color'))
     expect(new Set(colors).size).toBe(colors.length)
@@ -186,13 +199,13 @@ describe('③ محرّر الخريطة — عرض جميع الزونات', () 
   })
 
   it('ينبّه على الزونات بلا حدود بدل الصمت', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     fireEvent.click(toggle())
     expect(screen.getByTestId('outlines-missing')).toBeInTheDocument()
   })
 
   it('الطبقة مطفأة: أزرار الزونات كلها تعمل كما كانت (لا انحدار)', () => {
-    render(<MapPlanningEditorPage />)
+    renderPage()
     for (const name of ZONE_NAMES) {
       fireEvent.click(chip(name))
       expect(chip(name)).toHaveAttribute('aria-pressed', 'true')
