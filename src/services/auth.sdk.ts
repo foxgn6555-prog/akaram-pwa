@@ -3,7 +3,7 @@
  * دخول الموظفين يمر عبر staff-login: عدّاد خادمي 10/15 دقيقة وقفل 5 دقائق
  * لكل بريد + مصدر جهاز، مع بقاء جلسة Supabase محفوظة كما كانت.
  */
-import { sdkGuard, sdkVoid, supabase } from './client'
+import { sdkGuard, sdkMaybe, sdkVoid, supabase } from './client'
 import { ROLE_PRIORITY, type Role } from '@lib/constants/roles.constants'
 import { AuthError } from '@lib/errors/AuthError'
 import { getLoginSourceId } from '@features/auth/security/login-source'
@@ -171,21 +171,37 @@ export const auth = {
     return () => data.subscription.unsubscribe()
   },
 
-  /** يبني SessionUser من الحساب + أدواره في user_roles */
+  /**
+   * يبني SessionUser من الحساب + أدواره في user_roles
+   *
+   * ## عطل الإنتاج الذي يمنعه `sdkMaybe` هنا
+   * كان الاسم الكامل يُقرأ بـ `sdkGuard(...maybeSingle())`. و`maybeSingle`
+   * **تُرجع `data: null` بلا خطأ** حين لا يوجد صفّ — وهو نتيجة مشروعة لا
+   * فشل. لكن `sdkGuard` يرفض `null` صراحةً ويُطلق `EMPTY_RESULT`، فينفجر
+   * بناء الجلسة **كله** لمستخدم حسابه بلا صفّ في `employees`: لا أدوار، لا
+   * بوابة، وشاشة خطأ بدل التطبيق.
+   *
+   * الحساب بلا صفّ موظف حالة واقعية ومتوقعة (حسابات إدارية/متعاقدين/مدير
+   * نظام لم يُربط بموظف). الاسم الكامل تكميلي — غيابه لا يجوز أن يمنع الدخول.
+   * لذا يُقرأ بـ `sdkMaybe` الذي يتيح `null` ويُبقي توحيد أخطاء الشبكة.
+   *
+   * الأدوار تُقرأ بـ `sdkGuard` كما هي: مصفوفة فارغة ليست `null`، وفشل
+   * قراءتها فعلاً فشل — لا نُخفيه.
+   */
   async buildSessionUser(userId: string, email: string | null): Promise<SessionUser> {
     const rolesData = await sdkGuard(
       supabase.from('user_roles').select('role').eq('user_id', userId),
     )
     const roles = (rolesData as Array<{ role: Role }>).map((r) => r.role)
 
-    const fullNameData = await sdkGuard(
+    const fullNameData = await sdkMaybe<{ full_name: string }>(
       supabase.from('employees').select('full_name').eq('user_id', userId).maybeSingle(),
     )
 
     return {
       id: userId,
       email,
-      fullName: (fullNameData as { full_name: string } | null)?.full_name ?? null,
+      fullName: fullNameData?.full_name ?? null,
       roles,
       primaryRole: ROLE_PRIORITY.find((r) => roles.includes(r)) ?? 'employee',
     }
