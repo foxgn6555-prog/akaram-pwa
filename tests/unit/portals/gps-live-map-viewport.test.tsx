@@ -17,7 +17,7 @@ import GpsLiveMap, { collectPoints, isPlausiblePoint, readSavedView } from '@por
 import type { GpsLiveDevice, GpsMapGeofence } from '@sdk/gps-lvn.sdk'
 
 const dev = (id: string, latitude: number, longitude: number) => ({ device_id: id, device_name: id, latitude, longitude, course: 0, speed_kph: 0, operational_status: 'moving', inside_zone: true, zone_name: null, vehicle_plate: null, driver_name: null, fix_time: null }) as unknown as GpsLiveDevice
-const zone = (id: string, pts: Array<[number, number]>) => ({ id, name: id, source: 'platform', color: '#000', polygon: pts }) as unknown as GpsMapGeofence
+const zone = (id: string, pts: Array<[number, number]>, source: 'platform' | 'lvn' = 'platform') => ({ id, name: id, source, color: '#000', polygon: pts }) as unknown as GpsMapGeofence
 
 describe('إطار الخريطة التشغيلية', () => {
   beforeEach(() => { sessionStorage.clear(); h.fitBounds.mockClear() })
@@ -45,6 +45,22 @@ describe('إطار الخريطة التشغيلية', () => {
     expect(h.fitBounds.mock.calls[1]![0]).toEqual([[33.2, 44.3], [33.25, 44.35]])
     rerender(<GpsLiveMap rows={[dev('a', 33.32, 44.36)]} zones={zones} landmarks={[]} />)
     expect(h.fitBounds).toHaveBeenCalledTimes(2)
+  })
+  // 00410 — زونات المزوّد لا تُرسم افتراضياً ولا توسّع إطار الملاءمة
+  it('يتجاهل زونات المزوّد في الإطار افتراضياً ويرسم قواطع المنصة فقط', () => {
+    const platform = zone('mine', [[33.2, 44.3], [33.25, 44.35]])
+    const provider = zone('lvn-far', [[36.5, 40.0], [36.6, 40.1]], 'lvn')
+    render(<GpsLiveMap rows={[dev('a', 33.31, 44.36)]} zones={[platform, provider]} landmarks={[]} />)
+    expect(h.fitBounds).toHaveBeenCalledTimes(1)
+    expect(h.fitBounds.mock.calls[0]![0]).toEqual([[33.2, 44.3], [33.25, 44.35]])
+  })
+  it('يسرد زونات المزوّد في زر صريح مطفأ افتراضياً', () => {
+    const platform = zone('mine', [[33.2, 44.3], [33.25, 44.35]])
+    const provider = zone('lvn', [[33.1, 44.2], [33.15, 44.25]], 'lvn')
+    const { getByTestId } = render(<GpsLiveMap rows={[]} zones={[platform, provider]} landmarks={[]} />)
+    const toggle = getByTestId('gps-live-map-provider-zones')
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(toggle.textContent).toContain('إظهار زونات المزوّد (1)')
   })
   it('بعد تحديث الصفحة يُستعاد آخر إطار محفوظ بدل الملاءمة التلقائية', () => {
     sessionStorage.setItem('gps-live-map:view', JSON.stringify({ lat: 33.4, lng: 44.5, zoom: 14 }))

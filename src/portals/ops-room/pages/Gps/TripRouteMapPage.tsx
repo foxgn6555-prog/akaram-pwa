@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@components/feedback/LoadingSpinner'
 import { EmptyState } from '@components/feedback/EmptyState'
 import { useGpsMapGeofences, useGpsTripInvestigationSave, useGpsTripInvestigations, usePullTripRouteNow, useTripRoute, useTripRoutesList } from '@features/gps-lvn/hooks'
 import { lvnErrorToast } from '@features/gps-lvn/lvn-errors'
+import { isPlatformZone } from '@features/gps-lvn/zone-source'
 import { PRE_LEG_KEY, captureElementPng, downloadTripRouteGpx, downloadTripRouteKml, exportTripRouteExcel, exportTripRoutePdf, filterTripRouteLegs, printTripRoute, tripTitle } from '@features/gps-lvn/trip-route-export'
 import { gpsLvn } from '@sdk/gps-lvn.sdk'
 import TripRouteReportSheet from './TripRouteReportSheet'
@@ -201,7 +202,8 @@ export default function TripRouteMapPage({ departureId: departureIdProp }: { dep
               <MapTiles theme={theme} />
               <FitBounds points={allBounds} />
               <FlyTo target={flyTarget} />
-              {layers.zones && (zones.data ?? []).map((z) => <Polygon key={z.id} positions={(z.polygon ?? []).map(zonePoint)} pathOptions={{ color: z.color || '#06b6d4', weight: 1.5, fillOpacity: 0.08 }}><Popup>{z.name}</Popup></Polygon>)}
+              {/* 00410: قواطع المنصة فقط — زونات المزوّد لا تُرسم فوق مسار الانطلاقية */}
+              {layers.zones && (zones.data ?? []).filter(isPlatformZone).map((z) => <Polygon key={z.id} positions={(z.polygon ?? []).map(zonePoint)} pathOptions={{ color: z.color || '#06b6d4', weight: 1.5, fillOpacity: 0.08 }}><Popup>{z.name}</Popup></Polygon>)}
               {/* الخط: إمّا ملوّن بالسرعة مقطعاً مقطعاً أو خط واحد */}
               {layers.speed ? pts.slice(1).map((p, i) => {
                 const prev = pts[i]

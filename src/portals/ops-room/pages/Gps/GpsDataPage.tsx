@@ -68,6 +68,7 @@ import type {
   GpsZoneEvent,
 } from '@sdk/gps-lvn.sdk'
 import { exportGpsAlerts } from '@features/gps-lvn/export'
+import { isPlatformZone } from '@features/gps-lvn/zone-source'
 import { useSearchParams } from 'react-router'
 import { useUiStore } from '@stores/ui.store'
 import type { ZoneShape } from './ZoneMapEditor'
@@ -1185,6 +1186,9 @@ function ZonesWorkspace({
   const [eventZone, setEventZone] = useState('')
   const [eventVehicle, setEventVehicle] = useState('')
   const [eventType, setEventType] = useState('')
+  // 00410: قواطع المنصة أولاً — زونات المزوّد في قسم مطوي للمراجعة فقط
+  const platformZones = useMemo(() => zones.filter(isPlatformZone), [zones])
+  const providerZones = useMemo(() => zones.filter((zone) => !isPlatformZone(zone)), [zones])
   useEffect(() => {
     if (!editing && !editingLandmark) return
     const previous = document.body.style.overflow
@@ -1290,11 +1294,11 @@ function ZonesWorkspace({
           <SectionHead
             icon={MapPinned}
             title="مناطق التشغيل"
-            subtitle="زونات LVN ومناطق المنصة في سجل موحد — اربط كل زون بمنطقته التشغيلية"
-            badge={String(zones.length)}
+            subtitle="قواطع المنصة التشغيلية أولاً — زونات مزوّد GPS تُخزَّن للمراجعة ولا تُعرض افتراضياً"
+            badge={String(platformZones.length)}
           />
           <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
-            {zones.map((zone) => (
+            {platformZones.map((zone) => (
               <article key={zone.id} className="rounded-2xl border p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -1367,7 +1371,33 @@ function ZonesWorkspace({
                 )}
               </article>
             ))}
+            {!platformZones.length && (
+              <p className="rounded-2xl border border-dashed bg-slate-50 p-4 text-xs font-bold text-slate-500">
+                لا يوجد زون تشغيلي من المنصة بعد — أنشئ واحداً من الزر أدناه.
+              </p>
+            )}
           </div>
+          {/* 00410: زونات المزوّد مطويّة افتراضياً — لا تزاحم قواطع المنصة */}
+          {providerZones.length > 0 && (
+            <details className="mx-4 mb-4 rounded-2xl border bg-slate-50 p-3" data-testid="provider-zones-folder">
+              <summary className="cursor-pointer text-xs font-black text-slate-700">
+                زونات مزوّد GPS المستوردة ({providerZones.length}) — للمراجعة فقط
+              </summary>
+              <p className="mt-2 text-[10px] leading-5 text-slate-500">
+                استُوردت من LVN عند المزامنة الكاملة. لا تُرسم على الخريطة افتراضياً لأن حدودها
+                تتداخل مع قواطع المنصة؛ أظهرها من زر «إظهار زونات المزوّد» على الخريطة الحية.
+              </p>
+              <ul className="mt-2 grid gap-2 md:grid-cols-2">
+                {providerZones.map((zone) => (
+                  <li key={zone.id} className="flex items-center gap-2 rounded-xl bg-white p-2 text-[11px]">
+                    <span className="size-3 shrink-0 rounded" style={{ backgroundColor: zone.color }} />
+                    <b className="truncate">{zone.name}</b>
+                    <span className="mr-auto shrink-0 text-slate-400">{zone.polygon.length} نقطة</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <div className="p-4 pt-0">
             <button
               onClick={() =>
@@ -1633,7 +1663,7 @@ function ZonesWorkspace({
                   <ZoneMapEditor
                     color={editing.color}
                     shape={editing.shape}
-                    zones={zones.filter((zone) => zone.id !== editing.id)}
+                    zones={zones.filter((zone) => isPlatformZone(zone) && zone.id !== editing.id)}
                     landmarks={landmarks}
                     vehicles={liveVehicles}
                     onShapeChange={(shape) => setEditing({ ...editing, shape })}
@@ -1779,7 +1809,7 @@ function ZonesWorkspace({
                     point={{ lat: editingLandmark.latitude, lng: editingLandmark.longitude }}
                     color={editingLandmark.color}
                     icon={editingLandmark.icon}
-                    zones={zones}
+                    zones={zones.filter(isPlatformZone)}
                     landmarks={landmarks.filter((item) => item.id !== editingLandmark.id)}
                     vehicles={liveVehicles}
                     onChange={(point) =>
