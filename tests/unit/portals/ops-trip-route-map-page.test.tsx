@@ -19,7 +19,7 @@ vi.mock('react-leaflet', () => ({
 vi.mock('leaflet', () => ({ default: { divIcon: (o: { html: string }) => ({ html: o.html }), latLngBounds: (p: unknown) => p } }))
 vi.mock('@features/gps-lvn/hooks', () => ({
   useTripRoute: (id: string | null) => { h.ids.push(id); return !id ? { data: undefined, isLoading: false, isError: false } : id === 'cmp' ? { data: h.compare, isLoading: false, isError: false } : { data: h.detail, isLoading: false, isError: !h.detail } },
-  useGpsMapGeofences: () => ({ data: [{ id: 'z1', name: 'زون', color: '#0f0', polygon: [{ lat: 33.3, lng: 44.4 }, { lat: 33.31, lng: 44.4 }, { lat: 33.31, lng: 44.41 }] }] }),
+  useGpsMapGeofences: () => ({ data: [{ id: 'z1', name: 'زون', source: 'platform', color: '#0f0', polygon: [{ lat: 33.3, lng: 44.4 }, { lat: 33.31, lng: 44.4 }, { lat: 33.31, lng: 44.41 }] }] }),
   usePullTripRouteNow: () => ({ mutate: h.pull, isPending: false }),
   useTripRoutesList: () => ({ data: { rows: h.listRows, total: h.listRows.length, summary: {} } }),
   useGpsTripInvestigations: () => ({ data: h.inv }),

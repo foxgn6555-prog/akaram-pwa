@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MapContainer, Marker, Polygon, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { useMapTheme } from '@features/map-theme/useMapTheme'
 import MapTiles, { MapThemeToggle, useInjectMapThemeStyle } from '@features/map-theme/MapTiles'
 import { MAP_UI } from '@features/map-theme/map-theme'
+import { isPlatformZone, visibleZones } from '@features/gps-lvn/zone-source'
 import 'leaflet/dist/leaflet.css'
 import type { GpsLiveDevice, GpsMapGeofence, GpsMapLandmark } from '@sdk/gps-lvn.sdk'
 import { landmarkDivIcon } from './LandmarkIcon'
@@ -179,6 +180,11 @@ export default function GpsLiveMap({
   const [fitSignal, setFitSignal] = useState(0)
   const [full, setFull] = useState(false)
   const [layers, setLayers] = useState({ vehicles: true, zones: true, landmarks: true })   // 00386-أ: طبقة بقع التوقف القديمة أُزيلت (الخلف: وحدة خريطة النفايات)
+  // 00410: زونات المزوّد (LVN) مخفية افتراضياً — تتداخل حدودها مع قواطع المنصة
+  const [showProviderZones, setShowProviderZones] = useState(false)
+  const drawnZones = useMemo(() => visibleZones(zones, showProviderZones), [zones, showProviderZones])
+  const platformZoneCount = useMemo(() => zones.filter(isPlatformZone).length, [zones])
+  const providerZoneCount = zones.length - platformZoneCount
   const toggleLayer = (key: keyof typeof layers) =>
     setLayers((current) => ({ ...current, [key]: !current[key] }))
   // 00362 — طبقة بقع التوقف: تُحمَّل فقط عند تشغيلها، وتتحدّث كل دقيقة
@@ -203,7 +209,19 @@ export default function GpsLiveMap({
             onClick={() => toggleLayer('zones')}
             className={`rounded-xl px-3 py-2 transition ${layers.zones ? 'bg-violet-700 text-white' : ui.chip}`}
           >
-            ▧ الزونات ({zones.length})
+            ▧ زونات المنصة ({platformZoneCount})
+          </button>
+          {/* 00410: زونات المزوّد تُعرض فقط عند الطلب — تتداخل حدودها مع قواطع المنصة */}
+          <button
+            type="button"
+            data-testid="gps-live-map-provider-zones"
+            aria-pressed={showProviderZones}
+            disabled={!providerZoneCount}
+            onClick={() => setShowProviderZones((value) => !value)}
+            title="حدود مزوّد GPS المستوردة — للمراجعة فقط، تُخفيها افتراضياً لأنها تتداخل مع قواطع المنصة"
+            className={`rounded-xl px-3 py-2 transition disabled:opacity-40 ${showProviderZones ? 'bg-blue-700 text-white' : ui.chip}`}
+          >
+            {showProviderZones ? 'إخفاء زونات المزوّد' : `إظهار زونات المزوّد (${providerZoneCount})`}
           </button>
           <button
             type="button"
@@ -250,7 +268,7 @@ export default function GpsLiveMap({
       >
         <MapTiles theme={theme} onFailed={setTileFailed} preferOsmDark />
         {layers.zones &&
-          zones.map((zone) => {
+          drawnZones.map((zone) => {
             const positions = zone.polygon.map((p) =>
               Array.isArray(p) ? p : ([p.lat, p.lng] as [number, number]),
             )
@@ -321,7 +339,8 @@ export default function GpsLiveMap({
               </Popup>
             </Marker>
           ))}
-        <Fit rows={rows} landmarks={landmarks} zones={zones} fitSignal={fitSignal} />
+        {/* 00410: الملاءمة على زونات المنصة — حدود المزوّد لا توسّع الإطار */}
+        <Fit rows={rows} landmarks={landmarks} zones={drawnZones} fitSignal={fitSignal} />
         <InvalidateSize dep={full} />
       </MapContainer>
     </div>
