@@ -249,7 +249,7 @@ function GpsHistoryPurgeCard() {
       {d.waiting_days.length > 0 && (
         <div className="mt-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200" data-testid="ret-gps-purge-waiting">
           <p className="text-xs font-black text-amber-900">
-            محميّ: {num(d.waiting_rows)} نقطة في {d.waiting_days.length} يوماً تجاوزت المدة لكن زياراتها لم تُبنَ
+            محميّ: {num(d.waiting_rows)} نقطة في {d.waiting_days.length} يوماً تجاوزت المدة ولم تُغلق بعد
           </p>
           <ul className="mt-1 space-y-0.5 text-[11px] font-bold text-amber-700">
             {d.waiting_days.slice(0, 6).map((w) => (

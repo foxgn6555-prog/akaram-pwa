@@ -560,4 +560,85 @@ begin
 end $$;
 rollback;
 
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+-- B13 · لا يوم محجوب بلا حكم (عطب ⑥/⑦ المقيس على الإنتاج)
+--   الوضع الذي أوقف الخطّ فعلياً: يوم مبنيّ بالكامل ونقاطه صفر ⇒ لا شهادة أبداً ⇒ لا تفريغ
+--   أبداً. هذا المقطع يمنع رجوعه: كل يوم انقضى احتفاظه ولا نقاط له **يجب** أن يكون
+--   منتهياً (expired) أو مُشهَّداً أو له سبب مذكور — لا رابع.
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+begin;
+do $$
+declare
+  v_stuck int;
+  v_list  text;
+  v_keep  int;
+begin
+  select coalesce(keep_hours, 36) into v_keep from public.gps_history_purge_settings where id = 1;
+
+  select count(*), string_agg(d.day::text, ', ' order by d.day) into v_stuck, v_list
+    from (
+      select distinct app.map_baghdad_day(h.fix_time) as day, max(h.fix_time) as last_pt
+        from public.gps_device_position_history h group by 1
+    ) d
+   where d.last_pt < now() - make_interval(hours => v_keep)
+     and not app.gps_day_is_settled(d.day)
+     and jsonb_array_length(app.visit_day_state(d.day) -> 'reasons') = 0;
+
+  perform pg_temp.eq(v_stuck, 0, 'B13a لا يوم منقضٍ محجوب بلا سبب' || coalesce(' → ' || v_list, ''));
+
+  -- والشهادة لم تُرخَّ: gps_day_is_certified لا تُمنح ليوم بلا نقاط
+  perform pg_temp.ok(
+    not exists (
+      select 1 from (
+        select distinct app.map_baghdad_day(h.fix_time) as day
+          from public.gps_device_position_history h
+         where not exists (
+           select 1 from public.gps_device_position_history h2
+            where app.map_baghdad_day(h2.fix_time) = app.map_baghdad_day(h.fix_time))
+      ) x where app.gps_day_is_certified(x.day)),
+    'B13b الشهادة باقية صارمة: لا شهادة على يوم بلا نقاط');
+
+  -- 'expired' لا تُمنح ليوم لم تنقضِ نافذته
+  perform pg_temp.eq(app.gps_day_is_expired(app.map_baghdad_day(now())), false,
+    'B13c يوم اليوم ليس منتهياً (نافذته لم تنقضِ)');
+  perform pg_temp.eq(app.gps_day_is_expired(app.map_baghdad_day(now()) - 1), false,
+    'B13d يوم أمس ليس منتهياً بعد (داخل نافذة ٣٦ ساعة)');
+end $$;
+rollback;
+
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+-- B14 · التسوية لا تتجاوز حدودها
+--   visit_build_settle_orphans يكتب 'empty' — وهي شهادة فحص. يجب ألا يكتبها ليوم **فيه
+--   نقاط** ولا ليوم **داخل نافذة الاحتفاظ**. نتحقّق من الشروط في نصّ الدالة، لأن المحاولة
+--   الفعلية تحتاج يوماً اصطناعياً بنقاط (وهذا يلوّث البيانات الحقيقية).
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+begin;
+do $$
+declare v_def text;
+begin
+  select pg_get_functiondef(p.oid) into v_def
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = 'visit_build_settle_orphans';
+
+  perform pg_temp.ok(position('not exists' in v_def) > 0
+                     and position('gps_device_position_history h' in v_def) > 0,
+    'B14a التسوية تتحقّق من انعدام النقاط فعلاً');
+  perform pg_temp.ok(position('make_interval(hours => v_keep_hours) >= now()' in v_def) > 0,
+    'B14b التسوية لا تمسّ يوماً داخل نافذة الاحتفاظ');
+  perform pg_temp.ok(position('recovery' in v_def) > 0,
+    'B14c صفوف التسوية موسومة recovery للتدقيق');
+
+  -- والتفريغ يستدعيها قبل الفحص — لا نسيان
+  select pg_get_functiondef(p.oid) into v_def
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = 'gps_history_daily_purge';
+  perform pg_temp.ok(position('visit_build_settle_orphans' in v_def) > 0,
+    'B14d التفريغ يسوّي الأيام المنقضية قبل أن يحكم عليها');
+  perform pg_temp.ok(position('gps_day_is_settled' in v_def) = 0
+                     and position('gps_day_is_expired' in v_def) > 0,
+    'B14e التفريغ يفحص certified و expired صراحةً');
+end $$;
+rollback;
+
 raise notice '════ كل تدقيقات خطّ الزيارات نجحت ════';
+

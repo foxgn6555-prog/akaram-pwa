@@ -72,6 +72,8 @@ export interface GpsHistoryPurgeState {
     /** اسم قديم للعدد — يُقرأ للتوافق فقط */
     rows?: number
     certified: boolean
+    /** 20261202000600: اليوم انقضت نافذته ولم يبقَ له نقاط — لا شيء يُبنى ولا يُحذف */
+    expired?: boolean
     shift_rows_missing: number
     shift_rows_failed: number
     reasons: Array<{ code: string; text: string; count?: number }>
