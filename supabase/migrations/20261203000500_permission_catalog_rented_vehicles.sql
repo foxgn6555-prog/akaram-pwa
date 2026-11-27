@@ -396,3 +396,109 @@ begin
     raise exception 'RENTED_CHECK: الوحدات الثلاث غير مزروعة — الموجود %', n;
   end if;
 end$rented_check$;
+
+-- ── كتالوج الاحتفاظ: تسجيل جداول الآليات المؤجرة ──────────────────────────────
+-- اختبار tests/db/data-retention-catalog-test.sql (A1) يفرض أن **كل** جدول في public
+-- مسجَّل في app.data_retention_catalog(). الجداول الست هنا كلها سجلات تشغيلية/مالية
+-- محمية من الحذف الزمني التلقائي (deletable = false) — لا تُمسح بحادثة احتفاظ.
+-- الصفوف الستة وحدها (بلا طبقة أساس)
+create or replace function app.data_retention_catalog_rented_only() returns table(
+  data_key text, portal_key text, label text, description text, table_name text,
+  time_column text, keep_where text, safety_lock text, deletable boolean,
+  default_months integer, default_export_required boolean
+)
+language sql immutable as $$
+  select 'rented_attendance_days', 'ops',
+    'أيام حضور الآليات المؤجرة',
+    'صف لكل سائق × آلية × يوم: حاضر/غائب، عدد الانطلاقات، الطن المفّرغ، وتعديل يدوي بسبب.',
+    'rented_attendance_days', null::text, null::text,
+    'سجل حضور ومالي محمي — يُخصم على أساسه من الرواتب، ولا يُحذف زمنياً', false, 0, false
+  union all select 'rented_vehicle_discharge_settings', 'ops',
+    'إعدادات تفريغ الآليات المؤجرة',
+    'طن التفريغة والطن المطلوب شهرياً لكل آلية مؤجرة (أساس حساب عدد الذهاب).',
+    'rented_vehicle_discharge_settings', null::text, null::text,
+    'إعدادات مرجعية محمية — تغييرها يغيّر حساب المستحقات', false, 0, false
+  union all select 'rented_vehicle_taxes', 'finance',
+    'ضريبة الآليات المؤجرة (لكل آلية)',
+    'مبلغ ثابت أو نسبة يقرّها معاون المدير المفوض لكل آلية، مع السبب.',
+    'rented_vehicle_taxes', null::text, null::text,
+    'قرار مالي محمي — يُخصم من مستحق السائق', false, 0, false
+  union all select 'rented_driver_salaries', 'finance',
+    'رواتب سائقي الآليات المؤجرة',
+    'أجر شهري أو يومي لكل سائق × آلية × شهر، ومن حدّده ومتى.',
+    'rented_driver_salaries', null::text, null::text,
+    'سجل مالي محمي — أساس الصرف', false, 0, false
+  union all select 'rented_attendance_months', 'finance',
+    'حالة اعتماد شهري الآليات المؤجرة',
+    'مراحل الشهر: مسودة ← اعتماد المعاون ← دفع المالية، ومن قرّر ومتى وبأي ملاحظة.',
+    'rented_attendance_months', null::text, null::text,
+    'سجل قرارات مالي محمي — لا يُعاد فتح شهر مدفوع', false, 0, false
+  union all select 'rented_attendance_audit', 'finance',
+    'تدقيق حضوريات الآليات المؤجرة',
+    'كل تعديل على يوم أو ضريبة أو إعداد تفريغ أو راتب: القيمة قبل وبعد والسبب والمُعدِّل.',
+    'rented_attendance_audit', null::text, null::text,
+    'سجل تدقيق محمي — لا يُحذف ولا يُعدَّل', false, 0, false
+$$;
+revoke all on function app.data_retention_catalog_rented_only() from public, anon, authenticated;
+
+-- الطبقة الكاملة: أحدث طبقة أساس متاحة + صفوفنا (اكتشاف ديناميكي — لا نفترض ترتيب الهجرات)
+create or replace function app.data_retention_catalog_rented() returns table(
+  data_key text, portal_key text, label text, description text, table_name text,
+  time_column text, keep_where text, safety_lock text, deletable boolean,
+  default_months integer, default_export_required boolean
+)
+language plpgsql stable as $$
+declare v_base text;
+begin
+  v_base := case
+    when to_regprocedure('app.data_retention_catalog_attmanual()')      is not null then 'app.data_retention_catalog_attmanual()'
+    when to_regprocedure('app.data_retention_catalog_disbursements()')  is not null then 'app.data_retention_catalog_disbursements()'
+    else null end;
+  if v_base is null then
+    return query select * from app.data_retention_catalog_rented_only();
+  end if;
+  return query execute format(
+    'select * from %s union all select * from app.data_retention_catalog_rented_only()', v_base);
+end$$;
+revoke all on function app.data_retention_catalog_rented() from public, anon, authenticated;
+
+-- إعادة توجيه الدالة العليا إلى الطبقة الجديدة (نسخة كاملة، لا تعديل نصّي متشعّب)
+create or replace function app.data_retention_catalog()
+returns table (data_key text, portal_key text, label text, description text, table_name text,
+               time_column text, keep_where text, safety_lock text, deletable boolean,
+               default_months int, default_export_required boolean)
+language sql immutable as $$
+  select * from app.data_retention_catalog_rented()
+$$;
+revoke all on function app.data_retention_catalog() from public, anon;
+grant execute on function app.data_retention_catalog() to authenticated, service_role;
+
+-- فحص ذاتي: الطبقة الجديدة مسجَّلة ومربوطة بالدالة العليا
+-- (نتحقق من الطبقة مباشرةً لا عبر data_retention_catalog(): الأخيرة دالة SQL بسيطة
+--  قد يُضمّنها المخطِّط، فتغدو القراءة عبر الطبقات هشّة داخل كتلة do)
+do $$
+declare v_n int; v_bad int; v_wired boolean;
+begin
+  select count(*) into v_n from app.data_retention_catalog_rented_only()
+   where table_name in ('rented_attendance_days', 'rented_vehicle_discharge_settings',
+                        'rented_vehicle_taxes', 'rented_driver_salaries',
+                        'rented_attendance_months', 'rented_attendance_audit');
+  if v_n <> 6 then
+    raise exception 'RETENTION_CHECK: جداول الآليات المؤجرة يجب أن تكون 6 — الموجود %', v_n;
+  end if;
+
+  select count(*) into v_bad from app.data_retention_catalog_rented_only() where deletable;
+  if v_bad <> 0 then
+    raise exception 'RETENTION_CHECK: % عنصر مسجَّل قابلاً للحذف الزمني — يجب أن تكون كلها محمية', v_bad;
+  end if;
+
+  -- الدالة العليا يجب أن تُمرّر إلى طبقتنا الجديدة
+  select exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname = 'data_retention_catalog'
+       and p.prosrc like '%data_retention_catalog_rented()%'
+  ) into v_wired;
+  if not v_wired then
+    raise exception 'RETENTION_CHECK: الدالة العليا لا تمرّ عبر الطبقة الجديدة';
+  end if;
+end $$;

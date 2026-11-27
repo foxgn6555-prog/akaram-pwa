@@ -110,6 +110,9 @@ begin
   end if;
 
   -- C2: حتى لو انطلقت المملوكة بسائق خارجي مسجّل، لا صف لها إطلاقاً
+  -- (نُغلق انطلاقة v_own المفتوحة أولاً — uq_garage_open_departure يمنع انطلاقتين مفتوحتين لنفس الآلية)
+  update public.garage_departures set returned_at = now(), returned_by = u_ops
+   where vehicle_id = v_own and returned_at is null;
   insert into public.garage_departures (vehicle_id, driver_name, shift, sector_id, departed_at, departed_by, driver_external_id)
   values (v_own, 'كريم بلا آلية', 'morning', 3, (v_day + time '08:00') at time zone 'Asia/Baghdad', u_ops, d_c);
   perform app.rented_attendance_sync_day(v_day);
