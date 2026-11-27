@@ -81,6 +81,16 @@ select id into temporary table _vp_zone from public.map_zones order by sort_orde
 -- created_by إلزامي في garage_vehicles — نأخذ أي مستخدم قائم، وإن لم يوجد نتخطّى.
 select id into temporary table _vp_user from auth.users order by created_at limit 1;
 
+-- على قاعدة جديدة قد لا يوجد زون ولا مستخدم (لا بيانات مرجعية بعد). بقية الملف كانت
+-- تستمرّ حينها فتُدرج صفوفاً بمفاتيح أجنبية غائبة وتفشل برسالة FK غامضة. نتخطّى صراحةً
+-- ونطبع السبب، فيبقى الفرق واضحاً بين «تخطّي مقصود» و«عطل».
+do $$
+begin
+  if not exists (select 1 from _vp_zone) or not exists (select 1 from _vp_user) then
+    raise notice 'skip A2–A7 — لا زون أو لا مستخدم على هذه القاعدة (قاعدة جديدة)';
+  end if;
+end $$;
+
 insert into public.garage_vehicles
   (id, vehicle_name, db_number, plate_number, chassis_number, image_path, driver_name, shift, sector_id, created_by)
 select 'f1a10000-0000-0000-0000-000000000001', 'آلية VP', 'DB-VP', 'P-VP', 'CH-VP01', 'g/vp.jpg', 'سائق', 'morning', 94, (select id from _vp_user)
@@ -96,7 +106,8 @@ values ('f1a30000-0000-0000-0000-000000000001', 'f1a20000-0000-0000-0000-0000000
 on conflict (id) do nothing;
 
 insert into public.gps_vehicle_bindings (device_id, garage_vehicle_id, match_method)
-values ('f1a30000-0000-0000-0000-000000000001', 'f1a10000-0000-0000-0000-000000000001', 'manual')
+select 'f1a30000-0000-0000-0000-000000000001', 'f1a10000-0000-0000-0000-000000000001', 'manual'
+where exists (select 1 from public.garage_vehicles where id = 'f1a10000-0000-0000-0000-000000000001')
 on conflict (device_id) do nothing;
 
 -- ⚠ التاريخ اصطناعي وقديم جداً (2020-01-15) قصداً: أي تاريخ حديث يحمل زيارات

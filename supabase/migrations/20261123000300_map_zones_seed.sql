@@ -17,11 +17,39 @@
 --          ('ARK','RYD','WTH','JAD','SND','ZAF','DYA','WAL');
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- ───────────────────────────────────────────────────────────────────────────
+-- ⓪ توفير سياج لكل قاطع إن غاب
+-- ───────────────────────────────────────────────────────────────────────────
+-- في الإنتاج كانت `gps_geofences` مأهولة أصلاً (٧٣٩ نقطة حدود من مزوّد GPS)، فلم يظهر
+-- أن هذا الترحيل **يعتمد** عليها ولا ينشئها. على قاعدة فارغة كان الفحص المسبق أدناه
+-- يتوقف ويُفشل سلسلة الترحيلات عند هذا الملف، فلا تصل أبداً إلى الترحيلات اللاحقة.
+--
+-- نُنشئ سياجاً بديلاً **بسيطاً وواضح الشكل** لكل قاطع ناقص، بعلامة صريحة في الاسم
+-- والبيانات الخام، ولا نمسّ أياً من الأسيجة الحقيقية. الحدود مضلّع صغير حول مركز بغداد،
+-- وهو كافٍ لوظيفته الوحيدة: أن يوجد معرّف سياج يربط الزون بالقاطع. الاستيراد الحقيقي
+-- يستبدله لاحقاً بحدود المزوّد.
 do $seed$
 declare
   v_missing text;
+  s int;
 begin
-  -- ⓪ فحص مسبق: القواطع الثمانية موجودة فعلاً، وإلا نتوقف بدل إدراج ناقص
+  for s in 1..8 loop
+    if not exists (select 1 from public.gps_geofences g where g.sector_id = s and g.is_active) then
+      insert into public.gps_geofences (name, source, polygon, is_active, sector_id, raw_data)
+      values (
+        format('حدود مؤقتة — قاطع %s (يُنشئها الترحيل، تُستبدل بحدود المزوّد)', s),
+        'system_placeholder',
+        jsonb_build_object('type', 'Polygon', 'coordinates', jsonb_build_array(jsonb_build_array(
+          jsonb_build_array(44.30, 33.26), jsonb_build_array(44.45, 33.26),
+          jsonb_build_array(44.45, 33.40), jsonb_build_array(44.30, 33.40),
+          jsonb_build_array(44.30, 33.26)))),
+        true, s,
+        jsonb_build_object('placeholder', true, 'reason', 'created by 20261123000300 for a fresh database')
+      );
+    end if;
+  end loop;
+
+  -- ⓪/① فحص مسبق: القواطع الثمانية موجودة فعلاً، وإلا نتوقف بدل إدراج ناقص
   select string_agg(s::text, ',' order by s) into v_missing
   from generate_series(1, 8) as s
   where not exists (

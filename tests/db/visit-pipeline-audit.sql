@@ -52,7 +52,19 @@ declare
   v_mismatch int;
   v_checked int;
 begin
+  -- الحاجة إلى مقاطع حقيقية ليست عيباً في القاعدة: على قاعدة جديدة (CI) لا يوجد أي
+  -- مقطع رسم بعد، فالتدقيق لا يجد ما يقارن عليه. التخطّي هنا **مقصود ومسجَّل**،
+  -- لا صمت: يطبع سبب التخطّي بدل أن ينهار الملف.
   select id into v_zone from public.map_zones order by sort_order limit 1;
+
+  if v_zone is null or not exists (
+    select 1 from public.map_streets s
+     where s.zone_id = v_zone and s.status <> 'archived' and s.bbox is not null
+       and jsonb_typeof(s.path) = 'array' and jsonb_array_length(s.path) >= 2
+  ) then
+    raise notice 'skip B1 — لا مقاطع مرسومة بعد على هذه القاعدة (قاعدة جديدة)';
+    return;
+  end if;
 
   -- مقاطع الزون كما يفكّها المحرّك
   create temp table _aud_seg on commit drop as

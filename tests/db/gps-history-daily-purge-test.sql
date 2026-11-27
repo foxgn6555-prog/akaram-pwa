@@ -128,6 +128,10 @@ begin
   -- P5: الكتالوج يضم جدول الإعداد مقفلاً
   if not exists (select 1 from app.data_retention_catalog() c where c.data_key = 'gps_history_purge_settings' and not c.deletable and c.portal_key = 'gps') then raise exception 'P5 catalog'; end if;
   -- P6: لوحة المساحة — المستودع غير مهيأ ثم مهيأ بأرقام آخر فحص، مع تنبيه عند 80%+
+  -- الشرط «غير مهيأ» افتراض عن قاعدة لم يُشغَّل فيها ربط المستودع قط. قاعدة الاختبار
+  -- قد تكون مهيأة سلفاً (أو يحملها نسخ احتياطي)، فالافتراض كان يفشل بلا عيب حقيقي.
+  -- نمسح الربط أولاً لنجعل الشرط صحيحاً بلا اعتماد على حالة سابقة.
+  delete from public.gps_warehouse_link;
   js := public.space_overview();
   if (js -> 'warehouse' ->> 'configured')::boolean is distinct from false then raise exception 'P6 not configured %', js -> 'warehouse'; end if;
   perform pg_temp.as_service();
