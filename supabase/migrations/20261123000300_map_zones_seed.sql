@@ -31,19 +31,21 @@
 do $seed$
 declare
   v_missing text;
-  s int;
+  v_sec int;
 begin
-  for s in 1..8 loop
-    if not exists (select 1 from public.gps_geofences g where g.sector_id = s and g.is_active) then
+  -- اسم المتغيّر v_sec لا s: داخل هذا البلوك يوجد `generate_series(1,8) as s` في الفحص
+  -- المسبق، فمتغيّر باسم s يجعل الإشارة غامضة (42702) ويُسقط الترحيل.
+  for v_sec in 1..8 loop
+    if not exists (select 1 from public.gps_geofences g where g.sector_id = v_sec and g.is_active) then
       insert into public.gps_geofences (name, source, polygon, is_active, sector_id, raw_data)
       values (
-        format('حدود مؤقتة — قاطع %s (يُنشئها الترحيل، تُستبدل بحدود المزوّد)', s),
+        format('حدود مؤقتة — قاطع %s (يُنشئها الترحيل، تُستبدل بحدود المزوّد)', v_sec),
         'system_placeholder',
         jsonb_build_object('type', 'Polygon', 'coordinates', jsonb_build_array(jsonb_build_array(
           jsonb_build_array(44.30, 33.26), jsonb_build_array(44.45, 33.26),
           jsonb_build_array(44.45, 33.40), jsonb_build_array(44.30, 33.40),
           jsonb_build_array(44.30, 33.26)))),
-        true, s,
+        true, v_sec,
         jsonb_build_object('placeholder', true, 'reason', 'created by 20261123000300 for a fresh database')
       );
     end if;
