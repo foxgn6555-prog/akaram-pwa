@@ -98,6 +98,46 @@ comment on table public.gps_visit_builds is
   'سجل بناء الزيارات لكل (زون × يوم × شفت). built/empty شرط إلزامي قبل حذف نقاط اليوم — لا حذف على الثقة. صُفِّر في 20261202000300 مع استبدال المحرّك، ويُعاد بناؤه آلياً.';
 
 -- ───────────────────────────────────────────────────────────────────────────────────────────
+-- ضمان وجود الطوابير قبل مسّها
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- هذان الجدولان موجودان في الإنتاج لكن لا ترحيل ينشئهما: أُنشئا مباشرة على القاعدة الحيّة.
+-- لذلك كان بناء قاعدة من الصفر يفشل عند التحديث أدناه بـ 42P01. لا نُسقطهما (قد تكون لهما
+-- صفوف وسجلّ تدقيق)، نُنشئهما فقط إن غابا، ليبقى هذا الترحيل قابلاً للإعادة على قاعدة جديدة.
+create table if not exists app.visit_build_queue (
+  id              bigserial primary key,
+  zone_id         uuid not null references public.map_zones(id),
+  target_date     date not null,
+  shift_type      text not null default 'morning',
+  status          text not null default 'pending',
+  attempts        int  not null default 0,
+  max_attempts    int  not null default 3,
+  error_message   text,
+  visits_created  int  default 0,
+  points_processed bigint default 0,
+  created_at      timestamptz not null default now(),
+  started_at      timestamptz,
+  finished_at     timestamptz,
+  unique (zone_id, target_date, shift_type)
+);
+
+create table if not exists app.manual_pull_visit_queue (
+  id              bigserial primary key,
+  pull_source     text not null default 'manual',
+  target_date     date not null,
+  shift_type      text not null default 'full_day',
+  status          text not null default 'pending',
+  attempts        int  not null default 0,
+  max_attempts    int  not null default 3,
+  error_message   text,
+  visits_created  int  default 0,
+  points_processed bigint default 0,
+  created_at      timestamptz not null default now(),
+  started_at      timestamptz,
+  finished_at     timestamptz,
+  unique (target_date, shift_type, pull_source)
+);
+
+-- ───────────────────────────────────────────────────────────────────────────────────────────
 -- إغلاق الطوابير الميتة — لا تُحذف صفوفها (سجل تدقيق)
 -- ───────────────────────────────────────────────────────────────────────────────────────────
 update app.visit_build_queue
