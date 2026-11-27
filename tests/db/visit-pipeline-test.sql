@@ -193,6 +193,12 @@ end $$;
 do $$
 declare v_before int; v_after int;
 begin
+  if (select count(*) from public.map_visits
+       where zone_id = (select id from _vp_zone)) = 0 then
+    raise notice 'skip A4 — لا زيارات اصطناعية (قاعدة جديدة)';
+    return;
+  end if;
+
   select count(*) into v_before from public.map_visits
    where zone_id = (select id from _vp_zone);
 
@@ -217,6 +223,12 @@ declare
   v_day date := current_date - 400;
   v_note int;
 begin
+  -- الشهادة تُقاس بعدد الزونات × الشفتين. بقاعدة بلا زونات لا يوجد ما تُشهد عليه.
+  if (select count(*) from public.map_zones) = 0 then
+    raise notice 'skip A5 — لا زونات (قاعدة جديدة)';
+    return;
+  end if;
+
   -- (١) سجل فارغ ⇒ لا شهادة
   perform pg_temp.eq(app.gps_day_is_certified(v_day), false, 'A5a سجل فارغ ⇒ لا شهادة');
 

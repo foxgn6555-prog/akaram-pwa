@@ -89,8 +89,10 @@ begin
     select gen_random_uuid(), g.id, v.code, v.name
       from public.gps_geofences g, (values ('ARK','أرخيتة')) v(code, name)
      where not exists (select 1 from public.map_zones z where z.code = 'ARK') limit 1;
-  perform public.map_visit_build_logged(z.id, app.map_baghdad_day(now() - interval '30 hours'))
-    from public.map_zones z;
+  -- الشهادة صارت بالشفتين: تتطلّب صفّي (صباحي + مسائي) لكل زون. أما البناء اليدوي
+  -- فيكتب صفّاً واحداً بـ shift_type='full_day'، وهو وصف صحيح لما يفعله لكنه لا يُشهد
+  -- على شفتين. لذلك نُشغّل العامل — المسار الحقيقي للبناء — بدل الدالة اليدوية.
+  perform app.visit_build_run_pending(20);
   if not app.gps_day_is_certified(app.map_baghdad_day(now() - interval '30 hours')) then
     raise exception 'P3 certificate not granted after build';
   end if;

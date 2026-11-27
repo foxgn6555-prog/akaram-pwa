@@ -653,5 +653,5 @@ begin
 end $$;
 rollback;
 
-raise notice '════ كل تدقيقات خطّ الزيارات نجحت ════';
+do $$ begin raise notice '════ كل تدقيقات خطّ الزيارات نجحت ════'; end $$;
 
