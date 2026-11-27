@@ -20,6 +20,7 @@ const DataAnalysisPage = lazy(() => import('./pages/DataAnalysis/DataAnalysisPag
 const SectorSupplies = lazy(() => import('./pages/SectorSupplies'))
 const DeputyDeductionsPage = lazy(() => import('./pages/Deductions/DeputyDeductionsPage'))   // 00248: مراجعة الاستقطاعات قبل المالية
 const DeputyRentedTaxPage = lazy(() => import('./pages/RentedTax/DeputyRentedTaxPage'))   // 00251: ضريبة الآليات المؤجرة
+const DeputyRentedVehiclesPage = lazy(() => import('./pages/RentedVehicles/DeputyRentedVehiclesPage'))   // 20261203000100
 const DeputyOvertimePage = lazy(() => import('./pages/Overtime/DeputyOvertimePage'))   // 00353: الساعات الإضافية المدفوعة
 const DeputyAttendanceEditsPage = lazy(() => import('./pages/AttendanceEdits/DeputyAttendanceEditsPage'))   // 00397-ج
 const DeputyRewardsPage = lazy(() => import('@portals/executive/pages/Treasury/ExecRewardsPage').then((m) => ({ default: () => <m.default actor="deputy" /> })))   // 00203: المكافآت (نفس وحدة التنفيذي)
@@ -39,6 +40,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'statements', element: s(<IncomingStatements />) },
   { path: 'deductions', element: s(<DeputyDeductionsPage />) },
   { path: 'rented-tax', element: s(<DeputyRentedTaxPage />) },
+  { path: 'rented-vehicles', element: s(<DeputyRentedVehiclesPage />) },   // 20261203000400: الآليات المؤجرة — الضريبة والاعتماد
   { path: 'overtime', element: s(<DeputyOvertimePage />) },
   { path: 'attendance-edits', element: s(<DeputyAttendanceEditsPage />) },   // 00397-ج
   { path: 'station-folders', element: s(<StationFoldersPage />) },

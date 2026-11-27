@@ -201,6 +201,7 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/finance/reports', labelKey: 'nav.exec_reports', icon: 'bar-chart' },
     { path: '/finance/payroll', labelKey: 'nav.payroll', icon: 'wallet' },
     { path: '/finance/contractor-wages', labelKey: 'nav.contractor_wages', icon: 'users' },
+    { path: '/finance/rented-salaries', labelKey: 'nav.finance_rented_salaries', icon: 'coins' },   // 20261203000400
     { path: '/finance/disbursements', labelKey: 'nav.finance_disbursements', icon: 'wallet' },   // مسار الصرف: أوامر الصرف المعتمدة من المدير المفوض
     { path: '/finance/advances', labelKey: 'nav.finance_advances', icon: 'wallet' },
     { path: '/finance/settlements', labelKey: 'nav.finance_settlements', icon: 'user-x' },   // 00355
@@ -447,6 +448,7 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/deputy/statements', labelKey: 'nav.disc_statements', icon: 'alert-triangle' },
     { path: '/deputy/deductions', labelKey: 'nav.deputy_deductions', icon: 'wallet' },   // 00248
     { path: '/deputy/rented-tax', labelKey: 'nav.deputy_rented_tax', icon: 'truck' },   // 00251
+    { path: '/deputy/rented-vehicles', labelKey: 'nav.deputy_rented_vehicles', icon: 'receipt' },   // 20261203000400
     { path: '/deputy/overtime', labelKey: 'nav.deputy_overtime', icon: 'clock' },   // 00353
     { path: '/deputy/attendance-edits', labelKey: 'nav.attendance_edits', icon: 'calendar' },   // 00397-ج
     { path: '/deputy/sector-supplies', labelKey: 'nav.deputy_sector_supplies', icon: 'send' },
@@ -478,6 +480,7 @@ const BASE_PORTAL_UNITS: Record<PortalId, readonly SidebarUnit[]> = {
     { path: '/ops-room/gps', labelKey: 'nav.ops_gps_data', icon: 'map-pin' },
     { path: '/ops-room/gbs-containers', labelKey: 'nav.ops_gbs_containers', icon: 'box' },
     { path: '/ops-room/attendance', labelKey: 'nav.ops_attendance', icon: 'check-square' },
+    { path: '/ops-room/rented-attendance', labelKey: 'nav.ops_rented_attendance', icon: 'calendar-check' },   // 20261203000400
     { path: '/ops-room/store', labelKey: 'nav.ops_store', icon: 'box' },
     { path: '/ops-room/campaigns', labelKey: 'nav.ops_campaigns', icon: 'camera' },
     { path: '/ops-room/citizen-complaints', labelKey: 'nav.ops_citizen_complaints', icon: 'life-buoy' },

@@ -53,6 +53,15 @@ export const UI_SITES: Readonly<Record<string, readonly string[]>> = {
   finance_contractor_wages_close: [P + 'finance/pages/Contractors/ContractorWagesPage.tsx'],   // «اعتماد وإرسال» أجور المتعهدين
   attendance_manual_activate: [P + 'it/pages/Integrations/AttendanceManualPage.tsx'],   // الحضور اليدوي: تفعيل تعطل بصمة بوابة (التطوير المركزية)
   attendance_manual_deactivate: [P + 'it/pages/Integrations/AttendanceManualPage.tsx'],   // الحضور اليدوي: إيقاف التفعيل وعودة البصمة
+  // 20261203000100–000400: الآليات المؤجرة
+  rented_month_submit: [P + 'ops-room/pages/RentedAttendance/OpsRentedAttendancePage.tsx'],
+  rented_attendance_set_day: [P + 'ops-room/pages/RentedAttendance/OpsRentedAttendancePage.tsx'],
+  rented_discharge_save: [P + 'ops-room/pages/RentedAttendance/OpsRentedAttendancePage.tsx'],
+  rented_tax_save: [P + 'deputy/pages/RentedVehicles/DeputyRentedVehiclesPage.tsx'],
+  rented_tax_clear: [P + 'deputy/pages/RentedVehicles/DeputyRentedVehiclesPage.tsx'],
+  rented_month_decide_deputy: [P + 'deputy/pages/RentedVehicles/DeputyRentedVehiclesPage.tsx'],
+  rented_salary_save: [P + 'finance/pages/RentedSalaries/FinanceRentedSalariesPage.tsx'],
+  rented_month_pay: [P + 'finance/pages/RentedSalaries/FinanceRentedSalariesPage.tsx'],
 }
 /** دوال مربوطة بلا زر مباشر في الواجهة (استعلام تلقائي أو غير مستخدمة من أي صفحة) — الخادم وحده يحكم */
 export const NO_UI_BUTTON: Readonly<Record<string, string>> = {
