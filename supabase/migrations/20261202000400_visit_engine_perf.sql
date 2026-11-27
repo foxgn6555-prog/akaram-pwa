@@ -714,14 +714,20 @@ revoke all on function app.visit_build_run_pending(int) from public, anon, authe
 -- بحدود النافذة. إن أعاد أحدهم شرط اليوم البغدادي، يفشل الترحيل هنا لا في الإنتاج.
 do $$
 declare
-  v_src text;
+  v_src  text;
+  v_norm text;
 begin
   select pg_get_functiondef(p.oid) into v_src
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'app' and p.proname = 'map_build_visits';
 
-  if position('v.entered_at >= p_from' in v_src) = 0
-     or position('v.entered_at <  p_to' in v_src) = 0 then
+  -- التطبيع: pg_get_functiondef لا يحفظ المسافات كما كُتبت (المرحلة ⑤ أعادت كتابة
+  -- `v.entered_at <  p_to` بمسافة واحدة). فحص يتوقّف على عدد المسافات يفشل بلا سبب
+  -- حين يُعاد الترحيل على قاعدة طُبِّق عليها ما بعده.
+  v_norm := regexp_replace(v_src, '\s+', ' ', 'g');
+
+  if position('v.entered_at >= p_from' in v_norm) = 0
+     or position('v.entered_at < p_to' in v_norm) = 0 then
     raise exception 'BUILD_DELETE_SCOPE_LOST: نطاق الحذف لم يعد مربوطاً بالنافذة (p_from/p_to)';
   end if;
 

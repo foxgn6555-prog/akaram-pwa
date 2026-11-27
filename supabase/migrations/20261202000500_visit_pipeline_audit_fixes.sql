@@ -465,8 +465,9 @@ begin
   if position('where placeday between v_day_from and v_day_to' in v_def) = 0 then
     raise exception 'FIX2_NOT_IN_ENGINE: ترقيم seq ما زال محدوداً بالزون';
   end if;
+  v_def := regexp_replace(v_def, '\s+', ' ', 'g');
   if position('v.entered_at >= p_from' in v_def) = 0
-     or position('v.entered_at <  p_to' in v_def) = 0 then
+     or position('v.entered_at < p_to' in v_def) = 0 then
     raise exception 'BUILD_DELETE_SCOPE_LOST: نطاق الحذف لم يعد مربوطاً بالنافذة';
   end if;
 end $$;
