@@ -1,0 +1,2 @@
+import{q as e,y as o}from"./index-Bp3W46Rh.js";const r=e,s=new Proxy({},{get:(t,a)=>typeof a=="string"?o(a):void 0}),m=t=>t?new Intl.DateTimeFormat("ar-IQ-u-nu-latn",{timeStyle:"short",timeZone:"Asia/Baghdad"}).format(new Date(t)):"—",i=t=>t?new Intl.DateTimeFormat("ar-IQ-u-nu-latn",{dateStyle:"medium",timeZone:"Asia/Baghdad"}).format(new Date(t)):"—",d=(t,a=!0)=>!a||t===null||t===void 0?"لا نطاق محدد للمنطقة":t?"داخل نطاق المنطقة":"خارج نطاق المنطقة";export{s as P,r as S,i as d,m as t,d as z};
+//# sourceMappingURL=format-DKlVokNv.js.map

@@ -1,0 +1,2 @@
+import{j as e}from"./query-AElufN0_.js";function a({title:s,hint:t}){return e.jsxs("div",{className:"flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-10 text-center",children:[e.jsx("p",{className:"font-medium text-slate-700",children:s}),t&&e.jsx("p",{className:"text-sm text-slate-500",children:t})]})}export{a as E};
+//# sourceMappingURL=EmptyState-drdMIqX3.js.map
