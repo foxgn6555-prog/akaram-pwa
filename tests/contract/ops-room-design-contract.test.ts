@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest'
 const dir = join(process.cwd(), 'src/portals/ops-room/pages')
 export const OPS_UNIFIED = ['Dashboard/OpsRoomDashboardPage', 'Attendance/OpsAttendancePage', 'Store/OpsStorePage', 'Campaigns/OpsCampaignsPage', 'CitizenComplaints/OpsCitizenComplaintsPage', 'Advances/OpsAdvancesPage', 'StationDaily/StationDailyReportPage',
   'OperationsData/OperationsDataPage', 'Gps/GpsDataPage', 'Gbs/GbsContainersPage', 'ContractorHeadcounts/OpsContractorHeadcountsPage', 'ContractorProofs/OpsContractorPresenceProofsPage', 'Leaves/OpsLeavesPage', 'LiveTracking/OpsLiveTrackingPage', 'LiveTracking/OpsLiveDataPage', 'StationFleet/OpsStationFleetPage', 'StationFleet/OpsStationOutboundPage', 'WasteMap/OpsWasteMapPage',
+  // 20261203000100: حضوريات الآليات المؤجرة (رأس موحَّد ExecPageHeader)
+  'RentedAttendance/OpsRentedAttendancePage',
   'MapPlanning/OpsMapPlanningEditorPage', 'MapPlanning/OpsMapPlanningTablePage',
   'MapPlanning/OpsMapVisitsPage', 'MapPlanning/OpsMapCoveragePage', 'MapPlanning/OpsMapVehicleVisitsPage',
   // الجولة ①: شاشة الاستيراد — تستخدم ExecPageHeader أيضاً

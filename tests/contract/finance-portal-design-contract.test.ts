@@ -4,7 +4,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const dir = join(process.cwd(), 'src/portals/finance/pages')
-const OWN = ['Budget/BudgetOverview', 'Payroll/PayrollOverview', 'Purchases/MaintenancePurchases', 'Contractors/ContractorWagesPage', 'Advances/FinanceAdvancesPage', 'Settlements/FinanceSettlementsPage', 'Letters/FinanceLettersPage', 'Expenses/FinanceExpensesPage']
+const OWN = ['Budget/BudgetOverview', 'Payroll/PayrollOverview', 'Purchases/MaintenancePurchases', 'Contractors/ContractorWagesPage', 'Advances/FinanceAdvancesPage', 'Settlements/FinanceSettlementsPage', 'Letters/FinanceLettersPage', 'Expenses/FinanceExpensesPage',
+  // 20261203000100: رواتب الآليات المؤجرة (رأس موحَّد ExecPageHeader)
+  'RentedSalaries/FinanceRentedSalariesPage']
 const SHARED = { 'Dashboard/FinanceDashboard': 'ExecHome', 'Reports/FinancialReports': 'ExecReports', 'Announcements/FinanceAnnouncements': 'AnnouncementsPage',
   // مسار الصرف: القائمة والمعاينة مكوّنان مشتركان مع بوابة المدير المفوض (الرأس الموحَّد داخل DisbursementsListView، وللمعاينة رأس رجوع + حالة)
   'Disbursements/FinanceDisbursementsPage': 'DisbursementsListView', 'Disbursements/FinanceDisbursementDetailPage': 'DisbursementDetailView' }

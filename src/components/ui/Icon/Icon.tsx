@@ -15,10 +15,14 @@ export type IconName =
   | 'scale' | 'download' | 'send' | 'archive-box' | 'trash' | 'printer' | 'file-spreadsheet'
   | 'edit' | 'upload' | 'photo' | 'check' | 'camera' | 'droplet'
   | 'shopping-cart' | 'chevron-up' | 'chevron-down' | 'gauge' | 'clock' | 'user-x'
+  | 'calendar-check' | 'receipt' | 'coins'
 
 const paths: Record<IconName, React.ReactNode> = {
   gauge: <><path d="M4.5 17.5a8.5 8.5 0 1 1 15 0" /><path d="m12 14 3.8-5.2" /><circle cx="12" cy="14" r="1.4" /><path d="M4.5 17.5h15" /></>,
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
+  'calendar-check': <><rect x="4" y="5" width="16" height="16" rx="2" /><path d="M8 3v4M16 3v4M4 10.5h16" /><path d="m8.6 15.4 2 2 4-4.4" /></>,
+  receipt: <><path d="M6 2.8h12v18.4l-3-1.8-3 1.8-3-1.8-3 1.8z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+  coins: <><ellipse cx="9" cy="7" rx="5.2" ry="2.6" /><path d="M3.8 7v4.2c0 1.4 2.3 2.6 5.2 2.6s5.2-1.2 5.2-2.6V7" /><path d="M3.8 11.2v4.2c0 1.4 2.3 2.6 5.2 2.6" /><ellipse cx="16" cy="14.4" rx="4.6" ry="2.3" /><path d="M11.4 14.4v4c0 1.3 2 2.3 4.6 2.3s4.6-1 4.6-2.3v-4" /></>,
   'user-x': <><circle cx="9.5" cy="8" r="3.5" /><path d="M3.5 20a6 6 0 0 1 12 0" /><path d="m16.5 9 4.5 4.5M21 9l-4.5 4.5" /></>,
   'chevron-up': <path d="m6 15 6-6 6 6" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,

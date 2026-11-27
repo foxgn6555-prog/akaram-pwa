@@ -12,6 +12,7 @@ const FinancialReports = lazy(() => import('./pages/Reports/FinancialReports'))
 const FinanceAnnouncements = lazy(() => import('./pages/Announcements/FinanceAnnouncements'))
 const MaintenancePurchases = lazy(() => import('./pages/Purchases/MaintenancePurchases'))
 const ContractorWagesPage = lazy(() => import('./pages/Contractors/ContractorWagesPage'))
+const RentedSalariesPage = lazy(() => import('./pages/RentedSalaries/FinanceRentedSalariesPage'))   // 20261203000100
 const FinanceAdvancesPage = lazy(() => import('./pages/Advances/FinanceAdvancesPage'))
 const FinanceSettlementsPage = lazy(() => import('./pages/Settlements/FinanceSettlementsPage'))   // 00355: المنتهية خدماتهم والتصفية
 const FinanceLettersPage = lazy(() => import('./pages/Letters/FinanceLettersPage'))   // 00356: سجل الكتب الرسمية
@@ -29,6 +30,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'purchases', element: s(<MaintenancePurchases />) },
   { path: 'payroll', element: s(<PayrollOverview />) },
   { path: 'contractor-wages', element: s(<ContractorWagesPage />) },
+  { path: 'rented-salaries', element: s(<RentedSalariesPage />) },   // 20261203000400: رواتب الآليات المؤجرة
   { path: 'advances', element: s(<FinanceAdvancesPage />) },
   { path: 'settlements', element: s(<FinanceSettlementsPage />) },
   { path: 'letters', element: s(<FinanceLettersPage />) },

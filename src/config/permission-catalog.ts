@@ -82,6 +82,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'finance.reports': ['export'],
   'finance.payroll': ['edit', 'decide', 'execute', 'export'],
   'finance.contractor-wages': ['edit', 'decide', 'export'],
+  'finance.rented-salaries': ['edit', 'decide', 'execute', 'export'],   // 20261203000400: رواتب الآليات المؤجرة
   'finance.disbursements': ['create', 'execute'],   // مسار الصرف: إعادة الإرسال بعد الرفض + صرف المالية من القاصة
   'finance.advances': ['execute', 'export'],
   'finance.settlements': ['decide', 'execute', 'export'],
@@ -169,6 +170,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'deputy.statements': ['decide'],
   'deputy.deductions': ['decide', 'edit'],
   'deputy.rented-tax': ['edit'],
+  'deputy.rented-vehicles': ['edit', 'decide'],   // 20261203000400: ضريبة كل آلية + اعتماد حضوريات المؤجرة
   'deputy.overtime': ['decide', 'edit'],
   'deputy.sector-supplies': ['decide'],
   'deputy.rewards': ['create'],
@@ -189,6 +191,7 @@ export const UNIT_ACTIONS: Readonly<Record<string, readonly PermissionAction[]>>
   'ops-room.gps': ['edit', 'execute', 'export'],
   'ops-room.gbs-containers': ['edit'],
   'ops-room.attendance': ['edit', 'decide', 'export'],
+  'ops-room.rented-attendance': ['edit', 'decide', 'export'],   // 20261203000400: حضوريات الآليات المؤجرة
   'ops-room.store': ['create', 'edit', 'execute'],
   'ops-room.campaigns': ['create', 'export'],
   'ops-room.citizen-complaints': ['execute', 'delete'],
@@ -347,6 +350,15 @@ export const WRITE_BINDINGS: Readonly<Record<string, readonly [unit: string, act
   maintenance_purchase_create: ['maintenance.purchases', 'create'],
   // الإعلام
   media_template_create: ['media.design-templates', 'create'],
+  // الآليات المؤجرة (20261203000100–000400)
+  rented_attendance_set_day:  ['ops-room.rented-attendance', 'edit'],
+  rented_discharge_save:      ['ops-room.rented-attendance', 'edit'],
+  rented_month_submit:        ['ops-room.rented-attendance', 'decide'],
+  rented_tax_save:            ['deputy.rented-vehicles', 'edit'],
+  rented_tax_clear:           ['deputy.rented-vehicles', 'edit'],
+  rented_month_decide_deputy: ['deputy.rented-vehicles', 'decide'],
+  rented_salary_save:         ['finance.rented-salaries', 'edit'],
+  rented_month_pay:           ['finance.rented-salaries', 'execute'],
 }
 
 /** دوال محمية غير مربوطة بوحدة واحدة — السبب موثّق (تبقى على فحوصات الدور/السلسلة الأصلية) */

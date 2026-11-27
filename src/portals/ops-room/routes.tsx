@@ -8,6 +8,7 @@ const StationDaily = lazy(() => import('./pages/StationDaily/StationDailyReportP
 const Gps = lazy(() => import('./pages/Gps/GpsDataPage'))
 const GbsContainers = lazy(() => import('./pages/Gbs/GbsContainersPage'))
 const OpsAttendance = lazy(() => import('./pages/Attendance/OpsAttendancePage'))
+const OpsRentedAttendance = lazy(() => import('./pages/RentedAttendance/OpsRentedAttendancePage'))   // 20261203000100
 const OpsStore = lazy(() => import('./pages/Store/OpsStorePage'))
 const OpsCampaigns = lazy(() => import('./pages/Campaigns/OpsCampaignsPage'))   // 00164: متابعة الحملات
 const OpsCitizenComplaints = lazy(() => import('./pages/CitizenComplaints/OpsCitizenComplaintsPage'))   // 00168: استقبال الشكاوى
@@ -59,6 +60,7 @@ export const customRoutes: RouteObject[] = [
   { path: 'gps', element: load(<Gps />) },
   { path: 'gbs-containers', element: load(<GbsContainers />) },
   { path: 'attendance', element: load(<OpsAttendance />) },
+  { path: 'rented-attendance', element: load(<OpsRentedAttendance />) },   // 20261203000400: حضوريات الآليات المؤجرة
   { path: 'store', element: load(<OpsStore />) },
   { path: 'campaigns', element: load(<OpsCampaigns />) },
   { path: 'citizen-complaints', element: load(<OpsCitizenComplaints />) },
