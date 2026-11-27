@@ -51,6 +51,15 @@ begin
   select count(*) into v_visits_before from public.map_visits;
   select count(*) into v_points_before from public.gps_device_position_history;
 
+  -- قاعدة جديدة (CI / إعداد أول): لا زيارات ولا نقاط ⇒ لا شيء يُصفَّر.
+  -- هذا الترحيل تصفير لمرة واحدة على قاعدة حيّة، وليس بوابة بناء. الحرّاس أدناه
+  -- تهدف إلى حماية تدفّق قائم؛ فحين لا يكون هناك تدفّق أصلاً لا معنى لها.
+  if v_visits_before = 0 and v_points_before = 0 then
+    perform app.data_retention_log(null, 'map_visits', 'one_time_reset_pipeline',
+      jsonb_build_object('skipped', true, 'reason', 'fresh_install_no_data_to_reset'));
+    return;
+  end if;
+
   -- ① كل الزيارات
   delete from public.map_visits;
 
@@ -130,11 +139,9 @@ begin
     raise exception 'VISIT_LEDGER_RESET_INCOMPLETE: بقي % صفّ في سجل البناء', v_ledger;
   end if;
 
-  select count(*) into v_points from public.gps_device_position_history;
-  if v_points = 0 then
-    raise exception 'VISIT_RESET_NO_FEED: الجدول خالٍ تماماً — تدفّق السحب متوقف، أصلحه قبل التصفير';
-  end if;
-
+  -- لا فحص «الجدول خالٍ» هنا: الحالة الخطرة (تدفّق قائم انقطع) يوقفها الحارس الأول
+  -- بـ VISIT_RESET_WOULD_EMPTY_FEED قبل أي حذف. أما قاعدة جديدة بلا تدفّق بعد فليست
+  -- عطلاً، وكان هذا الفحص يمنع سلسلة الترحيلات من إكمال البناء من الصفر.
   select keep_hours into v_hours from public.gps_history_purge_settings where id = 1;
   if v_hours <> 36 then
     raise exception 'PURGE_WINDOW_NOT_36H: الاحتفاظ % ساعة والمطلوب ٣٦', v_hours;

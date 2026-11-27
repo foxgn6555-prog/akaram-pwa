@@ -401,26 +401,57 @@ comment on index public.gps_visit_builds_uk is
 -- للنسخة ذات المعامل الواحد، و true للنسخة الشفتية. لا شيء يستدعي الميتة.
 drop function if exists app.gps_visits_build_scan(integer);
 
+-- لكن الحذف بلا بديل يترك فراغاً بين هذه المرحلة والمرحلة ② (التي تُعيد التعريف كغلاف
+-- حول العامل الموحّد): أثر الإنتاج يبيّن أن `service_role` كان ينفّذها. فنُبقي الاسم
+-- عاملاً بمجرد تمرير إلى `app.visit_build_run_pending` حتى تصل ② وتُعيدها رسمياً.
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname = 'gps_visits_build_scan'
+  ) and exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname = 'visit_build_run_pending'
+  ) then
+    execute $fn$
+      create function app.gps_visits_build_scan(p_lookback_days int default 4)
+      returns jsonb language plpgsql security definer set search_path = public, app as $body$
+      begin
+        -- p_lookback_days للتوافق فقط؛ العامل الموحّد يغطّي ٨ أيام على مستوى الشفت.
+        return app.visit_build_run_pending(6);
+      end $body$;
+    $fn$;
+    execute 'revoke all on function app.gps_visits_build_scan(int) from public, anon, authenticated';
+  end if;
+end $$;
+
 -- ═══════════════════════════════════════════════════════════════════════════════════════
--- ⑤ حارس توقّف: الشهادة لم تُعدَّل بعد — فكل صفّ شفتي جديد لا يمكن أن «يشهد»
+-- ⑤ حارس: إتاحة الصفوف الشفتية بلا تمييز الشهادة تُنتج شهادة كاذبة ⇒ فقدان بيانات صامت
 -- ═══════════════════════════════════════════════════════════════════════════════════════
 --
--- السبب (مقصود ومُوثَّق):
+-- المشكلة:
 --   `app.gps_day_is_certified` تعُدّ `gps_visit_builds` بشرط `status in ('built','empty')`
 --   **بلا تمييز shift_type**، وتقارن العدد بعدد الزونات:
 --       if v_certs < v_zones then return false;
 --   فبعد إتاحة الصفوف الشفتية، صفّان لليوم نفسه (صباحي + مسائي) يُحسبان صفّين مختلفين
 --   ويبلغ النصاب **قبل** أن يُبنى أحد الشفتين فعلاً ⇒ شهادة كاذبة ⇒ التفريغ يحذف النقاط
---   الخام قبل بناء زياراتها. هذا فقدان بيانات صامت.
+--   الخام قبل بناء زياراتها.
 --
---   لذلك يُمنع هذا الترحيل من الاكتمال إن لم تكن `gps_day_is_certified` قد عُدِّلت لتفهم
---   الشفتين (المرحلة ②). الحارس يمنع النشر الناقص بدل الاعتماد على تذكّر بشري.
+-- في القاعدة الحيّة كانت المرحلة ② مطبَّقة سلفاً، فلم يظهر هذا إلا عند إعادة البناء من
+-- قاعدة فارغة: نسخة ① وحدها كانت **ترفض** الاكتمال إن لم تكن الشهادة معدَّلة، فلا تستطيع
+-- السلسلة أن تبلغ ② أبداً. الحارس الذي يمنع النشر الناقص كان يمنع النشر الصحيح أيضاً.
 --
---   الواجهة تُخبر المستخدم: «هذا اليوم محميّ — بُنيت زيارات كل الزونات». أي تغيير في دلالة
---   الشهادة يغيّر هذه الرسالة، فيجب أن يكون مصحوباً بتعديل نصّ الواجهة صراحةً.
+-- الحل: يطبّق هذا الترحيل تصحيح الشهادة بنفسه بدل أن يتوقّف. الدلالة واحدة: صفّ واحد
+-- (zone, day, shift) لكل شفت، والنصاب يُقاس بعدد (زون × شفت) المتوقّع لا بعدد الصفوف.
+-- ثم يتحقّق فعلياً من أن الدالة الناتجة تحمل التمييز، فيفشل بدل أن يمرّ بصمت.
+--
+-- ملاحظة للنسخة الحيّة: هذه النسخة أدناه **أقدم** من نسخة ② (لا تعرف gps_day_is_settled)،
+-- لذلك يحمي الترحيل نفسه: لا يستبدل الشهادة إن كانت تحمل أصلاً التمييز بالشفت.
 do $$
 declare
-  v_def text;
+  v_def    text;
+  v_zones  bigint;
+  v_shifts int;
 begin
   select pg_get_functiondef(p.oid) into v_def
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -431,14 +462,55 @@ begin
       using errcode = 'undefined_function';
   end if;
 
-  -- المرحلة ② تُضيف التمييز بالشفت. نتحقق من علامة تخصّ الشفت تحديداً
-  -- (لا مجرّد ذكر كلمة shift، كي لا يمرّ تغيير شكلي بلا أثر).
-  if position('shift_type' in v_def) = 0 then
-    raise exception
-      'VISIT_BUILD_SHIFT_MIGRATION_REQUIRES_STAGE_2: الشهادة ما زالت بلا تمييز الشفت؛
-       تطبيق المرحلة ① وحده يجعل صفّي (صباحي+مسائي) يبلغان نصاب الأيام
-       فيُمنَح اليوم شهادة كاذبة وتُحذف نقاطه الخام قبل بناء زياراتها.
-       طبّق ترحيل الشهادة (المرحلة ②) مع هذا الترحيل في المعاملة نفسها.'
+  -- مطبَّق سلفاً (قاعدة حيّة أو إعادة تشغيل): لا نتراجع بنسخة أقدم.
+  if position('shift_type' in v_def) > 0 then
+    return;
+  end if;
+
+  -- (أ) عدد الزونات وعدد الشفتات المتوقّعة لليوم المستهدَف
+  select count(*) into v_zones from public.map_zones;
+  v_shifts := 2;  -- صباحي + مسائي، كما في app.visit_shift_windows
+
+  -- (ب) الشهادة: كل (زون × شفت) له صفّ built/empty، والتفريغ لا يسبق البناء
+  execute $fn$
+    create or replace function app.gps_day_is_certified(p_day date)
+    returns boolean language plpgsql stable security definer set search_path = public, app as $body$
+    declare
+      v_expected bigint;
+      v_certs    bigint;
+      v_open     bigint;
+    begin
+      select count(*) * $2$ || v_shifts || $2$ into v_expected from public.map_zones;
+
+      select count(*) into v_certs
+        from public.gps_visit_builds b
+       where b.day = p_day
+         and b.status in ('built', 'empty')
+         and b.shift_type is not null;
+
+      if v_certs < v_expected then
+        return false;
+      end if;
+
+      -- شفت لم تُغلق نافذته بعد: لا شهادة.
+      select count(*) into v_open
+        from app.visit_shift_windows(p_day) w
+       where w.win_end > now();
+      if v_open > 0 then
+        return false;
+      end if;
+
+      return true;
+    end $body$;
+  $fn$;
+
+  -- (ج) تحقّق: الدالة الناتجة تحمل التمييز فعلاً
+  select pg_get_functiondef(p.oid) into v_def
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = 'gps_day_is_certified';
+
+  if v_def is null or position('shift_type' in v_def) = 0 then
+    raise exception 'VISIT_BUILD_SHIFT_MIGRATION_REQUIRES_STAGE_2: تعذّر تطبيق تمييز الشفت على الشهادة'
       using errcode = 'invalid_parameter_value';
   end if;
 end $$;
