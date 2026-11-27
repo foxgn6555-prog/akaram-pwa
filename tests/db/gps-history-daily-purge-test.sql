@@ -39,7 +39,7 @@ on conflict (device_id) do nothing;
 -- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
 do $$
 declare it1 uuid := 'e9200000-0000-0000-0000-000000000001'; ops uuid := 'e9200000-0000-0000-0000-000000000002'; dev uuid := 'e920c000-0000-0000-0000-000000000001';
-        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int;
+        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int; i int;
 begin
   -- بيانات: 50 نقطة تفصيلية **أقدم من نافذة الاحتفاظ (٤٨ ساعة)**
   -- + آخر موقع + انطلاقية بمسارها.
@@ -92,7 +92,19 @@ begin
   -- الشهادة صارت بالشفتين: تتطلّب صفّي (صباحي + مسائي) لكل زون. أما البناء اليدوي
   -- فيكتب صفّاً واحداً بـ shift_type='full_day'، وهو وصف صحيح لما يفعله لكنه لا يُشهد
   -- على شفتين. لذلك نُشغّل العامل — المسار الحقيقي للبناء — بدل الدالة اليدوية.
-  perform app.visit_build_run_pending(20);
+  --
+  -- العامل مرتّب من الأقدم، ودفعته محدودة. على قاعدة جديدة تكون نوافذ الأيام الثمانية
+  -- كلها (٨ زونات × ٨ أيام × شفتان = ١٢٨) بلا صفوف، فتُستهلك الدفعة في الأيام القديمة
+  -- قبل الوصول إلى يوم أمس. في الإنتاج لا يظهر ذلك لأن الأيام القديمة مبنية سلفاً.
+  -- نُفرغ الطابور بتكرار النداء حتى لا يبقى نافذة — وهو أيضاً إثبات أن العامل يتوقّف
+  -- حين لا يبقى شيء (idempotent).
+  for i in 1..40 loop
+    js := app.visit_build_run_pending(50);
+    exit when (js ->> 'built')::int = 0 and (js ->> 'empty')::int = 0 and (js ->> 'failed')::int = 0;
+    if (js ->> 'failed')::int > 0 then
+      raise exception 'P3 worker reported failures %', js;
+    end if;
+  end loop;
   if not app.gps_day_is_certified(app.map_baghdad_day(now() - interval '30 hours')) then
     raise exception 'P3 certificate not granted after build';
   end if;

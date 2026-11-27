@@ -338,4 +338,4 @@ end $$;
 
 rollback;
 
-raise notice '════ كل اختبارات خطّ الزيارات نجحت ════';
+do $$ begin raise notice '════ كل اختبارات خطّ الزيارات نجحت ════'; end $$;
