@@ -39,7 +39,7 @@ on conflict (device_id) do nothing;
 -- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
 do $$
 declare it1 uuid := 'e9200000-0000-0000-0000-000000000001'; ops uuid := 'e9200000-0000-0000-0000-000000000002'; dev uuid := 'e920c000-0000-0000-0000-000000000001';
-        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int; i int;
+        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int; v_round int;
 begin
   -- بيانات: 50 نقطة تفصيلية **أقدم من نافذة الاحتفاظ (٤٨ ساعة)**
   -- + آخر موقع + انطلاقية بمسارها.
@@ -98,7 +98,9 @@ begin
   -- قبل الوصول إلى يوم أمس. في الإنتاج لا يظهر ذلك لأن الأيام القديمة مبنية سلفاً.
   -- نُفرغ الطابور بتكرار النداء حتى لا يبقى نافذة — وهو أيضاً إثبات أن العامل يتوقّف
   -- حين لا يبقى شيء (idempotent).
-  for i in 1..40 loop
+  -- اسم الحلقة v_round لا i: الملف يحتوي `generate_series(...) i` في أكثر من استعلام،
+  -- فمتغيّر باسم i يجعل الإشارة غامضة (42702) ويُسقط الاختبار.
+  for v_round in 1..40 loop
     js := app.visit_build_run_pending(50);
     exit when (js ->> 'built')::int = 0 and (js ->> 'empty')::int = 0 and (js ->> 'failed')::int = 0;
     if (js ->> 'failed')::int > 0 then
