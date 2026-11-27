@@ -511,7 +511,11 @@ begin
         or b.status not in ('built', 'empty')
         or (n.last_pt is not null
             and coalesce(b.points_at_build, 'epoch'::timestamptz) < n.last_pt)
-     order by n.shift_day, n.shift_key, z.sort_order
+     -- ⚠ الأولوية عمداً "الأحدث أولاً": التحديث كل دقيقة (١,٤٤٠ مرة يومياً)، فمع الأقدم
+     -- أولاً يستهلك العامل ميزانيته على الأيام القديمة (الشهادة تُرفض بسبب نقطة متأخرة
+     -- واحدة، فتعود للطابور إلى الأبد) ولا يصل أبداً إلى يوم أمس الذي يقرأه المشرف الآن.
+     -- الأحدث أولاً يضمن أن ما هو معروض دائماً معتمد، والقديم يُلحق.
+     order by n.shift_day desc, (n.shift_key = 'evening') desc, z.sort_order
      limit greatest(coalesce(p_max_builds, 6), 1)
   loop
     v_t0 := clock_timestamp();
