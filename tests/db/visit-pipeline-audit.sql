@@ -383,7 +383,7 @@ begin
 
   select count(*) into v_deleted_old from public.map_visits where placeday < v_today - 31;
   perform pg_temp.eq(v_deleted_old, 0, 'B7a لا زيارة أقدم من ٣١ يوماً بعد الحذف');
-  perform pg_temp.eq((select count(*) from public.map_visits where placeday >= v_today - 31), v_kept_recent,
+  perform pg_temp.eq((select count(*)::int from public.map_visits where placeday >= v_today - 31), v_kept_recent,
     'B7b الزيارات داخل ٣١ يوماً لم تُمسّ');
   perform pg_temp.eq((v_res ->> 'visits_deleted')::int, v_before_old, 'B7c العدد المُبلَّغ = المحذوف فعلاً');
 
