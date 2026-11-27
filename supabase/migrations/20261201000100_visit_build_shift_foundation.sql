@@ -472,7 +472,8 @@ begin
   v_shifts := 2;  -- صباحي + مسائي، كما في app.visit_shift_windows
 
   -- (ب) الشهادة: كل (زون × شفت) له صفّ built/empty، والتفريغ لا يسبق البناء
-  execute $fn$
+  -- format() تُبني النصّ بلا تعشيش علامات $-quoting، وهو ما كان يكسر الترحيل.
+  execute format($ddl$
     create or replace function app.gps_day_is_certified(p_day date)
     returns boolean language plpgsql stable security definer set search_path = public, app as $body$
     declare
@@ -480,7 +481,7 @@ begin
       v_certs    bigint;
       v_open     bigint;
     begin
-      select count(*) * $2$ || v_shifts || $2$ into v_expected from public.map_zones;
+      select count(*) * %s into v_expected from public.map_zones;
 
       select count(*) into v_certs
         from public.gps_visit_builds b
@@ -502,7 +503,7 @@ begin
 
       return true;
     end $body$;
-  $fn$;
+  $ddl$, v_shifts);
 
   -- (ج) تحقّق: الدالة الناتجة تحمل التمييز فعلاً
   select pg_get_functiondef(p.oid) into v_def
