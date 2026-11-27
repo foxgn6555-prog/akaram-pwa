@@ -441,38 +441,35 @@ language sql immutable as $$
 $$;
 revoke all on function app.data_retention_catalog_rented_only() from public, anon, authenticated;
 
--- الطبقة الكاملة: أحدث طبقة أساس متاحة + صفوفنا (اكتشاف ديناميكي — لا نفترض ترتيب الهجرات)
-create or replace function app.data_retention_catalog_rented() returns table(
-  data_key text, portal_key text, label text, description text, table_name text,
-  time_column text, keep_where text, safety_lock text, deletable boolean,
-  default_months integer, default_export_required boolean
-)
-language plpgsql stable as $$
-declare v_base text;
+-- ── ربط الطبقة بالدالة العليا — بنمط المشروع (rename ثم union، لا إعادة كتابة) ──
+-- هذا هو النمط المعتمد في 20261128000400: نُعيد تسمية النسخة الحالية ونلتفّ حولها،
+-- فنحفظ **كل** الصفوف السابقة (بما أضافته الهجرات اللاحقة) ونضيف صفوفنا فوقها.
+-- إعادة تعريف الدالة من الصفر كانت ستُسقط عشرات الصفوف — وقد حدث فعلاً في CI فأوقفه الحاجز.
+do $wired$
 begin
-  v_base := case
-    when to_regprocedure('app.data_retention_catalog_attmanual()')      is not null then 'app.data_retention_catalog_attmanual()'
-    when to_regprocedure('app.data_retention_catalog_disbursements()')  is not null then 'app.data_retention_catalog_disbursements()'
-    else null end;
-  if v_base is null then
-    return query select * from app.data_retention_catalog_rented_only();
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'app' and p.proname = 'data_retention_catalog_pre_rented') then
+    raise exception 'RETENTION_WIRING: data_retention_catalog_pre_rented موجودة مسبقاً — الترحيل لا يُعاد';
   end if;
-  return query execute format(
-    'select * from %s union all select * from app.data_retention_catalog_rented_only()', v_base);
-end$$;
-revoke all on function app.data_retention_catalog_rented() from public, anon, authenticated;
+end
+$wired$;
 
--- إعادة توجيه الدالة العليا إلى الطبقة الجديدة (نسخة كاملة، لا تعديل نصّي متشعّب)
-create or replace function app.data_retention_catalog()
+alter function app.data_retention_catalog() rename to data_retention_catalog_pre_rented;
+
+create function app.data_retention_catalog()
 returns table (data_key text, portal_key text, label text, description text, table_name text,
                time_column text, keep_where text, safety_lock text, deletable boolean,
                default_months int, default_export_required boolean)
 language sql immutable as $$
-  select * from app.data_retention_catalog_rented()
+  select * from app.data_retention_catalog_pre_rented()
+  union all
+  select * from app.data_retention_catalog_rented_only()
 $$;
 revoke all on function app.data_retention_catalog() from public, anon;
 grant execute on function app.data_retention_catalog() to authenticated, service_role;
 
+comment on function app.data_retention_catalog() is
+  '20261203000100: كل الأنواع السابقة + جداول الآليات المؤجرة الستة (محمية بلا حذف زمني)';
 -- فحص ذاتي: الطبقة الجديدة مسجَّلة ومربوطة بالدالة العليا
 -- (نتحقق من الطبقة مباشرةً لا عبر data_retention_catalog(): الأخيرة دالة SQL بسيطة
 --  قد يُضمّنها المخطِّط، فتغدو القراءة عبر الطبقات هشّة داخل كتلة do)
@@ -496,7 +493,7 @@ begin
   select exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'app' and p.proname = 'data_retention_catalog'
-       and p.prosrc like '%data_retention_catalog_rented()%'
+       and p.prosrc like '%data_retention_catalog_rented_only()%'
   ) into v_wired;
   if not v_wired then
     raise exception 'RETENTION_CHECK: الدالة العليا لا تمرّ عبر الطبقة الجديدة';
