@@ -164,13 +164,16 @@ begin
 
   -- لا نقاط ⇒ 'empty' صريح (لا شيء يُحذف، والشهادة مكتملة بلا مخاطرة)
   if coalesce(v_pts, 0) = 0 then
+    -- `shift_type` صريح: القيد الفريد هو (zone_id, day, shift_type)، و`on conflict
+    -- (zone_id, day)` بلا فهرس يطابقه كان يُسقط الاستدعاء بـ 42P10. القيمة 'full_day'
+    -- مسموحة بقيد shift_type، وهي وصف صحيح لما تفعله الدالة: بناء اليوم كاملاً يدوياً.
     insert into public.gps_visit_builds
-      (zone_id, day, status, trigger_kind, visits_created, visits_merged, places_scanned, skipped_visits,
+      (zone_id, day, shift_type, status, trigger_kind, visits_created, visits_merged, places_scanned, skipped_visits,
        points_in_day, points_at_build, started_at, finished_at, duration_ms, actor_id, actor_name)
     values
-      (p_zone, p_day, 'empty', 'manual', 0, 0, 0, 0, 0, null, v_t0, clock_timestamp(), 0,
+      (p_zone, p_day, 'full_day', 'empty', 'manual', 0, 0, 0, 0, 0, null, v_t0, clock_timestamp(), 0,
        auth.uid(), case when auth.uid() is null then null else app.user_display_name(auth.uid()) end)
-    on conflict (zone_id, day) do update set
+    on conflict (zone_id, day, shift_type) do update set
       status = 'empty', trigger_kind = 'manual', visits_created = 0, visits_merged = 0,
       places_scanned = 0, skipped_visits = 0, points_in_day = 0, points_at_build = null,
       started_at = excluded.started_at, finished_at = excluded.finished_at, duration_ms = 0,
@@ -183,13 +186,13 @@ begin
   v_ms := (extract(epoch from clock_timestamp() - v_t0) * 1000)::int;
 
   insert into public.gps_visit_builds
-    (zone_id, day, status, trigger_kind, visits_created, visits_merged, places_scanned, skipped_visits,
+    (zone_id, day, shift_type, status, trigger_kind, visits_created, visits_merged, places_scanned, skipped_visits,
      points_in_day, points_at_build, started_at, finished_at, duration_ms, actor_id, actor_name)
   values
-    (p_zone, p_day, 'built', 'manual', r.visits_created, r.visits_merged, r.places_scanned, r.skipped_visits,
+    (p_zone, p_day, 'full_day', 'built', 'manual', r.visits_created, r.visits_merged, r.places_scanned, r.skipped_visits,
      v_pts, v_newest, v_t0, clock_timestamp(), v_ms,
      auth.uid(), case when auth.uid() is null then null else app.user_display_name(auth.uid()) end)
-  on conflict (zone_id, day) do update set
+  on conflict (zone_id, day, shift_type) do update set
     status = 'built', trigger_kind = 'manual',
     visits_created = excluded.visits_created, visits_merged = excluded.visits_merged,
     places_scanned = excluded.places_scanned, skipped_visits = excluded.skipped_visits,

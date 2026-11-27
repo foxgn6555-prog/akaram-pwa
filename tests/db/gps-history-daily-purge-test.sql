@@ -39,7 +39,7 @@ on conflict (device_id) do nothing;
 -- request.jwt.claims مطلوب لأن auth.uid() في Supabase يقرأه لا auth.user_id وحده.
 do $$
 declare it1 uuid := 'e9200000-0000-0000-0000-000000000001'; ops uuid := 'e9200000-0000-0000-0000-000000000002'; dev uuid := 'e920c000-0000-0000-0000-000000000001';
-        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int;
+        dep uuid := gen_random_uuid(); js jsonb; n bigint; ev int; v_round int;
 begin
   -- بيانات: 50 نقطة تفصيلية **أقدم من نافذة الاحتفاظ (٤٨ ساعة)**
   -- + آخر موقع + انطلاقية بمسارها.
@@ -60,7 +60,15 @@ begin
   -- P2: الحالة الافتراضية مفعّلة وتعرض الحجم الحالي
   perform pg_temp.as_user(it1);
   js := public.gps_history_purge_get();
-  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50 or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0 or js ->> 'runs_at' <> '00:00 بغداد (21:00 UTC)' then raise exception 'P2 get %', js; end if;
+  -- كانت تشترط نصّاً حرفياً '00:00 بغداد (21:00 UTC)' في runs_at، وهو وصف جدولة
+  -- الوظائف لا موعد التفريغ: تغيّر إلى «كل ساعة (البناء كل دقيقة)» مع خطّ الزيارات،
+  -- فصار الاختبار يفشل على نصّ لا علاقة له بما يفحصه. نفحص ما يهمّ فعلاً: أن الحقل
+  -- موجود وأن الوظيفة مجدولة.
+  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50
+     or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0
+     or coalesce(js ->> 'runs_at', '') = '' or (js ->> 'scheduled')::boolean is not true then
+    raise exception 'P2 get %', js;
+  end if;
   -- ─── 20261128000100: التفريغ المحمي ───
   -- P2-b: الشهادة مطلوبة — يوم بلا بناء يبقى كاملاً
   js := app.gps_history_daily_purge();
@@ -81,8 +89,24 @@ begin
     select gen_random_uuid(), g.id, v.code, v.name
       from public.gps_geofences g, (values ('ARK','أرخيتة')) v(code, name)
      where not exists (select 1 from public.map_zones z where z.code = 'ARK') limit 1;
-  perform public.map_visit_build_logged(z.id, app.map_baghdad_day(now() - interval '30 hours'))
-    from public.map_zones z;
+  -- الشهادة صارت بالشفتين: تتطلّب صفّي (صباحي + مسائي) لكل زون. أما البناء اليدوي
+  -- فيكتب صفّاً واحداً بـ shift_type='full_day'، وهو وصف صحيح لما يفعله لكنه لا يُشهد
+  -- على شفتين. لذلك نُشغّل العامل — المسار الحقيقي للبناء — بدل الدالة اليدوية.
+  --
+  -- العامل مرتّب من الأقدم، ودفعته محدودة. على قاعدة جديدة تكون نوافذ الأيام الثمانية
+  -- كلها (٨ زونات × ٨ أيام × شفتان = ١٢٨) بلا صفوف، فتُستهلك الدفعة في الأيام القديمة
+  -- قبل الوصول إلى يوم أمس. في الإنتاج لا يظهر ذلك لأن الأيام القديمة مبنية سلفاً.
+  -- نُفرغ الطابور بتكرار النداء حتى لا يبقى نافذة — وهو أيضاً إثبات أن العامل يتوقّف
+  -- حين لا يبقى شيء (idempotent).
+  -- اسم الحلقة v_round لا i: الملف يحتوي `generate_series(...) i` في أكثر من استعلام،
+  -- فمتغيّر باسم i يجعل الإشارة غامضة (42702) ويُسقط الاختبار.
+  for v_round in 1..40 loop
+    js := app.visit_build_run_pending(50);
+    exit when (js ->> 'built')::int = 0 and (js ->> 'empty')::int = 0 and (js ->> 'failed')::int = 0;
+    if (js ->> 'failed')::int > 0 then
+      raise exception 'P3 worker reported failures %', js;
+    end if;
+  end loop;
   if not app.gps_day_is_certified(app.map_baghdad_day(now() - interval '30 hours')) then
     raise exception 'P3 certificate not granted after build';
   end if;
@@ -128,6 +152,10 @@ begin
   -- P5: الكتالوج يضم جدول الإعداد مقفلاً
   if not exists (select 1 from app.data_retention_catalog() c where c.data_key = 'gps_history_purge_settings' and not c.deletable and c.portal_key = 'gps') then raise exception 'P5 catalog'; end if;
   -- P6: لوحة المساحة — المستودع غير مهيأ ثم مهيأ بأرقام آخر فحص، مع تنبيه عند 80%+
+  -- الشرط «غير مهيأ» افتراض عن قاعدة لم يُشغَّل فيها ربط المستودع قط. قاعدة الاختبار
+  -- قد تكون مهيأة سلفاً (أو يحملها نسخ احتياطي)، فالافتراض كان يفشل بلا عيب حقيقي.
+  -- نمسح الربط أولاً لنجعل الشرط صحيحاً بلا اعتماد على حالة سابقة.
+  delete from public.gps_warehouse_link;
   js := public.space_overview();
   if (js -> 'warehouse' ->> 'configured')::boolean is distinct from false then raise exception 'P6 not configured %', js -> 'warehouse'; end if;
   perform pg_temp.as_service();

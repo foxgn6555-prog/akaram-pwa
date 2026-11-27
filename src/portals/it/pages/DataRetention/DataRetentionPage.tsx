@@ -249,14 +249,17 @@ function GpsHistoryPurgeCard() {
       {d.waiting_days.length > 0 && (
         <div className="mt-3 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200" data-testid="ret-gps-purge-waiting">
           <p className="text-xs font-black text-amber-900">
-            محميّ: {num(d.waiting_rows)} نقطة في {d.waiting_days.length} يوماً تجاوزت المدة لكن زياراتها لم تُبنَ
+            محميّ: {num(d.waiting_rows)} نقطة في {d.waiting_days.length} يوماً تجاوزت المدة ولم تُغلق بعد
           </p>
-          <p className="mt-1 text-[11px] font-bold text-amber-800">
-            {d.waiting_days.slice(0, 6).map((w) => `${w.day} (${num(w.rows)})`).join(' · ')}
-            {d.waiting_days.length > 6 ? ' …' : ''}
-          </p>
+          <ul className="mt-1 space-y-0.5 text-[11px] font-bold text-amber-700">
+            {d.waiting_days.slice(0, 6).map((w) => (
+              <li key={w.day} dir="auto">
+                {w.day} ({num(w.raw_points ?? w.rows ?? 0)}) — {(w.reasons ?? []).map((r) => r.text).join(' · ') || 'بانتظار البناء'}
+              </li>
+            ))}
+          </ul>
           <p className="mt-1 text-[11px] font-bold text-amber-700">
-            تُحذف تلقائياً بعد أن يُكمل البناء الليلي شهادتها. لا حاجة لأي إجراء.
+            يعالجها العامل الآلي كل دقيقة. لا حاجة لأي إجراء.
           </p>
         </div>
       )}
@@ -268,12 +271,14 @@ function GpsHistoryPurgeCard() {
           value={d.keep_hours} disabled={set.isPending}
           onChange={(e) => set.mutate({ keepHours: Number(e.target.value) })}
           className="h-8 rounded-lg border border-slate-300 px-2 text-xs font-bold text-slate-900">
-          {[24, 48, 72, 168, 336, 720].map((h) => (
-            <option key={h} value={h}>{h} ساعة{h === 48 ? ' (المعتمد)' : ''}</option>
+          {[24, 36, 48, 72, 168, 336, 720].map((h) => (
+            <option key={h} value={h}>
+              {h === 36 ? 'يوم ونصف (36 ساعة) — المعتمد' : `${h} ساعة`}
+            </option>
           ))}
         </select>
         <span className="text-[11px] font-bold text-slate-500">
-          القرار المعتمد ٤٨ ساعة ≈ ١٥٥ م.ب لأسطول ١٤٩ آلية
+          المعتمد: يوم ونصف. يُحذف اليوم كاملاً بعد أن تُبنى زياراته، لا قبله.
         </span>
       </div>
       {d.last_error && <p className="mt-2 rounded-xl bg-rose-50 p-2 text-xs font-bold text-rose-900" data-testid="ret-gps-purge-error">آخر محاولة فشلت: {d.last_error}</p>}
@@ -281,7 +286,7 @@ function GpsHistoryPurgeCard() {
         {confirm ? (
           <>
             <span className="text-xs font-bold text-rose-800">
-              سيُحذف الآن ما تجاوز {d.keep_hours} ساعة <b>وبُنيت زياراته فقط</b> — الباقي يبقى محميّاً. متابعة؟
+              سيُحذف الآن ما تجاوز {d.keep_hours} ساعة <b>وبُنيت زياراته فقط</b> — الأيام غير المبنية تبقى محميّة. متابعة؟
             </span>
             <button type="button" disabled={run.isPending} onClick={() => { run.mutate(undefined); setConfirm(false) }} data-testid="ret-gps-purge-yes" className="h-9 rounded-xl bg-rose-700 px-3 text-xs font-bold text-white disabled:opacity-50">نعم، فرِّغ الآن</button>
             <button type="button" onClick={() => setConfirm(false)} className="h-9 rounded-xl bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-300">لا</button>

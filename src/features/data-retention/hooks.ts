@@ -27,7 +27,7 @@ export const useGpsHistoryPurge = () => useQuery({ queryKey: retentionKeys.gpsPu
 export const useSetGpsHistoryPurge = () => useAction(
   (opts: { enabled?: boolean | null; keepHours?: number | null }) => dataRetention.gpsPurgeSet(opts),
   (r) => (r.enabled
-    ? `التفريغ مفعّل — يحذف ما تجاوز ${r.keep_hours} ساعة، وبشرط بناء زيارات اليوم`
+    ? `التفريغ مفعّل — يحذف ما تجاوز ${r.keep_hours} ساعة (يوم ونصف)، وبشرط أن تكون زيارات اليوم قد بُنيت`
     : 'أُوقف التفريغ — النقاط ستتراكم حتى تعيد تفعيله'),
 )
 export const useRunGpsHistoryPurge = () => useAction(() => dataRetention.gpsPurgeRunNow(), (r) => `فُرِّغت ${(r.last_rows ?? 0).toLocaleString('en-US')} نقطة وأُعيدت ${(r.last_freed_bytes / (1024 * 1024)).toLocaleString('en-US', { maximumFractionDigits: 1 })} م.ب فوراً`)

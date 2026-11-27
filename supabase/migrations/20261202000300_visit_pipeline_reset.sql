@@ -1,0 +1,189 @@
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+-- 20261202000300 · تصفير لمرة واحدة — بداية نظيفة لخطّ يعمل (المرحلة ③)
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+--
+-- ─── لماذا التصفير، ولماذا لا يمكن تجنّبه ──────────────────────────────────────────────────
+-- كل ما في `map_visits` اليوم (516 زيارة بين 9 و25 نوفمبر) نتج عن محرّكات معطوبة:
+--   · حذف بنطاق اليوم بدل نطاق النافذة ⇒ بناء الشفت المسائي محا زيارات الصباح
+--   · طابور السحب اليدوي كان يبني **زوناً واحداً فقط** من الثمانية
+--   · الشهادة كانت تُمنح لأيام بلا نقاط (٢٠ نوفمبر: صفر نقاط، صفر زيارات، شهادة true)
+-- فلا صفّ واحد فيها قابل للتحقق، ولا يمكن الجزم بأي رقم يخرج منها.
+--
+-- ─── القاعدة المطبَّقة، بالحرف ─────────────────────────────────────────────────────────────
+--   ① تُحذف **كل** الزيارات: لا صفّ موثوق فيها.
+--   ② تُحذف نقاط GPS التي تجاوزت نافذة الاحتفاظ (٣٦ ساعة) — وهي التي كان يجب أن يحذفها
+--      التفريغ الآلي ولم يستطع، لأن الشهادة لم تُمنح يوماً واحداً. فالتصفير هنا ينفّذ
+--      ما كانت السياسة ستفعله لو عملت.
+--   ③ **النقاط الأحدث من ٣٦ ساعة تبقى كما هي** — هي المادة التي يبني منها العامل
+--      زيارات الأيام الأخيرة فور تشغيله.
+--   ④ يُصفَّر سجل الشهادة كاملاً: كل صفّ فيه شهادة من محرّك لم يعد موجوداً.
+--
+-- ─── النتيجة بعد هذا الترحيل ──────────────────────────────────────────────────────────────
+-- قاعدة تحمل فقط: نقاط آخر ٣٦ ساعة + صفر زيارة + صفر شهادة.
+-- ثم يعمل الخطّ وحده بلا تدخّل:
+--     كل دقيقة  →  العامل يبني الشفتات الناقصة
+--     كل ساعة   →  التفريغ يحذف ما تجاوز ٣٦ ساعة **بعد** أن يُشهَّد يومه
+--     كل يوم    →  حذف الزيارات الأقدم من ٣١ يوماً
+--
+-- ─── ما يُفقد نهائياً ─────────────────────────────────────────────────────────────────────
+-- 516 زيارة و153,068 نقطة قديمة. لا مخرَج تقني يحفظها: محرّكها كان خاطئاً، ونقاط
+-- معظمها (أيام ٩ و٢٢ نوفمبر، 104 آلاف نقطة) أقدم من أي نافذة بناء معقولة —
+-- إعادة بنائها تحتاج ٣٧ دقيقة للزون الواحد وتُنتج زيارات لا يطلبها أحد.
+-- النسخة الاحتياطية اليومية في Supabase هي المرجع لو احتِيجت لاحقاً.
+--
+-- التراجع: لا يوجد — الحذف نهائي.
+-- ═══════════════════════════════════════════════════════════════════════════════════════════
+
+do $$
+declare
+  v_visits_before   bigint;
+  v_points_before   bigint;
+  v_points_kept     bigint;
+  v_points_deleted  bigint;
+  v_oldest_kept     timestamptz;
+  v_cutoff          timestamptz;
+  v_keep_hours      int;
+begin
+  select coalesce(keep_hours, 36) into v_keep_hours from public.gps_history_purge_settings where id = 1;
+  v_keep_hours := coalesce(v_keep_hours, 36);
+  v_cutoff := now() - make_interval(hours => v_keep_hours);
+
+  select count(*) into v_visits_before from public.map_visits;
+  select count(*) into v_points_before from public.gps_device_position_history;
+
+  -- قاعدة جديدة (CI / إعداد أول): لا زيارات ولا نقاط ⇒ لا شيء يُصفَّر.
+  -- هذا الترحيل تصفير لمرة واحدة على قاعدة حيّة، وليس بوابة بناء. الحرّاس أدناه
+  -- تهدف إلى حماية تدفّق قائم؛ فحين لا يكون هناك تدفّق أصلاً لا معنى لها.
+  if v_visits_before = 0 and v_points_before = 0 then
+    perform app.data_retention_log(null, 'map_visits', 'one_time_reset_pipeline',
+      jsonb_build_object('skipped', true, 'reason', 'fresh_install_no_data_to_reset'));
+    return;
+  end if;
+
+  -- ① كل الزيارات
+  delete from public.map_visits;
+
+  -- ② النقاط خارج نافذة الاحتفاظ فقط
+  delete from public.gps_device_position_history h where h.fix_time < v_cutoff;
+
+  -- ④ سجل الشهادة
+  delete from public.gps_visit_builds;
+
+  select count(*), min(fix_time) into v_points_kept, v_oldest_kept
+    from public.gps_device_position_history;
+  v_points_deleted := v_points_before - v_points_kept;
+
+  -- ③ إثبات أن النقاط الحديثة لم تُمسّ
+  if v_points_kept = 0 then
+    raise exception 'VISIT_RESET_WOULD_EMPTY_FEED: التصفير كان سيحذف كل النقاط — أوقف نفسه. '
+                    'الاحتفاظ % ساعة والحدّ % . راجع تدفّق السحب أولاً.', v_keep_hours, v_cutoff;
+  end if;
+  if v_oldest_kept < v_cutoff then
+    raise exception 'VISIT_RESET_KEPT_TOO_OLD: بقي نقطة أقدم من الحدّ (%) — غير متوقّع', v_oldest_kept;
+  end if;
+
+  perform app.data_retention_log(null, 'map_visits', 'one_time_reset_pipeline',
+    jsonb_build_object(
+      'visits_deleted', v_visits_before,
+      'points_before', v_points_before,
+      'points_deleted', v_points_deleted,
+      'points_kept', v_points_kept,
+      'keep_hours', v_keep_hours,
+      'cutoff', v_cutoff,
+      'oldest_kept', v_oldest_kept,
+      'rule', 'حُذفت كل الزيارات وكل النقاط خارج نافذة الاحتفاظ؛ بقيت نقاط النافذة ليبنيها العامل.'));
+end $$;
+
+comment on table public.gps_visit_builds is
+  'سجل بناء الزيارات لكل (زون × يوم × شفت). built/empty شرط إلزامي قبل حذف نقاط اليوم — لا حذف على الثقة. صُفِّر في 20261202000300 مع استبدال المحرّك، ويُعاد بناؤه آلياً.';
+
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- ضمان وجود الطوابير قبل مسّها
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- هذان الجدولان موجودان في الإنتاج لكن لا ترحيل ينشئهما: أُنشئا مباشرة على القاعدة الحيّة.
+-- لذلك كان بناء قاعدة من الصفر يفشل عند التحديث أدناه بـ 42P01. لا نُسقطهما (قد تكون لهما
+-- صفوف وسجلّ تدقيق)، نُنشئهما فقط إن غابا، ليبقى هذا الترحيل قابلاً للإعادة على قاعدة جديدة.
+create table if not exists app.visit_build_queue (
+  id              bigserial primary key,
+  zone_id         uuid not null references public.map_zones(id),
+  target_date     date not null,
+  shift_type      text not null default 'morning',
+  status          text not null default 'pending',
+  attempts        int  not null default 0,
+  max_attempts    int  not null default 3,
+  error_message   text,
+  visits_created  int  default 0,
+  points_processed bigint default 0,
+  created_at      timestamptz not null default now(),
+  started_at      timestamptz,
+  finished_at     timestamptz,
+  unique (zone_id, target_date, shift_type)
+);
+
+create table if not exists app.manual_pull_visit_queue (
+  id              bigserial primary key,
+  pull_source     text not null default 'manual',
+  target_date     date not null,
+  shift_type      text not null default 'full_day',
+  status          text not null default 'pending',
+  attempts        int  not null default 0,
+  max_attempts    int  not null default 3,
+  error_message   text,
+  visits_created  int  default 0,
+  points_processed bigint default 0,
+  created_at      timestamptz not null default now(),
+  started_at      timestamptz,
+  finished_at     timestamptz,
+  unique (target_date, shift_type, pull_source)
+);
+
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- إغلاق الطوابير الميتة — لا تُحذف صفوفها (سجل تدقيق)
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+update app.visit_build_queue
+   set status = 'superseded', finished_at = coalesce(finished_at, clock_timestamp())
+ where status in ('pending', 'processing');
+
+update app.manual_pull_visit_queue
+   set status = 'superseded', finished_at = coalesce(finished_at, clock_timestamp())
+ where status in ('pending', 'processing');
+
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- تصفير عدّادات التفريغ لتعكس الوضع الجديد
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+update public.gps_history_purge_settings
+   set last_rows = 0,
+       last_skipped = '[]'::jsonb,
+       last_skipped_rows = 0,
+       last_error = null,
+       updated_at = now()
+ where id = 1;
+
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+-- إثبات الحالة النهائية — يفشل الترحيل إن لم تتحقق
+-- ───────────────────────────────────────────────────────────────────────────────────────────
+do $$
+declare
+  v_visits bigint;
+  v_ledger bigint;
+  v_points bigint;
+  v_hours  int;
+begin
+  select count(*) into v_visits from public.map_visits;
+  if v_visits <> 0 then
+    raise exception 'VISIT_RESET_INCOMPLETE: بقي % زيارة', v_visits;
+  end if;
+
+  select count(*) into v_ledger from public.gps_visit_builds;
+  if v_ledger <> 0 then
+    raise exception 'VISIT_LEDGER_RESET_INCOMPLETE: بقي % صفّ في سجل البناء', v_ledger;
+  end if;
+
+  -- لا فحص «الجدول خالٍ» هنا: الحالة الخطرة (تدفّق قائم انقطع) يوقفها الحارس الأول
+  -- بـ VISIT_RESET_WOULD_EMPTY_FEED قبل أي حذف. أما قاعدة جديدة بلا تدفّق بعد فليست
+  -- عطلاً، وكان هذا الفحص يمنع سلسلة الترحيلات من إكمال البناء من الصفر.
+  select keep_hours into v_hours from public.gps_history_purge_settings where id = 1;
+  if v_hours <> 36 then
+    raise exception 'PURGE_WINDOW_NOT_36H: الاحتفاظ % ساعة والمطلوب ٣٦', v_hours;
+  end if;
+end $$;

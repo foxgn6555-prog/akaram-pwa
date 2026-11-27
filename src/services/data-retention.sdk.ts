@@ -59,16 +59,31 @@ const rpc = <T,>(fn: string, args: Record<string, unknown> = {}) => sdkGuard(sup
  */
 export interface GpsHistoryPurgeState {
   enabled: boolean; scheduled: boolean; runs_at: string; runs_count: number
-  /** قرار المالك 2026-11-24: ٤٨ ساعة */
+  /** قرار المالك 2026-11-25: ٣٦ ساعة (يوم ونصف) */
   keep_hours: number
   build_runs_at: string
   last_run_at: string | null; last_rows: number | null; last_bytes_before: number | null; last_bytes_after: number | null; last_error: string | null; last_freed_bytes: number
   last_skipped_rows: number | null
   last_skipped: Array<{ day: string; rows: number }> | null
-  /** أيام تجاوزت مدة الاحتفاظ لكنها محميّة لأن زياراتها لم تُبنَ */
-  waiting_days: Array<{ day: string; rows: number }>
+  /** أيام تجاوزت مدة الاحتفاظ لكنها محميّة لأن زياراتها لم تُبنَ — مع سبب صريح */
+  waiting_days: Array<{
+    day: string
+    raw_points: number
+    /** اسم قديم للعدد — يُقرأ للتوافق فقط */
+    rows?: number
+    certified: boolean
+    /** 20261202000600: اليوم انقضت نافذته ولم يبقَ له نقاط — لا شيء يُبنى ولا يُحذف */
+    expired?: boolean
+    shift_rows_missing: number
+    shift_rows_failed: number
+    reasons: Array<{ code: string; text: string; count?: number }>
+  }>
   waiting_rows: number
   current_rows: number; current_bytes: number; updated_at: string
+  /** 20261202000200: نافذة حذف الزيارات + حالة خطّ البناء */
+  visits_keep_days?: number
+  visits_purge_scheduled?: boolean
+  pipeline?: { pending_builds: number; failed_builds: number; days_held: number }
 }
 export const dataRetention = {
   /** 00382-أ */
