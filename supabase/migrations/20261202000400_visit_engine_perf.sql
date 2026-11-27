@@ -551,7 +551,10 @@ begin
   -- قفل استشاري: لا يعمل عاملان معاً أبداً.
   -- البناء الواحد يستغرق ١٥–٩٠ ثانية للزون، فالجدولة كل دقيقة كانت ستُراكم نسخاً
   -- متداخلة تكتب في الجداول نفسها. القفل يجعل التشغيل الثاني ينسحب فوراً بلا ضرر.
-  if not pg_try_advisory_lock(918273645) then
+  -- قفل على مستوى المعاملة: قفل الجلسة (pg_advisory_lock) **متكرّر الدخول** لنفس الجلسة،
+  -- فلا يمنع مستدعيين في نفس الجلسة من التداخل (قِيس: نداء داخل نداء ينجح رغم القفل).
+  -- xact lock يُحرَّر تلقائياً عند نهاية المعاملة، فلا قفل معلّق إن فشل العامل.
+  if not pg_try_advisory_xact_lock(918273645) then
     return jsonb_build_object('skipped', true, 'reason', 'worker_already_running');
   end if;
 
@@ -696,7 +699,6 @@ begin
       'error', '/ops-room/map-planning/visits');
   end if;
 
-  perform pg_advisory_unlock(918273645);
 
   return jsonb_build_object(
     'built', v_ok, 'empty', v_empty, 'failed', v_failed,

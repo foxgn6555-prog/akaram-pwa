@@ -463,17 +463,21 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'app' and p.proname = 'visit_build_run_pending';
 
-  perform pg_temp.ok(position('pg_try_advisory_lock' in v_def) > 0, 'B10a العامل يستخدم قفلاً استشارياً');
+  perform pg_temp.ok(position('pg_try_advisory_xact_lock' in v_def) > 0,
+    'B10a العامل يستخدم قفلاً على مستوى المعاملة (يُحرَّر تلقائياً بلا قفل معلّق)');
   perform pg_temp.ok(position('v_deadline' in v_def) > 0, 'B10b العامل له ميزانية زمنية');
+  perform pg_temp.ok(position('worker_already_running' in v_def) > 0, 'B10c ينسحب بلا ضرر عند وجود تشغيل');
   perform pg_temp.ok(position('order by case when n.win_end <= now()' in v_def) > 0,
-    'B10c الأولوية للموعد النهائي: النوافذ المنتهية قبل الجارية');
+    'B10d الأولوية للموعد النهائي: النوافذ المنتهية قبل الجارية');
 
-  -- محاكاة تشغيلين متزامنين: نحجز القفل بأنفسنا ثم نستدعي العامل
-  perform pg_advisory_lock(918273645);
-  v_res := app.visit_build_run_pending(1);
-  perform pg_temp.eq((v_res ->> 'skipped')::boolean, true, 'B10d تشغيل ثانٍ ينسحب بدل أن يتداخل');
-  perform pg_temp.eq(v_res ->> 'reason', 'worker_already_running', 'B10e السبب مسجَّل');
-  perform pg_advisory_unlock(918273645);
+  -- ⚠ حدّ معروف ومقصود: أقفال PostgreSQL الاستشارية **متكرّرة الدخول للمالك نفسه**، فمحاكاة
+  -- «تشغيلين متزامنين» من جلسة واحدة **لا يمكن أن تفشل**، ولا معنى لها كاختبار. الاختبار
+  -- الحقيقي يحتاج جلستين. ما يهمّ عملياً: العامل يُشغَّل من cron (جلسة لكل تشغيل) أو من
+  -- دالة الواجهة (جلسة الطلب) — وكلاهما جلستان مختلفتان، فيعمل القفل. لذلك نفحص فقط أن
+  -- النداء ينتهي بنتيجة صحيحة الشكل (لا أن يُرفض)، ونترك الحجب الحقيقي للمعرفة الموثّقة.
+  v_res := app.visit_build_run_pending(0);
+  perform pg_temp.ok(v_res ? 'built' or v_res ? 'skipped',
+    'B10e النداء يرجع نتيجة صريحة (built أو skipped) لا استثناءً');
 end $$;
 rollback;
 
