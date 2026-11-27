@@ -277,6 +277,7 @@ do $$
 declare
   v_zone uuid;
   v_day date;
+  v_m record;
   v_w record;
   v_e record;
   v_morning_before uuid[];

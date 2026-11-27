@@ -60,7 +60,15 @@ begin
   -- P2: الحالة الافتراضية مفعّلة وتعرض الحجم الحالي
   perform pg_temp.as_user(it1);
   js := public.gps_history_purge_get();
-  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50 or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0 or js ->> 'runs_at' <> '00:00 بغداد (21:00 UTC)' then raise exception 'P2 get %', js; end if;
+  -- كانت تشترط نصّاً حرفياً '00:00 بغداد (21:00 UTC)' في runs_at، وهو وصف جدولة
+  -- الوظائف لا موعد التفريغ: تغيّر إلى «كل ساعة (البناء كل دقيقة)» مع خطّ الزيارات،
+  -- فصار الاختبار يفشل على نصّ لا علاقة له بما يفحصه. نفحص ما يهمّ فعلاً: أن الحقل
+  -- موجود وأن الوظيفة مجدولة.
+  if not (js ->> 'enabled')::boolean or (js ->> 'current_rows')::int < 50
+     or (js ->> 'current_bytes')::bigint <= 0 or (js ->> 'runs_count')::int <> 0
+     or coalesce(js ->> 'runs_at', '') = '' or (js ->> 'scheduled')::boolean is not true then
+    raise exception 'P2 get %', js;
+  end if;
   -- ─── 20261128000100: التفريغ المحمي ───
   -- P2-b: الشهادة مطلوبة — يوم بلا بناء يبقى كاملاً
   js := app.gps_history_daily_purge();

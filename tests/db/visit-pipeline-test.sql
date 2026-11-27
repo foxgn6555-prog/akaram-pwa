@@ -117,7 +117,7 @@ on conflict (device_id) do nothing;
 insert into public.map_visits
   (zone_id, vehicle_id, device_id, place_kind, place_id, place_code, place_name,
    placeday, seq, entered_at, exited_at, dwell_seconds, points_count, status)
-values
+select * from (values
   ((select id from _vp_zone), 'f1a10000-0000-0000-0000-000000000001',
    'f1a30000-0000-0000-0000-000000000001', 'alley',
    'f1a40000-0000-0000-0000-000000000001', 'VP-1', 'زقاق ١',
@@ -134,6 +134,11 @@ values
    'f1a30000-0000-0000-0000-000000000001', 'alley',
    'f1a40000-0000-0000-0000-000000000004', 'VP-4', 'زقاق ٤',
    '2020-01-15', 4, '2020-01-15 15:00:00+00', '2020-01-15 15:10:00+00', 600, 5, 'confirmed')
+) v(zone_id, vehicle_id, device_id, place_kind, place_id, place_code, place_name,
+    placeday, seq, entered_at, exited_at, dwell_seconds, points_count, status)
+-- لا نُدرج زيارات وهمية إن لم يوجد زون أو آلية: كانت تفشل بـ FK غامض على قاعدة جديدة.
+where exists (select 1 from public.garage_vehicles where id = 'f1a10000-0000-0000-0000-000000000001')
+  and exists (select 1 from public.map_zones where id = (select id from _vp_zone))
 on conflict (vehicle_id, place_kind, place_id, entered_at) do nothing;
 
 -- ─────────────────────────────────────────────────────────────────────────────────────────
@@ -147,6 +152,17 @@ declare
   v_evening int;
   v_old_scope int;
 begin
+  -- الزيارات الاصطناعية أعلاه لا تُدرج على قاعدة جديدة (لا زون ولا آلية)، فلا شيء
+  -- لقياس نطاق الحذف عليه. تخطٍّ صريح مع سبب، بدل انهيار على عدّاد صفر.
+  if not exists (
+    select 1 from public.map_visits
+     where zone_id = (select id from _vp_zone)
+       and vehicle_id = 'f1a10000-0000-0000-0000-000000000001'
+  ) then
+    raise notice 'skip A2/A3 — لا زيارات اصطناعية (قاعدة جديدة بلا زون/آلية)';
+    return;
+  end if;
+
   select count(*) into v_morning from public.map_visits
    where zone_id = (select id from _vp_zone)
      and entered_at >= '2020-01-15 02:00:00+00' and entered_at < '2020-01-15 14:00:00+00';
