@@ -11,6 +11,30 @@ import { sdkGuard, supabase } from './client'
 const rpc = <T>(fn: string, args: Record<string, unknown> = {}) =>
   sdkGuard(supabase.rpc(fn as never, args as never)) as Promise<T>
 
+/**
+ * البارامتر `p_month` نوعه `date` في قاعدة البيانات، لكن منتقي الشهر في الواجهة
+ * (`<input type="month">` و`baghdadYm()`) يُنتج `YYYY-MM`. تمرير `2026-11` كما هو
+ * يرفع 22007 (invalid input syntax for type date) قبل دخول الدالة أصلاً ⇒ 400.
+ * التطبيع هنا، عند حدود الـRPC، حتى لا يستطيع أي مستدعٍ تجاوزه.
+ *
+ * مُصدَّرة للاختبار (tests/contract/rpc-date-params.test.ts) — لا تُستخدم خارج هذا الملف.
+ */
+export const asMonthStart = (ym: string | null): string | null => {
+  if (!ym) return null
+  return /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : ym
+}
+
+/**
+ * اليوم قد يصل `YYYY-MM-DD` من الواجهة أو `YYYY-MM` أو كائناً زمنياً؛ القاعدة تريد
+ * تاريخاً كاملاً. لا نسمح بمرور قيمة لا تُفسَّر كتاريخ صالح بدل تركها للقاعدة.
+ */
+export const asDay = (d: string | null): string | null => {
+  if (!d) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
+  if (/^\d{4}-\d{2}$/.test(d)) return `${d}-01`
+  return d
+}
+
 /** يوم واحد في كشف الشهر: 'present' | 'absent' | غير موجود (خارج الشهر) */
 export type RentedDayState = 'present' | 'absent'
 
@@ -148,7 +172,7 @@ export interface RentedAuditRow {
 export const rentedAttendance = {
   // ── غرفة العمليات ──
   month: (month: string | null, garage: string | null) =>
-    rpc<RentedAttendanceMonth>('rented_attendance_month', { p_month: month, p_garage: garage }),
+    rpc<RentedAttendanceMonth>('rented_attendance_month', { p_month: asMonthStart(month), p_garage: garage }),
   garages: () => rpc<RentedGarage[]>('rented_attendance_garages'),
   setDay: (v: {
     driverId: string
@@ -160,7 +184,7 @@ export const rentedAttendance = {
     rpc<void>('rented_attendance_set_day', {
       p_driver_external_id: v.driverId,
       p_vehicle_id: v.vehicleId,
-      p_day: v.day,
+      p_day: asDay(v.day),
       p_status: v.status,
       p_reason: v.reason,
     }),
@@ -177,7 +201,7 @@ export const rentedAttendance = {
       p_monthly_target_tons: v.monthlyTargetTons,
       p_note: v.note,
     }),
-  submitMonth: (month: string) => rpc<void>('rented_month_submit', { p_month: month }),
+  submitMonth: (month: string) => rpc<void>('rented_month_submit', { p_month: asMonthStart(month) }),
 
   // ── معاون المدير المفوض ──
   taxList: () => rpc<RentedTaxRow[]>('rented_tax_list'),
@@ -192,13 +216,14 @@ export const rentedAttendance = {
     rpc<void>('rented_tax_clear', { p_vehicle_id: v.vehicleId, p_reason: v.reason }),
   decideDeputy: (v: { month: string; approve: boolean; note: string | null }) =>
     rpc<void>('rented_month_decide_deputy', {
-      p_month: v.month,
+      p_month: asMonthStart(v.month),
       p_approve: v.approve,
       p_note: v.note,
     }),
 
   // ── المالية ──
-  payroll: (month: string | null) => rpc<RentedPayroll>('rented_payroll_sheet', { p_month: month }),
+  payroll: (month: string | null) =>
+    rpc<RentedPayroll>('rented_payroll_sheet', { p_month: asMonthStart(month) }),
   salarySave: (v: {
     driverId: string
     vehicleId: string
@@ -210,13 +235,13 @@ export const rentedAttendance = {
     rpc<void>('rented_salary_save', {
       p_driver_external_id: v.driverId,
       p_vehicle_id: v.vehicleId,
-      p_month: v.month,
+      p_month: asMonthStart(v.month),
       p_salary_mode: v.mode,
       p_amount: v.amount,
       p_note: v.note,
     }),
   payMonth: (v: { month: string; note: string | null }) =>
-    rpc<void>('rented_month_pay', { p_month: v.month, p_note: v.note }),
+    rpc<void>('rented_month_pay', { p_month: asMonthStart(v.month), p_note: v.note }),
   audit: (limit = 200) => rpc<RentedAuditRow[]>('rented_attendance_audit_list', { p_limit: limit }),
 }
 
