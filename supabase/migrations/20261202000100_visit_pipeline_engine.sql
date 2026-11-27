@@ -502,7 +502,7 @@ begin
         left join pts p on p.day between s.shift_day and s.shift_day + 1
        group by s.shift_day, s.shift_key, s.win_start, s.win_end
     )
-    select z.id as zone_id, n.shift_day, n.shift_key, n.win_start, n.win_end, n.last_pt
+    select z.id as zone_id, n.shift_day, n.shift_key, n.win_start, n.win_end, n.last_pt, n.points_n
       from shift_pts n
       cross join public.map_zones z
       left join public.gps_visit_builds b
@@ -556,7 +556,7 @@ begin
       values
         (r.zone_id, r.shift_day, r.shift_key, 'built', 'nightly',
          v_res.visits_created, v_res.visits_merged, v_res.places_scanned, v_res.skipped_visits,
-         r.last_pt, v_last_pt, v_t0, clock_timestamp(), v_ms, null, 'البناء الآلي')
+         r.points_n, v_last_pt, v_t0, clock_timestamp(), v_ms, null, 'البناء الآلي')
       on conflict (zone_id, day, shift_type) do update set
         status = 'built', trigger_kind = 'nightly',
         visits_created = excluded.visits_created, visits_merged = excluded.visits_merged,
